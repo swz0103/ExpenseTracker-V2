@@ -1,8 +1,8 @@
 import 'theme.dart';
 
 /// The home-screen widget 本月概況 as the phone draws it, for the web
-/// preview and for 設定 › 桌面小工具: [WidgetFace] at full size
-/// (summary_widget.xml) and [WidgetRow] one row high (quick_widget.xml),
+/// preview and for 設定 › 桌面小工具: `WidgetFace` at full size
+/// (summary_widget.xml) and `WidgetRow` one row high (quick_widget.xml),
 /// from the snapshot the app writes (home_widget.dart). Its colours are
 /// the widget's own (res/values*/colors.xml): light, or dark when the
 /// phone is, as the app's own themes.

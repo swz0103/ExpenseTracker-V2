@@ -30,7 +30,7 @@ void main() {
     expect(book.reports.expense(2026, 10, untilDay: 2), 300);
   });
 
-  test("a month's spending by category comes largest first", () {
+  test("a stretch's spending is summed by category", () {
     final book = Book(
       categories: [Category('飲食', 'food', 0), Category('交通', 'bus', 0)],
       entries: [
@@ -39,13 +39,11 @@ void main() {
         entry('c', amount: 50),
       ],
     );
-    expect(
-      [
-        for (final (c, v) in book.reports.expenseByCategory(2026, 10))
-          (c.name, v),
-      ],
-      [('交通', 400), ('飲食', 150)],
-    );
+    expect(book.reports.spendingBetween(DateTime.utc(2026, 10), day), {
+      '飲食': 150,
+      '交通': 400,
+    });
+    expect(book.reports.totalsBetween(DateTime.utc(2026, 10), day), (0, 550));
   });
 
   test('tags are counted with their spending, most used first', () {

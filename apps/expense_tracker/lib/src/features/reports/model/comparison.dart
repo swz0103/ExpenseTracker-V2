@@ -14,24 +14,9 @@ final class PeriodSums {
 
 /// The sums of the days from [from] to [to], both counted.
 PeriodSums sumsBetween(Ledger ledger, DateTime from, DateTime to) {
-  var income = 0;
-  var expense = 0;
-  final byCategory = <String, int>{};
-  for (
-    var m = DateTime.utc(from.year, from.month);
-    !m.isAfter(to);
-    m = DateTime.utc(m.year, m.month + 1)
-  ) {
-    for (final e in ledger.entries.inMonth(m.year, m.month)) {
-      if (e.date.isBefore(from) || e.date.isAfter(to)) continue;
-      income += e.earning;
-      expense += e.spending;
-      for (final (name, value) in e.spendingParts) {
-        byCategory[name] = (byCategory[name] ?? 0) + value;
-      }
-    }
-  }
-  return PeriodSums(income, expense, byCategory);
+  final reports = ledger.reportService;
+  final (income, expense) = reports.totalsBetween(from, to);
+  return PeriodSums(income, expense, reports.spendingBetween(from, to));
 }
 
 /// One line of a comparison: what it is, and its amount in each period.

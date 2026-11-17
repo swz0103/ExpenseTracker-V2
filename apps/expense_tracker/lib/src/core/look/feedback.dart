@@ -38,12 +38,12 @@ void showNote(
 /// as tall as its content and lifted over the keyboard. Every form and
 /// picker in the app opens this way.
 ///
-/// [capHeight] holds the sheet to three quarters of the screen at most,
+/// `capHeight` holds the sheet to three quarters of the screen at most,
 /// its own content scrolling past that: for a sheet already built to
 /// scroll internally (a [Flexible] or [Expanded] region around whatever
 /// can grow long). Left off for one not yet checked against that.
 ///
-/// [height] instead makes the sheet that share of the screen however
+/// `height` instead makes the sheet that share of the screen however
 /// much it holds, as [sheetHeight] for the pickers 記一筆 opens: one
 /// picker after another, the sheet stays put. Its content fills it, and
 /// scrolls inside it when longer.

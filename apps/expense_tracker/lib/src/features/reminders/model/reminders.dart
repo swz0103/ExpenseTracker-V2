@@ -44,7 +44,7 @@ final class Reminder {
   );
 }
 
-/// What falls due in the next [days] days, soonest first: each unbooked
+/// What falls due in the next `days` days, soonest first: each unbooked
 /// day of an active recurring item, and each card's payment still owed.
 extension LedgerReminders on Ledger {
   List<Reminder> reminders({int days = 60}) {

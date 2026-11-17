@@ -27,7 +27,7 @@ Future<DeviceUnlock?> androidDeviceUnlock(Directory directory) async {
 }
 
 /// Wraps the ledger key with an Android Keystore key bound to biometric
-/// confirmation; [context] is bound in as AES-GCM associated data.
+/// confirmation; `context` is bound in as AES-GCM associated data.
 final class KeystoreDeviceKey implements DeviceKeyWrapper {
   const KeystoreDeviceKey();
 

@@ -40,29 +40,19 @@ final class ReportService {
   int spentOn(DateTime day) =>
       _entries.onDay(day).fold(0, (total, e) => total + e.spending);
 
-  /// A month's spending by category, largest first.
-  List<(Category, int)> expenseByCategory(
-    int year,
-    int month, {
-    int? untilDay,
-  }) {
-    final totals = <String, int>{};
-    for (final e in _entries.inMonth(year, month)) {
-      if (untilDay != null && e.date.day > untilDay) continue;
-      for (final (name, value) in e.spendingParts) {
-        totals[name] = (totals[name] ?? 0) + value;
+  /// The entries from [from] to [to], both counted, read a month at a
+  /// time from the month index rather than through every entry.
+  Iterable<Entry> _between(DateTime from, DateTime to) sync* {
+    for (
+      var m = DateTime.utc(from.year, from.month);
+      !m.isAfter(to);
+      m = DateTime.utc(m.year, m.month + 1)
+    ) {
+      for (final e in _entries.inMonth(m.year, m.month)) {
+        if (!e.date.isBefore(from) && !e.date.isAfter(to)) yield e;
       }
     }
-    final rows = [
-      for (final MapEntry(:key, :value) in totals.entries)
-        (_categories.byName(key), value),
-    ];
-    rows.sort((a, b) => b.$2.compareTo(a.$2));
-    return rows;
   }
-
-  Iterable<Entry> _between(DateTime from, DateTime to) =>
-      _entries.all.where((e) => !e.date.isBefore(from) && !e.date.isAfter(to));
 
   /// Income, dividends included, and spending from [from] to [to].
   (int, int) totalsBetween(DateTime from, DateTime to) {

@@ -284,7 +284,7 @@ final class ComposeForm {
     setAmount(invoice.total);
   }
 
-  /// Starts a new expense from [entry], one of [Ledger.usual]: its
+  /// Starts a new expense from [entry], one of `EntryQueryService.usual`: its
   /// category, merchant, account and amount, on today.
   void startFrom(Entry entry) {
     category = entry.category;

@@ -7,7 +7,7 @@ import '../../../core/platform/sync_job.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ledger/persistence/sql_ledger_data_source.dart';
 
-/// Closing prices and exchange rates for [ledger], fetched at most every
+/// Closing prices and exchange rates for the `ledger`, fetched at most every
 /// 20 minutes: when the ledger opens, when the app comes back, and at
 /// once when a stock without a close is bought. A stock the exchanges do
 /// not quote is named rather than left to look like it has a value.

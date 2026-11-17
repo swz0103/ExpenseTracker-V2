@@ -178,7 +178,7 @@ final class EntryCommands {
 
   /// Removes the entry with [id] and returns it with its place, for undo.
   /// Null when there is none, or when taking it away would leave a later
-  /// sale short of shares: that is told through [problem].
+  /// sale short of shares: that is told through [CommandContext.problem].
   (int, Entry)? remove(String id) {
     final index = _entries.indexWhere((e) => e.id == id);
     if (index < 0) return null;
@@ -207,7 +207,7 @@ final class EntryCommands {
 
   /// Removes every entry of [ids] as one change, and returns each with its
   /// place, for undo; none when taking them away would leave a later sale
-  /// short of shares, which is told through [problem].
+  /// short of shares, which is told through [CommandContext.problem].
   List<(int, Entry)> removeAll(Iterable<String> ids) {
     final wanted = {...ids};
     final removed = <(int, Entry)>[
@@ -267,7 +267,7 @@ final class EntryCommands {
   }
 
   /// Puts back an entry [remove] took away. False, told through
-  /// [problem], when it no longer fits the trades kept since.
+  /// [CommandContext.problem], when it no longer fits the trades kept since.
   bool restore((int, Entry) removed) {
     final (index, entry) = removed;
     if (_entries.byId(entry.id) != null) return false;
@@ -289,7 +289,7 @@ final class EntryCommands {
     return true;
   }
 
-  /// Puts [trashed] back in the book. False, told through [problem], when
+  /// Puts [trashed] back in the book. False, told through [CommandContext.problem], when
   /// it no longer fits the trades kept since.
   bool restoreTrashed(Trashed trashed) {
     final entry = trashed.entry;
@@ -477,7 +477,7 @@ final class EntryCommands {
     _context.changed(const {Topic.entries});
   }
 
-  /// [_replayOrUndo], telling a refusal through [problem] rather than
+  /// [_replayOrUndo], telling a refusal through [CommandContext.problem] rather than
   /// throwing; false when refused.
   bool _tryReplay(void Function() undo, {required bool trades}) {
     try {

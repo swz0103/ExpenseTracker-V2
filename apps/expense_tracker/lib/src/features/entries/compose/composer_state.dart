@@ -525,7 +525,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     );
   }
 
-  /// Applies [change] while the form is still on screen: the field
+  /// Applies `change` while the form is still on screen: the field
   /// builders in composer_fields.dart run it after a dialog closes.
   /// 掃發票: reads a paper e-invoice's left QR code (and its right one when
   /// the items go on there) and fills the form: the day, the total, its

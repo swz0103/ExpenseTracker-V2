@@ -6,7 +6,7 @@ import 'theme.dart';
 
 /// A tab page's title row (總覽, 紀錄, 帳戶, 更多): the title on the left
 /// in 22 px and whatever sits on the right. A page opened from another
-/// has [CenterHeader] instead: back, the title in the middle.
+/// has `CenterHeader` instead: back, the title in the middle.
 class PageHeader extends StatelessWidget {
   const PageHeader(this.title, {super.key, this.trailing});
 

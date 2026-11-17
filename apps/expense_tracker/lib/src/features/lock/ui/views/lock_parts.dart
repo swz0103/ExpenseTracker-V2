@@ -204,7 +204,7 @@ class OpeningMark extends StatelessWidget {
 /// Runs the opening animation once, from the first frame on the screen
 /// (the phone's own start screen shows only the paper colour, so there is
 /// nothing to wait out), at once when the phone asks for less motion, and
-/// calls [onDone] when it has played.
+/// calls `onDone` when it has played.
 mixin OpeningAnimation<T extends StatefulWidget>
     on State<T>, TickerProviderStateMixin<T> {
   late final opening = AnimationController(vsync: this, duration: splashTime)

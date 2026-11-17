@@ -80,7 +80,7 @@ double? returnOf(Ledger ledger, {String? code}) {
   return xirr(flows);
 }
 
-/// A dividend expected in [month], from what [code] paid a year before.
+/// A dividend expected in `month`, from what `code` paid a year before.
 typedef DividendGuess = ({
   String code,
   String name,

@@ -14,7 +14,7 @@ import 'package:vault/ledger_vault.dart';
 /// accounts set up first (cards with their days and limits, the foreign
 /// accounts, the car loan), with budgets and recurring items added and the
 /// old salary account archived; kept as a backup that opens with
-/// [password]. Every line must import. With
+/// `password`. Every line must import. With
 /// TEST_BACKUP_OUT set, as the APK build does, the backup is copied
 /// there to be published beside the APK.
 void main() {

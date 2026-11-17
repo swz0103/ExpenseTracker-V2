@@ -37,11 +37,13 @@ final class EntryQueryService {
           [e.note, e.merchant, e.category, ...e.tags].join('\n').toLowerCase(),
       ],
     );
+    // Each account's currency, looked up once rather than per entry.
+    final currencies = {for (final a in _accounts.all) a.id: a.currency};
     final found = [
       for (final (i, e) in _entries.all.indexed)
         if (texts[i].contains(lower) ||
             '${e.amount}' == words ||
-            plainIn(e.amount, _accounts.resolve(e.account).currency) == words)
+            plainIn(e.amount, currencies[e.account] ?? homeCode) == words)
           (i, e),
     ];
     found.sort((a, b) {

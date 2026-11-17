@@ -46,8 +46,14 @@ void main() {
       ledger.reportService.expense(year, month),
     );
     final byCategory = {
-      for (final (c, v) in ledger.reportService.expenseByCategory(year, month))
-        c.name: v,
+      for (final MapEntry(:key, :value)
+          in ledger.reportService
+              .spendingBetween(
+                DateTime.utc(year, month),
+                DateTime.utc(year, month + 1, 0),
+              )
+              .entries)
+        key: value,
     };
     for (final MapEntry(:key, :value) in byCategory.entries) {
       expect(

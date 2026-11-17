@@ -340,7 +340,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   // Market data.
 
-  /// The closes and board last fetched, for [Ledger.setMarket].
+  /// The closes and board last fetched, for `HoldingCommands.setMarket`.
   ({
     List<Holding> holdings,
     Map<String, double> moves,

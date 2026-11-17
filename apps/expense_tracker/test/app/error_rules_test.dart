@@ -6,7 +6,7 @@ import 'layout.dart';
 
 /// An error that is caught must not pass unseen: docs/conventions.md.
 /// Every `catch` block in `lib` does one of three things: records the
-/// error in the [ErrorLog], throws it on, or says in a comment on its first
+/// error in the `ErrorLog`, throws it on, or says in a comment on its first
 /// line why nothing needs doing, such as a file that cannot be read
 /// leaving the defaults.
 void main() {

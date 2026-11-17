@@ -18,7 +18,7 @@ final class Due {
 
 /// Each day of [year]/[month] with what falls due on it, the dearest
 /// first: every active item's dates that month, each matched to that
-/// month's bookings in order, as [Ledger.pendingDate] counts them.
+/// month's bookings in order, as `RecurringService.pendingDate` counts them.
 Map<int, List<Due>> monthPlan(Ledger ledger, int year, int month) {
   final days = <int, List<Due>>{};
   for (final item in ledger.recurring.all) {

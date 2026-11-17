@@ -92,7 +92,7 @@ enum UpdateInstall {
   damaged,
 }
 
-/// The internet and Android's installer; [IoUpdatePort] with the app's
+/// The internet and Android's installer; `AndroidUpdatePort` with the app's
 /// channel on the phone, a fake in tests.
 abstract interface class UpdatePort {
   Future<String> fetch(Uri url);

@@ -211,7 +211,7 @@ class EntryTile extends StatelessWidget {
 }
 
 /// An entry as a list row that slides open to 編輯 and 刪除; a delete can
-/// be undone from the note it leaves. While [onPick] is set, a long press
+/// be undone from the note it leaves. While `onPick` is set, a long press
 /// picks the entry instead.
 class EntryRow extends StatelessWidget {
   const EntryRow({

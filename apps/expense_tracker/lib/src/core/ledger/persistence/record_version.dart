@@ -4,7 +4,7 @@
 ///
 /// Version 2 keeps a category by its id, so renaming one writes one row;
 /// version 1 kept its name everywhere. The rows of a book kept before are
-/// brought up when it is opened ([giveCategoriesIds]).
+/// brought up when it is opened (`giveCategoriesIds` in category_id_migration.dart).
 const recordVersion = 2;
 
 /// Brings a stored row up to [recordVersion], one version at a time; a

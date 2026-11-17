@@ -44,7 +44,7 @@ Service 與 Commands 在第一次用到時才建立，共用同一組 Repository
 | **BudgetReader**、**RecurringReader**、**TrashReader**、**ReceiptReader**、**DraftReader** | 讀 | all · forCategory／byId／of… |
 | BalanceService | 讀 | effect · balance · worthOf · unrated · assets · cardDebt · loanDebt · netWorthAt · weeklyChanges |
 | StatementService | 讀 | billed · billedPeriods · closedBy · statement · statementDue · unbilled · instalmentsOn |
-| ReportService | 讀 | income · expense · dividends · spentOn · expenseByCategory · totalsBetween · spendingBetween · merchantsBetween · tagsBetween · firstDay · owedBy · tagStats · merchantStats · tags · categoriesByUse |
+| ReportService | 讀 | income · expense · dividends · spentOn · totalsBetween · spendingBetween · merchantsBetween · tagsBetween · firstDay · owedBy · tagStats · merchantStats · tags · categoriesByUse |
 | EntryQueryService | 讀 | search · merchants · categoryAt · lastAt · usual · usualTransfers · groupOf · groupLead · isGroupTail · tradesOf · refunded · refundable |
 | BudgetService | 讀 | daysGone · spentOnTag · forecast · spentAgainst · allowance |
 | RecurringService | 讀 | confirmationsIn · pendingDate · nextDate · nextLabel · due · upcoming · dueDayOf · worth · booking |

@@ -132,7 +132,7 @@ abstract final class Hue {
   static const hero = Shade(0xFFD8E1E2, 0xFF32464F);
   static const tile = Shade(0xFFE0E6E5, 0xFF313C42);
 
-  /// The flat grey under a group of rows ([GroupBox]): a step off the
+  /// The flat grey under a group of rows (`GroupBox`): a step off the
   /// paper, as deep as an account's card on the dark theme.
   static const group = Shade(0xFFE8EBE7, 0xFF323C42);
 

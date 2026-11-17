@@ -52,7 +52,7 @@ extension Splitting on ComposeForm {
     received = null;
   }
 
-  /// Starts a new transfer from [entry], one of [Ledger.usualTransfers]:
+  /// Starts a new transfer from [entry], one of `EntryQueryService.usualTransfers`:
   /// its two accounts and amount, on today.
   void startTransferFrom(Entry entry) {
     final open = {for (final a in ledger.accounts.open) a.id};
