@@ -22,7 +22,7 @@ PeriodSums sumsBetween(Ledger ledger, DateTime from, DateTime to) {
     !m.isAfter(to);
     m = DateTime.utc(m.year, m.month + 1)
   ) {
-    for (final e in ledger.entriesIn(m.year, m.month)) {
+    for (final e in ledger.entries.inMonth(m.year, m.month)) {
       if (e.date.isBefore(from) || e.date.isAfter(to)) continue;
       income += e.earning;
       expense += e.spending;

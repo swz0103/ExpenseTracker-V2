@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('a batch recategorises only plain entries of the same kind', () {
     final ledger = demoLedger();
-    final month = ledger.entriesIn(ledger.today.year, ledger.today.month);
+    final month = ledger.entries.inMonth(ledger.today.year, ledger.today.month);
     final picked = month.take(8).toList();
     final fits = [
       for (final e in picked)
@@ -20,7 +20,7 @@ void main() {
     expect(ledger.recategorize(picked, '居家生活'), fits.length);
     expect(ledger.expense(ledger.today.year, ledger.today.month), before);
     for (final e in fits) {
-      final now = ledger.entries.firstWhere(
+      final now = ledger.entries.all.firstWhere(
         (x) => x.date == e.date && x.amount == e.amount && x.note == e.note,
       );
       expect(now.category, '居家生活');
@@ -30,7 +30,10 @@ void main() {
   test('a batch moves spending between accounts of one currency', () {
     final ledger = demoLedger();
     final spent = [
-      for (final e in ledger.entriesIn(ledger.today.year, ledger.today.month))
+      for (final e in ledger.entries.inMonth(
+        ledger.today.year,
+        ledger.today.month,
+      ))
         if (e.type == EntryType.expense &&
             e.account == 'bank' &&
             e.installments == 0 &&

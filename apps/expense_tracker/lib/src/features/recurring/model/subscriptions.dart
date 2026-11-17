@@ -5,7 +5,7 @@ import '../../../core/ledger/ledger.dart';
 List<(Recurring, int)> yearlyCosts(Ledger ledger) {
   final today = ledger.today;
   final rows = <(Recurring, int)>[];
-  for (final r in ledger.recurring) {
+  for (final r in ledger.recurring.all) {
     if (!r.active || r.income) continue;
     var times = 0;
     for (var k = 0; k < 12; k++) {

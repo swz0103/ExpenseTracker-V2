@@ -104,7 +104,7 @@ void main() {
       clock: clock,
     ).load();
     expect(restored.balance(cash.id), 800);
-    expect(restored.entriesIn(2026, 10), hasLength(2));
+    expect(restored.entries.inMonth(2026, 10), hasLength(2));
     expect(restored.account(cash.id).icon, 'safe');
     expect(restored.category('飲食日常').icon, 'food');
     vaultOf(second).close();

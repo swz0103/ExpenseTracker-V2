@@ -39,7 +39,10 @@ void main() {
       expect(ledger.expense(2026, 10), 17519);
       expect(ledger.expense(2026, 9), 27074);
       expect(ledger.spentOn(DateTime.utc(2026, 10, 4)), 1390);
-      expect(ledger.entriesOn(DateTime.utc(2026, 10, 4)).first.note, '週末點心');
+      expect(
+        ledger.entries.onDay(DateTime.utc(2026, 10, 4)).first.note,
+        '週末點心',
+      );
     });
 
     test('balances and investments', () {
@@ -47,15 +50,15 @@ void main() {
       expect(ledger.balance('bank'), 177641);
       expect(ledger.balance('card'), -10829);
       expect(ledger.cardDebt, 10829);
-      expect(ledger.investValue, 786528);
-      expect(ledger.investValue - ledger.investCost, 82598);
-      expect(ledger.dayChange, 2717);
+      expect(ledger.holdings.marketValue, 786528);
+      expect(ledger.holdings.marketValue - ledger.holdings.costBasis, 82598);
+      expect(ledger.holdings.dayChange, 2717);
       expect(ledger.assets, 1276359);
-      expect(ledger.totalDividends, 50970);
+      expect(ledger.holdings.dividends, 50970);
     });
 
     test('budgets and recurring items', () {
-      expect(ledger.budgetFor(allSpending).limit, 32000);
+      expect(ledger.budgets.forCategory(allSpending).limit, 32000);
       expect(
         [for (final r in ledger.upcoming) r.name],
         ['Netflix', '家用網路', '瑜珈月費'],
@@ -124,7 +127,7 @@ void main() {
     );
     expect(ledger.expense(2026, 10), before + 1000);
     expect(ledger.spendingBetween(day, day)['居家生活'], 400);
-    final split = ledger.byId('split')!;
+    final split = ledger.entries.byId('split')!;
     ledger.add(
       Entry(
         id: 'refund',
@@ -170,9 +173,9 @@ void main() {
         fee: 20,
       ),
     );
-    expect(ledger.lotsOf('2603'), hasLength(2));
-    expect(ledger.saleCost('2603', 3), 510);
-    expect(ledger.saleCost('2603', 33), 510 + 6020);
+    expect(ledger.holdings.lotsOf('2603'), hasLength(2));
+    expect(ledger.holdings.saleCost('2603', 3), 510);
+    expect(ledger.holdings.saleCost('2603', 33), 510 + 6020);
     final card = ledger.account('card');
     final phone = ledger.instalmentsOn(card).single;
     expect(phone.note, 'iPhone 17');
@@ -185,7 +188,7 @@ void main() {
     final netflix = ledger.upcoming.first;
     ledger.confirm(netflix);
     final booked = [
-      for (final e in ledger.entriesIn(2026, 10))
+      for (final e in ledger.entries.inMonth(2026, 10))
         if (e.recurring == netflix.id) e.amount,
     ];
     expect(booked, [390]);
@@ -424,11 +427,11 @@ void main() {
     await tester.tap(find.byKey(Keys.deletePicked));
     await tester.pumpAndSettle();
     expect(ledger.expense(2026, 10), 17519 - 200);
-    expect(ledger.trash.single.entry.note, '週末點心');
+    expect(ledger.trash.all.single.entry.note, '週末點心');
     await tester.tap(find.byKey(Keys.snack('復原')));
     await tester.pumpAndSettle();
     expect(ledger.expense(2026, 10), 17519);
-    expect(ledger.trash, isEmpty);
+    expect(ledger.trash.all, isEmpty);
   });
 
   testWidgets('hidden amounts show as dots and come back', (tester) async {

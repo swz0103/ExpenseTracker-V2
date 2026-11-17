@@ -7,7 +7,7 @@ final class RecurringForm {
     : name = old?.name ?? '',
       income = old?.income ?? false,
       amount = old?.amount ?? 0,
-      account = old?.account ?? ledger.openAccounts.first.id,
+      account = old?.account ?? ledger.accounts.open.first.id,
       unit = old?.unit ?? RepeatUnit.month,
       every = old?.every ?? 1,
       end = old?.end,
@@ -37,7 +37,7 @@ final class RecurringForm {
   bool auto;
 
   String _firstCategory(bool income) {
-    final choices = ledger.categoriesFor(income: income);
+    final choices = ledger.categories.forEntries(income: income);
     return choices.isEmpty ? '' : choices.first.name;
   }
 

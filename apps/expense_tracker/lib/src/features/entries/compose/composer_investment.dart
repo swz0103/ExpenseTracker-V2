@@ -80,7 +80,7 @@ extension _InvestmentFields on _ComposerState {
     final settles = _f.settlement;
     final cost =
         sell && code != null && held != null && _f.shares <= held.shares
-        ? _ledger.saleCost(code, _f.shares, average: _f.average)
+        ? _ledger.holdings.saleCost(code, _f.shares, average: _f.average)
         : null;
     final settled = settlementDay(_f.date);
     final method = _f.average ? '平均成本' : '先進先出';
@@ -268,7 +268,7 @@ extension _InvestmentFields on _ComposerState {
   Widget _codes() {
     final code = _f.holding;
     final holdings = _ledger.holdings;
-    final known = {for (final h in holdings) h.code};
+    final known = {for (final h in holdings.all) h.code};
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Row(
@@ -280,7 +280,7 @@ extension _InvestmentFields on _ComposerState {
                 children: [
                   if (code != null && !known.contains(code))
                     _CodePill(code: code, name: '', picked: true, onTap: () {}),
-                  for (final h in holdings) ...[
+                  for (final h in holdings.all) ...[
                     const SizedBox(width: 6),
                     _CodePill(
                       code: h.code,
@@ -357,7 +357,7 @@ class _HoldingChoicesState extends State<_HoldingChoices> {
     final ledger = widget.ledger;
     final words = _typed.trim().toLowerCase();
     final cards = <Widget>[
-      for (final h in ledger.holdings)
+      for (final h in ledger.holdings.all)
         if (words.isEmpty ||
             h.code.toLowerCase().contains(words) ||
             h.name.toLowerCase().contains(words))

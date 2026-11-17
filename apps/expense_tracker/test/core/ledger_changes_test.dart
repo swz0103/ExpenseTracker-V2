@@ -107,8 +107,8 @@ void main() {
     final ledger = book(entries: [buy, sell]);
     expect(ledger.remove('buy'), isNull);
     expect(ledger.problem.value, isA<SharesShort>());
-    expect(ledger.entries, hasLength(2));
-    expect(ledger.trash, isEmpty);
+    expect(ledger.entries.all, hasLength(2));
+    expect(ledger.trash.all, isEmpty);
     await ledger.settled;
     expect(dataSource.kept, isEmpty);
   });
@@ -120,10 +120,10 @@ void main() {
     // The same name with spaces is taken, not a second category.
     ledger.addCategory(Category('寵物', 'other', 0xFF000000));
     expect(ledger.problem.value, isA<NameTaken>());
-    expect(ledger.categories.where((c) => c.name == '寵物'), hasLength(1));
+    expect(ledger.categories.all.where((c) => c.name == '寵物'), hasLength(1));
     ledger.updateCategory('寵物', ledger.category('寵物').copyWith(name: '毛孩 '));
     expect(ledger.category('毛孩').id, isNotEmpty);
-    expect(ledger.categories.any((c) => c.name.contains(' ')), isFalse);
+    expect(ledger.categories.all.any((c) => c.name.contains(' ')), isFalse);
     await ledger.settled;
     expect(
       dataSource.kept.expand((b) => b.categories).map((c) => c.name),
@@ -142,7 +142,7 @@ void main() {
     );
     expect(
       [
-        for (final c in ledger.categories)
+        for (final c in ledger.categories.all)
           if (c.name.contains('寵物')) c.name,
       ],
       ['寵物'],
@@ -153,12 +153,12 @@ void main() {
   test('taken and reserved category names are refused', () {
     final ledger = book();
     for (final name in ['飲食', '全部支出', '轉帳', '#旅遊', ' ']) {
-      expect(ledger.categoryNameFree(name), isFalse, reason: name);
+      expect(ledger.categories.isNameFree(name), isFalse, reason: name);
     }
-    expect(ledger.categoryNameFree('飲食', except: '飲食'), isTrue);
+    expect(ledger.categories.isNameFree('飲食', except: '飲食'), isTrue);
     ledger.addCategory(Category('轉帳', 'other', 0xFF000000));
     expect(ledger.problem.value, isA<NameTaken>());
-    expect(ledger.categories, hasLength(2));
+    expect(ledger.categories.all, hasLength(2));
   });
 
   test('renaming onto a name that has a budget leaves one budget', () {
@@ -166,7 +166,7 @@ void main() {
       budgets: const [Budget('#旅遊', 5000), Budget('#出差', 3000)],
     );
     ledger.renameTag('出差', '旅遊');
-    expect([for (final b in ledger.budgets) b.category], ['#旅遊']);
+    expect([for (final b in ledger.budgets.all) b.category], ['#旅遊']);
   });
 
   test('merged categories join an entry split between them', () {
@@ -190,10 +190,10 @@ void main() {
     await ledger.settled;
     expect(dataSource.kept, hasLength(1));
     expect(dataSource.kept.single.receipts, {'c': 'c.etr'});
-    expect(ledger.receiptOf('c'), 'c.etr');
+    expect(ledger.receipts.of('c'), 'c.etr');
 
     dataSource.kept.clear();
-    expect(ledger.recategorize(ledger.entries, '居家'), 3);
+    expect(ledger.recategorize(ledger.entries.all, '居家'), 3);
     await ledger.settled;
     expect(dataSource.kept, hasLength(1));
     expect(dataSource.kept.single.entries, hasLength(3));
@@ -225,8 +225,8 @@ void main() {
     final removed = ledger.remove('a')!;
     expect(ledger.restore(removed), isTrue);
     expect(ledger.restore(removed), isFalse);
-    expect(ledger.entries, hasLength(1));
-    expect(ledger.trash, isEmpty);
+    expect(ledger.entries.all, hasLength(1));
+    expect(ledger.trash.all, isEmpty);
   });
 
   test('a category from before the name rules can still be archived', () {
@@ -258,9 +258,12 @@ void main() {
         Category('轉帳', 'other', 0xFF123456),
       ],
     );
-    expect([for (final a in ledger.accounts) a.id], ['bank', 'card', 'new']);
-    expect(ledger.categories.where((c) => c.name == '寵物'), hasLength(1));
-    expect(ledger.categories.where((c) => c.name == '轉帳'), isEmpty);
+    expect(
+      [for (final a in ledger.accounts.all) a.id],
+      ['bank', 'card', 'new'],
+    );
+    expect(ledger.categories.all.where((c) => c.name == '寵物'), hasLength(1));
+    expect(ledger.categories.all.where((c) => c.name == '轉帳'), isEmpty);
   });
 
   test('a reduction of more shares than held is refused', () {
@@ -275,7 +278,7 @@ void main() {
       shares: -10,
     );
     expect(() => ledger.add(cut), throwsStateError);
-    expect(ledger.entries, isEmpty);
+    expect(ledger.entries.all, isEmpty);
     // A book that already holds one still opens, without it.
     final kept = book(entries: [cut]);
     expect(kept.holding('2330'), isNull);
@@ -353,7 +356,7 @@ void main() {
       tags: const ['家用 午餐', '公司'],
     );
     final from = book(entries: [buy, sell, lunch]);
-    final csv = toCsv(from, from.entries);
+    final csv = toCsv(from, from.entries.all);
     final into = book();
     final found = importCsv(into, csv, fallback: 'bank');
     expect(found.problems, isEmpty);

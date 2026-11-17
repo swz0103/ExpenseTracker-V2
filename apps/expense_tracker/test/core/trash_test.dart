@@ -6,18 +6,18 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('a deleted entry waits in the trash and comes back as it was', () {
     final ledger = demoLedger();
-    final entry = ledger.entries.firstWhere(
+    final entry = ledger.entries.all.firstWhere(
       (e) => e.type == EntryType.expense && e.recurring == null,
     );
     final count = ledger.entries.length;
     final removed = ledger.remove(entry.id)!;
-    expect(ledger.trash.single.entry, same(removed.$2));
-    expect(ledger.trash.single.on, ledger.today);
+    expect(ledger.trash.all.single.entry, same(removed.$2));
+    expect(ledger.trash.all.single.on, ledger.today);
 
-    ledger.restoreTrashed(ledger.trash.single);
-    expect(ledger.trash, isEmpty);
-    expect(ledger.entries, hasLength(count));
-    final back = ledger.entries.last;
+    ledger.restoreTrashed(ledger.trash.all.single);
+    expect(ledger.trash.all, isEmpty);
+    expect(ledger.entries.all, hasLength(count));
+    final back = ledger.entries.all.last;
     expect(back.id, entry.id);
     expect(
       (back.amount, back.account, back.date),
@@ -27,10 +27,12 @@ void main() {
 
   test('an undone delete leaves the trash', () {
     final ledger = demoLedger();
-    final entry = ledger.entries.firstWhere((e) => e.type == EntryType.expense);
+    final entry = ledger.entries.all.firstWhere(
+      (e) => e.type == EntryType.expense,
+    );
     final removed = ledger.remove(entry.id)!;
     ledger.restore(removed);
-    expect(ledger.trash, isEmpty);
+    expect(ledger.trash.all, isEmpty);
   });
 
   test('every field of an entry survives its JSON', () {

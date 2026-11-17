@@ -53,7 +53,7 @@ extension LedgerReminders on Ledger {
     String key(String kind, String id, DateTime d) =>
         '$kind:$id:${d.year}-${d.month}-${d.day}';
     final found = <Reminder>[];
-    for (final r in recurring) {
+    for (final r in recurring.all) {
       if (!r.active) continue;
       final currency = account(r.account).currency;
       final amount = currency == homeCode
@@ -78,7 +78,7 @@ extension LedgerReminders on Ledger {
         }
       }
     }
-    for (final card in accounts) {
+    for (final card in accounts.all) {
       if (card.kind != AccountKind.card || card.archived) continue;
       final (_, end, due) = statement(card);
       final owed = statementDue(card);

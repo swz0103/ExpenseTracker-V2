@@ -29,7 +29,7 @@ const walletKinds = [
 /// places, then the others by kind.
 List<Account> walletAccounts(Ledger ledger) {
   final open = [
-    for (final a in ledger.openAccounts)
+    for (final a in ledger.accounts.open)
       if (walletKinds.contains(a.kind)) a,
   ];
   final order = {for (final (i, a) in open.indexed) a.id: i};
@@ -75,7 +75,7 @@ class _AccountsPageState extends State<AccountsPage> {
       builder: (context, _) {
         final accounts = walletAccounts(ledger);
         final archived = [
-          for (final a in ledger.accounts)
+          for (final a in ledger.accounts.all)
             if (a.archived && walletKinds.contains(a.kind)) a,
         ];
         final at = accounts.indexWhere((a) => a.id == _shown);
@@ -157,9 +157,9 @@ class _NetWorth extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final invest = ledger.investValue;
+    final invest = ledger.holdings.marketValue;
     var lent = 0;
-    for (final a in ledger.accounts) {
+    for (final a in ledger.accounts.all) {
       if (a.kind == AccountKind.receivable && a.inNetWorth) {
         final worth = ledger.worthOf(a);
         if (worth > 0) lent += worth;

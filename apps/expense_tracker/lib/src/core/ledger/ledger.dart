@@ -1,8 +1,6 @@
-import 'dart:collection' show UnmodifiableListView;
 import 'dart:math';
 
-import 'package:core/foundation_values.dart'
-    show BusinessDate, Currency, PublicId;
+import 'package:core/foundation_values.dart' show BusinessDate, PublicId;
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
 import 'package:flutter/foundation.dart'
     show ChangeNotifier, Listenable, ValueNotifier;
@@ -134,9 +132,6 @@ final class Ledger extends ChangeNotifier {
   /// phone keeps.
   final ReceiptRepository _receipts;
 
-  /// The receipt photo of the entry with [id]; null when none.
-  String? receiptOf(String id) => _receipts.of(id);
-
   /// Every receipt photo an entry keeps, deleted entries' included.
   Set<String> get receiptFiles => {
     ..._receipts.files,
@@ -146,8 +141,6 @@ final class Ledger extends ChangeNotifier {
 
   /// The forms put aside in the composer, kept across a restart.
   final DraftRepository _drafts;
-
-  String? draft(String tab) => _drafts.of(tab);
 
   /// Keeps the form put aside on [tab], or clears it when [json] is null.
   void setDraft(String tab, String? json) {
@@ -163,59 +156,31 @@ final class Ledger extends ChangeNotifier {
     _keep(WriteBatch(receipts: {id: file}));
   }
 
-  /// The trading day of the newest closing price the holdings are
-  /// valued at; null when none was fetched yet.
-  DateTime? get quotedOn => _market.quotedOn;
-
-  /// Whether [code] has a fetched close, rather than the price it was
-  /// last bought at standing in for one.
-  bool hasQuote(String code) => _holdings.hasQuote(code);
-
-  /// The day of [code]'s kept close, when it is older than [quotedOn]:
-  /// the last trading day of a stock not traded since, or a close kept
-  /// from before when the latest could not be fetched. Null when it is
-  /// the latest, or not known.
-  DateTime? olderQuote(String code) => _market.olderQuote(code);
-
   /// The 隱藏金額 switch: amounts written as dots. Its changes reach the
   /// screens as a change of how amounts are shown, which leaves every sum
   /// worked out as it was.
   final amounts = AmountVisibility();
 
-  List<Account> get accounts => _accounts.all;
-  List<Category> get categories => _categories.all;
-  List<Holding> get holdings => _holdings.all;
-  List<Budget> get budgets => _budgets.all;
-  List<Recurring> get recurring => _recurring.all;
-  List<Trashed> get trash => _trash.all;
+  /// The book's records by kind, to read; the commands change them.
+  AccountReader get accounts => _accounts;
+  CategoryReader get categories => _categories;
+  EntryReader get entries => _entries;
+  HoldingReader get holdings => _holdings;
+  BudgetReader get budgets => _budgets;
+  RecurringReader get recurring => _recurring;
+  TrashReader get trash => _trash;
+  MarketDataReader get marketData => _market;
+  ReceiptReader get receipts => _receipts;
+  DraftReader get drafts => _drafts;
 
-  /// Categories offered for new entries: open ones of the kind.
-  List<Category> categoriesFor({required bool income}) =>
-      _categories.forEntries(income: income);
-
-  /// Whether [id] is an account of this book, archived ones included.
-  bool hasAccount(String id) => _accounts.contains(id);
-
+  /// The account [id]; one of that name and no balance when the book has
+  /// none, as for an entry whose account was never kept.
   Account account(String id) =>
       _accounts.byId(id) ?? Account(id, id, AccountKind.bank, 0);
 
   Category category(String name) => _categories.byName(name);
 
-  /// The lots of [code] still held, oldest first.
-  List<Lot> lotsOf(String code) => _holdings.lotsOf(code);
-
-  /// What selling [shares] of [code] now would cost: the oldest lots
-  /// first, or the average price.
-  int saleCost(String code, int shares, {bool average = false}) =>
-      _holdings.saleCost(code, shares, average: average);
-
   Holding? holding(String code) => _holdings.byCode(code);
-
-  // Entries.
-
-  /// Entries in [year]/[month], newest day first; within a day the most
-  /// recently recorded first. The list cannot be changed.
-  List<Entry> entriesIn(int year, int month) => _entries.inMonth(year, month);
 
   /// What the screens ask for again and again, worked out once per change:
   /// balances by account and day, accounts by id.
@@ -277,9 +242,6 @@ final class Ledger extends ChangeNotifier {
   /// Changes of [topics] only, and of how amounts are shown: for a screen
   /// that need not be built again when, say, a budget changes.
   Listenable watch(Set<Topic> topics) => _topics.watch(topics);
-
-  /// Every entry, in the order written; the list cannot be changed.
-  List<Entry> get entries => UnmodifiableListView(_entries);
 
   // Changes.
 

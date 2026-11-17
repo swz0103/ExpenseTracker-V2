@@ -46,7 +46,7 @@ void main() {
       (name: 'old.json', plain: null),
     ]);
     expect(outcome.booked, 1);
-    final rent = ledger.entries.single;
+    final rent = ledger.entries.all.single;
     expect((rent.recurring, rent.date), ('rent', DateTime.utc(2026, 10, 5)));
     expect(outcome.review, hasLength(3));
     expect(outcome.review[0], contains('已暫停'));

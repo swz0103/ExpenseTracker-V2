@@ -38,7 +38,7 @@ class _AccountPageState extends State<AccountPage> {
       listenable: ledger,
       builder: (context, _) {
         // Gone by another way, such as a restore: nothing to show.
-        if (!ledger.hasAccount(widget.accountId)) {
+        if (!ledger.accounts.contains(widget.accountId)) {
           WidgetsBinding.instance.addPostFrameCallback(
             (_) => widget.nav.back(),
           );
@@ -105,7 +105,7 @@ class _AccountPageState extends State<AccountPage> {
   final today = ledger.today;
   var inflow = 0;
   var outflow = 0;
-  for (final e in ledger.entriesIn(today.year, today.month)) {
+  for (final e in ledger.entries.inMonth(today.year, today.month)) {
     if (e.account != account.id && e.to != account.id) continue;
     final change = ledger.effect(e, account.id);
     if (change > 0) {
@@ -163,7 +163,7 @@ class _AccountBodyState extends State<AccountBody> {
   /// payment into it from the main account.
   void _move(Account account) {
     final ledger = widget.ledger;
-    final main = ledger.mainAccount;
+    final main = ledger.accounts.main;
     final card = account.kind == AccountKind.card;
     widget.nav.compose(
       type: EntryType.transfer,
@@ -189,7 +189,7 @@ class _AccountBodyState extends State<AccountBody> {
     final today = ledger.today;
     final (year, month) = _month;
     final entries = [
-      for (final e in ledger.entriesIn(year, month))
+      for (final e in ledger.entries.inMonth(year, month))
         if (e.account == account.id || e.to == account.id) e,
     ]..sort((a, b) => b.date.compareTo(a.date));
     final days = <DateTime, List<Entry>>{};

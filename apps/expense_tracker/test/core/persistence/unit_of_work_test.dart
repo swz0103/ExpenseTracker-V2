@@ -53,11 +53,11 @@ typedef _Snapshot = ({
 });
 
 _Snapshot _snap(Ledger l) => (
-  entries: List.of(l.entries),
-  categories: List.of(l.categories),
-  budgets: List.of(l.budgets),
-  recurring: List.of(l.recurring),
-  trash: List.of(l.trash),
+  entries: List.of(l.entries.all),
+  categories: List.of(l.categories.all),
+  budgets: List.of(l.budgets.all),
+  recurring: List.of(l.recurring.all),
+  trash: List.of(l.trash.all),
 );
 
 /// What the ledger used to work out by comparing everything before and
@@ -85,16 +85,31 @@ WriteBatch _diff(_Snapshot was, Ledger now) {
   }
 
   return WriteBatch(
-    entries: changed(was.entries, now.entries, (e) => e.id),
-    categories: changed(was.categories, now.categories, (c) => c.id),
-    budgets: changed(was.budgets, now.budgets, (b) => b.category),
-    recurring: changed(was.recurring, now.recurring, (r) => r.id),
-    trash: changed(was.trash, now.trash, (t) => t.entry.id),
+    entries: changed(was.entries, now.entries.all, (e) => e.id),
+    categories: changed(was.categories, now.categories.all, (c) => c.id),
+    budgets: changed(was.budgets, now.budgets.all, (b) => b.category),
+    recurring: changed(was.recurring, now.recurring.all, (r) => r.id),
+    trash: changed(was.trash, now.trash.all, (t) => t.entry.id),
     dropped: [
-      ...gone(Collection.entry, was.entries, now.entries, (e) => e.id),
-      ...gone(Collection.category, was.categories, now.categories, (c) => c.id),
-      ...gone(Collection.budget, was.budgets, now.budgets, (b) => b.category),
-      ...gone(Collection.recurring, was.recurring, now.recurring, (r) => r.id),
+      ...gone(Collection.entry, was.entries, now.entries.all, (e) => e.id),
+      ...gone(
+        Collection.category,
+        was.categories,
+        now.categories.all,
+        (c) => c.id,
+      ),
+      ...gone(
+        Collection.budget,
+        was.budgets,
+        now.budgets.all,
+        (b) => b.category,
+      ),
+      ...gone(
+        Collection.recurring,
+        was.recurring,
+        now.recurring.all,
+        (r) => r.id,
+      ),
     ],
   );
 }
@@ -213,7 +228,7 @@ void main() {
       final ids = <Object, int>{};
       var compared = 0;
       for (var step = 0; step < 30; step++) {
-        final live = [for (final c in ledger.categories) c.name];
+        final live = [for (final c in ledger.categories.all) c.name];
         final was = _snap(ledger);
         final count = source.kept.length;
         final what = r.nextInt(5);

@@ -281,7 +281,7 @@ class _RemindersSectionState extends State<RemindersSection>
       value: () => preferences.budgetAlerts,
       onChanged: (on) => _notify(notifier, budget: on),
       body: (context) {
-        final budgets = _ledger.budgets.where((b) => b.limit > 0).toList();
+        final budgets = _ledger.budgets.all.where((b) => b.limit > 0).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

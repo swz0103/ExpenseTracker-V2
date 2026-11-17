@@ -65,7 +65,7 @@ void main() {
     final restored = await SqlLedgerDataSource(
       (phone.state as Ready).vault.store,
     ).load();
-    expect(restored.entries, hasLength(ledger.entries.length));
+    expect(restored.entries.all, hasLength(ledger.entries.length));
     phone.lock();
 
     final out = Platform.environment['TEST_BACKUP_OUT'];
@@ -121,7 +121,7 @@ void _setUp(Ledger ledger) {
 /// salary account archived once emptied.
 void _settle(Ledger ledger) {
   String id(String name) =>
-      ledger.accounts.firstWhere((a) => a.name == name).id;
+      ledger.accounts.all.firstWhere((a) => a.name == name).id;
   for (final (category, limit) in [
     (allSpending, 38000),
     ('飲食日常', 12000),

@@ -28,7 +28,7 @@ Map<String, Object?>? widgetSnapshot(Ledger ledger, WidgetFigures figures) {
   final date = '$month-${two(today.day)}';
   final spent = ledger.expense(today.year, m);
   Budget? total;
-  for (final b in ledger.budgets) {
+  for (final b in ledger.budgets.all) {
     if (b.category == allSpending && b.limit > 0) total = b;
   }
   final allowance = total == null

@@ -126,20 +126,25 @@ void main() {
       writeLegacy(open());
       final ledger = await load();
 
-      expect(ledger.categories.map((c) => c.name), ['飲食', '早餐', '交通', '薪水']);
-      expect(ledger.categories.every((c) => c.id.isNotEmpty), isTrue);
+      expect(ledger.categories.all.map((c) => c.name), [
+        '飲食',
+        '早餐',
+        '交通',
+        '薪水',
+      ]);
+      expect(ledger.categories.all.every((c) => c.id.isNotEmpty), isTrue);
       expect(ledger.category('早餐').parent, '飲食');
-      expect(ledger.byId('e1')!.category, '飲食');
-      expect(ledger.byId('e2')!.category, '早餐');
-      expect(ledger.byId('e3')!.category, '已刪除的分類');
-      expect(ledger.byId('e4')!.parts, [('飲食', 100), ('交通', 50)]);
-      expect(ledger.budgets.map((b) => (b.category, b.limit)).toSet(), {
+      expect(ledger.entries.byId('e1')!.category, '飲食');
+      expect(ledger.entries.byId('e2')!.category, '早餐');
+      expect(ledger.entries.byId('e3')!.category, '已刪除的分類');
+      expect(ledger.entries.byId('e4')!.parts, [('飲食', 100), ('交通', 50)]);
+      expect(ledger.budgets.all.map((b) => (b.category, b.limit)).toSet(), {
         ('飲食', 5000),
         ('#家用', 800),
         ('全部支出', 9000),
       });
-      expect(ledger.recurring.single.category, '交通');
-      expect(ledger.trash.single.entry.category, '交通');
+      expect(ledger.recurring.all.single.category, '交通');
+      expect(ledger.trash.all.single.entry.category, '交通');
     },
   );
 
@@ -148,7 +153,7 @@ void main() {
     () async {
       writeLegacy(open());
       final ledger = await load();
-      final ids = {for (final c in ledger.categories) c.name: c.id};
+      final ids = {for (final c in ledger.categories.all) c.name: c.id};
       final s = store!;
 
       expect(rowsOf(s, 'category').keys.toSet(), ids.values.toSet());
@@ -258,11 +263,11 @@ void main() {
     // And after closing and opening, it is the new name everywhere.
     ledger = await load();
     expect(ledger.category('吃飯').id, id);
-    expect(ledger.byId('e1')!.category, '吃飯');
-    expect(ledger.byId('e4')!.parts.first.$1, '吃飯');
+    expect(ledger.entries.byId('e1')!.category, '吃飯');
+    expect(ledger.entries.byId('e4')!.parts.first.$1, '吃飯');
     expect(ledger.category('早餐').parent, '吃飯');
-    expect(ledger.budgets.map((b) => b.category), contains('吃飯'));
-    expect(ledger.byId('e3')!.category, '已刪除的分類');
+    expect(ledger.budgets.all.map((b) => b.category), contains('吃飯'));
+    expect(ledger.entries.byId('e3')!.category, '已刪除的分類');
   });
 
   test(
@@ -282,7 +287,7 @@ void main() {
       expect(renamed.id, old.id);
       expect(rowsOf(store!, 'category').keys, contains(old.id));
       expect(rowsOf(store!, 'category').length, 4);
-      expect(ledger.byId('e4')!.parts.last.$1, '通勤');
+      expect(ledger.entries.byId('e4')!.parts.last.$1, '通勤');
     },
   );
 
@@ -303,8 +308,8 @@ void main() {
       expect(rowsOf(s, 'entry')['e2']!['categoryId'], into);
 
       ledger = await load();
-      expect(ledger.byId('e2')!.category, '飲食');
-      expect(ledger.categories.map((c) => c.name), isNot(contains('早餐')));
+      expect(ledger.entries.byId('e2')!.category, '飲食');
+      expect(ledger.categories.all.map((c) => c.name), isNot(contains('早餐')));
     },
   );
 
@@ -329,7 +334,7 @@ void main() {
 
     ledger = await load();
     expect(ledger.category('寵物').id, pet.id);
-    expect(ledger.byId('e7')!.category, '寵物');
+    expect(ledger.entries.byId('e7')!.category, '寵物');
   });
 
   test('a budget removed is dropped under the id it was kept under', () async {

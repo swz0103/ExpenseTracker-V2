@@ -193,7 +193,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
 
   Future<String?> _newCategory() async {
     final income = _f.tab == ComposeMode.income;
-    final count = _ledger.categories.length;
+    final count = _ledger.categories.all.length;
     final made = await showCategoryEditor(
       context,
       title: income ? '新增收入分類' : '新增支出分類',
@@ -264,7 +264,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
         if (_keptAway || (_f.amount == 0 && _f.receipt == null)) return;
         try {
           final draft = _asDraft;
-          _before = _ledger.draft(_f.tab.name);
+          _before = _ledger.drafts.of(_f.tab.name);
           _drafts[_f.tab] = draft;
           _keptAway = true;
         } on Object {

@@ -25,7 +25,7 @@ void main() {
 
   test('an exported month imports as nothing new', () {
     final ledger = demoLedger();
-    final month = ledger.entriesIn(2026, 9);
+    final month = ledger.entries.inMonth(2026, 9);
     final csv = toCsv(ledger, month);
     final again = importCsv(ledger, csv, fallback: 'cash');
     expect(again.entries, isEmpty);
@@ -177,7 +177,7 @@ void main() {
   test('stock dividends and splits grow every lot at its own cost', () {
     final ledger = demoLedger();
     final before = ledger.holding('2330')!;
-    final lotsBefore = ledger.lotsOf('2330');
+    final lotsBefore = ledger.holdings.lotsOf('2330');
     ledger.add(
       Entry(
         id: 'stock',
@@ -193,9 +193,9 @@ void main() {
     expect(after.shares, before.shares + 10);
     expect(after.cost, before.cost);
     // As the ledger records it: each lot grows, none is added at no cost.
-    expect(ledger.lotsOf('2330'), hasLength(lotsBefore.length));
+    expect(ledger.holdings.lotsOf('2330'), hasLength(lotsBefore.length));
     expect(
-      ledger.lotsOf('2330').fold(0, (sum, l) => sum + l.cost),
+      ledger.holdings.lotsOf('2330').fold(0, (sum, l) => sum + l.cost),
       before.cost,
     );
     ledger.add(
@@ -214,7 +214,7 @@ void main() {
     expect(split.shares, after.shares * 2);
     expect(split.cost, after.cost);
     expect(split.price, closeTo(after.price / 2, 0.001));
-    final lots = ledger.lotsOf('2330');
+    final lots = ledger.holdings.lotsOf('2330');
     expect(lots.fold(0, (sum, l) => sum + l.shares), split.shares);
   });
 

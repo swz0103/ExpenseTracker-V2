@@ -106,7 +106,8 @@ final class _Draft {
 /// Forms put aside with 暫存, by tab, kept in the ledger they were
 /// written for, so they outlast the app being closed by the phone.
 extension type const _Drafts(Ledger ledger) {
-  _Draft? operator [](ComposeMode tab) => _Draft.read(ledger.draft(tab.name));
+  _Draft? operator [](ComposeMode tab) =>
+      _Draft.read(ledger.drafts.of(tab.name));
 
   void operator []=(ComposeMode tab, _Draft draft) =>
       ledger.setDraft(tab.name, draft.toJson());
@@ -159,7 +160,7 @@ Future<(ComposeOutcome, Entry)?> openComposer(
 /// The spending a refund gives back, when [entry] is one.
 Entry? _original(Ledger ledger, Entry? entry) {
   final id = entry?.refundOf;
-  return id == null ? null : ledger.byId(id);
+  return id == null ? null : ledger.entries.byId(id);
 }
 
 class Composer extends StatefulWidget {

@@ -76,13 +76,13 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                     const SizedBox(width: 8),
                     // The cost lives here rather than on the main card.
                     Text(
-                      '成本 ${ledger.orDots(groupDigits(ledger.investCost))}',
+                      '成本 ${ledger.orDots(groupDigits(ledger.holdings.costBasis))}',
                       style: mutedSmall,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        switch ((market?.problem, ledger.quotedOn)) {
+                        switch ((market?.problem, ledger.marketData.quotedOn)) {
                           (final problem?, _) => problem,
                           (_, null) => '連上網路後更新收盤價',
                           _ when market?.busy ?? false => '更新收盤價中…',
@@ -97,7 +97,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                   ],
                 ),
               ),
-              if (holdings.isEmpty)
+              if (holdings.all.isEmpty)
                 EmptyState(
                   glyph: Glyph.pie,
                   color: Palette.indigo,
@@ -110,14 +110,14 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                   (
                     '個股',
                     [
-                      for (final h in holdings)
+                      for (final h in holdings.all)
                         if (!h.code.startsWith('00')) h,
                     ],
                   ),
                   (
                     'ETF',
                     [
-                      for (final h in holdings)
+                      for (final h in holdings.all)
                         if (h.code.startsWith('00')) h,
                     ],
                   ),
@@ -188,7 +188,9 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                             fit: BoxFit.scaleDown,
                             alignment: Alignment.centerRight,
                             child: Text(
-                              ledger.orDots(groupDigits(ledger.totalDividends)),
+                              ledger.orDots(
+                                groupDigits(ledger.holdings.dividends),
+                              ),
                               style: const TextStyle(
                                 fontSize: TextSize.heading,
                                 fontWeight: FontWeight.w800,

@@ -66,7 +66,7 @@ class _ImportPageState extends State<_ImportPage> {
   Color get _color => widget.invoices ? _invoiceHue : _csvHue;
 
   String _first() {
-    final open = widget.ledger.openAccounts;
+    final open = widget.ledger.accounts.open;
     if (!widget.invoices) return open.first.id;
     final home = [
       for (final a in open)

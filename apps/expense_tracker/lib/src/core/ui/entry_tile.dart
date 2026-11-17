@@ -79,7 +79,7 @@ String entryDetail(Ledger ledger, Entry e) {
     EntryType.dividend when e.shares < 0 => '${e.holding} · 減資 ${-e.shares} 股',
     EntryType.dividend when e.shares > 0 =>
       '${e.holding} · ${e.split ? '分割' : '配股'} ${e.shares} 股',
-    _ when e.isRefund => switch (ledger.byId(e.refundOf!)) {
+    _ when e.isRefund => switch (ledger.entries.byId(e.refundOf!)) {
       final original? => '↩ 退款 · 原：${original.title}',
       null => '↩ 退款 · $account',
     },

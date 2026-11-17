@@ -149,7 +149,7 @@ void main() {
     // Opening: every trade replayed, every balance ready to ask for.
     final ledger = timed('open', () => book(list), under: 3000);
     timed('balances', () {
-      for (final a in ledger.accounts) {
+      for (final a in ledger.accounts.all) {
         ledger.balance(a.id);
       }
       return ledger.assets;
@@ -158,7 +158,7 @@ void main() {
     // 總覽 and 紀錄 for each month, as switching months back three years.
     timed('switch 36 months', () {
       for (final m in months) {
-        ledger.entriesIn(m.year, m.month);
+        ledger.entries.inMonth(m.year, m.month);
         ledger.expense(m.year, m.month);
         ledger.income(m.year, m.month);
       }
@@ -202,7 +202,7 @@ void main() {
         ),
       );
       ledger
-        ..entriesIn(today.year, today.month)
+        ..entries.inMonth(today.year, today.month)
         ..expense(today.year, today.month)
         ..balance('card')
         ..statementDue(card);

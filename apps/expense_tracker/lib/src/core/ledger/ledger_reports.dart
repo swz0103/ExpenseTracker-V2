@@ -274,9 +274,6 @@ extension LedgerReports on Ledger {
       if (e.holding == code) e,
   ]..sort((a, b) => b.date.compareTo(a.date));
 
-  /// The entry with [id], if it is still in the book.
-  Entry? byId(String id) => _entries.byId(id);
-
   /// How much of [original] has been refunded.
   int refunded(Entry original) => original.amount - refundable(original);
 
@@ -329,69 +326,10 @@ extension LedgerReports on Ledger {
     return running;
   }
 
-  int get investValue => _holdings.all.fold(0, (sum, h) => sum + h.value);
-  int get investCost => _holdings.all.fold(0, (sum, h) => sum + h.cost);
-  int get dayChange => _holdings.all.fold(0, (sum, h) => sum + h.change);
-  int get realized => _holdings.all.fold(0, (sum, h) => sum + h.realized);
-  int get totalDividends =>
-      _holdings.all.fold(0, (sum, h) => sum + h.dividends);
-
-  /// Accounts still open, in their order.
-  List<Account> get openAccounts => _accounts.open;
-
-  /// The account money usually comes from or goes back to, as for a card
-  /// payment or money paid back: the first open NT$ bank account, else
-  /// any open NT$ account that is not a debt; empty when there is none.
-  String get mainAccount {
-    final open = [
-      for (final a in openAccounts)
-        if (!a.kind.isDebt && !a.foreign && a.kind != AccountKind.receivable) a,
-    ];
-    for (final a in open) {
-      if (a.kind == AccountKind.bank) return a.id;
-    }
-    return open.isEmpty ? '' : open.first.id;
-  }
-
-  // Currencies.
-
-  /// NT$ for one unit of each foreign currency: 臺灣銀行's spot buying
-  /// rate, what a foreign balance would fetch today. Empty until fetched.
-  Map<String, double> get rates => _market.rates;
-
-  /// [minor] units of [currency] in whole NT$ at [rates]; null without a
-  /// rate for it.
-  int? toHome(int minor, String currency) {
-    if (currency == homeCode) return minor;
-    final rate = _market.rateOf(currency);
-    if (rate == null) return null;
-    return (minor / _unit(currency) * rate).round();
-  }
-
-  /// [amount] of [from] in the smallest unit of [to], through NT$ at
-  /// [rates]; null without a rate for either.
-  int? convert(int amount, String from, String to) {
-    if (from == to) return amount;
-    final home = from == homeCode ? amount.toDouble() : _rated(amount, from);
-    if (home == null) return null;
-    if (to == homeCode) return home.round();
-    final rate = _market.rateOf(to);
-    if (rate == null || rate <= 0) return null;
-    return (home / rate * _unit(to)).round();
-  }
-
-  double? _rated(int minor, String currency) {
-    final rate = _market.rateOf(currency);
-    return rate == null ? null : minor / _unit(currency) * rate;
-  }
-
-  static int _unit(String currency) =>
-      Currency.scaleOf(currency) == 0 ? 1 : 100;
-
   /// The balance of [a] in whole NT$; 0 for a foreign account without a
   /// rate, which [unrated] lists.
   int worthOf(Account a, {DateTime? until}) =>
-      toHome(balance(a.id, until: until), a.currency) ?? 0;
+      marketData.toHome(balance(a.id, until: until), a.currency) ?? 0;
 
   /// Counted foreign accounts left out of the totals for want of a rate.
   List<Account> get unrated => [
@@ -401,7 +339,7 @@ extension LedgerReports on Ledger {
 
   /// What every counted account holds, debts aside, plus investments.
   int get assets {
-    var total = investValue;
+    var total = holdings.marketValue;
     for (final a in _accounts.all) {
       if (!a.kind.isDebt && a.inNetWorth) total += worthOf(a);
     }
@@ -469,11 +407,13 @@ extension LedgerReports on Ledger {
     final counts = <String, int>{};
     for (final back in const [0, 1]) {
       final month = DateTime.utc(today.year, today.month - back);
-      for (final e in entriesIn(month.year, month.month)) {
+      for (final e in entries.inMonth(month.year, month.month)) {
         if (e.type == type) counts[e.category] = (counts[e.category] ?? 0) + 1;
       }
     }
-    final names = [for (final c in categoriesFor(income: income)) c.name];
+    final names = [
+      for (final c in categories.forEntries(income: income)) c.name,
+    ];
     return names..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0));
   }
 }

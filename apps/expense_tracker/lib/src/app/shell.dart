@@ -161,7 +161,7 @@ class _AppShellState extends State<AppShell> {
     final ledger = widget.ledger;
     // What each holding had realized, so a sale can say what it made.
     final realizedBefore = {
-      for (final h in ledger.holdings) h.code: h.realized,
+      for (final h in ledger.holdings.all) h.code: h.realized,
     };
     final result = await openComposer(
       context,
@@ -210,7 +210,10 @@ class _AppShellState extends State<AppShell> {
     final sold = saved.type == EntryType.sell ? saved.holding : null;
     final made = sold == null
         ? null
-        : (ledger.holdings.where((h) => h.code == sold).firstOrNull?.realized ??
+        : (ledger.holdings.all
+                      .where((h) => h.code == sold)
+                      .firstOrNull
+                      ?.realized ??
                   0) -
               (realizedBefore[sold] ?? 0);
     showNote(
@@ -254,7 +257,7 @@ class _AppShellState extends State<AppShell> {
       return switch (page) {
         // Gone, such as after a restore: back to the tab.
         AccountPlace(:final id) ||
-        DebtPlace(:final id) when !ledger.hasAccount(id) => _gone(),
+        DebtPlace(:final id) when !ledger.accounts.contains(id) => _gone(),
         // Money paid for someone and loans have pages of their own,
         // wherever they are opened from.
         AccountPlace(:final id) || DebtPlace(:final id)
@@ -349,7 +352,7 @@ class _AppShellState extends State<AppShell> {
     if (saved.type != EntryType.expense) return false;
     final ledger = widget.ledger;
     final (year, month) = (saved.date.year, saved.date.month);
-    for (final budget in ledger.budgets) {
+    for (final budget in ledger.budgets.all) {
       final allowed = ledger.allowance(budget, year, month);
       if (allowed > 0 && ledger.spentAgainst(budget, year, month) > allowed) {
         final names = {

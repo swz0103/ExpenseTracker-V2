@@ -49,7 +49,7 @@ final class ComposeForm {
     fresh();
     final source = editing ?? draft;
     final editingNow = editing;
-    if (editingNow != null) receipt = ledger.receiptOf(editingNow.id);
+    if (editingNow != null) receipt = ledger.receipts.of(editingNow.id);
     final refundedNow = refunded;
     if (editing != null && editing!.group != null) {
       loadGroup(editing!);
@@ -179,8 +179,8 @@ final class ComposeForm {
   /// all are archived (the composer makes sure there is an open one
   /// first, but a form put aside may outlive it).
   List<Account> get startAccounts {
-    final open = ledger.openAccounts;
-    return open.isNotEmpty ? open : ledger.accounts;
+    final open = ledger.accounts.open;
+    return open.isNotEmpty ? open : ledger.accounts.all;
   }
 
   /// Empty fields with sensible first choices for the current tab.
@@ -192,7 +192,9 @@ final class ComposeForm {
     to = accounts.length > 1 ? accounts[1].id : accounts.first.id;
     final common = categoryChoices();
     category = common.isEmpty ? '' : common.first;
-    holding = ledger.holdings.isEmpty ? null : ledger.holdings.first.code;
+    holding = ledger.holdings.all.isEmpty
+        ? null
+        : ledger.holdings.all.first.code;
     shares = 0;
     price = 0;
     note = '';
@@ -215,7 +217,7 @@ final class ComposeForm {
     lent = null;
     if (mode == ComposeMode.lend) {
       // Paid from the main account, for the first person owing.
-      final main = ledger.mainAccount;
+      final main = ledger.accounts.main;
       if (main.isNotEmpty) account = main;
       to = people.isEmpty ? '' : people.first.id;
     }
@@ -250,7 +252,7 @@ final class ComposeForm {
   /// [entry]'s account, when it is open and keeps the same currency as
   /// the one chosen, so an amount typed stays in its unit.
   void _accountFrom(Entry entry) {
-    final open = {for (final a in ledger.openAccounts) a.id};
+    final open = {for (final a in ledger.accounts.open) a.id};
     if (!open.contains(entry.account)) return;
     if (ledger.account(entry.account).currency != currency) return;
     account = entry.account;
@@ -273,7 +275,7 @@ final class ComposeForm {
     // An invoice is in NT$: on an account in another currency, the first
     // open one in NT$ pays it.
     if (currency != homeCode) {
-      for (final a in ledger.openAccounts) {
+      for (final a in ledger.accounts.open) {
         if (a.currency == homeCode) {
           account = a.id;
           break;
@@ -289,7 +291,7 @@ final class ComposeForm {
     category = entry.category;
     merchant = entry.merchant;
     if (entry.merchant.isNotEmpty) more = true;
-    final open = {for (final a in ledger.openAccounts) a.id};
+    final open = {for (final a in ledger.accounts.open) a.id};
     if (open.contains(entry.account)) account = entry.account;
     // The amount only in its own unit.
     if (ledger.account(entry.account).currency == currency) {
@@ -299,7 +301,7 @@ final class ComposeForm {
 
   /// The accounts that keep what someone owes, one per person.
   List<Account> get people => [
-    for (final a in ledger.openAccounts)
+    for (final a in ledger.accounts.open)
       if (a.kind == AccountKind.receivable) a,
   ];
 
@@ -314,7 +316,7 @@ final class ComposeForm {
     findLending(entry);
     if (entry.isInvestment) trade = entry.type;
     receipt = photo;
-    final accounts = ledger.openAccounts;
+    final accounts = ledger.accounts.open;
     final open = {for (final a in accounts) a.id};
     if (!open.contains(account) && accounts.isNotEmpty) {
       account = accounts.first.id;
@@ -413,12 +415,12 @@ final class ComposeForm {
     if (original != null && worth != null && original.amount > 0) {
       return (worth * amount / original.amount).round();
     }
-    return ledger.toHome(amount, currency);
+    return ledger.marketData.toHome(amount, currency);
   }
 
   /// [received], else the amount at today's rates.
   int? get receivedValue =>
-      received ?? ledger.convert(amount, currency, toCurrency);
+      received ?? ledger.marketData.convert(amount, currency, toCurrency);
 
   /// The premium withheld from the cash dividend being written.
   int get withheld => premium ?? dividendPremium(amount, date);
@@ -465,7 +467,7 @@ final class ComposeForm {
     if (lent!.any((p) => p.$2 <= 0)) return '代墊的金額要大於 0';
     if (own < 0) return '代墊的金額超過總額（多 ${groupDigits(-own)}）';
     for (final e in buildAll()) {
-      final was = ledger.byId(e.id);
+      final was = ledger.entries.byId(e.id);
       final found = ledger.problemWith(e, replacing: was);
       if (found != null) return found;
     }

@@ -74,7 +74,9 @@ void main() {
         });
         ledger = loaded;
 
-        final firstMonth = await time(() async => ledger.entriesIn(2026, 10));
+        final firstMonth = await time(
+          () async => ledger.entries.inMonth(2026, 10),
+        );
         final spendYear = await time(
           () async => ledger.spendingBetween(
             DateTime.utc(2026, 1, 1),
@@ -102,18 +104,22 @@ void main() {
             ),
           );
         });
-        final afterMonth = await time(() async => ledger.entriesIn(2026, 10));
-        final afterDay = await time(() async => ledger.entriesOn(today));
+        final afterMonth = await time(
+          () async => ledger.entries.inMonth(2026, 10),
+        );
+        final afterDay = await time(() async => ledger.entries.onDay(today));
         final afterSum = await time(() async => ledger.expense(2026, 10));
         final afterBalance = await time(() async => ledger.balance('a0'));
-        final afterId = await time(() async => ledger.byId('one'));
+        final afterId = await time(() async => ledger.entries.byId('one'));
         final edit = await time(() async {
           ledger.updateCategory(
             '飲食日常',
             ledger.category('飲食日常').copyWith(name: '吃飯'),
           );
         });
-        final renamed = ledger.entries.where((e) => e.category == '吃飯').length;
+        final renamed = ledger.entries.all
+            .where((e) => e.category == '吃飯')
+            .length;
         store.close();
 
         // ignore: avoid_print

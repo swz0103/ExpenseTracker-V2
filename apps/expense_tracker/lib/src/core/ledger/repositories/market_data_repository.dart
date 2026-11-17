@@ -1,3 +1,7 @@
+import 'package:core/foundation_values.dart' show Currency;
+
+import '../models/models.dart' show homeCode;
+
 /// What the screens and queries may ask of the market data.
 abstract interface class MarketDataReader {
   /// The trading day of the newest close the holdings are valued at;
@@ -27,6 +31,14 @@ abstract interface class MarketDataReader {
   /// before when the latest could not be fetched. Null when it is the
   /// latest, or not known.
   DateTime? olderQuote(String code);
+
+  /// [minor] units of [currency] in whole NT$ at [rates]; null without a
+  /// rate for it.
+  int? toHome(int minor, String currency);
+
+  /// [amount] of [from] in the smallest unit of [to], through NT$ at
+  /// [rates]; null without a rate for either.
+  int? convert(int amount, String from, String to);
 }
 
 /// The rates, the day's changes and the quote days last fetched. Only
@@ -71,6 +83,33 @@ final class MarketDataRepository implements MarketDataReader {
     if (day == null || latest == null || !day.isBefore(latest)) return null;
     return day;
   }
+
+  @override
+  int? toHome(int minor, String currency) {
+    if (currency == homeCode) return minor;
+    final rate = _rates[currency];
+    if (rate == null) return null;
+    return (minor / _unit(currency) * rate).round();
+  }
+
+  @override
+  int? convert(int amount, String from, String to) {
+    if (from == to) return amount;
+    final home = from == homeCode ? amount.toDouble() : _rated(amount, from);
+    if (home == null) return null;
+    if (to == homeCode) return home.round();
+    final rate = _rates[to];
+    if (rate == null || rate <= 0) return null;
+    return (home / rate * _unit(to)).round();
+  }
+
+  double? _rated(int minor, String currency) {
+    final rate = _rates[currency];
+    return rate == null ? null : minor / _unit(currency) * rate;
+  }
+
+  static int _unit(String currency) =>
+      Currency.scaleOf(currency) == 0 ? 1 : 100;
 
   /// Takes everything fetched anew, in place of what was kept.
   void replace({

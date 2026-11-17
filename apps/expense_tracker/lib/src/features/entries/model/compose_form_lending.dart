@@ -107,7 +107,7 @@ extension Lending on ComposeForm {
     this.back = back;
     parts = null;
     installments = 0;
-    final main = ledger.mainAccount;
+    final main = ledger.accounts.main;
     if (main.isNotEmpty) account = main;
     final known = {for (final a in people) a.id};
     if (!known.contains(to)) to = people.isEmpty ? '' : people.first.id;

@@ -125,7 +125,7 @@ final class AccountForm {
   /// 我的帳戶; null while none has been placed.
   int? get _nextPlace {
     int? last;
-    for (final a in ledger.accounts) {
+    for (final a in ledger.accounts.all) {
       final place = a.place;
       if (place != null && (last == null || place > last)) last = place;
     }

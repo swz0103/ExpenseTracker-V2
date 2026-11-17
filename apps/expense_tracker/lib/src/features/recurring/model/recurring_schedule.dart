@@ -21,7 +21,7 @@ final class Due {
 /// month's bookings in order, as [Ledger.pendingDate] counts them.
 Map<int, List<Due>> monthPlan(Ledger ledger, int year, int month) {
   final days = <int, List<Due>>{};
-  for (final item in ledger.recurring) {
+  for (final item in ledger.recurring.all) {
     if (!item.active) continue;
     final booked = ledger.confirmationsIn(item, year, month);
     var next = 0;
@@ -73,9 +73,9 @@ List<Category> usualCategories(
   required bool income,
   int count = 5,
 }) {
-  final open = ledger.categoriesFor(income: income);
+  final open = ledger.categories.forEntries(income: income);
   final uses = <String, int>{};
-  for (final e in ledger.entries) {
+  for (final e in ledger.entries.all) {
     uses[e.category] = (uses[e.category] ?? 0) + 1;
   }
   final sorted = [...open]

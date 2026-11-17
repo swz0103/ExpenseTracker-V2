@@ -42,7 +42,7 @@ void main() {
       );
 
   List<DateTime> rentDays(Ledger ledger) => [
-    for (final e in ledger.entries)
+    for (final e in ledger.entries.all)
       if (e.recurring == rentId) e.date,
   ]..sort();
 
@@ -72,7 +72,7 @@ void main() {
     );
     expect(ledger.bookDue(), 0);
     ledger.remove('r11');
-    expect(ledger.recurring.single.skipped, {DateTime.utc(2026, 11, 1)});
+    expect(ledger.recurring.all.single.skipped, {DateTime.utc(2026, 11, 1)});
     expect(ledger.bookDue(), 0, reason: 'deleted stays deleted');
     expect(ledger.due, isEmpty);
   });
@@ -83,13 +83,13 @@ void main() {
       entries: [booked(10), booked(11)],
     );
     final removed = ledger.removeAll(['r11']);
-    expect(ledger.recurring.single.skipped, isNotEmpty);
+    expect(ledger.recurring.all.single.skipped, isNotEmpty);
     expect(ledger.restoreAll(removed), isTrue);
-    expect(ledger.recurring.single.skipped, isEmpty);
+    expect(ledger.recurring.all.single.skipped, isEmpty);
     expect(ledger.bookDue(), 0, reason: 'November is back, booked');
 
     ledger.remove('r11');
-    ledger.unskip(ledger.recurring.single, DateTime.utc(2026, 11, 1));
+    ledger.unskip(ledger.recurring.all.single, DateTime.utc(2026, 11, 1));
     expect(ledger.bookDue(), 1, reason: '恢復: booked again');
     expect(rentDays(ledger).last, DateTime.utc(2026, 11, 1));
   });

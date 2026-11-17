@@ -37,22 +37,21 @@ extension LedgerQueries on Ledger {
     return [for (final (_, e) in found) e];
   }
 
-  List<Entry> entriesOn(DateTime day) => _entries.onDay(day);
-
   /// Income of a month, dividends included.
   int income(int year, int month) =>
-      entriesIn(year, month).fold(0, (total, e) => total + e.earning);
+      entries.inMonth(year, month).fold(0, (total, e) => total + e.earning);
 
   /// Spending of a month, less refunds, with transfer fees.
-  int expense(int year, int month, {int? untilDay}) => entriesIn(year, month)
+  int expense(int year, int month, {int? untilDay}) => entries
+      .inMonth(year, month)
       .where((e) => untilDay == null || e.date.day <= untilDay)
       .fold(0, (total, e) => total + e.spending);
 
   int dividends(int year, int month) =>
-      entriesIn(year, month).fold(0, (sum, e) => sum + e.dividendNet);
+      entries.inMonth(year, month).fold(0, (sum, e) => sum + e.dividendNet);
 
   int spentOn(DateTime day) =>
-      entriesOn(day).fold(0, (total, e) => total + e.spending);
+      entries.onDay(day).fold(0, (total, e) => total + e.spending);
 
   /// A month's spending by category, largest first.
   List<(Category, int)> expenseByCategory(
@@ -61,7 +60,7 @@ extension LedgerQueries on Ledger {
     int? untilDay,
   }) {
     final totals = <String, int>{};
-    for (final e in entriesIn(year, month)) {
+    for (final e in entries.inMonth(year, month)) {
       if (untilDay != null && e.date.day > untilDay) continue;
       for (final (name, value) in e.spendingParts) {
         totals[name] = (totals[name] ?? 0) + value;

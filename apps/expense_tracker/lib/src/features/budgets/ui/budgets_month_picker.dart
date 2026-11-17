@@ -25,7 +25,7 @@ class _MonthPickerState extends State<_MonthPicker> {
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
-    final whole = ledger.budgetFor(allSpending);
+    final whole = ledger.budgets.forCategory(allSpending);
     int key((int, int) m) => m.$1 * 12 + m.$2;
     Widget arrow(Glyph glyph, String label, bool on, int by) => Material(
       color: on ? Hue.surface : Hue.paper,
@@ -149,12 +149,12 @@ class _AddLimit extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final categories = [
-      for (final c in ledger.categoriesFor(income: false))
-        if (ledger.budgetFor(c.name).limit == 0) c,
+      for (final c in ledger.categories.forEntries(income: false))
+        if (ledger.budgets.forCategory(c.name).limit == 0) c,
     ];
     final tags = [
       for (final tag in ledger.tags)
-        if (ledger.budgetFor('#$tag').limit == 0) tag,
+        if (ledger.budgets.forCategory('#$tag').limit == 0) tag,
     ];
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),

@@ -31,7 +31,8 @@ extension LedgerEntries on Ledger {
     final seen = <String>{};
     final named = [
       for (final c in categories)
-        if (categoryNameFree(c.name) && seen.add(c.name.trim())) _trimmed(c),
+        if (_categories.isNameFree(c.name) && seen.add(c.name.trim()))
+          _trimmed(c),
     ];
     final opened = _accounts.addNew(accounts);
     _categories.addAll(named);
@@ -212,7 +213,7 @@ extension LedgerEntries on Ledger {
   /// [problem], when it no longer fits the trades kept since.
   bool restore((int, Entry) removed) {
     final (index, entry) = removed;
-    if (byId(entry.id) != null) return false;
+    if (entries.byId(entry.id) != null) return false;
     _entries.insert(index.clamp(0, _entries.length), entry);
     if (!_tryReplay(() => _entries.remove(entry), trades: entry.isInvestment)) {
       return false;
@@ -235,7 +236,7 @@ extension LedgerEntries on Ledger {
   /// it no longer fits the trades kept since.
   bool restoreTrashed(Trashed trashed) {
     final entry = trashed.entry;
-    if (byId(entry.id) != null) {
+    if (entries.byId(entry.id) != null) {
       // Already back in the book, as by an undo: only the trash keeps it.
       _trash.removeEntries({entry.id});
       _signal();
@@ -249,7 +250,7 @@ extension LedgerEntries on Ledger {
         if (identical(t, trashed) ||
             (group != null &&
                 t.entry.group == group &&
-                byId(t.entry.id) == null))
+                entries.byId(t.entry.id) == null))
           t,
     ];
     final before = _trash.all;

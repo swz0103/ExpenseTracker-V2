@@ -69,7 +69,8 @@ class _CategoryEditorState extends State<_CategoryEditor> {
     final name = _name.text.trim();
     if (name.isEmpty) return;
     // Categories are found by name: two with one name would be one.
-    final taken = widget.ledger?.categories.any((c) => c.name == name) ?? false;
+    final taken =
+        widget.ledger?.categories.all.any((c) => c.name == name) ?? false;
     if (taken && name != widget.initial.name) {
       setState(() => _problem = '已經有「$name」這個分類，可以改用合併');
       return;
@@ -234,12 +235,16 @@ class _CategoryEditorState extends State<_CategoryEditor> {
     final book = widget.initial.name.isEmpty ? null : ledger;
     final children = [
       if (ledger != null && widget.initial.name.isNotEmpty)
-        for (final c in ledger.categoriesFor(income: widget.initial.income))
+        for (final c in ledger.categories.forEntries(
+          income: widget.initial.income,
+        ))
           if (c.parent == widget.initial.name) c,
     ];
     final parents = [
       if (ledger != null)
-        for (final c in ledger.categoriesFor(income: widget.initial.income))
+        for (final c in ledger.categories.forEntries(
+          income: widget.initial.income,
+        ))
           if (c.parent == null && c.name != widget.initial.name) c.name,
     ];
     final ink = deepOf(_color);

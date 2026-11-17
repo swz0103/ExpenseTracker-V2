@@ -40,7 +40,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
       editCategory(context, ledger, category);
 
   Future<void> _add() async {
-    final count = ledger.categories.length;
+    final count = ledger.categories.all.length;
     final made = await showCategoryEditor(
       context,
       title: _income ? '新增收入分類' : '新增支出分類',
@@ -58,7 +58,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
 
   /// Top-level open categories of the kind shown, in their order.
   List<Category> _tops(bool income) => [
-    for (final c in ledger.categoriesFor(income: income))
+    for (final c in ledger.categories.forEntries(income: income))
       if (c.parent == null || ledger.category(c.parent!).archived) c,
   ];
 
@@ -68,7 +68,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
   void _place(List<String> names) {
     ledger.placeCategories([
       ...names,
-      for (final c in ledger.categories)
+      for (final c in ledger.categories.all)
         if (!names.contains(c.name)) c.name,
     ]);
   }
@@ -109,11 +109,11 @@ class _CategoriesPageState extends State<CategoriesPage> {
         final byName = {for (final c in tops) c.name: c};
         final order = _dragging ?? [for (final c in tops) c.name];
         final archived = [
-          for (final c in ledger.categories)
+          for (final c in ledger.categories.all)
             if (c.archived && c.income == _income) c,
         ];
         final children = <String, int>{};
-        for (final c in ledger.categoriesFor(income: _income)) {
+        for (final c in ledger.categories.forEntries(income: _income)) {
           if (c.parent case final parent?) {
             children[parent] = (children[parent] ?? 0) + 1;
           }

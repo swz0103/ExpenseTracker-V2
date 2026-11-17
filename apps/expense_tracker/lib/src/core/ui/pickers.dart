@@ -66,7 +66,7 @@ List<Option<String>> accountOptions(
   bool Function(Account account)? where,
   List<Account>? among,
 }) => [
-  for (final a in among ?? ledger.openAccounts)
+  for (final a in among ?? ledger.accounts.open)
     if ((currency == null || a.currency == currency) &&
         (where == null || where(a)))
       Option(a.id, a.name, accountIcon(a), accountHue(a)),
@@ -79,7 +79,7 @@ List<Option<String>> categoryOptions(
   required bool income,
   bool Function(Category category)? where,
 }) => [
-  for (final c in ledger.categoriesFor(income: income))
+  for (final c in ledger.categories.forEntries(income: income))
     if (where == null || where(c))
       Option(c.name, c.name, iconFor(c.icon), shownColor(Color(c.color))),
 ];
@@ -279,7 +279,7 @@ class AccountChoices extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final open = [
-      for (final a in among ?? ledger.openAccounts)
+      for (final a in among ?? ledger.accounts.open)
         if (currency == null || a.currency == currency) a,
     ];
     final groups = [

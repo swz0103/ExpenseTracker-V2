@@ -13,10 +13,10 @@ extension on _AccountEditorState {
     String money(int? v) => v == null ? '0' : groupDigits(v);
     final principal = _f.typedPrincipal;
     final owed = minorOf(_f.balance, homeCode);
-    final payer = payFrom != null && ledger.hasAccount(payFrom)
+    final payer = payFrom != null && ledger.accounts.contains(payFrom)
         ? ledger.account(payFrom)
         : null;
-    final into = fund != null && ledger.hasAccount(fund)
+    final into = fund != null && ledger.accounts.contains(fund)
         ? ledger.account(fund)
         : null;
     return [

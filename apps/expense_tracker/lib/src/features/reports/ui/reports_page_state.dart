@@ -323,7 +323,7 @@ class _ReportsPageState extends State<ReportsPage> {
                 ),
               ],
             ),
-            if (ledger.holdings.isNotEmpty)
+            if (ledger.holdings.all.isNotEmpty)
               const Padding(
                 padding: EdgeInsets.only(top: 4),
                 child: Text('過去的股票市值以今日股價估算', style: mutedSmall),

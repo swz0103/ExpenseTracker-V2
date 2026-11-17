@@ -150,7 +150,9 @@ class SettingsPage extends StatelessWidget {
           glyph: Glyph.reset,
           color: SettingsHue.trash,
           title: '最近刪除',
-          detail: ledger.trash.isEmpty ? '沒有' : '${ledger.trash.length} 筆可放回',
+          detail: ledger.trash.all.isEmpty
+              ? '沒有'
+              : '${ledger.trash.all.length} 筆可放回',
           onTap: () => _open(SettingsPart.trash),
         ),
         _Row(

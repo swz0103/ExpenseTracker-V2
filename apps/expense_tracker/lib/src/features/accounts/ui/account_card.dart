@@ -33,7 +33,7 @@ String cardKindLabel(Account account) => switch (account.kind) {
 int spentThisMonth(Ledger ledger, Account account) {
   final today = ledger.today;
   var out = 0;
-  for (final e in ledger.entriesIn(today.year, today.month)) {
+  for (final e in ledger.entries.inMonth(today.year, today.month)) {
     if (e.account != account.id && e.to != account.id) continue;
     final change = ledger.effect(e, account.id);
     if (change < 0) out -= change;
@@ -214,7 +214,7 @@ class AccountCard extends StatelessWidget {
         return ('還欠你', ledger.money(balance), '');
       case AccountKind.bank || AccountKind.wallet || AccountKind.cash:
         if (account.foreign) {
-          final home = ledger.toHome(balance, account.currency);
+          final home = ledger.marketData.toHome(balance, account.currency);
           return (
             '餘額',
             ledger.moneyIn(balance, account.currency),

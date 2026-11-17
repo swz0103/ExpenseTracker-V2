@@ -23,7 +23,8 @@ extension _Pickers on _ComposerState {
 
   Future<void> _pickDate() async {
     final marked = {
-      for (final e in _ledger.entriesIn(_f.date.year, _f.date.month)) e.date,
+      for (final e in _ledger.entries.inMonth(_f.date.year, _f.date.month))
+        e.date,
     };
     final day = await _open<DateTime>(
       '日期',

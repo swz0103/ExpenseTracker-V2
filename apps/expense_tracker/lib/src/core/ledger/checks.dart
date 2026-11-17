@@ -53,7 +53,7 @@ extension EntryChecks on Ledger {
         !holdsWith([e], replacing: replacing)) {
       return '賣出股數超過持股';
     }
-    final original = e.refundOf == null ? null : byId(e.refundOf!);
+    final original = e.refundOf == null ? null : entries.byId(e.refundOf!);
     if (original != null &&
         account(original.account).kind == AccountKind.card &&
         e.account != original.account) {

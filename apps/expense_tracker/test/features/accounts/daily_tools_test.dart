@@ -129,7 +129,7 @@ void main() {
     expect(form.account, 'card');
 
     final again = ComposeForm(ledger, type: EntryType.expense)
-      ..startFrom(ledger.entries.single);
+      ..startFrom(ledger.entries.all.single);
     expect(again.amount, 1280);
     expect(again.merchant, '捷運');
     expect(again.account, 'card');

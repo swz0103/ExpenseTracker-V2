@@ -58,7 +58,10 @@ class _BudgetsPageState extends State<BudgetsPage> {
 
   Future<void> _edit(String category) => showSheet<void>(
     context,
-    (_) => _BudgetEditor(ledger: ledger, budget: ledger.budgetFor(category)),
+    (_) => _BudgetEditor(
+      ledger: ledger,
+      budget: ledger.budgets.forCategory(category),
+    ),
   );
 
   Future<void> _addLimit() async {
@@ -94,10 +97,10 @@ class _BudgetsPageState extends State<BudgetsPage> {
       builder: (context, _) {
         final (year, month) = _month;
         final spent = ledger.expense(year, month);
-        final whole = ledger.budgetFor(allSpending);
+        final whole = ledger.budgets.forCategory(allSpending);
         final total = ledger.allowance(whole, year, month);
         final rows = [
-          for (final b in ledger.budgets)
+          for (final b in ledger.budgets.all)
             if (b.category != allSpending && b.limit > 0)
               (
                 b,

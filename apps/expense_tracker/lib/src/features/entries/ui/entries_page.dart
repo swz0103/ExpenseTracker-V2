@@ -82,7 +82,7 @@ class _EntriesPageState extends State<EntriesPage> {
   }
 
   List<Entry> get _pickedEntries => [
-    for (final e in widget.ledger.entries)
+    for (final e in widget.ledger.entries.all)
       if (_picked.contains(e.id)) e,
   ];
 
@@ -169,10 +169,10 @@ class _EntriesPageState extends State<EntriesPage> {
           !m.isBefore(DateTime.utc(range.start.year, range.start.month));
           m = DateTime.utc(m.year, m.month - 1)
         )
-          ...ledger.entriesIn(m.year, m.month),
+          ...ledger.entries.inMonth(m.year, m.month),
       ];
     } else {
-      source = ledger.entriesIn(year, month);
+      source = ledger.entries.inMonth(year, month);
     }
     return [
       // Entries written as one are shown as one, by the spending.

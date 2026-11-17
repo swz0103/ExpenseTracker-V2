@@ -106,7 +106,7 @@ void main() {
     ledger = await dataSource.load();
     expect(ledger.holding('2330')!.price, 1234.5);
     expect(ledger.holding('2330')!.value, 123450);
-    expect(ledger.rates['USD'], closeTo(31.835, 1e-9));
+    expect(ledger.marketData.rates['USD'], closeTo(31.835, 1e-9));
     // US$100 at the spot buying rate.
     expect(ledger.worthOf(ledger.account(usd.id)), 3184);
 
@@ -142,8 +142,8 @@ void main() {
     expect(await dataSource.refreshQuotes(['2330', '2317']), isTrue);
     expect(dataSource.unquoted, isEmpty);
     final ledger = await dataSource.load();
-    expect(ledger.hasQuote('2317'), isTrue);
-    expect(ledger.olderQuote('2317'), DateTime.utc(2026, 9, 26));
-    expect(ledger.olderQuote('2330'), isNull);
+    expect(ledger.holdings.hasQuote('2317'), isTrue);
+    expect(ledger.marketData.olderQuote('2317'), DateTime.utc(2026, 9, 26));
+    expect(ledger.marketData.olderQuote('2330'), isNull);
   });
 }

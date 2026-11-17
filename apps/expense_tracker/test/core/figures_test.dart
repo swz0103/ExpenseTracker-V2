@@ -37,9 +37,9 @@ void main() {
       recurring: const [],
       rates: const {'USD': 32.0, 'JPY': 0.2},
     );
-    expect(ledger.toHome(10000, 'USD'), 3200);
-    expect(ledger.convert(3200, 'TWD', 'USD'), 10000);
-    expect(ledger.convert(10000, 'USD', 'JPY'), 16000);
+    expect(ledger.marketData.toHome(10000, 'USD'), 3200);
+    expect(ledger.marketData.convert(3200, 'TWD', 'USD'), 10000);
+    expect(ledger.marketData.convert(10000, 'USD', 'JPY'), 16000);
     expect(ledger.assets, 1000 + 3200 + 2000);
     expect(ledger.unrated, isEmpty);
   });
@@ -141,7 +141,7 @@ void main() {
     );
     expect(ledger.netWorthAt(DateTime.utc(2026, 4, 24)), 100000);
     expect(ledger.netWorthAt(DateTime.utc(2026, 4, 25)), 100000 - 20);
-    expect(ledger.entriesOn(DateTime.utc(2026, 4, 25)), [buy]);
-    expect(ledger.entriesOn(DateTime.utc(2026, 4, 24)), isEmpty);
+    expect(ledger.entries.onDay(DateTime.utc(2026, 4, 25)), [buy]);
+    expect(ledger.entries.onDay(DateTime.utc(2026, 4, 24)), isEmpty);
   });
 }

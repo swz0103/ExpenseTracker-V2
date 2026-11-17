@@ -18,7 +18,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
           _order.sort((a, b) => ledger.worthOf(b).compareTo(ledger.worthOf(a)));
         case _SortBy.recent:
           final last = <String, DateTime>{};
-          for (final e in ledger.entries) {
+          for (final e in ledger.entries.all) {
             for (final id in [e.account, ?e.to]) {
               final seen = last[id];
               if (seen == null || e.date.isAfter(seen)) last[id] = e.date;
@@ -34,7 +34,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
 
   void _byKind() {
     final ledger = widget.ledger;
-    final first = {for (final (i, a) in ledger.openAccounts.indexed) a.id: i};
+    final first = {for (final (i, a) in ledger.accounts.open.indexed) a.id: i};
     setState(() {
       _order.sort((a, b) {
         final byKind = walletKinds

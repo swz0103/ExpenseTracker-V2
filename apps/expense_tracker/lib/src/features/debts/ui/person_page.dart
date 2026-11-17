@@ -18,7 +18,7 @@ class PersonPage extends StatelessWidget {
   /// Opens the composer on money paid for [person] from the main account
   /// ([lend]), or on money paid back, all that is owed by default.
   void _move(Account person, {required bool lend}) {
-    final main = ledger.mainAccount;
+    final main = ledger.accounts.main;
     final owed = ledger.balance(person.id);
     nav.compose(
       type: EntryType.transfer,
@@ -74,7 +74,7 @@ class PersonPage extends StatelessWidget {
     return ListenableBuilder(
       listenable: ledger,
       builder: (context, _) {
-        if (!ledger.hasAccount(personId)) {
+        if (!ledger.accounts.contains(personId)) {
           WidgetsBinding.instance.addPostFrameCallback((_) => nav.back());
           return const SizedBox.shrink();
         }
@@ -82,7 +82,7 @@ class PersonPage extends StatelessWidget {
         final balance = ledger.balance(person.id);
         final owed = ledger.owedBy(person.id);
         final entries = [
-          for (final e in ledger.entries)
+          for (final e in ledger.entries.all)
             if (e.account == person.id || e.to == person.id) e,
         ]..sort((a, b) => b.date.compareTo(a.date));
         final color = nameColor(person.name);
@@ -236,7 +236,7 @@ class LoanPage extends StatelessWidget {
     return ListenableBuilder(
       listenable: ledger,
       builder: (context, _) {
-        if (!ledger.hasAccount(loanId)) {
+        if (!ledger.accounts.contains(loanId)) {
           WidgetsBinding.instance.addPostFrameCallback((_) => nav.back());
           return const SizedBox.shrink();
         }
@@ -246,7 +246,7 @@ class LoanPage extends StatelessWidget {
         final principal = loan.principal;
         final color = nameColor(loan.name);
         final entries = [
-          for (final e in ledger.entries)
+          for (final e in ledger.entries.all)
             if (e.account == loan.id || e.to == loan.id) e,
         ]..sort((a, b) => b.date.compareTo(a.date));
         return HeadedList(
@@ -300,7 +300,7 @@ class LoanPage extends StatelessWidget {
                   date: ledger.today,
                   type: EntryType.transfer,
                   amount: 0,
-                  account: ledger.mainAccount,
+                  account: ledger.accounts.main,
                   category: transferCategory,
                   to: loan.id,
                 ),

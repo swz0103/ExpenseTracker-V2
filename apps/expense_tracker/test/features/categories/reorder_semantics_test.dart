@@ -27,7 +27,7 @@ void main() {
     await tester.pumpAndSettle();
 
     List<String> tops() => [
-      for (final c in ledger.categoriesFor(income: false))
+      for (final c in ledger.categories.forEntries(income: false))
         if (c.parent == null) c.name,
     ];
     final before = tops();

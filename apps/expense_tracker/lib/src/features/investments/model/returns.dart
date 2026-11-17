@@ -59,21 +59,21 @@ int cashOf(Entry e) => switch (e.type) {
 double? returnOf(Ledger ledger, {String? code}) {
   final codes = code == null
       ? {
-          for (final e in ledger.entries)
+          for (final e in ledger.entries.all)
             if (e.isInvestment) e.holding,
         }
       : {code};
   for (final c in codes) {
     if (c == null) continue;
-    if (ledger.lotsOf(c).any((l) => l.isOpening)) return null;
+    if (ledger.holdings.lotsOf(c).any((l) => l.isOpening)) return null;
   }
   final flows = <(DateTime, int)>[
-    for (final e in ledger.entries)
+    for (final e in ledger.entries.all)
       if (e.isInvestment && codes.contains(e.holding))
         if (cashOf(e) case final cash when cash != 0) (e.date, cash),
   ];
   final held = [
-    for (final h in ledger.holdings)
+    for (final h in ledger.holdings.all)
       if (codes.contains(h.code)) h.value,
   ].fold(0, (sum, v) => sum + v);
   if (held > 0) flows.add((ledger.today, held));
@@ -111,7 +111,7 @@ List<DividendGuess> expectedDividends(Ledger ledger) {
   final today = ledger.today;
   final since = DateTime.utc(today.year - 1, today.month, today.day);
   final found = <DividendGuess>[];
-  for (final h in ledger.holdings) {
+  for (final h in ledger.holdings.all) {
     if (h.shares <= 0) continue;
     for (final e in ledger.tradesOf(h.code)) {
       if (e.type != EntryType.dividend || e.isReduction) continue;

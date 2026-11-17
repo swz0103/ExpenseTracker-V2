@@ -10,10 +10,10 @@ class _InvestHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final value = ledger.investValue;
-    final cost = ledger.investCost;
+    final value = ledger.holdings.marketValue;
+    final cost = ledger.holdings.costBasis;
     final gain = value - cost;
-    final day = ledger.dayChange;
+    final day = ledger.holdings.dayChange;
     final before = value - day;
     final rate = returnOf(ledger);
     Widget column(String label, String figure, Color color, String sub) =>
@@ -82,7 +82,7 @@ class _InvestHero extends StatelessWidget {
                   height: 1.15,
                 ),
               ),
-              if (ledger.quotedOn != null)
+              if (ledger.marketData.quotedOn != null)
                 Pill(
                   '今日 ${ledger.orDots(signed(day))}'
                   '${before == 0 ? '' : ' · ${percentOf(day, before)}'}',
@@ -104,8 +104,10 @@ class _InvestHero extends StatelessWidget {
                 rule,
                 column(
                   '已實現',
-                  ledger.orDots(signed(ledger.realized)),
-                  ledger.realized < 0 ? Hue.negative : Hue.positive,
+                  ledger.orDots(signed(ledger.holdings.realizedGain)),
+                  ledger.holdings.realizedGain < 0
+                      ? Hue.negative
+                      : Hue.positive,
                   '已賣出',
                 ),
                 rule,
@@ -139,7 +141,7 @@ class _HoldingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final quoted = ledger.hasQuote(held.code);
+    final quoted = ledger.holdings.hasQuote(held.code);
     final before = held.value - held.change;
     final up = held.change >= 0;
     final perShare = held.shares == 0 ? 0.0 : held.change / held.shares;

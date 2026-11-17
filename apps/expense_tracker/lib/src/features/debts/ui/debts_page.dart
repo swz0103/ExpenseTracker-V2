@@ -19,13 +19,13 @@ part 'person_page.dart';
 
 /// The people paid for, most owed first, open ones only.
 List<Account> peopleOwing(Ledger ledger) => [
-  for (final a in ledger.openAccounts)
+  for (final a in ledger.accounts.open)
     if (a.kind == AccountKind.receivable) a,
 ]..sort((a, b) => ledger.balance(b.id).compareTo(ledger.balance(a.id)));
 
 /// The open loans.
 List<Account> openLoans(Ledger ledger) => [
-  for (final a in ledger.openAccounts)
+  for (final a in ledger.accounts.open)
     if (a.kind == AccountKind.loan) a,
 ];
 

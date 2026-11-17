@@ -48,19 +48,19 @@ void main() {
 
   /// Every record as its JSON, for comparing two ledgers.
   Map<String, Object?> recordsOf(Ledger l) => {
-    'accounts': [for (final a in l.accounts) accountToJson(a)],
-    'categories': [for (final c in l.categories) categoryToJson(c)],
-    'entries': [for (final e in l.entries) entryToJson(e)],
-    'budgets': [for (final b in l.budgets) budgetToJson(b)],
-    'recurring': [for (final r in l.recurring) recurringToJson(r)],
+    'accounts': [for (final a in l.accounts.all) accountToJson(a)],
+    'categories': [for (final c in l.categories.all) categoryToJson(c)],
+    'entries': [for (final e in l.entries.all) entryToJson(e)],
+    'budgets': [for (final b in l.budgets.all) budgetToJson(b)],
+    'recurring': [for (final r in l.recurring.all) recurringToJson(r)],
   };
 
   test('a new ledger starts with categories and two accounts', () async {
     final ledger = await reopen();
-    expect(ledger.categories, hasLength(9));
-    expect(ledger.categoriesFor(income: true), hasLength(3));
+    expect(ledger.categories.all, hasLength(9));
+    expect(ledger.categories.forEntries(income: true), hasLength(3));
     expect(
-      [for (final a in ledger.accounts) a.kind],
+      [for (final a in ledger.accounts.all) a.kind],
       [AccountKind.cash, AccountKind.bank],
     );
     // Opened again, nothing is added twice.
@@ -74,16 +74,16 @@ void main() {
     store = opened;
     await SqlLedgerDataSource(opened).keep(
       WriteBatch(
-        accounts: demo.accounts,
-        categories: demo.categories,
-        entries: demo.entries,
-        budgets: demo.budgets,
-        recurring: demo.recurring,
+        accounts: demo.accounts.all,
+        categories: demo.categories.all,
+        entries: demo.entries.all,
+        budgets: demo.budgets.all,
+        recurring: demo.recurring.all,
       ),
     );
     final ledger = await reopen();
     expect(jsonEncode(recordsOf(ledger)), jsonEncode(recordsOf(demo)));
-    for (final a in demo.accounts) {
+    for (final a in demo.accounts.all) {
       expect(ledger.balance(a.id), demo.balance(a.id), reason: a.name);
     }
     final card = ledger.account('card');
@@ -97,7 +97,7 @@ void main() {
 
   test('changes through the ledger are kept as they are shown', () async {
     var ledger = await reopen();
-    final cash = ledger.accounts.first;
+    final cash = ledger.accounts.all.first;
     final card = Account(
       ledger.newId(),
       '卡',
@@ -132,10 +132,10 @@ void main() {
         ),
       );
     ledger = await reopen(ledger);
-    final lunch = ledger.entries.single;
+    final lunch = ledger.entries.all.single;
     expect(ledger.balance(cash.id), -120);
-    expect(ledger.budgetFor('飲食日常').carry, isTrue);
-    expect(ledger.recurring.single.name, '房租');
+    expect(ledger.budgets.forCategory('飲食日常').carry, isTrue);
+    expect(ledger.recurring.all.single.name, '房租');
 
     // A renamed category reaches its entries and budget; a renamed tag
     // and merchant reach their entries.
@@ -153,43 +153,43 @@ void main() {
       )
       ..setReceipt(lunch.id, 'lunch.etr');
     ledger = await reopen(ledger);
-    final renamed = ledger.entries.single;
+    final renamed = ledger.entries.all.single;
     expect((renamed.category, renamed.merchant), ('吃', '全聯福利中心'));
     expect(renamed.tags, ['家']);
-    expect(ledger.budgets.single.category, '吃');
-    expect(ledger.categories.where((c) => c.name == '飲食日常'), isEmpty);
+    expect(ledger.budgets.all.single.category, '吃');
+    expect(ledger.categories.all.where((c) => c.name == '飲食日常'), isEmpty);
     final moved = ledger.account(card.id);
     expect(moved.closes, {
       DateTime.utc(2026, 10, 25): DateTime.utc(2026, 10, 23),
     });
     expect((moved.closingDay, moved.history.single.closingDay), (5, 25));
-    expect(ledger.receiptOf(lunch.id), 'lunch.etr');
+    expect(ledger.receipts.of(lunch.id), 'lunch.etr');
 
     // Deleted, then restored from the trash: the same entry, its photo
     // still with it.
     ledger.remove(lunch.id);
     ledger = await reopen(ledger);
-    expect(ledger.entries, isEmpty);
-    expect(ledger.trash.single.entry.id, lunch.id);
-    ledger.restoreTrashed(ledger.trash.single);
+    expect(ledger.entries.all, isEmpty);
+    expect(ledger.trash.all.single.entry.id, lunch.id);
+    ledger.restoreTrashed(ledger.trash.all.single);
     ledger = await reopen(ledger);
-    expect(ledger.entries.single.id, lunch.id);
-    expect(ledger.trash, isEmpty);
-    expect(ledger.receiptOf(lunch.id), 'lunch.etr');
+    expect(ledger.entries.all.single.id, lunch.id);
+    expect(ledger.trash.all, isEmpty);
+    expect(ledger.receipts.of(lunch.id), 'lunch.etr');
 
     ledger
       ..removeBudget('吃')
-      ..removeRecurring(ledger.recurring.single.id)
+      ..removeRecurring(ledger.recurring.all.single.id)
       ..mergeCategory('吃', '其他支出');
     ledger = await reopen(ledger);
-    expect(ledger.budgets, isEmpty);
-    expect(ledger.recurring, isEmpty);
-    expect(ledger.entries.single.category, '其他支出');
+    expect(ledger.budgets.all, isEmpty);
+    expect(ledger.recurring.all, isEmpty);
+    expect(ledger.entries.all.single.category, '其他支出');
   });
 
   test('a deleted entry is kept 30 days', () async {
     var ledger = await reopen();
-    final cash = ledger.accounts.first;
+    final cash = ledger.accounts.all.first;
     final entry = Entry(
       id: ledger.newId(),
       date: DateTime.utc(2026, 10, 2),
@@ -201,13 +201,13 @@ void main() {
     ledger.add(entry);
     ledger.remove(entry.id);
     ledger = await reopen(ledger);
-    expect(ledger.trash, hasLength(1));
+    expect(ledger.trash.all, hasLength(1));
     now = DateTime.utc(2026, 11, 2, 4);
     ledger = await reopen();
-    expect(ledger.trash, hasLength(1));
+    expect(ledger.trash.all, hasLength(1));
     now = DateTime.utc(2026, 11, 4, 4);
     ledger = await reopen();
-    expect(ledger.trash, isEmpty);
+    expect(ledger.trash.all, isEmpty);
     expect(store!.rows(shelf: Collection.trash.name), isEmpty);
   });
 
@@ -221,7 +221,7 @@ void main() {
 
   test('a record the app cannot read is told apart', () {
     final demo = demoLedger();
-    final entry = jsonEncode(entryToJson(demo.entries.first));
+    final entry = jsonEncode(entryToJson(demo.entries.all.first));
     SqlLedgerDataSource.check('entry', 'e', entry);
     SqlLedgerDataSource.check('receipt', 'e', 'lunch.etr');
     for (final (collection, body) in [
@@ -241,14 +241,14 @@ void main() {
 
   test('rows carry their version; deletions are noted and forgotten', () async {
     final ledger = await reopen();
-    final bank = ledger.accounts.last;
+    final bank = ledger.accounts.all.last;
     final entry = Entry(
       id: 'e1',
       date: DateTime.utc(2026, 10, 4),
       type: EntryType.expense,
       amount: 120,
       account: bank.id,
-      category: ledger.categoriesFor(income: false).first.name,
+      category: ledger.categories.forEntries(income: false).first.name,
     );
     ledger.add(entry);
     await ledger.settled;
@@ -268,7 +268,7 @@ void main() {
     SqlLedgerDataSource.check('gone', 'entry/e1', '{"at":1}');
 
     final again = await reopen(ledger);
-    expect(again.entries.map((e) => e.id), contains('e1'));
+    expect(again.entries.all.map((e) => e.id), contains('e1'));
   });
 
   test('a row from a newer app is refused, not misread', () {
@@ -285,8 +285,8 @@ void main() {
     store = opened;
     final dataSource = SqlLedgerDataSource(opened, clock: clock());
     final first = await dataSource.load();
-    final bank = first.accounts.last;
-    final category = first.categoriesFor(income: false).first.name;
+    final bank = first.accounts.all.last;
+    final category = first.categories.forEntries(income: false).first.name;
     await dataSource.keep(
       WriteBatch(
         entries: [
@@ -303,7 +303,7 @@ void main() {
       ),
     );
     final loaded = await reopen();
-    expect(loaded.entries, hasLength(2100));
+    expect(loaded.entries.all, hasLength(2100));
   });
 
   test('a form put aside outlasts the app and keeps its photo', () async {
@@ -314,10 +314,10 @@ void main() {
     // Not a change of the book: no backup is due for it.
     expect(store!.revision, revision);
     final again = await reopen(ledger);
-    expect(again.draft('expense'), contains('1.etr'));
+    expect(again.drafts.of('expense'), contains('1.etr'));
     expect(again.receiptFiles, contains('1.etr'));
     again.setDraft('expense', null);
     final cleared = await reopen(again);
-    expect(cleared.draft('expense'), isNull);
+    expect(cleared.drafts.of('expense'), isNull);
   });
 }

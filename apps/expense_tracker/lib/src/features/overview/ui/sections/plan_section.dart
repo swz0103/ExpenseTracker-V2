@@ -37,7 +37,11 @@ class PlanSection extends StatelessWidget {
   Widget _budgetTile() {
     final (year, m) = month;
     final spent = ledger.expense(year, m);
-    final limit = ledger.allowance(ledger.budgetFor(allSpending), year, m);
+    final limit = ledger.allowance(
+      ledger.budgets.forCategory(allSpending),
+      year,
+      m,
+    );
     final (gone, days) = ledger.daysGone(year, m);
     final today = ledger.today;
     final current = today.year == year && today.month == m;

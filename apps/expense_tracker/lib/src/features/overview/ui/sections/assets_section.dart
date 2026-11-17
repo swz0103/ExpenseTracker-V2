@@ -59,20 +59,20 @@ class _AssetsSectionState extends State<AssetsSection> {
 
     if (group == 'investment') {
       return shaded([
-        for (final h in ledger.holdings)
+        for (final h in ledger.holdings.all)
           if (h.value > 0) (h.code, h.name, h.value),
       ]);
     }
     if (group != null) {
       return shaded([
-        for (final a in ledger.accounts)
+        for (final a in ledger.accounts.all)
           if (a.kind.name == group && _counted(a) && ledger.worthOf(a) > 0)
             (a.id, a.name, ledger.worthOf(a)),
       ]);
     }
     int sumOf(AccountKind kind) {
       var total = 0;
-      for (final a in ledger.accounts) {
+      for (final a in ledger.accounts.all) {
         if (a.kind == kind && _counted(a)) {
           total += max(0, ledger.worthOf(a));
         }
@@ -81,7 +81,7 @@ class _AssetsSectionState extends State<AssetsSection> {
     }
 
     final parts = [
-      ('investment', '投資', ledger.investValue, Hue.holdings),
+      ('investment', '投資', ledger.holdings.marketValue, Hue.holdings),
       for (final kind in const [
         AccountKind.bank,
         AccountKind.cash,

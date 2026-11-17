@@ -28,7 +28,7 @@ InboxOutcome applyInbox(Ledger ledger, List<InboxItem> items) {
     final (id, day) = request;
     final label = '${day.month}/${day.day}';
     Recurring? found;
-    for (final r in ledger.recurring) {
+    for (final r in ledger.recurring.all) {
       if (r.id == id) found = r;
     }
     if (found == null) {

@@ -45,7 +45,7 @@ class _Manage extends StatelessWidget {
         final today = ledger.today;
         List<Widget> side(bool income) {
           final items = [
-            for (final r in ledger.recurring)
+            for (final r in ledger.recurring.all)
               if (r.active && r.income == income) r,
           ];
           if (items.isEmpty) return const [];
@@ -213,7 +213,7 @@ class _Paused extends StatelessWidget {
       listenable: ledger,
       builder: (context, _) {
         final paused = [
-          for (final r in ledger.recurring)
+          for (final r in ledger.recurring.all)
             if (!r.active) r,
         ];
         return _SubPage(

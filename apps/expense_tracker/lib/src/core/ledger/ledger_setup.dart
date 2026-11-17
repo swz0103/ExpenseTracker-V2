@@ -5,7 +5,7 @@ part of 'ledger.dart';
 
 extension LedgerSetup on Ledger {
   void setBudget(String category, int limit, {int? warning, bool? carry}) {
-    final old = budgetFor(category);
+    final old = budgets.forCategory(category);
     final budget = Budget(
       category,
       limit,
@@ -146,12 +146,6 @@ extension LedgerSetup on Ledger {
     _keep(WriteBatch(dropped: [(Collection.account, removed.id)]));
   }
 
-  /// Whether [name] can be a new category's: not empty, not one the
-  /// ledger keeps for itself (all spending, transfers, a `#` tag budget)
-  /// and not taken, unless by [except].
-  bool categoryNameFree(String name, {String? except}) =>
-      _categories.isNameFree(name, except: except);
-
   /// [category] under its name without the spaces around it, as every
   /// name is compared.
   Category _trimmed(Category category) {
@@ -160,7 +154,7 @@ extension LedgerSetup on Ledger {
   }
 
   void addCategory(Category category) {
-    if (!categoryNameFree(category.name)) {
+    if (!categories.isNameFree(category.name)) {
       problem.value = const NameTaken();
       return;
     }
@@ -208,7 +202,7 @@ extension LedgerSetup on Ledger {
   /// new name reaches every entry, budget and recurring item that uses it.
   void updateCategory(String name, Category next) {
     if (_categories.all.every((c) => c.name != name)) return;
-    if (!categoryNameFree(next.name, except: name)) {
+    if (!categories.isNameFree(next.name, except: name)) {
       problem.value = const NameTaken();
       return;
     }

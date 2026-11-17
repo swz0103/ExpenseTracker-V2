@@ -37,7 +37,7 @@ void main() {
       ..balance = '3,000'
       ..currency = 'USD';
     expect(form.save(), isTrue);
-    final made = ledger.accounts.last;
+    final made = ledger.accounts.all.last;
     expect(made.name, '郵局');
     expect(made.currency, 'USD');
     expect(ledger.balance(made.id), 300000);
@@ -84,7 +84,7 @@ void main() {
       expect(ledger.account('card').place, 0);
       final form = AccountForm(ledger)..name = '郵局';
       expect(form.save(), isTrue);
-      expect(ledger.accounts.last.place, 2);
+      expect(ledger.accounts.all.last.place, 2);
       final edit = AccountForm(ledger, old: ledger.account('bank'))
         ..name = '薪轉';
       expect(edit.save(), isTrue);
@@ -103,7 +103,7 @@ void main() {
         ..balance = '300,000'
         ..fundInto = 'bank';
       expect(form.save(), isTrue);
-      final loan = ledger.accounts.last;
+      final loan = ledger.accounts.all.last;
       expect(loan.principal, 350000);
       expect(loan.place, isNull);
       expect(ledger.balance(loan.id), -300000);
@@ -113,8 +113,8 @@ void main() {
         ..name = '信貸'
         ..balance = '50,000';
       expect(plain.save(), isTrue);
-      expect(ledger.balance(ledger.accounts.last.id), -50000);
-      expect(ledger.accounts.last.principal, isNull);
+      expect(ledger.balance(ledger.accounts.all.last.id), -50000);
+      expect(ledger.accounts.all.last.principal, isNull);
       expect(ledger.balance('bank'), 305000);
     },
   );
@@ -133,7 +133,7 @@ void main() {
       ..payFrom = 'bank';
     expect(form.plan?.first, 5059);
     expect(form.save(), isTrue);
-    final loan = ledger.accounts.last;
+    final loan = ledger.accounts.all.last;
     expect(ledger.balance(loan.id), -1000000);
     expect(
       (
@@ -155,9 +155,10 @@ void main() {
       ..name = '旅費'
       ..color = 0xFF8E7CC0;
     expect(form.save(), isTrue);
-    expect(ledger.accounts.last.color, 0xFF8E7CC0);
-    final edit = AccountForm(ledger, old: ledger.accounts.last)..color = null;
+    expect(ledger.accounts.all.last.color, 0xFF8E7CC0);
+    final edit = AccountForm(ledger, old: ledger.accounts.all.last)
+      ..color = null;
     expect(edit.save(), isTrue);
-    expect(ledger.accounts.last.color, isNull);
+    expect(ledger.accounts.all.last.color, isNull);
   });
 }

@@ -30,6 +30,21 @@ abstract interface class HoldingReader {
   /// Whether [entries] can be the book's: none of their trades sells more
   /// shares than are held by then.
   bool holdsWith(List<Entry> entries);
+
+  /// What the holdings are worth at their reference closes.
+  int get marketValue;
+
+  /// What the shares still held cost.
+  int get costBasis;
+
+  /// The holdings' change in value on their last trading day.
+  int get dayChange;
+
+  /// Profit or loss of shares already sold.
+  int get realizedGain;
+
+  /// Dividends received so far.
+  int get dividends;
 }
 
 /// The starting positions, with the stocks' reference prices and names,
@@ -71,6 +86,21 @@ final class HoldingRepository implements HoldingReader {
     }
     return null;
   }
+
+  @override
+  int get marketValue => all.fold(0, (sum, h) => sum + h.value);
+
+  @override
+  int get costBasis => all.fold(0, (sum, h) => sum + h.cost);
+
+  @override
+  int get dayChange => all.fold(0, (sum, h) => sum + h.change);
+
+  @override
+  int get realizedGain => all.fold(0, (sum, h) => sum + h.realized);
+
+  @override
+  int get dividends => all.fold(0, (sum, h) => sum + h.dividends);
 
   @override
   bool hasQuote(String code) => _start.any((h) => h.code == code);

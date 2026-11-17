@@ -75,7 +75,7 @@ const nudgeTag = 'nudge';
 Set<String> wantedTags(Ledger ledger, Preferences preferences) => {
   if (preferences.dueAlerts)
     for (final r in ledger.reminders(days: 30)) 'due:${r.key}',
-  if (preferences.dailyNudge && ledger.entriesOn(ledger.today).isEmpty)
+  if (preferences.dailyNudge && ledger.entries.onDay(ledger.today).isEmpty)
     nudgeTag,
   // A budget's notice stays while the budget is still past its mark.
   for (final c in budgetCrossings(ledger, preferences)) c.tag,
@@ -93,7 +93,7 @@ List<BudgetCrossing> budgetCrossings(Ledger ledger, Preferences preferences) {
   final today = ledger.today;
   final month = '${today.year}-${today.month}';
   final found = <BudgetCrossing>[];
-  for (final b in ledger.budgets) {
+  for (final b in ledger.budgets.all) {
     if (b.limit <= 0) continue;
     final allowed = ledger.allowance(b, today.year, today.month);
     if (allowed <= 0) continue;
@@ -163,7 +163,7 @@ List<Alert> alertsFor(Ledger ledger, Preferences preferences, DateTime now) {
   }
   if (preferences.dailyNudge) {
     final today = ledger.today;
-    final recorded = ledger.entriesOn(today).isNotEmpty;
+    final recorded = ledger.entries.onDay(today).isNotEmpty;
     for (var d = 0; d < 7; d++) {
       if (d == 0 && recorded) continue;
       final at = DateTime(

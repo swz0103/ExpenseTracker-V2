@@ -14,6 +14,11 @@ abstract interface class AccountReader {
 
   /// Whether [id] is an account of this book, archived ones included.
   bool contains(String id);
+
+  /// The account money usually comes from or goes back to, as for a card
+  /// payment or money paid back: the first open NT$ bank account, else
+  /// any open NT$ account that is not a debt; empty when there is none.
+  String get main;
 }
 
 /// The book's accounts with an index by id. The commands that write use
@@ -44,6 +49,18 @@ final class AccountRepository implements AccountReader {
 
   @override
   bool contains(String id) => _index.containsKey(id);
+
+  @override
+  String get main {
+    final usable = [
+      for (final a in open)
+        if (!a.kind.isDebt && !a.foreign && a.kind != AccountKind.receivable) a,
+    ];
+    for (final a in usable) {
+      if (a.kind == AccountKind.bank) return a.id;
+    }
+    return usable.isEmpty ? '' : usable.first.id;
+  }
 
   /// Adds [account] last; its id is the caller's to make unique.
   void add(Account account) {

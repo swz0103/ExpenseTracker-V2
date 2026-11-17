@@ -53,8 +53,8 @@ class HoldingPage extends StatelessWidget {
           );
         }
         final tone = held.gain < 0 ? Hue.negative : Hue.positive;
-        final quoted = ledger.hasQuote(code);
-        final lots = ledger.lotsOf(code);
+        final quoted = ledger.holdings.hasQuote(code);
+        final lots = ledger.holdings.lotsOf(code);
         final average = held.shares == 0 ? 0 : held.cost / held.shares;
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
@@ -135,7 +135,7 @@ class HoldingPage extends StatelessWidget {
                           date: ledger.today,
                           type: type,
                           amount: 0,
-                          account: ledger.mainAccount,
+                          account: ledger.accounts.main,
                           category: '',
                           holding: code,
                         ),
@@ -532,7 +532,7 @@ class _PriceCard extends StatelessWidget {
                 ),
                 if (!quoted)
                   Text('尚無收盤價，以成本估算', style: mutedSmall)
-                else if (ledger.quotedOn case final d?)
+                else if (ledger.marketData.quotedOn case final d?)
                   Text('${d.month}/${d.day} 收盤', style: mutedSmall),
               ],
             ),

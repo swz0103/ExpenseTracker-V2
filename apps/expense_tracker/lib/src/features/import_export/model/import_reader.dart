@@ -2,7 +2,7 @@ part of 'import_export.dart';
 
 final class _Reader {
   _Reader(this.ledger, this.fallback)
-    : _names = {for (final a in ledger.accounts) a.name: a.id};
+    : _names = {for (final a in ledger.accounts.all) a.name: a.id};
 
   final Ledger ledger;
   final String fallback;
@@ -67,12 +67,12 @@ final class _Reader {
   String _categoryNamed(String name, {required bool income}) {
     final other = income ? '其他收入' : feeCategory;
     if (name.isEmpty) return other;
-    for (final c in [...ledger.categories, ..._categories]) {
+    for (final c in [...ledger.categories.all, ..._categories]) {
       if (c.name == name) return c.income == income ? name : other;
     }
     // A name the ledger keeps for itself is not made a category.
-    if (!ledger.categoryNameFree(name)) return other;
-    final count = ledger.categories.length + _categories.length;
+    if (!ledger.categories.isNameFree(name)) return other;
+    final count = ledger.categories.all.length + _categories.length;
     _categories.add(
       Category(
         name,
@@ -177,7 +177,9 @@ final class _Reader {
           if (t.isNotEmpty) t,
       ],
       installments: card && !income ? int.tryParse(cell('分期')) ?? 0 : 0,
-      home: from.foreign ? home ?? ledger.toHome(amount, from.currency) : null,
+      home: from.foreign
+          ? home ?? ledger.marketData.toHome(amount, from.currency)
+          : null,
     );
   }
 
@@ -192,7 +194,7 @@ final class _Reader {
   ) {
     final shop = cell('商家');
     final candidates = [
-      for (final e in [...ledger.entries, for (final (_, f) in _found) f])
+      for (final e in [...ledger.entries.all, for (final (_, f) in _found) f])
         if (e.type == EntryType.expense &&
             !e.isRefund &&
             e.account == account &&
@@ -218,7 +220,9 @@ final class _Reader {
   }
 
   int _left(Entry e) {
-    final inBook = ledger.byId(e.id) == null ? e.amount : ledger.refundable(e);
+    final inBook = ledger.entries.byId(e.id) == null
+        ? e.amount
+        : ledger.refundable(e);
     return inBook - (_refunded[e.id] ?? 0);
   }
 
@@ -339,8 +343,8 @@ final class _Reader {
   }
 }
 
-bool _already(Ledger ledger, Entry entry) => ledger
-    .entriesIn(entry.date.year, entry.date.month)
+bool _already(Ledger ledger, Entry entry) => ledger.entries
+    .inMonth(entry.date.year, entry.date.month)
     .any(
       (e) =>
           e.date == entry.date &&
@@ -366,7 +370,7 @@ const _hints = {
 String guessCategory(Ledger ledger, String merchant, String items) {
   final used = ledger.categoryAt(merchant);
   if (used != null) return used;
-  final known = ledger.categoriesFor(income: false).map((c) => c.name);
+  final known = ledger.categories.forEntries(income: false).map((c) => c.name);
   final text = '$merchant $items'.toUpperCase();
   for (final MapEntry(key: category, value: words) in _hints.entries) {
     if (!known.contains(category)) continue;
@@ -507,7 +511,7 @@ String? _usualAccount(Ledger ledger, String shop) {
   if (last == null) return null;
   final account = ledger.account(last.account);
   if (account.archived || account.currency != homeCode) return null;
-  if (!ledger.hasAccount(account.id)) return null;
+  if (!ledger.accounts.contains(account.id)) return null;
   return account.id;
 }
 
@@ -555,8 +559,8 @@ bool _hasInvoice(
   int? amount,
 }) {
   if (day == null) return false;
-  return ledger
-      .entriesIn(day.year, day.month)
+  return ledger.entries
+      .inMonth(day.year, day.month)
       .any(
         (e) =>
             e.note.contains(number) ||

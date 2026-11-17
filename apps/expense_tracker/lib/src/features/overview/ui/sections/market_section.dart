@@ -46,25 +46,25 @@ class _MarketSectionState extends State<MarketSection> {
   List<Widget> _market() {
     final ledger = widget.ledger;
     final holdings = ledger.holdings;
-    if (holdings.isEmpty) return const [];
-    final change = ledger.dayChange;
-    final before = ledger.investValue - change;
-    final largest = holdings.fold(0, (m, h) => max(m, h.change.abs()));
-    final anyLoss = holdings.any((h) => h.change < 0);
+    if (holdings.all.isEmpty) return const [];
+    final change = ledger.holdings.dayChange;
+    final before = ledger.holdings.marketValue - change;
+    final largest = holdings.all.fold(0, (m, h) => max(m, h.change.abs()));
+    final anyLoss = holdings.all.any((h) => h.change < 0);
     final code = _holding;
     final picked = code == null ? null : ledger.holding(code);
     final tone = change < 0 ? Hue.negative : Hue.positive;
     return [
       SectionTitle(
         '投資行情',
-        trailing: Text(switch (ledger.quotedOn) {
+        trailing: Text(switch (ledger.marketData.quotedOn) {
           final d? => '${d.month}/${d.day} 收盤',
           null => '尚未取得收盤價',
         }, style: mutedSmall),
       ),
       CardRow([
         // Before any close there is no move to tell, not a move of zero.
-        if (ledger.quotedOn == null)
+        if (ledger.marketData.quotedOn == null)
           const FigureCard(
             icon: Glyph.investment,
             color: ToolHue.investments,
@@ -85,14 +85,14 @@ class _MarketSectionState extends State<MarketSection> {
           icon: Glyph.briefcase,
           color: ToolHue.investments,
           label: '持股市值',
-          value: ledger.money(ledger.investValue),
-          sub: '${holdings.length} 檔',
+          value: ledger.money(ledger.holdings.marketValue),
+          sub: '${holdings.all.length} 檔',
           onTap: () => widget.nav.open(Pages.investments),
         ),
       ]),
       const SizedBox(height: 8),
-      for (final h in holdings)
-        _moveRow(h, largest, anyLoss ? 0.5 : 0, bar: holdings.length > 1),
+      for (final h in holdings.all)
+        _moveRow(h, largest, anyLoss ? 0.5 : 0, bar: holdings.all.length > 1),
       if (picked != null)
         Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -129,7 +129,8 @@ class _MarketSectionState extends State<MarketSection> {
   Widget _moveRow(Holding h, int largest, double axis, {required bool bar}) {
     final picked = h.code == _holding;
     final quoted =
-        widget.ledger.hasQuote(h.code) && widget.ledger.quotedOn != null;
+        widget.ledger.holdings.hasQuote(h.code) &&
+        widget.ledger.marketData.quotedOn != null;
     return InkWell(
       onTap: () => setState(() => _holding = picked ? null : h.code),
       borderRadius: BorderRadius.circular(8),

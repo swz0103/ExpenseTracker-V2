@@ -14,7 +14,7 @@ void main() {
       for (final list in plan.values)
         for (final d in list) d.item.id,
     ];
-    for (final r in ledger.recurring) {
+    for (final r in ledger.recurring.all) {
       final times = r.active ? r.datesIn(today.year, today.month).length : 0;
       expect(shown.where((id) => id == r.id).length, times, reason: r.name);
     }
@@ -37,7 +37,7 @@ void main() {
 
   test('the next three times follow the item\'s rhythm', () {
     final ledger = demoLedger();
-    final monthly = ledger.recurring.firstWhere((r) => r.every == 1);
+    final monthly = ledger.recurring.all.firstWhere((r) => r.every == 1);
     final next = nextTimes(monthly, ledger.today);
     expect(next, hasLength(3));
     expect(next[1].isAfter(next[0]) && next[2].isAfter(next[1]), isTrue);

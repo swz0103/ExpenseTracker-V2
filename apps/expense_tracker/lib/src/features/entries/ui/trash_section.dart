@@ -36,7 +36,7 @@ class TrashSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trash = ledger.trash;
-    if (trash.isEmpty) {
+    if (trash.all.isEmpty) {
       return const EmptyState(
         glyph: Glyph.trash,
         color: SettingsHue.trash,
@@ -47,7 +47,7 @@ class TrashSection extends StatelessWidget {
     // Grouped by the day each entry was for, latest day first.
     final days = <DateTime, List<Trashed>>{};
     for (final t in [
-      ...trash,
+      ...trash.all,
     ]..sort((a, b) => b.entry.date.compareTo(a.entry.date))) {
       final d = t.entry.date;
       days.putIfAbsent(DateTime(d.year, d.month, d.day), () => []).add(t);
@@ -65,7 +65,7 @@ class TrashSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${trash.length} 筆',
+                    '${trash.all.length} 筆',
                     style: const TextStyle(
                       fontSize: TextSize.figure,
                       fontWeight: FontWeight.w800,

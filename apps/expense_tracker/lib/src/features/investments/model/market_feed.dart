@@ -34,13 +34,15 @@ final class MarketFeed extends SyncJob implements PriceHistory {
   var _asked = <String>{};
 
   Set<String> get _held => {
-    for (final h in _ledger.holdings)
+    for (final h in _ledger.holdings.all)
       if (h.shares > 0) h.code,
   };
 
   void _changed() {
     final held = _held;
-    final fresh = held.difference(_asked).where((c) => !_ledger.hasQuote(c));
+    final fresh = held
+        .difference(_asked)
+        .where((c) => !_ledger.holdings.hasQuote(c));
     if (fresh.isNotEmpty && !busy) refresh(force: true).ignore();
   }
 

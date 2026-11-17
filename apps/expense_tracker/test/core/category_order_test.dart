@@ -7,15 +7,20 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('categories keep the order they were dragged to', () {
     final ledger = demoLedger();
-    final names = [for (final c in ledger.categoriesFor(income: false)) c.name];
+    final names = [
+      for (final c in ledger.categories.forEntries(income: false)) c.name,
+    ];
     final reversed = names.reversed.toList();
     ledger.placeCategories(reversed);
     expect([
-      for (final c in ledger.categoriesFor(income: false)) c.name,
+      for (final c in ledger.categories.forEntries(income: false)) c.name,
     ], reversed);
 
     final last = ledger.category(reversed.first);
     ledger.updateCategory(last.name, last.copyWith(name: '${last.name}２'));
-    expect(ledger.categoriesFor(income: false).first.name, '${last.name}２');
+    expect(
+      ledger.categories.forEntries(income: false).first.name,
+      '${last.name}２',
+    );
   });
 }

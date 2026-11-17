@@ -33,7 +33,7 @@ class CardPage extends StatelessWidget {
     final year = ledger.today.year;
     var total = 0;
     for (var month = 1; month <= ledger.today.month; month++) {
-      for (final e in ledger.entriesIn(year, month)) {
+      for (final e in ledger.entries.inMonth(year, month)) {
         if (e.account == card.id && e.type == type && e.tags.contains(tag)) {
           total += e.amount;
         }
@@ -46,7 +46,7 @@ class CardPage extends StatelessWidget {
   /// [after]: the cycle not yet billed, for cashback.
   int _taggedAfter(Account card, String tag, EntryType type, DateTime after) {
     var total = 0;
-    for (final e in ledger.entries) {
+    for (final e in ledger.entries.all) {
       if (e.account == card.id &&
           e.type == type &&
           e.tags.contains(tag) &&
@@ -107,7 +107,7 @@ class CardPage extends StatelessWidget {
       listenable: ledger,
       builder: (context, _) {
         // Gone by another way, such as a restore: nothing to show.
-        if (!ledger.hasAccount(accountId)) {
+        if (!ledger.accounts.contains(accountId)) {
           WidgetsBinding.instance.addPostFrameCallback((_) => nav.back());
           return const SizedBox.shrink();
         }
@@ -190,7 +190,7 @@ class CardPage extends StatelessWidget {
                             date: today,
                             type: EntryType.transfer,
                             amount: owed,
-                            account: ledger.mainAccount,
+                            account: ledger.accounts.main,
                             category: transferCategory,
                             note: '${card.name}繳款',
                             to: card.id,

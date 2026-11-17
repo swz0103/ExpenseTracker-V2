@@ -37,12 +37,12 @@ void main() {
     ledger.mergeCategory('外食', '飲食');
     ledger.renameTag('出差', '台中出差');
     ledger.renameMerchant('巷口', '巷口麵店');
-    expect(ledger.restoreTrashed(ledger.trash.single), isTrue);
-    final back = ledger.byId('lunch')!;
+    expect(ledger.restoreTrashed(ledger.trash.all.single), isTrue);
+    final back = ledger.entries.byId('lunch')!;
     expect(back.category, '飲食');
     expect(back.tags, ['台中出差']);
     expect(back.merchant, '巷口麵店');
-    expect(ledger.categories.map((c) => c.name), isNot(contains('外食')));
+    expect(ledger.categories.all.map((c) => c.name), isNot(contains('外食')));
   });
 
   test('an account its deleted entries name stays, so they can come back', () {
@@ -50,8 +50,8 @@ void main() {
     ledger.remove('lunch');
     expect(ledger.isUsed('cash'), isTrue, reason: 'the trash names it');
     ledger.removeAccount('cash');
-    expect(ledger.hasAccount('cash'), isTrue);
-    expect(ledger.restoreTrashed(ledger.trash.single), isTrue);
+    expect(ledger.accounts.contains('cash'), isTrue);
+    expect(ledger.restoreTrashed(ledger.trash.all.single), isTrue);
     expect(ledger.balance('cash'), 380);
   });
 }

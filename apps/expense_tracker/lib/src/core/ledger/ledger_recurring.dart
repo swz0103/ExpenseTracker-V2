@@ -66,7 +66,7 @@ extension LedgerRecurring on Ledger {
 
   /// [item]'s amount in whole NT$ at today's rate; 0 without one.
   int recurringWorth(Recurring item) =>
-      toHome(item.amount, account(item.account).currency) ?? 0;
+      marketData.toHome(item.amount, account(item.account).currency) ?? 0;
 
   /// The entry that books [item] on its pending day, or today if that is
   /// later, for the composer to show before it is saved. A foreign one
@@ -84,7 +84,9 @@ extension LedgerRecurring on Ledger {
       note: item.name,
       recurring: item.id,
       merchant: item.merchant,
-      home: currency == homeCode ? null : toHome(item.amount, currency),
+      home: currency == homeCode
+          ? null
+          : marketData.toHome(item.amount, currency),
     );
   }
 
@@ -108,7 +110,7 @@ extension LedgerRecurring on Ledger {
         final day = pendingDate(item);
         if (day == null || day.isAfter(today) || !days.add(day)) break;
         if (item.amount <= 0 ||
-            !hasAccount(item.account) ||
+            !accounts.contains(item.account) ||
             account(item.account).archived) {
           break;
         }

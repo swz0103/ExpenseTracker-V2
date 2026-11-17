@@ -28,7 +28,7 @@ class MorePage extends StatelessWidget {
         final expense = ledger.expense(today.year, today.month);
         final rate = income == 0 ? 0 : (income - expense) * 100 ~/ income;
         final limit = ledger.allowance(
-          ledger.budgetFor(allSpending),
+          ledger.budgets.forCategory(allSpending),
           today.year,
           today.month,
         );
@@ -53,7 +53,9 @@ class MorePage extends StatelessWidget {
                 glyph: Glyph.pie,
                 color: ToolHue.investments,
                 label: '投資與股息',
-                detail: signed(ledger.investValue - ledger.investCost),
+                detail: signed(
+                  ledger.holdings.marketValue - ledger.holdings.costBasis,
+                ),
                 onTap: () => nav.open(Pages.investments),
               ),
             ]),
@@ -96,7 +98,7 @@ class MorePage extends StatelessWidget {
                 glyph: Glyph.grid,
                 color: ToolHue.categories,
                 label: '分類',
-                detail: '${ledger.categories.length} 個',
+                detail: '${ledger.categories.all.length} 個',
                 onTap: () => nav.open(Pages.categories),
               ),
               ToolButton(

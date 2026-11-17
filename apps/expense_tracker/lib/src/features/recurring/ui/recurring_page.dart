@@ -132,7 +132,7 @@ class _RecurringPageState extends State<RecurringPage> {
             HeaderButton(glyph: Glyph.add, label: '新增', onTap: _edit),
           ],
         );
-        if (ledger.recurring.isEmpty) {
+        if (ledger.recurring.all.isEmpty) {
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
             children: [
@@ -148,7 +148,7 @@ class _RecurringPageState extends State<RecurringPage> {
           );
         }
         final paused = [
-          for (final r in ledger.recurring)
+          for (final r in ledger.recurring.all)
             if (!r.active) r,
         ];
         var toCome = 0;

@@ -133,14 +133,14 @@ class _ExportSheetState extends State<_ExportSheet> {
     }
 
     return switch (span) {
-      _Span.month => _ledger.entriesIn(t.year, t.month),
+      _Span.month => _ledger.entries.inMonth(t.year, t.month),
       _Span.year => [
-        for (final e in _ledger.entries)
+        for (final e in _ledger.entries.all)
           if (e.date.year == t.year) e,
       ],
-      _Span.all => _ledger.entries.toList(),
+      _Span.all => _ledger.entries.all.toList(),
       _Span.custom => [
-        for (final e in _ledger.entries)
+        for (final e in _ledger.entries.all)
           if (within(e.date, _from, _to)) e,
       ],
     };

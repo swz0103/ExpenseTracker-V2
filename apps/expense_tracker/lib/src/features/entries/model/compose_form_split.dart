@@ -55,7 +55,7 @@ extension Splitting on ComposeForm {
   /// Starts a new transfer from [entry], one of [Ledger.usualTransfers]:
   /// its two accounts and amount, on today.
   void startTransferFrom(Entry entry) {
-    final open = {for (final a in ledger.openAccounts) a.id};
+    final open = {for (final a in ledger.accounts.open) a.id};
     final other = entry.to;
     if (!open.contains(entry.account) ||
         other == null ||

@@ -47,7 +47,7 @@ extension _Fields on _ComposerState {
   /// The worth in NT$ of a foreign amount, at today's rate until typed.
   Widget _homeTile() {
     final value = _f.homeValue;
-    final rate = _ledger.rates[_f.currency];
+    final rate = _ledger.marketData.rates[_f.currency];
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: FigureCard(

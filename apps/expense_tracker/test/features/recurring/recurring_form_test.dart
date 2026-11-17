@@ -36,7 +36,7 @@ void main() {
       final unnamed = book();
       final quiet = RecurringForm(unnamed)..amount = 500;
       expect(quiet.save(), isTrue);
-      expect(unnamed.recurring.single.name, '居家');
+      expect(unnamed.recurring.all.single.name, '居家');
 
       final ledger = book();
       final form = RecurringForm(ledger);
@@ -44,7 +44,7 @@ void main() {
       form.name = '房租';
       form.amount = 15000;
       expect(form.save(), isTrue);
-      final item = ledger.recurring.single;
+      final item = ledger.recurring.all.single;
       expect((item.name, item.amount, item.category), ('房租', 15000, '居家'));
       expect(item.day, 4);
     },

@@ -84,7 +84,7 @@ class _DailySectionState extends State<DailySection> {
     for (var d = 0; d < 7; d++) {
       weekSpent += ledger.spentOn(monday.add(Duration(days: d)));
     }
-    final entries = ledger.entriesOn(_day);
+    final entries = ledger.entries.onDay(_day);
     final atToday = !sunday.isBefore(ledger.today);
     final from = '${monday.month} / ${monday.day}';
     final to = '${sunday.month} / ${sunday.day}';
@@ -231,7 +231,7 @@ class _WeekStrip extends StatelessWidget {
     final picked = day == selected;
     final future = day.isAfter(ledger.today);
     final outside = day.month != month;
-    final kinds = {for (final e in ledger.entriesOn(day)) e.type};
+    final kinds = {for (final e in ledger.entries.onDay(day)) e.type};
     final dots = [
       if (kinds.contains(EntryType.expense)) Hue.negative,
       if (kinds.contains(EntryType.income)) Hue.positive,
