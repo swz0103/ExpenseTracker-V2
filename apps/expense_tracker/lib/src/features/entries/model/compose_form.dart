@@ -1,5 +1,4 @@
 import '../../../core/text/amounts.dart';
-import '../../../core/ledger/checks.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../import_export/model/import_export.dart' show guessCategory;
 import '../../import_export/model/invoice_qr.dart';
@@ -58,7 +57,7 @@ final class ComposeForm {
       findLending(source);
     } else if (refundedNow != null) {
       mode = ComposeMode.income;
-      amount = ledger.refundable(refundedNow);
+      amount = ledger.entryQueryService.refundable(refundedNow);
       account = refundedNow.account;
       category = refundedNow.category;
     }
@@ -243,7 +242,7 @@ final class ComposeForm {
   void pickMerchant(String name) {
     merchant = name;
     if (editing != null) return;
-    final last = ledger.lastAt(name);
+    final last = ledger.entryQueryService.lastAt(name);
     if (last == null) return;
     if (parts == null) category = last.category;
     _accountFrom(last);
@@ -307,7 +306,7 @@ final class ComposeForm {
 
   /// Categories of this tab, the most used lately first.
   List<String> categoryChoices() =>
-      ledger.categoriesByUse(income: tab == ComposeMode.income);
+      ledger.reportService.categoriesByUse(income: tab == ComposeMode.income);
 
   /// Brings back a form put aside: [entry] with its receipt photo, on
   /// accounts still open; when none is open, its own accounts stay.
@@ -453,7 +452,10 @@ final class ComposeForm {
   String? get problem {
     if (mode == ComposeMode.lend && to.isEmpty) return '請選擇代墊對象';
     if (lending) return _lendingProblem;
-    final found = ledger.problemWith(build(), replacing: editing);
+    final found = ledger.entryValidator.problemWith(
+      build(),
+      replacing: editing,
+    );
     if (found != null) return found;
     final splitTotal = splitParts?.fold(0, (sum, p) => sum + p.$2);
     if (splitTotal != null && splitTotal != amount) {
@@ -468,7 +470,7 @@ final class ComposeForm {
     if (own < 0) return '代墊的金額超過總額（多 ${groupDigits(-own)}）';
     for (final e in buildAll()) {
       final was = ledger.entries.byId(e.id);
-      final found = ledger.problemWith(e, replacing: was);
+      final found = ledger.entryValidator.problemWith(e, replacing: was);
       if (found != null) return found;
     }
     return null;

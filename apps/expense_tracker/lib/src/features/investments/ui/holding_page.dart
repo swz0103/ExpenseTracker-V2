@@ -36,7 +36,7 @@ class HoldingPage extends StatelessWidget {
       listenable: ledger,
       builder: (context, _) {
         final held = ledger.holding(code);
-        final trades = ledger.tradesOf(code);
+        final trades = ledger.entryQueryService.tradesOf(code);
         if (held == null) {
           return HeadedList(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),

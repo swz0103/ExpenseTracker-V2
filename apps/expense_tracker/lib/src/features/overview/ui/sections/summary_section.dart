@@ -24,9 +24,12 @@ class SummarySection extends StatelessWidget {
           icon: Glyph.wallet,
           label: '本月結餘',
           hides: true,
-          income: ledger.income(year, m),
-          expense: ledger.expense(year, m),
-          middle: ('其中股息', ledger.money(ledger.dividends(year, m))),
+          income: ledger.reportService.income(year, m),
+          expense: ledger.reportService.expense(year, m),
+          middle: (
+            '其中股息',
+            ledger.money(ledger.reportService.dividends(year, m)),
+          ),
         );
       },
     );

@@ -341,6 +341,19 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
 
   // What is asked of them.
 
+  /// Puts what [change] gives in place of each entry it gives one for,
+  /// and returns those put in.
+  List<Entry> changeAll(Entry? Function(Entry entry) change) {
+    final changed = <Entry>[];
+    for (var i = 0; i < _items.length; i++) {
+      final next = change(_items[i]);
+      if (next == null) continue;
+      this[i] = next;
+      changed.add(next);
+    }
+    return changed;
+  }
+
   @override
   List<Entry> get all => UnmodifiableListView(_items);
 

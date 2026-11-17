@@ -57,7 +57,7 @@ void main() {
         var store = RowStore.open(file, key);
         var ledger = await SqlLedgerDataSource(store, clock: clock).load();
         final entries = make(count);
-        ledger.addAll(
+        ledger.entryCommands.addAll(
           entries,
           accounts: [
             for (var i = 0; i < 3; i++)
@@ -78,21 +78,31 @@ void main() {
           () async => ledger.entries.inMonth(2026, 10),
         );
         final spendYear = await time(
-          () async => ledger.spendingBetween(
+          () async => ledger.reportService.spendingBetween(
             DateTime.utc(2026, 1, 1),
             DateTime.utc(2026, 12, 31),
           ),
         );
-        final balance = await time(() async => ledger.balance('a0'));
-        final netWorth = await time(() async => ledger.netWorthAt(today));
-        final search1 = await time(() async => ledger.search('便當'));
-        final search2 = await time(() async => ledger.search('便當店'));
-        final stats = await time(() async => ledger.merchantStats);
+        final balance = await time(
+          () async => ledger.balanceService.balance('a0'),
+        );
+        final netWorth = await time(
+          () async => ledger.balanceService.netWorthAt(today),
+        );
+        final search1 = await time(
+          () async => ledger.entryQueryService.search('便當'),
+        );
+        final search2 = await time(
+          () async => ledger.entryQueryService.search('便當店'),
+        );
+        final stats = await time(
+          () async => ledger.reportService.merchantStats,
+        );
 
         // What recording one entry costs the screen: the call itself, then the
         // first queries that follow (the caches are thrown away).
         final add = await time(() async {
-          ledger.add(
+          ledger.entryCommands.add(
             Entry(
               id: 'one',
               date: today,
@@ -108,11 +118,15 @@ void main() {
           () async => ledger.entries.inMonth(2026, 10),
         );
         final afterDay = await time(() async => ledger.entries.onDay(today));
-        final afterSum = await time(() async => ledger.expense(2026, 10));
-        final afterBalance = await time(() async => ledger.balance('a0'));
+        final afterSum = await time(
+          () async => ledger.reportService.expense(2026, 10),
+        );
+        final afterBalance = await time(
+          () async => ledger.balanceService.balance('a0'),
+        );
         final afterId = await time(() async => ledger.entries.byId('one'));
         final edit = await time(() async {
-          ledger.updateCategory(
+          ledger.categoryCommands.updateCategory(
             '飲食日常',
             ledger.category('飲食日常').copyWith(name: '吃飯'),
           );

@@ -246,7 +246,10 @@ void main() {
     };
     final id = ledger.category('飲食').id;
 
-    ledger.updateCategory('飲食', ledger.category('飲食').copyWith(name: '吃飯'));
+    ledger.categoryCommands.updateCategory(
+      '飲食',
+      ledger.category('飲食').copyWith(name: '吃飯'),
+    );
     await ledger.settled;
     expect(ledger.problem.value, isNull);
 
@@ -277,7 +280,7 @@ void main() {
       final ledger = await load();
       final old = ledger.category('交通');
 
-      ledger.updateCategory(
+      ledger.categoryCommands.updateCategory(
         '交通',
         Category('通勤', old.icon, old.color), // built afresh: its own new id
       );
@@ -299,7 +302,7 @@ void main() {
       final from = ledger.category('早餐').id;
       final into = ledger.category('飲食').id;
 
-      ledger.mergeCategory('早餐', '飲食');
+      ledger.categoryCommands.mergeCategory('早餐', '飲食');
       await ledger.settled;
       expect(ledger.problem.value, isNull);
 
@@ -317,8 +320,8 @@ void main() {
     writeLegacy(open());
     var ledger = await load();
     final pet = Category('寵物', 'pet', 0xFF123456);
-    ledger.addCategory(pet);
-    ledger.add(
+    ledger.categoryCommands.addCategory(pet);
+    ledger.entryCommands.add(
       Entry(
         id: 'e7',
         date: DateTime.utc(2026, 10, 4),
@@ -343,7 +346,7 @@ void main() {
     final id = ledger.category('飲食').id;
     expect(rowsOf(store!, 'budget').keys, contains(id));
 
-    ledger.removeBudget('飲食');
+    ledger.budgetCommands.removeBudget('飲食');
     await ledger.settled;
     expect(rowsOf(store!, 'budget').keys, isNot(contains(id)));
     expect(rowsOf(store!, 'budget').keys, contains('#家用'));

@@ -74,7 +74,7 @@ class _ReportsPageState extends State<ReportsPage> {
   void _step(int by) => _show(_period.step(by));
 
   Future<void> _pickRange() async {
-    final first = widget.ledger.firstDay;
+    final first = widget.ledger.reportService.firstDay;
     final from = _period.from;
     final to = _period.to;
     final start = from.isBefore(first) ? first : from;
@@ -149,7 +149,7 @@ class _ReportsPageState extends State<ReportsPage> {
                 fontSize: TextSize.title,
                 fontWeight: FontWeight.w700,
               ),
-              onPrevious: from.isAfter(ledger.firstDay)
+              onPrevious: from.isAfter(ledger.reportService.firstDay)
                   ? () => _step(-1)
                   : null,
               onNext: period.next.isAfter(today) ? null : () => _step(1),

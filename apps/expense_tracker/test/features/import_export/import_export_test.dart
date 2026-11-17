@@ -49,10 +49,10 @@ void main() {
     expect(fresh.entries.last.account, made.id);
     expect(fresh.entries.last.category, '不存在');
     expect(fresh.categories.single.income, isTrue);
-    final before = ledger.expense(2026, 10);
+    final before = ledger.reportService.expense(2026, 10);
     addImport(ledger, fresh);
     expect(ledger.account(made.id).name, '不存在的帳戶');
-    expect(ledger.expense(2026, 10), before + 120);
+    expect(ledger.reportService.expense(2026, 10), before + 120);
   });
 
   test('every kind of entry imports, and reads back as nothing new', () {
@@ -125,13 +125,13 @@ void main() {
     expect(first.amount, 268);
     expect(first.note, '鮮奶 等 2 項 發票 AB00000001');
     expect(found.entries.last.category, '交通通勤');
-    ledger.addAll(found.entries);
+    ledger.entryCommands.addAll(found.entries);
     expect(importInvoices(ledger, text, account: 'card').entries, isEmpty);
   });
 
   test('invoices are not recorded on a foreign-currency account', () {
     final ledger = demoLedger()
-      ..addAccount(
+      ..accountCommands.addAccount(
         const Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
       );
     const text = 'M|手機條碼|/ABC123|20261003|12345678|全聯福利中心|AB00000001|268|開立\n';
@@ -153,14 +153,14 @@ void main() {
     final first = found.entries.single;
     expect((first.amount, first.merchant), (268, '全聯福利中心'));
     expect(first.note, '鮮奶 等 2 項 發票 CD00000001');
-    ledger.addAll(found.entries);
+    ledger.entryCommands.addAll(found.entries);
     expect(importInvoices(ledger, text, account: 'card').entries, isEmpty);
     expect(importInvoices(ledger, '發票號碼\n壞', account: 'card').skipped, 1);
   });
 
   test('a foreign account imports in its own currency', () {
     final ledger = demoLedger()
-      ..addAccount(
+      ..accountCommands.addAccount(
         const Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
       );
     final found = importCsv(
@@ -178,7 +178,7 @@ void main() {
     final ledger = demoLedger();
     final before = ledger.holding('2330')!;
     final lotsBefore = ledger.holdings.lotsOf('2330');
-    ledger.add(
+    ledger.entryCommands.add(
       Entry(
         id: 'stock',
         date: ledger.today,
@@ -198,7 +198,7 @@ void main() {
       ledger.holdings.lotsOf('2330').fold(0, (sum, l) => sum + l.cost),
       before.cost,
     );
-    ledger.add(
+    ledger.entryCommands.add(
       Entry(
         id: 'split',
         date: ledger.today,
@@ -220,7 +220,7 @@ void main() {
 
   test('search finds entries of every month, newest first', () {
     final ledger = demoLedger();
-    final found = ledger.search('全聯');
+    final found = ledger.entryQueryService.search('全聯');
     expect(found.length, greaterThan(1));
     expect(found.map((e) => e.date.month).toSet().length, greaterThan(1));
     for (var i = 1; i < found.length; i++) {

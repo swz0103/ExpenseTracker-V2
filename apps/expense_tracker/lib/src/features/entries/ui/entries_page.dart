@@ -7,7 +7,6 @@ import '../../../core/look/glyphs.dart';
 import '../../../core/look/haptics.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
-import '../../../core/ledger/batch.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/entry_tile.dart';
 import 'entries_filter_sheet.dart';
@@ -110,7 +109,7 @@ class _EntriesPageState extends State<EntriesPage> {
       options: categoryOptions(ledger, income: income),
     );
     if (name == null || !mounted) return;
-    _done('改分類', ledger.recategorize(picked, name));
+    _done('改分類', ledger.entryCommands.recategorize(picked, name));
   }
 
   Future<void> _pickAccount() async {
@@ -124,7 +123,7 @@ class _EntriesPageState extends State<EntriesPage> {
       options: accountOptions(ledger),
     );
     if (id == null || !mounted) return;
-    _done('改帳戶', ledger.moveToAccount(picked, id));
+    _done('改帳戶', ledger.entryCommands.moveToAccount(picked, id));
   }
 
   /// Deletes every picked entry as one change, with one way back for all
@@ -133,9 +132,9 @@ class _EntriesPageState extends State<EntriesPage> {
   void _removePicked() {
     final ledger = widget.ledger;
     // Entries written as one go with the one standing for them.
-    final removed = ledger.removeAll({
+    final removed = ledger.entryCommands.removeAll({
       for (final e in _pickedEntries)
-        for (final m in ledger.groupOf(e)) m.id,
+        for (final m in ledger.entryQueryService.groupOf(e)) m.id,
     });
     if (removed.isEmpty) {
       if (_pickedEntries.isEmpty) setState(_picked.clear);
@@ -146,7 +145,7 @@ class _EntriesPageState extends State<EntriesPage> {
       context,
       '已刪除 ${removed.length} 筆',
       action: '復原',
-      onAction: () => ledger.restoreAll(removed),
+      onAction: () => ledger.entryCommands.restoreAll(removed),
     );
   }
 
@@ -161,7 +160,7 @@ class _EntriesPageState extends State<EntriesPage> {
     final range = filter.range;
     final Iterable<Entry> source;
     if (words.isNotEmpty) {
-      source = ledger.search(words);
+      source = ledger.entryQueryService.search(words);
     } else if (range != null) {
       source = [
         for (
@@ -177,7 +176,8 @@ class _EntriesPageState extends State<EntriesPage> {
     return [
       // Entries written as one are shown as one, by the spending.
       for (final e in source)
-        if (filter.shows(ledger, e) && !ledger.isGroupTail(e)) e,
+        if (filter.shows(ledger, e) && !ledger.entryQueryService.isGroupTail(e))
+          e,
     ];
   }
 
@@ -407,7 +407,7 @@ class _EntriesPageState extends State<EntriesPage> {
 
   Widget _heading(DateTime day) {
     final ledger = widget.ledger;
-    final spent = ledger.spentOn(day);
+    final spent = ledger.reportService.spentOn(day);
     return DayHeading(
       day,
       total: spent == 0 ? null : '支出 ${ledger.money(spent)}',

@@ -269,7 +269,7 @@ class _DayItemsState extends State<_DayItems> {
     final overdue = items.any((x) => !x.settled) && away < 0;
     final total = items.fold(
       0,
-      (sum, x) => sum + ledger.recurringWorth(x.item),
+      (sum, x) => sum + ledger.recurringService.worth(x.item),
     );
     final when = away == 0
         ? '今天'
@@ -434,7 +434,7 @@ class _DayItemsState extends State<_DayItems> {
           ] else if (skipped) ...[
             const SizedBox(width: 10),
             FilledButton(
-              onPressed: () => ledger.unskip(item, x.day),
+              onPressed: () => ledger.recurringCommands.unskip(item, x.day),
               style: solidButton(
                 Hue.white,
                 ink: Hue.accent,

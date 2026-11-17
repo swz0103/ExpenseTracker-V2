@@ -23,7 +23,7 @@ Map<int, List<Due>> monthPlan(Ledger ledger, int year, int month) {
   final days = <int, List<Due>>{};
   for (final item in ledger.recurring.all) {
     if (!item.active) continue;
-    final booked = ledger.confirmationsIn(item, year, month);
+    final booked = ledger.recurringService.confirmationsIn(item, year, month);
     var next = 0;
     for (final day in item.datesIn(year, month)) {
       final skipped = item.skipped.contains(day);
@@ -40,9 +40,9 @@ Map<int, List<Due>> monthPlan(Ledger ledger, int year, int month) {
   }
   for (final list in days.values) {
     list.sort(
-      (a, b) => ledger
-          .recurringWorth(b.item)
-          .compareTo(ledger.recurringWorth(a.item)),
+      (a, b) => ledger.recurringService
+          .worth(b.item)
+          .compareTo(ledger.recurringService.worth(a.item)),
     );
   }
   return days;

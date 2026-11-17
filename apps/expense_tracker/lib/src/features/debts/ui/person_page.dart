@@ -19,7 +19,7 @@ class PersonPage extends StatelessWidget {
   /// ([lend]), or on money paid back, all that is owed by default.
   void _move(Account person, {required bool lend}) {
     final main = ledger.accounts.main;
-    final owed = ledger.balance(person.id);
+    final owed = ledger.balanceService.balance(person.id);
     nav.compose(
       type: EntryType.transfer,
       draft: Entry(
@@ -38,7 +38,7 @@ class PersonPage extends StatelessWidget {
   /// it was part of.
   String _what(Entry e) {
     if (e.note.isNotEmpty) return e.note;
-    final lead = ledger.groupLead(e);
+    final lead = ledger.entryQueryService.groupLead(e);
     if (!identical(lead, e) && lead.type == EntryType.expense) {
       return lead.merchant.isNotEmpty ? lead.merchant : lead.category;
     }
@@ -48,11 +48,11 @@ class PersonPage extends StatelessWidget {
   Future<void> _rename(BuildContext context, Account person) async {
     final name = await askText(context, '改名', initial: person.name);
     if (name == null || name == person.name) return;
-    ledger.updateAccount(person.copyWith(name: name));
+    ledger.accountCommands.updateAccount(person.copyWith(name: name));
   }
 
   Future<void> _delete(BuildContext context, Account person) async {
-    final used = ledger.isUsed(person.id);
+    final used = ledger.accountCommands.isUsed(person.id);
     final ok = await confirm(
       context,
       '刪除「${person.name}」？',
@@ -62,9 +62,9 @@ class PersonPage extends StatelessWidget {
     );
     if (!ok) return;
     if (used) {
-      ledger.updateAccount(person.copyWith(archived: true));
+      ledger.accountCommands.updateAccount(person.copyWith(archived: true));
     } else {
-      ledger.removeAccount(person.id);
+      ledger.accountCommands.removeAccount(person.id);
     }
     nav.back();
   }
@@ -79,8 +79,8 @@ class PersonPage extends StatelessWidget {
           return const SizedBox.shrink();
         }
         final person = ledger.account(personId);
-        final balance = ledger.balance(person.id);
-        final owed = ledger.owedBy(person.id);
+        final balance = ledger.balanceService.balance(person.id);
+        final owed = ledger.reportService.owedBy(person.id);
         final entries = [
           for (final e in ledger.entries.all)
             if (e.account == person.id || e.to == person.id) e,
@@ -141,7 +141,8 @@ class PersonPage extends StatelessWidget {
               ..._board('還沒收回', [
                 for (final (e, left) in owed)
                   QuoteRow(
-                    onTap: () => nav.showEntry(ledger.groupLead(e)),
+                    onTap: () =>
+                        nav.showEntry(ledger.entryQueryService.groupLead(e)),
                     title: _what(e),
                     detail:
                         '${e.date.month}/${e.date.day}'
@@ -170,7 +171,7 @@ class PersonPage extends StatelessWidget {
   Widget _move2(Entry e, String person, Color color) {
     final back = e.account == person;
     return QuoteRow(
-      onTap: () => nav.showEntry(ledger.groupLead(e)),
+      onTap: () => nav.showEntry(ledger.entryQueryService.groupLead(e)),
       lead: SquareIcon(
         back ? Glyph.check : Glyph.add,
         back ? Hue.positive : color,

@@ -35,7 +35,7 @@ int spentThisMonth(Ledger ledger, Account account) {
   var out = 0;
   for (final e in ledger.entries.inMonth(today.year, today.month)) {
     if (e.account != account.id && e.to != account.id) continue;
-    final change = ledger.effect(e, account.id);
+    final change = ledger.balanceService.effect(e, account.id);
     if (change < 0) out -= change;
   }
   return out;
@@ -179,7 +179,7 @@ class AccountCard extends StatelessWidget {
   /// The figure at the end of a card's strip: what is owed on a debt,
   /// else the balance.
   String _strip() {
-    final balance = preview ?? ledger.balance(account.id);
+    final balance = preview ?? ledger.balanceService.balance(account.id);
     return account.kind.isDebt
         ? ledger.money(-balance)
         : ledger.moneyIn(balance, account.currency);
@@ -199,13 +199,13 @@ class AccountCard extends StatelessWidget {
         _ => ('餘額', ledger.moneyIn(shown, account.currency), ''),
       };
     }
-    final balance = ledger.balance(account.id);
+    final balance = ledger.balanceService.balance(account.id);
     switch (account.kind) {
       case AccountKind.card:
-        final (_, _, due) = ledger.statement(account);
+        final (_, _, due) = ledger.statementService.statement(account);
         return (
           '本期應繳',
-          ledger.money(ledger.statementDue(account)),
+          ledger.money(ledger.statementService.statementDue(account)),
           '${due.month}/${due.day} 繳款',
         );
       case AccountKind.loan:

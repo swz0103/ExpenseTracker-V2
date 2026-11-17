@@ -75,7 +75,7 @@ final class _Report {
           );
     // The ledger's own sum keeps the categories in the order it always
     // has, so equal amounts keep their places.
-    final spending = ledger.spendingBetween(from, to);
+    final spending = ledger.reportService.spendingBetween(from, to);
     final lastSpending = _spendingOf(before);
     final names = spending.keys.toList()
       ..sort((a, b) => spending[b]!.compareTo(spending[a]!));
@@ -90,13 +90,15 @@ final class _Report {
       buckets: buckets,
       peak: peak,
       perStretch: passed.isEmpty ? 0 : expense ~/ passed.length,
-      worthBefore: ledger.netWorthAt(from.subtract(const Duration(days: 1))),
-      worthNow: ledger.netWorthAt(until),
+      worthBefore: ledger.balanceService.netWorthAt(
+        from.subtract(const Duration(days: 1)),
+      ),
+      worthNow: ledger.balanceService.netWorthAt(until),
       worth: [
         for (final (_, a, b) in stretches)
           a.isAfter(today)
               ? null
-              : ledger.netWorthAt(b.isAfter(today) ? today : b),
+              : ledger.balanceService.netWorthAt(b.isAfter(today) ? today : b),
       ],
       spending: spending,
       lastSpending: lastSpending,
@@ -105,8 +107,11 @@ final class _Report {
         1,
         (m, n) => max(m, max(spending[n] ?? 0, lastSpending[n] ?? 0)),
       ),
-      merchants: ledger.merchantsBetween(from, to).take(5).toList(),
-      tags: ledger.tagsBetween(from, to),
+      merchants: ledger.reportService
+          .merchantsBetween(from, to)
+          .take(5)
+          .toList(),
+      tags: ledger.reportService.tagsBetween(from, to),
       count: entries.length,
       days: days.length,
       biggestSpend: biggest,

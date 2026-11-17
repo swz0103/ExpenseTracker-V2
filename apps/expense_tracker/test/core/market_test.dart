@@ -82,9 +82,9 @@ void main() {
       currency: 'USD',
     );
     ledger
-      ..addAccount(bank)
-      ..addAccount(usd)
-      ..add(
+      ..accountCommands.addAccount(bank)
+      ..accountCommands.addAccount(usd)
+      ..entryCommands.add(
         Entry(
           id: ledger.newId(),
           date: DateTime.utc(2026, 9, 1),
@@ -108,7 +108,7 @@ void main() {
     expect(ledger.holding('2330')!.value, 123450);
     expect(ledger.marketData.rates['USD'], closeTo(31.835, 1e-9));
     // US$100 at the spot buying rate.
-    expect(ledger.worthOf(ledger.account(usd.id)), 3184);
+    expect(ledger.balanceService.worthOf(ledger.account(usd.id)), 3184);
 
     // Opened again without a connection, the last board still values
     // the dollars.
@@ -116,7 +116,7 @@ void main() {
     open = await vault.unlockWithPassword('market password');
     dataSource = SqlLedgerDataSource(open.store, clock: clock);
     ledger = await dataSource.load();
-    expect(ledger.worthOf(ledger.account(usd.id)), 3184);
+    expect(ledger.balanceService.worthOf(ledger.account(usd.id)), 3184);
     open.close();
   });
 

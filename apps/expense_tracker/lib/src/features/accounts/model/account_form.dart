@@ -93,7 +93,7 @@ final class AccountForm {
   /// overpaid by 300 reads −300.
   static String _startBalance(Ledger ledger, Account? account) {
     if (account == null) return '';
-    final balance = ledger.balance(account.id);
+    final balance = ledger.balanceService.balance(account.id);
     return plainIn(account.kind.isDebt ? -balance : balance, account.currency);
   }
 
@@ -190,11 +190,11 @@ final class AccountForm {
     if (problem != null) return false;
     final account = build();
     if (old == null) {
-      ledger.addAccount(account);
+      ledger.accountCommands.addAccount(account);
       final into = fundInto;
       final owed = typedBalance;
       if (_funded && into != null && owed != null && owed < 0) {
-        ledger.add(
+        ledger.entryCommands.add(
           Entry(
             id: ledger.newId(),
             date: ledger.today,
@@ -209,10 +209,10 @@ final class AccountForm {
       }
       return true;
     }
-    ledger.updateAccount(account);
+    ledger.accountCommands.updateAccount(account);
     final typed = typedBalance;
-    if (typed != null && typed != ledger.balance(account.id)) {
-      ledger.setBalance(account.id, typed);
+    if (typed != null && typed != ledger.balanceService.balance(account.id)) {
+      ledger.accountCommands.setBalance(account.id, typed);
     }
     return true;
   }
@@ -220,7 +220,7 @@ final class AccountForm {
   /// The transfer that settles [account] before it is archived: what is
   /// left moves to [into], or a debt is paid from it.
   static Entry settlement(Ledger ledger, Account account, String into) {
-    final left = ledger.balance(account.id);
+    final left = ledger.balanceService.balance(account.id);
     return Entry(
       id: ledger.newId(),
       date: ledger.today,

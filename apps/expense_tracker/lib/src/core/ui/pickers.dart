@@ -310,7 +310,10 @@ class AccountChoices extends StatelessWidget {
                 if (kinds.contains(a.kind))
                   _AccountChoice(
                     account: a,
-                    balance: ledger.moneyIn(ledger.balance(a.id), a.currency),
+                    balance: ledger.moneyIn(
+                      ledger.balanceService.balance(a.id),
+                      a.currency,
+                    ),
                     picked: a.id == selected,
                     ring: ring,
                     onTap: () => onPick(a.id),

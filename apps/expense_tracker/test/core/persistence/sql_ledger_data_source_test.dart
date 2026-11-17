@@ -84,14 +84,24 @@ void main() {
     final ledger = await reopen();
     expect(jsonEncode(recordsOf(ledger)), jsonEncode(recordsOf(demo)));
     for (final a in demo.accounts.all) {
-      expect(ledger.balance(a.id), demo.balance(a.id), reason: a.name);
+      expect(
+        ledger.balanceService.balance(a.id),
+        demo.balanceService.balance(a.id),
+        reason: a.name,
+      );
     }
     final card = ledger.account('card');
-    expect(ledger.statementDue(card), demo.statementDue(card));
-    expect(ledger.expense(2026, 10), demo.expense(2026, 10));
     expect(
-      ledger.instalmentsOn(card),
-      hasLength(demo.instalmentsOn(card).length),
+      ledger.statementService.statementDue(card),
+      demo.statementService.statementDue(card),
+    );
+    expect(
+      ledger.reportService.expense(2026, 10),
+      demo.reportService.expense(2026, 10),
+    );
+    expect(
+      ledger.statementService.instalmentsOn(card),
+      hasLength(demo.statementService.instalmentsOn(card).length),
     );
   });
 
@@ -107,8 +117,8 @@ void main() {
       dueDay: 10,
     );
     ledger
-      ..addAccount(card)
-      ..add(
+      ..accountCommands.addAccount(card)
+      ..entryCommands.add(
         Entry(
           id: ledger.newId(),
           date: DateTime.utc(2026, 10, 2),
@@ -120,8 +130,8 @@ void main() {
           tags: const ['家用'],
         ),
       )
-      ..setBudget('飲食日常', 8000, carry: true)
-      ..saveRecurring(
+      ..budgetCommands.setBudget('飲食日常', 8000, carry: true)
+      ..recurringCommands.saveRecurring(
         Recurring(
           id: ledger.newId(),
           name: '房租',
@@ -133,25 +143,28 @@ void main() {
       );
     ledger = await reopen(ledger);
     final lunch = ledger.entries.all.single;
-    expect(ledger.balance(cash.id), -120);
+    expect(ledger.balanceService.balance(cash.id), -120);
     expect(ledger.budgets.forCategory('飲食日常').carry, isTrue);
     expect(ledger.recurring.all.single.name, '房租');
 
     // A renamed category reaches its entries and budget; a renamed tag
     // and merchant reach their entries.
     ledger
-      ..updateCategory('飲食日常', ledger.category('飲食日常').copyWith(name: '吃'))
-      ..renameTag('家用', '家')
-      ..renameMerchant('全聯', '全聯福利中心')
-      ..moveClose(
+      ..categoryCommands.updateCategory(
+        '飲食日常',
+        ledger.category('飲食日常').copyWith(name: '吃'),
+      )
+      ..entryCommands.renameTag('家用', '家')
+      ..entryCommands.renameMerchant('全聯', '全聯福利中心')
+      ..accountCommands.moveClose(
         card.id,
         DateTime.utc(2026, 10, 25),
         DateTime.utc(2026, 10, 23),
       )
-      ..updateAccount(
+      ..accountCommands.updateAccount(
         ledger.account(card.id).copyWith(closingDay: 5, dueDay: 20),
       )
-      ..setReceipt(lunch.id, 'lunch.etr');
+      ..attachmentCommands.setReceipt(lunch.id, 'lunch.etr');
     ledger = await reopen(ledger);
     final renamed = ledger.entries.all.single;
     expect((renamed.category, renamed.merchant), ('吃', '全聯福利中心'));
@@ -167,20 +180,20 @@ void main() {
 
     // Deleted, then restored from the trash: the same entry, its photo
     // still with it.
-    ledger.remove(lunch.id);
+    ledger.entryCommands.remove(lunch.id);
     ledger = await reopen(ledger);
     expect(ledger.entries.all, isEmpty);
     expect(ledger.trash.all.single.entry.id, lunch.id);
-    ledger.restoreTrashed(ledger.trash.all.single);
+    ledger.entryCommands.restoreTrashed(ledger.trash.all.single);
     ledger = await reopen(ledger);
     expect(ledger.entries.all.single.id, lunch.id);
     expect(ledger.trash.all, isEmpty);
     expect(ledger.receipts.of(lunch.id), 'lunch.etr');
 
     ledger
-      ..removeBudget('吃')
-      ..removeRecurring(ledger.recurring.all.single.id)
-      ..mergeCategory('吃', '其他支出');
+      ..budgetCommands.removeBudget('吃')
+      ..recurringCommands.removeRecurring(ledger.recurring.all.single.id)
+      ..categoryCommands.mergeCategory('吃', '其他支出');
     ledger = await reopen(ledger);
     expect(ledger.budgets.all, isEmpty);
     expect(ledger.recurring.all, isEmpty);
@@ -198,8 +211,8 @@ void main() {
       account: cash.id,
       category: '飲食日常',
     );
-    ledger.add(entry);
-    ledger.remove(entry.id);
+    ledger.entryCommands.add(entry);
+    ledger.entryCommands.remove(entry.id);
     ledger = await reopen(ledger);
     expect(ledger.trash.all, hasLength(1));
     now = DateTime.utc(2026, 11, 2, 4);
@@ -214,7 +227,7 @@ void main() {
   test('a change that cannot be kept is reported and read back', () async {
     final ledger = await reopen();
     store!.close();
-    ledger.addCategory(Category('寵物', 'pet', 0xFF123456));
+    ledger.categoryCommands.addCategory(Category('寵物', 'pet', 0xFF123456));
     await ledger.settled;
     expect(ledger.problem.value, isA<DataSourceException>());
   });
@@ -250,18 +263,18 @@ void main() {
       account: bank.id,
       category: ledger.categories.forEntries(income: false).first.name,
     );
-    ledger.add(entry);
+    ledger.entryCommands.add(entry);
     await ledger.settled;
     final row = store!.rows(shelf: Collection.entry.name).single;
     final json = jsonDecode(row.body) as Map<String, Object?>;
     expect(json['_v'], recordVersion);
     expect(json['_at'], isA<int>());
 
-    final removed = ledger.remove('e1')!;
+    final removed = ledger.entryCommands.remove('e1')!;
     await ledger.settled;
     expect(store!.rows(shelf: 'gone').map((r) => r.id), ['entry/e1']);
     // Brought back: no longer gone.
-    expect(ledger.restore(removed), isTrue);
+    expect(ledger.entryCommands.restore(removed), isTrue);
     await ledger.settled;
     expect(store!.rows(shelf: 'gone'), isEmpty);
     // A backup carrying the note is accepted.
@@ -309,14 +322,17 @@ void main() {
   test('a form put aside outlasts the app and keeps its photo', () async {
     final ledger = await reopen();
     final revision = store!.revision;
-    ledger.setDraft('expense', '{"entry":{"id":"d"},"receipt":"1.etr"}');
+    ledger.attachmentCommands.setDraft(
+      'expense',
+      '{"entry":{"id":"d"},"receipt":"1.etr"}',
+    );
     await ledger.settled;
     // Not a change of the book: no backup is due for it.
     expect(store!.revision, revision);
     final again = await reopen(ledger);
     expect(again.drafts.of('expense'), contains('1.etr'));
-    expect(again.receiptFiles, contains('1.etr'));
-    again.setDraft('expense', null);
+    expect(again.attachmentCommands.receiptFiles, contains('1.etr'));
+    again.attachmentCommands.setDraft('expense', null);
     final cleared = await reopen(again);
     expect(cleared.drafts.of('expense'), isNull);
   });

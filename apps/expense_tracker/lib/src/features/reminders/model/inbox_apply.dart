@@ -39,9 +39,9 @@ InboxOutcome applyInbox(Ledger ledger, List<InboxItem> items) {
       review.add('「${found.name}」已暫停，$label 的確認沒有入帳');
       continue;
     }
-    final pending = ledger.pendingDate(found);
+    final pending = ledger.recurringService.pendingDate(found);
     if (pending == day) {
-      ledger.confirm(found);
+      ledger.recurringCommands.confirm(found);
       booked++;
     } else if (pending != null && pending.isBefore(day)) {
       review.add(

@@ -17,7 +17,7 @@ int countedBalance(Account account, int counted) =>
 /// The book's balance of [account] as the person would count it: what is
 /// owed, as a positive amount, for a card or loan.
 int shownBalance(Ledger ledger, Account account) {
-  final balance = ledger.balance(account.id);
+  final balance = ledger.balanceService.balance(account.id);
   return account.kind.isDebt ? -balance : balance;
 }
 
@@ -28,7 +28,8 @@ int shownBalance(Ledger ledger, Account account) {
 Entry? reconcile(Ledger ledger, Account account, int counted) {
   if (account.foreign) return null;
   final difference =
-      countedBalance(account, counted) - ledger.balance(account.id);
+      countedBalance(account, counted) -
+      ledger.balanceService.balance(account.id);
   if (difference == 0) return null;
   final found = difference > 0;
   return Entry(

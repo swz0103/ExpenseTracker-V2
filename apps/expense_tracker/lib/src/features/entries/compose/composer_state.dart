@@ -102,8 +102,8 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   /// the amount all they owe.
   void _payAll() {
     if (_f.to.isEmpty) return;
-    _paying = {for (final (e, _) in _ledger.owedBy(_f.to)) e.id};
-    final owed = _ledger.balance(_f.to);
+    _paying = {for (final (e, _) in _ledger.reportService.owedBy(_f.to)) e.id};
+    final owed = _ledger.balanceService.balance(_f.to);
     if (owed > 0) _f.setAmount(owed);
   }
 
@@ -113,10 +113,10 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     _paying = {..._paying};
     if (!_paying.remove(id)) _paying.add(id);
     // All they owe but the sums not ticked, which stay owed.
-    final kept = _ledger
+    final kept = _ledger.reportService
         .owedBy(_f.to)
         .fold(0, (sum, o) => _paying.contains(o.$1.id) ? sum : sum + o.$2);
-    _f.setAmount(math.max(0, _ledger.balance(_f.to) - kept));
+    _f.setAmount(math.max(0, _ledger.balanceService.balance(_f.to) - kept));
   });
 
   /// Opens a choice inside the sheet in place of the form, titled
@@ -207,7 +207,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       ledger: _ledger,
     );
     if (made == null) return null;
-    _ledger.addCategory(made);
+    _ledger.categoryCommands.addCategory(made);
     return made.name;
   }
 
@@ -273,7 +273,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       case AppLifecycleState.resumed:
         if (!_keptAway) return;
         _keptAway = false;
-        _ledger.setDraft(_f.tab.name, _before);
+        _ledger.attachmentCommands.setDraft(_f.tab.name, _before);
       default:
         break;
     }
@@ -290,18 +290,20 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     final entry = made.first;
     try {
       if (widget.entry != null) {
-        _ledger.replaceGroup(
+        _ledger.entryCommands.replaceGroup(
           made,
           _f.openedIds,
           receipt: _f.receipt,
           receiptOn: entry.id,
         );
       } else if (made.length == 1) {
-        _ledger.add(entry, receipt: _f.receipt);
+        _ledger.entryCommands.add(entry, receipt: _f.receipt);
       } else {
-        _ledger.addAll(made);
+        _ledger.entryCommands.addAll(made);
         final photo = _f.receipt;
-        if (photo != null) _ledger.setReceipt(entry.id, photo);
+        if (photo != null) {
+          _ledger.attachmentCommands.setReceipt(entry.id, photo);
+        }
       }
     } on StateError catch (error) {
       // Said to the person below the form.
@@ -361,7 +363,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
         _viewing &&
         entry != null &&
         entry.type == EntryType.expense &&
-        _ledger.refundable(entry) > 0;
+        _ledger.entryQueryService.refundable(entry) > 0;
     // The top stays put: the kind of entry, or what is being changed.
     final top = Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),

@@ -66,15 +66,17 @@ class _AssetsSectionState extends State<AssetsSection> {
     if (group != null) {
       return shaded([
         for (final a in ledger.accounts.all)
-          if (a.kind.name == group && _counted(a) && ledger.worthOf(a) > 0)
-            (a.id, a.name, ledger.worthOf(a)),
+          if (a.kind.name == group &&
+              _counted(a) &&
+              ledger.balanceService.worthOf(a) > 0)
+            (a.id, a.name, ledger.balanceService.worthOf(a)),
       ]);
     }
     int sumOf(AccountKind kind) {
       var total = 0;
       for (final a in ledger.accounts.all) {
         if (a.kind == kind && _counted(a)) {
-          total += max(0, ledger.worthOf(a));
+          total += max(0, ledger.balanceService.worthOf(a));
         }
       }
       return total;

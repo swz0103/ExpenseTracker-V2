@@ -86,7 +86,9 @@ class _CompareSectionState extends State<CompareSection> {
     }
     final ledger = widget.ledger;
     final today = _today;
-    final first = ledger.firstDay.isAfter(today) ? today : ledger.firstDay;
+    final first = ledger.reportService.firstDay.isAfter(today)
+        ? today
+        : ledger.reportService.firstDay;
     final (from, to) = _second;
     final picked = await pickDateRange(
       context,

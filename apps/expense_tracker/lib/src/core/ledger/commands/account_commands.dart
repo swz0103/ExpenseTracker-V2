@@ -1,0 +1,157 @@
+import 'package:core/foundation_values.dart';
+import 'package:domain/credit_cards.dart';
+
+import '../cache/topic.dart';
+import '../models/models.dart';
+import '../persistence/ledger_data_source.dart';
+import '../repositories/account_repository.dart';
+import '../repositories/entry_repository.dart';
+import '../repositories/recurring_repository.dart';
+import '../repositories/trash_repository.dart';
+import '../services/balance_service.dart';
+import 'command_context.dart';
+
+import 'dart:math';
+
+/// Writes the accounts: adding, changing, ordering and removing them, a
+/// balance set by hand and a card's statement close moved.
+final class AccountCommands {
+  AccountCommands({
+    required this._context,
+    required AccountRepository accountRepository,
+    required EntryRepository entryRepository,
+    required TrashRepository trashRepository,
+    required RecurringRepository recurringRepository,
+    required BalanceService balanceService,
+  }) : _accounts = accountRepository,
+       _entries = entryRepository,
+       _trash = trashRepository,
+       _recurring = recurringRepository,
+       _balances = balanceService;
+
+  final CommandContext _context;
+  final AccountRepository _accounts;
+  final EntryRepository _entries;
+  final TrashRepository _trash;
+  final RecurringRepository _recurring;
+  final BalanceService _balances;
+
+  void addAccount(Account account) {
+    _accounts.add(account);
+    _context.changed(const {Topic.accounts});
+    _context.keep(WriteBatch(accounts: [account]));
+  }
+
+  /// Puts [account] in place of the one with the same id.
+  void updateAccount(Account account) {
+    final before = _accounts.byId(account.id);
+    if (before == null) return addAccount(account);
+    // A form that does not show a card's moved closes and earlier billing
+    // days keeps them.
+    account = account.copyWith(
+      closes: account.closes.isEmpty ? before.closes : null,
+      history: account.history.isEmpty ? before.history : null,
+    );
+    account = _rescheduled(before, account);
+    _accounts.replace(account);
+    _context.changed(const {Topic.accounts});
+    _context.keep(WriteBatch(accounts: [account]));
+  }
+
+  /// [after] keeping [before]'s billing days for the statements closing
+  /// before the next close on the new day, as the ledger keeps them.
+  Account _rescheduled(Account before, Account after) {
+    final closing = before.closingDay;
+    final due = before.dueDay;
+    if (after.kind != AccountKind.card ||
+        closing == null ||
+        due == null ||
+        ((after.closingDay ?? closing) == closing &&
+            (after.dueDay ?? due) == due)) {
+      return after;
+    }
+    final day = after.closingDay ?? closing;
+    var from = DateTime.utc(_context.today.year, _context.today.month + 1, 0);
+    for (final month in [_context.today.month, _context.today.month + 1]) {
+      final last = DateTime.utc(_context.today.year, month + 1, 0);
+      final close = DateTime.utc(last.year, last.month, min(day, last.day));
+      if (close.isAfter(_context.today)) {
+        from = close;
+        break;
+      }
+    }
+    final until = BusinessDate(from.year, from.month, from.day);
+    final kept = before.history;
+    // Days changed again before the last change took effect: the days
+    // before that one still hold until the first close on the newest.
+    final pending =
+        kept.isNotEmpty &&
+        kept.last.until.compareTo(
+              BusinessDate(
+                _context.today.year,
+                _context.today.month,
+                _context.today.day,
+              ),
+            ) >
+            0;
+    return after.copyWith(
+      history: [
+        ...(pending ? kept.sublist(0, kept.length - 1) : kept),
+        CardScheduleChange(
+          until: until,
+          closingDay: pending ? kept.last.closingDay : closing,
+          dueDay: pending ? kept.last.dueDay : due,
+        ),
+      ],
+    );
+  }
+
+  /// Puts the accounts of [ids] in that order on 我的帳戶; the others
+  /// keep their places.
+  void placeAccounts(List<String> ids) {
+    final moved = _accounts.place(ids);
+    if (moved.isEmpty) return;
+    _context.changed(const {Topic.accounts});
+    _context.keep(WriteBatch(accounts: moved));
+  }
+
+  /// Corrects [id]'s balance today to [target] by moving its opening
+  /// balance, so its history keeps its shape.
+  void setBalance(String id, int target) {
+    final a = _accounts.byId(id);
+    if (a == null) return;
+    final moved = a.copyWith(
+      opening: a.opening + target - _balances.balance(id),
+    );
+    _accounts.replace(moved);
+    _context.changed(const {Topic.accounts});
+    _context.keep(WriteBatch(accounts: [moved]));
+  }
+
+  /// Moves the close of [cardId]'s statement scheduled on [scheduled] to
+  /// [closesOn], up to a week either way, as a bank does around a holiday.
+  void moveClose(String cardId, DateTime scheduled, DateTime closesOn) {
+    final card = _accounts.byId(cardId);
+    if (card == null) return;
+    final moved = card.copyWith(closes: {...card.closes, scheduled: closesOn});
+    _accounts.replace(moved);
+    _context.changed(Topic.all);
+    _context.keep(WriteBatch(accounts: [moved]));
+  }
+
+  /// Whether anything still names account [id]: an entry, one in the
+  /// trash that may come back, or a recurring item. One in use is
+  /// archived rather than deleted, so nothing is left pointing nowhere.
+  bool isUsed(String id) =>
+      _entries.any((e) => e.account == id || e.to == id) ||
+      _trash.mentionsAccount(id) ||
+      _recurring.mentionsAccount(id);
+
+  void removeAccount(String id) {
+    if (isUsed(id)) return;
+    final removed = _accounts.remove(id);
+    if (removed == null) return;
+    _context.changed(Topic.all);
+    _context.keep(WriteBatch(dropped: [(Collection.account, removed.id)]));
+  }
+}

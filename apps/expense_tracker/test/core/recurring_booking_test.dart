@@ -52,16 +52,16 @@ void main() {
       today: DateTime.utc(2026, 11, 13),
       entries: [booked(6), booked(7), booked(8)],
     );
-    expect(ledger.bookDue(), 3);
+    expect(ledger.recurringCommands.bookDue(), 3);
     expect(rentDays(ledger), [
       for (final m in [6, 7, 8, 9, 10, 11]) DateTime.utc(2026, m, 1),
     ]);
-    expect(ledger.bookDue(), 0, reason: 'booked once only');
+    expect(ledger.recurringCommands.bookDue(), 0, reason: 'booked once only');
   });
 
   test('a new item books this month only, not every month since it began', () {
     final ledger = book(today: DateTime.utc(2026, 11, 13), entries: const []);
-    expect(ledger.bookDue(), 1);
+    expect(ledger.recurringCommands.bookDue(), 1);
     expect(rentDays(ledger), [DateTime.utc(2026, 11, 1)]);
   });
 
@@ -70,11 +70,15 @@ void main() {
       today: DateTime.utc(2026, 11, 13),
       entries: [booked(10), booked(11)],
     );
-    expect(ledger.bookDue(), 0);
-    ledger.remove('r11');
+    expect(ledger.recurringCommands.bookDue(), 0);
+    ledger.entryCommands.remove('r11');
     expect(ledger.recurring.all.single.skipped, {DateTime.utc(2026, 11, 1)});
-    expect(ledger.bookDue(), 0, reason: 'deleted stays deleted');
-    expect(ledger.due, isEmpty);
+    expect(
+      ledger.recurringCommands.bookDue(),
+      0,
+      reason: 'deleted stays deleted',
+    );
+    expect(ledger.recurringService.due, isEmpty);
   });
 
   test('putting it back, or 恢復, takes the skip away again', () {
@@ -82,15 +86,22 @@ void main() {
       today: DateTime.utc(2026, 11, 13),
       entries: [booked(10), booked(11)],
     );
-    final removed = ledger.removeAll(['r11']);
+    final removed = ledger.entryCommands.removeAll(['r11']);
     expect(ledger.recurring.all.single.skipped, isNotEmpty);
-    expect(ledger.restoreAll(removed), isTrue);
+    expect(ledger.entryCommands.restoreAll(removed), isTrue);
     expect(ledger.recurring.all.single.skipped, isEmpty);
-    expect(ledger.bookDue(), 0, reason: 'November is back, booked');
+    expect(
+      ledger.recurringCommands.bookDue(),
+      0,
+      reason: 'November is back, booked',
+    );
 
-    ledger.remove('r11');
-    ledger.unskip(ledger.recurring.all.single, DateTime.utc(2026, 11, 1));
-    expect(ledger.bookDue(), 1, reason: '恢復: booked again');
+    ledger.entryCommands.remove('r11');
+    ledger.recurringCommands.unskip(
+      ledger.recurring.all.single,
+      DateTime.utc(2026, 11, 1),
+    );
+    expect(ledger.recurringCommands.bookDue(), 1, reason: '恢復: booked again');
     expect(rentDays(ledger).last, DateTime.utc(2026, 11, 1));
   });
 

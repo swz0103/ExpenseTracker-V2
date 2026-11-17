@@ -104,11 +104,11 @@ class _AccountsPageState extends State<AccountsPage> {
           ),
           children: [
             _NetWorth(ledger: ledger),
-            if (ledger.unrated.isNotEmpty)
+            if (ledger.balanceService.unrated.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  '尚未取得臺銀匯率，${ledger.unrated.map((a) => a.name).join('、')}'
+                  '尚未取得臺銀匯率，${ledger.balanceService.unrated.map((a) => a.name).join('、')}'
                   '暫不計入總額',
                   style: mutedSmall,
                 ),
@@ -161,16 +161,20 @@ class _NetWorth extends StatelessWidget {
     var lent = 0;
     for (final a in ledger.accounts.all) {
       if (a.kind == AccountKind.receivable && a.inNetWorth) {
-        final worth = ledger.worthOf(a);
+        final worth = ledger.balanceService.worthOf(a);
         if (worth > 0) lent += worth;
       }
     }
-    final debt = ledger.cardDebt + ledger.loanDebt;
-    final saved = ledger.assets - invest - lent;
-    final net = ledger.assets - debt;
+    final debt =
+        ledger.balanceService.cardDebt + ledger.balanceService.loanDebt;
+    final saved = ledger.balanceService.assets - invest - lent;
+    final net = ledger.balanceService.assets - debt;
     final today = ledger.today;
     final moved =
-        net - ledger.netWorthAt(DateTime.utc(today.year, today.month, 0));
+        net -
+        ledger.balanceService.netWorthAt(
+          DateTime.utc(today.year, today.month, 0),
+        );
     final parts = [
       ('存款', saved, Hue.bank),
       ('投資', invest, Hue.holdings),

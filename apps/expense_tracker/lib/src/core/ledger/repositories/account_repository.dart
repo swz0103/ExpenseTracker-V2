@@ -15,6 +15,11 @@ abstract interface class AccountReader {
   /// Whether [id] is an account of this book, archived ones included.
   bool contains(String id);
 
+  /// The account [id]; when the book has none, as for an entry whose
+  /// account was never kept, a bank account of that name with nothing in
+  /// it, so a sum still adds up.
+  Account resolve(String id);
+
   /// The account money usually comes from or goes back to, as for a card
   /// payment or money paid back: the first open NT$ bank account, else
   /// any open NT$ account that is not a debt; empty when there is none.
@@ -49,6 +54,10 @@ final class AccountRepository implements AccountReader {
 
   @override
   bool contains(String id) => _index.containsKey(id);
+
+  @override
+  Account resolve(String id) =>
+      _index[id] ?? Account(id, id, AccountKind.bank, 0);
 
   @override
   String get main {

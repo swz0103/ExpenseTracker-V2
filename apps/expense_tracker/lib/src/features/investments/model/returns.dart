@@ -92,7 +92,7 @@ typedef DividendGuess = ({
 /// every change from [day] on.
 int sharesBefore(Ledger ledger, String code, DateTime day) {
   var shares = ledger.holding(code)?.shares ?? 0;
-  for (final e in ledger.tradesOf(code)) {
+  for (final e in ledger.entryQueryService.tradesOf(code)) {
     if (e.date.isBefore(day)) continue;
     shares -= switch (e.type) {
       EntryType.buy => e.shares,
@@ -113,7 +113,7 @@ List<DividendGuess> expectedDividends(Ledger ledger) {
   final found = <DividendGuess>[];
   for (final h in ledger.holdings.all) {
     if (h.shares <= 0) continue;
-    for (final e in ledger.tradesOf(h.code)) {
+    for (final e in ledger.entryQueryService.tradesOf(h.code)) {
       if (e.type != EntryType.dividend || e.isReduction) continue;
       if (e.dividendNet <= 0 || !e.date.isAfter(since)) continue;
       final then = sharesBefore(ledger, h.code, e.date);
@@ -136,7 +136,7 @@ List<int> payingMonths(Ledger ledger, String code) {
   final today = ledger.today;
   final since = DateTime.utc(today.year - 2, today.month, today.day);
   return {
-    for (final e in ledger.tradesOf(code))
+    for (final e in ledger.entryQueryService.tradesOf(code))
       if (e.type == EntryType.dividend &&
           !e.isReduction &&
           e.dividendNet > 0 &&

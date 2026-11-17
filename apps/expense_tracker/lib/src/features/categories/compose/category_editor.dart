@@ -89,7 +89,10 @@ class _CategoryEditorState extends State<_CategoryEditor> {
 
   void _archive(Ledger ledger) {
     final c = widget.initial;
-    ledger.updateCategory(c.name, c.copyWith(archived: !c.archived));
+    ledger.categoryCommands.updateCategory(
+      c.name,
+      c.copyWith(archived: !c.archived),
+    );
     Navigator.of(context).pop();
   }
 
@@ -106,7 +109,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
       ),
     );
     if (into == null || !mounted) return;
-    ledger.mergeCategory(c.name, into);
+    ledger.categoryCommands.mergeCategory(c.name, into);
     Navigator.of(context).pop();
   }
 
@@ -193,7 +196,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
       colors: widget.colors,
       ledger: ledger,
     );
-    if (made != null) ledger.addCategory(made);
+    if (made != null) ledger.categoryCommands.addCategory(made);
     if (mounted) setState(() {});
   }
 
@@ -205,7 +208,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
       colors: widget.colors,
       ledger: ledger,
     );
-    if (next != null) ledger.updateCategory(child.name, next);
+    if (next != null) ledger.categoryCommands.updateCategory(child.name, next);
     if (mounted) setState(() {});
   }
 

@@ -2,7 +2,6 @@ import 'package:core/foundation_values.dart' show BusinessDate, Currency;
 import 'package:domain/data_exchange.dart';
 
 import '../../../core/text/amounts.dart';
-import '../../../core/ledger/checks.dart';
 import '../../../core/ledger/ledger.dart';
 
 part 'import_reader.dart';
@@ -70,7 +69,7 @@ const duplicateRules =
 
 /// Adds what [found] holds to [ledger], its new accounts and categories
 /// with its entries, as one change.
-void addImport(Ledger ledger, Import found) => ledger.addAll(
+void addImport(Ledger ledger, Import found) => ledger.entryCommands.addAll(
   found.entries,
   accounts: found.accounts,
   categories: found.categories,

@@ -49,17 +49,17 @@ void main() {
 
   test('a budget change keeps what rests on entries only', () async {
     final ledger = book();
-    final merchants = ledger.merchants;
+    final merchants = ledger.entryQueryService.merchants;
     final entriesBefore = ledger.revisionOf(Topic.entries);
-    ledger.setBudget('飲食', 5000);
+    ledger.budgetCommands.setBudget('飲食', 5000);
     expect(ledger.revisionOf(Topic.budgets), 1);
     expect(ledger.revisionOf(Topic.entries), entriesBefore);
-    expect(identical(ledger.merchants, merchants), isTrue);
+    expect(identical(ledger.entryQueryService.merchants, merchants), isTrue);
 
-    ledger.add(spend('tea'));
+    ledger.entryCommands.add(spend('tea'));
     expect(ledger.revisionOf(Topic.entries), entriesBefore + 1);
-    expect(identical(ledger.merchants, merchants), isFalse);
-    expect(ledger.merchants, containsAll(['便當店', '飲料店']));
+    expect(identical(ledger.entryQueryService.merchants, merchants), isFalse);
+    expect(ledger.entryQueryService.merchants, containsAll(['便當店', '飲料店']));
     await ledger.settled;
   });
 
@@ -72,17 +72,17 @@ void main() {
     ledger.watch(const {Topic.market}).addListener(() => market++);
     ledger.addListener(() => all++);
 
-    ledger.setBudget('飲食', 5000);
+    ledger.budgetCommands.setBudget('飲食', 5000);
     expect((budgets, market, all), (1, 0, 1));
 
-    ledger.add(spend('tea'));
+    ledger.entryCommands.add(spend('tea'));
     expect((budgets, market, all), (1, 0, 2));
     await ledger.settled;
   });
 
   test('hiding amounts is a change of display and leaves every sum', () async {
     final ledger = book();
-    final merchants = ledger.merchants;
+    final merchants = ledger.entryQueryService.merchants;
     final revision = ledger.revision;
     var all = 0;
     var display = 0;
@@ -97,7 +97,7 @@ void main() {
     expect(ledger.amounts.hidden, isTrue);
     expect((all, display, budgets), (1, 1, 1));
     expect(ledger.revision, revision);
-    expect(identical(ledger.merchants, merchants), isTrue);
+    expect(identical(ledger.entryQueryService.merchants, merchants), isTrue);
 
     ledger.amounts.toggle();
     expect(ledger.amounts.hidden, isFalse);

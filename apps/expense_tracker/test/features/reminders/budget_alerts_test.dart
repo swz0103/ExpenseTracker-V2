@@ -73,21 +73,21 @@ void main() {
     final port = _Port();
     final notifier = Notifier(port, preferences);
 
-    ledger.add(spend('a', 700));
+    ledger.entryCommands.add(spend('a', 700));
     await notifier.postBudgets(ledger);
     expect(port.posted, isEmpty);
 
-    ledger.add(spend('b', 150));
+    ledger.entryCommands.add(spend('b', 150));
     await notifier.postBudgets(ledger);
     expect([for (final a in port.posted) a.title], ['「飲食」預算已用 85%']);
     expect(port.posted.single.text, '還剩 150');
     // Not again while it stays there.
-    ledger.add(spend('c', 50));
+    ledger.entryCommands.add(spend('c', 50));
     await notifier.postBudgets(ledger);
     expect(port.posted, hasLength(1));
     expect(wantedTags(ledger, preferences), contains('budget:飲食'));
 
-    ledger.add(spend('d', 200));
+    ledger.entryCommands.add(spend('d', 200));
     await notifier.postBudgets(ledger);
     expect(port.posted.last.title, '「飲食」預算已超支');
     expect(port.posted.last.text, '已用 1,100，超出 100');
@@ -96,7 +96,7 @@ void main() {
   });
 
   test('none when budget notifications are off', () {
-    final ledger = book()..add(spend('a', 2000));
+    final ledger = book()..entryCommands.add(spend('a', 2000));
     final preferences = Preferences()..update(budgetAlerts: false);
     expect(budgetCrossings(ledger, preferences), isEmpty);
   });

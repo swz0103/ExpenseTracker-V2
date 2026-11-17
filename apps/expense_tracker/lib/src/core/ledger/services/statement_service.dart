@@ -1,59 +1,82 @@
-part of 'ledger.dart';
+import '../cache/query_cache.dart';
+import '../card_cycle.dart';
+import '../cache/topic.dart';
+import '../models/models.dart';
+import '../repositories/account_repository.dart';
+import '../repositories/entry_repository.dart';
+import '../services/balance_service.dart';
+
+import 'dart:math';
 
 /// Card statements: what has been billed, what is due and what is not
 /// billed yet. A statement closes at the end of its day.
-/// What a card's sums rest on: its entries and the card itself.
-const _cardTopics = {Topic.entries, Topic.accounts};
+final class StatementService {
+  StatementService({
+    required this._entries,
+    required this._accounts,
+    required BalanceService balanceService,
+    required this._cache,
+    required this._today,
+  }) : _balances = balanceService;
 
-extension LedgerCards on Ledger {
+  final EntryReader _entries;
+  final AccountReader _accounts;
+  final BalanceService _balances;
+  final QueryCache _cache;
+  final DateTime Function() _today;
+
+  /// What a card's sums rest on: its entries and the card itself.
+  static const _cardTopics = {Topic.entries, Topic.accounts};
+
   /// How much of [e] has reached its card's statements by [at]: all of
   /// it, or the instalments billed so far.
-  int billed(Entry e, DateTime at) => account(e.account).billed(e, at);
+  int billed(Entry e, DateTime at) =>
+      _accounts.resolve(e.account).billed(e, at);
 
   /// How many instalments of [e] have been billed by [at].
   int billedPeriods(Entry e, DateTime at) =>
-      account(e.account).billedPeriods(e, at);
+      _accounts.resolve(e.account).billedPeriods(e, at);
 
   /// The last day whose statement closes are behind: a statement closes
   /// at the end of its day, so one closing today is still open.
-  DateTime get closedBy => today.subtract(const Duration(days: 1));
+  DateTime get closedBy => _today().subtract(const Duration(days: 1));
 
   /// The last closed statement of [card]: its first and last day and when
   /// it must be paid.
   (DateTime, DateTime, DateTime) statement(Account card) =>
-      _remember(('statement', card.id, closedBy), () {
+      _cache.remember(('statement', card.id, closedBy), () {
         final end = card.closingOn(closedBy);
         final (start, due) = card.cycleEnding(end);
         return (start, end, due);
-      }, on: const {Topic.accounts});
+      }, reads: const {Topic.accounts});
 
   /// What is still to pay on the last statement of [card]: what it owed
   /// when the statement closed, less what was paid in since.
-  int statementDue(Account card) => _remember(
+  int statementDue(Account card) => _cache.remember(
     ('due', card.id, closedBy),
     () => _statementDue(card),
-    on: _cardTopics,
+    reads: _cardTopics,
   );
 
   int _statementDue(Account card) {
     final (_, end, _) = statement(card);
     var paid = 0;
-    for (final e in _entries) {
+    for (final e in _entries.all) {
       if (e.type == EntryType.transfer &&
           e.to == card.id &&
           e.date.isAfter(end)) {
         paid += e.arrived;
       }
     }
-    return max(0, -balance(card.id, until: end) - paid);
+    return max(0, -_balances.balance(card.id, until: end) - paid);
   }
 
   /// Purchases on [card] since its last statement closed, and the
   /// refunds and rewards credited against them.
-  List<Entry> unbilled(Account card) => _remember(
+  List<Entry> unbilled(Account card) => _cache.remember(
     ('unbilled', card.id, closedBy),
     () => _unbilled(card),
-    on: _cardTopics,
+    reads: _cardTopics,
   );
 
   List<Entry> _unbilled(Account card) {
@@ -64,17 +87,17 @@ extension LedgerCards on Ledger {
       _ => false,
     };
     return [
-      for (final e in _entries)
+      for (final e in _entries.all)
         if (e.account == card.id && posted(e) && e.date.isAfter(end)) e,
     ]..sort((a, b) => b.date.compareTo(a.date));
   }
 
   /// Purchases on [card] still being paid in instalments.
-  List<Entry> instalmentsOn(Account card) => _remember(
-    on: _cardTopics,
+  List<Entry> instalmentsOn(Account card) => _cache.remember(
+    reads: _cardTopics,
     ('instalments', card.id, closedBy),
     () => [
-      for (final e in _entries)
+      for (final e in _entries.all)
         if (e.account == card.id &&
             e.installments > 1 &&
             billedPeriods(e, closedBy) < e.installments)

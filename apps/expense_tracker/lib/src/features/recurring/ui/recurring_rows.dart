@@ -24,7 +24,9 @@ class _ItemRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final (glyph, mark) = _mark(ledger, item);
     final color = grey ? Hue.faint : mark;
-    final next = grey || lines != null ? '' : ledger.nextLabel(item);
+    final next = grey || lines != null
+        ? ''
+        : ledger.recurringService.nextLabel(item);
     final sub =
         lines?.join(' · ') ??
         '${item.rhythm} · ${ledger.account(item.account).name}';

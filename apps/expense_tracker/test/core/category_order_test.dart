@@ -1,4 +1,3 @@
-import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -11,13 +10,16 @@ void main() {
       for (final c in ledger.categories.forEntries(income: false)) c.name,
     ];
     final reversed = names.reversed.toList();
-    ledger.placeCategories(reversed);
+    ledger.categoryCommands.placeCategories(reversed);
     expect([
       for (final c in ledger.categories.forEntries(income: false)) c.name,
     ], reversed);
 
     final last = ledger.category(reversed.first);
-    ledger.updateCategory(last.name, last.copyWith(name: '${last.name}２'));
+    ledger.categoryCommands.updateCategory(
+      last.name,
+      last.copyWith(name: '${last.name}２'),
+    );
     expect(
       ledger.categories.forEntries(income: false).first.name,
       '${last.name}２',

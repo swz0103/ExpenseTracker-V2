@@ -64,8 +64,8 @@ void main() {
       expect(entry.category, reconcileSpending);
       expect(entry.note, reconcileNote);
       expect(entry.date, day);
-      ledger.add(entry);
-      expect(ledger.balance('cash'), 1500);
+      ledger.entryCommands.add(entry);
+      expect(ledger.balanceService.balance('cash'), 1500);
       expect(reconcile(ledger, cash, 1500), isNull);
     });
 
@@ -85,8 +85,8 @@ void main() {
       final entry = reconcile(ledger, card, 1200)!;
       expect(entry.type, EntryType.expense);
       expect(entry.amount, 200);
-      ledger.add(entry);
-      expect(ledger.balance('card'), -1200);
+      ledger.entryCommands.add(entry);
+      expect(ledger.balanceService.balance('card'), -1200);
     });
 
     test('an account in another currency is left alone', () {
@@ -112,7 +112,7 @@ void main() {
       spend('x2', 4, 500, merchant: '書店'),
       for (var i = 0; i < 3; i++) spend('o$i', 100 + i, 90, merchant: '舊店'),
     ]);
-    final usual = ledger.usual();
+    final usual = ledger.entryQueryService.usual();
     expect([for (final e in usual) e.merchant], ['早餐店', '捷運']);
     // The latest of each.
     expect(usual.first.amount, 65);
@@ -139,8 +139,8 @@ void main() {
   test('the month is heading where its pace so far takes it', () {
     final ledger = book(const []);
     // 20 of 31 days gone with 2,000 spent.
-    expect(ledger.forecast(2000, 2026, 10), 3100);
+    expect(ledger.budgetService.forecast(2000, 2026, 10), 3100);
     // A month gone by is what it was.
-    expect(ledger.forecast(2000, 2026, 9), 2000);
+    expect(ledger.budgetService.forecast(2000, 2026, 9), 2000);
   });
 }

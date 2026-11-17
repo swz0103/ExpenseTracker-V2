@@ -58,9 +58,9 @@ void main() {
       1000,
       icon: 'safe',
     );
-    ledger.addAccount(cash);
+    ledger.accountCommands.addAccount(cash);
     await ledger.settled;
-    ledger.add(
+    ledger.entryCommands.add(
       Entry(
         id: ledger.newId(),
         date: DateTime.utc(2026, 10, 2),
@@ -77,7 +77,7 @@ void main() {
     expect(path, startsWith(backupManager.backupFolder));
     expect(await backupManager.backUpIfDue(), isNull);
     expect(await backupManager.backUpIfDue(every: Duration.zero), isNull);
-    ledger.add(
+    ledger.entryCommands.add(
       Entry(
         id: ledger.newId(),
         date: DateTime.utc(2026, 10, 2),
@@ -103,7 +103,7 @@ void main() {
       vaultOf(second).store,
       clock: clock,
     ).load();
-    expect(restored.balance(cash.id), 800);
+    expect(restored.balanceService.balance(cash.id), 800);
     expect(restored.entries.inMonth(2026, 10), hasLength(2));
     expect(restored.account(cash.id).icon, 'safe');
     expect(restored.category('飲食日常').icon, 'food');
@@ -159,8 +159,8 @@ void main() {
     );
     final cash = Account(ledger.newId(), '錢包', AccountKind.cash, 1000);
     ledger
-      ..addAccount(cash)
-      ..add(
+      ..accountCommands.addAccount(cash)
+      ..entryCommands.add(
         Entry(
           id: ledger.newId(),
           date: DateTime.utc(2026, 10, 2),
@@ -179,7 +179,7 @@ void main() {
       vaultOf(startup).store,
       clock: clock,
     ).load();
-    expect(again.balance(cash.id), 880);
+    expect(again.balanceService.balance(cash.id), 880);
     startup.lock();
   });
 
@@ -226,7 +226,7 @@ void main() {
     final receipts = Directory('${startup.directory.path}/receipts')
       ..createSync();
     File('${receipts.path}/photo.bin').writeAsBytesSync([1, 2, 3]);
-    ledger.addAccount(
+    ledger.accountCommands.addAccount(
       Account(ledger.newId(), '錢包', AccountKind.cash, 0, icon: 'safe'),
     );
     await ledger.settled;

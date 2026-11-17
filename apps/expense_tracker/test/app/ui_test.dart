@@ -35,10 +35,10 @@ void main() {
     final ledger = demoLedger();
 
     test('month figures', () {
-      expect(ledger.income(2026, 10), 52000);
-      expect(ledger.expense(2026, 10), 17519);
-      expect(ledger.expense(2026, 9), 27074);
-      expect(ledger.spentOn(DateTime.utc(2026, 10, 4)), 1390);
+      expect(ledger.reportService.income(2026, 10), 52000);
+      expect(ledger.reportService.expense(2026, 10), 17519);
+      expect(ledger.reportService.expense(2026, 9), 27074);
+      expect(ledger.reportService.spentOn(DateTime.utc(2026, 10, 4)), 1390);
       expect(
         ledger.entries.onDay(DateTime.utc(2026, 10, 4)).first.note,
         '週末點心',
@@ -46,28 +46,28 @@ void main() {
     });
 
     test('balances and investments', () {
-      expect(ledger.balance('cash'), 11990);
-      expect(ledger.balance('bank'), 177641);
-      expect(ledger.balance('card'), -10829);
-      expect(ledger.cardDebt, 10829);
+      expect(ledger.balanceService.balance('cash'), 11990);
+      expect(ledger.balanceService.balance('bank'), 177641);
+      expect(ledger.balanceService.balance('card'), -10829);
+      expect(ledger.balanceService.cardDebt, 10829);
       expect(ledger.holdings.marketValue, 786528);
       expect(ledger.holdings.marketValue - ledger.holdings.costBasis, 82598);
       expect(ledger.holdings.dayChange, 2717);
-      expect(ledger.assets, 1276359);
+      expect(ledger.balanceService.assets, 1276359);
       expect(ledger.holdings.dividends, 50970);
     });
 
     test('budgets and recurring items', () {
       expect(ledger.budgets.forCategory(allSpending).limit, 32000);
       expect(
-        [for (final r in ledger.upcoming) r.name],
+        [for (final r in ledger.recurringService.upcoming) r.name],
         ['Netflix', '家用網路', '瑜珈月費'],
       );
-      expect(ledger.due, isEmpty);
+      expect(ledger.recurringService.due, isEmpty);
     });
 
     test('four weeks of an account end on its balance', () {
-      final weeks = ledger.weeklyChanges('cash');
+      final weeks = ledger.balanceService.weeklyChanges('cash');
       expect(weeks, hasLength(4));
       expect(weeks.last.$1, DateTime.utc(2026, 9, 28));
       expect(weeks.last.$2, -1390);
@@ -76,7 +76,7 @@ void main() {
 
   test('trades are replayed, and an oversold trade is refused', () {
     final ledger = demoLedger();
-    ledger.add(
+    ledger.entryCommands.add(
       Entry(
         id: 'buy',
         date: ledger.today,
@@ -88,9 +88,9 @@ void main() {
       ),
     );
     expect(ledger.holding('0050')!.shares, 3100);
-    expect(ledger.balance('bank'), 177641 - 5820);
+    expect(ledger.balanceService.balance('bank'), 177641 - 5820);
     expect(
-      () => ledger.add(
+      () => ledger.entryCommands.add(
         Entry(
           id: 'sell',
           date: ledger.today,
@@ -104,17 +104,17 @@ void main() {
       throwsStateError,
     );
     expect(ledger.holding('2603')!.shares, 3);
-    final removed = ledger.remove('buy')!;
+    final removed = ledger.entryCommands.remove('buy')!;
     expect(ledger.holding('0050')!.shares, 3000);
-    ledger.restore(removed);
+    ledger.entryCommands.restore(removed);
     expect(ledger.holding('0050')!.shares, 3100);
   });
 
   test('splits, refunds and transfer fees count as spending', () {
     final ledger = demoLedger();
     final day = ledger.today;
-    final before = ledger.expense(2026, 10);
-    ledger.add(
+    final before = ledger.reportService.expense(2026, 10);
+    ledger.entryCommands.add(
       Entry(
         id: 'split',
         date: day,
@@ -125,10 +125,10 @@ void main() {
         parts: const [('飲食日常', 600), ('居家生活', 400)],
       ),
     );
-    expect(ledger.expense(2026, 10), before + 1000);
-    expect(ledger.spendingBetween(day, day)['居家生活'], 400);
+    expect(ledger.reportService.expense(2026, 10), before + 1000);
+    expect(ledger.reportService.spendingBetween(day, day)['居家生活'], 400);
     final split = ledger.entries.byId('split')!;
-    ledger.add(
+    ledger.entryCommands.add(
       Entry(
         id: 'refund',
         date: day,
@@ -139,11 +139,11 @@ void main() {
         refundOf: split.id,
       ),
     );
-    expect(ledger.expense(2026, 10), before + 700);
-    expect(ledger.income(2026, 10), 52000);
-    expect(ledger.refundable(split), 700);
-    final bank = ledger.balance('bank');
-    ledger.add(
+    expect(ledger.reportService.expense(2026, 10), before + 700);
+    expect(ledger.reportService.income(2026, 10), 52000);
+    expect(ledger.entryQueryService.refundable(split), 700);
+    final bank = ledger.balanceService.balance('bank');
+    ledger.entryCommands.add(
       Entry(
         id: 'move',
         date: day,
@@ -155,13 +155,13 @@ void main() {
         fee: 15,
       ),
     );
-    expect(ledger.balance('bank'), bank - 10015);
-    expect(ledger.expense(2026, 10), before + 715);
+    expect(ledger.balanceService.balance('bank'), bank - 10015);
+    expect(ledger.reportService.expense(2026, 10), before + 715);
   });
 
   test('sales take the oldest lots first, and cards bill by instalment', () {
     final ledger = demoLedger();
-    ledger.add(
+    ledger.entryCommands.add(
       Entry(
         id: 'buy',
         date: ledger.today,
@@ -177,22 +177,25 @@ void main() {
     expect(ledger.holdings.saleCost('2603', 3), 510);
     expect(ledger.holdings.saleCost('2603', 33), 510 + 6020);
     final card = ledger.account('card');
-    final phone = ledger.instalmentsOn(card).single;
+    final phone = ledger.statementService.instalmentsOn(card).single;
     expect(phone.note, 'iPhone 17');
-    expect(ledger.billedPeriods(phone, ledger.today), 3);
-    expect(ledger.billed(phone, ledger.today), 9000);
+    expect(ledger.statementService.billedPeriods(phone, ledger.today), 3);
+    expect(ledger.statementService.billed(phone, ledger.today), 9000);
   });
 
   test('confirming a recurring item books it once', () {
     final ledger = demoLedger();
-    final netflix = ledger.upcoming.first;
-    ledger.confirm(netflix);
+    final netflix = ledger.recurringService.upcoming.first;
+    ledger.recurringCommands.confirm(netflix);
     final booked = [
       for (final e in ledger.entries.inMonth(2026, 10))
         if (e.recurring == netflix.id) e.amount,
     ];
     expect(booked, [390]);
-    expect([for (final r in ledger.upcoming) r.id], ['internet', 'yoga']);
+    expect(
+      [for (final r in ledger.recurringService.upcoming) r.id],
+      ['internet', 'yoga'],
+    );
   });
 
   test('the calculator and the treemap', () {
@@ -308,7 +311,7 @@ void main() {
     await tester.tap(find.byKey(Keys.save));
     await tester.pumpAndSettle();
     expect(find.text('已記下'), findsOneWidget);
-    expect(ledger.expense(2026, 10), 17519 + 180);
+    expect(ledger.reportService.expense(2026, 10), 17519 + 180);
   });
 
   testWidgets('lending sits under expense and repayment under income', (
@@ -348,8 +351,8 @@ void main() {
     }
     await tester.tap(find.byKey(Keys.save));
     await tester.pumpAndSettle();
-    expect(ledger.balance('lent'), 3200 + 500);
-    expect(ledger.expense(2026, 10), 17519);
+    expect(ledger.balanceService.balance('lent'), 3200 + 500);
+    expect(ledger.reportService.expense(2026, 10), 17519);
 
     await tester.tap(find.byTooltip('記一筆'));
     await tester.pumpAndSettle();
@@ -362,8 +365,8 @@ void main() {
     await type('還款金額', ['C', '3', '0', '0']);
     await tester.tap(find.byKey(Keys.save));
     await tester.pumpAndSettle();
-    expect(ledger.balance('lent'), 3700 - 300);
-    expect(ledger.income(2026, 10), 52000);
+    expect(ledger.balanceService.balance('lent'), 3700 - 300);
+    expect(ledger.reportService.income(2026, 10), 52000);
   });
 
   testWidgets('a deleted entry can be restored', (tester) async {
@@ -376,10 +379,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(Keys.confirm));
     await tester.pumpAndSettle();
-    expect(ledger.expense(2026, 10), 17519 - 200);
+    expect(ledger.reportService.expense(2026, 10), 17519 - 200);
     await tester.tap(find.byKey(Keys.snack('復原')));
     await tester.pumpAndSettle();
-    expect(ledger.expense(2026, 10), 17519);
+    expect(ledger.reportService.expense(2026, 10), 17519);
   });
 
   testWidgets('a row slid open offers edit and delete', (tester) async {
@@ -409,10 +412,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(Keys.swipe('刪除')).first);
     await tester.pumpAndSettle();
-    expect(ledger.expense(2026, 10), 17519 - 200);
+    expect(ledger.reportService.expense(2026, 10), 17519 - 200);
     await tester.tap(find.byKey(Keys.snack('復原')));
     await tester.pumpAndSettle();
-    expect(ledger.expense(2026, 10), 17519);
+    expect(ledger.reportService.expense(2026, 10), 17519);
   });
 
   testWidgets('picked entries are deleted at once and come back', (
@@ -426,11 +429,11 @@ void main() {
     expect(find.textContaining('已選 1 筆'), findsOneWidget);
     await tester.tap(find.byKey(Keys.deletePicked));
     await tester.pumpAndSettle();
-    expect(ledger.expense(2026, 10), 17519 - 200);
+    expect(ledger.reportService.expense(2026, 10), 17519 - 200);
     expect(ledger.trash.all.single.entry.note, '週末點心');
     await tester.tap(find.byKey(Keys.snack('復原')));
     await tester.pumpAndSettle();
-    expect(ledger.expense(2026, 10), 17519);
+    expect(ledger.reportService.expense(2026, 10), 17519);
     expect(ledger.trash.all, isEmpty);
   });
 

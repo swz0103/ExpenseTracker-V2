@@ -59,7 +59,9 @@ extension LedgerReminders on Ledger {
       final amount = currency == homeCode
           ? groupDigits(r.amount)
           : '$currency ${plainIn(r.amount, currency)}';
-      final booked = confirmationsIn(r, today.year, today.month).length;
+      final booked = recurringService
+          .confirmationsIn(r, today.year, today.month)
+          .length;
       for (var k = 0; k * 31 <= days + 31; k++) {
         final month = DateTime.utc(today.year, today.month + k);
         final dates = r.datesIn(month.year, month.month);
@@ -80,8 +82,8 @@ extension LedgerReminders on Ledger {
     }
     for (final card in accounts.all) {
       if (card.kind != AccountKind.card || card.archived) continue;
-      final (_, end, due) = statement(card);
-      final owed = statementDue(card);
+      final (_, end, due) = statementService.statement(card);
+      final owed = statementService.statementDue(card);
       if (owed <= 0 || !ahead(due)) continue;
       found.add(
         Reminder(

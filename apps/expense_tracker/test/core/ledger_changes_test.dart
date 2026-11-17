@@ -1,4 +1,3 @@
-import 'package:expense_tracker/src/core/ledger/batch.dart';
 import 'package:expense_tracker/src/features/import_export/model/import_export.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
@@ -59,7 +58,7 @@ void main() {
   test('editing a card keeps its moved closes and billing history', () async {
     final ledger = book();
     // The form builds the account afresh, without the dates it hides.
-    ledger.updateAccount(
+    ledger.accountCommands.updateAccount(
       const Account(
         'card',
         '新名字',
@@ -78,7 +77,9 @@ void main() {
 
     // Changed again before that close: the first days still hold until
     // the first close on the newest day.
-    ledger.updateAccount(card.copyWith(closingDay: 15, dueDay: 30));
+    ledger.accountCommands.updateAccount(
+      card.copyWith(closingDay: 15, dueDay: 30),
+    );
     final again = ledger.account('card');
     expect(again.history.single.closingDay, 25);
     expect(again.history.single.until.day, 15);
@@ -105,7 +106,7 @@ void main() {
       shares: 10,
     );
     final ledger = book(entries: [buy, sell]);
-    expect(ledger.remove('buy'), isNull);
+    expect(ledger.entryCommands.remove('buy'), isNull);
     expect(ledger.problem.value, isA<SharesShort>());
     expect(ledger.entries.all, hasLength(2));
     expect(ledger.trash.all, isEmpty);
@@ -115,13 +116,16 @@ void main() {
 
   test('a category name is kept without the spaces around it', () async {
     final ledger = book();
-    ledger.addCategory(Category(' 寵物 ', 'other', 0xFF000000));
+    ledger.categoryCommands.addCategory(Category(' 寵物 ', 'other', 0xFF000000));
     expect(ledger.category('寵物').name, '寵物');
     // The same name with spaces is taken, not a second category.
-    ledger.addCategory(Category('寵物', 'other', 0xFF000000));
+    ledger.categoryCommands.addCategory(Category('寵物', 'other', 0xFF000000));
     expect(ledger.problem.value, isA<NameTaken>());
     expect(ledger.categories.all.where((c) => c.name == '寵物'), hasLength(1));
-    ledger.updateCategory('寵物', ledger.category('寵物').copyWith(name: '毛孩 '));
+    ledger.categoryCommands.updateCategory(
+      '寵物',
+      ledger.category('寵物').copyWith(name: '毛孩 '),
+    );
     expect(ledger.category('毛孩').id, isNotEmpty);
     expect(ledger.categories.all.any((c) => c.name.contains(' ')), isFalse);
     await ledger.settled;
@@ -133,7 +137,7 @@ void main() {
 
   test('categories brought in are kept under trimmed names', () async {
     final ledger = book();
-    ledger.addAll(
+    ledger.entryCommands.addAll(
       const [],
       categories: [
         Category(' 寵物', 'other', 0xFF000000),
@@ -150,13 +154,35 @@ void main() {
     await ledger.settled;
   });
 
+  test('a renamed category reaches entries, the trash and recurring items', () {
+    final ledger = book(entries: [spend('a', 100), spend('b', 200)]);
+    ledger.entryCommands.remove('b');
+    ledger.recurringCommands.saveRecurring(
+      const Recurring(
+        id: 'rent',
+        name: '房租',
+        amount: 100,
+        day: 5,
+        account: 'bank',
+        category: '飲食',
+      ),
+    );
+    ledger.categoryCommands.updateCategory(
+      '飲食',
+      ledger.category('飲食').copyWith(name: '吃飯'),
+    );
+    expect(ledger.entries.byId('a')!.category, '吃飯');
+    expect(ledger.trash.all.single.entry.category, '吃飯');
+    expect(ledger.recurring.byId('rent')!.category, '吃飯');
+  });
+
   test('taken and reserved category names are refused', () {
     final ledger = book();
     for (final name in ['飲食', '全部支出', '轉帳', '#旅遊', ' ']) {
       expect(ledger.categories.isNameFree(name), isFalse, reason: name);
     }
     expect(ledger.categories.isNameFree('飲食', except: '飲食'), isTrue);
-    ledger.addCategory(Category('轉帳', 'other', 0xFF000000));
+    ledger.categoryCommands.addCategory(Category('轉帳', 'other', 0xFF000000));
     expect(ledger.problem.value, isA<NameTaken>());
     expect(ledger.categories.all, hasLength(2));
   });
@@ -165,7 +191,7 @@ void main() {
     final ledger = book(
       budgets: const [Budget('#旅遊', 5000), Budget('#出差', 3000)],
     );
-    ledger.renameTag('出差', '旅遊');
+    ledger.entryCommands.renameTag('出差', '旅遊');
     expect([for (final b in ledger.budgets.all) b.category], ['#旅遊']);
   });
 
@@ -186,14 +212,14 @@ void main() {
 
   test('a photo and many edits are each kept as one change', () async {
     final ledger = book(entries: [spend('a', 100), spend('b', 200)]);
-    ledger.add(spend('c', 50), receipt: 'c.etr');
+    ledger.entryCommands.add(spend('c', 50), receipt: 'c.etr');
     await ledger.settled;
     expect(dataSource.kept, hasLength(1));
     expect(dataSource.kept.single.receipts, {'c': 'c.etr'});
     expect(ledger.receipts.of('c'), 'c.etr');
 
     dataSource.kept.clear();
-    expect(ledger.recategorize(ledger.entries.all, '居家'), 3);
+    expect(ledger.entryCommands.recategorize(ledger.entries.all, '居家'), 3);
     await ledger.settled;
     expect(dataSource.kept, hasLength(1));
     expect(dataSource.kept.single.entries, hasLength(3));
@@ -215,16 +241,22 @@ void main() {
     );
     final card = ledger.account('card');
     // A statement closes at the end of its day.
-    expect(ledger.statement(card).$2, DateTime.utc(2026, 9, 25));
+    expect(
+      ledger.statementService.statement(card).$2,
+      DateTime.utc(2026, 9, 25),
+    );
     now = DateTime.utc(2026, 10, 26);
-    expect(ledger.statement(card).$2, DateTime.utc(2026, 10, 25));
+    expect(
+      ledger.statementService.statement(card).$2,
+      DateTime.utc(2026, 10, 25),
+    );
   });
 
   test('an undone delete is not brought back twice', () {
     final ledger = book(entries: [spend('a', 100)]);
-    final removed = ledger.remove('a')!;
-    expect(ledger.restore(removed), isTrue);
-    expect(ledger.restore(removed), isFalse);
+    final removed = ledger.entryCommands.remove('a')!;
+    expect(ledger.entryCommands.restore(removed), isTrue);
+    expect(ledger.entryCommands.restore(removed), isFalse);
     expect(ledger.entries.all, hasLength(1));
     expect(ledger.trash.all, isEmpty);
   });
@@ -239,14 +271,17 @@ void main() {
       budgets: const [],
       recurring: const [],
     );
-    ledger.updateCategory('轉帳', ledger.category('轉帳').copyWith(archived: true));
+    ledger.categoryCommands.updateCategory(
+      '轉帳',
+      ledger.category('轉帳').copyWith(archived: true),
+    );
     expect(ledger.category('轉帳').archived, isTrue);
     expect(ledger.problem.value, isNull);
   });
 
   test('an import adds a name and an account once', () {
     final ledger = book();
-    ledger.addAll(
+    ledger.entryCommands.addAll(
       [spend('x', 10, category: '寵物')],
       accounts: const [
         Account('bank', '重複的銀行', AccountKind.bank, 0),
@@ -277,7 +312,7 @@ void main() {
       holding: '2330',
       shares: -10,
     );
-    expect(() => ledger.add(cut), throwsStateError);
+    expect(() => ledger.entryCommands.add(cut), throwsStateError);
     expect(ledger.entries.all, isEmpty);
     // A book that already holds one still opens, without it.
     final kept = book(entries: [cut]);
@@ -311,8 +346,11 @@ void main() {
       budgets: const [],
       recurring: [rent],
     );
-    expect(ledger.pendingDate(rent), DateTime.utc(2026, 9, 30));
-    expect(ledger.due, [rent]);
+    expect(
+      ledger.recurringService.pendingDate(rent),
+      DateTime.utc(2026, 9, 30),
+    );
+    expect(ledger.recurringService.due, [rent]);
     // A new item is not due for months before it was ever booked.
     final fresh = Ledger(
       today: DateTime.utc(2026, 10, 2),
@@ -323,7 +361,10 @@ void main() {
       budgets: const [],
       recurring: [rent],
     );
-    expect(fresh.pendingDate(rent), DateTime.utc(2026, 10, 30));
+    expect(
+      fresh.recurringService.pendingDate(rent),
+      DateTime.utc(2026, 10, 30),
+    );
   });
 
   test('a CSV keeps average-cost sales, spaced tags and = in names', () {

@@ -1,5 +1,4 @@
 import 'package:expense_tracker/src/app/demo/seed.dart';
-import 'package:expense_tracker/src/core/ledger/batch.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,9 +15,15 @@ void main() {
             e.category != '居家生活')
           e,
     ];
-    final before = ledger.expense(ledger.today.year, ledger.today.month);
-    expect(ledger.recategorize(picked, '居家生活'), fits.length);
-    expect(ledger.expense(ledger.today.year, ledger.today.month), before);
+    final before = ledger.reportService.expense(
+      ledger.today.year,
+      ledger.today.month,
+    );
+    expect(ledger.entryCommands.recategorize(picked, '居家生活'), fits.length);
+    expect(
+      ledger.reportService.expense(ledger.today.year, ledger.today.month),
+      before,
+    );
     for (final e in fits) {
       final now = ledger.entries.all.firstWhere(
         (x) => x.date == e.date && x.amount == e.amount && x.note == e.note,
@@ -38,15 +43,15 @@ void main() {
             e.account == 'bank' &&
             e.installments == 0 &&
             !e.isRefund &&
-            ledger.refundable(e) == e.amount)
+            ledger.entryQueryService.refundable(e) == e.amount)
           e,
     ];
     expect(spent, isNotEmpty);
-    final bank = ledger.balance('bank');
-    final cash = ledger.balance('cash');
+    final bank = ledger.balanceService.balance('bank');
+    final cash = ledger.balanceService.balance('cash');
     final total = spent.fold(0, (sum, e) => sum + e.amount);
-    expect(ledger.moveToAccount(spent, 'cash'), spent.length);
-    expect(ledger.balance('bank'), bank + total);
-    expect(ledger.balance('cash'), cash - total);
+    expect(ledger.entryCommands.moveToAccount(spent, 'cash'), spent.length);
+    expect(ledger.balanceService.balance('bank'), bank + total);
+    expect(ledger.balanceService.balance('cash'), cash - total);
   });
 }

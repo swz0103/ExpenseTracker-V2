@@ -98,7 +98,7 @@ class CardPage extends StatelessWidget {
       if (context.mounted) showNote(context, '結帳日最多只能前後移動 7 天');
       return;
     }
-    ledger.moveClose(card.id, scheduled, picked);
+    ledger.accountCommands.moveClose(card.id, scheduled, picked);
   }
 
   @override
@@ -113,20 +113,26 @@ class CardPage extends StatelessWidget {
         }
         final card = ledger.account(accountId);
         final today = ledger.today;
-        final (start, end, due) = ledger.statement(card);
-        final owed = ledger.statementDue(card);
-        final unbilled = ledger.unbilled(card);
+        final (start, end, due) = ledger.statementService.statement(card);
+        final owed = ledger.statementService.statementDue(card);
+        final unbilled = ledger.statementService.unbilled(card);
         final spentSince = unbilled.fold(
           0,
-          (sum, e) => sum - ledger.effect(e, card.id),
+          (sum, e) => sum - ledger.balanceService.effect(e, card.id),
         );
-        final plans = ledger.instalmentsOn(card);
+        final plans = ledger.statementService.instalmentsOn(card);
         final pending = plans.fold(
           0,
-          (sum, e) => sum + e.amount - ledger.billed(e, ledger.closedBy),
+          (sum, e) =>
+              sum +
+              e.amount -
+              ledger.statementService.billed(
+                e,
+                ledger.statementService.closedBy,
+              ),
         );
         final limit = card.limit;
-        final debt = -ledger.balance(card.id);
+        final debt = -ledger.balanceService.balance(card.id);
         final following = card.closingOn(
           DateTime.utc(end.year, end.month + 1, end.day),
         );
@@ -311,7 +317,13 @@ class CardPage extends StatelessWidget {
                 child: Column(
                   children: [
                     for (final e in plans)
-                      _plan(e, ledger.billedPeriods(e, ledger.closedBy)),
+                      _plan(
+                        e,
+                        ledger.statementService.billedPeriods(
+                          e,
+                          ledger.statementService.closedBy,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -407,7 +419,7 @@ class CardPage extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   '第 $periods / ${e.installments} 期 · '
-                  '剩 ${ledger.money(e.amount - ledger.billed(e, ledger.closedBy))}',
+                  '剩 ${ledger.money(e.amount - ledger.statementService.billed(e, ledger.statementService.closedBy))}',
                   style: mutedSmall,
                 ),
               ],

@@ -52,7 +52,7 @@ class _Manage extends StatelessWidget {
           var monthly = 0;
           for (final r in items) {
             monthly +=
-                ledger.recurringWorth(r) *
+                ledger.recurringService.worth(r) *
                 r.datesIn(today.year, today.month).length;
           }
           return [
@@ -238,8 +238,9 @@ class _Paused extends StatelessWidget {
                   grey: true,
                   onTap: () => onEdit(item: r),
                   trailing: FilledButton(
-                    onPressed: () =>
-                        ledger.saveRecurring(r.copyWith(active: true)),
+                    onPressed: () => ledger.recurringCommands.saveRecurring(
+                      r.copyWith(active: true),
+                    ),
                     style: solidButton(
                       Hue.white,
                       ink: Hue.accent,

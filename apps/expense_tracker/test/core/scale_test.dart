@@ -150,17 +150,17 @@ void main() {
     final ledger = timed('open', () => book(list), under: 3000);
     timed('balances', () {
       for (final a in ledger.accounts.all) {
-        ledger.balance(a.id);
+        ledger.balanceService.balance(a.id);
       }
-      return ledger.assets;
+      return ledger.balanceService.assets;
     }, under: 2000);
 
     // 總覽 and 紀錄 for each month, as switching months back three years.
     timed('switch 36 months', () {
       for (final m in months) {
         ledger.entries.inMonth(m.year, m.month);
-        ledger.expense(m.year, m.month);
-        ledger.income(m.year, m.month);
+        ledger.reportService.expense(m.year, m.month);
+        ledger.reportService.income(m.year, m.month);
       }
     }, under: 2000);
 
@@ -169,11 +169,11 @@ void main() {
     timed('reports', () {
       final from = DateTime.utc(today.year - 1, today.month);
       ledger
-        ..spendingBetween(from, today)
-        ..merchantsBetween(from, today)
-        ..tagsBetween(from, today);
+        ..reportService.spendingBetween(from, today)
+        ..reportService.merchantsBetween(from, today)
+        ..reportService.tagsBetween(from, today);
       for (final m in months.take(12)) {
-        ledger.netWorthAt(DateTime.utc(m.year, m.month + 1, 0));
+        ledger.balanceService.netWorthAt(DateTime.utc(m.year, m.month + 1, 0));
       }
     }, under: 4000);
 
@@ -181,17 +181,17 @@ void main() {
     final card = ledger.account('card');
     timed('card', () {
       ledger
-        ..statementDue(card)
-        ..unbilled(card)
-        ..instalmentsOn(card);
+        ..statementService.statementDue(card)
+        ..statementService.unbilled(card)
+        ..statementService.instalmentsOn(card);
     }, under: 2000);
 
-    timed('search', () => ledger.search('午餐'), under: 2000);
+    timed('search', () => ledger.entryQueryService.search('午餐'), under: 2000);
 
     // One entry saved, then the month it is in, the balances and the
     // card shown again: the work redone for one change.
     timed('save one and show it', () {
-      ledger.add(
+      ledger.entryCommands.add(
         Entry(
           id: 'new',
           date: today,
@@ -203,9 +203,9 @@ void main() {
       );
       ledger
         ..entries.inMonth(today.year, today.month)
-        ..expense(today.year, today.month)
-        ..balance('card')
-        ..statementDue(card);
+        ..reportService.expense(today.year, today.month)
+        ..balanceService.balance('card')
+        ..statementService.statementDue(card);
     }, under: 2000);
     await ledger.settled;
 

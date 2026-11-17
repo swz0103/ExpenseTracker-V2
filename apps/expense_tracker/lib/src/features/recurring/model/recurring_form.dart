@@ -136,7 +136,7 @@ final class RecurringForm {
   /// Writes the item to the ledger; false when it cannot be saved.
   bool save() {
     if (problem != null) return false;
-    ledger.saveRecurring(build());
+    ledger.recurringCommands.saveRecurring(build());
     return true;
   }
 }

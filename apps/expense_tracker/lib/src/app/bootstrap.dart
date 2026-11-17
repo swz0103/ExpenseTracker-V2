@@ -248,7 +248,10 @@ class _OpenedLedgerState extends State<OpenedLedger>
       // for an entry never saved.
       // Done before a photo can be taken, so none is swept as it is saved.
       try {
-        await sweepReceipts(widget.startup.directory, ledger.receiptFiles);
+        await sweepReceipts(
+          widget.startup.directory,
+          ledger.attachmentCommands.receiptFiles,
+        );
       } on Object catch (error) {
         ErrorLog.instance.record('清除收據照片', error);
       }
@@ -335,7 +338,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
   void _bookDue(Ledger ledger) {
     final int booked;
     try {
-      booked = ledger.bookDue();
+      booked = ledger.recurringCommands.bookDue();
     } on Object catch (error) {
       ErrorLog.instance.record('定期自動入帳', error);
       return;

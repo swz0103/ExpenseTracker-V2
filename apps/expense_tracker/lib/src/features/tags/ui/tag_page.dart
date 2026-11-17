@@ -20,15 +20,17 @@ class TagPage extends StatelessWidget {
 
   void _move(String to) {
     if (merchant) {
-      ledger.renameMerchant(name, to);
+      ledger.entryCommands.renameMerchant(name, to);
     } else {
-      ledger.renameTag(name, to);
+      ledger.entryCommands.renameTag(name, to);
     }
   }
 
   List<String> _others() => [
     for (final (other, _, _)
-        in merchant ? ledger.merchantStats : ledger.tagStats)
+        in merchant
+            ? ledger.reportService.merchantStats
+            : ledger.reportService.tagStats)
       if (other != name) other,
   ];
 

@@ -116,7 +116,7 @@ void main() {
       merchant: '便當店',
       note: '午餐',
     );
-    ledger.add(saved);
+    ledger.entryCommands.add(saved);
     final form = ComposeForm(ledger, type: saved.type, editing: saved);
     expect(form.more, isTrue);
     final again = form.build();
@@ -160,10 +160,10 @@ void main() {
       to: 'cash',
     );
     ledger
-      ..add(move('a', 30, 3000))
-      ..add(move('b', 2, 3000))
-      ..add(move('c', 5, 800));
-    final usual = ledger.usualTransfers();
+      ..entryCommands.add(move('a', 30, 3000))
+      ..entryCommands.add(move('b', 2, 3000))
+      ..entryCommands.add(move('c', 5, 800));
+    final usual = ledger.entryQueryService.usualTransfers();
     expect([for (final e in usual) (e.id, e.amount)], [('b', 3000)]);
     final form = ComposeForm(ledger, type: EntryType.transfer)
       ..account = 'cash'
@@ -175,7 +175,7 @@ void main() {
   test('income recorded alike three times lately is offered again', () {
     final ledger = book();
     for (final (i, days) in const [5, 35, 65].indexed) {
-      ledger.add(
+      ledger.entryCommands.add(
         Entry(
           id: 'pay$i',
           date: day.subtract(Duration(days: days)),
@@ -186,13 +186,20 @@ void main() {
         ),
       );
     }
-    expect(ledger.usual(), isEmpty);
-    expect([for (final e in ledger.usual(income: true)) e.id], ['pay0']);
+    expect(ledger.entryQueryService.usual(), isEmpty);
+    expect(
+      [for (final e in ledger.entryQueryService.usual(income: true)) e.id],
+      ['pay0'],
+    );
   });
 
   Ledger withFriends() => book()
-    ..addAccount(const Account('ann', '阿安', AccountKind.receivable, 0))
-    ..addAccount(const Account('bo', '小博', AccountKind.receivable, 0));
+    ..accountCommands.addAccount(
+      const Account('ann', '阿安', AccountKind.receivable, 0),
+    )
+    ..accountCommands.addAccount(
+      const Account('bo', '小博', AccountKind.receivable, 0),
+    );
 
   test('a spending paid partly for others is written as one', () {
     final ledger = withFriends();
@@ -213,9 +220,9 @@ void main() {
       ],
     );
     expect({for (final e in made) e.group}.single, isNotNull);
-    ledger.addAll(made);
-    expect(ledger.balance('ann'), 600);
-    expect(ledger.expense(2026, 10), 600);
+    ledger.entryCommands.addAll(made);
+    expect(ledger.balanceService.balance('ann'), 600);
+    expect(ledger.reportService.expense(2026, 10), 600);
     // Opened again from any of them, the whole comes back.
     final again = ComposeForm(
       ledger,
@@ -228,10 +235,10 @@ void main() {
     );
     expect(again.lent, [('ann', 600), ('bo', 600)]);
     again.setLent(1, 300);
-    ledger.replaceGroup(again.buildAll(), again.openedIds);
-    expect(ledger.balance('bo'), 300);
-    expect(ledger.expense(2026, 10), 900);
-    expect(ledger.groupOf(made.first), hasLength(3));
+    ledger.entryCommands.replaceGroup(again.buildAll(), again.openedIds);
+    expect(ledger.balanceService.balance('bo'), 300);
+    expect(ledger.reportService.expense(2026, 10), 900);
+    expect(ledger.entryQueryService.groupOf(made.first), hasLength(3));
   });
 
   test('all of it paid for one person is a plain 代墊', () {

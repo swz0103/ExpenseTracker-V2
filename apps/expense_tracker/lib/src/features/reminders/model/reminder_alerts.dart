@@ -95,9 +95,9 @@ List<BudgetCrossing> budgetCrossings(Ledger ledger, Preferences preferences) {
   final found = <BudgetCrossing>[];
   for (final b in ledger.budgets.all) {
     if (b.limit <= 0) continue;
-    final allowed = ledger.allowance(b, today.year, today.month);
+    final allowed = ledger.budgetService.allowance(b, today.year, today.month);
     if (allowed <= 0) continue;
-    final spent = ledger.spentAgainst(b, today.year, today.month);
+    final spent = ledger.budgetService.spentAgainst(b, today.year, today.month);
     final share = spent * 100 ~/ allowed;
     final name = b.category == allSpending ? '本月總預算' : '「${b.category}」預算';
     final BudgetCrossing crossing;

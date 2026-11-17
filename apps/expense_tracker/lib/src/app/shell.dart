@@ -182,8 +182,8 @@ class _AppShellState extends State<AppShell> {
     if (outcome == ComposeOutcome.deleted) {
       Haptics.medium();
       // An entry written as one with others goes with them.
-      final removed = ledger.removeAll([
-        for (final e in ledger.groupOf(saved)) e.id,
+      final removed = ledger.entryCommands.removeAll([
+        for (final e in ledger.entryQueryService.groupOf(saved)) e.id,
       ]);
       if (removed.isEmpty) return;
       showNote(
@@ -191,7 +191,7 @@ class _AppShellState extends State<AppShell> {
         '已刪除「${saved.title}」'
         '${saved.recurring == null ? '' : '，這一期跳過'}',
         action: '復原',
-        onAction: () => ledger.restoreAll(removed),
+        onAction: () => ledger.entryCommands.restoreAll(removed),
       );
       return;
     }
@@ -353,8 +353,9 @@ class _AppShellState extends State<AppShell> {
     final ledger = widget.ledger;
     final (year, month) = (saved.date.year, saved.date.month);
     for (final budget in ledger.budgets.all) {
-      final allowed = ledger.allowance(budget, year, month);
-      if (allowed > 0 && ledger.spentAgainst(budget, year, month) > allowed) {
+      final allowed = ledger.budgetService.allowance(budget, year, month);
+      if (allowed > 0 &&
+          ledger.budgetService.spentAgainst(budget, year, month) > allowed) {
         final names = {
           saved.category,
           ...saved.spendingParts.map((p) => p.$1),

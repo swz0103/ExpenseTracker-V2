@@ -42,7 +42,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
   (int, int) get _now => (ledger.today.year, ledger.today.month);
 
   (int, int) get _first {
-    final first = ledger.firstDay;
+    final first = ledger.reportService.firstDay;
     return (first.year, first.month);
   }
 
@@ -96,16 +96,16 @@ class _BudgetsPageState extends State<BudgetsPage> {
       }),
       builder: (context, _) {
         final (year, month) = _month;
-        final spent = ledger.expense(year, month);
+        final spent = ledger.reportService.expense(year, month);
         final whole = ledger.budgets.forCategory(allSpending);
-        final total = ledger.allowance(whole, year, month);
+        final total = ledger.budgetService.allowance(whole, year, month);
         final rows = [
           for (final b in ledger.budgets.all)
             if (b.category != allSpending && b.limit > 0)
               (
                 b,
-                ledger.spentAgainst(b, year, month),
-                ledger.allowance(b, year, month),
+                ledger.budgetService.spentAgainst(b, year, month),
+                ledger.budgetService.allowance(b, year, month),
               ),
         ];
         // Overspent first, then by the share used.
@@ -341,7 +341,7 @@ class _Main extends StatelessWidget {
   Widget build(BuildContext context) {
     final left = total - spent;
     final carried = total - whole.limit;
-    final (passed, days) = ledger.daysGone(year, month);
+    final (passed, days) = ledger.budgetService.daysGone(year, month);
     final over = left < 0;
     final ink = Hue.accent;
     final next = month == 12 ? 1 : month + 1;

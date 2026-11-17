@@ -10,11 +10,11 @@ void main() {
       (e) => e.type == EntryType.expense && e.recurring == null,
     );
     final count = ledger.entries.length;
-    final removed = ledger.remove(entry.id)!;
+    final removed = ledger.entryCommands.remove(entry.id)!;
     expect(ledger.trash.all.single.entry, same(removed.$2));
     expect(ledger.trash.all.single.on, ledger.today);
 
-    ledger.restoreTrashed(ledger.trash.all.single);
+    ledger.entryCommands.restoreTrashed(ledger.trash.all.single);
     expect(ledger.trash.all, isEmpty);
     expect(ledger.entries.all, hasLength(count));
     final back = ledger.entries.all.last;
@@ -30,8 +30,8 @@ void main() {
     final entry = ledger.entries.all.firstWhere(
       (e) => e.type == EntryType.expense,
     );
-    final removed = ledger.remove(entry.id)!;
-    ledger.restore(removed);
+    final removed = ledger.entryCommands.remove(entry.id)!;
+    ledger.entryCommands.restore(removed);
     expect(ledger.trash.all, isEmpty);
   });
 

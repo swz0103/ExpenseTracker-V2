@@ -40,37 +40,38 @@ void main() {
     final from = DateTime.utc(2026, 1, 1);
     final to = DateTime.utc(2026, 12, 31);
     return [
-      'spending ${l.spendingBetween(from, to)}',
-      'merchantsBetween ${l.merchantsBetween(from, to)}',
-      'tagsBetween ${l.tagsBetween(from, to)}',
-      'merchants ${l.merchants}',
-      'tagStats ${l.tagStats}',
-      'merchantStats ${l.merchantStats}',
-      'usual ${ids(l.usual())}',
-      'usualIncome ${ids(l.usual(income: true))}',
-      'usualTransfers ${ids(l.usualTransfers())}',
-      'search ${ids(l.search('店'))}',
-      'search2 ${ids(l.search('家用'))}',
+      'spending ${l.reportService.spendingBetween(from, to)}',
+      'merchantsBetween ${l.reportService.merchantsBetween(from, to)}',
+      'tagsBetween ${l.reportService.tagsBetween(from, to)}',
+      'merchants ${l.entryQueryService.merchants}',
+      'tagStats ${l.reportService.tagStats}',
+      'merchantStats ${l.reportService.merchantStats}',
+      'usual ${ids(l.entryQueryService.usual())}',
+      'usualIncome ${ids(l.entryQueryService.usual(income: true))}',
+      'usualTransfers ${ids(l.entryQueryService.usualTransfers())}',
+      'search ${ids(l.entryQueryService.search('店'))}',
+      'search2 ${ids(l.entryQueryService.search('家用'))}',
       'main ${l.accounts.main}',
       'open ${l.accounts.open.map((a) => a.id)}',
-      'assets ${l.assets}',
-      'netWorth ${l.netWorthAt(today)} ${l.netWorthAt(DateTime.utc(2026, 8))}',
-      'byUseOut ${l.categoriesByUse(income: false)}',
-      'byUseIn ${l.categoriesByUse(income: true)}',
+      'assets ${l.balanceService.assets}',
+      'netWorth ${l.balanceService.netWorthAt(today)} ${l.balanceService.netWorthAt(DateTime.utc(2026, 8))}',
+      'byUseOut ${l.reportService.categoriesByUse(income: false)}',
+      'byUseIn ${l.reportService.categoriesByUse(income: true)}',
       for (final a in l.accounts.all) ...[
-        'balance ${a.id} ${l.balance(a.id)} '
-            '${l.balance(a.id, until: DateTime.utc(2026, 9, 1))}',
-        'weekly ${a.id} ${l.weeklyChanges(a.id)}',
+        'balance ${a.id} ${l.balanceService.balance(a.id)} '
+            '${l.balanceService.balance(a.id, until: DateTime.utc(2026, 9, 1))}',
+        'weekly ${a.id} ${l.balanceService.weeklyChanges(a.id)}',
       ],
       for (var m = 1; m <= 10; m++) ...[
-        'month $m ${l.income(2026, m)} ${l.expense(2026, m)} '
-            '${l.dividends(2026, m)} ${ids(l.entries.inMonth(2026, m))}',
-        for (final t in tags) 'tag $t $m ${l.spentOnTag(t, 2026, m)}',
+        'month $m ${l.reportService.income(2026, m)} ${l.reportService.expense(2026, m)} '
+            '${l.reportService.dividends(2026, m)} ${ids(l.entries.inMonth(2026, m))}',
+        for (final t in tags)
+          'tag $t $m ${l.budgetService.spentOnTag(t, 2026, m)}',
       ],
-      'day ${l.spentOn(today)} ${ids(l.entries.onDay(today))}',
+      'day ${l.reportService.spentOn(today)} ${ids(l.entries.onDay(today))}',
       for (final b in l.budgets.all) ...[
-        'budget ${b.category} ${l.spentAgainst(b, 2026, 10)} '
-            '${l.allowance(b, 2026, 10)} ${l.forecast(1000, 2026, 10)}',
+        'budget ${b.category} ${l.budgetService.spentAgainst(b, 2026, 10)} '
+            '${l.budgetService.allowance(b, 2026, 10)} ${l.budgetService.forecast(1000, 2026, 10)}',
       ],
     ];
   }
@@ -128,32 +129,34 @@ void main() {
         final label = 'step $step action $what';
         switch (what) {
           case 0 || 1:
-            live.add(make(r, 'n${serial++}', banks));
+            live.entryCommands.add(make(r, 'n${serial++}', banks));
           case 2 when live.entries.all.isNotEmpty:
             final old = live.entries.all[r.nextInt(live.entries.length)];
-            live.replace(make(r, old.id, banks));
+            live.entryCommands.replace(make(r, old.id, banks));
           case 3 when live.entries.all.isNotEmpty:
-            live.remove(live.entries.all[r.nextInt(live.entries.length)].id);
+            live.entryCommands.remove(
+              live.entries.all[r.nextInt(live.entries.length)].id,
+            );
           case 4:
-            live.setBudget(
+            live.budgetCommands.setBudget(
               names[r.nextInt(names.length)],
               500 + r.nextInt(5000),
             );
           case 5 when live.budgets.all.isNotEmpty:
-            live.removeBudget(live.budgets.all.first.category);
+            live.budgetCommands.removeBudget(live.budgets.all.first.category);
           case 6:
-            live.renameTag(
+            live.entryCommands.renameTag(
               tags[r.nextInt(tags.length)],
               tags[r.nextInt(tags.length)],
             );
           case 7:
-            live.renameMerchant(
+            live.entryCommands.renameMerchant(
               shops[r.nextInt(shops.length)],
               shops[r.nextInt(shops.length)],
             );
           case 8:
             final a = banks[r.nextInt(banks.length)];
-            live.updateAccount(
+            live.accountCommands.updateAccount(
               Account(a.id, '${a.name}*', a.kind, a.opening + r.nextInt(500)),
             );
         }

@@ -166,7 +166,9 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                             alignment: Alignment.centerLeft,
                             child: Text(
                               ledger.orDots(
-                                groupDigits(ledger.dividends(year, month)),
+                                groupDigits(
+                                  ledger.reportService.dividends(year, month),
+                                ),
                               ),
                               style: const TextStyle(
                                 fontSize: TextSize.large,

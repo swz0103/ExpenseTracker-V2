@@ -50,8 +50,8 @@ class _TagsPageState extends State<TagsPage> {
     return ListenableBuilder(
       listenable: ledger,
       builder: (context, _) {
-        final tags = ledger.tagStats;
-        final merchants = ledger.merchantStats;
+        final tags = ledger.reportService.tagStats;
+        final merchants = ledger.reportService.merchantStats;
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           header: CenterHeader('標籤與商家', onBack: widget.nav.back),

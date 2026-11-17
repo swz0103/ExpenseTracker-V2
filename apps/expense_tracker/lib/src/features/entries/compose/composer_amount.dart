@@ -18,7 +18,8 @@ extension _Amount on _ComposerState {
     final refunded = _f.refunded;
     final most = refunded == null
         ? 0
-        : _ledger.refundable(refunded) + (widget.entry?.amount ?? 0);
+        : _ledger.entryQueryService.refundable(refunded) +
+              (widget.entry?.amount ?? 0);
     return _AmountHero(
       label: _amountLabel,
       unit: unit ?? (_f.currency == homeCode ? r'NT$' : _f.currency),

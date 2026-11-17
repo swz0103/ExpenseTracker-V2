@@ -24,7 +24,7 @@ class TrashSection extends StatelessWidget {
 
   void _restore(BuildContext context, Trashed trashed) {
     try {
-      if (ledger.restoreTrashed(trashed)) {
+      if (ledger.entryCommands.restoreTrashed(trashed)) {
         showNote(context, '已放回「${trashed.entry.title}」');
       }
     } on Object catch (error) {

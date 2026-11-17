@@ -65,8 +65,8 @@ class _MonthPickerState extends State<_MonthPicker> {
                 final on =
                     key((_year, m)) >= key(widget.first) &&
                     key((_year, m)) <= key(widget.last);
-                final total = ledger.allowance(whole, _year, m);
-                final spent = ledger.expense(_year, m);
+                final total = ledger.budgetService.allowance(whole, _year, m);
+                final spent = ledger.reportService.expense(_year, m);
                 final share = total == 0 ? null : spent * 100 ~/ total;
                 final chosen = (_year, m) == widget.chosen;
                 final tone = share == null
@@ -153,7 +153,7 @@ class _AddLimit extends StatelessWidget {
         if (ledger.budgets.forCategory(c.name).limit == 0) c,
     ];
     final tags = [
-      for (final tag in ledger.tags)
+      for (final tag in ledger.reportService.tags)
         if (ledger.budgets.forCategory('#$tag').limit == 0) tag,
     ];
     return SingleChildScrollView(
@@ -287,8 +287,12 @@ class _BudgetEditorState extends State<_BudgetEditor> {
         : iconFor(category!.icon);
     final today = ledger.today;
     final used = total
-        ? ledger.expense(today.year, today.month)
-        : ledger.spentAgainst(widget.budget, today.year, today.month);
+        ? ledger.reportService.expense(today.year, today.month)
+        : ledger.budgetService.spentAgainst(
+            widget.budget,
+            today.year,
+            today.month,
+          );
     final ink = deepOf(color);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -342,7 +346,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                         child: IconButton(
                           tooltip: '移除額度',
                           onPressed: () {
-                            ledger.removeBudget(name);
+                            ledger.budgetCommands.removeBudget(name);
                             Navigator.of(context).pop();
                           },
                           icon: const GlyphIcon(
@@ -530,7 +534,12 @@ class _BudgetEditorState extends State<_BudgetEditor> {
             '儲存',
             color: Hue.accent,
             onTap: () {
-              ledger.setBudget(name, _limit, warning: _warning, carry: _carry);
+              ledger.budgetCommands.setBudget(
+                name,
+                _limit,
+                warning: _warning,
+                carry: _carry,
+              );
               Navigator.of(context).pop();
             },
           ),

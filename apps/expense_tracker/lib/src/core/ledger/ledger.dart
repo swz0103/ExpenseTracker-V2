@@ -1,18 +1,20 @@
-import 'dart:math';
-
-import 'package:core/foundation_values.dart' show BusinessDate, PublicId;
-import 'package:domain/credit_cards.dart' show CardScheduleChange;
+import 'package:core/foundation_values.dart' show PublicId;
 import 'package:flutter/foundation.dart'
     show ChangeNotifier, Listenable, ValueNotifier;
 
-import '../text/amounts.dart';
 import 'amount_visibility.dart';
 import 'cache/query_cache.dart';
 import 'cache/topic.dart';
 import 'cache/topic_notifier.dart';
-import 'card_cycle.dart';
+import 'commands/account_commands.dart';
+import 'commands/attachment_commands.dart';
+import 'commands/budget_commands.dart';
+import 'commands/category_commands.dart';
+import 'commands/command_context.dart';
+import 'commands/entry_commands.dart';
+import 'commands/holding_commands.dart';
+import 'commands/recurring_commands.dart';
 import 'persistence/ledger_data_source.dart';
-import 'persistence/unit_of_work.dart';
 import 'persistence/write_queue.dart';
 import 'repositories/account_repository.dart';
 import 'repositories/budget_repository.dart';
@@ -25,19 +27,18 @@ import 'repositories/entry_repository.dart';
 import 'repositories/recurring_repository.dart';
 import 'repositories/trash_repository.dart';
 import 'models/models.dart';
+import 'services/balance_service.dart';
+import 'services/budget_service.dart';
+import 'services/entry_query_service.dart';
+import 'services/entry_validator.dart';
+import 'services/recurring_service.dart';
+import 'services/report_service.dart';
+import 'services/statement_service.dart';
 
 export 'card_cycle.dart';
 export 'cache/topic.dart';
+export 'commands/command_exceptions.dart';
 export 'models/models.dart';
-
-part 'ledger_cards.dart';
-part 'ledger_planning.dart';
-part 'ledger_reports.dart';
-part 'ledger_entries.dart';
-part 'ledger_queries.dart';
-part 'ledger_holdings.dart';
-part 'ledger_recurring.dart';
-part 'ledger_setup.dart';
 
 /// The screens' book: accounts, categories, entries, holdings, budgets
 /// and recurring items, with the sums the screens show. Holdings are
@@ -77,8 +78,8 @@ final class Ledger extends ChangeNotifier {
        _entries = EntryRepository(entries),
        _budgets = BudgetRepository(budgets),
        _recurring = RecurringRepository(recurring) {
-    _holdings = HoldingRepository(holdings, moveOf: _market.moveOf);
-    _replay(lenient: true);
+    _holdings = HoldingRepository(holdings, moveOf: _market.moveOf)
+      ..replay(_entries, lenient: true);
     amounts.addListener(_signal);
     final source = dataSource;
     if (source != null) {
@@ -132,29 +133,8 @@ final class Ledger extends ChangeNotifier {
   /// phone keeps.
   final ReceiptRepository _receipts;
 
-  /// Every receipt photo an entry keeps, deleted entries' included.
-  Set<String> get receiptFiles => {
-    ..._receipts.files,
-    // A form put aside keeps the photo chosen for it.
-    ..._drafts.receipts,
-  };
-
   /// The forms put aside in the composer, kept across a restart.
   final DraftRepository _drafts;
-
-  /// Keeps the form put aside on [tab], or clears it when [json] is null.
-  void setDraft(String tab, String? json) {
-    if (!_drafts.set(tab, json)) return;
-    _keep(WriteBatch(drafts: {tab: json}));
-  }
-
-  /// Gives the entry with [id] the receipt photo [file], or takes its
-  /// photo away when null.
-  void setReceipt(String id, String? file) {
-    if (!_receipts.set(id, file)) return;
-    _signal();
-    _keep(WriteBatch(receipts: {id: file}));
-  }
 
   /// The 隱藏金額 switch: amounts written as dots. Its changes reach the
   /// screens as a change of how amounts are shown, which leaves every sum
@@ -175,17 +155,11 @@ final class Ledger extends ChangeNotifier {
 
   /// The account [id]; one of that name and no balance when the book has
   /// none, as for an entry whose account was never kept.
-  Account account(String id) =>
-      _accounts.byId(id) ?? Account(id, id, AccountKind.bank, 0);
+  Account account(String id) => _accounts.resolve(id);
 
   Category category(String name) => _categories.byName(name);
 
   Holding? holding(String code) => _holdings.byCode(code);
-
-  /// What the screens ask for again and again, worked out once per change:
-  /// balances by account and day, accounts by id.
-  Map<String, _Running>? _running;
-  final _balances = <(String, DateTime), int>{};
 
   /// Answers worked out once per change of what they rest on.
   final _cache = QueryCache();
@@ -202,20 +176,10 @@ final class Ledger extends ChangeNotifier {
   /// resting on some topics only.
   int revisionOf(Topic topic) => _topics.revisionOf(topic);
 
-  /// What [make] works out, once per change of the [on] topics for each
-  /// [key]. A key should hold every argument the answer depends on, the
-  /// day included; [on] is every topic it reads.
-  T _remember<T>(Object key, T Function() make, {Set<Topic> on = Topic.all}) =>
-      _cache.remember(key, make, reads: on);
-
   /// Throws away what rests on [topics], and only that: a budget changed
   /// leaves every statement and balance worked out.
   void _forget(Set<Topic> topics) {
     _topics.count(topics);
-    if (topics.contains(Topic.entries) || topics.contains(Topic.accounts)) {
-      _running = null;
-      _balances.clear();
-    }
     _cache.forget(topics);
   }
 
@@ -255,25 +219,112 @@ final class Ledger extends ChangeNotifier {
 
   void _keep(WriteBatch batch) => _writes?.enqueue(batch);
 
-  /// Takes new closing prices and rates: the stocks' reference prices and
-  /// names in [holdings], each day's change in [moves].
-  void setMarket({
-    required List<Holding> holdings,
-    required Map<String, double> moves,
-    required Map<String, double> rates,
-    DateTime? quotedOn,
-    Map<String, DateTime> quoteDays = const {},
-  }) {
-    _market.replace(
-      rates: rates,
-      moves: moves,
-      quotedOn: quotedOn,
-      quoteDays: quoteDays,
-    );
-    _holdings.replaceStart(holdings);
-    _replay(lenient: true);
-    _changed(const {Topic.market});
-  }
+  // What is worked out from the records, and what writes them: built on
+  // first use, all on the same repositories and cache.
+
+  late final balanceService = BalanceService(
+    entries: _entries,
+    accounts: _accounts,
+    holdings: _holdings,
+    market: _market,
+    cache: _cache,
+    today: _clock,
+  );
+  late final statementService = StatementService(
+    entries: _entries,
+    accounts: _accounts,
+    balanceService: balanceService,
+    cache: _cache,
+    today: _clock,
+  );
+  late final reportService = ReportService(
+    entries: _entries,
+    accounts: _accounts,
+    categories: _categories,
+    cache: _cache,
+    today: _clock,
+  );
+  late final entryQueryService = EntryQueryService(
+    entries: _entries,
+    accounts: _accounts,
+    cache: _cache,
+    today: _clock,
+  );
+  late final budgetService = BudgetService(
+    entries: _entries,
+    reportService: reportService,
+    today: _clock,
+  );
+  late final recurringService = RecurringService(
+    entries: _entries,
+    accounts: _accounts,
+    recurring: _recurring,
+    market: _market,
+    cache: _cache,
+    today: _clock,
+  );
+  late final entryValidator = EntryValidator(
+    entries: _entries,
+    accounts: _accounts,
+    holdings: _holdings,
+    entryQueryService: entryQueryService,
+  );
+
+  late final CommandContext _context = _LedgerContext(this);
+
+  late final entryCommands = EntryCommands(
+    context: _context,
+    entryRepository: _entries,
+    accountRepository: _accounts,
+    categoryRepository: _categories,
+    holdingRepository: _holdings,
+    recurringRepository: _recurring,
+    budgetRepository: _budgets,
+    trashRepository: _trash,
+    receiptRepository: _receipts,
+    recurringService: recurringService,
+    entryQueryService: entryQueryService,
+    entryValidator: entryValidator,
+  );
+  late final accountCommands = AccountCommands(
+    context: _context,
+    accountRepository: _accounts,
+    entryRepository: _entries,
+    trashRepository: _trash,
+    recurringRepository: _recurring,
+    balanceService: balanceService,
+  );
+  late final categoryCommands = CategoryCommands(
+    context: _context,
+    categoryRepository: _categories,
+    entryRepository: _entries,
+    trashRepository: _trash,
+    recurringRepository: _recurring,
+    budgetRepository: _budgets,
+  );
+  late final budgetCommands = BudgetCommands(
+    context: _context,
+    budgetRepository: _budgets,
+  );
+  late final recurringCommands = RecurringCommands(
+    context: _context,
+    recurringRepository: _recurring,
+    entryRepository: _entries,
+    accounts: _accounts,
+    recurringService: recurringService,
+    entryCommands: entryCommands,
+  );
+  late final holdingCommands = HoldingCommands(
+    context: _context,
+    marketRepository: _market,
+    holdingRepository: _holdings,
+    entryRepository: _entries,
+  );
+  late final attachmentCommands = AttachmentCommands(
+    context: _context,
+    receiptRepository: _receipts,
+    draftRepository: _drafts,
+  );
 
   /// Replaces everything with the contents of [fresh], for a demo reset.
   void resetTo(Ledger fresh) {
@@ -297,49 +348,35 @@ final class Ledger extends ChangeNotifier {
     _drafts.replaceWith(fresh._drafts);
     _market.replaceWith(fresh._market);
     _day = fresh.today;
-    _replay(lenient: true);
+    _holdings.replay(_entries, lenient: true);
     notifyListeners();
   }
 }
 
-/// One account's entries in date order with the balance change up to each
-/// of them, so a balance on any day is one search. Instalment purchases
-/// are kept apart: what they have billed depends on the day asked about.
-final class _Running {
-  final days = <DateTime>[];
-  final totals = <int>[];
-  final plans = <Entry>[];
+/// The ledger as its commands see it.
+final class _LedgerContext implements CommandContext {
+  _LedgerContext(this._ledger);
 
-  /// The change of the entries on or before [day].
-  int until(DateTime day) {
-    var low = 0;
-    var high = days.length;
-    while (low < high) {
-      final middle = (low + high) >> 1;
-      if (days[middle].isAfter(day)) {
-        high = middle;
-      } else {
-        low = middle + 1;
-      }
-    }
-    return low == 0 ? 0 : totals[low - 1];
-  }
-}
-
-/// A change was refused because it would leave a later sale or reduction
-/// of a stock short of shares.
-final class SharesShort implements Exception {
-  const SharesShort();
+  final Ledger _ledger;
 
   @override
-  String toString() => 'SharesShort';
-}
-
-/// A category was not added or renamed: its name is empty, taken, or one
-/// the ledger keeps for itself.
-final class NameTaken implements Exception {
-  const NameTaken();
+  DateTime get today => _ledger.today;
 
   @override
-  String toString() => 'NameTaken';
+  ValueNotifier<Object?> get problem => _ledger.problem;
+
+  @override
+  String newId() => _ledger.newId();
+
+  @override
+  void changed(Set<Topic> topics) => _ledger._changed(topics);
+
+  @override
+  void forget(Set<Topic> topics) => _ledger._forget(topics);
+
+  @override
+  void signal() => _ledger._signal();
+
+  @override
+  void keep(WriteBatch batch) => _ledger._keep(batch);
 }

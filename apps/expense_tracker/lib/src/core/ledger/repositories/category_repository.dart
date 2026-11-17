@@ -72,6 +72,13 @@ final class CategoryRepository implements CategoryReader {
     return !_items.any((c) => c.name == trimmed);
   }
 
+  /// [category] under its name without the spaces around it, as every
+  /// name is compared.
+  static Category trimmed(Category category) {
+    final name = category.name.trim();
+    return name == category.name ? category : category.copyWith(name: name);
+  }
+
   /// Adds [category] last; its name is checked by the caller.
   void add(Category category) {
     _items.add(category);

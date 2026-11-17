@@ -1,5 +1,4 @@
 import 'package:expense_tracker/src/app/demo/seed.dart';
-import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/features/recurring/model/recurring_schedule.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -20,7 +19,11 @@ void main() {
     }
     for (final list in plan.values) {
       for (final d in list) {
-        final booked = ledger.confirmationsIn(d.item, today.year, today.month);
+        final booked = ledger.recurringService.confirmationsIn(
+          d.item,
+          today.year,
+          today.month,
+        );
         if (d.booked != null) expect(booked, contains(d.booked));
       }
     }

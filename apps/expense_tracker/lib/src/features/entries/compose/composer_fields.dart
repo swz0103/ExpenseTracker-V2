@@ -231,7 +231,7 @@ extension _Fields on _ComposerState {
     final arrives = _f.crossing ? _f.receivedValue ?? 0 : _f.amount;
     final moved = _f.amount > 0;
     String held(Account a, int change) {
-      final now = _ledger.balance(a.id);
+      final now = _ledger.balanceService.balance(a.id);
       return _ledger.moneyIn(now + change, a.currency);
     }
 
@@ -332,7 +332,9 @@ extension _Fields on _ComposerState {
             onTap: income ? () => _lend(back: true) : _pickLent,
           )
         : null;
-    final usual = fresh ? _ledger.usual(income: income) : const <Entry>[];
+    final usual = fresh
+        ? _ledger.entryQueryService.usual(income: income)
+        : const <Entry>[];
     final scan = fresh && widget.scan != null && !income;
     if (usual.isEmpty && !scan && lend == null) return null;
     return _UsualRow(lead: lend, [
@@ -355,7 +357,7 @@ extension _Fields on _ComposerState {
     if (_viewing || widget.entry != null || widget.draft != null) {
       return null;
     }
-    final usual = _ledger.usualTransfers();
+    final usual = _ledger.entryQueryService.usualTransfers();
     if (usual.isEmpty) return null;
     return _UsualRow([
       for (final e in usual)

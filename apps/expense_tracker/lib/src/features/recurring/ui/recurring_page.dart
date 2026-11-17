@@ -99,7 +99,8 @@ class _RecurringPageState extends State<RecurringPage> {
     _day = null;
   });
 
-  void _book(Recurring item) => widget.nav.compose(draft: ledger.booking(item));
+  void _book(Recurring item) =>
+      widget.nav.compose(draft: ledger.recurringService.booking(item));
 
   Future<void> _edit({Recurring? item, DateTime? on}) =>
       _editItem(context, ledger, item: item, on: on);
@@ -155,7 +156,7 @@ class _RecurringPageState extends State<RecurringPage> {
         for (final list in plan.values) {
           for (final d in list) {
             if (!d.settled && !d.item.income) {
-              toCome += ledger.recurringWorth(d.item);
+              toCome += ledger.recurringService.worth(d.item);
             }
           }
         }

@@ -30,7 +30,7 @@ extension Lending on ComposeForm {
   /// Puts the entries written as one with [entry] in the fields: the
   /// spending, and what was paid in it for each person.
   void loadGroup(Entry entry) {
-    final members = ledger.groupOf(entry);
+    final members = ledger.entryQueryService.groupOf(entry);
     final own = [
       for (final m in members)
         if (m.type == EntryType.expense) m,

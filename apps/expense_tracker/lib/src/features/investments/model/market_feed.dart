@@ -57,7 +57,7 @@ final class MarketFeed extends SyncJob implements PriceHistory {
     ).wait;
     if (quotes || rates) {
       final market = _journal.market();
-      _ledger.setMarket(
+      _ledger.holdingCommands.setMarket(
         holdings: market.holdings,
         moves: market.moves,
         rates: market.rates,

@@ -22,12 +22,12 @@ class MorePage extends StatelessWidget {
       listenable: ledger,
       builder: (context, _) {
         final today = ledger.today;
-        final due = ledger.due;
-        final items = [...due, ...ledger.upcoming];
-        final income = ledger.income(today.year, today.month);
-        final expense = ledger.expense(today.year, today.month);
+        final due = ledger.recurringService.due;
+        final items = [...due, ...ledger.recurringService.upcoming];
+        final income = ledger.reportService.income(today.year, today.month);
+        final expense = ledger.reportService.expense(today.year, today.month);
         final rate = income == 0 ? 0 : (income - expense) * 100 ~/ income;
-        final limit = ledger.allowance(
+        final limit = ledger.budgetService.allowance(
           ledger.budgets.forCategory(allSpending),
           today.year,
           today.month,
@@ -81,7 +81,7 @@ class MorePage extends StatelessWidget {
                     ? '${due.length} 筆到期'
                     : next == null
                     ? '沒有待扣款'
-                    : '下一筆 ${ledger.nextLabel(next)}',
+                    : '下一筆 ${ledger.recurringService.nextLabel(next)}',
                 onTap: () => nav.open(Pages.recurring),
               ),
               ToolButton(
@@ -105,7 +105,7 @@ class MorePage extends StatelessWidget {
                 glyph: Glyph.tag,
                 color: ToolHue.tags,
                 label: '標籤與商家',
-                detail: '${ledger.tags.length} 個標籤',
+                detail: '${ledger.reportService.tags.length} 個標籤',
                 onTap: () => nav.open(Pages.tags),
               ),
               ToolButton(

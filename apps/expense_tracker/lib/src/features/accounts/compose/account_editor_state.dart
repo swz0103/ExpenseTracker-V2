@@ -56,7 +56,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     final old = _old;
     if (old == null) return;
     final ledger = widget.ledger;
-    final left = ledger.balance(old.id);
+    final left = ledger.balanceService.balance(old.id);
     if (!old.archived && left != 0) {
       final into = await pickOption<String>(
         context,
@@ -70,9 +70,9 @@ class _AccountEditorState extends State<_AccountEditor> {
         ),
       );
       if (into == null) return;
-      ledger.add(AccountForm.settlement(ledger, old, into));
+      ledger.entryCommands.add(AccountForm.settlement(ledger, old, into));
     }
-    ledger.updateAccount(old.copyWith(archived: !old.archived));
+    ledger.accountCommands.updateAccount(old.copyWith(archived: !old.archived));
     if (mounted) Navigator.of(context).pop(!old.archived);
   }
 
@@ -81,7 +81,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     if (old == null) return;
     final ok = await confirm(context, '刪除「${old.name}」？', '刪除', danger: true);
     if (!ok || !mounted) return;
-    widget.ledger.removeAccount(old.id);
+    widget.ledger.accountCommands.removeAccount(old.id);
     Navigator.of(context).pop(true);
   }
 
@@ -297,7 +297,8 @@ class _AccountEditorState extends State<_AccountEditor> {
 
   /// 刪除, 封存 or 恢復 when changing, and 儲存; what is left under it.
   Widget _buttons(Account? old) {
-    final removable = old != null && !widget.ledger.isUsed(old.id);
+    final removable =
+        old != null && !widget.ledger.accountCommands.isUsed(old.id);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -316,7 +317,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                       ? '刪除'
                       : old.archived
                       ? '恢復'
-                      : widget.ledger.balance(old.id) == 0
+                      : widget.ledger.balanceService.balance(old.id) == 0
                       ? '封存'
                       : '結清封存',
                 ),
@@ -519,7 +520,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      '目前 ${widget.ledger.moneyIn(widget.ledger.balance(old.id), old.currency)}',
+                      '目前 ${widget.ledger.moneyIn(widget.ledger.balanceService.balance(old.id), old.currency)}',
                       textAlign: TextAlign.center,
                       style: mutedSmall,
                     ),

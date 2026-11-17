@@ -40,6 +40,6 @@ Future<void> reconcileAccount(
     '記下',
   );
   if (!ok || !context.mounted) return;
-  ledger.add(entry);
+  ledger.entryCommands.add(entry);
   showNote(context, '已記下對帳調整 ${spent ? '−' : '+'}${groupDigits(entry.amount)}');
 }

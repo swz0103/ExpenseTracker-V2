@@ -22,7 +22,7 @@ class _Pace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (passed, days) = ledger.daysGone(year, month);
+    final (passed, days) = ledger.budgetService.daysGone(year, month);
     String money(int v) => ledger.orDots(groupDigits(v));
     if (!current) {
       final saved = total - spent;
@@ -46,7 +46,7 @@ class _Pace extends StatelessWidget {
     }
     final left = total - spent;
     final remaining = days - passed + 1;
-    final heading = ledger.forecast(spent, year, month);
+    final heading = ledger.budgetService.forecast(spent, year, month);
     final over = heading > total;
     return CardGrid(gap: 10, [
       _Figure(

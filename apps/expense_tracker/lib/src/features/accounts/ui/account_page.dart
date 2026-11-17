@@ -45,7 +45,7 @@ class _AccountPageState extends State<AccountPage> {
           return const SizedBox.shrink();
         }
         final account = ledger.account(widget.accountId);
-        final balance = ledger.balance(account.id);
+        final balance = ledger.balanceService.balance(account.id);
         final (into, out) = monthFlow(ledger, account);
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
@@ -107,7 +107,7 @@ class _AccountPageState extends State<AccountPage> {
   var outflow = 0;
   for (final e in ledger.entries.inMonth(today.year, today.month)) {
     if (e.account != account.id && e.to != account.id) continue;
-    final change = ledger.effect(e, account.id);
+    final change = ledger.balanceService.effect(e, account.id);
     if (change > 0) {
       inflow += change;
     } else {
@@ -171,7 +171,7 @@ class _AccountBodyState extends State<AccountBody> {
         id: '',
         date: ledger.today,
         type: EntryType.transfer,
-        amount: card ? ledger.statementDue(account) : 0,
+        amount: card ? ledger.statementService.statementDue(account) : 0,
         account: card || main == account.id ? main : account.id,
         category: transferCategory,
         to: card || main == account.id ? account.id : main,
@@ -183,9 +183,9 @@ class _AccountBodyState extends State<AccountBody> {
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
     final account = widget.account;
-    final balance = ledger.balance(account.id);
+    final balance = ledger.balanceService.balance(account.id);
     final code = account.currency;
-    final weeks = ledger.weeklyChanges(account.id);
+    final weeks = ledger.balanceService.weeklyChanges(account.id);
     final today = ledger.today;
     final (year, month) = _month;
     final entries = [
@@ -270,7 +270,8 @@ class _AccountBodyState extends State<AccountBody> {
                     amountIn(
                       list.fold<int>(
                         0,
-                        (sum, e) => sum + ledger.effect(e, account.id),
+                        (sum, e) =>
+                            sum + ledger.balanceService.effect(e, account.id),
                       ),
                       code,
                     ),

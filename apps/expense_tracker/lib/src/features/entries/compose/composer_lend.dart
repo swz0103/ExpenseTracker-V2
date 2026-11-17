@@ -9,7 +9,7 @@ extension _LendFields on _ComposerState {
   /// those being paid.
   List<Widget> _lendFields() {
     final person = _f.to.isEmpty ? null : _ledger.account(_f.to);
-    final owed = person == null ? 0 : _ledger.balance(person.id);
+    final owed = person == null ? 0 : _ledger.balanceService.balance(person.id);
     final name = person?.name ?? '新增對象';
     final String sub;
     if (person == null) {
@@ -101,13 +101,15 @@ extension _LendFields on _ComposerState {
       AccountKind.receivable,
       0,
     );
-    _ledger.addAccount(account);
+    _ledger.accountCommands.addAccount(account);
     return account;
   }
 
   /// What the person still owes, sum by sum, as cards to tick in a row.
   Widget _owedCards() {
-    final owed = _f.to.isEmpty ? const <(Entry, int)>[] : _ledger.owedBy(_f.to);
+    final owed = _f.to.isEmpty
+        ? const <(Entry, int)>[]
+        : _ledger.reportService.owedBy(_f.to);
     if (owed.isEmpty || _viewing) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: 12),
@@ -137,7 +139,7 @@ extension _LendFields on _ComposerState {
   /// What a sum owed was for: its note, or the merchant or note of the
   /// spending it was paid in.
   String _owedTitle(Entry e) {
-    final lead = _ledger.groupLead(e);
+    final lead = _ledger.entryQueryService.groupLead(e);
     for (final words in [e.note, lead.merchant, lead.note]) {
       if (words.isNotEmpty) return words;
     }

@@ -43,9 +43,9 @@ class _FlowSectionState extends State<FlowSection> {
       months.add(
         FlowMonth(
           '${first.month}月',
-          ledger.income(first.year, first.month),
-          ledger.expense(first.year, first.month),
-          ledger.netWorthAt(until),
+          ledger.reportService.income(first.year, first.month),
+          ledger.reportService.expense(first.year, first.month),
+          ledger.balanceService.netWorthAt(until),
         ),
       );
     }

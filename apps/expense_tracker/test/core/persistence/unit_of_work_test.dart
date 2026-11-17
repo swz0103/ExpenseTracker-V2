@@ -222,7 +222,7 @@ void main() {
         dataSource: source,
       );
       for (var i = 0; i < 10; i++) {
-        ledger.remove('e${r.nextInt(40)}');
+        ledger.entryCommands.remove('e${r.nextInt(40)}');
       }
       await ledger.settled;
       final ids = <Object, int>{};
@@ -234,26 +234,29 @@ void main() {
         final what = r.nextInt(5);
         switch (what) {
           case 0 when live.length > 1:
-            ledger.mergeCategory(
+            ledger.categoryCommands.mergeCategory(
               live[r.nextInt(live.length)],
               live[r.nextInt(live.length)],
             );
           case 1:
             final pick = r.nextInt(tags.length + 1);
-            ledger.renameTag(
+            ledger.entryCommands.renameTag(
               tags[r.nextInt(tags.length)],
               pick == tags.length ? '' : tags[pick],
             );
           case 2:
-            ledger.renameMerchant(
+            ledger.entryCommands.renameMerchant(
               shops[r.nextInt(shops.length)],
               r.nextInt(4) == 0 ? '' : shops[r.nextInt(shops.length)],
             );
           case 3 when live.isNotEmpty:
             final c = ledger.category(live[r.nextInt(live.length)]);
-            ledger.updateCategory(c.name, c.copyWith(archived: !c.archived));
+            ledger.categoryCommands.updateCategory(
+              c.name,
+              c.copyWith(archived: !c.archived),
+            );
           case 4:
-            ledger.setBudget(
+            ledger.budgetCommands.setBudget(
               r.nextBool() ? '#${tags[r.nextInt(tags.length)]}' : live.first,
               100 + r.nextInt(900),
             );

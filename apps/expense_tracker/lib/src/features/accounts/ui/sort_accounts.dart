@@ -15,7 +15,11 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
             ..clear()
             ..addAll(walletAccounts(ledger));
         case _SortBy.balance:
-          _order.sort((a, b) => ledger.worthOf(b).compareTo(ledger.worthOf(a)));
+          _order.sort(
+            (a, b) => ledger.balanceService
+                .worthOf(b)
+                .compareTo(ledger.balanceService.worthOf(a)),
+          );
         case _SortBy.recent:
           final last = <String, DateTime>{};
           for (final e in ledger.entries.all) {
@@ -46,7 +50,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
   }
 
   void _done() {
-    widget.ledger.placeAccounts([for (final a in _order) a.id]);
+    widget.ledger.accountCommands.placeAccounts([for (final a in _order) a.id]);
     Navigator.of(context).pop();
   }
 
@@ -201,9 +205,11 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                               ),
                               Text(
                                 a.kind.isDebt
-                                    ? ledger.money(-ledger.balance(a.id))
+                                    ? ledger.money(
+                                        -ledger.balanceService.balance(a.id),
+                                      )
                                     : ledger.moneyIn(
-                                        ledger.balance(a.id),
+                                        ledger.balanceService.balance(a.id),
                                         a.currency,
                                       ),
                                 style: const TextStyle(

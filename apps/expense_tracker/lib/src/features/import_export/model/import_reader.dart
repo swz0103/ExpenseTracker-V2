@@ -123,7 +123,7 @@ final class _Reader {
     if (entry is! Entry) return entry as String;
     final made = entry;
     if (!made.isReduction) {
-      final problem = ledger.problemWith(made, holdings: false);
+      final problem = ledger.entryValidator.problemWith(made, holdings: false);
       if (problem != null) return problem;
     }
     if (_already(ledger, made)) return '帳本裡已經有這一筆';
@@ -222,7 +222,7 @@ final class _Reader {
   int _left(Entry e) {
     final inBook = ledger.entries.byId(e.id) == null
         ? e.amount
-        : ledger.refundable(e);
+        : ledger.entryQueryService.refundable(e);
     return inBook - (_refunded[e.id] ?? 0);
   }
 
@@ -313,7 +313,7 @@ final class _Reader {
       if (e.isInvestment) {
         // Only a sale or a reduction can leave a stock short of shares.
         final takes = e.type == EntryType.sell || e.isReduction;
-        if (takes && !ledger.holdsWith([...trades, e])) {
+        if (takes && !ledger.entryValidator.holdsWith([...trades, e])) {
           skip(line, '${e.holding} 賣出或減少的股數超過當時持股');
           continue;
         }
@@ -368,7 +368,7 @@ const _hints = {
 /// The category for spending at [merchant]: the one the book used last,
 /// else one its name hints at, else 其他支出.
 String guessCategory(Ledger ledger, String merchant, String items) {
-  final used = ledger.categoryAt(merchant);
+  final used = ledger.entryQueryService.categoryAt(merchant);
   if (used != null) return used;
   final known = ledger.categories.forEntries(income: false).map((c) => c.name);
   final text = '$merchant $items'.toUpperCase();
@@ -403,7 +403,7 @@ Import importInvoices(Ledger ledger, String text, {required String account}) {
   final problems = [...found.problems];
   var skipped = found.skipped;
   for (final entry in found.entries) {
-    final problem = ledger.problemWith(entry, holdings: false);
+    final problem = ledger.entryValidator.problemWith(entry, holdings: false);
     if (problem == null) {
       kept.add(entry);
     } else {
@@ -507,7 +507,7 @@ Import _invoiceCsv(Ledger ledger, String text, {required String account}) {
 
 /// The open NT$ account [shop] was last paid from, if any.
 String? _usualAccount(Ledger ledger, String shop) {
-  final last = shop.isEmpty ? null : ledger.lastAt(shop);
+  final last = shop.isEmpty ? null : ledger.entryQueryService.lastAt(shop);
   if (last == null) return null;
   final account = ledger.account(last.account);
   if (account.archived || account.currency != homeCode) return null;

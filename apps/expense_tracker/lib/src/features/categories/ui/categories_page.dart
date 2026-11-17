@@ -53,7 +53,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
       colors: _colors,
       ledger: ledger,
     );
-    if (made != null) ledger.addCategory(made);
+    if (made != null) ledger.categoryCommands.addCategory(made);
   }
 
   /// Top-level open categories of the kind shown, in their order.
@@ -66,7 +66,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
   /// everything else in the order it stands. Each kind is shown on its
   /// own, so only the order within a kind is seen.
   void _place(List<String> names) {
-    ledger.placeCategories([
+    ledger.categoryCommands.placeCategories([
       ...names,
       for (final c in ledger.categories.all)
         if (!names.contains(c.name)) c.name,
@@ -201,7 +201,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                         ),
                       ),
                       tooltip: '恢復「${c.name}」',
-                      onPressed: () => ledger.updateCategory(
+                      onPressed: () => ledger.categoryCommands.updateCategory(
                         c.name,
                         c.copyWith(archived: false),
                       ),
@@ -229,7 +229,7 @@ Future<void> editCategory(
     colors: Hue.categoryColors,
     ledger: ledger,
   );
-  if (next != null) ledger.updateCategory(category.name, next);
+  if (next != null) ledger.categoryCommands.updateCategory(category.name, next);
 }
 
 /// 支出 10 or 收入 4: solid in its colour when chosen.

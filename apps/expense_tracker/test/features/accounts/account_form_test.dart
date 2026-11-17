@@ -40,7 +40,7 @@ void main() {
     final made = ledger.accounts.all.last;
     expect(made.name, '郵局');
     expect(made.currency, 'USD');
-    expect(ledger.balance(made.id), 300000);
+    expect(ledger.balanceService.balance(made.id), 300000);
   });
 
   test('a card is kept in NT\$ and its balance typed as what is owed', () {
@@ -54,7 +54,7 @@ void main() {
       ..limit = '50000';
     expect(form.save(), isTrue);
     final card = ledger.account('card');
-    expect(ledger.balance('card'), -800);
+    expect(ledger.balanceService.balance('card'), -800);
     expect((card.closingDay, card.limit), (5, 50000));
   });
 
@@ -64,7 +64,7 @@ void main() {
       ..balance = ''
       ..name = '薪轉';
     expect(form.save(), isTrue);
-    expect(ledger.balance('bank'), 5000);
+    expect(ledger.balanceService.balance('bank'), 5000);
     expect(ledger.account('bank').name, '薪轉');
   });
 
@@ -80,7 +80,7 @@ void main() {
     'a new account comes after the placed ones; a change keeps its place',
     () {
       final ledger = book();
-      ledger.placeAccounts(['card', 'bank']);
+      ledger.accountCommands.placeAccounts(['card', 'bank']);
       expect(ledger.account('card').place, 0);
       final form = AccountForm(ledger)..name = '郵局';
       expect(form.save(), isTrue);
@@ -106,16 +106,19 @@ void main() {
       final loan = ledger.accounts.all.last;
       expect(loan.principal, 350000);
       expect(loan.place, isNull);
-      expect(ledger.balance(loan.id), -300000);
-      expect(ledger.balance('bank'), 305000);
+      expect(ledger.balanceService.balance(loan.id), -300000);
+      expect(ledger.balanceService.balance('bank'), 305000);
       final plain = AccountForm(ledger)
         ..kind = AccountKind.loan
         ..name = '信貸'
         ..balance = '50,000';
       expect(plain.save(), isTrue);
-      expect(ledger.balance(ledger.accounts.all.last.id), -50000);
+      expect(
+        ledger.balanceService.balance(ledger.accounts.all.last.id),
+        -50000,
+      );
       expect(ledger.accounts.all.last.principal, isNull);
-      expect(ledger.balance('bank'), 305000);
+      expect(ledger.balanceService.balance('bank'), 305000);
     },
   );
 
@@ -134,7 +137,7 @@ void main() {
     expect(form.plan?.first, 5059);
     expect(form.save(), isTrue);
     final loan = ledger.accounts.all.last;
-    expect(ledger.balance(loan.id), -1000000);
+    expect(ledger.balanceService.balance(loan.id), -1000000);
     expect(
       (
         loan.loan?.rate,

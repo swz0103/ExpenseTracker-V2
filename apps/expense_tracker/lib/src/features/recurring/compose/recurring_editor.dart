@@ -80,7 +80,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
       body: '已記的紀錄會保留。',
     );
     if (!ok || !mounted) return;
-    _ledger.removeRecurring(item.id);
+    _ledger.recurringCommands.removeRecurring(item.id);
     Navigator.of(context).pop();
   }
 

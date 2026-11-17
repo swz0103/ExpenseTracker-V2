@@ -36,13 +36,13 @@ class PlanSection extends StatelessWidget {
   /// the month has cost and 設定預算.
   Widget _budgetTile() {
     final (year, m) = month;
-    final spent = ledger.expense(year, m);
-    final limit = ledger.allowance(
+    final spent = ledger.reportService.expense(year, m);
+    final limit = ledger.budgetService.allowance(
       ledger.budgets.forCategory(allSpending),
       year,
       m,
     );
-    final (gone, days) = ledger.daysGone(year, m);
+    final (gone, days) = ledger.budgetService.daysGone(year, m);
     final today = ledger.today;
     final current = today.year == year && today.month == m;
     final left = limit - spent;
@@ -118,10 +118,10 @@ class PlanSection extends StatelessWidget {
   /// due (今天, or 已到期 in red for one not yet booked), and under it
   /// that item's name and amount; nothing more.
   Widget _dueTile() {
-    final due = ledger.due;
-    final items = [...due, ...ledger.upcoming];
+    final due = ledger.recurringService.due;
+    final items = [...due, ...ledger.recurringService.upcoming];
     final next = items.isEmpty ? null : items.first;
-    final day = next == null ? null : ledger.nextDate(next);
+    final day = next == null ? null : ledger.recurringService.nextDate(next);
     final today = ledger.today;
     final until = day?.difference(today).inDays;
     final (String figure, Color tone) = switch (until) {

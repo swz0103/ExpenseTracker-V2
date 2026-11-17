@@ -179,7 +179,9 @@ extension _Habits on _ReportsPageState {
     final rows = report.tags;
     if (rows.isEmpty) return const [];
     final ledger = widget.ledger;
-    final counts = {for (final (tag, n, _) in ledger.tagStats) tag: n};
+    final counts = {
+      for (final (tag, n, _) in ledger.reportService.tagStats) tag: n,
+    };
     return [
       const TitleRow('標籤'),
       CardGrid(columns: 3, gap: 8, [

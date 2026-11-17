@@ -118,10 +118,12 @@ class EntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final currency = ledger.account(entry.account).currency;
     // A spending partly given back shows what is left of it.
-    final back = entry.type == EntryType.expense ? ledger.refunded(entry) : 0;
+    final back = entry.type == EntryType.expense
+        ? ledger.entryQueryService.refunded(entry)
+        : 0;
     // Written as one with what was paid for others: the whole paid, and
     // for whom how much.
-    final group = merge ? ledger.groupOf(entry) : [entry];
+    final group = merge ? ledger.entryQueryService.groupOf(entry) : [entry];
     final lent = [
       for (final m in group)
         if (m.type == EntryType.transfer) m,
@@ -264,15 +266,15 @@ class EntryRow extends StatelessWidget {
 bool removeEntry(BuildContext context, Ledger ledger, Entry entry) {
   Haptics.medium();
   // An entry written as one with others goes with them.
-  final removed = ledger.removeAll([
-    for (final e in ledger.groupOf(entry)) e.id,
+  final removed = ledger.entryCommands.removeAll([
+    for (final e in ledger.entryQueryService.groupOf(entry)) e.id,
   ]);
   if (removed.isEmpty) return false;
   showNote(
     context,
     '已刪除「${entry.title}」',
     action: '復原',
-    onAction: () => ledger.restoreAll(removed),
+    onAction: () => ledger.entryCommands.restoreAll(removed),
   );
   return true;
 }

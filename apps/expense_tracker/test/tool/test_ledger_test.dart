@@ -113,7 +113,7 @@ void _setUp(Ledger ledger) {
       loan: const LoanTerms(rate: 260, months: 60, repay: LoanRepay.even),
     ),
   ]) {
-    ledger.addAccount(account);
+    ledger.accountCommands.addAccount(account);
   }
 }
 
@@ -131,7 +131,7 @@ void _settle(Ledger ledger) {
     ('訂閱服務', 900),
     ('寵物', 1500),
   ]) {
-    ledger.setBudget(category, limit);
+    ledger.budgetCommands.setBudget(category, limit);
   }
   for (final item in [
     Recurring(
@@ -199,8 +199,8 @@ void _settle(Ledger ledger) {
       active: false,
     ),
   ]) {
-    ledger.saveRecurring(item);
+    ledger.recurringCommands.saveRecurring(item);
   }
   final old = ledger.account(id('舊薪轉帳戶'));
-  ledger.updateAccount(old.copyWith(archived: true));
+  ledger.accountCommands.updateAccount(old.copyWith(archived: true));
 }

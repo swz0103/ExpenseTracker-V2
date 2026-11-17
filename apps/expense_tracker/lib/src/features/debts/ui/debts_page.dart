@@ -18,10 +18,15 @@ import '../../../core/ui/shown_amounts.dart';
 part 'person_page.dart';
 
 /// The people paid for, most owed first, open ones only.
-List<Account> peopleOwing(Ledger ledger) => [
-  for (final a in ledger.accounts.open)
-    if (a.kind == AccountKind.receivable) a,
-]..sort((a, b) => ledger.balance(b.id).compareTo(ledger.balance(a.id)));
+List<Account> peopleOwing(Ledger ledger) =>
+    [
+      for (final a in ledger.accounts.open)
+        if (a.kind == AccountKind.receivable) a,
+    ]..sort(
+      (a, b) => ledger.balanceService
+          .balance(b.id)
+          .compareTo(ledger.balanceService.balance(a.id)),
+    );
 
 /// The open loans.
 List<Account> openLoans(Ledger ledger) => [
@@ -31,13 +36,13 @@ List<Account> openLoans(Ledger ledger) => [
 
 /// What [person] owes in all, as a positive amount or nothing.
 int owedFrom(Ledger ledger, Account person) {
-  final balance = ledger.balance(person.id);
+  final balance = ledger.balanceService.balance(person.id);
   return balance > 0 ? balance : 0;
 }
 
 /// What is left on [loan], as a positive amount or nothing.
 int owedOn(Ledger ledger, Account loan) {
-  final balance = ledger.balance(loan.id);
+  final balance = ledger.balanceService.balance(loan.id);
   return balance < 0 ? -balance : 0;
 }
 
@@ -263,7 +268,7 @@ class _PersonSquare extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final owed = ledger.owedBy(person.id);
+    final owed = ledger.reportService.owedBy(person.id);
     final oldest = owed.isEmpty ? null : owed.last.$1.date;
     final color = nameColor(person.name);
     final ink = deepOf(color);

@@ -85,7 +85,7 @@ extension _Extras on _ComposerState {
 
   /// The merchants to tap: the one chosen first, then the most used.
   List<String> _merchantChoices() {
-    final known = _ledger.merchants.take(8).toList();
+    final known = _ledger.entryQueryService.merchants.take(8).toList();
     final chosen = _f.merchant;
     return [
       if (chosen.isNotEmpty) chosen,
@@ -97,7 +97,7 @@ extension _Extras on _ComposerState {
   /// The tags to tap: those on the entry first, then the others in use.
   List<String> _tagChoices() => [
     ..._f.tags,
-    for (final tag in _ledger.tags.take(8))
+    for (final tag in _ledger.reportService.tags.take(8))
       if (!_f.tags.contains(tag)) tag,
   ];
 

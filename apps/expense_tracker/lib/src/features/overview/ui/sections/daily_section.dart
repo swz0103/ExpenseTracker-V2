@@ -82,7 +82,7 @@ class _DailySectionState extends State<DailySection> {
     final sunday = monday.add(const Duration(days: 6));
     var weekSpent = 0;
     for (var d = 0; d < 7; d++) {
-      weekSpent += ledger.spentOn(monday.add(Duration(days: d)));
+      weekSpent += ledger.reportService.spentOn(monday.add(Duration(days: d)));
     }
     final entries = ledger.entries.onDay(_day);
     final atToday = !sunday.isBefore(ledger.today);
@@ -166,7 +166,7 @@ class _DailySectionState extends State<DailySection> {
                   children: [
                     const TextSpan(text: '支出 ', style: mutedSmall),
                     TextSpan(
-                      text: ledger.money(ledger.spentOn(_day)),
+                      text: ledger.money(ledger.reportService.spentOn(_day)),
                       style: const TextStyle(
                         fontSize: TextSize.title,
                         fontWeight: FontWeight.w700,

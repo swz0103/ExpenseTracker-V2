@@ -110,9 +110,10 @@ extension type const _Drafts(Ledger ledger) {
       _Draft.read(ledger.drafts.of(tab.name));
 
   void operator []=(ComposeMode tab, _Draft draft) =>
-      ledger.setDraft(tab.name, draft.toJson());
+      ledger.attachmentCommands.setDraft(tab.name, draft.toJson());
 
-  void remove(ComposeMode tab) => ledger.setDraft(tab.name, null);
+  void remove(ComposeMode tab) =>
+      ledger.attachmentCommands.setDraft(tab.name, null);
 }
 
 /// A choice opened inside the sheet in place of the form, such as the

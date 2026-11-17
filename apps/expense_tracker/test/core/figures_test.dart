@@ -40,8 +40,8 @@ void main() {
     expect(ledger.marketData.toHome(10000, 'USD'), 3200);
     expect(ledger.marketData.convert(3200, 'TWD', 'USD'), 10000);
     expect(ledger.marketData.convert(10000, 'USD', 'JPY'), 16000);
-    expect(ledger.assets, 1000 + 3200 + 2000);
-    expect(ledger.unrated, isEmpty);
+    expect(ledger.balanceService.assets, 1000 + 3200 + 2000);
+    expect(ledger.balanceService.unrated, isEmpty);
   });
 
   test('bond ETFs are sold without the securities tax while exempt', () {
@@ -83,7 +83,7 @@ void main() {
     );
     expect(card.closingOn(DateTime.utc(2026, 2, 3)), DateTime.utc(2026, 2, 2));
     // Due on the 31st, kept within April.
-    final (_, end, due) = ledger.statement(card);
+    final (_, end, due) = ledger.statementService.statement(card);
     expect((end, due), (DateTime.utc(2026, 3, 31), DateTime.utc(2026, 4, 30)));
   });
 
@@ -108,13 +108,22 @@ void main() {
       budgets: const [],
       recurring: const [],
     );
-    expect(ledger.billedPeriods(split, DateTime.utc(2026, 3, 24)), 0);
-    expect(ledger.billedPeriods(split, DateTime.utc(2026, 3, 25)), 1);
+    expect(
+      ledger.statementService.billedPeriods(split, DateTime.utc(2026, 3, 24)),
+      0,
+    );
+    expect(
+      ledger.statementService.billedPeriods(split, DateTime.utc(2026, 3, 25)),
+      1,
+    );
     // Today's close is still open: the last statement closed on 3/25.
-    final (start, end, _) = ledger.statement(card);
+    final (start, end, _) = ledger.statementService.statement(card);
     expect(start, DateTime.utc(2026, 2, 26));
     expect(end, DateTime.utc(2026, 3, 25));
-    expect([for (final e in ledger.unbilled(card)) e.id], ['b']);
+    expect(
+      [for (final e in ledger.statementService.unbilled(card)) e.id],
+      ['b'],
+    );
   });
 
   test('past net worth counts only the shares then held', () {
@@ -139,8 +148,11 @@ void main() {
       budgets: const [],
       recurring: const [],
     );
-    expect(ledger.netWorthAt(DateTime.utc(2026, 4, 24)), 100000);
-    expect(ledger.netWorthAt(DateTime.utc(2026, 4, 25)), 100000 - 20);
+    expect(ledger.balanceService.netWorthAt(DateTime.utc(2026, 4, 24)), 100000);
+    expect(
+      ledger.balanceService.netWorthAt(DateTime.utc(2026, 4, 25)),
+      100000 - 20,
+    );
     expect(ledger.entries.onDay(DateTime.utc(2026, 4, 25)), [buy]);
     expect(ledger.entries.onDay(DateTime.utc(2026, 4, 24)), isEmpty);
   });
