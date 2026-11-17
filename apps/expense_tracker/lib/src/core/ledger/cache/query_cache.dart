@@ -8,6 +8,15 @@ import 'topic.dart';
 /// for in turn, and any named in `reads` for what came in another way,
 /// such as a record passed in by the caller.
 final class QueryCache {
+  /// Keeps at most [capacity] answers, throwing away the one used longest
+  /// ago when another comes: a search for every word typed, or a balance
+  /// for every day a chart asks, does not pile up for as long as the app
+  /// stays open.
+  QueryCache({this.capacity = 4096}) : assert(capacity > 0);
+
+  final int capacity;
+
+  /// In the order last used, oldest first.
   final _answers = <Object, Object?>{};
   final _readsOf = <Object, Set<Topic>>{};
 
@@ -21,7 +30,10 @@ final class QueryCache {
   T remember<T>(Object key, T Function() make, {Set<Topic> reads = const {}}) {
     if (_answers.containsKey(key)) {
       if (_open.isNotEmpty) _open.last.addAll(_readsOf[key]!);
-      return _answers[key] as T;
+      // Used now: moved to the end, last to be thrown away.
+      final kept = _answers.remove(key);
+      _answers[key] = kept;
+      return kept as T;
     }
     final read = <Topic>{...reads};
     _open.add(read);
@@ -34,6 +46,11 @@ final class QueryCache {
     if (read.isEmpty) read.addAll(Topic.all);
     _answers[key] = made;
     _readsOf[key] = read;
+    if (_answers.length > capacity) {
+      final oldest = _answers.keys.first;
+      _answers.remove(oldest);
+      _readsOf.remove(oldest);
+    }
     if (_open.isNotEmpty) _open.last.addAll(read);
     return made;
   }

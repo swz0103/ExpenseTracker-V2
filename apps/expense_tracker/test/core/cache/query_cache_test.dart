@@ -147,4 +147,31 @@ void main() {
       },
     );
   }
+
+  test('past its capacity the answer used longest ago goes first', () {
+    final cache = QueryCache(capacity: 3);
+    var made = 0;
+    int work() => ++made;
+    cache.remember('a', work);
+    cache.remember('b', work);
+    cache.remember('c', work);
+    // Asking for 'a' again makes it the newest; 'b' is now the oldest.
+    cache.remember('a', work);
+    cache.remember('d', work);
+    expect(cache.length, 3);
+    expect(cache.readsOf('b'), isNull);
+    expect(made, 4);
+    // 'a' was kept, so it is not worked out again.
+    cache.remember('a', work);
+    expect(made, 4);
+    cache.remember('b', work);
+    expect(made, 5);
+  });
+
+  test('an answer thrown away for room is worked out again when asked', () {
+    final cache = QueryCache(capacity: 1);
+    expect(cache.remember('x', () => 1), 1);
+    expect(cache.remember('y', () => 2), 2);
+    expect(cache.remember('x', () => 3), 3);
+  });
 }

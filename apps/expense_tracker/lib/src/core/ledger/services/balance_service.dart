@@ -33,7 +33,11 @@ final class BalanceService {
   int effect(Entry e, String account) => _effect(e, account, _today());
 
   /// What [e] does to [account] by the end of [at].
-  int _effect(Entry e, String account, DateTime at) {
+  int _effect(Entry e, String account, DateTime at) =>
+      _effectOn(_accounts.resolve(e.account), e, account, at);
+
+  /// [_effect], with the account [e] is paid from, [from], already found.
+  static int _effectOn(Account from, Entry e, String account, DateTime at) {
     var change = 0;
     if (e.account == account) {
       change += switch (e.type) {
@@ -41,7 +45,7 @@ final class BalanceService {
         EntryType.dividend => e.isReduction ? e.amount : e.dividendNet,
         EntryType.sell => e.amount - e.fee - e.tax,
         EntryType.buy || EntryType.transfer => -(e.amount + e.fee),
-        EntryType.expense => -_accounts.resolve(e.account).billed(e, at),
+        EntryType.expense => -from.billed(e, at),
       };
     }
     if (e.type == EntryType.transfer && e.to == account) change += e.arrived;
@@ -59,9 +63,11 @@ final class BalanceService {
   }
 
   int _balanceOn(String account, DateTime end) {
-    final running = _cache.remember('running', _runningTotals)[account];
+    final running = _cache.remember((
+      'running',
+      account,
+    ), () => _runningOf(account));
     var total = _accounts.resolve(account).opening;
-    if (running == null) return total;
     total += running.until(end);
     for (final e in running.plans) {
       if (!e.date.isAfter(end)) total += _effect(e, account, end);
@@ -69,30 +75,45 @@ final class BalanceService {
     return total;
   }
 
-  /// [_Running] for every account an entry touches, built once per change.
-  Map<String, _Running> _runningTotals() {
-    final changes = <String, List<(DateTime, int)>>{};
-    final running = <String, _Running>{};
+  /// The entries paid from or into each account, in the order written:
+  /// one pass over the book, shared by every account asked about.
+  Map<String, List<Entry>> _touching() => _cache.remember('touching', () {
+    final by = <String, List<Entry>>{};
     for (final e in _entries.all) {
-      for (final id in {e.account, ?e.to}) {
-        final kept = running[id] ??= _Running();
-        if (e.type == EntryType.expense && e.installments > 1) {
-          if (id == e.account) kept.plans.add(e);
-          continue;
-        }
-        // Anything but an instalment purchase has its full effect at once.
-        (changes[id] ??= []).add((e.date, _effect(e, id, e.date)));
-      }
+      (by[e.account] ??= []).add(e);
+      final to = e.to;
+      if (to != null && to != e.account) (by[to] ??= []).add(e);
     }
-    for (final MapEntry(key: id, value: list) in changes.entries) {
-      list.sort((a, b) => a.$1.compareTo(b.$1));
-      final kept = running[id]!;
-      var total = 0;
-      for (final (day, change) in list) {
-        total += change;
-        kept.days.add(day);
-        kept.totals.add(total);
+    return by;
+  });
+
+  /// [_Running] for [id], built once per change and only for an account
+  /// asked about: only its own entries are put in date order.
+  _Running _runningOf(String id) {
+    final own = _accounts.resolve(id);
+    final running = _Running();
+    final days = <int>[];
+    final changes = <int>[];
+    for (final e in _touching()[id] ?? const <Entry>[]) {
+      final from = e.account == id;
+      final into = e.type == EntryType.transfer && e.to == id;
+      if (!from && !into) continue;
+      if (e.type == EntryType.expense && e.installments > 1) {
+        // What has been billed depends on the day asked about.
+        if (from) running.plans.add(e);
+        continue;
       }
+      // Anything but an instalment purchase has its full effect at once.
+      days.add(e.date.microsecondsSinceEpoch);
+      changes.add(_effectOn(own, e, id, e.date));
+    }
+    final order = List<int>.generate(days.length, (i) => i)
+      ..sort((a, b) => days[a].compareTo(days[b]));
+    var total = 0;
+    for (final i in order) {
+      total += changes[i];
+      running.days.add(days[i]);
+      running.totals.add(total);
     }
     return running;
   }
@@ -177,17 +198,19 @@ final class BalanceService {
 /// of them, so a balance on any day is one search. Instalment purchases
 /// are kept apart: what they have billed depends on the day asked about.
 final class _Running {
-  final days = <DateTime>[];
+  /// Each change's day, as microseconds since the epoch, in order.
+  final days = <int>[];
   final totals = <int>[];
   final plans = <Entry>[];
 
   /// The change of the entries on or before [day].
   int until(DateTime day) {
+    final end = day.microsecondsSinceEpoch;
     var low = 0;
     var high = days.length;
     while (low < high) {
       final middle = (low + high) >> 1;
-      if (days[middle].isAfter(day)) {
+      if (days[middle] > end) {
         high = middle;
       } else {
         low = middle + 1;

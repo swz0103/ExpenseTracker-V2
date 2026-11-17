@@ -22,6 +22,17 @@ final class EntryQueryService {
   final QueryCache _cache;
   final DateTime Function() _today;
 
+  /// Each entry's words, lower-cased, kept with the entry itself: an
+  /// entry never changes, so only one new or edited is worked out again.
+  static final _words = Expando<String>('words');
+
+  static String _wordsOf(Entry e) => _words[e] ??= [
+    e.note,
+    e.merchant,
+    e.category,
+    ...e.tags,
+  ].join('\n').toLowerCase();
+
   /// Entries of any month whose note, merchant, category or tags hold
   /// [words], or whose amount is [words]; newest first.
   List<Entry> search(String words) =>
@@ -32,10 +43,7 @@ final class EntryQueryService {
     // Each entry's words, lower-cased once per change.
     final texts = _cache.remember(
       'searchText',
-      () => [
-        for (final e in _entries.all)
-          [e.note, e.merchant, e.category, ...e.tags].join('\n').toLowerCase(),
-      ],
+      () => [for (final e in _entries.all) _wordsOf(e)],
     );
     // Each account's currency, looked up once rather than per entry.
     final currencies = {for (final a in _accounts.all) a.id: a.currency};
