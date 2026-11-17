@@ -18,7 +18,10 @@ abstract final class Layout {
     'charts': ['look', 'text'],
     'ledger': ['text', 'diagnostics'],
     'platform': ['ledger', 'text', 'diagnostics'],
+    // What the person is told of the ledger's values, in one place.
+    'messages': ['ledger', 'text'],
     'ui': [
+      'messages',
       'look',
       'text',
       'ledger',

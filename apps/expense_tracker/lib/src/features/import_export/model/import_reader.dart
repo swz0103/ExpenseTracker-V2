@@ -123,8 +123,8 @@ final class _Reader {
     if (entry is! Entry) return entry as String;
     final made = entry;
     if (!made.isReduction) {
-      final problem = ledger.entryValidator.problemWith(made, holdings: false);
-      if (problem != null) return problem;
+      final failure = ledger.entryValidator.validate(made, holdings: false);
+      if (failure != null) return validationMessage(failure);
     }
     if (_already(ledger, made)) return '帳本裡已經有這一筆';
     if (made.isRefund) {
@@ -403,7 +403,8 @@ Import importInvoices(Ledger ledger, String text, {required String account}) {
   final problems = [...found.problems];
   var skipped = found.skipped;
   for (final entry in found.entries) {
-    final problem = ledger.entryValidator.problemWith(entry, holdings: false);
+    final failure = ledger.entryValidator.validate(entry, holdings: false);
+    final problem = failure == null ? null : validationMessage(failure);
     if (problem == null) {
       kept.add(entry);
     } else {

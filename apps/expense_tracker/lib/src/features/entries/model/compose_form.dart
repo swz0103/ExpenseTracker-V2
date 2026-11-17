@@ -1,5 +1,6 @@
 import '../../../core/text/amounts.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/validation_messages.dart';
 import '../../import_export/model/import_export.dart' show guessCategory;
 import '../../import_export/model/invoice_qr.dart';
 import '../../../core/ledger/trading.dart';
@@ -452,11 +453,8 @@ final class ComposeForm {
   String? get problem {
     if (mode == ComposeMode.lend && to.isEmpty) return '請選擇代墊對象';
     if (lending) return _lendingProblem;
-    final found = ledger.entryValidator.problemWith(
-      build(),
-      replacing: editing,
-    );
-    if (found != null) return found;
+    final found = ledger.entryValidator.validate(build(), replacing: editing);
+    if (found != null) return validationMessage(found);
     final splitTotal = splitParts?.fold(0, (sum, p) => sum + p.$2);
     if (splitTotal != null && splitTotal != amount) {
       return '拆分的金額要等於總額（差 ${groupDigits(amount - splitTotal)}）';
@@ -470,8 +468,8 @@ final class ComposeForm {
     if (own < 0) return '代墊的金額超過總額（多 ${groupDigits(-own)}）';
     for (final e in buildAll()) {
       final was = ledger.entries.byId(e.id);
-      final found = ledger.entryValidator.problemWith(e, replacing: was);
-      if (found != null) return found;
+      final found = ledger.entryValidator.validate(e, replacing: was);
+      if (found != null) return validationMessage(found);
     }
     return null;
   }

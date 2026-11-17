@@ -1,4 +1,6 @@
 import 'package:expense_tracker/src/core/ledger/models/models.dart';
+import 'package:expense_tracker/src/core/ledger/services/entry_validation_failure.dart';
+import 'package:expense_tracker/src/core/messages/validation_messages.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'book.dart';
@@ -10,8 +12,9 @@ void main() {
     Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
   ];
 
-  String? problem(Entry e, {List<Entry> entries = const []}) =>
-      Book(accounts: accounts, entries: entries).validator.problemWith(e);
+  String? problem(Entry e, {List<Entry> entries = const []}) => _messageOf(
+    Book(accounts: accounts, entries: entries).validator.validate(e),
+  );
 
   test('a plain entry can be kept', () {
     expect(problem(entry('a')), isNull);
@@ -65,3 +68,6 @@ void main() {
     expect(problem(sale), '賣出股數超過持股');
   });
 }
+
+String? _messageOf(EntryValidationFailure? failure) =>
+    failure == null ? null : validationMessage(failure);

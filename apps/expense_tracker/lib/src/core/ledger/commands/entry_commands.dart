@@ -364,7 +364,7 @@ final class EntryCommands {
         continue;
       }
       final next = e.withAccount(id);
-      if (_validator.problemWith(next, replacing: e) != null) continue;
+      if (_validator.validate(next, replacing: e) != null) continue;
       moved.add(next);
       // What was paid in it for others went from the same account.
       for (final m in _entryQueries.groupOf(e)) {

@@ -1,4 +1,5 @@
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
+import 'package:expense_tracker/src/core/messages/validation_messages.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -43,39 +44,47 @@ void main() {
   test('the ledger says why an entry cannot be kept', () {
     final ledger = book(const []);
     expect(
-      ledger.entryValidator.problemWith(entry(EntryType.expense, 0)),
+      _messageOf(ledger.entryValidator.validate(entry(EntryType.expense, 0))),
       '請輸入金額',
     );
     expect(
-      ledger.entryValidator.problemWith(entry(EntryType.expense, 120)),
+      _messageOf(ledger.entryValidator.validate(entry(EntryType.expense, 120))),
       isNull,
     );
     expect(
-      ledger.entryValidator.problemWith(
-        entry(EntryType.transfer, 50, to: 'bank'),
+      _messageOf(
+        ledger.entryValidator.validate(
+          entry(EntryType.transfer, 50, to: 'bank'),
+        ),
       ),
       '轉出與轉入不能是同一個帳戶',
     );
     expect(
-      ledger.entryValidator.problemWith(
-        entry(EntryType.expense, 500, account: 'usd'),
+      _messageOf(
+        ledger.entryValidator.validate(
+          entry(EntryType.expense, 500, account: 'usd'),
+        ),
       ),
       '還沒有匯率，請輸入折合台幣的金額',
     );
     expect(
-      ledger.entryValidator.problemWith(
-        entry(EntryType.expense, 500, account: 'usd', home: 160),
+      _messageOf(
+        ledger.entryValidator.validate(
+          entry(EntryType.expense, 500, account: 'usd', home: 160),
+        ),
       ),
       isNull,
     );
     expect(
-      ledger.entryValidator.problemWith(
-        entry(EntryType.buy, 1000, holding: '2330'),
+      _messageOf(
+        ledger.entryValidator.validate(
+          entry(EntryType.buy, 1000, holding: '2330'),
+        ),
       ),
       '請輸入股數',
     );
     expect(
-      ledger.entryValidator.problemWith(entry(EntryType.buy, 1000)),
+      _messageOf(ledger.entryValidator.validate(entry(EntryType.buy, 1000))),
       '請選擇投資標的',
     );
   });
@@ -85,8 +94,14 @@ void main() {
     final back = entry(EntryType.income, 600, id: 'back', refundOf: 'bought');
     final ledger = book([bought, back]);
     final more = entry(EntryType.income, 400, id: 'more', refundOf: 'bought');
-    expect(ledger.entryValidator.problemWith(more), '超過可退金額 300');
+    expect(_messageOf(ledger.entryValidator.validate(more)), '超過可退金額 300');
     final edited = entry(EntryType.income, 900, id: 'back', refundOf: 'bought');
-    expect(ledger.entryValidator.problemWith(edited, replacing: back), isNull);
+    expect(
+      _messageOf(ledger.entryValidator.validate(edited, replacing: back)),
+      isNull,
+    );
   });
 }
+
+String? _messageOf(EntryValidationFailure? failure) =>
+    failure == null ? null : validationMessage(failure);

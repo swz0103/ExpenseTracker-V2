@@ -39,6 +39,7 @@ import 'services/statement_service.dart';
 export 'card_cycle.dart';
 export 'cache/topic.dart';
 export 'commands/command_exceptions.dart';
+export 'services/entry_validation_failure.dart';
 export 'services/integrity_service.dart'
     show IntegrityProblem, MissingAccount, MissingRefundOriginal, RecordKind;
 export 'models/models.dart';
