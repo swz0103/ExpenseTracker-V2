@@ -1,6 +1,6 @@
 import '../cache/query_cache.dart';
+import 'tracked_readers.dart';
 import '../card_cycle.dart';
-import '../cache/topic.dart';
 import '../models/models.dart';
 import '../repositories/account_repository.dart';
 import '../repositories/entry_repository.dart';
@@ -11,13 +11,16 @@ import '../repositories/market_data_repository.dart';
 /// in all, and how an account moved week by week.
 final class BalanceService {
   BalanceService({
-    required this._entries,
-    required this._accounts,
-    required this._holdings,
-    required this._market,
+    required EntryReader entries,
+    required AccountReader accounts,
+    required HoldingReader holdings,
+    required MarketDataReader market,
     required this._cache,
     required this._today,
-  });
+  }) : _entries = TrackedEntryReader(entries, _cache),
+       _accounts = TrackedAccountReader(accounts, _cache),
+       _holdings = TrackedHoldingReader(holdings, _cache),
+       _market = TrackedMarketDataReader(market, _cache);
 
   final EntryReader _entries;
   final AccountReader _accounts;
@@ -25,9 +28,6 @@ final class BalanceService {
   final MarketDataReader _market;
   final QueryCache _cache;
   final DateTime Function() _today;
-
-  /// What a balance rests on: the entries and the accounts' opening sums.
-  static const _rests = {Topic.entries, Topic.accounts};
 
   /// What [e] does to [account]'s balance as of today.
   int effect(Entry e, String account) => _effect(e, account, _today());
@@ -51,19 +51,15 @@ final class BalanceService {
   /// The balance of [account] at the end of [until], or of today.
   int balance(String account, {DateTime? until}) {
     final end = until ?? _today();
-    return _cache.remember(
-      ('balance', account, end),
-      () => _balanceOn(account, end),
-      reads: _rests,
-    );
+    return _cache.remember((
+      'balance',
+      account,
+      end,
+    ), () => _balanceOn(account, end));
   }
 
   int _balanceOn(String account, DateTime end) {
-    final running = _cache.remember(
-      'running',
-      _runningTotals,
-      reads: _rests,
-    )[account];
+    final running = _cache.remember('running', _runningTotals)[account];
     var total = _accounts.resolve(account).opening;
     if (running == null) return total;
     total += running.until(end);
@@ -151,11 +147,12 @@ final class BalanceService {
   /// The change of [account] in each of the [weeks] calendar weeks
   /// ending with this one, oldest first, with each week's Monday.
   List<(DateTime, int)> weeklyChanges(String account, {int weeks = 4}) =>
-      _cache.remember(
-        ('weekly', account, weeks, _today()),
-        () => _weeklyChanges(account, weeks),
-        reads: const {Topic.entries, Topic.accounts},
-      );
+      _cache.remember((
+        'weekly',
+        account,
+        weeks,
+        _today(),
+      ), () => _weeklyChanges(account, weeks));
 
   List<(DateTime, int)> _weeklyChanges(String account, int weeks) {
     final monday = _today().subtract(Duration(days: _today().weekday - 1));

@@ -69,7 +69,7 @@ Service 與 Commands 在第一次用到時才建立，共用同一組 Repository
 
 - Repository 只改自己的狀態；Service 只讀；跨 Repository 的寫入只在 Commands 裡，多筆時用 `UnitOfWork`。
 - 檔案不用 `part`；依賴只往下，`layers_test` 檢查。
-- 新的查詢一律經 `QueryCache`，不手寫失效條件。
+- 新的查詢一律經 `QueryCache`；讀了哪些主題由 Reader 自動回報，只有從參數拿到的紀錄要在 `reads:` 寫明。
 - `?.` 不會執行參數：先做修改，再把結果交給 `unit?.register…`。
 
 ## 進度
@@ -84,7 +84,7 @@ Service 與 Commands 在第一次用到時才建立，共用同一組 Repository
 | 儲存層改通用名稱並放進 `persistence/`（`LedgerDataSource`、`SqlLedgerDataSource`、`WriteBatch`、`Collection`、`DataSourceException`；`Area` 改 `Topic`） | 完成 |
 | `WriteQueue` 獨立（依序寫入、失敗回報、清空後重讀），有 8 個行為測試 | 完成 |
 | `Topic`、`TopicNotifier`（計數與通知）、`QueryCache`（依主題作廢）獨立到 `cache/`，各有單元測試與隨機比對測試 | 完成 |
-| `QueryCache` 自動追蹤依賴（取代手寫 `reads:`） | 尚未 |
+| `QueryCache` 自動追蹤依賴：Service 拿到的 Reader 包一層 `Tracked*Reader`，每次讀取向快取回報主題，巢狀查詢往外傳；什麼都沒讀到時當作讀了全部。只剩參數帶進來的資料要手寫（信用卡、定期交易），隨機比對測試擴充到帳單、定期交易、匯率，刻意拿掉定期交易的手寫依賴會失敗 | 完成 |
 | `UnitOfWork`（Fowler：`registerDirty`、`registerDeleted`）取代 `_before`／`_since` 的整本比對：合併分類、改名標籤、改名商家只登記動到的紀錄；各 Repository 的批次修改改為回傳動到的紀錄。14 個測試，其中 8 個隨機種子逐步比對舊的整本比對結果，並以刻意漏登記確認測試會失敗 | 完成 |
 | `models/` 依型別拆檔（一型別一檔，`models.dart` 轉出） | 完成 |
 | `EntryRepository`（紀錄清單與月、日、id、退款索引，寫入即自動作廢）與隨機比對測試 | 完成 |

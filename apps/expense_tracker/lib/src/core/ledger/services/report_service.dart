@@ -1,5 +1,5 @@
 import '../cache/query_cache.dart';
-import '../cache/topic.dart';
+import 'tracked_readers.dart';
 import '../models/models.dart';
 import '../repositories/account_repository.dart';
 import '../repositories/category_repository.dart';
@@ -9,12 +9,14 @@ import '../repositories/entry_repository.dart';
 /// spending, by category, merchant and tag, and what a person still owes.
 final class ReportService {
   ReportService({
-    required this._entries,
-    required this._accounts,
-    required this._categories,
+    required EntryReader entries,
+    required AccountReader accounts,
+    required CategoryReader categories,
     required this._cache,
     required this._today,
-  });
+  }) : _entries = TrackedEntryReader(entries, _cache),
+       _accounts = TrackedAccountReader(accounts, _cache),
+       _categories = TrackedCategoryReader(categories, _cache);
 
   final EntryReader _entries;
   final AccountReader _accounts;
@@ -154,12 +156,12 @@ final class ReportService {
           if (e.amount > taken) owed.add((e, e.amount - taken));
         }
         return owed.reversed.toList();
-      }, reads: const {Topic.entries});
+      });
 
   /// Every tag with how many entries carry it and their spending, most
   /// used first.
   List<(String, int, int)> get tagStats =>
-      _cache.remember('tagStats', _tagStats, reads: const {Topic.entries});
+      _cache.remember('tagStats', _tagStats);
 
   List<(String, int, int)> _tagStats() {
     final counts = <String, int>{};

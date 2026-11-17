@@ -1,6 +1,6 @@
 import '../../text/amounts.dart';
 import '../cache/query_cache.dart';
-import '../cache/topic.dart';
+import 'tracked_readers.dart';
 import '../models/models.dart';
 import '../repositories/account_repository.dart';
 import '../repositories/entry_repository.dart';
@@ -10,11 +10,12 @@ import '../repositories/entry_repository.dart';
 /// a merchant was last used with.
 final class EntryQueryService {
   EntryQueryService({
-    required this._entries,
-    required this._accounts,
+    required EntryReader entries,
+    required AccountReader accounts,
     required this._cache,
     required this._today,
-  });
+  }) : _entries = TrackedEntryReader(entries, _cache),
+       _accounts = TrackedAccountReader(accounts, _cache);
 
   final EntryReader _entries;
   final AccountReader _accounts;
@@ -23,11 +24,8 @@ final class EntryQueryService {
 
   /// Entries of any month whose note, merchant, category or tags hold
   /// [words], or whose amount is [words]; newest first.
-  List<Entry> search(String words) => _cache.remember(
-    ('search', words),
-    () => _search(words),
-    reads: const {Topic.entries, Topic.accounts, Topic.categories},
-  );
+  List<Entry> search(String words) =>
+      _cache.remember(('search', words), () => _search(words));
 
   List<Entry> _search(String words) {
     final lower = words.toLowerCase();
@@ -38,7 +36,6 @@ final class EntryQueryService {
         for (final e in _entries.all)
           [e.note, e.merchant, e.category, ...e.tags].join('\n').toLowerCase(),
       ],
-      reads: const {Topic.entries},
     );
     final found = [
       for (final (i, e) in _entries.all.indexed)
@@ -55,8 +52,7 @@ final class EntryQueryService {
   }
 
   /// Known merchants, most used first.
-  List<String> get merchants =>
-      _cache.remember('merchants', _merchants, reads: const {Topic.entries});
+  List<String> get merchants => _cache.remember('merchants', _merchants);
 
   List<String> _merchants() {
     final counts = <String, int>{};
@@ -81,7 +77,7 @@ final class EntryQueryService {
       if (kept == null || !e.date.isBefore(kept.date)) latest[e.merchant] = e;
     }
     return latest;
-  }, reads: const {Topic.entries})[merchant];
+  })[merchant];
 
   /// Spending recorded alike at least three times in the last 90 days
   /// (the same category, merchant and account), the most often first, at
@@ -114,7 +110,7 @@ final class EntryQueryService {
             if (value >= 3) key,
         ]..sort((a, b) => counts[b]!.compareTo(counts[a]!));
         return [for (final key in keys.take(most)) latest[key]!];
-      }, reads: const {Topic.entries});
+      });
 
   /// Transfers made alike again and again lately, the most made first:
   /// the same two accounts and amount, two times or more in 90 days.
@@ -143,7 +139,7 @@ final class EntryQueryService {
             if (value >= 2) key,
         ]..sort((a, b) => counts[b]!.compareTo(counts[a]!));
         return [for (final key in keys.take(most)) latest[key]!];
-      }, reads: const {Topic.entries, Topic.accounts});
+      });
 
   /// Every entry written as one with [entry]: a spending first, then
   /// what was paid in it for others; [entry] alone when it has no group.
@@ -164,7 +160,7 @@ final class EntryQueryService {
         );
       }
       return groups;
-    }, reads: const {Topic.entries});
+    });
     return all[group] ?? [entry];
   }
 

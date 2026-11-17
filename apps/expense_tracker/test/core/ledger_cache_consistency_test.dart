@@ -31,6 +31,7 @@ void main() {
     holdings: const [],
     budgets: of.budgets.all,
     recurring: of.recurring.all,
+    rates: of.marketData.rates,
   );
 
   String ids(Iterable<Entry> entries) => entries.map((e) => e.id).join(',');
@@ -68,6 +69,20 @@ void main() {
         for (final t in tags)
           'tag $t $m ${l.budgetService.spentOnTag(t, 2026, m)}',
       ],
+      for (final a in l.accounts.all)
+        if (a.kind == AccountKind.card) ...[
+          'statement ${a.id} ${l.statementService.statement(a)} '
+              '${l.statementService.statementDue(a)} '
+              '${ids(l.statementService.unbilled(a))} '
+              '${ids(l.statementService.instalmentsOn(a))}',
+        ],
+      for (final item in l.recurring.all)
+        'recurring ${item.id} ${l.recurringService.pendingDate(item)} '
+            '${l.recurringService.nextDate(item)} '
+            '${l.recurringService.worth(item)}',
+      'due ${l.recurringService.due.map((r) => r.id)} '
+          '${l.recurringService.upcoming.map((r) => r.id)}',
+      'unrated ${l.balanceService.unrated.map((a) => a.id)}',
       'day ${l.reportService.spentOn(today)} ${ids(l.entries.onDay(today))}',
       for (final b in l.budgets.all) ...[
         'budget ${b.category} ${l.budgetService.spentAgainst(b, 2026, 10)} '
@@ -108,9 +123,41 @@ void main() {
         const Account('b', '現金', AccountKind.cash, 5000),
         const Account('c', '銀行乙', AccountKind.bank, 20000),
       ];
+      const card = Account(
+        'k',
+        '信用卡',
+        AccountKind.card,
+        0,
+        closingDay: 20,
+        dueDay: 5,
+      );
+      const dollars = Account(
+        'u',
+        '美元',
+        AccountKind.bank,
+        50000,
+        currency: 'USD',
+      );
+      Recurring item(String id) => Recurring(
+        id: id,
+        name: id,
+        amount: 100 + r.nextInt(900),
+        day: 1 + r.nextInt(28),
+        account: r.nextBool() ? 'a' : 'u',
+        category: names[r.nextInt(names.length)],
+      );
+      Entry onCard(String id) => Entry(
+        id: id,
+        date: DateTime.utc(2026, 8 + r.nextInt(3), 1 + r.nextInt(28)),
+        type: EntryType.expense,
+        amount: 100 + r.nextInt(2000),
+        account: 'k',
+        category: names[r.nextInt(names.length)],
+        installments: r.nextInt(4) == 0 ? 3 : 1,
+      );
       final live = Ledger(
         today: today,
-        accounts: banks,
+        accounts: [...banks, card, dollars],
         categories: [
           for (final (i, n) in names.indexed)
             Category(n, 'food', 0xFF000000 + i),
@@ -119,13 +166,13 @@ void main() {
         entries: [for (var i = 0; i < 12; i++) make(r, 'seed$i', banks)],
         holdings: const [],
         budgets: const [],
-        recurring: const [],
+        recurring: [item('rent'), item('phone')],
         dataSource: _Nowhere(),
       );
       var serial = 0;
       ask(live);
-      for (var step = 0; step < 60; step++) {
-        final what = r.nextInt(9);
+      for (var step = 0; step < 90; step++) {
+        final what = r.nextInt(14);
         final label = 'step $step action $what';
         switch (what) {
           case 0 || 1:
@@ -158,6 +205,27 @@ void main() {
             final a = banks[r.nextInt(banks.length)];
             live.accountCommands.updateAccount(
               Account(a.id, '${a.name}*', a.kind, a.opening + r.nextInt(500)),
+            );
+          case 9:
+            live.entryCommands.add(onCard('k${serial++}'));
+          case 10:
+            final k = live.account('k');
+            live.accountCommands.updateAccount(
+              k.copyWith(closingDay: 1 + r.nextInt(28)),
+            );
+          case 11:
+            live.recurringCommands.saveRecurring(
+              item(r.nextBool() ? 'rent' : 'phone'),
+            );
+          case 12:
+            live.recurringCommands.confirm(
+              live.recurring.all[r.nextInt(live.recurring.all.length)],
+            );
+          case 13:
+            live.holdingCommands.setMarket(
+              holdings: const [],
+              moves: const {},
+              rates: r.nextBool() ? {'USD': 30.0 + r.nextInt(3)} : const {},
             );
         }
         expect(ask(live), ask(fresh(live)), reason: label);

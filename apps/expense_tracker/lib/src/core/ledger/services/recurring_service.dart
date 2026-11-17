@@ -1,4 +1,5 @@
 import '../cache/query_cache.dart';
+import 'tracked_readers.dart';
 import '../cache/topic.dart';
 import '../models/models.dart';
 import '../repositories/account_repository.dart';
@@ -10,13 +11,16 @@ import '../repositories/recurring_repository.dart';
 /// the entry that would book it.
 final class RecurringService {
   RecurringService({
-    required this._entries,
-    required this._accounts,
-    required this._recurring,
-    required this._market,
+    required EntryReader entries,
+    required AccountReader accounts,
+    required RecurringReader recurring,
+    required MarketDataReader market,
     required this._cache,
     required this._today,
-  });
+  }) : _entries = TrackedEntryReader(entries, _cache),
+       _accounts = TrackedAccountReader(accounts, _cache),
+       _market = TrackedMarketDataReader(market, _cache),
+       _recurring = TrackedRecurringReader(recurring, _cache);
 
   final EntryReader _entries;
   final AccountReader _accounts;
@@ -39,7 +43,8 @@ final class RecurringService {
   DateTime? pendingDate(Recurring item) => _cache.remember(
     ('pending', item.id, item.active, _today()),
     () => _pendingDate(item),
-    reads: const {Topic.entries, Topic.recurring},
+    // The item comes in as an argument: its own changes are not read.
+    reads: const {Topic.recurring},
   );
 
   DateTime? _pendingDate(Recurring item) {

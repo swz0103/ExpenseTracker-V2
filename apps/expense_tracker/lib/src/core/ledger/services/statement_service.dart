@@ -1,4 +1,5 @@
 import '../cache/query_cache.dart';
+import 'tracked_readers.dart';
 import '../card_cycle.dart';
 import '../cache/topic.dart';
 import '../models/models.dart';
@@ -12,12 +13,14 @@ import 'dart:math';
 /// billed yet. A statement closes at the end of its day.
 final class StatementService {
   StatementService({
-    required this._entries,
-    required this._accounts,
+    required EntryReader entries,
+    required AccountReader accounts,
     required BalanceService balanceService,
     required this._cache,
     required this._today,
-  }) : _balances = balanceService;
+  }) : _balances = balanceService,
+       _entries = TrackedEntryReader(entries, _cache),
+       _accounts = TrackedAccountReader(accounts, _cache);
 
   final EntryReader _entries;
   final AccountReader _accounts;
@@ -25,8 +28,9 @@ final class StatementService {
   final QueryCache _cache;
   final DateTime Function() _today;
 
-  /// What a card's sums rest on: its entries and the card itself.
-  static const _cardTopics = {Topic.entries, Topic.accounts};
+  /// The card comes in as an argument: its own changes are not read, so
+  /// every answer about a card rests on the accounts as well.
+  static const _cardTopics = {Topic.accounts};
 
   /// How much of [e] has reached its card's statements by [at]: all of
   /// it, or the instalments billed so far.
@@ -48,7 +52,7 @@ final class StatementService {
         final end = card.closingOn(closedBy);
         final (start, due) = card.cycleEnding(end);
         return (start, end, due);
-      }, reads: const {Topic.accounts});
+      }, reads: _cardTopics);
 
   /// What is still to pay on the last statement of [card]: what it owed
   /// when the statement closed, less what was paid in since.
