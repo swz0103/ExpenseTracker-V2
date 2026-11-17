@@ -61,6 +61,12 @@ final class TrackedEntryReader implements EntryReader {
   }
 
   @override
+  Iterable<Entry> get byDate {
+    _cache.noteReads(_topics);
+    return _inner.byDate;
+  }
+
+  @override
   DateTime? get firstDate {
     _cache.noteReads(_topics);
     return _inner.firstDate;

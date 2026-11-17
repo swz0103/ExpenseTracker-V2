@@ -23,6 +23,10 @@ abstract interface class EntryReader {
   /// Entries on [day], in [inMonth] order.
   List<Entry> onDay(DateTime day);
 
+  /// Every entry, the oldest day first and within a day in the order
+  /// written: read from the month index, with nothing to sort.
+  Iterable<Entry> get byDate;
+
   /// The day of the first entry; null when there is none.
   DateTime? get firstDate;
 
@@ -365,6 +369,16 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
     final months = _months ??= _indexMonths();
     _settle(year * 12 + month);
     return months[year * 12 + month] ?? const <Entry>[];
+  }
+
+  @override
+  Iterable<Entry> get byDate sync* {
+    final months = _months ??= _indexMonths();
+    for (final month in months.keys.toList()..sort()) {
+      _settle(month);
+      // A month is kept newest first.
+      yield* months[month]!.reversed;
+    }
   }
 
   @override

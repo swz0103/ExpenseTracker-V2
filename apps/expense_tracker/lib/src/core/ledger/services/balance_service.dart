@@ -68,18 +68,15 @@ final class BalanceService {
       account,
     ), () => _runningOf(account));
     var total = _accounts.resolve(account).opening;
-    total += running.until(end);
-    for (final e in running.plans) {
-      if (!e.date.isAfter(end)) total += _effect(e, account, end);
-    }
-    return total;
+    return total + running.until(end);
   }
 
-  /// The entries paid from or into each account, in the order written:
-  /// one pass over the book, shared by every account asked about.
+  /// The entries paid from or into each account, oldest day first: one
+  /// pass over the book in date order, shared by every account asked
+  /// about, so no account's entries need sorting.
   Map<String, List<Entry>> _touching() => _cache.remember('touching', () {
     final by = <String, List<Entry>>{};
-    for (final e in _entries.all) {
+    for (final e in _entries.byDate) {
       (by[e.account] ??= []).add(e);
       final to = e.to;
       if (to != null && to != e.account) (by[to] ??= []).add(e);
@@ -88,31 +85,45 @@ final class BalanceService {
   });
 
   /// [_Running] for [id], built once per change and only for an account
-  /// asked about: only its own entries are put in date order.
+  /// asked about, from its own entries already in date order.
   _Running _runningOf(String id) {
     final own = _accounts.resolve(id);
-    final running = _Running();
     final days = <int>[];
     final changes = <int>[];
+    // Instalments, each billed when its statement closes: few, and out of
+    // the entries' order, so sorted apart and merged in.
+    final steps = <(int, int)>[];
     for (final e in _touching()[id] ?? const <Entry>[]) {
       final from = e.account == id;
       final into = e.type == EntryType.transfer && e.to == id;
       if (!from && !into) continue;
       if (e.type == EntryType.expense && e.installments > 1) {
-        // What has been billed depends on the day asked about.
-        if (from) running.plans.add(e);
+        if (from) {
+          for (final (day, share) in own.billingSteps(e)) {
+            steps.add((day.microsecondsSinceEpoch, -share));
+          }
+        }
         continue;
       }
       // Anything but an instalment purchase has its full effect at once.
       days.add(e.date.microsecondsSinceEpoch);
       changes.add(_effectOn(own, e, id, e.date));
     }
-    final order = List<int>.generate(days.length, (i) => i)
-      ..sort((a, b) => days[a].compareTo(days[b]));
+    steps.sort((a, b) => a.$1.compareTo(b.$1));
+    final running = _Running();
     var total = 0;
-    for (final i in order) {
-      total += changes[i];
-      running.days.add(days[i]);
+    var i = 0;
+    var k = 0;
+    while (i < days.length || k < steps.length) {
+      final int day;
+      if (k == steps.length || (i < days.length && days[i] <= steps[k].$1)) {
+        day = days[i];
+        total += changes[i++];
+      } else {
+        day = steps[k].$1;
+        total += steps[k++].$2;
+      }
+      running.days.add(day);
       running.totals.add(total);
     }
     return running;
@@ -194,14 +205,13 @@ final class BalanceService {
   }
 }
 
-/// One account's entries in date order with the balance change up to each
-/// of them, so a balance on any day is one search. Instalment purchases
-/// are kept apart: what they have billed depends on the day asked about.
+/// One account's changes in date order with the balance up to each of
+/// them, so a balance on any day is one search. A purchase in instalments
+/// is a change on each day one of its statements closes.
 final class _Running {
   /// Each change's day, as microseconds since the epoch, in order.
   final days = <int>[];
   final totals = <int>[];
-  final plans = <Entry>[];
 
   /// The change of the entries on or before [day].
   int until(DateTime day) {
