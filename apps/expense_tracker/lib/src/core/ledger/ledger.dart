@@ -9,7 +9,6 @@ import 'package:flutter/foundation.dart'
 
 import '../text/amounts.dart';
 import 'amount_visibility.dart';
-import 'attachments.dart';
 import 'cache/query_cache.dart';
 import 'cache/topic.dart';
 import 'cache/topic_notifier.dart';
@@ -19,8 +18,10 @@ import 'persistence/write_queue.dart';
 import 'repositories/account_repository.dart';
 import 'repositories/budget_repository.dart';
 import 'repositories/category_repository.dart';
+import 'repositories/draft_repository.dart';
 import 'repositories/holding_repository.dart';
 import 'repositories/market_data_repository.dart';
+import 'repositories/receipt_repository.dart';
 import 'repositories/entry_repository.dart';
 import 'repositories/recurring_repository.dart';
 import 'repositories/trash_repository.dart';
@@ -62,9 +63,9 @@ final class Ledger extends ChangeNotifier {
     Map<String, String> receipts = const {},
     Map<String, String> drafts = const {},
   }) : _clock = clock ?? (() => today),
-       _drafts = Drafts(drafts),
+       _drafts = DraftRepository(drafts),
        _day = today,
-       _receipts = Receipts(receipts),
+       _receipts = ReceiptRepository(receipts),
        _market = MarketDataRepository(
          rates: rates,
          moves: moves,
@@ -130,7 +131,7 @@ final class Ledger extends ChangeNotifier {
 
   /// The photo of each entry's receipt, by entry id: a file name the
   /// phone keeps.
-  final Receipts _receipts;
+  final ReceiptRepository _receipts;
 
   /// The receipt photo of the entry with [id]; null when none.
   String? receiptOf(String id) => _receipts.of(id);
@@ -143,7 +144,7 @@ final class Ledger extends ChangeNotifier {
   };
 
   /// The forms put aside in the composer, kept across a restart.
-  final Drafts _drafts;
+  final DraftRepository _drafts;
 
   String? draft(String tab) => _drafts.of(tab);
 

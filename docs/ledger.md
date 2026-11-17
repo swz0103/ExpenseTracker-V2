@@ -72,7 +72,7 @@ core/ledger/
 
 | 步驟 | 狀態 |
 | --- | --- |
-| 草稿、收據獨立成類別（目前叫 `Drafts`、`Receipts`，改名見 [naming.md](naming.md)） | 完成，待改名 |
+| 草稿、收據獨立成 `DraftRepository`、`ReceiptRepository`（各有 `*Reader`），11 個測試 | 完成 |
 | 隱藏金額獨立成物件（`AmountVisibility`） | 完成 |
 | 快取一致性測試（隨機修改 × 二十多種查詢） | 完成 |
 | 規模量測（`scale_bench_test`） | 完成 |
