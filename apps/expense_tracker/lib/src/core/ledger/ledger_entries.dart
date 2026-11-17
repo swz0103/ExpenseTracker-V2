@@ -140,7 +140,7 @@ extension LedgerEntries on Ledger {
     }
     _putRecurring(skipping);
     final trashed = Trashed(removed, today);
-    _trash.insert(0, trashed);
+    _trash.put(trashed);
     _keep(
       WriteBatch(
         trash: [trashed],
@@ -173,7 +173,7 @@ extension LedgerEntries on Ledger {
     }
     _putRecurring(skipping);
     final trashed = [for (final (_, e) in removed) Trashed(e, today)];
-    _trash.insertAll(0, trashed.reversed);
+    _trash.putAll(trashed);
     _keep(
       WriteBatch(
         trash: trashed,
@@ -199,7 +199,7 @@ extension LedgerEntries on Ledger {
     )) {
       return false;
     }
-    _trash.removeWhere((t) => ids.contains(t.entry.id));
+    _trash.removeEntries(ids);
     final back = _unskipping([for (final (_, e) in removed) e]);
     _putRecurring(back);
     _keep(
@@ -222,7 +222,7 @@ extension LedgerEntries on Ledger {
     if (!_tryReplay(() => _entries.remove(entry), trades: entry.isInvestment)) {
       return false;
     }
-    _trash.removeWhere((t) => t.entry.id == entry.id);
+    _trash.removeEntries({entry.id});
     final back = _unskipping([entry]);
     _putRecurring(back);
     _keep(
@@ -242,7 +242,7 @@ extension LedgerEntries on Ledger {
     final entry = trashed.entry;
     if (byId(entry.id) != null) {
       // Already back in the book, as by an undo: only the trash keeps it.
-      _trash.removeWhere((t) => t.entry.id == entry.id);
+      _trash.removeEntries({entry.id});
       _signal();
       _keep(WriteBatch(dropped: [(Collection.trash, entry.id)]));
       return true;
@@ -250,22 +250,20 @@ extension LedgerEntries on Ledger {
     // An entry written as one with others comes back with them.
     final group = entry.group;
     final back = [
-      for (final t in _trash)
+      for (final t in _trash.all)
         if (identical(t, trashed) ||
             (group != null &&
                 t.entry.group == group &&
                 byId(t.entry.id) == null))
           t,
     ];
-    final before = List.of(_trash);
-    _trash.removeWhere(back.contains);
+    final before = _trash.all;
+    _trash.removeAll(back);
     final count = _entries.length;
     _entries.addAll([for (final t in back) t.entry]);
     if (!_tryReplay(() {
       _entries.removeRange(count, _entries.length);
-      _trash
-        ..clear()
-        ..addAll(before);
+      _trash.replaceWith(before);
     }, trades: back.any((t) => t.entry.isInvestment))) {
       return false;
     }

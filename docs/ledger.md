@@ -85,7 +85,8 @@ core/ledger/
 | `models/` 依型別拆檔（一型別一檔，`models.dart` 轉出） | 完成 |
 | `EntryRepository`（紀錄清單與月、日、id、退款索引，寫入即自動作廢）與隨機比對測試 | 完成 |
 | `EntryRepository` 索引改增量維護（記一筆後的月份／單日查詢，10 萬筆時 84／36 ms 降到 0.0／0.1 ms） | 完成 |
-| Trash、Account、MarketData、Holding Repository | 尚未 |
+| `TrashRepository`（最新在前、依 id 或物件放回、改名合併時一起改），8 個測試 | 完成 |
+| Account、MarketData、Holding Repository | 尚未 |
 | 分類 id：`Category.id`、`CategoryRefs`、版本 2 資料格式、舊帳本在一個交易裡自動升級，12 個升級測試（含失敗時完全不動、改名只寫一列） | 完成 |
 | `CategoryRepository` | 尚未 |
 | `BudgetRepository`（設定、移除、改名時同名只留第一個），8 個測試 | 完成 |

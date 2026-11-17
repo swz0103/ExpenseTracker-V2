@@ -156,7 +156,7 @@ extension LedgerSetup on Ledger {
   /// archived rather than deleted, so nothing is left pointing nowhere.
   bool isUsed(String id) =>
       _entries.any((e) => e.account == id || e.to == id) ||
-      _trash.any((t) => t.entry.account == id || t.entry.to == id) ||
+      _trash.mentionsAccount(id) ||
       _recurring.any((r) => r.account == id);
 
   void removeAccount(String id) {
@@ -205,24 +205,16 @@ extension LedgerSetup on Ledger {
     notifyListeners();
   }
 
-  /// Puts the entries and recurring items of category [from] in [to].
-  /// Changes the entries in the trash as [change] says, keeping when
-  /// each was deleted: what comes back from 最近刪除 fits the book as it
-  /// is now, not as it was.
-  void _changeTrash(Entry? Function(Entry) change) {
-    for (final (i, t) in _trash.indexed) {
-      final next = change(t.entry);
-      if (next != null) _trash[i] = Trashed(next, t.on);
-    }
-  }
-
+  /// Puts the entries, the deleted entries and the recurring items of
+  /// category [from] in [to]: what comes back from 最近刪除 fits the book
+  /// as it is now, not as it was.
   void _moveUses(String from, String to) {
     for (final (i, e) in _entries.indexed) {
       if (e.category == from || e.parts.any((p) => p.$1 == from)) {
         _entries[i] = e.withCategory(to, from: from);
       }
     }
-    _changeTrash(
+    _trash.changeEntries(
       (e) => e.category == from || e.parts.any((p) => p.$1 == from)
           ? e.withCategory(to, from: from)
           : null,
@@ -289,7 +281,7 @@ extension LedgerSetup on Ledger {
       }.toList();
       _entries[i] = e.withLabels(tags: tags);
     }
-    _changeTrash(
+    _trash.changeEntries(
       (e) => e.tags.contains(from)
           ? e.withLabels(
               tags: {
@@ -311,7 +303,9 @@ extension LedgerSetup on Ledger {
     for (final (i, e) in _entries.indexed) {
       if (e.merchant == from) _entries[i] = e.withLabels(merchant: to);
     }
-    _changeTrash((e) => e.merchant == from ? e.withLabels(merchant: to) : null);
+    _trash.changeEntries(
+      (e) => e.merchant == from ? e.withLabels(merchant: to) : null,
+    );
     notifyListeners();
     _keep(_since(before));
   }

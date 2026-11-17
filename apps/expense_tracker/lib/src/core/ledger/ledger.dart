@@ -19,6 +19,7 @@ import 'persistence/write_queue.dart';
 import 'portfolio.dart';
 import 'repositories/budget_repository.dart';
 import 'repositories/entry_repository.dart';
+import 'repositories/trash_repository.dart';
 import 'models/models.dart';
 
 export 'card_cycle.dart';
@@ -63,7 +64,7 @@ final class Ledger extends ChangeNotifier {
        _receipts = Receipts(receipts),
        _rates = {...rates},
        _moves = {...moves},
-       _trash = [...trash],
+       _trash = TrashRepository(trash),
        _accounts = [...accounts],
        _categories = _placed(categories),
        _entries = EntryRepository(entries),
@@ -119,7 +120,7 @@ final class Ledger extends ChangeNotifier {
   final List<Recurring> _recurring;
 
   /// Entries deleted lately, newest first, until restored.
-  final List<Trashed> _trash;
+  final TrashRepository _trash;
 
   /// The photo of each entry's receipt, by entry id: a file name the
   /// phone keeps.
@@ -203,7 +204,7 @@ final class Ledger extends ChangeNotifier {
   List<Holding> get holdings => UnmodifiableListView(_holdings);
   List<Budget> get budgets => _budgets.all;
   List<Recurring> get recurring => List.unmodifiable(_recurring);
-  List<Trashed> get trash => List.unmodifiable(_trash);
+  List<Trashed> get trash => _trash.all;
 
   /// Categories offered for new entries: open ones of the kind.
   List<Category> categoriesFor({required bool income}) => [
@@ -389,7 +390,7 @@ final class Ledger extends ChangeNotifier {
       budgets: changed(before.budgets, _budgets.all, budgetKey),
       recurring: changed(before.recurring, _recurring, recurringKey),
       // Entries in the trash follow a rename or a merge too.
-      trash: changed(before.trash, _trash, (t) => t.entry.id),
+      trash: changed(before.trash, _trash.all, (t) => t.entry.id),
       dropped: [
         ...gone(Collection.entry, before.entries, _entries, entryKey),
         ...gone(
@@ -414,7 +415,7 @@ final class Ledger extends ChangeNotifier {
     categories: List.of(_categories),
     budgets: _budgets.all,
     recurring: List.of(_recurring),
-    trash: List.of(_trash),
+    trash: _trash.all,
   );
 
   /// [categories] with the placed ones first, by place, then the others
@@ -459,9 +460,7 @@ final class Ledger extends ChangeNotifier {
     _rates
       ..clear()
       ..addAll(fresh._rates);
-    _trash
-      ..clear()
-      ..addAll(fresh._trash);
+    _trash.replaceWith(fresh._trash.all);
     _moves
       ..clear()
       ..addAll(fresh._moves);
