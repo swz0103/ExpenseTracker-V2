@@ -1,5 +1,4 @@
 import 'dart:collection';
-import 'dart:math' show Random;
 
 import '../models/models.dart';
 
@@ -44,7 +43,7 @@ abstract interface class EntryReader {
 /// another day) throws the indexes away to be worked out again.
 ///
 /// A list for the commands that write; the screens see an [EntryReader].
-final class EntryRepository extends ListBase<Entry> implements EntryReader {
+final class EntryRepository implements EntryReader {
   EntryRepository([Iterable<Entry> entries = const []]) : _items = [...entries];
 
   final List<Entry> _items;
@@ -175,18 +174,20 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
   // The list, with every change noticed.
 
   @override
+  @override
+  bool get isEmpty => _items.isEmpty;
+
+  /// The place of the first entry that passes [test]; -1 when none does.
+  int indexWhere(bool Function(Entry entry) test) => _items.indexWhere(test);
+
+  /// Whether any entry passes [test].
+  bool any(bool Function(Entry entry) test) => _items.any(test);
+
+  @override
   int get length => _items.length;
 
-  @override
-  set length(int newLength) {
-    _discard();
-    _items.length = newLength;
-  }
-
-  @override
   Entry operator [](int index) => _items[index];
 
-  @override
   void operator []=(int index, Entry entry) {
     final old = _items[index];
     _items[index] = entry;
@@ -223,13 +224,11 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
     if (old.refundOf != null || entry.refundOf != null) _refunds = null;
   }
 
-  @override
   void add(Entry element) {
     _items.add(element);
     _noteAdded(element);
   }
 
-  @override
   void addAll(Iterable<Entry> iterable) {
     final added = iterable.toList();
     _items.addAll(added);
@@ -240,48 +239,42 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
     }
   }
 
-  @override
   void insert(int index, Entry element) {
     if (index >= _items.length) return add(element);
     _discard();
     _items.insert(index, element);
   }
 
-  @override
-  bool remove(Object? element) {
-    final index = element is Entry ? _items.indexOf(element) : -1;
+  /// Takes away [element], this very entry; false when it is not held.
+  bool remove(Entry element) {
+    final index = _items.indexOf(element);
     if (index < 0) return false;
     removeAt(index);
     return true;
   }
 
-  @override
   Entry removeAt(int index) {
     final removed = _items.removeAt(index);
     _noteRemoved(removed);
     return removed;
   }
 
-  @override
   Entry removeLast() {
     final removed = _items.removeLast();
     _noteRemoved(removed);
     return removed;
   }
 
-  @override
   void removeRange(int start, int end) {
     _discard();
     _items.removeRange(start, end);
   }
 
-  @override
   void removeWhere(bool Function(Entry) test) {
     _discard();
     _items.removeWhere(test);
   }
 
-  @override
   void clear() {
     _discard();
     _items.clear();
@@ -289,59 +282,6 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
 
   // The rest of what a list can do, each a change that cannot be followed
   // one entry at a time: done on the list itself, the indexes thrown away.
-
-  @override
-  void insertAll(int index, Iterable<Entry> iterable) {
-    _discard();
-    _items.insertAll(index, iterable);
-  }
-
-  @override
-  void setRange(
-    int start,
-    int end,
-    Iterable<Entry> iterable, [
-    int skipCount = 0,
-  ]) {
-    _discard();
-    _items.setRange(start, end, iterable, skipCount);
-  }
-
-  @override
-  void setAll(int index, Iterable<Entry> iterable) {
-    _discard();
-    _items.setAll(index, iterable);
-  }
-
-  @override
-  void replaceRange(int start, int end, Iterable<Entry> newContents) {
-    _discard();
-    _items.replaceRange(start, end, newContents);
-  }
-
-  @override
-  void fillRange(int start, int end, [Entry? fill]) {
-    _discard();
-    _items.fillRange(start, end, fill);
-  }
-
-  @override
-  void retainWhere(bool Function(Entry) test) {
-    _discard();
-    _items.retainWhere(test);
-  }
-
-  @override
-  void sort([int Function(Entry a, Entry b)? compare]) {
-    _discard();
-    _items.sort(compare);
-  }
-
-  @override
-  void shuffle([Random? random]) {
-    _discard();
-    _items.shuffle(random);
-  }
 
   // What is asked of them.
 

@@ -83,7 +83,7 @@ final class Ledger extends ChangeNotifier {
        _budgets = BudgetRepository(budgets),
        _recurring = RecurringRepository(recurring) {
     _holdings = HoldingRepository(holdings, moveOf: _market.moveOf)
-      ..replay(_entries, lenient: true);
+      ..replay(_entries.all, lenient: true);
     amounts.addListener(_signal);
     final source = dataSource;
     if (source != null) {
@@ -349,7 +349,7 @@ final class Ledger extends ChangeNotifier {
     _categories.replaceWith(fresh._categories.all);
     _entries
       ..clear()
-      ..addAll(fresh._entries);
+      ..addAll(fresh._entries.all);
     _holdings.replaceStart(fresh._holdings.start);
     _budgets.replaceWith(fresh._budgets.all);
     _recurring.replaceWith(fresh._recurring.all);
@@ -358,7 +358,7 @@ final class Ledger extends ChangeNotifier {
     _drafts.replaceWith(fresh._drafts);
     _market.replaceWith(fresh._market);
     _day = fresh.today;
-    _holdings.replay(_entries, lenient: true);
+    _holdings.replay(_entries.all, lenient: true);
     notifyListeners();
   }
 }

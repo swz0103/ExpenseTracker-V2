@@ -97,7 +97,7 @@ void main() {
         ),
       ]);
       final holdings = HoldingRepository(const [], moveOf: market.moveOf)
-        ..replay(entries);
+        ..replay(entries.all);
       HoldingCommands(
         context: context,
         marketRepository: market,

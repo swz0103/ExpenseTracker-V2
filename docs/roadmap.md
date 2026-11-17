@@ -12,7 +12,7 @@
 | 2 規格統一 | 完成。日期：`core/text/dates.dart` 七種格式（ICU 日期 skeleton 命名）。圓角：`core/look/shape.dart` 的 `Radii`（Material 3 shape scale：extraSmall 4、small 8、medium 12、large 16、largeIncreased 20、extraLarge 28…、full）。間距：`core/look/spacing.dart` 的 `Space`（4dp 格線，s1＝4、s2＝8…，half＝2）。1,439 處數字換成 token，畫面與對照圖逐位元組相同；一週日曆的外框依版面測試改用 4。規則測試禁止再寫死整數 | 盤點：圓角 24 種數值、間距寫死 650 多處、自拼日期 40 處 | 完成 |
 | 3 效能 | 完成：記憶體內的中位數量測（`test/perf/memory_bench_test.dart`，10 萬筆、9 次取中位數）；餘額改成只重建被問到的帳戶、整數日期排序，記一筆後的第一次餘額 114 → 15–24 ms、信用卡應繳 69 → 16–26 ms；搜尋文字掛在紀錄物件上（`Expando`），42 → 21–26 ms；`QueryCache` 上限 4096、淘汰最久沒用的。演算法：紀錄依月份索引由舊到新讀出（`EntryReader.byDate`），各帳戶不必再排序；分期購物展開成每期結帳日的變動（`billingSteps`，12,000 組隨機情境與原本的 `billed` 逐一相同），結果掛在紀錄上，查任何一天的餘額都只是一次二分搜尋。淨資產 75 → 25 ms、餘額 16 ms、信用卡應繳 17 ms。待辦：資料庫讀寫移到背景執行緒；回歸門檻（共用機器上數字浮動大，門檻要先找到穩定的量法） | 批判 1、2、7、10 | 部分完成 |
 | 4 拒絕原因型別化 | 完成一半：`problemWith` 改成 `validate`，回傳 sealed class `EntryValidationFailure`（17 種），文字集中在新的 `core/messages/validation_messages.dart`（switch 窮舉，少一種就編譯失敗）；`core/messages` 是 core 新的一部分，只依賴 ledger 與 text，model 與畫面都能用。定期交易的週期標籤與「每月 5 日」也搬到 `core/messages/recurring_messages.dart`（順便去掉一份重複的星期表）；ledger 裡的中文字串 54 → 19，只剩資料值（分類名稱）與診斷記錄用語，`layers_test` 禁止再增加。待辦：`problem` 的 `ValueNotifier<Object?>` 型別化；文字單一來源（任務 H） | 批判 4 | 部分完成 |
-| 5 收窄依賴 | `EntryRepository` 不再繼承 List；功能只取用需要的 Reader／Service，不拿整個 `Ledger` | 批判 3、5 | 待辦 |
+| 5 收窄依賴 | 前半完成：`EntryRepository` 不再繼承 `ListBase`，只留寫入端實際用到的操作（add、insert、remove…、changeAll），刪掉 9 個只為維持索引而勉強覆寫的 List 方法（sort、shuffle、setRange…），430 → 383 行；索引測試改成逐一驗證剩下的每種修改方式。後半待辦：功能只取用需要的 Reader／Service，不拿整個 `Ledger`（56 個檔） | 批判 3、5 | 部分完成 |
 | 6 金額型別與值相等 | 價格、匯率改定點小數（任務 E）；模型定義值相等 | 批判 8、9 | 待辦 |
 | 7 整理 | 資料夾與命名（任務 G、I）；近 600 行的畫面依職責拆；補畫面測試（任務 K） | 批判 11 | 待辦 |
 

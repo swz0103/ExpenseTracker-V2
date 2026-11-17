@@ -66,7 +66,7 @@ final class Book {
        recurring = RecurringRepository(recurring),
        market = MarketDataRepository(rates: rates) {
     holdings = HoldingRepository(const [], moveOf: market.moveOf)
-      ..replay(this.entries);
+      ..replay(this.entries.all);
   }
 
   final EntryRepository entries;

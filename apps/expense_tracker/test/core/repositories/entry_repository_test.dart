@@ -102,7 +102,7 @@ void main() {
     entries.removeRange(0, 1);
     expect(_ids(entries.all), ['y']);
 
-    expect(entries.remove(entries.first), isTrue);
+    expect(entries.remove(entries.all.first), isTrue);
     expect(entries.isEmpty, isTrue);
     expect(entries.inMonth(2026, 10), isEmpty);
 
@@ -276,12 +276,11 @@ void main() {
     test('removing something that is not there changes nothing', () {
       final entries = asked([_entry('a', _day(10, 5))]);
       expect(entries.remove(_entry('x', _day(10, 5))), isFalse);
-      expect((entries as List<Object?>).remove('not an entry'), isFalse);
       expect(entries.length, 1);
     });
   });
 
-  group('every way a list can be changed keeps the indexes right', () {
+  group('every way the entries can be changed keeps the indexes right', () {
     // Each starts from a repository whose indexes are already worked out,
     // changes it with a list method, and checks against the list itself.
     List<Entry> fresh() => [
@@ -289,7 +288,7 @@ void main() {
     ];
 
     void agrees(EntryRepository entries, String how) {
-      final wanted = [...entries.indexed]
+      final wanted = [...entries.all.indexed]
         ..sort((a, b) {
           final byDate = b.$2.date.compareTo(a.$2.date);
           return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
@@ -297,31 +296,33 @@ void main() {
       expect(_ids(entries.inMonth(2026, 10)), [
         for (final (_, e) in wanted) e.id,
       ], reason: how);
-      for (final e in entries) {
+      for (final e in entries.all) {
         expect(entries.byId(e.id), same(e), reason: how);
       }
     }
 
     final changes = <String, void Function(EntryRepository)>{
-      'sort': (r) => r.sort((a, b) => b.id.compareTo(a.id)),
-      'shuffle': (r) => r.shuffle(Random(4)),
-      'insertAll': (r) => r.insertAll(3, [
-        _entry('x1', _day(10, 2)),
-        _entry('x2', _day(10, 1)),
-      ]),
-      'setRange': (r) => r.setRange(0, 2, [
-        _entry('y1', _day(10, 3)),
-        _entry('y2', _day(10, 3)),
-      ]),
-      'setAll': (r) => r.setAll(4, [_entry('z1', _day(10, 2))]),
-      'replaceRange': (r) => r.replaceRange(1, 4, [_entry('w1', _day(10, 1))]),
-      'retainWhere': (r) => r.retainWhere((e) => e.date.day != 2),
-      'fillRange': (r) => r.fillRange(5, 7, _entry('f', _day(10, 3))),
+      'insert': (r) => r.insert(3, _entry('x1', _day(10, 2))),
+      'removeAt': (r) => r.removeAt(4),
+      'removeLast': (r) => r.removeLast(),
+      'removeRange': (r) => r.removeRange(1, 4),
+      'removeWhere': (r) => r.removeWhere((e) => e.date.day != 2),
+      'addAll': (r) =>
+          r.addAll([_entry('y1', _day(10, 3)), _entry('y2', _day(10, 1))]),
+      'changeAll to other days': (r) => r.changeAll(
+        (e) => e.date.day == 1 ? _entry('${e.id}m', _day(10, 3)) : null,
+      ),
       'reversed into place': (r) {
-        final back = r.reversed.toList();
+        final back = r.all.reversed.toList();
         for (var i = 0; i < back.length; i++) {
           r[i] = back[i];
         }
+      },
+      'cleared and refilled': (r) {
+        final kept = [...r.all.reversed];
+        r
+          ..clear()
+          ..addAll(kept);
       },
     };
     for (final MapEntry(key: how, value: change) in changes.entries) {

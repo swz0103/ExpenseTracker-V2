@@ -38,7 +38,7 @@ final class HoldingCommands {
     );
     _holdings
       ..replaceStart(holdings)
-      ..replay(_entries, lenient: true);
+      ..replay(_entries.all, lenient: true);
     _context.changed(const {Topic.market});
   }
 }

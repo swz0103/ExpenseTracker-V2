@@ -143,7 +143,7 @@ final class EntryCommands {
     String? receipt,
     String? receiptOn,
   }) {
-    final before = List.of(_entries);
+    final before = List.of(_entries.all);
     final ids = {for (final e in entries) e.id};
     final gone = {...was}..removeAll(ids);
     _entries.removeWhere((e) => gone.contains(e.id));
@@ -211,7 +211,7 @@ final class EntryCommands {
   List<Entry> removeAll(Iterable<String> ids) {
     final wanted = {...ids};
     final removed = <(int, Entry)>[
-      for (final (i, e) in _entries.indexed)
+      for (final (i, e) in _entries.all.indexed)
         if (wanted.contains(e.id)) (i, e),
     ];
     if (removed.isEmpty) return const [];
@@ -467,10 +467,10 @@ final class EntryCommands {
   void _replayOrUndo(void Function() undo, {bool trades = true}) {
     if (trades) {
       try {
-        _holdings.replay(_entries);
+        _holdings.replay(_entries.all);
       } on StateError {
         undo();
-        _holdings.replay(_entries);
+        _holdings.replay(_entries.all);
         rethrow;
       }
     }
