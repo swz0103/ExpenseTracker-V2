@@ -6,7 +6,6 @@ part of 'ledger.dart';
 extension LedgerSetup on Ledger {
   void setBudget(String category, int limit, {int? warning, bool? carry}) {
     final old = budgetFor(category);
-    _budgets.removeWhere((b) => b.category == category);
     final budget = Budget(
       category,
       limit,
@@ -14,13 +13,13 @@ extension LedgerSetup on Ledger {
       carry: carry ?? old.carry,
       since: old.since ?? DateTime.utc(today.year, today.month),
     );
-    _budgets.add(budget);
+    _budgets.put(budget);
     _changed(const {Topic.budgets});
     _keep(WriteBatch(budgets: [budget]));
   }
 
   void removeBudget(String category) {
-    _budgets.removeWhere((b) => b.category == category);
+    _budgets.remove(category);
     _changed(const {Topic.budgets});
     _keep(WriteBatch(dropped: [(Collection.budget, category)]));
   }
@@ -202,20 +201,8 @@ extension LedgerSetup on Ledger {
       if (c.parent == from) _categories[i] = c.copyWith(parent: to);
     }
     _moveUses(from, to);
-    for (final (i, b) in _budgets.indexed) {
-      if (b.category == from) {
-        _budgets[i] = b.renamed(to);
-      }
-    }
-    _oneBudgetEach();
+    _budgets.rename(from, to);
     notifyListeners();
-  }
-
-  /// Keeps the first budget of each name, as a rename onto a name that
-  /// had one leaves two.
-  void _oneBudgetEach() {
-    final seen = <String>{};
-    _budgets.retainWhere((b) => seen.add(b.category));
   }
 
   /// Puts the entries and recurring items of category [from] in [to].
@@ -276,7 +263,7 @@ extension LedgerSetup on Ledger {
     if (from == into) return;
     final before = _before;
     _moveUses(from, into);
-    _budgets.removeWhere((b) => b.category == from);
+    _budgets.remove(from);
     _categories.removeWhere((c) => c.name == from);
     for (final (i, c) in _categories.indexed) {
       if (c.parent == from) _categories[i] = c.copyWith(clearParent: true);
@@ -288,13 +275,11 @@ extension LedgerSetup on Ledger {
   /// Renames or merges a tag across every entry; an empty [to] removes it.
   void renameTag(String from, String to) {
     final before = _before;
-    for (final (i, b) in _budgets.indexed) {
-      if (b.tag == from && to.isNotEmpty) {
-        _budgets[i] = b.renamed('#$to');
-      }
+    if (to.isEmpty) {
+      _budgets.remove('#$from');
+    } else {
+      _budgets.rename('#$from', '#$to');
     }
-    if (to.isEmpty) _budgets.removeWhere((b) => b.tag == from);
-    _oneBudgetEach();
     for (final (i, e) in _entries.indexed) {
       if (!e.tags.contains(from)) continue;
       final tags = {

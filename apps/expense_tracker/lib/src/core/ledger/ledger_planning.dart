@@ -28,10 +28,7 @@ extension LedgerPlanning on Ledger {
     return (spent * days / passed).round();
   }
 
-  Budget budgetFor(String category) => _budgets.firstWhere(
-    (b) => b.category == category,
-    orElse: () => Budget(category, 0),
-  );
+  Budget budgetFor(String category) => _budgets.forCategory(category);
 
   /// What counts against [budget] in [year]/[month]: all spending, the
   /// spending carrying its tag, or its category's share of spending.

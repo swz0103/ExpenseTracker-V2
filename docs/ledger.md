@@ -88,5 +88,6 @@ core/ledger/
 | Trash、Account、MarketData、Holding Repository | 尚未 |
 | 分類 id：`Category.id`、`CategoryRefs`、版本 2 資料格式、舊帳本在一個交易裡自動升級，12 個升級測試（含失敗時完全不動、改名只寫一列） | 完成 |
 | `CategoryRepository` | 尚未 |
-| Budget、Recurring Repository、各 Service 與各 Commands | 尚未 |
+| `BudgetRepository`（設定、移除、改名時同名只留第一個），8 個測試 | 完成 |
+| Recurring Repository、各 Service 與各 Commands | 尚未 |
 | Ledger 瘦身與 `layers_test` 新規則 | 尚未 |

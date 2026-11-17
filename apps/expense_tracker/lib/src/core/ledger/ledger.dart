@@ -17,6 +17,7 @@ import 'card_cycle.dart';
 import 'persistence/ledger_data_source.dart';
 import 'persistence/write_queue.dart';
 import 'portfolio.dart';
+import 'repositories/budget_repository.dart';
 import 'repositories/entry_repository.dart';
 import 'models/models.dart';
 
@@ -67,7 +68,7 @@ final class Ledger extends ChangeNotifier {
        _categories = _placed(categories),
        _entries = EntryRepository(entries),
        _startHoldings = [...holdings],
-       _budgets = [...budgets],
+       _budgets = BudgetRepository(budgets),
        _recurring = [...recurring] {
     _replay(lenient: true);
     amounts.addListener(_signal);
@@ -114,7 +115,7 @@ final class Ledger extends ChangeNotifier {
   final List<Category> _categories;
   final EntryRepository _entries;
   final List<Holding> _startHoldings;
-  final List<Budget> _budgets;
+  final BudgetRepository _budgets;
   final List<Recurring> _recurring;
 
   /// Entries deleted lately, newest first, until restored.
@@ -200,7 +201,7 @@ final class Ledger extends ChangeNotifier {
   List<Account> get accounts => List.unmodifiable(_accounts);
   List<Category> get categories => List.unmodifiable(_categories);
   List<Holding> get holdings => UnmodifiableListView(_holdings);
-  List<Budget> get budgets => List.unmodifiable(_budgets);
+  List<Budget> get budgets => _budgets.all;
   List<Recurring> get recurring => List.unmodifiable(_recurring);
   List<Trashed> get trash => List.unmodifiable(_trash);
 
@@ -385,7 +386,7 @@ final class Ledger extends ChangeNotifier {
     return WriteBatch(
       entries: changed(before.entries, _entries, entryKey),
       categories: changed(before.categories, _categories, categoryKey),
-      budgets: changed(before.budgets, _budgets, budgetKey),
+      budgets: changed(before.budgets, _budgets.all, budgetKey),
       recurring: changed(before.recurring, _recurring, recurringKey),
       // Entries in the trash follow a rename or a merge too.
       trash: changed(before.trash, _trash, (t) => t.entry.id),
@@ -397,7 +398,7 @@ final class Ledger extends ChangeNotifier {
           _categories,
           categoryKey,
         ),
-        ...gone(Collection.budget, before.budgets, _budgets, budgetKey),
+        ...gone(Collection.budget, before.budgets, _budgets.all, budgetKey),
         ...gone(
           Collection.recurring,
           before.recurring,
@@ -411,7 +412,7 @@ final class Ledger extends ChangeNotifier {
   _Before get _before => (
     entries: List.of(_entries),
     categories: List.of(_categories),
-    budgets: List.of(_budgets),
+    budgets: _budgets.all,
     recurring: List.of(_recurring),
     trash: List.of(_trash),
   );
@@ -451,9 +452,7 @@ final class Ledger extends ChangeNotifier {
     _startHoldings
       ..clear()
       ..addAll(fresh._startHoldings);
-    _budgets
-      ..clear()
-      ..addAll(fresh._budgets);
+    _budgets.replaceWith(fresh._budgets.all);
     _recurring
       ..clear()
       ..addAll(fresh._recurring);
