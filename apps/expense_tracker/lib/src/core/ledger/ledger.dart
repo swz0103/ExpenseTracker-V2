@@ -31,6 +31,7 @@ import 'services/balance_service.dart';
 import 'services/budget_service.dart';
 import 'services/entry_query_service.dart';
 import 'services/entry_validator.dart';
+import 'services/integrity_service.dart';
 import 'services/recurring_service.dart';
 import 'services/report_service.dart';
 import 'services/statement_service.dart';
@@ -38,6 +39,8 @@ import 'services/statement_service.dart';
 export 'card_cycle.dart';
 export 'cache/topic.dart';
 export 'commands/command_exceptions.dart';
+export 'services/integrity_service.dart'
+    show IntegrityProblem, MissingAccount, MissingRefundOriginal, RecordKind;
 export 'models/models.dart';
 
 /// The screens' book: accounts, categories, entries, holdings, budgets
@@ -262,6 +265,12 @@ final class Ledger extends ChangeNotifier {
     market: _market,
     cache: _cache,
     today: _clock,
+  );
+  late final integrityService = IntegrityService(
+    entries: _entries,
+    accounts: _accounts,
+    recurring: _recurring,
+    trash: _trash,
   );
   late final entryValidator = EntryValidator(
     entries: _entries,

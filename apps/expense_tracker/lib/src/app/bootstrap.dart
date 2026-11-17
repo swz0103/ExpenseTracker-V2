@@ -261,6 +261,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       );
     }
     await _readInbox(ledger);
+    _checkIntegrity(ledger);
     _bookDue(ledger);
     final market = _market = MarketFeed(
       _journal,
@@ -331,6 +332,24 @@ class _OpenedLedgerState extends State<OpenedLedger>
         ),
       );
     });
+  }
+
+  /// Notes in the diagnostics log each kind of record that names another
+  /// the book no longer has, once a launch: the sums still add up, but
+  /// the book is not as it was written.
+  void _checkIntegrity(Ledger ledger) {
+    final List<IntegrityProblem> found;
+    try {
+      found = ledger.integrityService.problems();
+    } on Object catch (error) {
+      // A check that cannot finish must not keep the book from opening.
+      ErrorLog.instance.record('帳本健檢', error);
+      return;
+    }
+    final kinds = {for (final problem in found) '$problem': problem};
+    for (final problem in kinds.values) {
+      ErrorLog.instance.record('帳本健檢', problem);
+    }
   }
 
   /// Books the recurring items marked to book themselves whose day has

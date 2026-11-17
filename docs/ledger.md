@@ -99,3 +99,4 @@ Service 與 Commands 在第一次用到時才建立，共用同一組 Repository
 | `RecurringRepository`（儲存、只替換仍在的項目、移除、分類改名），8 個測試 | 完成 |
 | 各 Service 與各 Commands（7 個 Service、7 個 Commands、`CommandContext`），呼叫端 544 處由 `tool/reroute.py` 依分析器錯誤改寫；Service 38 個、Commands 17 個單獨測試，不經過 `Ledger` | 完成 |
 | Ledger 只剩組合與通知（382 行，原本 650 行上限的特例已取消）；`*Reader` 成為 Ledger 上的屬性；`layers_test` 新增 ledger 內依賴方向與禁止 `part` 兩條規則，並確認故意違規會失敗 | 完成 |
+| 帳本健檢 `IntegrityService`：紀錄、最近刪除、定期交易指向不存在的帳戶，退款指向不存在的原始消費；開帳時每種問題記一行到診斷記錄（只寫種類，不含名稱、金額、id），5 個測試。找不到帳戶時仍以空帳戶計算，但不再無聲 | 完成 |
