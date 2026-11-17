@@ -116,6 +116,50 @@ void main() {
     }
   });
 
+  test('inside the ledger, each folder uses only those below it', () {
+    String? layerOf(String path) {
+      final inside = path.substring(Layout.ledgerDir.length);
+      for (final layer in Layout.ledgerLayers) {
+        if (inside.startsWith(layer)) return layer;
+      }
+      return Layout.ledgerHelpers.contains(inside) ? 'helper' : null;
+    }
+
+    var checked = 0;
+    for (final MapEntry(key: file, value: uris) in imports.entries) {
+      if (!file.startsWith(Layout.ledgerDir)) continue;
+      final layer = layerOf(file);
+      if (layer == null) continue; // persistence/ and ledger.dart
+      final below = layer == 'helper'
+          ? const ['models/']
+          : Layout.ledgerLayers.sublist(0, Layout.ledgerLayers.indexOf(layer));
+      for (final uri in uris) {
+        if (!uri.startsWith(Layout.ledgerDir)) continue;
+        checked++;
+        final inside = uri.substring(Layout.ledgerDir.length);
+        final allowed =
+            layerOf(uri) == layer ||
+            below.any(inside.startsWith) ||
+            (layer != 'helper' && Layout.ledgerHelpers.contains(inside)) ||
+            (layer == 'commands/' && Layout.commandsMayUse.contains(inside));
+        expect(allowed, isTrue, reason: '$file uses $uri');
+      }
+    }
+    // A rule that saw no import proves nothing.
+    expect(checked, greaterThan(50));
+  });
+
+  test('the ledger is in libraries of their own, not part files', () {
+    for (final f in Directory(Layout.ledgerDir).listSync(recursive: true)) {
+      if (f is! File || !f.path.endsWith('.dart')) continue;
+      expect(
+        RegExp(r'^part (of )?', multiLine: true).hasMatch(f.readAsStringSync()),
+        isFalse,
+        reason: f.path,
+      );
+    }
+  });
+
   test('a feature has only model, ui and compose folders', () {
     for (final path in imports.keys) {
       final name = feature(path);

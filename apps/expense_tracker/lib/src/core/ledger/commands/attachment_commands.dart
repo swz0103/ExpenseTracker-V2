@@ -1,4 +1,4 @@
-import '../persistence/ledger_data_source.dart';
+import '../persistence/write_batch.dart';
 import '../repositories/draft_repository.dart';
 import '../repositories/receipt_repository.dart';
 import 'command_context.dart';

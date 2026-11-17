@@ -1,5 +1,5 @@
 import '../models/models.dart';
-import 'ledger_data_source.dart';
+import 'write_batch.dart';
 
 /// What one change of the ledger touched, gathered as it goes and handed
 /// to the data source as one [WriteBatch] (Fowler, *Patterns of

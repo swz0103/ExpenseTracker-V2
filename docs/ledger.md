@@ -6,67 +6,71 @@
 
 ```
 core/ledger/
-  ledger.dart              Ledger：接線、通知、WriteQueue（只留 14 個成員）
+  ledger.dart              Ledger：組合各 Repository、Service、Commands，通知畫面，持有 WriteQueue
   amount_visibility.dart   隱藏金額開關
+  card_cycle.dart          信用卡帳期（Account 的擴充）
+  portfolio.dart           持股重播（證券用語 Portfolio）
+  trading.dart             台股代號與手續費建議
   models/                  account category entry holding budget recurring trashed，一型別一檔，不含狀態
-  repositories/            擁有狀態：entry account category budget recurring trash holding market_data draft receipt
-  services/                由狀態算出結果：balance statement budget recurring report portfolio entry_validator
-  commands/                協調寫入：entry account category budget recurring holding attachment
   cache/                   query_cache · topic · topic_notifier
-  persistence/             ledger_data_source · sql_ledger_data_source · write_batch · write_queue ·
-                           unit_of_work · starter_data · record_upgrade
-  persistence/codec/       一種紀錄一檔的 JSON 轉換 · json_reader（有型別的讀取，取代 `as` 強轉）
+  repositories/            擁有狀態：entry account category budget recurring trash holding market_data draft receipt
+  services/                由狀態算出結果：balance statement report entry_query budget recurring · entry_validator
+  commands/                寫入：entry account category budget recurring holding attachment · command_context · command_exceptions
+  persistence/             ledger_data_source · write_batch · unit_of_work · write_queue · sql_ledger_data_source ·
+                           record_version · category_id_migration
+  persistence/codec/       一種紀錄一檔的 JSON 轉換
 ```
 
-`Ledger` 上的屬性：Repository 用複數名詞、型別是只讀的 `*Reader`（`ledger.accounts`）；Service 與 Commands 用完整類別名（`ledger.balanceService`、`ledger.entryCommands`）。
+依賴只往下：`models` ← `cache` ← `repositories` ← `services` ← `commands`；根目錄的輔助檔（`card_cycle`、`portfolio`、`trading`、`amount_visibility`）只用 `models`。Commands 對 `persistence` 只用 `write_batch` 與 `unit_of_work`。`persistence` 與 `ledger.dart` 組出整本帳，可以用全部。`layers_test` 逐條檢查，也禁止 `part`。
+
+## Ledger 上有什麼
+
+- **Repository**（只讀的 `*Reader`，複數名詞）：`accounts` · `categories` · `entries` · `holdings` · `budgets` · `recurring` · `trash` · `marketData` · `receipts` · `drafts`。只看一種紀錄的問題在這裡問，例如 `ledger.entries.inMonth(y, m)`、`ledger.accounts.main`、`ledger.marketData.toHome(...)`。
+- **Service**（只讀、跨 Repository）：`balanceService` · `statementService` · `reportService` · `entryQueryService` · `budgetService` · `recurringService` · `entryValidator`。
+- **Commands**（寫入）：`entryCommands` · `accountCommands` · `categoryCommands` · `budgetCommands` · `recurringCommands` · `holdingCommands` · `attachmentCommands`。
+- **Ledger 自己**：`today` · `checkDay` · `newId` · `settled` · `problem` · `dataSource` · `watch` · `revision` · `revisionOf` · `amounts` · `resetTo`，以及 `account(id)`、`category(name)`、`holding(code)` 三個全 App 用上百次的轉呼叫。
+
+Service 與 Commands 在第一次用到時才建立，共用同一組 Repository 與同一個 `QueryCache`。Commands 經 `CommandContext`（Core J2EE Patterns 的 Context Object）取得今天、通知畫面、交出 `WriteBatch`，不直接碰 `Ledger`。
 
 ## 成員分配
 
-「現名」是審查時 `Ledger` 上的成員；每一列是新家。
-
-| 新家 | 擁有的狀態 | 成員 |
+| 類別 | 讀或寫 | 成員 |
 | --- | --- | --- |
-| **EntryRepository** | 全部紀錄、月／日／id／退款索引 | entries · entriesIn · entriesOn · byId · groupOf · groupLead · isGroupTail · tradesOf · refunded · refundable · search · usual · usualTransfers · merchants · categoryAt · lastAt |
-| **TrashRepository** | 最近刪除 | trash |
-| **AccountRepository** | 帳戶、id 索引 | accounts · account · hasAccount · openAccounts · mainAccount · isUsed |
-| **CategoryRepository** | 分類、索引（之後以 id） | categories · category · categoriesFor · categoryNameFree |
-| **BudgetRepository** | 預算 | budgets · budgetFor |
-| **RecurringRepository** | 定期交易 | recurring · dueDayOf · recurringWorth · booking |
-| **MarketDataRepository** | 收盤價、當日漲跌、匯率、報價日 | quotedOn · hasQuote · olderQuote · rates · toHome · convert · unrated |
-| **HoldingRepository** | 期初持股、重播出的持股 | holdings · holding · lotsOf · saleCost · holdsWith · investValue · investCost · dayChange · realized · totalDividends |
-| **DraftRepository**、**ReceiptRepository** | 暫存表單、收據檔名 | draft · receiptOf · receiptFiles |
-| BalanceService | — | balance · worthOf · assets · cardDebt · loanDebt · netWorthAt · weeklyChanges |
-| StatementService | — | billed · billedPeriods · closedBy · statement · statementDue · unbilled · instalmentsOn |
-| BudgetService | — | daysGone · spentOnTag · forecast · spentAgainst · allowance |
-| RecurringService | — | confirmationsIn · pendingDate · nextDate · nextLabel · due · upcoming |
-| ReportService | — | income · expense · dividends · spentOn · expenseByCategory · totalsBetween · spendingBetween · merchantsBetween · tagsBetween · tagStats · merchantStats · tags · categoriesByUse · owedBy · effect · firstDay |
-| EntryValidator | — | problemWith |
-| **EntryCommands** | — | add · addAll · replace · replaceAll · replaceGroup · remove · removeAll · restore · restoreAll · restoreTrashed · recategorize · moveToAccount · renameTag · renameMerchant |
-| **AccountCommands** | — | addAccount · updateAccount · removeAccount · placeAccounts · setBalance · moveClose |
-| **CategoryCommands** | — | addCategory · updateCategory · mergeCategory · placeCategories |
-| **BudgetCommands** | — | setBudget · removeBudget |
-| **RecurringCommands** | — | saveRecurring · removeRecurring · unskip · confirm · bookDue |
-| **HoldingCommands** | — | setMarket |
-| **AttachmentCommands** | — | setDraft · setReceipt |
-
-### Ledger 留下的成員
-
-`today` · `checkDay` · `newId` · `settled` · `problem` · `dataSource` · `watch` · `revision` · `revisionOf` · `amounts` · `resetTo` · `account(id)` · `category(name)` · `holding(code)`。後三個只是轉呼叫各 Repository，因為全 App 用了上百次。
+| **EntryReader** | 讀 | all · length · isEmpty · byId · inMonth · onDay · firstDate · refundedTotal |
+| **AccountReader** | 讀 | all · open · byId · contains · resolve · main |
+| **CategoryReader** | 讀 | all · byName · forEntries · isNameFree |
+| **HoldingReader** | 讀 | all · byCode · hasQuote · lotsOf · saleCost · sharesOn · holdsWith · marketValue · costBasis · dayChange · realizedGain · dividends |
+| **MarketDataReader** | 讀 | quotedOn · rates · moves · quoteDays · rateOf · moveOf · olderQuote · toHome · convert |
+| **BudgetReader**、**RecurringReader**、**TrashReader**、**ReceiptReader**、**DraftReader** | 讀 | all · forCategory／byId／of… |
+| BalanceService | 讀 | effect · balance · worthOf · unrated · assets · cardDebt · loanDebt · netWorthAt · weeklyChanges |
+| StatementService | 讀 | billed · billedPeriods · closedBy · statement · statementDue · unbilled · instalmentsOn |
+| ReportService | 讀 | income · expense · dividends · spentOn · expenseByCategory · totalsBetween · spendingBetween · merchantsBetween · tagsBetween · firstDay · owedBy · tagStats · merchantStats · tags · categoriesByUse |
+| EntryQueryService | 讀 | search · merchants · categoryAt · lastAt · usual · usualTransfers · groupOf · groupLead · isGroupTail · tradesOf · refunded · refundable |
+| BudgetService | 讀 | daysGone · spentOnTag · forecast · spentAgainst · allowance |
+| RecurringService | 讀 | confirmationsIn · pendingDate · nextDate · nextLabel · due · upcoming · dueDayOf · worth · booking |
+| EntryValidator | 讀 | problemWith · holdsWith |
+| **EntryCommands** | 寫 | add · addAll · replace · replaceAll · replaceGroup · remove · removeAll · restore · restoreAll · restoreTrashed · recategorize · moveToAccount · renameTag · renameMerchant |
+| **AccountCommands** | 寫 | addAccount · updateAccount · removeAccount · placeAccounts · setBalance · moveClose · isUsed |
+| **CategoryCommands** | 寫 | addCategory · updateCategory · mergeCategory · placeCategories |
+| **BudgetCommands** | 寫 | setBudget · removeBudget |
+| **RecurringCommands** | 寫 | saveRecurring · removeRecurring · unskip · confirm · bookDue |
+| **HoldingCommands** | 寫 | setMarket |
+| **AttachmentCommands** | 寫 | setDraft · setReceipt · receiptFiles |
 
 ## 一個指令怎麼走
 
-**合併分類**（跨 Repository）：`mergeCategory(from, into)` 開一個 `UnitOfWork`，依序改 `entries`、`trash.changeEntries`、`recurring.renameCategory`、`budgets.remove`、`categories.removeMerged`；各 Repository 只改自己的狀態並回傳動到的紀錄，由指令登記到 `UnitOfWork`（Repository 不依賴它）。最後 `UnitOfWork.batch` 組成一個 `WriteBatch` 交給 `WriteQueue`，並通知受影響的 `Topic`。這些步驟不會中途失敗；會失敗的只有持股重播，見下一段。
+**合併分類**（跨 Repository）：`CategoryCommands.mergeCategory(from, into)` 開一個 `UnitOfWork`，依序改 `entries.changeAll`、`trash.changeEntries`、`recurring.renameCategory`、`budgets.remove`、`categories.removeMerged`；各 Repository 只改自己的狀態並回傳動到的紀錄，由指令登記到 `UnitOfWork`（Repository 不依賴它）。最後 `UnitOfWork.batch` 組成一個 `WriteBatch` 交給 `WriteQueue`，並通知受影響的 `Topic`。這些步驟不會中途失敗；會失敗的只有持股重播，見下一段。
 
-**記一筆賣出**：`EntryCommands.add` → `entries.add` → `holdings.replay`（持股不夠丟 `SharesShort`，`UnitOfWork` 還原 `entries`）→ `receipts` 記收據 → 送出。
+**記一筆賣出**：`EntryCommands.add` → `entries.add` → `holdings.replay`（持股不夠丟 `StateError`，指令把 `entries` 還原後再重播一次並往上丟；刪除與還原則改成 `problem` 告知 `SharesShort`）→ `receipts` 記收據 → 送出。
 
-**讀報表**：`ReportService` 在 `QueryCache` 裡執行；它讀了 `entries` 與 `accounts`，快取記下這兩個依賴，之後只有這兩個變動才作廢，改預算不會動它。
+**讀餘額**：`BalanceService.balance` 經 `QueryCache` 記住每個帳戶每天的答案，讀的主題是 `entries` 與 `accounts`；改預算不會讓它重算。
 
 ## 規則
 
-- Repository 只改自己的狀態；Service 只讀；跨 Repository 的寫入只在 Commands 裡，用 `UnitOfWork`。
-- 檔案不用 `part`；一個檔案一個公開類別。
-- 依賴只有 ADR-0008 的圖上的邊，`layers_test` 檢查。
+- Repository 只改自己的狀態；Service 只讀；跨 Repository 的寫入只在 Commands 裡，多筆時用 `UnitOfWork`。
+- 檔案不用 `part`；依賴只往下，`layers_test` 檢查。
 - 新的查詢一律經 `QueryCache`，不手寫失效條件。
+- `?.` 不會執行參數：先做修改，再把結果交給 `unit?.register…`。
 
 ## 進度
 
@@ -80,7 +84,7 @@ core/ledger/
 | 儲存層改通用名稱並放進 `persistence/`（`LedgerDataSource`、`SqlLedgerDataSource`、`WriteBatch`、`Collection`、`DataSourceException`；`Area` 改 `Topic`） | 完成 |
 | `WriteQueue` 獨立（依序寫入、失敗回報、清空後重讀），有 8 個行為測試 | 完成 |
 | `Topic`、`TopicNotifier`（計數與通知）、`QueryCache`（依主題作廢）獨立到 `cache/`，各有單元測試與隨機比對測試 | 完成 |
-| `QueryCache` 自動追蹤依賴（取代手寫 `on:`） | 隨 Repository 完成 |
+| `QueryCache` 自動追蹤依賴（取代手寫 `reads:`） | 尚未 |
 | `UnitOfWork`（Fowler：`registerDirty`、`registerDeleted`）取代 `_before`／`_since` 的整本比對：合併分類、改名標籤、改名商家只登記動到的紀錄；各 Repository 的批次修改改為回傳動到的紀錄。14 個測試，其中 8 個隨機種子逐步比對舊的整本比對結果，並以刻意漏登記確認測試會失敗 | 完成 |
 | `models/` 依型別拆檔（一型別一檔，`models.dart` 轉出） | 完成 |
 | `EntryRepository`（紀錄清單與月、日、id、退款索引，寫入即自動作廢）與隨機比對測試 | 完成 |
@@ -93,5 +97,5 @@ core/ledger/
 | `CategoryRepository`（依拖曳位置排序、名稱索引、改名連同子分類、合併後子分類獨立、編輯保留 id 與位置），11 個測試；`allSpending` 移到 `models/budget.dart` | 完成 |
 | `BudgetRepository`（設定、移除、改名時同名只留第一個），8 個測試 | 完成 |
 | `RecurringRepository`（儲存、只替換仍在的項目、移除、分類改名），8 個測試 | 完成 |
-| 各 Service 與各 Commands | 尚未 |
-| Ledger 瘦身與 `layers_test` 新規則 | 尚未 |
+| 各 Service 與各 Commands（7 個 Service、7 個 Commands、`CommandContext`），呼叫端 544 處由 `tool/reroute.py` 依分析器錯誤改寫；Service 38 個、Commands 17 個單獨測試，不經過 `Ledger` | 完成 |
+| Ledger 只剩組合與通知（382 行，原本 650 行上限的特例已取消）；`*Reader` 成為 Ledger 上的屬性；`layers_test` 新增 ledger 內依賴方向與禁止 `part` 兩條規則，並確認故意違規會失敗 | 完成 |

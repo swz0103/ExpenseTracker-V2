@@ -1,6 +1,6 @@
 import '../cache/topic.dart';
 import '../models/models.dart';
-import '../persistence/ledger_data_source.dart';
+import '../persistence/write_batch.dart';
 import '../persistence/unit_of_work.dart';
 import '../repositories/budget_repository.dart';
 import '../repositories/category_repository.dart';

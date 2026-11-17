@@ -51,6 +51,28 @@ abstract final class Layout {
   static const storageFile =
       'lib/src/core/ledger/persistence/sql_ledger_data_source.dart';
 
+  /// The ledger's folders, lowest first: each may use only those before
+  /// it, and the plain helpers beside ledger.dart. The persistence folder
+  /// and ledger.dart put the book together and may use them all; of
+  /// persistence, the commands use only the batch they hand over.
+  static const ledgerLayers = [
+    'models/',
+    'cache/',
+    'repositories/',
+    'services/',
+    'commands/',
+  ];
+  static const ledgerHelpers = [
+    'amount_visibility.dart',
+    'card_cycle.dart',
+    'portfolio.dart',
+    'trading.dart',
+  ];
+  static const commandsMayUse = [
+    'persistence/write_batch.dart',
+    'persistence/unit_of_work.dart',
+  ];
+
   /// What the ledger may import besides itself.
   static const ledgerMayImport = [
     'lib/src/core/diagnostics/',
@@ -59,10 +81,7 @@ abstract final class Layout {
 
   /// Files allowed to be longer than [maxLines], with their own limit.
   static const maxLines = 600;
-  static const longer = <String, int>{
-    'lib/src/core/look/glyphs.dart': 2100,
-    'lib/src/core/ledger/ledger.dart': 650,
-  };
+  static const longer = <String, int>{'lib/src/core/look/glyphs.dart': 2100};
 
   /// Where an exemption from "no colour literals" applies.
   static const colourLiteralExempt = [

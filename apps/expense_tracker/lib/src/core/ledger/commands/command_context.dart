@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart' show ValueNotifier;
 
 import '../cache/topic.dart';
-import '../persistence/ledger_data_source.dart';
+import '../persistence/write_batch.dart';
 
 /// What every command needs of the ledger it changes (Core J2EE Patterns:
 /// Context Object): the day, how to tell the screens what changed, and

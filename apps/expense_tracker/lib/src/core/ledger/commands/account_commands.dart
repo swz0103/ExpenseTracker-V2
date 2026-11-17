@@ -3,7 +3,7 @@ import 'package:domain/credit_cards.dart';
 
 import '../cache/topic.dart';
 import '../models/models.dart';
-import '../persistence/ledger_data_source.dart';
+import '../persistence/write_batch.dart';
 import '../repositories/account_repository.dart';
 import '../repositories/entry_repository.dart';
 import '../repositories/recurring_repository.dart';
