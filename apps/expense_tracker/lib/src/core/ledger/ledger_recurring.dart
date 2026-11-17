@@ -9,9 +9,8 @@ extension LedgerRecurring on Ledger {
   DateTime? dueDayOf(Entry e) {
     final id = e.recurring;
     if (id == null) return null;
-    final index = _recurring.indexWhere((r) => r.id == id);
-    if (index < 0) return null;
-    final item = _recurring[index];
+    final item = _recurring.byId(id);
+    if (item == null) return null;
     final booked = confirmationsIn(item, e.date.year, e.date.month);
     final at = booked.indexWhere((b) => b.id == e.id);
     final days = item.dueIn(e.date.year, e.date.month);
@@ -25,9 +24,8 @@ extension LedgerRecurring on Ledger {
     for (final e in removed) {
       final day = dueDayOf(e);
       if (day == null) continue;
-      final item =
-          changed[e.recurring] ??
-          _recurring.firstWhere((r) => r.id == e.recurring);
+      // dueDayOf found the item, so it is held.
+      final item = changed[e.recurring] ?? _recurring.byId(e.recurring!)!;
       changed[item.id] = item.copyWith(skipped: {...item.skipped, day});
     }
     return changed.values.toList();
@@ -40,9 +38,8 @@ extension LedgerRecurring on Ledger {
     for (final e in back) {
       final id = e.recurring;
       if (id == null) continue;
-      final index = _recurring.indexWhere((r) => r.id == id);
-      if (index < 0) continue;
-      final item = changed[id] ?? _recurring[index];
+      final item = changed[id] ?? _recurring.byId(id);
+      if (item == null) continue;
       final days =
           [
             for (final d in item.skipped)
@@ -58,13 +55,6 @@ extension LedgerRecurring on Ledger {
       );
     }
     return changed.values.toList();
-  }
-
-  void _putRecurring(List<Recurring> items) {
-    for (final item in items) {
-      final index = _recurring.indexWhere((r) => r.id == item.id);
-      if (index >= 0) _recurring[index] = item;
-    }
   }
 
   /// Takes [day] out of [item]'s skipped days, so it is booked again: 恢復
@@ -109,7 +99,7 @@ extension LedgerRecurring on Ledger {
   /// turns, so no background work is needed.
   int bookDue() {
     final booked = <Entry>[];
-    for (final item in _recurring) {
+    for (final item in _recurring.all) {
       if (!item.auto || !item.active) continue;
       // Each booking settles one day; a missed one from last month comes
       // first. Bounded, in case an item's dates do not move on.
@@ -137,20 +127,14 @@ extension LedgerRecurring on Ledger {
 
   /// Puts [item] in place of the one with the same id, or adds it.
   void saveRecurring(Recurring item) {
-    final index = _recurring.indexWhere((r) => r.id == item.id);
-    if (index < 0) {
-      _recurring.add(item);
-    } else {
-      _recurring[index] = item;
-    }
+    _recurring.put(item);
     _changed(const {Topic.recurring});
     _keep(WriteBatch(recurring: [item]));
   }
 
   void removeRecurring(String id) {
-    final index = _recurring.indexWhere((r) => r.id == id);
-    if (index < 0) return;
-    final removed = _recurring.removeAt(index);
+    final removed = _recurring.remove(id);
+    if (removed == null) return;
     _changed(const {Topic.recurring});
     _keep(WriteBatch(dropped: [(Collection.recurring, removed.id)]));
   }

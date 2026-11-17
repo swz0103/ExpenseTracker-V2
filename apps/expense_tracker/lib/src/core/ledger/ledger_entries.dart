@@ -138,7 +138,7 @@ extension LedgerEntries on Ledger {
     )) {
       return null;
     }
-    _putRecurring(skipping);
+    _recurring.replaceExisting(skipping);
     final trashed = Trashed(removed, today);
     _trash.put(trashed);
     _keep(
@@ -171,7 +171,7 @@ extension LedgerEntries on Ledger {
     }, trades: removed.any((r) => r.$2.isInvestment))) {
       return const [];
     }
-    _putRecurring(skipping);
+    _recurring.replaceExisting(skipping);
     final trashed = [for (final (_, e) in removed) Trashed(e, today)];
     _trash.putAll(trashed);
     _keep(
@@ -201,7 +201,7 @@ extension LedgerEntries on Ledger {
     }
     _trash.removeEntries(ids);
     final back = _unskipping([for (final (_, e) in removed) e]);
-    _putRecurring(back);
+    _recurring.replaceExisting(back);
     _keep(
       WriteBatch(
         entries: [for (final (_, e) in removed) e],
@@ -224,7 +224,7 @@ extension LedgerEntries on Ledger {
     }
     _trash.removeEntries({entry.id});
     final back = _unskipping([entry]);
-    _putRecurring(back);
+    _recurring.replaceExisting(back);
     _keep(
       WriteBatch(
         entries: [entry],
@@ -268,7 +268,7 @@ extension LedgerEntries on Ledger {
       return false;
     }
     final unskipped = _unskipping([for (final t in back) t.entry]);
-    _putRecurring(unskipped);
+    _recurring.replaceExisting(unskipped);
     _keep(
       WriteBatch(
         entries: [for (final t in back) t.entry],

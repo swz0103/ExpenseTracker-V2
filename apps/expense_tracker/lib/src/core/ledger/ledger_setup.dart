@@ -157,7 +157,7 @@ extension LedgerSetup on Ledger {
   bool isUsed(String id) =>
       _entries.any((e) => e.account == id || e.to == id) ||
       _trash.mentionsAccount(id) ||
-      _recurring.any((r) => r.account == id);
+      _recurring.mentionsAccount(id);
 
   void removeAccount(String id) {
     if (isUsed(id)) return;
@@ -219,9 +219,7 @@ extension LedgerSetup on Ledger {
           ? e.withCategory(to, from: from)
           : null,
     );
-    for (final (i, r) in _recurring.indexed) {
-      if (r.category == from) _recurring[i] = r.copyWith(category: to);
-    }
+    _recurring.renameCategory(from, to);
   }
 
   /// Changes a category's place, name, mark, colour or archive state; a

@@ -121,14 +121,14 @@ extension LedgerPlanning on Ledger {
 
   /// Active items whose day has come this month but are not yet booked.
   List<Recurring> get due => [
-    for (final r in _recurring)
+    for (final r in _recurring.all)
       if (pendingDate(r) case final d? when !d.isAfter(today)) r,
   ];
 
   /// Active items still to come this month, soonest first.
   List<Recurring> get upcoming {
     final rows = [
-      for (final r in _recurring)
+      for (final r in _recurring.all)
         if (pendingDate(r) case final d? when d.isAfter(today)) (r, d),
     ]..sort((a, b) => a.$2.compareTo(b.$2));
     return [for (final (r, _) in rows) r];
