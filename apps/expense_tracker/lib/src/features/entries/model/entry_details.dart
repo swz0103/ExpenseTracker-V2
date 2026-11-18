@@ -1,4 +1,5 @@
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/installment_messages.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/text/figures.dart';
 
@@ -34,11 +35,7 @@ List<(String, String)> entryDetails(Ledger ledger, Entry e, String title) {
         '拆分',
         [for (final (name, v) in e.parts) '$name ${groupDigits(v)}'].join('、'),
       ),
-    if (e.installments > 1)
-      (
-        '分期',
-        '${e.installments} 期 · 每期 ${groupDigits(e.amount ~/ e.installments)}',
-      ),
+    if (e.installments > 1) ('分期', installmentPlan(e.amount, e.installments)),
     if (e.shares != 0) ('股數', '${groupDigits(e.shares.abs())} 股'),
     if (e.fee > 0) ('手續費', groupDigits(e.fee)),
     if (e.tax > 0)

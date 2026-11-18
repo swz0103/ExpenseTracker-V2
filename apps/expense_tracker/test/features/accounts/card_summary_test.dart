@@ -100,6 +100,19 @@ void main() {
     expect(card.nearLimit, isFalse);
   });
 
+  test('a period that carries the remainder shows what it bills', () {
+    // 10,001 in three: 3,335 first, then 3,333 each. Once shown as
+    // 3,333 a period whichever it was.
+    final first = _summary(entries: [_spend('tv', 1, 10001, installments: 3)]);
+    expect(first.periodsBilled(first.plans.single), 1);
+    expect(first.periodAmount(first.plans.single), 3335);
+    final second = _summary(
+      entries: [_spend('tv', 1, 10001, month: 8, installments: 3)],
+    );
+    expect(second.periodsBilled(second.plans.single), 2);
+    expect(second.periodAmount(second.plans.single), 3333);
+  });
+
   test('without a limit nothing about it is shown', () {
     final card = _summary(limit: null);
     expect(

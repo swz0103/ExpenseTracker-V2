@@ -46,6 +46,14 @@ final class CardSummary {
     _ledger.statementService.closedBy,
   );
 
+  /// What 第 n 期 of [e] comes to, n being [periodsBilled] (the first
+  /// before any is billed): the first period carries what does not divide
+  /// evenly.
+  int periodAmount(Entry e) {
+    final amounts = installmentAmounts(e.amount, e.installments);
+    return amounts[(periodsBilled(e) - 1).clamp(0, amounts.length - 1)];
+  }
+
   /// What is left to be billed of [e].
   int unbilledOf(Entry e) =>
       e.amount -

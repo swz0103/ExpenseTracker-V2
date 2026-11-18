@@ -3,6 +3,12 @@ import 'package:domain/credit_cards.dart';
 
 import 'models/models.dart';
 
+/// What each period bills of [total] paid in [count] instalments, in
+/// order: equal parts rounded down, the whole remainder in the first, as
+/// Taiwan's card issuers bill it; all of it at once below two.
+List<int> installmentAmounts(int total, int count) =>
+    count < 2 ? [total] : installmentShares(total, count);
+
 /// A card's billing cycle, by the ledger's own schedule: when its
 /// statements close, moved closes and earlier billing days included, and
 /// how much of a purchase each statement has billed. A statement closes at

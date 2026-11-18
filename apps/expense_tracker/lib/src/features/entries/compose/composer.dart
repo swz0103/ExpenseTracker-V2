@@ -19,6 +19,7 @@ import '../../categories/compose/category_editor.dart';
 import '../../../core/ui/pickers.dart';
 import '../model/compose_form.dart';
 import '../model/entry_details.dart';
+import '../../../core/messages/installment_messages.dart';
 import '../model/receipt_photos.dart';
 import '../../import_export/model/import_export.dart' show invoiceRecorded;
 import '../../import_export/model/invoice_qr.dart';

@@ -271,7 +271,12 @@ class CardPage extends StatelessWidget {
       child: Column(
         children: [
           for (final e in card.plans)
-            _plan(e, card.periodsBilled(e), card.unbilledOf(e)),
+            _plan(
+              e,
+              card.periodsBilled(e),
+              card.periodAmount(e),
+              card.unbilledOf(e),
+            ),
         ],
       ),
     ),
@@ -328,8 +333,9 @@ class CardPage extends StatelessWidget {
 
   static String _day(DateTime day) => formatMd(day);
 
-  Widget _plan(Entry e, int periods, int left) {
-    final each = e.amount ~/ e.installments;
+  /// An instalment purchase: [periods] of its periods billed, the last
+  /// of them [each], and [left] still to bill.
+  Widget _plan(Entry e, int periods, int each, int left) {
     final category = ledger.category(e.category);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Space.s2),

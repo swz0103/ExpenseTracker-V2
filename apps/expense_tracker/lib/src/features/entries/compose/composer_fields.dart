@@ -183,8 +183,7 @@ extension _Fields on _ComposerState {
                 label: '分期付款',
                 value: _f.installments < 2
                     ? '不分期'
-                    : '${_f.installments} 期 · 每期 '
-                          '${groupDigits(_f.amount ~/ _f.installments)}',
+                    : installmentPlan(_f.amount, _f.installments),
                 size: TextSize.body,
                 onTap: _pickInstallments,
               ),
