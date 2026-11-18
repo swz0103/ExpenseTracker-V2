@@ -11,6 +11,7 @@ import 'commands/attachment_commands.dart';
 import 'commands/budget_commands.dart';
 import 'commands/category_commands.dart';
 import 'commands/command_context.dart';
+import 'commands/command_exceptions.dart';
 import 'commands/entry_commands.dart';
 import 'commands/holding_commands.dart';
 import 'commands/recurring_commands.dart';
@@ -120,7 +121,7 @@ final class Ledger extends ChangeNotifier {
   final LedgerDataSource? dataSource;
 
   /// The last change the [data source] refused, for the screens to report.
-  final problem = ValueNotifier<Object?>(null);
+  final problem = ValueNotifier<LedgerProblem?>(null);
 
   final AccountRepository _accounts;
   final CategoryRepository _categories;
@@ -373,7 +374,7 @@ final class _LedgerContext implements CommandContext {
   DateTime get today => _ledger.today;
 
   @override
-  ValueNotifier<Object?> get problem => _ledger.problem;
+  ValueNotifier<LedgerProblem?> get problem => _ledger.problem;
 
   @override
   String newId() => _ledger.newId();

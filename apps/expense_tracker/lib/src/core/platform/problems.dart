@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../ledger/persistence/ledger_data_source.dart';
-import '../ledger/ledger.dart' show NameTaken, SharesShort;
+import '../ledger/ledger.dart'
+    show KeepFailed, NameTaken, ReloadFailed, SharesShort;
 
 /// Shows why a command was refused, in words a person can act on.
 void showProblem(BuildContext context, Object error) {
@@ -13,7 +14,8 @@ void showProblem(BuildContext context, Object error) {
 }
 
 String describeProblem(Object error) => switch (error) {
-  DataSourceException() => '帳本無法寫入，請重新打開 App 再試。',
+  DataSourceException() || KeepFailed() => '帳本無法寫入，請重新打開 App 再試。',
+  ReloadFailed() => '帳本無法重新讀取，請重新打開 App；畫面上的內容可能與保存的不同。',
   SharesShort() => '這樣之後的賣出或減資會超過持股，請先改那一筆。',
   NameTaken() => '這個分類名稱已經有了，或是保留給「全部支出」「轉帳」等用途。',
   MoneyException(code: MoneyError.precision) => '金額的小數位數太多。',

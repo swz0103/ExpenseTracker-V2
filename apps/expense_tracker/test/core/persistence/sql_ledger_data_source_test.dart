@@ -229,7 +229,16 @@ void main() {
     store!.close();
     ledger.categoryCommands.addCategory(Category('寵物', 'pet', 0xFF123456));
     await ledger.settled;
-    expect(ledger.problem.value, isA<DataSourceException>());
+    // The store is closed: the change is refused, and so is reading the
+    // book back, which is what is told last.
+    expect(
+      ledger.problem.value,
+      isA<ReloadFailed>().having(
+        (p) => p.cause,
+        'cause',
+        isA<DataSourceException>(),
+      ),
+    );
   });
 
   test('a record the app cannot read is told apart', () {

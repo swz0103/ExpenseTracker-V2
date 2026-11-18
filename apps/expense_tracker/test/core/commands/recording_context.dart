@@ -1,6 +1,7 @@
 import 'package:expense_tracker/src/core/ledger/cache/query_cache.dart';
 import 'package:expense_tracker/src/core/ledger/cache/topic.dart';
 import 'package:expense_tracker/src/core/ledger/commands/command_context.dart';
+import 'package:expense_tracker/src/core/ledger/commands/command_exceptions.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/write_batch.dart';
 import 'package:flutter/foundation.dart';
 
@@ -16,7 +17,7 @@ final class RecordingContext implements CommandContext {
   DateTime today;
 
   @override
-  final problem = ValueNotifier<Object?>(null);
+  final problem = ValueNotifier<LedgerProblem?>(null);
 
   /// The topics of each change told, in turn.
   final changes = <Set<Topic>>[];

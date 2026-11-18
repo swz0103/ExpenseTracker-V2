@@ -40,7 +40,7 @@ final class _Source implements LedgerDataSource {
 void main() {
   late Ledger fresh;
   late _Source source;
-  late ValueNotifier<Object?> problem;
+  late ValueNotifier<LedgerProblem?> problem;
   late List<Ledger> reloaded;
   late WriteQueue queue;
 
@@ -67,7 +67,7 @@ void main() {
       recurring: const [],
     );
     source = _Source(fresh);
-    problem = ValueNotifier<Object?>(null);
+    problem = ValueNotifier<LedgerProblem?>(null);
     reloaded = [];
     queue = WriteQueue(source, problem: problem, onReloaded: reloaded.add);
   });
@@ -93,7 +93,14 @@ void main() {
     source.failNext = 1;
     queue.enqueue(one('1'));
     await queue.settled;
-    expect(problem.value, isA<DataSourceException>());
+    expect(
+      problem.value,
+      isA<KeepFailed>().having(
+        (p) => p.cause,
+        'cause',
+        isA<DataSourceException>(),
+      ),
+    );
     expect(source.loads, 1);
     expect(reloaded, [fresh]);
   });
@@ -128,7 +135,14 @@ void main() {
     source.failLoad = true;
     queue.enqueue(one('1'));
     await queue.settled;
-    expect(problem.value, isA<DataSourceException>());
+    expect(
+      problem.value,
+      isA<ReloadFailed>().having(
+        (p) => p.cause,
+        'cause',
+        isA<DataSourceException>(),
+      ),
+    );
     expect(reloaded, isEmpty);
 
     // The next change finds the screens still ahead, and reads again.

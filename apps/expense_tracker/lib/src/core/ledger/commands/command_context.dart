@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show ValueNotifier;
 
 import '../cache/topic.dart';
 import '../persistence/write_batch.dart';
+import 'command_exceptions.dart';
 
 /// What every command needs of the ledger it changes (Core J2EE Patterns:
 /// Context Object): the day, how to tell the screens what changed, and
@@ -11,7 +12,7 @@ abstract interface class CommandContext {
   DateTime get today;
 
   /// The last change refused, for the screens to report.
-  ValueNotifier<Object?> get problem;
+  ValueNotifier<LedgerProblem?> get problem;
 
   /// A new id for a record.
   String newId();
