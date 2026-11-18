@@ -1,44 +1,15 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/core/ledger/persistence/codec/record_json.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
 
-/// Every record a ledger holds, as text, each kind sorted by key so that
-/// only what is kept is compared, not where it stands.
-Map<String, List<String>> _records(Ledger l) {
-  List<String> sorted(Iterable<String> rows) => rows.toList()..sort();
-  return {
-    'accounts': sorted(l.accounts.all.map((a) => jsonEncode(accountToJson(a)))),
-    'categories': sorted(
-      l.categories.all.map((c) => jsonEncode(categoryToJson(c))),
-    ),
-    'entries': sorted(l.entries.all.map((e) => jsonEncode(entryToJson(e)))),
-    'budgets': sorted(l.budgets.all.map((b) => jsonEncode(budgetToJson(b)))),
-    'recurring': sorted(
-      l.recurring.all.map((r) => jsonEncode(recurringToJson(r))),
-    ),
-    'trash': sorted(l.trash.all.map((t) => jsonEncode(trashedToJson(t)))),
-    'receipts': sorted(l.attachmentCommands.receiptFiles),
-    'drafts': [for (final tab in _tabs) '$tab ${l.drafts.of(tab)}'],
-  };
-}
+import '../../support/book_records.dart';
 
-/// The order each kind is shown in, by id.
-Map<String, List<String>> _orders(Ledger l) => {
-  'accounts': [for (final a in l.accounts.all) a.id],
-  'categories': [for (final c in l.categories.all) c.name],
-  'entries': [for (final e in l.entries.all) e.id],
-  'trash': [for (final t in l.trash.all) t.entry.id],
-};
-
-const _tabs = ['expense', 'income', 'transfer'];
 const _names = ['飲食', '交通', '居家', '娛樂'];
 const _tags = ['家用', '旅行'];
 const _shops = ['便當店', '捷運', '咖啡'];
@@ -295,7 +266,7 @@ void main() {
             }
           case 23:
             live.attachmentCommands.setDraft(
-              pick(_tabs),
+              pick(draftTabs),
               r.nextBool() ? '{"amount":${r.nextInt(99)}}' : null,
             );
         }
@@ -308,14 +279,12 @@ void main() {
             anyOf(isNull, isA<SharesShort>(), isA<NameTaken>()),
             reason: 'step $step',
           );
-          final kept = _records(live);
-          final orders = _orders(live);
+          final kept = bookRecords(live);
           live = await open();
-          final back = _records(live);
+          final back = bookRecords(live);
           for (final kind in kept.keys) {
             expect(back[kind], kept[kind], reason: '$kind at step $step');
           }
-          expect(_orders(live), orders, reason: 'order at step $step');
         }
       }
     });

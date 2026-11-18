@@ -54,6 +54,12 @@ final class BackupHeader {
   static const format = 'ExpenseTracker-backup';
   static const version = 3;
 
+  /// The versions this app reads: every one it has written since backups
+  /// were kept for good (docs/adr/0010-data-that-lasts.md). A version is
+  /// added when the format changes and never taken out; reading an older
+  /// one brings it up to [version].
+  static const readable = {3};
+
   final String backupId;
   final DateTime createdAt;
 
@@ -90,7 +96,7 @@ final class BackupHeader {
     if (json is! Map<String, Object?> || json['format'] != format) {
       throw const BackupException(BackupProblem.invalidFormat, 'header');
     }
-    if (json['version'] != version) {
+    if (!readable.contains(json['version'])) {
       throw const BackupException(BackupProblem.unsupportedVersion);
     }
     const keys = {

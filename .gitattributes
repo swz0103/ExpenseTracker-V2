@@ -1,3 +1,8 @@
 * text=auto
 # Markdown uses trailing spaces for intentional hard line breaks.
 *.md text eol=lf whitespace=-blank-at-eol
+
+# Books and backups kept as they were written, byte for byte.
+*.db binary
+*.etbk binary
+*.etr binary

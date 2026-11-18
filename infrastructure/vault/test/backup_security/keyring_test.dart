@@ -249,4 +249,32 @@ void main() {
     expect('$created', isNot(contains(created.recoveryCode)));
     expect(created.keyring.encode(), isNot(contains(created.recoveryCode)));
   });
+
+  test('a password set with parameters since retired still opens', () async {
+    final older = KeyringCodec(kdf: PasswordKdf.olderForTests);
+    final kept = Keyring.parse((await older.create(password)).keyring.encode());
+    final today = KeyringCodec(
+      kdf: PasswordKdf.insecureForTests,
+      retired: const [PasswordKdf.olderForTests],
+    );
+    final opened = await today.unlockWithPassword(kept, password);
+
+    // A codec that never knew them refuses rather than guesses.
+    await expectLater(
+      codec.unlockWithPassword(kept, password),
+      _fails(KeyringError.unsupportedVersion),
+    );
+
+    // A new password takes today's parameters, so the retired ones are
+    // no longer needed to open it.
+    final changed = Keyring.parse(
+      (await opened.changePassword('another long password')).keyring.encode(),
+    );
+    expect(changed.kdf, PasswordKdf.insecureForTests.id);
+    final again = await codec.unlockWithPassword(
+      changed,
+      'another long password',
+    );
+    expect(again.databaseKey, opened.databaseKey);
+  });
 }

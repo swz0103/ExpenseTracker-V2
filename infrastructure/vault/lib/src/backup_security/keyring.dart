@@ -18,7 +18,8 @@ const _maxDeviceBox = 1024;
 final _deviceId = RegExp(r'^[a-z0-9][a-z0-9-]{0,63}$');
 
 /// Argon2id parameters for the password slot. The id is stored in the
-/// keyring and must match exactly; parameters are never read from the file.
+/// keyring and must name parameters the app knows, the current ones or
+/// one of [retired]; parameters are never read from the file.
 final class PasswordKdf {
   const PasswordKdf._(this.memory, this.iterations);
 
@@ -28,6 +29,16 @@ final class PasswordKdf {
   /// Cheap parameters for tests. A keyring written with them is refused by a
   /// codec using [standard].
   static const insecureForTests = PasswordKdf._(256, 1);
+
+  /// Other cheap parameters, for tests of a keyring kept with parameters
+  /// since retired.
+  static const olderForTests = PasswordKdf._(128, 1);
+
+  /// Parameters [standard] once was, newest first. A keyring that names
+  /// one still opens with it, so a password set years ago keeps working;
+  /// a password set now always takes the current ones. When [standard]
+  /// changes, the old value is added here and never removed.
+  static const List<PasswordKdf> retired = [];
 
   final int memory;
   final int iterations;
@@ -189,13 +200,14 @@ final class Keyring {
   });
 
   Keyring _copyWith({
+    String? kdf,
     _PasswordSlot? password,
     _Box? recovery,
     List<_DeviceSlot>? devices,
     List<_Box>? backupKeys,
   }) => Keyring._(
     id: id,
-    kdf: kdf,
+    kdf: kdf ?? this.kdf,
     password: password ?? _password,
     recovery: recovery ?? _recovery,
     devices: List.unmodifiable(devices ?? _devices),
@@ -286,9 +298,25 @@ final class RotatedRecovery {
 
 /// Creates and opens keyrings.
 final class KeyringCodec {
-  KeyringCodec({this.kdf = PasswordKdf.standard, this.minimumPassword = 12});
+  KeyringCodec({
+    this.kdf = PasswordKdf.standard,
+    this.minimumPassword = 12,
+    this.retired = PasswordKdf.retired,
+  });
 
+  /// The parameters a password is set with.
   final PasswordKdf kdf;
+
+  /// Parameters a keyring may still name, set before [kdf] took over.
+  final List<PasswordKdf> retired;
+
+  /// The parameters [id] names, if this codec reads them.
+  PasswordKdf? _readable(String id) {
+    for (final known in [kdf, ...retired]) {
+      if (known.id == id) return known;
+    }
+    return null;
+  }
 
   /// Minimum length in Unicode code points after NFC normalization.
   final int minimumPassword;
@@ -326,11 +354,12 @@ final class KeyringCodec {
     Keyring keyring,
     String password,
   ) async {
-    if (keyring.kdf != kdf.id) {
+    final params = _readable(keyring.kdf);
+    if (params == null) {
       throw const KeyringException(KeyringError.unsupportedVersion);
     }
     final slot = keyring._password;
-    final key = await _derive(unorm.nfc(password), slot.salt);
+    final key = await _derive(unorm.nfc(password), slot.salt, params);
     final master = await _open(key, slot.box, keyring.id, 'password');
     return _unlocked(keyring, master);
   }
@@ -408,9 +437,13 @@ final class KeyringCodec {
   /// Stretches [normalized] with Argon2id on a worker isolate: tens of
   /// megabytes and most of a second of pure-Dart work that would
   /// otherwise freeze the screen while unlocking.
-  Future<List<int>> _derive(String normalized, List<int> salt) {
-    final memory = kdf.memory;
-    final iterations = kdf.iterations;
+  Future<List<int>> _derive(
+    String normalized,
+    List<int> salt, [
+    PasswordKdf? params,
+  ]) {
+    final memory = (params ?? kdf).memory;
+    final iterations = (params ?? kdf).iterations;
     final secret = utf8.encode(normalized);
     final nonce = List<int>.of(salt);
     return Isolate.run(() async {
@@ -507,7 +540,10 @@ final class UnlockedKeyring {
     final salt = _codec._randomBytes(16);
     final key = await _codec._derive(normalized, salt);
     final box = await _codec._seal(key, _master, keyring.id, 'password');
-    return _next(keyring._copyWith(password: _PasswordSlot(salt, box)));
+    // Set with the codec's parameters now, whatever the old slot used.
+    return _next(
+      keyring._copyWith(kdf: _codec.kdf.id, password: _PasswordSlot(salt, box)),
+    );
   }
 
   /// Replaces the recovery code; the previous code stops working.
