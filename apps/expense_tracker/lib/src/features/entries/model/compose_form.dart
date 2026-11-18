@@ -104,6 +104,9 @@ final class ComposeForm {
   final _ids = <String>{};
   String? _ownId;
   final _lentIds = <String, String>{};
+
+  /// The sums someone paid back is made of, by entry, while 對方還錢.
+  Set<String> paying = {};
   String? _group;
   var fee = 0;
 

@@ -31,9 +31,6 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   /// A choice open in place of the form, if any.
   _Page? _page;
 
-  /// The sums someone paid back is made of, by entry, while 對方還錢.
-  Set<String> _paying = {};
-
   @override
   void initState() {
     super.initState();
@@ -87,7 +84,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   void _lend({required bool back}) {
     _set(() {
       _f.lend(back: back);
-      if (back) _payAll();
+      if (back) _f.payAll();
     });
     if (_f.people.isEmpty) unawaited(_pickPerson());
   }
@@ -95,29 +92,11 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   /// Back from 代墊 or 對方還錢 to a plain entry of the same tab.
   void _unlend() => _set(() {
     _f.mode = _f.tab;
-    _paying = {};
+    _f.paying = {};
   });
 
-  /// Everything the person owes is being paid back: each sum ticked and
-  /// the amount all they owe.
-  void _payAll() {
-    if (_f.to.isEmpty) return;
-    _paying = {for (final (e, _) in _ledger.reportService.owedBy(_f.to)) e.id};
-    final owed = _ledger.balanceService.balance(_f.to);
-    if (owed > 0) _f.setAmount(owed);
-  }
-
-  /// One sum ticked or not among what is being paid back; the amount
-  /// follows.
-  void _togglePaying(String id) => _set(() {
-    _paying = {..._paying};
-    if (!_paying.remove(id)) _paying.add(id);
-    // All they owe but the sums not ticked, which stay owed.
-    final kept = _ledger.reportService
-        .owedBy(_f.to)
-        .fold(0, (sum, o) => _paying.contains(o.$1.id) ? sum : sum + o.$2);
-    _f.setAmount(math.max(0, _ledger.balanceService.balance(_f.to) - kept));
-  });
+  /// One sum ticked or not among what is being paid back.
+  void _togglePaying(String id) => _set(() => _f.togglePaying(id));
 
   /// Opens a choice inside the sheet in place of the form, titled
   /// [title]; [build] is given what to call with the value chosen. The

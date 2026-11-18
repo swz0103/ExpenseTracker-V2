@@ -271,4 +271,44 @@ void main() {
       ..setLent(0, 400);
     expect(form.problem, '代墊的金額超過總額（多 100）');
   });
+
+  test('對方還錢 starts with all they owe, and each sum can be left out', () {
+    Entry paidFor(String id, int day, int amount) => Entry(
+      id: id,
+      date: DateTime.utc(2026, 10, day),
+      type: EntryType.transfer,
+      amount: amount,
+      account: 'bank',
+      to: 'ann',
+    );
+    final ledger = Ledger(
+      today: day,
+      accounts: const [
+        Account('bank', '銀行', AccountKind.bank, 100000),
+        Account('ann', '阿安', AccountKind.receivable, 0),
+      ],
+      categories: const [],
+      entries: [paidFor('lunch', 1, 300), paidFor('taxi', 2, 200)],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      dataSource: _Nowhere(),
+    );
+    final form = ComposeForm(ledger, type: EntryType.income)
+      ..lend(back: true)
+      ..to = 'ann'
+      ..payAll();
+    expect(form.paying, {'lunch', 'taxi'});
+    expect(form.amount, 500);
+
+    // The taxi left owed: only the lunch is paid back.
+    form.togglePaying('taxi');
+    expect(form.paying, {'lunch'});
+    expect(form.amount, 300);
+    // Nothing ticked pays nothing, never less.
+    form.togglePaying('lunch');
+    expect(form.amount, 0);
+    form.togglePaying('taxi');
+    expect(form.amount, 200);
+  });
 }

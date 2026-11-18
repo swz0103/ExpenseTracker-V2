@@ -112,4 +112,25 @@ extension Lending on ComposeForm {
     final known = {for (final a in people) a.id};
     if (!known.contains(to)) to = people.isEmpty ? '' : people.first.id;
   }
+
+  /// Everything the person in [to] owes is being paid back: each sum
+  /// ticked and the amount all they owe.
+  void payAll() {
+    if (to.isEmpty) return;
+    paying = {for (final (e, _) in ledger.reportService.owedBy(to)) e.id};
+    final owed = ledger.balanceService.balance(to);
+    if (owed > 0) setAmount(owed);
+  }
+
+  /// One sum ticked or not among what is being paid back; the amount
+  /// follows: all they owe but the sums not ticked, which stay owed.
+  void togglePaying(String id) {
+    paying = {...paying};
+    if (!paying.remove(id)) paying.add(id);
+    final kept = ledger.reportService
+        .owedBy(to)
+        .fold(0, (sum, o) => paying.contains(o.$1.id) ? sum : sum + o.$2);
+    final left = ledger.balanceService.balance(to) - kept;
+    setAmount(left < 0 ? 0 : left);
+  }
 }

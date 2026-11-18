@@ -125,7 +125,7 @@ extension _LendFields on _ComposerState {
                     ? formatMd(e.date)
                     : '${formatMd(e.date)} 一起付的',
                 amount: groupDigits(left),
-                picked: _paying.contains(e.id),
+                picked: _f.paying.contains(e.id),
                 color: _color,
                 onTap: () => _togglePaying(e.id),
               ),
@@ -169,7 +169,7 @@ extension _LendFields on _ComposerState {
     if (picked != adding) {
       _set(() {
         _f.to = picked;
-        if (_f.back) _payAll();
+        if (_f.back) _f.payAll();
       });
       return;
     }
@@ -177,7 +177,7 @@ extension _LendFields on _ComposerState {
     if (account == null) return;
     _set(() {
       _f.to = account.id;
-      _paying = {};
+      _f.paying = {};
     });
   }
 }
