@@ -369,4 +369,47 @@ void main() {
     form.parts = [('飲食', 700), ('居家', 400)];
     expect(form.splitLeft, -100);
   });
+
+  test('a sale costs what was paid, first in or on average', () {
+    Entry buy(String id, int d, int amount) => Entry(
+      id: id,
+      date: DateTime.utc(2026, 9, d),
+      type: EntryType.buy,
+      amount: amount,
+      account: 'bank',
+      holding: '2330',
+      shares: 10,
+    );
+    final ledger = Ledger(
+      today: day,
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 100000)],
+      categories: const [],
+      entries: [buy('a', 1, 10000), buy('b', 2, 20000)],
+      // Nothing held before: the two buys are all there is.
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      dataSource: _Nowhere(),
+    );
+    final form = ComposeForm(ledger, type: EntryType.sell)
+      ..holding = '2330'
+      ..shares = 10;
+    expect(form.saleCost, 10000);
+    form.average = true;
+    expect(form.saleCost, 15000);
+    // More than are held has no cost; nor has a buy, or no holding.
+    form.shares = 30;
+    expect(form.saleCost, isNull);
+    form
+      ..shares = 10
+      ..trade = EntryType.buy;
+    expect(form.saleCost, isNull);
+    form
+      ..trade = EntryType.sell
+      ..holding = null;
+    expect(form.saleCost, isNull);
+    // Settled two weekdays on: Friday's trade on Tuesday.
+    form.date = DateTime.utc(2026, 10, 2);
+    expect(form.settles, DateTime.utc(2026, 10, 6));
+  });
 }

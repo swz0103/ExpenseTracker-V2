@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/ledger/ledger.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
@@ -416,6 +417,73 @@ class TradeOutcomeCard extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// What a trade settles at, as a sum: the trade, then the fee added to a
+/// buy or taken off a sale, and a sale's tax taken off. A charge still at
+/// what was worked out for it says （試算）. Each is tapped to change it
+/// ([onAmount], [onFee], [onTax]); none while only looked at.
+class SettlementRow extends StatelessWidget {
+  const SettlementRow({
+    super.key,
+    required this.sell,
+    required this.amount,
+    required this.fee,
+    required this.suggestedFee,
+    required this.tax,
+    required this.suggestedTax,
+    required this.onAmount,
+    required this.onFee,
+    required this.onTax,
+  });
+
+  final bool sell;
+  final int amount;
+  final int fee;
+  final int suggestedFee;
+  final int tax;
+  final int suggestedTax;
+  final VoidCallback? onAmount;
+  final VoidCallback? onFee;
+  final VoidCallback? onTax;
+
+  static Widget _operator(String sign) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: Space.s1),
+    child: Text(
+      sign,
+      style: const TextStyle(
+        fontSize: TextSize.title,
+        fontWeight: FontWeight.w700,
+        color: Hue.faint,
+      ),
+    ),
+  );
+
+  static Widget _charge(
+    String label,
+    int value,
+    int suggested,
+    VoidCallback? onTap,
+  ) => SettlementBox(
+    value == suggested ? '$label（試算）' : label,
+    groupDigits(value),
+    onTap,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: SettlementBox('成交', groupDigits(amount), onAmount)),
+        _operator(sell ? '−' : '＋'),
+        Expanded(child: _charge('手續費', fee, suggestedFee, onFee)),
+        if (sell) ...[
+          _operator('−'),
+          Expanded(child: _charge('證交稅', tax, suggestedTax, onTax)),
+        ],
+      ],
     );
   }
 }

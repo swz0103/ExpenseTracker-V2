@@ -7,6 +7,7 @@ import '../../../core/ledger/trading.dart';
 
 part 'compose_form_lending.dart';
 part 'compose_form_split.dart';
+part 'compose_form_trade.dart';
 part 'compose_form_transfer.dart';
 
 /// The kinds of record the composer makes. 代墊 has no tab of its own:

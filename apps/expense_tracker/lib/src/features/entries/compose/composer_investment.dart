@@ -72,17 +72,12 @@ extension _InvestmentFields on _ComposerState {
   /// A trade's sums, what a sale made and the note, folded away: closed,
   /// the heading says the fee, tax and how cost is reckoned.
   Widget _tradeFold() {
-    final code = _f.holding;
-    final held = code == null ? null : _ledger.holding(code);
     final (fee, tax) = _f.charges;
     final suggested = _f.suggested;
     final sell = _f.trade == EntryType.sell;
     final settles = _f.settlement;
-    final cost =
-        sell && code != null && held != null && _f.shares <= held.shares
-        ? _ledger.holdings.saleCost(code, _f.shares, average: _f.average)
-        : null;
-    final settled = settlementDay(_f.date);
+    final cost = _f.saleCost;
+    final settled = _f.settles;
     final method = _f.average ? '平均成本' : '先進先出';
     return _fold(
       closed: [
@@ -95,28 +90,20 @@ extension _InvestmentFields on _ComposerState {
       body: [
         // What it settles at, as a sum: the trade, then the fee and tax
         // taken off a sale or added to a buy; the charges can be changed.
-        Row(
-          children: [
-            Expanded(
-              child: SettlementBox(
-                '成交',
-                groupDigits(_f.amount),
-                _viewing ? null : _calculate,
-              ),
-            ),
-            _operator(sell ? '−' : '＋'),
-            Expanded(
-              child: _charge('手續費', fee, suggested.$1, (v) => _f.tradeFee = v),
-            ),
-            if (sell) ...[
-              _operator('−'),
-              Expanded(
-                child: _charge('證交稅', tax, suggested.$2, (v) {
-                  _f.tradeTax = v;
-                }),
-              ),
-            ],
-          ],
+        SettlementRow(
+          sell: sell,
+          amount: _f.amount,
+          fee: fee,
+          suggestedFee: suggested.$1,
+          tax: tax,
+          suggestedTax: suggested.$2,
+          onAmount: _viewing ? null : _calculate,
+          onFee: _viewing
+              ? null
+              : () => _change('手續費', fee, (v) => _f.tradeFee = v),
+          onTax: _viewing
+              ? null
+              : () => _change('證交稅', tax, (v) => _f.tradeTax = v),
         ),
         if (sell && !_viewing)
           Padding(
@@ -251,18 +238,6 @@ extension _InvestmentFields on _ComposerState {
     );
   }
 
-  Widget _operator(String sign) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: Space.s1),
-    child: Text(
-      sign,
-      style: const TextStyle(
-        fontSize: TextSize.title,
-        fontWeight: FontWeight.w700,
-        color: Hue.faint,
-      ),
-    ),
-  );
-
   /// The holdings as one row of pills, those held first; the square at
   /// the right end, kept still, opens them all and 新增.
   Widget _codes() {
@@ -314,23 +289,14 @@ extension _InvestmentFields on _ComposerState {
     );
   }
 
-  /// A trade's fee or tax in its sum: what the broker charged, typed in,
-  /// or the suggestion until then (試算).
-  Widget _charge(
+  /// Asks for a charge of the trade, [label] now [value], and keeps
+  /// what is typed.
+  Future<void> _change(
     String label,
     int value,
-    int suggested,
     void Function(int value) keep,
-  ) {
-    return SettlementBox(
-      value == suggested ? '$label（試算）' : label,
-      groupDigits(value),
-      _viewing
-          ? null
-          : () async {
-              final typed = await _ask(label, value);
-              if (typed != null) _set(() => keep(typed));
-            },
-    );
+  ) async {
+    final typed = await _ask(label, value);
+    if (typed != null) _set(() => keep(typed));
   }
 }
