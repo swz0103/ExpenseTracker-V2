@@ -39,6 +39,7 @@ import 'compose_widgets.dart';
 import 'entry_view_card.dart';
 import 'fields_fold.dart';
 import 'fill_layout.dart';
+import 'form_frame.dart';
 import 'holding_choices.dart';
 import 'people_choices.dart';
 import 'receipt_square.dart';

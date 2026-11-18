@@ -29,7 +29,6 @@ const longerFunctions = <String, int>{
   // Drawn by tool/glyphs.py from the icon paths, one case per glyph.
   'src/core/look/glyphs.dart::_draw': 1541,
   'src/app/demo/seed.dart::demoLedger': 448,
-  'src/features/entries/compose/composer_state.dart::_ComposerState.build': 212,
   'src/features/accounts/ui/sort_accounts.dart::_SortAccountsPageState.build':
       203,
   'src/features/investments/ui/investments.dart::_InvestmentsPageState.build':
@@ -135,7 +134,7 @@ const longerFunctions = <String, int>{
   'src/core/look/dialogs.dart::confirm': 81,
 };
 const largerLibraries = <String, int>{
-  'src/features/entries/compose/composer.dart': 2076,
+  'src/features/entries/compose/composer.dart': 2029,
   'src/core/look/glyphs.dart': 1942,
   'src/features/accounts/compose/account_editor.dart': 1462,
   'src/features/reports/ui/reports.dart': 1524,

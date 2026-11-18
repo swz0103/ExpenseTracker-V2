@@ -310,37 +310,13 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final page = _page;
-    if (page != null) {
-      return PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) page.close();
-        },
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Space.s2),
-              child: SubpageHeader(title: page.title, onBack: page.close),
-            ),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
-                  Space.s4,
-                  Space.s3,
-                  Space.s4,
-                  Space.s4,
-                ),
-                child: page.body,
-              ),
-            ),
-          ],
-        ),
+    if (_page case final page?) {
+      return SubpageFrame(
+        title: page.title,
+        onBack: page.close,
+        body: page.body,
       );
     }
-    final problem = _problem;
     final entry = widget.entry;
     final refunded = _f.refunded;
     final canRefund =
@@ -348,8 +324,116 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
         entry != null &&
         entry.type == EntryType.expense &&
         _ledger.entryQueryService.refundable(entry) > 0;
-    // The top stays put: the kind of entry, or what is being changed.
-    final top = Padding(
+    // An entry looked at shows its own card in place of the form, until
+    // 編輯.
+    final looked = _viewing && entry != null && refunded == null;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (looked)
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                Space.s5,
+                Space.s1,
+                Space.s5,
+                0,
+              ),
+              child: _view(entry),
+            ),
+          )
+        else
+          ..._form(entry),
+        // 刪除 or 暫存 and the main button stay at the foot of the sheet,
+        // in reach however long the form is.
+        FormFooter(
+          discard: entry != null ? '刪除' : '暫存',
+          discardColor: entry != null ? Hue.danger : Hue.muted,
+          onDiscard: entry != null ? _delete : _putAside,
+          onRefund: canRefund
+              ? () => Navigator.of(context).pop((ComposeOutcome.refund, entry))
+              : null,
+          action: _viewing ? '編輯' : _action,
+          actionColor: _viewing ? Hue.accent : _color,
+          onAction: _viewing ? () => setState(() => _viewing = false) : _submit,
+        ),
+      ],
+    );
+  }
+
+  /// The form: the top, the amount pinned under it, and the fields under
+  /// that, which scroll, cut off at the amount's foot.
+  List<Widget> _form(Entry? entry) {
+    final all = _fields();
+    final hero = switch (all) {
+      [final AmountHero first, ...] => first,
+      _ => null,
+    };
+    final problem = _problem;
+    final below = [
+      if (hero?.under case final under?) ...[
+        const SizedBox(height: Space.s1),
+        under,
+      ],
+      ...hero == null ? all : all.skip(1),
+      if (problem != null)
+        Padding(
+          padding: const EdgeInsets.only(top: Space.s2),
+          child: Text(
+            problem,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Hue.danger),
+          ),
+        ),
+    ];
+    return [
+      _top(entry),
+      if (hero != null)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.s5),
+          child: IgnorePointer(
+            ignoring: _viewing,
+            child: AmountHero(
+              label: hero.label,
+              unit: hero.unit,
+              value: hero.value,
+              color: hero.color,
+              onTap: hero.onTap,
+              sub: hero.sub,
+            ),
+          ),
+        ),
+      const SizedBox(height: Space.s2),
+      // The sheet is as tall as the tallest tab's fields, which scroll
+      // inside it past three quarters of the screen.
+      Flexible(
+        child: ClipRect(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, 0),
+            child: IgnorePointer(
+              ignoring: _viewing,
+              child: FillLayout(
+                // Each tab takes only the room its fields need: kept at
+                // the tallest one's height, a short tab after 投資 left a
+                // blank.
+                minHeight: 0,
+                grow: -1,
+                onHeight: (_) {},
+                children: below,
+              ),
+            ),
+          ),
+        ),
+      ),
+    ];
+  }
+
+  /// The top, which stays put: the kind of entry, or what is being
+  /// changed, and the marks on it.
+  Widget _top(Entry? entry) {
+    final refunded = _f.refunded;
+    return Padding(
       padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -387,138 +471,6 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
             ),
         ],
       ),
-    );
-    // The amount stays under the top with it; the fields under it scroll,
-    // cut off at the amount's foot, where a thin line shows once they
-    // have moved.
-    final all = _fields();
-    final hero = all.isNotEmpty && all.first is AmountHero
-        ? all.first as AmountHero
-        : null;
-    final below = [
-      if (hero?.under case final under?) ...[
-        const SizedBox(height: Space.s1),
-        under,
-      ],
-      ...hero == null ? all : all.skip(1),
-      if (problem != null)
-        Padding(
-          padding: const EdgeInsets.only(top: Space.s2),
-          child: Text(
-            problem,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Hue.danger),
-          ),
-        ),
-    ];
-    final pinned = hero == null
-        ? null
-        : Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.s5),
-            child: IgnorePointer(
-              ignoring: _viewing,
-              child: AmountHero(
-                label: hero.label,
-                unit: hero.unit,
-                value: hero.value,
-                color: hero.color,
-                onTap: hero.onTap,
-                sub: hero.sub,
-              ),
-            ),
-          );
-    // The sheet is as tall as the tallest tab's fields, which scroll
-    // inside it past three quarters of the screen.
-    final fields = SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, 0),
-      child: IgnorePointer(
-        ignoring: _viewing,
-        child: FillLayout(
-          // Each tab takes only the room its fields need: kept at the
-          // tallest one's height, a short tab after 投資 left a blank.
-          minHeight: 0,
-          grow: -1,
-          onHeight: (_) {},
-          children: below,
-        ),
-      ),
-    );
-    // 刪除 or 暫存 and the main button stay at the foot of the sheet, in
-    // reach however long the form is. An entry looked at shows its own
-    // card in place of the form, until 編輯.
-    final looked = _viewing && entry != null && refunded == null;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (looked)
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(
-                Space.s5,
-                Space.s1,
-                Space.s5,
-                0,
-              ),
-              child: _view(entry),
-            ),
-          )
-        else ...[
-          top,
-          ?pinned,
-          const SizedBox(height: Space.s2),
-          Flexible(child: ClipRect(child: fields)),
-        ],
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Space.s3,
-            Space.s2,
-            Space.s5,
-            Space.s4,
-          ),
-          child: Row(
-            children: [
-              TextButton(
-                key: Keys.discard,
-                onPressed: entry != null ? _delete : _putAside,
-                style: wordButton(
-                  entry != null ? Hue.danger : Hue.muted,
-                  minimumSize: Size(64, 48),
-                ),
-                child: Text(entry != null ? '刪除' : '暫存'),
-              ),
-              if (canRefund)
-                TextButton(
-                  onPressed: () =>
-                      Navigator.of(context).pop((ComposeOutcome.refund, entry)),
-                  style: wordButton(Hue.positive, minimumSize: Size(64, 48)),
-                  child: const Text('退款'),
-                ),
-              const SizedBox(width: Space.s2),
-              Expanded(
-                child: SizedBox(
-                  height: 54,
-                  child: FilledButton(
-                    onPressed: _viewing
-                        ? () => setState(() => _viewing = false)
-                        : _submit,
-                    key: Keys.save,
-                    style: solidButton(
-                      _viewing ? Hue.accent : _color,
-                      radius: Radii.large,
-                      words: appFont.copyWith(
-                        fontSize: TextSize.title,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    child: Text(_viewing ? '編輯' : _action),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 
