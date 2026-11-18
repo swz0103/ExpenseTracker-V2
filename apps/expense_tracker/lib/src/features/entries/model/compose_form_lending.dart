@@ -133,4 +133,32 @@ extension Lending on ComposeForm {
     final left = ledger.balanceService.balance(to) - kept;
     setAmount(left < 0 ? 0 : left);
   }
+
+  /// What the person in [to] owes now; nothing without one.
+  int get owedNow => to.isEmpty ? 0 : ledger.balanceService.balance(to);
+
+  /// The sums the person in [to] still owes, each with what is left of
+  /// it.
+  List<(Entry, int)> get owedSums =>
+      to.isEmpty ? const [] : ledger.reportService.owedBy(to);
+
+  /// What a sum owed was for: its note, or the merchant or note of the
+  /// spending it was paid in; 代墊 without any.
+  String owedTitle(Entry e) {
+    final lead = ledger.entryQueryService.groupLead(e);
+    for (final words in [e.note, lead.merchant, lead.note]) {
+      if (words.isNotEmpty) return words;
+    }
+    return '代墊';
+  }
+
+  /// Opens an account for a new person called [name], to keep what they
+  /// owe, and returns it; null for a name with nothing in it.
+  Account? addPerson(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return null;
+    final account = Account(ledger.newId(), trimmed, AccountKind.receivable, 0);
+    ledger.accountCommands.addAccount(account);
+    return account;
+  }
 }

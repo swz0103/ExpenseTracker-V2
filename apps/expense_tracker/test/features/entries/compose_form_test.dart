@@ -445,4 +445,58 @@ void main() {
     form.toggleTag('家用');
     expect(form.tags, ['旅行']);
   });
+
+  test('what someone owes is told by sum, each by what it was for', () {
+    final ledger = Ledger(
+      today: day,
+      accounts: const [
+        Account('bank', '銀行', AccountKind.bank, 100000),
+        Account('ann', '阿安', AccountKind.receivable, 0),
+      ],
+      categories: const [],
+      entries: [
+        Entry(
+          id: 'noted',
+          date: DateTime.utc(2026, 10, 1),
+          type: EntryType.transfer,
+          amount: 300,
+          account: 'bank',
+          to: 'ann',
+          note: '午餐',
+        ),
+        Entry(
+          id: 'bare',
+          date: DateTime.utc(2026, 10, 2),
+          type: EntryType.transfer,
+          amount: 200,
+          account: 'bank',
+          to: 'ann',
+        ),
+      ],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      dataSource: _Nowhere(),
+    );
+    final form = ComposeForm(ledger, type: EntryType.income)..to = '';
+    expect(form.owedNow, 0);
+    expect(form.owedSums, isEmpty);
+    form.to = 'ann';
+    expect(form.owedNow, 500);
+    // The latest first.
+    expect(
+      [for (final (e, left) in form.owedSums) (e.id, left)],
+      [('bare', 200), ('noted', 300)],
+    );
+    expect(
+      [for (final (e, _) in form.owedSums) form.owedTitle(e)],
+      ['代墊', '午餐'],
+    );
+
+    // A new person gets an account of their own for what they owe.
+    expect(form.addPerson('  '), isNull);
+    final bo = form.addPerson(' 小博 ')!;
+    expect((bo.name, bo.kind), ('小博', AccountKind.receivable));
+    expect(ledger.accounts.contains(bo.id), isTrue);
+  });
 }

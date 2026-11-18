@@ -9,7 +9,7 @@ extension _LendFields on _ComposerState {
   /// those being paid.
   List<Widget> _lendFields() {
     final person = _f.to.isEmpty ? null : _ledger.account(_f.to);
-    final owed = person == null ? 0 : _ledger.balanceService.balance(person.id);
+    final owed = _f.owedNow;
     final name = person?.name ?? '新增對象';
     final String sub;
     if (person == null) {
@@ -94,57 +94,21 @@ extension _LendFields on _ComposerState {
   /// Asks for a new person's name and opens an account for what they owe.
   Future<Account?> _addPerson() async {
     final name = await askText(context, '代墊對象的名字');
-    if (name == null || name.trim().isEmpty || !mounted) return null;
-    final account = Account(
-      _ledger.newId(),
-      name.trim(),
-      AccountKind.receivable,
-      0,
-    );
-    _ledger.accountCommands.addAccount(account);
-    return account;
+    if (name == null || !mounted) return null;
+    return _f.addPerson(name);
   }
 
-  /// What the person still owes, sum by sum, as cards to tick in a row.
-  Widget _owedCards() {
-    final owed = _f.to.isEmpty
-        ? const <(Entry, int)>[]
-        : _ledger.reportService.owedBy(_f.to);
-    if (owed.isEmpty || _viewing) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: Space.s3),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (final (i, (e, left)) in owed.indexed) ...[
-              if (i > 0) const SizedBox(width: Space.s2),
-              OwedCard(
-                title: _owedTitle(e),
-                when: e.group == null
-                    ? formatMd(e.date)
-                    : '${formatMd(e.date)} 一起付的',
-                amount: groupDigits(left),
-                picked: _f.paying.contains(e.id),
-                color: _color,
-                onTap: () => _togglePaying(e.id),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// What a sum owed was for: its note, or the merchant or note of the
-  /// spending it was paid in.
-  String _owedTitle(Entry e) {
-    final lead = _ledger.entryQueryService.groupLead(e);
-    for (final words in [e.note, lead.merchant, lead.note]) {
-      if (words.isNotEmpty) return words;
-    }
-    return '代墊';
-  }
+  /// What the person still owes, sum by sum, as cards to tick in a row;
+  /// nothing while only looked at.
+  Widget _owedCards() => _viewing
+      ? const SizedBox.shrink()
+      : OwedCardRow(
+          sums: _f.owedSums,
+          titleOf: _f.owedTitle,
+          paying: _f.paying,
+          color: _color,
+          onToggle: _togglePaying,
+        );
 
   /// Picks whom the money is for, or adds a new person.
   Future<void> _pickPerson() async {

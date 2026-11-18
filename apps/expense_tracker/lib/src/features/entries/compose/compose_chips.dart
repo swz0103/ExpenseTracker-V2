@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/ledger/ledger.dart';
 import '../../../core/look/glyphs.dart';
+import '../../../core/text/dates.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/look/shape.dart';
@@ -489,6 +492,54 @@ class GroupLabel extends StatelessWidget {
           fontSize: TextSize.caption,
           fontWeight: FontWeight.w700,
           color: Hue.muted,
+        ),
+      ),
+    );
+  }
+}
+
+/// The sums someone still owes as cards to tick in a row that slides
+/// sideways: each what it was for ([titleOf]), when, and what is left of
+/// it; those in [paying] ticked. Nothing when they owe nothing.
+class OwedCardRow extends StatelessWidget {
+  const OwedCardRow({
+    super.key,
+    required this.sums,
+    required this.titleOf,
+    required this.paying,
+    required this.color,
+    required this.onToggle,
+  });
+
+  final List<(Entry, int)> sums;
+  final String Function(Entry sum) titleOf;
+  final Set<String> paying;
+  final Color color;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    if (sums.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.s3),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final (i, (e, left)) in sums.indexed) ...[
+              if (i > 0) const SizedBox(width: Space.s2),
+              OwedCard(
+                title: titleOf(e),
+                when: e.group == null
+                    ? formatMd(e.date)
+                    : '${formatMd(e.date)} 一起付的',
+                amount: groupDigits(left),
+                picked: paying.contains(e.id),
+                color: color,
+                onTap: () => onToggle(e.id),
+              ),
+            ],
+          ],
         ),
       ),
     );
