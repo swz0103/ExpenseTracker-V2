@@ -18,6 +18,10 @@ enum VaultProblem {
 
   /// A restored database failed its checks; nothing was kept.
   damagedRestore,
+
+  /// The keyring is here but the ledger's database is gone: opening would
+  /// start an empty ledger as if nothing had been kept, so it is refused.
+  missingDatabase,
 }
 
 final class VaultException implements Exception {
@@ -96,18 +100,21 @@ final class LedgerVault {
     _requireAbsent();
     await directory.create(recursive: true);
     if (await databaseFile.exists()) await databaseFile.delete();
+    // The database first, then the keyring: a keyring without a database
+    // then always means the database was lost (see [missingDatabase]).
+    _openStore(databaseFile, keys).close();
     await _write(keys.keyring);
     return _open(keys);
   }
 
   Future<OpenVault> unlockWithPassword(String password) async {
     final keyring = await _keyring();
-    return _open(await codec.unlockWithPassword(keyring, password));
+    return _openKept(await codec.unlockWithPassword(keyring, password));
   }
 
   Future<OpenVault> unlockWithRecovery(String recoveryCode) async {
     final keyring = await _keyring();
-    return _open(await codec.unlockWithRecovery(keyring, recoveryCode));
+    return _openKept(await codec.unlockWithRecovery(keyring, recoveryCode));
   }
 
   Future<OpenVault> unlockWithDevice(
@@ -115,7 +122,7 @@ final class LedgerVault {
     DeviceKeyWrapper wrapper,
   ) async {
     final keyring = await _keyring();
-    return _open(await codec.unlockWithDevice(keyring, deviceId, wrapper));
+    return _openKept(await codec.unlockWithDevice(keyring, deviceId, wrapper));
   }
 
   /// Stores a changed keyring: a new password, recovery code, device or
@@ -232,6 +239,14 @@ final class LedgerVault {
       await _deleteDatabase(staging);
       if (!exists) await _deleteDatabase(databaseFile);
       rethrow;
+    }
+    return _open(keys);
+  }
+
+  /// Opens the ledger kept here, which must still have its database.
+  Future<OpenVault> _openKept(UnlockedKeyring keys) async {
+    if (!await databaseFile.exists()) {
+      throw const VaultException(VaultProblem.missingDatabase);
     }
     return _open(keys);
   }

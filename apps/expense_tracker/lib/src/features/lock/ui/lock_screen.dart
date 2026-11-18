@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
+import 'package:vault/ledger_vault.dart';
 
 import '../../backup/model/drive_backup.dart';
 import '../../backup/model/restore_sources.dart';
@@ -243,6 +244,12 @@ class _LockScreenState extends State<LockScreen> {
     } on FileSystemException {
       // Said to the person.
       _fail('找不到這個備份檔');
+    } on VaultException catch (error) {
+      // Said to the person, by its kind.
+      _fail(switch (error.problem) {
+        VaultProblem.missingDatabase => '這台裝置上的帳本資料不見了，請從備份還原',
+        _ => '無法開啟帳本（${error.problem.name}）',
+      });
     } on KeyringException catch (error) {
       // Said to the person, by its kind.
       _fail(switch (error.error) {

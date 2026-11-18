@@ -78,6 +78,27 @@ void main() {
     );
   });
 
+  test(
+    'a ledger whose database is gone is refused, not opened empty',
+    () async {
+      final (open, recovery) = await vault.create(password);
+      keepOne(open);
+      open.close();
+      vault.databaseFile.deleteSync();
+      // Opening would start an empty book as if nothing had been kept.
+      await expectLater(
+        vault.unlockWithPassword(password),
+        fails(VaultProblem.missingDatabase),
+      );
+      await expectLater(
+        vault.unlockWithRecovery(recovery),
+        fails(VaultProblem.missingDatabase),
+      );
+      expect(vault.databaseFile.existsSync(), isFalse, reason: 'none made');
+      expect(vault.keyringFile.existsSync(), isTrue, reason: 'keys kept');
+    },
+  );
+
   test('a changed password is saved; another ledger is refused', () async {
     final (open, _) = await vault.create(password);
     open.close();
