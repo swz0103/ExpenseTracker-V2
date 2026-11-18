@@ -560,4 +560,16 @@ class _ComposerState extends State<Composer>
 
   @override
   Widget datePick() => _datePick();
+
+  @override
+  ReceiptPhotos? get photos => widget.photos;
+
+  @override
+  Future<void> pickMerchant() => _pickMerchant();
+
+  @override
+  Future<void> pickTags() => _pickTags();
+
+  @override
+  Widget receiptSquare(ReceiptPhotos photos) => _receiptSquare(photos);
 }

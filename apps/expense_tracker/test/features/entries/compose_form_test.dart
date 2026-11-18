@@ -428,4 +428,21 @@ void main() {
     form.setShareChange(ShareChange.capitalReduction);
     expect((form.reduce, form.splitShares), (true, false));
   });
+
+  test('a merchant or tag tapped again is taken off', () {
+    final form = ComposeForm(book(), type: EntryType.expense);
+    form.toggleMerchant('便當店');
+    expect(form.merchant, '便當店');
+    expect(form.merchantChoices().first, '便當店');
+    form.toggleMerchant('便當店');
+    expect(form.merchant, '');
+
+    form
+      ..toggleTag('家用')
+      ..toggleTag('旅行');
+    expect(form.tags, ['家用', '旅行']);
+    expect(form.tagChoices().take(2), ['家用', '旅行']);
+    form.toggleTag('家用');
+    expect(form.tags, ['旅行']);
+  });
 }

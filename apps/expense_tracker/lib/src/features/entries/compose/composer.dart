@@ -37,7 +37,7 @@ import 'compose_mode_look.dart';
 import 'compose_widgets.dart';
 import 'entry_view_card.dart';
 import 'compose_actions.dart';
-import 'fields_fold.dart';
+import 'extras_fields.dart';
 import 'investment_fields.dart';
 import 'fill_layout.dart';
 import 'form_frame.dart';

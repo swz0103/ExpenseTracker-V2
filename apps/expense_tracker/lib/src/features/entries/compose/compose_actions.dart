@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../../core/ledger/ledger.dart';
 import '../model/compose_form.dart';
+import '../model/receipt_photos.dart';
 
 /// What a section of the entry form, such as its investment fields, asks of
 /// the form it is in: its fields and how it looks, to change the fields
@@ -48,4 +49,17 @@ abstract interface class ComposeActions {
 
   /// The day of the entry.
   Widget datePick();
+
+  /// Where receipt photos come from; null where there are none, as in
+  /// tests.
+  ReceiptPhotos? get photos;
+
+  /// Opens the merchants to pick or type one.
+  Future<void> pickMerchant();
+
+  /// Opens the tags to pick or type any.
+  Future<void> pickTags();
+
+  /// The receipt photo as a square beside the note.
+  Widget receiptSquare(ReceiptPhotos photos);
 }

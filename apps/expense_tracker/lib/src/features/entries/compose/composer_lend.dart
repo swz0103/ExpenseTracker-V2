@@ -32,7 +32,7 @@ extension _LendFields on _ComposerState {
       ),
       if (_f.back) _owedCards() else _categories(true),
       _pair(_accountPick(_f.back ? '收款帳戶' : '付款帳戶'), _datePick()),
-      _extras(false),
+      ExtrasFields(this).build(expense: false),
     ];
   }
 

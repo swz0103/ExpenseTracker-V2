@@ -64,9 +64,6 @@ extension _Fields on _ComposerState {
     );
   }
 
-  Widget _noteField({int lines = 1, String hint = '寫點備註…'}) =>
-      NoteField(controller: _note, viewing: _viewing, lines: lines, hint: hint);
-
   /// The note, folded to one line until opened or written in.
   Widget _noteRow() => NoteRow(
     controller: _note,
@@ -116,7 +113,7 @@ extension _Fields on _ComposerState {
                 onTap: _pickInstallments,
               ),
             ),
-          _extras(expense),
+          ExtrasFields(this).build(expense: expense),
         ];
       case ComposeMode.transfer:
         return [

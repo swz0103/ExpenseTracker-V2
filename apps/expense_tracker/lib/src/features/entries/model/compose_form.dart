@@ -5,6 +5,7 @@ import '../../import_export/model/import_export.dart' show guessCategory;
 import '../../import_export/model/invoice_qr.dart';
 import '../../../core/ledger/trading.dart';
 
+part 'compose_form_extras.dart';
 part 'compose_form_lending.dart';
 part 'compose_form_split.dart';
 part 'compose_form_trade.dart';
