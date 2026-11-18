@@ -487,3 +487,66 @@ class SettlementRow extends StatelessWidget {
     );
   }
 }
+
+/// The holdings as one row of pills that slides sideways, [picked]
+/// ringed, one picked that is not held yet first; the square at the
+/// right end, kept still, opens them all and 新增 ([onAll]).
+class HoldingCodeRow extends StatelessWidget {
+  const HoldingCodeRow({
+    super.key,
+    required this.holdings,
+    required this.picked,
+    required this.onPick,
+    required this.onAll,
+  });
+
+  final List<Holding> holdings;
+  final String? picked;
+  final ValueChanged<String> onPick;
+  final VoidCallback onAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final code = picked;
+    final known = {for (final h in holdings) h.code};
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.s2),
+      child: Row(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  if (code != null && !known.contains(code))
+                    HoldingCodePill(
+                      code: code,
+                      name: '',
+                      picked: true,
+                      onTap: () {},
+                    ),
+                  for (final h in holdings) ...[
+                    const SizedBox(width: Space.s2),
+                    HoldingCodePill(
+                      code: h.code,
+                      name: shortHoldingName(h),
+                      picked: h.code == code,
+                      onTap: () => onPick(h.code),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 24,
+            margin: const EdgeInsets.only(left: Space.s1),
+            color: Hue.line,
+          ),
+          SquareIconButton(icon: Glyph.categories, label: '全部標的', onTap: onAll),
+        ],
+      ),
+    );
+  }
+}

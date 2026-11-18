@@ -113,8 +113,6 @@ const longerFunctions = <String, int>{
   'src/features/reports/ui/reports_habits.dart::_Habits._weekdays': 86,
   'src/features/recurring/ui/recurring_rows.dart::_ItemRow.build': 86,
   'src/features/accounts/ui/accounts.dart::_NetWorth.build': 86,
-  'src/features/entries/compose/composer_investment.dart::_InvestmentFields._dividendFold':
-      84,
   'src/features/overview/ui/sections/plan_section.dart::PlanSection._budgetTile':
       84,
   'src/features/entries/ui/entries_filter_sheet.dart::_FilterSheetState.build':
@@ -132,7 +130,7 @@ const longerFunctions = <String, int>{
   'src/core/look/dialogs.dart::confirm': 81,
 };
 const largerLibraries = <String, int>{
-  'src/features/entries/compose/composer.dart': 1995,
+  'src/features/entries/compose/composer.dart': 1942,
   'src/core/look/glyphs.dart': 1942,
   'src/features/accounts/compose/account_editor.dart': 1462,
   'src/features/reports/ui/reports.dart': 1524,

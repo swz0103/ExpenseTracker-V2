@@ -412,4 +412,20 @@ void main() {
     form.date = DateTime.utc(2026, 10, 2);
     expect(form.settles, DateTime.utc(2026, 10, 6));
   });
+
+  test('a dividend changes the shares held one way at a time', () {
+    final form = ComposeForm(book(), type: EntryType.dividend);
+    expect(form.shareChangeKind, ShareChange.none);
+    for (final kind in ShareChange.values) {
+      form
+        ..shares = 50
+        ..setShareChange(kind);
+      expect(form.shareChangeKind, kind);
+    }
+    // None leaves no shares written.
+    form.setShareChange(ShareChange.none);
+    expect(form.shares, 0);
+    form.setShareChange(ShareChange.capitalReduction);
+    expect((form.reduce, form.splitShares), (true, false));
+  });
 }

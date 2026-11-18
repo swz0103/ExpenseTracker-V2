@@ -3,6 +3,9 @@ part of 'composer.dart';
 /// The investment fields: a buy or sale from shares and price with the
 /// broker's fee and tax, or a dividend with its premium and any change in
 /// the shares held.
+/// What each [ShareChange] is called, in its order: 沒有, 配股, 分割, 減資.
+const _shareChangeNames = ['沒有', '配股', '分割', '減資'];
+
 extension _InvestmentFields on _ComposerState {
   List<Widget> _investmentFields() {
     final sell = _f.trade == EntryType.sell;
@@ -154,16 +157,10 @@ extension _InvestmentFields on _ComposerState {
   /// A dividend's change in shares, its premium and the note, folded
   /// away.
   Widget _dividendFold() {
-    final change = !_f.shareChange
-        ? 0
-        : _f.reduce
-        ? 3
-        : _f.splitShares
-        ? 2
-        : 1;
+    final change = _f.shareChangeKind;
     final filled = [
       if (_f.shareChange)
-        '${const ['', '配股', '分割', '減資'][change]} ${groupDigits(_f.shares)} 股',
+        '${_shareChangeNames[change.index]} ${groupDigits(_f.shares)} 股',
       if (_f.withheld > 0) '二代健保 ${groupDigits(_f.withheld)}',
       if (_note.text.trim().isNotEmpty) _note.text.trim(),
     ];
@@ -174,15 +171,11 @@ extension _InvestmentFields on _ComposerState {
         if (!_viewing || _f.shareChange) ...[
           const GroupLabel('股數有變動'),
           Segments(
-            labels: const ['沒有', '配股', '分割', '減資'],
-            selected: change,
+            labels: _shareChangeNames,
+            selected: change.index,
             selectedColor: _color,
-            onChanged: (i) => _set(() {
-              _f.shareChange = i > 0;
-              _f.splitShares = i == 2;
-              _f.reduce = i == 3;
-              if (i == 0) _f.shares = 0;
-            }),
+            onChanged: (i) =>
+                _set(() => _f.setShareChange(ShareChange.values[i])),
           ),
         ],
         Padding(
@@ -192,11 +185,8 @@ extension _InvestmentFields on _ComposerState {
               if (_f.shareChange) ...[
                 Expanded(
                   child: SettlementBox(
-                    _f.reduce
-                        ? '減資減少'
-                        : _f.splitShares
-                        ? '分割增加'
-                        : '配股增加',
+                    '${_shareChangeNames[change.index]}'
+                        '${change == ShareChange.capitalReduction ? '減少' : '增加'}',
                     '${groupDigits(_f.shares)} 股',
                     _viewing
                         ? null
@@ -238,56 +228,13 @@ extension _InvestmentFields on _ComposerState {
     );
   }
 
-  /// The holdings as one row of pills, those held first; the square at
-  /// the right end, kept still, opens them all and 新增.
-  Widget _codes() {
-    final code = _f.holding;
-    final holdings = _ledger.holdings;
-    final known = {for (final h in holdings.all) h.code};
-    return Padding(
-      padding: const EdgeInsets.only(top: Space.s2),
-      child: Row(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  if (code != null && !known.contains(code))
-                    HoldingCodePill(
-                      code: code,
-                      name: '',
-                      picked: true,
-                      onTap: () {},
-                    ),
-                  for (final h in holdings.all) ...[
-                    const SizedBox(width: Space.s2),
-                    HoldingCodePill(
-                      code: h.code,
-                      name: shortHoldingName(h),
-                      picked: h.code == code,
-                      onTap: () => _set(() => _f.holding = h.code),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 24,
-            margin: const EdgeInsets.only(left: Space.s1),
-            color: Hue.line,
-          ),
-          SquareIconButton(
-            icon: Glyph.categories,
-            label: '全部標的',
-            onTap: _pickHolding,
-          ),
-        ],
-      ),
-    );
-  }
+  /// The holdings as one row of pills, and the square that opens them all.
+  Widget _codes() => HoldingCodeRow(
+    holdings: _ledger.holdings.all,
+    picked: _f.holding,
+    onPick: (code) => _set(() => _f.holding = code),
+    onAll: _pickHolding,
+  );
 
   /// Asks for a charge of the trade, [label] now [value], and keeps
   /// what is typed.
