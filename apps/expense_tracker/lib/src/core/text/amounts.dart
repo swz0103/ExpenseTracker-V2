@@ -25,6 +25,21 @@ int? minorOf(String text, String currency) {
   return match[1]!.isEmpty ? value : -value;
 }
 
+/// [text] in the smallest unit of [currency], more decimals than it has
+/// rounded half away from zero from the digits as written (a double holds
+/// 1.005 as 1.00499...); null when it is not a number.
+int? roundedMinorOf(String text, String currency) {
+  final cleaned = text.replaceAll(',', '').trim();
+  final match = RegExp(r'^(-?)(\d*)(?:\.(\d*))?$').firstMatch(cleaned);
+  if (match == null || !cleaned.contains(RegExp(r'\d'))) return null;
+  final scale = Currency.scaleOf(currency) == 0 ? 0 : 2;
+  final decimals = match[3] ?? '';
+  final kept = decimals.padRight(scale, '0').substring(0, scale);
+  final next = decimals.length > scale ? int.parse(decimals[scale]) : 0;
+  final size = int.parse('${match[2]}$kept') + (next >= 5 ? 1 : 0);
+  return match[1]!.isEmpty ? size : -size;
+}
+
 /// `1234567` → `1,234,567`; negatives keep a plain `-`.
 String groupDigits(int value) {
   final digits = value.abs().toString();
