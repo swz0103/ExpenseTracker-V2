@@ -83,7 +83,7 @@ extension _Fields on _ComposerState {
         return [
           _hero(
             under: _f.lending
-                ? _lendRow()
+                ? LendFields(this).row()
                 : parts == null
                 ? _usual()
                 : _splitState(),
@@ -144,7 +144,7 @@ extension _Fields on _ComposerState {
           _noteRow(),
         ];
       case ComposeMode.lend:
-        return _lendFields();
+        return LendFields(this).build();
       case ComposeMode.investment:
         return InvestmentFields(this).build(context);
     }

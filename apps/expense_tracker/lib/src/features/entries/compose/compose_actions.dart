@@ -62,4 +62,19 @@ abstract interface class ComposeActions {
 
   /// The receipt photo as a square beside the note.
   Widget receiptSquare(ReceiptPhotos photos);
+
+  /// Whether an entry already kept is being changed.
+  bool get editing;
+
+  /// Picks whom the money is for or from, or adds a new person.
+  Future<void> pickPerson();
+
+  /// Picks whom a spending is paid for, any number of people.
+  Future<void> pickLent();
+
+  /// Back from 代墊 or 對方還錢 to a plain entry of the same tab.
+  void unlend();
+
+  /// The row of categories, those of spending when [expense].
+  Widget categories({required bool expense});
 }

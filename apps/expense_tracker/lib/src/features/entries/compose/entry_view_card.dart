@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/ledger/ledger.dart';
@@ -10,6 +12,9 @@ import '../../../core/ui/icons.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../model/compose_form.dart';
 import '../model/entry_details.dart';
+import '../model/receipt_photos.dart';
+import 'compose_cards.dart';
+import 'receipt_square.dart';
 import 'compose_mode_look.dart';
 
 /// The card on top of an entry looked at: in its colour with its mark,
@@ -95,6 +100,75 @@ class EntryViewCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// An entry looked at, [entry] as it stands: its marks ([marks], and 定期
+/// for one booked by a recurring item), its [EntryViewCard], then a tile
+/// for each thing written with it, two to a row, and its receipt photo.
+/// Nothing that was left empty shows.
+class EntryView extends StatelessWidget {
+  const EntryView({
+    super.key,
+    required this.ledger,
+    required this.entry,
+    required this.mode,
+    required this.marks,
+    required this.photos,
+    required this.receipt,
+  });
+
+  final Ledger ledger;
+  final Entry entry;
+  final ComposeMode mode;
+  final List<(String, Color)> marks;
+  final ReceiptPhotos? photos;
+  final String? receipt;
+
+  @override
+  Widget build(BuildContext context) {
+    final e = entry;
+    final title = entryTitle(ledger, e);
+    final photos = this.photos;
+    final receipt = this.receipt;
+    final cells = <Widget>[
+      for (final (label, value) in entryDetails(ledger, e, title))
+        ViewFieldTile(label: label, value: value),
+      if (photos != null && receipt != null)
+        TapArea(
+          label: '查看收據',
+          onTap: () => unawaited(showReceipt(context, photos.image(receipt))),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(Radii.large),
+            child: Image(
+              image: photos.image(receipt),
+              height: 64,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) =>
+                  const ViewFieldTile(label: '收據', value: '—'),
+            ),
+          ),
+        ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (marks.isNotEmpty || e.recurring != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: Space.s2),
+            child: Wrap(
+              spacing: 6,
+              children: [
+                if (e.recurring != null) const Pill('定期'),
+                for (final (label, c) in marks) Pill(label, color: c),
+              ],
+            ),
+          ),
+        EntryViewCard(ledger: ledger, entry: e, title: title, mode: mode),
+        const SizedBox(height: Space.s2),
+        CardGrid(gap: 8, cells),
+      ],
     );
   }
 }

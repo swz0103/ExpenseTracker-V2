@@ -97,9 +97,6 @@ class _ComposerState extends State<Composer>
     _f.paying = {};
   });
 
-  /// One sum ticked or not among what is being paid back.
-  void _togglePaying(String id) => _set(() => _f.togglePaying(id));
-
   /// Opens a choice inside the sheet in place of the form, titled
   /// [title]; [build] is given what to call with the value chosen. The
   /// arrow back or the phone's back returns to the form with none.
@@ -342,7 +339,14 @@ class _ComposerState extends State<Composer>
                 Space.s5,
                 0,
               ),
-              child: _view(entry),
+              child: EntryView(
+                ledger: _ledger,
+                entry: entry,
+                mode: _f.mode,
+                marks: _marks,
+                photos: widget.photos,
+                receipt: _f.receipt,
+              ),
             ),
           )
         else
@@ -572,4 +576,19 @@ class _ComposerState extends State<Composer>
 
   @override
   Widget receiptSquare(ReceiptPhotos photos) => _receiptSquare(photos);
+
+  @override
+  bool get editing => widget.entry != null;
+
+  @override
+  Future<void> pickPerson() => _pickPerson();
+
+  @override
+  Future<void> pickLent() => _pickLent();
+
+  @override
+  void unlend() => _unlend();
+
+  @override
+  Widget categories({required bool expense}) => _categories(expense);
 }

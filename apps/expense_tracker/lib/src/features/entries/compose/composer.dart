@@ -17,7 +17,6 @@ import '../../../core/ui/calculator.dart';
 import '../../categories/compose/category_editor.dart';
 import '../../../core/ui/pickers.dart';
 import '../model/compose_form.dart';
-import '../model/entry_details.dart';
 import '../../../core/messages/installment_messages.dart';
 import '../model/receipt_photos.dart';
 import '../../import_export/model/import_export.dart' show invoiceRecorded;
@@ -25,7 +24,6 @@ import '../../import_export/model/invoice_qr.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/text/dates.dart';
-import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
 
 export '../model/compose_form.dart' show ComposeMode;
@@ -39,6 +37,7 @@ import 'entry_view_card.dart';
 import 'compose_actions.dart';
 import 'extras_fields.dart';
 import 'investment_fields.dart';
+import 'lend_fields.dart';
 import 'fill_layout.dart';
 import 'form_frame.dart';
 import 'holding_choices.dart';
@@ -54,7 +53,6 @@ part 'composer_state.dart';
 part 'composer_extras.dart';
 part 'composer_pickers.dart';
 part 'composer_amount.dart';
-part 'composer_view.dart';
 
 /// A form put aside with 暫存: the entry as it stood and the receipt
 /// photo chosen for it, which is not part of the entry until it is saved.
