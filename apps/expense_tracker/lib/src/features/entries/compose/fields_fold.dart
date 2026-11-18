@@ -47,7 +47,7 @@ class FieldsFold extends StatelessWidget {
         children: [
           _heading(),
           MotionSize(
-            duration: const Duration(milliseconds: 180),
+            duration: Motion.short4,
             curve: Curves.easeOut,
             alignment: Alignment.topCenter,
             child: open

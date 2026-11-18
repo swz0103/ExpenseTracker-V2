@@ -48,10 +48,7 @@ class Segments extends StatelessWidget {
                     onChanged(i);
                   },
                   child: AnimatedContainer(
-                    duration: Motion.of(
-                      context,
-                      const Duration(milliseconds: 180),
-                    ),
+                    duration: Motion.of(context, Motion.short4),
                     constraints: const BoxConstraints(minHeight: 48),
                     padding: const EdgeInsets.symmetric(vertical: Space.s2),
                     decoration: BoxDecoration(
@@ -109,7 +106,7 @@ class _PressableState extends State<Pressable> {
       onPointerCancel: (_) => _set(false),
       child: AnimatedScale(
         scale: _down ? widget.depth : 1,
-        duration: Motion.of(context, Duration(milliseconds: _down ? 90 : 220)),
+        duration: Motion.of(context, _down ? Motion.short2 : Motion.short4),
         curve: _down ? Curves.easeOut : Curves.easeOutBack,
         child: widget.child,
       ),

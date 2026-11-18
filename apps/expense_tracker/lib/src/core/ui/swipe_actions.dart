@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 
 import '../look/keys.dart';
 import '../look/theme.dart';
+import '../look/motion.dart';
 
 /// A button a row shows when slid open.
 final class SwipeAction {
@@ -48,7 +49,7 @@ class SwipeActionsState extends State<SwipeActions>
     vsync: this,
     // Exception to motion: it follows the finger and settles where it is
     // let go, a move the person makes, not one made for them.
-    duration: const Duration(milliseconds: 180),
+    duration: Motion.short4,
   );
 
   double get _width => widget.actions.length * SwipeActions.buttonWidth;

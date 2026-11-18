@@ -54,7 +54,7 @@ class Waterfall extends StatelessWidget {
             },
             child: TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0, end: 1),
-              duration: Motion.of(context, const Duration(milliseconds: 500)),
+              duration: Motion.of(context, Motion.long2),
               curve: Curves.easeOutCubic,
               builder: (context, grow, _) => CustomPaint(
                 size: Size.infinite,

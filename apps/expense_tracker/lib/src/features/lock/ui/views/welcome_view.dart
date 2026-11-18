@@ -8,6 +8,7 @@ import '../../../../core/look/keys.dart';
 import '../../../../core/text/dates.dart';
 import '../../../../core/look/spacing.dart';
 import '../../../../core/look/shape.dart';
+import '../../../../core/look/motion.dart';
 
 /// The first screen of a new ledger: the opening animation, then the page
 /// takes on the tint of 總覽's main tile, the mark rises a little with the
@@ -54,7 +55,7 @@ class _WelcomeViewState extends State<WelcomeView>
   late final _settle = AnimationController(
     vsync: this,
     // Exception to motion: not run while motion is off (see build).
-    duration: const Duration(milliseconds: 620),
+    duration: Motion.long4,
   );
 
   @override

@@ -37,8 +37,8 @@
 
 ### 規則的例外
 
-- 規則測試不列檔名。破例寫在程式旁：在那一行或它上方的註解寫 `// Exception to <規則>: <原因>`；整個檔案的例外寫在檔案最上方的註解。規則名稱：`error words`、`the radius scale`、`ledger words`、`motion`、`file length`、`function length`、`library length`。
-- 動畫時間一律 `Motion.of(context, …)`，伸縮用 `MotionSize`；減少動態效果開啟時不動。停留時間（例如提示訊息多久消失）不是動畫，要標註例外，不可歸零。
+- 規則測試不列檔名。破例寫在程式旁：在那一行或它上方的註解寫 `// Exception to <規則>: <原因>`；整個檔案的例外寫在檔案最上方的註解。規則名稱：`error words`、`the radius scale`、`ledger words`、`motion`、`the motion scale`、`file length`、`function length`、`library length`。
+- 動畫時間用 `Motion` 的標準值（Material 3：`short2` 100 ms 到 `extraLong1` 700 ms），一律經 `Motion.of(context, …)`，伸縮用 `MotionSize`；減少動態效果開啟時不動。停留時間（例如提示訊息多久消失）不是動畫，要標註例外，不可歸零。
 - 定義所在的檔案（例如日期格式在 `dates.dart`、時間在 `core/time/`）本來就是規則的一部分，不算例外。
 
 ### 命名與註解
@@ -112,4 +112,5 @@
 - commit 訊息用英文：第一行說做了什麼，空一行後條列重點。
 - 一個 PR 一件事（一批回饋或一次整理）；PR 說明列出改了什麼、怎麼驗證。
 - 合併到 main 後 CI 自動建置、簽章、發布；App 內更新會讀到新版。
+- 發布到 main 後，CI 自動為新版本打標籤 `v<版本>`，打在該版第一次發布的組建上，之後不移動（`android.yml` 的 Tag the version）。
 - 每個版本留一份它寫出的帳本與備份：`MAKE_FIXTURES=1 flutter test test/core/persistence/old_books_test.dart`，產生的檔案進版控後不再改（[ADR-0010](adr/0010-data-that-lasts.md)）。少了這一份，`old_books_test` 失敗。

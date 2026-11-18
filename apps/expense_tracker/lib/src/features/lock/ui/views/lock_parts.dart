@@ -171,6 +171,8 @@ class LockLink extends StatelessWidget {
 
 /// How long the opening animation takes: the mark comes in, its bars
 /// grow one after another and the arrow is drawn.
+// Exception to the motion scale: the opening is played whole, not a change
+// from one state to another.
 const splashTime = Duration(milliseconds: 1400);
 
 /// The mark as the opening animation draws it, [t] from 0 to 1 over

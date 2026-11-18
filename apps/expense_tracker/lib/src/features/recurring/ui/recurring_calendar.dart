@@ -187,7 +187,7 @@ class _Calendar extends StatelessWidget {
               // Every day keeps the room of the ring, so the chosen one is
               // as large as the rest and the row stays even.
               AnimatedContainer(
-                duration: Motion.of(context, const Duration(milliseconds: 180)),
+                duration: Motion.of(context, Motion.short4),
                 padding: const EdgeInsets.all(Space.half),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(Radii.large),

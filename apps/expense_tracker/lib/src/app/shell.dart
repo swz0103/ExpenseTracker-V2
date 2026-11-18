@@ -399,7 +399,7 @@ class _AppShellState extends State<AppShell> {
       body: SafeArea(
         bottom: false,
         child: AnimatedSwitcher(
-          duration: Motion.of(context, const Duration(milliseconds: 240)),
+          duration: Motion.of(context, Motion.medium1),
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           // Only the page coming in is drawn: the one going out fading
@@ -557,7 +557,7 @@ class _BottomBar extends StatelessWidget {
     children: [
       AnimatedScale(
         scale: chosen ? 1.12 : 1,
-        duration: Motion.of(context, const Duration(milliseconds: 220)),
+        duration: Motion.of(context, Motion.short4),
         curve: Curves.easeOutBack,
         child: GlyphIcon(
           icon,

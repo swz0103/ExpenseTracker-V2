@@ -74,7 +74,7 @@ class PeriodBars extends StatelessWidget {
               onHorizontalDragUpdate: (d) => _follow(d.localPosition.dx, width),
               child: TweenAnimationBuilder<double>(
                 tween: Tween<double>(begin: 0, end: 1),
-                duration: Motion.of(context, const Duration(milliseconds: 600)),
+                duration: Motion.of(context, Motion.long4),
                 curve: Curves.easeOutCubic,
                 builder: (context, grow, _) => CustomPaint(
                   size: Size(width, height),

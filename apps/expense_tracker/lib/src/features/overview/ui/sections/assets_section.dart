@@ -176,7 +176,7 @@ class _AssetsSectionState extends State<AssetsSection> {
       ),
       const SizedBox(height: Space.s1),
       AnimatedSwitcher(
-        duration: Motion.of(context, const Duration(milliseconds: 280)),
+        duration: Motion.of(context, Motion.medium2),
         switchInCurve: Curves.easeOutCubic,
         transitionBuilder: (child, animation) => FadeTransition(
           opacity: animation,

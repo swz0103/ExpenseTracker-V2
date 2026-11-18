@@ -103,6 +103,8 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
     _spin.animateTo(
       target,
       // Exception to motion: set at once above while motion is off.
+      // Exception to the motion scale: as long as the flick runs on, from
+      // its speed.
       duration: Duration(
         milliseconds: (220 + far * 110).clamp(220, 900).round(),
       ),
@@ -116,7 +118,7 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
     if (d > _count / 2) d -= _count;
     _spin.animateTo(
       (_spin.value + d).roundToDouble(),
-      duration: Motion.of(context, const Duration(milliseconds: 320)),
+      duration: Motion.of(context, Motion.medium2),
       curve: Curves.easeOutCubic,
     );
   }
@@ -148,7 +150,7 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
           ? (d) => _letGo(d.velocity.pixelsPerSecond.dy)
           : null,
       child: MotionSize(
-        duration: const Duration(milliseconds: 220),
+        duration: Motion.short4,
         curve: Curves.easeOutCubic,
         alignment: Alignment.topCenter,
         child: _turning
@@ -248,7 +250,7 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
         for (final (i, a) in order.indexed)
           AnimatedPositioned(
             key: ValueKey(a.id),
-            duration: Motion.of(context, const Duration(milliseconds: 260)),
+            duration: Motion.of(context, Motion.medium1),
             curve: Curves.easeOutCubic,
             top: step * i,
             left: 0,

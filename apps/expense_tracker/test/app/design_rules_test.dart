@@ -167,4 +167,25 @@ void main() {
       }
     }
   });
+
+  test('animations keep to the motion scale', () {
+    // Motion's durations (Material 3's), or a mark of why not; a Timer
+    // is a wait, not a movement.
+    final literal = RegExp(r'Duration\(\s*milliseconds:');
+    for (final file in Directory('lib').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      if (file.path.endsWith('core/look/motion.dart')) continue;
+      final text = file.readAsStringSync();
+      final lines = text.split('\n');
+      for (final m in literal.allMatches(text)) {
+        final i = '\n'.allMatches(text.substring(0, m.start)).length;
+        if (lines[i].contains('Timer(')) continue;
+        expect(
+          excusedAt(lines, i, 'the motion scale'),
+          isTrue,
+          reason: '${file.path}:${i + 1}: use one of Motion\'s durations',
+        );
+      }
+    }
+  });
 }

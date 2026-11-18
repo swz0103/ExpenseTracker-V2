@@ -74,7 +74,7 @@ class TickSwitch extends StatelessWidget {
                 change(!value);
               },
         child: AnimatedContainer(
-          duration: Motion.of(context, const Duration(milliseconds: 160)),
+          duration: Motion.of(context, Motion.short3),
           width: 28,
           height: 28,
           decoration: BoxDecoration(

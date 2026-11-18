@@ -46,7 +46,7 @@ class AxisBar extends StatelessWidget {
     final end = value == 0 ? share : minimum + (1 - minimum) * share;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: end),
-      duration: Motion.of(context, const Duration(milliseconds: 400)),
+      duration: Motion.of(context, Motion.medium4),
       curve: Curves.easeOutCubic,
       builder: (context, share, _) => CustomPaint(
         size: Size(double.infinity, height + 12),

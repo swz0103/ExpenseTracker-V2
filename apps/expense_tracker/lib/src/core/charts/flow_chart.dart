@@ -65,7 +65,7 @@ class FlowChart extends StatelessWidget {
               onHorizontalDragUpdate: (d) => pick(d.localPosition),
               child: TweenAnimationBuilder<double>(
                 tween: Tween<double>(begin: 0, end: 1),
-                duration: Motion.of(context, const Duration(milliseconds: 700)),
+                duration: Motion.of(context, Motion.extraLong1),
                 curve: Curves.easeOutCubic,
                 builder: (context, grow, _) => CustomPaint(
                   size: Size.infinite,

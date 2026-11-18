@@ -9,6 +9,7 @@ import 'theme.dart';
 import '../text/dates.dart';
 import 'shape.dart';
 import 'spacing.dart';
+import 'motion.dart';
 
 // The app's own date range and time pickers, as panels in the middle of
 // the screen: quick choices on top, then a month to tap the days on, or
@@ -357,7 +358,7 @@ class _TimePanelState extends State<_TimePanel> {
         wheel.animateToItem(
           item,
           // Exception to motion: jumped to instead while motion is off.
-          duration: const Duration(milliseconds: 250),
+          duration: Motion.medium1,
           curve: Curves.easeOutCubic,
         );
       }

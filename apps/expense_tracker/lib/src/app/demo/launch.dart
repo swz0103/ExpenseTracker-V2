@@ -17,6 +17,7 @@ import 'seed.dart';
 import '../../core/text/dates.dart';
 import '../../core/look/shape.dart';
 import '../../core/look/spacing.dart';
+import '../../core/look/motion.dart';
 
 /// How the preview's app opens, as a real one would for each person: a
 /// ledger without a password goes straight in, one with a password asks
@@ -150,7 +151,7 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
                   ),
             child: AnimatedSwitcher(
               // Exception to motion: the web preview's own launcher.
-              duration: const Duration(milliseconds: 250),
+              duration: Motion.medium1,
               child: KeyedSubtree(key: ValueKey(_stage), child: screen),
             ),
           ),

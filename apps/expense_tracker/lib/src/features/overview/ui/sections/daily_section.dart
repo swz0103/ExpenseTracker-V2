@@ -119,7 +119,7 @@ class _DailySectionState extends State<DailySection> {
           _moveWeek(speed < 0 ? 1 : -1);
         },
         child: AnimatedSwitcher(
-          duration: Motion.of(context, const Duration(milliseconds: 200)),
+          duration: Motion.of(context, Motion.short4),
           // Only the new week shows: two faded strips read as a smear.
           layoutBuilder: (current, previous) => current ?? const SizedBox(),
           child: _WeekStrip(

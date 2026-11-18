@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../look/glyphs.dart';
 import '../look/shape.dart';
 import '../look/spacing.dart';
+import '../look/motion.dart';
 
 /// One stop of a [Tour]: the place it lights and what it says there.
 final class TourStop {
@@ -69,20 +70,22 @@ class _TourState extends State<Tour> with TickerProviderStateMixin {
   late final _fade = AnimationController(
     vsync: this,
     // Exception to motion: not run while motion is off (_still).
-    duration: const Duration(milliseconds: 320),
+    duration: Motion.medium2,
   );
 
   /// The light moving to the next stop.
   late final _move = AnimationController(
     vsync: this,
     // Exception to motion: not run while motion is off (_still).
-    duration: const Duration(milliseconds: 480),
+    duration: Motion.long2,
   );
 
   /// The ring spreading from the light, twice at each stop.
   late final _ring = AnimationController(
     vsync: this,
     // Exception to motion: not run while motion is off (_still).
+    // Exception to the motion scale: a light pulsing to be noticed, not a
+    // change from one state to another.
     duration: const Duration(milliseconds: 1600),
   );
 
@@ -365,7 +368,7 @@ class _Card extends StatelessWidget {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       // Exception to motion: not built while motion is off ([still]).
-      duration: const Duration(milliseconds: 360),
+      duration: Motion.medium3,
       curve: Curves.easeOutCubic,
       builder: (context, t, child) => Opacity(
         opacity: t,
