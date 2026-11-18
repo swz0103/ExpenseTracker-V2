@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/charts/waterfall.dart';
 import '../compose/account_editor.dart';
 import '../compose/reconcile_sheet.dart';
+import 'account_action.dart';
 import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/ui/icons.dart';
@@ -208,7 +209,7 @@ class _AccountBodyState extends State<AccountBody> {
           child: Row(
             children: [
               Expanded(
-                child: _Action(
+                child: AccountAction(
                   icon: Glyph.add,
                   label: '記一筆',
                   onTap: () => _record(account),
@@ -216,7 +217,7 @@ class _AccountBodyState extends State<AccountBody> {
               ),
               const SizedBox(width: Space.s2),
               Expanded(
-                child: _Action(
+                child: AccountAction(
                   icon: Glyph.transfer,
                   label: account.kind == AccountKind.card ? '繳卡費' : '轉帳',
                   onTap: () => _move(account),
@@ -225,7 +226,7 @@ class _AccountBodyState extends State<AccountBody> {
               if (reconcilable) ...[
                 const SizedBox(width: Space.s2),
                 Expanded(
-                  child: _Action(
+                  child: AccountAction(
                     icon: Glyph.calculator,
                     label: '對帳',
                     onTap: () => reconcileAccount(context, ledger, account),
@@ -304,40 +305,6 @@ class _AccountBodyState extends State<AccountBody> {
           ),
         ],
       ],
-    );
-  }
-}
-
-/// One of the things done with an account, as a grey block.
-class _Action extends StatelessWidget {
-  const _Action({required this.icon, required this.label, required this.onTap});
-
-  final Glyph icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GroupBox(
-      padding: const EdgeInsets.symmetric(
-        vertical: Space.s2,
-        horizontal: Space.s1,
-      ),
-      onTap: onTap,
-      child: Column(
-        children: [
-          SquareIcon(icon, Hue.accent, size: 30),
-          const SizedBox(height: Space.s1),
-          Text(
-            label,
-            maxLines: 1,
-            style: const TextStyle(
-              fontSize: TextSize.body,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -290,7 +290,7 @@ class _Figure extends StatelessWidget {
                       color: Hue.muted,
                     ),
                   ),
-                  const SizedBox(width: Space.s2),
+                  const SizedBox(width: Space.s1),
                   Expanded(
                     child: FittedBox(
                       fit: BoxFit.scaleDown,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../compose/account_editor.dart';
 import '../compose/reconcile_sheet.dart';
+import 'account_action.dart';
 import '../../../core/ui/pickers.dart';
 import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
@@ -152,30 +153,18 @@ class CardPage extends StatelessWidget {
             card.name,
             onBack: nav.back,
             actions: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 對帳 needs NT$: another currency would need a rate.
-                  if (!card.foreign && card.kind != AccountKind.receivable)
-                    TextButton(
-                      onPressed: () => reconcileAccount(context, ledger, card),
-                      style: wordButton(Hue.accent),
-                      child: const Text('對帳'),
-                    ),
-                  TextButton(
-                    onPressed: () async {
-                      final gone = await editAccount(
-                        context,
-                        ledger,
-                        account: card,
-                      );
-                      // Deleted or archived: back to the accounts.
-                      if (gone) nav.back();
-                    },
-                    style: wordButton(Hue.accent),
-                    child: const Text('編輯'),
-                  ),
-                ],
+              TextButton(
+                onPressed: () async {
+                  final gone = await editAccount(
+                    context,
+                    ledger,
+                    account: card,
+                  );
+                  // Deleted or archived: back to the accounts.
+                  if (gone) nav.back();
+                },
+                style: wordButton(Hue.accent),
+                child: const Text('編輯'),
               ),
             ],
           ),
@@ -213,6 +202,40 @@ class CardPage extends StatelessWidget {
                         child: const Text('繳卡款'),
                       ),
                     ),
+            ),
+            // The same actions as every account's page, under its figure.
+            Padding(
+              padding: const EdgeInsets.only(top: Space.s2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: AccountAction(
+                      icon: Glyph.add,
+                      label: '記一筆',
+                      onTap: () => nav.compose(
+                        draft: Entry(
+                          id: '',
+                          date: today,
+                          type: EntryType.expense,
+                          amount: 0,
+                          account: card.id,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // 對帳 needs NT$: another currency would need a rate.
+                  if (!card.foreign) ...[
+                    const SizedBox(width: Space.s2),
+                    Expanded(
+                      child: AccountAction(
+                        icon: Glyph.calculator,
+                        label: '對帳',
+                        onTap: () => reconcileAccount(context, ledger, card),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
             CardRow([
               FigureCard(

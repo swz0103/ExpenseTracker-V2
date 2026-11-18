@@ -36,6 +36,7 @@ const places = <(String, List<String>)>[
   ('篩選', ['紀錄', '~篩選']),
   ('選日期區間', ['紀錄', '~篩選', '自訂']),
   ('帳戶', ['帳戶']),
+  ('信用卡', ['帳戶', '日常信用卡']),
   ('新增帳戶', ['帳戶', '新增']),
   ('排序帳戶', ['帳戶', '排序']),
   ('更多', ['更多']),
@@ -51,15 +52,20 @@ const places = <(String, List<String>)>[
   ('新增貸款', ['更多', '代墊與借貸', '~新增貸款']),
   ('編輯貸款', ['更多', '代墊與借貸', '車貸', '~更多選項', '編輯']),
   ('預算管理', ['更多', '預算管理']),
+  ('預算 選月份', ['更多', '預算管理', '10 月']),
   ('定期交易', ['更多', '定期交易']),
   ('管理固定項目', ['更多', '定期交易', '~管理']),
+  ('編輯定期交易', ['更多', '定期交易', '~管理', 'Netflix']),
+  ('定期交易 重複', ['更多', '定期交易', '~管理', 'Netflix', '^每月 5 日']),
   ('訂閱與固定支出', ['更多', '定期交易', '固定支出/年 ›']),
   ('分類', ['更多', '分類']),
+  ('編輯分類', ['更多', '分類', '居家生活']),
   ('標籤', ['更多', '標籤與商家']),
   ('商家', ['更多', '標籤與商家', '商家']),
   ('一個商家', ['更多', '標籤與商家', '商家', '星巴克']),
   ('設定', ['更多', '設定']),
   ('匯入與匯出', ['更多', '設定', '匯入與匯出']),
+  ('匯入 CSV', ['更多', '設定', '匯入與匯出', 'CSV 檔案']),
   ('關於', ['更多', '設定', '關於']),
   ('通知與提醒', ['更多', '設定', '通知與提醒']),
   ('到期提醒', ['更多', '設定', '通知與提醒', '到期提醒']),
@@ -76,7 +82,7 @@ const places = <(String, List<String>)>[
   ('記一筆', ['~記一筆']),
   ('記一筆 收入', ['~記一筆', '收入']),
   ('記一筆 轉帳', ['~記一筆', '轉帳']),
-  ('記一筆 投資', ['~記一筆', '投資']),
+  ('記一筆 投資', ['~記一筆', '^投資']),
   ('記一筆 展開', ['~記一筆', '商家、標籤、備註']),
   ('記一筆 代墊', ['~記一筆', '代墊']),
   ('記一筆 選帳戶', ['~記一筆', '日常銀行']),
@@ -133,15 +139,24 @@ Future<void> show(
 }
 
 /// Taps [taps] in turn: words on the screen, or a button's tooltip after
-/// `~`.
+/// `~`; after `^`, the one on top.
 Future<void> go(WidgetTester tester, List<String> taps) async {
   for (final step in taps) {
-    var finder = step.startsWith('~')
-        ? find.byTooltip(step.substring(1))
-        : find.text(step);
-    if (finder.evaluate().isEmpty) finder = find.textContaining(step);
-    expect(finder, findsWidgets, reason: 'no 「$step」 to tap');
-    await tester.tap(finder.first, warnIfMissed: false);
+    // `^` taps the words on top, as on a sheet over a page that has the
+    // same words.
+    final top = step.startsWith('^');
+    final words = top ? step.substring(1) : step;
+    var finder = words.startsWith('~')
+        ? find.byTooltip(words.substring(1))
+        : find.text(words);
+    if (finder.evaluate().isEmpty) finder = find.textContaining(words);
+    expect(finder, findsWidgets, reason: 'no 「$words」 to tap');
+    final target = top ? finder.last : finder.first;
+    // Below the fold on a short screen: scrolled to first, or the tap
+    // would land on nothing and the place never open.
+    await tester.ensureVisible(target);
+    await tester.pumpAndSettle();
+    await tester.tap(target, warnIfMissed: false);
     await tester.pumpAndSettle();
   }
 }
