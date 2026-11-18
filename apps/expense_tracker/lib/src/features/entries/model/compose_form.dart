@@ -7,6 +7,7 @@ import '../../../core/ledger/trading.dart';
 
 part 'compose_form_lending.dart';
 part 'compose_form_split.dart';
+part 'compose_form_transfer.dart';
 
 /// The kinds of record the composer makes. 代墊 has no tab of its own:
 /// it is picked inside 支出 (paid for someone) or 收入 (paid back).

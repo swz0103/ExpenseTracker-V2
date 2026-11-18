@@ -34,11 +34,15 @@ export '../model/compose_form.dart' show ComposeMode;
 import 'choice_strip.dart';
 import 'compose_cards.dart';
 import 'compose_chips.dart';
+import 'compose_mode_look.dart';
 import 'compose_widgets.dart';
+import 'entry_view_card.dart';
 import 'fill_layout.dart';
 import 'holding_choices.dart';
 import 'people_choices.dart';
 import 'trade_cards.dart';
+
+export 'compose_mode_look.dart';
 
 part 'composer_fields.dart';
 part 'composer_investment.dart';
@@ -48,25 +52,6 @@ part 'composer_extras.dart';
 part 'composer_pickers.dart';
 part 'composer_amount.dart';
 part 'composer_view.dart';
-
-/// How each kind of record looks on its tab.
-extension ComposeModeLook on ComposeMode {
-  Glyph get icon => switch (this) {
-    ComposeMode.expense => Glyph.bag,
-    ComposeMode.income => Glyph.income,
-    ComposeMode.transfer => Glyph.transfer,
-    ComposeMode.lend => Glyph.heart,
-    ComposeMode.investment => Glyph.investment,
-  };
-
-  Color get color => switch (this) {
-    ComposeMode.expense => Hue.negative,
-    ComposeMode.income => Hue.positive,
-    ComposeMode.transfer => Hue.transfer,
-    ComposeMode.lend => Hue.receivable,
-    ComposeMode.investment => Hue.investment,
-  };
-}
 
 /// A form put aside with 暫存: the entry as it stood and the receipt
 /// photo chosen for it, which is not part of the entry until it is saved.

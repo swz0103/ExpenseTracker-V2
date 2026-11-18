@@ -44,81 +44,10 @@ extension _View on _ComposerState {
               ],
             ),
           ),
-        _viewCard(e, title),
+        EntryViewCard(ledger: _ledger, entry: e, title: title, mode: _f.mode),
         const SizedBox(height: Space.s2),
         CardGrid(gap: 8, cells),
       ],
-    );
-  }
-
-  /// The card on top of an entry looked at: in its colour with its mark,
-  /// what kind it is, what it is called, and its amount.
-  Widget _viewCard(Entry e, String title) {
-    final category = _ledger.category(e.category);
-    final mode = _f.mode;
-    final trade = e.type.index >= EntryType.buy.index;
-    final (Glyph glyph, Color color) = switch (e.type) {
-      EntryType.transfer => (Glyph.transfer, Hue.transfer),
-      _ when trade => (Glyph.investment, Hue.investment),
-      _ => (iconFor(category.icon), shownColor(Color(category.color))),
-    };
-    final kind = switch (e.type) {
-      EntryType.transfer => mode.label,
-      _ when trade => mode.label,
-      _ => '${mode.label} · ${category.name}',
-    };
-    final currency = _ledger.account(e.account).currency;
-    return ColorCard(
-      color: color,
-      radius: Radii.largeIncreased,
-      padding: const EdgeInsets.fromLTRB(
-        Space.s4,
-        Space.s4,
-        Space.s4,
-        Space.s4,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              SquareIcon(glyph, color, size: 52),
-              const SizedBox(width: Space.s3),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    OneLine(kind, style: mutedSmall),
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: TextSize.title,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: Space.s2),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '${entrySign(e.type)}${_ledger.moneyIn(e.amount, currency)}',
-              style: TextStyle(
-                fontSize: TextSize.big,
-                fontWeight: FontWeight.w800,
-                height: 1.15,
-                color: e.type == EntryType.transfer ? Hue.ink : mode.color,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

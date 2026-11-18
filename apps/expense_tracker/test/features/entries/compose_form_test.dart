@@ -311,4 +311,24 @@ void main() {
     form.togglePaying('taxi');
     expect(form.amount, 200);
   });
+
+  test('a transfer shows what each end holds once it is made', () {
+    final form = ComposeForm(book(), type: EntryType.transfer)
+      ..account = 'bank'
+      ..to = 'cash'
+      ..setAmount(500);
+    expect((form.fromAfter, form.toAfter), (99500, 2500));
+    // A fee comes off the end it is paid from only.
+    form.fee = 15;
+    expect((form.fromAfter, form.toAfter), (99485, 2500));
+  });
+
+  test('another end works out what is received again', () {
+    final form = ComposeForm(book(), type: EntryType.transfer)..received = 70;
+    form.setTo('bank');
+    expect((form.to, form.received), ('bank', null));
+    form.received = 70;
+    form.setFrom('cash');
+    expect((form.account, form.received), ('cash', null));
+  });
 }

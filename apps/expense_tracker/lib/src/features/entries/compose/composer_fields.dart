@@ -227,74 +227,23 @@ extension _Fields on _ComposerState {
 
   /// The two accounts of a transfer side by side, each with what it will
   /// hold afterwards, and between them the arrow that turns them round.
-  Widget _ends() {
-    final from = _ledger.account(_f.account);
-    final to = _ledger.account(_f.to);
-    final fee = _f.takesFee ? _f.fee : 0;
-    final arrives = _f.crossing ? _f.receivedValue ?? 0 : _f.amount;
-    final moved = _f.amount > 0;
-    String held(Account a, int change) {
-      final now = _ledger.balanceService.balance(a.id);
-      return _ledger.moneyIn(now + change, a.currency);
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: Space.s3),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TransferEndCard(
-                  account: from,
-                  label: '轉出帳戶',
-                  after: moved
-                      ? '剩 ${held(from, -_f.amount - fee)}'
-                      : '餘額 ${held(from, 0)}',
-                  onTap: () async {
-                    final picked = await _pickAccount('轉出帳戶', _f.account);
-                    if (picked == null) return;
-                    _set(() {
-                      _f.account = picked;
-                      _f.received = null;
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: Space.s2),
-              Expanded(
-                child: TransferEndCard(
-                  account: to,
-                  label: '轉入帳戶',
-                  end: true,
-                  after: moved ? '變 ${held(to, arrives)}' : '餘額 ${held(to, 0)}',
-                  onTap: () async {
-                    final picked = await _pickAccount('轉入帳戶', _f.to);
-                    if (picked == null) return;
-                    _set(() {
-                      _f.to = picked;
-                      _f.received = null;
-                    });
-                  },
-                ),
-              ),
-            ],
-          ),
-          IconButton(
-            tooltip: '對調',
-            onPressed: () => _set(_f.swapEnds),
-            style: IconButton.styleFrom(
-              backgroundColor: Hue.white,
-              elevation: 2,
-              shadowColor: Hue.lift,
-            ),
-            icon: const GlyphIcon(Glyph.arrow, size: 18, color: Hue.transfer),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _ends() => TransferEnds(
+    ledger: _ledger,
+    from: _ledger.account(_f.account),
+    to: _ledger.account(_f.to),
+    amount: _f.amount,
+    fromAfter: _f.fromAfter,
+    toAfter: _f.toAfter,
+    onPickFrom: () async {
+      final picked = await _pickAccount('轉出帳戶', _f.account);
+      if (picked != null) _set(() => _f.setFrom(picked));
+    },
+    onPickTo: () async {
+      final picked = await _pickAccount('轉入帳戶', _f.to);
+      if (picked != null) _set(() => _f.setTo(picked));
+    },
+    onSwap: () => _set(_f.swapEnds),
+  );
 
   /// What a transfer between currencies delivers, at today's rates until
   /// typed.

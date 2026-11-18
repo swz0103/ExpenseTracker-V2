@@ -8,6 +8,7 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 // The cards of the entry form's fields: a split's bar, a choice and the
 // two ends of a transfer.
@@ -285,4 +286,85 @@ class ViewFieldTile extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// A transfer's two ends side by side, [from] and [to], each with what
+/// it holds now, or once [amount] moves (then [fromAfter] and [toAfter]);
+/// 對調 between them swaps the two.
+class TransferEnds extends StatelessWidget {
+  const TransferEnds({
+    super.key,
+    required this.ledger,
+    required this.from,
+    required this.to,
+    required this.amount,
+    required this.fromAfter,
+    required this.toAfter,
+    required this.onPickFrom,
+    required this.onPickTo,
+    required this.onSwap,
+  });
+
+  final Ledger ledger;
+  final Account from;
+  final Account to;
+  final int amount;
+  final int fromAfter;
+  final int toAfter;
+  final VoidCallback onPickFrom;
+  final VoidCallback onPickTo;
+  final VoidCallback onSwap;
+
+  String _held(Account a, int value) => ledger.moneyIn(value, a.currency);
+
+  @override
+  Widget build(BuildContext context) {
+    final moved = amount > 0;
+    final fromNow = ledger.balanceService.balance(from.id);
+    final toNow = ledger.balanceService.balance(to.id);
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.s3),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TransferEndCard(
+                  account: from,
+                  label: '轉出帳戶',
+                  after: moved
+                      ? '剩 ${_held(from, fromAfter)}'
+                      : '餘額 ${_held(from, fromNow)}',
+                  onTap: onPickFrom,
+                ),
+              ),
+              const SizedBox(width: Space.s2),
+              Expanded(
+                child: TransferEndCard(
+                  account: to,
+                  label: '轉入帳戶',
+                  end: true,
+                  after: moved
+                      ? '變 ${_held(to, toAfter)}'
+                      : '餘額 ${_held(to, toNow)}',
+                  onTap: onPickTo,
+                ),
+              ),
+            ],
+          ),
+          IconButton(
+            tooltip: '對調',
+            onPressed: onSwap,
+            style: IconButton.styleFrom(
+              backgroundColor: Hue.white,
+              elevation: 2,
+              shadowColor: Hue.lift,
+            ),
+            icon: const GlyphIcon(Glyph.arrow, size: 18, color: Hue.transfer),
+          ),
+        ],
+      ),
+    );
+  }
 }
