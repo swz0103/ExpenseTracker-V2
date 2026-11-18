@@ -31,14 +31,22 @@ String percentOf(int part, int whole) {
   return '${value > 0 ? '+' : ''}${value.toStringAsFixed(1)}%';
 }
 
-/// [minor] units of [currency] as people write them: NT$ as [groupDigits],
-/// others with their code and decimals, such as `USD 1,234.50`.
-String amountIn(int minor, String currency) {
-  if (currency == 'TWD') return groupDigits(minor);
-  if (Currency.scaleOf(currency) == 0) {
-    return '$currency ${groupDigits(minor)}';
-  }
+/// What a currency is called beside its figures: NT\$ for New Taiwan
+/// dollars, the code for the others, such as `USD`.
+String currencyLabel(String currency) => currency == 'TWD' ? r'NT$' : currency;
+
+/// [minor] units of [currency] as figures only, grouped and with its
+/// decimals but without its code, for a place that shows the currency
+/// beside them: `1,234.50` for 123450 US cents.
+String figuresIn(int minor, String currency) {
+  if (Currency.scaleOf(currency) == 0) return groupDigits(minor);
   final cents = (minor.abs() % 100).toString().padLeft(2, '0');
   final whole = groupDigits(minor.abs() ~/ 100);
-  return '$currency ${minor < 0 ? '-' : ''}$whole.$cents';
+  return '${minor < 0 ? '-' : ''}$whole.$cents';
 }
+
+/// [minor] units of [currency] as people write them: NT\$ as [groupDigits],
+/// others with their code and decimals, such as `USD 1,234.50`.
+String amountIn(int minor, String currency) => currency == 'TWD'
+    ? groupDigits(minor)
+    : '$currency ${figuresIn(minor, currency)}';

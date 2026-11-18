@@ -13,6 +13,27 @@ void main() {
     expect(plainIn(300, 'TWD'), '300');
   });
 
+  test('beside its currency, an amount shows its figures only', () {
+    // A foreign amount once read 「USD USD 12.50」 on the forms.
+    expect(currencyLabel('TWD'), r'NT$');
+    expect(currencyLabel('USD'), 'USD');
+    expect(figuresIn(123450, 'USD'), '1,234.50');
+    expect(figuresIn(-5, 'USD'), '-0.05');
+    expect(figuresIn(5000, 'JPY'), '5,000');
+    expect(figuresIn(1234567, 'TWD'), '1,234,567');
+    for (final code in ['TWD', 'USD', 'JPY', 'EUR']) {
+      for (final minor in [0, 7, -5, 123450, -98765432]) {
+        final written = amountIn(minor, code);
+        expect(
+          written,
+          code == 'TWD'
+              ? figuresIn(minor, code)
+              : '$code ${figuresIn(minor, code)}',
+        );
+      }
+    }
+  });
+
   test('typed amounts are read in the smallest unit', () {
     expect(minorOf('12.5', 'USD'), 1250);
     expect(minorOf('1,200', 'USD'), 120000);

@@ -22,8 +22,11 @@ extension _Amount on _ComposerState {
               (widget.entry?.amount ?? 0);
     return _AmountHero(
       label: _amountLabel,
-      unit: unit ?? (_f.currency == homeCode ? r'NT$' : _f.currency),
-      value: '${_f.sign}${amountIn(_f.amount, _f.currency)}',
+      // Beside its currency the amount is figures only; beside a word
+      // such as 實收 it keeps its currency.
+      unit: unit ?? currencyLabel(_f.currency),
+      value:
+          '${_f.sign}${unit == null ? figuresIn(_f.amount, _f.currency) : amountIn(_f.amount, _f.currency)}',
       color: _color,
       // Only while editing: an entry looked at shows no calculator.
       onTap: _viewing ? null : _calculate,

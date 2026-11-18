@@ -1,5 +1,7 @@
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/recurring_messages.dart';
+import '../../../core/text/dates.dart';
+import 'recurring_schedule.dart';
 
 /// What the form of a recurring item holds while it is filled in: a new
 /// item, or the changes to [old]. The screen only shows it.
@@ -55,6 +57,31 @@ final class RecurringForm {
 
   /// The currency of the account it is paid from or into.
   String get currency => ledger.account(account).currency;
+
+  /// The categories offered under the card: the usual ones of its side,
+  /// with the one chosen first in place of the last when it is not among
+  /// them, so the choice is always in sight.
+  List<Category> get categoryChoices {
+    final usual = usualCategories(ledger, income: income);
+    if (category.isNotEmpty &&
+        usual.isNotEmpty &&
+        !usual.any((c) => c.name == category)) {
+      usual
+        ..removeLast()
+        ..insert(0, ledger.category(category));
+    }
+    return usual;
+  }
+
+  /// What differs from a new item's defaults, as the strip under the
+  /// categories shows it: when it starts, how it is booked, an end and
+  /// whether it is paused.
+  List<String> get notes => [
+    '${formatMd(start)} 起',
+    auto ? '到期自動入帳' : '手動入帳',
+    if (end case final end?) '到 ${formatMd(end)}',
+    if (!active) '已暫停',
+  ];
 
   /// Moves between spending and income, with that side's first category.
   void setIncome(bool value) {

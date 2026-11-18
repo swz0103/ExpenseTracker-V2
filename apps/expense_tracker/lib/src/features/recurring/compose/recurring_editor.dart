@@ -11,6 +11,7 @@ import '../../../core/ui/calculator.dart';
 import '../../../core/ui/pickers.dart';
 import '../model/recurring_schedule.dart';
 import '../model/recurring_form.dart';
+import 'recurring_form_widgets.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/messages/recurring_messages.dart';
 import '../../../core/look/shape.dart';
@@ -133,283 +134,33 @@ class _RecurringEditorState extends State<_RecurringEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final category = _ledger.category(_f.category);
-    final color = shownColor(Color(category.color));
-    final ink = deepOf(color);
-    final side = _f.income ? Hue.positive : Hue.negative;
     final editing = widget.item != null;
-    final usual = usualCategories(_ledger, income: _f.income);
-    if (!usual.any((c) => c.name == _f.category) &&
-        _f.category.isNotEmpty &&
-        usual.isNotEmpty) {
-      usual
-        ..removeLast()
-        ..insert(0, category);
-    }
-    final start = _f.start;
-    final notes = [
-      '${formatMd(start)} 起',
-      _f.auto ? '到期自動入帳' : '手動入帳',
-      if (_f.end case final end?) '到 ${formatMd(end)}',
-      if (!_f.active) '已暫停',
-    ];
-    Widget mini(String label, String value, VoidCallback onTap) => Material(
-      color: Hue.white,
-      borderRadius: BorderRadius.circular(Radii.large),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(Radii.large),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Space.s3,
-            Space.s2,
-            Space.s2,
-            Space.s2,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: TextSize.tiny,
-                        color: Hue.muted,
-                      ),
-                    ),
-                    Text(
-                      value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: TextSize.body,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const GlyphIcon(Glyph.next, size: 14, color: Hue.muted),
-            ],
-          ),
-        ),
-      ),
-    );
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              for (final (i, income) in const [false, true].indexed) ...[
-                if (i > 0) const SizedBox(width: Space.s2),
-                Expanded(
-                  child: Semantics(
-                    selected: _f.income == income,
-                    child: Material(
-                      color: _f.income == income
-                          ? (income ? Hue.positive : Hue.negative)
-                          : Hue.surface,
-                      borderRadius: BorderRadius.circular(Radii.large),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(Radii.large),
-                        onTap: () => setState(() => _f.setIncome(income)),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(minHeight: 50),
-                          child: Center(
-                            child: Text(
-                              income ? '收入' : '支出',
-                              style: TextStyle(
-                                fontSize: TextSize.title,
-                                fontWeight: FontWeight.w800,
-                                color: _f.income == income
-                                    ? Hue.onAccent
-                                    : Hue.muted,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
+          SideChoice(
+            income: _f.income,
+            onChanged: (income) => setState(() => _f.setIncome(income)),
           ),
           const SizedBox(height: Space.s3),
-          // The card is the form.
-          Container(
-            padding: const EdgeInsets.fromLTRB(
-              Space.s4,
-              Space.s4,
-              Space.s3,
-              Space.s4,
-            ),
-            decoration: BoxDecoration(
-              color: tintOf(color, 0.22),
-              borderRadius: BorderRadius.circular(Radii.largeIncreased),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    SquareIcon(iconFor(category.icon), color, size: 48),
-                    const SizedBox(width: Space.s3),
-                    Expanded(
-                      child: TextField(
-                        controller: _name,
-                        style: TextStyle(
-                          fontSize: TextSize.heading,
-                          fontWeight: FontWeight.w800,
-                          color: ink,
-                        ),
-                        decoration: InputDecoration.collapsed(
-                          hintText: '點這裡取個名字',
-                          hintStyle: TextStyle(
-                            fontSize: TextSize.heading,
-                            color: ink.withValues(alpha: 0.55),
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (editing)
-                      Material(
-                        color: Hue.white,
-                        borderRadius: BorderRadius.circular(Radii.large),
-                        child: IconButton(
-                          tooltip: '刪除',
-                          onPressed: _remove,
-                          icon: const GlyphIcon(
-                            Glyph.trash,
-                            size: 18,
-                            color: Hue.danger,
-                          ),
-                        ),
-                      )
-                    else
-                      GlyphIcon(Glyph.edit, size: 16, color: ink),
-                  ],
-                ),
-                const SizedBox(height: Space.s2),
-                AmountTap(
-                  label: '金額 ${_f.amount}',
-                  onTap: _amount,
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text:
-                              '${_f.currency == homeCode ? 'NT\$' : _f.currency} ',
-                          style: const TextStyle(
-                            fontSize: TextSize.heading,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        TextSpan(
-                          text: amountIn(_f.amount, _f.currency),
-                          style: const TextStyle(
-                            fontSize: TextSize.hero,
-                            fontWeight: FontWeight.w800,
-                            color: Hue.ink,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: Space.s2),
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: mini(
-                          _f.income ? '存入' : '帳戶',
-                          _ledger.account(_f.account).name,
-                          _account,
-                        ),
-                      ),
-                      const SizedBox(width: Space.s2),
-                      Expanded(child: mini('重複', _f.rhythm, _repeat)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _card(editing: editing),
           if (_problem case final problem?)
             Padding(
               padding: const EdgeInsets.only(top: Space.s2),
               child: Text(problem, style: const TextStyle(color: Hue.danger)),
             ),
           const SizedBox(height: Space.s3),
-          Row(
-            children: [
-              for (final c in usual) ...[
-                Expanded(child: _categoryChoice(c)),
-                const SizedBox(width: Space.s2),
-              ],
-              Expanded(
-                child: Semantics(
-                  button: true,
-                  label: '全部分類',
-                  child: InkWell(
-                    onTap: _allCategories,
-                    borderRadius: BorderRadius.circular(Radii.large),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: Hue.surface,
-                            borderRadius: BorderRadius.circular(Radii.large),
-                          ),
-                          alignment: Alignment.center,
-                          child: const GlyphIcon(
-                            Glyph.grid,
-                            size: 22,
-                            color: Hue.muted,
-                          ),
-                        ),
-                        const SizedBox(height: Space.s4),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          CategoryChoiceRow(
+            choices: _f.categoryChoices,
+            chosen: _f.category,
+            onChosen: (name) => setState(() => _f.category = name),
+            onAll: _allCategories,
           ),
           const SizedBox(height: Space.s2),
-          ColorCard(
-            color: Hue.faint,
-            amount: 0.18,
-            radius: Radii.large,
-            onTap: _others,
-            label: '其他設定',
-            padding: const EdgeInsets.symmetric(
-              horizontal: Space.s4,
-              vertical: Space.s4,
-            ),
-            child: Row(
-              children: [
-                const GlyphIcon(Glyph.calendar, size: 18, color: Hue.muted),
-                const SizedBox(width: Space.s2),
-                Expanded(
-                  child: Text(
-                    notes.join(' · '),
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-                const GlyphIcon(Glyph.next, size: 14, color: Hue.muted),
-              ],
-            ),
-          ),
+          OtherSettingsStrip(notes: _f.notes, onTap: _others),
           const SizedBox(height: Space.s4),
           PanelButton(
             editing
@@ -417,7 +168,9 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                 : _f.income
                 ? '儲存固定收入'
                 : '儲存固定支出',
-            color: editing ? Hue.accent : side,
+            color: editing
+                ? Hue.accent
+                : (_f.income ? Hue.positive : Hue.negative),
             onTap: _save,
           ),
         ],
@@ -425,76 +178,117 @@ class _RecurringEditorState extends State<_RecurringEditor> {
     );
   }
 
-  Widget _categoryChoice(Category c) {
-    final chosen = c.name == _f.category;
-    return Semantics(
-      button: true,
-      selected: chosen,
-      label: c.name,
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: () => setState(() => _f.category = c.name),
-        borderRadius: BorderRadius.circular(Radii.large),
-        child: Column(
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                chosen
-                    ? SquareIcon(
-                        iconFor(c.icon),
-                        shownColor(Color(c.color)),
-                        size: 48,
-                      )
-                    : Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: tintOf(shownColor(Color(c.color)), 0.22),
-                          borderRadius: BorderRadius.circular(Radii.large),
-                        ),
-                        alignment: Alignment.center,
-                        child: GlyphIcon(
-                          iconFor(c.icon),
-                          size: 22,
-                          color: shownColor(Color(c.color)),
-                        ),
-                      ),
-                if (chosen)
-                  Positioned(
-                    right: -4,
-                    top: -4,
-                    child: Container(
-                      width: 18,
-                      height: 18,
-                      decoration: const BoxDecoration(
-                        color: Hue.white,
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: GlyphIcon(
-                        Glyph.check,
-                        size: 11,
-                        color: shownColor(Color(c.color)),
-                      ),
+  /// The card that is the form, in its category's colour: the name, the
+  /// amount, and the account and how often.
+  Widget _card({required bool editing}) {
+    final category = _ledger.category(_f.category);
+    final color = shownColor(Color(category.color));
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s3,
+        Space.s4,
+      ),
+      decoration: BoxDecoration(
+        color: tintOf(color, 0.22),
+        borderRadius: BorderRadius.circular(Radii.largeIncreased),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _nameRow(category, color, editing: editing),
+          const SizedBox(height: Space.s2),
+          AmountTap(
+            label: '金額 ${_f.amount}',
+            onTap: _amount,
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '${currencyLabel(_f.currency)} ',
+                    style: const TextStyle(
+                      fontSize: TextSize.heading,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-              ],
-            ),
-            const SizedBox(height: Space.s1),
-            Text(
-              c.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: TextSize.caption,
-                fontWeight: chosen ? FontWeight.w800 : FontWeight.w400,
-                color: chosen ? deepOf(shownColor(Color(c.color))) : Hue.muted,
+                  TextSpan(
+                    text: figuresIn(_f.amount, _f.currency),
+                    style: const TextStyle(
+                      fontSize: TextSize.hero,
+                      fontWeight: FontWeight.w800,
+                      color: Hue.ink,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: Space.s2),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: FormFieldTile(
+                    label: _f.income ? '存入' : '帳戶',
+                    value: _ledger.account(_f.account).name,
+                    onTap: _account,
+                  ),
+                ),
+                const SizedBox(width: Space.s2),
+                Expanded(
+                  child: FormFieldTile(
+                    label: '重複',
+                    value: _f.rhythm,
+                    onTap: _repeat,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  /// The category's icon, the name typed in, and 刪除 while editing.
+  Widget _nameRow(Category category, Color color, {required bool editing}) {
+    final ink = deepOf(color);
+    return Row(
+      children: [
+        SquareIcon(iconFor(category.icon), color, size: 48),
+        const SizedBox(width: Space.s3),
+        Expanded(
+          child: TextField(
+            controller: _name,
+            style: TextStyle(
+              fontSize: TextSize.heading,
+              fontWeight: FontWeight.w800,
+              color: ink,
+            ),
+            decoration: InputDecoration.collapsed(
+              hintText: '點這裡取個名字',
+              hintStyle: TextStyle(
+                fontSize: TextSize.heading,
+                color: ink.withValues(alpha: 0.55),
+              ),
+            ),
+          ),
+        ),
+        if (editing)
+          Material(
+            color: Hue.white,
+            borderRadius: BorderRadius.circular(Radii.large),
+            child: IconButton(
+              tooltip: '刪除',
+              onPressed: _remove,
+              icon: const GlyphIcon(Glyph.trash, size: 18, color: Hue.danger),
+            ),
+          )
+        else
+          GlyphIcon(Glyph.edit, size: 16, color: ink),
+      ],
     );
   }
 }

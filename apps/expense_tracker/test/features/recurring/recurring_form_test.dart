@@ -94,4 +94,41 @@ void main() {
     form.setWeekday(1);
     expect(form.start, DateTime.utc(2026, 10, 26));
   });
+
+  test('the chosen category is always among those offered', () {
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 10, 4),
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 0)],
+      categories: [
+        for (final n in ['飲食', '交通', '居家', '娛樂', '醫療', '教育', '其他'])
+          Category(n, 'other', 0xFF000000),
+      ],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      dataSource: _Nowhere(),
+    );
+    final form = RecurringForm(ledger);
+    final usual = [for (final c in form.categoryChoices) c.name];
+    expect(usual, hasLength(5));
+    expect(usual, contains(form.category));
+
+    // One not among the usual takes the first place; the last gives way.
+    form.category = '其他';
+    expect(
+      [for (final c in form.categoryChoices) c.name],
+      ['其他', ...usual.take(4)],
+    );
+  });
+
+  test('the strip names only what differs from the defaults', () {
+    final form = RecurringForm(book(), on: DateTime.utc(2026, 10, 5));
+    expect(form.notes, ['10/5 起', '手動入帳']);
+    form
+      ..auto = true
+      ..end = DateTime.utc(2027, 3, 5)
+      ..active = false;
+    expect(form.notes, ['10/5 起', '到期自動入帳', '到 3/5', '已暫停']);
+  });
 }
