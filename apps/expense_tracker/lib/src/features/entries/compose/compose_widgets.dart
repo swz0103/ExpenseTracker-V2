@@ -1,8 +1,25 @@
-part of 'composer.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/look/glyphs.dart';
+import '../../../core/ui/icons.dart';
+import '../../../core/look/theme.dart';
+import '../../../core/look/widgets.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/ui/shown_amounts.dart';
+import '../../../core/text/dates.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
+
+// The pieces of the entry form that hold no state of the form: its tabs,
+// headers, amount, pickers and the squares in a row of choices.
 
 /// The spending a refund belongs to, at the top of the refund form.
-class _OriginalTile extends StatelessWidget {
-  const _OriginalTile({required this.ledger, required this.entry});
+class OriginalEntryTile extends StatelessWidget {
+  const OriginalEntryTile({
+    super.key,
+    required this.ledger,
+    required this.entry,
+  });
 
   final Ledger ledger;
   final Entry entry;
@@ -54,8 +71,9 @@ class _OriginalTile extends StatelessWidget {
 }
 
 /// A merchant's name, typed or picked from those used before.
-class _MerchantPicker extends StatefulWidget {
-  const _MerchantPicker({
+class MerchantPicker extends StatefulWidget {
+  const MerchantPicker({
+    super.key,
     required this.known,
     required this.initial,
     required this.onDone,
@@ -66,10 +84,10 @@ class _MerchantPicker extends StatefulWidget {
   final ValueChanged<String> onDone;
 
   @override
-  State<_MerchantPicker> createState() => _MerchantPickerState();
+  State<MerchantPicker> createState() => _MerchantPickerState();
 }
 
-class _MerchantPickerState extends State<_MerchantPicker> {
+class _MerchantPickerState extends State<MerchantPicker> {
   late final _text = TextEditingController(text: widget.initial);
 
   @override
@@ -134,8 +152,9 @@ class _MerchantPickerState extends State<_MerchantPicker> {
 }
 
 /// Tags to put on an entry: those in use, and new ones.
-class _TagPicker extends StatefulWidget {
-  const _TagPicker({
+class TagPicker extends StatefulWidget {
+  const TagPicker({
+    super.key,
     required this.known,
     required this.initial,
     required this.onDone,
@@ -146,10 +165,10 @@ class _TagPicker extends StatefulWidget {
   final ValueChanged<List<String>> onDone;
 
   @override
-  State<_TagPicker> createState() => _TagPickerState();
+  State<TagPicker> createState() => _TagPickerState();
 }
 
-class _TagPickerState extends State<_TagPicker> {
+class _TagPickerState extends State<TagPicker> {
   late final _picked = [...widget.initial];
   final _text = TextEditingController();
 
@@ -232,8 +251,9 @@ class _TagPickerState extends State<_TagPicker> {
 /// The kinds of entry along the top, sharing the width; the chosen one
 /// in ink over a thick line of its colour, the others faint over a thin
 /// one. [onReset] adds 重填 at the end, level with the words.
-class _Tabs extends StatelessWidget {
-  const _Tabs({
+class EntryTypeTabs extends StatelessWidget {
+  const EntryTypeTabs({
+    super.key,
     required this.labels,
     required this.selected,
     required this.color,
@@ -299,8 +319,8 @@ class _Tabs extends StatelessWidget {
 
 /// The title of a choice opened inside the sheet, centred, with the
 /// arrow back to the form on its left.
-class _PageHeader extends StatelessWidget {
-  const _PageHeader({required this.title, required this.onBack});
+class SubpageHeader extends StatelessWidget {
+  const SubpageHeader({super.key, required this.title, required this.onBack});
 
   final String title;
   final VoidCallback onBack;
@@ -339,8 +359,9 @@ class _PageHeader extends StatelessWidget {
 /// the right opens the keypad, as does a tap on the figure. [label] names
 /// it for a screen reader, such as 金額 or 代墊金額. [under] goes below,
 /// such as 常用.
-class _AmountHero extends StatelessWidget {
-  const _AmountHero({
+class AmountHero extends StatelessWidget {
+  const AmountHero({
+    super.key,
     required this.label,
     required this.unit,
     required this.value,
@@ -437,8 +458,8 @@ class _AmountHero extends StatelessWidget {
 }
 
 /// Small rounded words under the amount, such as one of 常用.
-class _Bubble extends StatelessWidget {
-  const _Bubble(this.label, this.onTap, {this.color, this.ink});
+class Bubble extends StatelessWidget {
+  const Bubble(this.label, this.onTap, {super.key, this.color, this.ink});
 
   final String label;
   final VoidCallback? onTap;
@@ -474,9 +495,9 @@ class _Bubble extends StatelessWidget {
   }
 }
 
-/// A row of [_Bubble]s, centred, sliding sideways when they do not fit.
-class _Bubbles extends StatelessWidget {
-  const _Bubbles(this.children);
+/// A row of [Bubble]s, centred, sliding sideways when they do not fit.
+class BubbleRow extends StatelessWidget {
+  const BubbleRow(this.children, {super.key});
 
   final List<Widget> children;
 
@@ -501,8 +522,9 @@ class _Bubbles extends StatelessWidget {
 /// One square in a row of choices, such as a category: a grey mark over
 /// its name, tinted and ringed in [color] when [picked]; [solid] fills it
 /// with [color] instead, such as 拆分中.
-class _StripItem extends StatelessWidget {
-  const _StripItem({
+class ChoiceStripItem extends StatelessWidget {
+  const ChoiceStripItem({
+    super.key,
     required this.label,
     required this.icon,
     required this.color,

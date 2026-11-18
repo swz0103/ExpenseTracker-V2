@@ -22,7 +22,7 @@ extension _LendFields on _ComposerState {
     }
     return [
       _hero(
-        under: _PersonPill(
+        under: PersonPill(
           text: _f.back ? '$name 還錢' : '幫 $name 付',
           sub: sub,
           color: _color,
@@ -41,8 +41,8 @@ extension _LendFields on _ComposerState {
   /// more people and a cross back to one's own spending.
   Widget _lendRow() {
     final shares = _f.lent ?? const <(String, int)>[];
-    return _UsualRow(
-      lead: _UsualChip(
+    return UsualRow(
+      lead: UsualChip(
         icon: Glyph.wallet,
         name: '自己',
         amount: groupDigits(_f.own),
@@ -50,7 +50,7 @@ extension _LendFields on _ComposerState {
       ),
       [
         for (final (i, (person, value)) in shares.indexed)
-          _LentChip(
+          LentShareChip(
             name: _ledger.account(person).name,
             amount: groupDigits(value),
             color: Hue.receivable,
@@ -63,7 +63,7 @@ extension _LendFields on _ComposerState {
                   },
           ),
         if (!_viewing) ...[
-          _UsualChip(icon: Glyph.add, name: '代墊給…', onTap: _pickLent),
+          UsualChip(icon: Glyph.add, name: '代墊給…', onTap: _pickLent),
           IconButton(
             tooltip: '不代墊',
             onPressed: () => _set(_f.stopLending),
@@ -119,7 +119,7 @@ extension _LendFields on _ComposerState {
           children: [
             for (final (i, (e, left)) in owed.indexed) ...[
               if (i > 0) const SizedBox(width: Space.s2),
-              _OwedCard(
+              OwedCard(
                 title: _owedTitle(e),
                 when: e.group == null
                     ? formatMd(e.date)

@@ -17,7 +17,7 @@ extension _Fields on _ComposerState {
 
   Widget _accountPick(String label) {
     final account = _ledger.account(_f.account);
-    return _Pick(
+    return PickCard(
       icon: accountIcon(account),
       label: label,
       value: account.name,
@@ -34,7 +34,7 @@ extension _Fields on _ComposerState {
 
   Widget _datePick() {
     final day = formatMd(_f.date);
-    return _Pick(
+    return PickCard(
       icon: Glyph.calendar,
       label: '日期',
       value: _f.date == _ledger.today ? '今天 $day' : '$day ${formatE(_f.date)}',
@@ -164,7 +164,7 @@ extension _Fields on _ComposerState {
                 : _splitState(),
           ),
           if (parts != null)
-            _AllocationBar(
+            AllocationBar(
               parts: [
                 for (final (name, value) in parts)
                   (_ledger.category(name), value),
@@ -204,7 +204,7 @@ extension _Fields on _ComposerState {
           else
             _pair(
               _f.takesFee
-                  ? _Pick(
+                  ? PickCard(
                       icon: Glyph.coins,
                       label: '手續費',
                       value: '手續費 ${groupDigits(_f.fee)}',
@@ -247,7 +247,7 @@ extension _Fields on _ComposerState {
           Row(
             children: [
               Expanded(
-                child: _TransferEnd(
+                child: TransferEndCard(
                   account: from,
                   label: '轉出帳戶',
                   after: moved
@@ -265,7 +265,7 @@ extension _Fields on _ComposerState {
               ),
               const SizedBox(width: Space.s2),
               Expanded(
-                child: _TransferEnd(
+                child: TransferEndCard(
                   account: to,
                   label: '轉入帳戶',
                   end: true,
@@ -329,7 +329,7 @@ extension _Fields on _ComposerState {
     if (_f.mode != ComposeMode.expense && !income) return null;
     final fresh = !_viewing && widget.entry == null && widget.draft == null;
     final lend = !_viewing && !_f.foreign
-        ? _UsualChip(
+        ? UsualChip(
             icon: Glyph.heart,
             name: income ? '對方還錢' : '代墊',
             strong: true,
@@ -341,12 +341,12 @@ extension _Fields on _ComposerState {
         : const <Entry>[];
     final scan = fresh && widget.scan != null && !income;
     if (usual.isEmpty && !scan && lend == null) return null;
-    return _UsualRow(lead: lend, [
-      if (scan) _UsualChip(icon: Glyph.scan, name: '掃發票', onTap: _scanInvoice),
+    return UsualRow(lead: lend, [
+      if (scan) UsualChip(icon: Glyph.scan, name: '掃發票', onTap: _scanInvoice),
       for (final (e, category) in [
         for (final e in usual) (e, _ledger.category(e.category)),
       ])
-        _UsualChip(
+        UsualChip(
           icon: iconFor(category.icon),
           name: e.merchant.isEmpty ? e.category : e.merchant,
           amount: groupDigits(e.amount),
@@ -363,9 +363,9 @@ extension _Fields on _ComposerState {
     }
     final usual = _ledger.entryQueryService.usualTransfers();
     if (usual.isEmpty) return null;
-    return _UsualRow([
+    return UsualRow([
       for (final e in usual)
-        _UsualChip(
+        UsualChip(
           icon: Glyph.transfer,
           name:
               '${_ledger.account(e.account).name}→'
@@ -381,8 +381,8 @@ extension _Fields on _ComposerState {
     final parts = _f.parts ?? const [];
     final used = parts.fold(0, (sum, p) => sum + p.$2);
     final left = _f.amount - used;
-    return _Bubbles([
-      _Bubble(
+    return BubbleRow([
+      Bubble(
         left == 0
             ? '✓ 剛好分完'
             : left > 0
@@ -392,7 +392,7 @@ extension _Fields on _ComposerState {
         color: left == 0 ? Hue.positive.withValues(alpha: 0.14) : null,
         ink: left == 0 ? Hue.positive : Hue.negative,
       ),
-      if (!_viewing && parts.isNotEmpty) _Bubble('平均分配', _evenly),
+      if (!_viewing && parts.isNotEmpty) Bubble('平均分配', _evenly),
     ]);
   }
 
@@ -420,7 +420,7 @@ extension _Fields on _ComposerState {
     }
     final items = [
       for (final category in [for (final n in shown) _ledger.category(n)])
-        _StripItem(
+        ChoiceStripItem(
           label: category.name,
           icon: iconFor(category.icon),
           color: splitting ? shownColor(Color(category.color)) : _color,
@@ -432,7 +432,7 @@ extension _Fields on _ComposerState {
               : () => _pickCategoryName(category.name),
         ),
       if (choices.length > shown.length || splitting)
-        _StripItem(
+        ChoiceStripItem(
           label: '全部',
           icon: Glyph.categories,
           color: _color,
@@ -445,7 +445,7 @@ extension _Fields on _ComposerState {
                 },
         ),
       if (!_viewing && !splitting)
-        _StripItem(
+        ChoiceStripItem(
           label: '新增',
           icon: Glyph.add,
           color: _color,
@@ -458,10 +458,10 @@ extension _Fields on _ComposerState {
     ];
     final canSplit =
         expense && !_viewing && !_f.foreign && !lending && !_f.lending;
-    return _Strip(
+    return ChoiceStrip(
       items: items,
       pinned: canSplit
-          ? _StripItem(
+          ? ChoiceStripItem(
               label: splitting ? '拆分中' : '拆分',
               icon: Glyph.sliders,
               color: Hue.negative,

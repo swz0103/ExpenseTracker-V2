@@ -21,7 +21,7 @@ extension _InvestmentFields on _ComposerState {
         ),
       ),
       if (_f.trading)
-        _AmountHero(
+        AmountHero(
           label: sell ? '實收' : '應付',
           unit: sell ? '實收' : '應付',
           value: groupDigits(_f.settlement),
@@ -33,7 +33,7 @@ extension _InvestmentFields on _ComposerState {
       _codes(),
       if (_f.trading)
         _pair(
-          _Figure(
+          TradeFigureCard(
             icon: Glyph.briefcase,
             label: '股數',
             value: groupDigits(_f.shares),
@@ -43,7 +43,7 @@ extension _InvestmentFields on _ComposerState {
               if (value != null) _set(() => _f.setShares(value));
             },
           ),
-          _Figure(
+          TradeFigureCard(
             icon: Glyph.coins,
             label: '成交價',
             value: _f.price == _f.price.roundToDouble()
@@ -98,7 +98,7 @@ extension _InvestmentFields on _ComposerState {
         Row(
           children: [
             Expanded(
-              child: _EqBox(
+              child: SettlementBox(
                 '成交',
                 groupDigits(_f.amount),
                 _viewing ? null : _calculate,
@@ -185,7 +185,7 @@ extension _InvestmentFields on _ComposerState {
       open: _f.more || _viewing,
       body: [
         if (!_viewing || _f.shareChange) ...[
-          const _GroupLabel('股數有變動'),
+          const GroupLabel('股數有變動'),
           Segments(
             labels: const ['沒有', '配股', '分割', '減資'],
             selected: change,
@@ -204,7 +204,7 @@ extension _InvestmentFields on _ComposerState {
             children: [
               if (_f.shareChange) ...[
                 Expanded(
-                  child: _EqBox(
+                  child: SettlementBox(
                     _f.reduce
                         ? '減資減少'
                         : _f.splitShares
@@ -227,7 +227,7 @@ extension _InvestmentFields on _ComposerState {
               ],
               if (!_f.reducing)
                 Expanded(
-                  child: _EqBox(
+                  child: SettlementBox(
                     '二代健保',
                     groupDigits(_f.withheld),
                     _viewing
@@ -279,12 +279,17 @@ extension _InvestmentFields on _ComposerState {
               child: Row(
                 children: [
                   if (code != null && !known.contains(code))
-                    _CodePill(code: code, name: '', picked: true, onTap: () {}),
+                    HoldingCodePill(
+                      code: code,
+                      name: '',
+                      picked: true,
+                      onTap: () {},
+                    ),
                   for (final h in holdings.all) ...[
                     const SizedBox(width: Space.s2),
-                    _CodePill(
+                    HoldingCodePill(
                       code: h.code,
-                      name: _shortName(h.name),
+                      name: shortHoldingName(h.name),
                       picked: h.code == code,
                       onTap: () => _set(() => _f.holding = h.code),
                     ),
@@ -299,7 +304,7 @@ extension _InvestmentFields on _ComposerState {
             margin: const EdgeInsets.only(left: Space.s1),
             color: Hue.line,
           ),
-          _SquareButton(
+          SquareIconButton(
             icon: Glyph.categories,
             label: '全部標的',
             onTap: _pickHolding,
@@ -317,7 +322,7 @@ extension _InvestmentFields on _ComposerState {
     int suggested,
     void Function(int value) keep,
   ) {
-    return _EqBox(
+    return SettlementBox(
       value == suggested ? '$label（試算）' : label,
       groupDigits(value),
       _viewing
@@ -361,9 +366,9 @@ class _HoldingChoicesState extends State<_HoldingChoices> {
         if (words.isEmpty ||
             h.code.toLowerCase().contains(words) ||
             h.name.toLowerCase().contains(words))
-          _HoldingCard(
+          HoldingCard(
             code: h.code,
-            name: _shortName(holdingLabel(h)),
+            name: shortHoldingName(holdingLabel(h)),
             held: h.shares > 0
                 ? '${ledger.orDots(groupDigits(h.shares))} 股'
                 : '已賣完',

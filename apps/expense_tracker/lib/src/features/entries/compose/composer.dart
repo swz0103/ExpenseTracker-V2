@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
 import '../../../core/look/dialogs.dart';
 import '../../../core/text/figures.dart';
@@ -31,15 +30,17 @@ import '../../../core/look/spacing.dart';
 
 export '../model/compose_form.dart' show ComposeMode;
 
+import 'choice_strip.dart';
+import 'compose_cards.dart';
+import 'compose_chips.dart';
+import 'compose_widgets.dart';
+import 'fill_layout.dart';
+import 'trade_cards.dart';
+
 part 'composer_fields.dart';
 part 'composer_investment.dart';
 part 'composer_lend.dart';
-part 'composer_widgets.dart';
 part 'composer_state.dart';
-part 'composer_strip.dart';
-part 'composer_allocation_bar.dart';
-part 'composer_usual_chip.dart';
-part 'composer_fill_layout.dart';
 part 'composer_extras.dart';
 part 'composer_pickers.dart';
 part 'composer_amount.dart';

@@ -20,7 +20,7 @@ extension _Amount on _ComposerState {
         ? 0
         : _ledger.entryQueryService.refundable(refunded) +
               (widget.entry?.amount ?? 0);
-    return _AmountHero(
+    return AmountHero(
       label: _amountLabel,
       // Beside its currency the amount is figures only; beside a word
       // such as 實收 it keeps its currency.

@@ -1,10 +1,20 @@
-part of 'composer.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/look/glyphs.dart';
+import '../../../core/look/theme.dart';
+import '../../../core/look/widgets.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
+
+// The chips and pills under the amount and among the fields of the
+// entry form: 常用, someone's share, words to pick and their headings.
 
 /// One of 常用 under the amount: a small white pill with a grey mark,
 /// its name and amount, a tap from a filled form. [strong] writes the
 /// name in ink, for a switch such as 代墊 at the front of the row.
-class _UsualChip extends StatelessWidget {
-  const _UsualChip({
+class UsualChip extends StatelessWidget {
+  const UsualChip({
+    super.key,
     required this.icon,
     required this.name,
     required this.onTap,
@@ -79,8 +89,9 @@ class _UsualChip extends StatelessWidget {
 
 /// Someone's share of a spending paid partly for them: a pill tinted in
 /// [color] with their name and amount, a tap to change it.
-class _LentChip extends StatelessWidget {
-  const _LentChip({
+class LentShareChip extends StatelessWidget {
+  const LentShareChip({
+    super.key,
     required this.name,
     required this.amount,
     required this.color,
@@ -151,8 +162,8 @@ class _LentChip extends StatelessWidget {
 
 /// 常用 as one row from the left that slides sideways; [lead], such as
 /// 代墊, stays first with a thin line after it.
-class _UsualRow extends StatelessWidget {
-  const _UsualRow(this.children, {this.lead});
+class UsualRow extends StatelessWidget {
+  const UsualRow(this.children, {super.key, this.lead});
 
   final List<Widget> children;
   final Widget? lead;
@@ -187,8 +198,9 @@ class _UsualRow extends StatelessWidget {
 /// Whom money is paid for or from, under the amount in place of 常用:
 /// a tinted pill with the person's name, a tap to change them, and a
 /// cross back to a plain entry.
-class _PersonPill extends StatelessWidget {
-  const _PersonPill({
+class PersonPill extends StatelessWidget {
+  const PersonPill({
+    super.key,
     required this.text,
     required this.sub,
     required this.color,
@@ -280,8 +292,9 @@ class _PersonPill extends StatelessWidget {
 
 /// One sum someone still owes, as a card to tick: what it was for, when,
 /// and what is left of it; ticked ones are what is being paid back.
-class _OwedCard extends StatelessWidget {
-  const _OwedCard({
+class OwedCard extends StatelessWidget {
+  const OwedCard({
+    super.key,
     required this.title,
     required this.when,
     required this.amount,
@@ -391,10 +404,11 @@ class _OwedCard extends StatelessWidget {
 
 /// A word to pick in a row of them, such as a merchant or a tag: grey,
 /// or tinted and ringed in [color] when [picked].
-class _WordChip extends StatelessWidget {
-  const _WordChip(
+class WordChip extends StatelessWidget {
+  const WordChip(
     this.label,
     this.onTap, {
+    super.key,
     required this.color,
     this.picked = false,
   });
@@ -433,8 +447,8 @@ class _WordChip extends StatelessWidget {
 }
 
 /// Words in a row that slides sideways, such as the merchants.
-class _WordRow extends StatelessWidget {
-  const _WordRow(this.children);
+class WordRow extends StatelessWidget {
+  const WordRow(this.children, {super.key});
 
   final List<Widget> children;
 
@@ -455,8 +469,8 @@ class _WordRow extends StatelessWidget {
 }
 
 /// A small grey heading over a group of fields, such as 商家.
-class _GroupLabel extends StatelessWidget {
-  const _GroupLabel(this.text);
+class GroupLabel extends StatelessWidget {
+  const GroupLabel(this.text, {super.key});
 
   final String text;
 

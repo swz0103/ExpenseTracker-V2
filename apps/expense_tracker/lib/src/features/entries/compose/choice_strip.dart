@@ -1,9 +1,15 @@
-part of 'composer.dart';
+import 'package:flutter/material.dart';
 
-/// A row of [_StripItem]s that slides sideways, with [pinned] kept still
+import '../../../core/look/theme.dart';
+import '../../../core/look/spacing.dart';
+import 'compose_widgets.dart';
+
+// A row of choices that slides sideways, its last one pinned.
+
+/// A row of [ChoiceStripItem]s that slides sideways, with [pinned] kept still
 /// at its right end after a thin line, so it is never pushed out of view.
-class _Strip extends StatelessWidget {
-  const _Strip({required this.items, this.pinned});
+class ChoiceStrip extends StatelessWidget {
+  const ChoiceStrip({super.key, required this.items, this.pinned});
 
   final List<Widget> items;
   final Widget? pinned;

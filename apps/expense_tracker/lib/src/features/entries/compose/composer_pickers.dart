@@ -107,7 +107,7 @@ extension _Pickers on _ComposerState {
   Future<void> _pickMerchant() async {
     final picked = await _open<String>(
       '商家',
-      (done) => _MerchantPicker(
+      (done) => MerchantPicker(
         known: _ledger.entryQueryService.merchants,
         initial: _f.merchant,
         onDone: done,
@@ -120,7 +120,7 @@ extension _Pickers on _ComposerState {
   Future<void> _pickTags() async {
     final picked = await _open<List<String>>(
       '標籤',
-      (done) => _TagPicker(
+      (done) => TagPicker(
         known: _ledger.reportService.tags,
         initial: _f.tags,
         onDone: done,

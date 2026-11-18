@@ -41,10 +41,10 @@ extension _Extras on _ComposerState {
           ),
         ),
         if (expense && (!_viewing || _f.merchant.isNotEmpty)) ...[
-          const _GroupLabel('商家'),
-          _WordRow([
+          const GroupLabel('商家'),
+          WordRow([
             for (final name in _merchantChoices())
-              _WordChip(
+              WordChip(
                 name,
                 () => _set(() {
                   if (name == _f.merchant) {
@@ -56,14 +56,14 @@ extension _Extras on _ComposerState {
                 color: _color,
                 picked: name == _f.merchant,
               ),
-            if (!_viewing) _WordChip('＋', _pickMerchant, color: _color),
+            if (!_viewing) WordChip('＋', _pickMerchant, color: _color),
           ]),
         ],
         if (!_viewing || _f.tags.isNotEmpty) ...[
-          const _GroupLabel('標籤'),
-          _WordRow([
+          const GroupLabel('標籤'),
+          WordRow([
             for (final tag in _tagChoices())
-              _WordChip(
+              WordChip(
                 '#$tag',
                 () => _set(() {
                   _f.tags = _f.tags.contains(tag)
@@ -76,7 +76,7 @@ extension _Extras on _ComposerState {
                 color: _color,
                 picked: _f.tags.contains(tag),
               ),
-            if (!_viewing) _WordChip('＋', _pickTags, color: _color),
+            if (!_viewing) WordChip('＋', _pickTags, color: _color),
           ]),
         ],
       ],

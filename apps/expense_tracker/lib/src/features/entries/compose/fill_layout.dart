@@ -1,12 +1,18 @@
-part of 'composer.dart';
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+
+// The layout that keeps the entry form one height from tab to tab.
 
 /// The form's fields one under another, stretched to the width, and at
 /// least [minHeight] tall: height to spare goes above and below the child
 /// at [grow], such as the amount, so the form keeps one size from tab to
 /// tab with nothing left empty at its foot. Its own height without the
 /// spare is told to [onHeight].
-class _Fill extends MultiChildRenderObjectWidget {
-  const _Fill({
+class FillLayout extends MultiChildRenderObjectWidget {
+  const FillLayout({
+    super.key,
     required this.minHeight,
     required this.grow,
     required this.onHeight,
@@ -19,10 +25,10 @@ class _Fill extends MultiChildRenderObjectWidget {
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderFill(minHeight, grow, onHeight);
+      RenderFillLayout(minHeight, grow, onHeight);
 
   @override
-  void updateRenderObject(BuildContext context, _RenderFill renderObject) {
+  void updateRenderObject(BuildContext context, RenderFillLayout renderObject) {
     renderObject
       ..minHeight = minHeight
       ..grow = grow
@@ -30,13 +36,13 @@ class _Fill extends MultiChildRenderObjectWidget {
   }
 }
 
-class _FillData extends ContainerBoxParentData<RenderBox> {}
+class FillLayoutParentData extends ContainerBoxParentData<RenderBox> {}
 
-class _RenderFill extends RenderBox
+class RenderFillLayout extends RenderBox
     with
-        ContainerRenderObjectMixin<RenderBox, _FillData>,
-        RenderBoxContainerDefaultsMixin<RenderBox, _FillData> {
-  _RenderFill(this._minHeight, this._grow, this.onHeight);
+        ContainerRenderObjectMixin<RenderBox, FillLayoutParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, FillLayoutParentData> {
+  RenderFillLayout(this._minHeight, this._grow, this.onHeight);
 
   double _minHeight;
   set minHeight(double value) {
@@ -57,7 +63,9 @@ class _RenderFill extends RenderBox
 
   @override
   void setupParentData(RenderBox child) {
-    if (child.parentData is! _FillData) child.parentData = _FillData();
+    if (child.parentData is! FillLayoutParentData) {
+      child.parentData = FillLayoutParentData();
+    }
   }
 
   @override
@@ -78,7 +86,7 @@ class _RenderFill extends RenderBox
     child = firstChild;
     while (child != null) {
       if (i == _grow) y += spare / 2;
-      (child.parentData! as _FillData).offset = Offset(0, y);
+      (child.parentData! as FillLayoutParentData).offset = Offset(0, y);
       y += child.size.height;
       if (i == _grow) y += spare / 2;
       i++;

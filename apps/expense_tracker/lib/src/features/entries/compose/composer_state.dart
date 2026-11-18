@@ -344,7 +344,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: Space.s2),
-              child: _PageHeader(title: page.title, onBack: page.close),
+              child: SubpageHeader(title: page.title, onBack: page.close),
             ),
             Flexible(
               child: SingleChildScrollView(
@@ -378,12 +378,12 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
           if (refunded != null)
             Padding(
               padding: const EdgeInsets.only(right: Space.s2, bottom: Space.s1),
-              child: _OriginalTile(ledger: _ledger, entry: refunded),
+              child: OriginalEntryTile(ledger: _ledger, entry: refunded),
             )
           else if (_viewing)
             Center(child: Pill(_f.mode.label, color: _f.mode.color))
           else if (entry == null)
-            _Tabs(
+            EntryTypeTabs(
               labels: [for (final m in ComposeForm.tabs) m.label],
               selected: ComposeForm.tabs.indexOf(_f.tab),
               color: _f.tab.color,
@@ -413,8 +413,8 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     // cut off at the amount's foot, where a thin line shows once they
     // have moved.
     final all = _fields();
-    final hero = all.isNotEmpty && all.first is _AmountHero
-        ? all.first as _AmountHero
+    final hero = all.isNotEmpty && all.first is AmountHero
+        ? all.first as AmountHero
         : null;
     final below = [
       if (hero?.under case final under?) ...[
@@ -438,7 +438,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
             padding: const EdgeInsets.symmetric(horizontal: Space.s5),
             child: IgnorePointer(
               ignoring: _viewing,
-              child: _AmountHero(
+              child: AmountHero(
                 label: hero.label,
                 unit: hero.unit,
                 value: hero.value,
@@ -454,7 +454,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, 0),
       child: IgnorePointer(
         ignoring: _viewing,
-        child: _Fill(
+        child: FillLayout(
           // Each tab takes only the room its fields need: kept at the
           // tallest one's height, a short tab after 投資 left a blank.
           minHeight: 0,
