@@ -64,88 +64,16 @@ extension _Fields on _ComposerState {
     );
   }
 
-  Widget _noteField({int lines = 1, String hint = '寫點備註…'}) {
-    if (_viewing && _note.text.isEmpty) return const SizedBox.shrink();
-    // Looked at, the note is words on the page, once; a box to type in
-    // only while editing.
-    if (_viewing) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(Space.s1, Space.s2, Space.s1, 0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(top: Space.half),
-              child: GlyphIcon(Glyph.note, size: 18, color: Hue.muted),
-            ),
-            const SizedBox(width: Space.s2),
-            Expanded(
-              child: Text(
-                _note.text,
-                style: const TextStyle(fontSize: TextSize.body),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.only(top: Space.s2),
-      child: TextField(
-        controller: _note,
-        minLines: lines,
-        maxLines: math.max(lines, 3),
-        decoration: InputDecoration(
-          hintText: hint,
-          filled: true,
-          fillColor: Hue.surface,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(Radii.large),
-            borderSide: BorderSide.none,
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _noteField({int lines = 1, String hint = '寫點備註…'}) =>
+      NoteField(controller: _note, viewing: _viewing, lines: lines, hint: hint);
 
   /// The note, folded to one line until opened or written in.
-  Widget _noteRow() {
-    if (_viewing && _note.text.isEmpty) return const SizedBox.shrink();
-    if (_f.more || _note.text.isNotEmpty || _viewing) return _noteField();
-    return Padding(
-      padding: const EdgeInsets.only(top: Space.s2),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(Radii.medium),
-        onTap: () => _set(() => _f.more = true),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: Space.s4,
-            vertical: Space.s4,
-          ),
-          child: Row(
-            children: [
-              GlyphIcon(Glyph.note, size: 18, color: Hue.muted),
-              SizedBox(width: Space.s2),
-              Expanded(
-                child: Text(
-                  '備註',
-                  style: TextStyle(
-                    fontSize: TextSize.body,
-                    fontWeight: FontWeight.w600,
-                    color: Hue.muted,
-                  ),
-                ),
-              ),
-              RotatedBox(
-                quarterTurns: 1,
-                child: GlyphIcon(Glyph.next, size: 16, color: Hue.faint),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _noteRow() => NoteRow(
+    controller: _note,
+    viewing: _viewing,
+    open: _f.more,
+    onOpen: () => _set(() => _f.more = true),
+  );
 
   List<Widget> _fields() {
     if (_f.refunded != null) {

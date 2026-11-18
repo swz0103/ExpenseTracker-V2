@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -41,6 +40,7 @@ import 'fields_fold.dart';
 import 'fill_layout.dart';
 import 'form_frame.dart';
 import 'holding_choices.dart';
+import 'note_field.dart';
 import 'people_choices.dart';
 import 'receipt_square.dart';
 import 'trade_cards.dart';
