@@ -8,6 +8,7 @@ import '../../../../core/ui/entry_tile.dart';
 import '../../../../core/nav.dart';
 import '../../../../core/ui/shown_amounts.dart';
 import '../../../../core/look/spacing.dart';
+import '../../../../core/look/shape.dart';
 
 /// 預算 and 即將扣款 side by side: what is left of the month's limit, and
 /// what falls due.
@@ -56,7 +57,7 @@ class PlanSection extends StatelessWidget {
     const muted = TextStyle(fontSize: TextSize.caption, color: Hue.muted);
     return ColorCard(
       color: ToolHue.budgets,
-      radius: 20,
+      radius: Radii.largeIncreased,
       padding: const EdgeInsets.fromLTRB(
         Space.s4,
         Space.s3,
@@ -143,7 +144,7 @@ class PlanSection extends StatelessWidget {
     };
     return ColorCard(
       color: ToolHue.recurring,
-      radius: 20,
+      radius: Radii.largeIncreased,
       padding: const EdgeInsets.fromLTRB(
         Space.s4,
         Space.s3,

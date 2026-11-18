@@ -89,7 +89,7 @@ class TagPage extends StatelessWidget {
                   for (final other in _others())
                     ColorCard(
                       color: nameColor(other),
-                      radius: 16,
+                      radius: Radii.large,
                       label: merchant ? other : '#$other',
                       onTap: () => Navigator.of(context).pop(other),
                       padding: const EdgeInsets.symmetric(

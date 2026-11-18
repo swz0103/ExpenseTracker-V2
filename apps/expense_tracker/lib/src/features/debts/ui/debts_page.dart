@@ -289,7 +289,7 @@ class _PersonSquare extends StatelessWidget {
     final ink = deepOf(color);
     return ColorCard(
       color: color,
-      radius: 20,
+      radius: Radii.largeIncreased,
       onTap: onTap,
       padding: const EdgeInsets.fromLTRB(
         Space.s2,

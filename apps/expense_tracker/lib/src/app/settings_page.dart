@@ -259,7 +259,7 @@ class _Row extends StatelessWidget {
         Space.s2,
         Space.s4,
       ),
-      radius: 20,
+      radius: Radii.largeIncreased,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

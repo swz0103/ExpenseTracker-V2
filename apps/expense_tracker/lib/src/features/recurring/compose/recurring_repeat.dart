@@ -210,7 +210,7 @@ class _OtherSheetState extends State<_OtherSheet> {
   }) => ColorCard(
     color: Hue.faint,
     amount: 0.18,
-    radius: 16,
+    radius: Radii.large,
     onTap: onTap,
     label: '$label $value',
     padding: const EdgeInsets.fromLTRB(Space.s4, Space.s2, Space.s1, Space.s2),
@@ -249,7 +249,7 @@ class _OtherSheetState extends State<_OtherSheet> {
   ) => ColorCard(
     color: Hue.faint,
     amount: 0.18,
-    radius: 16,
+    radius: Radii.large,
     onTap: () => setState(() => set(!value)),
     padding: const EdgeInsets.fromLTRB(Space.s4, Space.s2, Space.s2, Space.s2),
     child: Row(

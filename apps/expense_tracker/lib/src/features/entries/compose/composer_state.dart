@@ -526,7 +526,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
                     key: Keys.save,
                     style: solidButton(
                       _viewing ? Hue.accent : _color,
-                      radius: 18,
+                      radius: Radii.large,
                       words: appFont.copyWith(
                         fontSize: TextSize.title,
                         fontWeight: FontWeight.w700,

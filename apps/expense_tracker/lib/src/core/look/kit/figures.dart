@@ -73,7 +73,7 @@ class FigureCard extends StatelessWidget {
     );
     return ColorCard(
       color: color,
-      radius: 20,
+      radius: Radii.largeIncreased,
       padding: const EdgeInsets.fromLTRB(
         Space.s4,
         Space.s3,

@@ -19,7 +19,7 @@ class _Manual extends StatelessWidget {
     final ink = deepOf(color);
     return ColorCard(
       color: color,
-      radius: 18,
+      radius: Radii.large,
       amount: 0.18,
       label: label,
       onTap: onTap,

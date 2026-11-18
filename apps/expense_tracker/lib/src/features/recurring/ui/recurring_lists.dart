@@ -255,7 +255,7 @@ class _Paused extends StatelessWidget {
                       Hue.white,
                       ink: Hue.accent,
                       minimumSize: Size(0, 40),
-                      radius: 12,
+                      radius: Radii.medium,
                       padding: const EdgeInsets.symmetric(horizontal: Space.s3),
                     ),
                     child: const Text(

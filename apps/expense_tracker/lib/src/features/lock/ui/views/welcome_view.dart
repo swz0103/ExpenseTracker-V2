@@ -7,6 +7,7 @@ import '../../../../core/look/kit/buttons.dart';
 import '../../../../core/look/keys.dart';
 import '../../../../core/text/dates.dart';
 import '../../../../core/look/spacing.dart';
+import '../../../../core/look/shape.dart';
 
 /// The first screen of a new ledger: the opening animation, then the page
 /// takes on the tint of 總覽's main tile, the mark rises a little with the
@@ -208,7 +209,7 @@ class _WelcomeViewState extends State<WelcomeView>
               style: solidButton(
                 Hue.accent,
                 minimumSize: Size.fromHeight(52),
-                radius: 16,
+                radius: Radii.large,
               ),
               child: busy
                   ? const BusyMark()

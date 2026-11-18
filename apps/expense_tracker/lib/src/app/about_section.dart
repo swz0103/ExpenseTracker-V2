@@ -193,7 +193,7 @@ class _Row2 extends StatelessWidget {
   Widget build(BuildContext context) => ColorCard(
     color: color,
     onTap: onTap,
-    radius: 20,
+    radius: Radii.largeIncreased,
     padding: const EdgeInsets.fromLTRB(Space.s3, Space.s2, Space.s2, Space.s2),
     child: Row(
       children: [
@@ -331,7 +331,7 @@ class _VersionCardState extends State<_VersionCard> {
               style: solidButton(
                 Hue.positive,
                 minimumSize: Size(0, 48),
-                radius: 14,
+                radius: Radii.large,
               ),
               child: const Text(
                 '更新',

@@ -404,7 +404,7 @@ class _Tile extends StatelessWidget {
     return ColorCard(
       color: plain ? Hue.faint : color,
       amount: plain ? 0.25 : 0.2,
-      radius: 20,
+      radius: Radii.largeIncreased,
       onTap: onTap,
       label: count > 0 ? '$label，$count 個子分類' : label,
       padding: const EdgeInsets.fromLTRB(

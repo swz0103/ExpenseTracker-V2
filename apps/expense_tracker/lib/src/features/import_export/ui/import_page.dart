@@ -341,7 +341,7 @@ class _ImportPageState extends State<_ImportPage> {
         ColorCard(
           color: Hue.accent,
           amount: 0.1,
-          radius: 16,
+          radius: Radii.large,
           onTap: _pickAccount,
           label: widget.invoices ? '付款帳戶' : '沒填帳戶時',
           padding: const EdgeInsets.symmetric(

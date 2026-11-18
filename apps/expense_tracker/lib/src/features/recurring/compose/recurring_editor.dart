@@ -389,7 +389,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
           ColorCard(
             color: Hue.faint,
             amount: 0.18,
-            radius: 16,
+            radius: Radii.large,
             onTap: _others,
             label: '其他設定',
             padding: const EdgeInsets.symmetric(

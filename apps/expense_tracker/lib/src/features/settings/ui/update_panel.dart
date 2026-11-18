@@ -210,7 +210,7 @@ class _Choice extends StatelessWidget {
       style: solidButton(
         color,
         minimumSize: Size(0, 52),
-        radius: 16,
+        radius: Radii.large,
         words: appFont.copyWith(
           fontSize: TextSize.title,
           fontWeight: FontWeight.w800,

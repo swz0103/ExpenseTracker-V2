@@ -12,6 +12,7 @@ import '../../../core/ui/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/look/shape.dart';
 
 /// How long a deleted entry is kept before it is gone for good.
 const _keptDays = 30;
@@ -135,7 +136,7 @@ class TrashSection extends StatelessWidget {
               Hue.selected,
               ink: Hue.accent,
               minimumSize: Size(56, 44),
-              radius: 14,
+              radius: Radii.large,
               padding: const EdgeInsets.symmetric(horizontal: Space.s4),
             ),
             child: const Text(

@@ -149,7 +149,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
     return ColorCard(
       color: add ? Hue.faint : _color,
       amount: add ? 0.25 : 0.2,
-      radius: 16,
+      radius: Radii.large,
       onTap: onTap,
       label: label,
       padding: const EdgeInsets.symmetric(
@@ -422,7 +422,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
             ColorCard(
               color: Hue.faint,
               amount: 0.18,
-              radius: 16,
+              radius: Radii.large,
               onTap: () => _pickParent(ledger, parents),
               padding: const EdgeInsets.symmetric(
                 horizontal: Space.s4,

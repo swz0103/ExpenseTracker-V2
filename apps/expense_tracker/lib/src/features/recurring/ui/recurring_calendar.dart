@@ -376,7 +376,7 @@ class _DayItemsState extends State<_DayItems> {
     return ColorCard(
       color: color,
       amount: 0.16,
-      radius: 18,
+      radius: Radii.large,
       onTap: () => booked == null ? widget.onEdit(item) : widget.onOpen(booked),
       label: '${item.name}，${line.replaceAll(' · ', '，')}',
       padding: const EdgeInsets.fromLTRB(
@@ -436,7 +436,7 @@ class _DayItemsState extends State<_DayItems> {
               style: solidButton(
                 markColor,
                 minimumSize: Size(0, 44),
-                radius: 12,
+                radius: Radii.medium,
                 padding: const EdgeInsets.symmetric(horizontal: Space.s4),
               ),
               child: const Text(
@@ -452,7 +452,7 @@ class _DayItemsState extends State<_DayItems> {
                 Hue.white,
                 ink: Hue.accent,
                 minimumSize: Size(0, 44),
-                radius: 12,
+                radius: Radii.medium,
                 padding: const EdgeInsets.symmetric(horizontal: Space.s4),
               ),
               child: const Text(
@@ -483,7 +483,7 @@ class _Cell extends StatelessWidget {
     return ColorCard(
       color: Hue.faint,
       amount: 0.22,
-      radius: 16,
+      radius: Radii.large,
       onTap: onTap,
       label: '$label $value',
       padding: const EdgeInsets.fromLTRB(

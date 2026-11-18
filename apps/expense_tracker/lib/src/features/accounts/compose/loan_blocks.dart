@@ -22,7 +22,7 @@ class _AccountBlock extends StatelessWidget {
     return ColorCard(
       color: color,
       amount: account == null ? 0.22 : 0.2,
-      radius: 20,
+      radius: Radii.largeIncreased,
       onTap: onTap,
       label: '$label，${account?.name ?? empty}',
       padding: const EdgeInsets.fromLTRB(

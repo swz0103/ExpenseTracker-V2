@@ -7,6 +7,7 @@ import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
+import '../model/budget_month.dart';
 import '../../../core/nav.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/look/shape.dart';
@@ -41,21 +42,15 @@ class _BudgetsPageState extends State<BudgetsPage> {
 
   Ledger get ledger => widget.ledger;
 
-  (int, int) get _now => (ledger.today.year, ledger.today.month);
+  late final _months = BudgetMonths(ledger);
 
-  (int, int) get _first {
-    final first = ledger.reportService.firstDay;
-    return (first.year, first.month);
-  }
+  YearMonth get _now => _months.now;
 
-  static int _key((int, int) m) => m.$1 * 12 + m.$2 - 1;
-
-  static (int, int) _of(int key) => (key ~/ 12, key % 12 + 1);
+  YearMonth get _first => _months.first;
 
   void _step(int by) {
-    final next = _key(_month) + by;
-    if (next > _key(_now) || next < _key(_first)) return;
-    setState(() => _month = _of(next));
+    final next = _months.step(_month, by);
+    if (next != null) setState(() => _month = next);
   }
 
   Future<void> _edit(String category) => showSheet<void>(
@@ -98,24 +93,10 @@ class _BudgetsPageState extends State<BudgetsPage> {
       }),
       builder: (context, _) {
         final (year, month) = _month;
-        final spent = ledger.reportService.expense(year, month);
-        final whole = ledger.budgets.forCategory(allSpending);
-        final total = ledger.budgetService.allowance(whole, year, month);
-        final rows = [
-          for (final b in ledger.budgets.all)
-            if (b.category != allSpending && b.limit > 0)
-              (
-                b,
-                ledger.budgetService.spentAgainst(b, year, month),
-                ledger.budgetService.allowance(b, year, month),
-              ),
-        ];
-        // Overspent first, then by the share used.
-        rows.sort((a, b) {
-          double share((Budget, int, int) row) =>
-              row.$3 == 0 ? 0 : row.$2 / row.$3;
-          return share(b).compareTo(share(a));
-        });
+        final shown = BudgetMonth.of(ledger, _month);
+        final spent = shown.spent;
+        final whole = shown.whole;
+        final total = shown.total;
         final current = _month == _now;
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
@@ -124,7 +105,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
             _MonthRow(
               month: month,
               current: current,
-              canBack: _key(_month) > _key(_first),
+              canBack: _months.canGoBack(_month),
               onPick: _pickMonth,
               onBack: () => _step(-1),
               onNext: () => _step(1),
@@ -189,13 +170,13 @@ class _BudgetsPageState extends State<BudgetsPage> {
               ),
             ),
             CardGrid(gap: 10, [
-              for (final (budget, used, allowed) in rows)
+              for (final line in shown.lines)
                 _Limit(
                   ledger: ledger,
-                  budget: budget,
-                  used: used,
-                  limit: allowed,
-                  onTap: () => _edit(budget.category),
+                  budget: line.budget,
+                  used: line.spent,
+                  limit: line.allowance,
+                  onTap: () => _edit(line.budget.category),
                 ),
               ColorCard(
                 color: Hue.faint,
@@ -310,7 +291,7 @@ class _MonthRow extends StatelessWidget {
               Hue.accent,
               fill: Hue.selected,
               minimumSize: Size(0, 44),
-              radius: 22,
+              radius: Radii.largeIncreased,
             ),
             child: const Text(
               '回到本月',
@@ -513,7 +494,7 @@ class _NoBudget extends StatelessWidget {
             style: solidButton(
               _budgetHue,
               minimumSize: Size(0, 48),
-              radius: 14,
+              radius: Radii.large,
               padding: const EdgeInsets.symmetric(horizontal: Space.s4),
             ),
             child: const Text(

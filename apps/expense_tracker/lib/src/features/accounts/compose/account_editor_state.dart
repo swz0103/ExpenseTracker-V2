@@ -329,7 +329,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                 style: solidButton(
                   Hue.accent,
                   minimumSize: Size.fromHeight(46),
-                  radius: 12,
+                  radius: Radii.medium,
                 ),
                 child: const Text('儲存'),
               ),

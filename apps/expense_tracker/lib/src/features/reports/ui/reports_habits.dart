@@ -202,7 +202,7 @@ extension _Habits on _ReportsPageState {
         for (final (tag, amount) in rows.take(9))
           ColorCard(
             color: nameColor(tag),
-            radius: 16,
+            radius: Radii.large,
             padding: const EdgeInsets.fromLTRB(
               Space.s3,
               Space.s2,

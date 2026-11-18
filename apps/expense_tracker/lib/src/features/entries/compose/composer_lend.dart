@@ -245,7 +245,7 @@ class _PeopleChoicesState extends State<_PeopleChoices> {
           height: 52,
           child: FilledButton(
             onPressed: () => widget.onDone(_picked),
-            style: solidButton(widget.color, radius: 18),
+            style: solidButton(widget.color, radius: Radii.large),
             child: Text(
               _picked.isEmpty ? '不代墊' : '好了（${_picked.length} 人）',
               style: const TextStyle(

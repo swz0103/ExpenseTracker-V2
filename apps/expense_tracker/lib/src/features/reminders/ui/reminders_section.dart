@@ -184,7 +184,7 @@ class _RemindersSectionState extends State<RemindersSection>
                   child: ColorCard(
                     color: SettingsHue.calendar,
                     amount: c.id == chosen ? 0.32 : 0.14,
-                    radius: 16,
+                    radius: Radii.large,
                     label: c.name,
                     onTap: () => Navigator.of(context).pop(c.id),
                     child: Row(
@@ -347,7 +347,7 @@ class _RemindersSectionState extends State<RemindersSection>
             ColorCard(
               color: color,
               amount: 0.16,
-              radius: 18,
+              radius: Radii.large,
               label: '提醒時間',
               onTap: () => _pickNudgeTime(notifier),
               padding: const EdgeInsets.symmetric(vertical: Space.s4),
@@ -395,7 +395,7 @@ class _RemindersSectionState extends State<RemindersSection>
             ColorCard(
               color: color,
               amount: 0.16,
-              radius: 18,
+              radius: Radii.large,
               padding: const EdgeInsets.symmetric(horizontal: Space.s4),
               child: Column(
                 children: [

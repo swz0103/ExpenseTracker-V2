@@ -62,7 +62,7 @@ class _PhoneStrip extends StatelessWidget {
             style: solidButton(
               deepOf(color),
               minimumSize: Size(0, 48),
-              radius: 14,
+              radius: Radii.large,
             ),
             child: Text(
               good ? '試一則' : '去開',

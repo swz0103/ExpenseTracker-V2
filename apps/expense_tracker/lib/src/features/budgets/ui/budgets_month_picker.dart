@@ -25,8 +25,7 @@ class _MonthPickerState extends State<_MonthPicker> {
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
-    final whole = ledger.budgets.forCategory(allSpending);
-    int key((int, int) m) => m.$1 * 12 + m.$2;
+    const key = BudgetMonths.key;
     Widget arrow(Glyph glyph, String label, bool on, int by) => Material(
       color: on ? Hue.surface : Hue.paper,
       shape: const CircleBorder(),
@@ -65,9 +64,9 @@ class _MonthPickerState extends State<_MonthPicker> {
                 final on =
                     key((_year, m)) >= key(widget.first) &&
                     key((_year, m)) <= key(widget.last);
-                final total = ledger.budgetService.allowance(whole, _year, m);
-                final spent = ledger.reportService.expense(_year, m);
-                final share = total == 0 ? null : spent * 100 ~/ total;
+                final sums = BudgetMonth.of(ledger, (_year, m));
+                final total = sums.total;
+                final share = total == 0 ? null : sums.spent * 100 ~/ total;
                 final chosen = (_year, m) == widget.chosen;
                 final tone = share == null
                     ? Hue.muted
@@ -176,7 +175,7 @@ class _AddLimit extends StatelessWidget {
               for (final c in categories)
                 ColorCard(
                   color: shownColor(Color(c.color)),
-                  radius: 16,
+                  radius: Radii.large,
                   label: c.name,
                   onTap: () => Navigator.of(context).pop(c.name),
                   padding: const EdgeInsets.symmetric(
@@ -275,9 +274,12 @@ class _BudgetEditorState extends State<_BudgetEditor> {
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
     final name = widget.budget.category;
-    final total = name == allSpending;
-    final tag = name.startsWith('#');
-    final category = total || tag ? null : ledger.category(name);
+    final scope = BudgetScope.of(name);
+    final total = scope == BudgetScope.all;
+    final tag = scope == BudgetScope.tag;
+    final category = scope == BudgetScope.category
+        ? ledger.category(name)
+        : null;
     final shade = category?.color;
     final color = shade == null ? Hue.accent : Color(shade);
     final glyph = total
@@ -286,13 +288,10 @@ class _BudgetEditorState extends State<_BudgetEditor> {
         ? Glyph.tag
         : iconFor(category!.icon);
     final today = ledger.today;
-    final used = total
-        ? ledger.reportService.expense(today.year, today.month)
-        : ledger.budgetService.spentAgainst(
-            widget.budget,
-            today.year,
-            today.month,
-          );
+    final used = BudgetMonth.of(ledger, (
+      today.year,
+      today.month,
+    )).spentOn(widget.budget);
     final ink = deepOf(color);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s5),
@@ -301,12 +300,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.fromLTRB(
-              Space.s4,
-              Space.s4,
-              Space.s4,
-              Space.s4,
-            ),
+            padding: const EdgeInsets.all(Space.s4),
             decoration: BoxDecoration(
               color: tintOf(color, 0.24),
               borderRadius: BorderRadius.circular(Radii.largeIncreased),
@@ -442,7 +436,11 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                   },
                 ),
                 const SizedBox(height: Space.s2),
-                Row(
+                // At the two ends, or the second under the first when
+                // both do not fit, as with large text on a small phone.
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  runSpacing: Space.s1,
                   children: [
                     Text.rich(
                       TextSpan(
@@ -456,7 +454,6 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                       ),
                       style: TextStyle(fontSize: TextSize.small, color: ink),
                     ),
-                    const Spacer(),
                     Text(
                       '$_warning% 時提醒',
                       style: TextStyle(fontSize: TextSize.small, color: ink),
@@ -475,74 +472,9 @@ class _BudgetEditorState extends State<_BudgetEditor> {
             ),
           ),
           const SizedBox(height: Space.s2),
-          Row(
-            children: [
-              for (final (i, p) in _shares.indexed) ...[
-                if (i > 0) const SizedBox(width: Space.s2),
-                Expanded(
-                  child: Material(
-                    color: p == _warning ? Hue.accent : Hue.surface,
-                    borderRadius: BorderRadius.circular(Radii.large),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(Radii.large),
-                      onTap: () => setState(() => _warning = p),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 48),
-                        child: Center(
-                          child: Text(
-                            '$p%',
-                            style: TextStyle(
-                              fontSize: TextSize.title,
-                              fontWeight: FontWeight.w800,
-                              color: p == _warning ? Hue.onAccent : Hue.ink,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
+          _warningChoices(),
           const SizedBox(height: Space.s3),
-          ColorCard(
-            color: Hue.faint,
-            amount: 0.15,
-            radius: 18,
-            onTap: () => setState(() => _carry = !_carry),
-            padding: const EdgeInsets.fromLTRB(
-              Space.s4,
-              Space.s2,
-              Space.s2,
-              Space.s2,
-            ),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '沒用完的留到下個月',
-                        style: TextStyle(
-                          fontSize: TextSize.body,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      Text('上個月剩的，加到這個月的額度', style: mutedSmall),
-                    ],
-                  ),
-                ),
-                TickSwitch(
-                  value: _carry,
-                  color: Hue.accent,
-                  label: '沒用完的留到下個月',
-                  onChanged: (on) => setState(() => _carry = on),
-                ),
-              ],
-            ),
-          ),
+          _carrySwitch(),
           const SizedBox(height: Space.s4),
           PanelButton(
             '儲存',
@@ -561,4 +493,70 @@ class _BudgetEditorState extends State<_BudgetEditor> {
       ),
     );
   }
+
+  /// The share of the limit at which to be told: 70% to 100%.
+  Widget _warningChoices() => Row(
+    children: [
+      for (final (i, p) in _shares.indexed) ...[
+        if (i > 0) const SizedBox(width: Space.s2),
+        Expanded(
+          child: Material(
+            color: p == _warning ? Hue.accent : Hue.surface,
+            borderRadius: BorderRadius.circular(Radii.large),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(Radii.large),
+              onTap: () => setState(() => _warning = p),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Center(
+                  child: Text(
+                    '$p%',
+                    style: TextStyle(
+                      fontSize: TextSize.title,
+                      fontWeight: FontWeight.w800,
+                      color: p == _warning ? Hue.onAccent : Hue.ink,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ],
+  );
+
+  /// Whether what is left carries into the next month.
+  Widget _carrySwitch() => ColorCard(
+    color: Hue.faint,
+    amount: 0.15,
+    radius: Radii.large,
+    onTap: () => setState(() => _carry = !_carry),
+    padding: const EdgeInsets.fromLTRB(Space.s4, Space.s2, Space.s2, Space.s2),
+    child: Row(
+      children: [
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '沒用完的留到下個月',
+                style: TextStyle(
+                  fontSize: TextSize.body,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text('上個月剩的，加到這個月的額度', style: mutedSmall),
+            ],
+          ),
+        ),
+        TickSwitch(
+          value: _carry,
+          color: Hue.accent,
+          label: '沒用完的留到下個月',
+          onChanged: (on) => setState(() => _carry = on),
+        ),
+      ],
+    ),
+  );
 }

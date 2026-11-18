@@ -33,7 +33,7 @@ class _ItemRow extends StatelessWidget {
     return ColorCard(
       color: color,
       amount: 0.16,
-      radius: 18,
+      radius: Radii.large,
       onTap: onTap,
       label: '${item.name}，$sub${next.isEmpty ? '' : '，下次 $next'}',
       padding: const EdgeInsets.fromLTRB(

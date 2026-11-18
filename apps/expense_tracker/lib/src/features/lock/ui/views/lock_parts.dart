@@ -80,7 +80,7 @@ class LockForm extends StatelessWidget {
           style: solidButton(
             Hue.accent,
             minimumSize: Size.fromHeight(48),
-            radius: 14,
+            radius: Radii.large,
           ),
           child: busy ? const BusyMark() : Text(action),
         ),

@@ -486,7 +486,7 @@ class _Estimate extends StatelessWidget {
       return ColorCard(
         color: Hue.faint,
         amount: 0.22,
-        radius: 20,
+        radius: Radii.largeIncreased,
         padding: const EdgeInsets.symmetric(
           horizontal: Space.s4,
           vertical: Space.s4,
@@ -515,7 +515,7 @@ class _Estimate extends StatelessWidget {
       child: ColorCard(
         color: tone,
         amount: 0.2,
-        radius: 20,
+        radius: Radii.largeIncreased,
         padding: const EdgeInsets.fromLTRB(
           Space.s3,
           Space.s3,

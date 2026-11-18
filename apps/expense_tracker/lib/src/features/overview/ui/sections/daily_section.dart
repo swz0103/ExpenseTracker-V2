@@ -373,7 +373,7 @@ class _DayCards extends StatelessWidget {
       width: 84,
       child: ColorCard(
         color: mark,
-        radius: 16,
+        radius: Radii.large,
         amount: 0.16,
         label: '${e.title}，$amount',
         onTap: () => onTap(e),

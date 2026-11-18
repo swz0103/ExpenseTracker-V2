@@ -96,7 +96,7 @@ extension _View on _ComposerState {
           ),
         ColorCard(
           color: color,
-          radius: 22,
+          radius: Radii.largeIncreased,
           padding: const EdgeInsets.fromLTRB(
             Space.s4,
             Space.s4,

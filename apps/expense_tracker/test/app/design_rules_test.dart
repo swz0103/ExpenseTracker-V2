@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -96,6 +97,7 @@ void main() {
     // A fraction is a fine adjustment below the grid, and corners past
     // 48 belong to one drawing; whole numbers otherwise are steps.
     final radius = RegExp(r'Radius\.circular\((\d+)\)');
+    final named = RegExp(r'\bradius: \d');
     final insets = RegExp(r'EdgeInsets\.\w+\(([^()]*)\)');
     final whole = RegExp(r'(?<![\w.])(\d+)(?![\w.])');
     final gap = RegExp(r'SizedBox\((?:height|width): (\d+)(?![\w.])');
@@ -103,8 +105,18 @@ void main() {
     for (final file in Directory('lib').listSync(recursive: true)) {
       if (file is! File || !file.path.endsWith('.dart')) continue;
       if (own.any(file.path.endsWith)) continue;
-      for (final (i, line) in file.readAsLinesSync().indexed) {
+      final lines = file.readAsLinesSync();
+      for (final (i, line) in lines.indexed) {
         final at = '${file.path}:${i + 1}';
+        // A widget's own radius too, but for a splash's reach and the
+        // home-screen widget, which matches Android's own corners.
+        if (named.hasMatch(line) &&
+            !file.path.endsWith('widget_face.dart') &&
+            !lines
+                .sublist(max(0, i - 8), i + 1)
+                .any((l) => l.contains('InkResponse('))) {
+          fail('$at: use Radii for radius:');
+        }
         for (final m in radius.allMatches(line)) {
           expect(int.parse(m[1]!), greaterThan(48), reason: '$at: use Radii');
         }

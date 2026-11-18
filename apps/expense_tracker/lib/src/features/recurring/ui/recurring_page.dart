@@ -189,7 +189,7 @@ class _RecurringPageState extends State<RecurringPage> {
                       Hue.accent,
                       fill: Hue.selected,
                       minimumSize: Size(0, 44),
-                      radius: 22,
+                      radius: Radii.largeIncreased,
                     ),
                     child: const Text(
                       '回到今天',

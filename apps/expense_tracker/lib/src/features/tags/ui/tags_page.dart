@@ -132,7 +132,7 @@ class _TagsPageState extends State<TagsPage> {
           for (final name in names)
             ColorCard(
               color: nameColor(name),
-              radius: 16,
+              radius: Radii.large,
               label: '#$name',
               onTap: () => widget.nav.open(Pages.tag(name)),
               padding: const EdgeInsets.symmetric(
@@ -206,7 +206,7 @@ class _TagsPageState extends State<TagsPage> {
           for (final (name, count, _) in rest)
             ColorCard(
               color: nameColor(name),
-              radius: 14,
+              radius: Radii.large,
               label: '$name，$count 次',
               onTap: () => widget.nav.open(Pages.merchant(name)),
               padding: const EdgeInsets.symmetric(

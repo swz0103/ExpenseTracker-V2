@@ -336,7 +336,7 @@ class _CategoryBlock extends StatelessWidget {
     return ColorCard(
       color: color,
       amount: 0.24,
-      radius: 18,
+      radius: Radii.large,
       onTap: onTap,
       label: '${category.name} $share%',
       padding: const EdgeInsets.all(Space.s2),
