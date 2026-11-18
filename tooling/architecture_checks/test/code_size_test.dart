@@ -39,7 +39,7 @@ const longerFunctions = <String, int>{
       184,
   'src/features/tags/ui/tags_page.dart::ProjectCard.build': 164,
   'src/features/accounts/compose/account_editor_state.dart::_AccountEditorState.build':
-      161,
+      121,
   'src/features/recurring/ui/recurring_calendar.dart::_Calendar._dayCell': 157,
   'src/app/demo/seed_history.dart::_history': 152,
   'src/features/recurring/ui/recurring_page.dart::_RecurringPageState.build':
@@ -140,7 +140,7 @@ const longerFunctions = <String, int>{
 const largerLibraries = <String, int>{
   'src/features/entries/compose/composer.dart': 4540,
   'src/core/look/glyphs.dart': 1942,
-  'src/features/accounts/compose/account_editor.dart': 1560,
+  'src/features/accounts/compose/account_editor.dart': 1462,
   'src/features/reports/ui/reports.dart': 1524,
 };
 

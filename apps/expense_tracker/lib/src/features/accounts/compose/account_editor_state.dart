@@ -169,22 +169,22 @@ class _AccountEditorState extends State<_AccountEditor> {
         glyph: Glyph.sparkle,
         color: accountHue(_preview),
         title: '卡片顏色',
+        // 48 dp to tap each, 56 apart as the 44 dp dots were.
         body: Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: 8,
+          runSpacing: 8,
           alignment: WrapAlignment.center,
           children: [
-            _Swatch(
+            SwatchButton(
               color: accountColor(_f.kind),
               label: '預設',
-              picked: _f.color == null,
+              selected: _f.color == null,
               onTap: () => Navigator.of(context).pop(-1),
             ),
             for (final c in Hue.categoryColors)
-              _Swatch(
+              SwatchButton(
                 color: shownColor(c),
-                label: '顏色',
-                picked: _f.color == c.toARGB32(),
+                selected: _f.color == c.toARGB32(),
                 onTap: () => Navigator.of(context).pop(c.toARGB32()),
               ),
           ],
@@ -234,29 +234,27 @@ class _AccountEditorState extends State<_AccountEditor> {
                 padding: const EdgeInsets.only(top: Space.s4, bottom: Space.s2),
                 child: Text(group, style: accentLabel),
               ),
-              GridView.count(
-                crossAxisCount: 4,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: 1.1,
-                children: [
-                  for (final (key, name) in marks)
-                    TapArea(
-                      label: name,
-                      selected: key == shown,
-                      onTap: () => Navigator.of(context).pop(key),
+              // Each row as tall as its words: with large text a name
+              // no longer spills out of a cell of fixed height.
+              CardGrid(columns: 4, gap: 0, [
+                for (final (key, name) in marks)
+                  TapArea(
+                    label: name,
+                    selected: key == shown,
+                    onTap: () => Navigator.of(context).pop(key),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: Space.s2),
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _MarkCircle(
+                          IconChoiceSquare(
                             icon: iconFor(key),
                             color: color,
-                            picked: key == shown,
-                            size: 44,
+                            selected: key == shown,
                           ),
                           const SizedBox(height: Space.s1),
                           Text(
                             name,
+                            textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontSize: TextSize.tiny,
                               color: Hue.muted,
@@ -265,8 +263,8 @@ class _AccountEditorState extends State<_AccountEditor> {
                         ],
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ]),
             ],
           ],
         ),
@@ -367,11 +365,57 @@ class _AccountEditorState extends State<_AccountEditor> {
     );
   }
 
+  /// 圖示: the marks most used for its kind, and 更多 for every one.
+  Widget _iconGroup(Color color) {
+    final shownIcon = _f.icon ?? kindIcon(_f.kind).name;
+    return FormGroup(
+      title: '圖示',
+      child: Row(
+        children: [
+          for (final key in _usual)
+            Expanded(
+              child: IconChoiceButton(
+                icon: accountMark(key) ?? kindIcon(_f.kind),
+                label: '圖示：${accountIconName(key)}',
+                color: color,
+                selected: key == shownIcon,
+                size: 40,
+                background: Hue.white,
+                onTap: () => setState(() => _f.icon = key),
+              ),
+            ),
+          Expanded(
+            child: TapArea(
+              label: '更多圖示',
+              onTap: _moreIcons,
+              child: Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Hue.white,
+                  borderRadius: BorderRadius.circular(Radii.medium),
+                ),
+                child: const Text(
+                  '更多',
+                  style: TextStyle(
+                    fontSize: TextSize.caption,
+                    fontWeight: FontWeight.w700,
+                    color: Hue.muted,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final old = _old;
     final color = accountHue(_preview);
-    final shownIcon = _f.icon ?? kindIcon(_f.kind).name;
     return SingleChildScrollView(
       physics: const FitScrollPhysics(16),
       padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
@@ -421,46 +465,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                     ],
                   ),
                 ),
-                FormGroup(
-                  title: '圖示',
-                  child: Row(
-                    children: [
-                      for (final key in _usual)
-                        Expanded(
-                          child: _Mark(
-                            icon: accountMark(key) ?? kindIcon(_f.kind),
-                            name: accountIconName(key),
-                            color: color,
-                            picked: key == shownIcon,
-                            onTap: () => setState(() => _f.icon = key),
-                          ),
-                        ),
-                      Expanded(
-                        child: TapArea(
-                          label: '更多圖示',
-                          onTap: _moreIcons,
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            alignment: Alignment.center,
-                            decoration: const BoxDecoration(
-                              color: Hue.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Text(
-                              '更多',
-                              style: TextStyle(
-                                fontSize: TextSize.caption,
-                                fontWeight: FontWeight.w700,
-                                color: Hue.muted,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _iconGroup(color),
                 if (old == null && _f.foreignAllowed)
                   FormGroup(
                     title: '幣別',

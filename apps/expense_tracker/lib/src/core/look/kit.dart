@@ -7,6 +7,7 @@ library;
 
 export 'kit/boards.dart';
 export 'kit/cards.dart';
+export 'kit/choices.dart';
 export 'kit/colours.dart';
 export 'kit/figures.dart';
 export 'kit/headers.dart';

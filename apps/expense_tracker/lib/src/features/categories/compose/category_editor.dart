@@ -183,15 +183,16 @@ class _CategoryEditorState extends State<_CategoryEditor> {
                 padding: const EdgeInsets.only(top: Space.s3, bottom: Space.s2),
                 child: Text(group, style: mutedSmall),
               ),
+              // 48 dp to tap each, 50 apart as the 44 dp squares were.
               Wrap(
-                spacing: 6,
-                runSpacing: 6,
+                spacing: 2,
+                runSpacing: 2,
                 children: [
                   for (final key in keys)
-                    IconChoice(
-                      icon: key,
+                    IconChoiceButton(
+                      icon: iconFor(key),
                       color: _color,
-                      picked: key == _f.icon,
+                      selected: key == _f.icon,
                       onTap: () => setState(() {
                         _f.icon = key;
                         _icons = false;

@@ -38,6 +38,8 @@ const places = <(String, List<String>)>[
   ('帳戶', ['帳戶']),
   ('信用卡', ['帳戶', '日常信用卡']),
   ('新增帳戶', ['帳戶', '新增']),
+  ('帳戶 卡片顏色', ['帳戶', '新增', '@卡片顏色']),
+  ('帳戶 更多圖示', ['帳戶', '新增', '@更多圖示']),
   ('排序帳戶', ['帳戶', '排序']),
   ('更多', ['更多']),
   ('報表 收支', ['更多', '財務報表']),
@@ -63,6 +65,7 @@ const places = <(String, List<String>)>[
   ('分類', ['更多', '分類']),
   ('編輯分類', ['更多', '分類', '居家生活']),
   ('新增分類', ['更多', '分類', '新增']),
+  ('分類 換圖示', ['更多', '分類', '居家生活', '@換圖示']),
   ('新增子分類', ['更多', '分類', '居家生活', '^子分類']),
   ('標籤', ['更多', '標籤與商家']),
   ('商家', ['更多', '標籤與商家', '商家']),
@@ -142,8 +145,9 @@ Future<void> show(
   await tester.pumpAndSettle();
 }
 
-/// Taps [taps] in turn: words on the screen, or a button's tooltip after
-/// `~`; after `^`, the one on top.
+/// Taps [taps] in turn: words on the screen, a button's tooltip after
+/// `~`, or what a screen reader calls it after `@`; after `^`, the one
+/// on top.
 Future<void> go(WidgetTester tester, List<String> taps) async {
   for (final step in taps) {
     // `^` taps the words on top, as on a sheet over a page that has the
@@ -152,6 +156,9 @@ Future<void> go(WidgetTester tester, List<String> taps) async {
     final words = top ? step.substring(1) : step;
     var finder = words.startsWith('~')
         ? find.byTooltip(words.substring(1))
+        : words.startsWith('@')
+        // A label read out with the words inside starts with its own.
+        ? find.bySemanticsLabel(RegExp('^${RegExp.escape(words.substring(1))}'))
         : find.text(words);
     if (finder.evaluate().isEmpty) finder = find.textContaining(words);
     expect(finder, findsWidgets, reason: 'no 「$words」 to tap');
