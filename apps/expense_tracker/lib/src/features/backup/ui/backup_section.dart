@@ -16,6 +16,7 @@ import '../../../core/diagnostics/error_log.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/look/spacing.dart';
 import '../../../core/look/shape.dart';
+import '../../../core/time/app_clock.dart';
 
 part 'backup_section_manual.dart';
 part 'backup_section_card_row.dart';
@@ -214,7 +215,7 @@ class _BackupSectionState extends State<BackupSection> {
   /// 今天 21:03, 昨天 08:14, or 11/2 08:14.
   static String _when(DateTime at) {
     final local = at.toLocal();
-    final now = DateTime.now();
+    final now = AppClock.now();
     String two(int n) => n.toString().padLeft(2, '0');
     final time = '${two(local.hour)}:${two(local.minute)}';
     final day = DateTime(local.year, local.month, local.day);
@@ -412,7 +413,7 @@ class BackupHero extends StatelessWidget {
     final at = this.at;
     final days = at == null
         ? null
-        : DateTime.now().difference(at.toLocal()).inDays;
+        : AppClock.now().difference(at.toLocal()).inDays;
     final small = !on
         ? (at == null ? '還沒有備份' : '上次 ${_BackupSectionState._when(at)}')
         : stale && days != null

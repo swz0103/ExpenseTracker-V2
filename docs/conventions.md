@@ -29,10 +29,16 @@
 - 每個 `catch` 做三件事之一：用 `ErrorLog.instance.record('做什麼', error)` 記下、重新拋出，或在區塊第一行用註解說明為何什麼都不用做（`error_rules_test`）。
 - 不把例外原樣放進給人看的訊息；要附上原因時用 `ErrorLog.describe(error)`，它去掉路徑、引號內的字和數字。
 
-### 檔案長度
+### 大小與拆分
 
-- 一個檔案 600 行以內（`layers_test` 檢查）。例外只有產生的 `glyphs.dart`（2100）與帳本狀態 `ledger.dart`（650）。
-- 快超過時依主題拆：`python3 tool/split.py <檔案>` 把後段的宣告搬到同一個 library 的 `part` 檔，再把檔名改成看得懂的名字。單一類別太長時，把一組方法搬到同檔 library 的 `extension`（例：`composer_pickers.dart`）。
+- 大小是參考，不是上限：檔案 600 行、函式 80 行、函式庫連同 `part` 1,200 行。超過時依職責拆，或在它上方註明為什麼一份比較好；拆的標準是每一份只做一件事、讀得懂，不是湊行數。
+- 拆的方式：計算移到 `model/`（純 Dart、各有測試）；畫面依區塊拆成有公開建構參數的元件，放在一般函式庫，不用 `part`（`part` 不會讓函式庫變小，還共用全部私有成員）。區塊要讀寫表單時透過介面（例：`ComposeActions`）。
+- 剛導入參考值時已超過的，列在 `tooling/architecture_checks/test/code_size_test.dart` 的債務清單，只准變小。
+
+### 規則的例外
+
+- 規則測試不列檔名。破例寫在程式旁：在那一行或它上方的註解寫 `// Exception to <規則>: <原因>`；整個檔案的例外寫在檔案最上方的註解。規則名稱：`error words`、`the radius scale`、`ledger words`、`file length`、`function length`、`library length`。
+- 定義所在的檔案（例如日期格式在 `dates.dart`、時間在 `core/time/`）本來就是規則的一部分，不算例外。
 
 ### 命名與註解
 
@@ -105,3 +111,4 @@
 - commit 訊息用英文：第一行說做了什麼，空一行後條列重點。
 - 一個 PR 一件事（一批回饋或一次整理）；PR 說明列出改了什麼、怎麼驗證。
 - 合併到 main 後 CI 自動建置、簽章、發布；App 內更新會讀到新版。
+- 每個版本留一份它寫出的帳本與備份：`MAKE_FIXTURES=1 flutter test test/core/persistence/old_books_test.dart`，產生的檔案進版控後不再改（[ADR-0010](adr/0010-data-that-lasts.md)）。少了這一份，`old_books_test` 失敗。

@@ -16,6 +16,7 @@ import '../features/lock/ui/security_section.dart';
 import 'about_section.dart';
 import '../core/look/shape.dart';
 import '../core/look/spacing.dart';
+import '../core/time/app_clock.dart';
 
 /// 設定與資料: the main card says when the ledger was last backed up and
 /// which ways are on (gold after three days without one), then six cards
@@ -76,7 +77,7 @@ class SettingsPage extends StatelessWidget {
     }
     final on = linked || folder;
     final stale =
-        latest != null && DateTime.now().difference(latest).inDays > 3;
+        latest != null && AppClock.now().difference(latest).inDays > 3;
     Widget way(String name, bool on) => Container(
       padding: const EdgeInsets.symmetric(
         horizontal: Space.s2,

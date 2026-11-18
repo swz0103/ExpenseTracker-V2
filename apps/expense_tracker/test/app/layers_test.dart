@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'layout.dart';
+import 'rule_exceptions.dart';
 
 /// Every library under `lib/src`, with the app libraries it imports or
 /// exports, as paths from the app folder.
@@ -150,20 +151,15 @@ void main() {
   });
 
   test('the ledger keeps no words for the person: core/messages does', () {
-    // Data the book itself holds (category names), and labels and
-    // messages for the diagnostics log, are the only words allowed.
-    const allowed = [
-      'models/category.dart',
-      'models/budget.dart',
-      'persistence/',
-      'portfolio.dart',
-    ];
+    // Data the book itself holds (category names), and labels for the
+    // diagnostics log, are allowed in a file marked `Exception to ledger
+    // words` (rule_exceptions.dart).
     final words = RegExp(r"'[^']*[一-鿿][^']*'");
     for (final f in Directory(Layout.ledgerDir).listSync(recursive: true)) {
       if (f is! File || !f.path.endsWith('.dart')) continue;
-      final inside = f.path.substring(Layout.ledgerDir.length);
-      if (allowed.any(inside.startsWith)) continue;
-      for (final (i, line) in f.readAsLinesSync().indexed) {
+      final lines = f.readAsLinesSync();
+      if (excusedFile(lines, 'ledger words')) continue;
+      for (final (i, line) in lines.indexed) {
         if (line.trimLeft().startsWith('//')) continue;
         expect(words.hasMatch(line), isFalse, reason: '${f.path}:${i + 1}');
       }
@@ -301,16 +297,36 @@ void main() {
     }
   });
 
-  test('a file stays short enough to read in one go', () {
-    // The made-up glyph paths are drawn by tool/glyphs.py, and the
-    // ledger's own state is one class; every other file is split by
-    // subject (tool/split.py) before it grows past the limit.
+  test('the time is read from AppClock only', () {
+    // Anything that depends on the day must be testable on any day: a
+    // backup's age, a reminder, a file's name. core/time is the clock.
     for (final file in imports.keys) {
-      final lines = File(file).readAsLinesSync().length;
+      if (file.contains('/core/time/')) continue;
+      final lines = File(file).readAsLinesSync();
+      for (final (i, line) in lines.indexed) {
+        if (line.trimLeft().startsWith('//')) continue;
+        expect(
+          line.contains('DateTime.now()'),
+          isFalse,
+          reason: '$file:${i + 1} reads the time: use AppClock.now()',
+        );
+      }
+    }
+  });
+
+  test('a file past a screenful says why it is one file', () {
+    // A guide, not a cap: past it a file is split by what it does, or
+    // says at its top why it is better whole (`Exception to file length`),
+    // such as the glyph paths tool/glyphs.py draws.
+    for (final file in imports.keys) {
+      final lines = File(file).readAsLinesSync();
+      if (lines.length <= Layout.fileGuide) continue;
       expect(
-        lines,
-        lessThanOrEqualTo(Layout.longer[file] ?? Layout.maxLines),
-        reason: '$file has $lines lines',
+        excusedFile(lines, 'file length'),
+        isTrue,
+        reason:
+            '$file has ${lines.length} lines: split it by what it does, '
+            'or say why it is one',
       );
     }
   });

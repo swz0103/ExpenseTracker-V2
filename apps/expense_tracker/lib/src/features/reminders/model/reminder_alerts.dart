@@ -6,6 +6,7 @@ import 'reminders.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/platform/quick_action.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/time/app_clock.dart';
 
 /// One notification to show at [at].
 final class Alert {
@@ -229,7 +230,7 @@ final class Notifier {
     if (ledger == null) return;
     try {
       await port.schedule(
-        alertsFor(ledger, preferences, DateTime.now()),
+        alertsFor(ledger, preferences, AppClock.now()),
         exact: preferences.exactReminders,
         wanted: wantedTags(ledger, preferences),
       );
@@ -258,7 +259,7 @@ final class Notifier {
     for (final c in fresh) {
       // Ids 700 to 763, apart from the alerts' and the test's (990).
       await port.post(
-        Alert(DateTime.now(), c.title, c.text, tag: c.tag),
+        Alert(AppClock.now(), c.title, c.text, tag: c.tag),
         700 + (c.tag.hashCode & 0x3f),
       );
       posted.add(c.key);

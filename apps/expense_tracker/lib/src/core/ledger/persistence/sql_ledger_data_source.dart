@@ -1,3 +1,6 @@
+// Exception to ledger words: a new book's first categories and accounts
+// are written as data, and the diagnostics log is labelled in words.
+
 import 'dart:convert';
 import 'dart:isolate';
 
@@ -221,7 +224,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   }
 
   void _write(WriteBatch batch) {
-    final at = DateTime.now().millisecondsSinceEpoch;
+    final at = _clock.now().value.millisecondsSinceEpoch;
     // A category, as the rest of the batch names it, first; and what a
     // dropped budget was kept under, before its category goes.
     for (final c in batch.categories) {

@@ -11,23 +11,25 @@ import 'package:test/test.dart';
 /// The app's code, measured.
 const app = 'apps/expense_tracker/lib';
 
-/// The most lines a function, method or constructor may take, from its
-/// first word to its closing brace, its doc comment left out (Martin,
-/// *Clean Code*, ch. 3: a function does one thing; past a screen it no
-/// longer reads as one).
-const functionLimit = 80;
+/// How long a function, method or constructor grows, from its first word
+/// to its closing brace, before it should be split or say why it is
+/// better whole (Martin, *Clean Code*, ch. 3: a function does one thing;
+/// past a screen it no longer reads as one). A guide, not a cap: one
+/// marked `Exception to function length: <why>` in the comments above it
+/// passes.
+const functionGuide = 80;
 
-/// The most lines a library may take with all its parts: a part is
-/// another file of the same library, so splitting into parts does not
-/// make a library smaller.
-const libraryLimit = 1200;
+/// How long a library grows with all its parts before it should be split
+/// by what it does or say why not, marked `Exception to library length`
+/// at its top. A part is another file of the same library, so splitting
+/// into parts does not make a library smaller.
+const libraryGuide = 1200;
 
-/// What is over a limit today, at its size today. Each may only shrink:
-/// one that grows fails, and one that shrank a good deal must have its
-/// number lowered here, so the list only ever gets shorter.
+/// Debt: what was past a guide when the guides came in, unmarked, at its
+/// size then. Each may only shrink, and comes off once it is split or
+/// marked; one that grows fails, and one that shrank a good deal must have
+/// its number lowered here, so the list only gets shorter.
 const longerFunctions = <String, int>{
-  // Drawn by tool/glyphs.py from the icon paths, one case per glyph.
-  'src/core/look/glyphs.dart::_draw': 1541,
   'src/app/demo/seed.dart::demoLedger': 448,
   'src/features/accounts/ui/sort_accounts.dart::_SortAccountsPageState.build':
       203,
@@ -130,7 +132,6 @@ const longerFunctions = <String, int>{
   'src/core/look/dialogs.dart::confirm': 81,
 };
 const largerLibraries = <String, int>{
-  'src/core/look/glyphs.dart': 1942,
   'src/features/accounts/compose/account_editor.dart': 1462,
   'src/features/reports/ui/reports.dart': 1524,
 };
@@ -149,10 +150,13 @@ final root = p.normalize(p.join(Directory.current.path, '..', '..'));
 typedef Measure = ({String name, int lines});
 
 final class _Functions extends RecursiveAstVisitor<void> {
-  _Functions(this.lineInfo, this.file);
+  _Functions(this.lineInfo, this.file, this.source);
 
   final LineInfo lineInfo;
   final String file;
+
+  /// The file's lines, to read the comments above a declaration.
+  final List<String> source;
   final found = <Measure>[];
   final _owners = <String>[];
 
@@ -163,6 +167,8 @@ final class _Functions extends RecursiveAstVisitor<void> {
 
   void _add(String name, AstNode node, Token first) {
     final owner = _owners.isEmpty ? '' : '${_owners.last}.';
+    final line = lineInfo.getLocation(first.offset).lineNumber - 1;
+    if (_marked(source, line, 'function length')) return;
     found.add((name: '$file::$owner$name', lines: _lines(node, first)));
   }
 
@@ -231,23 +237,28 @@ void main() {
       ),
   };
 
-  test('no function is longer than $functionLimit lines', () {
+  test('a function past $functionGuide lines says why it is one', () {
     final over = <String, int>{};
     for (final MapEntry(key: file, value: result) in units.entries) {
-      final visitor = _Functions(result.lineInfo, file);
+      final visitor = _Functions(
+        result.lineInfo,
+        file,
+        result.content.split('\n'),
+      );
       result.unit.accept(visitor);
       for (final m in visitor.found) {
-        if (m.lines > functionLimit) over[m.name] = m.lines;
+        if (m.lines > functionGuide) over[m.name] = m.lines;
       }
     }
     _ratchet(over, longerFunctions, 'function');
   });
 
-  test('no library is longer than $libraryLimit lines with its parts', () {
+  test('a library past $libraryGuide lines says why it is one', () {
     final over = <String, int>{};
     for (final MapEntry(key: file, value: result) in units.entries) {
       final unit = result.unit;
       if (unit.directives.any((d) => d is PartOfDirective)) continue;
+      if (_marked(result.content.split('\n'), 0, 'library length')) continue;
       var lines = result.lineInfo.lineCount;
       for (final part in unit.directives.whereType<PartDirective>()) {
         final uri = part.uri.stringValue;
@@ -259,13 +270,13 @@ void main() {
         if (kept == null) fail('$file: its part ${part.uri} is not found');
         lines += kept.lineInfo.lineCount;
       }
-      if (lines > libraryLimit) over[file] = lines;
+      if (lines > libraryGuide) over[file] = lines;
     }
     _ratchet(over, largerLibraries, 'library');
   });
 }
 
-/// Fails on anything over the limit that is not in [known], larger than
+/// Fails on anything over the guide that is not in [known], larger than
 /// [known] says, or so much smaller that [known] should be lowered.
 void _ratchet(Map<String, int> over, Map<String, int> known, String what) {
   final problems = <String>[
@@ -278,10 +289,10 @@ void _ratchet(Map<String, int> over, Map<String, int> known, String what) {
         else
           ''
       else
-        '$key has $value lines: split the $what',
+        '$key has $value lines: split the $what by what it does, or mark why it is one',
     for (final key in known.keys)
       if (!over.containsKey(key))
-        '$key is within the limit: take it off the list',
+        '$key is within the guide or marked: take it off the list',
   ]..removeWhere((problem) => problem.isEmpty);
   if (Platform.environment['PRINT_SIZES'] != null) {
     for (final e
@@ -290,4 +301,25 @@ void _ratchet(Map<String, int> over, Map<String, int> known, String what) {
     }
   }
   expect(problems, isEmpty, reason: problems.join('\n'));
+}
+
+/// Whether the comments from line [index] (0-based) up, or those at the
+/// top of the file when [index] is 0, mark an `Exception to <rule>`, as
+/// the app's own rule tests read them (test/app/rule_exceptions.dart).
+bool _marked(List<String> lines, int index, String rule) {
+  final mark = 'Exception to $rule:';
+  if (index == 0) {
+    for (final line in lines) {
+      final t = line.trimLeft();
+      if (t.isNotEmpty && !t.startsWith('//')) return false;
+      if (t.contains(mark)) return true;
+    }
+    return false;
+  }
+  for (var i = index - 1; i >= 0; i--) {
+    final t = lines[i].trimLeft();
+    if (!t.startsWith('//') && !t.startsWith('@')) return false;
+    if (t.contains(mark)) return true;
+  }
+  return false;
 }

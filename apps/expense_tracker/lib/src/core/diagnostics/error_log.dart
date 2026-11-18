@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint, kReleaseMode;
 import 'package:flutter/services.dart' show PlatformException;
 
+import '../../core/time/app_clock.dart';
+
 /// What did not work, kept for 設定 › 關於 › 診斷 so a fault can be seen and
 /// exported instead of passing unseen. Only an error's type and a short
 /// message cleaned of anything the person wrote are kept (names, notes,
@@ -97,7 +99,7 @@ final class ErrorLog {
   void record(String what, Object error) {
     if (!kReleaseMode) debugPrint('$what: $error');
     final words = '$what：${describe(error)}';
-    final at = DateTime.now();
+    final at = AppClock.now();
     _problems.add((at, words));
     _trim();
     final log = _log;

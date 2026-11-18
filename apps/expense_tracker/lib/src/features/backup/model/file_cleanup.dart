@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import '../../../core/time/app_clock.dart';
+
 /// Deletes plain copies an earlier run may have left behind when it was
 /// stopped part way: files waiting in `exports` to be handed over (a
 /// backup with photos, a CSV), and, in [cache], the camera's photo before
@@ -15,7 +17,7 @@ Future<void> clearLeftovers(
   Directory? cache,
   DateTime? now,
 }) async {
-  final at = now ?? DateTime.now();
+  final at = now ?? AppClock.now();
   bool older(FileSystemEntity entity, Duration than) {
     try {
       return at.difference(entity.statSync().modified) > than;

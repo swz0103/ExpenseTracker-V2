@@ -194,7 +194,8 @@ extension _Pickers on _ComposerState {
       final scanned = invoice;
       _set(() => _f.fillInvoice(scanned));
     } on Object catch (error) {
-      // The scanner says what went wrong in words (androidScanQr).
+      // Exception to error words: the scanner says what went wrong in
+      // words meant for the person (androidScanQr).
       _say('$error');
     }
   }

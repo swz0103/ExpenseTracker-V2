@@ -13,11 +13,13 @@ abstract final class Layout {
   /// always import itself. [navigation] is a single file at the top.
   static const coreParts = <String, List<String>>{
     'text': [],
-    'diagnostics': [],
+    // The one clock the app reads the time from.
+    'time': [],
+    'diagnostics': ['time'],
     'look': ['text'],
     'charts': ['look', 'text'],
-    'ledger': ['text', 'diagnostics'],
-    'platform': ['ledger', 'text', 'diagnostics'],
+    'ledger': ['text', 'diagnostics', 'time'],
+    'platform': ['ledger', 'text', 'diagnostics', 'time'],
     // What the person is told of the ledger's values, in one place.
     'messages': ['ledger', 'text'],
     'ui': [
@@ -28,6 +30,7 @@ abstract final class Layout {
       'charts',
       'platform',
       'diagnostics',
+      'time',
       'nav.dart',
     ],
   };
@@ -82,9 +85,8 @@ abstract final class Layout {
     'lib/src/core/text/',
   ];
 
-  /// Files allowed to be longer than [maxLines], with their own limit.
-  static const maxLines = 600;
-  static const longer = <String, int>{'lib/src/core/look/glyphs.dart': 2100};
+  /// How long a file grows before it should be split or say why not.
+  static const fileGuide = 600;
 
   /// Where an exemption from "no colour literals" applies.
   static const colourLiteralExempt = [

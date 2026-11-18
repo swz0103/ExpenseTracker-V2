@@ -50,7 +50,8 @@ class _Calendar extends StatelessWidget {
         children: [
           Row(
             children: [
-              for (final w in const ['日', '一', '二', '三', '四', '五', '六'])
+              // Sunday first, as a wall calendar is.
+              for (final w in [weekdayNames.last, ...weekdayNames.take(6)])
                 Expanded(
                   child: Center(
                     child: Text(

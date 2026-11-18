@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'layout.dart';
+import 'rule_exceptions.dart';
 
 /// The design system's rules, as docs/design.md sets them out: colours,
 /// sizes of words and buttons come from core/look, never written in a
@@ -108,10 +109,10 @@ void main() {
       final lines = file.readAsLinesSync();
       for (final (i, line) in lines.indexed) {
         final at = '${file.path}:${i + 1}';
-        // A widget's own radius too, but for a splash's reach and the
-        // home-screen widget, which matches Android's own corners.
+        // A widget's own radius too, but for a splash's reach, which is
+        // no corner, and a file marked `Exception to the radius scale`.
         if (named.hasMatch(line) &&
-            !file.path.endsWith('widget_face.dart') &&
+            !excusedFile(lines, 'the radius scale') &&
             !lines
                 .sublist(max(0, i - 8), i + 1)
                 .any((l) => l.contains('InkResponse('))) {

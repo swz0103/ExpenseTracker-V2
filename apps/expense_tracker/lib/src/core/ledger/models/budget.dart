@@ -1,3 +1,6 @@
+// Exception to ledger words: 全部支出 is a name the book keeps as data,
+// the key of the budget on all spending.
+
 /// What a budget for all spending is kept under, in place of a category.
 const allSpending = '全部支出';
 

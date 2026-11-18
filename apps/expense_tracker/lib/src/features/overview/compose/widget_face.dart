@@ -1,3 +1,6 @@
+// Exception to the radius scale: the home-screen widget matches the
+// corners Android draws its widgets with, not the app's own scale.
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -6,8 +9,7 @@ import '../../../core/look/theme.dart' show Hue;
 import '../../../core/look/widget_hue.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
-
-const _days = ['一', '二', '三', '四', '五', '六', '日'];
+import '../../../core/text/dates.dart';
 
 /// What the widget shows with no figures chosen, as SummaryWidget.kt does.
 const _empty = <String, Object?>{
@@ -386,7 +388,7 @@ class _Week extends StatelessWidget {
             for (var i = 0; i < 7; i++)
               Expanded(
                 child: Text(
-                  _days[i],
+                  weekdayNames[i],
                   textAlign: TextAlign.center,
                   style: _text(
                     10,

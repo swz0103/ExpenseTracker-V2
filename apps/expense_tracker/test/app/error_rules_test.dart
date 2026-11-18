@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'layout.dart';
+import 'rule_exceptions.dart';
 
 /// An error that is caught must not pass unseen: docs/conventions.md.
 /// Every `catch` block in `lib` does one of three things: records the
@@ -58,8 +59,8 @@ void main() {
   test('an error is never put into a message as it is', () {
     // Its own words can hold a path or what the person wrote; say it with
     // ErrorLog.describe(error), which takes those out. Tests of the error
-    // by its text (`'$error'.contains(...)`) and the scanner, which says
-    // in words what went wrong, are the exceptions.
+    // by its text (`'$error'.contains(...)`) are let through, and a line
+    // marked `Exception to error words` (rule_exceptions.dart).
     final raw = RegExp(r'\$\{?(error|err|e)\}?(?![A-Za-z0-9_.(])');
     final said = <String>[];
     for (final f in Directory(Layout.src).listSync(recursive: true)) {
@@ -70,10 +71,7 @@ void main() {
         final line = lines[i];
         if (line.trimLeft().startsWith('//')) continue;
         if (!raw.hasMatch(line) || line.contains('.contains(')) continue;
-        if (f.path.endsWith('composer_pickers.dart') &&
-            line.contains("_say('")) {
-          continue;
-        }
+        if (excusedAt(lines, i, 'error words')) continue;
         said.add('${f.path}:${i + 1}');
       }
     }

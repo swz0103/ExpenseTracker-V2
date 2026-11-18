@@ -1,3 +1,6 @@
+// Exception to ledger words: 轉帳 and 其他支出 are names the book keeps
+// as data, the categories a transfer and a fee are written in.
+
 import 'package:core/foundation_values.dart' show PublicId;
 
 /// The category every transfer carries.

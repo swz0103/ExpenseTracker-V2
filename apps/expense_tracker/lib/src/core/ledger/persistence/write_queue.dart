@@ -1,3 +1,5 @@
+// Exception to ledger words: the diagnostics log is labelled in words.
+
 import 'package:flutter/foundation.dart' show ValueNotifier;
 
 import '../../diagnostics/error_log.dart';

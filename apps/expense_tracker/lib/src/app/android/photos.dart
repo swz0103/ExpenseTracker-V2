@@ -7,6 +7,7 @@ import 'package:vault/backup_security.dart';
 
 import '../../features/entries/model/receipt_photos.dart';
 import 'channel.dart';
+import '../../core/time/app_clock.dart';
 
 /// Receipt photos in the app's private `receipts` folder, each sealed
 /// with the ledger's [FileBox], so a photo is as private as the ledger.
@@ -35,7 +36,7 @@ final class AndroidReceipts implements ReceiptPhotos {
     if (ready == null) return null;
     final source = File(ready);
     try {
-      final name = '${DateTime.now().millisecondsSinceEpoch}.etr';
+      final name = '${AppClock.now().millisecondsSinceEpoch}.etr';
       await _folder.create(recursive: true);
       final sealed = await box.seal(name, await source.readAsBytes());
       await File('${_folder.path}/$name').writeAsBytes(sealed, flush: true);
