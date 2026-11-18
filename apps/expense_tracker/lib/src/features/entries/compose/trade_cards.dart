@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/ledger/ledger.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
@@ -176,7 +177,7 @@ class HoldingCodePill extends StatelessWidget {
     return TapArea(
       onTap: onTap,
       selected: picked,
-      label: '$code $name',
+      label: name.isEmpty ? code : '$code $name',
       child: Container(
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: Space.s3),
@@ -213,9 +214,12 @@ class HoldingCodePill extends StatelessWidget {
   }
 }
 
-/// A holding's name cut to four characters at most, without the fund
-/// house it starts with, such as 台灣50 for 元大台灣50.
-String shortHoldingName(String name) {
+/// [h]'s name cut to four characters at most, a fund's without the
+/// house it starts with, such as 台灣50 for 元大台灣50; empty while its
+/// name is not known, when the name is only its code again.
+String shortHoldingName(Holding h) {
+  final name = h.name;
+  if (name.isEmpty || name == h.code) return '';
   const houses = [
     '元大',
     '國泰',
@@ -242,7 +246,9 @@ String shortHoldingName(String name) {
     '台灣人壽',
   ];
   var short = name;
-  for (final house in houses) {
+  // Only a fund is named for its house; a company such as 中信金 is not
+  // 金. Taiwan's exchange-traded funds are the codes that start with 00.
+  for (final house in h.code.startsWith('00') ? houses : const <String>[]) {
     if (short.startsWith(house) && short.length > house.length) {
       short = short.substring(house.length);
       break;

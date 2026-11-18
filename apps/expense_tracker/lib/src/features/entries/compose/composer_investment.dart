@@ -289,7 +289,7 @@ extension _InvestmentFields on _ComposerState {
                     const SizedBox(width: Space.s2),
                     HoldingCodePill(
                       code: h.code,
-                      name: shortHoldingName(h.name),
+                      name: shortHoldingName(h),
                       picked: h.code == code,
                       onTap: () => _set(() => _f.holding = h.code),
                     ),

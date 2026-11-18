@@ -4,7 +4,6 @@ import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ui/entry_tile.dart' show holdingLabel;
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
@@ -47,7 +46,7 @@ class _HoldingChoicesState extends State<HoldingChoices> {
             h.name.toLowerCase().contains(words))
           HoldingCard(
             code: h.code,
-            name: shortHoldingName(holdingLabel(h)),
+            name: shortHoldingName(h),
             held: h.shares > 0
                 ? '${ledger.orDots(groupDigits(h.shares))} 股'
                 : '已賣完',
