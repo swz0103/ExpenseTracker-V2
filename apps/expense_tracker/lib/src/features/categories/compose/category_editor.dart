@@ -8,6 +8,8 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/pickers.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../model/category_form.dart';
+import 'category_form_widgets.dart';
 
 /// 編輯分類: a big card in the category's tint with its icon (tapped to
 /// choose another) and name, a row of colours, the ones under it four to
@@ -52,14 +54,15 @@ class _CategoryEditor extends StatefulWidget {
 }
 
 class _CategoryEditorState extends State<_CategoryEditor> {
+  /// The fields and what the book allows.
+  late final _f = CategoryForm(widget.initial, ledger: widget.ledger);
   late final _name = TextEditingController(text: widget.initial.name);
-  late var _icon = widget.initial.icon;
-  late var _color = Color(widget.initial.color);
-  late var _parent = widget.initial.parent;
   String? _problem;
 
   /// The icons are open to choose from.
   var _icons = false;
+
+  Color get _color => Color(_f.color);
 
   @override
   void dispose() {
@@ -68,24 +71,13 @@ class _CategoryEditorState extends State<_CategoryEditor> {
   }
 
   void _save() {
-    final name = _name.text.trim();
-    if (name.isEmpty) return;
-    // Categories are found by name: two with one name would be one.
-    final taken =
-        widget.ledger?.categories.all.any((c) => c.name == name) ?? false;
-    if (taken && name != widget.initial.name) {
-      setState(() => _problem = '已經有「$name」這個分類，可以改用合併');
+    final made = _f.build(_name.text);
+    if (made == null) return;
+    final problem = _f.problemOf(made.name);
+    if (problem != null) {
+      setState(() => _problem = problem);
       return;
     }
-    final made = Category(
-      name,
-      _icon,
-      _color.toARGB32(),
-      income: widget.initial.income,
-      parent: _parent,
-      archived: widget.initial.archived,
-      place: widget.initial.place,
-    );
     Navigator.of(context).pop(made);
   }
 
@@ -115,89 +107,11 @@ class _CategoryEditorState extends State<_CategoryEditor> {
     Navigator.of(context).pop();
   }
 
-  Widget _iconChoice(String key) {
-    final picked = key == _icon;
-    return InkWell(
-      onTap: () => setState(() {
-        _icon = key;
-        _icons = false;
-      }),
-      borderRadius: BorderRadius.circular(Radii.medium),
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: picked ? _color : Hue.surface,
-          borderRadius: BorderRadius.circular(Radii.medium),
-        ),
-        child: GlyphIcon(
-          iconFor(key),
-          color: picked ? Hue.onSolid : Hue.muted,
-          tinted: !picked,
-        ),
-      ),
-    );
-  }
-
-  /// A category under this one, or ＋子分類.
-  Widget _child(
-    String label,
-    Glyph glyph,
-    VoidCallback onTap, {
-    bool add = false,
-  }) {
-    return ColorCard(
-      color: add ? Hue.faint : _color,
-      amount: add ? 0.25 : 0.2,
-      radius: Radii.large,
-      onTap: onTap,
-      label: label,
-      padding: const EdgeInsets.symmetric(
-        vertical: Space.s2,
-        horizontal: Space.half,
-      ),
-      child: Column(
-        children: [
-          add
-              ? Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Hue.white,
-                    borderRadius: BorderRadius.circular(Radii.medium),
-                  ),
-                  alignment: Alignment.center,
-                  child: const GlyphIcon(Glyph.add, size: 18, color: Hue.ink),
-                )
-              : SquareIcon(glyph, _color, size: 36),
-          const SizedBox(height: Space.s2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: TextSize.small,
-              fontWeight: FontWeight.w700,
-              color: add ? Hue.ink : deepOf(_color),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _addChild(Ledger ledger) async {
-    final c = widget.initial;
     final made = await showCategoryEditor(
       context,
       title: '新增子分類',
-      initial: Category(
-        '',
-        c.icon,
-        _color.toARGB32(),
-        income: c.income,
-        parent: c.name,
-      ),
+      initial: _f.newChild,
       colors: widget.colors,
       ledger: ledger,
     );
@@ -217,14 +131,14 @@ class _CategoryEditorState extends State<_CategoryEditor> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _pickParent(Ledger ledger, List<String> parents) async {
+  Future<void> _pickParent(Ledger ledger) async {
     final picked = await pickOption<String>(
       context,
       title: '放在哪個分類下',
-      selected: _parent ?? '',
+      selected: _f.parent ?? '',
       options: [
         const Option('', '不放', Glyph.close, Hue.muted),
-        for (final name in parents)
+        for (final name in _f.parents)
           Option(
             name,
             name,
@@ -234,28 +148,13 @@ class _CategoryEditorState extends State<_CategoryEditor> {
       ],
     );
     if (picked == null || !mounted) return;
-    setState(() => _parent = picked.isEmpty ? null : picked);
+    setState(() => _f.parent = picked.isEmpty ? null : picked);
   }
 
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
-    final book = widget.initial.name.isEmpty ? null : ledger;
-    final children = [
-      if (ledger != null && widget.initial.name.isNotEmpty)
-        for (final c in ledger.categories.forEntries(
-          income: widget.initial.income,
-        ))
-          if (c.parent == widget.initial.name) c,
-    ];
-    final parents = [
-      if (ledger != null)
-        for (final c in ledger.categories.forEntries(
-          income: widget.initial.income,
-        ))
-          if (c.parent == null && c.name != widget.initial.name) c.name,
-    ];
-    final ink = deepOf(_color);
+    final book = _f.book;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
       child: Column(
@@ -272,78 +171,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
             ),
           ),
           const SizedBox(height: Space.s4),
-          // The card is the form: the icon and the name on the tint.
-          Container(
-            padding: const EdgeInsets.all(Space.s4),
-            decoration: BoxDecoration(
-              color: tintOf(_color, 0.22),
-              borderRadius: BorderRadius.circular(Radii.largeIncreased),
-            ),
-            child: Row(
-              children: [
-                Semantics(
-                  button: true,
-                  label: '換圖示',
-                  child: GestureDetector(
-                    onTap: () => setState(() => _icons = !_icons),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        SquareIcon(iconFor(_icon), _color, size: 64),
-                        Positioned(
-                          right: -4,
-                          bottom: -4,
-                          child: Container(
-                            width: 24,
-                            height: 24,
-                            decoration: const BoxDecoration(
-                              color: Hue.white,
-                              shape: BoxShape.circle,
-                            ),
-                            alignment: Alignment.center,
-                            child: GlyphIcon(Glyph.edit, size: 13, color: ink),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: Space.s4),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '名稱',
-                        style: TextStyle(
-                          fontSize: TextSize.caption,
-                          fontWeight: FontWeight.w700,
-                          color: ink,
-                        ),
-                      ),
-                      TextField(
-                        controller: _name,
-                        autofocus: widget.initial.name.isEmpty,
-                        style: TextStyle(
-                          fontSize: TextSize.large,
-                          fontWeight: FontWeight.w800,
-                          color: ink,
-                        ),
-                        decoration: InputDecoration.collapsed(
-                          hintText: '點這裡取個名字',
-                          hintStyle: TextStyle(
-                            fontSize: TextSize.heading,
-                            color: ink.withValues(alpha: 0.6),
-                          ),
-                        ),
-                        onSubmitted: (_) => _save(),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _card(),
           if (_problem case final problem?)
             Padding(
               padding: const EdgeInsets.only(top: Space.s2),
@@ -358,124 +186,170 @@ class _CategoryEditorState extends State<_CategoryEditor> {
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: [for (final key in keys) _iconChoice(key)],
+                children: [
+                  for (final key in keys)
+                    IconChoice(
+                      icon: key,
+                      color: _color,
+                      picked: key == _f.icon,
+                      onTap: () => setState(() {
+                        _f.icon = key;
+                        _icons = false;
+                      }),
+                    ),
+                ],
               ),
             ],
           const SizedBox(height: Space.s4),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final color in widget.colors)
-                  Semantics(
-                    button: true,
-                    selected: color == _color,
-                    label: '顏色',
-                    child: InkResponse(
-                      onTap: () => setState(() => _color = color),
-                      radius: 24,
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        alignment: Alignment.center,
-                        child: Container(
-                          width: color == _color ? 34 : 28,
-                          height: color == _color ? 34 : 28,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                            border: color == _color
-                                ? Border.all(color: Hue.white, width: 3)
-                                : null,
-                            boxShadow: color == _color
-                                ? [BoxShadow(color: color, spreadRadius: 2)]
-                                : null,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+          ColorChoiceRow(
+            colors: widget.colors,
+            chosen: _color,
+            onChosen: (color) => setState(() => _f.color = color.toARGB32()),
           ),
-          if (book != null && widget.initial.parent == null) ...[
+          if (book != null && _f.offersChildren) ..._children(book),
+          if (ledger != null && _f.offersParent) ...[
             const SizedBox(height: Space.s2),
-            const Text(
-              '子分類',
-              style: TextStyle(
-                fontSize: TextSize.body,
-                fontWeight: FontWeight.w700,
-                color: Hue.muted,
-              ),
-            ),
-            const SizedBox(height: Space.s2),
-            CardGrid(columns: 4, gap: 8, [
-              for (final c in children)
-                _child(c.name, iconFor(c.icon), () => _editChild(book, c)),
-              _child('子分類', Glyph.add, () => _addChild(book), add: true),
-            ]),
+            ParentChoice(parent: _f.parent, onTap: () => _pickParent(ledger)),
           ],
-          // One level only: a category with its own subcategories stays on
-          // top.
-          if (ledger != null && parents.isNotEmpty && children.isEmpty) ...[
-            const SizedBox(height: Space.s2),
-            ColorCard(
-              color: Hue.faint,
-              amount: 0.18,
-              radius: Radii.large,
-              onTap: () => _pickParent(ledger, parents),
-              padding: const EdgeInsets.symmetric(
-                horizontal: Space.s4,
-                vertical: Space.s4,
-              ),
-              child: Row(
+          const SizedBox(height: Space.s4),
+          _actions(book),
+        ],
+      ),
+    );
+  }
+
+  /// The card that is the form: the icon, tapped to choose another, and
+  /// the name on the category's tint.
+  Widget _card() {
+    final ink = deepOf(_color);
+    return Container(
+      padding: const EdgeInsets.all(Space.s4),
+      decoration: BoxDecoration(
+        color: tintOf(_color, 0.22),
+        borderRadius: BorderRadius.circular(Radii.largeIncreased),
+      ),
+      child: Row(
+        children: [
+          Semantics(
+            button: true,
+            label: '換圖示',
+            child: GestureDetector(
+              onTap: () => setState(() => _icons = !_icons),
+              child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  const Text(
-                    '放在哪個分類下',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${_parent ?? '不放'} ›',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: Hue.muted,
+                  SquareIcon(iconFor(_f.icon), _color, size: 64),
+                  Positioned(
+                    right: -4,
+                    bottom: -4,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: const BoxDecoration(
+                        color: Hue.white,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: GlyphIcon(Glyph.edit, size: 13, color: ink),
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-          const SizedBox(height: Space.s4),
-          Row(
-            children: [
-              if (book != null) ...[
-                Expanded(child: PanelButton('合併', onTap: () => _merge(book))),
-                const SizedBox(width: Space.s2),
-                Expanded(
-                  child: PanelButton(
-                    widget.initial.archived ? '恢復' : '封存',
-                    onTap: () => _archive(book),
+          ),
+          const SizedBox(width: Space.s4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '名稱',
+                  style: TextStyle(
+                    fontSize: TextSize.caption,
+                    fontWeight: FontWeight.w700,
+                    color: ink,
                   ),
                 ),
-                const SizedBox(width: Space.s2),
-              ] else ...[
-                Expanded(
-                  child: PanelButton(
-                    '取消',
-                    onTap: () => Navigator.of(context).pop(),
+                TextField(
+                  controller: _name,
+                  autofocus: _f.isNew,
+                  style: TextStyle(
+                    fontSize: TextSize.large,
+                    fontWeight: FontWeight.w800,
+                    color: ink,
                   ),
+                  decoration: InputDecoration.collapsed(
+                    hintText: '點這裡取個名字',
+                    hintStyle: TextStyle(
+                      fontSize: TextSize.heading,
+                      color: ink.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  onSubmitted: (_) => _save(),
                 ),
-                const SizedBox(width: Space.s2),
               ],
-              Expanded(
-                flex: 2,
-                child: PanelButton('儲存', color: Hue.accent, onTap: _save),
-              ),
-            ],
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  /// 子分類: those under it, four to a row, and ＋子分類.
+  List<Widget> _children(Ledger book) => [
+    const SizedBox(height: Space.s2),
+    const Text(
+      '子分類',
+      style: TextStyle(
+        fontSize: TextSize.body,
+        fontWeight: FontWeight.w700,
+        color: Hue.muted,
+      ),
+    ),
+    const SizedBox(height: Space.s2),
+    CardGrid(columns: 4, gap: 8, [
+      for (final c in _f.children)
+        ChildTile(
+          label: c.name,
+          glyph: iconFor(c.icon),
+          color: _color,
+          onTap: () => _editChild(book, c),
+        ),
+      ChildTile(
+        label: '子分類',
+        glyph: Glyph.add,
+        color: _color,
+        add: true,
+        onTap: () => _addChild(book),
+      ),
+    ]),
+  ];
+
+  /// 合併 and 封存 for a kept category, 取消 for a new one, and 儲存.
+  Widget _actions(Ledger? book) {
+    return Row(
+      children: [
+        if (book != null) ...[
+          Expanded(child: PanelButton('合併', onTap: () => _merge(book))),
+          const SizedBox(width: Space.s2),
+          Expanded(
+            child: PanelButton(
+              widget.initial.archived ? '恢復' : '封存',
+              onTap: () => _archive(book),
+            ),
+          ),
+          const SizedBox(width: Space.s2),
+        ] else ...[
+          Expanded(
+            child: PanelButton('取消', onTap: () => Navigator.of(context).pop()),
+          ),
+          const SizedBox(width: Space.s2),
+        ],
+        Expanded(
+          flex: 2,
+          child: PanelButton('儲存', color: Hue.accent, onTap: _save),
+        ),
+      ],
     );
   }
 }
