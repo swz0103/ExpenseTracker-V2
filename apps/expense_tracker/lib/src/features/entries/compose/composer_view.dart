@@ -17,7 +17,7 @@ extension _View on _ComposerState {
       if (photos != null && receipt != null)
         TapArea(
           label: '查看收據',
-          onTap: () => unawaited(_showReceipt(photos.image(receipt))),
+          onTap: () => unawaited(showReceipt(context, photos.image(receipt))),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(Radii.large),
             child: Image(

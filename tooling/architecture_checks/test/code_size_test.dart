@@ -75,8 +75,6 @@ const longerFunctions = <String, int>{
       113,
   'src/core/ui/calculator.dart::_CalculatorState.build': 113,
   'src/core/ui/tour.dart::_Card.build': 112,
-  'src/features/entries/compose/composer_extras.dart::_Extras._receiptSquare':
-      111,
   'src/features/reports/ui/reports_page_state.dart::_ReportsPageState._flow':
       108,
   'src/features/investments/ui/holding_bento.dart::_LinePainter.paint': 108,
@@ -137,7 +135,7 @@ const longerFunctions = <String, int>{
   'src/core/look/dialogs.dart::confirm': 81,
 };
 const largerLibraries = <String, int>{
-  'src/features/entries/compose/composer.dart': 2259,
+  'src/features/entries/compose/composer.dart': 2147,
   'src/core/look/glyphs.dart': 1942,
   'src/features/accounts/compose/account_editor.dart': 1462,
   'src/features/reports/ui/reports.dart': 1524,

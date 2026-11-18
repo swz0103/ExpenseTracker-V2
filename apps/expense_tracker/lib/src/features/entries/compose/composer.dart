@@ -40,6 +40,7 @@ import 'entry_view_card.dart';
 import 'fill_layout.dart';
 import 'holding_choices.dart';
 import 'people_choices.dart';
+import 'receipt_square.dart';
 import 'trade_cards.dart';
 
 export 'compose_mode_look.dart';

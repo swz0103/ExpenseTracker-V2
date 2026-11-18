@@ -178,131 +178,16 @@ extension _Extras on _ComposerState {
 
   /// The receipt photo as a square beside the note: its thumbnail, which
   /// opens it whole, or a camera mark that asks for one.
-  Widget _receiptSquare(ReceiptPhotos photos) {
-    final receipt = _f.receipt;
-    Future<void> take({required bool camera}) async {
-      try {
-        final name = await photos.take(camera: camera);
-        if (name != null) _set(() => _f.receipt = name);
-      } on Object catch (error) {
-        ErrorLog.instance.record('收據照片', error);
-        _set(() => _problem = camera ? '無法開啟相機' : '無法讀取這張照片');
-      }
-    }
-
-    const size = 84.0;
-    if (receipt == null) {
-      return TapArea(
-        label: '收據',
-        onTap: () async {
-          final camera = await showPanel<bool>(
-            context,
-            (context) => CenterPanel(
-              glyph: Glyph.camera,
-              color: _color,
-              title: '收據',
-              body: CardGrid([
-                for (final (glyph, word, camera) in [
-                  (Glyph.camera, '拍照', true),
-                  (Glyph.image, '從相簿', false),
-                ])
-                  ColorCard(
-                    color: _color,
-                    label: word,
-                    onTap: () => Navigator.of(context).pop(camera),
-                    child: Column(
-                      children: [
-                        SquareIcon(glyph, _color),
-                        const SizedBox(height: Space.s2),
-                        OneLine(
-                          word,
-                          style: const TextStyle(
-                            fontSize: TextSize.body,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ]),
-            ),
-          );
-          if (camera != null) await take(camera: camera);
-        },
-        child: Container(
-          width: size,
-          constraints: const BoxConstraints(minHeight: size),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(Radii.large),
-            border: Border.all(color: Hue.line, width: 1.5),
-          ),
-          child: const Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              GlyphIcon(Glyph.camera, size: 22, color: Hue.muted),
-              SizedBox(height: Space.s1),
-              Text(
-                '收據',
-                style: TextStyle(
-                  fontSize: TextSize.caption,
-                  fontWeight: FontWeight.w700,
-                  color: Hue.muted,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        TapArea(
-          label: '查看收據',
-          onTap: () => unawaited(_showReceipt(photos.image(receipt))),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(Radii.large),
-            child: Image(
-              image: photos.image(receipt),
-              width: size,
-              height: size,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const SizedBox(
-                width: size,
-                height: size,
-                child: Center(child: GlyphIcon(Glyph.image, color: Hue.faint)),
-              ),
-            ),
-          ),
-        ),
-        if (!_viewing)
-          Positioned(
-            right: -10,
-            top: -10,
-            child: IconButton(
-              tooltip: '移除收據',
-              onPressed: () => _set(() => _f.receipt = null),
-              style: IconButton.styleFrom(backgroundColor: Hue.white),
-              icon: const GlyphIcon(Glyph.close, size: 14, color: Hue.muted),
-            ),
-          ),
-      ],
-    );
-  }
+  Widget _receiptSquare(ReceiptPhotos photos) => ReceiptSquare(
+    photos: photos,
+    receipt: _f.receipt,
+    color: _color,
+    removable: !_viewing,
+    onTaken: (name) => _set(() => _f.receipt = name),
+    onFailed: ({required camera}) =>
+        _set(() => _problem = camera ? '無法開啟相機' : '無法讀取這張照片'),
+    onRemove: () => _set(() => _f.receipt = null),
+  );
 
   /// The whole receipt, to zoom into.
-  Future<void> _showReceipt(ImageProvider image) => showDialog<void>(
-    context: context,
-    builder: (context) => Dialog(
-      insetPadding: const EdgeInsets.all(Space.s3),
-      clipBehavior: Clip.antiAlias,
-      child: GestureDetector(
-        onTap: () => Navigator.of(context).pop(),
-        child: InteractiveViewer(
-          maxScale: 5,
-          child: Image(image: image, fit: BoxFit.contain),
-        ),
-      ),
-    ),
-  );
 }

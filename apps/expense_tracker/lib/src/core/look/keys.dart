@@ -31,6 +31,13 @@ abstract final class Keys {
   /// 刪除 on the bar over entries picked by a long press.
   static const deletePicked = ValueKey('ledger:delete-picked');
 
+  /// The receipt square on the composer, while it has no photo.
+  static const receipt = ValueKey('compose:receipt');
+
+  /// Where a receipt's photo comes from: the camera, or the album.
+  static Key receiptSource({required bool camera}) =>
+      ValueKey('receipt:${camera ? 'camera' : 'album'}');
+
   /// The composer's fold of merchant, tags, note and receipt.
   static const extras = ValueKey('compose:extras');
 
