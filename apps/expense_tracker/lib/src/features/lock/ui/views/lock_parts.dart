@@ -209,6 +209,7 @@ class OpeningMark extends StatelessWidget {
 /// calls `onDone` when it has played.
 mixin OpeningAnimation<T extends StatefulWidget>
     on State<T>, TickerProviderStateMixin<T> {
+  // Exception to motion: the splash is skipped while motion is off.
   late final opening = AnimationController(vsync: this, duration: splashTime)
     ..addStatusListener((status) {
       if (status == AnimationStatus.completed) openingDone();

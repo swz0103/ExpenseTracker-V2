@@ -149,6 +149,7 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
                     ),
                   ),
             child: AnimatedSwitcher(
+              // Exception to motion: the web preview's own launcher.
               duration: const Duration(milliseconds: 250),
               child: KeyedSubtree(key: ValueKey(_stage), child: screen),
             ),

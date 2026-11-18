@@ -17,6 +17,7 @@ import '../../../core/text/dates.dart';
 import '../../../core/messages/recurring_messages.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/look/motion.dart';
 
 part 'recurring_calendar.dart';
 part 'recurring_lists.dart';

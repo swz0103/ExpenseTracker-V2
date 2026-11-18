@@ -132,4 +132,39 @@ void main() {
       }
     }
   });
+
+  test('every animation stops when the person asks to reduce motion', () {
+    // A duration goes through Motion.of, which is none while motion is
+    // off, or is marked `Exception to motion` with how it is spared.
+    for (final file in Directory('lib').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      if (file.path.endsWith('core/look/motion.dart')) continue;
+      final lines = file.readAsLinesSync();
+      for (final (i, line) in lines.indexed) {
+        // Given no time, AnimatedSize trips over its own layout.
+        expect(
+          line.contains('AnimatedSize('),
+          isFalse,
+          reason: '${file.path}:${i + 1}: use MotionSize',
+        );
+        if (!line.contains('duration:') || line.trimLeft().startsWith('//')) {
+          continue;
+        }
+        if (line.contains('Motion.of(') || line.contains('Duration.zero')) {
+          continue;
+        }
+        // MotionSize leaves its animation out while motion is off.
+        if (lines
+            .sublist(max(0, i - 3), i)
+            .any((l) => l.contains('MotionSize('))) {
+          continue;
+        }
+        expect(
+          excusedAt(lines, i, 'motion'),
+          isTrue,
+          reason: '${file.path}:${i + 1}: use Motion.of(context, …)',
+        );
+      }
+    }
+  });
 }

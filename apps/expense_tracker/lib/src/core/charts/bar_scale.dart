@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../look/theme.dart';
 import '../look/shape.dart';
+import '../../core/look/motion.dart';
 
 /// The share of a bar's full length that [value] takes next to
 /// [largest], in proportion, and at least a sliver when it is not zero.
@@ -45,7 +46,7 @@ class AxisBar extends StatelessWidget {
     final end = value == 0 ? share : minimum + (1 - minimum) * share;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: end),
-      duration: const Duration(milliseconds: 400),
+      duration: Motion.of(context, const Duration(milliseconds: 400)),
       curve: Curves.easeOutCubic,
       builder: (context, share, _) => CustomPaint(
         size: Size(double.infinity, height + 12),

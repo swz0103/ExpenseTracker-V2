@@ -29,6 +29,7 @@ import '../features/reports/ui/reports.dart';
 import 'settings_page.dart';
 import '../core/ui/shown_amounts.dart';
 import '../core/look/spacing.dart';
+import '../core/look/motion.dart';
 
 enum _Tab { overview, ledger, accounts, more }
 
@@ -398,7 +399,7 @@ class _AppShellState extends State<AppShell> {
       body: SafeArea(
         bottom: false,
         child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 240),
+          duration: Motion.of(context, const Duration(milliseconds: 240)),
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           // Only the page coming in is drawn: the one going out fading
@@ -527,31 +528,11 @@ class _BottomBar extends StatelessWidget {
                     child: Center(
                       child: KeyedSubtree(
                         key: item == _Tab.more ? moreKey : null,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AnimatedScale(
-                              scale: item == tab ? 1.12 : 1,
-                              duration: const Duration(milliseconds: 220),
-                              curve: Curves.easeOutBack,
-                              child: GlyphIcon(
-                                icon,
-                                color: item == tab ? Hue.accent : Hue.muted,
-                                tinted: item == tab,
-                              ),
-                            ),
-                            const SizedBox(height: Space.half),
-                            Text(
-                              label,
-                              style: TextStyle(
-                                fontSize: TextSize.caption,
-                                color: item == tab ? Hue.accent : Hue.muted,
-                                fontWeight: item == tab
-                                    ? FontWeight.w700
-                                    : FontWeight.w400,
-                              ),
-                            ),
-                          ],
+                        child: _tabMark(
+                          context,
+                          icon,
+                          label,
+                          chosen: item == tab,
                         ),
                       ),
                     ),
@@ -564,4 +545,35 @@ class _BottomBar extends StatelessWidget {
       ),
     );
   }
+
+  /// A tab's icon over its name, the chosen one larger and in the accent.
+  Widget _tabMark(
+    BuildContext context,
+    Glyph icon,
+    String label, {
+    required bool chosen,
+  }) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      AnimatedScale(
+        scale: chosen ? 1.12 : 1,
+        duration: Motion.of(context, const Duration(milliseconds: 220)),
+        curve: Curves.easeOutBack,
+        child: GlyphIcon(
+          icon,
+          color: chosen ? Hue.accent : Hue.muted,
+          tinted: chosen,
+        ),
+      ),
+      const SizedBox(height: Space.half),
+      Text(
+        label,
+        style: TextStyle(
+          fontSize: TextSize.caption,
+          color: chosen ? Hue.accent : Hue.muted,
+          fontWeight: chosen ? FontWeight.w700 : FontWeight.w400,
+        ),
+      ),
+    ],
+  );
 }

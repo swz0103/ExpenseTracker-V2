@@ -7,6 +7,7 @@ import '../theme.dart';
 import '../kit.dart';
 import '../shape.dart';
 import '../spacing.dart';
+import '../motion.dart';
 
 // The square and round icons, the tick-in-a-circle switch, and small
 // marks: a legend key, a pill of words, a ring for a share.
@@ -73,7 +74,7 @@ class TickSwitch extends StatelessWidget {
                 change(!value);
               },
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
+          duration: Motion.of(context, const Duration(milliseconds: 160)),
           width: 28,
           height: 28,
           decoration: BoxDecoration(

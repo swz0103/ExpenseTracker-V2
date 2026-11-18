@@ -37,7 +37,8 @@
 
 ### 規則的例外
 
-- 規則測試不列檔名。破例寫在程式旁：在那一行或它上方的註解寫 `// Exception to <規則>: <原因>`；整個檔案的例外寫在檔案最上方的註解。規則名稱：`error words`、`the radius scale`、`ledger words`、`file length`、`function length`、`library length`。
+- 規則測試不列檔名。破例寫在程式旁：在那一行或它上方的註解寫 `// Exception to <規則>: <原因>`；整個檔案的例外寫在檔案最上方的註解。規則名稱：`error words`、`the radius scale`、`ledger words`、`motion`、`file length`、`function length`、`library length`。
+- 動畫時間一律 `Motion.of(context, …)`，伸縮用 `MotionSize`；減少動態效果開啟時不動。停留時間（例如提示訊息多久消失）不是動畫，要標註例外，不可歸零。
 - 定義所在的檔案（例如日期格式在 `dates.dart`、時間在 `core/time/`）本來就是規則的一部分，不算例外。
 
 ### 命名與註解

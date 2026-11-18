@@ -56,6 +56,7 @@ class _UnlockViewState extends State<UnlockView>
   /// The mark settling and the rest coming in, after the opening.
   late final _settle = AnimationController(
     vsync: this,
+    // Exception to motion: not run while motion is off (see build).
     duration: const Duration(milliseconds: 620),
   );
 

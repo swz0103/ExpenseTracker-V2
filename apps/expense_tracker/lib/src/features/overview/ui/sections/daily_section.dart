@@ -11,6 +11,7 @@ import '../../../../core/ui/shown_amounts.dart';
 import '../../../../core/text/dates.dart';
 import '../../../../core/look/shape.dart';
 import '../../../../core/look/spacing.dart';
+import '../../../../core/look/motion.dart';
 
 /// 每日紀錄: a week of days with marks for what each holds, and the chosen
 /// day's entries three to a row, six at a time.
@@ -118,7 +119,7 @@ class _DailySectionState extends State<DailySection> {
           _moveWeek(speed < 0 ? 1 : -1);
         },
         child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
+          duration: Motion.of(context, const Duration(milliseconds: 200)),
           // Only the new week shows: two faded strips read as a smear.
           layoutBuilder: (current, previous) => current ?? const SizedBox(),
           child: _WeekStrip(

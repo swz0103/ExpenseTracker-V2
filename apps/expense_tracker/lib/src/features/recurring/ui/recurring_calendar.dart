@@ -30,7 +30,7 @@ class _Calendar extends StatelessWidget {
     final lead = first.weekday % 7;
     final cells = <Widget>[
       for (var i = 0; i < lead; i++) const SizedBox(),
-      for (var d = 1; d <= days; d++) _dayCell(d, today),
+      for (var d = 1; d <= days; d++) _dayCell(context, d, today),
     ];
     while (cells.length % 7 != 0) {
       cells.add(const SizedBox());
@@ -81,7 +81,7 @@ class _Calendar extends StatelessWidget {
     );
   }
 
-  Widget _dayCell(int d, DateTime today) {
+  Widget _dayCell(BuildContext context, int d, DateTime today) {
     final day = DateTime.utc(year, month, d);
     final todayDay = DateTime.utc(today.year, today.month, today.day);
     final isToday = day == todayDay;
@@ -187,7 +187,7 @@ class _Calendar extends StatelessWidget {
               // Every day keeps the room of the ring, so the chosen one is
               // as large as the rest and the row stays even.
               AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
+                duration: Motion.of(context, const Duration(milliseconds: 180)),
                 padding: const EdgeInsets.all(Space.half),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(Radii.large),

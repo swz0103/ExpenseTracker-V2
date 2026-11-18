@@ -22,6 +22,8 @@ void showNote(
         // A note with an action (復原) would stay until swiped away; every
         // note goes by itself, a little later when it offers one.
         persist: false,
+        // Exception to motion: how long the note stays to be read, not a
+        // movement; reduced motion must not make it vanish.
         duration: Duration(seconds: act == null ? 3 : 5),
         action: action == null || act == null
             ? null

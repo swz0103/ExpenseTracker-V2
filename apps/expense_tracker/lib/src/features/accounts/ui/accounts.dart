@@ -14,6 +14,7 @@ import 'account_card.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/look/motion.dart';
 
 part 'sort_accounts.dart';
 part 'wallet.dart';

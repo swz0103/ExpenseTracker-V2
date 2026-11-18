@@ -68,18 +68,21 @@ class _TourState extends State<Tour> with TickerProviderStateMixin {
   /// The whole tour coming in and going away.
   late final _fade = AnimationController(
     vsync: this,
+    // Exception to motion: not run while motion is off (_still).
     duration: const Duration(milliseconds: 320),
   );
 
   /// The light moving to the next stop.
   late final _move = AnimationController(
     vsync: this,
+    // Exception to motion: not run while motion is off (_still).
     duration: const Duration(milliseconds: 480),
   );
 
   /// The ring spreading from the light, twice at each stop.
   late final _ring = AnimationController(
     vsync: this,
+    // Exception to motion: not run while motion is off (_still).
     duration: const Duration(milliseconds: 1600),
   );
 
@@ -351,33 +354,7 @@ class _Card extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: Space.s3),
-              Tooltip(
-                message: label,
-                child: Material(
-                  color: _accent,
-                  shape: const CircleBorder(),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: onNext,
-                    child: SizedBox.square(
-                      dimension: 48,
-                      child: Center(
-                        child: last
-                            ? const Icon(
-                                Icons.check_rounded,
-                                size: 24,
-                                color: Hue.onSolid,
-                              )
-                            : const GlyphIcon(
-                                Glyph.arrow,
-                                size: 21,
-                                color: Hue.onSolid,
-                              ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              _nextButton(label),
             ],
           ),
         ),
@@ -387,6 +364,7 @@ class _Card extends StatelessWidget {
     if (still) return framed;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
+      // Exception to motion: not built while motion is off ([still]).
       duration: const Duration(milliseconds: 360),
       curve: Curves.easeOutCubic,
       builder: (context, t, child) => Opacity(
@@ -399,6 +377,28 @@ class _Card extends StatelessWidget {
       child: framed,
     );
   }
+
+  /// The round button that goes on, [label] for a screen reader: a tick
+  /// on the last stop, an arrow on the others.
+  Widget _nextButton(String label) => Tooltip(
+    message: label,
+    child: Material(
+      color: _accent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onNext,
+        child: SizedBox.square(
+          dimension: 48,
+          child: Center(
+            child: last
+                ? const Icon(Icons.check_rounded, size: 24, color: Hue.onSolid)
+                : const GlyphIcon(Glyph.arrow, size: 21, color: Hue.onSolid),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 /// The dimmed screen with the light cut out of it.

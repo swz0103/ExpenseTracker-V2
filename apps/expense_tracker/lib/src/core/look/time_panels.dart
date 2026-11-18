@@ -356,6 +356,7 @@ class _TimePanelState extends State<_TimePanel> {
       } else {
         wheel.animateToItem(
           item,
+          // Exception to motion: jumped to instead while motion is off.
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOutCubic,
         );

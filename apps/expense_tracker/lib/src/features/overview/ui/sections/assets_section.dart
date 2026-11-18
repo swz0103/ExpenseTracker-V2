@@ -9,6 +9,7 @@ import '../../../../core/look/widgets.dart';
 import '../../../../core/ledger/ledger.dart';
 import '../../../../core/ui/shown_amounts.dart';
 import '../../../../core/look/spacing.dart';
+import '../../../../core/look/motion.dart';
 
 /// 財務分布: where the assets are as a map of tiles, largest first. A tap
 /// picks a tile; a second opens a group of accounts or the holdings.
@@ -175,7 +176,7 @@ class _AssetsSectionState extends State<AssetsSection> {
       ),
       const SizedBox(height: Space.s1),
       AnimatedSwitcher(
-        duration: const Duration(milliseconds: 280),
+        duration: Motion.of(context, const Duration(milliseconds: 280)),
         switchInCurve: Curves.easeOutCubic,
         transitionBuilder: (child, animation) => FadeTransition(
           opacity: animation,

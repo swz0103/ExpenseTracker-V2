@@ -7,6 +7,7 @@ import 'kit/words.dart';
 import 'theme.dart';
 import 'shape.dart';
 import 'spacing.dart';
+import 'motion.dart';
 
 /// A row of choices in a tinted track, the chosen one on white.
 class Segments extends StatelessWidget {
@@ -47,7 +48,10 @@ class Segments extends StatelessWidget {
                     onChanged(i);
                   },
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
+                    duration: Motion.of(
+                      context,
+                      const Duration(milliseconds: 180),
+                    ),
                     constraints: const BoxConstraints(minHeight: 48),
                     padding: const EdgeInsets.symmetric(vertical: Space.s2),
                     decoration: BoxDecoration(
@@ -105,7 +109,7 @@ class _PressableState extends State<Pressable> {
       onPointerCancel: (_) => _set(false),
       child: AnimatedScale(
         scale: _down ? widget.depth : 1,
-        duration: Duration(milliseconds: _down ? 90 : 220),
+        duration: Motion.of(context, Duration(milliseconds: _down ? 90 : 220)),
         curve: _down ? Curves.easeOut : Curves.easeOutBack,
         child: widget.child,
       ),

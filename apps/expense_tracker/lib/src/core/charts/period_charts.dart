@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../look/paint.dart';
 import '../look/theme.dart';
 import '../look/shape.dart';
+import '../../core/look/motion.dart';
 
 /// One stretch of a report: a week, a month, and what came in and went
 /// out in it. A stretch still ahead has [ahead] set and no figures.
@@ -73,7 +74,7 @@ class PeriodBars extends StatelessWidget {
               onHorizontalDragUpdate: (d) => _follow(d.localPosition.dx, width),
               child: TweenAnimationBuilder<double>(
                 tween: Tween<double>(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 600),
+                duration: Motion.of(context, const Duration(milliseconds: 600)),
                 curve: Curves.easeOutCubic,
                 builder: (context, grow, _) => CustomPaint(
                   size: Size(width, height),

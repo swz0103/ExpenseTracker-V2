@@ -4,6 +4,7 @@ import '../../../core/look/glyphs.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
 import '../../../core/look/theme.dart';
+import '../../../core/look/motion.dart';
 
 /// Fields that fold away under one line: [closed] says what is in them,
 /// a tap on it ([onToggle]) opens or closes them, and [body] shows while
@@ -45,7 +46,7 @@ class FieldsFold extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _heading(),
-          AnimatedSize(
+          MotionSize(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
             alignment: Alignment.topCenter,

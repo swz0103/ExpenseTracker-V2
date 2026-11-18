@@ -101,7 +101,8 @@ const places = <(String, List<String>)>[
 ];
 
 /// The demo ledger's app, [width] wide and [height] high, with the text
-/// at [text]; [key] wraps it, such as to take a picture of it.
+/// at [text], and motion turned off when [still]; [key] wraps it, such as
+/// to take a picture of it.
 Future<void> show(
   WidgetTester tester,
   double width,
@@ -109,6 +110,7 @@ Future<void> show(
   double height = 2800,
   Key? key,
   Ledger? book,
+  bool still = false,
 }) async {
   final preferences = Preferences();
   final ledger = book ?? demoLedger();
@@ -125,8 +127,10 @@ Future<void> show(
         debugShowCheckedModeBanner: false,
         theme: appTheme(),
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(text)),
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(text),
+            disableAnimations: still,
+          ),
           child: child!,
         ),
         // As in the web preview, with its stand-ins for notifications

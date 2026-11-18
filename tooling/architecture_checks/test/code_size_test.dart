@@ -75,7 +75,7 @@ const longerFunctions = <String, int>{
   'src/features/budgets/ui/budgets_month_picker.dart::_MonthPickerState.build':
       113,
   'src/core/ui/calculator.dart::_CalculatorState.build': 113,
-  'src/core/ui/tour.dart::_Card.build': 112,
+  'src/core/ui/tour.dart::_Card.build': 87,
   'src/features/reports/ui/reports_page_state.dart::_ReportsPageState._flow':
       108,
   'src/features/investments/ui/holding_bento.dart::_LinePainter.paint': 108,

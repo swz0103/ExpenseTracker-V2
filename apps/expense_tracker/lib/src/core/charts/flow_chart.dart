@@ -6,6 +6,7 @@ import '../text/figures.dart';
 import '../look/paint.dart';
 import '../look/theme.dart';
 import '../look/shape.dart';
+import '../../core/look/motion.dart';
 
 /// One month of [FlowChart].
 final class FlowMonth {
@@ -64,7 +65,7 @@ class FlowChart extends StatelessWidget {
               onHorizontalDragUpdate: (d) => pick(d.localPosition),
               child: TweenAnimationBuilder<double>(
                 tween: Tween<double>(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 700),
+                duration: Motion.of(context, const Duration(milliseconds: 700)),
                 curve: Curves.easeOutCubic,
                 builder: (context, grow, _) => CustomPaint(
                   size: Size.infinite,

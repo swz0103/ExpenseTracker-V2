@@ -46,6 +46,8 @@ class SwipeActionsState extends State<SwipeActions>
 
   late final _slide = AnimationController(
     vsync: this,
+    // Exception to motion: it follows the finger and settles where it is
+    // let go, a move the person makes, not one made for them.
     duration: const Duration(milliseconds: 180),
   );
 

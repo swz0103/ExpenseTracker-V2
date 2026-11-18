@@ -7,6 +7,7 @@ import '../look/paint.dart';
 import '../look/theme.dart';
 import '../text/dates.dart';
 import '../look/shape.dart';
+import '../../core/look/motion.dart';
 
 /// An account's balance over recent weeks: each bar rises or falls by the
 /// week's net change from where the last one ended, finishing on today's
@@ -53,7 +54,7 @@ class Waterfall extends StatelessWidget {
             },
             child: TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 500),
+              duration: Motion.of(context, const Duration(milliseconds: 500)),
               curve: Curves.easeOutCubic,
               builder: (context, grow, _) => CustomPaint(
                 size: Size.infinite,
