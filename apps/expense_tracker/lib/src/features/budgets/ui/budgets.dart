@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/ui/calculator.dart';
 import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
+import '../compose/budget_editor.dart';
 import '../model/budget_month.dart';
 import '../../../core/nav.dart';
 import '../../../core/ui/shown_amounts.dart';
@@ -53,13 +53,8 @@ class _BudgetsPageState extends State<BudgetsPage> {
     if (next != null) setState(() => _month = next);
   }
 
-  Future<void> _edit(String category) => showSheet<void>(
-    context,
-    (_) => _BudgetEditor(
-      ledger: ledger,
-      budget: ledger.budgets.forCategory(category),
-    ),
-  );
+  Future<void> _edit(String category) =>
+      editBudget(context, ledger, ledger.budgets.forCategory(category));
 
   Future<void> _addLimit() async {
     final picked = await showSheet<String>(

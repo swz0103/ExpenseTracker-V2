@@ -158,7 +158,7 @@ class PersonPage extends StatelessWidget {
                   ),
               ]),
             ..._board('往來紀錄', [
-              for (final e in entries) _move2(e, person.id, color),
+              for (final e in entries) _movementRow(e, person.id, color),
             ]),
           ],
         );
@@ -168,7 +168,7 @@ class PersonPage extends StatelessWidget {
 
   /// One movement with the person: paid back in green with a minus, paid
   /// for with a ＋.
-  Widget _move2(Entry e, String person, Color color) {
+  Widget _movementRow(Entry e, String person, Color color) {
     final back = e.account == person;
     return QuoteRow(
       onTap: () => nav.showEntry(ledger.entryQueryService.groupLead(e)),

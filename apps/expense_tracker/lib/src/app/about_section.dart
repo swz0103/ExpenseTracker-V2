@@ -142,7 +142,7 @@ class AboutSection extends StatelessWidget {
           const SizedBox(height: Space.s3),
           CardGrid([
             if (preferences != null && (update?.possible ?? false))
-              _Row2(
+              _ActionRow(
                 glyph: Glyph.reset,
                 color: SettingsHue.main,
                 title: '自動更新',
@@ -155,7 +155,7 @@ class AboutSection extends StatelessWidget {
                 onTap: () =>
                     preferences.update(updateChecks: !preferences.updateChecks),
               ),
-            _Row2(
+            _ActionRow(
               glyph: Glyph.bolt,
               color: SettingsHue.about,
               title: '診斷',
@@ -174,8 +174,8 @@ class AboutSection extends StatelessWidget {
 }
 
 /// A short card with its icon, name and a control on the right.
-class _Row2 extends StatelessWidget {
-  const _Row2({
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({
     required this.glyph,
     required this.color,
     required this.title,

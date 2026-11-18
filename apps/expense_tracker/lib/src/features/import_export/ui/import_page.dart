@@ -203,7 +203,7 @@ class _ImportPageState extends State<_ImportPage> {
                 onBack: () => Navigator.of(context).pop(),
               ),
             ),
-            Expanded(child: found == null ? _start() : _read2(found)),
+            Expanded(child: found == null ? _start() : _preview(found)),
             if (found != null) _bottom(),
           ],
         ),
@@ -266,17 +266,13 @@ class _ImportPageState extends State<_ImportPage> {
   }
 
   /// What was read: the main card, the account, what will be added, and
-  /// each entry under its day.
-  Widget _read2(Import found) {
-    final ledger = widget.ledger;
+  /// each entry under its day, the latest first.
+  Widget _preview(Import found) {
     final chosen = _chosen!;
-    final color = _color;
-    final total = chosen.entries.fold(0, (sum, e) => sum + e.amount);
-    final days = <DateTime, List<int>>{};
-    for (final (i, e) in found.entries.indexed) {
-      final d = e.date;
-      days.putIfAbsent(DateTime(d.year, d.month, d.day), () => []).add(i);
-    }
+    final days = groupByDay(
+      found.entries.indexed,
+      (indexed) => indexed.$2.date,
+    );
     final keys = days.keys.toList()..sort((a, b) => b.compareTo(a));
     final added = [
       for (final a in chosen.accounts) a.name,
@@ -290,110 +286,12 @@ class _ImportPageState extends State<_ImportPage> {
         Space.s6,
       ),
       children: [
-        ColorCard(
-          color: color,
-          amount: 0.22,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '讀到',
-                      style: TextStyle(
-                        fontSize: TextSize.small,
-                        fontWeight: FontWeight.w700,
-                        color: deepOf(color),
-                      ),
-                    ),
-                    Text(
-                      '${found.entries.length} 筆',
-                      style: const TextStyle(
-                        fontSize: TextSize.figure,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    Text(
-                      '合計 ${ledger.money(total)}',
-                      style: TextStyle(
-                        fontSize: TextSize.body,
-                        color: deepOf(color),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (found.skipped > 0)
-                TextButton(
-                  onPressed: () => _skipped(found),
-                  style: wordButton(deepOf(color), minimumSize: Size(0, 48)),
-                  child: Text(
-                    '略過 ${found.skipped} 行 ⓘ',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-            ],
-          ),
-        ),
+        _summary(found, chosen.entries.fold(0, (sum, e) => sum + e.amount)),
         const SizedBox(height: Space.s2),
-        ColorCard(
-          color: Hue.accent,
-          amount: 0.1,
-          radius: Radii.large,
-          onTap: _pickAccount,
-          label: widget.invoices ? '付款帳戶' : '沒填帳戶時',
-          padding: const EdgeInsets.symmetric(
-            horizontal: Space.s4,
-            vertical: Space.s4,
-          ),
-          child: Row(
-            children: [
-              const GlyphIcon(Glyph.wallet, size: 20, color: Hue.accent),
-              const SizedBox(width: Space.s2),
-              Text(
-                widget.invoices ? '付款帳戶' : '沒填帳戶時記到',
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const Spacer(),
-              Text(
-                '${ledger.account(_account).name} ›',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: Hue.accent,
-                ),
-              ),
-            ],
-          ),
-        ),
+        _accountChoice(),
         if (added.isNotEmpty) ...[
           const SizedBox(height: Space.s2),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final name in added)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Space.s3,
-                    vertical: Space.s2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: tintOf(_invoiceHue, 0.3),
-                    borderRadius: BorderRadius.circular(Radii.largeIncreased),
-                  ),
-                  child: Text(
-                    '＋ $name',
-                    style: const TextStyle(
-                      fontSize: TextSize.small,
-                      fontWeight: FontWeight.w700,
-                      color: Hue.goldText,
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          _added(added),
         ],
         for (final day in keys) ...[
           Padding(
@@ -412,8 +310,123 @@ class _ImportPageState extends State<_ImportPage> {
               ),
             ),
           ),
-          QuoteBoard([for (final i in days[day]!) _row(found.entries[i], i)]),
+          QuoteBoard([for (final (i, e) in days[day]!) _row(e, i)]),
         ],
+      ],
+    );
+  }
+
+  /// 讀到: how many entries, their [total], and the lines skipped.
+  Widget _summary(Import found, int total) {
+    final color = _color;
+    return ColorCard(
+      color: color,
+      amount: 0.22,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '讀到',
+                  style: TextStyle(
+                    fontSize: TextSize.small,
+                    fontWeight: FontWeight.w700,
+                    color: deepOf(color),
+                  ),
+                ),
+                Text(
+                  '${found.entries.length} 筆',
+                  style: const TextStyle(
+                    fontSize: TextSize.figure,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  '合計 ${widget.ledger.money(total)}',
+                  style: TextStyle(
+                    fontSize: TextSize.body,
+                    color: deepOf(color),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (found.skipped > 0)
+            TextButton(
+              onPressed: () => _skipped(found),
+              style: wordButton(deepOf(color), minimumSize: Size(0, 48)),
+              child: Text(
+                '略過 ${found.skipped} 行 ⓘ',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// The account entries without one are booked to, or invoices paid
+  /// from.
+  Widget _accountChoice() {
+    return ColorCard(
+      color: Hue.accent,
+      amount: 0.1,
+      radius: Radii.large,
+      onTap: _pickAccount,
+      label: widget.invoices ? '付款帳戶' : '沒填帳戶時',
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s4,
+        vertical: Space.s4,
+      ),
+      child: Row(
+        children: [
+          const GlyphIcon(Glyph.wallet, size: 20, color: Hue.accent),
+          const SizedBox(width: Space.s2),
+          Text(
+            widget.invoices ? '付款帳戶' : '沒填帳戶時記到',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const Spacer(),
+          Text(
+            '${widget.ledger.account(_account).name} ›',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Hue.accent,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The accounts and categories the import adds, each on a chip.
+  Widget _added(List<String> names) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (final name in names)
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.s3,
+              vertical: Space.s2,
+            ),
+            decoration: BoxDecoration(
+              color: tintOf(_invoiceHue, 0.3),
+              borderRadius: BorderRadius.circular(Radii.largeIncreased),
+            ),
+            child: Text(
+              '＋ $name',
+              style: const TextStyle(
+                fontSize: TextSize.small,
+                fontWeight: FontWeight.w700,
+                color: Hue.goldText,
+              ),
+            ),
+          ),
       ],
     );
   }

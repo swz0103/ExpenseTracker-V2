@@ -48,13 +48,10 @@ class TrashSection extends StatelessWidget {
     }
     final today = ledger.today;
     // Grouped by the day each entry was for, latest day first.
-    final days = <DateTime, List<Trashed>>{};
-    for (final t in [
-      ...trash.all,
-    ]..sort((a, b) => b.entry.date.compareTo(a.entry.date))) {
-      final d = t.entry.date;
-      days.putIfAbsent(DateTime(d.year, d.month, d.day), () => []).add(t);
-    }
+    final days = groupByDay(
+      [...trash.all]..sort((a, b) => b.entry.date.compareTo(a.entry.date)),
+      (t) => t.entry.date,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
