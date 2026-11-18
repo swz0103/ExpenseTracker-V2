@@ -327,8 +327,7 @@ extension _Fields on _ComposerState {
   /// Under the amount of a split: whether the parts add up, and 平均分配.
   Widget _splitState() {
     final parts = _f.parts ?? const [];
-    final used = parts.fold(0, (sum, p) => sum + p.$2);
-    final left = _f.amount - used;
+    final left = _f.splitLeft;
     return BubbleRow([
       Bubble(
         left == 0
@@ -352,20 +351,8 @@ extension _Fields on _ComposerState {
     final parts = _f.parts;
     final splitting = parts != null;
     final inParts = {for (final p in parts ?? const <(String, int)>[]) p.$1};
-    final choices = _f.categoryChoices();
-    // Four of the most used, then 全部 and 新增: as many as the row shows
-    // without sliding.
-    final shown = choices.take(4).toList();
+    final (:shown, :more) = _f.categoryRow();
     final lending = _f.mode == ComposeMode.lend;
-    if (!splitting &&
-        _f.category.isNotEmpty &&
-        !shown.contains(_f.category) &&
-        shown.isNotEmpty) {
-      shown[shown.length - 1] = _f.category;
-    }
-    for (final name in inParts) {
-      if (!shown.contains(name)) shown.add(name);
-    }
     final items = [
       for (final category in [for (final n in shown) _ledger.category(n)])
         ChoiceStripItem(
@@ -379,7 +366,7 @@ extension _Fields on _ComposerState {
               ? () => _set(() => _f.togglePart(category.name))
               : () => _pickCategoryName(category.name),
         ),
-      if (choices.length > shown.length || splitting)
+      if (more)
         ChoiceStripItem(
           label: '全部',
           icon: Glyph.categories,

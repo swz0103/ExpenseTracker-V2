@@ -103,78 +103,21 @@ extension _Extras on _ComposerState {
 
   /// A heading at the foot of the form that opens and closes [body]:
   /// closed, [closed] says what is in it.
+  /// A fold of the form: [FieldsFold], opened and closed with the form's
+  /// 更多, shown open while the entry is only looked at.
   Widget _fold({
     Key? key,
     required String closed,
     required bool open,
     required List<Widget> body,
-  }) {
-    // Looked at, there is nothing to open or close: what is filled in
-    // shows, with no heading repeating it.
-    if (_viewing) {
-      return Padding(
-        padding: const EdgeInsets.only(top: Space.s1),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: body,
-        ),
-      );
-    }
-    final heading = InkWell(
-      key: key,
-      borderRadius: BorderRadius.circular(Radii.medium),
-      onTap: _viewing ? null : () => _set(() => _f.more = !_f.more),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: Space.s1,
-          vertical: Space.s3,
-        ),
-        child: Row(
-          children: [
-            const GlyphIcon(Glyph.note, size: 18, color: Hue.muted),
-            const SizedBox(width: Space.s2),
-            Expanded(
-              child: Text(
-                closed,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: TextSize.body,
-                  fontWeight: open ? FontWeight.w700 : FontWeight.w600,
-                  color: open ? Hue.ink : Hue.muted,
-                ),
-              ),
-            ),
-            if (!_viewing)
-              RotatedBox(
-                quarterTurns: open ? 3 : 1,
-                child: const GlyphIcon(Glyph.next, size: 16, color: Hue.faint),
-              ),
-          ],
-        ),
-      ),
-    );
-    return Padding(
-      padding: const EdgeInsets.only(top: Space.s1),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          heading,
-          AnimatedSize(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            alignment: Alignment.topCenter,
-            child: open
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: body,
-                  )
-                : const SizedBox(width: double.infinity),
-          ),
-        ],
-      ),
-    );
-  }
+  }) => FieldsFold(
+    headingKey: key,
+    closed: closed,
+    open: open,
+    viewing: _viewing,
+    onToggle: () => _set(() => _f.more = !_f.more),
+    body: body,
+  );
 
   /// The receipt photo as a square beside the note: its thumbnail, which
   /// opens it whole, or a camera mark that asks for one.

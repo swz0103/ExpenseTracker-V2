@@ -331,4 +331,42 @@ void main() {
     form.setFrom('cash');
     expect((form.account, form.received), ('cash', null));
   });
+
+  test('the row of categories keeps the one chosen in sight', () {
+    final ledger = Ledger(
+      today: day,
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 0)],
+      categories: [
+        for (final n in ['飲食', '交通', '居家', '娛樂', '醫療', '教育'])
+          Category(n, 'other', 0xFF000000),
+      ],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      dataSource: _Nowhere(),
+    );
+    final form = ComposeForm(ledger, type: EntryType.expense);
+    final first = form.categoryRow();
+    expect(first.shown, hasLength(4));
+    expect(first.more, isTrue);
+
+    // One beyond the four takes the last place.
+    final last = ledger.reportService.categoriesByUse(income: false).last;
+    form.category = last;
+    final row = form.categoryRow();
+    expect(row.shown, [...first.shown.take(3), last]);
+  });
+
+  test('splitting shows each part and what is left of the amount', () {
+    final form = ComposeForm(book(), type: EntryType.expense)
+      ..setAmount(1000)
+      ..toggleSplit();
+    form.parts = [('飲食', 600), ('居家', 300)];
+    expect(form.splitLeft, 100);
+    expect(form.categoryRow().shown, containsAll(['飲食', '居家']));
+    expect(form.categoryRow().more, isTrue);
+    form.parts = [('飲食', 700), ('居家', 400)];
+    expect(form.splitLeft, -100);
+  });
 }
