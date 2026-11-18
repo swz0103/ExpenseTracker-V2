@@ -77,4 +77,35 @@ abstract interface class ComposeActions {
 
   /// The row of categories, those of spending when [expense].
   Widget categories({required bool expense});
+
+  /// Whether the form starts a new entry afresh: not one kept, not a
+  /// draft, not only looked at.
+  bool get fresh;
+
+  /// Whether an invoice's code can be scanned here.
+  bool get canScan;
+
+  /// 代墊 ([back] false) or 對方還錢 ([back] true).
+  void lend({required bool back});
+
+  /// Scans an invoice's code and fills the form from it.
+  Future<void> scanInvoice();
+
+  /// Picks a category to add as a part of the split.
+  Future<void> addPart();
+
+  /// Makes a new category; its name, or null when cancelled.
+  Future<String?> newCategory();
+
+  /// Opens every category, [selected] marked; the one picked, or null.
+  Future<String?> pickCategory(String? selected);
+
+  /// Puts the entry in the category [name].
+  void pickCategoryName(String name);
+
+  /// Starts or stops splitting the amount between categories.
+  void split();
+
+  /// Shares the amount evenly between the parts.
+  void evenly();
 }

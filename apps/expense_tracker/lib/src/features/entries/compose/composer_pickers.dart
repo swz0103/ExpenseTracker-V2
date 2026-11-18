@@ -1,6 +1,8 @@
 part of 'composer.dart';
 
-// The choices the form opens: amount, day, account, category, holding, merchant, tags and instalments.
+// The choices the form opens: amount, day, account, category, holding,
+// merchant, tags and instalments; and what it takes in from outside, an
+// invoice scanned and a receipt photo left over.
 
 extension _Pickers on _ComposerState {
   Future<int?> _ask(String title, int initial, {String unit = homeCode}) {
@@ -144,5 +146,56 @@ extension _Pickers on _ComposerState {
       ),
     );
     if (picked != null) _set(() => _f.installments = picked);
+  }
+
+  /// A receipt photo the camera took while the phone closed the app goes
+  /// with the next new entry.
+  Future<void> _takeLeftover() async {
+    final photos = widget.photos;
+    if (photos == null || widget.entry != null || _f.refunded != null) return;
+    final String? name;
+    try {
+      name = await photos.takeLeftover();
+    } on Object catch (error) {
+      ErrorLog.instance.record('收據照片', error);
+      return;
+    }
+    if (name == null || !mounted) return;
+    _set(() => _f.receipt = name);
+  }
+
+  /// Applies `change` while the form is still on screen: the field
+  /// builders in composer_fields.dart run it after a dialog closes.
+  /// 掃發票: reads a paper e-invoice's left QR code (and its right one when
+  /// the items go on there) and fills the form: the day, the total, its
+  /// items and number in the note, tagged 發票, and a category guessed from
+  /// the items. One already in the book is said, not filled again.
+  Future<void> _scanInvoice() async {
+    final scan = widget.scan;
+    if (scan == null) return;
+    try {
+      final left = await scan();
+      if (left == null || !mounted) return;
+      var invoice = InvoiceQr.parse(left);
+      if (invoice == null) {
+        _say('這不是電子發票左邊的 QR Code，請掃左邊那個');
+        return;
+      }
+      if (invoiceRecorded(_ledger, invoice.date, invoice.number)) {
+        _say('發票 ${invoice.number} 已經記過了');
+        return;
+      }
+      if (invoice.wantsMore) {
+        _say('還有品項在右邊的 QR Code，請再掃一次');
+        final right = await scan();
+        if (right != null) invoice = invoice.withRight(right);
+      }
+      if (!mounted) return;
+      final scanned = invoice;
+      _set(() => _f.fillInvoice(scanned));
+    } on Object catch (error) {
+      // The scanner says what went wrong in words (androidScanQr).
+      _say('$error');
+    }
   }
 }

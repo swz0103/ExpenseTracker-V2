@@ -70,7 +70,8 @@ void main() {
         final line = lines[i];
         if (line.trimLeft().startsWith('//')) continue;
         if (!raw.hasMatch(line) || line.contains('.contains(')) continue;
-        if (f.path.endsWith('composer_state.dart') && line.contains("_say('")) {
+        if (f.path.endsWith('composer_pickers.dart') &&
+            line.contains("_say('")) {
           continue;
         }
         said.add('${f.path}:${i + 1}');

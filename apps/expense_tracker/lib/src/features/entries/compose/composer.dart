@@ -27,9 +27,7 @@ import '../../../core/look/spacing.dart';
 
 export '../model/compose_form.dart' show ComposeMode;
 
-import 'choice_strip.dart';
 import 'compose_cards.dart';
-import 'compose_chips.dart';
 import 'compose_mode_look.dart';
 import 'compose_widgets.dart';
 import 'entry_view_card.dart';
@@ -39,6 +37,7 @@ import 'investment_fields.dart';
 import 'lend_fields.dart';
 import 'fill_layout.dart';
 import 'form_frame.dart';
+import 'form_rows.dart';
 import 'holding_choices.dart';
 import 'note_field.dart';
 import 'people_choices.dart';
