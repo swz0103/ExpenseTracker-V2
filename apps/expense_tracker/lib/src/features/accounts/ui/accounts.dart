@@ -187,7 +187,7 @@ class _NetWorth extends StatelessWidget {
       for (final p in parts)
         if (p.$2 > 0) p,
     ];
-    final shares = visibleShares([for (final p in shown) p.$2]);
+    final portions = visibleShares([for (final p in shown) p.$2]);
     return HeroFigure(
       icon: Glyph.wallet,
       label: '淨資產',
@@ -216,7 +216,7 @@ class _NetWorth extends StatelessWidget {
                         for (final (i, (_, _, color)) in shown.indexed) ...[
                           if (i > 0) const SizedBox(width: Space.half),
                           Expanded(
-                            flex: max(1, (shares[i] * 1000).round()),
+                            flex: max(1, (portions[i] * 1000).round()),
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 color: color,

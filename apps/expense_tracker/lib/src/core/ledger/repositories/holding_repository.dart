@@ -73,7 +73,7 @@ final class HoldingRepository implements HoldingReader {
     _withChanges ??= [
       for (final h in _replayed.holdings)
         if (_moveOf(h.code) case final move?)
-          h.withChange((h.shares * move).round())
+          h.withChange(timesPrice(h.shares, move))
         else
           h,
     ],

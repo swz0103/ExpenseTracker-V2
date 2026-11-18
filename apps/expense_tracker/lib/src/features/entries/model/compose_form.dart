@@ -354,13 +354,13 @@ final class ComposeForm {
   /// The shares of a trade: the amount follows at the same price.
   void setShares(int value) {
     shares = value;
-    if (trading) amount = (shares * price).round();
+    if (trading) amount = timesPrice(shares, price);
   }
 
   /// The price of a trade: the amount follows for the same shares.
   void setPrice(double value) {
     price = value;
-    if (trading) amount = (shares * price).round();
+    if (trading) amount = timesPrice(shares, price);
   }
 
   EntryType get type => switch (mode) {

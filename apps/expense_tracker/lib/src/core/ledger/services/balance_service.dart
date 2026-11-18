@@ -168,7 +168,7 @@ final class BalanceService {
   int netWorthAt(DateTime day) {
     var total = 0;
     for (final h in _holdings.all) {
-      total += (h.price * _holdings.sharesOn(h.code, day)).round();
+      total += timesPrice(_holdings.sharesOn(h.code, day), h.price);
     }
     for (final a in _accounts.all) {
       if (a.inNetWorth) total += worthOf(a, until: day);

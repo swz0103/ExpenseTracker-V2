@@ -1,6 +1,7 @@
 import 'package:core/foundation_values.dart' show Currency;
 
-import '../models/models.dart' show homeCode;
+import '../models/models.dart'
+    show homeCode, rateScale, roundedBigQuotient, scaledRate;
 
 /// What the screens and queries may ask of the market data.
 abstract interface class MarketDataReader {
@@ -89,23 +90,34 @@ final class MarketDataRepository implements MarketDataReader {
     if (currency == homeCode) return minor;
     final rate = _rates[currency];
     if (rate == null) return null;
-    return (minor / _unit(currency) * rate).round();
+    // minor / unit × rate, in whole numbers.
+    return roundedBigQuotient(
+      BigInt.from(minor) * scaledRate(rate),
+      BigInt.from(_unit(currency) * rateScale),
+    );
   }
 
   @override
   int? convert(int amount, String from, String to) {
     if (from == to) return amount;
-    final home = from == homeCode ? amount.toDouble() : _rated(amount, from);
-    if (home == null) return null;
-    if (to == homeCode) return home.round();
-    final rate = _rates[to];
-    if (rate == null || rate <= 0) return null;
-    return (home / rate * _unit(to)).round();
-  }
-
-  double? _rated(int minor, String currency) {
-    final rate = _rates[currency];
-    return rate == null ? null : minor / _unit(currency) * rate;
+    if (to == homeCode) return toHome(amount, from);
+    final into = _rates[to];
+    if (into == null || into <= 0) return null;
+    // NT$ per unit of [from] (one for NT$ itself), over NT$ per unit of
+    // [to], in whole numbers: amount / unit(from) × rate(from) / rate(to)
+    // × unit(to).
+    final BigInt fromRate;
+    if (from == homeCode) {
+      fromRate = BigInt.from(rateScale);
+    } else {
+      final rate = _rates[from];
+      if (rate == null) return null;
+      fromRate = scaledRate(rate);
+    }
+    return roundedBigQuotient(
+      BigInt.from(amount) * fromRate * BigInt.from(_unit(to)),
+      BigInt.from(_unit(from)) * scaledRate(into),
+    );
   }
 
   static int _unit(String currency) =>

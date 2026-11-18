@@ -170,6 +170,30 @@ void main() {
     }
   });
 
+  test('a sum of prices or rates is worked out in whole numbers', () {
+    // A double holds 662.05 only nearly, so a product that lands on a
+    // half can round the wrong way: models/fixed_point.dart does it.
+    final rounded = RegExp(r'\(([^()]*)\)\.round\(\)');
+    final money = RegExp(
+      r'\b(price|rate|move|shares|close)\b',
+      caseSensitive: false,
+    );
+    for (final file in Directory('lib').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      if (file.path.endsWith('fixed_point.dart')) continue;
+      for (final (i, line) in file.readAsLinesSync().indexed) {
+        for (final m in rounded.allMatches(line)) {
+          final sum = m[1]!;
+          expect(
+            sum.contains(RegExp('[*/]')) && money.hasMatch(sum),
+            isFalse,
+            reason: '${file.path}:${i + 1}: use timesPrice or roundedQuotient',
+          );
+        }
+      }
+    }
+  });
+
   test('the ledger is in libraries of their own, not part files', () {
     for (final f in Directory(Layout.ledgerDir).listSync(recursive: true)) {
       if (f is! File || !f.path.endsWith('.dart')) continue;

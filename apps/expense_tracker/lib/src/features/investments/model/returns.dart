@@ -123,7 +123,7 @@ List<DividendGuess> expectedDividends(Ledger ledger) {
         code: h.code,
         name: h.name,
         month: next,
-        amount: (e.dividendNet * h.shares / then).round(),
+        amount: roundedQuotient(e.dividendNet * h.shares, then),
       ));
     }
   }

@@ -1,5 +1,7 @@
 import 'package:domain/investments.dart' show unitsPerShare;
 
+import 'fixed_point.dart';
+
 final class Holding {
   const Holding(
     this.code,
@@ -31,7 +33,7 @@ final class Holding {
   /// Profit or loss of shares already sold.
   final int realized;
 
-  int get value => (shares * price).round();
+  int get value => timesPrice(shares, price);
 
   int get gain => value - cost;
 
