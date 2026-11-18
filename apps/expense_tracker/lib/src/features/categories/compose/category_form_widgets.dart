@@ -101,8 +101,8 @@ class ColorChoiceRow extends StatelessWidget {
 }
 
 /// A category under the one edited, or ＋子分類 when [add].
-class ChildTile extends StatelessWidget {
-  const ChildTile({
+class SubcategoryTile extends StatelessWidget {
+  const SubcategoryTile({
     super.key,
     required this.label,
     required this.glyph,
@@ -161,8 +161,12 @@ class ChildTile extends StatelessWidget {
 }
 
 /// 放在哪個分類下 with the category it sits under, [parent], or 不放.
-class ParentChoice extends StatelessWidget {
-  const ParentChoice({super.key, required this.parent, required this.onTap});
+class ParentCategoryChoice extends StatelessWidget {
+  const ParentCategoryChoice({
+    super.key,
+    required this.parent,
+    required this.onTap,
+  });
 
   final String? parent;
   final VoidCallback onTap;

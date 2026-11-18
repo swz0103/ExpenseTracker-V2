@@ -133,10 +133,10 @@ class _BudgetEditorState extends State<_BudgetEditor> {
     final scope = BudgetScope.of(name);
     final total = scope == BudgetScope.all;
     final ink = deepOf(color);
-    final glyph = switch (scope) {
-      BudgetScope.all => Glyph.cash,
-      BudgetScope.tag => Glyph.tag,
-      BudgetScope.category => iconFor(category!.icon),
+    final glyph = switch ((scope, category)) {
+      (_, final c?) => iconFor(c.icon),
+      (BudgetScope.all, null) => Glyph.cash,
+      (_, null) => Glyph.tag,
     };
     return Row(
       children: [

@@ -272,8 +272,7 @@ class _ImportPageState extends State<_ImportPage> {
     final days = groupByDay(
       found.entries.indexed,
       (indexed) => indexed.$2.date,
-    );
-    final keys = days.keys.toList()..sort((a, b) => b.compareTo(a));
+    ).entries.toList()..sort((a, b) => b.key.compareTo(a.key));
     final added = [
       for (final a in chosen.accounts) a.name,
       for (final c in chosen.categories) c.name,
@@ -293,7 +292,7 @@ class _ImportPageState extends State<_ImportPage> {
           const SizedBox(height: Space.s2),
           _added(added),
         ],
-        for (final day in keys) ...[
+        for (final MapEntry(key: day, value: group) in days) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(
               Space.s2,
@@ -310,7 +309,7 @@ class _ImportPageState extends State<_ImportPage> {
               ),
             ),
           ),
-          QuoteBoard([for (final (i, e) in days[day]!) _row(e, i)]),
+          QuoteBoard([for (final (i, e) in group) _row(e, i)]),
         ],
       ],
     );

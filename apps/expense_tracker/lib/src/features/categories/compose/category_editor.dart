@@ -209,7 +209,10 @@ class _CategoryEditorState extends State<_CategoryEditor> {
           if (book != null && _f.offersChildren) ..._children(book),
           if (ledger != null && _f.offersParent) ...[
             const SizedBox(height: Space.s2),
-            ParentChoice(parent: _f.parent, onTap: () => _pickParent(ledger)),
+            ParentCategoryChoice(
+              parent: _f.parent,
+              onTap: () => _pickParent(ledger),
+            ),
           ],
           const SizedBox(height: Space.s4),
           _actions(book),
@@ -309,13 +312,13 @@ class _CategoryEditorState extends State<_CategoryEditor> {
     const SizedBox(height: Space.s2),
     CardGrid(columns: 4, gap: 8, [
       for (final c in _f.children)
-        ChildTile(
+        SubcategoryTile(
           label: c.name,
           glyph: iconFor(c.icon),
           color: _color,
           onTap: () => _editChild(book, c),
         ),
-      ChildTile(
+      SubcategoryTile(
         label: '子分類',
         glyph: Glyph.add,
         color: _color,

@@ -148,6 +148,10 @@ const largerLibraries = <String, int>{
 /// lowered to it.
 const slack = 20;
 
+/// [relative] with `/` between its folders on every system, as the
+/// lists above are written.
+String _key(String relative) => p.posix.joinAll(p.split(relative));
+
 final root = p.normalize(p.join(Directory.current.path, '..', '..'));
 
 /// One function's name and length.
@@ -229,7 +233,7 @@ void main() {
   ]..sort((a, b) => a.path.compareTo(b.path));
   final units = {
     for (final f in files)
-      p.relative(f.path, from: p.join(root, app)): parseString(
+      _key(p.relative(f.path, from: p.join(root, app))): parseString(
         content: f.readAsStringSync(),
         path: f.path,
         throwIfDiagnostics: false,
@@ -255,10 +259,14 @@ void main() {
       if (unit.directives.any((d) => d is PartOfDirective)) continue;
       var lines = result.lineInfo.lineCount;
       for (final part in unit.directives.whereType<PartDirective>()) {
-        final path = p.normalize(
-          p.join(p.dirname(file), part.uri.stringValue!),
-        );
-        lines += units[path]!.lineInfo.lineCount;
+        final uri = part.uri.stringValue;
+        final kept = uri == null
+            ? null
+            : units[p.posix.normalize(
+                p.posix.join(p.posix.dirname(file), uri),
+              )];
+        if (kept == null) fail('$file: its part ${part.uri} is not found');
+        lines += kept.lineInfo.lineCount;
       }
       if (lines > libraryLimit) over[file] = lines;
     }
@@ -283,7 +291,7 @@ void _ratchet(Map<String, int> over, Map<String, int> known, String what) {
     for (final key in known.keys)
       if (!over.containsKey(key))
         '$key is within the limit: take it off the list',
-  ]..removeWhere((p) => p.isEmpty);
+  ]..removeWhere((problem) => problem.isEmpty);
   if (Platform.environment['PRINT_SIZES'] != null) {
     for (final e
         in (over.entries.toList()..sort((a, b) => b.value - a.value))) {
