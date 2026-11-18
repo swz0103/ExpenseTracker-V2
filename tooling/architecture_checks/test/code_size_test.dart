@@ -44,7 +44,6 @@ const longerFunctions = <String, int>{
   'src/app/demo/seed_history.dart::_history': 152,
   'src/features/recurring/ui/recurring_page.dart::_RecurringPageState.build':
       150,
-  'src/features/entries/compose/composer_view.dart::_View._view': 144,
   'src/core/ledger/portfolio.dart::Portfolio.replay': 143,
   'src/features/entries/ui/entries_page.dart::_EntriesPageState._head': 138,
   'src/features/reports/ui/report_blocks.dart::_Hero.build': 138,
@@ -105,7 +104,7 @@ const longerFunctions = <String, int>{
   'src/features/investments/ui/holding_page.dart::_DividendCard.build': 93,
   'src/core/ledger/persistence/sql_ledger_data_source.dart::SqlLedgerDataSource.refreshQuotes':
       93,
-  'src/features/entries/compose/composer_investment.dart::_HoldingChoicesState.build':
+  'src/features/entries/compose/holding_choices.dart::_HoldingChoicesState.build':
       92,
   'src/features/entries/compose/composer_investment.dart::_InvestmentFields._tradeFold':
       92,
@@ -138,7 +137,7 @@ const longerFunctions = <String, int>{
   'src/core/look/dialogs.dart::confirm': 81,
 };
 const largerLibraries = <String, int>{
-  'src/features/entries/compose/composer.dart': 2740,
+  'src/features/entries/compose/composer.dart': 2417,
   'src/core/look/glyphs.dart': 1942,
   'src/features/accounts/compose/account_editor.dart': 1462,
   'src/features/reports/ui/reports.dart': 1524,

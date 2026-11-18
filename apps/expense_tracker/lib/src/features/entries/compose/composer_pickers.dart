@@ -81,7 +81,7 @@ extension _Pickers on _ComposerState {
   Future<void> _pickHolding() async {
     final picked = await _open<String>(
       '標的',
-      (done) => _HoldingChoices(
+      (done) => HoldingChoices(
         ledger: _ledger,
         selected: _f.holding,
         onPick: done,

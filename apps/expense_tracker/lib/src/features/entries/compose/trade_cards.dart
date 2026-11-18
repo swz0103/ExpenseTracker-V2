@@ -347,3 +347,69 @@ class SquareIconButton extends StatelessWidget {
     );
   }
 }
+
+/// What a trade comes to beyond its sums, on a grey block: its name and
+/// what it rests on on the left, the figure on the right in [color].
+class TradeOutcomeCard extends StatelessWidget {
+  const TradeOutcomeCard({
+    super.key,
+    required this.title,
+    required this.sub,
+    required this.color,
+    this.value,
+  });
+
+  final String title;
+  final String sub;
+  final String? value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final figure = value;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s4,
+        vertical: Space.s2,
+      ),
+      decoration: BoxDecoration(
+        color: Hue.group,
+        borderRadius: BorderRadius.circular(Radii.large),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: TextSize.small,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  sub,
+                  style: const TextStyle(
+                    fontSize: TextSize.caption,
+                    color: Hue.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (figure != null)
+            Text(
+              figure,
+              style: TextStyle(
+                fontSize: TextSize.large,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

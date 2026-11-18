@@ -1,0 +1,51 @@
+import '../../../core/ledger/ledger.dart';
+import '../../../core/text/dates.dart';
+import '../../../core/text/figures.dart';
+
+/// The sign an entry's amount is written with: − for money out, + for
+/// money in, none for a transfer.
+String entrySign(EntryType type) => switch (type) {
+  EntryType.expense || EntryType.buy => '−',
+  EntryType.income || EntryType.sell || EntryType.dividend => '+',
+  EntryType.transfer => '',
+};
+
+/// What an entry looked at is called: both accounts for a transfer, the
+/// holding for a trade, its own title otherwise.
+String entryTitle(Ledger ledger, Entry e) => switch (e.type) {
+  EntryType.transfer =>
+    '${ledger.account(e.account).name} → ${ledger.account(e.to ?? '').name}',
+  EntryType.buy || EntryType.sell || EntryType.dividend => e.holding ?? e.title,
+  _ => e.title,
+};
+
+/// Each thing written with [e], as (what it is, what was written), in the
+/// order an entry looked at shows them; what was left empty is left out,
+/// and a note that only repeats [title] too.
+List<(String, String)> entryDetails(Ledger ledger, Entry e, String title) {
+  final account = ledger.account(e.account);
+  return [
+    if (e.type != EntryType.transfer) ('帳戶', account.name),
+    ('日期', formatMMMEd(e.date)),
+    if (e.merchant.isNotEmpty) ('商家', e.merchant),
+    if (e.tags.isNotEmpty) ('標籤', e.tags.map((t) => '#$t').join(' ')),
+    if (e.parts.isNotEmpty)
+      (
+        '拆分',
+        [for (final (name, v) in e.parts) '$name ${groupDigits(v)}'].join('、'),
+      ),
+    if (e.installments > 1)
+      (
+        '分期',
+        '${e.installments} 期 · 每期 ${groupDigits(e.amount ~/ e.installments)}',
+      ),
+    if (e.shares != 0) ('股數', '${groupDigits(e.shares.abs())} 股'),
+    if (e.fee > 0) ('手續費', groupDigits(e.fee)),
+    if (e.tax > 0)
+      (e.type == EntryType.dividend ? '二代健保' : '稅', groupDigits(e.tax)),
+    if (e.home case final home?) ('折合台幣', groupDigits(home)),
+    if ((e.type, e.received) case (EntryType.transfer, final received?))
+      ('轉入金額', amountIn(received, ledger.account(e.to ?? '').currency)),
+    if (e.note.isNotEmpty && e.note != title) ('備註', e.note),
+  ];
+}

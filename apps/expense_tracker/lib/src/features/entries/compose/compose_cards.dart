@@ -251,3 +251,38 @@ class TransferEndCard extends StatelessWidget {
     );
   }
 }
+
+/// One thing written with an entry: its name small, what it is under.
+class ViewFieldTile extends StatelessWidget {
+  const ViewFieldTile({super.key, required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(Space.s3, Space.s2, Space.s3, Space.s2),
+    decoration: BoxDecoration(
+      color: Hue.group,
+      borderRadius: BorderRadius.circular(Radii.large),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        OneLine(
+          label,
+          style: const TextStyle(fontSize: TextSize.caption, color: Hue.muted),
+        ),
+        Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: TextSize.body,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    ),
+  );
+}
