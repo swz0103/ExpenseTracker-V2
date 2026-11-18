@@ -36,19 +36,19 @@ import 'compose_chips.dart';
 import 'compose_mode_look.dart';
 import 'compose_widgets.dart';
 import 'entry_view_card.dart';
+import 'compose_actions.dart';
 import 'fields_fold.dart';
+import 'investment_fields.dart';
 import 'fill_layout.dart';
 import 'form_frame.dart';
 import 'holding_choices.dart';
 import 'note_field.dart';
 import 'people_choices.dart';
 import 'receipt_square.dart';
-import 'trade_cards.dart';
 
 export 'compose_mode_look.dart';
 
 part 'composer_fields.dart';
-part 'composer_investment.dart';
 part 'composer_lend.dart';
 part 'composer_state.dart';
 part 'composer_extras.dart';

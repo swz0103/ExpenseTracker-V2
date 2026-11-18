@@ -149,7 +149,7 @@ extension _Fields on _ComposerState {
       case ComposeMode.lend:
         return _lendFields();
       case ComposeMode.investment:
-        return _investmentFields();
+        return InvestmentFields(this).build(context);
     }
   }
 

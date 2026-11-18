@@ -1,13 +1,36 @@
-part of 'composer.dart';
+import 'package:flutter/material.dart';
 
-/// The investment fields: a buy or sale from shares and price with the
-/// broker's fee and tax, or a dividend with its premium and any change in
-/// the shares held.
+import '../../../core/ledger/ledger.dart';
+import '../../../core/look/glyphs.dart';
+import '../../../core/look/spacing.dart';
+import '../../../core/look/theme.dart';
+import '../../../core/look/widgets.dart';
+import '../../../core/text/dates.dart';
+import '../../../core/text/figures.dart';
+import '../../../core/ui/calculator.dart';
+import '../model/compose_form.dart';
+import 'compose_actions.dart';
+import 'compose_chips.dart';
+import 'compose_widgets.dart';
+import 'fields_fold.dart';
+import 'note_field.dart';
+import 'trade_cards.dart';
+
 /// What each [ShareChange] is called, in its order: 沒有, 配股, 分割, 減資.
 const _shareChangeNames = ['沒有', '配股', '分割', '減資'];
 
-extension _InvestmentFields on _ComposerState {
-  List<Widget> _investmentFields() {
+/// The investment fields: a buy or sale from shares and price with the
+/// broker's fee and tax, or a dividend with its premium and any change in
+/// the shares held. They read and change the form through [ComposeActions].
+final class InvestmentFields {
+  const InvestmentFields(this._a);
+
+  final ComposeActions _a;
+
+  ComposeForm get _f => _a.form;
+
+  /// The fields, in the order a trade is written down.
+  List<Widget> build(BuildContext context) {
     final sell = _f.trade == EntryType.sell;
     const trades = [EntryType.buy, EntryType.sell, EntryType.dividend];
     // In the order a trade is written down: buy, sell or dividend; what it
@@ -19,8 +42,8 @@ extension _InvestmentFields on _ComposerState {
         child: Segments(
           labels: const ['買進', '賣出', '股息'],
           selected: trades.indexOf(_f.trade),
-          selectedColor: _color,
-          onChanged: (i) => _changeTrade(trades[i]),
+          selectedColor: _a.color,
+          onChanged: (i) => _a.changeTrade(trades[i]),
         ),
       ),
       if (_f.trading)
@@ -28,22 +51,22 @@ extension _InvestmentFields on _ComposerState {
           label: sell ? '實收' : '應付',
           unit: sell ? '實收' : '應付',
           value: groupDigits(_f.settlement),
-          color: _color,
+          color: _a.color,
           onTap: null,
         )
       else
-        _hero(unit: '股息'),
+        _a.hero(unit: '股息'),
       _codes(),
       if (_f.trading)
-        _pair(
+        _a.pair(
           TradeFigureCard(
             icon: Glyph.briefcase,
             label: '股數',
             value: groupDigits(_f.shares),
             current: _f.shares == 0,
             onTap: () async {
-              final value = await _ask('股數', _f.shares, unit: '股');
-              if (value != null) _set(() => _f.setShares(value));
+              final value = await _a.ask('股數', _f.shares, unit: '股');
+              if (value != null) _a.update(() => _f.setShares(value));
             },
           ),
           TradeFigureCard(
@@ -58,15 +81,15 @@ extension _InvestmentFields on _ComposerState {
                 context,
                 title: '成交價',
                 initial: _f.price,
-                color: _color,
+                color: _a.color,
               );
-              if (value != null) _set(() => _f.setPrice(value));
+              if (value != null) _a.update(() => _f.setPrice(value));
             },
           ),
         ),
-      _pair(
-        _accountPick(_f.trade == EntryType.buy ? '扣款帳戶' : '入帳帳戶'),
-        _datePick(),
+      _a.pair(
+        _a.accountPick(_f.trade == EntryType.buy ? '扣款帳戶' : '入帳帳戶'),
+        _a.datePick(),
       ),
       if (_f.trading) _tradeFold() else _dividendFold(),
     ];
@@ -82,14 +105,16 @@ extension _InvestmentFields on _ComposerState {
     final cost = _f.saleCost;
     final settled = _f.settles;
     final method = _f.average ? '平均成本' : '先進先出';
-    return _fold(
+    return FieldsFold(
+      viewing: _a.viewing,
+      onToggle: () => _a.update(() => _f.more = !_f.more),
       closed: [
         '手續費 ${groupDigits(fee)}',
         if (sell) '證交稅 ${groupDigits(tax)}',
         if (sell) method,
-        if (_note.text.trim().isNotEmpty) _note.text.trim(),
+        if (_a.note.text.trim().isNotEmpty) _a.note.text.trim(),
       ].join(' · '),
-      open: _f.more || _viewing,
+      open: _f.more || _a.viewing,
       body: [
         // What it settles at, as a sum: the trade, then the fee and tax
         // taken off a sale or added to a buy; the charges can be changed.
@@ -100,41 +125,15 @@ extension _InvestmentFields on _ComposerState {
           suggestedFee: suggested.$1,
           tax: tax,
           suggestedTax: suggested.$2,
-          onAmount: _viewing ? null : _calculate,
-          onFee: _viewing
+          onAmount: _a.viewing ? null : _a.calculate,
+          onFee: _a.viewing
               ? null
               : () => _change('手續費', fee, (v) => _f.tradeFee = v),
-          onTax: _viewing
+          onTax: _a.viewing
               ? null
               : () => _change('證交稅', tax, (v) => _f.tradeTax = v),
         ),
-        if (sell && !_viewing)
-          Padding(
-            padding: const EdgeInsets.only(top: Space.s2),
-            child: Row(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(left: Space.s1, right: Space.s2),
-                  child: Text(
-                    '成本算法',
-                    style: TextStyle(
-                      fontSize: TextSize.caption,
-                      fontWeight: FontWeight.w700,
-                      color: Hue.muted,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Segments(
-                    labels: const ['先進先出', '平均成本'],
-                    selected: _f.average ? 1 : 0,
-                    selectedColor: _color,
-                    onChanged: (i) => _set(() => _f.average = i == 1),
-                  ),
-                ),
-              ],
-            ),
-          ),
+        if (sell && !_a.viewing) _costMethod(),
         if (_f.amount > 0)
           Padding(
             padding: const EdgeInsets.only(top: Space.s2),
@@ -149,10 +148,38 @@ extension _InvestmentFields on _ComposerState {
                   : Hue.negative,
             ),
           ),
-        _noteField(lines: 2),
+        NoteField(controller: _a.note, viewing: _a.viewing, lines: 2),
       ],
     );
   }
+
+  /// 成本算法 for a sale: first in, first out, or the average.
+  Widget _costMethod() => Padding(
+    padding: const EdgeInsets.only(top: Space.s2),
+    child: Row(
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: Space.s1, right: Space.s2),
+          child: Text(
+            '成本算法',
+            style: TextStyle(
+              fontSize: TextSize.caption,
+              fontWeight: FontWeight.w700,
+              color: Hue.muted,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Segments(
+            labels: const ['先進先出', '平均成本'],
+            selected: _f.average ? 1 : 0,
+            selectedColor: _a.color,
+            onChanged: (i) => _a.update(() => _f.average = i == 1),
+          ),
+        ),
+      ],
+    ),
+  );
 
   /// A dividend's change in shares, its premium and the note, folded
   /// away.
@@ -162,20 +189,22 @@ extension _InvestmentFields on _ComposerState {
       if (_f.shareChange)
         '${_shareChangeNames[change.index]} ${groupDigits(_f.shares)} 股',
       if (_f.withheld > 0) '二代健保 ${groupDigits(_f.withheld)}',
-      if (_note.text.trim().isNotEmpty) _note.text.trim(),
+      if (_a.note.text.trim().isNotEmpty) _a.note.text.trim(),
     ];
-    return _fold(
+    return FieldsFold(
+      viewing: _a.viewing,
+      onToggle: () => _a.update(() => _f.more = !_f.more),
       closed: filled.isEmpty ? '配股、二代健保、備註' : filled.join(' · '),
-      open: _f.more || _viewing,
+      open: _f.more || _a.viewing,
       body: [
-        if (!_viewing || _f.shareChange) ...[
+        if (!_a.viewing || _f.shareChange) ...[
           const GroupLabel('股數有變動'),
           Segments(
             labels: _shareChangeNames,
             selected: change.index,
-            selectedColor: _color,
+            selectedColor: _a.color,
             onChanged: (i) =>
-                _set(() => _f.setShareChange(ShareChange.values[i])),
+                _a.update(() => _f.setShareChange(ShareChange.values[i])),
           ),
         ],
         Padding(
@@ -188,15 +217,17 @@ extension _InvestmentFields on _ComposerState {
                     '${_shareChangeNames[change.index]}'
                         '${change == ShareChange.capitalReduction ? '減少' : '增加'}',
                     '${groupDigits(_f.shares)} 股',
-                    _viewing
+                    _a.viewing
                         ? null
                         : () async {
-                            final value = await _ask(
+                            final value = await _a.ask(
                               _f.reduce ? '減少股數' : '增加股數',
                               _f.shares,
                               unit: '股',
                             );
-                            if (value != null) _set(() => _f.shares = value);
+                            if (value != null) {
+                              _a.update(() => _f.shares = value);
+                            }
                           },
                   ),
                 ),
@@ -207,33 +238,35 @@ extension _InvestmentFields on _ComposerState {
                   child: SettlementBox(
                     '二代健保',
                     groupDigits(_f.withheld),
-                    _viewing
+                    _a.viewing
                         ? null
                         : () async {
-                            final value = await _ask('二代健保補充保費', _f.withheld);
-                            if (value != null) _set(() => _f.premium = value);
+                            final value = await _a.ask('二代健保補充保費', _f.withheld);
+                            if (value != null) {
+                              _a.update(() => _f.premium = value);
+                            }
                           },
                   ),
                 ),
             ],
           ),
         ),
-        if (!_viewing && !_f.reducing)
+        if (!_a.viewing && !_f.reducing)
           const Padding(
             padding: EdgeInsets.fromLTRB(Space.s1, Space.s2, Space.s1, 0),
             child: Text('單筆股息 2 萬以上才扣二代健保，會自動算', style: mutedSmall),
           ),
-        _noteField(lines: 2),
+        NoteField(controller: _a.note, viewing: _a.viewing, lines: 2),
       ],
     );
   }
 
   /// The holdings as one row of pills, and the square that opens them all.
   Widget _codes() => HoldingCodeRow(
-    holdings: _ledger.holdings.all,
+    holdings: _f.ledger.holdings.all,
     picked: _f.holding,
-    onPick: (code) => _set(() => _f.holding = code),
-    onAll: _pickHolding,
+    onPick: (code) => _a.update(() => _f.holding = code),
+    onAll: _a.pickHolding,
   );
 
   /// Asks for a charge of the trade, [label] now [value], and keeps
@@ -243,7 +276,7 @@ extension _InvestmentFields on _ComposerState {
     int value,
     void Function(int value) keep,
   ) async {
-    final typed = await _ask(label, value);
-    if (typed != null) _set(() => keep(typed));
+    final typed = await _a.ask(label, value);
+    if (typed != null) _a.update(() => keep(typed));
   }
 }

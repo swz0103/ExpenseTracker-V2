@@ -1,6 +1,8 @@
 part of 'composer.dart';
 
-class _ComposerState extends State<Composer> with WidgetsBindingObserver {
+class _ComposerState extends State<Composer>
+    with WidgetsBindingObserver
+    implements ComposeActions {
   /// The fields and their rules.
   late final ComposeForm _f = ComposeForm(
     widget.ledger,
@@ -516,4 +518,46 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   void _set(VoidCallback change) {
     if (mounted) setState(change);
   }
+
+  // What the sections of the form ask of it (ComposeActions).
+
+  @override
+  ComposeForm get form => _f;
+
+  @override
+  bool get viewing => _viewing;
+
+  @override
+  Color get color => _color;
+
+  @override
+  TextEditingController get note => _note;
+
+  @override
+  void update(VoidCallback change) => _set(change);
+
+  @override
+  Future<int?> ask(String title, int initial, {String unit = homeCode}) =>
+      _ask(title, initial, unit: unit);
+
+  @override
+  Future<void> calculate() => _calculate();
+
+  @override
+  Future<void> pickHolding() => _pickHolding();
+
+  @override
+  void changeTrade(EntryType trade) => _changeTrade(trade);
+
+  @override
+  Widget hero({Widget? under, String? unit}) => _hero(under: under, unit: unit);
+
+  @override
+  Widget pair(Widget left, Widget right) => _pair(left, right);
+
+  @override
+  Widget accountPick(String label) => _accountPick(label);
+
+  @override
+  Widget datePick() => _datePick();
 }
