@@ -21,7 +21,7 @@ class _ComposerState extends State<Composer>
   Ledger get _ledger => widget.ledger;
 
   /// This ledger's forms put aside, by tab.
-  _Drafts get _drafts => _Drafts(_ledger);
+  ComposeDrafts get _drafts => ComposeDrafts(_ledger);
 
   /// The form was put aside as the app went to the background, in case
   /// the phone closes it there; taken back when the app returns.
@@ -48,7 +48,7 @@ class _ComposerState extends State<Composer>
   }
 
   /// Fills the form from [draft], and what it paid for others.
-  void _takeDraft(_Draft draft) {
+  void _takeDraft(ComposeDraft draft) {
     _f.restore(draft.entry, draft.receipt);
     if (draft.lent != null && _f.mode == ComposeMode.expense) {
       _f.lent = draft.lent;
@@ -56,7 +56,7 @@ class _ComposerState extends State<Composer>
   }
 
   /// The form as it stands, to put aside.
-  _Draft get _asDraft => _Draft(_f.build(), _f.receipt, _f.lent);
+  ComposeDraft get _asDraft => ComposeDraft(_f.build(), _f.receipt, _f.lent);
 
   /// Shows the form's note again after the form filled it afresh.
   void _showNote() {

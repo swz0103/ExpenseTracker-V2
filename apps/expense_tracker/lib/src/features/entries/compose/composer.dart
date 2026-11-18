@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
@@ -10,12 +9,12 @@ import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ledger/persistence/codec/record_json.dart';
 import '../../../core/ledger/trading.dart';
 import '../../accounts/compose/account_editor.dart';
 import '../../../core/ui/calculator.dart';
 import '../../categories/compose/category_editor.dart';
 import '../../../core/ui/pickers.dart';
+import '../model/compose_draft.dart';
 import '../model/compose_form.dart';
 import '../../../core/messages/installment_messages.dart';
 import '../model/receipt_photos.dart';
@@ -53,62 +52,6 @@ part 'composer_state.dart';
 part 'composer_extras.dart';
 part 'composer_pickers.dart';
 part 'composer_amount.dart';
-
-/// A form put aside with 暫存: the entry as it stood and the receipt
-/// photo chosen for it, which is not part of the entry until it is saved.
-final class _Draft {
-  const _Draft(this.entry, this.receipt, [this.lent]);
-
-  final Entry entry;
-  final String? receipt;
-
-  /// What was paid in the spending for others, by person.
-  final List<(String, int)>? lent;
-
-  String toJson() => jsonEncode({
-    'entry': entryToJson(entry),
-    'receipt': ?receipt,
-    if (lent case final shares?)
-      'lent': [
-        for (final (p, a) in shares) [p, a],
-      ],
-  });
-
-  static _Draft? read(String? json) {
-    if (json == null) return null;
-    try {
-      final map = jsonDecode(json) as Map<String, Object?>;
-      final lent = map['lent'] as List?;
-      return _Draft(
-        entryFromJson(map['entry']! as Map<String, Object?>),
-        map['receipt'] as String?,
-        lent == null
-            ? null
-            : [
-                for (final p in lent)
-                  if (p case [final String person, final int amount])
-                    (person, amount),
-              ],
-      );
-    } on Object {
-      // A form that cannot be read is left out.
-      return null;
-    }
-  }
-}
-
-/// Forms put aside with 暫存, by tab, kept in the ledger they were
-/// written for, so they outlast the app being closed by the phone.
-extension type const _Drafts(Ledger ledger) {
-  _Draft? operator [](ComposeMode tab) =>
-      _Draft.read(ledger.drafts.of(tab.name));
-
-  void operator []=(ComposeMode tab, _Draft draft) =>
-      ledger.attachmentCommands.setDraft(tab.name, draft.toJson());
-
-  void remove(ComposeMode tab) =>
-      ledger.attachmentCommands.setDraft(tab.name, null);
-}
 
 /// A choice opened inside the sheet in place of the form, such as the
 /// accounts: its title, what it shows, and how it is left without one.
