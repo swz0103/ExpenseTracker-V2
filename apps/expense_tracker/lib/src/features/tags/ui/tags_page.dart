@@ -354,7 +354,7 @@ class _Step extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: first ? 17 : 15,
+                fontSize: first ? TextSize.title : TextSize.body,
                 fontWeight: FontWeight.w800,
                 color: ink,
               ),

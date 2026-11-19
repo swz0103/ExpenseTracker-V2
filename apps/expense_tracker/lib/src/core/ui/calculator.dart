@@ -312,7 +312,7 @@ class _CalculatorState extends State<_Calculator> {
                     child: Text(
                       key,
                       style: TextStyle(
-                        fontSize: done ? 16 : TextSize.large,
+                        fontSize: done ? TextSize.title : TextSize.large,
                         fontWeight: done ? FontWeight.w700 : FontWeight.w500,
                         color: ink,
                       ),
