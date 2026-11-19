@@ -9,6 +9,7 @@ import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 // The pieces of the entry form that hold no state of the form: its tabs,
 // headers, amount, pickers and the squares in a row of choices.
@@ -241,7 +242,7 @@ class _TagPickerState extends State<TagPicker> {
         FilledButton(
           onPressed: () => widget.onDone(_picked),
           style: solidButton(Hue.accent, minimumSize: Size.fromHeight(44)),
-          child: const Text('完成'),
+          child: const Text(Words.done),
         ),
       ],
     );
@@ -334,7 +335,7 @@ class SubpageHeader extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            tooltip: '返回',
+            tooltip: Words.back,
             onPressed: onBack,
             icon: const GlyphIcon(Glyph.back, size: 20, color: Hue.muted),
           ),

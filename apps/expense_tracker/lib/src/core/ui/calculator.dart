@@ -9,6 +9,7 @@ import '../look/widgets.dart';
 import 'amount_keys.dart';
 import '../look/shape.dart';
 import '../look/spacing.dart';
+import '../text/words.dart';
 
 export 'amount_keys.dart';
 
@@ -148,7 +149,7 @@ class _CalculatorState extends State<_Calculator> {
 
   void _press(String key) {
     Haptics.selection();
-    if (key == '完成') {
+    if (key == Words.done) {
       final result = _keys.result;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) Navigator.of(context).pop(result);
@@ -261,7 +262,7 @@ class _CalculatorState extends State<_Calculator> {
                       const SizedBox(height: Space.s2),
                       Expanded(child: _key('+')),
                       const SizedBox(height: Space.s2),
-                      Expanded(flex: 2, child: _key('完成')),
+                      Expanded(flex: 2, child: _key(Words.done)),
                     ],
                   ),
                 ),
@@ -275,7 +276,7 @@ class _CalculatorState extends State<_Calculator> {
 
   Widget _key(String key) {
     final operator = '÷×−+'.contains(key);
-    final done = key == '完成';
+    final done = key == Words.done;
     final background = done
         ? chosenFill(Hue.accent)
         : operator || key == 'C' || key == '⌫'
@@ -298,7 +299,7 @@ class _CalculatorState extends State<_Calculator> {
           child: Center(
             child: key == '⌫'
                 ? Semantics(
-                    label: '刪除',
+                    label: Words.delete,
                     child: GlyphIcon(
                       Glyph.backspace,
                       size: 24,

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint, kReleaseMode;
 import 'package:flutter/services.dart' show PlatformException;
 
-import '../../core/time/app_clock.dart';
+import '../time/app_clock.dart';
 
 /// What did not work, kept for 設定 › 關於 › 診斷 so a fault can be seen and
 /// exported instead of passing unseen. Only an error's type and a short

@@ -36,7 +36,7 @@ extension _Fields on _ComposerState {
     final day = formatMd(_f.date);
     return PickCard(
       icon: Glyph.calendar,
-      label: '日期',
+      label: Words.date,
       value: _f.date == _ledger.today ? '今天 $day' : '$day ${formatE(_f.date)}',
       onTap: _pickDate,
     );
@@ -108,11 +108,11 @@ extension _Fields on _ComposerState {
               _f.takesFee
                   ? PickCard(
                       icon: Glyph.coins,
-                      label: '手續費',
+                      label: Words.fee,
                       value: '手續費 ${groupDigits(_f.fee)}',
                       valueColor: _f.fee > 0 ? Hue.negative : Hue.ink,
                       onTap: () async {
-                        final value = await _ask('手續費', _f.fee);
+                        final value = await _ask(Words.fee, _f.fee);
                         if (value != null) _set(() => _f.fee = value);
                       },
                     )

@@ -10,6 +10,7 @@ import '../../../../core/ledger/ledger.dart';
 import '../../../../core/ui/shown_amounts.dart';
 import '../../../../core/look/spacing.dart';
 import '../../../../core/look/motion.dart';
+import '../../../../core/text/words.dart';
 
 /// 財務分布: where the assets are as a map of tiles, largest first. A tap
 /// picks a tile; a second opens a group of accounts or the holdings.
@@ -90,7 +91,12 @@ class _AssetsSectionState extends State<AssetsSection> {
     }
 
     final parts = [
-      ('investment', '投資', ledger.holdings.marketValue, Hue.holdings),
+      (
+        'investment',
+        Words.investment,
+        ledger.holdings.marketValue,
+        Hue.holdings,
+      ),
       for (final kind in const [
         AccountKind.bank,
         AccountKind.cash,

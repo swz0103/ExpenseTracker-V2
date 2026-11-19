@@ -15,6 +15,7 @@ import '../../../core/nav.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 /// One account: its balance and this month's flow over [AccountBody].
 class AccountPage extends StatefulWidget {
@@ -67,7 +68,7 @@ class _AccountPageState extends State<AccountPage> {
                   if (gone) widget.nav.back();
                 },
                 style: wordButton(Hue.accent),
-                child: const Text('編輯'),
+                child: const Text(Words.edit),
               ),
             ],
           ),
@@ -144,6 +145,10 @@ class AccountBody extends StatefulWidget {
 }
 
 class _AccountBodyState extends State<AccountBody> {
+  /// 繳卡費 for a card, 轉帳 for any other account.
+  static String _moveWord(Account account) =>
+      account.kind == AccountKind.card ? '繳卡費' : Words.transfer;
+
   var _week = 3;
   late var _month = (widget.ledger.today.year, widget.ledger.today.month);
 
@@ -219,7 +224,7 @@ class _AccountBodyState extends State<AccountBody> {
               Expanded(
                 child: AccountAction(
                   icon: Glyph.transfer,
-                  label: account.kind == AccountKind.card ? '繳卡費' : '轉帳',
+                  label: _moveWord(account),
                   onTap: () => _move(account),
                 ),
               ),

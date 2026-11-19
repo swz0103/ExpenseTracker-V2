@@ -106,7 +106,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: wordButton(Hue.muted),
-                    child: const Text('取消'),
+                    child: const Text(Words.cancel),
                   ),
                   const Expanded(
                     child: Text(
@@ -122,7 +122,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                     key: Keys.done,
                     onPressed: _done,
                     style: wordButton(Hue.accent),
-                    child: const Text('完成'),
+                    child: const Text(Words.done),
                   ),
                 ],
               ),

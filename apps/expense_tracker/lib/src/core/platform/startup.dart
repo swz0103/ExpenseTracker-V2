@@ -9,7 +9,7 @@ import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
 import '../diagnostics/error_log.dart';
-import '../../core/time/app_clock.dart';
+import '../time/app_clock.dart';
 
 /// A hardware key for unlocking without the password, such as an Android
 /// Keystore key behind biometrics.

@@ -12,6 +12,7 @@ import 'choice_strip.dart';
 import 'compose_actions.dart';
 import 'compose_chips.dart';
 import 'compose_widgets.dart';
+import '../../../core/text/words.dart';
 
 /// 常用 under the amount of a new entry: a spending or income used often,
 /// or a transfer, to start from with one tap.
@@ -34,7 +35,7 @@ final class UsualFields {
     final lend = !_a.viewing && !_f.foreign
         ? UsualChip(
             icon: Glyph.heart,
-            name: income ? '對方還錢' : '代墊',
+            name: income ? '對方還錢' : Words.lend,
             strong: true,
             onTap: income ? () => _a.lend(back: true) : _a.pickLent,
           )
@@ -198,7 +199,7 @@ final class CategoryFields {
         ),
       if (!_a.viewing && !splitting)
         ChoiceStripItem(
-          label: '新增',
+          label: Words.add,
           icon: Glyph.add,
           color: _a.color,
           picked: false,

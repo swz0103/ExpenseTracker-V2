@@ -13,6 +13,7 @@ import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 part 'tag_page.dart';
 
@@ -64,7 +65,7 @@ class _TagsPageState extends State<TagsPage> {
                 Expanded(
                   child: _Half(
                     glyph: Glyph.ticket,
-                    label: '標籤',
+                    label: Words.tag,
                     count: tags.length,
                     color: _tagHue,
                     chosen: !_merchants,
@@ -75,7 +76,7 @@ class _TagsPageState extends State<TagsPage> {
                 Expanded(
                   child: _Half(
                     glyph: Glyph.store,
-                    label: '商家',
+                    label: Words.merchant,
                     count: merchants.length,
                     color: _merchantHue,
                     chosen: _merchants,

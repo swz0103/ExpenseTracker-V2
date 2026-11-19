@@ -15,6 +15,7 @@ import '../../../core/diagnostics/error_log.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/look/spacing.dart';
 import '../../../core/look/shape.dart';
+import '../../../core/text/words.dart';
 
 part 'reminders_phone.dart';
 
@@ -217,7 +218,7 @@ class _RemindersSectionState extends State<RemindersSection>
             ],
           ),
           actions: [
-            PanelButton('取消', onTap: () => Navigator.of(context).pop()),
+            PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
           ],
         ),
       );

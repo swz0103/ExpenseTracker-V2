@@ -79,7 +79,12 @@ class _AccountEditorState extends State<_AccountEditor> {
   Future<void> _remove() async {
     final old = _old;
     if (old == null) return;
-    final ok = await confirm(context, '刪除「${old.name}」？', '刪除', danger: true);
+    final ok = await confirm(
+      context,
+      '刪除「${old.name}」？',
+      Words.delete,
+      danger: true,
+    );
     if (!ok || !mounted) return;
     widget.ledger.accountCommands.removeAccount(old.id);
     Navigator.of(context).pop(true);
@@ -189,7 +194,9 @@ class _AccountEditorState extends State<_AccountEditor> {
               ),
           ],
         ),
-        actions: [PanelButton('取消', onTap: () => Navigator.of(context).pop())],
+        actions: [
+          PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
+        ],
       ),
     );
     if (picked == null || !mounted) return;
@@ -312,7 +319,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                 ),
                 child: Text(
                   removable
-                      ? '刪除'
+                      ? Words.delete
                       : old.archived
                       ? '恢復'
                       : widget.ledger.balanceService.balance(old.id) == 0

@@ -10,6 +10,7 @@ import '../text/dates.dart';
 import 'shape.dart';
 import 'spacing.dart';
 import 'motion.dart';
+import '../text/words.dart';
 
 // The app's own date range and time pickers, as panels in the middle of
 // the screen: quick choices on top, then a month to tap the days on, or
@@ -90,7 +91,7 @@ class _RangePanelState extends State<_RangePanel> {
     final weekStart = today.subtract(Duration(days: today.weekday - 1));
     final lastMonth = _make(today.year, today.month - 1, 1);
     return [
-      ('今天', today, today),
+      (Words.today, today, today),
       ('本週', weekStart, today),
       ('本月', _make(today.year, today.month, 1), today),
       ('上月', lastMonth, _make(today.year, today.month, 0)),
@@ -164,8 +165,8 @@ class _RangePanelState extends State<_RangePanel> {
           const SizedBox(height: Space.s3),
           StepSwitch(
             label: formatYMMM(month),
-            previousLabel: '上個月',
-            nextLabel: '下個月',
+            previousLabel: Words.previousMonth,
+            nextLabel: Words.nextMonth,
             iconSize: 20,
             expand: true,
             onPrevious: atStart
@@ -208,7 +209,7 @@ class _RangePanelState extends State<_RangePanel> {
         ],
       ),
       actions: [
-        PanelButton('取消', onTap: () => Navigator.of(context).pop()),
+        PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
         PanelButton(
           '確定',
           color: color,
@@ -484,7 +485,7 @@ class _TimePanelState extends State<_TimePanel> {
         ],
       ),
       actions: [
-        PanelButton('取消', onTap: () => Navigator.of(context).pop()),
+        PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
         PanelButton(
           '確定',
           color: color,

@@ -1,10 +1,23 @@
-part of 'reports.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/text/figures.dart';
+import '../../../core/look/glyphs.dart';
+import '../../../core/ui/icons.dart';
+import '../../../core/look/theme.dart';
+import '../../../core/look/widgets.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/ui/shown_amounts.dart';
+import '../../../core/text/dates.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 // The pieces the tabs are made of: the readout, the main card, the tinted blocks.
 
 /// The chosen stretch, or the whole period, in one line.
-class _Readout extends StatelessWidget {
-  const _Readout({
+class ReportReadout extends StatelessWidget {
+  const ReportReadout({
+    super.key,
     required this.ledger,
     required this.label,
     required this.income,
@@ -82,8 +95,9 @@ class _Readout extends StatelessWidget {
 /// The main card: 結餘 big on the left, 收入 with what of it was
 /// dividends on the right, a bar of spending against what was kept, and
 /// 支出 against last year beside how much of the income was kept.
-class _Hero extends StatelessWidget {
-  const _Hero({
+class ReportHero extends StatelessWidget {
+  const ReportHero({
+    super.key,
     required this.ledger,
     required this.income,
     required this.expense,
@@ -204,7 +218,7 @@ class _Hero extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const LegendKey(Hue.negative, '支出'),
+                  const LegendKey(Hue.negative, Words.expense),
                   const SizedBox(width: Space.s2),
                   Text(
                     ledger.orDots(groupDigits(expense)),
@@ -243,8 +257,9 @@ class _Hero extends StatelessWidget {
 }
 
 /// A tinted block: a solid icon and a label over a figure and a line.
-class _Block extends StatelessWidget {
-  const _Block({
+class ReportBlock extends StatelessWidget {
+  const ReportBlock({
+    super.key,
     required this.glyph,
     required this.color,
     required this.label,
@@ -309,8 +324,9 @@ class _Block extends StatelessWidget {
 
 /// A category as a block of the mosaic: its icon, name and share, what
 /// it came to, and against last year's same stretch.
-class _CategoryBlock extends StatelessWidget {
-  const _CategoryBlock({
+class CategoryBlock extends StatelessWidget {
+  const CategoryBlock({
+    super.key,
     required this.ledger,
     required this.category,
     required this.amount,
@@ -410,8 +426,8 @@ class _CategoryBlock extends StatelessWidget {
 }
 
 /// A dashed rule across, for an average.
-class _Dashes extends CustomPainter {
-  _Dashes(this.color);
+class DashesPainter extends CustomPainter {
+  DashesPainter(this.color);
 
   final Color color;
 
@@ -426,5 +442,5 @@ class _Dashes extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_Dashes old) => old.color != color;
+  bool shouldRepaint(DashesPainter old) => old.color != color;
 }

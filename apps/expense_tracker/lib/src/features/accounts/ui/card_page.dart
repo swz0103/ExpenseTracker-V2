@@ -17,6 +17,7 @@ import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 /// A credit card: the last statement and when it is due, with 繳卡款;
 /// what has been spent since, the credit left, purchases paid in
@@ -81,7 +82,7 @@ class CardPage extends StatelessWidget {
                   if (gone) nav.back();
                 },
                 style: wordButton(Hue.accent),
-                child: const Text('編輯'),
+                child: const Text(Words.edit),
               ),
             ],
           ),

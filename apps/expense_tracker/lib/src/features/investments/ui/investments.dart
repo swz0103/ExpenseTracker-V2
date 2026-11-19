@@ -14,6 +14,7 @@ import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 part 'investments_hero.dart';
 part 'investments_returns.dart';
@@ -59,7 +60,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
             BigSegments(
               items: const [
                 (Glyph.pie, '持股', Palette.indigo),
-                (Glyph.dividend, '股息', Palette.gold),
+                (Glyph.dividend, Words.dividend, Palette.gold),
               ],
               selected: _tab,
               onChanged: (i) => setState(() => _tab = i),

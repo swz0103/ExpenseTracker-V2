@@ -5,6 +5,7 @@ import '../glyphs.dart';
 import '../theme.dart';
 import 'words.dart';
 import '../spacing.dart';
+import '../../text/words.dart';
 
 // Title rows: a sub-page's centred one, small headings and section spacing.
 
@@ -63,7 +64,7 @@ class CenterHeader extends StatelessWidget {
       child: _HeaderRow(
         children: [
           IconButton(
-            tooltip: '返回',
+            tooltip: Words.back,
             onPressed: onBack,
             icon: const GlyphIcon(Glyph.back, size: 24),
           ),

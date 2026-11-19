@@ -29,7 +29,7 @@ extension _Pickers on _ComposerState {
         e.date,
     };
     final day = await _open<DateTime>(
-      '日期',
+      Words.date,
       (done) => DayChoices(
         selected: _f.date,
         latest: _ledger.today,
@@ -69,7 +69,7 @@ extension _Pickers on _ComposerState {
       (done) => OptionGrid<String>(
         options: [
           ...categoryOptions(_ledger, income: income),
-          if (!_viewing) const Option(adding, '新增', Glyph.add, Hue.muted),
+          if (!_viewing) const Option(adding, Words.add, Glyph.add, Hue.muted),
         ],
         selected: selected,
         ring: _color,
@@ -108,7 +108,7 @@ extension _Pickers on _ComposerState {
 
   Future<void> _pickMerchant() async {
     final picked = await _open<String>(
-      '商家',
+      Words.merchant,
       (done) => MerchantPicker(
         known: _ledger.entryQueryService.merchants,
         initial: _f.merchant,
@@ -121,7 +121,7 @@ extension _Pickers on _ComposerState {
 
   Future<void> _pickTags() async {
     final picked = await _open<List<String>>(
-      '標籤',
+      Words.tag,
       (done) => TagPicker(
         known: _ledger.reportService.tags,
         initial: _f.tags,

@@ -12,6 +12,7 @@ import '../../../core/look/settings_hue.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 /// 安全: four cards: the password, the recovery code, hiding the screens,
 /// and locking the ledger now.
@@ -214,7 +215,7 @@ class _PasswordPanelState extends State<_PasswordPanel> {
         ],
       ),
       actions: [
-        PanelButton('取消', onTap: () => Navigator.of(context).pop()),
+        PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
         PanelButton(
           first ? '設定' : '變更',
           key: Keys.changePassword,

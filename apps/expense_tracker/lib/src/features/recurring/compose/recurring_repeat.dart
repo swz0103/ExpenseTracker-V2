@@ -170,7 +170,7 @@ class _RepeatSheetState extends State<_RepeatSheet> {
           ),
           const SizedBox(height: Space.s3),
           PanelButton(
-            '完成',
+            Words.done,
             color: Hue.accent,
             onTap: () => Navigator.of(context).pop(),
           ),
@@ -352,7 +352,7 @@ class _OtherSheetState extends State<_OtherSheet> {
           ),
           const SizedBox(height: Space.s4),
           PanelButton(
-            '完成',
+            Words.done,
             color: Hue.accent,
             onTap: () => Navigator.of(context).pop(),
           ),

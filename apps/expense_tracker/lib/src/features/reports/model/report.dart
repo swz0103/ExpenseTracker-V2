@@ -1,12 +1,26 @@
-part of 'reports.dart';
+import 'dart:math';
+
+import '../../../core/ledger/ledger.dart';
+import 'report_period.dart';
 
 // The figures of one period, worked out once for every tab.
+
+/// What came in and went out in one stretch of a report, a week or a
+/// month; one still ahead has [ahead] set and no figures.
+final class StretchSum {
+  const StretchSum(this.label, this.income, this.expense, {this.ahead = false});
+
+  final String label;
+  final int income;
+  final int expense;
+  final bool ahead;
+}
 
 /// Every sum the page shows for one period, worked out together. Entries
 /// are read a month at a time from the ledger's index of months, so a
 /// stretch costs only its own months rather than the whole book.
-final class _Report {
-  _Report._({
+final class Report {
+  Report._({
     required this.today,
     required this.stretches,
     required this.income,
@@ -31,13 +45,13 @@ final class _Report {
     required this.weekdays,
   });
 
-  factory _Report.of(Ledger ledger, ReportPeriod period) {
+  factory Report.of(Ledger ledger, ReportPeriod period) {
     final today = ledger.today;
     final from = period.from;
     final to = period.to;
     final until = to.isAfter(today) ? today : to;
     final stretches = period.stretches;
-    final entries = _between(ledger, from, to);
+    final entries = entriesBetween(ledger, from, to);
     var income = 0;
     var expense = 0;
     var dividends = 0;
@@ -55,14 +69,14 @@ final class _Report {
         biggest = e;
       }
     }
-    final before = _between(ledger, _yearBefore(from), _yearBefore(until));
+    final before = _yearAgo(ledger, from, until);
     final lastExpense = before.fold(0, (sum, e) => sum + e.spending);
     final buckets = [
       for (final (label, a, b) in stretches)
         if (a.isAfter(today))
-          PeriodBucket(label, 0, 0, ahead: true)
+          StretchSum(label, 0, 0, ahead: true)
         else
-          _bucket(label, _between(ledger, a, b)),
+          _bucket(label, entriesBetween(ledger, a, b)),
     ];
     final passed = [
       for (final (i, b) in buckets.indexed)
@@ -80,7 +94,7 @@ final class _Report {
     final names = spending.keys.toList()
       ..sort((a, b) => spending[b]!.compareTo(spending[a]!));
 
-    return _Report._(
+    return Report._(
       today: today,
       stretches: stretches,
       income: income,
@@ -127,7 +141,7 @@ final class _Report {
 
   /// Spending over the same days a year before.
   final int lastExpense;
-  final List<PeriodBucket> buckets;
+  final List<StretchSum> buckets;
 
   /// The stretch that spent the most, of those begun.
   final int? peak;
@@ -168,7 +182,11 @@ final class _Report {
   );
 
   /// The entries from [from] to [to], read from those months only.
-  static List<Entry> _between(Ledger ledger, DateTime from, DateTime to) => [
+  static List<Entry> entriesBetween(
+    Ledger ledger,
+    DateTime from,
+    DateTime to,
+  ) => [
     for (
       var m = DateTime.utc(from.year, from.month);
       !m.isAfter(to);
@@ -178,14 +196,18 @@ final class _Report {
         if (!e.date.isBefore(from) && !e.date.isAfter(to)) e,
   ];
 
-  static PeriodBucket _bucket(String label, List<Entry> entries) {
+  /// The entries of the same days a year before.
+  static List<Entry> _yearAgo(Ledger ledger, DateTime from, DateTime to) =>
+      entriesBetween(ledger, _yearBefore(from), _yearBefore(to));
+
+  static StretchSum _bucket(String label, List<Entry> entries) {
     var income = 0;
     var expense = 0;
     for (final e in entries) {
       income += e.earning;
       expense += e.spending;
     }
-    return PeriodBucket(label, income, expense);
+    return StretchSum(label, income, expense);
   }
 
   /// Spending by category name, split entries counted in their parts.

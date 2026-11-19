@@ -15,6 +15,7 @@ import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 part 'holding_bento.dart';
 
@@ -203,7 +204,7 @@ class _DividendCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '股息',
+                      Words.dividend,
                       style: TextStyle(
                         fontSize: TextSize.small,
                         fontWeight: FontWeight.w800,
@@ -318,7 +319,7 @@ class _TradeBoard extends StatelessWidget {
             EntryType.sell => '賣出',
             _ when e.isReduction => '減資',
             _ when e.shares > 0 => '配股',
-            _ => '股息',
+            _ => Words.dividend,
           },
           when: e.type == EntryType.dividend ? formatMd(e.date) : day(e.date),
           detail: e.shares != 0 && e.type != EntryType.dividend

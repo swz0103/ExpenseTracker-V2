@@ -28,7 +28,7 @@ const _starters = [
   ('訂閱服務', 'subscription', 0xFFC9A34A, false),
   ('其他支出', 'other', 0xFFB07A8C, false),
   ('薪資收入', 'salary', 0xFF2F7A65, true),
-  ('股息收入', 'dividend', 0xFF5A6FA8, true),
+  (dividendCategory, 'dividend', 0xFF5A6FA8, true),
   ('其他收入', 'income', 0xFF4E8A9A, true),
 ];
 

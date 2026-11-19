@@ -285,7 +285,7 @@ class _ComposerState extends State<Composer>
   Future<void> _delete() async {
     final entry = widget.entry;
     if (entry == null) return;
-    final ok = await confirm(context, '刪除這一筆？', '刪除', danger: true);
+    final ok = await confirm(context, '刪除這一筆？', Words.delete, danger: true);
     if (ok && mounted) {
       Navigator.of(context).pop((ComposeOutcome.deleted, entry));
     }
@@ -338,13 +338,13 @@ class _ComposerState extends State<Composer>
         // 刪除 or 暫存 and the main button stay at the foot of the sheet,
         // in reach however long the form is.
         FormFooter(
-          discard: entry != null ? '刪除' : '暫存',
+          discard: entry != null ? Words.delete : '暫存',
           discardColor: entry != null ? Hue.danger : Hue.muted,
           onDiscard: entry != null ? _delete : _putAside,
           onRefund: canRefund
               ? () => Navigator.of(context).pop((ComposeOutcome.refund, entry))
               : null,
-          action: _viewing ? '編輯' : _action,
+          action: _viewing ? Words.edit : _action,
           actionColor: _viewing ? Hue.accent : _color,
           onAction: _viewing ? () => setState(() => _viewing = false) : _submit,
         ),

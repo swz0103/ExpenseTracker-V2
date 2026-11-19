@@ -16,6 +16,7 @@ import '../../../core/text/dates.dart';
 import '../../../core/messages/recurring_messages.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 part 'recurring_repeat.dart';
 
@@ -80,7 +81,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
     final ok = await confirm(
       context,
       '刪除「${item.name}」？',
-      '刪除',
+      Words.delete,
       danger: true,
       body: '已記的紀錄會保留。',
     );
@@ -92,7 +93,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
   Future<void> _amount() async {
     final value = await showCalculator(
       context,
-      title: '金額',
+      title: Words.amount,
       initial: _f.amount,
       color: _f.income ? Hue.positive : Hue.negative,
     );
@@ -112,7 +113,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
   Future<void> _allCategories() async {
     final picked = await pickOption<String>(
       context,
-      title: '分類',
+      title: Words.category,
       selected: _f.category,
       options: categoryOptions(_ledger, income: _f.income),
     );
@@ -231,7 +232,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
               children: [
                 Expanded(
                   child: FormFieldTile(
-                    label: _f.income ? '存入' : '帳戶',
+                    label: _f.income ? '存入' : Words.account,
                     value: _ledger.account(_f.account).name,
                     onTap: _account,
                   ),
@@ -281,7 +282,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
             color: Hue.white,
             borderRadius: BorderRadius.circular(Radii.large),
             child: IconButton(
-              tooltip: '刪除',
+              tooltip: Words.delete,
               onPressed: _remove,
               icon: const GlyphIcon(Glyph.trash, size: 18, color: Hue.danger),
             ),

@@ -11,6 +11,7 @@ import 'swipe_actions.dart';
 import 'shown_amounts.dart';
 import '../text/dates.dart';
 import '../look/spacing.dart';
+import '../text/words.dart';
 
 /// The icon of an entry: its category's, or transfer and trade marks.
 (Glyph, Color) entryMark(Ledger ledger, Entry e) {
@@ -242,9 +243,9 @@ class EntryRow extends StatelessWidget {
     return SwipeActions(
       key: ValueKey(entry.id),
       actions: [
-        SwipeAction('編輯', Hue.accent, () => onOpen(entry)),
+        SwipeAction(Words.edit, Hue.accent, () => onOpen(entry)),
         SwipeAction(
-          '刪除',
+          Words.delete,
           Hue.danger,
           () => removeEntry(context, ledger, entry),
         ),

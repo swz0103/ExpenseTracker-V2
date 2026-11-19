@@ -6,6 +6,7 @@ import '../../../../core/look/widgets.dart';
 import '../../../../core/ledger/ledger.dart';
 import '../../../../core/ui/shown_amounts.dart';
 import '../../../../core/look/spacing.dart';
+import '../../../../core/text/words.dart';
 
 /// 收支對照: six months of income and spending up to the page's month,
 /// with net worth as a line; a tap on a month reads it out.
@@ -121,8 +122,8 @@ class _FlowSectionState extends State<FlowSection> {
         runSpacing: 4,
         children: [
           for (final (color, name, value, line) in [
-            (Hue.positive, '收入', shown.income, false),
-            (Hue.negative, '支出', shown.expense, false),
+            (Hue.positive, Words.income, shown.income, false),
+            (Hue.negative, Words.expense, shown.expense, false),
             (Hue.investment, '淨資產', shown.worth, true),
           ])
             Row(

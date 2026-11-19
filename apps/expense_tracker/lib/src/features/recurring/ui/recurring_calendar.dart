@@ -281,7 +281,7 @@ class _DayItemsState extends State<_DayItems> {
       (sum, x) => sum + ledger.recurringService.worth(x.item),
     );
     final when = away == 0
-        ? '今天'
+        ? Words.today
         : away > 0
         ? '$away 天後'
         : '過了 ${-away} 天';
@@ -364,7 +364,7 @@ class _DayItemsState extends State<_DayItems> {
         ? '已入帳 · ${formatMd(booked.date)}'
         : due
         ? '$account · 到期'
-        : '$account · ${away == 0 ? '今天' : '$away 天後'}';
+        : '$account · ${away == 0 ? Words.today : '$away 天後'}';
     final amount = Text(
       '${item.income ? '+' : ''}'
       '${ledger.orDots(recurringAmount(ledger, item))}',

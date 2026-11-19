@@ -12,6 +12,7 @@ import '../../../../core/text/dates.dart';
 import '../../../../core/look/shape.dart';
 import '../../../../core/look/spacing.dart';
 import '../../../../core/look/motion.dart';
+import '../../../../core/text/words.dart';
 
 /// 每日紀錄: a week of days with marks for what each holds, and the chosen
 /// day's entries three to a row, six at a time.
@@ -165,10 +166,10 @@ class _DailySectionState extends State<DailySection> {
           alignment: WrapAlignment.center,
           spacing: 10,
           children: [
-            LegendKey(Hue.negative, '支出'),
-            LegendKey(Hue.positive, '收入'),
-            LegendKey(Hue.transfer, '轉帳'),
-            LegendKey(Hue.investment, '投資'),
+            LegendKey(Hue.negative, Words.expense),
+            LegendKey(Hue.positive, Words.income),
+            LegendKey(Hue.transfer, Words.transfer),
+            LegendKey(Hue.investment, Words.investment),
           ],
         ),
       ),

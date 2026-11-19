@@ -47,7 +47,7 @@ const longerFunctions = <String, int>{
       150,
   'src/core/ledger/portfolio.dart::Portfolio.replay': 143,
   'src/features/entries/ui/entries_page.dart::_EntriesPageState._head': 138,
-  'src/features/reports/ui/report_blocks.dart::_Hero.build': 138,
+  'src/features/reports/ui/report_blocks.dart::ReportHero.build': 138,
   'src/features/settings/ui/update_panel.dart::_UpdatePanelState.build': 137,
   'src/features/reports/ui/reports_page_state.dart::_ReportsPageState.build':
       133,
@@ -79,7 +79,7 @@ const longerFunctions = <String, int>{
       108,
   'src/features/investments/ui/holding_bento.dart::_LinePainter.paint': 108,
   'src/features/budgets/ui/budgets.dart::_Main.build': 108,
-  'src/features/accounts/compose/loan_fields.dart::_Estimate.build': 106,
+  'src/features/accounts/compose/loan_cards.dart::LoanEstimate.build': 106,
   'src/features/settings/ui/preferences_section.dart::_LookChoice.build': 106,
   'src/app/shell.dart::_BottomBar.build': 105,
   'src/features/import_export/ui/import_export_section.dart::_ExportSheetState.build':
@@ -94,10 +94,10 @@ const longerFunctions = <String, int>{
       98,
   'src/core/look/time_panels.dart::_RangePanelState.build': 97,
   'src/features/debts/ui/person_page.dart::LoanPage.build': 97,
-  'src/features/reports/ui/reports_habits.dart::_Habits._merchants': 96,
+  'src/features/reports/ui/report_habits.dart::merchantsSection': 95,
   'src/features/debts/ui/person_page.dart::PersonPage.build': 95,
   'src/app/shell.dart::_AppShellState._body': 95,
-  'src/features/accounts/compose/loan_fields.dart::_LoanCard.build': 94,
+  'src/features/accounts/compose/loan_cards.dart::LoanCard.build': 94,
   'src/core/ui/entry_tile.dart::EntryTile.build': 93,
   'src/features/investments/ui/holding_page.dart::_DividendCard.build': 93,
   'src/core/ledger/persistence/sql_ledger_data_source.dart::SqlLedgerDataSource.refreshQuotes':
@@ -110,8 +110,8 @@ const longerFunctions = <String, int>{
   'src/features/entries/compose/compose_chips.dart::OwedCard.build': 89,
   'src/core/charts/waterfall.dart::_WaterfallPainter.paint': 89,
   'src/core/look/time_panels.dart::_TimePanelState.build': 88,
-  'src/features/reports/ui/report_figures.dart::_Report.of': 87,
-  'src/features/reports/ui/reports_habits.dart::_Habits._weekdays': 86,
+  'src/features/reports/model/report.dart::Report.of': 87,
+  'src/features/reports/ui/report_habits.dart::weekdaysSection': 86,
   'src/features/recurring/ui/recurring_rows.dart::_ItemRow.build': 86,
   'src/features/accounts/ui/accounts.dart::_NetWorth.build': 86,
   'src/features/overview/ui/sections/plan_section.dart::PlanSection._budgetTile':
@@ -129,10 +129,7 @@ const longerFunctions = <String, int>{
   'src/features/debts/ui/debts_page.dart::_DebtHero.build': 81,
   'src/core/look/dialogs.dart::confirm': 81,
 };
-const largerLibraries = <String, int>{
-  'src/features/accounts/compose/account_editor.dart': 1462,
-  'src/features/reports/ui/reports.dart': 1524,
-};
+const largerLibraries = <String, int>{};
 
 /// How far below its number an entry may fall before the number must be
 /// lowered to it.

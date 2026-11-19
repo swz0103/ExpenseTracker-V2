@@ -10,6 +10,7 @@ import '../look/kit.dart';
 import 'shown_amounts.dart';
 import '../look/shape.dart';
 import '../look/spacing.dart';
+import '../text/words.dart';
 
 /// The page's main card for a stretch of time: what is left of [income]
 /// after [expense] as the figure, in ink or in the spending colour when
@@ -130,9 +131,9 @@ class BalanceHero extends StatelessWidget {
           const SizedBox(height: Space.s2),
           _Ends(
             ends: [
-              ('收入', ledger.money(income), Hue.positive),
+              (Words.income, ledger.money(income), Hue.positive),
               if (middle case (final name, final value)) (name, value, Hue.ink),
-              ('支出', ledger.money(expense), Hue.negative),
+              (Words.expense, ledger.money(expense), Hue.negative),
             ],
           ),
         ],

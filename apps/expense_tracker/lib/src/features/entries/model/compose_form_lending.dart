@@ -149,7 +149,7 @@ extension Lending on ComposeForm {
     for (final words in [e.note, lead.merchant, lead.note]) {
       if (words.isNotEmpty) return words;
     }
-    return '代墊';
+    return Words.lend;
   }
 
   /// Opens an account for a new person called [name], to keep what they

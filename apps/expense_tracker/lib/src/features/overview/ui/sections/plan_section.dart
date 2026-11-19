@@ -9,6 +9,7 @@ import '../../../../core/nav.dart';
 import '../../../../core/ui/shown_amounts.dart';
 import '../../../../core/look/spacing.dart';
 import '../../../../core/look/shape.dart';
+import '../../../../core/text/words.dart';
 
 /// 預算 and 即將扣款 side by side: what is left of the month's limit, and
 /// what falls due.
@@ -139,7 +140,7 @@ class PlanSection extends StatelessWidget {
     final (String figure, Color tone) = switch (until) {
       null => ('—', Hue.ink),
       _ when due.isNotEmpty => ('已到期 ${due.length} 筆', Hue.negative),
-      0 => ('今天', Hue.negative),
+      0 => (Words.today, Hue.negative),
       final n => ('$n 天後', Hue.ink),
     };
     return ColorCard(

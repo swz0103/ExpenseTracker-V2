@@ -3,7 +3,7 @@ import 'entry_validation_failure.dart';
 import '../repositories/account_repository.dart';
 import '../repositories/entry_repository.dart';
 import '../repositories/holding_repository.dart';
-import '../services/entry_query_service.dart';
+import 'entry_query_service.dart';
 
 /// What the ledger will not keep, said before it is asked: every form
 /// that writes an entry checks it here.

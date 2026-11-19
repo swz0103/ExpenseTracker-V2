@@ -5,7 +5,7 @@ import '../cache/topic.dart';
 import '../models/models.dart';
 import '../repositories/account_repository.dart';
 import '../repositories/entry_repository.dart';
-import '../services/balance_service.dart';
+import 'balance_service.dart';
 
 import 'dart:math';
 

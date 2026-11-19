@@ -5,6 +5,7 @@ import 'kit/colours.dart';
 import 'theme.dart';
 import 'shape.dart';
 import 'spacing.dart';
+import '../text/words.dart';
 
 /// Asks for a line of text; null when cancelled or left empty.
 Future<String?> askText(
@@ -22,7 +23,7 @@ Future<String?> askText(
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('取消'),
+          child: const Text(Words.cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(true),
@@ -93,7 +94,7 @@ Future<bool> confirm(
               children: [
                 Expanded(
                   child: _Choice(
-                    '取消',
+                    Words.cancel,
                     color: Hue.surface,
                     ink: Hue.ink,
                     onTap: () => Navigator.of(context).pop(false),

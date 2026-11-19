@@ -3,6 +3,7 @@ import 'package:flutter/painting.dart';
 import '../ledger/ledger.dart';
 import '../look/glyphs.dart';
 import '../look/theme.dart';
+import '../text/words.dart';
 
 /// Icon groups a category may take its mark from, by what it is for:
 /// a hundred in all (`icons_test`), each with the name a screen reader
@@ -74,7 +75,7 @@ const categoryIconGroups = [
       ('lipstick', '口紅'),
       ('jewel', '戒指'),
       ('perfume', '香水'),
-      ('tag', '標籤'),
+      ('tag', Words.tag),
     ],
   ),
   (
@@ -138,17 +139,17 @@ const categoryIconGroups = [
       ('coins', '硬幣'),
       ('safe', '保險箱'),
       ('heart', '愛心'),
-      ('receipt', '收據'),
+      ('receipt', Words.receipt),
       ('percent', '折扣'),
     ],
   ),
   (
-    '收入',
+    Words.income,
     [
       ('salary', '薪水'),
       ('income', '錢袋'),
-      ('dividend', '股息'),
-      ('investment', '投資'),
+      ('dividend', Words.dividend),
+      ('investment', Words.investment),
       ('trophy', '獎盃'),
       ('medal', '獎牌'),
     ],

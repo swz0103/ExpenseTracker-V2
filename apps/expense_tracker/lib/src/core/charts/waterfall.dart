@@ -7,7 +7,7 @@ import '../look/paint.dart';
 import '../look/theme.dart';
 import '../text/dates.dart';
 import '../look/shape.dart';
-import '../../core/look/motion.dart';
+import '../look/motion.dart';
 
 /// An account's balance over recent weeks: each bar rises or falls by the
 /// week's net change from where the last one ended, finishing on today's

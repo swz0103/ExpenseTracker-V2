@@ -170,7 +170,7 @@ class _AddLimit extends StatelessWidget {
             ),
           ),
           if (categories.isNotEmpty) ...[
-            const RuleHead('分類'),
+            const RuleHead(Words.category),
             CardGrid(columns: 4, gap: 8, [
               for (final c in categories)
                 ColorCard(
@@ -206,7 +206,7 @@ class _AddLimit extends StatelessWidget {
             ]),
           ],
           if (tags.isNotEmpty) ...[
-            const RuleHead('標籤'),
+            const RuleHead(Words.tag),
             Wrap(
               spacing: 8,
               runSpacing: 8,

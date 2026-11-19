@@ -16,6 +16,7 @@ import '../model/receipt_photos.dart';
 import 'compose_cards.dart';
 import 'receipt_square.dart';
 import 'compose_mode_look.dart';
+import '../../../core/text/words.dart';
 
 /// The card on top of an entry looked at: in its colour with its mark,
 /// what kind it is ([mode]), what it is called ([title]), and its amount.
@@ -146,7 +147,7 @@ class EntryView extends StatelessWidget {
               height: 64,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) =>
-                  const ViewFieldTile(label: '收據', value: '—'),
+                  const ViewFieldTile(label: Words.receipt, value: '—'),
             ),
           ),
         ),

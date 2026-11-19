@@ -65,7 +65,10 @@ class _Manage extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Text(income ? '收入' : '支出', style: _sectionTitle),
+                  Text(
+                    income ? Words.income : Words.expense,
+                    style: _sectionTitle,
+                  ),
                   const Spacer(),
                   Text(
                     '${items.length} 項 · 每月 ${ledger.orDots(groupDigits(monthly))}',
@@ -88,7 +91,9 @@ class _Manage extends StatelessWidget {
         return _SubPage(
           nav: nav,
           title: '管理固定項目',
-          actions: [HeaderButton(glyph: Glyph.add, label: '新增', onTap: onEdit)],
+          actions: [
+            HeaderButton(glyph: Glyph.add, label: Words.add, onTap: onEdit),
+          ],
           children: [...side(false), ...side(true)],
         );
       },

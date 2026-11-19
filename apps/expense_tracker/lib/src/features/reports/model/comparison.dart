@@ -1,4 +1,5 @@
 import '../../../core/ledger/ledger.dart';
+import '../../../core/text/words.dart';
 
 /// What a stretch of days came to: income, spending, and spending by
 /// category.
@@ -29,8 +30,8 @@ List<CompareRow> compare(PeriodSums a, PeriodSums b) {
   final names = {...a.byCategory.keys, ...b.byCategory.keys}.toList()
     ..sort((x, y) => gap(y).compareTo(gap(x)));
   return [
-    ('收入', a.income, b.income),
-    ('支出', a.expense, b.expense),
+    (Words.income, a.income, b.income),
+    (Words.expense, a.expense, b.expense),
     ('結餘', a.left, b.left),
     for (final n in names) (n, a.byCategory[n] ?? 0, b.byCategory[n] ?? 0),
   ];

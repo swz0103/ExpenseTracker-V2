@@ -1,3 +1,5 @@
+// Exception to shared words: a CSV's columns and kinds are a file
+// format; they keep their spelling whatever the screens come to say.
 import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:domain/data_exchange.dart';
 

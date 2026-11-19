@@ -4,6 +4,7 @@ import '../../../core/messages/validation_messages.dart';
 import '../../import_export/model/import_export.dart' show guessCategory;
 import '../../import_export/model/invoice_qr.dart';
 import '../../../core/ledger/trading.dart';
+import '../../../core/text/words.dart';
 
 part 'compose_form_extras.dart';
 part 'compose_form_lending.dart';
@@ -14,11 +15,11 @@ part 'compose_form_transfer.dart';
 /// The kinds of record the composer makes. 代墊 has no tab of its own:
 /// it is picked inside 支出 (paid for someone) or 收入 (paid back).
 enum ComposeMode {
-  expense('支出'),
-  income('收入'),
-  transfer('轉帳'),
-  lend('代墊'),
-  investment('投資');
+  expense(Words.expense),
+  income(Words.income),
+  transfer(Words.transfer),
+  lend(Words.lend),
+  investment(Words.investment);
 
   const ComposeMode(this.label);
 
@@ -534,8 +535,8 @@ final class ComposeForm {
       account: lendingBack ? to : account,
       category: switch (kind) {
         EntryType.transfer => transferCategory,
-        EntryType.dividend => '股息收入',
-        EntryType.buy || EntryType.sell => '投資',
+        EntryType.dividend => dividendCategory,
+        EntryType.buy || EntryType.sell => investmentCategory,
         _ => split == null || split.isEmpty ? category : split.first.$1,
       },
       note: note.trim(),

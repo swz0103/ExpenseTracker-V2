@@ -7,6 +7,7 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 // The cards of a trade on the entry form: its figures, the sums it
 // settles at, and the holdings to choose from.
@@ -502,7 +503,7 @@ class SettlementRow extends StatelessWidget {
       children: [
         Expanded(child: SettlementBox('成交', groupDigits(amount), onAmount)),
         _operator(sell ? '−' : '＋'),
-        Expanded(child: _charge('手續費', fee, suggestedFee, onFee)),
+        Expanded(child: _charge(Words.fee, fee, suggestedFee, onFee)),
         if (sell) ...[
           _operator('−'),
           Expanded(child: _charge('證交稅', tax, suggestedTax, onTax)),

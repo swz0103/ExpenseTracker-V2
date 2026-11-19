@@ -17,6 +17,7 @@ import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 part 'person_page.dart';
 part 'debts_loan_card.dart';
@@ -114,7 +115,7 @@ class DebtsPage extends StatelessWidget {
               borrowed: borrowed,
               loans: loans.length,
             ),
-            const RuleHead('代墊'),
+            const RuleHead(Words.lend),
             if (people.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(

@@ -12,6 +12,7 @@ import '../../../core/nav.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 part 'budgets_pace.dart';
 part 'budgets_month_picker.dart';
@@ -293,8 +294,8 @@ class _MonthRow extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
-        round(Glyph.back, '上個月', canBack ? onBack : null),
-        round(Glyph.next, '下個月', current ? null : onNext),
+        round(Glyph.back, Words.previousMonth, canBack ? onBack : null),
+        round(Glyph.next, Words.nextMonth, current ? null : onNext),
       ],
     );
   }

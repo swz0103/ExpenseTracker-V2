@@ -42,7 +42,7 @@ class PersonPage extends StatelessWidget {
     if (!identical(lead, e) && lead.type == EntryType.expense) {
       return lead.merchant.isNotEmpty ? lead.merchant : lead.category;
     }
-    return '代墊';
+    return Words.lend;
   }
 
   Future<void> _rename(BuildContext context, Account person) async {
@@ -56,7 +56,7 @@ class PersonPage extends StatelessWidget {
     final ok = await confirm(
       context,
       '刪除「${person.name}」？',
-      '刪除',
+      Words.delete,
       danger: true,
       body: used ? '已記的紀錄會保留，這個人收起來不再出現。' : null,
     );
@@ -106,7 +106,7 @@ class PersonPage extends StatelessWidget {
                 DotsItem(Glyph.edit, '改名', () => _rename(context, person)),
                 DotsItem(
                   Glyph.trash,
-                  '刪除',
+                  Words.delete,
                   () => _delete(context, person),
                   danger: true,
                 ),
@@ -280,7 +280,7 @@ class LoanPage extends StatelessWidget {
                       '${ledger.orDots(groupDigits(plan.first))}',
               ],
               menu: DotsMenu([
-                DotsItem(Glyph.edit, '編輯', () async {
+                DotsItem(Glyph.edit, Words.edit, () async {
                   final gone = await editLoan(context, ledger, loan: loan);
                   if (gone) nav.back();
                 }),

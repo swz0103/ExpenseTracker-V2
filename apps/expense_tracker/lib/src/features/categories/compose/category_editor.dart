@@ -10,6 +10,7 @@ import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
 import '../model/category_form.dart';
 import 'category_form_widgets.dart';
+import '../../../core/text/words.dart';
 
 /// 編輯分類: a big card in the category's tint with its icon (tapped to
 /// choose another) and name, a row of colours, the ones under it four to
@@ -351,7 +352,10 @@ class _CategoryEditorState extends State<_CategoryEditor> {
           const SizedBox(width: Space.s2),
         ] else ...[
           Expanded(
-            child: PanelButton('取消', onTap: () => Navigator.of(context).pop()),
+            child: PanelButton(
+              Words.cancel,
+              onTap: () => Navigator.of(context).pop(),
+            ),
           ),
           const SizedBox(width: Space.s2),
         ],

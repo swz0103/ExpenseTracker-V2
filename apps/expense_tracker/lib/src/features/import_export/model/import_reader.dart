@@ -1,3 +1,5 @@
+// Exception to shared words: the CSV columns read, as written by
+// import_export.dart and by other apps; a file format, not screen words.
 part of 'import_export.dart';
 
 final class _Reader {
@@ -284,7 +286,7 @@ final class _Reader {
       },
       amount: amount,
       account: account,
-      category: trade ? '投資' : '股息收入',
+      category: trade ? investmentCategory : dividendCategory,
       note: note,
       holding: code,
       shares: switch (kind) {

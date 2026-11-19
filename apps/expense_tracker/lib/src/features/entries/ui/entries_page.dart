@@ -15,6 +15,7 @@ import '../../../core/ui/balance_hero.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 /// 收支紀錄: the month's income against spending, then every entry by
 /// day, with search and filters; 設定 exports it.
@@ -505,7 +506,7 @@ class _PickBar extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: '取消',
+                tooltip: Words.cancel,
                 onPressed: onCancel,
                 icon: const GlyphIcon(Glyph.close, size: 18),
               ),
@@ -516,7 +517,12 @@ class _PickBar extends StatelessWidget {
             children: [
               action('改分類', onCategory),
               action('改帳戶', onAccount),
-              action('刪除', onRemove, color: Hue.danger, key: Keys.deletePicked),
+              action(
+                Words.delete,
+                onRemove,
+                color: Hue.danger,
+                key: Keys.deletePicked,
+              ),
             ],
           ),
         ],

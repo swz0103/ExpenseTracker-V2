@@ -46,6 +46,38 @@ void main() {
     }
   });
 
+  test('words said in many places come from Words', () {
+    // One word, one place: '收入' written on a page drifts from the
+    // '收入' written on the next. Data that must keep its spelling
+    // whatever the screens say, such as a CSV's columns or a category's
+    // name, is marked `Exception to shared words`.
+    final source = File('lib/src/core/text/words.dart').readAsStringSync();
+    final words = [
+      for (final m in RegExp(
+        r"static const \w+ = '([^']+)';",
+      ).allMatches(source))
+        m.group(1)!,
+    ];
+    expect(words, isNotEmpty);
+    final faults = <String>[];
+    for (final f in files) {
+      final name = path(f);
+      if (name.endsWith('core/text/words.dart') || name.contains('/demo/')) {
+        continue;
+      }
+      final lines = f.readAsLinesSync();
+      if (excusedFile(lines, 'shared words')) continue;
+      for (final (i, line) in lines.indexed) {
+        for (final word in words) {
+          if (!line.contains("'$word'")) continue;
+          if (excusedAt(lines, i, 'shared words')) continue;
+          faults.add('$name:${i + 1}: say \'$word\' with Words');
+        }
+      }
+    }
+    expect(faults, isEmpty, reason: faults.join('\n'));
+  });
+
   test('how much larger the phone draws words is asked in one place', () {
     // Worked out on each page, with a different size each time, it gave
     // a different answer for Android's own 200%, which is not linear.

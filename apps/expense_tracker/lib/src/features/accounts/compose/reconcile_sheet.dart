@@ -7,6 +7,7 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/calculator.dart';
 import '../model/reconcile.dart';
+import '../../../core/text/words.dart';
 
 /// 對帳: asks what [account] holds (or, for a card or loan, owes) as the
 /// bank or the wallet shows it, and records the difference as an
@@ -35,7 +36,7 @@ Future<void> reconcileAccount(
     context,
     '帳上 ${groupDigits(book)}，實際 ${groupDigits(counted)}，'
         '差 ${groupDigits(entry.amount)}。'
-        '記一筆「$reconcileNote」${spent ? '支出' : '收入'}'
+        '記一筆「$reconcileNote」${spent ? Words.expense : Words.income}'
         '（${entry.category}）？',
     '記下',
   );

@@ -1,6 +1,6 @@
 import '../models/models.dart';
 import '../repositories/entry_repository.dart';
-import '../services/report_service.dart';
+import 'report_service.dart';
 
 /// What has been spent against a budget, and where a month is heading.
 final class BudgetService {

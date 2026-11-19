@@ -15,6 +15,7 @@ import '../../../core/ui/shown_amounts.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
 import '../../../core/look/motion.dart';
+import '../../../core/text/words.dart';
 
 part 'sort_accounts.dart';
 part 'wallet.dart';
@@ -99,7 +100,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 TextButton.icon(
                   onPressed: () => editAccount(context, ledger),
                   icon: const GlyphIcon(Glyph.add, size: 16),
-                  label: const Text('新增'),
+                  label: const Text(Words.add),
                   style: wordButton(Hue.ink),
                 ),
               ],
@@ -117,7 +118,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 ),
               ),
             SectionTitle(
-              '帳戶',
+              Words.account,
               trailing: Text('${accounts.length} 個', style: mutedSmall),
             ),
             if (accounts.isEmpty)
@@ -180,8 +181,8 @@ class _NetWorth extends StatelessWidget {
         );
     final parts = [
       ('存款', saved, Hue.bank),
-      ('投資', invest, Hue.holdings),
-      ('代墊', lent, Hue.receivable),
+      (Words.investment, invest, Hue.holdings),
+      (Words.lend, lent, Hue.receivable),
       ('負債', debt, Hue.card),
     ];
     final shown = [

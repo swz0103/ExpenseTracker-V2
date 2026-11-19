@@ -11,14 +11,15 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/calculator.dart';
 import '../../../core/ui/pickers.dart';
 
-import 'package:domain/loans.dart';
-
 import '../model/account_form.dart';
 import '../ui/account_card.dart' show cardKindLabel;
 import '../ui/accounts.dart' show walletKinds;
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
+
+import 'loan_cards.dart';
 
 part 'loan_fields.dart';
 part 'loan_blocks.dart';

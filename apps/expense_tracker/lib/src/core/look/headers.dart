@@ -5,6 +5,7 @@ import 'kit/words.dart';
 import 'theme.dart';
 import 'shape.dart';
 import 'spacing.dart';
+import '../text/words.dart';
 
 /// A tab page's title row (總覽, 紀錄, 帳戶, 更多): the title on the left
 /// in 22 px and whatever sits on the right. A page opened from another
@@ -70,8 +71,8 @@ class MonthSwitch extends StatelessWidget {
     final atEnd = last != null && year * 12 + m >= last.$1 * 12 + last.$2;
     return StepSwitch(
       label: '$year / $m',
-      previousLabel: '上個月',
-      nextLabel: '下個月',
+      previousLabel: Words.previousMonth,
+      nextLabel: Words.nextMonth,
       onPrevious: () => onChanged(_step(-1)),
       onNext: atEnd ? null : () => onChanged(_step(1)),
     );

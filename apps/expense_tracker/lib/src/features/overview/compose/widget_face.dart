@@ -10,6 +10,7 @@ import '../../../core/look/widget_hue.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/text/words.dart';
 
 /// What the widget shows with no figures chosen, as SummaryWidget.kt does.
 const _empty = <String, Object?>{
@@ -121,7 +122,7 @@ class WidgetFace extends StatelessWidget {
               children: [
                 Expanded(
                   child: _Half(
-                    label: '支出',
+                    label: Words.expense,
                     mark: '−',
                     color: WidgetLook.expense,
                     tint: WidgetLook.expenseTint,
@@ -131,7 +132,7 @@ class WidgetFace extends StatelessWidget {
                 const SizedBox(width: Space.s2),
                 Expanded(
                   child: _Half(
-                    label: '收入',
+                    label: Words.income,
                     mark: '＋',
                     color: WidgetLook.income,
                     tint: WidgetLook.incomeTint,

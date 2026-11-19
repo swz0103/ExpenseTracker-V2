@@ -15,6 +15,7 @@ import 'compose_widgets.dart';
 import 'fields_fold.dart';
 import 'note_field.dart';
 import 'trade_cards.dart';
+import '../../../core/text/words.dart';
 
 /// What each [ShareChange] is called, in its order: 沒有, 配股, 分割, 減資.
 const _shareChangeNames = ['沒有', '配股', '分割', '減資'];
@@ -40,7 +41,7 @@ final class InvestmentFields {
       Padding(
         padding: const EdgeInsets.only(top: Space.s1),
         child: Segments(
-          labels: const ['買進', '賣出', '股息'],
+          labels: const ['買進', '賣出', Words.dividend],
           selected: trades.indexOf(_f.trade),
           selectedColor: _a.color,
           onChanged: (i) => _a.changeTrade(trades[i]),
@@ -55,7 +56,7 @@ final class InvestmentFields {
           onTap: null,
         )
       else
-        _a.hero(unit: '股息'),
+        _a.hero(unit: Words.dividend),
       _codes(),
       if (_f.trading)
         _a.pair(
@@ -128,7 +129,7 @@ final class InvestmentFields {
           onAmount: _a.viewing ? null : _a.calculate,
           onFee: _a.viewing
               ? null
-              : () => _change('手續費', fee, (v) => _f.tradeFee = v),
+              : () => _change(Words.fee, fee, (v) => _f.tradeFee = v),
           onTax: _a.viewing
               ? null
               : () => _change('證交稅', tax, (v) => _f.tradeTax = v),

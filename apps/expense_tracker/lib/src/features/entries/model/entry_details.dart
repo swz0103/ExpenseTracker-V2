@@ -2,6 +2,7 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/installment_messages.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/text/figures.dart';
+import '../../../core/text/words.dart';
 
 /// The sign an entry's amount is written with: − for money out, + for
 /// money in, none for a transfer.
@@ -26,10 +27,10 @@ String entryTitle(Ledger ledger, Entry e) => switch (e.type) {
 List<(String, String)> entryDetails(Ledger ledger, Entry e, String title) {
   final account = ledger.account(e.account);
   return [
-    if (e.type != EntryType.transfer) ('帳戶', account.name),
-    ('日期', formatMMMEd(e.date)),
-    if (e.merchant.isNotEmpty) ('商家', e.merchant),
-    if (e.tags.isNotEmpty) ('標籤', e.tags.map((t) => '#$t').join(' ')),
+    if (e.type != EntryType.transfer) (Words.account, account.name),
+    (Words.date, formatMMMEd(e.date)),
+    if (e.merchant.isNotEmpty) (Words.merchant, e.merchant),
+    if (e.tags.isNotEmpty) (Words.tag, e.tags.map((t) => '#$t').join(' ')),
     if (e.parts.isNotEmpty)
       (
         '拆分',
@@ -37,12 +38,12 @@ List<(String, String)> entryDetails(Ledger ledger, Entry e, String title) {
       ),
     if (e.installments > 1) ('分期', installmentPlan(e.amount, e.installments)),
     if (e.shares != 0) ('股數', '${groupDigits(e.shares.abs())} 股'),
-    if (e.fee > 0) ('手續費', groupDigits(e.fee)),
+    if (e.fee > 0) (Words.fee, groupDigits(e.fee)),
     if (e.tax > 0)
       (e.type == EntryType.dividend ? '二代健保' : '稅', groupDigits(e.tax)),
     if (e.home case final home?) ('折合台幣', groupDigits(home)),
     if ((e.type, e.received) case (EntryType.transfer, final received?))
       ('轉入金額', amountIn(received, ledger.account(e.to ?? '').currency)),
-    if (e.note.isNotEmpty && e.note != title) ('備註', e.note),
+    if (e.note.isNotEmpty && e.note != title) (Words.note, e.note),
   ];
 }

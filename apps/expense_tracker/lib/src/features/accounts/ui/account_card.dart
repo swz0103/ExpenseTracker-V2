@@ -8,6 +8,7 @@ import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 /// How tall a card of 我的帳戶 is when it lies in front, and how much of
 /// each card behind it shows.
@@ -29,7 +30,7 @@ String cardKindLabel(Account account) => switch (account.kind) {
   AccountKind.cash => account.foreign ? '現金 · ${account.currency}' : '現金',
   AccountKind.card => '信用卡',
   AccountKind.loan => '貸款',
-  AccountKind.receivable => '代墊',
+  AccountKind.receivable => Words.lend,
 };
 
 /// What [account] spent this month: everything that left it.

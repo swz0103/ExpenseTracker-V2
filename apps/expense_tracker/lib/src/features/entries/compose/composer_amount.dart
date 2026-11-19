@@ -10,7 +10,7 @@ extension _Amount on _ComposerState {
     EntryType.transfer => '轉出金額',
     EntryType.dividend when _f.reducing => '退還股款',
     EntryType.dividend => '股息金額',
-    _ => '金額',
+    _ => Words.amount,
   };
 
   /// The amount in the middle of the form, [under] it such as 常用.

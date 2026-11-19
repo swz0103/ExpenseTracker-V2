@@ -18,6 +18,7 @@ import '../../../core/messages/recurring_messages.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
 import '../../../core/look/motion.dart';
+import '../../../core/text/words.dart';
 
 part 'recurring_calendar.dart';
 part 'recurring_lists.dart';
@@ -135,7 +136,7 @@ class _RecurringPageState extends State<RecurringPage> {
               onTap: () =>
                   widget.nav.open(Pages.recurringView(RecurringView.manage)),
             ),
-            HeaderButton(glyph: Glyph.add, label: '新增', onTap: _edit),
+            HeaderButton(glyph: Glyph.add, label: Words.add, onTap: _edit),
           ],
         );
         if (ledger.recurring.all.isEmpty) {
@@ -198,8 +199,8 @@ class _RecurringPageState extends State<RecurringPage> {
                     ),
                   ),
                 for (final (glyph, label, by) in const [
-                  (Glyph.back, '上個月', -1),
-                  (Glyph.next, '下個月', 1),
+                  (Glyph.back, Words.previousMonth, -1),
+                  (Glyph.next, Words.nextMonth, 1),
                 ])
                   Padding(
                     padding: const EdgeInsets.only(left: Space.s2),

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../look/paint.dart';
 import '../look/theme.dart';
 import '../look/shape.dart';
-import '../../core/look/motion.dart';
+import '../look/motion.dart';
 
 /// One stretch of a report: a week, a month, and what came in and went
 /// out in it. A stretch still ahead has [ahead] set and no figures.

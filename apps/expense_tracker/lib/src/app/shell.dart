@@ -30,6 +30,7 @@ import 'settings_page.dart';
 import '../core/ui/shown_amounts.dart';
 import '../core/look/spacing.dart';
 import '../core/look/motion.dart';
+import '../core/text/words.dart';
 
 enum _Tab { overview, ledger, accounts, more }
 
@@ -455,7 +456,7 @@ class _BottomBar extends StatelessWidget {
   static const _items = [
     (_Tab.overview, Glyph.overview, '總覽'),
     (_Tab.ledger, Glyph.records, '紀錄'),
-    (_Tab.accounts, Glyph.wallet, '帳戶'),
+    (_Tab.accounts, Glyph.wallet, Words.account),
     (_Tab.more, Glyph.other, '更多'),
   ];
 

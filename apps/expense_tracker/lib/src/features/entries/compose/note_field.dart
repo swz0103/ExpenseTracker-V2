@@ -6,6 +6,7 @@ import '../../../core/look/glyphs.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
 import '../../../core/look/theme.dart';
+import '../../../core/text/words.dart';
 
 /// An entry's note: a box to type in, [lines] tall and growing to three,
 /// with [hint] while it is empty. While [viewing], the note is words on
@@ -106,7 +107,7 @@ class NoteRow extends StatelessWidget {
               SizedBox(width: Space.s2),
               Expanded(
                 child: Text(
-                  '備註',
+                  Words.note,
                   style: TextStyle(
                     fontSize: TextSize.body,
                     fontWeight: FontWeight.w600,

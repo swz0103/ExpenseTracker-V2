@@ -9,6 +9,7 @@ import '../core/nav.dart';
 import '../features/debts/ui/debts_page.dart';
 import '../core/look/shape.dart';
 import '../core/look/spacing.dart';
+import '../core/text/words.dart';
 
 /// 更多: the tools as big icon buttons, three to a row, in three groups,
 /// each with one line on what it is about now.
@@ -99,7 +100,7 @@ class MorePage extends StatelessWidget {
               ToolButton(
                 glyph: Glyph.grid,
                 color: ToolHue.categories,
-                label: '分類',
+                label: Words.category,
                 detail: '${ledger.categories.all.length} 個',
                 onTap: () => nav.open(Pages.categories),
               ),

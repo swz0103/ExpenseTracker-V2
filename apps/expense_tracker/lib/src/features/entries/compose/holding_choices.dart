@@ -8,6 +8,7 @@ import '../../../core/ui/shown_amounts.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
 import 'trade_cards.dart';
+import '../../../core/text/words.dart';
 
 // The page of every holding a trade may be in, opened from the entry
 // form.
@@ -73,7 +74,7 @@ class _HoldingChoicesState extends State<HoldingChoices> {
                 children: [
                   GlyphIcon(Glyph.add, size: 20, color: Hue.muted),
                   Text(
-                    '新增',
+                    Words.add,
                     style: TextStyle(
                       fontSize: TextSize.small,
                       fontWeight: FontWeight.w700,

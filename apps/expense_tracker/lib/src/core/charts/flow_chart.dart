@@ -6,7 +6,7 @@ import '../text/figures.dart';
 import '../look/paint.dart';
 import '../look/theme.dart';
 import '../look/shape.dart';
-import '../../core/look/motion.dart';
+import '../look/motion.dart';
 
 /// One month of [FlowChart].
 final class FlowMonth {

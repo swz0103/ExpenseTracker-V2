@@ -9,14 +9,15 @@ import '../../../core/ui/pickers.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 /// Kinds the record list can be narrowed to.
 enum KindFilter {
   all('全部'),
-  expense('支出'),
-  income('收入'),
-  transfer('轉帳'),
-  investment('投資');
+  expense(Words.expense),
+  income(Words.income),
+  transfer(Words.transfer),
+  investment(Words.investment);
 
   const KindFilter(this.label);
 
@@ -257,7 +258,7 @@ class _FilterSheetState extends State<_FilterSheet> {
   Future<void> _pickAccount() async {
     final picked = await pickOption<String>(
       context,
-      title: '帳戶',
+      title: Words.account,
       selected: _account,
       columns: 3,
       options: accountOptions(widget.ledger),
@@ -270,7 +271,7 @@ class _FilterSheetState extends State<_FilterSheet> {
     bool top(Category c) => c.parent == null;
     final picked = await pickOption<String>(
       context,
-      title: '分類',
+      title: Words.category,
       selected: _category,
       options: [
         ...categoryOptions(ledger, income: false, where: top),
@@ -337,7 +338,7 @@ class _FilterSheetState extends State<_FilterSheet> {
               ],
             ],
           ),
-          const _Heading('日期'),
+          const _Heading(Words.date),
           Segments(
             labels: [
               for (final s in _Span.values)
@@ -348,7 +349,7 @@ class _FilterSheetState extends State<_FilterSheet> {
             selected: span.index,
             onChanged: _pickSpan,
           ),
-          const _Heading('金額'),
+          const _Heading(Words.amount),
           Row(
             children: [
               Expanded(child: _AmountField(_least, '最少')),
@@ -363,7 +364,7 @@ class _FilterSheetState extends State<_FilterSheet> {
           _ChoiceRow(
             glyph: Glyph.wallet,
             color: Palette.teal,
-            label: '帳戶',
+            label: Words.account,
             value: account == null ? '全部' : ledger.account(account).name,
             onTap: _pickAccount,
             onClear: account == null
@@ -374,7 +375,7 @@ class _FilterSheetState extends State<_FilterSheet> {
           _ChoiceRow(
             glyph: Glyph.categories,
             color: Palette.orange,
-            label: '分類',
+            label: Words.category,
             value: category ?? '全部',
             onTap: _pickCategory,
             onClear: category == null
@@ -384,7 +385,7 @@ class _FilterSheetState extends State<_FilterSheet> {
         ],
       ),
       actions: [
-        PanelButton('取消', onTap: () => Navigator.of(context).pop()),
+        PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
         PanelButton('套用', color: Hue.accent, onTap: _apply),
       ],
     );

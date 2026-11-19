@@ -14,7 +14,7 @@ class _DayChoicesState extends State<DayChoices> {
     final today = widget.today;
     final quick = [
       if (today != null)
-        for (final (i, name) in const ['今天', '昨天', '前天'].indexed)
+        for (final (i, name) in const [Words.today, '昨天', '前天'].indexed)
           (name, today.subtract(Duration(days: i))),
     ];
     return Column(
@@ -42,8 +42,8 @@ class _DayChoicesState extends State<DayChoices> {
           ),
         StepSwitch(
           label: formatYMMM(first),
-          previousLabel: '上個月',
-          nextLabel: '下個月',
+          previousLabel: Words.previousMonth,
+          nextLabel: Words.nextMonth,
           iconSize: 20,
           expand: true,
           onPrevious: () => setState(() {

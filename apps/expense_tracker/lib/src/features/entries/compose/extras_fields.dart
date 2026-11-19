@@ -7,6 +7,7 @@ import 'compose_actions.dart';
 import 'compose_chips.dart';
 import 'fields_fold.dart';
 import 'note_field.dart';
+import '../../../core/text/words.dart';
 
 /// The merchant, tags, note and receipt under one heading at the foot of
 /// the entry form, opened and closed with it; closed, the heading shows
@@ -25,13 +26,18 @@ final class ExtrasFields {
       if (expense && _f.merchant.isNotEmpty) _f.merchant,
       for (final tag in _f.tags) '#$tag',
       if (_a.note.text.trim().isNotEmpty) _a.note.text.trim(),
-      if (_f.receipt != null) '收據',
+      if (_f.receipt != null) Words.receipt,
     ];
     final photos = _a.photos;
     final withPhoto = photos != null || _f.receipt != null;
     if (_a.viewing && filled.isEmpty) return const SizedBox.shrink();
     final open = _f.more || _a.viewing;
-    final names = [if (expense) '商家', '標籤', '備註', if (withPhoto) '收據'];
+    final names = [
+      if (expense) Words.merchant,
+      Words.tag,
+      Words.note,
+      if (withPhoto) Words.receipt,
+    ];
     return FieldsFold(
       headingKey: Keys.extras,
       viewing: _a.viewing,
@@ -62,7 +68,7 @@ final class ExtrasFields {
           ),
         ),
         if (expense && (!_a.viewing || _f.merchant.isNotEmpty)) ...[
-          const GroupLabel('商家'),
+          const GroupLabel(Words.merchant),
           WordRow([
             for (final name in _f.merchantChoices())
               WordChip(
@@ -75,7 +81,7 @@ final class ExtrasFields {
           ]),
         ],
         if (!_a.viewing || _f.tags.isNotEmpty) ...[
-          const GroupLabel('標籤'),
+          const GroupLabel(Words.tag),
           WordRow([
             for (final tag in _f.tagChoices())
               WordChip(

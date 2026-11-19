@@ -17,6 +17,7 @@ import '../../../core/text/dates.dart';
 import '../../../core/look/spacing.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/time/app_clock.dart';
+import '../../../core/text/words.dart';
 
 part 'backup_section_manual.dart';
 part 'backup_section_card_row.dart';
@@ -193,7 +194,10 @@ class _BackupSectionState extends State<BackupSection> {
           style: const TextStyle(fontSize: TextSize.body, height: 1.5),
         ),
         actions: [
-          PanelButton('取消', onTap: () => Navigator.of(context).pop(false)),
+          PanelButton(
+            Words.cancel,
+            onTap: () => Navigator.of(context).pop(false),
+          ),
           PanelButton(
             action,
             color: SettingsHue.folder,

@@ -6,6 +6,7 @@ import '../theme.dart';
 import '../kit.dart';
 import '../shape.dart';
 import '../spacing.dart';
+import '../../text/words.dart';
 
 // The panel in the middle of the screen and its buttons.
 
@@ -120,7 +121,7 @@ Future<void> showCenterPanel(
   bool Function()? value,
   ValueChanged<bool>? onChanged,
   WidgetBuilder? body,
-  String done = '完成',
+  String done = Words.done,
 }) {
   return showPanel<void>(
     context,

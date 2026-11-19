@@ -7,6 +7,7 @@ import '../../../core/look/spacing.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ui/icons.dart';
+import '../../../core/text/words.dart';
 
 // The pieces of the recurring item's form, each told what to show and
 // what a tap does; the form holds the state.
@@ -44,7 +45,7 @@ class SideChoice extends StatelessWidget {
             constraints: const BoxConstraints(minHeight: 50),
             child: Center(
               child: Text(
-                side ? '收入' : '支出',
+                side ? Words.income : Words.expense,
                 style: TextStyle(
                   fontSize: TextSize.title,
                   fontWeight: FontWeight.w800,

@@ -8,11 +8,12 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../model/comparison.dart';
-import 'report_period.dart';
+import '../model/report_period.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 /// What the period is set against.
 enum _Against {
@@ -207,8 +208,8 @@ class _CompareSectionState extends State<CompareSection> {
               thenLabel: then(_against.label),
               largest: largest,
               color: switch (name) {
-                '收入' => Hue.positive,
-                '支出' => Hue.negative,
+                Words.income => Hue.positive,
+                Words.expense => Hue.negative,
                 _ => Hue.accent,
               },
             ),

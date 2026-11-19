@@ -11,6 +11,7 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
+import '../../../core/text/words.dart';
 
 /// 分類: 支出 or 收入 on two big segments, then that kind's categories
 /// three to a row, each its solid icon and name on its own tint, a small
@@ -150,14 +151,14 @@ class _CategoriesPageState extends State<CategoriesPage> {
           _Tile(
             glyph: Glyph.add,
             color: Hue.faint,
-            label: '新增',
+            label: Words.add,
             plain: true,
             onTap: _add,
           ),
         ];
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
-          header: CenterHeader('分類', onBack: widget.nav.back),
+          header: CenterHeader(Words.category, onBack: widget.nav.back),
           children: [
             Row(
               children: [
@@ -165,7 +166,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                   if (i > 0) const SizedBox(width: Space.s2),
                   Expanded(
                     child: _Kind(
-                      label: income ? '收入' : '支出',
+                      label: income ? Words.income : Words.expense,
                       count: _tops(income).length,
                       color: income ? Hue.positive : Hue.negative,
                       chosen: _income == income,

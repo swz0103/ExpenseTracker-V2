@@ -7,6 +7,7 @@ import '../../../../core/look/keys.dart';
 import '../../../../core/look/shape.dart';
 import '../../../../core/look/spacing.dart';
 import '../../../../core/look/motion.dart';
+import '../../../../core/text/words.dart';
 
 /// Opening a ledger with its password, on the welcome's ground: the mark
 /// and the name, the password as dots that fill in as it is typed (the
@@ -231,7 +232,7 @@ class _UnlockViewState extends State<UnlockView>
                               key: Keys.back,
                               onPressed: widget.busy ? null : back,
                               style: wordButton(Hue.muted),
-                              child: const Text('返回'),
+                              child: const Text(Words.back),
                             ),
                           ),
                         ),

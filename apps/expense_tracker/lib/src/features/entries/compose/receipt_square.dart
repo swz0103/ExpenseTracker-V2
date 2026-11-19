@@ -9,6 +9,7 @@ import '../../../core/look/spacing.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../model/receipt_photos.dart';
+import '../../../core/text/words.dart';
 
 /// Shows [image] over the page, to pinch and zoom; a tap closes it.
 Future<void> showReceipt(BuildContext context, ImageProvider image) =>
@@ -70,7 +71,7 @@ class ReceiptSquare extends StatelessWidget {
     (context) => CenterPanel(
       glyph: Glyph.camera,
       color: color,
-      title: '收據',
+      title: Words.receipt,
       body: CardGrid([
         for (final (glyph, word, camera) in [
           (Glyph.camera, '拍照', true),
@@ -105,7 +106,7 @@ class ReceiptSquare extends StatelessWidget {
     if (shown == null) {
       return TapArea(
         key: Keys.receipt,
-        label: '收據',
+        label: Words.receipt,
         onTap: () async {
           final camera = await _askSource(context);
           if (camera != null) await _take(camera: camera);
@@ -123,7 +124,7 @@ class ReceiptSquare extends StatelessWidget {
               GlyphIcon(Glyph.camera, size: 22, color: Hue.muted),
               SizedBox(height: Space.s1),
               Text(
-                '收據',
+                Words.receipt,
                 style: TextStyle(
                   fontSize: TextSize.caption,
                   fontWeight: FontWeight.w700,

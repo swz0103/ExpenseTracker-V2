@@ -9,6 +9,7 @@ import 'shown_amounts.dart';
 import '../text/dates.dart';
 import '../look/shape.dart';
 import '../look/spacing.dart';
+import '../text/words.dart';
 
 part 'pickers_days.dart';
 

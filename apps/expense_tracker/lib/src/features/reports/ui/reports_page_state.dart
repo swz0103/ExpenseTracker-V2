@@ -9,7 +9,7 @@ class _ReportsPageState extends State<ReportsPage> {
 
   static const _tabs = [
     (Glyph.reports, '收支', Palette.blue),
-    (Glyph.grid, '分類', Palette.rose),
+    (Glyph.grid, Words.category, Palette.rose),
     (Glyph.swap, '比較', Palette.indigo),
     (Glyph.calendar, '習慣', Palette.orange),
   ];
@@ -17,7 +17,7 @@ class _ReportsPageState extends State<ReportsPage> {
   /// The sums for a period, kept until the ledger's data changes (its
   /// [Ledger.revision] moves on) or the day turns: picking a stretch or a
   /// category, or hiding the amounts, does not add everything up anew.
-  _Report? _report;
+  Report? _report;
   (Ledger, ReportPeriod, int, DateTime)? _reportFor;
 
   DateTime get _today => widget.ledger.today;
@@ -50,13 +50,13 @@ class _ReportsPageState extends State<ReportsPage> {
     }
   }
 
-  _Report get _current {
+  Report get _current {
     final ledger = widget.ledger;
     final key = (ledger, _period, ledger.revision, ledger.today);
     final kept = _report;
     if (kept != null && _reportFor == key) return kept;
     _reportFor = key;
-    return _report = _Report.of(ledger, _period);
+    return _report = Report.of(ledger, _period);
   }
 
   /// Moves to [period]; the stretch and category picked in the last one
@@ -105,7 +105,7 @@ class _ReportsPageState extends State<ReportsPage> {
         final to = period.to;
         final income = report.income;
         final expense = report.expense;
-        final buckets = report.buckets;
+        final buckets = _bars(report);
         final peak = report.peak;
         final byMonth = period.span != ReportSpan.month;
         final biggest = report.names.isEmpty ? null : report.names.first;
@@ -162,7 +162,7 @@ class _ReportsPageState extends State<ReportsPage> {
               key: _picture,
               child: ColoredBox(
                 color: Hue.paper,
-                child: _Hero(
+                child: ReportHero(
                   ledger: ledger,
                   income: income,
                   expense: expense,
@@ -210,9 +210,9 @@ class _ReportsPageState extends State<ReportsPage> {
                 if (period.span == ReportSpan.year)
                   section(null, _summary(report)),
                 section(null, _highlights(report)),
-                section(null, _weekdays(report)),
-                section(null, _merchants(report)),
-                section(null, _tags(report)),
+                section(null, weekdaysSection(report)),
+                section(null, merchantsSection(widget.ledger, report)),
+                section(null, tagsSection(widget.ledger, report)),
                 if (report.count == 0)
                   const EmptyState(
                     glyph: Glyph.calendar,
@@ -231,7 +231,7 @@ class _ReportsPageState extends State<ReportsPage> {
   /// stretch, and the chart of spending, income and net worth with what
   /// the period's net worth did.
   List<Widget> _flow(
-    _Report report,
+    Report report,
     List<PeriodBucket> buckets,
     int? peak,
     bool byMonth,
@@ -242,14 +242,14 @@ class _ReportsPageState extends State<ReportsPage> {
     final change = report.worthNow - report.worthBefore;
     return [
       CardGrid(gap: 10, [
-        _Block(
+        ReportBlock(
           glyph: Glyph.calendar,
           color: _tabs[0].$3,
           label: byMonth ? '平均每月支出' : '平均每週支出',
           value: ledger.orDots(groupDigits(report.perStretch)),
           sub: _versus(report.expense, report.lastExpense),
         ),
-        _Block(
+        ReportBlock(
           glyph: Glyph.payout,
           color: _tabs[3].$3,
           label: '支出最高',
@@ -285,9 +285,9 @@ class _ReportsPageState extends State<ReportsPage> {
                     ),
                   ),
                 ),
-                LegendKey(Hue.negative, '支出'),
+                LegendKey(Hue.negative, Words.expense),
                 SizedBox(width: Space.s2),
-                LegendKey(Hue.positive, '收入'),
+                LegendKey(Hue.positive, Words.income),
                 SizedBox(width: Space.s2),
                 LegendKey(Hue.investment, '淨資產', line: true),
               ],
@@ -300,7 +300,7 @@ class _ReportsPageState extends State<ReportsPage> {
               onSelect: (i) => setState(() => _stretch = i),
             ),
             const SizedBox(height: Space.s2),
-            _Readout(
+            ReportReadout(
               ledger: ledger,
               label: readout == null ? '整段期間' : _stretchName(readout),
               income: readout?.income ?? report.income,
@@ -341,7 +341,7 @@ class _ReportsPageState extends State<ReportsPage> {
 
   /// 習慣's two highlights: the day of the week spent most on, and the
   /// merchant gone to most.
-  List<Widget> _highlights(_Report report) {
+  List<Widget> _highlights(Report report) {
     final ledger = widget.ledger;
     final days = report.weekdays;
     final most = days.fold(0, max);
@@ -349,14 +349,14 @@ class _ReportsPageState extends State<ReportsPage> {
     if (most <= 0 && merchant == null) return const [];
     return [
       CardGrid(gap: 10, [
-        _Block(
+        ReportBlock(
           glyph: Glyph.calendar,
           color: Hue.negative,
           label: '花最多的一天',
           value: most <= 0 ? '—' : '週${weekdayNames[days.indexOf(most)]}',
           sub: most <= 0 ? '' : '這段時間共 ${ledger.orDots(groupDigits(most))}',
         ),
-        _Block(
+        ReportBlock(
           glyph: Glyph.store,
           color: Hue.positive,
           label: '最常去',
@@ -370,6 +370,12 @@ class _ReportsPageState extends State<ReportsPage> {
     ];
   }
 
+  /// The report's stretches as the chart takes them.
+  static List<PeriodBucket> _bars(Report report) => [
+    for (final b in report.buckets)
+      PeriodBucket(b.label, b.income, b.expense, ahead: b.ahead),
+  ];
+
   String _stretchName(PeriodBucket b) =>
       _period.span == ReportSpan.year ? '${b.label} 月' : b.label;
 
@@ -380,7 +386,7 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 
   /// 年度總結: the year in a few lines.
-  List<Widget> _summary(_Report report) {
+  List<Widget> _summary(Report report) {
     final ledger = widget.ledger;
     final income = report.income;
     final kept = income - report.expense;
@@ -443,7 +449,7 @@ class _ReportsPageState extends State<ReportsPage> {
 
   /// 分類: every category ranked by what was spent, against the same time
   /// a year before; each opens its entries.
-  List<Widget> _mix(_Report report) {
+  List<Widget> _mix(Report report) {
     final names = report.names;
     if (names.isEmpty) return const [];
     final ledger = widget.ledger;
@@ -500,7 +506,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   if (i < rects.length)
                     Positioned.fromRect(
                       rect: rects[i].deflate(4),
-                      child: _CategoryBlock(
+                      child: CategoryBlock(
                         ledger: ledger,
                         category: name == '其他' && !spending.containsKey('其他')
                             ? Category('其他', 'other', Hue.faint.toARGB32())
@@ -533,7 +539,7 @@ class _ReportsPageState extends State<ReportsPage> {
     final ledger = widget.ledger;
     final period = _period;
     final entries = [
-      for (final e in _Report._between(ledger, period.from, period.to))
+      for (final e in Report.entriesBetween(ledger, period.from, period.to))
         if (e.spendingParts.any((p) => p.$1 == name)) e,
     ]..sort((a, b) => b.date.compareTo(a.date));
     final total = entries.fold(

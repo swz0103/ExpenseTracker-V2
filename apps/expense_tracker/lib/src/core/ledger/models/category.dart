@@ -4,7 +4,16 @@
 import 'package:core/foundation_values.dart' show PublicId;
 
 /// The category every transfer carries.
+// Exception to shared words: a name kept in every book, which cannot
+// follow what the screens say.
 const transferCategory = '轉帳';
+
+/// The category every buy and sell of shares carries.
+// Exception to shared words: kept in every book, as above.
+const investmentCategory = '投資';
+
+/// The category a dividend is written under.
+const dividendCategory = '股息收入';
 
 /// Where fees go that have no category of their own, such as a
 /// transfer's.

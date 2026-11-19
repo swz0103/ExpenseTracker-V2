@@ -164,7 +164,7 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
                         key: Keys.walletDone,
                         onPressed: _finish,
                         style: wordButton(Hue.accent),
-                        child: const Text('完成'),
+                        child: const Text(Words.done),
                       ),
                     ],
                   ),
