@@ -47,13 +47,13 @@ Future<void> bench(
   final dataSource = SqlLedgerDataSource(open.store);
   var ledger = await dataSource.load();
   final accounts = [
-    for (final a in ledger.accounts)
+    for (final a in ledger.accounts.all)
       if (!a.kind.isDebt) a.id,
   ];
   final spending = [
-    for (final c in ledger.categoriesFor(income: false)) c.name,
+    for (final c in ledger.categories.forEntries(income: false)) c.name,
   ];
-  final earning = ledger.categoriesFor(income: true).first.name;
+  final earning = ledger.categories.forEntries(income: true).first.name;
   final today = ledger.today;
   final entries = [
     for (var i = 0; i < count; i++)
@@ -127,7 +127,7 @@ Future<void> bench(
   final saving = Stopwatch();
   Future<void> save() async {
     saving.start();
-    ledger.add(entries.first.withId(ledger.newId()));
+    ledger.entryCommands.add(entries.first.withId(ledger.newId()));
     await ledger.settled;
     saving.stop();
     await tester.pumpAndSettle();

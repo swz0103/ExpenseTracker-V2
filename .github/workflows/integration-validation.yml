@@ -126,6 +126,19 @@ jobs:
         # with the run to look at a page without a phone.
         working-directory: apps/expense_tracker
         run: flutter test tool/screenshots
+      - name: The emulator bench still compiles
+        # integration_test is left out of the analysis above: only the
+        # emulator workflow adds its package. Added here for a moment so a
+        # change that breaks the bench fails the pull request instead of
+        # the next emulator run (it went unnoticed for weeks once).
+        working-directory: apps/expense_tracker
+        run: |
+          flutter pub add 'dev:integration_test:{"sdk":"flutter"}' \
+            'dev:flutter_driver:{"sdk":"flutter"}'
+          sed -i 's#^    - integration_test/\*\*#    \# - integration_test/**#; s#^    - test_driver/\*\*#    \# - test_driver/**#' \
+            analysis_options.yaml
+          flutter analyze integration_test test_driver
+          git checkout -- pubspec.yaml pubspec.lock analysis_options.yaml
       - name: Keep the screenshots
         # v7.0.2.
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
