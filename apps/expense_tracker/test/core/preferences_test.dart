@@ -52,6 +52,26 @@ void main() {
     expect(again.driveRevision, 4);
   });
 
+  test('one field of the wrong kind costs only itself', () {
+    // As a file from an older version, or one partly damaged: the Drive
+    // stays linked though another setting cannot be read.
+    final directory = Directory.systemTemp.createTempSync('preferences-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final file = File('${directory.path}/preferences.json')
+      ..writeAsStringSync(
+        '{"driveLinked":true,"haptics":"yes","nudgeHour":21.0,'
+        '"nudgeMinute":"30","overview":["flow",3,"daily"],'
+        '"phoneFolder":"content://tree/backups"}',
+      );
+    final read = Preferences(file: file);
+    expect(read.driveLinked, isTrue);
+    expect(read.haptics, isTrue, reason: 'not a yes or no: the default');
+    expect(read.nudgeHour, 21);
+    expect(read.nudgeMinute, 0, reason: 'not a number: the default');
+    expect(read.overview, ['flow', 'daily']);
+    expect(read.phoneFolder, 'content://tree/backups');
+  });
+
   test('a broken file leaves the defaults', () {
     final directory = Directory.systemTemp.createTempSync('preferences-');
     addTearDown(() => directory.deleteSync(recursive: true));

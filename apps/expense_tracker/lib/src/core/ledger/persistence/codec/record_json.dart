@@ -53,19 +53,19 @@ LoanTerms? _loanTerms(Map<String, Object?> json) {
       final String name => LoanRepay.values.byName(name),
       _ => null,
     },
-    payFrom: json['payFrom'] as String?,
+    payFrom: _text(json, 'payFrom'),
   );
   return terms.isEmpty ? null : terms;
 }
 
 Account accountFromJson(Map<String, Object?> json) => _read(
   () => Account(
-    json['id']! as String,
-    json['name']! as String,
-    AccountKind.values.byName(json['kind']! as String),
+    _need(json, 'id'),
+    _need(json, 'name'),
+    AccountKind.values.byName(_need(json, 'kind')),
     _int(json['opening']),
-    currency: json['currency'] as String? ?? homeCode,
-    icon: json['icon'] as String?,
+    currency: _text(json, 'currency') ?? homeCode,
+    icon: _text(json, 'icon'),
     closingDay: _maybe(json['closingDay']),
     dueDay: _maybe(json['dueDay']),
     limit: _maybe(json['limit']),
@@ -77,11 +77,11 @@ Account accountFromJson(Map<String, Object?> json) => _read(
     loan: _loanTerms(json),
     closes: {
       for (final MapEntry(:key, :value)
-          in (json['closes'] as Map<String, Object?>? ?? const {}).entries)
-        _date(key): _date(value! as String),
+          in (_object(json, 'closes') ?? const {}).entries)
+        _date(key): _date(_words(value)),
     },
     history: [
-      for (final h in json['history'] as List? ?? const [])
+      for (final h in _list(json, 'history') ?? const [])
         if (h case {
           'until': final String until,
           'closingDay': final int closingDay,
@@ -116,10 +116,10 @@ Map<String, Object?> categoryToJson(Category c, [CategoryRefs? refs]) => {
 Category categoryFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
     _read(
       () => Category(
-        json['name']! as String,
-        json['icon']! as String,
+        _need(json, 'name'),
+        _need(json, 'icon'),
         _int(json['color']),
-        id: json['id'] as String?,
+        id: _text(json, 'id'),
         income: json['income'] == true,
         parent: _refName(json, 'parent', refs),
         archived: json['archived'] == true,
@@ -163,21 +163,21 @@ Map<String, Object?> entryToJson(Entry e, [CategoryRefs? refs]) => {
 /// The entry [entryToJson] wrote.
 Entry entryFromJson(Map<String, Object?> json, [CategoryRefs? refs]) => _read(
   () => Entry(
-    id: json['id']! as String,
-    date: _date(json['date']! as String),
-    type: EntryType.values.byName(json['type']! as String),
+    id: _need(json, 'id'),
+    date: _date(_need(json, 'date')),
+    type: EntryType.values.byName(_need(json, 'type')),
     amount: _int(json['amount']),
-    account: json['account']! as String,
+    account: _need(json, 'account'),
     category: _refName(json, 'category', refs) ?? '',
-    note: json['note'] as String? ?? '',
-    to: json['to'] as String?,
-    holding: json['holding'] as String?,
+    note: _text(json, 'note') ?? '',
+    to: _text(json, 'to'),
+    holding: _text(json, 'holding'),
     shares: _int(json['shares']),
-    recurring: json['recurring'] as String?,
-    merchant: json['merchant'] as String? ?? '',
-    tags: [for (final t in json['tags'] as List? ?? const []) t! as String],
+    recurring: _text(json, 'recurring'),
+    merchant: _text(json, 'merchant') ?? '',
+    tags: [for (final t in _list(json, 'tags') ?? const []) t! as String],
     parts: [
-      for (final p in json['parts'] as List? ?? const [])
+      for (final p in _list(json, 'parts') ?? const [])
         if (p case {'amount': final int amount} when p is Map<String, Object?>)
           (
             _refName(p, 'name', refs, idKey: 'categoryId') ??
@@ -189,13 +189,13 @@ Entry entryFromJson(Map<String, Object?> json, [CategoryRefs? refs]) => _read(
     ],
     fee: _int(json['fee']),
     tax: _int(json['tax']),
-    refundOf: json['refundOf'] as String?,
+    refundOf: _text(json, 'refundOf'),
     installments: _int(json['installments']),
     average: json['average'] == true,
     split: json['split'] == true,
     home: _maybe(json['home']),
     received: _maybe(json['received']),
-    group: json['group'] as String?,
+    group: _text(json, 'group'),
   ),
 );
 
@@ -242,14 +242,14 @@ Map<String, Object?> recurringToJson(Recurring r, [CategoryRefs? refs]) => {
 Recurring recurringFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
     _read(
       () => Recurring(
-        id: json['id']! as String,
-        name: json['name']! as String,
+        id: _need(json, 'id'),
+        name: _need(json, 'name'),
         amount: _int(json['amount']),
         day: _int(json['day']),
-        account: json['account']! as String,
+        account: _need(json, 'account'),
         category: _refName(json, 'category', refs)!,
         active: json['active'] != false,
-        unit: RepeatUnit.values.byName(json['unit'] as String? ?? 'month'),
+        unit: RepeatUnit.values.byName(_text(json, 'unit') ?? 'month'),
         every: _maybe(json['every']) ?? 1,
         start: switch (json['start']) {
           final String day => _date(day),
@@ -260,11 +260,11 @@ Recurring recurringFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
           _ => null,
         },
         income: json['income'] == true,
-        merchant: json['merchant'] as String? ?? '',
+        merchant: _text(json, 'merchant') ?? '',
         auto: json['auto'] == true,
         skipped: {
-          for (final day in json['skipped'] as List? ?? const [])
-            _date(day as String),
+          for (final day in _list(json, 'skipped') ?? const [])
+            _date(_words(day)),
         },
       ),
     );
@@ -277,8 +277,8 @@ Map<String, Object?> trashedToJson(Trashed t, [CategoryRefs? refs]) => {
 Trashed trashedFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
     _read(
       () => Trashed(
-        entryFromJson(json['entry']! as Map<String, Object?>, refs),
-        _date(json['on']! as String),
+        entryFromJson(_needObject(json, 'entry'), refs),
+        _date(_need(json, 'on')),
       ),
     );
 
@@ -304,7 +304,7 @@ String? _refName(
 }) {
   final id = json[idKey ?? '${key}Id'];
   if (id is String) return refs?.nameOf(id) ?? id;
-  return json[key] as String?;
+  return _text(json, key);
 }
 
 /// [read], with any slip in the JSON's shape a [FormatException].
@@ -319,6 +319,51 @@ T _read<T>(T Function() read) {
 }
 
 int _int(Object? value) => _maybe(value) ?? 0;
+
+// Each field read as its type, a slip named by its field. Written out for
+// each type rather than through JsonFields' generic need: a book's every
+// record comes through here, and the generic check cost a fifth more.
+
+String _need(Map<String, Object?> json, String key) => switch (json[key]) {
+  final String value => value,
+  final other => throw _slip(key, 'words', other),
+};
+
+String? _text(Map<String, Object?> json, String key) => switch (json[key]) {
+  null => null,
+  final String value => value,
+  final other => throw _slip(key, 'words', other),
+};
+
+Map<String, Object?> _needObject(Map<String, Object?> json, String key) =>
+    switch (json[key]) {
+      final Map<String, Object?> value => value,
+      final other => throw _slip(key, 'an object', other),
+    };
+
+Map<String, Object?>? _object(Map<String, Object?> json, String key) =>
+    switch (json[key]) {
+      null => null,
+      final Map<String, Object?> value => value,
+      final other => throw _slip(key, 'an object', other),
+    };
+
+List<Object?>? _list(Map<String, Object?> json, String key) =>
+    switch (json[key]) {
+      null => null,
+      final List<Object?> value => value,
+      final other => throw _slip(key, 'a list', other),
+    };
+
+FormatException _slip(String key, String expected, Object? found) =>
+    FormatException(
+      '$key: expected $expected, found ${found?.runtimeType ?? 'nothing'}',
+    );
+
+String _words(Object? value) => switch (value) {
+  final String words => words,
+  _ => throw const FormatException('Expected words'),
+};
 
 int? _maybe(Object? value) => switch (value) {
   null => null,

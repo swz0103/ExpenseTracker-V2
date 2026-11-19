@@ -11,6 +11,7 @@ import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/text/words.dart';
+import '../../../core/text/json_fields.dart';
 
 /// What the widget shows with no figures chosen, as SummaryWidget.kt does.
 const _empty = <String, Object?>{
@@ -46,11 +47,11 @@ class WidgetFace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shown = snapshot ?? _empty;
-    final budget = shown['budget'] as String? ?? '';
-    final detail = shown['detail'] as String? ?? '';
-    final week = (shown['week'] as List<Object?>?)?.cast<int>();
-    final weekTotal = shown['weekTotal'] as String? ?? '';
+    final shown = JsonFields(snapshot ?? _empty);
+    final budget = shown.text('budget') ?? '';
+    final detail = shown.text('detail') ?? '';
+    final week = shown.wholes('week');
+    final weekTotal = shown.text('weekTotal') ?? '';
     return _Card(
       radius: 26,
       padding: const EdgeInsets.fromLTRB(
@@ -75,13 +76,13 @@ class WidgetFace extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        shown['title'] as String? ?? '',
+                        shown.text('title') ?? '',
                         maxLines: 1,
                         style: _text(11, WidgetLook.muted),
                       ),
                     ),
                     Text(
-                      shown['figure'] as String? ?? '',
+                      shown.text('figure') ?? '',
                       maxLines: 1,
                       style: _text(24, WidgetLook.ink),
                     ),
@@ -109,7 +110,7 @@ class WidgetFace extends StatelessWidget {
                   _Week(
                     week: week,
                     total: weekTotal,
-                    today: shown['today'] as int? ?? -1,
+                    today: shown.whole('today') ?? -1,
                   ),
                 ],
               ],
@@ -166,7 +167,7 @@ class WidgetRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shown = snapshot ?? _empty;
+    final shown = JsonFields(snapshot ?? _empty);
     return _Card(
       radius: 31,
       padding: const EdgeInsets.fromLTRB(
@@ -186,16 +187,12 @@ class WidgetRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    shown['shortLabel'] as String? ??
-                        shown['title'] as String? ??
-                        '',
+                    shown.text('shortLabel') ?? shown.text('title') ?? '',
                     maxLines: 1,
                     style: _text(10.5, WidgetLook.muted),
                   ),
                   Text(
-                    shown['shortFigure'] as String? ??
-                        shown['figure'] as String? ??
-                        '',
+                    shown.text('shortFigure') ?? shown.text('figure') ?? '',
                     maxLines: 1,
                     style: _text(16, WidgetLook.ink),
                   ),
@@ -264,15 +261,15 @@ class _BudgetBar extends StatelessWidget {
     required this.top,
   });
 
-  final Map<String, Object?> snapshot;
+  final JsonFields snapshot;
   final double height;
   final double top;
 
   @override
   Widget build(BuildContext context) {
-    final progress = snapshot['progress'] as int?;
+    final progress = snapshot.whole('progress');
     if (progress == null) return const SizedBox.shrink();
-    final pace = snapshot['pace'] as int?;
+    final pace = snapshot.whole('pace');
     return Padding(
       padding: EdgeInsets.only(top: top),
       child: SizedBox(

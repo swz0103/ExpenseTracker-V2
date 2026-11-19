@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/text/json_fields.dart';
 
 /// One HTTP exchange with Google Drive: the status, the headers (lower
 /// case) and, unless it was saved to a file, the body.
@@ -242,12 +243,29 @@ final class DriveBackup {
 
   static String _reason(String body) {
     try {
-      final json = jsonDecode(body) as Map<String, Object?>;
-      final detail = json['error'] as Map<String, Object?>?;
-      return '${detail?['message'] ?? ''}';
+      return JsonFields.decode(body).object('error')?.text('message') ?? '';
     } on Object {
       // A body that is not JSON has no message.
       return '';
+    }
+  }
+
+  /// Drive's answer as an object; one that is not, such as a page a
+  /// hotel's Wi-Fi puts in its place, is Drive not taking the request.
+  static JsonFields _answer(DriveResponse response) {
+    try {
+      return JsonFields.decode(response.body);
+    } on FormatException catch (error) {
+      throw DriveException(DriveProblem.refused, error.message);
+    }
+  }
+
+  /// Field [key] of [json], or Drive not taking the request.
+  static T _need<T extends Object>(JsonFields json, String key) {
+    try {
+      return json.need<T>(key);
+    } on FormatException catch (error) {
+      throw DriveException(DriveProblem.refused, error.message);
     }
   }
 
@@ -271,9 +289,9 @@ final class DriveBackup {
       ),
       interactive: interactive,
     );
-    final files = (jsonDecode(found.body) as Map<String, Object?>)['files'];
-    if (files is List && files.isNotEmpty) {
-      return _folder = (files.first as Map<String, Object?>)['id']! as String;
+    final files = _answer(found).objects('files') ?? const [];
+    if (files.isNotEmpty) {
+      return _folder = _need<String>(files.first, 'id');
     }
     final made = await _send(
       'POST',
@@ -282,8 +300,7 @@ final class DriveBackup {
       headers: {'content-type': 'application/json; charset=utf-8'},
       text: jsonEncode({'name': folderName, 'mimeType': _folderType}),
     );
-    return _folder =
-        (jsonDecode(made.body) as Map<String, Object?>)['id']! as String;
+    return _folder = _need<String>(_answer(made), 'id');
   }
 
   /// The backups in the folder, newest first; with [ledger], only those
@@ -308,19 +325,17 @@ final class DriveBackup {
       ),
       interactive: interactive,
     );
-    final files =
-        (jsonDecode(response.body) as Map<String, Object?>)['files']
-            as List<Object?>? ??
-        const [];
+    final files = _answer(response).objects('files') ?? const [];
     return [
-      for (final row in files.cast<Map<String, Object?>>())
-        if ((row['name'] as String? ?? '').endsWith('.etbk'))
+      for (final row in files)
+        if ((row.text('name') ?? '').endsWith('.etbk'))
           DriveFile(
-            row['id']! as String,
-            row['name']! as String,
-            DateTime.tryParse(row['modifiedTime'] as String? ?? '') ??
+            _need<String>(row, 'id'),
+            _need<String>(row, 'name'),
+            DateTime.tryParse(row.text('modifiedTime') ?? '') ??
                 DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-            int.tryParse('${row['size'] ?? ''}') ?? 0,
+            // Drive writes sizes as words.
+            int.tryParse(row.text('size') ?? '') ?? row.whole('size') ?? 0,
           ),
     ]..sort((a, b) => b.modified.compareTo(a.modified));
   }

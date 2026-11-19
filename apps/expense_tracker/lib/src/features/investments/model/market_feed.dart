@@ -6,6 +6,7 @@ import 'package:market/market_data.dart';
 import '../../../core/platform/sync_job.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ledger/persistence/sql_ledger_data_source.dart';
+import '../../../core/text/json_fields.dart';
 
 /// Closing prices and exchange rates for the `ledger`, fetched at most every
 /// 20 minutes: when the ledger opens, when the app comes back, and at
@@ -137,17 +138,17 @@ final class MarketFeed extends SyncJob implements PriceHistory {
     final file = _file(code);
     if (file == null || !file.existsSync()) return {};
     try {
-      final json = jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
-      if (json['otc'] == true) _otc.add(code);
-      final months = json['months'] as Map<String, Object?>;
+      final json = JsonFields.decode(file.readAsStringSync());
+      if (json.flag('otc') ?? false) _otc.add(code);
+      final months = json.need<Map<String, Object?>>('months');
       return {
         for (final MapEntry(:key, :value) in months.entries)
           key: [
-            for (final row in value! as List)
-              (
-                DateTime.parse((row as List)[0] as String),
-                (row[1] as num).toDouble(),
-              ),
+            for (final row in value is List ? value : const [])
+              if (row case [final String day, final num close])
+                (DateTime.parse(day), close.toDouble())
+              else
+                throw const FormatException('A close is a day and a price'),
           ],
       };
     } on Object {

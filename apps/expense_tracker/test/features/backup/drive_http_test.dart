@@ -178,6 +178,25 @@ void main() {
       );
     });
 
+    test('an answer that is not Drive\'s is a refusal, not a crash', () async {
+      // As a Wi-Fi sign-in page given in Drive's place, with a 200.
+      await expectLater(
+        drive(_Refusing(200, '<html>Sign in to the Wi-Fi</html>')).list(),
+        throwsA(
+          isA<DriveException>().having(
+            (e) => e.problem,
+            'problem',
+            DriveProblem.refused,
+          ),
+        ),
+      );
+      await expectLater(
+        drive(_Refusing(200, '{"files":[{"name":"記帳本.etbk"}]}')).list(),
+        throwsA(isA<DriveException>()),
+        reason: 'a file without its id',
+      );
+    });
+
     test('a refusal that is not JSON still says its status', () async {
       await expectLater(
         drive(_Refusing(500, 'Server Error')).list(),

@@ -1,4 +1,4 @@
-import 'dart:convert';
+import '../../text/json_fields.dart';
 
 /// What the composer may ask of the forms put aside.
 abstract interface class DraftReader {
@@ -37,8 +37,8 @@ final class DraftRepository implements DraftReader {
   Iterable<String> get receipts sync* {
     for (final json in _byTab.values) {
       try {
-        final file = (jsonDecode(json) as Map<String, Object?>)['receipt'];
-        if (file is String) yield file;
+        final file = JsonFields.decode(json).text('receipt');
+        if (file != null) yield file;
       } on Object {
         // A form that cannot be read keeps no photo.
       }

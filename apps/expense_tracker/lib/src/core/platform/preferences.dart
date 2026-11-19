@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../text/json_fields.dart';
+
 /// Light or dark colours.
 enum Appearance {
   system('跟著手機'),
@@ -35,48 +37,42 @@ final class Preferences extends ChangeNotifier {
     final file = _file;
     if (file == null || !file.existsSync()) return;
     try {
-      final json = jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
+      // Field by field: one that cannot be read keeps its default and
+      // costs none of the others.
+      final json = JsonFields.decode(file.readAsStringSync());
       _appearance = Appearance.values.firstWhere(
-        (a) => a.name == json['appearance'],
+        (a) => a.name == json.text('appearance'),
         orElse: () => Appearance.system,
       );
-      _haptics = json['haptics'] as bool? ?? true;
-      _dueAlerts = json['dueAlerts'] as bool? ?? false;
-      _dailyNudge = json['dailyNudge'] as bool? ?? false;
-      _nudgeHour = (json['nudgeHour'] as num?)?.toInt() ?? 21;
-      _started = json['started'] as bool? ?? false;
-      _widgetShown = json['widgetShown'] as bool? ?? false;
-      _driveLinked = json['driveLinked'] as bool? ?? false;
-      _drivePhotos = json['drivePhotos'] as bool? ?? false;
-      _googleBackup = json['googleBackup'] as bool? ?? true;
-      _driveBackedUp = DateTime.tryParse(
-        json['driveBackedUp'] as String? ?? '',
-      );
-      _driveRevision = (json['driveRevision'] as num?)?.toInt();
-      _nudgeMinute = (json['nudgeMinute'] as num?)?.toInt() ?? 0;
-      _exactReminders = json['exactReminders'] as bool? ?? false;
-      _phoneFolder = json['phoneFolder'] as String?;
-      _phoneFolderName = json['phoneFolderName'] as String? ?? '';
-      _phoneDaily = json['phoneDaily'] as bool? ?? false;
-      _phoneBackedUp = DateTime.tryParse(
-        json['phoneBackedUp'] as String? ?? '',
-      );
-      _phoneRevision = (json['phoneRevision'] as num?)?.toInt();
-      _overview = (json['overview'] as List<Object?>?)?.cast<String>();
-      _budgetAlerts = json['budgetAlerts'] as bool? ?? true;
-      _budgetAlerted = {
-        ...?(json['budgetAlerted'] as List<Object?>?)?.whereType<String>(),
-      };
-      _updateChecks = json['updateChecks'] as bool? ?? true;
-      _updateCheckedAt = DateTime.tryParse(
-        json['updateCheckedAt'] as String? ?? '',
-      );
+      _haptics = json.flag('haptics') ?? true;
+      _dueAlerts = json.flag('dueAlerts') ?? false;
+      _dailyNudge = json.flag('dailyNudge') ?? false;
+      _nudgeHour = json.whole('nudgeHour') ?? 21;
+      _started = json.flag('started') ?? false;
+      _widgetShown = json.flag('widgetShown') ?? false;
+      _driveLinked = json.flag('driveLinked') ?? false;
+      _drivePhotos = json.flag('drivePhotos') ?? false;
+      _googleBackup = json.flag('googleBackup') ?? true;
+      _driveBackedUp = DateTime.tryParse(json.text('driveBackedUp') ?? '');
+      _driveRevision = json.whole('driveRevision');
+      _nudgeMinute = json.whole('nudgeMinute') ?? 0;
+      _exactReminders = json.flag('exactReminders') ?? false;
+      _phoneFolder = json.text('phoneFolder');
+      _phoneFolderName = json.text('phoneFolderName') ?? '';
+      _phoneDaily = json.flag('phoneDaily') ?? false;
+      _phoneBackedUp = DateTime.tryParse(json.text('phoneBackedUp') ?? '');
+      _phoneRevision = json.whole('phoneRevision');
+      _overview = json.texts('overview');
+      _budgetAlerts = json.flag('budgetAlerts') ?? true;
+      _budgetAlerted = {...?json.texts('budgetAlerted')};
+      _updateChecks = json.flag('updateChecks') ?? true;
+      _updateCheckedAt = DateTime.tryParse(json.text('updateCheckedAt') ?? '');
       _updateLaterUntil = DateTime.tryParse(
-        json['updateLaterUntil'] as String? ?? '',
+        json.text('updateLaterUntil') ?? '',
       );
-      _updateSkipped = (json['updateSkipped'] as num?)?.toInt();
+      _updateSkipped = json.whole('updateSkipped');
       _widgetFigures = WidgetFigures.values.firstWhere(
-        (f) => f.name == json['widgetFigures'],
+        (f) => f.name == json.text('widgetFigures'),
         orElse: () => WidgetFigures.off,
       );
     } on Object {

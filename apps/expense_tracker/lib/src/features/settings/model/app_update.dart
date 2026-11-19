@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/time/app_clock.dart';
+import '../../../core/text/json_fields.dart';
 
 /// This build's number, set by the APK build (android.yml); 0 in a build
 /// made by hand and in the preview, which never look for updates.
@@ -56,8 +57,8 @@ final class UpdateInfo {
       }
       return UpdateInfo(
         build: build,
-        version: json['version'] as String? ?? '',
-        commit: json['commit'] as String? ?? '',
+        version: JsonFields(json).text('version') ?? '',
+        commit: JsonFields(json).text('commit') ?? '',
         sha256: sha256,
         size: size,
         notes: [

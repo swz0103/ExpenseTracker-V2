@@ -297,6 +297,20 @@ void main() {
     }
   });
 
+  test('casts of outside data only become fewer', () {
+    // Read through JsonFields (core/text/json_fields.dart) instead: a cast
+    // throws a TypeError for one field of the wrong kind and takes the
+    // rest down with it. What is left is the ledger's own rows.
+    const most = 18;
+    final cast = RegExp(r' as (Map|List|String|num|int|bool|double|Object)\b');
+    var found = 0;
+    for (final file in imports.keys) {
+      found += cast.allMatches(File(file).readAsStringSync()).length;
+    }
+    expect(found, lessThanOrEqualTo(most), reason: 'read it with JsonFields');
+    expect(found, most, reason: 'fewer now: lower `most` to $found');
+  });
+
   test('the time is read from AppClock only', () {
     // Anything that depends on the day must be testable on any day: a
     // backup's age, a reminder, a file's name. core/time is the clock.

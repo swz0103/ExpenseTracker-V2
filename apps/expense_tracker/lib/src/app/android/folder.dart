@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../features/backup/model/phone_backup.dart';
 import 'channel.dart';
+import '../../core/text/json_fields.dart';
 
 /// A folder chosen once with Android's folder chooser
 /// (`FolderPart.kt`).
@@ -22,10 +23,8 @@ final class AndroidFolder implements FolderPort {
       rethrow;
     }
     if (picked == null) return null;
-    return (
-      uri: picked['uri']! as String,
-      name: picked['name'] as String? ?? '',
-    );
+    final folder = JsonFields.from(picked);
+    return (uri: folder.need<String>('uri'), name: folder.text('name') ?? '');
   }
 
   @override
@@ -46,12 +45,12 @@ final class AndroidFolder implements FolderPort {
         ) ??
         const [];
     return [
-      for (final file in files)
+      for (final file in files.map(JsonFields.from))
         (
-          id: file['id']! as String,
-          name: file['name'] as String? ?? '',
+          id: file.need<String>('id'),
+          name: file.text('name') ?? '',
           modified: DateTime.fromMillisecondsSinceEpoch(
-            (file['modified'] as num?)?.toInt() ?? 0,
+            file.whole('modified') ?? 0,
           ),
         ),
     ];

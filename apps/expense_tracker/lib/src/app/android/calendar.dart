@@ -1,6 +1,7 @@
 import '../../features/reminders/model/calendar_sync.dart';
 import '../../features/reminders/model/reminders.dart';
 import 'channel.dart';
+import '../../core/text/json_fields.dart';
 
 typedef _Row = Map<Object?, Object?>;
 
@@ -17,11 +18,13 @@ final class AndroidCalendar implements CalendarPort {
   Future<List<CalendarChoice>> calendars() async {
     final rows = await platformChannel.invokeListMethod<_Row>('calendars');
     return [
-      for (final row in rows ?? const <_Row>[])
+      for (final row in [
+        for (final row in rows ?? const <_Row>[]) JsonFields.from(row),
+      ])
         CalendarChoice(
-          (row['id']! as num).toInt(),
-          row['name']! as String,
-          row['account']! as String,
+          row.need<num>('id').toInt(),
+          row.need<String>('name'),
+          row.need<String>('account'),
         ),
     ];
   }
