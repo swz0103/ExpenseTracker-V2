@@ -128,7 +128,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
   Future<void> _others() async {
     await showSheet<void>(
       context,
-      (_) => _OtherSheet(form: _f, ledger: _ledger),
+      (_) => _OtherSheet(form: _f, today: _ledger.today),
     );
     if (mounted) setState(() {});
   }

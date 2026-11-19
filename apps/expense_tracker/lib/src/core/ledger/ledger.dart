@@ -46,6 +46,7 @@ export 'services/integrity_service.dart'
 export 'models/models.dart';
 // The narrow parts a screen or a model can take in place of the whole
 // ledger (docs/roadmap.md, item 10).
+export 'repositories/account_repository.dart' show AccountReader;
 export 'repositories/entry_repository.dart' show EntryReader;
 export 'services/report_service.dart' show ReportService;
 

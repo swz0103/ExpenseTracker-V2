@@ -183,10 +183,12 @@ class _RepeatSheetState extends State<_RepeatSheet> {
 /// 其他設定: when it starts and ends, whether it books itself when due,
 /// and whether it is paused.
 class _OtherSheet extends StatefulWidget {
-  const _OtherSheet({required this.form, required this.ledger});
+  const _OtherSheet({required this.form, required this.today});
 
   final RecurringForm form;
-  final Ledger ledger;
+
+  /// The ledger's today: an end can be set up to five years after it.
+  final DateTime today;
 
   @override
   State<_OtherSheet> createState() => _OtherSheetState();
@@ -199,7 +201,7 @@ class _OtherSheetState extends State<_OtherSheet> {
     context,
     title: title,
     selected: selected,
-    latest: DateTime.utc(widget.ledger.today.year + 5),
+    latest: DateTime.utc(widget.today.year + 5),
   );
 
   Widget _date(

@@ -132,11 +132,11 @@ class EntryView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final e = entry;
-    final title = entryTitle(ledger, e);
+    final title = entryTitle(ledger.accounts, e);
     final photos = this.photos;
     final receipt = this.receipt;
     final cells = <Widget>[
-      for (final (label, value) in entryDetails(ledger, e, title))
+      for (final (label, value) in entryDetails(ledger.accounts, e, title))
         ViewFieldTile(label: label, value: value),
       if (photos != null && receipt != null)
         TapArea(

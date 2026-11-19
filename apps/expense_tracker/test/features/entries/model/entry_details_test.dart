@@ -52,20 +52,20 @@ void main() {
   test('a transfer is called by both accounts', () {
     final l = _book();
     expect(
-      entryTitle(l, _entry(type: EntryType.transfer, to: 'usd')),
+      entryTitle(l.accounts, _entry(type: EntryType.transfer, to: 'usd')),
       '銀行 → 美元',
     );
     // Otherwise its title: the note, or the category without one.
-    expect(entryTitle(l, _entry()), '餐飲');
-    expect(entryTitle(l, _entry(note: '午餐')), '午餐');
+    expect(entryTitle(l.accounts, _entry()), '餐飲');
+    expect(entryTitle(l.accounts, _entry(note: '午餐')), '午餐');
   });
 
   test('only what was written shows, in order', () {
     final l = _book();
-    final plain = entryDetails(l, _entry(), '餐飲');
+    final plain = entryDetails(l.accounts, _entry(), '餐飲');
     expect([for (final (k, _) in plain) k], ['帳戶', '日期']);
     final full = entryDetails(
-      l,
+      l.accounts,
       _entry(merchant: '便當店', tags: ['家用'], installments: 3, note: '同事'),
       // The note shows apart only where something else is the title.
       '銀行 → 美元',
@@ -79,14 +79,14 @@ void main() {
 
   test('a note that only repeats the title is left out', () {
     final l = _book();
-    final details = entryDetails(l, _entry(note: '午餐'), '午餐');
+    final details = entryDetails(l.accounts, _entry(note: '午餐'), '午餐');
     expect(details.any((d) => d.$1 == '備註'), isFalse);
   });
 
   test('a transfer into another currency shows what arrived in it', () {
     final l = _book();
     final details = entryDetails(
-      l,
+      l.accounts,
       _entry(type: EntryType.transfer, to: 'usd', received: 3150, home: 1000),
       '銀行 → 美元',
     );

@@ -68,7 +68,7 @@ void main() {
     // A screen or a model that needs only the entries, or the reports,
     // takes that part (EntryReader, ReportService, exported by
     // ledger.dart): it says what it uses, and a test gives it only that.
-    const most = 84;
+    const most = 82;
     final whole = [
       for (final MapEntry(key: path, value: unit) in units.entries)
         if (path.startsWith('src/features/') || path.startsWith('src/app/'))

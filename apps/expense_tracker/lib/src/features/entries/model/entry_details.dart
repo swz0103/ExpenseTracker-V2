@@ -14,9 +14,9 @@ String entrySign(EntryType type) => switch (type) {
 
 /// What an entry looked at is called: both accounts for a transfer, the
 /// holding for a trade, its own title otherwise.
-String entryTitle(Ledger ledger, Entry e) => switch (e.type) {
+String entryTitle(AccountReader accounts, Entry e) => switch (e.type) {
   EntryType.transfer =>
-    '${ledger.account(e.account).name} → ${ledger.account(e.to ?? '').name}',
+    '${accounts.resolve(e.account).name} → ${accounts.resolve(e.to ?? '').name}',
   EntryType.buy || EntryType.sell || EntryType.dividend => e.holding ?? e.title,
   _ => e.title,
 };
@@ -24,8 +24,12 @@ String entryTitle(Ledger ledger, Entry e) => switch (e.type) {
 /// Each thing written with [e], as (what it is, what was written), in the
 /// order an entry looked at shows them; what was left empty is left out,
 /// and a note that only repeats [title] too.
-List<(String, String)> entryDetails(Ledger ledger, Entry e, String title) {
-  final account = ledger.account(e.account);
+List<(String, String)> entryDetails(
+  AccountReader accounts,
+  Entry e,
+  String title,
+) {
+  final account = accounts.resolve(e.account);
   return [
     if (e.type != EntryType.transfer) (Words.account, account.name),
     (Words.date, formatMMMEd(e.date)),
@@ -43,7 +47,7 @@ List<(String, String)> entryDetails(Ledger ledger, Entry e, String title) {
       (e.type == EntryType.dividend ? '二代健保' : '稅', groupDigits(e.tax)),
     if (e.home case final home?) ('折合台幣', groupDigits(home)),
     if ((e.type, e.received) case (EntryType.transfer, final received?))
-      ('轉入金額', amountIn(received, ledger.account(e.to ?? '').currency)),
+      ('轉入金額', amountIn(received, accounts.resolve(e.to ?? '').currency)),
     if (e.note.isNotEmpty && e.note != title) (Words.note, e.note),
   ];
 }
