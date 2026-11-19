@@ -466,7 +466,7 @@ class _ReportsPageState extends State<ReportsPage> {
     return [
       LayoutBuilder(
         builder: (context, box) {
-          final scale = MediaQuery.textScalerOf(context).scale(1);
+          final scale = textGrowth(context);
           final width = box.maxWidth;
           // What a block needs: its name with the share over its amount.
           final minWidth = 84 * scale;

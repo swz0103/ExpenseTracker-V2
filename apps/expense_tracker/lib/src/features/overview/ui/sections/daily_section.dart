@@ -370,7 +370,7 @@ class _DayCards extends StatelessWidget {
         ),
       );
     }
-    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final scale = textGrowth(context);
     return SizedBox(
       height: 96 * scale.clamp(1.0, 1.6),
       child: ListView.separated(

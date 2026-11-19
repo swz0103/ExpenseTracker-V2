@@ -17,7 +17,7 @@ const cardStripHeight = 60.0;
 /// The strip and front heights for the phone's text size: larger text
 /// makes the cards taller, so the words still fit.
 (double, double) cardHeights(BuildContext context) {
-  final grow = MediaQuery.textScalerOf(context).scale(16) / 16 - 1;
+  final grow = textGrowth(context) - 1;
   final more = grow > 0 ? grow : 0.0;
   return (cardStripHeight + 26 * more, frontCardHeight + 80 * more);
 }

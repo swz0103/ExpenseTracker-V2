@@ -406,7 +406,7 @@ class _DebtHero extends StatelessWidget {
           );
           // Large text on a narrow phone: the words go under the mark,
           // where the figure has the whole width.
-          final grow = MediaQuery.textScalerOf(context).scale(16) / 16;
+          final grow = textGrowth(context);
           if (box.maxWidth / grow < 230) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

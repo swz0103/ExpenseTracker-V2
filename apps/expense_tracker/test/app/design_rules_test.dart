@@ -46,6 +46,19 @@ void main() {
     }
   });
 
+  test('how much larger the phone draws words is asked in one place', () {
+    // Worked out on each page, with a different size each time, it gave
+    // a different answer for Android's own 200%, which is not linear.
+    for (final f in files) {
+      if (path(f).endsWith(Layout.typeFile)) continue;
+      expect(
+        f.readAsStringSync().contains('textScalerOf('),
+        isFalse,
+        reason: '${path(f)}: use textGrowth or wordsWidth from type.dart',
+      );
+    }
+  });
+
   test('buttons take their look from core/look', () {
     final own = RegExp(r'(Filled|Text)Button\.styleFrom\(');
     for (final f in files) {
