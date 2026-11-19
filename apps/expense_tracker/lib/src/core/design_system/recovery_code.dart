@@ -8,7 +8,7 @@ import 'shape.dart';
 import 'spacing.dart';
 
 /// The gold of the recovery code, on 安全 and wherever a new one is shown.
-const recoveryHue = Palette.gold;
+const recoveryColor = Palette.gold;
 
 /// Shows a new recovery code once, in large groups of four with 複製
 /// beside 存好了; it is the only way in without the password.
@@ -45,7 +45,7 @@ class _RecoveryPanelState extends State<_RecoveryPanel> {
   @override
   Widget build(BuildContext context) {
     final groups = widget.code.split('-');
-    const color = recoveryHue;
+    const color = recoveryColor;
     return CenterPanel(
       glyph: Glyph.lifebuoy,
       color: color,

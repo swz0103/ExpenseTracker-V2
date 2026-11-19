@@ -69,7 +69,8 @@ extension _Pickers on _ComposerState {
       (done) => OptionGrid<String>(
         options: [
           ...categoryOptions(_ledger, income: income),
-          if (!_viewing) const Option(adding, Words.add, Glyph.add, Hue.muted),
+          if (!_viewing)
+            const Option(adding, Words.add, Glyph.add, AppColors.muted),
         ],
         selected: selected,
         ring: _color,
@@ -141,7 +142,7 @@ extension _Pickers on _ComposerState {
         onPick: done,
         options: [
           for (final n in const [0, 3, 6, 12, 24, 30])
-            Option(n, n == 0 ? '不分期' : '$n 期', Glyph.card, Hue.muted),
+            Option(n, n == 0 ? '不分期' : '$n 期', Glyph.card, AppColors.muted),
         ],
       ),
     );

@@ -42,3 +42,7 @@ class ReportsPage extends StatefulWidget {
   @override
   State<ReportsPage> createState() => _ReportsPageState();
 }
+
+/// The block that gathers the smallest categories, when no real category
+/// is called 其他.
+Category _restBlock() => Category('其他', 'other', AppColors.faint.toARGB32());

@@ -46,7 +46,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
       context,
       title: '每月額度',
       initial: _limit,
-      color: Hue.accent,
+      color: AppColors.accent,
     );
     if (value != null) setState(() => _limit = value);
   }
@@ -59,7 +59,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
         ? ledger.category(name)
         : null;
     final shade = category?.color;
-    final color = shade == null ? Hue.accent : Color(shade);
+    final color = shade == null ? AppColors.accent : Color(shade);
     final today = ledger.today;
     final used = BudgetMonth.of(ledger, (
       today.year,
@@ -111,7 +111,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
           const SizedBox(height: Space.s4),
           PanelButton(
             '儲存',
-            color: Hue.accent,
+            color: AppColors.accent,
             onTap: () {
               ledger.budgetCommands.setBudget(
                 name,
@@ -164,7 +164,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
         ),
         if (!total)
           Material(
-            color: Hue.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(Radii.large),
             child: IconButton(
               tooltip: '移除額度',
@@ -172,7 +172,11 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                 widget.ledger.budgetCommands.removeBudget(name);
                 Navigator.of(context).pop();
               },
-              icon: const GlyphIcon(Glyph.trash, size: 18, color: Hue.danger),
+              icon: const GlyphIcon(
+                Glyph.trash,
+                size: 18,
+                color: AppColors.danger,
+              ),
             ),
           ),
       ],
@@ -255,7 +259,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
         if (i > 0) const SizedBox(width: Space.s2),
         Expanded(
           child: Material(
-            color: p == _warning ? Hue.accent : Hue.surface,
+            color: p == _warning ? AppColors.accent : AppColors.surface,
             borderRadius: BorderRadius.circular(Radii.large),
             child: InkWell(
               borderRadius: BorderRadius.circular(Radii.large),
@@ -272,7 +276,9 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                       style: TextStyle(
                         fontSize: TextSize.title,
                         fontWeight: FontWeight.w800,
-                        color: p == _warning ? Hue.onAccent : Hue.ink,
+                        color: p == _warning
+                            ? AppColors.onAccent
+                            : AppColors.ink,
                       ),
                     ),
                   ),
@@ -288,7 +294,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
   /// Whether what is left carries into the next month.
   Widget _carrySwitch() => ColorCard(
     controlsInside: true,
-    color: Hue.faint,
+    color: AppColors.faint,
     amount: 0.15,
     radius: Radii.large,
     onTap: () => setState(() => _carry = !_carry),
@@ -312,7 +318,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
         ),
         TickSwitch(
           value: _carry,
-          color: Hue.accent,
+          color: AppColors.accent,
           label: '沒用完的留到下個月',
           onChanged: (on) => setState(() => _carry = on),
         ),
@@ -348,13 +354,13 @@ class _UsageBar extends StatelessWidget {
             clipBehavior: Clip.none,
             alignment: Alignment.centerLeft,
             children: [
-              _track(Hue.white),
+              _track(AppColors.white),
               FractionallySizedBox(widthFactor: share, child: _track(color)),
               Positioned(
                 left: (line - 1).clamp(0, box.maxWidth - 2),
                 top: 0,
                 bottom: 0,
-                child: Container(width: 2, color: Hue.ink),
+                child: Container(width: 2, color: AppColors.ink),
               ),
             ],
           ),

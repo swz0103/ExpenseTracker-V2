@@ -126,7 +126,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                 style: const TextStyle(
                   fontSize: TextSize.small,
                   fontWeight: FontWeight.w800,
-                  color: Hue.muted,
+                  color: AppColors.muted,
                 ),
               ),
             ),
@@ -155,7 +155,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
           Space.s3,
         ),
         decoration: BoxDecoration(
-          color: Hue.group,
+          color: AppColors.group,
           borderRadius: BorderRadius.circular(Radii.largeIncreased),
         ),
         child: Row(
@@ -278,7 +278,7 @@ class _Chip extends StatelessWidget {
         vertical: Space.s2,
       ),
       decoration: BoxDecoration(
-        color: Hue.surface,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(Radii.medium),
       ),
       child: Row(

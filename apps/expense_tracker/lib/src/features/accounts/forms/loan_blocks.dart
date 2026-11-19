@@ -18,7 +18,7 @@ class _AccountBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final account = this.account;
-    final color = account == null ? Hue.faint : accountHue(account);
+    final color = account == null ? AppColors.faint : accountColor(account);
     return ColorCard(
       color: color,
       amount: account == null ? 0.22 : 0.2,

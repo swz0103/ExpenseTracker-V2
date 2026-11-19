@@ -62,7 +62,7 @@ class _HoldingChoicesState extends State<HoldingChoices> {
           color: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(Radii.large),
-            side: const BorderSide(color: Hue.line, width: 1.5),
+            side: const BorderSide(color: AppColors.line, width: 1.5),
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(Radii.large),
@@ -72,13 +72,13 @@ class _HoldingChoicesState extends State<HoldingChoices> {
               child: const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  GlyphIcon(Glyph.add, size: 20, color: Hue.muted),
+                  GlyphIcon(Glyph.add, size: 20, color: AppColors.muted),
                   Text(
                     Words.add,
                     style: TextStyle(
                       fontSize: TextSize.small,
                       fontWeight: FontWeight.w700,
-                      color: Hue.muted,
+                      color: AppColors.muted,
                     ),
                   ),
                 ],
@@ -98,7 +98,7 @@ class _HoldingChoicesState extends State<HoldingChoices> {
             hintText: '搜尋代號或名稱',
             isDense: true,
             filled: true,
-            fillColor: Hue.surface,
+            fillColor: AppColors.surface,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(Radii.large),
               borderSide: BorderSide.none,

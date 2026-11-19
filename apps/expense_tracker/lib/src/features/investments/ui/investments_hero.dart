@@ -20,19 +20,19 @@ class _InvestHero extends StatelessWidget {
       _HeroFigure(
         '未實現',
         ledger.orDots(signed(gain)),
-        gain < 0 ? Hue.negative : Hue.positive,
+        AppColors.ofChange(gain),
         percentOf(gain, cost),
       ),
       _HeroFigure(
         '已實現',
         ledger.orDots(signed(ledger.holdings.realizedGain)),
-        ledger.holdings.realizedGain < 0 ? Hue.negative : Hue.positive,
+        AppColors.ofChange(ledger.holdings.realizedGain),
         '已賣出',
       ),
       _HeroFigure(
         '年化',
         rate == null ? '—' : yearlyRate(rate),
-        rate == null || rate >= 0 ? Hue.positive : Hue.negative,
+        rate == null || rate >= 0 ? AppColors.positive : AppColors.negative,
         rate == null ? '資料不足' : '含股息',
       ),
     ];
@@ -73,11 +73,11 @@ class _InvestHero extends StatelessWidget {
                 Pill(
                   '今日 ${ledger.orDots(signed(day))}'
                   '${before == 0 ? '' : ' · ${percentOf(day, before)}'}',
-                  color: day < 0 ? Hue.negative : Hue.positive,
+                  color: AppColors.ofChange(day),
                 ),
             ],
           ),
-          const Divider(height: 24, color: Hue.accentRule),
+          const Divider(height: 24, color: AppColors.accentRule),
           _HeroFigures(figures),
         ],
       ),
@@ -96,7 +96,7 @@ class _HeroFigure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const note = TextStyle(fontSize: TextSize.caption, color: Hue.muted);
+    const note = mutedCaption;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: Space.s2),
       child: Column(
@@ -137,13 +137,17 @@ class _HeroFigures extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final (i, figure) in figures.indexed) ...[
-            if (i > 0) const Divider(height: 16, color: Hue.accentRule),
+            if (i > 0) const Divider(height: 16, color: AppColors.accentRule),
             figure,
           ],
         ],
       );
     }
-    const rule = VerticalDivider(width: 1, thickness: 1, color: Hue.accentRule);
+    const rule = VerticalDivider(
+      width: 1,
+      thickness: 1,
+      color: AppColors.accentRule,
+    );
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -195,8 +199,8 @@ class _HoldingRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: Space.s2),
             decoration: BoxDecoration(
               color: !quoted
-                  ? Hue.surface
-                  : chosenFill(up ? Hue.positive : Hue.negative),
+                  ? AppColors.surface
+                  : chosenFill(up ? AppColors.positive : AppColors.negative),
               borderRadius: BorderRadius.circular(Radii.medium),
             ),
             child: Column(
@@ -208,8 +212,10 @@ class _HoldingRow extends StatelessWidget {
                     fontSize: TextSize.small,
                     fontWeight: FontWeight.w800,
                     color: quoted
-                        ? chosenInk(up ? Hue.positive : Hue.negative)
-                        : Hue.muted,
+                        ? chosenInk(
+                            up ? AppColors.positive : AppColors.negative,
+                          )
+                        : AppColors.muted,
                   ),
                 ),
                 if (quoted)
@@ -218,7 +224,9 @@ class _HoldingRow extends StatelessWidget {
                     textScaler: TextScaler.noScaling,
                     style: TextStyle(
                       fontSize: TextSize.tiny,
-                      color: chosenInk(up ? Hue.positive : Hue.negative),
+                      color: chosenInk(
+                        up ? AppColors.positive : AppColors.negative,
+                      ),
                     ),
                   ),
               ],

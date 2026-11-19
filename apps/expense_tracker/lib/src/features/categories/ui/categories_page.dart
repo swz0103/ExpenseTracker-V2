@@ -29,7 +29,7 @@ class CategoriesPage extends StatefulWidget {
 }
 
 class _CategoriesPageState extends State<CategoriesPage> {
-  static const _colors = Hue.categoryColors;
+  static const _colors = AppColors.categoryColors;
 
   var _income = false;
 
@@ -150,7 +150,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
               ),
           _Tile(
             glyph: Glyph.add,
-            color: Hue.faint,
+            color: AppColors.faint,
             label: Words.add,
             plain: true,
             onTap: _add,
@@ -168,7 +168,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                     child: _Kind(
                       label: income ? Words.income : Words.expense,
                       count: _tops(income).length,
-                      color: income ? Hue.positive : Hue.negative,
+                      color: income ? AppColors.positive : AppColors.negative,
                       chosen: _income == income,
                       onTap: () => setState(() => _income = income),
                     ),
@@ -186,7 +186,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                 children: [
                   for (final c in archived)
                     ActionChip(
-                      backgroundColor: Hue.surface,
+                      backgroundColor: AppColors.surface,
                       side: BorderSide.none,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(Radii.large),
@@ -194,13 +194,13 @@ class _CategoriesPageState extends State<CategoriesPage> {
                       avatar: GlyphIcon(
                         iconFor(c.icon),
                         size: 18,
-                        color: Hue.muted,
+                        color: AppColors.muted,
                       ),
                       label: Text(
                         c.name,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
-                          color: Hue.muted,
+                          color: AppColors.muted,
                         ),
                       ),
                       tooltip: '恢復「${c.name}」',
@@ -229,7 +229,7 @@ Future<void> editCategory(
     context,
     title: '編輯分類',
     initial: category,
-    colors: Hue.categoryColors,
+    colors: AppColors.categoryColors,
     ledger: ledger,
   );
   if (next != null) ledger.categoryCommands.updateCategory(category.name, next);
@@ -253,7 +253,7 @@ class _Kind extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = chosen ? chosenInk(color) : Hue.muted;
+    final ink = chosen ? chosenInk(color) : AppColors.muted;
     return ReadAsButton(
       selected: chosen,
       label: '$label $count 個',
@@ -263,7 +263,7 @@ class _Kind extends StatelessWidget {
           borderRadius: BorderRadius.circular(Radii.large),
         ),
         child: Material(
-          color: chosen ? chosenFill(color) : Hue.surface,
+          color: chosen ? chosenFill(color) : AppColors.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(Radii.large),
             side: chosen ? chosenEdge(color) : BorderSide.none,
@@ -394,15 +394,15 @@ class _Tile extends StatelessWidget {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: Hue.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(Radii.large),
             ),
             alignment: Alignment.center,
-            child: const GlyphIcon(Glyph.add, size: 24, color: Hue.ink),
+            child: const GlyphIcon(Glyph.add, size: 24, color: AppColors.ink),
           )
         : SquareIcon(glyph, color, size: 50);
     return ColorCard(
-      color: plain ? Hue.faint : color,
+      color: plain ? AppColors.faint : color,
       amount: plain ? 0.25 : 0.2,
       radius: Radii.largeIncreased,
       onTap: onTap,
@@ -428,7 +428,7 @@ class _Tile extends StatelessWidget {
                     width: 22,
                     height: 22,
                     decoration: const BoxDecoration(
-                      color: Hue.white,
+                      color: AppColors.white,
                       shape: BoxShape.circle,
                     ),
                     alignment: Alignment.center,
@@ -454,7 +454,7 @@ class _Tile extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.body,
               fontWeight: FontWeight.w800,
-              color: plain ? Hue.ink : deepOf(color),
+              color: plain ? AppColors.ink : deepOf(color),
             ),
           ),
         ],

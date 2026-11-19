@@ -23,8 +23,8 @@ class AxisBar extends StatelessWidget {
     required this.value,
     required this.largest,
     this.axis = 0.5,
-    this.positive = Hue.positive,
-    this.negative = Hue.negative,
+    this.positive = AppColors.positive,
+    this.negative = AppColors.negative,
     this.height = 12,
     this.minimum = 0,
   });
@@ -89,7 +89,7 @@ class _AxisBarPainter extends CustomPainter {
         middle + height / 2,
         const Radius.circular(Radii.extraSmall),
       ),
-      Paint()..color = Hue.surface.withValues(alpha: 0.6),
+      Paint()..color = AppColors.surface.withValues(alpha: 0.6),
     );
     final room = rising ? size.width - x : x;
     final length = room * share;
@@ -108,7 +108,7 @@ class _AxisBarPainter extends CustomPainter {
       Offset(x, 0),
       Offset(x, size.height),
       Paint()
-        ..color = Hue.faint
+        ..color = AppColors.faint
         ..strokeWidth = 1,
     );
   }

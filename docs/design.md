@@ -16,13 +16,13 @@
 
 | 類別 | 名稱 | 用在 |
 | --- | --- | --- |
-| 底與面 | `Hue.paper` `white` `surface` `group` `tile` `hero` `line` | 頁面底、輸入框、按鈕底、清單分組、主卡、分隔線 |
-| 文字 | `Hue.ink` `muted` `faint` `hint` | 主要、次要、停用、待填 |
-| 意義 | `Hue.accent` `positive` `negative` `transfer` `investment` | 介面主色、收入、支出、轉帳、投資 |
-| 帳戶類型 | `Hue.cash` `bank` `wallet` `card` `holdings` `receivable` | 帳戶卡與分組 |
-| 疊加 | `Hue.glass` `scrim` `lift` `float` `halo` `none` | 色卡上的霧面、面板後的暗幕、拿起的陰影 |
-| 工具 | `ToolHue.*` | 每個工具在更多、自己的頁面與總覽卡片的顏色 |
-| 色盤 | `Palette.*`、`Hue.categoryColors`、`Hue.shades` | 工具與設定的色塊、分類可選的顏色、圖表 |
+| 底與面 | `AppColors.paper` `white` `surface` `group` `tile` `hero` `line` | 頁面底、輸入框、按鈕底、清單分組、主卡、分隔線 |
+| 文字 | `AppColors.ink` `muted` `faint` `hint` | 主要、次要、停用、待填 |
+| 意義 | `AppColors.accent` `positive` `negative` `transfer` `investment` | 介面主色、收入、支出、轉帳、投資 |
+| 帳戶類型 | `AppColors.cash` `bank` `wallet` `card` `holdings` `receivable` | 帳戶卡與分組 |
+| 疊加 | `AppColors.glass` `scrim` `lift` `float` `halo` `none` | 色卡上的霧面、面板後的暗幕、拿起的陰影 |
+| 工具 | `ToolColors.*` | 每個工具在更多、自己的頁面與總覽卡片的顏色 |
+| 色盤 | `Palette.*`、`AppColors.categoryColors`、`AppColors.shades` | 工具與設定的色塊、分類可選的顏色、圖表 |
 
 配色函式（`components/colours.dart`）：
 

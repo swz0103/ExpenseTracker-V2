@@ -84,14 +84,14 @@ void main() {
 
   test('the palette turns dark and back when painted', () {
     addTearDown(() => Shade.dark = false);
-    const ink = Hue.ink;
+    const ink = AppColors.ink;
     expect(ink.toARGB32(), 0xFF26323A);
     Shade.dark = true;
     expect(ink.toARGB32(), 0xFFEEF2F3);
-    expect(Hue.paper.computeLuminance(), lessThan(0.05));
-    expect(Hue.onAccent.toARGB32(), 0xFF0F1A1F);
+    expect(AppColors.paper.computeLuminance(), lessThan(0.05));
+    expect(AppColors.onAccent.toARGB32(), 0xFF0F1A1F);
     Shade.dark = false;
-    expect(Hue.paper.computeLuminance(), greaterThan(0.8));
+    expect(AppColors.paper.computeLuminance(), greaterThan(0.8));
   });
 
   test('words read at 4.5:1 or more on every surface, light and dark', () {
@@ -102,23 +102,23 @@ void main() {
     }
 
     const words = {
-      'ink': Hue.ink,
-      'muted': Hue.muted,
-      'hint': Hue.hint,
-      'accent': Hue.accent,
-      'positive': Hue.positive,
-      'negative': Hue.negative,
-      'investment': Hue.investment,
-      'goldText': Hue.goldText,
-      'transfer': Hue.transfer,
-      'receivable': Hue.receivable,
+      'ink': AppColors.ink,
+      'muted': AppColors.muted,
+      'hint': AppColors.hint,
+      'accent': AppColors.accent,
+      'positive': AppColors.positive,
+      'negative': AppColors.negative,
+      'investment': AppColors.investment,
+      'goldText': AppColors.goldText,
+      'transfer': AppColors.transfer,
+      'receivable': AppColors.receivable,
     };
     const surfaces = {
-      'paper': Hue.paper,
-      'panel': Hue.panel,
-      'tile': Hue.tile,
-      'hero': Hue.hero,
-      'selected': Hue.selected,
+      'paper': AppColors.paper,
+      'panel': AppColors.panel,
+      'tile': AppColors.tile,
+      'hero': AppColors.hero,
+      'selected': AppColors.selected,
     };
     for (final dark in [false, true]) {
       Shade.dark = dark;
@@ -131,8 +131,12 @@ void main() {
           );
         }
       }
-      for (final fill in [Hue.accent, Hue.positive, Hue.negative]) {
-        expect(contrast(Hue.onAccent, fill), greaterThanOrEqualTo(4.5));
+      for (final fill in [
+        AppColors.accent,
+        AppColors.positive,
+        AppColors.negative,
+      ]) {
+        expect(contrast(AppColors.onAccent, fill), greaterThanOrEqualTo(4.5));
       }
     }
   });

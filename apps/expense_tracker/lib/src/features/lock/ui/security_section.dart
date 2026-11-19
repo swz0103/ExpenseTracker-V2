@@ -8,7 +8,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/messages/problem_messages.dart';
 import '../../../core/platform/screen_privacy.dart';
 import '../../../core/design_system/recovery_code.dart';
-import '../../../core/design_system/settings_hue.dart';
+import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
@@ -96,14 +96,14 @@ class _SecuritySectionState extends State<SecuritySection> {
         SettingCard(
           key: Keys.password,
           glyph: Glyph.key,
-          color: SettingsHue.password,
+          color: SettingsColors.password,
           title: '密碼',
           detail: backupManager.hasPassword ? '已設定 · 點了變更' : '還沒設定 · 點了設定',
           onTap: () => _changePassword(backupManager),
         ),
         SettingCard(
           glyph: Glyph.lifebuoy,
-          color: SettingsHue.recovery,
+          color: SettingsColors.recovery,
           title: '救援碼',
           detail: '忘記密碼、換手機用',
           onTap: () => _newRecovery(backupManager),
@@ -112,7 +112,7 @@ class _SecuritySectionState extends State<SecuritySection> {
       if (privacy != null)
         SettingCard(
           glyph: Glyph.eyeOff,
-          color: SettingsHue.appearance,
+          color: SettingsColors.appearance,
           title: '不讓截圖',
           detail: '最近使用的 App 也看不到',
           value: privacy.on,
@@ -123,7 +123,7 @@ class _SecuritySectionState extends State<SecuritySection> {
         SettingCard(
           key: Keys.lockNow,
           glyph: Glyph.lock,
-          color: SettingsHue.about,
+          color: SettingsColors.about,
           title: '現在鎖上',
           detail: '回到解鎖畫面',
           onTap: backupManager.lock,
@@ -168,7 +168,7 @@ class _PasswordPanelState extends State<_PasswordPanel> {
 
   @override
   Widget build(BuildContext context) {
-    const color = SettingsHue.password;
+    const color = SettingsColors.password;
     Widget field(TextEditingController controller, String label) => Padding(
       padding: const EdgeInsets.only(bottom: Space.s2),
       child: Container(
@@ -210,8 +210,7 @@ class _PasswordPanelState extends State<_PasswordPanel> {
           if (!first) field(_current, '目前的密碼'),
           field(_next, '新密碼'),
           field(_again, '再輸入一次'),
-          if (_problem case final problem?)
-            Text(problem, style: const TextStyle(color: Hue.danger)),
+          if (_problem case final problem?) Text(problem, style: dangerText),
         ],
       ),
       actions: [

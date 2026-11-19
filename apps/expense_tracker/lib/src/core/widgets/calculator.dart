@@ -106,7 +106,7 @@ class AmountTap extends StatelessWidget {
                     child: GlyphIcon(
                       Glyph.calculator,
                       size: 20,
-                      color: Hue.muted,
+                      color: AppColors.muted,
                     ),
                   ),
               ],
@@ -192,7 +192,7 @@ class _CalculatorState extends State<_Calculator> {
               Space.s4,
             ),
             decoration: BoxDecoration(
-              color: Hue.hero,
+              color: AppColors.hero,
               borderRadius: BorderRadius.circular(Radii.largeIncreased),
             ),
             child: Column(
@@ -200,10 +200,7 @@ class _CalculatorState extends State<_Calculator> {
               children: [
                 Text(
                   working ? _keys.expression : widget.unit,
-                  style: const TextStyle(
-                    fontSize: TextSize.body,
-                    color: Hue.muted,
-                  ),
+                  style: mutedBody,
                 ),
                 FittedBox(
                   fit: BoxFit.scaleDown,
@@ -279,15 +276,15 @@ class _CalculatorState extends State<_Calculator> {
     final operator = '÷×−+'.contains(key);
     final done = key == Words.done;
     final background = done
-        ? chosenFill(Hue.accent)
+        ? chosenFill(AppColors.accent)
         : operator || key == 'C' || key == '⌫'
-        ? Hue.hero
-        : Hue.tile;
+        ? AppColors.hero
+        : AppColors.tile;
     final ink = done
-        ? chosenInk(Hue.accent)
+        ? chosenInk(AppColors.accent)
         : operator || key == 'C' || key == '⌫'
-        ? Hue.accent
-        : Hue.ink;
+        ? AppColors.accent
+        : AppColors.ink;
     return Pressable(
       key: Keys.calc(key),
       depth: 0.93,
@@ -304,7 +301,7 @@ class _CalculatorState extends State<_Calculator> {
                     child: GlyphIcon(
                       Glyph.backspace,
                       size: 24,
-                      color: Hue.accent,
+                      color: AppColors.accent,
                     ),
                   )
                 // 000 on a narrow phone with its largest text shrinks a

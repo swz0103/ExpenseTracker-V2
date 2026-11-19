@@ -91,8 +91,7 @@ class PhotosHandler(private val activity: FragmentActivity) : ChannelHandler {
                 activity.contentResolver.openInputStream(source)?.use {
                     BitmapFactory.decodeStream(it, null, bounds)
                 }
-                var sample = 1
-                while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 1600) sample *= 2
+                val sample = ReceiptPhoto.sampleFor(bounds.outWidth, bounds.outHeight)
                 val decoded = activity.contentResolver.openInputStream(source)?.use {
                     BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
                 } ?: throw IllegalStateException("The photo cannot be read.")
@@ -101,16 +100,12 @@ class PhotosHandler(private val activity: FragmentActivity) : ChannelHandler {
                     0f
                 } else {
                     activity.contentResolver.openInputStream(source)?.use {
-                        when (ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, 1)) {
-                            ExifInterface.ORIENTATION_ROTATE_90 -> 90f
-                            ExifInterface.ORIENTATION_ROTATE_180 -> 180f
-                            ExifInterface.ORIENTATION_ROTATE_270 -> 270f
-                            else -> 0f
-                        }
+                        ReceiptPhoto.turnFor(
+                            ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, 1),
+                        )
                     } ?: 0f
                 }
-                val longSide = maxOf(decoded.width, decoded.height)
-                val scale = if (longSide > 1600) 1600f / longSide else 1f
+                val scale = ReceiptPhoto.scaleFor(decoded.width, decoded.height)
                 val matrix = Matrix().apply {
                     postScale(scale, scale)
                     postRotate(turn)

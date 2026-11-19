@@ -41,8 +41,8 @@ extension _LendPickers on _ComposerState {
               onPick: done,
               options: [
                 for (final a in _f.people)
-                  Option(a.id, a.name, Glyph.heart, Hue.muted),
-                const Option(adding, '新增對象', Glyph.add, Hue.muted),
+                  Option(a.id, a.name, Glyph.heart, AppColors.muted),
+                const Option(adding, '新增對象', Glyph.add, AppColors.muted),
               ],
             ),
           );

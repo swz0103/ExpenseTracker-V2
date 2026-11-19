@@ -118,14 +118,14 @@ class _BarsPainter extends CustomPainter {
             plot,
             const Radius.circular(Radii.small),
           ),
-          Paint()..color = Hue.selected,
+          Paint()..color = AppColors.selected,
         );
       }
       if (!b.ahead) {
         final dim = faded && i != selected;
         for (final (k, (value, color)) in [
-          (b.income, Hue.positive),
-          (b.expense, Hue.negative),
+          (b.income, AppColors.positive),
+          (b.expense, AppColors.negative),
         ].indexed) {
           final h = plot * value / largest * grow;
           final left = k == 0 ? x - bar - 1 : x + 1;
@@ -147,7 +147,7 @@ class _BarsPainter extends CustomPainter {
         b.label,
         TextStyle(
           fontSize: TextSize.tiny,
-          color: i == selected ? Hue.ink : Hue.muted,
+          color: i == selected ? AppColors.ink : AppColors.muted,
           fontWeight: i == selected ? FontWeight.w700 : FontWeight.w400,
         ),
         Offset(x, size.height - _labels / 2),
@@ -156,7 +156,7 @@ class _BarsPainter extends CustomPainter {
     canvas.drawLine(
       Offset(0, plot),
       Offset(size.width, plot),
-      Paint()..color = Hue.line,
+      Paint()..color = AppColors.line,
     );
     _worthLine(canvas, plot, slot);
   }
@@ -177,17 +177,17 @@ class _BarsPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeJoin = StrokeJoin.round
-      ..color = Hue.investment.withValues(alpha: grow);
+      ..color = AppColors.investment.withValues(alpha: grow);
     canvas.drawPath(Path()..addPolygon(points, false), paint);
     for (final p in points) {
-      canvas.drawCircle(p, 3, Paint()..color = Hue.white);
+      canvas.drawCircle(p, 3, Paint()..color = AppColors.white);
       canvas.drawCircle(
         p,
         3,
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.6
-          ..color = Hue.investment.withValues(alpha: grow),
+          ..color = AppColors.investment.withValues(alpha: grow),
       );
     }
   }

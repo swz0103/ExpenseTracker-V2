@@ -29,17 +29,17 @@ class _Pace extends StatelessWidget {
       return CardGrid(gap: 10, [
         _Figure(
           glyph: Glyph.cash,
-          color: Hue.positive,
+          color: AppColors.positive,
           label: '平均每天花',
           value: money(spent ~/ days),
           sub: '$month 月 $days 天',
         ),
         _Figure(
           glyph: Glyph.calendar,
-          color: Hue.accent,
+          color: AppColors.accent,
           label: '跟預算比',
           value: '${saved >= 0 ? '省' : '超'} ${money(saved.abs())}',
-          valueColor: saved >= 0 ? Hue.accent : Hue.negative,
+          valueColor: saved >= 0 ? AppColors.accent : AppColors.negative,
           sub: '用了 ${spent * 100 ~/ total}%',
         ),
       ]);
@@ -51,17 +51,17 @@ class _Pace extends StatelessWidget {
     return CardGrid(gap: 10, [
       _Figure(
         glyph: Glyph.cash,
-        color: Hue.positive,
+        color: AppColors.positive,
         label: '每天可以花',
         value: left > 0 ? money(left ~/ remaining) : '0',
         sub: '剩 $remaining 天',
       ),
       _Figure(
         glyph: Glyph.calendar,
-        color: over ? Hue.negative : Hue.accent,
+        color: over ? AppColors.negative : AppColors.accent,
         label: '月底預估',
         value: passed >= 7 ? money(heading) : '—',
-        valueColor: over && passed >= 7 ? Hue.negative : null,
+        valueColor: over && passed >= 7 ? AppColors.negative : null,
         sub: passed < 7
             ? '第 7 天起估算'
             : over
@@ -100,7 +100,7 @@ class _Figure extends StatelessWidget {
         Space.s2,
       ),
       decoration: BoxDecoration(
-        color: Hue.group,
+        color: AppColors.group,
         borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
@@ -116,7 +116,7 @@ class _Figure extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: TextSize.small,
                     fontWeight: FontWeight.w700,
-                    color: Hue.muted,
+                    color: AppColors.muted,
                   ),
                 ),
                 FittedBox(
@@ -164,16 +164,16 @@ class _Limit extends StatelessWidget {
     final tag = budget.tag != null;
     final category = tag ? null : ledger.category(budget.category);
     final shade = category?.color;
-    final color = shownColor(shade == null ? Hue.accent : Color(shade));
+    final color = shownColor(shade == null ? AppColors.accent : Color(shade));
     final glyph = tag ? Glyph.tag : iconFor(category!.icon);
     final left = limit - used;
     final over = left < 0;
     final near = !over && limit > 0 && used * 100 >= limit * budget.warning;
-    final tone = over ? Hue.negative : (near ? _nearHue : color);
+    final tone = over ? AppColors.negative : (near ? _nearColor : color);
     final share = limit == 0 ? 0.0 : (used / limit).clamp(0.0, 1.0);
     final ink = deepOf(color);
     return ColorCard(
-      color: over ? Hue.negative : (near ? _nearHue : color),
+      color: over ? AppColors.negative : (near ? _nearColor : color),
       amount: 0.18,
       onTap: onTap,
       label: '${budget.category}，${over ? '超支' : '剩'} ${left.abs()}',
@@ -222,7 +222,7 @@ class _Limit extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: TextSize.caption,
                       fontWeight: FontWeight.w800,
-                      color: Hue.onAccent,
+                      color: AppColors.onAccent,
                     ),
                   ),
                 ),
@@ -236,7 +236,7 @@ class _Limit extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.body,
               fontWeight: FontWeight.w800,
-              color: over ? deepOf(Hue.negative) : ink,
+              color: over ? deepOf(AppColors.negative) : ink,
             ),
           ),
           FittedBox(
@@ -247,7 +247,7 @@ class _Limit extends StatelessWidget {
               style: TextStyle(
                 fontSize: TextSize.heading,
                 fontWeight: FontWeight.w800,
-                color: over ? Hue.negative : Hue.ink,
+                color: over ? AppColors.negative : AppColors.ink,
               ),
             ),
           ),

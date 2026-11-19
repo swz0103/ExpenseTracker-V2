@@ -29,7 +29,7 @@ class AccountAction extends StatelessWidget {
       onTap: onTap,
       child: Column(
         children: [
-          SquareIcon(icon, Hue.accent, size: 30),
+          SquareIcon(icon, AppColors.accent, size: 30),
           const SizedBox(height: Space.s1),
           Text(
             label,

@@ -212,7 +212,7 @@ class GlyphIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = color ?? IconTheme.of(context).color ?? Hue.ink;
+    final ink = color ?? IconTheme.of(context).color ?? AppColors.ink;
     // Like Icon, keep the drawn size when the parent asks for more room.
     return Center(
       widthFactor: 1,

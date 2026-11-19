@@ -138,7 +138,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
       title: '放在哪個分類下',
       selected: _f.parent ?? '',
       options: [
-        const Option('', '不放', Glyph.close, Hue.muted),
+        const Option('', '不放', Glyph.close, AppColors.muted),
         for (final name in _f.parents)
           Option(
             name,
@@ -176,7 +176,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
           if (_problem case final problem?)
             Padding(
               padding: const EdgeInsets.only(top: Space.s2),
-              child: Text(problem, style: const TextStyle(color: Hue.danger)),
+              child: Text(problem, style: dangerText),
             ),
           if (_icons)
             for (final (group, marks) in categoryIconGroups) ...[
@@ -252,7 +252,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
                       width: 24,
                       height: 24,
                       decoration: const BoxDecoration(
-                        color: Hue.white,
+                        color: AppColors.white,
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
@@ -314,7 +314,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
       style: TextStyle(
         fontSize: TextSize.body,
         fontWeight: FontWeight.w700,
-        color: Hue.muted,
+        color: AppColors.muted,
       ),
     ),
     const SizedBox(height: Space.s2),
@@ -361,7 +361,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
         ],
         Expanded(
           flex: 2,
-          child: PanelButton('儲存', color: Hue.accent, onTap: _save),
+          child: PanelButton('儲存', color: AppColors.accent, onTap: _save),
         ),
       ],
     );

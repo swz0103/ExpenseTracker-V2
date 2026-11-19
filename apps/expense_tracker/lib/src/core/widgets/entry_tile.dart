@@ -17,8 +17,9 @@ import '../formatting/words.dart';
 (Glyph, Color) entryMark(Ledger ledger, Entry e) {
   final category = ledger.category(e.category);
   return switch (e.type) {
-    EntryType.transfer => (iconFor('transfer'), Hue.transfer),
-    EntryType.buy || EntryType.sell => (iconFor('investment'), Hue.investment),
+    EntryType.transfer => (iconFor('transfer'), AppColors.transfer),
+    EntryType.buy ||
+    EntryType.sell => (iconFor('investment'), AppColors.investment),
     _ => (iconFor(category.icon), shownColor(Color(category.color))),
   };
 }
@@ -52,7 +53,7 @@ String holdingLabel(Holding h) =>
 
 /// The colour of [e]'s amount: refunds in a quiet colour, as they give
 /// spending back rather than bring income.
-Color entryTone(Entry e) => e.isRefund ? Hue.muted : entryColor(e.type);
+Color entryTone(Entry e) => e.isRefund ? AppColors.muted : entryColor(e.type);
 
 /// [item]'s amount in its account's currency, as the screens write it.
 String recurringAmount(Ledger ledger, Recurring item) =>
@@ -180,7 +181,7 @@ class EntryTile extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: TextSize.caption,
                           fontWeight: FontWeight.w600,
-                          color: Hue.receivable,
+                          color: AppColors.receivable,
                         ),
                       ),
                   ],
@@ -243,10 +244,10 @@ class EntryRow extends StatelessWidget {
     return SwipeActions(
       key: ValueKey(entry.id),
       actions: [
-        SwipeAction(Words.edit, Hue.accent, () => onOpen(entry)),
+        SwipeAction(Words.edit, AppColors.accent, () => onOpen(entry)),
         SwipeAction(
           Words.delete,
-          Hue.danger,
+          AppColors.danger,
           () => removeEntry(context, ledger, entry),
         ),
       ],

@@ -24,7 +24,7 @@ class SwipeActions extends StatefulWidget {
     super.key,
     required this.actions,
     required this.child,
-    this.background = Hue.group,
+    this.background = AppColors.group,
   });
 
   final List<SwipeAction> actions;
@@ -113,7 +113,7 @@ class SwipeActionsState extends State<SwipeActions>
                   child: Text(
                     a.label,
                     style: const TextStyle(
-                      color: Hue.onAccent,
+                      color: AppColors.onAccent,
                       fontWeight: FontWeight.w700,
                     ),
                   ),

@@ -56,7 +56,7 @@ class HoldingPage extends StatelessWidget {
             ],
           );
         }
-        final tone = held.gain < 0 ? Hue.negative : Hue.positive;
+        final tone = AppColors.ofChange(held.gain);
         final quoted = ledger.holdings.hasQuote(code);
         final lots = ledger.holdings.lotsOf(code);
         final average = held.shares == 0 ? 0 : held.cost / held.shares;
@@ -97,7 +97,7 @@ class HoldingPage extends StatelessWidget {
                         ],
                       ),
                       _Bento(
-                        color: Hue.faint,
+                        color: AppColors.faint,
                         label: '現在值',
                         value: ledger.orDots(groupDigits(held.value)),
                         lines: [
@@ -124,9 +124,9 @@ class HoldingPage extends StatelessWidget {
             Row(
               children: [
                 for (final (i, (type, label, color)) in const [
-                  (EntryType.buy, '＋ 買進', _buyHue),
-                  (EntryType.sell, '賣出', _sellHue),
-                  (EntryType.dividend, '記股息', _dividendHue),
+                  (EntryType.buy, '＋ 買進', _buyColor),
+                  (EntryType.sell, '賣出', _sellColor),
+                  (EntryType.dividend, '記股息', _dividendColor),
                 ].indexed) ...[
                   if (i > 0) const SizedBox(width: Space.s2),
                   Expanded(
@@ -159,9 +159,9 @@ class HoldingPage extends StatelessWidget {
   }
 }
 
-const _buyHue = Palette.indigo;
-const _sellHue = Palette.brick;
-const _dividendHue = Palette.gold;
+const _buyColor = Palette.indigo;
+const _sellColor = Palette.brick;
+const _dividendColor = Palette.gold;
 
 /// 股息 on its gold tint: the total, when the next one is due and about
 /// how much, and the twelve months with those it pays in filled.
@@ -182,10 +182,10 @@ class _DividendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = deepOf(_dividendHue);
+    final ink = deepOf(_dividendColor);
     final coming = next;
     return ColorCard(
-      color: _dividendHue,
+      color: _dividendColor,
       amount: 0.22,
       padding: const EdgeInsets.fromLTRB(
         Space.s4,
@@ -256,8 +256,8 @@ class _DividendCard extends StatelessWidget {
                           height: 12,
                           decoration: BoxDecoration(
                             color: months.contains(m)
-                                ? _dividendHue
-                                : Hue.white.withValues(alpha: 0.7),
+                                ? _dividendColor
+                                : AppColors.white.withValues(alpha: 0.7),
                             borderRadius: BorderRadius.circular(
                               Radii.extraSmall,
                             ),
@@ -310,9 +310,9 @@ class _TradeBoard extends StatelessWidget {
             _ => Glyph.add,
           },
           color: switch (e.type) {
-            EntryType.sell => _sellHue,
-            EntryType.dividend => _dividendHue,
-            _ => _buyHue,
+            EntryType.sell => _sellColor,
+            EntryType.dividend => _dividendColor,
+            _ => _buyColor,
           },
           title: switch (e.type) {
             EntryType.buy => '買進',
@@ -333,18 +333,20 @@ class _TradeBoard extends StatelessWidget {
             EntryType.sell => ledger.orDots(signed(e.amount - e.fee)),
             _ => ledger.orDots(signed(e.dividendNet)),
           },
-          amountColor: e.type == EntryType.buy ? Hue.ink : Hue.positive,
+          amountColor: e.type == EntryType.buy
+              ? AppColors.ink
+              : AppColors.positive,
           onTap: () => nav.showEntry(e),
         ),
       for (final l in opening)
         _TradeRow(
           glyph: Glyph.add,
-          color: _buyHue,
+          color: _buyColor,
           title: '期初持有',
           when: '',
           detail: '${ledger.orDots(groupDigits(l.shares))} 股',
           amount: '成本 ${ledger.orDots(groupDigits(l.cost))}',
-          amountColor: Hue.ink,
+          amountColor: AppColors.ink,
         ),
     ];
     return Column(
@@ -424,7 +426,7 @@ class _TradeRow extends StatelessWidget {
                             text: '  $when',
                             style: const TextStyle(
                               fontWeight: FontWeight.w400,
-                              color: Hue.muted,
+                              color: AppColors.muted,
                             ),
                           ),
                       ],
@@ -492,7 +494,7 @@ class _SoldOut extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.small,
               fontWeight: FontWeight.w800,
-              color: Hue.accent,
+              color: AppColors.accent,
             ),
           ),
           Text(
@@ -500,7 +502,7 @@ class _SoldOut extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.big,
               fontWeight: FontWeight.w800,
-              color: made < 0 ? Hue.negative : Hue.positive,
+              color: AppColors.ofChange(made),
             ),
           ),
           Text(
@@ -530,6 +532,7 @@ class _PriceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final up = held.change >= 0;
+    final tone = up ? AppColors.positive : AppColors.negative;
     final before = held.value - held.change;
     final perShare = held.shares == 0 ? 0.0 : held.change / held.shares;
     return HeroCard(
@@ -566,7 +569,7 @@ class _PriceCard extends StatelessWidget {
                 vertical: Space.s2,
               ),
               decoration: BoxDecoration(
-                color: chosenFill(up ? Hue.positive : Hue.negative),
+                color: chosenFill(tone),
                 borderRadius: BorderRadius.circular(Radii.large),
               ),
               child: Column(
@@ -576,14 +579,14 @@ class _PriceCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: TextSize.title,
                       fontWeight: FontWeight.w800,
-                      color: chosenInk(up ? Hue.positive : Hue.negative),
+                      color: chosenInk(tone),
                     ),
                   ),
                   Text(
                     '${up ? '▲' : '▼'} ${perShare.abs().toStringAsFixed(2)}',
                     style: TextStyle(
                       fontSize: TextSize.caption,
-                      color: chosenInk(up ? Hue.positive : Hue.negative),
+                      color: chosenInk(tone),
                     ),
                   ),
                 ],

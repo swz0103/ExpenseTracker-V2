@@ -260,6 +260,35 @@ class _EntriesPageState extends State<EntriesPage> {
 
   /// What sits above the entries: the title and month, the month's sums
   /// or what to do with the picked entries, search and the filters on.
+  /// The search box's look: a white pill with a magnifier, and a clear
+  /// button once something is typed.
+  InputDecoration _searchDecoration() => InputDecoration(
+    hintText: '搜尋備註、商家、標籤、金額',
+    isDense: true,
+    filled: true,
+    fillColor: AppColors.white,
+    contentPadding: const EdgeInsets.symmetric(vertical: Space.s4),
+    prefixIcon: const Padding(
+      padding: EdgeInsets.all(Space.s3),
+      child: GlyphIcon(Glyph.search, size: 18, color: AppColors.muted),
+    ),
+    suffixIcon: _searchText.text.isEmpty
+        ? null
+        : IconButton(
+            tooltip: '清除搜尋',
+            onPressed: _clearSearch,
+            icon: const GlyphIcon(
+              Glyph.close,
+              size: 16,
+              color: AppColors.muted,
+            ),
+          ),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(Radii.large),
+      borderSide: BorderSide.none,
+    ),
+  );
+
   List<Widget> _head(List<Entry> shown) {
     final ledger = widget.ledger;
     final (_, month) = _month;
@@ -312,34 +341,7 @@ class _EntriesPageState extends State<EntriesPage> {
                 controller: _searchText,
                 focusNode: _searchFocus,
                 textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  hintText: '搜尋備註、商家、標籤、金額',
-                  isDense: true,
-                  filled: true,
-                  fillColor: Hue.white,
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: Space.s4,
-                  ),
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.all(Space.s3),
-                    child: GlyphIcon(Glyph.search, size: 18, color: Hue.muted),
-                  ),
-                  suffixIcon: _searchText.text.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: '清除搜尋',
-                          onPressed: _clearSearch,
-                          icon: const GlyphIcon(
-                            Glyph.close,
-                            size: 16,
-                            color: Hue.muted,
-                          ),
-                        ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(Radii.large),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
+                decoration: _searchDecoration(),
                 onChanged: _typed,
               ),
             ),
@@ -392,9 +394,7 @@ class _EntriesPageState extends State<EntriesPage> {
       if (shown.isEmpty)
         const Padding(
           padding: EdgeInsets.symmetric(vertical: Space.s10),
-          child: Center(
-            child: Text('沒有符合的紀錄', style: TextStyle(color: Hue.muted)),
-          ),
+          child: Center(child: Text('沒有符合的紀錄', style: mutedText)),
         ),
     ];
   }
@@ -429,7 +429,7 @@ class _EntriesPageState extends State<EntriesPage> {
     if (_picked.isNotEmpty) {
       return Container(
         color: _picked.contains(e.id)
-            ? Hue.accent.withValues(alpha: 0.12)
+            ? AppColors.accent.withValues(alpha: 0.12)
             : null,
         child: EntryTile(
           ledger: ledger,
@@ -490,7 +490,7 @@ class _PickBar extends StatelessWidget {
         TextButton(
           key: key,
           onPressed: onTap,
-          style: wordButton(color ?? Hue.accent),
+          style: wordButton(color ?? AppColors.accent),
           child: Text(label),
         );
     return GroupBox(
@@ -520,7 +520,7 @@ class _PickBar extends StatelessWidget {
               action(
                 Words.delete,
                 onRemove,
-                color: Hue.danger,
+                color: AppColors.danger,
                 key: Keys.deletePicked,
               ),
             ],
@@ -545,7 +545,7 @@ class _FilterButton extends StatelessWidget {
     return Tooltip(
       message: on ? '篩選（$count）' : '篩選',
       child: Material(
-        color: on ? Hue.accent : Hue.white,
+        color: on ? AppColors.accent : AppColors.white,
         borderRadius: BorderRadius.circular(Radii.large),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -563,7 +563,7 @@ class _FilterButton extends StatelessWidget {
                   GlyphIcon(
                     Glyph.sliders,
                     size: 18,
-                    color: on ? Hue.onAccent : Hue.accent,
+                    color: on ? AppColors.onAccent : AppColors.accent,
                   ),
                   if (on) ...[
                     const SizedBox(width: Space.s2),
@@ -571,7 +571,7 @@ class _FilterButton extends StatelessWidget {
                       '$count',
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: Hue.onAccent,
+                        color: AppColors.onAccent,
                       ),
                     ),
                   ],

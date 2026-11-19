@@ -145,8 +145,8 @@ final class InvestmentFields {
                   : '成本 ${groupDigits(cost)} · 交割 ${formatMd(settled)}',
               value: cost == null ? null : signed(settles - cost),
               color: cost == null || settles >= cost
-                  ? Hue.positive
-                  : Hue.negative,
+                  ? AppColors.positive
+                  : AppColors.negative,
             ),
           ),
         NoteField(controller: _a.note, viewing: _a.viewing, lines: 2),
@@ -166,7 +166,7 @@ final class InvestmentFields {
             style: TextStyle(
               fontSize: TextSize.caption,
               fontWeight: FontWeight.w700,
-              color: Hue.muted,
+              color: AppColors.muted,
             ),
           ),
         ),

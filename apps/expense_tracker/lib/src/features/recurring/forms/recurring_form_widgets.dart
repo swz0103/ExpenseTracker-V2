@@ -36,7 +36,9 @@ class SideChoice extends StatelessWidget {
     return Semantics(
       selected: chosen,
       child: Material(
-        color: chosen ? (side ? Hue.positive : Hue.negative) : Hue.surface,
+        color: chosen
+            ? (side ? AppColors.positive : AppColors.negative)
+            : AppColors.surface,
         borderRadius: BorderRadius.circular(Radii.large),
         child: InkWell(
           borderRadius: BorderRadius.circular(Radii.large),
@@ -49,7 +51,7 @@ class SideChoice extends StatelessWidget {
                 style: TextStyle(
                   fontSize: TextSize.title,
                   fontWeight: FontWeight.w800,
-                  color: chosen ? Hue.onAccent : Hue.muted,
+                  color: chosen ? AppColors.onAccent : AppColors.muted,
                 ),
               ),
             ),
@@ -77,7 +79,7 @@ class FormFieldTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Hue.white,
+      color: AppColors.white,
       borderRadius: BorderRadius.circular(Radii.large),
       child: InkWell(
         borderRadius: BorderRadius.circular(Radii.large),
@@ -95,13 +97,7 @@ class FormFieldTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: TextSize.tiny,
-                        color: Hue.muted,
-                      ),
-                    ),
+                    Text(label, style: mutedTiny),
                     Text(
                       value,
                       maxLines: 1,
@@ -114,7 +110,7 @@ class FormFieldTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const GlyphIcon(Glyph.next, size: 14, color: Hue.muted),
+              const GlyphIcon(Glyph.next, size: 14, color: AppColors.muted),
             ],
           ),
         ),
@@ -166,14 +162,14 @@ class CategoryChoiceRow extends StatelessWidget {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: Hue.surface,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(Radii.large),
                     ),
                     alignment: Alignment.center,
                     child: const GlyphIcon(
                       Glyph.grid,
                       size: 22,
-                      color: Hue.muted,
+                      color: AppColors.muted,
                     ),
                   ),
                   const SizedBox(height: Space.s4),
@@ -240,7 +236,7 @@ class CategoryChoice extends StatelessWidget {
                       width: 18,
                       height: 18,
                       decoration: const BoxDecoration(
-                        color: Hue.white,
+                        color: AppColors.white,
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
@@ -257,7 +253,7 @@ class CategoryChoice extends StatelessWidget {
               style: TextStyle(
                 fontSize: TextSize.caption,
                 fontWeight: chosen ? FontWeight.w800 : FontWeight.w400,
-                color: chosen ? deepOf(color) : Hue.muted,
+                color: chosen ? deepOf(color) : AppColors.muted,
               ),
             ),
           ],
@@ -282,7 +278,7 @@ class OtherSettingsStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColorCard(
-      color: Hue.faint,
+      color: AppColors.faint,
       amount: 0.18,
       radius: Radii.large,
       onTap: onTap,
@@ -293,7 +289,7 @@ class OtherSettingsStrip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const GlyphIcon(Glyph.calendar, size: 18, color: Hue.muted),
+          const GlyphIcon(Glyph.calendar, size: 18, color: AppColors.muted),
           const SizedBox(width: Space.s2),
           Expanded(
             child: Text(
@@ -301,7 +297,7 @@ class OtherSettingsStrip extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
-          const GlyphIcon(Glyph.next, size: 14, color: Hue.muted),
+          const GlyphIcon(Glyph.next, size: 14, color: AppColors.muted),
         ],
       ),
     );

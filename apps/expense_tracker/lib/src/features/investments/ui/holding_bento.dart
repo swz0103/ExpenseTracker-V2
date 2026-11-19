@@ -192,12 +192,12 @@ class _PriceChartState extends State<_PriceChart> {
               buys: buys.keys.toSet(),
               chosen: buy == null ? null : _day(buy.date),
               touched: touched,
-              line: Hue.positive,
-              fill: tintOf(Hue.positive, 0.25),
-              dash: Hue.investment,
-              rule: Hue.line,
-              words: Hue.muted,
-              onTag: Hue.onAccent,
+              line: AppColors.positive,
+              fill: tintOf(AppColors.positive, 0.25),
+              dash: AppColors.investment,
+              rule: AppColors.line,
+              words: AppColors.muted,
+              onTag: AppColors.onAccent,
             ),
           ),
         ),
@@ -225,7 +225,7 @@ class _PriceChartState extends State<_PriceChart> {
         '$prefix${up ? '+' : ''}${((to - from) * 100 / from).toStringAsFixed(1)}%',
         style: TextStyle(
           fontWeight: FontWeight.w800,
-          color: up ? Hue.positive : Hue.negative,
+          color: up ? AppColors.positive : AppColors.negative,
         ),
       );
     }
@@ -249,7 +249,7 @@ class _PriceChartState extends State<_PriceChart> {
                 width: 10,
                 height: 10,
                 decoration: const BoxDecoration(
-                  color: Hue.investment,
+                  color: AppColors.investment,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -310,13 +310,7 @@ class _PriceChartState extends State<_PriceChart> {
               children: [
                 for (final (i, label) in _ticks(closes).indexed) ...[
                   if (i > 0) const Spacer(),
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: TextSize.tiny,
-                      color: Hue.muted,
-                    ),
-                  ),
+                  Text(label, style: mutedTiny),
                 ],
               ],
             ),
@@ -328,10 +322,10 @@ class _PriceChartState extends State<_PriceChart> {
           runSpacing: 4,
           children: [
             LegendKey(
-              Hue.investment,
+              AppColors.investment,
               widget.buys.isEmpty ? '我買的時候' : '我買的時候（點一下看那批）',
             ),
-            const LegendKey(Hue.investment, '均價', line: true),
+            const LegendKey(AppColors.investment, '均價', line: true),
           ],
         ),
       ],

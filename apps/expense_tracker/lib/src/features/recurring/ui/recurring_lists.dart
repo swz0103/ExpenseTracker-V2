@@ -121,7 +121,7 @@ class _Subscriptions extends StatelessWidget {
         if (rows.isEmpty)
           const EmptyState(
             glyph: Glyph.subscription,
-            color: _recurringHue,
+            color: _recurringColor,
             message: '還沒有固定支出',
           )
         else ...[
@@ -230,7 +230,7 @@ class _Paused extends StatelessWidget {
             if (paused.isEmpty)
               const EmptyState(
                 glyph: Glyph.cycleCalendar,
-                color: _recurringHue,
+                color: _recurringColor,
                 message: '沒有暫停的項目',
               )
             else
@@ -245,8 +245,8 @@ class _Paused extends StatelessWidget {
                       r.copyWith(active: true),
                     ),
                     style: solidButton(
-                      Hue.white,
-                      ink: Hue.accent,
+                      AppColors.white,
+                      ink: AppColors.accent,
                       minimumSize: Size(0, 40),
                       radius: Radii.medium,
                       padding: const EdgeInsets.symmetric(horizontal: Space.s3),

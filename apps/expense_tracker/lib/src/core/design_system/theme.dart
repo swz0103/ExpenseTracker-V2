@@ -34,7 +34,7 @@ final class Shade extends Color {
   /// a build will go on painting the old colour: an `Ink` or other
   /// `InkDecoration` on a [Material], and `ListTile.tileColor` or
   /// `selectedTileColor`, which become ink on the nearest [Material]. Give
-  /// those no [Hue] colour; colour the [Material] itself, or use a
+  /// those no [AppColors] colour; colour the [Material] itself, or use a
   /// [DecoratedBox] or [Container] instead.
   static void show({required bool dark}) {
     if (dark == Shade.dark) return;
@@ -99,7 +99,7 @@ final class Shade extends Color {
 /// The colours of the app, style 一「霧藍北歐」: misty off-white paper,
 /// white cards, slate blue for the interface, teal green for income and
 /// gains, brick red for spending and losses.
-abstract final class Hue {
+abstract final class AppColors {
   static const paper = Shade(0xFFF3F4F1, 0xFF2A3237);
 
   /// White cards and fills on the paper; a mid grey on the dark theme,
@@ -124,6 +124,16 @@ abstract final class Hue {
   /// Words that wait to be filled in, such as 未填: quieter than [muted],
   /// still 4.5:1 on every surface.
   static const hint = Shade(0xFF586369, 0xFFBAC4C8);
+
+  /// Green for a gain, red for a loss; nothing changed reads as a gain.
+  static Shade ofChange(num change) => change < 0 ? negative : positive;
+
+  /// Red when spending went up (or held), green when it went down.
+  static Shade ofSpendingChange(num change) =>
+      change >= 0 ? negative : positive;
+
+  /// Ink for a balance, red once it is below zero.
+  static Shade ofBalance(num balance) => balance < 0 ? negative : ink;
 
   /// Gold as words, darker than [cash], which is for marks and fills.
   static const goldText = Shade(0xFF7A5E18, 0xFFDEBE6B);
@@ -261,25 +271,49 @@ abstract final class Hue {
 }
 
 /// A light version of [color] for icon backgrounds.
-Color softOf(Color color) => Color.lerp(color, Hue.paper, 0.82)!;
+Color softOf(Color color) => Color.lerp(color, AppColors.paper, 0.82)!;
 
 /// Secondary words in 13 px, such as a count or a date beside a heading.
-const mutedSmall = TextStyle(fontSize: TextSize.small, color: Hue.muted);
+const mutedSmall = TextStyle(fontSize: TextSize.small, color: AppColors.muted);
+
+/// Quiet words at caption size: a label over a figure, a footnote.
+const mutedCaption = TextStyle(
+  fontSize: TextSize.caption,
+  color: AppColors.muted,
+);
+
+/// Quiet words at body size: a hint, a placeholder, a value set aside.
+const mutedBody = TextStyle(fontSize: TextSize.body, color: AppColors.muted);
+
+/// Quiet words at the smallest size, such as 到期 under a day.
+const mutedTiny = TextStyle(fontSize: TextSize.tiny, color: AppColors.muted);
+
+/// Words in the quiet colour at the size around them.
+const mutedText = TextStyle(color: AppColors.muted);
+
+/// A field's hint, fainter than words typed.
+const hintText = TextStyle(color: AppColors.faint);
+
+/// Words that warn, at the size around them.
+const dangerText = TextStyle(color: AppColors.danger);
 
 /// Words in 13 px in the interface colour that do something, such as a
 /// small link or 調整 on a tile. Words that only label stay [mutedSmall].
-const accentSmall = TextStyle(fontSize: TextSize.small, color: Hue.accent);
+const accentSmall = TextStyle(
+  fontSize: TextSize.small,
+  color: AppColors.accent,
+);
 
 /// A tile's or a form block's own label in 13 px, in the interface
 /// colour and a little heavier than [accentSmall].
 const accentLabel = TextStyle(
   fontSize: TextSize.small,
   fontWeight: FontWeight.w600,
-  color: Hue.accent,
+  color: AppColors.accent,
 );
 
-/// The thin rule between rows of a list on a card, in [Hue.line].
-const rowRule = BorderSide(color: Hue.line);
+/// The thin rule between rows of a list on a card, in [AppColors.line].
+const rowRule = BorderSide(color: AppColors.line);
 
 /// A row's [rowRule] above it, as each row after a list's first has.
 const ruleAbove = BoxDecoration(border: Border(top: rowRule));
@@ -346,7 +380,7 @@ abstract final class Palette {
 
 /// A colour kept with a record, such as a category's, as the screen
 /// shows it: itself on the light theme, a little lighter and quieter on
-/// the dark one (as the [Hue] colours are), so a dark page is not louder
+/// the dark one (as the [AppColors] colours are), so a dark page is not louder
 /// than the rest. What is saved stays [color] itself.
 Color shownColor(Color color) {
   if (color is Shade) return color;
@@ -369,65 +403,68 @@ const appFont = TextStyle(
   fontFamilyFallback: ['NotoSansTC'],
 );
 
-/// The Material theme over [Hue], light or dark as [Shade.dark] says.
+/// The Material theme over [AppColors], light or dark as [Shade.dark] says.
 ThemeData appTheme() {
   final dark = Shade.dark;
   final seeded = ColorScheme.fromSeed(
-    seedColor: Hue.accent,
+    seedColor: AppColors.accent,
     brightness: dark ? Brightness.dark : Brightness.light,
     dynamicSchemeVariant: DynamicSchemeVariant.neutral,
   );
   final scheme = seeded.copyWith(
-    primary: Hue.accent,
-    onPrimary: Hue.onAccent,
-    secondary: Hue.accent,
-    surface: Hue.paper,
-    onSurface: Hue.ink,
-    onSurfaceVariant: Hue.muted,
-    outline: Hue.muted,
-    outlineVariant: Hue.line,
-    surfaceContainerLowest: Hue.white,
-    surfaceContainerLow: Hue.panel,
-    surfaceContainer: Hue.panel,
-    surfaceContainerHigh: Hue.surface,
-    surfaceContainerHighest: Hue.surface,
+    primary: AppColors.accent,
+    onPrimary: AppColors.onAccent,
+    secondary: AppColors.accent,
+    surface: AppColors.paper,
+    onSurface: AppColors.ink,
+    onSurfaceVariant: AppColors.muted,
+    outline: AppColors.muted,
+    outlineVariant: AppColors.line,
+    surfaceContainerLowest: AppColors.white,
+    surfaceContainerLow: AppColors.panel,
+    surfaceContainer: AppColors.panel,
+    surfaceContainerHigh: AppColors.surface,
+    surfaceContainerHighest: AppColors.surface,
   );
   final base = ThemeData(
     brightness: dark ? Brightness.dark : Brightness.light,
     colorScheme: scheme,
-    scaffoldBackgroundColor: Hue.paper,
+    scaffoldBackgroundColor: AppColors.paper,
     fontFamily: 'Nunito',
     fontFamilyFallback: const ['NotoSansTC'],
     useMaterial3: true,
     // A soft ripple in the accent under the finger, so every tap is felt.
     splashFactory: InkRipple.splashFactory,
     hoverColor: Colors.transparent,
-    highlightColor: Hue.pressHighlight,
-    splashColor: Hue.pressSplash,
+    highlightColor: AppColors.pressHighlight,
+    splashColor: AppColors.pressSplash,
   );
   return base.copyWith(
-    dividerTheme: const DividerThemeData(color: Hue.line, space: 1),
+    dividerTheme: const DividerThemeData(color: AppColors.line, space: 1),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: dark ? Hue.surface : Hue.ink,
+      backgroundColor: dark ? AppColors.surface : AppColors.ink,
       // Named outright: this style replaces the theme's, font included.
       contentTextStyle: TextStyle(
         fontFamily: 'Nunito',
         fontFamilyFallback: const ['NotoSansTC'],
         fontSize: TextSize.body,
-        color: dark ? Hue.ink : Hue.white,
+        color: dark ? AppColors.ink : AppColors.white,
       ),
       elevation: 6,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(Radii.large),
       ),
     ),
-    textTheme: base.textTheme.apply(bodyColor: Hue.ink, displayColor: Hue.ink),
+    textTheme: base.textTheme.apply(
+      bodyColor: AppColors.ink,
+      displayColor: AppColors.ink,
+    ),
   );
 }
 
 /// The colour of each tool, on its tile in 更多, its own page and its card in 總覽.
-abstract final class ToolHue {
+abstract final class ToolColors {
   static const reports = Palette.blue;
   static const investments = Palette.indigo;
   static const budgets = Palette.green;

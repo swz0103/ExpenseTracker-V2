@@ -459,7 +459,7 @@ void main() {
     final page = tester.state(find.byType(EntriesPage));
     Shade.show(dark: true);
     await tester.pumpAndSettle();
-    expect(Hue.paper.computeLuminance(), lessThan(0.05));
+    expect(AppColors.paper.computeLuminance(), lessThan(0.05));
     expect(tester.state(find.byType(EntriesPage)), same(page));
     Shade.show(dark: false);
     await tester.pumpAndSettle();

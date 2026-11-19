@@ -23,10 +23,10 @@ part 'recurring_calendar.dart';
 part 'recurring_lists.dart';
 
 /// The colour of 定期交易, as on 更多.
-const _recurringHue = Palette.orange;
+const _recurringColor = Palette.orange;
 
 /// The grey of a day with several items, or with all of them booked.
-const _busyDay = Hue.surface;
+const _busyDay = AppColors.surface;
 
 /// Adds an item, or changes [item], after making sure there is an account
 /// to book it to.
@@ -141,7 +141,7 @@ class _RecurringPageState extends State<RecurringPage> {
               header,
               EmptyState(
                 glyph: Glyph.cycleCalendar,
-                color: _recurringHue,
+                color: _recurringColor,
                 message: '房租、訂閱、薪水這些固定的，\n記一次就會每期提醒',
                 action: '新增固定交易',
                 onAction: _edit,
@@ -183,8 +183,8 @@ class _RecurringPageState extends State<RecurringPage> {
                       _day = null;
                     }),
                     style: wordButton(
-                      Hue.accent,
-                      fill: Hue.selected,
+                      AppColors.accent,
+                      fill: AppColors.selected,
                       minimumSize: Size(0, 44),
                       radius: Radii.largeIncreased,
                     ),
@@ -200,7 +200,7 @@ class _RecurringPageState extends State<RecurringPage> {
                   Padding(
                     padding: const EdgeInsets.only(left: Space.s2),
                     child: Material(
-                      color: Hue.surface,
+                      color: AppColors.surface,
                       shape: const CircleBorder(),
                       child: IconButton(
                         tooltip: label,

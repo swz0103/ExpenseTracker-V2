@@ -87,7 +87,7 @@ class _WelcomeViewState extends State<WelcomeView>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Hue.paper,
+      backgroundColor: AppColors.paper,
       body: LayoutBuilder(
         builder: (context, box) => AnimatedBuilder(
           animation: Listenable.merge([opening, _settle]),
@@ -119,7 +119,7 @@ class _WelcomeViewState extends State<WelcomeView>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Hue.hero, Hue.hero, Hue.paper],
+                  colors: [AppColors.hero, AppColors.hero, AppColors.paper],
                   stops: [0, 0.45, 0.78],
                 ),
               ),
@@ -137,7 +137,7 @@ class _WelcomeViewState extends State<WelcomeView>
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [Hue.halo, Hue.none],
+                  colors: [AppColors.halo, AppColors.none],
                   stops: [0, 0.68],
                 ),
               ),
@@ -209,7 +209,7 @@ class _WelcomeViewState extends State<WelcomeView>
               key: Keys.newBook,
               onPressed: busy ? null : widget.onStart,
               style: solidButton(
-                Hue.accent,
+                AppColors.accent,
                 minimumSize: Size.fromHeight(52),
                 radius: Radii.large,
               ),
@@ -222,7 +222,7 @@ class _WelcomeViewState extends State<WelcomeView>
                           Glyph.add,
                           size: 18,
                           weight: 2.2,
-                          color: Hue.onAccent,
+                          color: AppColors.onAccent,
                         ),
                         SizedBox(width: Space.s2),
                         Text(
@@ -239,12 +239,12 @@ class _WelcomeViewState extends State<WelcomeView>
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('已經有帳本？', style: TextStyle(color: Hue.muted)),
+                const Text('已經有帳本？', style: mutedText),
                 TextButton(
                   key: Keys.restore,
                   onPressed: busy ? null : widget.onRestore,
                   style: wordButton(
-                    Hue.accent,
+                    AppColors.accent,
                     minimumSize: Size(48, 48),
                     padding: const EdgeInsets.symmetric(horizontal: Space.s2),
                   ),
@@ -279,14 +279,14 @@ class _WelcomeViewState extends State<WelcomeView>
                 shape: StadiumBorder(),
                 shadows: [
                   BoxShadow(
-                    color: Hue.float,
+                    color: AppColors.float,
                     blurRadius: 26,
                     offset: Offset(0, 10),
                   ),
                 ],
               ),
               child: Material(
-                color: Hue.white,
+                color: AppColors.white,
                 shape: const StadiumBorder(),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
@@ -305,14 +305,14 @@ class _WelcomeViewState extends State<WelcomeView>
                           width: 42,
                           height: 42,
                           decoration: const BoxDecoration(
-                            color: Hue.accentTrack,
+                            color: AppColors.accentTrack,
                             shape: BoxShape.circle,
                           ),
                           alignment: Alignment.center,
                           child: const GlyphIcon(
                             Glyph.reset,
                             size: 20,
-                            color: Hue.accent,
+                            color: AppColors.accent,
                           ),
                         ),
                         const SizedBox(width: Space.s3),
@@ -330,10 +330,7 @@ class _WelcomeViewState extends State<WelcomeView>
                               ),
                               Text(
                                 '${_grouped(found.rows)} 筆紀錄',
-                                style: const TextStyle(
-                                  fontSize: TextSize.caption,
-                                  color: Hue.muted,
-                                ),
+                                style: mutedCaption,
                               ),
                             ],
                           ),
@@ -343,7 +340,7 @@ class _WelcomeViewState extends State<WelcomeView>
                           width: 48,
                           height: 48,
                           decoration: const BoxDecoration(
-                            color: Hue.accent,
+                            color: AppColors.accent,
                             shape: BoxShape.circle,
                           ),
                           alignment: Alignment.center,
@@ -352,7 +349,7 @@ class _WelcomeViewState extends State<WelcomeView>
                               : const GlyphIcon(
                                   Glyph.arrow,
                                   size: 20,
-                                  color: Hue.onAccent,
+                                  color: AppColors.onAccent,
                                 ),
                         ),
                       ],
@@ -365,12 +362,12 @@ class _WelcomeViewState extends State<WelcomeView>
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('或', style: TextStyle(color: Hue.muted)),
+                const Text('或', style: mutedText),
                 TextButton(
                   key: Keys.newBook,
                   onPressed: busy ? null : widget.onStart,
                   style: wordButton(
-                    Hue.accent,
+                    AppColors.accent,
                     minimumSize: Size(48, 48),
                     padding: const EdgeInsets.symmetric(horizontal: Space.s2),
                   ),

@@ -23,7 +23,7 @@ Future<void> reconcileAccount(
     context,
     title: debt ? '實際欠款' : '實際餘額',
     initial: book,
-    color: Hue.accent,
+    color: AppColors.accent,
   );
   if (counted == null || !context.mounted) return;
   final entry = reconcile(ledger, account, counted);

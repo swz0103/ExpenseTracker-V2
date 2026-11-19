@@ -30,7 +30,7 @@ void showNote(
             : SnackBarAction(
                 key: Keys.snack(action),
                 label: action,
-                textColor: Hue.selected,
+                textColor: AppColors.selected,
                 onPressed: act,
               ),
       ),
@@ -70,7 +70,7 @@ Future<T?> showSheet<T>(
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: handle,
-    backgroundColor: Hue.panel,
+    backgroundColor: AppColors.panel,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(
         top: Radius.circular(Radii.largeIncreased),

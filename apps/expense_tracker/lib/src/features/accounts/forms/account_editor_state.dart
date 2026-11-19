@@ -172,7 +172,7 @@ class _AccountEditorState extends State<_AccountEditor> {
       context,
       (context) => CenterPanel(
         glyph: Glyph.sparkle,
-        color: accountHue(_preview),
+        color: accountColor(_preview),
         title: '卡片顏色',
         // 48 dp to tap each, 56 apart as the 44 dp dots were.
         body: Wrap(
@@ -181,12 +181,12 @@ class _AccountEditorState extends State<_AccountEditor> {
           alignment: WrapAlignment.center,
           children: [
             SwatchButton(
-              color: accountColor(_f.kind),
+              color: accountKindColor(_f.kind),
               label: '預設',
               selected: _f.color == null,
               onTap: () => Navigator.of(context).pop(-1),
             ),
-            for (final c in Hue.categoryColors)
+            for (final c in AppColors.categoryColors)
               SwatchButton(
                 color: shownColor(c),
                 selected: _f.color == c.toARGB32(),
@@ -211,14 +211,14 @@ class _AccountEditorState extends State<_AccountEditor> {
       selected: _f.currency,
       options: [
         for (final code in Currency.supported)
-          Option(code, code, Glyph.exchange, accountHue(_preview)),
+          Option(code, code, Glyph.exchange, accountColor(_preview)),
       ],
     );
     if (picked != null && mounted) setState(() => _f.currency = picked);
   }
 
   Future<void> _moreIcons() async {
-    final color = accountHue(_preview);
+    final color = accountColor(_preview);
     final shown = _f.icon ?? kindIcon(_f.kind).name;
     final picked = await showSheet<String>(
       context,
@@ -262,10 +262,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                           Text(
                             name,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: TextSize.tiny,
-                              color: Hue.muted,
-                            ),
+                            style: mutedTiny,
                           ),
                         ],
                       ),
@@ -288,7 +285,7 @@ class _AccountEditorState extends State<_AccountEditor> {
       selected: _f.fundInto ?? '',
       columns: 3,
       options: [
-        const Option('', '不入帳', Glyph.loan, Hue.investment),
+        const Option('', '不入帳', Glyph.loan, AppColors.investment),
         ...accountOptions(
           ledger,
           currency: homeCode,
@@ -314,7 +311,9 @@ class _AccountEditorState extends State<_AccountEditor> {
               TextButton(
                 onPressed: removable ? _remove : _archive,
                 style: wordButton(
-                  removable || !old.archived ? Hue.danger : Hue.accent,
+                  removable || !old.archived
+                      ? AppColors.danger
+                      : AppColors.accent,
                   minimumSize: Size(64, 46),
                 ),
                 child: Text(
@@ -332,7 +331,7 @@ class _AccountEditorState extends State<_AccountEditor> {
               child: FilledButton(
                 onPressed: _save,
                 style: solidButton(
-                  Hue.accent,
+                  AppColors.accent,
                   minimumSize: Size.fromHeight(46),
                   radius: Radii.medium,
                 ),
@@ -387,7 +386,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                 color: color,
                 selected: key == shownIcon,
                 size: 40,
-                background: Hue.white,
+                background: AppColors.white,
                 onTap: () => setState(() => _f.icon = key),
               ),
             ),
@@ -400,7 +399,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                 height: 40,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: Hue.white,
+                  color: AppColors.white,
                   borderRadius: BorderRadius.circular(Radii.medium),
                 ),
                 child: const Text(
@@ -408,7 +407,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                   style: TextStyle(
                     fontSize: TextSize.caption,
                     fontWeight: FontWeight.w700,
-                    color: Hue.muted,
+                    color: AppColors.muted,
                   ),
                 ),
               ),
@@ -422,7 +421,7 @@ class _AccountEditorState extends State<_AccountEditor> {
   @override
   Widget build(BuildContext context) {
     final old = _old;
-    final color = accountHue(_preview);
+    final color = accountColor(_preview);
     return SingleChildScrollView(
       physics: const FitScrollPhysics(16),
       padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
@@ -464,7 +463,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                               _ => groupName(kind),
                             },
                             selected: kind == _f.kind,
-                            background: Hue.white,
+                            background: AppColors.white,
                             onTap: () => setState(() => _f.kind = kind),
                           ),
                         ),
@@ -487,7 +486,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                             ChoicePill(
                               label: code == homeCode ? '台幣' : code,
                               selected: code == _f.currency,
-                              background: Hue.white,
+                              background: AppColors.white,
                               onTap: () => setState(() => _f.currency = code),
                             ),
                             const SizedBox(width: Space.s2),
@@ -495,7 +494,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                           ChoicePill(
                             label: '更多',
                             selected: false,
-                            background: Hue.white,
+                            background: AppColors.white,
                             onTap: _moreCurrencies,
                           ),
                         ],
@@ -505,7 +504,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                 if (_f.kind == AccountKind.card)
                   CardRow([
                     FigureCard(
-                      color: Hue.card,
+                      color: AppColors.card,
                       icon: Glyph.calendar,
                       label: '結帳日',
                       value: '每月 ${_f.closing} 日',
@@ -513,7 +512,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                       onTap: () => _pickDay(true),
                     ),
                     FigureCard(
-                      color: Hue.card,
+                      color: AppColors.card,
                       icon: Glyph.calendar,
                       label: '繳款日',
                       value: '每月 ${_f.due} 日',

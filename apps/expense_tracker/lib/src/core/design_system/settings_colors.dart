@@ -2,7 +2,7 @@ import 'theme.dart';
 
 /// The colour of each card on the settings pages; each card, and the
 /// panel it opens, is tinted with its own.
-abstract final class SettingsHue {
+abstract final class SettingsColors {
   static const backup = Palette.teal;
   static const folder = Palette.periwinkle;
   static const reminders = Palette.orange;
@@ -23,7 +23,7 @@ abstract final class SettingsHue {
   static const about = Palette.slate;
 
   /// 上次備份 and 關於's main card, in the interface colour.
-  static const main = Hue.accent;
+  static const main = AppColors.accent;
 
   /// The main card when a backup is overdue or none is on.
   static const warning = Palette.gold;

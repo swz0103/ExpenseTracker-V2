@@ -38,7 +38,7 @@ class ChoiceStrip extends StatelessWidget {
                 left: Space.s1,
                 right: Space.s1,
               ),
-              color: Hue.line,
+              color: AppColors.line,
             ),
             still,
           ],

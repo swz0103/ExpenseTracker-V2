@@ -11,6 +11,8 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 
+export 'merchant_tag_pickers.dart';
+
 // The pieces of the entry form that hold no state of the form: its tabs,
 // headers, amount, pickers and the squares in a row of choices.
 
@@ -32,7 +34,7 @@ class OriginalEntryTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(Space.s3),
       decoration: BoxDecoration(
-        color: Hue.tile,
+        color: AppColors.tile,
         borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
@@ -62,189 +64,11 @@ class OriginalEntryTile extends StatelessWidget {
             style: const TextStyle(
               fontSize: TextSize.title,
               fontWeight: FontWeight.w700,
-              color: Hue.negative,
+              color: AppColors.negative,
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-/// A merchant's name, typed or picked from those used before.
-class MerchantPicker extends StatefulWidget {
-  const MerchantPicker({
-    super.key,
-    required this.known,
-    required this.initial,
-    required this.onDone,
-  });
-
-  final List<String> known;
-  final String initial;
-  final ValueChanged<String> onDone;
-
-  @override
-  State<MerchantPicker> createState() => _MerchantPickerState();
-}
-
-class _MerchantPickerState extends State<MerchantPicker> {
-  late final _text = TextEditingController(text: widget.initial);
-
-  @override
-  void dispose() {
-    _text.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final typed = _text.text.trim();
-    final matches = [
-      for (final name in widget.known)
-        if (typed.isEmpty || name.toLowerCase().contains(typed.toLowerCase()))
-          name,
-    ];
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        TextField(
-          controller: _text,
-          autofocus: true,
-          onChanged: (_) => setState(() {}),
-          onSubmitted: (value) => widget.onDone(value.trim()),
-          decoration: InputDecoration(
-            hintText: '商家名稱',
-            filled: true,
-            fillColor: Hue.tile,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(Radii.large),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-        const SizedBox(height: Space.s2),
-        Column(
-          children: [
-            if (typed.isNotEmpty && !widget.known.contains(typed))
-              ListTile(
-                leading: const GlyphIcon(Glyph.add, color: Hue.accent),
-                title: Text('新增「$typed」'),
-                onTap: () => widget.onDone(typed),
-              ),
-            for (final name in matches.take(12))
-              ListTile(
-                leading: const GlyphIcon(Glyph.store, color: Hue.accent),
-                title: Text(name),
-                onTap: () => widget.onDone(name),
-              ),
-            if (widget.initial.isNotEmpty)
-              ListTile(
-                leading: const GlyphIcon(Glyph.close, color: Hue.muted),
-                title: const Text('不記商家'),
-                onTap: () => widget.onDone(''),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-/// Tags to put on an entry: those in use, and new ones.
-class TagPicker extends StatefulWidget {
-  const TagPicker({
-    super.key,
-    required this.known,
-    required this.initial,
-    required this.onDone,
-  });
-
-  final List<String> known;
-  final List<String> initial;
-  final ValueChanged<List<String>> onDone;
-
-  @override
-  State<TagPicker> createState() => _TagPickerState();
-}
-
-class _TagPickerState extends State<TagPicker> {
-  late final _picked = [...widget.initial];
-  final _text = TextEditingController();
-
-  @override
-  void dispose() {
-    _text.dispose();
-    super.dispose();
-  }
-
-  void _add() {
-    final tag = _text.text.trim().replaceAll('#', '');
-    if (tag.isEmpty) return;
-    setState(() {
-      if (!_picked.contains(tag) && _picked.length < 16) _picked.add(tag);
-      _text.clear();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final all = {...widget.known, ..._picked}.toList();
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final tag in all)
-              FilterChip(
-                label: Text('#$tag'),
-                selected: _picked.contains(tag),
-                onSelected: (on) => setState(() {
-                  if (on) {
-                    if (_picked.length < 16) _picked.add(tag);
-                  } else {
-                    _picked.remove(tag);
-                  }
-                }),
-              ),
-          ],
-        ),
-        const SizedBox(height: Space.s3),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _text,
-                onSubmitted: (_) => _add(),
-                decoration: InputDecoration(
-                  hintText: '新標籤',
-                  filled: true,
-                  fillColor: Hue.tile,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(Radii.large),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ),
-            IconButton(
-              tooltip: '加入',
-              onPressed: _add,
-              icon: const GlyphIcon(Glyph.add, color: Hue.accent),
-            ),
-          ],
-        ),
-        const SizedBox(height: Space.s3),
-        FilledButton(
-          onPressed: () => widget.onDone(_picked),
-          style: solidButton(Hue.accent, minimumSize: Size.fromHeight(44)),
-          child: const Text(Words.done),
-        ),
-      ],
     );
   }
 }
@@ -276,7 +100,10 @@ class EntryTypeTabs extends StatelessWidget {
       alignment: Alignment.center,
       foregroundDecoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: on ? color : Hue.line, width: on ? 3 : 1),
+          bottom: BorderSide(
+            color: on ? color : AppColors.line,
+            width: on ? 3 : 1,
+          ),
         ),
       ),
       child: child,
@@ -294,7 +121,7 @@ class EntryTypeTabs extends StatelessWidget {
                   style: TextStyle(
                     fontSize: TextSize.title,
                     fontWeight: FontWeight.w700,
-                    color: i == selected ? Hue.ink : Hue.faint,
+                    color: i == selected ? AppColors.ink : AppColors.faint,
                   ),
                 ),
                 on: i == selected,
@@ -308,7 +135,11 @@ class EntryTypeTabs extends StatelessWidget {
               IconButton(
                 tooltip: '重填',
                 onPressed: reset,
-                icon: const GlyphIcon(Glyph.reset, size: 20, color: Hue.faint),
+                icon: const GlyphIcon(
+                  Glyph.reset,
+                  size: 20,
+                  color: AppColors.faint,
+                ),
               ),
               on: false,
             ),
@@ -330,14 +161,14 @@ class SubpageHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Hue.line)),
+        border: Border(bottom: BorderSide(color: AppColors.line)),
       ),
       child: Row(
         children: [
           IconButton(
             tooltip: Words.back,
             onPressed: onBack,
-            icon: const GlyphIcon(Glyph.back, size: 20, color: Hue.muted),
+            icon: const GlyphIcon(Glyph.back, size: 20, color: AppColors.muted),
           ),
           Expanded(
             child: Text(
@@ -399,7 +230,7 @@ class AmountHero extends StatelessWidget {
             style: const TextStyle(
               fontSize: TextSize.title,
               fontWeight: FontWeight.w700,
-              color: Hue.faint,
+              color: AppColors.faint,
             ),
           ),
         ),
@@ -449,7 +280,7 @@ class AmountHero extends StatelessWidget {
                       icon: const GlyphIcon(
                         Glyph.calculator,
                         size: 20,
-                        color: Hue.muted,
+                        color: AppColors.muted,
                       ),
                     ),
             ),
@@ -478,7 +309,7 @@ class Bubble extends StatelessWidget {
       onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: color ?? Hue.surface,
+          color: color ?? AppColors.surface,
           borderRadius: BorderRadius.circular(Radii.full),
         ),
         child: Padding(
@@ -492,7 +323,7 @@ class Bubble extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.small,
               fontWeight: FontWeight.w600,
-              color: ink ?? Hue.muted,
+              color: ink ?? AppColors.muted,
             ),
           ),
         ),
@@ -566,7 +397,7 @@ class ChoiceStripItem extends StatelessWidget {
                     ? color
                     : picked
                     ? color.withValues(alpha: 0.14)
-                    : Hue.surface,
+                    : AppColors.surface,
                 borderRadius: BorderRadius.circular(Radii.large),
                 border: picked ? Border.all(color: color, width: 2) : null,
               ),
@@ -577,7 +408,7 @@ class ChoiceStripItem extends StatelessWidget {
                     ? Colors.white
                     : picked
                     ? color
-                    : Hue.muted,
+                    : AppColors.muted,
               ),
             ),
             const SizedBox(height: Space.s1),
@@ -588,7 +419,7 @@ class ChoiceStripItem extends StatelessWidget {
               style: TextStyle(
                 fontSize: TextSize.caption,
                 fontWeight: lit ? FontWeight.w700 : FontWeight.w500,
-                color: lit ? color : Hue.muted,
+                color: lit ? color : AppColors.muted,
               ),
             ),
           ],

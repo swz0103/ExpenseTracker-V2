@@ -11,7 +11,7 @@ import '../features/import_export/ui/import_export_section.dart';
 import '../features/settings/ui/preferences_section.dart';
 import '../features/reminders/ui/reminders_section.dart';
 import '../features/entries/ui/trash_section.dart';
-import '../core/design_system/settings_hue.dart';
+import '../core/design_system/settings_colors.dart';
 import '../features/lock/ui/security_section.dart';
 import 'about_section.dart';
 import '../core/design_system/shape.dart';
@@ -85,7 +85,7 @@ class SettingsPage extends StatelessWidget {
         vertical: Space.s2,
       ),
       decoration: BoxDecoration(
-        color: Hue.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(Radii.small),
       ),
       child: Text(
@@ -93,7 +93,7 @@ class SettingsPage extends StatelessWidget {
         style: TextStyle(
           fontSize: TextSize.small,
           fontWeight: FontWeight.w700,
-          color: on ? deepOf(SettingsHue.backup) : Hue.goldText,
+          color: on ? deepOf(SettingsColors.backup) : AppColors.goldText,
         ),
       ),
     );
@@ -121,7 +121,7 @@ class SettingsPage extends StatelessWidget {
         if (services.notifier != null || services.calendar != null)
           _Row(
             glyph: Glyph.bell,
-            color: SettingsHue.reminders,
+            color: SettingsColors.reminders,
             title: '通知與提醒',
             detail: _reminders(),
             onTap: () => _open(SettingsDestination.reminders),
@@ -129,7 +129,7 @@ class SettingsPage extends StatelessWidget {
         if (backupManager != null || services.privacy != null)
           _Row(
             glyph: Glyph.shield,
-            color: SettingsHue.security,
+            color: SettingsColors.security,
             title: '安全',
             detail: backupManager == null
                 ? '截圖'
@@ -141,21 +141,21 @@ class SettingsPage extends StatelessWidget {
         if (services.preferences case final preferences?)
           _Row(
             glyph: Glyph.moon,
-            color: SettingsHue.appearance,
+            color: SettingsColors.appearance,
             title: '外觀與操作',
             detail: preferences.appearance.label,
             onTap: () => _open(SettingsDestination.appearance),
           ),
         _Row(
           glyph: Glyph.swap,
-          color: SettingsHue.importExport,
+          color: SettingsColors.importExport,
           title: '匯入與匯出',
           detail: 'CSV、發票',
           onTap: () => _open(SettingsDestination.importExport),
         ),
         _Row(
           glyph: Glyph.reset,
-          color: SettingsHue.trash,
+          color: SettingsColors.trash,
           title: '最近刪除',
           detail: ledger.trash.all.isEmpty
               ? '沒有'
@@ -164,7 +164,7 @@ class SettingsPage extends StatelessWidget {
         ),
         _Row(
           glyph: Glyph.info,
-          color: SettingsHue.about,
+          color: SettingsColors.about,
           title: '關於',
           detail: [
             if (appVersion.isNotEmpty) appVersion else '開發版',

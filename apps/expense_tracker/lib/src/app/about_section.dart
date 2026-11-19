@@ -12,7 +12,7 @@ import '../core/messages/problem_messages.dart';
 import '../features/settings/model/app_update.dart';
 import '../features/settings/ui/update_panel.dart';
 import '../features/settings/model/platform_services.dart';
-import '../core/design_system/settings_hue.dart';
+import '../core/design_system/settings_colors.dart';
 import '../core/design_system/app_mark.dart';
 import '../core/formatting/dates.dart';
 import '../core/design_system/shape.dart';
@@ -64,7 +64,7 @@ class AboutSection extends StatelessWidget {
   }
 
   void _diagnostics(BuildContext context) {
-    const color = SettingsHue.about;
+    const color = SettingsColors.about;
     final figures = PerformanceMonitor.instance.figures;
     Widget figure(String label, String value) => Container(
       padding: const EdgeInsets.fromLTRB(
@@ -144,11 +144,11 @@ class AboutSection extends StatelessWidget {
             if (preferences != null && (update?.possible ?? false))
               _ActionRow(
                 glyph: Glyph.reset,
-                color: SettingsHue.main,
+                color: SettingsColors.main,
                 title: '自動更新',
                 trailing: TickSwitch(
                   value: preferences.updateChecks,
-                  color: SettingsHue.main,
+                  color: SettingsColors.main,
                   label: '自動更新',
                   onChanged: (on) => preferences.update(updateChecks: on),
                 ),
@@ -157,7 +157,7 @@ class AboutSection extends StatelessWidget {
               ),
             _ActionRow(
               glyph: Glyph.bolt,
-              color: SettingsHue.about,
+              color: SettingsColors.about,
               title: '診斷',
               onTap: () => _diagnostics(context),
             ),
@@ -270,7 +270,7 @@ class _VersionCardState extends State<_VersionCard> {
     final update = widget.update;
     final newer = update?.newer != null;
     final progress = update?.progress;
-    final color = newer ? Hue.positive : SettingsHue.main;
+    final color = newer ? AppColors.positive : SettingsColors.main;
     return ColorCard(
       color: color,
       amount: 0.2,
@@ -317,8 +317,8 @@ class _VersionCardState extends State<_VersionCard> {
                       child: LinearProgressIndicator(
                         value: progress,
                         minHeight: 5,
-                        color: SettingsHue.main,
-                        backgroundColor: Hue.white,
+                        color: SettingsColors.main,
+                        backgroundColor: AppColors.white,
                       ),
                     ),
                   ),
@@ -329,7 +329,7 @@ class _VersionCardState extends State<_VersionCard> {
             FilledButton(
               onPressed: () => _tap(context, update!),
               style: solidButton(
-                Hue.positive,
+                AppColors.positive,
                 minimumSize: Size(0, 48),
                 radius: Radii.large,
               ),

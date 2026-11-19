@@ -11,7 +11,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/messages/problem_messages.dart';
 import '../../../core/design_system/recovery_code.dart';
-import '../../../core/design_system/settings_hue.dart';
+import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/formatting/dates.dart';
 import '../../../core/design_system/spacing.dart';
@@ -187,7 +187,7 @@ class _BackupSectionState extends State<BackupSection> {
       context,
       (context) => CenterPanel(
         glyph: Glyph.records,
-        color: SettingsHue.folder,
+        color: SettingsColors.folder,
         title: '存到資料夾',
         body: Text(
           rules,
@@ -200,7 +200,7 @@ class _BackupSectionState extends State<BackupSection> {
           ),
           PanelButton(
             action,
-            color: SettingsHue.folder,
+            color: SettingsColors.folder,
             onTap: () => Navigator.of(context).pop(true),
           ),
         ],
@@ -266,7 +266,7 @@ class _BackupSectionState extends State<BackupSection> {
                   child: _Manual(
                     glyph: Glyph.upload,
                     label: '匯出一份',
-                    color: SettingsHue.csv,
+                    color: SettingsColors.csv,
                     onTap: () => _export(widget.backupManager),
                   ),
                 ),
@@ -275,7 +275,7 @@ class _BackupSectionState extends State<BackupSection> {
                   child: _Manual(
                     glyph: Glyph.download,
                     label: '還原',
-                    color: SettingsHue.invoice,
+                    color: SettingsColors.invoice,
                     onTap: () =>
                         restoreFromBackup(context, widget.backupManager),
                   ),
@@ -309,7 +309,7 @@ class _BackupSectionState extends State<BackupSection> {
   /// Google Drive: its tick links or unlinks it; linked, when it last
   /// went up and whether the receipt photos go too.
   Widget _driveCard(DriveSync drive) {
-    const color = SettingsHue.backup;
+    const color = SettingsColors.backup;
     final linked = drive.linked;
     return _BackupCard(
       glyph: Glyph.upload,
@@ -351,7 +351,7 @@ class _BackupSectionState extends State<BackupSection> {
   }
 
   Widget _folderCard(PhoneBackup phone) {
-    const color = SettingsHue.folder;
+    const color = SettingsColors.folder;
     final on = phone.on;
     return _BackupCard(
       glyph: Glyph.records,
@@ -413,7 +413,7 @@ class BackupHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final warn = !on || stale;
-    final color = warn ? SettingsHue.warning : SettingsHue.backup;
+    final color = warn ? SettingsColors.warning : SettingsColors.backup;
     final at = this.at;
     final days = at == null
         ? null
@@ -471,7 +471,7 @@ class BackupHero extends StatelessWidget {
                 ),
               ),
               if (onTap != null)
-                const GlyphIcon(Glyph.next, size: 18, color: Hue.muted),
+                const GlyphIcon(Glyph.next, size: 18, color: AppColors.muted),
             ],
           ),
           if (trailing != null) ...[

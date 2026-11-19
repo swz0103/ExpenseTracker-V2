@@ -39,7 +39,6 @@ abstract final class Layout {
 
   /// The design system: where colours, type sizes and buttons are named.
   static const designSystemDir = '/core/design_system/';
-  static const themeFile = 'core/design_system/theme.dart';
   static const typeFile = '/core/design_system/type.dart';
   static const keysFile = 'core/design_system/keys.dart';
 
@@ -88,12 +87,4 @@ abstract final class Layout {
 
   /// How long a file grows before it should be split or say why not.
   static const fileGuide = 600;
-
-  /// Where an exemption from "no colour literals" applies.
-  static const colourLiteralExempt = [
-    designSystemDir,
-    '/core/ledger/',
-    modelFolder,
-    '/app/demo/',
-  ];
 }

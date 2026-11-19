@@ -94,14 +94,14 @@ class _AccountsPageState extends State<AccountsPage> {
                 if (accounts.length > 1)
                   TextButton(
                     onPressed: () => _sort(context),
-                    style: wordButton(Hue.accent),
+                    style: wordButton(AppColors.accent),
                     child: const Text('排序'),
                   ),
                 TextButton.icon(
                   onPressed: () => editAccount(context, ledger),
                   icon: const GlyphIcon(Glyph.add, size: 16),
                   label: const Text(Words.add),
-                  style: wordButton(Hue.ink),
+                  style: wordButton(AppColors.ink),
                 ),
               ],
             ),
@@ -180,10 +180,10 @@ class _NetWorth extends StatelessWidget {
           DateTime.utc(today.year, today.month, 0),
         );
     final parts = [
-      ('存款', saved, Hue.bank),
-      (Words.investment, invest, Hue.holdings),
-      (Words.lend, lent, Hue.receivable),
-      ('負債', debt, Hue.card),
+      ('存款', saved, AppColors.bank),
+      (Words.investment, invest, AppColors.holdings),
+      (Words.lend, lent, AppColors.receivable),
+      ('負債', debt, AppColors.card),
     ];
     final shown = [
       for (final p in parts)
@@ -194,12 +194,12 @@ class _NetWorth extends StatelessWidget {
       icon: Glyph.wallet,
       label: '淨資產',
       value: ledger.money(net),
-      valueColor: net < 0 ? Hue.negative : Hue.ink,
+      valueColor: AppColors.ofBalance(net),
       trailing: moved == 0
           ? null
           : Pill(
               '${moved > 0 ? '↑' : '↓'} ${ledger.money(moved.abs())}',
-              color: moved > 0 ? Hue.positive : Hue.negative,
+              color: moved > 0 ? AppColors.positive : AppColors.negative,
             ),
       child: shown.isEmpty
           ? null

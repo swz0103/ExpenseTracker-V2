@@ -42,7 +42,7 @@ const longerFunctions = <String, int>{
   'src/features/recurring/ui/recurring_page.dart::_RecurringPageState.build':
       150,
   'src/core/ledger/portfolio.dart::Portfolio.replay': 143,
-  'src/features/entries/ui/entries_page.dart::_EntriesPageState._head': 138,
+  'src/features/entries/ui/entries_page.dart::_EntriesPageState._head': 109,
   'src/features/reports/ui/report_blocks.dart::ReportHero.build': 138,
   'src/features/settings/ui/update_panel.dart::_UpdatePanelState.build': 137,
   'src/features/reports/ui/reports_page_state.dart::_ReportsPageState.build':
@@ -58,16 +58,12 @@ const longerFunctions = <String, int>{
       122,
   'src/features/budgets/ui/budgets.dart::_BudgetsPageState.build': 122,
   'src/features/investments/ui/holding_page.dart::HoldingPage.build': 122,
-  'src/features/recurring/ui/recurring_calendar.dart::_DayItemsState._itemCard':
-      96,
   'src/features/accounts/ui/account_card.dart::AccountCard.build': 115,
   'src/features/lock/ui/views/unlock_view.dart::_UnlockViewState._page': 114,
   'src/app/settings_page.dart::SettingsPage._index': 114,
   'src/features/overview/ui/sections/daily_section.dart::_DailySectionState._daily':
       113,
   'src/features/categories/ui/categories_page.dart::_CategoriesPageState.build':
-      113,
-  'src/features/budgets/ui/budgets_month_picker.dart::_MonthPickerState.build':
       113,
   'src/core/widgets/calculator.dart::_CalculatorState.build': 113,
   'src/core/widgets/tour.dart::_Card.build': 87,
@@ -107,7 +103,6 @@ const longerFunctions = <String, int>{
   'src/core/charts/waterfall.dart::_WaterfallPainter.paint': 89,
   'src/core/design_system/time_panels.dart::_TimePanelState.build': 88,
   'src/features/reports/model/report.dart::Report.of': 87,
-  'src/features/reports/ui/report_habits.dart::weekdaysSection': 86,
   'src/features/recurring/ui/recurring_rows.dart::RecurringRow.build': 86,
   'src/features/accounts/ui/accounts.dart::_NetWorth.build': 86,
   'src/features/overview/ui/sections/plan_section.dart::PlanSection._budgetTile':
@@ -123,7 +118,6 @@ const longerFunctions = <String, int>{
   'src/features/recurring/forms/recurring_repeat.dart::_OtherSheetState.build':
       81,
   'src/features/debts/ui/debts_page.dart::_DebtHero.build': 81,
-  'src/core/design_system/dialogs.dart::confirm': 81,
 };
 const largerLibraries = <String, int>{};
 

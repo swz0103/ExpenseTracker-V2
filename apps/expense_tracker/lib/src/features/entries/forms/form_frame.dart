@@ -98,7 +98,7 @@ class FormFooter extends StatelessWidget {
           if (refund != null)
             TextButton(
               onPressed: refund,
-              style: wordButton(Hue.positive, minimumSize: Size(64, 48)),
+              style: wordButton(AppColors.positive, minimumSize: Size(64, 48)),
               child: const Text('退款'),
             ),
           const SizedBox(width: Space.s2),

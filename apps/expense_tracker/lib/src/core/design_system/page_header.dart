@@ -160,7 +160,7 @@ class StepSwitch extends StatelessWidget {
           icon: GlyphIcon(
             glyph,
             size: iconSize,
-            color: onPressed == null ? Hue.faint : Hue.muted,
+            color: onPressed == null ? AppColors.faint : AppColors.muted,
           ),
         );
     return Row(

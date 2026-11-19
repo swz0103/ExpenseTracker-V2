@@ -52,16 +52,12 @@ class LockForm extends StatelessWidget {
           ),
         ),
         const SizedBox(height: Space.s2),
-        Text(
-          hint,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Hue.muted),
-        ),
+        Text(hint, textAlign: TextAlign.center, style: mutedText),
         const SizedBox(height: Space.s5),
         Container(
           padding: const EdgeInsets.all(Space.s4),
           decoration: BoxDecoration(
-            color: Hue.hero,
+            color: AppColors.hero,
             borderRadius: BorderRadius.circular(Radii.largeIncreased),
           ),
           child: Column(
@@ -78,7 +74,7 @@ class LockForm extends StatelessWidget {
         FilledButton(
           onPressed: busy ? null : onSubmit,
           style: solidButton(
-            Hue.accent,
+            AppColors.accent,
             minimumSize: Size.fromHeight(48),
             radius: Radii.large,
           ),
@@ -100,7 +96,7 @@ class LockPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Hue.paper,
+      backgroundColor: AppColors.paper,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -132,11 +128,7 @@ class ProblemLine extends StatelessWidget {
     if (text == null || text.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: Space.s2),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(color: Hue.danger),
-      ),
+      child: Text(text, textAlign: TextAlign.center, style: dangerText),
     );
   }
 }
@@ -149,7 +141,10 @@ class BusyMark extends StatelessWidget {
   Widget build(BuildContext context) {
     return const SizedBox.square(
       dimension: 20,
-      child: CircularProgressIndicator(strokeWidth: 2, color: Hue.onAccent),
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        color: AppColors.onAccent,
+      ),
     );
   }
 }
@@ -267,7 +262,7 @@ class _LockSplashState extends State<LockSplash>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Hue.paper,
+      backgroundColor: AppColors.paper,
       body: Center(
         child: Semantics(
           label: '記帳本',

@@ -88,8 +88,8 @@ class _DayChoicesState extends State<DayChoices> {
     final ink = picked
         ? chosenInk(widget.color)
         : !inMonth || future
-        ? Hue.faint
-        : Hue.ink;
+        ? AppColors.faint
+        : AppColors.ink;
     final dotted = inMonth && !picked && widget.marked.contains(day);
     return InkResponse(
       onTap: future || !inMonth ? null : () => widget.onPick(day),
@@ -158,7 +158,7 @@ class _QuickDay extends StatelessWidget {
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(Radii.large);
     return Material(
-      color: picked ? color.withValues(alpha: 0.12) : Hue.surface,
+      color: picked ? color.withValues(alpha: 0.12) : AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: radius,
         side: picked ? BorderSide(color: color, width: 1.5) : BorderSide.none,
@@ -180,16 +180,10 @@ class _QuickDay extends StatelessWidget {
                   style: TextStyle(
                     fontSize: TextSize.body,
                     fontWeight: FontWeight.w700,
-                    color: picked ? color : Hue.ink,
+                    color: picked ? color : AppColors.ink,
                   ),
                 ),
-                Text(
-                  formatMEd(day),
-                  style: const TextStyle(
-                    fontSize: TextSize.caption,
-                    color: Hue.muted,
-                  ),
-                ),
+                Text(formatMEd(day), style: mutedCaption),
               ],
             ),
           ),

@@ -39,7 +39,7 @@ class CenterPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Hue.paper,
+      backgroundColor: AppColors.paper,
       insetPadding: const EdgeInsets.symmetric(
         horizontal: Space.s5,
         vertical: Space.s6,
@@ -76,14 +76,7 @@ class CenterPanel extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (detail != null)
-                        OneLine(
-                          detail!,
-                          style: const TextStyle(
-                            fontSize: TextSize.body,
-                            color: Hue.muted,
-                          ),
-                        ),
+                      if (detail != null) OneLine(detail!, style: mutedBody),
                     ],
                   ),
                 ),
@@ -165,7 +158,7 @@ Future<T?> showPanel<T>(
 }) => showDialog<T>(
   context: context,
   barrierDismissible: dismissible,
-  barrierColor: Hue.scrim,
+  barrierColor: AppColors.scrim,
   builder: builder,
 );
 
@@ -193,7 +186,7 @@ class PanelButton extends StatelessWidget {
     return Pressable(
       child: Material(
         color: solid == null
-            ? Hue.surface
+            ? AppColors.surface
             : tinted
             ? tintOf(solid, 0.22)
             : chosenFill(solid),
@@ -219,7 +212,7 @@ class PanelButton extends StatelessWidget {
                     fontSize: TextSize.title,
                     fontWeight: FontWeight.w800,
                     color: solid == null
-                        ? Hue.ink
+                        ? AppColors.ink
                         : tinted
                         ? deepOf(solid)
                         : chosenInk(solid),

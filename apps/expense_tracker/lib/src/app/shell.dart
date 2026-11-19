@@ -467,7 +467,7 @@ class _BottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: Hue.panel,
+        color: AppColors.panel,
         border: Border(top: rowRule),
       ),
       child: SafeArea(
@@ -489,14 +489,14 @@ class _BottomBar extends StatelessWidget {
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Hue.accentGlow,
+                                  color: AppColors.accentGlow,
                                   blurRadius: 12,
                                   offset: Offset(0, 4),
                                 ),
                               ],
                             ),
                             child: Material(
-                              color: Hue.accent,
+                              color: AppColors.accent,
                               shape: const CircleBorder(),
                               child: InkWell(
                                 customBorder: const CircleBorder(),
@@ -511,7 +511,7 @@ class _BottomBar extends StatelessWidget {
                                   child: const Center(
                                     child: GlyphIcon(
                                       Glyph.add,
-                                      color: Hue.onAccent,
+                                      color: AppColors.onAccent,
                                       weight: 2,
                                     ),
                                   ),
@@ -565,7 +565,7 @@ class _BottomBar extends StatelessWidget {
         curve: Curves.easeOutBack,
         child: GlyphIcon(
           icon,
-          color: chosen ? Hue.accent : Hue.muted,
+          color: chosen ? AppColors.accent : AppColors.muted,
           tinted: chosen,
         ),
       ),
@@ -574,7 +574,7 @@ class _BottomBar extends StatelessWidget {
         label,
         style: TextStyle(
           fontSize: TextSize.caption,
-          color: chosen ? Hue.accent : Hue.muted,
+          color: chosen ? AppColors.accent : AppColors.muted,
           fontWeight: chosen ? FontWeight.w700 : FontWeight.w400,
         ),
       ),

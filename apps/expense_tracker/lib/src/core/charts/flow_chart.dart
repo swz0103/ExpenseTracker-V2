@@ -97,7 +97,7 @@ class _FlowPainter extends CustomPainter {
     final bottom = size.height - 22;
     final plot = size.width - left - right;
     final slot = plot / months.length;
-    const axis = TextStyle(fontSize: TextSize.tiny, color: Hue.muted);
+    const axis = mutedTiny;
 
     var high = 1;
     for (final m in months) {
@@ -116,7 +116,7 @@ class _FlowPainter extends CustomPainter {
 
     // Grid and both axes.
     final grid = Paint()
-      ..color = Hue.line
+      ..color = AppColors.line
       ..strokeWidth = 1;
     for (final step in const [0, 1, 2]) {
       final value = ceiling * step ~/ 2;
@@ -141,7 +141,7 @@ class _FlowPainter extends CustomPainter {
       paintText(
         canvas,
         hidden ? '••' : '${(worth / 10000).toStringAsFixed(1)}萬',
-        axis.copyWith(color: Hue.investment),
+        axis.copyWith(color: AppColors.investment),
         Offset(left + plot + 6, y(value)),
         anchor: const Offset(0, 0.5),
       );
@@ -156,7 +156,7 @@ class _FlowPainter extends CustomPainter {
         bottom + 20,
         const Radius.circular(Radii.small),
       ),
-      Paint()..color = Hue.surface,
+      Paint()..color = AppColors.surface,
     );
 
     final bar = min(12.0, slot * 0.24);
@@ -175,13 +175,13 @@ class _FlowPainter extends CustomPainter {
         );
       }
 
-      column(m.income, centre - bar - 2, Hue.positive);
-      column(m.expense, centre + 2, Hue.negative);
+      column(m.income, centre - bar - 2, AppColors.positive);
+      column(m.expense, centre + 2, AppColors.negative);
       paintText(
         canvas,
         m.label,
         axis.copyWith(
-          color: i == selected ? Hue.ink : Hue.muted,
+          color: i == selected ? AppColors.ink : AppColors.muted,
           fontWeight: i == selected ? FontWeight.w700 : FontWeight.w400,
         ),
         Offset(centre, size.height - 2),
@@ -202,19 +202,19 @@ class _FlowPainter extends CustomPainter {
     canvas.drawPath(
       line,
       Paint()
-        ..color = Hue.investment
+        ..color = AppColors.investment
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.6,
     );
     for (final (i, m) in months.indexed) {
       final point = Offset(left + slot * (i + 0.5), yWorth(m.worth));
       final r = i == selected ? 5.0 : 3.0;
-      canvas.drawCircle(point, r, Paint()..color = Hue.panel);
+      canvas.drawCircle(point, r, Paint()..color = AppColors.panel);
       canvas.drawCircle(
         point,
         r,
         Paint()
-          ..color = Hue.investment
+          ..color = AppColors.investment
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5,
       );

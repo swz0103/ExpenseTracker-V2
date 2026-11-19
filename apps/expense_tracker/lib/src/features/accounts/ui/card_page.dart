@@ -81,7 +81,7 @@ class CardPage extends StatelessWidget {
                   // Deleted or archived: back to the accounts.
                   if (gone) nav.back();
                 },
-                style: wordButton(Hue.accent),
+                style: wordButton(AppColors.accent),
                 child: const Text(Words.edit),
               ),
             ],
@@ -93,7 +93,7 @@ class CardPage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: Space.s2),
               child: FigureCard(
-                color: Hue.card,
+                color: AppColors.card,
                 icon: Glyph.calendar,
                 label: '下次結帳',
                 value: _day(card.nextClose),
@@ -123,7 +123,7 @@ class CardPage extends StatelessWidget {
       label: '本期帳單 · ${_day(card.start)}–${_day(card.end)}',
       trailing: Pill(owed == 0 ? '已繳清' : '已出帳'),
       value: ledger.money(owed),
-      valueColor: owed > 0 ? Hue.negative : Hue.positive,
+      valueColor: owed > 0 ? AppColors.negative : AppColors.positive,
       sub: owed == 0
           ? '這期已繳清'
           : '繳款截止 ${_day(card.due)}（${left < 0 ? '已逾期' : '還有 $left 天'}）',
@@ -135,7 +135,7 @@ class CardPage extends StatelessWidget {
                 onPressed: () =>
                     nav.compose(type: EntryType.transfer, draft: payment),
                 style: solidButton(
-                  Hue.accent,
+                  AppColors.accent,
                   minimumSize: Size.fromHeight(44),
                   radius: Radii.medium,
                 ),
@@ -179,7 +179,7 @@ class CardPage extends StatelessWidget {
     final used = card.usedShare;
     return CardRow([
       FigureCard(
-        color: Hue.card,
+        color: AppColors.card,
         icon: Glyph.calendar,
         label: '本期未出帳',
         value: ledger.money(card.spentSince),
@@ -190,13 +190,13 @@ class CardPage extends StatelessWidget {
             value: card.cycleDays == 0 ? 0 : card.daysGone / card.cycleDays,
             minHeight: 6,
             borderRadius: BorderRadius.circular(Radii.extraSmall),
-            color: Hue.accent,
-            backgroundColor: Hue.accentTrack,
+            color: AppColors.accent,
+            backgroundColor: AppColors.accentTrack,
           ),
         ),
       ),
       FigureCard(
-        color: Hue.card,
+        color: AppColors.card,
         icon: Glyph.budget,
         label: '可用額度',
         value: available == null ? '—' : ledger.money(available),
@@ -218,8 +218,10 @@ class CardPage extends StatelessWidget {
                       value: used,
                       minHeight: 6,
                       borderRadius: BorderRadius.circular(Radii.extraSmall),
-                      color: card.nearLimit ? Hue.negative : Hue.accent,
-                      backgroundColor: Hue.accentTrack,
+                      color: card.nearLimit
+                          ? AppColors.negative
+                          : AppColors.accent,
+                      backgroundColor: AppColors.accentTrack,
                     ),
                     const SizedBox(height: Space.s1),
                     Text('已用 ${card.usedPercent}%', style: mutedSmall),
@@ -233,11 +235,11 @@ class CardPage extends StatelessWidget {
   /// Cashback and fees this year, each with ＋ to record one.
   Widget _extras(CardSummary card) => CardRow([
     FigureCard(
-      color: Hue.positive,
+      color: AppColors.positive,
       icon: Glyph.sparkle,
       label: '今年回饋',
       value: ledger.money(card.taggedThisYear('回饋', EntryType.income)),
-      valueColor: Hue.positive,
+      valueColor: AppColors.positive,
       sub: '本期 ${ledger.money(card.taggedSinceClose('回饋', EntryType.income))}',
       trailing: const GlyphIcon(Glyph.add, size: 16),
       onTap: () => nav.compose(
@@ -246,7 +248,7 @@ class CardPage extends StatelessWidget {
       ),
     ),
     FigureCard(
-      color: Hue.negative,
+      color: AppColors.negative,
       icon: Glyph.ticket,
       label: '今年年費',
       value: ledger.money(card.taggedThisYear('年費', EntryType.expense)),
@@ -293,7 +295,7 @@ class CardPage extends StatelessWidget {
       ),
     ),
     if (card.unbilled.isEmpty)
-      const Text('還沒有新的刷卡', style: TextStyle(color: Hue.muted))
+      const Text('還沒有新的刷卡', style: mutedText)
     else
       GroupBox(
         // None: a row's 編輯 and 刪除 reach the card's edges.
@@ -375,7 +377,7 @@ class CardPage extends StatelessWidget {
                   minHeight: 5,
                   borderRadius: BorderRadius.circular(Radii.extraSmall),
                   color: shownColor(Color(category.color)),
-                  backgroundColor: Hue.track,
+                  backgroundColor: AppColors.track,
                 ),
                 const SizedBox(height: Space.s1),
                 Text(

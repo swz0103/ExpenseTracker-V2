@@ -15,10 +15,10 @@ extension ComposeModeLook on ComposeMode {
   };
 
   Color get color => switch (this) {
-    ComposeMode.expense => Hue.negative,
-    ComposeMode.income => Hue.positive,
-    ComposeMode.transfer => Hue.transfer,
-    ComposeMode.lend => Hue.receivable,
-    ComposeMode.investment => Hue.investment,
+    ComposeMode.expense => AppColors.negative,
+    ComposeMode.income => AppColors.positive,
+    ComposeMode.transfer => AppColors.transfer,
+    ComposeMode.lend => AppColors.receivable,
+    ComposeMode.investment => AppColors.investment,
   };
 }

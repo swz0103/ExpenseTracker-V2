@@ -18,7 +18,7 @@ Future<void> showUpdatePanel(BuildContext context, AppUpdate update) async {
   if (info == null) return;
   await showDialog<void>(
     context: context,
-    barrierColor: Hue.scrim,
+    barrierColor: AppColors.scrim,
     barrierDismissible: false,
     builder: (context) => PopScope(
       canPop: false,
@@ -60,7 +60,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
   Widget build(BuildContext context) {
     final info = widget.info;
     return Dialog(
-      backgroundColor: Hue.paper,
+      backgroundColor: AppColors.paper,
       insetPadding: const EdgeInsets.symmetric(
         horizontal: Space.s6,
         vertical: Space.s6,
@@ -102,7 +102,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                           '・',
                           style: TextStyle(
                             fontSize: TextSize.body,
-                            color: Hue.accent,
+                            color: AppColors.accent,
                           ),
                         ),
                         Expanded(
@@ -118,7 +118,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                   const Text(
                     '修正與改進',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: TextSize.body, color: Hue.muted),
+                    style: mutedBody,
                   ),
                 if (_problem case final problem?)
                   Padding(
@@ -128,7 +128,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: TextSize.body,
-                        color: Hue.negative,
+                        color: AppColors.negative,
                       ),
                     ),
                   ),
@@ -139,24 +139,21 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                     child: LinearProgressIndicator(
                       value: progress,
                       minHeight: 8,
-                      color: Hue.accent,
-                      backgroundColor: Hue.surface,
+                      color: AppColors.accent,
+                      backgroundColor: AppColors.surface,
                     ),
                   ),
                   const SizedBox(height: Space.s2),
                   Text(
                     '下載中 ${(progress * 100).round()}%',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: TextSize.body,
-                      color: Hue.muted,
-                    ),
+                    style: mutedBody,
                   ),
                 ] else ...[
                   _Choice(
                     '更新',
                     key: Keys.install,
-                    color: Hue.positive,
+                    color: AppColors.positive,
                     onTap: widget.update.busy ? null : _install,
                   ),
                   const SizedBox(height: Space.s2),
@@ -165,7 +162,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                       Expanded(
                         child: TextButton(
                           key: Keys.later,
-                          style: wordButton(Hue.muted),
+                          style: wordButton(AppColors.muted),
                           onPressed: () {
                             widget.update.later();
                             Navigator.of(context).pop();
@@ -176,7 +173,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                       Expanded(
                         child: TextButton(
                           key: Keys.skip,
-                          style: wordButton(Hue.muted),
+                          style: wordButton(AppColors.muted),
                           onPressed: () {
                             widget.update.skip(info);
                             Navigator.of(context).pop();

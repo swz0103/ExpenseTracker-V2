@@ -69,7 +69,7 @@ final class LendFields {
           LentShareChip(
             name: _f.ledger.account(person).name,
             amount: groupDigits(value),
-            color: Hue.receivable,
+            color: AppColors.receivable,
             onTap: _a.viewing
                 ? null
                 : () async {
@@ -83,7 +83,11 @@ final class LendFields {
           IconButton(
             tooltip: '不代墊',
             onPressed: () => _a.update(_f.stopLending),
-            icon: const GlyphIcon(Glyph.close, size: 16, color: Hue.faint),
+            icon: const GlyphIcon(
+              Glyph.close,
+              size: 16,
+              color: AppColors.faint,
+            ),
           ),
         ],
       ],

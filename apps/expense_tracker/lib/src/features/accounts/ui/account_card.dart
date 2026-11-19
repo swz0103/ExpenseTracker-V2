@@ -73,7 +73,7 @@ class AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = accountHue(account);
+    final color = accountColor(account);
     final radius = BorderRadius.circular(Radii.largeIncreased);
     final (stripHeight, frontHeight) = cardHeights(context);
     final (label, figure, note) = front ? _face() : ('', '', '');
@@ -83,7 +83,7 @@ class AccountCard extends StatelessWidget {
           width: 28,
           height: 28,
           decoration: const BoxDecoration(
-            color: Hue.glass,
+            color: AppColors.glass,
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
@@ -98,7 +98,7 @@ class AccountCard extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.body,
               fontWeight: FontWeight.w700,
-              color: account.name.isEmpty ? Hue.faint : Hue.ink,
+              color: account.name.isEmpty ? AppColors.faint : AppColors.ink,
             ),
           ),
         ),
@@ -116,13 +116,7 @@ class AccountCard extends StatelessWidget {
       ],
     );
     return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        boxShadow: const [
-          BoxShadow(color: Hue.stackFar, blurRadius: 8, offset: Offset(0, -2)),
-          BoxShadow(color: Hue.stackNear, blurRadius: 2, offset: Offset(0, 1)),
-        ],
-      ),
+      decoration: BoxDecoration(borderRadius: radius, boxShadow: _stacked),
       child: Material(
         color: softOf(color),
         borderRadius: radius,
@@ -242,3 +236,10 @@ class AccountCard extends StatelessWidget {
     }
   }
 }
+
+/// A card's shadow in the stack: a soft one above, where the card behind
+/// shows, and a close one under it.
+const _stacked = [
+  BoxShadow(color: AppColors.stackFar, blurRadius: 8, offset: Offset(0, -2)),
+  BoxShadow(color: AppColors.stackNear, blurRadius: 2, offset: Offset(0, 1)),
+];

@@ -110,7 +110,7 @@ class _FlowSectionState extends State<FlowSection> {
             style: TextStyle(
               fontSize: TextSize.small,
               fontWeight: FontWeight.w700,
-              color: left < 0 ? Hue.negative : Hue.ink,
+              color: AppColors.ofBalance(left),
             ),
           ),
         ],
@@ -122,9 +122,9 @@ class _FlowSectionState extends State<FlowSection> {
         runSpacing: 4,
         children: [
           for (final (color, name, value, line) in [
-            (Hue.positive, Words.income, shown.income, false),
-            (Hue.negative, Words.expense, shown.expense, false),
-            (Hue.investment, '淨資產', shown.worth, true),
+            (AppColors.positive, Words.income, shown.income, false),
+            (AppColors.negative, Words.expense, shown.expense, false),
+            (AppColors.investment, '淨資產', shown.worth, true),
           ])
             Row(
               mainAxisSize: MainAxisSize.min,

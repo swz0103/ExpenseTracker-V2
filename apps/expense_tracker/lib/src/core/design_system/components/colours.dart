@@ -9,8 +9,11 @@ import '../theme.dart';
 /// The same mix on the dark paper gives the dark card, as deep as an
 /// account's card (a little under a fifth of the colour); stronger tints
 /// grow much more slowly there, so nothing on the dark theme glows.
-Color tintOf(Color color, [double amount = 0.2]) =>
-    Color.lerp(Hue.paper, color, Shade.dark ? _darkAmount(amount) : amount)!;
+Color tintOf(Color color, [double amount = 0.2]) => Color.lerp(
+  AppColors.paper,
+  color,
+  Shade.dark ? _darkAmount(amount) : amount,
+)!;
 
 double _darkAmount(double amount) =>
     amount <= 0.2 ? amount * 0.95 : 0.19 + (amount - 0.2) * 0.4;

@@ -20,9 +20,9 @@ class FigureCard extends StatelessWidget {
     super.key,
     required this.icon,
     required this.label,
-    this.color = Hue.accent,
+    this.color = AppColors.accent,
     this.value,
-    this.valueColor = Hue.ink,
+    this.valueColor = AppColors.ink,
     this.size,
     this.sub,
     this.trailing,
@@ -131,7 +131,7 @@ class HeroFigure extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
-    this.valueColor = Hue.ink,
+    this.valueColor = AppColors.ink,
     this.size,
     this.sub,
     this.beside,
@@ -175,7 +175,7 @@ class HeroFigure extends StatelessWidget {
         children: [
           Row(
             children: [
-              SquareIcon(icon, Hue.accent, size: 30),
+              SquareIcon(icon, AppColors.accent, size: 30),
               const SizedBox(width: Space.s2),
               Flexible(child: OneLine(label, style: accentLabel)),
               ?beside,
@@ -252,15 +252,7 @@ class FigureCells extends StatelessWidget {
                         children: [
                           GlyphIcon(icon, size: 14, color: deepOf(color)),
                           const SizedBox(width: Space.s1),
-                          Expanded(
-                            child: OneLine(
-                              label,
-                              style: const TextStyle(
-                                fontSize: TextSize.caption,
-                                color: Hue.muted,
-                              ),
-                            ),
-                          ),
+                          Expanded(child: OneLine(label, style: mutedCaption)),
                         ],
                       ),
                       const SizedBox(height: Space.half),
@@ -332,7 +324,7 @@ class GroupBox extends StatelessWidget {
     final radius = BorderRadius.circular(Radii.large);
     final tap = onTap;
     final group = Material(
-      color: Hue.group,
+      color: AppColors.group,
       borderRadius: radius,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -408,13 +400,13 @@ class FormGroup extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: TextSize.small,
                   fontWeight: FontWeight.w800,
-                  color: Hue.muted,
+                  color: AppColors.muted,
                 ),
               ),
             ),
           DecoratedBox(
             decoration: BoxDecoration(
-              color: Hue.group,
+              color: AppColors.group,
               borderRadius: BorderRadius.circular(Radii.large),
             ),
             child: Padding(

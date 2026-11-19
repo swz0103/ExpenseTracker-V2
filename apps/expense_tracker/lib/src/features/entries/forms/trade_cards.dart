@@ -34,14 +34,14 @@ class TradeFigureCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(Radii.large);
-    final mark = SquareIcon(icon, Hue.accent, size: 30);
+    final mark = SquareIcon(icon, AppColors.accent, size: 30);
     const gap = SizedBox(width: Space.s2);
     final name = Text(
       label,
       style: const TextStyle(
         fontSize: TextSize.caption,
         fontWeight: FontWeight.w700,
-        color: Hue.muted,
+        color: AppColors.muted,
       ),
     );
     final figure = FittedBox(
@@ -52,7 +52,7 @@ class TradeFigureCard extends StatelessWidget {
         style: const TextStyle(
           fontSize: TextSize.large,
           fontWeight: FontWeight.w700,
-          color: Hue.ink,
+          color: AppColors.ink,
         ),
       ),
     );
@@ -60,11 +60,11 @@ class TradeFigureCard extends StatelessWidget {
       label: '$label：$value',
       onTap: onTap,
       child: Material(
-        color: Hue.group,
+        color: AppColors.group,
         shape: RoundedRectangleBorder(
           borderRadius: radius,
           side: current
-              ? const BorderSide(color: Hue.investment, width: 2)
+              ? const BorderSide(color: AppColors.investment, width: 2)
               : BorderSide.none,
         ),
         child: InkWell(
@@ -132,12 +132,12 @@ class SettlementBox extends StatelessWidget {
       onTap: tap,
       excludeSemantics: true,
       child: Material(
-        color: tap == null ? Hue.surface : Hue.white,
+        color: tap == null ? AppColors.surface : AppColors.white,
         shape: RoundedRectangleBorder(
           borderRadius: radius,
           side: tap == null
               ? BorderSide.none
-              : const BorderSide(color: Hue.line),
+              : const BorderSide(color: AppColors.line),
         ),
         child: InkWell(
           borderRadius: radius,
@@ -159,7 +159,7 @@ class SettlementBox extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: TextSize.tiny,
                       fontWeight: FontWeight.w700,
-                      color: Hue.muted,
+                      color: AppColors.muted,
                     ),
                   ),
                   FittedBox(
@@ -208,9 +208,13 @@ class HoldingCodePill extends StatelessWidget {
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: Space.s3),
         decoration: BoxDecoration(
-          color: picked ? Hue.investment.withValues(alpha: 0.12) : Hue.surface,
+          color: picked
+              ? AppColors.investment.withValues(alpha: 0.12)
+              : AppColors.surface,
           borderRadius: BorderRadius.circular(Radii.medium),
-          border: picked ? Border.all(color: Hue.investment, width: 2) : null,
+          border: picked
+              ? Border.all(color: AppColors.investment, width: 2)
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -220,7 +224,7 @@ class HoldingCodePill extends StatelessWidget {
               style: TextStyle(
                 fontSize: TextSize.small,
                 fontWeight: FontWeight.w800,
-                color: picked ? Hue.investment : Hue.ink,
+                color: picked ? AppColors.investment : AppColors.ink,
               ),
             ),
             if (name.isNotEmpty) ...[
@@ -229,7 +233,7 @@ class HoldingCodePill extends StatelessWidget {
                 name,
                 style: TextStyle(
                   fontSize: TextSize.small,
-                  color: picked ? Hue.investment : Hue.muted,
+                  color: picked ? AppColors.investment : AppColors.muted,
                 ),
               ),
             ],
@@ -306,11 +310,13 @@ class HoldingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(Radii.large);
     return Material(
-      color: picked ? Hue.investment.withValues(alpha: 0.12) : Hue.surface,
+      color: picked
+          ? AppColors.investment.withValues(alpha: 0.12)
+          : AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: radius,
         side: picked
-            ? const BorderSide(color: Hue.investment, width: 2)
+            ? const BorderSide(color: AppColors.investment, width: 2)
             : BorderSide.none,
       ),
       child: InkWell(
@@ -327,7 +333,7 @@ class HoldingCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: TextSize.title,
                   fontWeight: FontWeight.w800,
-                  color: picked ? Hue.investment : Hue.ink,
+                  color: picked ? AppColors.investment : AppColors.ink,
                 ),
               ),
               Text(
@@ -371,10 +377,10 @@ class SquareIconButton extends StatelessWidget {
         height: 40,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Hue.surface,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(Radii.medium),
         ),
-        child: GlyphIcon(icon, size: 19, color: Hue.muted),
+        child: GlyphIcon(icon, size: 19, color: AppColors.muted),
       ),
     );
   }
@@ -405,7 +411,7 @@ class TradeOutcomeCard extends StatelessWidget {
         vertical: Space.s2,
       ),
       decoration: BoxDecoration(
-        color: Hue.group,
+        color: AppColors.group,
         borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
@@ -421,13 +427,7 @@ class TradeOutcomeCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                Text(
-                  sub,
-                  style: const TextStyle(
-                    fontSize: TextSize.caption,
-                    color: Hue.muted,
-                  ),
-                ),
+                Text(sub, style: mutedCaption),
               ],
             ),
           ),
@@ -481,7 +481,7 @@ class SettlementRow extends StatelessWidget {
       style: const TextStyle(
         fontSize: TextSize.title,
         fontWeight: FontWeight.w700,
-        color: Hue.faint,
+        color: AppColors.faint,
       ),
     ),
   );
@@ -567,7 +567,7 @@ class HoldingCodeRow extends StatelessWidget {
             width: 1,
             height: 24,
             margin: const EdgeInsets.only(left: Space.s1),
-            color: Hue.line,
+            color: AppColors.line,
           ),
           SquareIconButton(icon: Glyph.categories, label: '全部標的', onTap: onAll),
         ],

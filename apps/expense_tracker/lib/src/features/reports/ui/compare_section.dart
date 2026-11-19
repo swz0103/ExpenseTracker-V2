@@ -147,7 +147,7 @@ class _CompareSectionState extends State<CompareSection> {
         Space.s4,
       ),
       decoration: BoxDecoration(
-        color: Hue.group,
+        color: AppColors.group,
         borderRadius: BorderRadius.circular(Radii.largeIncreased),
       ),
       child: Column(
@@ -156,7 +156,7 @@ class _CompareSectionState extends State<CompareSection> {
           Container(
             padding: const EdgeInsets.all(Space.s1),
             decoration: BoxDecoration(
-              color: Hue.surface,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(Radii.large),
             ),
             child: Row(
@@ -168,7 +168,7 @@ class _CompareSectionState extends State<CompareSection> {
                       button: true,
                       child: Material(
                         color: against == _against
-                            ? Hue.white
+                            ? AppColors.white
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(Radii.medium),
                         child: InkWell(
@@ -185,8 +185,8 @@ class _CompareSectionState extends State<CompareSection> {
                                   fontSize: TextSize.body,
                                   fontWeight: FontWeight.w800,
                                   color: against == _against
-                                      ? Hue.ink
-                                      : Hue.muted,
+                                      ? AppColors.ink
+                                      : AppColors.muted,
                                 ),
                               ),
                             ),
@@ -208,9 +208,9 @@ class _CompareSectionState extends State<CompareSection> {
               thenLabel: then(_against.label),
               largest: largest,
               color: switch (name) {
-                Words.income => Hue.positive,
-                Words.expense => Hue.negative,
-                _ => Hue.accent,
+                Words.income => AppColors.positive,
+                Words.expense => AppColors.negative,
+                _ => AppColors.accent,
               },
             ),
           if (moved.isNotEmpty) ...[
@@ -366,7 +366,7 @@ class _MovedChip extends StatelessWidget {
             ledger.orDots(signed(change)),
             style: TextStyle(
               fontWeight: FontWeight.w800,
-              color: change > 0 ? Hue.negative : Hue.positive,
+              color: change > 0 ? AppColors.negative : AppColors.positive,
             ),
           ),
         ],

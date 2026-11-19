@@ -41,7 +41,7 @@ class RecurringRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (glyph, mark) = recurringMark(ledger, item);
-    final color = grey ? Hue.faint : mark;
+    final color = grey ? AppColors.faint : mark;
     final next = grey || lines != null
         ? ''
         : ledger.recurringService.nextLabel(item);
@@ -67,11 +67,11 @@ class RecurringRow extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Hue.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(Radii.medium),
                   ),
                   alignment: Alignment.center,
-                  child: GlyphIcon(glyph, size: 20, color: Hue.muted),
+                  child: GlyphIcon(glyph, size: 20, color: AppColors.muted),
                 )
               : SquareIcon(glyph, color, size: 40),
           const SizedBox(width: Space.s3),
@@ -93,10 +93,7 @@ class RecurringRow extends StatelessWidget {
                   sub,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: TextSize.caption,
-                    color: Hue.muted,
-                  ),
+                  style: mutedCaption,
                 ),
               ],
             ),
@@ -111,7 +108,9 @@ class RecurringRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: TextSize.title,
                   fontWeight: FontWeight.w800,
-                  color: item.income && !grey ? Hue.positive : Hue.ink,
+                  color: item.income && !grey
+                      ? AppColors.positive
+                      : AppColors.ink,
                 ),
               ),
               if (next.isNotEmpty) ...[

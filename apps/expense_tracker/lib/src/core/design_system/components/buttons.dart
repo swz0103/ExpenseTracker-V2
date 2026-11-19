@@ -19,7 +19,7 @@ ButtonStyle solidButton(
   return FilledButton.styleFrom(
     backgroundColor: quiet ? fill : chosenFill(fill),
     foregroundColor: ink ?? chosenInk(fill),
-    disabledBackgroundColor: Hue.surface,
+    disabledBackgroundColor: AppColors.surface,
     side: quiet ? null : chosenEdge(fill),
     minimumSize: minimumSize,
     padding: padding,

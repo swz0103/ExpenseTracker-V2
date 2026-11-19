@@ -70,7 +70,7 @@ void main() {
     await show(tester, ledger, back);
     expect(find.text('↩ 退款 · 原：午餐'), findsOneWidget);
     final amount = tester.widget<Text>(find.text('+300'));
-    expect(amount.style?.color, Hue.muted);
+    expect(amount.style?.color, AppColors.muted);
   });
 
   test('a holding without a name is shown by its code once', () {

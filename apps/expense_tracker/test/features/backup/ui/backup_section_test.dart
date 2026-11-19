@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../../support/fake_drive.dart';
 import '../../../support/fake_folder.dart';
+import '../../../support/places.dart';
 
 /// The ledger's keys, answering as told.
 final class _Keys implements BackupManager {
@@ -133,8 +134,10 @@ void main() {
   Finder tick(String title) =>
       find.byWidgetPredicate((w) => w is TickSwitch && w.label == title);
 
+  /// Presses what a screen reader calls [words], the last one when a
+  /// sheet repeats a page's words.
   Future<void> tap(WidgetTester tester, String words) async {
-    await tester.tap(find.text(words).last);
+    await go(tester, ['^$words']);
     await settle(tester);
   }
 

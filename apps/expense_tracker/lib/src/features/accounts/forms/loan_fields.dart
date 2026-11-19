@@ -123,7 +123,7 @@ extension on _AccountEditorState {
       context,
       title: title,
       initial: int.tryParse(controller.text.replaceAll(',', '')) ?? 0,
-      color: Hue.accent,
+      color: AppColors.accent,
     );
     if (value != null) controller.text = '$value';
   }
@@ -179,7 +179,7 @@ extension on _AccountEditorState {
                   hintText: '其他',
                   suffixText: suffix,
                   filled: true,
-                  fillColor: Hue.white,
+                  fillColor: AppColors.white,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(Radii.large),
                     borderSide: BorderSide.none,
@@ -192,7 +192,7 @@ extension on _AccountEditorState {
             PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
             PanelButton(
               Words.done,
-              color: Hue.accent,
+              color: AppColors.accent,
               onTap: () => Navigator.of(context).pop(typed.text),
             ),
           ],
@@ -211,7 +211,7 @@ extension on _AccountEditorState {
       selected: _f.payFrom ?? '',
       columns: 3,
       options: [
-        const Option('', '不指定', Glyph.other, Hue.faint),
+        const Option('', '不指定', Glyph.other, AppColors.faint),
         ...accountOptions(
           ledger,
           currency: homeCode,

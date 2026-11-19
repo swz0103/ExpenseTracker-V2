@@ -82,7 +82,9 @@ class _OverviewEditorState extends State<_OverviewEditor> {
                     onTap: () => _show(i, !shown),
                     title: Text(
                       block.label,
-                      style: TextStyle(color: shown ? Hue.ink : Hue.muted),
+                      style: TextStyle(
+                        color: shown ? AppColors.ink : AppColors.muted,
+                      ),
                     ),
                     leading: TickSwitch(
                       value: shown,
@@ -98,7 +100,7 @@ class _OverviewEditorState extends State<_OverviewEditor> {
                           child: const GlyphIcon(
                             Glyph.sliders,
                             size: 20,
-                            color: Hue.muted,
+                            color: AppColors.muted,
                           ),
                         ),
                       ),

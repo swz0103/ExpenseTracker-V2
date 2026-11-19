@@ -53,8 +53,8 @@ class _PeopleChoicesState extends State<PeopleChoices> {
           chosen: {..._picked},
           options: [
             for (final a in _people)
-              Option(a.id, a.name, Glyph.heart, Hue.muted),
-            const Option(adding, '新增對象', Glyph.add, Hue.muted),
+              Option(a.id, a.name, Glyph.heart, AppColors.muted),
+            const Option(adding, '新增對象', Glyph.add, AppColors.muted),
           ],
           onPick: (id) async {
             if (id != adding) {

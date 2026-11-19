@@ -101,7 +101,7 @@ class PickCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onTap,
-    this.valueColor = Hue.ink,
+    this.valueColor = AppColors.ink,
   });
 
   final Glyph icon;
@@ -117,7 +117,7 @@ class PickCard extends StatelessWidget {
       label: '$label：$value',
       onTap: onTap,
       child: Material(
-        color: Hue.group,
+        color: AppColors.group,
         borderRadius: radius,
         child: InkWell(
           borderRadius: radius,
@@ -131,7 +131,7 @@ class PickCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  SquareIcon(icon, Hue.accent, size: 30),
+                  SquareIcon(icon, AppColors.accent, size: 30),
                   const SizedBox(width: Space.s2),
                   Expanded(
                     child: Text(
@@ -185,7 +185,7 @@ class TransferEndCard extends StatelessWidget {
       label: '$label：${account.name}，$after',
       onTap: onTap,
       child: Material(
-        color: Hue.surface,
+        color: AppColors.surface,
         borderRadius: radius,
         child: InkWell(
           borderRadius: radius,
@@ -206,13 +206,13 @@ class TransferEndCard extends StatelessWidget {
                     height: 34,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: Hue.white,
+                      color: AppColors.white,
                       borderRadius: BorderRadius.circular(Radii.medium),
                     ),
                     child: GlyphIcon(
                       accountIcon(account),
                       size: 17,
-                      color: Hue.muted,
+                      color: AppColors.muted,
                     ),
                   ),
                   const SizedBox(width: Space.s2),
@@ -233,10 +233,7 @@ class TransferEndCard extends StatelessWidget {
                           after,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: TextSize.caption,
-                            color: Hue.muted,
-                          ),
+                          style: mutedCaption,
                         ),
                       ],
                     ),
@@ -262,16 +259,13 @@ class ViewFieldTile extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.fromLTRB(Space.s3, Space.s2, Space.s3, Space.s2),
     decoration: BoxDecoration(
-      color: Hue.group,
+      color: AppColors.group,
       borderRadius: BorderRadius.circular(Radii.large),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        OneLine(
-          label,
-          style: const TextStyle(fontSize: TextSize.caption, color: Hue.muted),
-        ),
+        OneLine(label, style: mutedCaption),
         Text(
           value,
           maxLines: 2,
@@ -355,11 +349,15 @@ class TransferEnds extends StatelessWidget {
             tooltip: '對調',
             onPressed: onSwap,
             style: IconButton.styleFrom(
-              backgroundColor: Hue.white,
+              backgroundColor: AppColors.white,
               elevation: 2,
-              shadowColor: Hue.lift,
+              shadowColor: AppColors.lift,
             ),
-            icon: const GlyphIcon(Glyph.arrow, size: 18, color: Hue.transfer),
+            icon: const GlyphIcon(
+              Glyph.arrow,
+              size: 18,
+              color: AppColors.transfer,
+            ),
           ),
         ],
       ),

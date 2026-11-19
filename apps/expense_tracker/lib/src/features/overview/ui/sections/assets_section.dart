@@ -31,7 +31,7 @@ class _AssetsSectionState extends State<AssetsSection> {
   String? _assetGroup;
 
   /// Colours for the second level, in v114's order.
-  static const _shades = Hue.shades;
+  static const _shades = AppColors.shades;
 
   @override
   Widget build(BuildContext context) {
@@ -95,7 +95,7 @@ class _AssetsSectionState extends State<AssetsSection> {
         'investment',
         Words.investment,
         ledger.holdings.marketValue,
-        Hue.holdings,
+        AppColors.holdings,
       ),
       for (final kind in const [
         AccountKind.bank,
@@ -103,7 +103,7 @@ class _AssetsSectionState extends State<AssetsSection> {
         AccountKind.wallet,
         AccountKind.receivable,
       ])
-        (kind.name, groupName(kind), sumOf(kind), accountColor(kind)),
+        (kind.name, groupName(kind), sumOf(kind), accountKindColor(kind)),
     ]..sort((a, b) => b.$3.compareTo(a.$3));
     return [
       for (final p in parts)

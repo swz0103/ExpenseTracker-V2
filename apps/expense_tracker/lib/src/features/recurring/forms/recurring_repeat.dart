@@ -7,7 +7,7 @@ class _RepeatSheetState extends State<_RepeatSheet> {
     button: true,
     selected: chosen,
     child: Material(
-      color: chosen ? Hue.accent : Hue.surface,
+      color: chosen ? AppColors.accent : AppColors.surface,
       borderRadius: BorderRadius.circular(Radii.medium),
       child: InkWell(
         borderRadius: BorderRadius.circular(Radii.medium),
@@ -20,7 +20,7 @@ class _RepeatSheetState extends State<_RepeatSheet> {
               style: TextStyle(
                 fontSize: TextSize.body,
                 fontWeight: FontWeight.w800,
-                color: chosen ? Hue.onAccent : Hue.ink,
+                color: chosen ? AppColors.onAccent : AppColors.ink,
               ),
             ),
           ),
@@ -171,7 +171,7 @@ class _RepeatSheetState extends State<_RepeatSheet> {
           const SizedBox(height: Space.s3),
           PanelButton(
             Words.done,
-            color: Hue.accent,
+            color: AppColors.accent,
             onTap: () => Navigator.of(context).pop(),
           ),
         ],
@@ -209,7 +209,7 @@ class _OtherSheetState extends State<_OtherSheet> {
     VoidCallback? onClear,
   }) => ColorCard(
     controlsInside: true,
-    color: Hue.faint,
+    color: AppColors.faint,
     amount: 0.18,
     radius: Radii.large,
     onTap: onTap,
@@ -236,7 +236,11 @@ class _OtherSheetState extends State<_OtherSheet> {
           IconButton(
             tooltip: '不結束',
             onPressed: onClear,
-            icon: const GlyphIcon(Glyph.close, size: 16, color: Hue.muted),
+            icon: const GlyphIcon(
+              Glyph.close,
+              size: 16,
+              color: AppColors.muted,
+            ),
           ),
       ],
     ),
@@ -249,7 +253,7 @@ class _OtherSheetState extends State<_OtherSheet> {
     ValueChanged<bool> set,
   ) => ColorCard(
     controlsInside: true,
-    color: Hue.faint,
+    color: AppColors.faint,
     amount: 0.18,
     radius: Radii.large,
     onTap: () => setState(() => set(!value)),
@@ -355,7 +359,7 @@ class _OtherSheetState extends State<_OtherSheet> {
           const SizedBox(height: Space.s4),
           PanelButton(
             Words.done,
-            color: Hue.accent,
+            color: AppColors.accent,
             onTap: () => Navigator.of(context).pop(),
           ),
         ],

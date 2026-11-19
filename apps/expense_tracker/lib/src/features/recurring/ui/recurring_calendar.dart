@@ -43,7 +43,7 @@ class _Calendar extends StatelessWidget {
         Space.s2,
       ),
       decoration: BoxDecoration(
-        color: Hue.group,
+        color: AppColors.group,
         borderRadius: BorderRadius.circular(Radii.largeIncreased),
       ),
       child: Column(
@@ -58,7 +58,7 @@ class _Calendar extends StatelessWidget {
                       w,
                       style: const TextStyle(
                         fontSize: TextSize.caption,
-                        color: Hue.muted,
+                        color: AppColors.muted,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -100,7 +100,7 @@ class _Calendar extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color.lerp(color, Hue.onSolid, 0.15)!, color],
+                colors: [Color.lerp(color, AppColors.onSolid, 0.15)!, color],
               ),
             );
     }
@@ -122,16 +122,16 @@ class _Calendar extends StatelessWidget {
     final single = items.length == 1 && !allBooked;
     final (glyph, color) = single
         ? recurringMark(ledger, items.first.item)
-        : (Glyph.other, Hue.muted);
+        : (Glyph.other, AppColors.muted);
     final isChosen = d == chosen;
     final fill = _fillOf(color, single: single, busy: items.isNotEmpty);
-    final onColor = single ? (Shade.dark ? Hue.ink : Hue.onSolid) : Hue.ink;
+    final onColor = single && !Shade.dark ? AppColors.onSolid : AppColors.ink;
     final number = Container(
       width: 24,
       height: 24,
       alignment: Alignment.center,
       decoration: isToday
-          ? const BoxDecoration(color: Hue.accent, shape: BoxShape.circle)
+          ? const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle)
           : null,
       child: Text(
         '$d',
@@ -140,23 +140,23 @@ class _Calendar extends StatelessWidget {
           fontSize: TextSize.small,
           fontWeight: FontWeight.w800,
           color: isToday
-              ? Hue.onAccent
+              ? AppColors.onAccent
               : single
               ? onColor
               : past && items.isEmpty
-              ? Hue.faint
-              : Hue.ink,
+              ? AppColors.faint
+              : AppColors.ink,
         ),
       ),
     );
     Widget slot;
     if (allBooked) {
-      slot = const GlyphIcon(Glyph.check, size: 14, color: Hue.muted);
+      slot = const GlyphIcon(Glyph.check, size: 14, color: AppColors.muted);
     } else if (single) {
       slot = GlyphIcon(
         glyph,
         size: 16,
-        color: Shade.dark ? color : Hue.onSolid,
+        color: Shade.dark ? color : AppColors.onSolid,
         tinted: false,
       );
     } else if (items.isNotEmpty) {
@@ -171,7 +171,7 @@ class _Calendar extends StatelessWidget {
               decoration: BoxDecoration(
                 color: !x.settled
                     ? recurringMark(ledger, x.item).$2
-                    : Hue.faint,
+                    : AppColors.faint,
                 shape: BoxShape.circle,
               ),
             ),
@@ -202,8 +202,8 @@ class _Calendar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(Radii.large),
                   border: Border.all(
                     color: isChosen
-                        ? (single ? deepOf(color) : Hue.accent)
-                        : Hue.none,
+                        ? (single ? deepOf(color) : AppColors.accent)
+                        : AppColors.none,
                     width: 2.5,
                   ),
                 ),
@@ -212,7 +212,7 @@ class _Calendar extends StatelessWidget {
                   decoration:
                       fill ??
                       BoxDecoration(
-                        color: isChosen ? Hue.selected : null,
+                        color: isChosen ? AppColors.selected : null,
                         borderRadius: BorderRadius.circular(Radii.medium),
                       ),
                   padding: const EdgeInsets.only(top: Space.half),
@@ -237,7 +237,7 @@ class _Calendar extends StatelessWidget {
                     style: TextStyle(
                       fontSize: TextSize.tiny,
                       fontWeight: FontWeight.w800,
-                      color: Hue.negative,
+                      color: AppColors.negative,
                     ),
                   ),
                 ),
@@ -323,7 +323,7 @@ class _DayItemsState extends State<_DayItems> {
                 style: TextStyle(
                   fontSize: TextSize.body,
                   fontWeight: FontWeight.w700,
-                  color: overdue ? Hue.negative : Hue.muted,
+                  color: overdue ? AppColors.negative : AppColors.muted,
                 ),
               ),
             ],
@@ -335,12 +335,12 @@ class _DayItemsState extends State<_DayItems> {
             children: [
               const Padding(
                 padding: EdgeInsets.only(left: Space.s1),
-                child: Text('這天沒有固定交易', style: TextStyle(color: Hue.muted)),
+                child: Text('這天沒有固定交易', style: mutedText),
               ),
               const Spacer(),
               TextButton(
                 onPressed: widget.onAdd,
-                style: wordButton(Hue.accent, minimumSize: Size(0, 48)),
+                style: wordButton(AppColors.accent, minimumSize: Size(0, 48)),
                 child: const Text(
                   '＋ 新增',
                   style: TextStyle(fontWeight: FontWeight.w800),
@@ -383,12 +383,30 @@ class _DayItemsState extends State<_DayItems> {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: TextSize.caption,
-            color: due ? Hue.negative : Hue.muted,
+            color: due ? AppColors.negative : AppColors.muted,
             fontWeight: due ? FontWeight.w800 : FontWeight.w400,
           ),
         ),
       ],
     ),
+  );
+
+  /// The small button at a row's end: 入帳 or 恢復.
+  Widget _rowButton(
+    String label,
+    Color fill,
+    VoidCallback onPressed, {
+    Color? ink,
+  }) => FilledButton(
+    onPressed: onPressed,
+    style: solidButton(
+      fill,
+      ink: ink,
+      minimumSize: Size(0, 44),
+      radius: Radii.medium,
+      padding: const EdgeInsets.symmetric(horizontal: Space.s4),
+    ),
+    child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
   );
 
   Widget _itemCard(Due x, DateTime todayDay) {
@@ -397,7 +415,7 @@ class _DayItemsState extends State<_DayItems> {
     final booked = x.booked;
     final (glyph, markColor) = recurringMark(ledger, item);
     final skipped = x.skipped;
-    final color = x.settled ? Hue.faint : markColor;
+    final color = x.settled ? AppColors.faint : markColor;
     final due = !x.settled && !x.day.isAfter(todayDay);
     final away = x.day.difference(todayDay).inDays;
     final account = ledger.account(item.account).name;
@@ -414,7 +432,9 @@ class _DayItemsState extends State<_DayItems> {
       style: TextStyle(
         fontSize: TextSize.title,
         fontWeight: FontWeight.w800,
-        color: item.income && booked == null ? Hue.positive : Hue.ink,
+        color: item.income && booked == null
+            ? AppColors.positive
+            : AppColors.ink,
       ),
     );
     return ColorCard(
@@ -424,12 +444,7 @@ class _DayItemsState extends State<_DayItems> {
       radius: Radii.large,
       onTap: () => booked == null ? widget.onEdit(item) : widget.onOpen(booked),
       label: '${item.name}，${line.replaceAll(' · ', '，')}',
-      padding: const EdgeInsets.fromLTRB(
-        Space.s2,
-        Space.s2,
-        Space.s2,
-        Space.s2,
-      ),
+      padding: const EdgeInsets.all(Space.s2),
       child: Row(
         children: [
           !x.settled
@@ -438,11 +453,11 @@ class _DayItemsState extends State<_DayItems> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Hue.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(Radii.medium),
                   ),
                   alignment: Alignment.center,
-                  child: GlyphIcon(glyph, size: 20, color: Hue.muted),
+                  child: GlyphIcon(glyph, size: 20, color: AppColors.muted),
                 ),
           const SizedBox(width: Space.s3),
           Expanded(child: _itemWords(item.name, line, color, due: due)),
@@ -450,38 +465,18 @@ class _DayItemsState extends State<_DayItems> {
           amount,
           if (due) ...[
             const SizedBox(width: Space.s2),
-            FilledButton(
-              onPressed: () => widget.onBook(item),
-              style: solidButton(
-                markColor,
-                minimumSize: Size(0, 44),
-                radius: Radii.medium,
-                padding: const EdgeInsets.symmetric(horizontal: Space.s4),
-              ),
-              child: const Text(
-                '入帳',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ),
+            _rowButton('入帳', markColor, () => widget.onBook(item)),
           ] else if (skipped) ...[
             const SizedBox(width: Space.s2),
-            FilledButton(
-              onPressed: () => ledger.recurringCommands.unskip(item, x.day),
-              style: solidButton(
-                Hue.white,
-                ink: Hue.accent,
-                minimumSize: Size(0, 44),
-                radius: Radii.medium,
-                padding: const EdgeInsets.symmetric(horizontal: Space.s4),
-              ),
-              child: const Text(
-                '恢復',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
+            _rowButton(
+              '恢復',
+              AppColors.white,
+              ink: AppColors.accent,
+              () => ledger.recurringCommands.unskip(item, x.day),
             ),
           ] else if (booked != null) ...[
             const SizedBox(width: Space.s2),
-            const GlyphIcon(Glyph.check, size: 20, color: Hue.muted),
+            const GlyphIcon(Glyph.check, size: 20, color: AppColors.muted),
           ],
         ],
       ),
@@ -500,7 +495,7 @@ class _Cell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColorCard(
-      color: Hue.faint,
+      color: AppColors.faint,
       amount: 0.22,
       radius: Radii.large,
       onTap: onTap,

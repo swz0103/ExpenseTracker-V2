@@ -174,7 +174,7 @@ class PersonPage extends StatelessWidget {
       onTap: () => nav.showEntry(ledger.entryQueryService.groupLead(e)),
       lead: SquareIcon(
         back ? Glyph.check : Glyph.add,
-        back ? Hue.positive : color,
+        back ? AppColors.positive : color,
         size: 40,
       ),
       title: back ? '收回' : _what(e),
@@ -183,7 +183,7 @@ class PersonPage extends StatelessWidget {
         back
             ? '−${ledger.orDots(groupDigits(e.amount))}'
             : ledger.orDots(groupDigits(e.amount)),
-        color: back ? Hue.positive : Hue.ink,
+        color: back ? AppColors.positive : AppColors.ink,
       ),
     );
   }
@@ -204,7 +204,7 @@ class _DaysTag extends StatelessWidget {
         vertical: Space.s1,
       ),
       decoration: BoxDecoration(
-        color: long ? Palette.gold : Hue.surface,
+        color: long ? Palette.gold : AppColors.surface,
         borderRadius: BorderRadius.circular(Radii.small),
       ),
       child: Text(
@@ -213,7 +213,7 @@ class _DaysTag extends StatelessWidget {
         style: TextStyle(
           fontSize: TextSize.caption,
           fontWeight: FontWeight.w800,
-          color: long ? Hue.onAccent : Hue.muted,
+          color: long ? AppColors.onAccent : AppColors.muted,
         ),
       ),
     );

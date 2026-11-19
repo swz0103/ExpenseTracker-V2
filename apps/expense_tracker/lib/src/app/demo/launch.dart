@@ -116,7 +116,7 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
       ),
       _Stage.splash => LockSplash(onDone: _opened),
       _Stage.lock => Scaffold(
-        backgroundColor: Hue.paper,
+        backgroundColor: AppColors.paper,
         body: SafeArea(child: _lock()),
       ),
       _Stage.app => AppShell(
@@ -340,7 +340,7 @@ class _HomeScreen extends StatelessWidget {
                   backgroundColor: const Color(0x33FFFFFF),
                   foregroundColor: Colors.white,
                   selectedBackgroundColor: Colors.white,
-                  selectedForegroundColor: Hue.ink,
+                  selectedForegroundColor: AppColors.ink,
                   side: const BorderSide(color: Color(0x66FFFFFF)),
                 ),
               ),

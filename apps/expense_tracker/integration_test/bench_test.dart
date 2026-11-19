@@ -11,6 +11,8 @@ import 'package:integration_test/integration_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
+import '../test/support/places.dart';
+
 /// Times the app on an emulator in profile mode: writing and loading
 /// three years of entries in the encrypted ledger, then switching tabs and
 /// months, scrolling the records, opening the reports and saving one. Run
@@ -78,10 +80,7 @@ Future<void> bench(
 
   await tester.pumpWidget(ExpenseApp(home: AppShell(ledger: ledger)));
   await tester.pumpAndSettle();
-  Future<void> tap(String label) async {
-    await tester.tap(find.text(label).last);
-    await tester.pumpAndSettle();
-  }
+  Future<void> tap(String label) => go(tester, ['^$label']);
 
   Future<void> scroll() async {
     for (var i = 0; i < 4; i++) {

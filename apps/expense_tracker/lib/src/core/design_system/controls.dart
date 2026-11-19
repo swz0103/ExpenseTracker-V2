@@ -16,7 +16,7 @@ class Segments extends StatelessWidget {
     required this.labels,
     required this.selected,
     required this.onChanged,
-    this.selectedColor = Hue.accent,
+    this.selectedColor = AppColors.accent,
   });
 
   final List<String> labels;
@@ -30,7 +30,7 @@ class Segments extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(Space.half),
       decoration: BoxDecoration(
-        color: Hue.tile,
+        color: AppColors.tile,
         borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
@@ -52,7 +52,7 @@ class Segments extends StatelessWidget {
                     constraints: const BoxConstraints(minHeight: 48),
                     padding: const EdgeInsets.symmetric(vertical: Space.s2),
                     decoration: BoxDecoration(
-                      color: i == selected ? Hue.white : null,
+                      color: i == selected ? AppColors.white : null,
                       borderRadius: BorderRadius.circular(Radii.medium),
                     ),
                     alignment: Alignment.center,
@@ -64,7 +64,7 @@ class Segments extends StatelessWidget {
                         fontWeight: i == selected
                             ? FontWeight.w700
                             : FontWeight.w500,
-                        color: i == selected ? selectedColor : Hue.accent,
+                        color: i == selected ? selectedColor : AppColors.accent,
                       ),
                     ),
                   ),
@@ -214,7 +214,7 @@ class ChoicePill extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
-    this.background = Hue.tile,
+    this.background = AppColors.tile,
   }) : removable = false;
 
   /// A filter in force, chosen-looking with a cross; [onRemove] takes it
@@ -226,7 +226,7 @@ class ChoicePill extends StatelessWidget {
   }) : selected = true,
        onTap = onRemove,
        removable = true,
-       background = Hue.tile;
+       background = AppColors.tile;
 
   final String label;
   final bool selected;
@@ -249,7 +249,7 @@ class ChoicePill extends StatelessWidget {
       style: TextStyle(
         fontSize: TextSize.small,
         fontWeight: FontWeight.w600,
-        color: selected ? chosenInk(Hue.accent) : Hue.accent,
+        color: selected ? chosenInk(AppColors.accent) : AppColors.accent,
       ),
     );
     // Given a set width, as in a row of Expanded, it fills it; in a wrap
@@ -270,10 +270,10 @@ class ChoicePill extends StatelessWidget {
         constraints: const BoxConstraints(minWidth: 48),
         padding: const EdgeInsets.symmetric(horizontal: Space.s2),
         decoration: BoxDecoration(
-          color: selected ? chosenFill(Hue.accent) : background,
+          color: selected ? chosenFill(AppColors.accent) : background,
           borderRadius: BorderRadius.circular(Radii.large),
           border: selected && Shade.dark
-              ? Border.all(color: Hue.accent, width: 1.5)
+              ? Border.all(color: AppColors.accent, width: 1.5)
               : null,
         ),
         // As wide as its words in a wrap of pills, centred when a row
@@ -286,7 +286,11 @@ class ChoicePill extends StatelessWidget {
                   children: [
                     words,
                     const SizedBox(width: Space.s1),
-                    const GlyphIcon(Glyph.close, size: 14, color: Hue.onAccent),
+                    const GlyphIcon(
+                      Glyph.close,
+                      size: 14,
+                      color: AppColors.onAccent,
+                    ),
                   ],
                 )
               : words,

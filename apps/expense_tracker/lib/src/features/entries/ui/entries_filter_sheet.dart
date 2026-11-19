@@ -314,11 +314,11 @@ class _FilterSheetState extends State<_FilterSheet> {
     final category = _category;
     return CenterPanel(
       glyph: Glyph.sliders,
-      color: Hue.accent,
+      color: AppColors.accent,
       title: '篩選',
       trailing: TextButton(
         onPressed: _clear,
-        style: wordButton(Hue.muted),
+        style: wordButton(AppColors.muted),
         child: const Text('清除'),
       ),
       body: Column(
@@ -355,7 +355,7 @@ class _FilterSheetState extends State<_FilterSheet> {
               Expanded(child: _AmountField(_least, '最少')),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: Space.s2),
-                child: Text('–', style: TextStyle(color: Hue.muted)),
+                child: Text('–', style: mutedText),
               ),
               Expanded(child: _AmountField(_most, '最多')),
             ],
@@ -386,7 +386,7 @@ class _FilterSheetState extends State<_FilterSheet> {
       ),
       actions: [
         PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
-        PanelButton('套用', color: Hue.accent, onTap: _apply),
+        PanelButton('套用', color: AppColors.accent, onTap: _apply),
       ],
     );
   }
@@ -401,7 +401,7 @@ class _Heading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: Space.s4, bottom: Space.s2),
-    child: Text(text, style: const TextStyle(color: Hue.muted)),
+    child: Text(text, style: mutedText),
   );
 }
 
@@ -421,11 +421,11 @@ class _KindTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (glyph, color) = switch (kind) {
-      KindFilter.all => (Glyph.records, Hue.accent),
-      KindFilter.expense => (Glyph.payout, Hue.negative),
-      KindFilter.income => (Glyph.income, Hue.positive),
-      KindFilter.transfer => (Glyph.transfer, Hue.transfer),
-      KindFilter.investment => (Glyph.investment, Hue.investment),
+      KindFilter.all => (Glyph.records, AppColors.accent),
+      KindFilter.expense => (Glyph.payout, AppColors.negative),
+      KindFilter.income => (Glyph.income, AppColors.positive),
+      KindFilter.transfer => (Glyph.transfer, AppColors.transfer),
+      KindFilter.investment => (Glyph.investment, AppColors.investment),
     };
     return Semantics(
       button: true,
@@ -493,7 +493,7 @@ class _ChoiceRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final clear = onClear;
     return Material(
-      color: Hue.surface,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(Radii.large),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -515,7 +515,7 @@ class _ChoiceRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: clear == null ? Hue.ink : Hue.accent,
+                    color: clear == null ? AppColors.ink : AppColors.accent,
                   ),
                 ),
               ),
@@ -526,13 +526,17 @@ class _ChoiceRow extends StatelessWidget {
                   icon: const GlyphIcon(
                     Glyph.close,
                     size: 16,
-                    color: Hue.muted,
+                    color: AppColors.muted,
                   ),
                 )
               else
                 const Padding(
                   padding: EdgeInsets.all(Space.s3),
-                  child: GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
+                  child: GlyphIcon(
+                    Glyph.next,
+                    size: 16,
+                    color: AppColors.muted,
+                  ),
                 ),
             ],
           ),
@@ -557,7 +561,7 @@ class _AmountField extends StatelessWidget {
       hintText: hint,
       isDense: true,
       filled: true,
-      fillColor: Hue.surface,
+      fillColor: AppColors.surface,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: Space.s4,
         vertical: Space.s4,

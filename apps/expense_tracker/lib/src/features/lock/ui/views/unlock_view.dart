@@ -126,7 +126,7 @@ class _UnlockViewState extends State<UnlockView>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Hue.paper,
+      backgroundColor: AppColors.paper,
       body: AnimatedBuilder(
         animation: _settle,
         builder: (context, _) => _page(),
@@ -152,7 +152,7 @@ class _UnlockViewState extends State<UnlockView>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Hue.hero, Hue.hero, Hue.paper],
+                  colors: [AppColors.hero, AppColors.hero, AppColors.paper],
                   stops: [0, 0.45, 0.78],
                 ),
               ),
@@ -183,7 +183,7 @@ class _UnlockViewState extends State<UnlockView>
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: RadialGradient(
-                                colors: [Hue.halo, Hue.none],
+                                colors: [AppColors.halo, AppColors.none],
                                 stops: [0, 0.68],
                               ),
                             ),
@@ -231,7 +231,7 @@ class _UnlockViewState extends State<UnlockView>
                             TextButton(
                               key: Keys.back,
                               onPressed: widget.busy ? null : back,
-                              style: wordButton(Hue.muted),
+                              style: wordButton(AppColors.muted),
                               child: const Text(Words.back),
                             ),
                           ),
@@ -303,11 +303,13 @@ class _UnlockViewState extends State<UnlockView>
                   margin: const EdgeInsets.symmetric(horizontal: 6.5),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: i < filled ? Hue.accent : null,
+                    color: i < filled ? AppColors.accent : null,
                     border: i < filled
                         ? null
                         : Border.all(
-                            color: wrong ? Hue.danger : Hue.accentRule,
+                            color: wrong
+                                ? AppColors.danger
+                                : AppColors.accentRule,
                             width: 1.6,
                           ),
                   ),
@@ -331,7 +333,7 @@ class _UnlockViewState extends State<UnlockView>
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: TextSize.small,
-                  color: Hue.danger,
+                  color: AppColors.danger,
                 ),
               ),
       ),
@@ -349,13 +351,13 @@ class _UnlockViewState extends State<UnlockView>
                 dimension: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.4,
-                  color: Hue.accent,
+                  color: AppColors.accent,
                 ),
               )
             : device == null
             ? null
             : Material(
-                color: Hue.accentTrack,
+                color: AppColors.accentTrack,
                 shape: const CircleBorder(),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
@@ -365,7 +367,7 @@ class _UnlockViewState extends State<UnlockView>
                     child: Icon(
                       Icons.fingerprint,
                       size: 30,
-                      color: Hue.accent,
+                      color: AppColors.accent,
                       semanticLabel: '用指紋或臉部解鎖',
                     ),
                   ),
@@ -381,7 +383,7 @@ class _UnlockViewState extends State<UnlockView>
       child: TextButton(
         onPressed: widget.busy ? null : widget.onRecovery,
         style: wordButton(
-          Hue.muted,
+          AppColors.muted,
           words: appFont.copyWith(fontSize: TextSize.small),
         ),
         child: const Text('忘記密碼？'),

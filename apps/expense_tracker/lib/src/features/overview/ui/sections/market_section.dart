@@ -57,7 +57,7 @@ class _MarketSectionState extends State<MarketSection> {
     final anyLoss = holdings.all.any((h) => h.change < 0);
     final code = _holding;
     final picked = code == null ? null : ledger.holding(code);
-    final tone = change < 0 ? Hue.negative : Hue.positive;
+    final tone = AppColors.ofChange(change);
     return [
       SectionTitle(
         '投資行情',
@@ -71,7 +71,7 @@ class _MarketSectionState extends State<MarketSection> {
         if (ledger.marketData.quotedOn == null)
           const FigureCard(
             icon: Glyph.investment,
-            color: ToolHue.investments,
+            color: ToolColors.investments,
             label: '當日損益',
             value: '—',
             sub: '尚無收盤價',
@@ -79,7 +79,7 @@ class _MarketSectionState extends State<MarketSection> {
         else
           FigureCard(
             icon: Glyph.investment,
-            color: ToolHue.investments,
+            color: ToolColors.investments,
             label: '當日損益',
             value: ledger.moneySigned(change),
             valueColor: tone,
@@ -87,7 +87,7 @@ class _MarketSectionState extends State<MarketSection> {
           ),
         FigureCard(
           icon: Glyph.briefcase,
-          color: ToolHue.investments,
+          color: ToolColors.investments,
           label: '持股市值',
           value: ledger.money(ledger.holdings.marketValue),
           sub: '${holdings.all.length} 檔',
@@ -107,7 +107,7 @@ class _MarketSectionState extends State<MarketSection> {
                 TextSpan(
                   text: '${holdingLabel(picked)}　',
                   style: const TextStyle(
-                    color: Hue.ink,
+                    color: AppColors.ink,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -117,9 +117,7 @@ class _MarketSectionState extends State<MarketSection> {
                     '${signed(picked.gain)}'
                     '（${percentOf(picked.gain, picked.cost)}）',
                   ),
-                  style: TextStyle(
-                    color: picked.gain < 0 ? Hue.negative : Hue.positive,
-                  ),
+                  style: TextStyle(color: AppColors.ofChange(picked.gain)),
                 ),
               ],
             ),
@@ -142,7 +140,7 @@ class _MarketSectionState extends State<MarketSection> {
         constraints: const BoxConstraints(minHeight: 48),
         padding: const EdgeInsets.symmetric(horizontal: Space.s1),
         decoration: BoxDecoration(
-          color: picked ? Hue.selected.withValues(alpha: 0.6) : null,
+          color: picked ? AppColors.selected.withValues(alpha: 0.6) : null,
           borderRadius: BorderRadius.circular(Radii.small),
         ),
         child: Row(
@@ -179,10 +177,8 @@ class _MarketSectionState extends State<MarketSection> {
                   fontSize: TextSize.small,
                   fontWeight: FontWeight.w600,
                   color: !quoted
-                      ? Hue.muted
-                      : h.change < 0
-                      ? Hue.negative
-                      : Hue.positive,
+                      ? AppColors.muted
+                      : AppColors.ofChange(h.change),
                 ),
               ),
             ),

@@ -11,7 +11,7 @@ import '../model/import_export.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/problem_messages.dart';
 import 'import_page.dart';
-import '../../../core/design_system/settings_hue.dart';
+import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/formatting/dates.dart';
 import '../../../core/design_system/shape.dart';
@@ -41,7 +41,7 @@ class ImportExportSection extends StatelessWidget {
       children: [
         const RuleHead('匯出'),
         ColorCard(
-          color: SettingsHue.csv,
+          color: SettingsColors.csv,
           label: '匯出 CSV',
           onTap: () => showSheet<void>(
             context,
@@ -49,7 +49,7 @@ class ImportExportSection extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const SquareIcon(Glyph.upload, SettingsHue.csv, size: 50),
+              const SquareIcon(Glyph.upload, SettingsColors.csv, size: 50),
               const SizedBox(width: Space.s4),
               Expanded(
                 child: Column(
@@ -60,14 +60,14 @@ class ImportExportSection extends StatelessWidget {
                       style: TextStyle(
                         fontSize: TextSize.heading,
                         fontWeight: FontWeight.w800,
-                        color: deepOf(SettingsHue.csv),
+                        color: deepOf(SettingsColors.csv),
                       ),
                     ),
                     OneLine(
                       '一個月或全部，選好再匯出',
                       style: TextStyle(
                         fontSize: TextSize.small,
-                        color: deepOf(SettingsHue.csv),
+                        color: deepOf(SettingsColors.csv),
                       ),
                     ),
                   ],
@@ -80,7 +80,7 @@ class ImportExportSection extends StatelessWidget {
         CardGrid([
           SettingCard(
             glyph: Glyph.records,
-            color: SettingsHue.importExport,
+            color: SettingsColors.importExport,
             title: 'CSV 檔案',
             detail: '別的 App 匯出的',
             onTap: () =>
@@ -88,7 +88,7 @@ class ImportExportSection extends StatelessWidget {
           ),
           SettingCard(
             glyph: Glyph.scan,
-            color: SettingsHue.invoice,
+            color: SettingsColors.invoice,
             title: '電子發票',
             detail: '掃載具或 QR',
             onTap: () => importInto(
@@ -206,7 +206,7 @@ class _ExportSheetState extends State<_ExportSheet> {
 
   @override
   Widget build(BuildContext context) {
-    const color = SettingsHue.csv;
+    const color = SettingsColors.csv;
     final t = _today;
     final count = _entries(_span).length;
     String sub(_Span span) => switch (span) {
@@ -284,7 +284,7 @@ class _ExportSheetState extends State<_ExportSheet> {
                     child: const GlyphIcon(
                       Glyph.arrow,
                       size: 18,
-                      color: Hue.onSolid,
+                      color: AppColors.onSolid,
                       tinted: false,
                     ),
                   ),

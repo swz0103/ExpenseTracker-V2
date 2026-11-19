@@ -36,7 +36,7 @@ class NoteField extends StatelessWidget {
           children: [
             const Padding(
               padding: EdgeInsets.only(top: Space.half),
-              child: GlyphIcon(Glyph.note, size: 18, color: Hue.muted),
+              child: GlyphIcon(Glyph.note, size: 18, color: AppColors.muted),
             ),
             const SizedBox(width: Space.s2),
             Expanded(
@@ -58,7 +58,7 @@ class NoteField extends StatelessWidget {
         decoration: InputDecoration(
           hintText: hint,
           filled: true,
-          fillColor: Hue.surface,
+          fillColor: AppColors.surface,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(Radii.large),
             borderSide: BorderSide.none,
@@ -103,7 +103,7 @@ class NoteRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              GlyphIcon(Glyph.note, size: 18, color: Hue.muted),
+              GlyphIcon(Glyph.note, size: 18, color: AppColors.muted),
               SizedBox(width: Space.s2),
               Expanded(
                 child: Text(
@@ -111,13 +111,13 @@ class NoteRow extends StatelessWidget {
                   style: TextStyle(
                     fontSize: TextSize.body,
                     fontWeight: FontWeight.w600,
-                    color: Hue.muted,
+                    color: AppColors.muted,
                   ),
                 ),
               ),
               RotatedBox(
                 quarterTurns: 1,
-                child: GlyphIcon(Glyph.next, size: 16, color: Hue.faint),
+                child: GlyphIcon(Glyph.next, size: 16, color: AppColors.faint),
               ),
             ],
           ),

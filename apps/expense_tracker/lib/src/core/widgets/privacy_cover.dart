@@ -76,7 +76,7 @@ class _PrivacyCoverState extends State<PrivacyCover>
           child: BackdropFilter(
             key: const ValueKey('privacy-blur'),
             filter: ui.ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-            child: ColoredBox(color: Hue.paper.withValues(alpha: 0.45)),
+            child: ColoredBox(color: AppColors.paper.withValues(alpha: 0.45)),
           ),
         ),
     ],

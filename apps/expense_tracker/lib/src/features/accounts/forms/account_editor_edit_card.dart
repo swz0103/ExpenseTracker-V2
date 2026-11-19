@@ -48,7 +48,7 @@ class _EditCard extends StatelessWidget {
                   width: 28,
                   height: 28,
                   decoration: const BoxDecoration(
-                    color: Hue.glass,
+                    color: AppColors.glass,
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
@@ -64,7 +64,7 @@ class _EditCard extends StatelessWidget {
                     ),
                     decoration: plain.copyWith(
                       hintText: '帳戶名稱',
-                      hintStyle: const TextStyle(color: Hue.faint),
+                      hintStyle: hintText,
                     ),
                   ),
                 ),
@@ -84,7 +84,7 @@ class _EditCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: color,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Hue.white, width: 3),
+                            border: _ring,
                           ),
                         ),
                       ),
@@ -110,7 +110,7 @@ class _EditCard extends StatelessWidget {
                     ),
                     decoration: plain.copyWith(
                       hintText: '0',
-                      hintStyle: const TextStyle(color: Hue.faint),
+                      hintStyle: hintText,
                     ),
                   ),
                 ),
@@ -146,7 +146,7 @@ class _Field extends StatelessWidget {
         hintText: hint,
         isDense: true,
         filled: true,
-        fillColor: Hue.white,
+        fillColor: AppColors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Radii.medium),
           borderSide: BorderSide.none,
@@ -174,17 +174,22 @@ class _DayKey extends StatelessWidget {
       child: Container(
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: picked ? Hue.accent : Hue.tile,
+          color: picked ? AppColors.accent : AppColors.tile,
           borderRadius: BorderRadius.circular(Radii.small),
         ),
         child: Text(
           '$day',
           style: TextStyle(
             fontWeight: FontWeight.w600,
-            color: picked ? Hue.onAccent : Hue.ink,
+            color: picked ? AppColors.onAccent : AppColors.ink,
           ),
         ),
       ),
     );
   }
 }
+
+/// The white ring round the chosen colour's dot.
+const _ring = Border.fromBorderSide(
+  BorderSide(color: AppColors.white, width: 3),
+);

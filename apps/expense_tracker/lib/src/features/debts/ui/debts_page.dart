@@ -187,7 +187,7 @@ class _BothWays extends StatelessWidget {
           style: const TextStyle(
             fontSize: TextSize.small,
             fontWeight: FontWeight.w700,
-            color: Hue.muted,
+            color: AppColors.muted,
           ),
         ),
         // Both figures in full on a line of the same height, so the two
@@ -225,16 +225,16 @@ class _BothWays extends StatelessWidget {
                 '別人欠你',
                 ledger.orDots(groupDigits(lent)),
                 '$people 人',
-                lent > 0 ? Hue.positive : Hue.ink,
+                lent > 0 ? AppColors.positive : AppColors.ink,
               ),
             ),
-            const VerticalDivider(width: 32, color: Hue.accentRule),
+            const VerticalDivider(width: 32, color: AppColors.accentRule),
             Expanded(
               child: half(
                 '你還欠',
                 ledger.orDots(groupDigits(borrowed)),
                 '$loans 筆貸款',
-                Hue.ink,
+                AppColors.ink,
               ),
             ),
           ],
@@ -263,7 +263,7 @@ class _Initial extends StatelessWidget {
       style: TextStyle(
         fontSize: size * 0.42,
         fontWeight: FontWeight.w800,
-        color: Hue.onSolid,
+        color: AppColors.onSolid,
       ),
     ),
   );

@@ -48,7 +48,7 @@ class SwatchButton extends StatelessWidget {
               color: color,
               shape: BoxShape.circle,
               border: Border.all(
-                color: selected ? Hue.ink : const Color(0x00000000),
+                color: selected ? AppColors.ink : const Color(0x00000000),
                 width: 3,
               ),
             ),
@@ -87,7 +87,7 @@ class IconChoiceButton extends StatelessWidget {
   /// The side of the square; it is tapped in at least 48 dp.
   final double size;
 
-  /// Under an icon not chosen; [Hue.surface] when null, white on a grey
+  /// Under an icon not chosen; [AppColors.surface] when null, white on a grey
   /// group.
   final Color? background;
 
@@ -138,14 +138,14 @@ class IconChoiceSquare extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: selected ? color : (background ?? Hue.surface),
+        color: selected ? color : (background ?? AppColors.surface),
         borderRadius: BorderRadius.circular(Radii.medium),
       ),
       alignment: Alignment.center,
       child: GlyphIcon(
         icon,
         size: size * 0.5,
-        color: selected ? Hue.onSolid : Hue.muted,
+        color: selected ? AppColors.onSolid : AppColors.muted,
         tinted: !selected,
       ),
     );

@@ -111,7 +111,7 @@ class _WaterfallPainter extends CustomPainter {
     final slot = size.width / weeks.length;
     final bar = min(36.0, slot * 0.46);
     final connector = Paint()
-      ..color = Hue.faint
+      ..color = AppColors.faint
       ..strokeWidth = 1;
     for (final (i, (monday, change)) in weeks.indexed) {
       final centre = slot * (i + 0.5);
@@ -119,10 +119,10 @@ class _WaterfallPainter extends CustomPainter {
       final to = from + (y(levels[i + 1]) - from) * grow;
       final picked = i == selected;
       final color = change > 0
-          ? Hue.positive
+          ? AppColors.positive
           : change < 0
-          ? Hue.negative
-          : Hue.muted;
+          ? AppColors.negative
+          : AppColors.muted;
       final rect = Rect.fromLTRB(
         centre - bar / 2,
         min(from, to),
@@ -149,7 +149,7 @@ class _WaterfallPainter extends CustomPainter {
         label,
         TextStyle(
           fontSize: TextSize.caption,
-          color: picked ? Hue.ink : Hue.muted,
+          color: picked ? AppColors.ink : AppColors.muted,
           fontWeight: picked ? FontWeight.w700 : FontWeight.w400,
         ),
         Offset(centre, size.height - 6),
@@ -160,7 +160,7 @@ class _WaterfallPainter extends CustomPainter {
           Offset(centre - 10, size.height - 1),
           Offset(centre + 10, size.height - 1),
           Paint()
-            ..color = Hue.ink
+            ..color = AppColors.ink
             ..strokeWidth = 2,
         );
         paintText(

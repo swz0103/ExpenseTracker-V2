@@ -16,8 +16,8 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 
 /// The colours of the two imports, as on 匯入與匯出.
-const _csvHue = Palette.periwinkle;
-const _invoiceHue = Palette.gold;
+const _csvColor = Palette.periwinkle;
+const _invoiceColor = Palette.gold;
 
 /// Opens the import page: CSV lines, or the e-invoice export when
 /// [invoices] is set, pasted in or read from a file, and added to
@@ -65,7 +65,7 @@ class _ImportPageState extends State<_ImportPage> {
   /// import.
   final _left = <int>{};
 
-  Color get _color => widget.invoices ? _invoiceHue : _csvHue;
+  Color get _color => widget.invoices ? _invoiceColor : _csvColor;
 
   String _first() {
     final open = widget.ledger.accounts.open;
@@ -192,7 +192,7 @@ class _ImportPageState extends State<_ImportPage> {
     final found = _found;
     final title = widget.invoices ? '匯入電子發票' : '匯入 CSV';
     return Scaffold(
-      backgroundColor: Hue.paper,
+      backgroundColor: AppColors.paper,
       body: SafeArea(
         child: Column(
           children: [
@@ -242,7 +242,7 @@ class _ImportPageState extends State<_ImportPage> {
         Container(
           padding: const EdgeInsets.all(Space.s4),
           decoration: BoxDecoration(
-            color: Hue.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(Radii.large),
           ),
           child: Text(
@@ -305,7 +305,7 @@ class _ImportPageState extends State<_ImportPage> {
               style: const TextStyle(
                 fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,
-                color: Hue.muted,
+                color: AppColors.muted,
               ),
             ),
           ),
@@ -371,7 +371,7 @@ class _ImportPageState extends State<_ImportPage> {
   /// from.
   Widget _accountChoice() {
     return ColorCard(
-      color: Hue.accent,
+      color: AppColors.accent,
       amount: 0.1,
       radius: Radii.large,
       onTap: _pickAccount,
@@ -382,7 +382,7 @@ class _ImportPageState extends State<_ImportPage> {
       ),
       child: Row(
         children: [
-          const GlyphIcon(Glyph.wallet, size: 20, color: Hue.accent),
+          const GlyphIcon(Glyph.wallet, size: 20, color: AppColors.accent),
           const SizedBox(width: Space.s2),
           Text(
             widget.invoices ? '付款帳戶' : '沒填帳戶時記到',
@@ -393,7 +393,7 @@ class _ImportPageState extends State<_ImportPage> {
             '${widget.ledger.account(_account).name} ›',
             style: const TextStyle(
               fontWeight: FontWeight.w700,
-              color: Hue.accent,
+              color: AppColors.accent,
             ),
           ),
         ],
@@ -414,7 +414,7 @@ class _ImportPageState extends State<_ImportPage> {
               vertical: Space.s2,
             ),
             decoration: BoxDecoration(
-              color: tintOf(_invoiceHue, 0.3),
+              color: tintOf(_invoiceColor, 0.3),
               borderRadius: BorderRadius.circular(Radii.largeIncreased),
             ),
             child: Text(
@@ -422,7 +422,7 @@ class _ImportPageState extends State<_ImportPage> {
               style: const TextStyle(
                 fontSize: TextSize.small,
                 fontWeight: FontWeight.w700,
-                color: Hue.goldText,
+                color: AppColors.goldText,
               ),
             ),
           ),
@@ -453,7 +453,7 @@ class _ImportPageState extends State<_ImportPage> {
       detail: e.category.isEmpty ? null : e.category,
       trailing: RowFigure(
         entryAmount(e, currency: ledger.account(e.account).currency),
-        color: ticked ? entryTone(e) : Hue.faint,
+        color: ticked ? entryTone(e) : AppColors.faint,
       ),
     );
   }
@@ -461,7 +461,7 @@ class _ImportPageState extends State<_ImportPage> {
   Widget _bottom() {
     final count = _chosen?.entries.length ?? 0;
     return Container(
-      color: Hue.paper,
+      color: AppColors.paper,
       padding: const EdgeInsets.fromLTRB(
         Space.s5,
         Space.s2,

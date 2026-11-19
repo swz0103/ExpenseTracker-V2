@@ -141,7 +141,7 @@ class _ComposerState extends State<Composer>
   }
 
   Color get _color {
-    if (_f.refunded != null) return Hue.positive;
+    if (_f.refunded != null) return AppColors.positive;
     return _f.tab.color;
   }
 
@@ -149,8 +149,8 @@ class _ComposerState extends State<Composer>
   /// someone or paid back, a refund. Shown as small tags under the top
   /// row; a new plain entry needs none.
   List<(String, Color)> get _marks => [
-    if (_f.refunded != null) ('退款', Hue.positive),
-    if (widget.entry != null && !_viewing) ('編輯中', Hue.accent),
+    if (_f.refunded != null) ('退款', AppColors.positive),
+    if (widget.entry != null && !_viewing) ('編輯中', AppColors.accent),
   ];
 
   String get _action {
@@ -178,10 +178,11 @@ class _ComposerState extends State<Composer>
       initial: Category(
         '',
         income ? 'income' : 'other',
-        Hue.categoryColors[count % Hue.categoryColors.length].toARGB32(),
+        AppColors.categoryColors[count % AppColors.categoryColors.length]
+            .toARGB32(),
         income: income,
       ),
-      colors: Hue.categoryColors,
+      colors: AppColors.categoryColors,
       ledger: _ledger,
     );
     if (made == null) return null;
@@ -339,13 +340,13 @@ class _ComposerState extends State<Composer>
         // in reach however long the form is.
         FormFooter(
           discard: entry != null ? Words.delete : '暫存',
-          discardColor: entry != null ? Hue.danger : Hue.muted,
+          discardColor: entry != null ? AppColors.danger : AppColors.muted,
           onDiscard: entry != null ? _delete : _putAside,
           onRefund: canRefund
               ? () => Navigator.of(context).pop((ComposeOutcome.refund, entry))
               : null,
           action: _viewing ? Words.edit : _action,
-          actionColor: _viewing ? Hue.accent : _color,
+          actionColor: _viewing ? AppColors.accent : _color,
           onAction: _viewing ? () => setState(() => _viewing = false) : _submit,
         ),
       ],
@@ -370,11 +371,7 @@ class _ComposerState extends State<Composer>
       if (problem != null)
         Padding(
           padding: const EdgeInsets.only(top: Space.s2),
-          child: Text(
-            problem,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Hue.danger),
-          ),
+          child: Text(problem, textAlign: TextAlign.center, style: dangerText),
         ),
     ];
     return [

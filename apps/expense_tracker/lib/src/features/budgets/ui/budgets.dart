@@ -18,10 +18,10 @@ part 'budgets_pace.dart';
 part 'budgets_month_picker.dart';
 
 /// The colour of 預算管理, as on 更多.
-const _budgetHue = Palette.green;
+const _budgetColor = Palette.green;
 
 /// Gold for a budget nearly used up.
-const _nearHue = Palette.gold;
+const _nearColor = Palette.gold;
 
 /// 預算管理: the month in big words (tapped to pick another), the main
 /// card with what is left, what is used of the total and a bar of the
@@ -175,21 +175,21 @@ class _BudgetsPageState extends State<BudgetsPage> {
                   onTap: () => _edit(line.budget.category),
                 ),
               ColorCard(
-                color: Hue.faint,
+                color: AppColors.faint,
                 amount: 0.22,
                 onTap: _addLimit,
                 label: '為分類或標籤設定額度',
                 padding: const EdgeInsets.symmetric(vertical: Space.s6),
                 child: const Column(
                   children: [
-                    GlyphIcon(Glyph.add, size: 24, color: Hue.accent),
+                    GlyphIcon(Glyph.add, size: 24, color: AppColors.accent),
                     SizedBox(height: Space.s2),
                     Text(
                       '分類或標籤',
                       style: TextStyle(
                         fontSize: TextSize.body,
                         fontWeight: FontWeight.w800,
-                        color: Hue.accent,
+                        color: AppColors.accent,
                       ),
                     ),
                   ],
@@ -229,7 +229,7 @@ class _MonthRow extends StatelessWidget {
     Widget round(Glyph glyph, String label, VoidCallback? onTap) => Padding(
       padding: const EdgeInsets.only(left: Space.s2),
       child: Material(
-        color: onTap == null ? Hue.paper : Hue.surface,
+        color: onTap == null ? AppColors.paper : AppColors.surface,
         shape: const CircleBorder(),
         child: IconButton(
           tooltip: label,
@@ -237,7 +237,7 @@ class _MonthRow extends StatelessWidget {
           icon: GlyphIcon(
             glyph,
             size: 20,
-            color: onTap == null ? Hue.faint : Hue.ink,
+            color: onTap == null ? AppColors.faint : AppColors.ink,
           ),
         ),
       ),
@@ -270,7 +270,7 @@ class _MonthRow extends StatelessWidget {
                     child: const GlyphIcon(
                       Glyph.next,
                       size: 16,
-                      color: Hue.muted,
+                      color: AppColors.muted,
                     ),
                   ),
                 ],
@@ -283,8 +283,8 @@ class _MonthRow extends StatelessWidget {
           TextButton(
             onPressed: onToday,
             style: wordButton(
-              Hue.accent,
-              fill: Hue.selected,
+              AppColors.accent,
+              fill: AppColors.selected,
               minimumSize: Size(0, 44),
               radius: Radii.largeIncreased,
             ),
@@ -329,7 +329,7 @@ class _Main extends StatelessWidget {
     final carried = total - whole.limit;
     final (passed, days) = ledger.budgetService.daysGone(year, month);
     final over = left < 0;
-    final ink = Hue.accent;
+    final ink = AppColors.accent;
     final next = month == 12 ? 1 : month + 1;
     return HeroCard(
       padding: const EdgeInsets.fromLTRB(
@@ -353,7 +353,7 @@ class _Main extends StatelessWidget {
                       style: TextStyle(
                         fontSize: TextSize.body,
                         fontWeight: FontWeight.w800,
-                        color: over ? Hue.negative : ink,
+                        color: over ? AppColors.negative : ink,
                       ),
                     ),
                     FittedBox(
@@ -364,7 +364,7 @@ class _Main extends StatelessWidget {
                         style: TextStyle(
                           fontSize: TextSize.big,
                           fontWeight: FontWeight.w800,
-                          color: over ? Hue.negative : Hue.ink,
+                          color: over ? AppColors.negative : AppColors.ink,
                         ),
                       ),
                     ),
@@ -372,7 +372,7 @@ class _Main extends StatelessWidget {
                 ),
               ),
               Material(
-                color: Hue.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(Radii.large),
                 child: IconButton(
                   tooltip: '改總預算',
@@ -380,7 +380,7 @@ class _Main extends StatelessWidget {
                   icon: const GlyphIcon(
                     Glyph.edit,
                     size: 18,
-                    color: Hue.accent,
+                    color: AppColors.accent,
                   ),
                 ),
               ),
@@ -402,7 +402,7 @@ class _Main extends StatelessWidget {
                 ),
               ],
             ),
-            style: const TextStyle(fontSize: TextSize.body, color: Hue.muted),
+            style: mutedBody,
           ),
           const SizedBox(height: Space.s2),
           DayBar(passed: current ? passed : days, days: days, today: current),
@@ -470,7 +470,7 @@ class _NoBudget extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: TextSize.small,
                     fontWeight: FontWeight.w800,
-                    color: Hue.accent,
+                    color: AppColors.accent,
                   ),
                 ),
                 OneLine(
@@ -487,7 +487,7 @@ class _NoBudget extends StatelessWidget {
           FilledButton(
             onPressed: onSet,
             style: solidButton(
-              _budgetHue,
+              _budgetColor,
               minimumSize: Size(0, 48),
               radius: Radii.large,
               padding: const EdgeInsets.symmetric(horizontal: Space.s4),

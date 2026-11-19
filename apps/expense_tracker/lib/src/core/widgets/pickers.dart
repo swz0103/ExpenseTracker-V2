@@ -72,7 +72,7 @@ List<Option<String>> accountOptions(
   for (final a in among ?? ledger.accounts.open)
     if ((currency == null || a.currency == currency) &&
         (where == null || where(a)))
-      Option(a.id, a.name, accountIcon(a), accountHue(a)),
+      Option(a.id, a.name, accountIcon(a), accountColor(a)),
 ];
 
 /// The open categories of income, or of spending, as choices; only those
@@ -194,7 +194,7 @@ class _OptionCell<T> extends StatelessWidget {
     final radius = BorderRadius.circular(Radii.large);
     return Material(
       color: picked
-          ? (edge == null ? Hue.selected : edge.withValues(alpha: 0.12))
+          ? (edge == null ? AppColors.selected : edge.withValues(alpha: 0.12))
           : Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: radius,
@@ -222,7 +222,7 @@ class _OptionCell<T> extends StatelessWidget {
                 style: TextStyle(
                   fontSize: TextSize.small,
                   fontWeight: picked ? FontWeight.w700 : FontWeight.w500,
-                  color: picked ? (edge ?? Hue.ink) : Hue.ink,
+                  color: picked ? (edge ?? AppColors.ink) : AppColors.ink,
                 ),
               ),
             ],
@@ -272,7 +272,7 @@ class AccountChoices extends StatelessWidget {
     required this.onPick,
     this.currency,
     this.among,
-    this.ring = Hue.accent,
+    this.ring = AppColors.accent,
   });
 
   final Ledger ledger;
@@ -312,7 +312,7 @@ class AccountChoices extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: TextSize.caption,
                   fontWeight: FontWeight.w700,
-                  color: Hue.muted,
+                  color: AppColors.muted,
                 ),
               ),
             ),
@@ -387,7 +387,7 @@ class _AccountChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(Radii.large);
     return Material(
-      color: picked ? ring.withValues(alpha: 0.12) : Hue.surface,
+      color: picked ? ring.withValues(alpha: 0.12) : AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: radius,
         side: picked ? BorderSide(color: ring, width: 1.5) : BorderSide.none,
@@ -409,13 +409,13 @@ class _AccountChoice extends StatelessWidget {
                   height: 32,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Hue.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(Radii.small),
                   ),
                   child: GlyphIcon(
                     accountIcon(account),
                     size: 17,
-                    color: picked ? ring : Hue.muted,
+                    color: picked ? ring : AppColors.muted,
                   ),
                 ),
                 const SizedBox(width: Space.s2),
@@ -436,10 +436,7 @@ class _AccountChoice extends StatelessWidget {
                         balance,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: TextSize.caption,
-                          color: Hue.muted,
-                        ),
+                        style: mutedCaption,
                       ),
                     ],
                   ),
@@ -490,7 +487,7 @@ class DayChoices extends StatefulWidget {
     required this.onPick,
     this.marked = const {},
     this.today,
-    this.color = Hue.accent,
+    this.color = AppColors.accent,
   });
 
   final DateTime selected;

@@ -95,7 +95,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
   Widget _row(int i) {
     final ledger = widget.ledger;
     final a = _order[i];
-    final color = accountHue(a);
+    final color = accountColor(a);
     return ReorderableDelayedDragStartListener(
       key: ValueKey(a.id),
       index: i,
@@ -133,7 +133,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                 style: const TextStyle(
                   fontSize: TextSize.body,
                   fontWeight: FontWeight.w700,
-                  color: Hue.muted,
+                  color: AppColors.muted,
                 ),
               ),
               // The whole square takes the finger, not only
@@ -162,7 +162,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Hue.paper,
+      backgroundColor: AppColors.paper,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(Space.s3, Space.s1, Space.s3, 0),
@@ -173,7 +173,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    style: wordButton(Hue.muted),
+                    style: wordButton(AppColors.muted),
                     child: const Text(Words.cancel),
                   ),
                   const Expanded(
@@ -189,7 +189,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                   TextButton(
                     key: Keys.done,
                     onPressed: _done,
-                    style: wordButton(Hue.accent),
+                    style: wordButton(AppColors.accent),
                     child: const Text(Words.done),
                   ),
                 ],
@@ -243,7 +243,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                         child: Material(
                           color: Colors.transparent,
                           elevation: 10 * t,
-                          shadowColor: Hue.lift,
+                          shadowColor: AppColors.lift,
                           borderRadius: BorderRadius.circular(Radii.large),
                           child: child,
                         ),
@@ -285,7 +285,7 @@ class _Grip extends StatelessWidget {
             height: 2.5,
             margin: const EdgeInsets.symmetric(vertical: Space.half),
             decoration: BoxDecoration(
-              color: Hue.muted,
+              color: AppColors.muted,
               borderRadius: BorderRadius.circular(Radii.extraSmall),
             ),
           ),

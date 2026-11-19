@@ -55,9 +55,9 @@ class PlanSection extends StatelessWidget {
     final current = today.year == year && today.month == m;
     final left = limit - spent;
     final used = limit <= 0 ? 0 : (spent * 100 / limit).round();
-    const muted = TextStyle(fontSize: TextSize.caption, color: Hue.muted);
+    const muted = mutedCaption;
     return ColorCard(
-      color: ToolHue.budgets,
+      color: ToolColors.budgets,
       radius: Radii.largeIncreased,
       padding: const EdgeInsets.fromLTRB(
         Space.s4,
@@ -74,7 +74,7 @@ class PlanSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              const SquareIcon(Glyph.budget, ToolHue.budgets, size: 28),
+              const SquareIcon(Glyph.budget, ToolColors.budgets, size: 28),
               const SizedBox(width: Space.s2),
               Expanded(
                 child: OneLine(
@@ -82,7 +82,7 @@ class PlanSection extends StatelessWidget {
                   style: TextStyle(
                     fontSize: TextSize.small,
                     fontWeight: FontWeight.w800,
-                    color: deepOf(ToolHue.budgets),
+                    color: deepOf(ToolColors.budgets),
                   ),
                 ),
               ),
@@ -98,7 +98,7 @@ class PlanSection extends StatelessWidget {
                 fontSize: TextSize.large,
                 fontWeight: FontWeight.w800,
                 height: 1.15,
-                color: limit != 0 && left < 0 ? Hue.negative : Hue.ink,
+                color: limit == 0 ? AppColors.ink : AppColors.ofBalance(left),
               ),
             ),
           ),
@@ -138,13 +138,13 @@ class PlanSection extends StatelessWidget {
     final today = ledger.today;
     final until = day?.difference(today).inDays;
     final (String figure, Color tone) = switch (until) {
-      null => ('—', Hue.ink),
-      _ when due.isNotEmpty => ('已到期 ${due.length} 筆', Hue.negative),
-      0 => (Words.today, Hue.negative),
-      final n => ('$n 天後', Hue.ink),
+      null => ('—', AppColors.ink),
+      _ when due.isNotEmpty => ('已到期 ${due.length} 筆', AppColors.negative),
+      0 => (Words.today, AppColors.negative),
+      final n => ('$n 天後', AppColors.ink),
     };
     return ColorCard(
-      color: ToolHue.recurring,
+      color: ToolColors.recurring,
       radius: Radii.largeIncreased,
       padding: const EdgeInsets.fromLTRB(
         Space.s4,
@@ -161,7 +161,7 @@ class PlanSection extends StatelessWidget {
             children: [
               const SquareIcon(
                 Glyph.cycleCalendar,
-                ToolHue.recurring,
+                ToolColors.recurring,
                 size: 28,
               ),
               const SizedBox(width: Space.s2),
@@ -171,11 +171,11 @@ class PlanSection extends StatelessWidget {
                   style: TextStyle(
                     fontSize: TextSize.small,
                     fontWeight: FontWeight.w800,
-                    color: deepOf(ToolHue.recurring),
+                    color: deepOf(ToolColors.recurring),
                   ),
                 ),
               ),
-              const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
+              const GlyphIcon(Glyph.next, size: 16, color: AppColors.muted),
             ],
           ),
           const SizedBox(height: Space.s2),

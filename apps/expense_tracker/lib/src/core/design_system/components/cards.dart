@@ -264,7 +264,7 @@ class _BigSegment extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(Radii.large),
-          boxShadow: chosen ? Hue.tileShadow : null,
+          boxShadow: chosen ? AppColors.tileShadow : null,
         ),
         child: Material(
           color: chosen ? chosenFill(color) : tintOf(color, 0.2),
@@ -308,7 +308,7 @@ class _BigSegment extends StatelessWidget {
 }
 
 /// A page's main card: its figures on the soft blue that runs from
-/// [Hue.hero] to [Hue.tile], with round corners; the same on every page.
+/// [AppColors.hero] to [AppColors.tile], with round corners; the same on every page.
 class HeroCard extends StatelessWidget {
   const HeroCard({
     super.key,
@@ -336,7 +336,7 @@ class HeroCard extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Hue.hero, Hue.tile],
+          colors: [AppColors.hero, AppColors.tile],
         ),
       ),
       child: child,

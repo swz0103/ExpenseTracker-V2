@@ -73,7 +73,7 @@ class FieldsFold extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const GlyphIcon(Glyph.note, size: 18, color: Hue.muted),
+          const GlyphIcon(Glyph.note, size: 18, color: AppColors.muted),
           const SizedBox(width: Space.s2),
           Expanded(
             child: Text(
@@ -83,13 +83,17 @@ class FieldsFold extends StatelessWidget {
               style: TextStyle(
                 fontSize: TextSize.body,
                 fontWeight: open ? FontWeight.w700 : FontWeight.w600,
-                color: open ? Hue.ink : Hue.muted,
+                color: open ? AppColors.ink : AppColors.muted,
               ),
             ),
           ),
           RotatedBox(
             quarterTurns: open ? 3 : 1,
-            child: const GlyphIcon(Glyph.next, size: 16, color: Hue.faint),
+            child: const GlyphIcon(
+              Glyph.next,
+              size: 16,
+              color: AppColors.faint,
+            ),
           ),
         ],
       ),

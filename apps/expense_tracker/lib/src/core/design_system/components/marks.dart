@@ -50,7 +50,7 @@ class TickSwitch extends StatelessWidget {
     required this.value,
     required this.onChanged,
     required this.label,
-    this.color = Hue.accent,
+    this.color = AppColors.accent,
   });
 
   final bool value;
@@ -204,7 +204,7 @@ class RoundIcon extends StatelessWidget {
         null => GlyphIcon(
           icon,
           size: size * 0.55,
-          color: filled ? Hue.onAccent : color,
+          color: filled ? AppColors.onAccent : color,
         ),
       },
     );
@@ -242,7 +242,7 @@ class LegendKey extends StatelessWidget {
 
 /// A small rounded label, such as 「結餘率 66%」.
 class Pill extends StatelessWidget {
-  const Pill(this.text, {super.key, this.color = Hue.accent});
+  const Pill(this.text, {super.key, this.color = AppColors.accent});
 
   final String text;
   final Color color;
@@ -255,7 +255,7 @@ class Pill extends StatelessWidget {
         vertical: Space.half,
       ),
       decoration: BoxDecoration(
-        color: Hue.glass,
+        color: AppColors.glass,
         borderRadius: BorderRadius.circular(Radii.small),
       ),
       child: Text(
@@ -274,7 +274,7 @@ class RingGauge extends StatelessWidget {
     super.key,
     required this.share,
     this.size = 52,
-    this.color = Hue.accent,
+    this.color = AppColors.accent,
   });
 
   /// 0 to 1; more than 1 draws a full ring in the spending colour.
@@ -288,7 +288,7 @@ class RingGauge extends StatelessWidget {
       width: size,
       height: size,
       child: CustomPaint(
-        painter: _RingPainter(share, share > 1 ? Hue.negative : color),
+        painter: _RingPainter(share, share > 1 ? AppColors.negative : color),
         child: Center(
           child: Text(
             '${(share * 100).round()}%',
@@ -319,7 +319,7 @@ class _RingPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = stroke
-        ..color = Hue.accentTrack,
+        ..color = AppColors.accentTrack,
     );
     canvas.drawArc(
       arc,
@@ -348,7 +348,7 @@ class DayBar extends StatelessWidget {
     required this.passed,
     required this.days,
     required this.today,
-    this.color = Hue.accent,
+    this.color = AppColors.accent,
     this.height = 14,
   });
 
@@ -372,9 +372,9 @@ class DayBar extends StatelessWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(Radii.extraSmall),
                     color: d > passed
-                        ? Hue.white
+                        ? AppColors.white
                         : today && d == passed
-                        ? Hue.ink
+                        ? AppColors.ink
                         : color,
                   ),
                 ),

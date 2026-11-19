@@ -95,7 +95,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
       context,
       title: Words.amount,
       initial: _f.amount,
-      color: _f.income ? Hue.positive : Hue.negative,
+      color: _f.income ? AppColors.positive : AppColors.negative,
     );
     if (value != null) setState(() => _f.amount = value);
   }
@@ -151,7 +151,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
           if (_problem case final problem?)
             Padding(
               padding: const EdgeInsets.only(top: Space.s2),
-              child: Text(problem, style: const TextStyle(color: Hue.danger)),
+              child: Text(problem, style: dangerText),
             ),
           const SizedBox(height: Space.s3),
           CategoryChoiceRow(
@@ -170,8 +170,8 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                 ? '儲存固定收入'
                 : '儲存固定支出',
             color: editing
-                ? Hue.accent
-                : (_f.income ? Hue.positive : Hue.negative),
+                ? AppColors.accent
+                : (_f.income ? AppColors.positive : AppColors.negative),
             onTap: _save,
           ),
         ],
@@ -218,7 +218,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                     style: const TextStyle(
                       fontSize: TextSize.hero,
                       fontWeight: FontWeight.w800,
-                      color: Hue.ink,
+                      color: AppColors.ink,
                     ),
                   ),
                 ],
@@ -279,12 +279,16 @@ class _RecurringEditorState extends State<_RecurringEditor> {
         ),
         if (editing)
           Material(
-            color: Hue.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(Radii.large),
             child: IconButton(
               tooltip: Words.delete,
               onPressed: _remove,
-              icon: const GlyphIcon(Glyph.trash, size: 18, color: Hue.danger),
+              icon: const GlyphIcon(
+                Glyph.trash,
+                size: 18,
+                color: AppColors.danger,
+              ),
             ),
           )
         else

@@ -17,7 +17,7 @@ Future<String?> askText(
   final ok = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      backgroundColor: Hue.panel,
+      backgroundColor: AppColors.panel,
       title: Text(title),
       content: TextField(controller: controller, autofocus: true),
       actions: [
@@ -49,9 +49,9 @@ Future<bool> confirm(
 }) async {
   final ok = await showDialog<bool>(
     context: context,
-    barrierColor: Hue.scrim,
+    barrierColor: AppColors.scrim,
     builder: (context) => Dialog(
-      backgroundColor: Hue.paper,
+      backgroundColor: AppColors.paper,
       insetPadding: const EdgeInsets.symmetric(
         horizontal: Space.s6,
         vertical: Space.s6,
@@ -80,14 +80,7 @@ Future<bool> confirm(
             ),
             if (body != null) ...[
               const SizedBox(height: Space.s2),
-              Text(
-                body,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: TextSize.body,
-                  color: Hue.muted,
-                ),
-              ),
+              Text(body, textAlign: TextAlign.center, style: mutedBody),
             ],
             const SizedBox(height: Space.s5),
             Row(
@@ -95,8 +88,8 @@ Future<bool> confirm(
                 Expanded(
                   child: _Choice(
                     Words.cancel,
-                    color: Hue.surface,
-                    ink: Hue.ink,
+                    color: AppColors.surface,
+                    ink: AppColors.ink,
                     onTap: () => Navigator.of(context).pop(false),
                   ),
                 ),
@@ -107,8 +100,12 @@ Future<bool> confirm(
                     key: Keys.confirm,
                     // A deep tint with its own colour's words on the dark
                     // theme, not a bright block.
-                    color: chosenFill(danger ? Hue.danger : Hue.accent),
-                    ink: chosenInk(danger ? Hue.danger : Hue.accent),
+                    color: chosenFill(
+                      danger ? AppColors.danger : AppColors.accent,
+                    ),
+                    ink: chosenInk(
+                      danger ? AppColors.danger : AppColors.accent,
+                    ),
                     onTap: () => Navigator.of(context).pop(true),
                   ),
                 ),

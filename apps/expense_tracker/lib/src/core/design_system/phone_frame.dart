@@ -54,7 +54,7 @@ class PhoneFrame extends StatelessWidget {
                         viewPadding: _insets,
                         viewInsets: EdgeInsets.zero,
                       ),
-                      child: ColoredBox(color: Hue.paper, child: child),
+                      child: ColoredBox(color: AppColors.paper, child: child),
                     ),
                     const Positioned(
                       left: 0,
@@ -98,7 +98,7 @@ class _StatusBar extends StatelessWidget {
               fontFamily: 'Nunito',
               fontSize: TextSize.body,
               fontWeight: FontWeight.w700,
-              color: Hue.ink,
+              color: AppColors.ink,
               height: 1,
               decoration: TextDecoration.none,
             ),
@@ -127,9 +127,9 @@ class _StatusIcons extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final ink = Paint()..color = Hue.ink;
+    final ink = Paint()..color = AppColors.ink;
     final line = Paint()
-      ..color = Hue.ink
+      ..color = AppColors.ink
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round;
@@ -175,7 +175,7 @@ class _StatusIcons extends CustomPainter {
       ..drawRRect(
         body,
         Paint()
-          ..color = Hue.ink
+          ..color = AppColors.ink
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.2,
       )
@@ -216,7 +216,7 @@ class _HomeBar extends StatelessWidget {
         width: 108,
         height: 4,
         decoration: BoxDecoration(
-          color: Hue.ink.withValues(alpha: 0.75),
+          color: AppColors.ink.withValues(alpha: 0.75),
           borderRadius: BorderRadius.circular(Radii.extraSmall),
         ),
       ),

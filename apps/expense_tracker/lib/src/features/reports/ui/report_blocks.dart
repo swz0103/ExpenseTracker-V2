@@ -42,7 +42,7 @@ class ReportReadout extends StatelessWidget {
         vertical: Space.s2,
       ),
       decoration: BoxDecoration(
-        color: Hue.tile,
+        color: AppColors.tile,
         borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
@@ -63,10 +63,11 @@ class ReportReadout extends StatelessWidget {
               spacing: 12,
               runSpacing: 2,
               children: [
-                _figure('收', income, Hue.positive),
-                _figure('支', expense, Hue.negative),
-                _figure('餘', left, left < 0 ? Hue.negative : Hue.ink),
-                if (worth case final w?) _figure('淨資產', w, Hue.investment),
+                _figure('收', income, AppColors.positive),
+                _figure('支', expense, AppColors.negative),
+                _figure('餘', left, AppColors.ofBalance(left)),
+                if (worth case final w?)
+                  _figure('淨資產', w, AppColors.investment),
               ],
             ),
           ),
@@ -78,10 +79,7 @@ class ReportReadout extends StatelessWidget {
   Widget _figure(String label, int value, Color color) => Text.rich(
     TextSpan(
       children: [
-        TextSpan(
-          text: '$label ',
-          style: const TextStyle(color: Hue.muted),
-        ),
+        TextSpan(text: '$label ', style: mutedText),
         TextSpan(
           text: ledger.money(value),
           style: TextStyle(fontWeight: FontWeight.w700, color: color),
@@ -141,7 +139,7 @@ class ReportHero extends StatelessWidget {
             style: const TextStyle(
               fontSize: TextSize.small,
               fontWeight: FontWeight.w800,
-              color: Hue.accent,
+              color: AppColors.accent,
             ),
           ),
           // 收入 goes under 結餘 when both do not fit on a line.
@@ -156,7 +154,7 @@ class ReportHero extends StatelessWidget {
                 style: TextStyle(
                   fontSize: TextSize.big,
                   fontWeight: FontWeight.w800,
-                  color: kept < 0 ? Hue.negative : Hue.ink,
+                  color: AppColors.ofBalance(kept),
                 ),
               ),
               Column(
@@ -168,7 +166,7 @@ class ReportHero extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: TextSize.title,
                       fontWeight: FontWeight.w800,
-                      color: Hue.positive,
+                      color: AppColors.positive,
                     ),
                   ),
                   if (dividends > 0)
@@ -191,7 +189,7 @@ class ReportHero extends StatelessWidget {
                     Expanded(
                       flex: (spentShare * 1000).round().clamp(1, 1000),
                       child: const ColoredBox(
-                        color: Hue.negative,
+                        color: AppColors.negative,
                         child: SizedBox.expand(),
                       ),
                     ),
@@ -201,7 +199,7 @@ class ReportHero extends StatelessWidget {
                     Expanded(
                       flex: ((1 - spentShare) * 1000).round().clamp(1, 1000),
                       child: const ColoredBox(
-                        color: Hue.positive,
+                        color: AppColors.positive,
                         child: SizedBox.expand(),
                       ),
                     ),
@@ -218,7 +216,7 @@ class ReportHero extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const LegendKey(Hue.negative, Words.expense),
+                  const LegendKey(AppColors.negative, Words.expense),
                   const SizedBox(width: Space.s2),
                   Text(
                     ledger.orDots(groupDigits(expense)),
@@ -231,7 +229,7 @@ class ReportHero extends StatelessWidget {
                       style: TextStyle(
                         fontSize: TextSize.caption,
                         fontWeight: FontWeight.w800,
-                        color: change >= 0 ? Hue.negative : Hue.positive,
+                        color: AppColors.ofSpendingChange(change),
                       ),
                     ),
                   ],
@@ -240,7 +238,7 @@ class ReportHero extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const LegendKey(Hue.positive, '存下'),
+                  const LegendKey(AppColors.positive, '存下'),
                   const SizedBox(width: Space.s2),
                   Text(
                     '$keptShare%',
@@ -383,7 +381,7 @@ class CategoryBlock extends StatelessWidget {
                         style: TextStyle(
                           fontSize: TextSize.caption,
                           fontWeight: FontWeight.w800,
-                          color: change >= 0 ? Hue.negative : Hue.positive,
+                          color: AppColors.ofSpendingChange(change),
                         ),
                       ),
                   ],

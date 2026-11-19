@@ -25,7 +25,7 @@ Future<DateTimeRange?> pickDateRange(
   required DateTime last,
   DateTimeRange? initial,
   String title = '選擇日期',
-  Color color = Hue.accent,
+  Color color = AppColors.accent,
 }) {
   return showPanel<DateTimeRange>(
     context,
@@ -276,10 +276,10 @@ class _RangePanelState extends State<_RangePanel> {
                     fontSize: TextSize.body,
                     fontWeight: edge ? FontWeight.w800 : FontWeight.w500,
                     color: out
-                        ? Hue.faint
+                        ? AppColors.faint
                         : edge
                         ? chosenInk(color)
-                        : Hue.ink,
+                        : AppColors.ink,
                   ),
                 ),
               ),
@@ -298,7 +298,7 @@ Future<TimeOfDay?> pickTime(
   BuildContext context, {
   required TimeOfDay initial,
   String title = '選擇時間',
-  Color color = Hue.accent,
+  Color color = AppColors.accent,
   List<TimeOfDay> usual = const [
     TimeOfDay(hour: 8, minute: 0),
     TimeOfDay(hour: 12, minute: 0),
@@ -397,7 +397,7 @@ class _TimePanelState extends State<_TimePanel> {
                     style: TextStyle(
                       fontSize: TextSize.figure,
                       fontWeight: FontWeight.w800,
-                      color: i == value ? Hue.ink : Hue.faint,
+                      color: i == value ? AppColors.ink : AppColors.faint,
                     ),
                   ),
                 ),
@@ -434,7 +434,7 @@ class _TimePanelState extends State<_TimePanel> {
           const SizedBox(height: Space.s3),
           DecoratedBox(
             decoration: BoxDecoration(
-              color: Hue.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(Radii.large),
             ),
             child: Stack(

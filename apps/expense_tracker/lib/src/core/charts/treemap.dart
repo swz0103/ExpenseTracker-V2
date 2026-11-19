@@ -187,7 +187,7 @@ class _TreemapPainter extends CustomPainter {
       final label = TextStyle(
         fontSize: TextSize.small,
         fontWeight: FontWeight.w600,
-        color: Hue.ink.withValues(alpha: faded ? 0.5 : 0.9),
+        color: AppColors.ink.withValues(alpha: faded ? 0.5 : 0.9),
       );
       paintText(canvas, name, label, rect.center, maxWidth: rect.width - 8);
     }

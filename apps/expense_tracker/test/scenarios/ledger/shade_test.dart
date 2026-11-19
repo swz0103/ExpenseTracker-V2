@@ -19,7 +19,10 @@ void main() {
         child: Center(
           child: RepaintBoundary(
             key: boundary,
-            child: Text('M', style: TextStyle(fontSize: 40, color: Hue.ink)),
+            child: Text(
+              'M',
+              style: TextStyle(fontSize: 40, color: AppColors.ink),
+            ),
           ),
         ),
       ),
@@ -57,14 +60,14 @@ void main() {
     return true;
   }, 'within 2 of 0x${expected.toRadixString(16)} in each channel');
 
-  testWidgets('words in Hue.ink are painted afresh in the dark colour', (
+  testWidgets('words in AppColors.ink are painted afresh in the dark colour', (
     tester,
   ) async {
     addTearDown(() => Shade.dark = false);
     await show(tester);
     final paragraph = tester.renderObject<RenderParagraph>(find.text('M'));
-    expect(paragraph.text.style?.color, same(Hue.ink));
-    expect(await painted(tester), near(Hue.ink.light));
+    expect(paragraph.text.style?.color, same(AppColors.ink));
+    expect(await painted(tester), near(AppColors.ink.light));
 
     Shade.show(dark: true);
     await tester.pump();
@@ -73,10 +76,10 @@ void main() {
       same(paragraph),
       reason: 'the words change colour in place',
     );
-    expect(await painted(tester), near(Hue.ink.darkValue));
+    expect(await painted(tester), near(AppColors.ink.darkValue));
 
     Shade.show(dark: false);
     await tester.pump();
-    expect(await painted(tester), near(Hue.ink.light));
+    expect(await painted(tester), near(AppColors.ink.light));
   });
 }

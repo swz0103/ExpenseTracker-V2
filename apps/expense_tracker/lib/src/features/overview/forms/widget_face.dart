@@ -5,8 +5,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../core/design_system/theme.dart' show Hue;
-import '../../../core/design_system/widget_hue.dart';
+import '../../../core/design_system/theme.dart' show AppColors;
+import '../../../core/design_system/widget_colors.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/dates.dart';
@@ -19,6 +19,9 @@ const _empty = <String, Object?>{
   'figure': '本月概況',
   'detail': '到 設定 › 外觀 選擇要顯示的數字',
 };
+
+/// The widget's small grey words: the budget line and the week's days.
+final _note = _text(10.5, WidgetColors.muted);
 
 TextStyle _text(double size, Color color) => TextStyle(
   fontSize: size,
@@ -78,13 +81,13 @@ class WidgetFace extends StatelessWidget {
                       child: Text(
                         shown.text('title') ?? '',
                         maxLines: 1,
-                        style: _text(11, WidgetLook.muted),
+                        style: _text(11, WidgetColors.muted),
                       ),
                     ),
                     Text(
                       shown.text('figure') ?? '',
                       maxLines: 1,
-                      style: _text(24, WidgetLook.ink),
+                      style: _text(24, WidgetColors.ink),
                     ),
                   ],
                 ),
@@ -92,15 +95,13 @@ class WidgetFace extends StatelessWidget {
                 const SizedBox(height: Space.s1),
                 Row(
                   children: [
-                    Expanded(
-                      child: Text(budget, style: _text(10.5, WidgetLook.muted)),
-                    ),
+                    Expanded(child: Text(budget, style: _note)),
                     Flexible(
                       child: Text(
                         detail,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: _text(10.5, WidgetLook.muted),
+                        style: _note,
                       ),
                     ),
                   ],
@@ -125,8 +126,8 @@ class WidgetFace extends StatelessWidget {
                   child: _Half(
                     label: Words.expense,
                     mark: '−',
-                    color: WidgetLook.expense,
-                    tint: WidgetLook.expenseTint,
+                    color: WidgetColors.expense,
+                    tint: WidgetColors.expenseTint,
                     onTap: onExpense,
                   ),
                 ),
@@ -135,8 +136,8 @@ class WidgetFace extends StatelessWidget {
                   child: _Half(
                     label: Words.income,
                     mark: '＋',
-                    color: WidgetLook.income,
-                    tint: WidgetLook.incomeTint,
+                    color: WidgetColors.income,
+                    tint: WidgetColors.incomeTint,
                     onTap: onIncome,
                   ),
                 ),
@@ -189,12 +190,12 @@ class WidgetRow extends StatelessWidget {
                   Text(
                     shown.text('shortLabel') ?? shown.text('title') ?? '',
                     maxLines: 1,
-                    style: _text(10.5, WidgetLook.muted),
+                    style: _note,
                   ),
                   Text(
                     shown.text('shortFigure') ?? shown.text('figure') ?? '',
                     maxLines: 1,
-                    style: _text(16, WidgetLook.ink),
+                    style: _text(16, WidgetColors.ink),
                   ),
                   _BudgetBar(snapshot: shown, height: 6, top: 4),
                 ],
@@ -205,14 +206,14 @@ class WidgetRow extends StatelessWidget {
           _Round(
             mark: '−',
             label: '記支出',
-            color: WidgetLook.expense,
+            color: WidgetColors.expense,
             onTap: onExpense,
           ),
           const SizedBox(width: Space.s2),
           _Round(
             mark: '＋',
             label: '記收入',
-            color: WidgetLook.income,
+            color: WidgetColors.income,
             onTap: onIncome,
           ),
         ],
@@ -237,10 +238,14 @@ class _Card extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: WidgetLook.card,
+        color: WidgetColors.card,
         borderRadius: BorderRadius.circular(radius),
         boxShadow: const [
-          BoxShadow(color: Hue.float, blurRadius: 18, offset: Offset(0, 6)),
+          BoxShadow(
+            color: AppColors.float,
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
         ],
       ),
       // Merged, not replaced: the app's fonts (Chinese among them) stay.
@@ -283,7 +288,7 @@ class _BudgetBar extends StatelessWidget {
                 Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: WidgetLook.track,
+                      color: WidgetColors.track,
                       borderRadius: round,
                     ),
                   ),
@@ -295,7 +300,7 @@ class _BudgetBar extends StatelessWidget {
                   width: width * progress.clamp(0, 100) / 100,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: WidgetLook.accent,
+                      color: WidgetColors.accent,
                       borderRadius: round,
                     ),
                   ),
@@ -306,7 +311,7 @@ class _BudgetBar extends StatelessWidget {
                     top: 0,
                     bottom: 0,
                     width: 2,
-                    child: const ColoredBox(color: WidgetLook.pace),
+                    child: const ColoredBox(color: WidgetColors.pace),
                   ),
               ],
             );
@@ -332,8 +337,9 @@ class _Week extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: Text('本週', style: _text(11, WidgetLook.muted))),
-            if (total.isNotEmpty) Text(total, style: _text(11, WidgetLook.ink)),
+            Expanded(child: Text('本週', style: _text(11, WidgetColors.muted))),
+            if (total.isNotEmpty)
+              Text(total, style: _text(11, WidgetColors.ink)),
           ],
         ),
         const SizedBox(height: Space.s1),
@@ -353,7 +359,7 @@ class _Week extends StatelessWidget {
                               dimension: 4,
                               child: DecoratedBox(
                                 decoration: BoxDecoration(
-                                  color: WidgetLook.dot,
+                                  color: WidgetColors.dot,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -367,8 +373,8 @@ class _Week extends StatelessWidget {
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 color: i == today
-                                    ? WidgetLook.accent
-                                    : WidgetLook.bar,
+                                    ? WidgetColors.accent
+                                    : WidgetColors.bar,
                                 borderRadius: BorderRadius.circular(
                                   Radii.small,
                                 ),
@@ -390,7 +396,7 @@ class _Week extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: _text(
                     10,
-                    i == today ? WidgetLook.accent : WidgetLook.day,
+                    i == today ? WidgetColors.accent : WidgetColors.day,
                   ),
                 ),
               ),
@@ -474,7 +480,7 @@ class _Round extends StatelessWidget {
           height: 40,
           alignment: Alignment.center,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          child: Text(mark, style: _text(20, WidgetLook.onButton)),
+          child: Text(mark, style: _text(20, WidgetColors.onButton)),
         ),
       ),
     );

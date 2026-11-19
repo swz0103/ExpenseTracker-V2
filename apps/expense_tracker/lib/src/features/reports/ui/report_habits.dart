@@ -38,7 +38,7 @@ List<Widget> merchantsSection(Ledger ledger, Report report) {
         Space.s4,
       ),
       decoration: BoxDecoration(
-        color: Hue.group,
+        color: AppColors.group,
         borderRadius: BorderRadius.circular(Radii.largeIncreased),
       ),
       child: Row(
@@ -48,7 +48,7 @@ List<Widget> merchantsSection(Ledger ledger, Report report) {
             thickness: 20,
             slices: [
               for (final (i, r) in rows.indexed)
-                (r.$3, Hue.shades[(i + 2) % Hue.shades.length]),
+                (r.$3, AppColors.shades[(i + 2) % AppColors.shades.length]),
             ],
           ),
           const SizedBox(width: Space.s4),
@@ -67,7 +67,8 @@ List<Widget> merchantsSection(Ledger ledger, Report report) {
                             width: 10,
                             height: 10,
                             decoration: BoxDecoration(
-                              color: Hue.shades[(i + 2) % Hue.shades.length],
+                              color: AppColors
+                                  .shades[(i + 2) % AppColors.shades.length],
                               borderRadius: BorderRadius.circular(
                                 Radii.extraSmall,
                               ),
@@ -90,10 +91,7 @@ List<Widget> merchantsSection(Ledger ledger, Report report) {
                               Text(
                                 '$count 次 · 每次約 '
                                 '${ledger.orDots(groupDigits(amount ~/ count))}',
-                                style: const TextStyle(
-                                  fontSize: TextSize.caption,
-                                  color: Hue.muted,
-                                ),
+                                style: mutedCaption,
                               ),
                             ],
                           ),
@@ -153,8 +151,8 @@ List<Widget> weekdaysSection(Report report) {
                               child: DecoratedBox(
                                 decoration: BoxDecoration(
                                   color: i == heaviest
-                                      ? Hue.negative
-                                      : softOf(Hue.negative),
+                                      ? AppColors.negative
+                                      : softOf(AppColors.negative),
                                   borderRadius: BorderRadius.circular(
                                     Radii.small,
                                   ),
@@ -172,7 +170,7 @@ List<Widget> weekdaysSection(Report report) {
                   bottom: 96 * (days.fold(0, (s, d) => s + d) / 7 / most),
                   child: CustomPaint(
                     size: const Size(double.infinity, 1),
-                    painter: DashesPainter(Hue.muted),
+                    painter: DashesPainter(AppColors.muted),
                   ),
                 ),
               ],
@@ -182,19 +180,7 @@ List<Widget> weekdaysSection(Report report) {
           Row(
             children: [
               for (final (i, name) in weekdayNames.indexed)
-                Expanded(
-                  child: Text(
-                    name,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: TextSize.caption,
-                      fontWeight: i == heaviest
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                      color: i == heaviest ? Hue.negative : Hue.muted,
-                    ),
-                  ),
-                ),
+                Expanded(child: _weekdayName(name, peak: i == heaviest)),
             ],
           ),
         ],
@@ -202,6 +188,17 @@ List<Widget> weekdaysSection(Report report) {
     ),
   ];
 }
+
+/// A weekday's name under its bar, red and bold on the heaviest day.
+Widget _weekdayName(String name, {required bool peak}) => Text(
+  name,
+  textAlign: TextAlign.center,
+  style: TextStyle(
+    fontSize: TextSize.caption,
+    fontWeight: peak ? FontWeight.w700 : FontWeight.w500,
+    color: peak ? AppColors.negative : AppColors.muted,
+  ),
+);
 
 List<Widget> tagsSection(Ledger ledger, Report report) {
   final rows = report.tags;
@@ -245,14 +242,7 @@ List<Widget> tagsSection(Ledger ledger, Report report) {
                   ),
                 ),
               ),
-              if (counts[tag] case final n?)
-                Text(
-                  '$n 筆',
-                  style: const TextStyle(
-                    fontSize: TextSize.caption,
-                    color: Hue.muted,
-                  ),
-                ),
+              if (counts[tag] case final n?) Text('$n 筆', style: mutedCaption),
             ],
           ),
         ),

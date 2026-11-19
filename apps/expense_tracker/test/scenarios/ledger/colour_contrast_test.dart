@@ -1,6 +1,6 @@
 import 'package:expense_tracker/src/core/design_system/components.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
-import 'package:expense_tracker/src/core/design_system/settings_hue.dart';
+import 'package:expense_tracker/src/core/design_system/settings_colors.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -9,26 +9,26 @@ import 'package:flutter_test/flutter_test.dart';
 /// and words on the solid colour ([wordsOn]) at 4.5:1, light and dark.
 void main() {
   final colours = <String, Color>{
-    for (final (i, c) in Hue.categoryColors.indexed) 'category $i': c,
+    for (final (i, c) in AppColors.categoryColors.indexed) 'category $i': c,
     for (final (i, c) in nameColors.indexed) 'name $i': c,
     for (final MapEntry(:key, :value) in Palette.all.entries) key: value,
-    'backup': SettingsHue.backup,
-    'folder': SettingsHue.folder,
-    'reminders': SettingsHue.reminders,
-    'budget': SettingsHue.budget,
-    'daily': SettingsHue.daily,
-    'password': SettingsHue.password,
-    'recovery': SettingsHue.recovery,
-    'trash': SettingsHue.trash,
-    'about': SettingsHue.about,
-    'warning': SettingsHue.warning,
-    'main': SettingsHue.main,
-    'accent': Hue.accent,
-    'positive': Hue.positive,
-    'negative': Hue.negative,
-    'investment': Hue.investment,
-    'transfer': Hue.transfer,
-    'receivable': Hue.receivable,
+    'backup': SettingsColors.backup,
+    'folder': SettingsColors.folder,
+    'reminders': SettingsColors.reminders,
+    'budget': SettingsColors.budget,
+    'daily': SettingsColors.daily,
+    'password': SettingsColors.password,
+    'recovery': SettingsColors.recovery,
+    'trash': SettingsColors.trash,
+    'about': SettingsColors.about,
+    'warning': SettingsColors.warning,
+    'main': SettingsColors.main,
+    'accent': AppColors.accent,
+    'positive': AppColors.positive,
+    'negative': AppColors.negative,
+    'investment': AppColors.investment,
+    'transfer': AppColors.transfer,
+    'receivable': AppColors.receivable,
   };
 
   tearDown(() => Shade.dark = false);

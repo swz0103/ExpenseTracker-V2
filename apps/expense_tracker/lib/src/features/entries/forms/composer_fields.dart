@@ -110,7 +110,9 @@ extension _Fields on _ComposerState {
                       icon: Glyph.coins,
                       label: Words.fee,
                       value: '手續費 ${groupDigits(_f.fee)}',
-                      valueColor: _f.fee > 0 ? Hue.negative : Hue.ink,
+                      valueColor: _f.fee > 0
+                          ? AppColors.negative
+                          : AppColors.ink,
                       onTap: () async {
                         final value = await _ask(Words.fee, _f.fee);
                         if (value != null) _set(() => _f.fee = value);

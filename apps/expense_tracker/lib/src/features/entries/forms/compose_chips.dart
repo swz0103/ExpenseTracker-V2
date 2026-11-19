@@ -44,9 +44,9 @@ class UsualChip extends StatelessWidget {
           Space.s1,
         ),
         decoration: BoxDecoration(
-          color: Hue.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(Radii.full),
-          border: Border.all(color: Hue.line),
+          border: Border.all(color: AppColors.line),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -56,10 +56,10 @@ class UsualChip extends StatelessWidget {
               height: 24,
               alignment: Alignment.center,
               decoration: const BoxDecoration(
-                color: Hue.surface,
+                color: AppColors.surface,
                 shape: BoxShape.circle,
               ),
-              child: GlyphIcon(icon, size: 14, color: Hue.muted),
+              child: GlyphIcon(icon, size: 14, color: AppColors.muted),
             ),
             const SizedBox(width: Space.s2),
             Text(
@@ -68,7 +68,7 @@ class UsualChip extends StatelessWidget {
               style: TextStyle(
                 fontSize: TextSize.small,
                 fontWeight: strong ? FontWeight.w700 : FontWeight.w400,
-                color: strong ? Hue.ink : Hue.muted,
+                color: strong ? AppColors.ink : AppColors.muted,
               ),
             ),
             if (figure != null) ...[
@@ -79,7 +79,7 @@ class UsualChip extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: TextSize.body,
                   fontWeight: FontWeight.w700,
-                  color: Hue.ink,
+                  color: AppColors.ink,
                 ),
               ),
             ],
@@ -131,7 +131,7 @@ class LentShareChip extends StatelessWidget {
               height: 24,
               alignment: Alignment.center,
               decoration: const BoxDecoration(
-                color: Hue.white,
+                color: AppColors.white,
                 shape: BoxShape.circle,
               ),
               child: GlyphIcon(Glyph.heart, size: 13, color: color),
@@ -185,7 +185,7 @@ class UsualRow extends StatelessWidget {
                 width: 1,
                 height: 22,
                 margin: const EdgeInsets.symmetric(horizontal: Space.s2),
-                color: Hue.line,
+                color: AppColors.line,
               ),
           ],
           for (final (i, child) in children.indexed) ...[
@@ -246,7 +246,7 @@ class PersonPill extends StatelessWidget {
                       height: 24,
                       alignment: Alignment.center,
                       decoration: const BoxDecoration(
-                        color: Hue.white,
+                        color: AppColors.white,
                         shape: BoxShape.circle,
                       ),
                       child: GlyphIcon(Glyph.heart, size: 13, color: color),
@@ -270,10 +270,7 @@ class PersonPill extends StatelessWidget {
                         sub,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: TextSize.caption,
-                          color: Hue.muted,
-                        ),
+                        style: mutedCaption,
                       ),
                     ),
                   ],
@@ -321,7 +318,7 @@ class OwedCard extends StatelessWidget {
       label: '$title，$when，$amount',
       onTap: onTap,
       child: Material(
-        color: picked ? color.withValues(alpha: 0.12) : Hue.surface,
+        color: picked ? color.withValues(alpha: 0.12) : AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: radius,
           side: picked ? BorderSide(color: color, width: 1.5) : BorderSide.none,
@@ -354,14 +351,7 @@ class OwedCard extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        Text(
-                          when,
-                          maxLines: 1,
-                          style: const TextStyle(
-                            fontSize: TextSize.tiny,
-                            color: Hue.muted,
-                          ),
-                        ),
+                        Text(when, maxLines: 1, style: mutedTiny),
                         const SizedBox(height: Space.half),
                         Text(
                           amount,
@@ -369,7 +359,7 @@ class OwedCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: TextSize.title,
                             fontWeight: FontWeight.w700,
-                            color: picked ? color : Hue.ink,
+                            color: picked ? color : AppColors.ink,
                           ),
                         ),
                       ],
@@ -380,7 +370,7 @@ class OwedCard extends StatelessWidget {
                     height: 20,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: picked ? color : Hue.white,
+                      color: picked ? color : AppColors.white,
                       shape: BoxShape.circle,
                     ),
                     child: picked
@@ -431,7 +421,7 @@ class WordChip extends StatelessWidget {
           vertical: Space.s2,
         ),
         decoration: BoxDecoration(
-          color: picked ? color.withValues(alpha: 0.12) : Hue.surface,
+          color: picked ? color.withValues(alpha: 0.12) : AppColors.surface,
           borderRadius: BorderRadius.circular(Radii.medium),
           border: picked ? Border.all(color: color, width: 1.5) : null,
         ),
@@ -440,7 +430,7 @@ class WordChip extends StatelessWidget {
           style: TextStyle(
             fontSize: TextSize.small,
             fontWeight: FontWeight.w700,
-            color: picked ? color : Hue.ink,
+            color: picked ? color : AppColors.ink,
           ),
         ),
       ),
@@ -490,7 +480,7 @@ class GroupLabel extends StatelessWidget {
         style: const TextStyle(
           fontSize: TextSize.caption,
           fontWeight: FontWeight.w700,
-          color: Hue.muted,
+          color: AppColors.muted,
         ),
       ),
     );

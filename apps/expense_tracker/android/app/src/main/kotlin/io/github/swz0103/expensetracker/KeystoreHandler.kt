@@ -14,7 +14,6 @@ import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
 
 /**
  * A Keystore AES key that only a fingerprint or face can use, which wraps
@@ -56,11 +55,12 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
     ) {
         val cipher: Cipher
         try {
-            cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher = Cipher.getInstance(DeviceKeyBlob.TRANSFORMATION)
             if (encrypt) {
                 cipher.init(Cipher.ENCRYPT_MODE, key())
             } else {
-                if (data.size <= IV_BYTES) {
+                val iv = DeviceKeyBlob.ivOf(data)
+                if (iv == null) {
                     result.error("bad-blob", "The blob is too short.", null)
                     return
                 }
@@ -71,7 +71,6 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
                     result.error("key-invalidated", "The device key is gone.", null)
                     return
                 }
-                val iv = GCMParameterSpec(TAG_BITS, data.copyOfRange(0, IV_BYTES))
                 cipher.init(Cipher.DECRYPT_MODE, existing, iv)
             }
         } catch (e: KeyPermanentlyInvalidatedException) {
@@ -92,11 +91,10 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
                     return
                 }
                 try {
-                    unlocked.updateAAD(context)
                     val output = if (encrypt) {
-                        unlocked.iv + unlocked.doFinal(data)
+                        DeviceKeyBlob.seal(unlocked, data, context)
                     } else {
-                        unlocked.doFinal(data, IV_BYTES, data.size - IV_BYTES)
+                        DeviceKeyBlob.open(unlocked, data, context)
                     }
                     result.success(output)
                 } catch (e: Exception) {
@@ -105,10 +103,7 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
             }
 
             override fun onAuthenticationError(code: Int, message: CharSequence) {
-                // "declined" only when the person turned it down themselves.
-                val declined = code == BiometricPrompt.ERROR_USER_CANCELED ||
-                    code == BiometricPrompt.ERROR_NEGATIVE_BUTTON
-                result.error(if (declined) "declined" else "cancelled", message.toString(), null)
+                result.error(DeviceKeyBlob.refusal(code), message.toString(), null)
             }
         }
         val prompt = BiometricPrompt(activity, ContextCompat.getMainExecutor(activity), callback)
@@ -152,8 +147,5 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
     private companion object {
         const val KEYSTORE = "AndroidKeyStore"
         const val ALIAS = "ledger-device-key"
-        const val TRANSFORMATION = "AES/GCM/NoPadding"
-        const val IV_BYTES = 12
-        const val TAG_BITS = 128
     }
 }

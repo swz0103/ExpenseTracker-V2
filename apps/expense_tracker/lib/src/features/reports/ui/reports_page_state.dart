@@ -161,7 +161,7 @@ class _ReportsPageState extends State<ReportsPage> {
             RepaintBoundary(
               key: _picture,
               child: ColoredBox(
-                color: Hue.paper,
+                color: AppColors.paper,
                 child: ReportHero(
                   ledger: ledger,
                   income: income,
@@ -201,7 +201,7 @@ class _ReportsPageState extends State<ReportsPage> {
                 if (biggest == null)
                   const EmptyState(
                     glyph: Glyph.grid,
-                    color: Hue.faint,
+                    color: AppColors.faint,
                     message: '這段時間沒有紀錄',
                   ),
               ], gap: 0),
@@ -216,7 +216,7 @@ class _ReportsPageState extends State<ReportsPage> {
                 if (report.count == 0)
                   const EmptyState(
                     glyph: Glyph.calendar,
-                    color: Hue.faint,
+                    color: AppColors.faint,
                     message: '這段時間沒有紀錄',
                   ),
               ]),
@@ -268,7 +268,7 @@ class _ReportsPageState extends State<ReportsPage> {
           Space.s3,
         ),
         decoration: BoxDecoration(
-          color: Hue.group,
+          color: AppColors.group,
           borderRadius: BorderRadius.circular(Radii.largeIncreased),
         ),
         child: Column(
@@ -285,11 +285,11 @@ class _ReportsPageState extends State<ReportsPage> {
                     ),
                   ),
                 ),
-                LegendKey(Hue.negative, Words.expense),
+                LegendKey(AppColors.negative, Words.expense),
                 SizedBox(width: Space.s2),
-                LegendKey(Hue.positive, Words.income),
+                LegendKey(AppColors.positive, Words.income),
                 SizedBox(width: Space.s2),
-                LegendKey(Hue.investment, '淨資產', line: true),
+                LegendKey(AppColors.investment, '淨資產', line: true),
               ],
             ),
             const SizedBox(height: Space.s2),
@@ -323,7 +323,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   ledger.orDots(signed(change)),
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    color: change < 0 ? Hue.negative : Hue.positive,
+                    color: AppColors.ofChange(change),
                   ),
                 ),
               ],
@@ -351,14 +351,14 @@ class _ReportsPageState extends State<ReportsPage> {
       CardGrid(gap: 10, [
         ReportBlock(
           glyph: Glyph.calendar,
-          color: Hue.negative,
+          color: AppColors.negative,
           label: '花最多的一天',
           value: most <= 0 ? '—' : '週${weekdayNames[days.indexOf(most)]}',
           sub: most <= 0 ? '' : '這段時間共 ${ledger.orDots(groupDigits(most))}',
         ),
         ReportBlock(
           glyph: Glyph.store,
-          color: Hue.positive,
+          color: AppColors.positive,
           label: '最常去',
           value: merchant?.$1 ?? '—',
           sub: merchant == null
@@ -509,7 +509,7 @@ class _ReportsPageState extends State<ReportsPage> {
                       child: CategoryBlock(
                         ledger: ledger,
                         category: name == '其他' && !spending.containsKey('其他')
-                            ? Category('其他', 'other', Hue.faint.toARGB32())
+                            ? _restBlock()
                             : ledger.category(name),
                         amount: amount,
                         share: expense == 0 ? 0 : amount * 100 ~/ expense,

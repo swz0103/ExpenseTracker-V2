@@ -69,7 +69,7 @@ class BalanceHero extends StatelessWidget {
         children: [
           Row(
             children: [
-              SquareIcon(icon, Hue.accent, size: 30),
+              SquareIcon(icon, AppColors.accent, size: 30),
               const SizedBox(width: Space.s2),
               Expanded(child: OneLine(label, style: accentLabel)),
               if (note case final words?) OneLine(words, style: mutedSmall),
@@ -92,7 +92,7 @@ class BalanceHero extends StatelessWidget {
                       fontSize: size ?? TextSize.big,
                       fontWeight: FontWeight.w800,
                       height: 1.15,
-                      color: left < 0 ? Hue.negative : Hue.ink,
+                      color: AppColors.ofBalance(left),
                     ),
                   ),
                 ),
@@ -110,19 +110,19 @@ class BalanceHero extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (total == 0)
-                  const Expanded(child: _Bar(Hue.line))
+                  const Expanded(child: _Bar(AppColors.line))
                 else ...[
                   if (income > 0)
                     Expanded(
                       flex: share(income),
-                      child: const _Bar(Hue.positive),
+                      child: const _Bar(AppColors.positive),
                     ),
                   if (income > 0 && expense > 0)
                     const SizedBox(width: Space.half),
                   if (expense > 0)
                     Expanded(
                       flex: share(expense),
-                      child: const _Bar(Hue.negative),
+                      child: const _Bar(AppColors.negative),
                     ),
                 ],
               ],
@@ -131,9 +131,9 @@ class BalanceHero extends StatelessWidget {
           const SizedBox(height: Space.s2),
           _Ends(
             ends: [
-              (Words.income, ledger.money(income), Hue.positive),
-              if (middle case (final name, final value)) (name, value, Hue.ink),
-              (Words.expense, ledger.money(expense), Hue.negative),
+              (Words.income, ledger.money(income), AppColors.positive),
+              if (middle case (final n, final v)) (n, v, AppColors.ink),
+              (Words.expense, ledger.money(expense), AppColors.negative),
             ],
           ),
         ],
@@ -152,7 +152,7 @@ class _Ends extends StatelessWidget {
 
   final List<(String, String, Color)> ends;
 
-  static const _name = TextStyle(fontSize: TextSize.caption, color: Hue.muted);
+  static const _name = mutedCaption;
 
   static TextStyle _figure(Color color) => TextStyle(
     fontSize: TextSize.title,
@@ -253,7 +253,7 @@ class _HideAmounts extends StatelessWidget {
                   child: GlyphIcon(
                     hidden ? Glyph.eyeOff : Glyph.eye,
                     size: 18,
-                    color: Hue.accent,
+                    color: AppColors.accent,
                   ),
                 ),
               ),

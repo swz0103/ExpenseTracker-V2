@@ -165,7 +165,7 @@ class TagPage extends StatelessWidget {
             if (entries.isEmpty)
               EmptyState(
                 glyph: merchant ? Glyph.store : Glyph.ticket,
-                color: merchant ? _merchantHue : _tagHue,
+                color: merchant ? _merchantColor : _tagColor,
                 message: '沒有紀錄',
               )
             else ...[
@@ -189,7 +189,7 @@ class TagPage extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: TextSize.body,
                     fontWeight: FontWeight.w800,
-                    color: Hue.muted,
+                    color: AppColors.muted,
                   ),
                 ),
               ),

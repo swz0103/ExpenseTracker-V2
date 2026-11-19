@@ -9,19 +9,26 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('tests press controls by their key, not their words', () {
     // The book's own entries and accounts, the page's title tapped as
-    // somewhere else on the screen, and widgets the tests make.
+    // somewhere else on the screen, and widgets the tests make. Anything
+    // else is pressed by its key, or as a screen reader would (`go`).
     const content = {'週末點心', '日常銀行', '收支紀錄', 'open', '第一站'};
-    final pressed = RegExp(r"(tap|longPress)\(find\.text\('([^']+)'\)");
-    for (final f in Directory('test').listSync(recursive: true)) {
-      if (f is! File || !f.path.endsWith('_test.dart')) continue;
-      for (final m in pressed.allMatches(f.readAsStringSync())) {
-        expect(
-          content,
-          contains(m[2]),
-          reason: '${f.path}: press 「${m[2]}」 by its key (Keys)',
-        );
+    final pressed = RegExp(
+      r'\.(tap|longPress|drag|press|ensureVisible)\w*\(\s*'
+      r'find\.(text|textContaining|widgetWithText)\(([^)]*)\)',
+    );
+    final faults = <String>[];
+    for (final top in ['test', 'integration_test']) {
+      for (final f in Directory(top).listSync(recursive: true)) {
+        if (f is! File || !f.path.endsWith('.dart')) continue;
+        for (final m in pressed.allMatches(f.readAsStringSync())) {
+          final words = RegExp(r"^'([^']*)'$").firstMatch(m[3]!.trim())?[1];
+          if (!content.contains(words)) {
+            faults.add('${f.path}: press ${m[3]} by its key (Keys) or `go`');
+          }
+        }
       }
     }
+    expect(faults, isEmpty, reason: faults.join('\n'));
   });
 
   test('a test sits where the file it tests sits', () {

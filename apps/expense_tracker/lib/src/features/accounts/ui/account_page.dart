@@ -67,7 +67,7 @@ class _AccountPageState extends State<AccountPage> {
                   // Deleted or archived: back to the accounts.
                   if (gone) widget.nav.back();
                 },
-                style: wordButton(Hue.accent),
+                style: wordButton(AppColors.accent),
                 child: const Text(Words.edit),
               ),
             ],
@@ -82,10 +82,10 @@ class _AccountPageState extends State<AccountPage> {
                     icon: accountIcon(account),
                     label: groupName(account.kind),
                     value: ledger.moneyIn(balance, account.currency),
-                    valueColor: balance < 0 ? Hue.negative : Hue.ink,
+                    valueColor: AppColors.ofBalance(balance),
                     child: FigureCells([
-                      (Glyph.income, '本月流入', into, Hue.positive),
-                      (Glyph.payout, '本月流出', out, Hue.negative),
+                      (Glyph.income, '本月流入', into, AppColors.positive),
+                      (Glyph.payout, '本月流出', out, AppColors.negative),
                     ]),
                   ),
                   AccountBody(
@@ -258,8 +258,7 @@ class _AccountBodyState extends State<AccountBody> {
             onChanged: (m) => setState(() => _month = m),
           ),
         ),
-        if (entries.isEmpty)
-          const Text('這個月沒有紀錄', style: TextStyle(color: Hue.muted)),
+        if (entries.isEmpty) const Text('這個月沒有紀錄', style: mutedText),
         for (final MapEntry(key: day, value: list) in days.entries) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(

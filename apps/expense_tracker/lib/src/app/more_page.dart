@@ -47,14 +47,14 @@ class MorePage extends StatelessWidget {
             _ToolRow([
               ToolButton(
                 glyph: Glyph.reports,
-                color: ToolHue.reports,
+                color: ToolColors.reports,
                 label: '財務報表',
                 detail: '結餘率 $rate%',
                 onTap: () => nav.open(AppRoutes.reports),
               ),
               ToolButton(
                 glyph: Glyph.pie,
-                color: ToolHue.investments,
+                color: ToolColors.investments,
                 label: '投資與股息',
                 detail: signed(
                   ledger.holdings.marketValue - ledger.holdings.costBasis,
@@ -66,7 +66,7 @@ class MorePage extends StatelessWidget {
             _ToolRow([
               ToolButton(
                 glyph: Glyph.gauge,
-                color: ToolHue.budgets,
+                color: ToolColors.budgets,
                 label: '預算管理',
                 detail: limit == 0
                     ? '還沒設定'
@@ -77,7 +77,7 @@ class MorePage extends StatelessWidget {
               ),
               ToolButton(
                 glyph: Glyph.cycleCalendar,
-                color: ToolHue.recurring,
+                color: ToolColors.recurring,
                 label: '定期交易',
                 // What is due shows here, not as a tile of its own.
                 detail: due.isNotEmpty
@@ -89,7 +89,7 @@ class MorePage extends StatelessWidget {
               ),
               ToolButton(
                 glyph: Glyph.swap,
-                color: ToolHue.debts,
+                color: ToolColors.debts,
                 label: '代墊與借貸',
                 detail: lent == 0 ? '沒有欠款' : '欠你 ${groupDigits(lent)}',
                 onTap: () => nav.open(AppRoutes.debts),
@@ -99,21 +99,21 @@ class MorePage extends StatelessWidget {
             _ToolRow([
               ToolButton(
                 glyph: Glyph.grid,
-                color: ToolHue.categories,
+                color: ToolColors.categories,
                 label: Words.category,
                 detail: '${ledger.categories.all.length} 個',
                 onTap: () => nav.open(AppRoutes.categories),
               ),
               ToolButton(
                 glyph: Glyph.tag,
-                color: ToolHue.tags,
+                color: ToolColors.tags,
                 label: '標籤與商家',
                 detail: '${ledger.reportService.tags.length} 個標籤',
                 onTap: () => nav.open(AppRoutes.tags),
               ),
               ToolButton(
                 glyph: Glyph.gear,
-                color: ToolHue.settings,
+                color: ToolColors.settings,
                 label: '設定',
                 detail: '備份、提醒',
                 onTap: () => nav.open(AppRoutes.settings),
@@ -199,14 +199,7 @@ class ToolButton extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: Space.half),
-                OneLine(
-                  detail,
-                  alignment: Alignment.center,
-                  style: const TextStyle(
-                    fontSize: TextSize.small,
-                    color: Hue.muted,
-                  ),
-                ),
+                OneLine(detail, alignment: Alignment.center, style: mutedSmall),
               ],
             ),
           ),

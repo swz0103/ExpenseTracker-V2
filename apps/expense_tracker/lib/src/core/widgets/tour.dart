@@ -286,11 +286,11 @@ class _Card extends StatelessWidget {
 
   /// The same in dark mode as in light: the pill stands on the dimmed
   /// screen, not on the page.
-  static const _paper = Hue.tourPaper;
-  static const _tint = Hue.tourTint;
-  static const _ink = Hue.tourInk;
-  static const _accent = Hue.tourAccent;
-  static const _muted = Hue.tourMuted;
+  static const _paper = AppColors.tourPaper;
+  static const _tint = AppColors.tourTint;
+  static const _ink = AppColors.tourInk;
+  static const _accent = AppColors.tourAccent;
+  static const _muted = AppColors.tourMuted;
 
   @override
   Widget build(BuildContext context) {
@@ -301,7 +301,7 @@ class _Card extends StatelessWidget {
         shape: StadiumBorder(),
         shadows: [
           BoxShadow(
-            color: Hue.tourShadow,
+            color: AppColors.tourShadow,
             blurRadius: 30,
             offset: Offset(0, 14),
           ),
@@ -395,8 +395,16 @@ class _Card extends StatelessWidget {
           dimension: 48,
           child: Center(
             child: last
-                ? const Icon(Icons.check_rounded, size: 24, color: Hue.onSolid)
-                : const GlyphIcon(Glyph.arrow, size: 21, color: Hue.onSolid),
+                ? const Icon(
+                    Icons.check_rounded,
+                    size: 24,
+                    color: AppColors.onSolid,
+                  )
+                : const GlyphIcon(
+                    Glyph.arrow,
+                    size: 21,
+                    color: AppColors.onSolid,
+                  ),
           ),
         ),
       ),
@@ -413,7 +421,7 @@ class _Dim extends CustomPainter {
   /// How far the ring has spread from the light, 0 to 1; none at 0.
   final double ring;
 
-  static const _shade = Hue.tourDim;
+  static const _shade = AppColors.tourDim;
 
   @override
   void paint(Canvas canvas, Size size) {

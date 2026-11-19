@@ -80,7 +80,7 @@ class LoanCard extends StatelessWidget {
                   ),
                   decoration: const InputDecoration(
                     hintText: '貸款名稱，例如房貸',
-                    hintStyle: TextStyle(color: Hue.faint),
+                    hintStyle: hintText,
                     isDense: true,
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(vertical: Space.s2),
@@ -218,7 +218,7 @@ class LoanBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Hue.glass,
+      color: AppColors.glass,
       borderRadius: BorderRadius.circular(Radii.large),
       child: InkWell(
         borderRadius: BorderRadius.circular(Radii.large),
@@ -285,7 +285,7 @@ class LoanEstimate extends StatelessWidget {
     String money(int v) => ledger.orDots(groupDigits(v));
     if (plan == null) {
       return ColorCard(
-        color: Hue.faint,
+        color: AppColors.faint,
         amount: 0.22,
         radius: Radii.largeIncreased,
         padding: const EdgeInsets.symmetric(
@@ -294,14 +294,9 @@ class LoanEstimate extends StatelessWidget {
         ),
         child: const Row(
           children: [
-            GlyphIcon(Glyph.calculator, size: 22, color: Hue.muted),
+            GlyphIcon(Glyph.calculator, size: 22, color: AppColors.muted),
             SizedBox(width: Space.s2),
-            Expanded(
-              child: Text(
-                '填好本金、利率、期數就會試算',
-                style: TextStyle(fontSize: TextSize.body, color: Hue.muted),
-              ),
-            ),
+            Expanded(child: Text('填好本金、利率、期數就會試算', style: mutedBody)),
           ],
         ),
       );
@@ -368,7 +363,7 @@ class LoanEstimate extends StatelessWidget {
       children: [
         block(
           Glyph.cash,
-          Hue.accent,
+          AppColors.accent,
           switch (repay) {
             LoanRepay.even => '每月繳',
             LoanRepay.principal => '第一個月',

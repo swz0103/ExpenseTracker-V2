@@ -116,19 +116,19 @@ class ReceiptSquare extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: _size),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(Radii.large),
-            border: Border.all(color: Hue.line, width: 1.5),
+            border: Border.all(color: AppColors.line, width: 1.5),
           ),
           child: const Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              GlyphIcon(Glyph.camera, size: 22, color: Hue.muted),
+              GlyphIcon(Glyph.camera, size: 22, color: AppColors.muted),
               SizedBox(height: Space.s1),
               Text(
                 Words.receipt,
                 style: TextStyle(
                   fontSize: TextSize.caption,
                   fontWeight: FontWeight.w700,
-                  color: Hue.muted,
+                  color: AppColors.muted,
                 ),
               ),
             ],
@@ -152,7 +152,9 @@ class ReceiptSquare extends StatelessWidget {
               errorBuilder: (_, _, _) => const SizedBox(
                 width: _size,
                 height: _size,
-                child: Center(child: GlyphIcon(Glyph.image, color: Hue.faint)),
+                child: Center(
+                  child: GlyphIcon(Glyph.image, color: AppColors.faint),
+                ),
               ),
             ),
           ),
@@ -164,8 +166,12 @@ class ReceiptSquare extends StatelessWidget {
             child: IconButton(
               tooltip: '移除收據',
               onPressed: onRemove,
-              style: IconButton.styleFrom(backgroundColor: Hue.white),
-              icon: const GlyphIcon(Glyph.close, size: 14, color: Hue.muted),
+              style: IconButton.styleFrom(backgroundColor: AppColors.white),
+              icon: const GlyphIcon(
+                Glyph.close,
+                size: 14,
+                color: AppColors.muted,
+              ),
             ),
           ),
       ],

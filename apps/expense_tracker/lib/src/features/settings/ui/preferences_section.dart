@@ -6,7 +6,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../overview/forms/overview_editor.dart';
 import '../../overview/forms/widget_face.dart';
 import '../../../core/platform/preferences.dart';
-import '../../../core/design_system/settings_hue.dart';
+import '../../../core/design_system/settings_colors.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 
@@ -22,7 +22,7 @@ class AppearanceSection extends StatelessWidget {
     showCenterPanel(
       context,
       glyph: Glyph.moon,
-      color: SettingsHue.appearance,
+      color: SettingsColors.appearance,
       title: '外觀',
       body: (context) => ListenableBuilder(
         listenable: preferences,
@@ -53,7 +53,7 @@ class AppearanceSection extends StatelessWidget {
     showCenterPanel(
       context,
       glyph: Glyph.overview,
-      color: SettingsHue.widget,
+      color: SettingsColors.widget,
       title: '桌面小工具',
       detail: '桌面上任何人都看得到',
       body: (context) => ListenableBuilder(
@@ -71,14 +71,14 @@ class AppearanceSection extends StatelessWidget {
     return CardGrid([
       SettingCard(
         glyph: Glyph.moon,
-        color: SettingsHue.appearance,
+        color: SettingsColors.appearance,
         title: '外觀',
         detail: preferences.appearance.label,
         onTap: () => _pickAppearance(context),
       ),
       SettingCard(
         glyph: Glyph.vibrate,
-        color: SettingsHue.haptics,
+        color: SettingsColors.haptics,
         title: '震動',
         detail: '按下去會輕震',
         value: preferences.haptics,
@@ -87,14 +87,14 @@ class AppearanceSection extends StatelessWidget {
       ),
       SettingCard(
         glyph: Glyph.overview,
-        color: SettingsHue.widget,
+        color: SettingsColors.widget,
         title: '桌面小工具',
         detail: preferences.widgetFigures.label,
         onTap: () => _pickWidget(context),
       ),
       SettingCard(
         glyph: Glyph.list,
-        color: SettingsHue.sections,
+        color: SettingsColors.sections,
         title: '總覽區塊',
         detail: '排序、隱藏',
         onTap: () => editOverview(context, preferences),
@@ -120,14 +120,14 @@ class _LookChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     // Each theme's own paper, surface and line, whichever is showing.
     final light = (
-      Color(Hue.paper.light),
-      Color(Hue.surface.light),
-      Color(Hue.faint.light),
+      Color(AppColors.paper.light),
+      Color(AppColors.surface.light),
+      Color(AppColors.faint.light),
     );
     final dark = (
-      Color(Hue.paper.darkValue),
-      Color(Hue.surface.darkValue),
-      Color(Hue.line.darkValue),
+      Color(AppColors.paper.darkValue),
+      Color(AppColors.surface.darkValue),
+      Color(AppColors.line.darkValue),
     );
     Widget page((Color, Color, Color) c) => Container(
       color: c.$1,
@@ -166,7 +166,7 @@ class _LookChoice extends StatelessWidget {
         ],
       ),
     };
-    const color = SettingsHue.appearance;
+    const color = SettingsColors.appearance;
     return ReadAsButton(
       selected: chosen,
       label: look.label,
@@ -181,7 +181,7 @@ class _LookChoice extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(Radii.large),
                   border: Border.all(
-                    color: chosen ? color : Hue.line,
+                    color: chosen ? color : AppColors.line,
                     width: chosen ? 3 : 1.5,
                   ),
                 ),
@@ -214,7 +214,7 @@ class _LookChoice extends StatelessWidget {
               style: TextStyle(
                 fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,
-                color: chosen ? deepOf(color) : Hue.ink,
+                color: chosen ? deepOf(color) : AppColors.ink,
               ),
             ),
           ],
@@ -282,7 +282,7 @@ class _WidgetChoice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const color = SettingsHue.widget;
+    const color = SettingsColors.widget;
     return ReadAsButton(
       selected: chosen,
       label: label,

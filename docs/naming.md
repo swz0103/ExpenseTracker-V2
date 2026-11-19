@@ -63,7 +63,7 @@
 | `core/text` | `core/formatting` | 格式化 |
 | `core/nav.dart`、`Place`、`Section`、`SettingsPart`、`Pages`、`openFlow` | `core/navigation/nav.dart`、`AppRoute`（子類別 `*Route`）、`MoreDestination`、`SettingsDestination`、`AppRoutes`、`openFullScreen` | Flutter Route；destination 是 Material 3 導覽的用語 |
 | `compose/`（功能裡的表單） | `forms/` | 與 Jetpack Compose 撞名 |
-| `Hue` | （保留，見例外） | — |
+| `Hue`、`ToolHue`、`SettingsHue`、`WidgetLook`、`accountHue` | `AppColors`、`ToolColors`、`SettingsColors`、`WidgetColors`、`accountColor`（已改，`naming_test` 守住） | Flutter 的 `Colors`；一看就知道是顏色 |
 | `*Part.kt`（Kotlin 通道處理） | `*Handler.kt`（已改，`naming_test` 守住） | `MethodCallHandler` |
 | `app/android/*.dart` | `app/android/*_adapter.dart` | Ports and Adapters，已有 `NotifyPort`、`CalendarPort` |
 | `Keeper`、`VaultKeeper` | `BackupManager`、`EncryptedBackupManager` | Manager |
@@ -82,7 +82,6 @@
 
 若真找不到通用詞，或改名的代價大於好處，在這裡登記：名稱、原因、它的定義。
 
-- **`Hue`**（App 的具名顏色）：原定改成 `AppColors`。實際改過一次：781 處多出 5 個字，22 個函式因換行變長、一個檔超過 600 行，等於把「只准變少」的長度規則推回去，卻沒有讓程式更清楚。保留 `Hue`，等那些長函式拆完再評估。
 
 ## 守住的方式
 

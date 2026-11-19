@@ -29,7 +29,7 @@ class _PhoneStrip extends StatelessWidget {
         ? ('電池最佳化可能延後提醒', onBattery)
         : (null, null);
     final good = missing == null;
-    final color = good ? Hue.positive : SettingsHue.warning;
+    final color = good ? AppColors.positive : SettingsColors.warning;
     return ColorCard(
       color: color,
       amount: 0.16,
@@ -91,7 +91,7 @@ class _Labelled extends StatelessWidget {
         style: const TextStyle(
           fontSize: TextSize.body,
           fontWeight: FontWeight.w700,
-          color: Hue.muted,
+          color: AppColors.muted,
         ),
       ),
       const SizedBox(height: Space.s2),

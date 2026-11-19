@@ -99,7 +99,7 @@ class _DailySectionState extends State<DailySection> {
               style: const TextStyle(
                 fontSize: TextSize.title,
                 fontWeight: FontWeight.w700,
-                color: Hue.negative,
+                color: AppColors.negative,
               ),
             ),
           ],
@@ -132,7 +132,7 @@ class _DailySectionState extends State<DailySection> {
         previousLabel: '上一週',
         nextLabel: '下一週',
         expand: true,
-        style: const TextStyle(fontSize: TextSize.body, color: Hue.muted),
+        style: mutedBody,
         onPrevious: () => _moveWeek(-1),
         onNext: atToday ? null : () => _moveWeek(1),
       ),
@@ -166,10 +166,10 @@ class _DailySectionState extends State<DailySection> {
           alignment: WrapAlignment.center,
           spacing: 10,
           children: [
-            LegendKey(Hue.negative, Words.expense),
-            LegendKey(Hue.positive, Words.income),
-            LegendKey(Hue.transfer, Words.transfer),
-            LegendKey(Hue.investment, Words.investment),
+            LegendKey(AppColors.negative, Words.expense),
+            LegendKey(AppColors.positive, Words.income),
+            LegendKey(AppColors.transfer, Words.transfer),
+            LegendKey(AppColors.investment, Words.investment),
           ],
         ),
       ),
@@ -228,7 +228,7 @@ class _WeekStrip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(Space.s1),
       decoration: BoxDecoration(
-        color: Hue.group,
+        color: AppColors.group,
         borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
@@ -249,18 +249,19 @@ class _WeekStrip extends StatelessWidget {
     final outside = day.month != month;
     final kinds = {for (final e in ledger.entries.onDay(day)) e.type};
     final dots = [
-      if (kinds.contains(EntryType.expense)) Hue.negative,
-      if (kinds.contains(EntryType.income)) Hue.positive,
-      if (kinds.contains(EntryType.transfer)) Hue.transfer,
-      if (kinds.any((k) => k.index >= EntryType.buy.index)) Hue.investment,
+      if (kinds.contains(EntryType.expense)) AppColors.negative,
+      if (kinds.contains(EntryType.income)) AppColors.positive,
+      if (kinds.contains(EntryType.transfer)) AppColors.transfer,
+      if (kinds.any((k) => k.index >= EntryType.buy.index))
+        AppColors.investment,
     ];
     // The chosen day in the app's own colour: solid on the light theme,
     // a deep tint with a ring on the dark one.
     final ink = picked
-        ? chosenInk(Hue.accent)
+        ? chosenInk(AppColors.accent)
         : future || outside
-        ? Hue.faint
-        : Hue.ink;
+        ? AppColors.faint
+        : AppColors.ink;
     final tap = future ? null : () => onSelect(day);
     return ReadAsButton(
       enabled: !future,
@@ -274,10 +275,10 @@ class _WeekStrip extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 48),
           padding: const EdgeInsets.symmetric(vertical: Space.s2),
           decoration: BoxDecoration(
-            color: picked ? chosenFill(Hue.accent) : null,
+            color: picked ? chosenFill(AppColors.accent) : null,
             borderRadius: BorderRadius.circular(Radii.medium),
             border: picked && Shade.dark
-                ? Border.fromBorderSide(chosenEdge(Hue.accent))
+                ? Border.fromBorderSide(chosenEdge(AppColors.accent))
                 : null,
           ),
           child: Column(
@@ -358,11 +359,11 @@ class _DayCards extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: Space.s2),
         child: Row(
           children: [
-            const Text('這天沒有紀錄', style: TextStyle(color: Hue.muted)),
+            const Text('這天沒有紀錄', style: mutedText),
             const Spacer(),
             TextButton(
               onPressed: onAdd,
-              style: wordButton(Hue.accent),
+              style: wordButton(AppColors.accent),
               child: const Text('＋ 記一筆'),
             ),
           ],

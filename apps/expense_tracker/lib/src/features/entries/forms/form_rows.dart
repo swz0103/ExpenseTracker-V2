@@ -99,7 +99,7 @@ final class CurrencyFields {
         icon: Glyph.coins,
         label: '折合台幣',
         value: value == null ? '請輸入' : groupDigits(value),
-        valueColor: value == null ? Hue.hint : Hue.ink,
+        valueColor: value == null ? AppColors.hint : AppColors.ink,
         size: TextSize.body,
         sub: _f.home != null || rate == null ? null : '臺銀即期買入 $rate',
         onTap: () async {
@@ -121,7 +121,7 @@ final class CurrencyFields {
         icon: Glyph.coins,
         label: '轉入金額',
         value: value == null ? '請輸入' : amountIn(value, _f.toCurrency),
-        valueColor: value == null ? Hue.hint : Hue.ink,
+        valueColor: value == null ? AppColors.hint : AppColors.ink,
         size: TextSize.body,
         sub: _f.received == null && value != null ? '依臺銀即期匯率換算' : null,
         onTap: () async {
@@ -154,8 +154,8 @@ final class CategoryFields {
             ? '還剩 ${groupDigits(left)}'
             : '多了 ${groupDigits(-left)}',
         null,
-        color: left == 0 ? Hue.positive.withValues(alpha: 0.14) : null,
-        ink: left == 0 ? Hue.positive : Hue.negative,
+        color: left == 0 ? AppColors.positive.withValues(alpha: 0.14) : null,
+        ink: left == 0 ? AppColors.positive : AppColors.negative,
       ),
       if (!_a.viewing && parts.isNotEmpty) Bubble('平均分配', _a.evenly),
     ]);
@@ -217,7 +217,7 @@ final class CategoryFields {
           ? ChoiceStripItem(
               label: splitting ? '拆分中' : '拆分',
               icon: Glyph.sliders,
-              color: Hue.negative,
+              color: AppColors.negative,
               solid: splitting,
               picked: false,
               onTap: _a.split,

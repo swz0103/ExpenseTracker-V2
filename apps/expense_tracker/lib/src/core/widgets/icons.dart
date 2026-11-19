@@ -338,18 +338,18 @@ Glyph kindIcon(AccountKind kind) => switch (kind) {
 };
 
 /// [account]'s colour: the one picked for it, else its kind's.
-Color accountHue(Account account) => switch (account.color) {
+Color accountColor(Account account) => switch (account.color) {
   final argb? => shownColor(Color(argb)),
-  null => accountColor(account.kind),
+  null => accountKindColor(account.kind),
 };
 
-Color accountColor(AccountKind kind) => switch (kind) {
-  AccountKind.cash => Hue.cash,
-  AccountKind.bank => Hue.bank,
-  AccountKind.wallet => Hue.wallet,
-  AccountKind.card => Hue.card,
-  AccountKind.loan => Hue.investment,
-  AccountKind.receivable => Hue.receivable,
+Color accountKindColor(AccountKind kind) => switch (kind) {
+  AccountKind.cash => AppColors.cash,
+  AccountKind.bank => AppColors.bank,
+  AccountKind.wallet => AppColors.wallet,
+  AccountKind.card => AppColors.card,
+  AccountKind.loan => AppColors.investment,
+  AccountKind.receivable => AppColors.receivable,
 };
 
 String groupName(AccountKind kind) => switch (kind) {
@@ -363,10 +363,12 @@ String groupName(AccountKind kind) => switch (kind) {
 
 /// The colour an entry's amount is written in.
 Color entryColor(EntryType type) => switch (type) {
-  EntryType.expense => Hue.negative,
-  EntryType.income || EntryType.dividend || EntryType.sell => Hue.positive,
-  EntryType.transfer => Hue.transfer,
-  EntryType.buy => Hue.investment,
+  EntryType.expense => AppColors.negative,
+  EntryType.income ||
+  EntryType.dividend ||
+  EntryType.sell => AppColors.positive,
+  EntryType.transfer => AppColors.transfer,
+  EntryType.buy => AppColors.investment,
 };
 
 /// [LoanRepay] as the form names it.

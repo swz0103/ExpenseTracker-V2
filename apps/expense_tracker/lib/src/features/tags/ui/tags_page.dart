@@ -18,8 +18,8 @@ import '../../../core/formatting/words.dart';
 part 'tag_page.dart';
 
 /// The colours of the two halves of 標籤與商家.
-const _tagHue = Palette.gold;
-const _merchantHue = Palette.orange;
+const _tagColor = Palette.gold;
+const _merchantColor = Palette.orange;
 
 /// 標籤與商家: 標籤 and 商家 on two big segments. Tags: a cover for the
 /// tag of the latest entry (its days, total, a day's spending and its
@@ -67,7 +67,7 @@ class _TagsPageState extends State<TagsPage> {
                     glyph: Glyph.ticket,
                     label: Words.tag,
                     count: tags.length,
-                    color: _tagHue,
+                    color: _tagColor,
                     chosen: !_merchants,
                     onTap: () => setState(() => _merchants = false),
                   ),
@@ -78,7 +78,7 @@ class _TagsPageState extends State<TagsPage> {
                     glyph: Glyph.store,
                     label: Words.merchant,
                     count: merchants.length,
-                    color: _merchantHue,
+                    color: _merchantColor,
                     chosen: _merchants,
                     onTap: () => setState(() => _merchants = true),
                   ),
@@ -102,7 +102,7 @@ class _TagsPageState extends State<TagsPage> {
       return const [
         EmptyState(
           glyph: Glyph.ticket,
-          color: _tagHue,
+          color: _tagColor,
           message: '記帳時在「標籤」加上 #名稱，\n同一趟旅行或計畫的花費就會收在這裡',
         ),
       ];
@@ -127,7 +127,7 @@ class _TagsPageState extends State<TagsPage> {
             style: const TextStyle(
               fontSize: TextSize.body,
               fontWeight: FontWeight.w800,
-              color: Hue.muted,
+              color: AppColors.muted,
             ),
           ),
         ),
@@ -203,7 +203,7 @@ class _TagsPageState extends State<TagsPage> {
       return const [
         EmptyState(
           glyph: Glyph.store,
-          color: _merchantHue,
+          color: _merchantColor,
           message: '記帳時填上「商家」，\n最常去的店就會排在這裡',
         ),
       ];
@@ -476,7 +476,7 @@ class TagSummaryCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: TextSize.caption,
                             fontWeight: FontWeight.w800,
-                            color: Hue.onSolid,
+                            color: AppColors.onSolid,
                           ),
                         ),
                       ),

@@ -25,6 +25,11 @@ void main() {
     'Connector': 'SyncJob',
     'Perf': 'PerformanceMonitor',
     'ProjectCard': 'TagSummaryCard',
+    'Hue': 'AppColors',
+    'ToolHue': 'ToolColors',
+    'SettingsHue': 'SettingsColors',
+    'WidgetLook': 'WidgetColors',
+    'accountHue': 'accountColor',
   };
 
   test('no old made-up name comes back', () {

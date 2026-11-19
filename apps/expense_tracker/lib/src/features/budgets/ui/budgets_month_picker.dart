@@ -24,15 +24,17 @@ class _MonthPickerState extends State<_MonthPicker> {
 
   @override
   Widget build(BuildContext context) {
-    final ledger = widget.ledger;
-    const key = BudgetMonths.key;
     Widget arrow(Glyph glyph, String label, bool on, int by) => Material(
-      color: on ? Hue.surface : Hue.paper,
+      color: on ? AppColors.surface : AppColors.paper,
       shape: const CircleBorder(),
       child: IconButton(
         tooltip: label,
         onPressed: on ? () => setState(() => _year += by) : null,
-        icon: GlyphIcon(glyph, size: 20, color: on ? Hue.ink : Hue.faint),
+        icon: GlyphIcon(
+          glyph,
+          size: 20,
+          color: on ? AppColors.ink : AppColors.faint,
+        ),
       ),
     );
     return Padding(
@@ -59,72 +61,7 @@ class _MonthPickerState extends State<_MonthPicker> {
           ),
           const SizedBox(height: Space.s4),
           CardGrid(columns: 4, gap: 8, [
-            for (var m = 1; m <= 12; m++)
-              () {
-                final on =
-                    key((_year, m)) >= key(widget.first) &&
-                    key((_year, m)) <= key(widget.last);
-                final sums = BudgetMonth.of(ledger, (_year, m));
-                final total = sums.total;
-                final share = total == 0 ? null : sums.spent * 100 ~/ total;
-                final chosen = (_year, m) == widget.chosen;
-                final tone = share == null
-                    ? Hue.muted
-                    : share > 100
-                    ? Hue.negative
-                    : share >= 90
-                    ? Hue.goldText
-                    : Hue.muted;
-                final pick = on
-                    ? () => Navigator.of(context).pop((_year, m))
-                    : null;
-                return ReadAsButton(
-                  selected: chosen,
-                  enabled: on,
-                  label: '$m 月',
-                  onTap: pick,
-                  child: Material(
-                    color: chosen ? Hue.selected : Hue.surface,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(Radii.large),
-                      side: chosen
-                          ? const BorderSide(color: Hue.accent, width: 2)
-                          : BorderSide.none,
-                    ),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(Radii.large),
-                      onTap: pick,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: Space.s2),
-                        child: Column(
-                          children: [
-                            Text(
-                              '$m 月',
-                              style: TextStyle(
-                                fontSize: TextSize.title,
-                                fontWeight: FontWeight.w800,
-                                color: on ? Hue.ink : Hue.faint,
-                              ),
-                            ),
-                            Text(
-                              !on || share == null
-                                  ? ' '
-                                  : share > 100
-                                  ? '超支'
-                                  : '$share%',
-                              style: TextStyle(
-                                fontSize: TextSize.small,
-                                fontWeight: FontWeight.w700,
-                                color: tone,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }(),
+            for (var m = 1; m <= 12; m++) _monthCell(context, m),
           ]),
           const SizedBox(height: Space.s3),
           const Text(
@@ -133,6 +70,71 @@ class _MonthPickerState extends State<_MonthPicker> {
             style: mutedSmall,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _monthCell(BuildContext context, int m) {
+    const key = BudgetMonths.key;
+    final on =
+        key((_year, m)) >= key(widget.first) &&
+        key((_year, m)) <= key(widget.last);
+    final sums = BudgetMonth.of(widget.ledger, (_year, m));
+    final total = sums.total;
+    final share = total == 0 ? null : sums.spent * 100 ~/ total;
+    final chosen = (_year, m) == widget.chosen;
+    final tone = share == null
+        ? AppColors.muted
+        : share > 100
+        ? AppColors.negative
+        : share >= 90
+        ? AppColors.goldText
+        : AppColors.muted;
+    final pick = on ? () => Navigator.of(context).pop((_year, m)) : null;
+    return ReadAsButton(
+      selected: chosen,
+      enabled: on,
+      label: '$m 月',
+      onTap: pick,
+      child: Material(
+        color: chosen ? AppColors.selected : AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Radii.large),
+          side: chosen
+              ? const BorderSide(color: AppColors.accent, width: 2)
+              : BorderSide.none,
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(Radii.large),
+          onTap: pick,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: Space.s2),
+            child: Column(
+              children: [
+                Text(
+                  '$m 月',
+                  style: TextStyle(
+                    fontSize: TextSize.title,
+                    fontWeight: FontWeight.w800,
+                    color: on ? AppColors.ink : AppColors.faint,
+                  ),
+                ),
+                Text(
+                  !on || share == null
+                      ? ' '
+                      : share > 100
+                      ? '超支'
+                      : '$share%',
+                  style: TextStyle(
+                    fontSize: TextSize.small,
+                    fontWeight: FontWeight.w700,
+                    color: tone,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -213,7 +215,7 @@ class _AddLimit extends StatelessWidget {
               children: [
                 for (final tag in tags)
                   ActionChip(
-                    backgroundColor: Hue.surface,
+                    backgroundColor: AppColors.surface,
                     side: BorderSide.none,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(Radii.large),

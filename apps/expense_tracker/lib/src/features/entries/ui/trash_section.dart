@@ -7,7 +7,7 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/messages/problem_messages.dart';
 import '../../../core/widgets/entry_tile.dart';
-import '../../../core/design_system/settings_hue.dart';
+import '../../../core/design_system/settings_colors.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/formatting/dates.dart';
@@ -42,7 +42,7 @@ class TrashSection extends StatelessWidget {
     if (trash.all.isEmpty) {
       return const EmptyState(
         glyph: Glyph.trash,
-        color: SettingsHue.trash,
+        color: SettingsColors.trash,
         message: '沒有刪除的紀錄',
       );
     }
@@ -56,10 +56,10 @@ class TrashSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ColorCard(
-          color: SettingsHue.trash,
+          color: SettingsColors.trash,
           child: Row(
             children: [
-              const SquareIcon(Glyph.reset, SettingsHue.trash, size: 54),
+              const SquareIcon(Glyph.reset, SettingsColors.trash, size: 54),
               const SizedBox(width: Space.s4),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,7 +75,7 @@ class TrashSection extends StatelessWidget {
                     '保留 $_keptDays 天',
                     style: TextStyle(
                       fontSize: TextSize.body,
-                      color: deepOf(SettingsHue.trash),
+                      color: deepOf(SettingsColors.trash),
                     ),
                   ),
                 ],
@@ -96,7 +96,7 @@ class TrashSection extends StatelessWidget {
               style: const TextStyle(
                 fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,
-                color: Hue.muted,
+                color: AppColors.muted,
               ),
             ),
           ),
@@ -130,8 +130,8 @@ class TrashSection extends StatelessWidget {
           FilledButton(
             onPressed: () => _restore(context, t),
             style: solidButton(
-              Hue.selected,
-              ink: Hue.accent,
+              AppColors.selected,
+              ink: AppColors.accent,
               minimumSize: Size(56, 44),
               radius: Radii.large,
               padding: const EdgeInsets.symmetric(horizontal: Space.s4),

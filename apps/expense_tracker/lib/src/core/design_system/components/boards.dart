@@ -19,7 +19,7 @@ class QuoteBoard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Hue.group,
+        color: AppColors.group,
         borderRadius: BorderRadius.circular(Radii.largeIncreased),
       ),
       clipBehavior: Clip.antiAlias,
@@ -102,7 +102,7 @@ class QuoteRow extends StatelessWidget {
 
 /// A big figure on the right of a [QuoteRow].
 class RowFigure extends StatelessWidget {
-  const RowFigure(this.text, {super.key, this.color = Hue.ink});
+  const RowFigure(this.text, {super.key, this.color = AppColors.ink});
 
   final String text;
   final Color color;
@@ -141,7 +141,7 @@ class DotsMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<int>(
       tooltip: label,
-      color: Hue.white,
+      color: AppColors.white,
       elevation: 8,
       position: PopupMenuPosition.under,
       shape: RoundedRectangleBorder(
@@ -160,7 +160,7 @@ class DotsMenu extends StatelessWidget {
                   item.glyph,
                   size: 20,
                   tinted: false,
-                  color: item.danger ? Hue.danger : Hue.ink,
+                  color: item.danger ? AppColors.danger : AppColors.ink,
                 ),
                 const SizedBox(width: Space.s4),
                 Text(
@@ -168,7 +168,7 @@ class DotsMenu extends StatelessWidget {
                   style: TextStyle(
                     fontSize: TextSize.title,
                     fontWeight: FontWeight.w700,
-                    color: item.danger ? Hue.danger : Hue.ink,
+                    color: item.danger ? AppColors.danger : AppColors.ink,
                   ),
                 ),
               ],
@@ -184,7 +184,7 @@ class DotsMenu extends StatelessWidget {
           borderRadius: BorderRadius.circular(Radii.medium),
         ),
         alignment: Alignment.center,
-        child: const GlyphIcon(Glyph.more, size: 22, color: Hue.ink),
+        child: const GlyphIcon(Glyph.more, size: 22, color: AppColors.ink),
       ),
     );
   }
@@ -235,18 +235,14 @@ class EmptyState extends StatelessWidget {
             ),
           ),
           const SizedBox(height: Space.s4),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: TextSize.body, color: Hue.muted),
-          ),
+          Text(message, textAlign: TextAlign.center, style: mutedBody),
           if (action != null && act != null) ...[
             const SizedBox(height: Space.s4),
             FilledButton(
               onPressed: act,
               style: FilledButton.styleFrom(
                 backgroundColor: color,
-                foregroundColor: Hue.onAccent,
+                foregroundColor: AppColors.onAccent,
                 minimumSize: const Size(0, 52),
                 padding: const EdgeInsets.symmetric(horizontal: Space.s6),
                 shape: RoundedRectangleBorder(

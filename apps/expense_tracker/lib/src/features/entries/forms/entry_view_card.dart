@@ -40,8 +40,8 @@ class EntryViewCard extends StatelessWidget {
     final category = ledger.category(e.category);
     final trade = e.type.index >= EntryType.buy.index;
     final (Glyph glyph, Color color) = switch (e.type) {
-      EntryType.transfer => (Glyph.transfer, Hue.transfer),
-      _ when trade => (Glyph.investment, Hue.investment),
+      EntryType.transfer => (Glyph.transfer, AppColors.transfer),
+      _ when trade => (Glyph.investment, AppColors.investment),
       _ => (iconFor(category.icon), shownColor(Color(category.color))),
     };
     final kind = switch (e.type) {
@@ -95,7 +95,9 @@ class EntryViewCard extends StatelessWidget {
                 fontSize: TextSize.big,
                 fontWeight: FontWeight.w800,
                 height: 1.15,
-                color: e.type == EntryType.transfer ? Hue.ink : mode.color,
+                color: e.type == EntryType.transfer
+                    ? AppColors.ink
+                    : mode.color,
               ),
             ),
           ),

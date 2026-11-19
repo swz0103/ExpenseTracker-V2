@@ -65,7 +65,7 @@ class SubcategoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColorCard(
-      color: add ? Hue.faint : color,
+      color: add ? AppColors.faint : color,
       amount: add ? 0.25 : 0.2,
       radius: Radii.large,
       onTap: onTap,
@@ -81,11 +81,15 @@ class SubcategoryTile extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: Hue.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(Radii.medium),
                   ),
                   alignment: Alignment.center,
-                  child: const GlyphIcon(Glyph.add, size: 18, color: Hue.ink),
+                  child: const GlyphIcon(
+                    Glyph.add,
+                    size: 18,
+                    color: AppColors.ink,
+                  ),
                 )
               : SquareIcon(glyph, color, size: 36),
           const SizedBox(height: Space.s2),
@@ -96,7 +100,7 @@ class SubcategoryTile extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.small,
               fontWeight: FontWeight.w700,
-              color: add ? Hue.ink : deepOf(color),
+              color: add ? AppColors.ink : deepOf(color),
             ),
           ),
         ],
@@ -119,7 +123,7 @@ class ParentCategoryChoice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColorCard(
-      color: Hue.faint,
+      color: AppColors.faint,
       amount: 0.18,
       radius: Radii.large,
       onTap: onTap,
@@ -140,7 +144,7 @@ class ParentCategoryChoice extends StatelessWidget {
             '${parent ?? '不放'} ›',
             style: const TextStyle(
               fontWeight: FontWeight.w700,
-              color: Hue.muted,
+              color: AppColors.muted,
             ),
           ),
         ],

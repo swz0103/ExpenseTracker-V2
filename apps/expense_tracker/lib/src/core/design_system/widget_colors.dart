@@ -6,7 +6,7 @@ import 'theme.dart';
 /// from the snapshot the app writes (home_widget.dart). Its colours are
 /// the widget's own (res/values*/colors.xml): light, or dark when the
 /// phone is, as the app's own themes.
-abstract final class WidgetLook {
+abstract final class WidgetColors {
   static const card = Shade(0xFFFFFFFF, 0xFF343F45);
   static const ink = Shade(0xFF26323A, 0xFFEEF2F3);
   static const muted = Shade(0xFF7A858B, 0xFFA3AEB3);
