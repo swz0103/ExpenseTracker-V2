@@ -63,7 +63,8 @@ void main() {
       final rows = store.rows().toList();
       // ignore: avoid_print
       print(
-        'READ ROWS ${rows.length} in ${r0.elapsedMilliseconds} ms (main thread)',
+        'ONE READ OF ALL ${rows.length} rows, as opening did before: '
+        '${r0.elapsedMilliseconds} ms',
       );
       var worst = 0;
       final tick = Stopwatch()..start();
