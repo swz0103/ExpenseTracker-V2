@@ -33,7 +33,9 @@ void main() {
   });
 
   test('words take a size from the type scale', () {
-    final literal = RegExp(r'fontSize: \d');
+    // Also a size picked between two, as `fontSize: done ? 16 : 15`;
+    // a size worked out from another, as `size * 0.44`, may stand.
+    final literal = RegExp(r'fontSize: (\d|[^,\n]*[?:] *\d+(\.\d+)? *[,:])');
     for (final f in files) {
       if (path(f).endsWith(Layout.typeFile)) continue;
       expect(

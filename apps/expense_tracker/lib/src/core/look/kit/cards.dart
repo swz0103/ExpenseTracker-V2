@@ -235,7 +235,7 @@ class _BigSegment extends StatelessWidget {
     final word = Text(
       label,
       style: TextStyle(
-        fontSize: stacked ? 14 : 17,
+        fontSize: stacked ? TextSize.body : TextSize.title,
         fontWeight: FontWeight.w800,
         color: ink,
       ),

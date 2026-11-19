@@ -383,7 +383,7 @@ class _Step extends StatelessWidget {
                     '$count',
                     textScaler: TextScaler.noScaling,
                     style: TextStyle(
-                      fontSize: first ? 30 : 26,
+                      fontSize: first ? TextSize.figure : TextSize.large,
                       fontWeight: FontWeight.w800,
                       color: ink,
                     ),
