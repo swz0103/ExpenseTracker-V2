@@ -1,5 +1,5 @@
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/features/entries/compose/trade_cards.dart';
+import 'package:expense_tracker/src/features/entries/forms/trade_cards.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Holding _h(String code, String name) =>

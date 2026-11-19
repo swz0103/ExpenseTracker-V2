@@ -43,8 +43,8 @@ abstract final class Layout {
   static const keysFile = 'core/look/keys.dart';
 
   /// The folders inside a feature, and those that hold screens.
-  static const featureFolders = ['model', 'ui', 'compose'];
-  static const screenFolders = ['/ui/', '/compose/'];
+  static const featureFolders = ['model', 'ui', 'forms'];
+  static const screenFolders = ['/ui/', '/forms/'];
   static const modelFolder = '/model/';
 
   /// Folders that paint, which no model or the ledger may import.

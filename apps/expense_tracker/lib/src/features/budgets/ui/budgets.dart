@@ -6,7 +6,7 @@ import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
-import '../compose/budget_editor.dart';
+import '../forms/budget_editor.dart';
 import '../model/budget_month.dart';
 import '../../../core/nav.dart';
 import '../../../core/ui/shown_amounts.dart';

@@ -9,7 +9,7 @@ import '../../features/lock/ui/views/lock_parts.dart';
 import '../../features/lock/ui/views/unlock_view.dart';
 import '../../features/lock/ui/views/welcome_view.dart';
 import '../../features/overview/model/home_widget.dart';
-import '../../features/overview/compose/widget_face.dart';
+import '../../features/overview/forms/widget_face.dart';
 import '../../features/settings/model/platform_services.dart';
 import '../shell.dart';
 import 'preview_services.dart';

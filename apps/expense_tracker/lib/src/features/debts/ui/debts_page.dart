@@ -7,8 +7,8 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import '../../../core/look/dialogs.dart';
-import '../../accounts/compose/account_editor.dart';
-import '../../accounts/compose/reconcile_sheet.dart';
+import '../../accounts/forms/account_editor.dart';
+import '../../accounts/forms/reconcile_sheet.dart';
 
 import 'package:domain/loans.dart';
 

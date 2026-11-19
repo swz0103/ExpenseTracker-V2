@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
-import '../compose/category_editor.dart';
+import '../forms/category_editor.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/haptics.dart';
 import '../../../core/ui/icons.dart';

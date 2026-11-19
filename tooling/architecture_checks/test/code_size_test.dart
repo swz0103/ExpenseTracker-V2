@@ -39,7 +39,7 @@ const longerFunctions = <String, int>{
   'src/features/investments/ui/investments_returns.dart::_ReturnsState.build':
       184,
   'src/features/tags/ui/tags_page.dart::ProjectCard.build': 164,
-  'src/features/accounts/compose/account_editor_state.dart::_AccountEditorState.build':
+  'src/features/accounts/forms/account_editor_state.dart::_AccountEditorState.build':
       121,
   'src/features/recurring/ui/recurring_calendar.dart::_Calendar._dayCell': 136,
   'src/app/demo/seed_history.dart::_history': 152,
@@ -51,7 +51,7 @@ const longerFunctions = <String, int>{
   'src/features/settings/ui/update_panel.dart::_UpdatePanelState.build': 137,
   'src/features/reports/ui/reports_page_state.dart::_ReportsPageState.build':
       133,
-  'src/features/recurring/compose/recurring_repeat.dart::_RepeatSheetState.build':
+  'src/features/recurring/forms/recurring_repeat.dart::_RepeatSheetState.build':
       133,
   'src/core/charts/flow_chart.dart::_FlowPainter.paint': 131,
   'src/features/accounts/ui/account_page.dart::_AccountBodyState.build': 124,
@@ -79,15 +79,15 @@ const longerFunctions = <String, int>{
       108,
   'src/features/investments/ui/holding_bento.dart::_LinePainter.paint': 108,
   'src/features/budgets/ui/budgets.dart::_Main.build': 108,
-  'src/features/accounts/compose/loan_cards.dart::LoanEstimate.build': 106,
+  'src/features/accounts/forms/loan_cards.dart::LoanEstimate.build': 106,
   'src/features/settings/ui/preferences_section.dart::_LookChoice.build': 106,
   'src/app/shell.dart::_BottomBar.build': 105,
   'src/features/import_export/ui/import_export_section.dart::_ExportSheetState.build':
       105,
   'src/app/more_page.dart::MorePage.build': 104,
-  'src/features/accounts/compose/loan_fields.dart::extension._loanFields': 102,
-  'src/features/overview/compose/widget_face.dart::WidgetFace.build': 101,
-  'src/features/accounts/compose/account_editor_edit_card.dart::_EditCard.build':
+  'src/features/accounts/forms/loan_fields.dart::extension._loanFields': 102,
+  'src/features/overview/forms/widget_face.dart::WidgetFace.build': 101,
+  'src/features/accounts/forms/account_editor_edit_card.dart::_EditCard.build':
       100,
   'src/features/budgets/ui/budgets_pace.dart::_Limit.build': 100,
   'src/features/overview/ui/sections/assets_section.dart::_AssetsSectionState._assets':
@@ -97,17 +97,17 @@ const longerFunctions = <String, int>{
   'src/features/reports/ui/report_habits.dart::merchantsSection': 95,
   'src/features/debts/ui/person_page.dart::PersonPage.build': 95,
   'src/app/shell.dart::_AppShellState._body': 95,
-  'src/features/accounts/compose/loan_cards.dart::LoanCard.build': 94,
+  'src/features/accounts/forms/loan_cards.dart::LoanCard.build': 94,
   'src/core/ui/entry_tile.dart::EntryTile.build': 93,
   'src/features/investments/ui/holding_page.dart::_DividendCard.build': 93,
   'src/core/ledger/persistence/sql_ledger_data_source.dart::SqlLedgerDataSource.refreshQuotes':
       93,
-  'src/features/entries/compose/holding_choices.dart::_HoldingChoicesState.build':
+  'src/features/entries/forms/holding_choices.dart::_HoldingChoicesState.build':
       92,
   'src/app/demo/launch.dart::_HomeScreen._wallpaper': 92,
   'src/features/budgets/ui/budgets_month_picker.dart::_AddLimit.build': 91,
   'src/features/recurring/ui/recurring_lists.dart::_Subscriptions.build': 91,
-  'src/features/entries/compose/compose_chips.dart::OwedCard.build': 89,
+  'src/features/entries/forms/compose_chips.dart::OwedCard.build': 89,
   'src/core/charts/waterfall.dart::_WaterfallPainter.paint': 89,
   'src/core/look/time_panels.dart::_TimePanelState.build': 88,
   'src/features/reports/model/report.dart::Report.of': 87,
@@ -124,7 +124,7 @@ const longerFunctions = <String, int>{
   'src/features/overview/model/home_widget.dart::widgetSnapshot': 82,
   'src/features/reminders/ui/reminders_section.dart::_RemindersSectionState._calendarDetails':
       82,
-  'src/features/recurring/compose/recurring_repeat.dart::_OtherSheetState.build':
+  'src/features/recurring/forms/recurring_repeat.dart::_OtherSheetState.build':
       81,
   'src/features/debts/ui/debts_page.dart::_DebtHero.build': 81,
   'src/core/look/dialogs.dart::confirm': 81,

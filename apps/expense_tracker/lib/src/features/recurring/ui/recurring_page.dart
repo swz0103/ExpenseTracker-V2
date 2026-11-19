@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../accounts/compose/account_editor.dart';
-import '../compose/recurring_editor.dart';
+import '../../accounts/forms/account_editor.dart';
+import '../forms/recurring_editor.dart';
 import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/theme.dart';

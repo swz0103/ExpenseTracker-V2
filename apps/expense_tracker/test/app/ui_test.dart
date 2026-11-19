@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:expense_tracker/src/core/look/keys.dart';
 import 'package:expense_tracker/src/core/charts/treemap.dart';
 import 'package:expense_tracker/src/core/ui/calculator.dart';
-import 'package:expense_tracker/src/features/entries/compose/composer.dart';
+import 'package:expense_tracker/src/features/entries/forms/composer.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/look/theme.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';

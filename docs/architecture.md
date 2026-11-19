@@ -22,7 +22,7 @@
 ```
 lib/src/
   app/        組裝：啟動、底部分頁、設定與更多的入口頁、Android 通道、網頁預覽
-  features/   每個功能一個資料夾：model/ compose/ ui/
+  features/   每個功能一個資料夾：model/ forms/ ui/
   core/       所有功能共用：text look charts ledger platform ui，加上 nav.dart
 ```
 
@@ -43,9 +43,9 @@ lib/src/
 `accounts` `backup` `budgets` `categories` `debts` `entries` `import_export` `investments` `lock` `overview` `recurring` `reminders` `reports` `settings` `tags`
 
 - `model/`：資料與服務，不碰畫面。
-- `compose/`：表單與面板，別的功能可以打開它。
+- `forms/`：表單與面板，別的功能可以打開它。
 - `ui/`：頁面，只有自己的功能和 `app/` 用。
-- 功能可以用別的功能的 `model/`、`compose/`，不能用 `ui/`；功能之間不能互相需要（含間接）。
+- 功能可以用別的功能的 `model/`、`forms/`，不能用 `ui/`；功能之間不能互相需要（含間接）。
 
 ### 導覽
 

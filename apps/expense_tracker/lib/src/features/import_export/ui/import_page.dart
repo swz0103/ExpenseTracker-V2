@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../accounts/compose/account_editor.dart';
+import '../../accounts/forms/account_editor.dart';
 import '../../../core/ui/entry_tile.dart';
 import '../../../core/ui/pickers.dart';
 import '../../../core/look/glyphs.dart';

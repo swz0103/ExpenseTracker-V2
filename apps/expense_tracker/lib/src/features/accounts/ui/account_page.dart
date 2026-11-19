@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/charts/waterfall.dart';
-import '../compose/account_editor.dart';
-import '../compose/reconcile_sheet.dart';
+import '../forms/account_editor.dart';
+import '../forms/reconcile_sheet.dart';
 import 'account_action.dart';
 import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';

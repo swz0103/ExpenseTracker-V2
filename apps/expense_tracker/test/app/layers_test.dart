@@ -32,9 +32,9 @@ Map<String, List<String>> appImports() {
 /// - `core/`: what every feature shares, in six parts that each may use
 ///   only those listed for it below; it knows no feature and not how the
 ///   app is put together.
-/// - `features/<name>/`: one feature each, in `model/`, `compose/` and
+/// - `features/<name>/`: one feature each, in `model/`, `forms/` and
 ///   `ui/`; may use `core/`, and another feature's `model/` and
-///   `compose/` but never its `ui/`; no two features need each other.
+///   `forms/` but never its `ui/`; no two features need each other.
 /// - `app/`: puts the app together; may use everything.
 void main() {
   final imports = appImports();
@@ -201,7 +201,7 @@ void main() {
     }
   });
 
-  test('a feature has only model, ui and compose folders', () {
+  test('a feature has only model, ui and forms folders', () {
     for (final path in imports.keys) {
       final name = feature(path);
       if (name.isEmpty) continue;
