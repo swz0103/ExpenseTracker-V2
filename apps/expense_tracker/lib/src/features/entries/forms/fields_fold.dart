@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/shape.dart';
-import '../../../core/look/spacing.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/motion.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/motion.dart';
 
 /// Fields that fold away under one line: [closed] says what is in them,
 /// a tap on it ([onToggle]) opens or closes them, and [body] shows while

@@ -1,4 +1,4 @@
-import 'package:expense_tracker/src/core/look/keys.dart';
+import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../app/places.dart';

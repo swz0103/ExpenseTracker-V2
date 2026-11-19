@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/shape.dart';
-import '../../../core/look/spacing.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../model/receipt_photos.dart';
-import '../../../core/text/words.dart';
+import '../../../core/formatting/words.dart';
 
 /// Shows [image] over the page, to pinch and zoom; a tap closes it.
 Future<void> showReceipt(BuildContext context, ImageProvider image) =>

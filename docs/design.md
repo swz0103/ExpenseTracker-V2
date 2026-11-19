@@ -1,6 +1,6 @@
 # 設計系統
 
-> 畫面怎麼長、用哪些顏色、字級和元件。程式在 `apps/expense_tracker/lib/src/core/look/`；頁面不自己寫顏色、字級、按鈕樣式（`design_rules_test` 檢查）。
+> 畫面怎麼長、用哪些顏色、字級和元件。程式在 `apps/expense_tracker/lib/src/core/design_system/`；頁面不自己寫顏色、字級、按鈕樣式（`design_rules_test` 檢查）。
 
 ## 原則
 
@@ -24,7 +24,7 @@
 | 工具 | `ToolHue.*` | 每個工具在更多、自己的頁面與總覽卡片的顏色 |
 | 色盤 | `Palette.*`、`Hue.categoryColors`、`Hue.shades` | 工具與設定的色塊、分類可選的顏色、圖表 |
 
-配色函式（`kit/colours.dart`）：
+配色函式（`components/colours.dart`）：
 
 | 函式 | 做什麼 |
 | --- | --- |
@@ -60,27 +60,27 @@
 
 | 需要 | 用 | 檔案 |
 | --- | --- | --- |
-| 有標題的頁面 | `HeadedList` ＋ `CenterHeader`（子頁）或 `PageHeader`（分頁） | `page_header.dart`、`kit/heading.dart` |
-| 頁面主卡 | 收支：`BalanceHero`（結餘＋收支長條）；其他：`HeroFigure`，外框 `HeroCard` | `core/ui/balance_hero.dart`、`kit/figure_card.dart` |
-| 帶數字的小卡、並排 | `FigureCard`、`CardRow` | `kit/figure_card.dart` |
-| 色塊卡、可點的方塊 | `ColorCard`、`CardGrid` | `kit/cards.dart` |
-| 清單分組、報價列 | `GroupBox`、`QuoteBoard` | `kit/figure_card.dart`、`kit/boards.dart` |
-| 區塊標題、表單分組 | `SectionTitle`、`FormGroup`（小標題＋淺灰底上的選項） | `kit/figure_card.dart` |
-| 大的分段選擇 | `BigSegments` | `kit/cards.dart` |
+| 有標題的頁面 | `HeadedList` ＋ `CenterHeader`（子頁）或 `PageHeader`（分頁） | `page_header.dart`、`components/heading.dart` |
+| 頁面主卡 | 收支：`BalanceHero`（結餘＋收支長條）；其他：`HeroFigure`，外框 `HeroCard` | `core/widgets/balance_hero.dart`、`components/figure_card.dart` |
+| 帶數字的小卡、並排 | `FigureCard`、`CardRow` | `components/figure_card.dart` |
+| 色塊卡、可點的方塊 | `ColorCard`、`CardGrid` | `components/cards.dart` |
+| 清單分組、報價列 | `GroupBox`、`QuoteBoard` | `components/figure_card.dart`、`components/boards.dart` |
+| 區塊標題、表單分組 | `SectionTitle`、`FormGroup`（小標題＋淺灰底上的選項） | `components/figure_card.dart` |
+| 大的分段選擇 | `BigSegments` | `components/cards.dart` |
 | 小的選項 | `ChoicePill`、`Segments` | `controls.dart` |
-| 開關 | `ToggleRow` ＋ `TickSwitch`（整列可點） | `kit/marks.dart` |
-| 設定格 | `SettingCard` | `kit/cards.dart` |
-| 中間面板 | `showPanel`、`CenterPanel`、`PanelButton` | `kit/panels.dart` |
+| 開關 | `ToggleRow` ＋ `TickSwitch`（整列可點） | `components/marks.dart` |
+| 設定格 | `SettingCard` | `components/cards.dart` |
+| 中間面板 | `showPanel`、`CenterPanel`、`PanelButton` | `components/panels.dart` |
 | 底部面板、整頁工作 | `showSheet`、`openFlow` | `feedback.dart` |
 | 確認、輸入文字 | `confirm`、`askText` | `dialogs.dart` |
 | 日期區間、時間 | `pickDateRange`、`pickTime` | `time_panels.dart` |
-| 按鈕 | `solidButton`、`wordButton` 給 `FilledButton`／`TextButton` | `kit/buttons.dart` |
-| 不換行的短字 | `OneLine` | `kit/one_line.dart` |
-| 報價列、空狀態、⋯ 選單 | `QuoteBoard`、`EmptyState`、`DotsMenu` | `kit/boards.dart` |
-| 圖示 | `GlyphIcon`；卡片與色塊用方形 `SquareIcon`，清單列與選單用圓形 `RoundIcon`；新圖示加在 `tool/glyphs.py` 再產生 | `glyphs.dart`、`kit/marks.dart` |
-| 小標記 | `Pill`、`LegendKey`、`RingGauge` | `kit/marks.dart` |
+| 按鈕 | `solidButton`、`wordButton` 給 `FilledButton`／`TextButton` | `components/buttons.dart` |
+| 不換行的短字 | `OneLine` | `components/one_line.dart` |
+| 報價列、空狀態、⋯ 選單 | `QuoteBoard`、`EmptyState`、`DotsMenu` | `components/boards.dart` |
+| 圖示 | `GlyphIcon`；卡片與色塊用方形 `SquareIcon`，清單列與選單用圓形 `RoundIcon`；新圖示加在 `tool/glyphs.py` 再產生 | `glyphs.dart`、`components/marks.dart` |
+| 小標記 | `Pill`、`LegendKey`、`RingGauge` | `components/marks.dart` |
 
-認得帳本的元件（紀錄列、帳戶選擇、計算機、金額顯示）在 `core/ui/`。
+認得帳本的元件（紀錄列、帳戶選擇、計算機、金額顯示）在 `core/widgets/`。
 
 白卡元件已退場（[ADR-0006](adr/0006-retire-white-cards.md)），頁面不寫白底加陰影的卡（`design_rules_test`）。
 

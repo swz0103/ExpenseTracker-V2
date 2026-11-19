@@ -1,4 +1,4 @@
-import 'package:expense_tracker/src/core/look/app_mark.dart';
+import 'package:expense_tracker/src/core/design_system/app_mark.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 

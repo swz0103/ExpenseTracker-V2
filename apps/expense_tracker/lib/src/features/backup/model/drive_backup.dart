@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/text/json_fields.dart';
+import '../../../core/formatting/json_fields.dart';
 
 /// One HTTP exchange with Google Drive: the status, the headers (lower
 /// case) and, unless it was saved to a file, the body.

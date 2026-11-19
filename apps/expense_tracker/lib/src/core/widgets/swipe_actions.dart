@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 
-import '../look/keys.dart';
-import '../look/theme.dart';
-import '../look/motion.dart';
+import '../design_system/keys.dart';
+import '../design_system/theme.dart';
+import '../design_system/motion.dart';
 
 /// A button a row shows when slid open.
 final class SwipeAction {

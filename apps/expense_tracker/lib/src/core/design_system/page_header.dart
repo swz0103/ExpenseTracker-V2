@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'glyphs.dart';
-import 'kit/one_line.dart';
+import 'components/one_line.dart';
 import 'theme.dart';
 import 'shape.dart';
 import 'spacing.dart';
-import '../text/words.dart';
+import '../formatting/words.dart';
 
 /// A tab page's title row (總覽, 紀錄, 帳戶, 更多): the title on the left
 /// in 22 px and whatever sits on the right. A page opened from another

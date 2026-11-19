@@ -2,10 +2,10 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../look/kit/colours.dart';
-import '../look/paint.dart';
-import '../look/theme.dart';
-import '../look/shape.dart';
+import '../design_system/components/colours.dart';
+import '../design_system/paint.dart';
+import '../design_system/theme.dart';
+import '../design_system/shape.dart';
 
 /// Splits [bounds] into one rectangle per value, topics in proportion and
 /// as close to square as the values allow (the squarified layout of

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/theme.dart';
-import '../../../core/look/spacing.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/spacing.dart';
 import 'compose_widgets.dart';
 
 // A row of choices that slides sideways, its last one pinned.

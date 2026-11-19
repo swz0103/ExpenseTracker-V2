@@ -1,5 +1,5 @@
-import 'package:expense_tracker/src/core/look/glyphs.dart';
-import 'package:expense_tracker/src/core/ui/tour.dart';
+import 'package:expense_tracker/src/core/design_system/glyphs.dart';
+import 'package:expense_tracker/src/core/widgets/tour.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

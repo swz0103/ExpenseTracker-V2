@@ -55,7 +55,7 @@ const longerFunctions = <String, int>{
       133,
   'src/core/charts/flow_chart.dart::_FlowPainter.paint': 131,
   'src/features/accounts/ui/account_page.dart::_AccountBodyState.build': 124,
-  'src/core/ui/balance_hero.dart::BalanceHero.build': 85,
+  'src/core/widgets/balance_hero.dart::BalanceHero.build': 85,
   'src/features/lock/ui/views/welcome_view.dart::_WelcomeViewState._foundChoices':
       123,
   'src/features/reports/ui/compare_section.dart::_CompareSectionState.build':
@@ -73,8 +73,8 @@ const longerFunctions = <String, int>{
       113,
   'src/features/budgets/ui/budgets_month_picker.dart::_MonthPickerState.build':
       113,
-  'src/core/ui/calculator.dart::_CalculatorState.build': 113,
-  'src/core/ui/tour.dart::_Card.build': 87,
+  'src/core/widgets/calculator.dart::_CalculatorState.build': 113,
+  'src/core/widgets/tour.dart::_Card.build': 87,
   'src/features/reports/ui/reports_page_state.dart::_ReportsPageState._flow':
       108,
   'src/features/investments/ui/holding_bento.dart::_LinePainter.paint': 108,
@@ -92,13 +92,13 @@ const longerFunctions = <String, int>{
   'src/features/budgets/ui/budgets_pace.dart::_Limit.build': 100,
   'src/features/overview/ui/sections/assets_section.dart::_AssetsSectionState._assets':
       98,
-  'src/core/look/time_panels.dart::_RangePanelState.build': 97,
+  'src/core/design_system/time_panels.dart::_RangePanelState.build': 97,
   'src/features/debts/ui/person_page.dart::LoanPage.build': 97,
   'src/features/reports/ui/report_habits.dart::merchantsSection': 95,
   'src/features/debts/ui/person_page.dart::PersonPage.build': 95,
   'src/app/shell.dart::_AppShellState._body': 95,
   'src/features/accounts/forms/loan_cards.dart::LoanCard.build': 94,
-  'src/core/ui/entry_tile.dart::EntryTile.build': 93,
+  'src/core/widgets/entry_tile.dart::EntryTile.build': 93,
   'src/features/investments/ui/holding_page.dart::_DividendCard.build': 93,
   'src/core/ledger/persistence/sql_ledger_data_source.dart::SqlLedgerDataSource.refreshQuotes':
       93,
@@ -109,7 +109,7 @@ const longerFunctions = <String, int>{
   'src/features/recurring/ui/recurring_lists.dart::_Subscriptions.build': 91,
   'src/features/entries/forms/compose_chips.dart::OwedCard.build': 89,
   'src/core/charts/waterfall.dart::_WaterfallPainter.paint': 89,
-  'src/core/look/time_panels.dart::_TimePanelState.build': 88,
+  'src/core/design_system/time_panels.dart::_TimePanelState.build': 88,
   'src/features/reports/model/report.dart::Report.of': 87,
   'src/features/reports/ui/report_habits.dart::weekdaysSection': 86,
   'src/features/recurring/ui/recurring_rows.dart::RecurringRow.build': 86,
@@ -127,7 +127,7 @@ const longerFunctions = <String, int>{
   'src/features/recurring/forms/recurring_repeat.dart::_OtherSheetState.build':
       81,
   'src/features/debts/ui/debts_page.dart::_DebtHero.build': 81,
-  'src/core/look/dialogs.dart::confirm': 81,
+  'src/core/design_system/dialogs.dart::confirm': 81,
 };
 const largerLibraries = <String, int>{};
 

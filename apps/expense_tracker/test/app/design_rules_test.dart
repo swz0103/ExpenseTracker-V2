@@ -7,7 +7,7 @@ import 'layout.dart';
 import 'rule_exceptions.dart';
 
 /// The design system's rules, as docs/design.md sets them out: colours,
-/// sizes of words and buttons come from core/look, never written in a
+/// sizes of words and buttons come from core/design_system, never written in a
 /// page, so one change there reaches every page and both themes.
 void main() {
   final files = [
@@ -18,7 +18,7 @@ void main() {
   bool under(File f, List<String> places) =>
       places.any((p) => path(f).contains(p));
 
-  test('colours are named in core/look, not written in a page', () {
+  test('colours are named in core/design_system, not written in a page', () {
     // A category's colour is data, kept with the ledger and made up for
     // the preview; the look names every other colour.
     final literal = RegExp(r'(Color|Shade)\(0x');
@@ -41,7 +41,7 @@ void main() {
       expect(
         literal.hasMatch(f.readAsStringSync()),
         isFalse,
-        reason: '${path(f)}: use TextSize from core/look/type.dart',
+        reason: '${path(f)}: use TextSize from core/design_system/type.dart',
       );
     }
   });
@@ -51,7 +51,8 @@ void main() {
     // '收入' written on the next. Data that must keep its spelling
     // whatever the screens say, such as a CSV's columns or a category's
     // name, is marked `Exception to shared words`.
-    final source = File('lib/src/core/text/words.dart').readAsStringSync();
+    final source = File('lib/src/core/formatting/words.dart')
+        .readAsStringSync();
     final words = [
       for (final m in RegExp(
         r"static const \w+ = '([^']+)';",
@@ -62,7 +63,8 @@ void main() {
     final faults = <String>[];
     for (final f in files) {
       final name = path(f);
-      if (name.endsWith('core/text/words.dart') || name.contains('/demo/')) {
+      if (name.endsWith('core/formatting/words.dart') ||
+          name.contains('/demo/')) {
         continue;
       }
       final lines = f.readAsLinesSync();
@@ -91,7 +93,7 @@ void main() {
     }
   });
 
-  test('buttons take their look from core/look', () {
+  test('buttons take their look from core/design_system', () {
     final own = RegExp(r'(Filled|Text)Button\.styleFrom\(');
     for (final f in files) {
       if (under(f, [Layout.designSystemDir])) continue;
@@ -122,24 +124,27 @@ void main() {
     }
   });
 
-  test('dates are written by core/text/dates.dart, not built by hand', () {
-    final handBuilt = RegExp(
-      r'\.(month|year)\}/\$\{|\.month\} 月 \$\{|\.year\} 年 \$\{|'
-      r'週\$\{weekdayNames\[\w+\.weekday',
-    );
-    for (final file in Directory('lib').listSync(recursive: true)) {
-      if (file is! File || !file.path.endsWith('.dart')) continue;
-      if (file.path.endsWith('core/text/dates.dart')) continue;
-      final lines = file.readAsLinesSync();
-      for (final (i, line) in lines.indexed) {
-        expect(
-          handBuilt.hasMatch(line),
-          isFalse,
-          reason: '${file.path}:${i + 1} builds a date: use dates.dart',
-        );
+  test(
+    'dates are written by core/formatting/dates.dart, not built by hand',
+    () {
+      final handBuilt = RegExp(
+        r'\.(month|year)\}/\$\{|\.month\} 月 \$\{|\.year\} 年 \$\{|'
+        r'週\$\{weekdayNames\[\w+\.weekday',
+      );
+      for (final file in Directory('lib').listSync(recursive: true)) {
+        if (file is! File || !file.path.endsWith('.dart')) continue;
+        if (file.path.endsWith('core/formatting/dates.dart')) continue;
+        final lines = file.readAsLinesSync();
+        for (final (i, line) in lines.indexed) {
+          expect(
+            handBuilt.hasMatch(line),
+            isFalse,
+            reason: '${file.path}:${i + 1} builds a date: use dates.dart',
+          );
+        }
       }
-    }
-  });
+    },
+  );
 
   test('corners and gaps take a step from Radii and Space', () {
     // A fraction is a fine adjustment below the grid, and corners past
@@ -149,7 +154,10 @@ void main() {
     final insets = RegExp(r'EdgeInsets\.\w+\(([^()]*)\)');
     final whole = RegExp(r'(?<![\w.])(\d+)(?![\w.])');
     final gap = RegExp(r'SizedBox\((?:height|width): (\d+)(?![\w.])');
-    const own = ['core/look/shape.dart', 'core/look/spacing.dart'];
+    const own = [
+      'core/design_system/shape.dart',
+      'core/design_system/spacing.dart',
+    ];
     for (final file in Directory('lib').listSync(recursive: true)) {
       if (file is! File || !file.path.endsWith('.dart')) continue;
       if (own.any(file.path.endsWith)) continue;
@@ -185,7 +193,7 @@ void main() {
     // off, or is marked `Exception to motion` with how it is spared.
     for (final file in Directory('lib').listSync(recursive: true)) {
       if (file is! File || !file.path.endsWith('.dart')) continue;
-      if (file.path.endsWith('core/look/motion.dart')) continue;
+      if (file.path.endsWith('core/design_system/motion.dart')) continue;
       final lines = file.readAsLinesSync();
       for (final (i, line) in lines.indexed) {
         // Given no time, AnimatedSize trips over its own layout.
@@ -221,7 +229,7 @@ void main() {
     final literal = RegExp(r'Duration\(\s*milliseconds:');
     for (final file in Directory('lib').listSync(recursive: true)) {
       if (file is! File || !file.path.endsWith('.dart')) continue;
-      if (file.path.endsWith('core/look/motion.dart')) continue;
+      if (file.path.endsWith('core/design_system/motion.dart')) continue;
       final text = file.readAsStringSync();
       final lines = text.split('\n');
       for (final m in literal.allMatches(text)) {

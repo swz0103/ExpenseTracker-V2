@@ -5,7 +5,7 @@ import '../glyphs.dart';
 import '../theme.dart';
 import 'one_line.dart';
 import '../spacing.dart';
-import '../../text/words.dart';
+import '../../formatting/words.dart';
 
 // Title rows: a sub-page's centred one, small headings and section spacing.
 

@@ -2,20 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/ui/pickers.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/haptics.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/widgets/pickers.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/haptics.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ui/entry_tile.dart';
+import '../../../core/widgets/entry_tile.dart';
 import 'entries_filter_sheet.dart';
 import '../../../core/nav.dart';
-import '../../../core/ui/balance_hero.dart';
-import '../../../core/ui/shown_amounts.dart';
-import '../../../core/look/shape.dart';
-import '../../../core/look/spacing.dart';
-import '../../../core/text/words.dart';
+import '../../../core/widgets/balance_hero.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 /// 收支紀錄: the month's income against spending, then every entry by
 /// day, with search and filters; 設定 exports it.

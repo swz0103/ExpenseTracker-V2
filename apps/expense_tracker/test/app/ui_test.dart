@@ -1,18 +1,18 @@
 import 'dart:io';
 
-import 'package:expense_tracker/src/core/look/keys.dart';
+import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/core/charts/treemap.dart';
-import 'package:expense_tracker/src/core/ui/calculator.dart';
+import 'package:expense_tracker/src/core/widgets/calculator.dart';
 import 'package:expense_tracker/src/features/entries/forms/composer.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
-import 'package:expense_tracker/src/core/look/theme.dart';
+import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/features/entries/ui/entries_page.dart';
 import 'package:expense_tracker/src/features/reports/model/report_period.dart';
 import 'package:expense_tracker/src/app/shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:expense_tracker/src/core/ui/swipe_actions.dart';
+import 'package:expense_tracker/src/core/widgets/swipe_actions.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

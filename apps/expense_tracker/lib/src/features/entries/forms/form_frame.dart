@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/shape.dart';
-import '../../../core/look/spacing.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import 'compose_widgets.dart';
 
 /// A choice opened inside the sheet in place of the form: [title] with

@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/look/glyphs.dart';
-import '../../../../core/look/theme.dart';
+import '../../../../core/design_system/glyphs.dart';
+import '../../../../core/design_system/theme.dart';
 import 'lock_parts.dart';
-import '../../../../core/look/kit/buttons.dart';
-import '../../../../core/look/keys.dart';
-import '../../../../core/text/dates.dart';
-import '../../../../core/look/spacing.dart';
-import '../../../../core/look/shape.dart';
-import '../../../../core/look/motion.dart';
+import '../../../../core/design_system/components/buttons.dart';
+import '../../../../core/design_system/keys.dart';
+import '../../../../core/formatting/dates.dart';
+import '../../../../core/design_system/spacing.dart';
+import '../../../../core/design_system/shape.dart';
+import '../../../../core/design_system/motion.dart';
 
 /// The first screen of a new ledger: the opening animation, then the page
 /// takes on the tint of 總覽's main tile, the mark rises a little with the

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/widgets.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/platform/preferences.dart';
 import '../model/overview_blocks.dart';
@@ -11,7 +11,7 @@ import 'sections/flow_section.dart';
 import 'sections/market_section.dart';
 import 'sections/plan_section.dart';
 import 'sections/summary_section.dart';
-import '../../../core/look/spacing.dart';
+import '../../../core/design_system/spacing.dart';
 
 /// 總覽: the month in four figures, what falls due, a week of days with
 /// the chosen day's entries, the market, spending against the budget,

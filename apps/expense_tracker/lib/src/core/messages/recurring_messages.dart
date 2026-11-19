@@ -1,5 +1,5 @@
 import '../ledger/ledger.dart';
-import '../text/dates.dart';
+import '../formatting/dates.dart';
 
 /// The unit as it follows a count: 「天」「週」「個月」「年」.
 String repeatUnitLabel(RepeatUnit unit) => switch (unit) {

@@ -1,4 +1,4 @@
-import 'package:expense_tracker/src/core/look/motion.dart';
+import 'package:expense_tracker/src/core/design_system/motion.dart';
 import 'package:expense_tracker/src/features/entries/forms/fields_fold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -1,9 +1,9 @@
 import 'package:flutter/painting.dart';
 
 import '../ledger/ledger.dart';
-import '../look/glyphs.dart';
-import '../look/theme.dart';
-import '../text/words.dart';
+import '../design_system/glyphs.dart';
+import '../design_system/theme.dart';
+import '../formatting/words.dart';
 
 /// Icon groups a category may take its mark from, by what it is for:
 /// a hundred in all (`icons_test`), each with the name a screen reader

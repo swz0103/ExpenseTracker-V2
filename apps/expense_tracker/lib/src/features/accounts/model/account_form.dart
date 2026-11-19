@@ -1,4 +1,4 @@
-import '../../../core/text/amounts.dart';
+import '../../../core/formatting/amounts.dart';
 import '../../../core/ledger/ledger.dart';
 
 import 'package:domain/loans.dart';

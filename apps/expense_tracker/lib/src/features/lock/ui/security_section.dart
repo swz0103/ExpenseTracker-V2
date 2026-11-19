@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../backup/model/backup_manager.dart';
-import '../../../core/look/dialogs.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/design_system/dialogs.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/platform/problems.dart';
 import '../../../core/platform/screen_privacy.dart';
-import '../../../core/look/recovery_code.dart';
-import '../../../core/look/settings_hue.dart';
+import '../../../core/design_system/recovery_code.dart';
+import '../../../core/design_system/settings_hue.dart';
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/look/shape.dart';
-import '../../../core/look/spacing.dart';
-import '../../../core/text/words.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 /// 安全: four cards: the password, the recovery code, hiding the screens,
 /// and locking the ledger now.

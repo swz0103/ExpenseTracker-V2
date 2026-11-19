@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/ledger/ledger.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/widgets.dart';
-import '../../../core/look/spacing.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/text/figures.dart';
-import '../../../core/ui/icons.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/widgets/icons.dart';
 import '../model/compose_form.dart';
 import 'choice_strip.dart';
 import 'compose_actions.dart';
 import 'compose_chips.dart';
 import 'compose_widgets.dart';
-import '../../../core/text/words.dart';
+import '../../../core/formatting/words.dart';
 
 /// 常用 under the amount of a new entry: a spending or income used often,
 /// or a transfer, to start from with one tap.

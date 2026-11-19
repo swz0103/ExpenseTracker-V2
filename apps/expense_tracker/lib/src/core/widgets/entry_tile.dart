@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../text/figures.dart';
-import '../look/glyphs.dart';
-import '../look/haptics.dart';
+import '../formatting/figures.dart';
+import '../design_system/glyphs.dart';
+import '../design_system/haptics.dart';
 import 'icons.dart';
-import '../look/theme.dart';
-import '../look/widgets.dart';
+import '../design_system/theme.dart';
+import '../design_system/design_system.dart';
 import '../ledger/ledger.dart';
 import 'swipe_actions.dart';
 import 'shown_amounts.dart';
-import '../text/dates.dart';
-import '../look/spacing.dart';
-import '../text/words.dart';
+import '../formatting/dates.dart';
+import '../design_system/spacing.dart';
+import '../formatting/words.dart';
 
 /// The icon of an entry: its category's, or transfer and trade marks.
 (Glyph, Color) entryMark(Ledger ledger, Entry e) {

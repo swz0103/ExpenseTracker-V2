@@ -3,20 +3,20 @@ import 'package:flutter/services.dart';
 
 import '../core/diagnostics/error_log.dart';
 import '../core/diagnostics/performance_monitor.dart';
-import '../core/look/dialogs.dart';
-import '../core/look/glyphs.dart';
-import '../core/look/theme.dart';
-import '../core/look/widgets.dart';
+import '../core/design_system/dialogs.dart';
+import '../core/design_system/glyphs.dart';
+import '../core/design_system/theme.dart';
+import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
 import '../core/platform/problems.dart';
 import '../features/settings/model/app_update.dart';
 import '../features/settings/ui/update_panel.dart';
 import '../features/settings/model/platform_services.dart';
-import '../core/look/settings_hue.dart';
-import '../core/look/app_mark.dart';
-import '../core/text/dates.dart';
-import '../core/look/shape.dart';
-import '../core/look/spacing.dart';
+import '../core/design_system/settings_hue.dart';
+import '../core/design_system/app_mark.dart';
+import '../core/formatting/dates.dart';
+import '../core/design_system/shape.dart';
+import '../core/design_system/spacing.dart';
 
 /// 關於: the main card says the version and how it stands against the
 /// newest (已是最新, 有新版 with 更新, or the download with its bar); two

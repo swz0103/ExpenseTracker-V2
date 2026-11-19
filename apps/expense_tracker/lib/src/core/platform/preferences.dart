@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
-import '../text/json_fields.dart';
+import '../formatting/json_fields.dart';
 
 /// Light or dark colours.
 enum Appearance {

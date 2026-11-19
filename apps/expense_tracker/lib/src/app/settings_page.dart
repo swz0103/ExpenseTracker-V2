@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../core/look/glyphs.dart';
-import '../core/look/theme.dart';
-import '../core/look/widgets.dart';
+import '../core/design_system/glyphs.dart';
+import '../core/design_system/theme.dart';
+import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
 import '../core/nav.dart';
 import '../features/settings/model/platform_services.dart';
@@ -11,11 +11,11 @@ import '../features/import_export/ui/import_export_section.dart';
 import '../features/settings/ui/preferences_section.dart';
 import '../features/reminders/ui/reminders_section.dart';
 import '../features/entries/ui/trash_section.dart';
-import '../core/look/settings_hue.dart';
+import '../core/design_system/settings_hue.dart';
 import '../features/lock/ui/security_section.dart';
 import 'about_section.dart';
-import '../core/look/shape.dart';
-import '../core/look/spacing.dart';
+import '../core/design_system/shape.dart';
+import '../core/design_system/spacing.dart';
 import '../core/time/app_clock.dart';
 
 /// 設定與資料: the main card says when the ledger was last backed up and

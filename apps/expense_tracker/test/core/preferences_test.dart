@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:expense_tracker/src/app/demo/seed.dart';
-import 'package:expense_tracker/src/core/look/theme.dart';
+import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/features/reminders/model/reminder_alerts.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/core/platform/quick_action.dart';

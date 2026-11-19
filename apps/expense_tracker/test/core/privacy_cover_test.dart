@@ -1,4 +1,4 @@
-import 'package:expense_tracker/src/core/ui/privacy_cover.dart';
+import 'package:expense_tracker/src/core/widgets/privacy_cover.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -26,17 +26,21 @@ lib/src/
   core/       所有功能共用：text look charts ledger platform ui，加上 nav.dart
 ```
 
-### core 的七個部分
+### core 的九個部分
+
+規則的唯一來源是 `test/app/layout.dart`；這張表照它寫。
 
 | 部分 | 內容 | 可以用 |
 | --- | --- | --- |
-| `text/` | 金額與日期的文字格式，純函式 | — |
-| `diagnostics/` | `ErrorLog`（去識別化的錯誤記錄）、`PerformanceMonitor`（載入與影格時間） | — |
-| `look/` | 設計系統：顏色、字級、圖示、元件、面板（不知道帳本） | text |
-| `charts/` | 圖表 | look、text |
-| `ledger/` | 帳本 `Ledger`、資料型別、JSON、`TableJournal`；Flutter 只用 `foundation`（顏色存成 ARGB 整數） | text、diagnostics |
-| `platform/` | 偏好設定、背景同步工作、開啟帳本、隱私 | ledger、text、diagnostics |
-| `ui/` | 認得帳本的共用元件：紀錄列、選擇器、計算機、金額顯示 | 以上全部與 `nav.dart` |
+| `formatting/` | 金額、日期與共用詞彙（`Words`）的文字，`JsonFields`；純函式 | — |
+| `time/` | `AppClock`：App 讀時間的唯一地方 | — |
+| `diagnostics/` | `ErrorLog`（去識別化的錯誤記錄）、`PerformanceMonitor`（載入與影格時間） | time |
+| `design_system/` | 設計系統：顏色、字級、圖示、動態、面板；元件在 `components/`（不知道帳本） | formatting |
+| `charts/` | 圖表 | design_system、formatting |
+| `ledger/` | 帳本 `Ledger`、資料型別、JSON、儲存；Flutter 只用 `foundation`（ADR-0012） | formatting、diagnostics、time |
+| `platform/` | 偏好設定、背景同步工作、開啟帳本、隱私 | ledger、formatting、diagnostics、time |
+| `messages/` | 告訴使用者的帳本數值與問題，集中一處 | ledger、formatting |
+| `widgets/` | 認得帳本的共用元件：紀錄列、選擇器、計算機、金額顯示 | 以上全部與 `nav.dart` |
 
 ### features
 
@@ -104,6 +108,6 @@ lib/src/
 | 檔案 600 行以內 | `layers_test` |
 | 捕捉到的錯誤要記錄、重新拋出或說明為何不用處理；不把原始例外放進訊息 | `test/app/error_rules_test.dart` |
 | 範例帳本只在 `app/demo/`，正式入口碰不到 | `layers_test`、`entry_test.dart` |
-| 顏色、字級、按鈕只在 `core/look` | `test/app/design_rules_test.dart` |
+| 顏色、字級、按鈕只在 `core/design_system` | `test/app/design_rules_test.dart` |
 | Android 自動備份只帶 `files/cloud/` | `test/app/backup_rules_test.dart` |
 | 文件有摘要、150 行以內、連結都有效 | `tooling/architecture_checks/test/docs_test.dart` |

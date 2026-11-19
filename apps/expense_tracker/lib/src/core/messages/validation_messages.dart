@@ -1,5 +1,5 @@
 import '../ledger/ledger.dart';
-import '../text/amounts.dart';
+import '../formatting/amounts.dart';
 
 /// What the person is told when the ledger will not keep an entry: every
 /// reason's words, in one place.

@@ -8,24 +8,24 @@ import '../../../core/charts/treemap.dart';
 import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 
 import '../../../core/charts/period_charts.dart';
-import '../../../core/text/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
-import '../../../core/ui/entry_tile.dart';
+import '../../../core/widgets/entry_tile.dart';
 import 'compare_section.dart';
 import '../model/report.dart';
 import '../model/report_period.dart';
 import 'report_blocks.dart';
 import 'report_habits.dart';
-import '../../../core/ui/shown_amounts.dart';
+import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/text/dates.dart';
-import '../../../core/look/shape.dart';
-import '../../../core/look/spacing.dart';
-import '../../../core/text/words.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 part 'reports_page_state.dart';
 

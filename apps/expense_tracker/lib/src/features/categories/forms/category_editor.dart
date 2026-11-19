@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/glyphs.dart';
-import '../../../core/ui/icons.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ui/pickers.dart';
-import '../../../core/look/shape.dart';
-import '../../../core/look/spacing.dart';
+import '../../../core/widgets/pickers.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
 import '../model/category_form.dart';
 import 'category_form_widgets.dart';
-import '../../../core/text/words.dart';
+import '../../../core/formatting/words.dart';
 
 /// 編輯分類: a big card in the category's tint with its icon (tapped to
 /// choose another) and name, a row of colours, the ones under it four to

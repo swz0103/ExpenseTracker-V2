@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/theme.dart';
+import '../../../core/design_system/theme.dart';
 import '../model/app_update.dart';
-import '../../../core/look/kit/buttons.dart';
-import '../../../core/look/keys.dart';
-import '../../../core/look/shape.dart';
-import '../../../core/look/spacing.dart';
+import '../../../core/design_system/components/buttons.dart';
+import '../../../core/design_system/keys.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
 
 /// A newer version: its name and what it changes in a few lines, with
 /// 更新, and 晚一點再說 or 略過這一版 under it. Only these close it: not a

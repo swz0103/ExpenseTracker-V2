@@ -2,9 +2,9 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../look/theme.dart';
-import '../look/shape.dart';
-import '../look/motion.dart';
+import '../design_system/theme.dart';
+import '../design_system/shape.dart';
+import '../design_system/motion.dart';
 
 /// The share of a bar's full length that [value] takes next to
 /// [largest], in proportion, and at least a sliver when it is not zero.

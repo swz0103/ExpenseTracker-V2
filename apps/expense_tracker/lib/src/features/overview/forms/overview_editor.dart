@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/haptics.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/haptics.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/platform/preferences.dart';
 import '../model/overview_blocks.dart';
-import '../../../core/look/spacing.dart';
+import '../../../core/design_system/spacing.dart';
 
 /// Lets the person put 總覽's blocks in another order and hide some;
 /// each change is kept at once.

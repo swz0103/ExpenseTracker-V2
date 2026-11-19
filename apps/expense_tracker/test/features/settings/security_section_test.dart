@@ -1,4 +1,4 @@
-import 'package:expense_tracker/src/core/look/keys.dart';
+import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/features/backup/model/backup_manager.dart';
 import 'package:expense_tracker/src/features/lock/ui/security_section.dart';
 import 'package:flutter/material.dart';

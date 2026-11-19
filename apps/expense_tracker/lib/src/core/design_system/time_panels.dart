@@ -4,13 +4,13 @@ import 'controls.dart';
 import 'glyphs.dart';
 import 'haptics.dart';
 import 'page_header.dart';
-import 'kit.dart';
+import 'components.dart';
 import 'theme.dart';
-import '../text/dates.dart';
+import '../formatting/dates.dart';
 import 'shape.dart';
 import 'spacing.dart';
 import 'motion.dart';
-import '../text/words.dart';
+import '../formatting/words.dart';
 
 // The app's own date range and time pickers, as panels in the middle of
 // the screen: quick choices on top, then a month to tap the days on, or

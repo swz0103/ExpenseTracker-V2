@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:vault/backup_security.dart';
 
 import '../../../core/ledger/ledger.dart';
-import '../../../core/text/dates.dart';
+import '../../../core/formatting/dates.dart';
 
 /// What the inbox brought when the ledger opened: how many items were
 /// booked, and what could not be, for the person to look at.

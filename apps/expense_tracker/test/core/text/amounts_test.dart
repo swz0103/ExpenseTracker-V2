@@ -1,4 +1,4 @@
-import 'package:expense_tracker/src/core/text/amounts.dart';
+import 'package:expense_tracker/src/core/formatting/amounts.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

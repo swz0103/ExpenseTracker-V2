@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/spacing.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 
 /// One of an account's actions in the row under its balance, such as 記一筆
 /// or 對帳: the same tile on every account's page.

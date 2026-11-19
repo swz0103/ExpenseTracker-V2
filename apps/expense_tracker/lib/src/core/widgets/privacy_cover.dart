@@ -3,7 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
-import '../look/theme.dart';
+import '../design_system/theme.dart';
 
 /// Blurs everything the app shows, sheets and dialogs included, while it
 /// is off the screen, so the recent apps list shows no amount. Put above

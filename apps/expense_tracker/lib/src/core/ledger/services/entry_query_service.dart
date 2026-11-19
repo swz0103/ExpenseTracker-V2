@@ -1,4 +1,4 @@
-import '../../text/amounts.dart';
+import '../../formatting/amounts.dart';
 import '../cache/query_cache.dart';
 import 'tracked_readers.dart';
 import '../models/models.dart';

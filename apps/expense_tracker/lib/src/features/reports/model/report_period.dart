@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import '../../../core/text/dates.dart';
+import '../../../core/formatting/dates.dart';
 
 /// How long a report runs.
 enum ReportSpan { month, quarter, year, custom }

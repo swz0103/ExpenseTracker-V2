@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import '../controls.dart';
 import '../glyphs.dart';
 import '../theme.dart';
-import '../kit.dart';
+import '../components.dart';
 import '../shape.dart';
 import '../spacing.dart';
-import '../../text/words.dart';
+import '../../formatting/words.dart';
 
 // The panel in the middle of the screen and its buttons.
 

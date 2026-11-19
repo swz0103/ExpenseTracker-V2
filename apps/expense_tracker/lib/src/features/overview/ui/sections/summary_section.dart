@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/look/glyphs.dart';
+import '../../../../core/design_system/glyphs.dart';
 import '../../../../core/ledger/ledger.dart';
-import '../../../../core/ui/balance_hero.dart';
-import '../../../../core/ui/shown_amounts.dart';
+import '../../../../core/widgets/balance_hero.dart';
+import '../../../../core/widgets/shown_amounts.dart';
 
 /// The month's balance as the page's main tile, with income, spending
 /// and dividends along its foot.

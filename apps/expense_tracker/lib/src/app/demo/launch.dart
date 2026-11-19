@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/ledger/ledger.dart';
-import '../../core/look/app_mark.dart';
-import '../../core/look/theme.dart';
+import '../../core/design_system/app_mark.dart';
+import '../../core/design_system/theme.dart';
 import '../../core/platform/preferences.dart';
 import '../../core/platform/quick_action.dart';
 import '../../features/lock/ui/views/lock_parts.dart';
@@ -14,10 +14,10 @@ import '../../features/settings/model/platform_services.dart';
 import '../shell.dart';
 import 'preview_services.dart';
 import 'seed.dart';
-import '../../core/text/dates.dart';
-import '../../core/look/shape.dart';
-import '../../core/look/spacing.dart';
-import '../../core/look/motion.dart';
+import '../../core/formatting/dates.dart';
+import '../../core/design_system/shape.dart';
+import '../../core/design_system/spacing.dart';
+import '../../core/design_system/motion.dart';
 
 /// How the preview's app opens, as a real one would for each person: a
 /// ledger without a password goes straight in, one with a password asks

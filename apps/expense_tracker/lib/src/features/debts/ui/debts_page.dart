@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/text/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
-import '../../../core/look/dialogs.dart';
+import '../../../core/design_system/dialogs.dart';
 import '../../accounts/forms/account_editor.dart';
 import '../../accounts/forms/reconcile_sheet.dart';
 
 import 'package:domain/loans.dart';
 
-import '../../../core/ui/icons.dart';
-import '../../../core/ui/shown_amounts.dart';
-import '../../../core/text/dates.dart';
-import '../../../core/look/shape.dart';
-import '../../../core/look/spacing.dart';
-import '../../../core/text/words.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 part 'person_page.dart';
 part 'debts_loan_card.dart';

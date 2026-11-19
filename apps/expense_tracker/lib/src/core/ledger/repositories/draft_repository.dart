@@ -1,4 +1,4 @@
-import '../../text/json_fields.dart';
+import '../../formatting/json_fields.dart';
 
 /// What the composer may ask of the forms put aside.
 abstract interface class DraftReader {

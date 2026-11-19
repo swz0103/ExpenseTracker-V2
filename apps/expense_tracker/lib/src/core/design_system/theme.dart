@@ -289,7 +289,7 @@ const ruleBelow = BoxDecoration(border: Border(bottom: rowRule));
 
 /// The colours the pages give their cards, icons and charts, each with
 /// its lighter self for the dark theme: one list, so the same blue is
-/// the same blue everywhere. Words on their tints use deepOf (kit.dart).
+/// the same blue everywhere. Words on their tints use deepOf (components.dart).
 abstract final class Palette {
   /// 金：股息、預算快用完、救援碼
   static const gold = Shade(0xFFC9A34A, 0xFFDDBE73);

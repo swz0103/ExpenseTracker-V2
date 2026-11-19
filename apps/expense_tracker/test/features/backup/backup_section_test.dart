@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:expense_tracker/src/core/look/theme.dart';
-import 'package:expense_tracker/src/core/look/widgets.dart';
+import 'package:expense_tracker/src/core/design_system/theme.dart';
+import 'package:expense_tracker/src/core/design_system/design_system.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/backup/model/backup_manager.dart';
 import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';

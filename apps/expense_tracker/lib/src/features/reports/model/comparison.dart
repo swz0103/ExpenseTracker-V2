@@ -1,5 +1,5 @@
 import '../../../core/ledger/ledger.dart';
-import '../../../core/text/words.dart';
+import '../../../core/formatting/words.dart';
 
 /// What a stretch of days came to: income, spending, and spending by
 /// category.

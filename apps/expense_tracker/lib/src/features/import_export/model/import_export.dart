@@ -3,7 +3,7 @@
 import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:domain/data_exchange.dart';
 
-import '../../../core/text/amounts.dart';
+import '../../../core/formatting/amounts.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/validation_messages.dart';
 

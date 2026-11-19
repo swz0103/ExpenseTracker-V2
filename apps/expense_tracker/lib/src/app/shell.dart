@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../features/entries/forms/composer.dart';
-import '../core/text/figures.dart';
-import '../core/look/glyphs.dart';
-import '../core/look/haptics.dart';
-import '../core/look/theme.dart';
-import '../core/look/widgets.dart';
+import '../core/formatting/figures.dart';
+import '../core/design_system/glyphs.dart';
+import '../core/design_system/haptics.dart';
+import '../core/design_system/theme.dart';
+import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
 import '../core/platform/problems.dart';
 import '../core/platform/quick_action.dart';
-import '../core/ui/tour.dart';
+import '../core/widgets/tour.dart';
 import '../features/settings/model/platform_services.dart';
 import '../features/accounts/ui/account_page.dart';
 import '../features/accounts/ui/accounts.dart';
@@ -27,10 +27,10 @@ import '../features/overview/ui/overview.dart';
 import '../features/recurring/ui/recurring_page.dart';
 import '../features/reports/ui/reports.dart';
 import 'settings_page.dart';
-import '../core/ui/shown_amounts.dart';
-import '../core/look/spacing.dart';
-import '../core/look/motion.dart';
-import '../core/text/words.dart';
+import '../core/widgets/shown_amounts.dart';
+import '../core/design_system/spacing.dart';
+import '../core/design_system/motion.dart';
+import '../core/formatting/words.dart';
 
 enum _Tab { overview, ledger, accounts, more }
 

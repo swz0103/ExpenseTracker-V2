@@ -3,14 +3,14 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../ledger/ledger.dart' show Ledger;
-import '../look/glyphs.dart';
-import '../look/haptics.dart';
-import '../look/theme.dart';
-import '../look/kit.dart';
+import '../design_system/glyphs.dart';
+import '../design_system/haptics.dart';
+import '../design_system/theme.dart';
+import '../design_system/components.dart';
 import 'shown_amounts.dart';
-import '../look/shape.dart';
-import '../look/spacing.dart';
-import '../text/words.dart';
+import '../design_system/shape.dart';
+import '../design_system/spacing.dart';
+import '../formatting/words.dart';
 
 /// The page's main card for a stretch of time: what is left of [income]
 /// after [expense] as the figure, in ink or in the spending colour when

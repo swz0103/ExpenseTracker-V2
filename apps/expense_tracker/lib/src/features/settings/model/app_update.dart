@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/time/app_clock.dart';
-import '../../../core/text/json_fields.dart';
+import '../../../core/formatting/json_fields.dart';
 
 /// This build's number, set by the APK build (android.yml); 0 in a build
 /// made by hand and in the preview, which never look for updates.

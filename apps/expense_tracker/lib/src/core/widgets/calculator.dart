@@ -1,15 +1,15 @@
 import 'package:core/foundation_values.dart' show Currency;
 import 'package:flutter/material.dart';
 
-import '../text/figures.dart';
-import '../look/glyphs.dart';
-import '../look/haptics.dart';
-import '../look/theme.dart';
-import '../look/widgets.dart';
+import '../formatting/figures.dart';
+import '../design_system/glyphs.dart';
+import '../design_system/haptics.dart';
+import '../design_system/theme.dart';
+import '../design_system/design_system.dart';
 import 'amount_keys.dart';
-import '../look/shape.dart';
-import '../look/spacing.dart';
-import '../text/words.dart';
+import '../design_system/shape.dart';
+import '../design_system/spacing.dart';
+import '../formatting/words.dart';
 
 export 'amount_keys.dart';
 

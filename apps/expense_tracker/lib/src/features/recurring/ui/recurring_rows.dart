@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/glyphs.dart';
-import '../../../core/ui/icons.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ui/entry_tile.dart';
-import '../../../core/ui/shown_amounts.dart';
+import '../../../core/widgets/entry_tile.dart';
+import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/messages/recurring_messages.dart';
-import '../../../core/look/shape.dart';
-import '../../../core/look/spacing.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
 
 /// An item's colour and mark: its category's.
 (Glyph, Color) recurringMark(Ledger ledger, Recurring item) {

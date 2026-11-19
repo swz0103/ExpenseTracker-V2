@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/ledger/ledger.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/text/dates.dart';
-import '../../../core/text/figures.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
-import '../../../core/look/shape.dart';
-import '../../../core/look/spacing.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
 
 // The chips and pills under the amount and among the fields of the
 // entry form: 常用, someone's share, words to pick and their headings.

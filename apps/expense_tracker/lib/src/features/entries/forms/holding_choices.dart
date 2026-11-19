@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/text/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ui/shown_amounts.dart';
-import '../../../core/look/shape.dart';
-import '../../../core/look/spacing.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
 import 'trade_cards.dart';
-import '../../../core/text/words.dart';
+import '../../../core/formatting/words.dart';
 
 // The page of every holding a trade may be in, opened from the entry
 // form.

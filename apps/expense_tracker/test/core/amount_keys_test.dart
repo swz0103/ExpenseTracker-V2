@@ -1,4 +1,4 @@
-import 'package:expense_tracker/src/core/ui/amount_keys.dart';
+import 'package:expense_tracker/src/core/widgets/amount_keys.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

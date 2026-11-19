@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/look/widgets.dart';
+import '../../../../core/design_system/design_system.dart';
 import 'lock_parts.dart';
-import '../../../../core/text/words.dart';
+import '../../../../core/formatting/words.dart';
 
 /// Restoring a ledger from a backup: the file, then that ledger's
 /// password or recovery code.

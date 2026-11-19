@@ -1,5 +1,5 @@
 import '../ledger/ledger.dart' show Ledger;
-import '../text/figures.dart';
+import '../formatting/figures.dart';
 
 /// Amounts as a ledger shows them: dots in place of every figure while
 /// its 隱藏金額 switch is on. Each screen asks its own ledger, so two books

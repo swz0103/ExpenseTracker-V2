@@ -2,8 +2,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../look/theme.dart';
-import '../look/spacing.dart';
+import '../design_system/theme.dart';
+import '../design_system/spacing.dart';
 
 /// A ring cut into [slices], each its value's share of the whole and in
 /// its own colour, clockwise from the top; [center] sits in the hole.

@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../features/backup/model/phone_backup.dart';
 import 'platform_channel.dart';
-import '../../core/text/json_fields.dart';
+import '../../core/formatting/json_fields.dart';
 
 /// A folder chosen once with Android's folder chooser
 /// (`FolderPart.kt`).

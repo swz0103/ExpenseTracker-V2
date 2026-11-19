@@ -1,8 +1,8 @@
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/installment_messages.dart';
-import '../../../core/text/dates.dart';
-import '../../../core/text/figures.dart';
-import '../../../core/text/words.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/formatting/words.dart';
 
 /// The sign an entry's amount is written with: − for money out, + for
 /// money in, none for a transfer.

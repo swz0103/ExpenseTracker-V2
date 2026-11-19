@@ -2,12 +2,12 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../text/figures.dart';
-import '../look/paint.dart';
-import '../look/theme.dart';
-import '../text/dates.dart';
-import '../look/shape.dart';
-import '../look/motion.dart';
+import '../formatting/figures.dart';
+import '../design_system/paint.dart';
+import '../design_system/theme.dart';
+import '../formatting/dates.dart';
+import '../design_system/shape.dart';
+import '../design_system/motion.dart';
 
 /// An account's balance over recent weeks: each bar rises or falls by the
 /// week's net change from where the last one ended, finishing on today's

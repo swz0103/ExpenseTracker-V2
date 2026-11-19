@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/look/app_mark.dart';
-import '../../../../core/look/theme.dart';
-import '../../../../core/look/kit/buttons.dart';
-import '../../../../core/look/shape.dart';
-import '../../../../core/look/spacing.dart';
+import '../../../../core/design_system/app_mark.dart';
+import '../../../../core/design_system/theme.dart';
+import '../../../../core/design_system/components/buttons.dart';
+import '../../../../core/design_system/shape.dart';
+import '../../../../core/design_system/spacing.dart';
 
 /// The page every lock screen form sits on: the mark, a [title], a
 /// [hint] under it, the [fields] on a tinted block, what went wrong, the

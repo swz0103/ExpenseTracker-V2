@@ -5,13 +5,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../core/look/theme.dart' show Hue;
-import '../../../core/look/widget_hue.dart';
-import '../../../core/look/shape.dart';
-import '../../../core/look/spacing.dart';
-import '../../../core/text/dates.dart';
-import '../../../core/text/words.dart';
-import '../../../core/text/json_fields.dart';
+import '../../../core/design_system/theme.dart' show Hue;
+import '../../../core/design_system/widget_hue.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/formatting/words.dart';
+import '../../../core/formatting/json_fields.dart';
 
 /// What the widget shows with no figures chosen, as SummaryWidget.kt does.
 const _empty = <String, Object?>{

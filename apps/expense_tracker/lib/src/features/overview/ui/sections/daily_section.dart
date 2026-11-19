@@ -2,17 +2,17 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/look/theme.dart';
-import '../../../../core/look/widgets.dart';
+import '../../../../core/design_system/theme.dart';
+import '../../../../core/design_system/design_system.dart';
 import '../../../../core/ledger/ledger.dart';
-import '../../../../core/ui/entry_tile.dart';
+import '../../../../core/widgets/entry_tile.dart';
 import '../../../../core/nav.dart';
-import '../../../../core/ui/shown_amounts.dart';
-import '../../../../core/text/dates.dart';
-import '../../../../core/look/shape.dart';
-import '../../../../core/look/spacing.dart';
-import '../../../../core/look/motion.dart';
-import '../../../../core/text/words.dart';
+import '../../../../core/widgets/shown_amounts.dart';
+import '../../../../core/formatting/dates.dart';
+import '../../../../core/design_system/shape.dart';
+import '../../../../core/design_system/spacing.dart';
+import '../../../../core/design_system/motion.dart';
+import '../../../../core/formatting/words.dart';
 
 /// 每日紀錄: a week of days with marks for what each holds, and the chosen
 /// day's entries three to a row, six at a time.

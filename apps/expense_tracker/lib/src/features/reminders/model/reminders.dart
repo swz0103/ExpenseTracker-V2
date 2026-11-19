@@ -1,6 +1,6 @@
-import '../../../core/text/amounts.dart';
+import '../../../core/formatting/amounts.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/text/dates.dart';
+import '../../../core/formatting/dates.dart';
 
 /// A day the ledger wants remembered, as a calendar shows it: recurring
 /// items falling due and card payments.

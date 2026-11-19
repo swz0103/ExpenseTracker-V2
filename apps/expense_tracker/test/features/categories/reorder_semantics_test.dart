@@ -1,7 +1,7 @@
-import 'package:expense_tracker/src/core/look/keys.dart';
+import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/app/shell.dart';
-import 'package:expense_tracker/src/core/look/theme.dart';
+import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'glyphs.dart';
 import 'theme.dart';
-import 'widgets.dart';
+import 'design_system.dart';
 import 'shape.dart';
 import 'spacing.dart';
 

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:expense_tracker/src/core/look/keys.dart';
+import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:expense_tracker/src/features/lock/ui/lock_screen.dart';

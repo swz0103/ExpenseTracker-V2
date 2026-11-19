@@ -12,7 +12,7 @@
 | 項目 | 結果 |
 | --- | --- |
 | 帳本用到 Flutter 的檔案 | 6 個，全部只用 `package:flutter/foundation.dart`：`ChangeNotifier`、`ValueNotifier`、`Listenable`、`mapEquals` |
-| 帳本用到 App 其他部分 | `core/text`（金額、日期、JsonFields）、`core/diagnostics`（錯誤紀錄、效能監看）、`core/models` |
+| 帳本用到 App 其他部分 | `core/formatting`（金額、日期、JsonFields）、`core/diagnostics`（錯誤紀錄、效能監看）、`core/models` |
 | 帳本相關的 71 個測試檔，以 `flutter test` 跑 | 26.5 秒 |
 | 單跑一個檔：`flutter test` ／ 純 Dart 套件的 `dart test` | 2.6 秒 ／ 1.0 秒 |
 

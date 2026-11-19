@@ -5,13 +5,13 @@
 /// reads its colours from `Hue` when built, so each has a dark version.
 library;
 
-export 'kit/boards.dart';
-export 'kit/cards.dart';
-export 'kit/choices.dart';
-export 'kit/colours.dart';
-export 'kit/figure_card.dart';
-export 'kit/heading.dart';
-export 'kit/marks.dart';
-export 'kit/panels.dart';
-export 'kit/one_line.dart';
-export 'kit/buttons.dart';
+export 'components/boards.dart';
+export 'components/cards.dart';
+export 'components/choices.dart';
+export 'components/colours.dart';
+export 'components/figure_card.dart';
+export 'components/heading.dart';
+export 'components/marks.dart';
+export 'components/panels.dart';
+export 'components/one_line.dart';
+export 'components/buttons.dart';

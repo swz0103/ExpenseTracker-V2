@@ -1,4 +1,4 @@
-import 'package:expense_tracker/src/core/text/json_fields.dart';
+import 'package:expense_tracker/src/core/formatting/json_fields.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

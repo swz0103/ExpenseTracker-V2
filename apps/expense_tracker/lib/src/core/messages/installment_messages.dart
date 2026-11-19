@@ -1,5 +1,5 @@
 import '../ledger/ledger.dart';
-import '../text/figures.dart';
+import '../formatting/figures.dart';
 
 /// How [total] paid in [count] instalments is written, each amount as
 /// [money] writes it: 「3 期 · 每期 3,000」, or when it does not divide

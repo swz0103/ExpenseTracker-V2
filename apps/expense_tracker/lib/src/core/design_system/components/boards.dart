@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../glyphs.dart';
 import '../theme.dart';
-import '../kit.dart';
+import '../components.dart';
 import '../shape.dart';
 import '../spacing.dart';
 

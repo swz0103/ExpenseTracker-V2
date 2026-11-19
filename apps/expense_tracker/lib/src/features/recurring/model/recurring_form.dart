@@ -1,6 +1,6 @@
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/recurring_messages.dart';
-import '../../../core/text/dates.dart';
+import '../../../core/formatting/dates.dart';
 import 'recurring_schedule.dart';
 
 /// What the form of a recurring item holds while it is filled in: a new

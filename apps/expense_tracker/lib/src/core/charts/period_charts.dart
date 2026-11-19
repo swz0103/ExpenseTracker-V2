@@ -2,10 +2,10 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../look/paint.dart';
-import '../look/theme.dart';
-import '../look/shape.dart';
-import '../look/motion.dart';
+import '../design_system/paint.dart';
+import '../design_system/theme.dart';
+import '../design_system/shape.dart';
+import '../design_system/motion.dart';
 
 /// One stretch of a report: a week, a month, and what came in and went
 /// out in it. A stretch still ahead has [ahead] set and no figures.

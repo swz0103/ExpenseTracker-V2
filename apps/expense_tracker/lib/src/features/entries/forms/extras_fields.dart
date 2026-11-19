@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/keys.dart';
-import '../../../core/look/spacing.dart';
+import '../../../core/design_system/keys.dart';
+import '../../../core/design_system/spacing.dart';
 import '../model/compose_form.dart';
 import 'compose_actions.dart';
 import 'compose_chips.dart';
 import 'fields_fold.dart';
 import 'note_field.dart';
-import '../../../core/text/words.dart';
+import '../../../core/formatting/words.dart';
 
 /// The merchant, tags, note and receipt under one heading at the foot of
 /// the entry form, opened and closed with it; closed, the heading shows

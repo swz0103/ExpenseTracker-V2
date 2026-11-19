@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'keys.dart';
-import 'kit/colours.dart';
+import 'components/colours.dart';
 import 'theme.dart';
 import 'shape.dart';
 import 'spacing.dart';
-import '../text/words.dart';
+import '../formatting/words.dart';
 
 /// Asks for a line of text; null when cancelled or left empty.
 Future<String?> askText(

@@ -1,15 +1,15 @@
 import 'dart:async';
 
-import '../look/theme.dart';
+import '../design_system/theme.dart';
 
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../look/glyphs.dart';
-import '../look/shape.dart';
-import '../look/spacing.dart';
-import '../look/motion.dart';
+import '../design_system/glyphs.dart';
+import '../design_system/shape.dart';
+import '../design_system/spacing.dart';
+import '../design_system/motion.dart';
 
 /// One stop of a [Tour]: the place it lights and what it says there.
 final class TourStop {

@@ -332,7 +332,7 @@ void main() {
   });
 
   test('casts of outside data only become fewer', () {
-    // Read through JsonFields (core/text/json_fields.dart) instead: a cast
+    // Read through JsonFields (core/formatting/json_fields.dart) instead: a cast
     // throws a TypeError for one field of the wrong kind and takes the
     // rest down with it. What is left is the ledger's own rows.
     const most = 18;

@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
 import '../model/compose_form.dart';
 
 /// How each kind of record looks on its tab.

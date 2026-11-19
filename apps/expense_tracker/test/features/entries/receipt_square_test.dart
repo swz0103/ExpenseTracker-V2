@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:expense_tracker/src/core/look/keys.dart';
+import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/features/entries/forms/receipt_square.dart';
 import 'package:expense_tracker/src/features/entries/model/receipt_photos.dart';
 import 'package:flutter/material.dart';

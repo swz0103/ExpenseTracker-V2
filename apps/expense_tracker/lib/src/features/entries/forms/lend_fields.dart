@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/text/figures.dart';
-import '../../../core/ui/shown_amounts.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/widgets/shown_amounts.dart';
 import '../model/compose_form.dart';
 import 'compose_actions.dart';
 import 'compose_chips.dart';

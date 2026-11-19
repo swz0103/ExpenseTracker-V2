@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/look/widgets.dart';
+import '../../../../core/design_system/design_system.dart';
 import 'lock_parts.dart';
-import '../../../../core/text/words.dart';
+import '../../../../core/formatting/words.dart';
 
 /// Opening a ledger with the recovery code given when it was made, when
 /// the password is forgotten. The code is shown as typed: it is read off

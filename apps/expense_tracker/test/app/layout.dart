@@ -12,20 +12,20 @@ abstract final class Layout {
   /// The parts of core, and the other parts each may import. A part may
   /// always import itself. [navigation] is a single file at the top.
   static const coreParts = <String, List<String>>{
-    'text': [],
+    'formatting': [],
     // The one clock the app reads the time from.
     'time': [],
     'diagnostics': ['time'],
-    'look': ['text'],
-    'charts': ['look', 'text'],
-    'ledger': ['text', 'diagnostics', 'time'],
-    'platform': ['ledger', 'text', 'diagnostics', 'time'],
+    'design_system': ['formatting'],
+    'charts': ['design_system', 'formatting'],
+    'ledger': ['formatting', 'diagnostics', 'time'],
+    'platform': ['ledger', 'formatting', 'diagnostics', 'time'],
     // What the person is told of the ledger's values, in one place.
-    'messages': ['ledger', 'text'],
-    'ui': [
+    'messages': ['ledger', 'formatting'],
+    'widgets': [
       'messages',
-      'look',
-      'text',
+      'design_system',
+      'formatting',
       'ledger',
       'charts',
       'platform',
@@ -37,10 +37,10 @@ abstract final class Layout {
   static const navigation = 'nav.dart';
 
   /// The design system: where colours, type sizes and buttons are named.
-  static const designSystemDir = '/core/look/';
-  static const themeFile = 'core/look/theme.dart';
-  static const typeFile = '/core/look/type.dart';
-  static const keysFile = 'core/look/keys.dart';
+  static const designSystemDir = '/core/design_system/';
+  static const themeFile = 'core/design_system/theme.dart';
+  static const typeFile = '/core/design_system/type.dart';
+  static const keysFile = 'core/design_system/keys.dart';
 
   /// The folders inside a feature, and those that hold screens.
   static const featureFolders = ['model', 'ui', 'forms'];
@@ -48,10 +48,10 @@ abstract final class Layout {
   static const modelFolder = '/model/';
 
   /// Folders that paint, which no model or the ledger may import.
-  static const paintingDirs = ['core/look/', 'core/charts/'];
+  static const paintingDirs = ['core/design_system/', 'core/charts/'];
 
   /// The one file that pushes a route.
-  static const routePusher = 'lib/src/core/look/feedback.dart';
+  static const routePusher = 'lib/src/core/design_system/feedback.dart';
 
   /// The one file of the ledger that touches storage.
   static const storageFile =
@@ -82,7 +82,7 @@ abstract final class Layout {
   /// What the ledger may import besides itself.
   static const ledgerMayImport = [
     'lib/src/core/diagnostics/',
-    'lib/src/core/text/',
+    'lib/src/core/formatting/',
   ];
 
   /// How long a file grows before it should be split or say why not.

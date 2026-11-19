@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 /// How tests are written (docs/conventions.md): a control is pressed by
-/// its key from core/look/keys.dart, so a test keeps working when the
+/// its key from core/design_system/keys.dart, so a test keeps working when the
 /// words on a button change. Words are looked for only to check them,
 /// or to press a piece of the book itself, such as an entry or account.
 void main() {

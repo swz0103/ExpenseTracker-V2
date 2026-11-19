@@ -2,28 +2,28 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/look/dialogs.dart';
-import '../../../core/text/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/ui/icons.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/design_system/dialogs.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ledger/trading.dart';
 import '../../accounts/forms/account_editor.dart';
-import '../../../core/ui/calculator.dart';
+import '../../../core/widgets/calculator.dart';
 import '../../categories/forms/category_editor.dart';
-import '../../../core/ui/pickers.dart';
+import '../../../core/widgets/pickers.dart';
 import '../model/compose_draft.dart';
 import '../model/compose_form.dart';
 import '../../../core/messages/installment_messages.dart';
 import '../model/receipt_photos.dart';
 import '../../import_export/model/import_export.dart' show invoiceRecorded;
 import '../../import_export/model/invoice_qr.dart';
-import '../../../core/ui/shown_amounts.dart';
+import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/text/dates.dart';
-import '../../../core/look/spacing.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/spacing.dart';
 
 export '../model/compose_form.dart' show ComposeMode;
 
@@ -42,7 +42,7 @@ import 'holding_choices.dart';
 import 'note_field.dart';
 import 'people_choices.dart';
 import 'receipt_square.dart';
-import '../../../core/text/words.dart';
+import '../../../core/formatting/words.dart';
 
 export 'compose_mode_look.dart';
 

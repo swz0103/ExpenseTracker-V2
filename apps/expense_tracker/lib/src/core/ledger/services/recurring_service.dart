@@ -6,7 +6,7 @@ import '../repositories/account_repository.dart';
 import '../repositories/entry_repository.dart';
 import '../repositories/market_data_repository.dart';
 import '../repositories/recurring_repository.dart';
-import '../../text/dates.dart';
+import '../../formatting/dates.dart';
 
 /// What falls due next for each recurring item, what it has booked and
 /// the entry that would book it.

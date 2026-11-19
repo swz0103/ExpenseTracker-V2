@@ -6,7 +6,7 @@ import '../../../core/platform/preferences.dart';
 import 'phone_backup.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/time/app_clock.dart';
-import '../../../core/text/json_fields.dart';
+import '../../../core/formatting/json_fields.dart';
 
 /// Backups that reach the phone's folder and Google Drive without the app
 /// being opened. The ledger's key is only in the open app, so the backup

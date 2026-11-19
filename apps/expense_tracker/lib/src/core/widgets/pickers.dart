@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../look/glyphs.dart';
+import '../design_system/glyphs.dart';
 import 'icons.dart';
-import '../look/theme.dart';
-import '../look/widgets.dart';
+import '../design_system/theme.dart';
+import '../design_system/design_system.dart';
 import '../ledger/ledger.dart';
 import 'shown_amounts.dart';
-import '../text/dates.dart';
-import '../look/shape.dart';
-import '../look/spacing.dart';
-import '../text/words.dart';
+import '../formatting/dates.dart';
+import '../design_system/shape.dart';
+import '../design_system/spacing.dart';
+import '../formatting/words.dart';
 
 part 'pickers_days.dart';
 

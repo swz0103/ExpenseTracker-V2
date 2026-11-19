@@ -4,7 +4,7 @@ import '../controls.dart';
 import '../glyphs.dart';
 import '../haptics.dart';
 import '../theme.dart';
-import '../kit.dart';
+import '../components.dart';
 import '../shape.dart';
 import '../spacing.dart';
 

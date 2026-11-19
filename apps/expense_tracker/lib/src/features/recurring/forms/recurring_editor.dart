@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/dialogs.dart';
-import '../../../core/text/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/ui/icons.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/design_system/dialogs.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ui/calculator.dart';
-import '../../../core/ui/pickers.dart';
+import '../../../core/widgets/calculator.dart';
+import '../../../core/widgets/pickers.dart';
 import '../model/recurring_schedule.dart';
 import '../model/recurring_form.dart';
 import 'recurring_form_widgets.dart';
-import '../../../core/text/dates.dart';
+import '../../../core/formatting/dates.dart';
 import '../../../core/messages/recurring_messages.dart';
-import '../../../core/look/shape.dart';
-import '../../../core/look/spacing.dart';
-import '../../../core/text/words.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 part 'recurring_repeat.dart';
 
