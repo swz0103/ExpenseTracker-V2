@@ -21,7 +21,7 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
   - `USE_BIOMETRIC`：指紋或臉部解鎖。
   - `READ_CALENDAR`、`WRITE_CALENDAR`：把到期提醒寫進使用者選的日曆；只在設定裡連結日曆時才詢問。
   - `POST_NOTIFICATIONS`：到期提醒與每日記帳提醒（Android 13 以上第一次開提醒時詢問）。
-  - `ACCESS_NETWORK_STATE`：判斷是否連上 Wi-Fi，雲端硬碟的收據照片只在 Wi-Fi 上傳（`NetworkPart.kt`）。
+  - `ACCESS_NETWORK_STATE`：判斷是否連上 Wi-Fi，雲端硬碟的收據照片只在 Wi-Fi 上傳（`NetworkHandler.kt`）。
   - `SCHEDULE_EXACT_ALARM`：只在打開「準時提醒」時使用；Android 12 起要使用者在系統設定允許「鬧鐘與提醒」（App 會帶過去），沒允許時退回一般鬧鐘。不申請 `USE_EXACT_ALARM`（Play 只給鬧鐘、行事曆類 App）。
   - `RECEIVE_BOOT_COMPLETED`：重開機後重新排定提醒。`RestartReceiver` 也在 App 更新、改時間（`TIME_SET`）與改時區（`TIMEZONE_CHANGED`）時重排，這兩個不需要權限。
 - 收件匣（`InboxWriter.kt`）：到期通知的「確認入帳」由 `ConfirmReceiver` 收下，用 `filesDir/inbox.pub` 的公鑰加密後寫進 `filesDir/inbox/`，帳本仍鎖著；下次打開帳本時才讀出入帳。加密用 Tink（`tink-android`）的 X25519 與 HKDF 加上系統的 AES-GCM；`InboxWriterTest.kt` 在 CI 以 `testDebugUnitTest` 驗證與 Dart 端相同的範例。
@@ -31,7 +31,7 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 
 ## Google 雲端硬碟備份
 
-`play-services-auth` 的 `AuthorizationClient` 要 `https://www.googleapis.com/auth/drive.file` 的存取權杖（`DrivePart.kt` 的 `driveToken`），Dart 端直接呼叫 Drive REST v3（`lib/src/features/backup/model/drive_backup.dart`）。不需要 Firebase、`google-services.json` 或伺服器用戶端 ID，但 Google Cloud 要設定：
+`play-services-auth` 的 `AuthorizationClient` 要 `https://www.googleapis.com/auth/drive.file` 的存取權杖（`DriveHandler.kt` 的 `driveToken`），Dart 端直接呼叫 Drive REST v3（`lib/src/features/backup/model/drive_backup.dart`）。不需要 Firebase、`google-services.json` 或伺服器用戶端 ID，但 Google Cloud 要設定：
 
 1. 建專案、啟用 Google Drive API。
 2. Google Auth Platform：品牌（App 名稱、聯絡信箱）、目標對象選「外部」並發布（`drive.file` 是非敏感權限，不需審查）。
@@ -41,7 +41,7 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 
 ## 備份到手機資料夾
 
-`FolderPart.kt` 用系統的資料夾選擇（`OpenDocumentTree`）讓使用者選一次資料夾，並以 `takePersistableUriPermission` 取得長期讀寫權；之後用 `DocumentsContract` 建立、列出、刪除檔案（在背景執行緒）。檔名是「記帳本-<帳本代碼>-年月日-時分.etbk」，帳本代碼取自 keyring id 的前 6 碼；只整理同一本帳本的備份（留最新 5 份），資料夾裡的其他檔案、別本帳本的備份都不動。寫到一半失敗會把那個檔刪掉。使用者在系統設定收回權限後，下次備份會失敗並在設定頁標示，提示一次。「停止」會歸還權限，已寫的備份留著。這個資料夾在 App 外：其他 App、電腦或雲端同步軟體都看得到檔案（內容已加密）。
+`FolderHandler.kt` 用系統的資料夾選擇（`OpenDocumentTree`）讓使用者選一次資料夾，並以 `takePersistableUriPermission` 取得長期讀寫權；之後用 `DocumentsContract` 建立、列出、刪除檔案（在背景執行緒）。檔名是「記帳本-<帳本代碼>-年月日-時分.etbk」，帳本代碼取自 keyring id 的前 6 碼；只整理同一本帳本的備份（留最新 5 份），資料夾裡的其他檔案、別本帳本的備份都不動。寫到一半失敗會把那個檔刪掉。使用者在系統設定收回權限後，下次備份會失敗並在設定頁標示，提示一次。「停止」會歸還權限，已寫的備份留著。這個資料夾在 App 外：其他 App、電腦或雲端同步軟體都看得到檔案（內容已加密）。
 
 ## 不打開 App 的背景備份
 
@@ -49,7 +49,7 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 
 ## App 內更新
 
-每次發布時，`android.yml` 在 APK 旁邊放 `update.json`（`build` 為 workflow 的 run number，與 App 的 `APP_BUILD` 相同；另有 `version`、`commit`、`sha256`、`size`，以及 `notes`：`apps/expense_tracker/whats_new.txt` 的每一行，App 更新前在浮窗裡列出），APK 換好名字後才上傳它，所以它說的版本一定下載得到。App（`lib/src/features/settings/model/app_update.dart`）從 `github.com/swz0103/ExpenseTracker-V2/releases/download/android-latest/` 取這兩個檔（repo 是公開的，不需登入），下載到快取 `updates/`（啟動時清掉），`UpdatePart.kt` 核對 SHA-256 後以 `FileProvider` 交給系統安裝程式（`REQUEST_INSTALL_PACKAGES`；Android 8 以上第一次會開「安裝不明應用程式」設定）。Android 只在簽章相同時才覆蓋安裝，資料保留；側載的 App 不能在背景自動更新，每次都要使用者確認。
+每次發布時，`android.yml` 在 APK 旁邊放 `update.json`（`build` 為 workflow 的 run number，與 App 的 `APP_BUILD` 相同；另有 `version`、`commit`、`sha256`、`size`，以及 `notes`：`apps/expense_tracker/whats_new.txt` 的每一行，App 更新前在浮窗裡列出），APK 換好名字後才上傳它，所以它說的版本一定下載得到。App（`lib/src/features/settings/model/app_update.dart`）從 `github.com/swz0103/ExpenseTracker-V2/releases/download/android-latest/` 取這兩個檔（repo 是公開的，不需登入），下載到快取 `updates/`（啟動時清掉），`UpdateHandler.kt` 核對 SHA-256 後以 `FileProvider` 交給系統安裝程式（`REQUEST_INSTALL_PACKAGES`；Android 8 以上第一次會開「安裝不明應用程式」設定）。Android 只在簽章相同時才覆蓋安裝，資料保留；側載的 App 不能在背景自動更新，每次都要使用者確認。
 
 ## 桌面小工具
 
@@ -71,7 +71,7 @@ Release 版經 R8 縮減：WorkManager 啟動時以名稱找 Room 產生的 `Wor
 
 ## 指紋或臉部解鎖
 
-- `KeystorePart.kt` 在 Android Keystore 建立一把 AES-256-GCM 金鑰，每次使用都要指紋或臉部確認（`BIOMETRIC_STRONG`）；新增或刪除指紋後這把金鑰就失效。
+- `KeystoreHandler.kt` 在 Android Keystore 建立一把 AES-256-GCM 金鑰，每次使用都要指紋或臉部確認（`BIOMETRIC_STRONG`）；新增或刪除指紋後這把金鑰就失效。
 - 第一次用密碼打開帳本時會請你確認一次指紋；之後可直接用指紋打開。拒絕後不再詢問；之後想用，在解鎖畫面點指紋即可。
 - 指紋失效或換手機時，用密碼或救援碼打開。
 - App 在背景超過 5 分鐘再回來，帳本會自動鎖上。時間同時用手機時鐘與只會往前走的時鐘計算，把手機時間調回去會直接鎖上。

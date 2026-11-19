@@ -9,7 +9,7 @@ import io.flutter.plugin.common.MethodChannel
  * Each part registers its activity results when it is made, which must be
  * while the activity itself is being made.
  */
-interface ChannelPart {
+interface ChannelHandler {
     /** Answers [call] and returns true, or returns false when not its own. */
     fun handle(call: MethodCall, result: MethodChannel.Result): Boolean
 }

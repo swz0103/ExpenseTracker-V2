@@ -16,7 +16,7 @@ import java.io.File
  * it. Files are written, listed and deleted there by the system's
  * documents API; the work runs off the main thread.
  */
-class FolderPart(private val activity: FragmentActivity) : ChannelPart {
+class FolderHandler(private val activity: FragmentActivity) : ChannelHandler {
     private var pendingFolder: MethodChannel.Result? = null
 
     private val openTree =

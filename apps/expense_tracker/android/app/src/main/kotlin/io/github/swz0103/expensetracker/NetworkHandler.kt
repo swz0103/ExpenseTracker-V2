@@ -11,7 +11,7 @@ import io.flutter.plugin.common.MethodChannel
  * Whether the phone is on a network that costs nothing per byte, such as
  * Wi-Fi, so large uploads wait for one (lib/src/app/android/network_adapter.dart).
  */
-class NetworkPart(private val activity: FragmentActivity) : ChannelPart {
+class NetworkHandler(private val activity: FragmentActivity) : ChannelHandler {
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         if (call.method != "unmetered") return false
         val manager = activity.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager

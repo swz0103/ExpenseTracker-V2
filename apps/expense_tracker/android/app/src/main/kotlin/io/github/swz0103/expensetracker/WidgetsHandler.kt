@@ -5,7 +5,7 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /** Shows the home-screen widgets' snapshot again (lib/src/app/android/home_widget_adapter.dart). */
-class WidgetsPart(private val activity: FragmentActivity) : ChannelPart {
+class WidgetsHandler(private val activity: FragmentActivity) : ChannelHandler {
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         if (call.method != "refreshWidgets") return false
         try {

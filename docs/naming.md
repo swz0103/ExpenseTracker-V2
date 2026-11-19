@@ -64,7 +64,7 @@
 | `core/nav.dart`、`Place`、`Section`、`SettingsPart`、`Pages`、`openFlow` | `core/navigation/nav.dart`、`AppRoute`（子類別 `*Route`）、`MoreDestination`、`SettingsDestination`、`AppRoutes`、`openFullScreen` | Flutter Route；destination 是 Material 3 導覽的用語 |
 | `compose/`（功能裡的表單） | `forms/` | 與 Jetpack Compose 撞名 |
 | `Hue` | （保留，見例外） | — |
-| `*Part.kt`（Kotlin 通道處理） | `*Handler.kt` | `MethodCallHandler` |
+| `*Part.kt`（Kotlin 通道處理） | `*Handler.kt`（已改，`naming_test` 守住） | `MethodCallHandler` |
 | `app/android/*.dart` | `app/android/*_adapter.dart` | Ports and Adapters，已有 `NotifyPort`、`CalendarPort` |
 | `Keeper`、`VaultKeeper` | `BackupManager`、`EncryptedBackupManager` | Manager |
 | `Services`（`settings/model/services.dart`） | `PlatformServices` | 描述內容 |

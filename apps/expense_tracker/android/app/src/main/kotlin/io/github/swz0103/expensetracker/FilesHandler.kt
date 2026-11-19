@@ -11,7 +11,7 @@ import java.io.File
  * taking backups and files out and back in
  * (lib/src/app/android/file_adapter.dart).
  */
-class FilesPart(private val activity: FragmentActivity) : ChannelPart {
+class FilesHandler(private val activity: FragmentActivity) : ChannelHandler {
     private var pendingExport: Pair<String, MethodChannel.Result>? = null
     private var pendingPick: MethodChannel.Result? = null
 

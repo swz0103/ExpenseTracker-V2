@@ -27,7 +27,7 @@
 
 ## 平台
 
-- Android 端在 `android/app/src/main/kotlin/`，每塊能力一個 `ChannelPart`；細節見 [android.md](../../docs/android.md)。
+- Android 端在 `android/app/src/main/kotlin/`，每塊能力一個 `ChannelHandler`；細節見 [android.md](../../docs/android.md)。
 - 字型：Nunito ＋ Noto Sans TC（Regular／Bold，OFL 授權見 `fonts/`）；`font_coverage_test` 檢查沒有缺字。
 - App 圖示原稿 `tool/app_icon.svg`；畫面裡用 `core/look/app_mark.dart` 畫同一個圖。
 

@@ -26,7 +26,7 @@ import io.flutter.plugin.common.MethodChannel
  * the app words: `install` when the module cannot be fetched (Play
  * services off or out of date), `scan` when the scanner itself fails.
  */
-class ScanPart(private val activity: FragmentActivity) : ChannelPart {
+class ScanHandler(private val activity: FragmentActivity) : ChannelHandler {
     private var pending: MethodChannel.Result? = null
 
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {

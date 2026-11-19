@@ -2,7 +2,7 @@ import 'package:flutter/services.dart';
 
 import 'platform_channel.dart';
 
-/// Reads a QR code with Google's code scanner (`ScanPart.kt`); null when
+/// Reads a QR code with Google's code scanner (`ScanHandler.kt`); null when
 /// the person closes it. The first scan on a phone may wait while Play
 /// services fetches the scanner. A problem is thrown as words to show.
 Future<String?> androidScanQr() async {

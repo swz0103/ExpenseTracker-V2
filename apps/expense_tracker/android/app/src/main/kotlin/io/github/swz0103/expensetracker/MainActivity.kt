@@ -12,7 +12,7 @@ import io.flutter.plugin.common.MethodChannel
 
 /**
  * Hosts the app and answers `expense_tracker/platform`
- * (lib/src/app/android/), one [ChannelPart] per concern: the Keystore
+ * (lib/src/app/android/), one [ChannelHandler] per concern: the Keystore
  * key for fingerprint unlock, receipt photos, files and the save and open
  * dialogs, the calendar, notifications and Google Drive. This class keeps
  * only what belongs to the activity itself: hiding the screen (from
@@ -21,19 +21,19 @@ import io.flutter.plugin.common.MethodChannel
  */
 class MainActivity : FlutterFragmentActivity() {
     // Made with the activity: each registers its activity results now.
-    private val parts: List<ChannelPart> = listOf(
-        KeystorePart(this),
-        PhotosPart(this),
-        FilesPart(this),
-        CalendarPart(this),
-        RemindersPart(this),
-        DrivePart(this),
-        NetworkPart(this),
-        FolderPart(this),
-        BackupsPart(this),
-        WidgetsPart(this),
-        UpdatePart(this),
-        ScanPart(this),
+    private val handlers: List<ChannelHandler> = listOf(
+        KeystoreHandler(this),
+        PhotosHandler(this),
+        FilesHandler(this),
+        CalendarHandler(this),
+        RemindersHandler(this),
+        DriveHandler(this),
+        NetworkHandler(this),
+        FolderHandler(this),
+        BackupsHandler(this),
+        WidgetsHandler(this),
+        UpdateHandler(this),
+        ScanHandler(this),
     )
     private var channel: MethodChannel? = null
 
@@ -121,7 +121,7 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                     result.success(null)
                 }
-                else -> if (parts.none { it.handle(call, result) }) result.notImplemented()
+                else -> if (handlers.none { it.handle(call, result) }) result.notImplemented()
             }
         }
     }

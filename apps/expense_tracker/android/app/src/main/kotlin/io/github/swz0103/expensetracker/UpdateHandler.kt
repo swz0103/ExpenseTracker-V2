@@ -18,7 +18,7 @@ import java.security.MessageDigest
  * the person confirms. Android installs it only when it is signed with the
  * same key, and the app's data stays.
  */
-class UpdatePart(private val activity: FragmentActivity) : ChannelPart {
+class UpdateHandler(private val activity: FragmentActivity) : ChannelHandler {
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         if (call.method != "installApk") return false
         val path = call.argument<String>("path")

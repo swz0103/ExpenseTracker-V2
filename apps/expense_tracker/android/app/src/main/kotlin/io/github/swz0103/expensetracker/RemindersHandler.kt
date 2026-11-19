@@ -16,7 +16,7 @@ import io.flutter.plugin.common.MethodChannel
  * Asking to post notifications, and handing the alerts to `Reminders.kt`
  * (lib/src/app/android/notification_adapter.dart).
  */
-class RemindersPart(private val activity: FragmentActivity) : ChannelPart {
+class RemindersHandler(private val activity: FragmentActivity) : ChannelHandler {
     private var pendingNotify: MethodChannel.Result? = null
 
     /** Asks once to post notifications (Android 13 and later). */

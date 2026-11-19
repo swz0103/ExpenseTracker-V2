@@ -7,7 +7,7 @@ import '../../../core/time/app_clock.dart';
 /// backup with photos, a CSV), a backup half written in `backups`, and,
 /// in [cache], the camera's photo before
 /// it was sealed, the photo made smaller, and the copy of a chosen backup
-/// or file (`PhotosPart.kt`, `FilesPart.kt`). Runs at start, before
+/// or file (`PhotosHandler.kt`, `FilesHandler.kt`). Runs at start, before
 /// anything is written there again.
 ///
 /// A photo the camera took while the phone closed the app is kept for a

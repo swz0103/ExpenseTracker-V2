@@ -46,4 +46,19 @@ void main() {
     }
     expect(faults, isEmpty, reason: faults.join('\n'));
   });
+
+  test('the Android side hands its channel calls to *Handler classes', () {
+    // MethodCallHandler is Flutter's own word; *Part was made up.
+    final part = RegExp(r'\b(class|interface) \w+Part\b');
+    final faults = <String>[];
+    for (final file in Directory('android/app/src').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.kt')) continue;
+      final name = file.uri.pathSegments.last;
+      if (name.endsWith('Part.kt')) faults.add(file.path);
+      for (final m in part.allMatches(file.readAsStringSync())) {
+        faults.add('${file.path}: ${m[0]}');
+      }
+    }
+    expect(faults, isEmpty, reason: faults.join('\n'));
+  });
 }

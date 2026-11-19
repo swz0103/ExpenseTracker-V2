@@ -6,7 +6,7 @@ import android.provider.DocumentsContract
 import java.io.File
 
 /**
- * Files in a folder the person chose (FolderPart.kt), through the
+ * Files in a folder the person chose (FolderHandler.kt), through the
  * system's documents API: used by the app while it is open and by the
  * background job (BackupWorker.kt) while it is not.
  */

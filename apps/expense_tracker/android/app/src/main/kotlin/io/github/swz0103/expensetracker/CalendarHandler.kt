@@ -12,7 +12,7 @@ import io.flutter.plugin.common.MethodChannel
  * The phone's calendars, where the ledger's due dates go
  * (`CalendarBridge.kt`, lib/src/app/android/calendar_adapter.dart).
  */
-class CalendarPart(private val activity: FragmentActivity) : ChannelPart {
+class CalendarHandler(private val activity: FragmentActivity) : ChannelHandler {
     private var pendingCalendar: MethodChannel.Result? = null
 
     /** Asks once for the calendar. */

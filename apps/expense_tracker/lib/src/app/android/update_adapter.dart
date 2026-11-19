@@ -5,7 +5,7 @@ import '../../features/settings/model/app_update.dart';
 import 'platform_channel.dart';
 
 /// [UpdatePort] on the phone: dart:io for the two files, and Android's
-/// installer through `UpdatePart.kt`, which checks the SHA-256 first.
+/// installer through `UpdateHandler.kt`, which checks the SHA-256 first.
 final class AndroidUpdatePort implements UpdatePort {
   const AndroidUpdatePort();
 

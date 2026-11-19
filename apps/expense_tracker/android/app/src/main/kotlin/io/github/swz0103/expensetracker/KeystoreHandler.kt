@@ -21,7 +21,7 @@ import javax.crypto.spec.GCMParameterSpec
  * the ledger key for unlocking without the password
  * (lib/src/app/android/keystore_adapter.dart).
  */
-class KeystorePart(private val activity: FragmentActivity) : ChannelPart {
+class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         when (call.method) {
             "canUseBiometrics" -> result.success(

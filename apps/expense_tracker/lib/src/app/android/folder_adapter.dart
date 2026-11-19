@@ -7,7 +7,7 @@ import 'platform_channel.dart';
 import '../../core/formatting/json_fields.dart';
 
 /// A folder chosen once with Android's folder chooser
-/// (`FolderPart.kt`).
+/// (`FolderHandler.kt`).
 final class AndroidFolder implements FolderPort {
   const AndroidFolder();
 

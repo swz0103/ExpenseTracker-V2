@@ -15,7 +15,7 @@
          allows it in the system settings. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <!-- Handing a newer version of the app, downloaded from its release
-         page, to Android's installer (UpdatePart.kt); the person allows
+         page, to Android's installer (UpdateHandler.kt); the person allows
          it once and confirms each update. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <application
