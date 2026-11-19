@@ -38,9 +38,14 @@ void main() {
     // Android's backup takes all of cloud/: only its one copy stays.
     final copy = make(files, 'cloud/記帳本.etbk');
     final half = make(files, 'cloud/記帳本-20261027-120000000.etbk');
+    // A weekly backup still being written when the app was stopped; the
+    // finished ones stay.
+    final cut = make(files, 'backups/記帳本-20261027-120000000.etbk.part');
+    final weekly = make(files, 'backups/記帳本-20261020-120000000.etbk');
     await clearLeftovers(files, cache: cache, now: now);
     expect(copy.existsSync(), isTrue);
-    for (final gone in [export, ready, restore, camera, half]) {
+    expect(weekly.existsSync(), isTrue);
+    for (final gone in [export, ready, restore, camera, half, cut]) {
       expect(gone.existsSync(), isFalse, reason: gone.path);
     }
     expect(ledger.existsSync(), isTrue);
@@ -58,5 +63,15 @@ void main() {
     fresh.setLastModifiedSync(now.subtract(const Duration(days: 2)));
     await clearLeftovers(files, cache: cache, now: now);
     expect(fresh.existsSync(), isFalse);
+  });
+
+  test('receipt photos no entry keeps are swept away', () async {
+    final kept = make(files, 'receipts/kept.jpg');
+    final dropped = make(files, 'receipts/dropped.jpg');
+    await sweepReceipts(files, {'kept.jpg'});
+    expect(kept.existsSync(), isTrue);
+    expect(dropped.existsSync(), isFalse);
+    // No folder yet: nothing to do.
+    await sweepReceipts(Directory('${files.path}/none'), const {});
   });
 }

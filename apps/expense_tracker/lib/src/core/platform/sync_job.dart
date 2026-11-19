@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../diagnostics/error_log.dart';
+import '../time/app_clock.dart';
 
 /// Something the app fetches or sends outside the phone, such as closing
 /// prices or a backup on Google Drive: whether it is at work, when it last
@@ -8,7 +9,7 @@ import '../diagnostics/error_log.dart';
 /// for 效能與診斷 and shown where the connector's data is shown.
 abstract class SyncJob extends ChangeNotifier {
   SyncJob(this.label, {this.gap = Duration.zero, DateTime Function()? clock})
-    : _clock = clock ?? DateTime.now;
+    : _clock = clock ?? AppClock.now;
 
   /// What it is called on screen and in the diagnostics, such as 收盤價.
   final String label;

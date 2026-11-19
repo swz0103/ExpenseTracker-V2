@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/platform/preferences.dart';
 import 'drive_backup.dart';
+import '../../../core/time/app_clock.dart';
 
 /// Backups on the person's Google Drive: linked once with Google's
 /// sign-in, then sent by hand from the settings and daily by themselves
@@ -18,7 +19,7 @@ final class DriveSync extends ChangeNotifier {
     required this._ledger,
     this._unmetered,
     DateTime Function()? clock,
-  }) : _clock = clock ?? DateTime.now;
+  }) : _clock = clock ?? AppClock.now;
 
   final DriveBackup _drive;
   final Preferences _preferences;

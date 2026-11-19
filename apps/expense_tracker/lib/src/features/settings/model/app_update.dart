@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/time/app_clock.dart';
 
 /// This build's number, set by the APK build (android.yml); 0 in a build
 /// made by hand and in the preview, which never look for updates.
@@ -120,7 +121,7 @@ final class AppUpdate extends ChangeNotifier {
     required this._cache,
     this._build = currentBuild,
     DateTime Function()? clock,
-  }) : _clock = clock ?? DateTime.now;
+  }) : _clock = clock ?? AppClock.now;
 
   final UpdatePort _port;
   final Preferences _preferences;

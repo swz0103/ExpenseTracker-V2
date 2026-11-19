@@ -4,7 +4,8 @@ import '../../../core/time/app_clock.dart';
 
 /// Deletes plain copies an earlier run may have left behind when it was
 /// stopped part way: files waiting in `exports` to be handed over (a
-/// backup with photos, a CSV), and, in [cache], the camera's photo before
+/// backup with photos, a CSV), a backup half written in `backups`, and,
+/// in [cache], the camera's photo before
 /// it was sealed, the photo made smaller, and the copy of a chosen backup
 /// or file (`PhotosPart.kt`, `FilesPart.kt`). Runs at start, before
 /// anything is written there again.
@@ -28,6 +29,8 @@ Future<void> clearLeftovers(
   }
 
   final camera = cache == null ? null : Directory('${cache.path}/camera');
+  // A backup still being written when the app was stopped.
+  final backups = Directory('${files.path}/backups');
   // Android's own backup takes all of cloud/: anything there but the one
   // copy, such as a file from before copies were written elsewhere first,
   // would go up with it.
@@ -39,6 +42,9 @@ Future<void> clearLeftovers(
         if (entity.uri.pathSegments.where((s) => s.isNotEmpty).last !=
             '記帳本.etbk')
           entity,
+    if (backups.existsSync())
+      for (final entity in backups.listSync())
+        if (entity.path.endsWith('.part')) entity,
     if (camera != null && camera.existsSync())
       for (final photo in camera.listSync())
         if (older(photo, const Duration(minutes: 5))) photo,

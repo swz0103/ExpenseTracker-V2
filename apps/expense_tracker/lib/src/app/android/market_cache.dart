@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:market/market_data.dart';
 
+import '../../core/time/app_clock.dart';
+
 /// The exchanges' day lists and the bank's rates as Android's background
 /// job last fetched them (`MarketWorker.kt`), so the closes are there
 /// when the app opens rather than a few MiB later. A list still fresh is
@@ -9,7 +11,7 @@ import 'package:market/market_data.dart';
 /// brings is kept there too. Other addresses always go to the network.
 final class CachedMarketTransport implements MarketTransport {
   CachedMarketTransport(this.inner, this.dir, {DateTime Function()? clock})
-    : _clock = clock ?? DateTime.now;
+    : _clock = clock ?? AppClock.now;
 
   final MarketTransport inner;
   final Directory dir;

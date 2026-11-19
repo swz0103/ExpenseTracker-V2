@@ -95,6 +95,57 @@ void main() {
     },
   );
 
+  test('a backup cut short while written is never one of those kept', () async {
+    for (var week = 0; week < 5; week++) {
+      await change();
+      clock.advance(const Duration(days: 8));
+      await backups.backUpIfDue();
+    }
+    // As the phone stopping the app part way leaves it: newest by name.
+    File('${backups.backupFolder}/記帳本-20991231-000000000.etbk.part')
+        .writeAsStringSync('cut short');
+    await change();
+    clock.advance(const Duration(days: 8));
+    expect(await backups.backUpIfDue(), isNotNull);
+    final whole = [
+      for (final name in kept())
+        if (name.endsWith('.etbk')) name,
+    ];
+    expect(whole, hasLength(5));
+    for (final name in whole) {
+      // Every one kept opens.
+      await LedgerBackup.readHeader(File('${backups.backupFolder}/$name'));
+    }
+  });
+
+  test('a finished backup leaves nothing half written beside it', () async {
+    await backups.backUp();
+    expect(kept().where((name) => name.endsWith('.part')), isEmpty);
+  });
+
+  test('a backup that fails part way leaves no backup behind', () async {
+    await backups.backUp();
+    final before = kept();
+    // A receipt that cannot be read, met after the backup has begun: a
+    // socket where a photo would be.
+    final receipts = Directory('${directory.path}/receipts')..createSync();
+    final socket = await ServerSocket.bind(
+      InternetAddress(
+        '${receipts.path}/photo.jpg',
+        type: InternetAddressType.unix,
+      ),
+      0,
+    );
+    addTearDown(socket.close);
+    clock.advance(const Duration(seconds: 1));
+    await expectLater(
+      backups.backUp(withPhotos: true),
+      throwsA(isA<FileSystemException>()),
+    );
+    expect(kept(), before);
+    // Unix sockets: not on Windows.
+  }, skip: Platform.isWindows);
+
   test('two taken in the same instant keep apart', () async {
     final a = await backups.backUp();
     final b = await backups.backUp();

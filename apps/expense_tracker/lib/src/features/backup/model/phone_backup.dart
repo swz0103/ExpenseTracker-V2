@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/time/app_clock.dart';
 
 /// The folder chosen cannot be kept: Android gave no lasting permission
 /// for it, as for the storage's top or 下載 since Android 11.
@@ -49,7 +50,7 @@ final class PhoneBackup extends ChangeNotifier {
     required String ledger,
     DateTime Function()? clock,
   }) : _mark = markOf(ledger),
-       _clock = clock ?? DateTime.now;
+       _clock = clock ?? AppClock.now;
 
   final FolderPort _folder;
   final Preferences _preferences;

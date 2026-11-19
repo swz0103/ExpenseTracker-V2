@@ -162,15 +162,24 @@ final class EncryptedBackupManager implements BackupManager {
     for (var n = 2; file.existsSync(); n++) {
       file = File('${folder.path}/記帳本-$stamp-$n.etbk');
     }
-    await LedgerBackup.write(
-      store: _vault.store,
-      keys: _vault.keys,
-      file: file,
-      backupId: PublicId.generate().value,
-      createdAt: now,
-      files: withPhotos ? _receipts() : const {},
-    );
-    return file;
+    // Written beside and renamed once whole: a write cut short, as when
+    // the phone stops the app, never looks like a backup, and so never
+    // takes the place of one of the good ones kept.
+    final part = File('${file.path}.part');
+    try {
+      await LedgerBackup.write(
+        store: _vault.store,
+        keys: _vault.keys,
+        file: part,
+        backupId: PublicId.generate().value,
+        createdAt: now,
+        files: withPhotos ? _receipts() : const {},
+      );
+      return await part.rename(file.path);
+    } on Object {
+      if (part.existsSync()) part.deleteSync();
+      rethrow;
+    }
   }
 
   /// The backups in [backupFolder], newest first; their names carry the
