@@ -8,7 +8,7 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/entry_tile.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
 import '../model/recurring_schedule.dart';
 import '../model/subscriptions.dart';
 import '../../../core/widgets/shown_amounts.dart';
@@ -82,6 +82,10 @@ class RecurringPage extends StatefulWidget {
 }
 
 class _RecurringPageState extends State<RecurringPage> {
+  /// Opens one of 定期交易's own pages.
+  void _view(RecurringView view) =>
+      widget.nav.open(AppRoutes.recurringView(view));
+
   late var _month = _now;
 
   /// The day chosen; null for the month's first with something.
@@ -125,8 +129,7 @@ class _RecurringPageState extends State<RecurringPage> {
             HeaderButton(
               glyph: Glyph.list,
               label: '管理',
-              onTap: () =>
-                  widget.nav.open(Pages.recurringView(RecurringView.manage)),
+              onTap: () => _view(RecurringView.manage),
             ),
             HeaderButton(glyph: Glyph.add, label: Words.add, onTap: _edit),
           ],
@@ -239,14 +242,13 @@ class _RecurringPageState extends State<RecurringPage> {
                 label: '固定支出/年 ›',
                 value: ledger.orDots(groupDigits(yearly)),
                 onTap: () => widget.nav.open(
-                  Pages.recurringView(RecurringView.subscriptions),
+                  AppRoutes.recurringView(RecurringView.subscriptions),
                 ),
               ),
               _Cell(
                 label: '已暫停 ›',
                 value: '${paused.length} 項',
-                onTap: () =>
-                    widget.nav.open(Pages.recurringView(RecurringView.paused)),
+                onTap: () => _view(RecurringView.paused),
               ),
             ]),
           ],

@@ -54,7 +54,7 @@ void main() {
         final key = StorageKey.random();
         final clock = FixedClock(UtcInstant(DateTime.utc(2026, 10, 4, 4)));
 
-        var store = RowStore.open(file, key);
+        var store = EncryptedDatabase.open(file, key);
         var ledger = await SqlLedgerDataSource(store, clock: clock).load();
         final entries = make(count);
         ledger.entryCommands.addAll(
@@ -69,7 +69,7 @@ void main() {
 
         late Ledger loaded;
         final open = await time(() async {
-          store = RowStore.open(file, key);
+          store = EncryptedDatabase.open(file, key);
           loaded = await SqlLedgerDataSource(store, clock: clock).load();
         });
         ledger = loaded;

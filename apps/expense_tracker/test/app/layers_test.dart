@@ -229,7 +229,6 @@ void main() {
     for (final MapEntry(key: file, value: uris) in imports.entries) {
       if (!file.startsWith(Layout.coreDir)) continue;
       final inside = file.substring(Layout.coreDir.length);
-      if (inside == Layout.navigation) continue;
       final part = inside.split('/').first;
       expect(allowed.containsKey(part), isTrue, reason: file);
       for (final uri in uris) {
@@ -292,7 +291,7 @@ void main() {
       expect(
         RegExp(r'Navigator(\.of\([^)]*\))?\s*\.\s*push').hasMatch(text),
         isFalse,
-        reason: '$file pushes a route: use Nav, or openFlow for a task',
+        reason: '$file pushes a route: use Nav, or openFullScreen for a task',
       );
     }
   });

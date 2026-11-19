@@ -4,7 +4,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/platform/preferences.dart';
 import '../model/overview_blocks.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
 import 'sections/assets_section.dart';
 import 'sections/daily_section.dart';
 import 'sections/flow_section.dart';

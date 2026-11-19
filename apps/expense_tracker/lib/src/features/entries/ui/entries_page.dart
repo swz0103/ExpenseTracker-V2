@@ -10,7 +10,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/entry_tile.dart';
 import 'entries_filter_sheet.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
 import '../../../core/widgets/balance_hero.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/design_system/shape.dart';

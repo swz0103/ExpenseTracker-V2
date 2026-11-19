@@ -8,7 +8,7 @@ import '../../../core/design_system/paint.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
 import '../model/returns.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/formatting/dates.dart';
@@ -32,6 +32,9 @@ class InvestmentsPage extends StatefulWidget {
 }
 
 class _InvestmentsPageState extends State<InvestmentsPage> {
+  /// Opens one holding's page.
+  void _holding(String code) => widget.nav.open(AppRoutes.holding(code));
+
   /// 持股 or 股息.
   var _tab = 0;
 
@@ -155,7 +158,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                         _HoldingRow(
                           ledger: ledger,
                           held: h,
-                          onTap: () => widget.nav.open(Pages.holding(h.code)),
+                          onTap: () => _holding(h.code),
                         ),
                     ]),
                     const SizedBox(height: Space.s2),

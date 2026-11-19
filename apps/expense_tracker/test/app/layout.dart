@@ -10,7 +10,7 @@ abstract final class Layout {
   static const ledgerDir = 'lib/src/core/ledger/';
 
   /// The parts of core, and the other parts each may import. A part may
-  /// always import itself. [navigation] is a single file at the top.
+  /// always import itself.
   static const coreParts = <String, List<String>>{
     'formatting': [],
     // The one clock the app reads the time from.
@@ -31,10 +31,11 @@ abstract final class Layout {
       'platform',
       'diagnostics',
       'time',
-      'nav.dart',
+      'navigation',
     ],
+    // Opening pages and flows: Nav, AppRoutes, openFullScreen.
+    'navigation': ['ledger', 'platform'],
   };
-  static const navigation = 'nav.dart';
 
   /// The design system: where colours, type sizes and buttons are named.
   static const designSystemDir = '/core/design_system/';

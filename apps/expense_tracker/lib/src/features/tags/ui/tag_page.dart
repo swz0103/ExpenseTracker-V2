@@ -35,7 +35,7 @@ class TagPage extends StatelessWidget {
   ];
 
   void _openOther(String other) =>
-      nav.open(merchant ? Pages.merchant(other) : Pages.tag(other));
+      nav.open(merchant ? AppRoutes.merchant(other) : AppRoutes.tag(other));
 
   Future<void> _rename(BuildContext context) async {
     final typed = await showSheet<String>(

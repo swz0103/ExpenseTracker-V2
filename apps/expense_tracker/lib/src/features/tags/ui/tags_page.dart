@@ -7,7 +7,7 @@ import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
 import '../model/tag_summary.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/formatting/dates.dart';
@@ -112,7 +112,7 @@ class _TagsPageState extends State<TagsPage> {
         ledger: ledger,
         project: project,
         recent: true,
-        onTap: () => widget.nav.open(Pages.tag(project.tag)),
+        onTap: () => widget.nav.open(AppRoutes.tag(project.tag)),
       ),
       for (final (year, names) in tagsByYear(ledger.entries)) ...[
         Padding(
@@ -137,7 +137,7 @@ class _TagsPageState extends State<TagsPage> {
               color: nameColor(name),
               radius: Radii.large,
               label: '#$name',
-              onTap: () => widget.nav.open(Pages.tag(name)),
+              onTap: () => widget.nav.open(AppRoutes.tag(name)),
               padding: const EdgeInsets.symmetric(
                 vertical: Space.s4,
                 horizontal: Space.s2,
@@ -165,7 +165,7 @@ class _TagsPageState extends State<TagsPage> {
     color: nameColor(name),
     radius: Radii.large,
     label: '$name，$count 次',
-    onTap: () => widget.nav.open(Pages.merchant(name)),
+    onTap: () => widget.nav.open(AppRoutes.merchant(name)),
     padding: const EdgeInsets.symmetric(
       horizontal: Space.s4,
       vertical: Space.s2,
@@ -233,7 +233,7 @@ class _TagsPageState extends State<TagsPage> {
                   height: 70 + 90 * count / most,
                   color: nameColor(name),
                   first: rank == 0,
-                  onTap: () => widget.nav.open(Pages.merchant(name)),
+                  onTap: () => widget.nav.open(AppRoutes.merchant(name)),
                 ),
               ),
             ],

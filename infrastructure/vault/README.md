@@ -27,7 +27,7 @@
 - `restore`：還原備份時先寫到暫存資料庫並通過 SQLite 完整性檢查，接著寫好新的 `keyring.json.new`，再換上資料庫，最後才把 keyring 改名就位。下次打開時（`_settle`）依留下的檔案收尾：暫存與資料庫都在就丟掉暫存，只剩暫存就換上，新 keyring 完整就採用；任何一步之間當機都開得回一本完整的帳本。
 - `OpenVault.updateKeys`：換密碼、加裝置、輪替備份金鑰後存回。
 
-備份格式 v3：帳本的每一筆資料（`RowStore` 的每一列）分塊、gzip、用 keyring 的備份金鑰以 AES-256-GCM 加密，之後可附帶收據照片等檔案。
+備份格式 v3：帳本的每一筆資料（`EncryptedDatabase` 的每一列）分塊、gzip、用 keyring 的備份金鑰以 AES-256-GCM 加密，之後可附帶收據照片等檔案。
 
 - 檔案開頭是明文標頭：備份 ID、時間、帳本的 `revision`、筆數、keyring（已包裝）、備份金鑰 epoch。每週備份用 `revision` 判斷帳本有沒有變動。
 - 每一塊的 AAD 綁定標頭雜湊與塊的順序，換塊、刪塊、截斷、改標頭都會被拒絕。

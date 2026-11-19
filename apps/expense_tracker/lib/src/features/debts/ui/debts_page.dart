@@ -5,7 +5,7 @@ import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
 import '../../../core/design_system/dialogs.dart';
 import '../../accounts/forms/account_editor.dart';
 import '../../accounts/forms/reconcile_sheet.dart';
@@ -133,7 +133,7 @@ class DebtsPage extends StatelessWidget {
                   _PersonSquare(
                     ledger: ledger,
                     person: person,
-                    onTap: () => nav.open(Pages.debt(person.id)),
+                    onTap: () => nav.open(AppRoutes.debt(person.id)),
                   ),
               ]),
             const RuleHead('貸款'),
@@ -151,7 +151,7 @@ class DebtsPage extends StatelessWidget {
                 child: _LoanCard(
                   ledger: ledger,
                   loan: loan,
-                  onTap: () => nav.open(Pages.debt(loan.id)),
+                  onTap: () => nav.open(AppRoutes.debt(loan.id)),
                 ),
               ),
           ],

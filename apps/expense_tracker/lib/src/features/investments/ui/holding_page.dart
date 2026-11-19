@@ -8,7 +8,7 @@ import '../../../core/design_system/paint.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
 import '../model/returns.dart';
 import 'investments.dart' show yearlyRate;
 import '../../../core/widgets/shown_amounts.dart';

@@ -11,10 +11,10 @@ void main() {
   late Directory directory;
   late File file;
   late StorageKey key;
-  final opened = <RowStore>[];
+  final opened = <EncryptedDatabase>[];
 
-  RowStore open([StorageKey? other]) {
-    final store = RowStore.open(file, other ?? key);
+  EncryptedDatabase open([StorageKey? other]) {
+    final store = EncryptedDatabase.open(file, other ?? key);
     opened.add(store);
     return store;
   }
@@ -88,7 +88,7 @@ void main() {
   test('a file from a newer build is refused', () {
     open().close();
     final database = raw();
-    database.userVersion = RowStore.schema + 1;
+    database.userVersion = EncryptedDatabase.schema + 1;
     database.close();
     expect(
       () => open(),
@@ -151,16 +151,16 @@ void main() {
   });
 
   test('only one connection, isolate or process owns the file', () async {
-    final store = RowStore.open(file, key);
+    final store = EncryptedDatabase.open(file, key);
     expect(
-      () => RowStore.open(file, key),
+      () => EncryptedDatabase.open(file, key),
       throwsA(const StorageUnavailable(StorageProblem.inUse)),
     );
     final port = ReceivePort();
     await Isolate.spawn(_openElsewhere, [port.sendPort, file.path, key.hex]);
     expect(await port.first, StorageProblem.inUse.name);
     store.close();
-    RowStore.open(file, key).close();
+    EncryptedDatabase.open(file, key).close();
   });
 
   test('a killed writer never leaves half a write', () async {
@@ -222,7 +222,10 @@ void _openElsewhere(List<Object> message) {
   final reply = message[0] as SendPort;
   final file = File(message[1] as String);
   try {
-    RowStore.open(file, StorageKey.fromHex(message[2] as String)).close();
+    EncryptedDatabase.open(
+      file,
+      StorageKey.fromHex(message[2] as String),
+    ).close();
     reply.send(null);
   } on StorageUnavailable catch (error) {
     reply.send(error.problem.name);

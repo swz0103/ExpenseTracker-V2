@@ -8,7 +8,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../forms/budget_editor.dart';
 import '../model/budget_month.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';

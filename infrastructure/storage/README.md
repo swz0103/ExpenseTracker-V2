@@ -13,7 +13,7 @@
 
 | 入口 | 內容 |
 | --- | --- |
-| `storage.dart` | `RowStore`（`open`、`write`、`revision`、`schema`）、`RowWriter`（`put`、`drop`）、`StoredRow`、`StorageKey`、`StorageUnavailable` |
+| `storage.dart` | `EncryptedDatabase`（`open`、`write`、`revision`、`schema`）、`RowWriter`（`put`、`drop`）、`StoredRow`、`StorageKey`、`StorageUnavailable` |
 | `bin/crash_worker.dart` | 「寫到一半被強制結束」的測試用，CI 會先編譯它 |
 
 ## 不做什麼

@@ -68,7 +68,7 @@ final class BackupHeader {
   final Keyring keyring;
   final int backupEpoch;
 
-  /// The ledger's [RowStore.revision] when this backup was taken: a later
+  /// The ledger's [EncryptedDatabase.revision] when this backup was taken: a later
   /// backup of a changed ledger has a larger one.
   final int revision;
 
@@ -144,7 +144,7 @@ abstract final class LedgerBackup {
   /// Writes a backup of [store] to [file]. The records are read at once,
   /// so the backup is one consistent state.
   static Future<BackupHeader> write({
-    required RowStore store,
+    required EncryptedDatabase store,
     required UnlockedKeyring keys,
     required File file,
     required String backupId,
@@ -261,7 +261,7 @@ abstract final class LedgerBackup {
   static Future<BackupHeader> restore({
     required File file,
     required UnlockedKeyring keys,
-    required RowStore into,
+    required EncryptedDatabase into,
     void Function(String shelf, String id, String body)? accept,
     Future<void> Function(String name, List<int> bytes)? onFile,
   }) async {

@@ -9,7 +9,7 @@ import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
 import 'account_card.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/design_system/shape.dart';
@@ -70,7 +70,7 @@ class _AccountsPageState extends State<AccountsPage> {
   static String? _shown;
 
   Future<void> _sort(BuildContext context) =>
-      openFlow<void>(context, (_) => SortAccountsPage(ledger: ledger));
+      openFullScreen<void>(context, (_) => SortAccountsPage(ledger: ledger));
 
   @override
   Widget build(BuildContext context) {
@@ -129,7 +129,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 accounts: accounts,
                 index: index,
                 onShow: (a) => setState(() => _shown = a.id),
-                onOpen: (a) => nav.open(Pages.account(a.id)),
+                onOpen: (a) => nav.open(AppRoutes.account(a.id)),
               ),
             if (archived.isNotEmpty) ...[
               const SectionTitle('已封存'),

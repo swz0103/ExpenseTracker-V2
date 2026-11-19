@@ -8,7 +8,7 @@ import '../../../../core/design_system/glyphs.dart';
 import '../../../../core/design_system/theme.dart';
 import '../../../../core/design_system/design_system.dart';
 import '../../../../core/ledger/ledger.dart';
-import '../../../../core/nav.dart';
+import '../../../../core/navigation/nav.dart';
 import '../../../../core/widgets/entry_tile.dart' show holdingLabel;
 import '../../../../core/widgets/shown_amounts.dart';
 import '../../../../core/formatting/dates.dart';
@@ -91,7 +91,7 @@ class _MarketSectionState extends State<MarketSection> {
           label: '持股市值',
           value: ledger.money(ledger.holdings.marketValue),
           sub: '${holdings.all.length} 檔',
-          onTap: () => widget.nav.open(Pages.investments),
+          onTap: () => widget.nav.open(AppRoutes.investments),
         ),
       ]),
       const SizedBox(height: Space.s2),

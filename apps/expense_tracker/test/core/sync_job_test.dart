@@ -1,6 +1,6 @@
 import 'package:expense_tracker/src/core/platform/sync_job.dart';
 import 'package:expense_tracker/src/core/ledger/trading.dart';
-import 'package:expense_tracker/src/core/nav.dart';
+import 'package:expense_tracker/src/core/navigation/nav.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Fails on demand, and says what it was asked to say.
@@ -70,10 +70,10 @@ void main() {
   });
 
   test('places compare by what they show, and know where back leads', () {
-    expect(Pages.account('a'), Pages.account('a'));
-    expect(Pages.account('a'), isNot(Pages.account('b')));
-    expect(Pages.holding('2330').parent, Pages.investments);
-    expect(Pages.account('a').parent, isNull);
-    expect(Pages.reports, const SectionPlace(Section.reports));
+    expect(AppRoutes.account('a'), AppRoutes.account('a'));
+    expect(AppRoutes.account('a'), isNot(AppRoutes.account('b')));
+    expect(AppRoutes.holding('2330').parent, AppRoutes.investments);
+    expect(AppRoutes.account('a').parent, isNull);
+    expect(AppRoutes.reports, const SectionRoute(MoreDestination.reports));
   });
 }

@@ -117,16 +117,16 @@ final class RowWriter {
 ///
 /// SQLite owns crash recovery: an interrupted write is rolled back by
 /// SQLite itself on the next open. Each [write] is one transaction.
-final class RowStore {
-  RowStore._(this._db);
+final class EncryptedDatabase {
+  EncryptedDatabase._(this._db);
 
   /// Opens or creates [file].
-  factory RowStore.open(File file, StorageKey key) {
+  factory EncryptedDatabase.open(File file, StorageKey key) {
     final db = sqlite3.open(file.path);
     try {
       _configure(db, key);
       _create(db);
-      return RowStore._(db);
+      return EncryptedDatabase._(db);
     } catch (_) {
       db.close();
       rethrow;

@@ -71,7 +71,7 @@
 | 開關 | `ToggleRow` ＋ `TickSwitch`（整列可點） | `components/marks.dart` |
 | 設定格 | `SettingCard` | `components/cards.dart` |
 | 中間面板 | `showPanel`、`CenterPanel`、`PanelButton` | `components/panels.dart` |
-| 底部面板、整頁工作 | `showSheet`、`openFlow` | `feedback.dart` |
+| 底部面板、整頁工作 | `showSheet`、`openFullScreen` | `feedback.dart` |
 | 確認、輸入文字 | `confirm`、`askText` | `dialogs.dart` |
 | 日期區間、時間 | `pickDateRange`、`pickTime` | `time_panels.dart` |
 | 按鈕 | `solidButton`、`wordButton` 給 `FilledButton`／`TextButton` | `components/buttons.dart` |

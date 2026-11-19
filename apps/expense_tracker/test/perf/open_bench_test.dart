@@ -17,7 +17,7 @@ void main() {
     'writes and opening at 100,000 entries',
     () async {
       final dir = Directory.systemTemp.createTempSync('wb-');
-      final store = RowStore.open(
+      final store = EncryptedDatabase.open(
         File('${dir.path}/l.db'),
         StorageKey.random(),
       );

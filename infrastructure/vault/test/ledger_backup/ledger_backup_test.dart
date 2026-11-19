@@ -40,16 +40,16 @@ void writeFrames(File file, List<List<int>> parts) {
 
 void main() {
   late Directory directory;
-  late RowStore source;
+  late EncryptedDatabase source;
   late CreatedKeyring keys;
   var stores = 0;
 
-  RowStore open() => RowStore.open(
+  EncryptedDatabase open() => EncryptedDatabase.open(
     File('${directory.path}/store-${stores++}.db'),
     StorageKey.random(),
   );
 
-  List<(String, String, String)> rowsOf(RowStore store) => [
+  List<(String, String, String)> rowsOf(EncryptedDatabase store) => [
     for (final row in store.rows()) (row.shelf, row.id, row.body),
   ];
 
@@ -88,7 +88,7 @@ void main() {
     return file;
   }
 
-  Future<RowStore> restore(
+  Future<EncryptedDatabase> restore(
     File file, {
     UnlockedKeyring? using,
     void Function(String shelf, String id, String body)? accept,

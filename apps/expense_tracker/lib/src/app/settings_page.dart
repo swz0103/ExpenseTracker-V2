@@ -4,7 +4,7 @@ import '../core/design_system/glyphs.dart';
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
-import '../core/nav.dart';
+import '../core/navigation/nav.dart';
 import '../features/settings/model/platform_services.dart';
 import '../features/backup/ui/backup_section.dart';
 import '../features/import_export/ui/import_export_section.dart';
@@ -38,7 +38,7 @@ class SettingsPage extends StatelessWidget {
   final PlatformServices services;
 
   /// The page shown; null for the list of them.
-  final SettingsPart? part;
+  final SettingsDestination? part;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +61,8 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
-  void _open(SettingsPart part) => nav.open(Pages.settingsPart(part));
+  void _open(SettingsDestination part) =>
+      nav.open(AppRoutes.settingsPart(part));
 
   List<Widget> _index(BuildContext context) {
     final backupManager = services.backupManager;
@@ -104,7 +105,7 @@ class SettingsPage extends StatelessWidget {
           on: on,
           stale: stale,
           label: on ? null : '沒有自動備份',
-          onTap: () => _open(SettingsPart.backup),
+          onTap: () => _open(SettingsDestination.backup),
           trailing: Wrap(
             spacing: 8,
             runSpacing: 6,
@@ -123,7 +124,7 @@ class SettingsPage extends StatelessWidget {
             color: SettingsHue.reminders,
             title: '通知與提醒',
             detail: _reminders(),
-            onTap: () => _open(SettingsPart.reminders),
+            onTap: () => _open(SettingsDestination.reminders),
           ),
         if (backupManager != null || services.privacy != null)
           _Row(
@@ -135,7 +136,7 @@ class SettingsPage extends StatelessWidget {
                 : backupManager.hasPassword
                 ? '已設密碼'
                 : '目前不用密碼',
-            onTap: () => _open(SettingsPart.security),
+            onTap: () => _open(SettingsDestination.security),
           ),
         if (services.preferences case final preferences?)
           _Row(
@@ -143,14 +144,14 @@ class SettingsPage extends StatelessWidget {
             color: SettingsHue.appearance,
             title: '外觀與操作',
             detail: preferences.appearance.label,
-            onTap: () => _open(SettingsPart.appearance),
+            onTap: () => _open(SettingsDestination.appearance),
           ),
         _Row(
           glyph: Glyph.swap,
           color: SettingsHue.importExport,
           title: '匯入與匯出',
           detail: 'CSV、發票',
-          onTap: () => _open(SettingsPart.importExport),
+          onTap: () => _open(SettingsDestination.importExport),
         ),
         _Row(
           glyph: Glyph.reset,
@@ -159,7 +160,7 @@ class SettingsPage extends StatelessWidget {
           detail: ledger.trash.all.isEmpty
               ? '沒有'
               : '${ledger.trash.all.length} 筆可放回',
-          onTap: () => _open(SettingsPart.trash),
+          onTap: () => _open(SettingsDestination.trash),
         ),
         _Row(
           glyph: Glyph.info,
@@ -172,7 +173,7 @@ class SettingsPage extends StatelessWidget {
             else if (update?.upToDate ?? false)
               '最新',
           ].join(' · '),
-          onTap: () => _open(SettingsPart.about),
+          onTap: () => _open(SettingsDestination.about),
         ),
       ], gap: 10),
     ];
@@ -191,11 +192,11 @@ class SettingsPage extends StatelessWidget {
     return on == 0 ? '都沒開' : '$on 種開著';
   }
 
-  List<Widget> _page(BuildContext context, SettingsPart part) {
+  List<Widget> _page(BuildContext context, SettingsDestination part) {
     final backupManager = services.backupManager;
     final preferences = services.preferences;
     return switch (part) {
-      SettingsPart.backup => [
+      SettingsDestination.backup => [
         if (backupManager != null)
           BackupSection(
             backupManager: backupManager,
@@ -204,28 +205,30 @@ class SettingsPage extends StatelessWidget {
             preferences: preferences,
           ),
       ],
-      SettingsPart.importExport => [
+      SettingsDestination.importExport => [
         ImportExportSection(ledger: ledger, backupManager: backupManager),
       ],
-      SettingsPart.reminders => [
+      SettingsDestination.reminders => [
         RemindersSection(
           ledger: ledger,
           notifier: services.notifier,
           calendar: services.calendar,
-          onBudgets: () => nav.open(Pages.budgets),
+          onBudgets: () => nav.open(AppRoutes.budgets),
         ),
       ],
-      SettingsPart.security => [
+      SettingsDestination.security => [
         SecuritySection(
           backupManager: backupManager,
           privacy: services.privacy,
         ),
       ],
-      SettingsPart.appearance => [
+      SettingsDestination.appearance => [
         if (preferences != null) AppearanceSection(preferences: preferences),
       ],
-      SettingsPart.about => [AboutSection(ledger: ledger, services: services)],
-      SettingsPart.trash => [TrashSection(ledger: ledger)],
+      SettingsDestination.about => [
+        AboutSection(ledger: ledger, services: services),
+      ],
+      SettingsDestination.trash => [TrashSection(ledger: ledger)],
     };
   }
 }

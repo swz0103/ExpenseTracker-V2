@@ -39,7 +39,7 @@ final class OpenVault {
 
   final LedgerVault _vault;
   UnlockedKeyring _keys;
-  final RowStore store;
+  final EncryptedDatabase store;
 
   UnlockedKeyring get keys => _keys;
 
@@ -207,7 +207,7 @@ final class LedgerVault {
   /// it. The app keeps a backup of it first.
   Future<OpenVault> restore(
     UnlockedKeyring keys,
-    Future<void> Function(RowStore staging) fill, {
+    Future<void> Function(EncryptedDatabase staging) fill, {
     bool replacing = false,
   }) async {
     if (!replacing) _requireAbsent();
@@ -268,8 +268,8 @@ final class LedgerVault {
     return OpenVault._(this, keys, _openStore(databaseFile, keys));
   }
 
-  RowStore _openStore(File file, UnlockedKeyring keys) =>
-      RowStore.open(file, StorageKey(keys.databaseKey));
+  EncryptedDatabase _openStore(File file, UnlockedKeyring keys) =>
+      EncryptedDatabase.open(file, StorageKey(keys.databaseKey));
 
   static Future<void> _deleteDatabase(File file) async {
     for (final suffix in ['', '-wal', '-shm', '-journal']) {

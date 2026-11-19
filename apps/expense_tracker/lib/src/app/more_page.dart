@@ -5,7 +5,7 @@ import '../core/design_system/glyphs.dart';
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
-import '../core/nav.dart';
+import '../core/navigation/nav.dart';
 import '../features/debts/ui/debts_page.dart';
 import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
@@ -50,7 +50,7 @@ class MorePage extends StatelessWidget {
                 color: ToolHue.reports,
                 label: '財務報表',
                 detail: '結餘率 $rate%',
-                onTap: () => nav.open(Pages.reports),
+                onTap: () => nav.open(AppRoutes.reports),
               ),
               ToolButton(
                 glyph: Glyph.pie,
@@ -59,7 +59,7 @@ class MorePage extends StatelessWidget {
                 detail: signed(
                   ledger.holdings.marketValue - ledger.holdings.costBasis,
                 ),
-                onTap: () => nav.open(Pages.investments),
+                onTap: () => nav.open(AppRoutes.investments),
               ),
             ]),
             const RuleHead('預算與往來'),
@@ -73,7 +73,7 @@ class MorePage extends StatelessWidget {
                     : left < 0
                     ? '超支 ${groupDigits(-left)}'
                     : '剩 ${groupDigits(left)}',
-                onTap: () => nav.open(Pages.budgets),
+                onTap: () => nav.open(AppRoutes.budgets),
               ),
               ToolButton(
                 glyph: Glyph.cycleCalendar,
@@ -85,14 +85,14 @@ class MorePage extends StatelessWidget {
                     : next == null
                     ? '沒有待扣款'
                     : '下一筆 ${ledger.recurringService.nextLabel(next)}',
-                onTap: () => nav.open(Pages.recurring),
+                onTap: () => nav.open(AppRoutes.recurring),
               ),
               ToolButton(
                 glyph: Glyph.swap,
                 color: ToolHue.debts,
                 label: '代墊與借貸',
                 detail: lent == 0 ? '沒有欠款' : '欠你 ${groupDigits(lent)}',
-                onTap: () => nav.open(Pages.debts),
+                onTap: () => nav.open(AppRoutes.debts),
               ),
             ]),
             const RuleHead('分類與設定'),
@@ -102,21 +102,21 @@ class MorePage extends StatelessWidget {
                 color: ToolHue.categories,
                 label: Words.category,
                 detail: '${ledger.categories.all.length} 個',
-                onTap: () => nav.open(Pages.categories),
+                onTap: () => nav.open(AppRoutes.categories),
               ),
               ToolButton(
                 glyph: Glyph.tag,
                 color: ToolHue.tags,
                 label: '標籤與商家',
                 detail: '${ledger.reportService.tags.length} 個標籤',
-                onTap: () => nav.open(Pages.tags),
+                onTap: () => nav.open(AppRoutes.tags),
               ),
               ToolButton(
                 glyph: Glyph.gear,
                 color: ToolHue.settings,
                 label: '設定',
                 detail: '備份、提醒',
-                onTap: () => nav.open(Pages.settings),
+                onTap: () => nav.open(AppRoutes.settings),
               ),
             ]),
           ],

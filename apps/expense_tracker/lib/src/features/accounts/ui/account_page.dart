@@ -11,7 +11,7 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/entry_tile.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/formatting/dates.dart';
 import '../../../core/design_system/spacing.dart';

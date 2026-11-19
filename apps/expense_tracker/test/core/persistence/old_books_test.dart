@@ -37,7 +37,7 @@ String _appVersion() {
   return line.substring('version:'.length).trim().split('+').first;
 }
 
-Future<Ledger> _load(RowStore store) =>
+Future<Ledger> _load(EncryptedDatabase store) =>
     SqlLedgerDataSource(store, clock: _clock).load();
 
 void main() {
@@ -95,7 +95,7 @@ void main() {
       final file = File('${dir.path}/backup.etbk');
       final header = await LedgerBackup.readHeader(file);
       final keys = await _codec().unlockWithPassword(header.keyring, _password);
-      final into = RowStore.open(
+      final into = EncryptedDatabase.open(
         File('${scratch.path}/restored.db'),
         StorageKey.random(),
       );

@@ -12,7 +12,7 @@ import 'record_version.dart';
 /// in every record that names one. Gives each category an id and keeps
 /// every such record under it, all in one write: whole, or not at all.
 /// A book already so kept is left as it is.
-void giveCategoriesIds(RowStore store) {
+void giveCategoriesIds(EncryptedDatabase store) {
   final rows = store.rows(shelf: Collection.category.name);
   final named = <String, String>{};
   var legacy = false;

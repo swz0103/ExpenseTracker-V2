@@ -5,7 +5,7 @@ import '../../../../core/design_system/theme.dart';
 import '../../../../core/design_system/design_system.dart';
 import '../../../../core/ledger/ledger.dart';
 import '../../../../core/widgets/entry_tile.dart';
-import '../../../../core/nav.dart';
+import '../../../../core/navigation/nav.dart';
 import '../../../../core/widgets/shown_amounts.dart';
 import '../../../../core/design_system/spacing.dart';
 import '../../../../core/design_system/shape.dart';
@@ -65,7 +65,7 @@ class PlanSection extends StatelessWidget {
         Space.s4,
         Space.s3,
       ),
-      onTap: () => nav.open(Pages.budgets),
+      onTap: () => nav.open(AppRoutes.budgets),
       label: limit == 0
           ? '預算，本月花了 ${ledger.money(spent)}'
           : '預算，本月剩 ${ledger.money(left)}',
@@ -152,7 +152,7 @@ class PlanSection extends StatelessWidget {
         Space.s4,
         Space.s3,
       ),
-      onTap: () => nav.open(Pages.recurring),
+      onTap: () => nav.open(AppRoutes.recurring),
       label: '即將扣款，$figure',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

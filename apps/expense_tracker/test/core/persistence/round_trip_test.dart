@@ -24,11 +24,11 @@ void main() {
   final key = StorageKey.random();
   final clock = FixedClock(UtcInstant(DateTime.utc(2026, 10, 4, 4)));
   final today = DateTime.utc(2026, 10, 4);
-  RowStore? store;
+  EncryptedDatabase? store;
 
   Future<Ledger> open() {
     store?.close();
-    final opened = store = RowStore.open(file, key);
+    final opened = store = EncryptedDatabase.open(file, key);
     return SqlLedgerDataSource(opened, clock: clock).load();
   }
 

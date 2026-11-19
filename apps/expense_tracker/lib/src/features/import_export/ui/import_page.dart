@@ -30,7 +30,7 @@ Future<void> importInto(
   Future<String?> Function()? readFile,
 }) async {
   if (!await ensureAccount(context, ledger) || !context.mounted) return;
-  await openFlow<void>(
+  await openFullScreen<void>(
     context,
     (_) => _ImportPage(ledger: ledger, invoices: invoices, readFile: readFile),
   );

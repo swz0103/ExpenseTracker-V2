@@ -13,7 +13,7 @@ import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
 import '../../../core/widgets/entry_tile.dart';
 import 'compare_section.dart';
 import '../model/report.dart';

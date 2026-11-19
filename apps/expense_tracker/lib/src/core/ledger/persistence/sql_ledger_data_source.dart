@@ -83,7 +83,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     this._readPage = readPage,
   }) : _gateway = market;
 
-  final RowStore _store;
+  final EncryptedDatabase _store;
   final Clock _clock;
 
   /// How many rows are read at a time when the book opens.

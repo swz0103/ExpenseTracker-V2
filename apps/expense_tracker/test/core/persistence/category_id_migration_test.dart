@@ -17,19 +17,19 @@ void main() {
   late Directory directory;
   late File file;
   final key = StorageKey.random();
-  RowStore? store;
+  EncryptedDatabase? store;
 
   Clock clock() => FixedClock(UtcInstant(DateTime.utc(2026, 10, 4, 4)));
 
-  RowStore open() {
+  EncryptedDatabase open() {
     store?.close();
-    return store = RowStore.open(file, key);
+    return store = EncryptedDatabase.open(file, key);
   }
 
   Future<Ledger> load() => SqlLedgerDataSource(open(), clock: clock()).load();
 
   /// The records of a book as an earlier version of the app kept them.
-  void writeLegacy(RowStore s, {bool broken = false}) {
+  void writeLegacy(EncryptedDatabase s, {bool broken = false}) {
     String row(Map<String, Object?> json) =>
         jsonEncode({...json, '_v': 1, '_at': 1000});
     s.write((w) {
@@ -104,7 +104,10 @@ void main() {
     });
   }
 
-  Map<String, Map<String, Object?>> rowsOf(RowStore s, String collection) => {
+  Map<String, Map<String, Object?>> rowsOf(
+    EncryptedDatabase s,
+    String collection,
+  ) => {
     for (final r in s.rows(shelf: collection))
       r.id: jsonDecode(r.body) as Map<String, Object?>,
   };

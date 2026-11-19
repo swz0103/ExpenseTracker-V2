@@ -213,7 +213,7 @@ void main() {
 
     tearDown(() => source.close());
 
-    Future<void> copy(RowStore staging) async {
+    Future<void> copy(EncryptedDatabase staging) async {
       staging.write((w) {
         for (final row in source.store.rows()) {
           w.put(row.shelf, row.id, row.body);
@@ -221,7 +221,7 @@ void main() {
       });
     }
 
-    List<(String, String, String)> rowsOf(RowStore store) => [
+    List<(String, String, String)> rowsOf(EncryptedDatabase store) => [
       for (final row in store.rows()) (row.shelf, row.id, row.body),
     ];
 

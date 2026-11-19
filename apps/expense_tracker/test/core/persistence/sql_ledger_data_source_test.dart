@@ -20,7 +20,7 @@ void main() {
   late File file;
   final key = StorageKey.random();
   var now = DateTime.utc(2026, 10, 4, 4);
-  RowStore? store;
+  EncryptedDatabase? store;
 
   Clock clock() => FixedClock(UtcInstant(now));
 
@@ -30,7 +30,7 @@ void main() {
       expect(ledger.problem.value, isNull);
     }
     store?.close();
-    final opened = RowStore.open(file, key);
+    final opened = EncryptedDatabase.open(file, key);
     store = opened;
     return SqlLedgerDataSource(opened, clock: clock()).load();
   }
@@ -71,7 +71,7 @@ void main() {
 
   test('every kind of record comes back in order, with its sums', () async {
     final demo = demoLedger();
-    final opened = RowStore.open(file, key);
+    final opened = EncryptedDatabase.open(file, key);
     store = opened;
     await SqlLedgerDataSource(opened).keep(
       WriteBatch(
@@ -304,7 +304,7 @@ void main() {
   });
 
   test('a large book is decoded off the screen thread', () async {
-    final opened = RowStore.open(file, key);
+    final opened = EncryptedDatabase.open(file, key);
     store = opened;
     final dataSource = SqlLedgerDataSource(opened, clock: clock());
     final first = await dataSource.load();
@@ -350,7 +350,7 @@ void main() {
   test(
     'a large book opens a page at a time, the screen drawn between',
     () async {
-      final opened = RowStore.open(file, key);
+      final opened = EncryptedDatabase.open(file, key);
       store = opened;
       await SqlLedgerDataSource(opened, clock: clock()).keep(
         WriteBatch(

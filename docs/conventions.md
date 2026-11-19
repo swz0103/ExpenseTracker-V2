@@ -9,7 +9,7 @@
 | 1 | 決定放哪：屬於某個功能就放 `features/<功能>/`，所有功能都要用的才放 `core/` | [architecture.md](architecture.md#app-內部分層) |
 | 2 | 資料與規則寫在 `model/`（不碰畫面），表單寫在 `forms/`，頁面寫在 `ui/` | `layers_test` |
 | 3 | 純計算（不需要帳本狀態）放 `packages/domain`，App 只呼叫 | [architecture.md](architecture.md#模組) |
-| 4 | 新頁面：在 `core/nav.dart` 加一個 `Place`，`app/shell.dart` 對應頁面；一次性的整頁工作（排序、匯入）用 `openFlow` | `layers_test` |
+| 4 | 新頁面：在 `core/navigation/nav.dart` 加一個 `AppRoute`，`app/shell.dart` 對應頁面；一次性的整頁工作（排序、匯入）用 `openFullScreen` | `layers_test` |
 | 5 | 畫面只用設計系統：`Hue`、`TextSize`、`solidButton`／`wordButton`、components 元件 | [design.md](design.md)、`design_rules_test` |
 | 6 | 頁面加進 `test/app/places.dart`，版面、無障礙、截圖就會涵蓋它 | — |
 | 7 | 寫測試（見第三節），跑全部測試 | — |
@@ -21,7 +21,7 @@
 
 - 依賴只能往下：`app/` → `features/` → `core/` → 套件（`packages/`、`infrastructure/`）。
 - 功能可以用別的功能的 `model/` 與 `forms/`（例如開它的表單），不能用它的 `ui/`；功能之間不能互相需要。需要同一個東西的兩個功能，把它搬到 `core/`。
-- `core/` 分九部分，各自只能用表上允許的部分（[architecture.md](architecture.md#core-的九個部分)）。資料夾名稱集中在 `test/app/layout.dart`，改名只改那裡。
+- `core/` 分十部分，各自只能用表上允許的部分（[architecture.md](architecture.md#core-的十個部分)）。資料夾名稱集中在 `test/app/layout.dart`，改名只改那裡。
 - 搬檔案用 `python3 tool/move.py 舊路徑=新路徑`（在 `apps/expense_tracker` 下執行），它會改好所有 import。
 
 ### 錯誤

@@ -22,7 +22,7 @@ import '../features/investments/ui/investments.dart';
 import '../features/tags/ui/tags_page.dart';
 import '../features/entries/ui/entries_page.dart';
 import 'more_page.dart';
-import '../core/nav.dart';
+import '../core/navigation/nav.dart';
 import '../features/overview/ui/overview.dart';
 import '../features/recurring/ui/recurring_page.dart';
 import '../features/reports/ui/reports.dart';
@@ -60,7 +60,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   var _tab = _Tab.overview;
-  Place? _page;
+  AppRoute? _page;
   late var _touring = widget.tour;
 
   /// The places the tour lights.
@@ -150,10 +150,10 @@ class _AppShellState extends State<AppShell> {
   }
 
   /// Where back leads from the open page: a holding returns to 投資.
-  Place? get _parent => _page?.parent;
+  AppRoute? get _parent => _page?.parent;
 
   /// Opens [page] over the current tab, which back returns to.
-  void _open(Place page) => setState(() => _page = page);
+  void _open(AppRoute page) => setState(() => _page = page);
 
   Future<void> _compose({
     EntryType type = EntryType.expense,
@@ -253,17 +253,33 @@ class _AppShellState extends State<AppShell> {
     return const SizedBox.shrink();
   }
 
+  /// A page under 更多.
+  Widget _morePage(Ledger ledger, MoreDestination page) => switch (page) {
+    MoreDestination.reports => ReportsPage(ledger: ledger, nav: _nav),
+    MoreDestination.investments => InvestmentsPage(ledger: ledger, nav: _nav),
+    MoreDestination.debts => DebtsPage(ledger: ledger, nav: _nav),
+    MoreDestination.budgets => BudgetsPage(ledger: ledger, nav: _nav),
+    MoreDestination.recurring => RecurringPage(ledger: ledger, nav: _nav),
+    MoreDestination.categories => CategoriesPage(ledger: ledger, nav: _nav),
+    MoreDestination.tags => TagsPage(ledger: ledger, nav: _nav),
+    MoreDestination.settings => SettingsPage(
+      ledger: ledger,
+      nav: _nav,
+      services: widget.services,
+    ),
+  };
+
   Widget _body() {
     final ledger = widget.ledger;
     final page = _page;
     if (page != null) {
       return switch (page) {
         // Gone, such as after a restore: back to the tab.
-        AccountPlace(:final id) ||
-        DebtPlace(:final id) when !ledger.accounts.contains(id) => _gone(),
+        AccountRoute(:final id) ||
+        DebtRoute(:final id) when !ledger.accounts.contains(id) => _gone(),
         // Money paid for someone and loans have pages of their own,
         // wherever they are opened from.
-        AccountPlace(:final id) || DebtPlace(:final id)
+        AccountRoute(:final id) || DebtRoute(:final id)
             when ledger.account(id).kind == AccountKind.receivable =>
           PersonPage(
             key: ValueKey(page),
@@ -271,11 +287,11 @@ class _AppShellState extends State<AppShell> {
             nav: _nav,
             personId: id,
           ),
-        AccountPlace(:final id) || DebtPlace(:final id)
+        AccountRoute(:final id) || DebtRoute(:final id)
             when ledger.account(id).kind == AccountKind.loan =>
           LoanPage(key: ValueKey(page), ledger: ledger, nav: _nav, loanId: id),
-        DebtPlace() => _gone(),
-        AccountPlace(:final id) =>
+        DebtRoute() => _gone(),
+        AccountRoute(:final id) =>
           ledger.account(id).kind == AccountKind.card
               ? CardPage(
                   key: ValueKey(page),
@@ -289,51 +305,38 @@ class _AppShellState extends State<AppShell> {
                   nav: _nav,
                   accountId: id,
                 ),
-        TagPlace(:final name, :final merchant) => TagPage(
+        TagRoute(:final name, :final merchant) => TagPage(
           key: ValueKey(page),
           ledger: ledger,
           nav: _nav,
           name: name,
           merchant: merchant,
         ),
-        SettingsPlace(:final part) => SettingsPage(
+        SettingsRoute(:final part) => SettingsPage(
           key: ValueKey(page),
           ledger: ledger,
           nav: _nav,
           services: widget.services,
           part: part,
         ),
-        HoldingPlace(:final code) => HoldingPage(
+        HoldingRoute(:final code) => HoldingPage(
           key: ValueKey(page),
           ledger: ledger,
           nav: _nav,
           code: code,
         ),
-        RecurringPlace(:final view) => RecurringViewPage(
+        RecurringRoute(:final view) => RecurringViewPage(
           key: ValueKey(page),
           ledger: ledger,
           nav: _nav,
           view: view,
         ),
-        MerchantsPlace() => TagsPage(
+        MerchantsRoute() => TagsPage(
           ledger: ledger,
           nav: _nav,
           merchants: true,
         ),
-        SectionPlace(:final section) => switch (section) {
-          Section.reports => ReportsPage(ledger: ledger, nav: _nav),
-          Section.investments => InvestmentsPage(ledger: ledger, nav: _nav),
-          Section.debts => DebtsPage(ledger: ledger, nav: _nav),
-          Section.budgets => BudgetsPage(ledger: ledger, nav: _nav),
-          Section.recurring => RecurringPage(ledger: ledger, nav: _nav),
-          Section.categories => CategoriesPage(ledger: ledger, nav: _nav),
-          Section.tags => TagsPage(ledger: ledger, nav: _nav),
-          Section.settings => SettingsPage(
-            ledger: ledger,
-            nav: _nav,
-            services: widget.services,
-          ),
-        },
+        SectionRoute(:final section) => _morePage(ledger, section),
       };
     }
     return switch (_tab) {
