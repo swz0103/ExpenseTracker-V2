@@ -67,10 +67,14 @@ void main() {
       log.keepIn(file);
       log.record('備份', const FormatException('amount 12345 for 全聯'));
       expect(file.existsSync(), isTrue);
-      final written = file.readAsStringSync();
-      // The file holds the cleaned words, never the person's own.
-      expect(written, isNot(contains('全聯')));
-      expect(written, isNot(contains('12345')));
+      // The file holds the cleaned words, never the person's own. Only
+      // the words after each line's time are looked at: a time's own
+      // digits may hold 12345.
+      final words = [
+        for (final line in file.readAsLinesSync()) line.split('\t').last,
+      ].join('\n');
+      expect(words, isNot(contains('全聯')));
+      expect(words, isNot(contains('12345')));
 
       // A later run reads the same file and has the line again.
       log.keepIn(file);

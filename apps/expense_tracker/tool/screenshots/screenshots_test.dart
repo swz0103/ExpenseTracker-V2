@@ -6,10 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../test/app/android_text_scale.dart';
-import '../../test/app/places.dart';
+import '../../test/support/android_text_scale.dart';
+import '../../test/support/places.dart';
 
-/// A picture of every page in test/app/places.dart, light and dark, on a
+/// A picture of every page in test/support/places.dart, light and dark, on a
 /// 360 × 800 dp phone at twice its density, into `$SHOTS_OUT` (default
 /// build/screenshots): what CI keeps beside each build to look at a page
 /// without a phone.

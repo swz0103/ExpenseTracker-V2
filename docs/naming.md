@@ -86,4 +86,4 @@
 
 ## 守住的方式
 
-`test/app/naming_test.dart` 掃描 `lib/`、`test/`、`tool/` 的程式（註解除外），出現已改掉的舊名就失敗；檔名後綴由 `layers_test` 檢查各資料夾只放允許的後綴。
+`test/rules/naming_test.dart` 掃描 `lib/`、`test/`、`tool/` 的程式（註解除外），出現已改掉的舊名就失敗；檔名後綴由 `layers_test` 檢查各資料夾只放允許的後綴。

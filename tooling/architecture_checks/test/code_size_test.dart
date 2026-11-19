@@ -300,7 +300,7 @@ void _ratchet(Map<String, int> over, Map<String, int> known, String what) {
 
 /// Whether the comments from line [index] (0-based) up, or those at the
 /// top of the file when [index] is 0, mark an `Exception to <rule>`, as
-/// the app's own rule tests read them (test/app/rule_exceptions.dart).
+/// the app's own rule tests read them (test/support/rule_exceptions.dart).
 bool _marked(List<String> lines, int index, String rule) {
   final mark = 'Exception to $rule:';
   if (index == 0) {

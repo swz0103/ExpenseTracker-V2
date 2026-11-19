@@ -15,7 +15,7 @@
 
 1. **讀取只增不減。** 帳本的每列帶版本（`record_version.dart`，逐版升級）；備份標頭有 `LedgerBackup` 的 `readable` 清單，格式改版時加入新版本並寫升級步驟，舊版本永不移出。
 2. **密碼參數可以退役，不能消失。** `PasswordKdf.retired` 記下以前用過的參數；帳本記著哪一組就用哪一組打開。新設的密碼一律用目前的參數，並記下目前的名稱。
-3. **每個發行版留一份真檔案。** `apps/expense_tracker/test/fixtures/books/<版本>/` 放該版寫出的帳本（`vault/`，用密碼打開）、備份（`backup.etbk`，含一張收據）與當時的紀錄（`records.json`）。產生方式：`MAKE_FIXTURES=1 flutter test test/core/persistence/old_books_test.dart`。檔案進版控後不再改。
+3. **每個發行版留一份真檔案。** `apps/expense_tracker/test/fixtures/books/<版本>/` 放該版寫出的帳本（`vault/`，用密碼打開）、備份（`backup.etbk`，含一張收據）與當時的紀錄（`records.json`）。產生方式：`MAKE_FIXTURES=1 flutter test test/scenarios/ledger/persistence/old_books_test.dart`。檔案進版控後不再改。
 4. **每次變更都打開全部。** `old_books_test.dart` 用 App 實際的元件（`LedgerVault`、`KeyringCodec`、`LedgerBackup`、`SqlLedgerDataSource`）打開每一份，讀出的紀錄必須與 `records.json` 相同；目前的版本號沒有對應的檔案時測試失敗，發行前就得補上。
 
 ## 後果

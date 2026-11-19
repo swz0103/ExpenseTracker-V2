@@ -3,7 +3,7 @@ import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../app/places.dart';
+import '../support/places.dart';
 
 /// How much of 總覽 is built again after a change: counted, not timed, so
 /// the same on every machine and every run, and kept by CI on each

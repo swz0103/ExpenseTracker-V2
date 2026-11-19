@@ -28,7 +28,7 @@ lib/src/
 
 ### core 的十個部分
 
-規則的唯一來源是 `test/app/layout.dart`；這張表照它寫。
+規則的唯一來源是 `test/support/layout.dart`；這張表照它寫。
 
 | 部分 | 內容 | 可以用 |
 | --- | --- | --- |
@@ -101,14 +101,14 @@ lib/src/
 | 規則 | 測試 |
 | --- | --- |
 | 套件不碰平台、lockfile 一致、CI 涵蓋每個模組 | `tooling/architecture_checks` |
-| core 的六部分只用允許的部分 | `test/app/layers_test.dart` |
+| core 的六部分只用允許的部分 | `test/rules/layers_test.dart` |
 | 功能不用別人的 `ui/`、功能之間沒有循環 | `layers_test` |
 | model 與帳本不碰畫面；帳本只用 Flutter 的 `foundation`；只有 `table_journal.dart` 碰儲存 | `layers_test` |
-| 測試用 `Keys` 按按鈕 | `test/app/test_rules_test.dart` |
+| 測試用 `Keys` 按按鈕 | `test/rules/test_rules_test.dart` |
 | 只有 `openFullScreen` 推路由 | `layers_test` |
 | 檔案 600 行以內 | `layers_test` |
-| 捕捉到的錯誤要記錄、重新拋出或說明為何不用處理；不把原始例外放進訊息 | `test/app/error_rules_test.dart` |
+| 捕捉到的錯誤要記錄、重新拋出或說明為何不用處理；不把原始例外放進訊息 | `test/rules/error_rules_test.dart` |
 | 範例帳本只在 `app/demo/`，正式入口碰不到 | `layers_test`、`entry_test.dart` |
-| 顏色、字級、按鈕只在 `core/design_system` | `test/app/design_rules_test.dart` |
-| Android 自動備份只帶 `files/cloud/` | `test/app/backup_rules_test.dart` |
+| 顏色、字級、按鈕只在 `core/design_system` | `test/rules/design_rules_test.dart` |
+| Android 自動備份只帶 `files/cloud/` | `test/rules/backup_rules_test.dart` |
 | 文件有摘要、150 行以內、連結都有效 | `tooling/architecture_checks/test/docs_test.dart` |

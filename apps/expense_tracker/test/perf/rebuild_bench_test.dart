@@ -5,7 +5,7 @@ import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../app/places.dart';
+import '../support/places.dart';
 
 /// What a screen costs when the book changes: a frame after a change the
 /// screen does not show (a budget, on 總覽) against a frame after nothing,

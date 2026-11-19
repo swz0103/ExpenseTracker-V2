@@ -11,7 +11,7 @@
 | 3 | 純計算（不需要帳本狀態）放 `packages/domain`，App 只呼叫 | [architecture.md](architecture.md#模組) |
 | 4 | 新頁面：在 `core/navigation/nav.dart` 加一個 `AppRoute`，`app/shell.dart` 對應頁面；一次性的整頁工作（排序、匯入）用 `openFullScreen` | `layers_test` |
 | 5 | 畫面只用設計系統：`Hue`、`TextSize`、`solidButton`／`wordButton`、components 元件 | [design.md](design.md)、`design_rules_test` |
-| 6 | 頁面加進 `test/app/places.dart`，版面、無障礙、截圖就會涵蓋它 | — |
+| 6 | 頁面加進 `test/support/places.dart`，版面、無障礙、截圖就會涵蓋它 | — |
 | 7 | 寫測試（見第三節），跑全部測試 | — |
 | 8 | 更新文件（見第四節）、版號與 `whats_new.txt`（見第五節） | — |
 
@@ -21,7 +21,7 @@
 
 - 依賴只能往下：`app/` → `features/` → `core/` → 套件（`packages/`、`infrastructure/`）。
 - 功能可以用別的功能的 `model/` 與 `forms/`（例如開它的表單），不能用它的 `ui/`；功能之間不能互相需要。需要同一個東西的兩個功能，把它搬到 `core/`。
-- `core/` 分十部分，各自只能用表上允許的部分（[architecture.md](architecture.md#core-的十個部分)）。資料夾名稱集中在 `test/app/layout.dart`，改名只改那裡。
+- `core/` 分十部分，各自只能用表上允許的部分（[architecture.md](architecture.md#core-的十個部分)）。資料夾名稱集中在 `test/support/layout.dart`，改名只改那裡。
 - 搬檔案用 `python3 tool/move.py 舊路徑=新路徑`（在 `apps/expense_tracker` 下執行），它會改好所有 import。
 
 ### 錯誤
@@ -61,9 +61,11 @@
 
 | 放哪 | 測什麼 |
 | --- | --- |
-| `test/core/` | 帳本、規則、共用元件 |
-| `test/features/<功能>/` | 該功能的 model、表單、頁面行為 |
-| `test/app/` | 跨全 App 的規則：分層、設計系統、版面、無障礙、啟動、備份規則 |
+| `test/<lib/src 底下的路徑>/<檔名>_test.dart` | 只測一個檔：`lib/src/a/b.dart` 的測試是 `test/a/b_test.dart` |
+| `test/scenarios/` | 跨好幾個檔的情境：帳本、各功能的流程 |
+| `test/rules/` | 全 App 的規則：分層、設計系統、版面、無障礙、命名、備份規則 |
+| `test/support/` | 測試共用的工具與假物件（`places.dart`、`layout.dart`…） |
+| `test/perf/` | 效能門檻與基準 |
 | 各套件的 `test/` | 套件的規則與格式 |
 
 - 修 bug 先寫一個會重現它的測試，確認在舊程式上失敗、修正後通過。
@@ -113,4 +115,4 @@
 - 一個 PR 一件事（一批回饋或一次整理）；PR 說明列出改了什麼、怎麼驗證。
 - 合併到 main 後 CI 自動建置、簽章、發布；App 內更新會讀到新版。
 - 發布到 main 後，CI 自動為新版本打標籤 `v<版本>`，打在該版第一次發布的組建上，之後不移動（`android.yml` 的 Tag the version）。
-- 每個版本留一份它寫出的帳本與備份：`MAKE_FIXTURES=1 flutter test test/core/persistence/old_books_test.dart`，產生的檔案進版控後不再改（[ADR-0010](adr/0010-data-that-lasts.md)）。少了這一份，`old_books_test` 失敗。
+- 每個版本留一份它寫出的帳本與備份：`MAKE_FIXTURES=1 flutter test test/scenarios/ledger/persistence/old_books_test.dart`，產生的檔案進版控後不再改（[ADR-0010](adr/0010-data-that-lasts.md)）。少了這一份，`old_books_test` 失敗。

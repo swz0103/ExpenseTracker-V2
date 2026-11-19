@@ -67,7 +67,7 @@ Release 版經 R8 縮減：WorkManager 啟動時以名稱找 Room 產生的 `Wor
 
 重裝或換新手機時，Android 只放回這個檔；歡迎頁讀它的標頭（不需金鑰），顯示「還原 11 月 3 日的備份 · 1,234 筆紀錄」，點了才輸入密碼或救援碼還原，不會直接換掉帳本。選「建立新帳本」時，這份移到 `before-restore/`，不會被新帳本的備份蓋掉。無密碼帳本建立時就顯示一次救援碼，因為這份備份要用它打開。
 
-`test/app/backup_rules_test.dart` 檢查 manifest 與兩份規則都只包含 `files/cloud/`。
+`test/rules/backup_rules_test.dart` 檢查 manifest 與兩份規則都只包含 `files/cloud/`。
 
 ## 指紋或臉部解鎖
 

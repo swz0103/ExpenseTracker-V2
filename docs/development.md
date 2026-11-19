@@ -15,8 +15,8 @@
 | 做什麼 | 指令 |
 | --- | --- |
 | 全部測試 | `flutter test` |
-| 只看規則 | `flutter test test/app/layers_test.dart test/app/design_rules_test.dart` |
-| 只看版面 | `flutter test test/app/layout_common_test.dart` |
+| 只看規則 | `flutter test test/rules/layers_test.dart test/rules/design_rules_test.dart` |
+| 只看版面 | `flutter test test/rules/layout_common_test.dart` |
 | 分析與排版 | `flutter analyze`、`dart format lib test` |
 | 網頁預覽 | `flutter run -d chrome -t lib/main_preview.dart` |
 | 截圖 | `flutter test tool/screenshots`（`SHOTS_ONLY=頁名,頁名` 只拍幾頁，`SHOTS_TEXT=200` 用 Android 最大字級），存到 `build/screenshots` |
@@ -47,7 +47,7 @@
 | `tool/split.py` | 把太長的檔案後段的宣告搬到 part 檔 |
 | `tool/glyphs.py` | 定義所有圖示，產生 `core/design_system/glyphs.dart`（不要手改產生的檔） |
 | `tool/test_ledger.py` | 產生兩年份、約 2,500 筆的測試帳本 `test-ledger.etbk`（密碼 `test1234`）：多家銀行、三張信用卡、外幣、車貸、代墊、十檔股票、預算與定期 |
-| `tool/screenshots/` | 依 `test/app/places.dart` 拍每頁淺色、深色截圖 |
+| `tool/screenshots/` | 依 `test/support/places.dart` 拍每頁淺色、深色截圖 |
 | `tool/app_icon.svg` | App 圖示原稿 |
 
 ## CI
