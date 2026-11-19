@@ -36,7 +36,7 @@
 
 | 日期 | 版本 | 升了什麼 | 升不上去的與原因 |
 | --- | --- | --- | --- |
-| 2026-11-19 | 0.18.0 | 全部模組的間接套件小版本：analyzer 14.7、coverage 1.16、crypto 3.0.8、native_toolchain_c 0.19.6、vm_service 15.4、shelf 1.4.3 等；直接依賴都已是最新 | 3 個：`sqlite3` 固定 3.8.0（SQLCipher 的建置設定綁這一版，`infrastructure/storage`、`vault` 一起換）；`material_color_utilities`、`test_api` 由 Flutter SDK 鎖定，跟著升 Flutter |
+| 2026-11-19 | 0.18.0 | 架構檢查直接用的 analyzer 14.4 → 14.7（各模組必須同一版，`lockfile_consistency_test`）；全部模組的間接套件小版本：coverage 1.16、crypto 3.0.8、native_toolchain_c 0.19.6、vm_service 15.4、shelf 1.4.3 等；直接依賴都已是最新 | 3 個：`sqlite3` 固定 3.8.0（SQLCipher 的建置設定綁這一版，`infrastructure/storage`、`vault` 一起換）；`material_color_utilities`、`test_api` 由 Flutter SDK 鎖定，跟著升 Flutter |
 
 ## 工具
 
