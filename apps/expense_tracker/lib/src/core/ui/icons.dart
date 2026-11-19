@@ -5,58 +5,164 @@ import '../look/glyphs.dart';
 import '../look/theme.dart';
 
 /// Icon groups a category may take its mark from, by what it is for:
-/// a hundred in all (`icons_test`).
+/// a hundred in all (`icons_test`), each with the name a screen reader
+/// says.
 const categoryIconGroups = [
   (
     '飲食',
     [
-      'food', 'cup', 'drink', 'cake', 'beer', 'cart', 'apple', 'burger', //
-      'pizza', 'rice', 'icecream', 'wine', 'bread',
+      ('food', '碗'),
+      ('cup', '咖啡'),
+      ('drink', '手搖飲'),
+      ('cake', '蛋糕'),
+      ('beer', '啤酒'),
+      ('cart', '購物車'),
+      ('apple', '蘋果'),
+      ('burger', '漢堡'),
+      ('pizza', '披薩'),
+      ('rice', '飯糰'),
+      ('icecream', '冰淇淋'),
+      ('wine', '酒杯'),
+      ('bread', '吐司'),
     ],
   ),
   (
     '交通',
     [
-      'travel', 'bus', 'train', 'bike', 'car', 'fuel', 'parking', 'plane', //
-      'ship', 'scooter', 'pin', 'map',
+      ('travel', '公車'),
+      ('bus', '遊覽車'),
+      ('train', '火車'),
+      ('bike', '腳踏車'),
+      ('car', '汽車'),
+      ('fuel', '加油'),
+      ('parking', '停車'),
+      ('plane', '飛機'),
+      ('ship', '船'),
+      ('scooter', '機車'),
+      ('pin', '地點'),
+      ('map', '地圖'),
     ],
   ),
   (
     '居家',
     [
-      'home', 'bolt', 'water', 'wifi', 'tool', 'bed', 'leaf', 'sofa', //
-      'lamp', 'washer', 'door', 'calendar',
+      ('home', '房子'),
+      ('bolt', '電'),
+      ('water', '水'),
+      ('wifi', '網路'),
+      ('tool', '扳手'),
+      ('bed', '床'),
+      ('leaf', '葉子'),
+      ('sofa', '沙發'),
+      ('lamp', '檯燈'),
+      ('washer', '洗衣機'),
+      ('door', '門'),
+      ('calendar', '日曆'),
     ],
   ),
   (
     '購物',
     [
-      'bag', 'shirt', 'sparkle', 'scissors', 'gift', 'store', 'glasses', //
-      'shoe', 'lipstick', 'jewel', 'perfume', 'tag',
+      ('bag', '購物袋'),
+      ('shirt', '衣服'),
+      ('sparkle', '閃亮'),
+      ('scissors', '剪刀'),
+      ('gift', '禮物'),
+      ('store', '商店'),
+      ('glasses', '眼鏡'),
+      ('shoe', '鞋子'),
+      ('lipstick', '口紅'),
+      ('jewel', '戒指'),
+      ('perfume', '香水'),
+      ('tag', '標籤'),
     ],
   ),
   (
     '娛樂',
     [
-      'game', 'film', 'music', 'camera', 'ticket', 'suitcase', 'palette', //
-      'tent', 'headphones', 'ball', 'image',
+      ('game', '遊戲'),
+      ('film', '電視'),
+      ('music', '音樂'),
+      ('camera', '相機'),
+      ('ticket', '票券'),
+      ('suitcase', '行李箱'),
+      ('palette', '調色盤'),
+      ('tent', '帳篷'),
+      ('headphones', '耳機'),
+      ('ball', '球'),
+      ('image', '照片'),
     ],
   ),
-  ('健康', ['health', 'pill', 'fitness', 'baby', 'pet', 'tooth', 'clinic']),
+  (
+    '健康',
+    [
+      ('health', '健康'),
+      ('pill', '藥丸'),
+      ('fitness', '啞鈴'),
+      ('baby', '奶瓶'),
+      ('pet', '寵物'),
+      ('tooth', '牙齒'),
+      ('clinic', '醫療'),
+    ],
+  ),
   (
     '學習與工作',
-    ['book', 'school', 'laptop', 'briefcase', 'phone', 'pen', 'calculator'],
+    [
+      ('book', '書'),
+      ('school', '學士帽'),
+      ('laptop', '筆電'),
+      ('briefcase', '公事包'),
+      ('phone', '手機'),
+      ('pen', '筆'),
+      ('calculator', '計算機'),
+    ],
   ),
-  ('人情', ['chat', 'bell', 'flower', 'people', 'redPacket', 'balloon']),
+  (
+    '人情',
+    [
+      ('chat', '對話'),
+      ('bell', '鈴鐺'),
+      ('flower', '花'),
+      ('people', '朋友'),
+      ('redPacket', '紅包'),
+      ('balloon', '氣球'),
+    ],
+  ),
   (
     '金融',
     [
-      'subscription', 'shield', 'tax', 'card', 'coins', 'safe', 'heart', //
-      'receipt', 'percent',
+      ('subscription', '訂閱'),
+      ('shield', '保險'),
+      ('tax', '稅單'),
+      ('card', '卡片'),
+      ('coins', '硬幣'),
+      ('safe', '保險箱'),
+      ('heart', '愛心'),
+      ('receipt', '收據'),
+      ('percent', '折扣'),
     ],
   ),
-  ('收入', ['salary', 'income', 'dividend', 'investment', 'trophy', 'medal']),
-  ('其他', ['umbrella', 'other', 'sun', 'cloud', 'parcel']),
+  (
+    '收入',
+    [
+      ('salary', '薪水'),
+      ('income', '錢袋'),
+      ('dividend', '股息'),
+      ('investment', '投資'),
+      ('trophy', '獎盃'),
+      ('medal', '獎牌'),
+    ],
+  ),
+  (
+    '其他',
+    [
+      ('umbrella', '雨傘'),
+      ('other', '其他'),
+      ('sun', '太陽'),
+      ('cloud', '雲'),
+      ('parcel', '包裹'),
+    ],
+  ),
 ];
 
 Glyph iconFor(String key) {
@@ -160,6 +266,16 @@ List<String> usualAccountIcons(AccountKind kind) => switch (kind) {
   ],
   AccountKind.loan || AccountKind.receivable => const [],
 };
+
+/// The name a screen reader says for the category mark [key].
+String categoryIconName(String key) {
+  for (final (_, marks) in categoryIconGroups) {
+    for (final (k, name) in marks) {
+      if (k == key) return name;
+    }
+  }
+  return key;
+}
 
 /// The name a screen reader says for the account mark [key].
 String accountIconName(String key) {

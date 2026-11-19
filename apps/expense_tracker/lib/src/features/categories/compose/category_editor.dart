@@ -178,7 +178,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
               child: Text(problem, style: const TextStyle(color: Hue.danger)),
             ),
           if (_icons)
-            for (final (group, keys) in categoryIconGroups) ...[
+            for (final (group, marks) in categoryIconGroups) ...[
               Padding(
                 padding: const EdgeInsets.only(top: Space.s3, bottom: Space.s2),
                 child: Text(group, style: mutedSmall),
@@ -188,9 +188,10 @@ class _CategoryEditorState extends State<_CategoryEditor> {
                 spacing: 2,
                 runSpacing: 2,
                 children: [
-                  for (final key in keys)
+                  for (final (key, name) in marks)
                     IconChoiceButton(
                       icon: iconFor(key),
+                      label: '圖示：$name',
                       color: _color,
                       selected: key == _f.icon,
                       onTap: () => setState(() {
@@ -282,7 +283,12 @@ class _CategoryEditorState extends State<_CategoryEditor> {
                     fontWeight: FontWeight.w800,
                     color: ink,
                   ),
-                  decoration: InputDecoration.collapsed(
+                  // 48 dp to tap, its words where they were.
+                  textAlignVertical: TextAlignVertical.center,
+                  decoration: InputDecoration(
+                    isCollapsed: true,
+                    border: InputBorder.none,
+                    constraints: const BoxConstraints(minHeight: 48),
                     hintText: '點這裡取個名字',
                     hintStyle: TextStyle(
                       fontSize: TextSize.heading,

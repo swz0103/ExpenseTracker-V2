@@ -297,7 +297,14 @@ class _CalculatorState extends State<_Calculator> {
           onTap: () => _press(key),
           child: Center(
             child: key == '⌫'
-                ? const GlyphIcon(Glyph.backspace, size: 24, color: Hue.accent)
+                ? Semantics(
+                    label: '刪除',
+                    child: GlyphIcon(
+                      Glyph.backspace,
+                      size: 24,
+                      color: Hue.accent,
+                    ),
+                  )
                 // 000 on a narrow phone with its largest text shrinks a
                 // little rather than wraps.
                 : FittedBox(

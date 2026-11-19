@@ -32,7 +32,7 @@ const libraryGuide = 1200;
 const longerFunctions = <String, int>{
   'src/app/demo/seed.dart::demoLedger': 448,
   'src/features/accounts/ui/sort_accounts.dart::_SortAccountsPageState.build':
-      203,
+      177,
   'src/features/investments/ui/investments.dart::_InvestmentsPageState.build':
       199,
   'src/features/investments/ui/holding_bento.dart::_PriceChartState.build': 191,
@@ -121,7 +121,6 @@ const longerFunctions = <String, int>{
   'src/features/reports/ui/reports_page_state.dart::_ReportsPageState._mix': 84,
   'src/core/ledger/persistence/sql_ledger_data_source.dart::SqlLedgerDataSource._load':
       84,
-  'src/features/tags/ui/tags_page.dart::_TagsPageState._merchantList': 84,
   'src/features/overview/model/home_widget.dart::widgetSnapshot': 82,
   'src/features/reminders/ui/reminders_section.dart::_RemindersSectionState._calendarDetails':
       82,

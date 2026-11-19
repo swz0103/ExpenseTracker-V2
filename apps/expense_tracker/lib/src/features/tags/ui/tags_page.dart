@@ -156,6 +156,45 @@ class _TagsPageState extends State<TagsPage> {
     ];
   }
 
+  /// A merchant under 其他: its name and how often it was visited, on
+  /// its colour.
+  Widget _merchantCard(String name, int count) => ColorCard(
+    color: nameColor(name),
+    radius: Radii.large,
+    label: '$name，$count 次',
+    onTap: () => widget.nav.open(Pages.merchant(name)),
+    padding: const EdgeInsets.symmetric(
+      horizontal: Space.s4,
+      vertical: Space.s2,
+    ),
+    // 48 dp to tap, with the padding.
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 32),
+      child: Row(
+        children: [
+          Expanded(
+            child: OneLine(
+              name,
+              style: TextStyle(
+                fontSize: TextSize.body,
+                fontWeight: FontWeight.w800,
+                color: deepOf(nameColor(name)),
+              ),
+            ),
+          ),
+          const SizedBox(width: Space.s2),
+          Text(
+            '$count 次',
+            style: TextStyle(
+              fontSize: TextSize.caption,
+              color: deepOf(nameColor(name)),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
   List<Widget> _merchantList(List<(String, int, int)> merchants) {
     if (merchants.isEmpty) {
       return const [
@@ -203,39 +242,7 @@ class _TagsPageState extends State<TagsPage> {
         // Two to a row, each as wide as the other, so long and short
         // names line up.
         CardGrid(gap: 8, [
-          for (final (name, count, _) in rest)
-            ColorCard(
-              color: nameColor(name),
-              radius: Radii.large,
-              label: '$name，$count 次',
-              onTap: () => widget.nav.open(Pages.merchant(name)),
-              padding: const EdgeInsets.symmetric(
-                horizontal: Space.s4,
-                vertical: Space.s2,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OneLine(
-                      name,
-                      style: TextStyle(
-                        fontSize: TextSize.body,
-                        fontWeight: FontWeight.w800,
-                        color: deepOf(nameColor(name)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: Space.s2),
-                  Text(
-                    '$count 次',
-                    style: TextStyle(
-                      fontSize: TextSize.caption,
-                      color: deepOf(nameColor(name)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          for (final (name, count, _) in rest) _merchantCard(name, count),
         ]),
       ],
     ];

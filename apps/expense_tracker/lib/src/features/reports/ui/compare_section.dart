@@ -174,7 +174,7 @@ class _CompareSectionState extends State<CompareSection> {
                           borderRadius: BorderRadius.circular(Radii.medium),
                           onTap: () => _choose(against),
                           child: ConstrainedBox(
-                            constraints: const BoxConstraints(minHeight: 44),
+                            constraints: const BoxConstraints(minHeight: 48),
                             child: Center(
                               child: Text(
                                 against == _Against.custom && _custom != null

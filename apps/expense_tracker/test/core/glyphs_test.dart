@@ -20,7 +20,10 @@ void main() {
   });
 
   test('account marks are their own, and earlier ones still show', () {
-    final categoryMarks = {for (final (_, keys) in categoryIconGroups) ...keys};
+    final categoryMarks = {
+      for (final (_, marks) in categoryIconGroups)
+        for (final (key, _) in marks) key,
+    };
     final keys = [
       for (final (_, marks) in accountIconGroups)
         for (final (key, _) in marks) key,

@@ -54,6 +54,42 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
     Navigator.of(context).pop();
   }
 
+  /// 依類型重新排, under the list: puts the accounts in the order of their
+  /// kinds.
+  Widget _byKindButton() => Padding(
+    padding: const EdgeInsets.only(top: Space.s4),
+    child: GroupBox(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s4,
+        vertical: Space.s3,
+      ),
+      onTap: () {
+        _byKind();
+        setState(() => _by = _SortBy.hand);
+      },
+      // 48 dp to tap, with the padding.
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 24),
+        child: const Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          runAlignment: WrapAlignment.center,
+          spacing: 12,
+          children: [
+            Text(
+              '依類型重新排',
+              style: TextStyle(
+                fontSize: TextSize.body,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text('銀行→支付→現金→卡', style: mutedSmall),
+          ],
+        ),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
@@ -154,33 +190,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                       _by = _SortBy.hand;
                     });
                   },
-                  footer: Padding(
-                    padding: const EdgeInsets.only(top: Space.s4),
-                    child: GroupBox(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Space.s4,
-                        vertical: Space.s3,
-                      ),
-                      onTap: () {
-                        _byKind();
-                        setState(() => _by = _SortBy.hand);
-                      },
-                      child: const Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        spacing: 12,
-                        children: [
-                          Text(
-                            '依類型重新排',
-                            style: TextStyle(
-                              fontSize: TextSize.body,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Text('銀行→支付→現金→卡', style: mutedSmall),
-                        ],
-                      ),
-                    ),
-                  ),
+                  footer: _byKindButton(),
                   itemBuilder: (context, i) {
                     final a = _order[i];
                     final color = accountHue(a);

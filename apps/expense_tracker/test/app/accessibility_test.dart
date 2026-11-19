@@ -1,117 +1,37 @@
-import 'dart:io';
-
-import 'package:expense_tracker/src/app/demo/seed.dart';
-import 'package:expense_tracker/src/core/look/theme.dart';
-import 'package:expense_tracker/src/app/shell.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Every place a person reaches, checked against Android's accessibility
-/// guidelines: each tap target at least 48 dp and named for a screen
-/// reader; every page still laid out with the phone's text at 150%; and
-/// no words drawn in Flutter's warning style, the yellow double underline
-/// of text with no Material above it.
+import 'places.dart';
+
+/// Every place a person reaches (places.dart), checked against Android's
+/// accessibility guidelines: each tap target at least 48 dp and named for
+/// a screen reader, and no words drawn in Flutter's warning style, the
+/// yellow double underline of text with no Material above it. How each
+/// page holds with large text is layout_*_test.dart's.
 ///
 /// [unstyled] is used by test/core/tour_test.dart too.
 void main() {
-  setUpAll(() async {
-    for (final (family, files) in const [
-      ('Nunito', ['Nunito-Regular', 'Nunito-SemiBold', 'Nunito-Bold']),
-      ('NotoSansTC', ['NotoSansTC-Regular', 'NotoSansTC-Bold']),
-    ]) {
-      final loader = FontLoader(family);
-      for (final file in files) {
-        final bytes = File('fonts/$file.ttf').readAsBytesSync();
-        loader.addFont(Future.value(ByteData.sublistView(bytes)));
-      }
-      await loader.load();
-    }
-  });
-
-  Future<void> show(WidgetTester tester, {double text = 1}) async {
-    tester.view.physicalSize = const Size(400, 2600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: appTheme(),
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(text)),
-          child: child!,
-        ),
-        home: AppShell(ledger: demoLedger()),
-      ),
-    );
-    await tester.pumpAndSettle();
-  }
-
-  /// The places, each reached from the overview: a name and the taps.
-  final places = <(String, List<String>)>[
-    ('總覽', []),
-    ('紀錄', ['紀錄']),
-    ('帳戶', ['帳戶']),
-    ('更多', ['更多']),
-    ('財務報表', ['更多', '財務報表']),
-    ('投資與股息', ['更多', '投資與股息']),
-    ('代墊與借貸', ['更多', '代墊與借貸']),
-    ('預算管理', ['更多', '預算管理']),
-    ('定期交易', ['更多', '定期交易']),
-    ('分類', ['更多', '分類']),
-    ('標籤與商家', ['更多', '標籤與商家']),
-    ('設定', ['更多', '設定']),
-    ('匯入與匯出', ['更多', '設定', '匯入與匯出']),
-    ('關於', ['更多', '設定', '關於']),
-  ];
-
-  Future<void> go(WidgetTester tester, List<String> taps) async {
-    for (final words in taps) {
-      await tester.tap(find.text(words).first);
-      await tester.pumpAndSettle();
-    }
-  }
+  setUpAll(loadFonts);
 
   testWidgets('tap targets are 48 dp and named on every page', (tester) async {
     final semantics = tester.ensureSemantics();
     final faults = <String>[];
-    Future<void> check(String where) async {
+    for (final (name, taps) in places) {
+      await show(tester, 400, 1, height: 2600);
+      await go(tester, taps);
       for (final words in unstyled(tester)) {
-        faults.add('$where: 「$words」 has no text style');
+        faults.add('$name: 「$words」 has no text style');
       }
       for (final guideline in [
         androidTapTargetGuideline,
         labeledTapTargetGuideline,
       ]) {
         final result = await guideline.evaluate(tester);
-        if (!result.passed) faults.add('$where: ${result.reason}');
+        if (!result.passed) faults.add('$name: ${result.reason}');
       }
     }
-
-    for (final (name, taps) in places) {
-      await show(tester);
-      await go(tester, taps);
-      await check(name);
-    }
-    await show(tester);
-    await tester.tap(find.byTooltip('記一筆'));
-    await tester.pumpAndSettle();
-    await check('記一筆');
     semantics.dispose();
     expect(faults, isEmpty, reason: faults.join('\n'));
-  });
-
-  // One test per place, so a page that overflows is named.
-  for (final (name, taps) in places) {
-    testWidgets('$name holds with the text at 150%', (tester) async {
-      await show(tester, text: 1.5);
-      await go(tester, taps);
-    });
-  }
-  testWidgets('記一筆 holds with the text at 150%', (tester) async {
-    await show(tester, text: 1.5);
-    await tester.tap(find.byTooltip('記一筆'));
-    await tester.pumpAndSettle();
   });
 }
 
