@@ -63,7 +63,7 @@ jobs:
         run: |
           set -euo pipefail
           ships=$(gh api "repos/$REPO/pulls/$NUMBER/files" --paginate \
-            --jq '.[].filename | select(test("^(apps|infrastructure|packages)/"))' | head -1)
+            --jq '.[].filename | select(test("^(apps|infrastructure|packages)/"))')
           if [ -z "$ships" ]; then
             echo 'Nothing that ships changed; the version may stay.'
             exit 0
