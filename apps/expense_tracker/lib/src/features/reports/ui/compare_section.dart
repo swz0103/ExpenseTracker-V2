@@ -122,8 +122,8 @@ class _CompareSectionState extends State<CompareSection> {
     final ledger = widget.ledger;
     final first = _first;
     final second = _second;
-    final a = sumsBetween(ledger, first.$1, first.$2);
-    final b = sumsBetween(ledger, second.$1, second.$2);
+    final a = sumsBetween(ledger.reportService, first.$1, first.$2);
+    final b = sumsBetween(ledger.reportService, second.$1, second.$2);
     final rows = compare(a, b);
     final largest = [
       a.income,

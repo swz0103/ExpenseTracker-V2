@@ -35,9 +35,9 @@ final class TagSummary {
 }
 
 /// [tag] as a project; null when no entry carries it.
-TagSummary? tagSummaryOf(Ledger ledger, String tag) {
+TagSummary? tagSummaryOf(EntryReader book, String tag) {
   final entries = [
-    for (final e in ledger.entries.all)
+    for (final e in book.all)
       if (e.tags.contains(tag)) e,
   ]..sort((a, b) => b.date.compareTo(a.date));
   if (entries.isEmpty) return null;
@@ -65,9 +65,9 @@ TagSummary? tagSummaryOf(Ledger ledger, String tag) {
 }
 
 /// The tag of the latest entry that has one: 標籤與商家's cover.
-String? latestTag(Ledger ledger) {
+String? latestTag(EntryReader book) {
   Entry? latest;
-  for (final e in ledger.entries.all) {
+  for (final e in book.all) {
     if (e.tags.isEmpty) continue;
     if (latest == null || e.date.isAfter(latest.date)) latest = e;
   }
@@ -76,9 +76,9 @@ String? latestTag(Ledger ledger) {
 
 /// Each tag in use under the year of its latest entry, latest years first
 /// and, in a year, latest tags first.
-List<(int, List<String>)> tagsByYear(Ledger ledger) {
+List<(int, List<String>)> tagsByYear(EntryReader book) {
   final last = <String, DateTime>{};
-  for (final e in ledger.entries.all) {
+  for (final e in book.all) {
     for (final tag in e.tags) {
       final seen = last[tag];
       if (seen == null || e.date.isAfter(seen)) last[tag] = e.date;
@@ -93,7 +93,7 @@ List<(int, List<String>)> tagsByYear(Ledger ledger) {
 }
 
 /// A merchant's visits, newest first; empty when none.
-List<Entry> visitsTo(Ledger ledger, String merchant) => [
-  for (final e in ledger.entries.all)
+List<Entry> visitsTo(EntryReader book, String merchant) => [
+  for (final e in book.all)
     if (e.merchant == merchant) e,
 ]..sort((a, b) => b.date.compareTo(a.date));

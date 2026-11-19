@@ -316,6 +316,21 @@ void main() {
     }
   });
 
+  test('fewer screens take the whole ledger', () {
+    // A screen or a model that needs only the entries, or the reports,
+    // takes that part (EntryReader, ReportService, exported by
+    // ledger.dart): it says what it uses, and a test gives it only that.
+    const most = 84;
+    final whole = RegExp(r'\bLedger\b');
+    var found = 0;
+    for (final file in imports.keys) {
+      if (!file.contains('/features/') && !file.contains('/src/app/')) continue;
+      if (whole.hasMatch(File(file).readAsStringSync())) found++;
+    }
+    expect(found, lessThanOrEqualTo(most), reason: 'take only the part used');
+    expect(found, most, reason: 'fewer now: lower `most` to $found');
+  });
+
   test('casts of outside data only become fewer', () {
     // Read through JsonFields (core/text/json_fields.dart) instead: a cast
     // throws a TypeError for one field of the wrong kind and takes the

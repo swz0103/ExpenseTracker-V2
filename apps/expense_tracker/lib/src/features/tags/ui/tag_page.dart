@@ -53,8 +53,8 @@ class TagPage extends StatelessWidget {
 
   Future<bool> _askMerge(BuildContext context, String into) {
     final count = merchant
-        ? visitsTo(ledger, name).length
-        : tagSummaryOf(ledger, name)?.entries.length ?? 0;
+        ? visitsTo(ledger.entries, name).length
+        : tagSummaryOf(ledger.entries, name)?.entries.length ?? 0;
     final target = merchant ? into : '#$into';
     return confirm(
       context,
@@ -123,8 +123,8 @@ class TagPage extends StatelessWidget {
 
   Future<void> _remove(BuildContext context) async {
     final count = merchant
-        ? visitsTo(ledger, name).length
-        : tagSummaryOf(ledger, name)?.entries.length ?? 0;
+        ? visitsTo(ledger.entries, name).length
+        : tagSummaryOf(ledger.entries, name)?.entries.length ?? 0;
     final ok = await confirm(
       context,
       '移除 $_shown？',
@@ -145,8 +145,8 @@ class TagPage extends StatelessWidget {
       listenable: ledger,
       builder: (context, _) {
         final entries = merchant
-            ? visitsTo(ledger, name)
-            : tagSummaryOf(ledger, name)?.entries ?? const <Entry>[];
+            ? visitsTo(ledger.entries, name)
+            : tagSummaryOf(ledger.entries, name)?.entries ?? const <Entry>[];
         final menu = DotsMenu([
           DotsItem(Glyph.edit, '改名', () => _rename(context)),
           if (_others().isNotEmpty)
@@ -174,7 +174,7 @@ class TagPage extends StatelessWidget {
               else
                 ProjectCard(
                   ledger: ledger,
-                  project: tagSummaryOf(ledger, name)!,
+                  project: tagSummaryOf(ledger.entries, name)!,
                   menu: menu,
                 ),
               Padding(

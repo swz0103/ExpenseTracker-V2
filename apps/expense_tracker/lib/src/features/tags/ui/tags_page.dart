@@ -94,8 +94,10 @@ class _TagsPageState extends State<TagsPage> {
   }
 
   List<Widget> _tagList() {
-    final latest = latestTag(ledger);
-    final project = latest == null ? null : tagSummaryOf(ledger, latest);
+    final latest = latestTag(ledger.entries);
+    final project = latest == null
+        ? null
+        : tagSummaryOf(ledger.entries, latest);
     if (project == null) {
       return const [
         EmptyState(
@@ -112,7 +114,7 @@ class _TagsPageState extends State<TagsPage> {
         recent: true,
         onTap: () => widget.nav.open(Pages.tag(project.tag)),
       ),
-      for (final (year, names) in tagsByYear(ledger)) ...[
+      for (final (year, names) in tagsByYear(ledger.entries)) ...[
         Padding(
           padding: const EdgeInsets.fromLTRB(
             Space.s1,

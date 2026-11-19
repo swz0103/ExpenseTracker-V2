@@ -44,6 +44,10 @@ export 'services/entry_validation_failure.dart';
 export 'services/integrity_service.dart'
     show IntegrityProblem, MissingAccount, MissingRefundOriginal, RecordKind;
 export 'models/models.dart';
+// The narrow parts a screen or a model can take in place of the whole
+// ledger (docs/roadmap.md, item 10).
+export 'repositories/entry_repository.dart' show EntryReader;
+export 'services/report_service.dart' show ReportService;
 
 /// The screens' book: accounts, categories, entries, holdings, budgets
 /// and recurring items, with the sums the screens show. Holdings are

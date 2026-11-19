@@ -14,8 +14,7 @@ final class PeriodSums {
 }
 
 /// The sums of the days from [from] to [to], both counted.
-PeriodSums sumsBetween(Ledger ledger, DateTime from, DateTime to) {
-  final reports = ledger.reportService;
+PeriodSums sumsBetween(ReportService reports, DateTime from, DateTime to) {
   final (income, expense) = reports.totalsBetween(from, to);
   return PeriodSums(income, expense, reports.spendingBetween(from, to));
 }

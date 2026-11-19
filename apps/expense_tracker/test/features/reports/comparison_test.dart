@@ -69,12 +69,12 @@ void main() {
 
   test('two stretches side by side, the largest difference first', () {
     final october = sumsBetween(
-      ledger,
+      ledger.reportService,
       DateTime.utc(2026, 10),
       DateTime.utc(2026, 10, 20),
     );
     final september = sumsBetween(
-      ledger,
+      ledger.reportService,
       DateTime.utc(2026, 9),
       DateTime.utc(2026, 9, 30),
     );
@@ -91,7 +91,7 @@ void main() {
   });
 
   test('a tag as a project: when it ran, what it cost, on what', () {
-    final trip = tagSummaryOf(ledger, '花蓮')!;
+    final trip = tagSummaryOf(ledger.entries, '花蓮')!;
     expect(trip.from, DateTime.utc(2026, 9, 10));
     expect(trip.to, DateTime.utc(2026, 9, 12));
     expect(trip.days, 3);
@@ -99,6 +99,6 @@ void main() {
     expect(trip.perDay, 666);
     expect(trip.byCategory, [('交通', 1200), ('住宿', 800)]);
     expect([for (final e in trip.entries) e.id], ['c', 'b']);
-    expect(tagSummaryOf(ledger, '沒有'), isNull);
+    expect(tagSummaryOf(ledger.entries, '沒有'), isNull);
   });
 }
