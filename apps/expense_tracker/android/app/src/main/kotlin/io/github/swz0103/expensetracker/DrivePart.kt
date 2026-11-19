@@ -14,7 +14,7 @@ import io.flutter.plugin.common.MethodChannel
 
 /**
  * Access tokens for the app's own files on Google Drive, through Google
- * Identity's AuthorizationClient (lib/src/app/android/drive.dart).
+ * Identity's AuthorizationClient (lib/src/app/android/drive_adapter.dart).
  */
 class DrivePart(private val activity: FragmentActivity) : ChannelPart {
     private var pendingDrive: MethodChannel.Result? = null

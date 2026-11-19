@@ -3,7 +3,7 @@ import 'package:flutter/rendering.dart';
 
 import '../glyphs.dart';
 import '../theme.dart';
-import 'words.dart';
+import 'one_line.dart';
 import '../spacing.dart';
 import '../../text/words.dart';
 

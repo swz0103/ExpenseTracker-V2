@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 
-import 'channel.dart';
+import 'platform_channel.dart';
 
 /// Reads a QR code with Google's code scanner (`ScanPart.kt`); null when
 /// the person closes it. The first scan on a phone may wait while Play

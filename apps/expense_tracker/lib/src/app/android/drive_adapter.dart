@@ -1,5 +1,5 @@
 import '../../features/backup/model/drive_backup.dart';
-import 'channel.dart';
+import 'platform_channel.dart';
 
 /// An access token for the app's own files on Google Drive; null when the
 /// person did not allow it, or, without [interactive], has not yet.

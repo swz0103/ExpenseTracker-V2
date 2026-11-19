@@ -3,7 +3,7 @@ library;
 
 export 'controls.dart';
 export 'feedback.dart';
-export 'headers.dart';
+export 'page_header.dart';
 export 'keys.dart';
 export 'kit.dart';
 export 'password_field.dart';

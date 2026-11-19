@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:expense_tracker/src/app/android/market_cache.dart';
+import 'package:expense_tracker/src/app/android/market_cache_adapter.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:market/market_data.dart';
 

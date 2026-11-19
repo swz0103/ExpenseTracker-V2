@@ -1,6 +1,6 @@
 import '../../features/reminders/model/calendar_sync.dart';
 import '../../features/reminders/model/reminders.dart';
-import 'channel.dart';
+import 'platform_channel.dart';
 import '../../core/text/json_fields.dart';
 
 typedef _Row = Map<Object?, Object?>;

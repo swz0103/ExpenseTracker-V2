@@ -1,4 +1,4 @@
-import 'channel.dart';
+import 'platform_channel.dart';
 import '../../core/diagnostics/error_log.dart';
 
 /// Whether the phone is on Wi-Fi or another network that costs nothing

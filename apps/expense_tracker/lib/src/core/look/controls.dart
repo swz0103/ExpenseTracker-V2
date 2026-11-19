@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'glyphs.dart';
 import 'haptics.dart';
 import 'kit/colours.dart';
-import 'kit/words.dart';
+import 'kit/one_line.dart';
 import 'theme.dart';
 import 'shape.dart';
 import 'spacing.dart';

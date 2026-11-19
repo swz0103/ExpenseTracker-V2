@@ -1,5 +1,5 @@
 import '../../features/reminders/model/reminder_alerts.dart';
-import 'channel.dart';
+import 'platform_channel.dart';
 
 /// Notifications through `Reminders.kt`: each alert is an alarm that
 /// posts it, kept across restarts of the phone. Each goes with its time on

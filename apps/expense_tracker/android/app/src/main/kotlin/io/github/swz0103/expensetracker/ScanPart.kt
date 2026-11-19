@@ -15,7 +15,7 @@ import io.flutter.plugin.common.MethodChannel
 
 /**
  * Reads a QR code, such as one of a paper e-invoice's two, with Google's
- * code scanner (lib/src/app/android/scan.dart). The scanner is Google
+ * code scanner (lib/src/app/android/scanner_adapter.dart). The scanner is Google
  * Play services' own screen: the app needs no camera permission and sees
  * only the code's text.
  *

@@ -15,7 +15,7 @@ import java.io.File
 
 /**
  * Receipt photos from the camera or the gallery, made smaller and upright
- * before the app seals them (lib/src/app/android/photos.dart).
+ * before the app seals them (lib/src/app/android/receipt_photo_adapter.dart).
  */
 class PhotosPart(private val activity: FragmentActivity) : ChannelPart {
     private var pendingPhoto: MethodChannel.Result? = null

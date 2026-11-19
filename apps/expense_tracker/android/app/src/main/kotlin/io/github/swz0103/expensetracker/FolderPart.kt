@@ -11,7 +11,7 @@ import java.io.File
 
 /**
  * A folder the person chose once, such as one in Documents, that the app
- * may keep writing backups into (lib/src/app/android/folder.dart): the
+ * may keep writing backups into (lib/src/app/android/folder_adapter.dart): the
  * system's folder chooser, then a lasting permission to read and write
  * it. Files are written, listed and deleted there by the system's
  * documents API; the work runs off the main thread.

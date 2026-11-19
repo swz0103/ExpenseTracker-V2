@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'channel.dart';
+import 'platform_channel.dart';
 
 /// The app's private folder on Android, which no other app can read.
 Future<Directory> androidFilesDirectory() async {

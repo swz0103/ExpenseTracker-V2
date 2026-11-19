@@ -13,7 +13,7 @@ import java.security.MessageDigest
 
 /**
  * Installs a newer version downloaded by the app
- * (lib/src/app/android/update.dart): the file is checked against the
+ * (lib/src/app/android/update_adapter.dart): the file is checked against the
  * SHA-256 published with it, then handed to Android's installer, where
  * the person confirms. Android installs it only when it is signed with the
  * same key, and the app's data stays.

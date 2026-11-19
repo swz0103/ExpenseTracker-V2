@@ -6,7 +6,7 @@ import 'package:flutter/painting.dart';
 import 'package:vault/backup_security.dart';
 
 import '../../features/entries/model/receipt_photos.dart';
-import 'channel.dart';
+import 'platform_channel.dart';
 import '../../core/time/app_clock.dart';
 
 /// Receipt photos in the app's private `receipts` folder, each sealed

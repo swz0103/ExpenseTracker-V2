@@ -19,7 +19,7 @@ import javax.crypto.spec.GCMParameterSpec
 /**
  * A Keystore AES key that only a fingerprint or face can use, which wraps
  * the ledger key for unlocking without the password
- * (lib/src/app/android/keystore.dart).
+ * (lib/src/app/android/keystore_adapter.dart).
  */
 class KeystorePart(private val activity: FragmentActivity) : ChannelPart {
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {

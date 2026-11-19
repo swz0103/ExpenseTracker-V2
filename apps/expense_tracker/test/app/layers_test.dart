@@ -345,6 +345,18 @@ void main() {
     expect(found, most, reason: 'fewer now: lower `most` to $found');
   });
 
+  test('no two files of the app share a name', () {
+    // A name found twice in a search is a file opened by mistake
+    // (ADR-0009).
+    final seen = <String, String>{};
+    for (final file in imports.keys) {
+      final name = file.split('/').last;
+      final other = seen[name];
+      expect(other, isNull, reason: '$file and $other share a name');
+      seen[name] = file;
+    }
+  });
+
   test('the time is read from AppClock only', () {
     // Anything that depends on the day must be testable on any day: a
     // backup's age, a reminder, a file's name. core/time is the clock.

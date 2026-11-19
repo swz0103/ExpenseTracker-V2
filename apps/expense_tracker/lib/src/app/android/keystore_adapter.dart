@@ -5,7 +5,7 @@ import 'package:core/foundation_values.dart';
 import 'package:vault/backup_security.dart';
 
 import '../../core/platform/startup.dart';
-import 'channel.dart';
+import 'platform_channel.dart';
 
 /// This install's device unlock, when the phone can confirm a fingerprint
 /// or face; null otherwise. Its id is made once and kept beside the

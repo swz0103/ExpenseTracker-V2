@@ -9,11 +9,11 @@ import 'package:market/market_data.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
-import 'android/backups.dart';
-import 'android/scan.dart';
-import 'android/update.dart';
-import 'android/widgets.dart';
-import 'android/market_cache.dart';
+import 'android/background_backup_adapter.dart';
+import 'android/scanner_adapter.dart';
+import 'android/update_adapter.dart';
+import 'android/home_widget_adapter.dart';
+import 'android/market_cache_adapter.dart';
 import 'app.dart';
 import '../features/backup/model/drive_backup.dart';
 import '../features/backup/model/drive_sync.dart';

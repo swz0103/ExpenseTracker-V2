@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/platform/quick_action.dart';
-import 'channel.dart';
+import 'platform_channel.dart';
 
 /// What a home-screen shortcut, the widget or a notification asked for:
 /// `expense` or `income` opens the composer. Held until the app is open

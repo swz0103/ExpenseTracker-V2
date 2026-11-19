@@ -6,7 +6,7 @@ import io.flutter.plugin.common.MethodChannel
 
 /**
  * Starts or stops the background job that delivers the backups left in
- * the outbox (BackupWorker.kt; lib/src/app/android/backups.dart).
+ * the outbox (BackupWorker.kt; lib/src/app/android/background_backup_adapter.dart).
  */
 class BackupsPart(private val activity: FragmentActivity) : ChannelPart {
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {

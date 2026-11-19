@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'controls.dart';
 import 'glyphs.dart';
 import 'haptics.dart';
-import 'headers.dart';
+import 'page_header.dart';
 import 'kit.dart';
 import 'theme.dart';
 import '../text/dates.dart';

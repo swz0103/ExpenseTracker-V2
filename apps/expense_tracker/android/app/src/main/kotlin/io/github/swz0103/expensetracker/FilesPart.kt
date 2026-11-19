@@ -9,7 +9,7 @@ import java.io.File
 /**
  * The app's private folders, and the system's save and open dialogs for
  * taking backups and files out and back in
- * (lib/src/app/android/files.dart).
+ * (lib/src/app/android/file_adapter.dart).
  */
 class FilesPart(private val activity: FragmentActivity) : ChannelPart {
     private var pendingExport: Pair<String, MethodChannel.Result>? = null
