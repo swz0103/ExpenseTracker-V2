@@ -297,6 +297,25 @@ void main() {
     }
   });
 
+  test('the ledger uses no more of Flutter than its notifiers', () {
+    // So it can still become a pure Dart package (ADR-0012): only
+    // foundation.dart, never widgets, material or the platform.
+    final flutter = RegExp(
+      r"^import 'package:flutter/([^']+)'",
+      multiLine: true,
+    );
+    for (final file in imports.keys) {
+      if (!file.contains('/core/ledger/')) continue;
+      for (final m in flutter.allMatches(File(file).readAsStringSync())) {
+        expect(
+          m[1],
+          'foundation.dart',
+          reason: '$file: the ledger stays free of Flutter (ADR-0012)',
+        );
+      }
+    }
+  });
+
   test('casts of outside data only become fewer', () {
     // Read through JsonFields (core/text/json_fields.dart) instead: a cast
     // throws a TypeError for one field of the wrong kind and takes the
