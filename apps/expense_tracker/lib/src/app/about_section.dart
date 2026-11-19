@@ -8,7 +8,7 @@ import '../core/design_system/glyphs.dart';
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
-import '../core/platform/problems.dart';
+import '../core/messages/problem_messages.dart';
 import '../features/settings/model/app_update.dart';
 import '../features/settings/ui/update_panel.dart';
 import '../features/settings/model/platform_services.dart';

@@ -9,7 +9,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/widgets/pickers.dart';
 import '../model/import_export.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/platform/problems.dart';
+import '../../../core/messages/problem_messages.dart';
 import 'import_page.dart';
 import '../../../core/design_system/settings_hue.dart';
 import '../../../core/diagnostics/error_log.dart';

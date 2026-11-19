@@ -5,7 +5,7 @@ import '../../../core/formatting/figures.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
-import '../../../core/platform/problems.dart';
+import '../../../core/messages/problem_messages.dart';
 import '../../../core/widgets/entry_tile.dart';
 import '../../../core/design_system/settings_hue.dart';
 import '../../../core/widgets/shown_amounts.dart';

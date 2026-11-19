@@ -1,18 +1,12 @@
 import 'package:core/foundation_values.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../ledger/persistence/ledger_data_source.dart';
 import '../ledger/ledger.dart'
     show KeepFailed, NameTaken, ReloadFailed, SharesShort;
 
-/// Shows why a command was refused, in words a person can act on.
-void showProblem(BuildContext context, Object error) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(describeProblem(error))));
-}
-
+/// Why a command was refused or a step failed, in words a person can act
+/// on.
 String describeProblem(Object error) => switch (error) {
   DataSourceException() || KeepFailed() => '帳本無法寫入，請重新打開 App 再試。',
   ReloadFailed() => '帳本無法重新讀取，請重新打開 App；畫面上的內容可能與保存的不同。',

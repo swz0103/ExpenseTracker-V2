@@ -5,7 +5,7 @@ import '../../../core/design_system/dialogs.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
-import '../../../core/platform/problems.dart';
+import '../../../core/messages/problem_messages.dart';
 import '../../../core/platform/screen_privacy.dart';
 import '../../../core/design_system/recovery_code.dart';
 import '../../../core/design_system/settings_hue.dart';

@@ -6,7 +6,7 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
-import '../../../core/platform/problems.dart';
+import '../../../core/messages/problem_messages.dart';
 import '../model/calendar_sync.dart';
 import '../model/reminder_alerts.dart';
 import '../model/reminders.dart';

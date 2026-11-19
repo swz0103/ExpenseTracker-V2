@@ -7,7 +7,7 @@ import '../core/design_system/haptics.dart';
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
-import '../core/platform/problems.dart';
+import '../core/widgets/problem_note.dart';
 import '../core/platform/quick_action.dart';
 import '../core/widgets/tour.dart';
 import '../features/settings/model/platform_services.dart';

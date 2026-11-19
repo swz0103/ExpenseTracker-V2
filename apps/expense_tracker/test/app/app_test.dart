@@ -1,7 +1,7 @@
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/app/app.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
-import 'package:expense_tracker/src/core/platform/problems.dart';
+import 'package:expense_tracker/src/core/messages/problem_messages.dart';
 import 'package:flutter/material.dart'
     show
         ClampingScrollPhysics,
