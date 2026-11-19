@@ -70,6 +70,9 @@ Future<List<Object?>> _decodeApartFrom(List<String> bodies) =>
 /// screen does not freeze while a large book opens.
 const _decodeApart = 2000;
 
+/// How many rows a book is read at a time when it opens.
+const readPage = 5000;
+
 /// The book kept in the encrypted ledger: each of the screens' records a
 /// row of JSON, written as the [Ledger] hands over each change.
 final class SqlLedgerDataSource implements LedgerDataSource {
@@ -77,10 +80,14 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     this._store, {
     this._clock = const SystemClock(),
     MarketDataGateway? market,
+    this._readPage = readPage,
   }) : _gateway = market;
 
   final RowStore _store;
   final Clock _clock;
+
+  /// How many rows are read at a time when the book opens.
+  final int _readPage;
 
   /// Where closing prices and rates come from; none in tests.
   final MarketDataGateway? _gateway;
@@ -106,13 +113,27 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
   });
 
+  /// Every row, by its shelf. A page at a time, the screen drawn between
+  /// pages: read at once, a book of 100,000 entries held the screen still
+  /// for a third of a second on a computer, longer on a phone.
+  Future<Map<String, List<StoredRow>>> _shelves() async {
+    final collections = <String, List<StoredRow>>{};
+    for (var after = 0; ;) {
+      final page = _store.rowsAfter(after, limit: _readPage);
+      for (final row in page) {
+        (collections[row.shelf] ??= []).add(row);
+      }
+      if (page.length < _readPage) break;
+      after = page.last.seq;
+      await Future<void>.delayed(Duration.zero);
+    }
+    return collections;
+  }
+
   Future<Ledger> _load() async {
     _start();
     giveCategoriesIds(_store);
-    final collections = <String, List<StoredRow>>{};
-    for (final row in _store.rows()) {
-      (collections[row.shelf] ??= []).add(row);
-    }
+    final collections = await _shelves();
     final records = [
       for (final collection in Collection.values)
         if (collection != Collection.receipt) ...?collections[collection.name],

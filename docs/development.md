@@ -20,6 +20,7 @@
 | 分析與排版 | `flutter analyze`、`dart format lib test` |
 | 網頁預覽 | `flutter run -d chrome -t lib/main_preview.dart` |
 | 截圖 | `flutter test tool/screenshots`（`SHOTS_ONLY=頁名,頁名` 只拍幾頁，`SHOTS_TEXT=200` 用 Android 最大字級），存到 `build/screenshots` |
+| 效能基準（需要時才跑） | `BENCH=1 flutter test test/perf/`：10 萬筆的寫入與開帳本、帳本運算、總覽一幀 |
 | Android 單元測試 | `cd android && ./gradlew :app:testDebugUnitTest` |
 | 本機建置 APK | `flutter build apk --release --target-platform android-arm64 --split-debug-info=build/symbols` |
 

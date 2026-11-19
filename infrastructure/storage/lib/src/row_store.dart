@@ -185,6 +185,26 @@ final class RowStore {
     ];
   }
 
+  /// At most [limit] records kept after the one numbered [after], in the
+  /// order first kept: a large book read a page at a time, so the app can
+  /// draw between pages rather than wait for the whole book at once. Pass
+  /// the last page's last [StoredRow.seq] for the next.
+  List<StoredRow> rowsAfter(int after, {int limit = 5000}) {
+    _requireOpen();
+    return [
+      for (final row in _db.select(
+        'SELECT * FROM rows WHERE seq > ? ORDER BY seq LIMIT ?',
+        [after, limit],
+      ))
+        StoredRow(
+          row['seq'] as int,
+          row['shelf'] as String,
+          row['id'] as String,
+          row['body'] as String,
+        ),
+    ];
+  }
+
   /// Applies [changes] in one transaction: all of them, or none when it
   /// throws. A write that [counts] moves [revision] on; one that does not,
   /// such as fetched prices, leaves it, so a backup is not taken for it.

@@ -39,6 +39,26 @@ void main() {
     directory.deleteSync(recursive: true);
   });
 
+  test('a book read a page at a time holds every row once, in order', () {
+    final store = open();
+    store.write((w) {
+      for (var i = 0; i < 23; i++) {
+        w.put('entry', 'e$i', '{"n":$i}');
+      }
+    });
+    final read = <String>[];
+    var after = 0;
+    for (;;) {
+      final page = store.rowsAfter(after, limit: 5);
+      if (page.isEmpty) break;
+      expect(page.length, lessThanOrEqualTo(5));
+      read.addAll(page.map((r) => r.id));
+      after = page.last.seq;
+    }
+    expect(read, [for (final r in store.rows()) r.id]);
+    expect(read, hasLength(23));
+  });
+
   test('a new store is encrypted, empty and in WAL mode', () {
     final store = open();
     expect(store.journalMode, 'wal');

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -345,4 +346,43 @@ void main() {
     final cleared = await reopen(again);
     expect(cleared.drafts.of('expense'), isNull);
   });
+
+  test(
+    'a large book opens a page at a time, the screen drawn between',
+    () async {
+      final opened = RowStore.open(file, key);
+      store = opened;
+      await SqlLedgerDataSource(opened, clock: clock()).keep(
+        WriteBatch(
+          entries: [
+            for (var i = 0; i < 1500; i++)
+              Entry(
+                id: 'e$i',
+                date: DateTime.utc(2026, 1 + i % 12, 1 + i % 28),
+                type: EntryType.expense,
+                amount: 100,
+                account: 'bank',
+                category: '飲食',
+              ),
+          ],
+        ),
+      );
+      // A frame waiting while the book opens gets its turn before the book
+      // is open, as it would not if the whole book were read in one go.
+      var drawn = 0;
+      var open = false;
+      Timer.run(() => drawn += open ? 0 : 1);
+      // Fewer rows than are decoded apart, so only the reading lets a
+      // frame in.
+      final loading = SqlLedgerDataSource(
+        opened,
+        clock: clock(),
+        readPage: 500,
+      ).load();
+      final ledger = await loading;
+      open = true;
+      expect(drawn, 1);
+      expect(ledger.entries.all, hasLength(1500));
+    },
+  );
 }
