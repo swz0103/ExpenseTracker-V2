@@ -41,7 +41,7 @@ const longerFunctions = <String, int>{
   'src/features/tags/ui/tags_page.dart::ProjectCard.build': 164,
   'src/features/accounts/compose/account_editor_state.dart::_AccountEditorState.build':
       121,
-  'src/features/recurring/ui/recurring_calendar.dart::_Calendar._dayCell': 157,
+  'src/features/recurring/ui/recurring_calendar.dart::_Calendar._dayCell': 136,
   'src/app/demo/seed_history.dart::_history': 152,
   'src/features/recurring/ui/recurring_page.dart::_RecurringPageState.build':
       150,
@@ -63,7 +63,7 @@ const longerFunctions = <String, int>{
   'src/features/budgets/ui/budgets.dart::_BudgetsPageState.build': 122,
   'src/features/investments/ui/holding_page.dart::HoldingPage.build': 122,
   'src/features/recurring/ui/recurring_calendar.dart::_DayItemsState._itemCard':
-      121,
+      96,
   'src/features/accounts/ui/account_card.dart::AccountCard.build': 115,
   'src/features/lock/ui/views/unlock_view.dart::_UnlockViewState._page': 114,
   'src/app/settings_page.dart::SettingsPage._index': 114,
@@ -112,7 +112,7 @@ const longerFunctions = <String, int>{
   'src/core/look/time_panels.dart::_TimePanelState.build': 88,
   'src/features/reports/model/report.dart::Report.of': 87,
   'src/features/reports/ui/report_habits.dart::weekdaysSection': 86,
-  'src/features/recurring/ui/recurring_rows.dart::_ItemRow.build': 86,
+  'src/features/recurring/ui/recurring_rows.dart::RecurringRow.build': 86,
   'src/features/accounts/ui/accounts.dart::_NetWorth.build': 86,
   'src/features/overview/ui/sections/plan_section.dart::PlanSection._budgetTile':
       84,

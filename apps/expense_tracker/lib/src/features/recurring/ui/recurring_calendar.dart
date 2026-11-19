@@ -81,24 +81,16 @@ class _Calendar extends StatelessWidget {
     );
   }
 
-  Widget _dayCell(BuildContext context, int d, DateTime today) {
-    final day = DateTime.utc(year, month, d);
-    final todayDay = DateTime.utc(today.year, today.month, today.day);
-    final isToday = day == todayDay;
-    final past = day.isBefore(todayDay);
-    final items = plan[d] ?? const <Due>[];
-    final allBooked = items.isNotEmpty && items.every((x) => x.settled);
-    final due = items.any((x) => !x.settled) && !day.isAfter(todayDay);
-    final single = items.length == 1 && !allBooked;
-    final (glyph, color) = single
-        ? _mark(ledger, items.first.item)
-        : (Glyph.other, Hue.muted);
-    final isChosen = d == chosen;
-    BoxDecoration? fill;
+  /// A day's fill: solid in its one item's colour on the light theme, a
+  /// deep tint of it on the dark one, as an account's card, not a pale
+  /// block; grey with several items; none without.
+  static BoxDecoration? _fillOf(
+    Color color, {
+    required bool single,
+    required bool busy,
+  }) {
     if (single) {
-      // Solid on the light theme; a deep tint of it on the dark one, as an
-      // account's card, not a pale block.
-      fill = Shade.dark
+      return Shade.dark
           ? BoxDecoration(
               borderRadius: BorderRadius.circular(Radii.medium),
               color: tintOf(color, 0.34),
@@ -111,12 +103,28 @@ class _Calendar extends StatelessWidget {
                 colors: [Color.lerp(color, Hue.onSolid, 0.15)!, color],
               ),
             );
-    } else if (items.isNotEmpty) {
-      fill = BoxDecoration(
-        color: _busyDay,
-        borderRadius: BorderRadius.circular(Radii.medium),
-      );
     }
+    if (!busy) return null;
+    return BoxDecoration(
+      color: _busyDay,
+      borderRadius: BorderRadius.circular(Radii.medium),
+    );
+  }
+
+  Widget _dayCell(BuildContext context, int d, DateTime today) {
+    final day = DateTime.utc(year, month, d);
+    final todayDay = DateTime.utc(today.year, today.month, today.day);
+    final isToday = day == todayDay;
+    final past = day.isBefore(todayDay);
+    final items = plan[d] ?? const <Due>[];
+    final allBooked = items.isNotEmpty && items.every((x) => x.settled);
+    final due = items.any((x) => !x.settled) && !day.isAfter(todayDay);
+    final single = items.length == 1 && !allBooked;
+    final (glyph, color) = single
+        ? recurringMark(ledger, items.first.item)
+        : (Glyph.other, Hue.muted);
+    final isChosen = d == chosen;
+    final fill = _fillOf(color, single: single, busy: items.isNotEmpty);
     final onColor = single ? (Shade.dark ? Hue.ink : Hue.onSolid) : Hue.ink;
     final number = Container(
       width: 24,
@@ -161,7 +169,9 @@ class _Calendar extends StatelessWidget {
               height: 6,
               margin: const EdgeInsets.symmetric(horizontal: 1.5),
               decoration: BoxDecoration(
-                color: !x.settled ? _mark(ledger, x.item).$2 : Hue.faint,
+                color: !x.settled
+                    ? recurringMark(ledger, x.item).$2
+                    : Hue.faint,
                 shape: BoxShape.circle,
               ),
             ),
@@ -347,11 +357,45 @@ class _DayItemsState extends State<_DayItems> {
     );
   }
 
+  /// The item's name over its line, read in the card's label already.
+  static Widget _itemWords(
+    String name,
+    String line,
+    Color color, {
+    required bool due,
+  }) => ExcludeSemantics(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: TextSize.body,
+            fontWeight: FontWeight.w800,
+            color: deepOf(color),
+          ),
+        ),
+        Text(
+          line,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: TextSize.caption,
+            color: due ? Hue.negative : Hue.muted,
+            fontWeight: due ? FontWeight.w800 : FontWeight.w400,
+          ),
+        ),
+      ],
+    ),
+  );
+
   Widget _itemCard(Due x, DateTime todayDay) {
     final ledger = widget.ledger;
     final item = x.item;
     final booked = x.booked;
-    final (glyph, markColor) = _mark(ledger, item);
+    final (glyph, markColor) = recurringMark(ledger, item);
     final skipped = x.skipped;
     final color = x.settled ? Hue.faint : markColor;
     final due = !x.settled && !x.day.isAfter(todayDay);
@@ -374,6 +418,7 @@ class _DayItemsState extends State<_DayItems> {
       ),
     );
     return ColorCard(
+      controlsInside: true,
       color: color,
       amount: 0.16,
       radius: Radii.large,
@@ -400,33 +445,7 @@ class _DayItemsState extends State<_DayItems> {
                   child: GlyphIcon(glyph, size: 20, color: Hue.muted),
                 ),
           const SizedBox(width: Space.s3),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: TextSize.body,
-                    fontWeight: FontWeight.w800,
-                    color: deepOf(color),
-                  ),
-                ),
-                Text(
-                  line,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: TextSize.caption,
-                    color: due ? Hue.negative : Hue.muted,
-                    fontWeight: due ? FontWeight.w800 : FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          Expanded(child: _itemWords(item.name, line, color, due: due)),
           const SizedBox(width: Space.s2),
           amount,
           if (due) ...[
@@ -514,32 +533,4 @@ class _Cell extends StatelessWidget {
       ),
     );
   }
-}
-
-/// A small rounded tag in [color]'s tint: the next date.
-class _Tag extends StatelessWidget {
-  const _Tag(this.text, {required this.color});
-
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(
-      horizontal: Space.s2,
-      vertical: Space.half,
-    ),
-    decoration: BoxDecoration(
-      color: tintOf(color, 0.22),
-      borderRadius: BorderRadius.circular(Radii.small),
-    ),
-    child: Text(
-      text,
-      style: TextStyle(
-        fontSize: TextSize.caption,
-        fontWeight: FontWeight.w800,
-        color: deepOf(color),
-      ),
-    ),
-  );
 }

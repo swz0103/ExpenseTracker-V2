@@ -424,9 +424,14 @@ class AmountHero extends StatelessWidget {
           children: [
             const SizedBox(width: 48),
             Expanded(
+              // Read as its name and the figure, 應付 0, not the unit
+              // drawn beside the figure as well.
               child: Semantics(
                 button: tap != null,
                 label: label,
+                value: value,
+                onTap: tap,
+                excludeSemantics: true,
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: tap,

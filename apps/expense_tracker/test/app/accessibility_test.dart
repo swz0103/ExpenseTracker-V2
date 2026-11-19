@@ -26,6 +26,9 @@ void main() {
       for (final words in unstyled(tester)) {
         faults.add('$name: 「$words」 has no text style');
       }
+      for (final words in readTwice(tester)) {
+        faults.add('$name: 「$words」 is read out twice');
+      }
       for (final words in unpressable(tester)) {
         faults.add('$name: 「$words」 is read as a button but cannot be pressed');
       }
@@ -40,6 +43,31 @@ void main() {
     semantics.dispose();
     expect(faults, isEmpty, reason: faults.join('\n'));
   });
+}
+
+/// Names a screen reader reads with the same words twice: a card's own
+/// label followed by the words it was made from.
+List<String> readTwice(WidgetTester tester) {
+  final found = <String>[];
+  void visit(SemanticsNode node) {
+    final parts = [
+      for (final part in node.label.split(RegExp('[\n，]')))
+        if (part.trim().length > 1) part.trim(),
+    ];
+    if (parts.toSet().length < parts.length) {
+      found.add(node.label.replaceAll('\n', ' '));
+    }
+    node.visitChildren((child) {
+      visit(child);
+      return true;
+    });
+  }
+
+  for (final view in tester.binding.renderViews) {
+    final root = view.owner?.semanticsOwner?.rootSemanticsNode;
+    if (root != null) visit(root);
+  }
+  return found;
 }
 
 /// What a screen reader calls a button but cannot press: a button whose

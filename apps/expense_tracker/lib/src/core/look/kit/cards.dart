@@ -23,6 +23,7 @@ class ColorCard extends StatelessWidget {
     this.radius = 22,
     this.amount = 0.2,
     this.label,
+    this.controlsInside = false,
   });
 
   final Color color;
@@ -35,8 +36,14 @@ class ColorCard extends StatelessWidget {
   /// How much of [color] is in the tint.
   final double amount;
 
-  /// What the screen reader says for the whole card, when it is a button.
+  /// What the screen reader says for the whole card, in place of the
+  /// words inside, so they are not read twice.
   final String? label;
+
+  /// The card holds switches or buttons of its own: with a [label], they
+  /// are still read and pressed apart, and only the words around them are
+  /// read twice.
+  final bool controlsInside;
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +61,12 @@ class ColorCard extends StatelessWidget {
                 onTap!();
               },
         onLongPress: onLongPress,
-        child: Padding(padding: padding, child: child),
+        child: Padding(
+          padding: padding,
+          child: label == null || controlsInside
+              ? child
+              : ExcludeSemantics(child: child),
+        ),
       ),
     );
     final framed = label == null

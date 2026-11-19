@@ -287,6 +287,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
 
   /// Whether what is left carries into the next month.
   Widget _carrySwitch() => ColorCard(
+    controlsInside: true,
     color: Hue.faint,
     amount: 0.15,
     radius: Radii.large,

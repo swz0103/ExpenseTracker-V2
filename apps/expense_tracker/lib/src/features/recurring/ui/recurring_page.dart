@@ -4,7 +4,6 @@ import '../../accounts/compose/account_editor.dart';
 import '../compose/recurring_editor.dart';
 import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
-import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
@@ -14,27 +13,20 @@ import '../model/recurring_schedule.dart';
 import '../model/subscriptions.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
-import '../../../core/messages/recurring_messages.dart';
 import '../../../core/look/shape.dart';
 import '../../../core/look/spacing.dart';
 import '../../../core/look/motion.dart';
 import '../../../core/text/words.dart';
+import 'recurring_rows.dart';
 
 part 'recurring_calendar.dart';
 part 'recurring_lists.dart';
-part 'recurring_rows.dart';
 
 /// The colour of 定期交易, as on 更多.
 const _recurringHue = Palette.orange;
 
 /// The grey of a day with several items, or with all of them booked.
 const _busyDay = Hue.surface;
-
-/// An item's colour and mark: its category's.
-(Glyph, Color) _mark(Ledger ledger, Recurring item) {
-  final c = ledger.category(item.category);
-  return (iconFor(c.icon), shownColor(Color(c.color)));
-}
 
 /// Adds an item, or changes [item], after making sure there is an account
 /// to book it to.

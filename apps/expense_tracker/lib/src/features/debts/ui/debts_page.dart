@@ -288,10 +288,14 @@ class _PersonSquare extends StatelessWidget {
     final oldest = owed.isEmpty ? null : owed.last.$1.date;
     final color = nameColor(person.name);
     final ink = deepOf(color);
+    final amount = ledger.orDots(groupDigits(owedFrom(ledger, person)));
+    final age = oldest == null ? '沒有欠款' : '最久 ${_days(ledger, oldest)} 天';
     return ColorCard(
       color: color,
       radius: Radii.largeIncreased,
       onTap: onTap,
+      // Read from the name on, not the initial on the round mark.
+      label: '${person.name}，欠你 $amount，$age',
       padding: const EdgeInsets.fromLTRB(
         Space.s2,
         Space.s4,
@@ -315,7 +319,7 @@ class _PersonSquare extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              ledger.orDots(groupDigits(owedFrom(ledger, person))),
+              amount,
               style: const TextStyle(
                 fontSize: TextSize.heading,
                 fontWeight: FontWeight.w800,
@@ -323,7 +327,7 @@ class _PersonSquare extends StatelessWidget {
             ),
           ),
           Text(
-            oldest == null ? '沒有欠款' : '最久 ${_days(ledger, oldest)} 天',
+            age,
             maxLines: 1,
             style: TextStyle(fontSize: TextSize.caption, color: ink),
           ),

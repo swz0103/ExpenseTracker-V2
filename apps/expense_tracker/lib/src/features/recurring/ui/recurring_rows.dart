@@ -1,10 +1,28 @@
-part of 'recurring_page.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/look/glyphs.dart';
+import '../../../core/ui/icons.dart';
+import '../../../core/look/theme.dart';
+import '../../../core/look/widgets.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/ui/entry_tile.dart';
+import '../../../core/ui/shown_amounts.dart';
+import '../../../core/messages/recurring_messages.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
+
+/// An item's colour and mark: its category's.
+(Glyph, Color) recurringMark(Ledger ledger, Recurring item) {
+  final c = ledger.category(item.category);
+  return (iconFor(c.icon), shownColor(Color(c.color)));
+}
 
 /// An item as one row in its colour: mark, name over how often and from
 /// where, the amount over a small tag with the next date (or [lines] in
 /// place of the second line, and [trailing] after it all).
-class _ItemRow extends StatelessWidget {
-  const _ItemRow({
+class RecurringRow extends StatelessWidget {
+  const RecurringRow({
+    super.key,
     required this.ledger,
     required this.item,
     required this.onTap,
@@ -22,7 +40,7 @@ class _ItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (glyph, mark) = _mark(ledger, item);
+    final (glyph, mark) = recurringMark(ledger, item);
     final color = grey ? Hue.faint : mark;
     final next = grey || lines != null
         ? ''
@@ -98,7 +116,7 @@ class _ItemRow extends StatelessWidget {
               ),
               if (next.isNotEmpty) ...[
                 const SizedBox(height: Space.half),
-                _Tag('下次 $next', color: color),
+                RecurringTag('下次 $next', color: color),
               ],
             ],
           ),
@@ -107,4 +125,32 @@ class _ItemRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A small rounded tag in [color]'s tint: the next date.
+class RecurringTag extends StatelessWidget {
+  const RecurringTag(this.text, {super.key, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: Space.s2,
+      vertical: Space.half,
+    ),
+    decoration: BoxDecoration(
+      color: tintOf(color, 0.22),
+      borderRadius: BorderRadius.circular(Radii.small),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: TextSize.caption,
+        fontWeight: FontWeight.w800,
+        color: deepOf(color),
+      ),
+    ),
+  );
 }

@@ -177,19 +177,23 @@ class TapArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tap = onTap;
+    final VoidCallback? press = tap == null
+        ? null
+        : () {
+            Haptics.selection();
+            tap();
+          };
+    // With a label, the words inside are not read again after it.
     return Semantics(
       button: true,
       enabled: tap != null,
       selected: selected,
       label: label,
+      onTap: label == null ? null : press,
+      excludeSemantics: label != null,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: tap == null
-            ? null
-            : () {
-                Haptics.selection();
-                tap();
-              },
+        onTap: press,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           child: Center(widthFactor: 1, heightFactor: 1, child: child),

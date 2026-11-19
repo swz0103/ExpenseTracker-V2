@@ -208,7 +208,8 @@ Widget? section(String? title, List<Widget> body, {Widget? trailing}) {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       if (title != null) TitleRow(title, trailing: trailing),
-      ...body,
+      // Each block read on its own, not the whole section as one breath.
+      for (final block in body) Semantics(container: true, child: block),
     ],
   );
 }

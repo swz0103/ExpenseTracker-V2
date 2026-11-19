@@ -507,6 +507,7 @@ class _BackupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final change = onChanged;
     return ColorCard(
+      controlsInside: true,
       color: color,
       padding: const EdgeInsets.fromLTRB(
         Space.s4,

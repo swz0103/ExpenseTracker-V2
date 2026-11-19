@@ -78,7 +78,7 @@ class _Manage extends StatelessWidget {
               ),
             ),
             for (final r in items) ...[
-              _ItemRow(
+              RecurringRow(
                 ledger: ledger,
                 item: r,
                 onTap: () => onEdit(item: r),
@@ -155,7 +155,7 @@ class _Subscriptions extends StatelessWidget {
                     Expanded(
                       flex: (yearly * 1000 ~/ total).clamp(1, 1000),
                       child: ColoredBox(
-                        color: _mark(ledger, item).$2,
+                        color: recurringMark(ledger, item).$2,
                         child: const SizedBox.expand(),
                       ),
                     ),
@@ -180,7 +180,7 @@ class _Subscriptions extends StatelessWidget {
             ),
           ),
           for (final (item, yearly) in rows) ...[
-            _ItemRow(
+            RecurringRow(
               ledger: ledger,
               item: item,
               onTap: () {},
@@ -235,7 +235,7 @@ class _Paused extends StatelessWidget {
               )
             else
               for (final r in paused) ...[
-                _ItemRow(
+                RecurringRow(
                   ledger: ledger,
                   item: r,
                   grey: true,

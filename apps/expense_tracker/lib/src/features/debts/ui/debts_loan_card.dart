@@ -56,9 +56,18 @@ class _LoanCard extends StatelessWidget {
     final principal = loan.principal;
     final color = nameColor(loan.name);
     final ink = deepOf(color);
+    final owed = ledger.orDots(groupDigits(owedOn(ledger, loan)));
     return ColorCard(
       color: color,
       onTap: onTap,
+      // Its name first, then what is owed, as a screen reader should say
+      // it; the ring's share last.
+      label: [
+        loan.name,
+        if (principal != null) '原借 ${ledger.orDots(groupDigits(principal))}',
+        '尚欠 $owed',
+        if (share != null) '已還 ${(share * 100).round()}%',
+      ].join('，'),
       padding: const EdgeInsets.fromLTRB(
         Space.s4,
         Space.s4,
@@ -102,7 +111,7 @@ class _LoanCard extends StatelessWidget {
                 style: TextStyle(fontSize: TextSize.caption, color: ink),
               ),
               Text(
-                ledger.orDots(groupDigits(owedOn(ledger, loan))),
+                owed,
                 style: const TextStyle(
                   fontSize: TextSize.heading,
                   fontWeight: FontWeight.w800,

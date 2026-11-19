@@ -208,6 +208,7 @@ class _OtherSheetState extends State<_OtherSheet> {
     VoidCallback onTap, {
     VoidCallback? onClear,
   }) => ColorCard(
+    controlsInside: true,
     color: Hue.faint,
     amount: 0.18,
     radius: Radii.large,
@@ -247,6 +248,7 @@ class _OtherSheetState extends State<_OtherSheet> {
     bool value,
     ValueChanged<bool> set,
   ) => ColorCard(
+    controlsInside: true,
     color: Hue.faint,
     amount: 0.18,
     radius: Radii.large,
