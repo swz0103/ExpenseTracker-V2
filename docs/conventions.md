@@ -108,7 +108,7 @@
 ## 五、提交與發版
 
 - 版號 `主.次.修`，三碼各在什麼時候變見 [ADR-0011](adr/0011-version-numbers.md)：第一碼是舊版 App 讀不了新資料或有人被留在後面（1.0 前固定 0），第二碼是使用者看得到新的或不一樣的東西，第三碼是看不到刻意的改變（修 bug、整理、效能）。每個會發布的 PR 都要升版，否則驗證失敗；升了某一碼，後面歸零；只升不降。
-- 每個版本：`pubspec.yaml` 版號、`whats_new.txt`（三行以內，給使用者看）、CHANGELOG 一節、acceptance 一節。
+- 每個版本：`pubspec.yaml` 版號、`whats_new.txt`（三行以內，給使用者看）、CHANGELOG 一節、acceptance 一節；發行前升級套件一次並記在 [development.md](development.md#套件升級)。
 - commit 訊息用英文：第一行說做了什麼，空一行後條列重點。
 - 一個 PR 一件事（一批回饋或一次整理）；PR 說明列出改了什麼、怎麼驗證。
 - 合併到 main 後 CI 自動建置、簽章、發布；App 內更新會讀到新版。

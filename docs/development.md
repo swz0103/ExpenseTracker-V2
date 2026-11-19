@@ -25,6 +25,19 @@
 
 全部模組一次檢查：在根目錄 `./tooling/run-host-checks.ps1 -Package all`（每個模組依序 pub get、格式、analyze、測試）。
 
+## 套件升級
+
+每個發行版前做一次，記在下表：
+
+1. 每個有 `pubspec.lock` 的模組跑 `pub upgrade`（只在 `pubspec.yaml` 允許的範圍內動，lockfile 會變）。
+2. 每個模組的 analyze 與測試、App 的全部檢查與截圖比對都通過才留下。
+3. `pub outdated` 裡仍升不上去的，寫下原因；主版本的升級（例如 `flutter_lints` 7）各自一個 PR，看過變更紀錄再做。
+4. 升不上去的套件數只准變少；變多要寫原因。
+
+| 日期 | 版本 | 升了什麼 | 升不上去的與原因 |
+| --- | --- | --- | --- |
+| 2026-11-19 | 0.18.0 | 全部模組的間接套件小版本：analyzer 14.7、coverage 1.16、crypto 3.0.8、native_toolchain_c 0.19.6、vm_service 15.4、shelf 1.4.3 等；直接依賴都已是最新 | 3 個：`sqlite3` 固定 3.8.0（SQLCipher 的建置設定綁這一版，`infrastructure/storage`、`vault` 一起換）；`material_color_utilities`、`test_api` 由 Flutter SDK 鎖定，跟著升 Flutter |
+
 ## 工具
 
 | 工具 | 做什麼 |
