@@ -113,10 +113,9 @@ class PickCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(Radii.large);
-    return Semantics(
-      button: true,
+    return ReadAsButton(
       label: '$label：$value',
-      excludeSemantics: true,
+      onTap: onTap,
       child: Material(
         color: Hue.group,
         borderRadius: radius,
@@ -182,10 +181,9 @@ class TransferEndCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(Radii.large);
-    return Semantics(
-      button: true,
+    return ReadAsButton(
       label: '$label：${account.name}，$after',
-      excludeSemantics: true,
+      onTap: onTap,
       child: Material(
         color: Hue.surface,
         borderRadius: radius,

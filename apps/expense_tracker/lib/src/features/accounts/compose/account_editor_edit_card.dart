@@ -69,10 +69,9 @@ class _EditCard extends StatelessWidget {
                   ),
                 ),
                 Text(kind, style: mutedSmall),
-                Semantics(
-                  button: true,
+                ReadAsButton(
                   label: '卡片顏色',
-                  excludeSemantics: true,
+                  onTap: onColor,
                   child: InkResponse(
                     onTap: onColor,
                     radius: 24,

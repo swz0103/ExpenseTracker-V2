@@ -432,6 +432,7 @@ class _KindTile extends StatelessWidget {
       selected: selected,
       inMutuallyExclusiveGroup: true,
       label: kind.label,
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         color: selected ? chosenFill(color) : tintOf(color, 0.2),

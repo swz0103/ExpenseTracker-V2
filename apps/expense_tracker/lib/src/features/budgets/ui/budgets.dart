@@ -244,10 +244,9 @@ class _MonthRow extends StatelessWidget {
     );
     return Row(
       children: [
-        Semantics(
-          button: true,
+        ReadAsButton(
           label: '$month 月，選月份',
-          excludeSemantics: true,
+          onTap: onPick,
           child: InkWell(
             onTap: onPick,
             borderRadius: BorderRadius.circular(Radii.medium),

@@ -204,11 +204,10 @@ class CategoryChoice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = shownColor(Color(category.color));
-    return Semantics(
-      button: true,
+    return ReadAsButton(
       selected: chosen,
       label: category.name,
-      excludeSemantics: true,
+      onTap: onTap,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(Radii.large),

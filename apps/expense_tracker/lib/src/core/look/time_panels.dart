@@ -241,6 +241,7 @@ class _RangePanelState extends State<_RangePanel> {
       button: !out,
       selected: inside,
       label: formatMMMd(day),
+      onTap: out ? null : () => _tap(day),
       excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,

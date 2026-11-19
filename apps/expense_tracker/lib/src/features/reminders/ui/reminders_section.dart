@@ -349,7 +349,10 @@ class _RemindersSectionState extends State<RemindersSection>
               color: color,
               amount: 0.16,
               radius: Radii.large,
-              label: '提醒時間',
+              // The time too, not only what it is for.
+              label:
+                  '提醒時間：${_two(preferences.nudgeHour)}:'
+                  '${_two(preferences.nudgeMinute)}',
               onTap: () => _pickNudgeTime(notifier),
               padding: const EdgeInsets.symmetric(vertical: Space.s4),
               child: Center(

@@ -262,13 +262,11 @@ class _WeekStrip extends StatelessWidget {
         ? Hue.faint
         : Hue.ink;
     final tap = future ? null : () => onSelect(day);
-    return Semantics(
-      button: true,
+    return ReadAsButton(
       enabled: !future,
       selected: picked,
       label: kinds.isEmpty ? formatMMMEd(day) : '${formatMMMEd(day)}，有紀錄',
       onTap: tap,
-      excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: tap,

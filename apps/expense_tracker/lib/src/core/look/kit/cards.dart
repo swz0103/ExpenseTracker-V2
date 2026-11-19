@@ -59,7 +59,12 @@ class ColorCard extends StatelessWidget {
     );
     final framed = label == null
         ? card
-        : Semantics(button: onTap != null, label: label, child: card);
+        : Semantics(
+            container: true,
+            button: onTap != null,
+            label: label,
+            child: card,
+          );
     return onTap == null ? framed : Pressable(depth: 0.98, child: framed);
   }
 }
@@ -240,11 +245,10 @@ class _BigSegment extends StatelessWidget {
         color: ink,
       ),
     );
-    return Semantics(
+    return ReadAsButton(
       selected: chosen,
-      button: true,
       label: label,
-      excludeSemantics: true,
+      onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(Radii.large),

@@ -82,6 +82,7 @@ class AmountTap extends StatelessWidget {
     return Semantics(
       button: onTap != null,
       label: label,
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         color: Colors.transparent,

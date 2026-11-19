@@ -75,12 +75,14 @@ class _MonthPickerState extends State<_MonthPicker> {
                     : share >= 90
                     ? Hue.goldText
                     : Hue.muted;
-                return Semantics(
-                  button: true,
+                final pick = on
+                    ? () => Navigator.of(context).pop((_year, m))
+                    : null;
+                return ReadAsButton(
                   selected: chosen,
                   enabled: on,
                   label: '$m 月',
-                  excludeSemantics: true,
+                  onTap: pick,
                   child: Material(
                     color: chosen ? Hue.selected : Hue.surface,
                     shape: RoundedRectangleBorder(
@@ -91,9 +93,7 @@ class _MonthPickerState extends State<_MonthPicker> {
                     ),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(Radii.large),
-                      onTap: on
-                          ? () => Navigator.of(context).pop((_year, m))
-                          : null,
+                      onTap: pick,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: Space.s2),
                         child: Column(

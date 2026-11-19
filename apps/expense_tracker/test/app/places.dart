@@ -8,6 +8,7 @@ import 'package:expense_tracker/src/core/look/theme.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/settings/model/platform_services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -29,7 +30,9 @@ Future<void> loadFonts() async {
   }
 }
 
-/// The places and how to reach them; `~` taps a button by its tooltip.
+/// The places and how to reach them, each step what a screen reader calls
+/// the thing to press ([go]); a card that also holds a switch named as it
+/// is is reached by its own words, so the switch is not pressed instead.
 const places = <(String, List<String>)>[
   ('總覽', []),
   ('紀錄', ['紀錄']),
@@ -76,10 +79,10 @@ const places = <(String, List<String>)>[
   ('匯入 CSV', ['更多', '設定', '匯入與匯出', 'CSV 檔案']),
   ('關於', ['更多', '設定', '關於']),
   ('通知與提醒', ['更多', '設定', '通知與提醒']),
-  ('到期提醒', ['更多', '設定', '通知與提醒', '到期提醒']),
-  ('預算提醒', ['更多', '設定', '通知與提醒', '預算提醒']),
-  ('每日記帳', ['更多', '設定', '通知與提醒', '每日記帳']),
-  ('選提醒時間', ['更多', '設定', '通知與提醒', '每日記帳', '21 : 00']),
+  ('到期提醒', ['更多', '設定', '通知與提醒', '信用卡、定期交易']),
+  ('預算提醒', ['更多', '設定', '通知與提醒', '用到幾成時']),
+  ('每日記帳', ['更多', '設定', '通知與提醒', '每天 21:00']),
+  ('選提醒時間', ['更多', '設定', '通知與提醒', '每天 21:00', '@提醒時間']),
   ('安全', ['更多', '設定', '安全']),
   ('外觀與操作', ['更多', '設定', '外觀與操作']),
   ('外觀', ['更多', '設定', '外觀與操作', '外觀']),
@@ -152,29 +155,63 @@ Future<void> show(
   await tester.pumpAndSettle();
 }
 
-/// Taps [taps] in turn: words on the screen, a button's tooltip after
-/// `~`, or what a screen reader calls it after `@`; after `^`, the one
-/// on top.
+/// Goes through [taps] as a screen reader user would: each step is what
+/// a screen reader calls the thing to press, and pressing it is the
+/// screen reader's own tap, so a place a screen reader cannot reach
+/// fails here. `@` before the words is the same, kept for paths written
+/// so; `~` presses a button by its tooltip instead; `^` takes the last
+/// one found, as a sheet over a page that holds the same words.
 Future<void> go(WidgetTester tester, List<String> taps) async {
+  final semantics = tester.ensureSemantics();
+  try {
+    await _go(tester, taps);
+  } finally {
+    semantics.dispose();
+  }
+}
+
+/// The node a screen reader calls [words] and can press: named so
+/// exactly, or with a name that starts with them (a card read out with
+/// its figures), or failing both one that holds them (a row read out
+/// with what it is about first). Words that only head a group cannot be
+/// pressed, and so are passed over.
+SemanticsNode? _named(String words, {required bool last}) {
+  final quoted = RegExp.escape(words);
+  for (final name in [
+    RegExp('^$quoted\$'),
+    RegExp('^$quoted'),
+    RegExp(quoted),
+  ]) {
+    final found = find.semantics
+        .byPredicate(
+          (node) =>
+              !node.isMergedIntoParent &&
+              name.hasMatch(node.label) &&
+              node.getSemanticsData().hasAction(SemanticsAction.tap),
+        )
+        .evaluate()
+        .toList();
+    if (found.isNotEmpty) return last ? found.last : found.first;
+  }
+  return null;
+}
+
+Future<void> _go(WidgetTester tester, List<String> taps) async {
   for (final step in taps) {
-    // `^` taps the words on top, as on a sheet over a page that has the
-    // same words.
-    final top = step.startsWith('^');
-    final words = top ? step.substring(1) : step;
-    var finder = words.startsWith('~')
-        ? find.byTooltip(words.substring(1))
-        : words.startsWith('@')
-        // A label read out with the words inside starts with its own.
-        ? find.bySemanticsLabel(RegExp('^${RegExp.escape(words.substring(1))}'))
-        : find.text(words);
-    if (finder.evaluate().isEmpty) finder = find.textContaining(words);
-    expect(finder, findsWidgets, reason: 'no 「$words」 to tap');
-    final target = top ? finder.last : finder.first;
-    // Below the fold on a short screen: scrolled to first, or the tap
-    // would land on nothing and the place never open.
-    await tester.ensureVisible(target);
-    await tester.pumpAndSettle();
-    await tester.tap(target, warnIfMissed: false);
+    final last = step.startsWith('^');
+    final words = last ? step.substring(1) : step;
+    if (words.startsWith('~')) {
+      final button = find.byTooltip(words.substring(1));
+      expect(button, findsWidgets, reason: 'no button 「$words」');
+      await tester.ensureVisible(button.first);
+      await tester.pumpAndSettle();
+      await tester.tap(button.first, warnIfMissed: false);
+    } else {
+      final read = words.startsWith('@') ? words.substring(1) : words;
+      final node = _named(read, last: last);
+      expect(node, isNotNull, reason: 'no 「$read」 a screen reader can press');
+      tester.semantics.tap(find.semantics.byPredicate((n) => n == node));
+    }
     await tester.pumpAndSettle();
   }
 }

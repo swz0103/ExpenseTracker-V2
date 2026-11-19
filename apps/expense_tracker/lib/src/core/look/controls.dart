@@ -114,6 +114,48 @@ class _PressableState extends State<Pressable> {
   }
 }
 
+/// [child], a card or a chip with words and figures in it, read out by a
+/// screen reader as one button called [label], and pressed with [onTap]:
+/// the words inside are left out, so they are not read twice. [onTap] is
+/// asked for, the button's own: leaving the words out leaves out the tap
+/// under them too, and a screen reader would find nothing to press
+/// (`accessibility_test`). Null while it cannot be pressed.
+class ReadAsButton extends StatelessWidget {
+  const ReadAsButton({
+    super.key,
+    required this.label,
+    required this.onTap,
+    required this.child,
+    this.selected,
+    this.toggled,
+    this.enabled,
+    this.value,
+  });
+
+  final String label;
+  final VoidCallback? onTap;
+  final Widget child;
+  final bool? selected;
+  final bool? toggled;
+  final bool? enabled;
+
+  /// What it holds now, such as the amount, read after [label].
+  final String? value;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: label,
+    value: value,
+    selected: selected,
+    toggled: toggled,
+    enabled: enabled,
+    onTap: onTap,
+    excludeSemantics: true,
+    child: child,
+  );
+}
+
 /// A small control with a 48 dp target around it: [child] keeps its look,
 /// the finger and the screen reader get the larger area and a [label].
 class TapArea extends StatelessWidget {

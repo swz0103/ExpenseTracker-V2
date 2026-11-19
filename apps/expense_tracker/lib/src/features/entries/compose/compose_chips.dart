@@ -316,11 +316,10 @@ class OwedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(Radii.large);
-    return Semantics(
-      button: true,
+    return ReadAsButton(
       selected: picked,
       label: '$title，$when，$amount',
-      excludeSemantics: true,
+      onTap: onTap,
       child: Material(
         color: picked ? color.withValues(alpha: 0.12) : Hue.surface,
         shape: RoundedRectangleBorder(

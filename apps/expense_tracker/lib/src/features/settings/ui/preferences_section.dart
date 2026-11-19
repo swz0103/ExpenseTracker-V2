@@ -167,11 +167,10 @@ class _LookChoice extends StatelessWidget {
       ),
     };
     const color = SettingsHue.appearance;
-    return Semantics(
-      button: true,
+    return ReadAsButton(
       selected: chosen,
       label: look.label,
-      excludeSemantics: true,
+      onTap: onTap,
       child: GestureDetector(
         onTap: onTap,
         child: Column(
@@ -284,11 +283,10 @@ class _WidgetChoice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const color = SettingsHue.widget;
-    return Semantics(
-      button: true,
+    return ReadAsButton(
       selected: chosen,
       label: label,
-      excludeSemantics: true,
+      onTap: onTap,
       child: Material(
         color: tintOf(color, chosen ? 0.2 : 0.1),
         shape: RoundedRectangleBorder(

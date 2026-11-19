@@ -123,22 +123,22 @@ class ToggleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final change = onChanged;
-    return Semantics(
+    final VoidCallback? tap = change == null
+        ? null
+        : () {
+            Haptics.selection();
+            change(!value);
+          };
+    return ReadAsButton(
       toggled: value,
       label: label,
-      button: true,
-      excludeSemantics: true,
+      onTap: tap,
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(radius),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: change == null
-              ? null
-              : () {
-                  Haptics.selection();
-                  change(!value);
-                },
+          onTap: tap,
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 48),
             child: child,

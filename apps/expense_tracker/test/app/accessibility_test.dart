@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+
+import 'dart:ui' show Tristate;
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'places.dart';
@@ -22,6 +26,9 @@ void main() {
       for (final words in unstyled(tester)) {
         faults.add('$name: 「$words」 has no text style');
       }
+      for (final words in unpressable(tester)) {
+        faults.add('$name: 「$words」 is read as a button but cannot be pressed');
+      }
       for (final guideline in [
         androidTapTargetGuideline,
         labeledTapTargetGuideline,
@@ -33,6 +40,32 @@ void main() {
     semantics.dispose();
     expect(faults, isEmpty, reason: faults.join('\n'));
   });
+}
+
+/// What a screen reader calls a button but cannot press: a button whose
+/// own tap was left out with the words under it (`excludeSemantics`),
+/// so double-tapping it with TalkBack does nothing.
+List<String> unpressable(WidgetTester tester) {
+  final found = <String>[];
+  void visit(SemanticsNode node) {
+    final data = node.getSemanticsData();
+    if (data.flagsCollection.isButton &&
+        data.flagsCollection.isEnabled != Tristate.isFalse &&
+        !data.hasAction(SemanticsAction.tap) &&
+        !node.isMergedIntoParent) {
+      found.add(data.label.replaceAll('\n', ' '));
+    }
+    node.visitChildren((child) {
+      visit(child);
+      return true;
+    });
+  }
+
+  for (final view in tester.binding.renderViews) {
+    final root = view.owner?.semanticsOwner?.rootSemanticsNode;
+    if (root != null) visit(root);
+  }
+  return found;
 }
 
 /// The words on screen drawn in the style Flutter gives text with no

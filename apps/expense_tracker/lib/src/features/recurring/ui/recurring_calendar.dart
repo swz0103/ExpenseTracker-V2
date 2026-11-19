@@ -170,13 +170,12 @@ class _Calendar extends StatelessWidget {
     } else {
       slot = const SizedBox();
     }
-    return Semantics(
-      button: true,
+    return ReadAsButton(
       selected: isChosen,
       label:
           '$month 月 $d 日'
           '${items.isEmpty ? '' : '，${items.length} 筆${due ? '，到期' : ''}'}',
-      excludeSemantics: true,
+      onTap: () => onPick(d),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => onPick(d),

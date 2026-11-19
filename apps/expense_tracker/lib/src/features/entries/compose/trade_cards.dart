@@ -56,10 +56,9 @@ class TradeFigureCard extends StatelessWidget {
         ),
       ),
     );
-    return Semantics(
-      button: true,
+    return ReadAsButton(
       label: '$label：$value',
-      excludeSemantics: true,
+      onTap: onTap,
       child: Material(
         color: Hue.group,
         shape: RoundedRectangleBorder(
@@ -130,6 +129,7 @@ class SettlementBox extends StatelessWidget {
     return Semantics(
       button: tap != null,
       label: '$label：$value',
+      onTap: tap,
       excludeSemantics: true,
       child: Material(
         color: tap == null ? Hue.surface : Hue.white,

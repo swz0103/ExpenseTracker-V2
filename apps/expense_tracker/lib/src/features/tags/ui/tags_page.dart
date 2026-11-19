@@ -271,11 +271,10 @@ class _Half extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ink = chosen ? chosenInk(color) : deepOf(color);
-    return Semantics(
+    return ReadAsButton(
       selected: chosen,
-      button: true,
       label: '$label $count 個',
-      excludeSemantics: true,
+      onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(Radii.large),
@@ -341,10 +340,9 @@ class _Step extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ink = deepOf(color);
-    return Semantics(
-      button: true,
+    return ReadAsButton(
       label: '$name，去過 $count 次',
-      excludeSemantics: true,
+      onTap: onTap,
       child: GestureDetector(
         onTap: onTap,
         child: Column(

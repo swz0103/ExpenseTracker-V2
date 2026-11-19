@@ -422,6 +422,7 @@ class _Half extends StatelessWidget {
     return Semantics(
       button: onTap != null,
       label: '記$label',
+      onTap: onTap,
       excludeSemantics: true,
       child: GestureDetector(
         onTap: onTap,
@@ -464,6 +465,7 @@ class _Round extends StatelessWidget {
     return Semantics(
       button: onTap != null,
       label: label,
+      onTap: onTap,
       excludeSemantics: true,
       child: GestureDetector(
         onTap: onTap,

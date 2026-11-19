@@ -164,10 +164,9 @@ class ToolButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
+    return ReadAsButton(
       label: '$label，$detail',
-      excludeSemantics: true,
+      onTap: onTap,
       child: Pressable(
         child: InkWell(
           key: Keys.tool(label),
