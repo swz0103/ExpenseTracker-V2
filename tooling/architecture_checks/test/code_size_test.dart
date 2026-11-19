@@ -55,7 +55,7 @@ const longerFunctions = <String, int>{
       133,
   'src/core/charts/flow_chart.dart::_FlowPainter.paint': 131,
   'src/features/accounts/ui/account_page.dart::_AccountBodyState.build': 124,
-  'src/core/ui/balance_hero.dart::BalanceHero.build': 123,
+  'src/core/ui/balance_hero.dart::BalanceHero.build': 85,
   'src/features/lock/ui/views/welcome_view.dart::_WelcomeViewState._foundChoices':
       123,
   'src/features/reports/ui/compare_section.dart::_CompareSectionState.build':
@@ -64,7 +64,6 @@ const longerFunctions = <String, int>{
   'src/features/investments/ui/holding_page.dart::HoldingPage.build': 122,
   'src/features/recurring/ui/recurring_calendar.dart::_DayItemsState._itemCard':
       121,
-  'src/features/investments/ui/investments_hero.dart::_InvestHero.build': 120,
   'src/features/accounts/ui/account_card.dart::AccountCard.build': 115,
   'src/features/lock/ui/views/unlock_view.dart::_UnlockViewState._page': 114,
   'src/app/settings_page.dart::SettingsPage._index': 114,

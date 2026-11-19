@@ -25,6 +25,29 @@ class _ReturnsState extends State<_Returns> {
     Palette.olive,
   ];
 
+  /// The months under the bars, the picked one bold.
+  Widget _monthLabels(List<DateTime> months, int picked) => Row(
+    children: [
+      for (final (k, m) in months.indexed)
+        // A twelfth of the width: two digits shrink a little with
+        // the phone's largest text rather than wrap.
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              '${m.month}',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: TextSize.caption,
+                fontWeight: k == picked ? FontWeight.w800 : null,
+                color: k == picked ? Hue.ink : Hue.muted,
+              ),
+            ),
+          ),
+        ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
@@ -155,22 +178,7 @@ class _ReturnsState extends State<_Returns> {
           ),
         ),
         const SizedBox(height: Space.s1),
-        Row(
-          children: [
-            for (final (k, m) in months.indexed)
-              Expanded(
-                child: Text(
-                  '${m.month}',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: TextSize.caption,
-                    fontWeight: k == picked ? FontWeight.w800 : null,
-                    color: k == picked ? Hue.ink : Hue.muted,
-                  ),
-                ),
-              ),
-          ],
-        ),
+        _monthLabels(months, picked),
         const SizedBox(height: Space.s2),
         Wrap(
           spacing: 14,

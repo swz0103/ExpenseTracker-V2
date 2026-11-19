@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../test/app/android_text_scale.dart';
 import '../../test/app/places.dart';
 
 /// A picture of every page in test/app/places.dart, light and dark, on a
@@ -16,13 +17,15 @@ import '../../test/app/places.dart';
 ///     flutter test tool/screenshots
 ///
 /// `SHOTS_ONLY` takes the names of the pages to draw, comma-separated;
-/// `SHOTS_HEIGHT` a taller page, to see all of it.
+/// `SHOTS_HEIGHT` a taller page, to see all of it; `SHOTS_TEXT=200` the
+/// words at Android's largest text size.
 void main() {
   setUpAll(loadFonts);
   final out = Directory(
     Platform.environment['SHOTS_OUT'] ?? 'build/screenshots',
   )..createSync(recursive: true);
   final only = Platform.environment['SHOTS_ONLY']?.split(',').toSet();
+  final largest = Platform.environment['SHOTS_TEXT'] == '200';
   for (final (i, (name, taps)) in places.indexed) {
     if (only != null && !only.contains(name)) continue;
     for (final dark in [false, true]) {
@@ -34,7 +37,14 @@ void main() {
         final height = double.tryParse(
           Platform.environment['SHOTS_HEIGHT'] ?? '',
         );
-        await show(tester, 360, 1, height: height ?? 800, key: key);
+        await show(
+          tester,
+          360,
+          largest ? 2 : 1,
+          height: height ?? 800,
+          key: key,
+          scaler: largest ? const AndroidTextScaler200() : null,
+        );
         await go(tester, taps);
         await tester.runAsync(() async {
           final box =

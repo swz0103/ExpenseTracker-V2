@@ -19,7 +19,7 @@
 | 只看版面 | `flutter test test/app/layout_common_test.dart` |
 | 分析與排版 | `flutter analyze`、`dart format lib test` |
 | 網頁預覽 | `flutter run -d chrome -t lib/main_preview.dart` |
-| 截圖 | `flutter test tool/screenshots`（`SHOTS_ONLY=頁名,頁名` 只拍幾頁），存到 `build/screenshots` |
+| 截圖 | `flutter test tool/screenshots`（`SHOTS_ONLY=頁名,頁名` 只拍幾頁，`SHOTS_TEXT=200` 用 Android 最大字級），存到 `build/screenshots` |
 | Android 單元測試 | `cd android && ./gradlew :app:testDebugUnitTest` |
 | 本機建置 APK | `flutter build apk --release --target-platform android-arm64 --split-debug-info=build/symbols` |
 

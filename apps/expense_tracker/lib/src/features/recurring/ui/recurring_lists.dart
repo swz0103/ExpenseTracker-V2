@@ -65,13 +65,7 @@ class _Manage extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Text(
-                    income ? '收入' : '支出',
-                    style: const TextStyle(
-                      fontSize: TextSize.title,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+                  Text(income ? '收入' : '支出', style: _sectionTitle),
                   const Spacer(),
                   Text(
                     '${items.length} 項 · 每月 ${ledger.orDots(groupDigits(monthly))}',
@@ -174,14 +168,8 @@ class _Subscriptions extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text(
-                  '每一項一年多少',
-                  style: TextStyle(
-                    fontSize: TextSize.title,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Spacer(),
+                Expanded(child: Text('每一項一年多少', style: _sectionTitle)),
+                SizedBox(width: Space.s2),
                 Text('依金額', style: mutedSmall),
               ],
             ),
@@ -272,3 +260,9 @@ class _Paused extends StatelessWidget {
     );
   }
 }
+
+/// A heading over a group of items, such as 支出 or 每一項一年多少.
+const _sectionTitle = TextStyle(
+  fontSize: TextSize.title,
+  fontWeight: FontWeight.w800,
+);

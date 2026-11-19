@@ -295,10 +295,13 @@ class DayHeading extends StatelessWidget {
     final sum = total;
     return Padding(
       padding: const EdgeInsets.only(top: Space.s4, bottom: Space.s1),
-      child: Row(
+      // At the two ends, or the total under the day when both do not
+      // fit, as with the phone's largest text.
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        runSpacing: Space.half,
         children: [
           Text(formatMMMEd(date), style: mutedSmall),
-          const Spacer(),
           if (sum != null) Text(sum, style: mutedSmall),
         ],
       ),

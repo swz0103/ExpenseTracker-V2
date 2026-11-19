@@ -168,8 +168,10 @@ class _MarketSectionState extends State<MarketSection> {
                     )
                   : const SizedBox.shrink(),
             ),
+            // As wide on every row, so the bars share one axis, and wider
+            // with the phone's text, so the amount stays on one line.
             SizedBox(
-              width: 50,
+              width: 50 * textGrowth(context),
               child: Text(
                 quoted ? widget.ledger.moneySigned(h.change) : '—',
                 textAlign: TextAlign.end,

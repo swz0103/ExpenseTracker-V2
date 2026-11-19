@@ -233,7 +233,8 @@ class LegendKey extends StatelessWidget {
           ),
         ),
         const SizedBox(width: Space.s1),
-        Text(label, style: mutedSmall),
+        // Wraps under itself rather than running past a narrow line.
+        Flexible(child: Text(label, style: mutedSmall)),
       ],
     );
   }

@@ -33,6 +33,28 @@ class TradeFigureCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(Radii.large);
+    final mark = SquareIcon(icon, Hue.accent, size: 30);
+    const gap = SizedBox(width: Space.s2);
+    final name = Text(
+      label,
+      style: const TextStyle(
+        fontSize: TextSize.caption,
+        fontWeight: FontWeight.w700,
+        color: Hue.muted,
+      ),
+    );
+    final figure = FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerRight,
+      child: Text(
+        value,
+        style: const TextStyle(
+          fontSize: TextSize.large,
+          fontWeight: FontWeight.w700,
+          color: Hue.ink,
+        ),
+      ),
+    );
     return Semantics(
       button: true,
       label: '$label：$value',
@@ -52,35 +74,37 @@ class TradeFigureCard extends StatelessWidget {
             constraints: const BoxConstraints(minHeight: 52),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: Space.s3),
-              child: Row(
-                children: [
-                  SquareIcon(icon, Hue.accent, size: 30),
-                  const SizedBox(width: Space.s2),
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: TextSize.caption,
-                      fontWeight: FontWeight.w700,
-                      color: Hue.muted,
-                    ),
-                  ),
-                  const SizedBox(width: Space.s1),
-                  Expanded(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        value,
-                        style: const TextStyle(
-                          fontSize: TextSize.large,
-                          fontWeight: FontWeight.w700,
-                          color: Hue.ink,
-                        ),
+              // With the phone's largest text the figure goes under its
+              // name, where it has the card's whole width.
+              child: textGrowth(context) > 1.6
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: Space.s2),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              mark,
+                              gap,
+                              Flexible(child: name),
+                            ],
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: figure,
+                          ),
+                        ],
                       ),
+                    )
+                  : Row(
+                      children: [
+                        mark,
+                        gap,
+                        name,
+                        const SizedBox(width: Space.s1),
+                        Expanded(child: figure),
+                      ],
                     ),
-                  ),
-                ],
-              ),
             ),
           ),
         ),

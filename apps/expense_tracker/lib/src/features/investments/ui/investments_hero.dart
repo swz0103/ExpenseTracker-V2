@@ -16,44 +16,26 @@ class _InvestHero extends StatelessWidget {
     final day = ledger.holdings.dayChange;
     final before = value - day;
     final rate = returnOf(ledger);
-    Widget column(String label, String figure, Color color, String sub) =>
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.s2),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                OneLine(
-                  label,
-                  style: const TextStyle(
-                    fontSize: TextSize.caption,
-                    color: Hue.muted,
-                  ),
-                ),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    figure,
-                    style: TextStyle(
-                      fontSize: TextSize.title,
-                      fontWeight: FontWeight.w800,
-                      color: color,
-                    ),
-                  ),
-                ),
-                OneLine(
-                  sub,
-                  style: const TextStyle(
-                    fontSize: TextSize.caption,
-                    color: Hue.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-    const rule = VerticalDivider(width: 1, thickness: 1, color: Hue.accentRule);
+    final figures = [
+      _HeroFigure(
+        '未實現',
+        ledger.orDots(signed(gain)),
+        gain < 0 ? Hue.negative : Hue.positive,
+        percentOf(gain, cost),
+      ),
+      _HeroFigure(
+        '已實現',
+        ledger.orDots(signed(ledger.holdings.realizedGain)),
+        ledger.holdings.realizedGain < 0 ? Hue.negative : Hue.positive,
+        '已賣出',
+      ),
+      _HeroFigure(
+        '年化',
+        rate == null ? '—' : yearlyRate(rate),
+        rate == null || rate >= 0 ? Hue.positive : Hue.negative,
+        rate == null ? '資料不足' : '含股息',
+      ),
+    ];
     return HeroCard(
       padding: const EdgeInsets.fromLTRB(
         Space.s4,
@@ -96,35 +78,80 @@ class _InvestHero extends StatelessWidget {
             ],
           ),
           const Divider(height: 24, color: Hue.accentRule),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                column(
-                  '未實現',
-                  ledger.orDots(signed(gain)),
-                  gain < 0 ? Hue.negative : Hue.positive,
-                  percentOf(gain, cost),
-                ),
-                rule,
-                column(
-                  '已實現',
-                  ledger.orDots(signed(ledger.holdings.realizedGain)),
-                  ledger.holdings.realizedGain < 0
-                      ? Hue.negative
-                      : Hue.positive,
-                  '已賣出',
-                ),
-                rule,
-                column(
-                  '年化',
-                  rate == null ? '—' : yearlyRate(rate),
-                  rate == null || rate >= 0 ? Hue.positive : Hue.negative,
-                  rate == null ? '資料不足' : '含股息',
-                ),
-              ],
+          _HeroFigures(figures),
+        ],
+      ),
+    );
+  }
+}
+
+/// One of the hero's three figures: a label, the figure and one short line.
+class _HeroFigure extends StatelessWidget {
+  const _HeroFigure(this.label, this.figure, this.color, this.sub);
+
+  final String label;
+  final String figure;
+  final Color color;
+  final String sub;
+
+  @override
+  Widget build(BuildContext context) {
+    const note = TextStyle(fontSize: TextSize.caption, color: Hue.muted);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Space.s2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          OneLine(label, style: note),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              figure,
+              style: TextStyle(
+                fontSize: TextSize.title,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
             ),
           ),
+          OneLine(sub, style: note),
+        ],
+      ),
+    );
+  }
+}
+
+/// The hero's figures as even columns with thin lines between; with the
+/// phone's largest text one under another, each with the card's whole
+/// width, rather than shrunk to fit a third.
+class _HeroFigures extends StatelessWidget {
+  const _HeroFigures(this.figures);
+
+  final List<Widget> figures;
+
+  @override
+  Widget build(BuildContext context) {
+    if (textGrowth(context) > 1.6) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (i, figure) in figures.indexed) ...[
+            if (i > 0) const Divider(height: 16, color: Hue.accentRule),
+            figure,
+          ],
+        ],
+      );
+    }
+    const rule = VerticalDivider(width: 1, thickness: 1, color: Hue.accentRule);
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (i, figure) in figures.indexed) ...[
+            if (i > 0) rule,
+            Expanded(child: figure),
+          ],
         ],
       ),
     );

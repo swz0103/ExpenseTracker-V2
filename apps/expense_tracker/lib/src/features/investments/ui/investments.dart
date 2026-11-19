@@ -276,11 +276,13 @@ class _Chip extends StatelessWidget {
             ),
             const SizedBox(width: Space.s2),
           ],
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: TextSize.body,
-              fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: TextSize.body,
+                fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+              ),
             ),
           ),
         ],

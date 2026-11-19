@@ -97,9 +97,9 @@ class _DayChoicesState extends State<DayChoices> {
       child: SizedBox(
         height: 48,
         child: Center(
+          // At least 40 across, and taller with the phone's largest text.
           child: Container(
-            width: 40,
-            height: 40,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             decoration: BoxDecoration(
               color: picked ? chosenFill(widget.color) : null,
               shape: BoxShape.circle,
@@ -108,6 +108,7 @@ class _DayChoicesState extends State<DayChoices> {
                   : null,
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(

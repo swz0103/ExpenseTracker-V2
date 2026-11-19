@@ -262,13 +262,18 @@ class _BudgetEditorState extends State<_BudgetEditor> {
               onTap: () => setState(() => _warning = p),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(minHeight: 48),
+                // Shrinks a little with the phone's largest text, so 100%
+                // stays on one line.
                 child: Center(
-                  child: Text(
-                    '$p%',
-                    style: TextStyle(
-                      fontSize: TextSize.title,
-                      fontWeight: FontWeight.w800,
-                      color: p == _warning ? Hue.onAccent : Hue.ink,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      '$p%',
+                      style: TextStyle(
+                        fontSize: TextSize.title,
+                        fontWeight: FontWeight.w800,
+                        color: p == _warning ? Hue.onAccent : Hue.ink,
+                      ),
                     ),
                   ),
                 ),

@@ -298,12 +298,17 @@ class _CalculatorState extends State<_Calculator> {
           child: Center(
             child: key == '⌫'
                 ? const GlyphIcon(Glyph.backspace, size: 24, color: Hue.accent)
-                : Text(
-                    key,
-                    style: TextStyle(
-                      fontSize: done ? 16 : 24,
-                      fontWeight: done ? FontWeight.w700 : FontWeight.w500,
-                      color: ink,
+                // 000 on a narrow phone with its largest text shrinks a
+                // little rather than wraps.
+                : FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      key,
+                      style: TextStyle(
+                        fontSize: done ? 16 : TextSize.large,
+                        fontWeight: done ? FontWeight.w700 : FontWeight.w500,
+                        color: ink,
+                      ),
                     ),
                   ),
           ),

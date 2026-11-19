@@ -62,27 +62,6 @@ class BalanceHero extends StatelessWidget {
     int share(int v) => total == 0
         ? 1
         : max(1, (max(v / total, v == 0 ? 0 : 0.06) * 1000).round());
-    Widget end(String name, String value, Color color, CrossAxisAlignment at) =>
-        Column(
-          crossAxisAlignment: at,
-          children: [
-            Text(
-              name,
-              style: const TextStyle(
-                fontSize: TextSize.caption,
-                color: Hue.muted,
-              ),
-            ),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: TextSize.title,
-                fontWeight: FontWeight.w800,
-                color: color,
-              ),
-            ),
-          ],
-        );
     return HeroCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -149,32 +128,78 @@ class BalanceHero extends StatelessWidget {
             ),
           ),
           const SizedBox(height: Space.s2),
-          Row(
-            children: [
-              Expanded(
-                child: end(
-                  '收入',
-                  ledger.money(income),
-                  Hue.positive,
-                  CrossAxisAlignment.start,
-                ),
-              ),
-              if (middle case (final name, final value))
-                Expanded(
-                  child: end(name, value, Hue.ink, CrossAxisAlignment.center),
-                ),
-              Expanded(
-                child: end(
-                  '支出',
-                  ledger.money(expense),
-                  Hue.negative,
-                  CrossAxisAlignment.end,
-                ),
-              ),
+          _Ends(
+            ends: [
+              ('收入', ledger.money(income), Hue.positive),
+              if (middle case (final name, final value)) (name, value, Hue.ink),
+              ('支出', ledger.money(expense), Hue.negative),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 收入 at the left and 支出 at the right, each its name over its
+/// figure, with a third figure between when there is one; one under
+/// another, each name and figure on a line, when a figure would not fit
+/// its third, as with large text on a narrow phone, rather than broken
+/// over two lines.
+class _Ends extends StatelessWidget {
+  const _Ends({required this.ends});
+
+  final List<(String, String, Color)> ends;
+
+  static const _name = TextStyle(fontSize: TextSize.caption, color: Hue.muted);
+
+  static TextStyle _figure(Color color) => TextStyle(
+    fontSize: TextSize.title,
+    fontWeight: FontWeight.w800,
+    color: color,
+  );
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final each = box.maxWidth / ends.length;
+      final fit = ends.every(
+        (end) => wordsWidth(context, end.$2, _figure(end.$3)) <= each,
+      );
+      return fit ? _side() : _stacked();
+    },
+  );
+
+  Widget _stacked() => Column(
+    children: [
+      for (final (name, value, color) in ends)
+        Row(
+          children: [
+            Expanded(child: Text(name, style: _name)),
+            Text(value, style: _figure(color)),
+          ],
+        ),
+    ],
+  );
+
+  Widget _side() {
+    return Row(
+      children: [
+        for (final (i, (name, value, color)) in ends.indexed)
+          Expanded(
+            child: Column(
+              crossAxisAlignment: i == 0
+                  ? CrossAxisAlignment.start
+                  : i == ends.length - 1
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.center,
+              children: [
+                Text(name, style: _name),
+                Text(value, style: _figure(color)),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

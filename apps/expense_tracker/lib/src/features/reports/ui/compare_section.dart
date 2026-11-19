@@ -351,9 +351,14 @@ class _MovedChip extends StatelessWidget {
         children: [
           SquareIcon(iconFor(category.icon), color, size: 28),
           const SizedBox(width: Space.s2),
-          Text(
-            category.name,
-            style: TextStyle(fontWeight: FontWeight.w800, color: deepOf(color)),
+          Flexible(
+            child: Text(
+              category.name,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: deepOf(color),
+              ),
+            ),
           ),
           const SizedBox(width: Space.s2),
           Text(

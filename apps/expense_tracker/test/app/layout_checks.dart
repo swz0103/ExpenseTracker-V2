@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'android_text_scale.dart';
 import 'places.dart';
 
 /// Every page and tab, the panels in the middle of the screen and each
 /// page of 記一筆, on a small phone (320 dp), a common one (360 dp) and a
-/// large one (412 dp), with the text at 100%, 130% and 150%, and in dark
+/// large one (412 dp), with the text at 100%, 130% and 150%, and at
+/// Android's own 200% (AndroidTextScaler200), and in dark
 /// at 360 dp: nothing overflows, no words are drawn over other words, and
 /// none are shrunk to fit below six tenths of their size. Words
 /// running into each other, or a block too small for what it holds, is
@@ -15,13 +17,20 @@ import 'places.dart';
 ///
 /// Each width is a file of its own (layout_*_test.dart), so the three
 /// run side by side.
-void layoutTests(double width, {List<bool> dark = const [false]}) {
+void layoutTests(
+  double width, {
+  List<bool> dark = const [false],
+  List<double> texts = const [1.0, 1.3, 1.5],
+  bool android200 = true,
+}) {
   setUpAll(loadFonts);
 
   for (final (text, dark) in [
     for (final dark in dark)
-      for (final text in const [1.0, 1.3, 1.5])
+      for (final text in texts)
         if (!dark || text != 1.3) (text, dark),
+    // Android's own 200%, the largest the phone offers.
+    if (android200) (2.0, false),
   ]) {
     testWidgets('${width.toInt()} dp, text ${(text * 100).round()}%'
         '${dark ? ', dark' : ''}: '
@@ -30,7 +39,12 @@ void layoutTests(double width, {List<bool> dark = const [false]}) {
       addTearDown(() => Shade.dark = false);
       final faults = <String>[];
       for (final (name, taps) in places) {
-        await show(tester, width, text);
+        await show(
+          tester,
+          width,
+          text,
+          scaler: text == 2.0 ? const AndroidTextScaler200() : null,
+        );
         await go(tester, taps);
         final error = tester.takeException();
         if (error != null) faults.add('$name: $error');
@@ -44,10 +58,10 @@ void layoutTests(double width, {List<bool> dark = const [false]}) {
         for (final words in withoutAppFont(tester)) {
           faults.add('$name: 「$words」 not in the app\'s fonts');
         }
-        if (text < 1.5) {
-          for (final words in wrapped(tester)) {
-            faults.add('$name: 「$words」 wraps onto a second line');
-          }
+        // Short words may wrap with large text; a figure never, as half
+        // of 52,000 on each line reads as two numbers.
+        for (final words in wrapped(tester, figuresOnly: text >= 1.5)) {
+          faults.add('$name: 「$words」 wraps onto a second line');
         }
       }
       expect(faults, isEmpty, reason: faults.join('\n'));
@@ -58,8 +72,14 @@ void layoutTests(double width, {List<bool> dark = const [false]}) {
 /// Short words, such as a label or a figure, laid out on two lines or
 /// more: a word broken in the middle reads badly and makes its block
 /// taller than the ones beside it. Text meant to run on, a sentence of
-/// more than [short] characters, may wrap.
-List<String> wrapped(WidgetTester tester, {int short = 12}) {
+/// more than [short] characters, may wrap. With [figuresOnly], only a
+/// figure, such as −1,390 or 52.5%, counts.
+List<String> wrapped(
+  WidgetTester tester, {
+  int short = 12,
+  bool figuresOnly = false,
+}) {
+  final figure = RegExp(r'^[+−\-]?[\d,]+(\.\d+)?%?$');
   final found = <String>[];
   for (final element in find.byType(RichText).evaluate()) {
     final route = ModalRoute.of(element);
@@ -70,6 +90,7 @@ List<String> wrapped(WidgetTester tester, {int short = 12}) {
     if (words.isEmpty || words.contains('\n') || words.length > short) {
       continue;
     }
+    if (figuresOnly && !figure.hasMatch(words)) continue;
     final boxes = box.getBoxesForSelection(
       TextSelection(baseOffset: 0, extentOffset: box.text.toPlainText().length),
     )..sort((a, b) => a.top.compareTo(b.top));

@@ -129,8 +129,13 @@ class ParentCategoryChoice extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Text('放在哪個分類下', style: TextStyle(fontWeight: FontWeight.w700)),
-          const Spacer(),
+          const Expanded(
+            child: Text(
+              '放在哪個分類下',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: Space.s2),
           Text(
             '${parent ?? '不放'} ›',
             style: const TextStyle(

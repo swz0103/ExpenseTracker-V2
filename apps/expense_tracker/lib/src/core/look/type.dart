@@ -1,3 +1,5 @@
+import 'package:flutter/widgets.dart';
+
 /// The app's type scale: every size words are drawn at, by role. Pages
 /// pick a role, never a number, so the same kind of words is the same
 /// size everywhere; the phone's text size scales them all alike.
@@ -35,4 +37,26 @@ abstract final class TextSize {
 
   /// The lock screen's and the code's digits.
   static const display = 56.0;
+}
+
+/// How much larger the phone draws words than the app sets them: 1 at
+/// the standard size, about 1.9 for body words at Android's largest.
+double textGrowth(BuildContext context) =>
+    MediaQuery.textScalerOf(context).scale(TextSize.body) / TextSize.body;
+
+/// The width [words] take on one line in [style], at the phone's text
+/// size: to choose a layout that keeps a figure whole.
+double wordsWidth(BuildContext context, String words, TextStyle style) {
+  final painter = TextPainter(
+    text: TextSpan(
+      text: words,
+      style: DefaultTextStyle.of(context).style.merge(style),
+    ),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: 1,
+  )..layout();
+  final width = painter.width;
+  painter.dispose();
+  return width;
 }

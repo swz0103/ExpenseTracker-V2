@@ -111,6 +111,7 @@ Future<void> show(
   Key? key,
   Ledger? book,
   bool still = false,
+  TextScaler? scaler,
 }) async {
   final preferences = Preferences();
   final ledger = book ?? demoLedger();
@@ -128,7 +129,7 @@ Future<void> show(
         theme: appTheme(),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(
-            textScaler: TextScaler.linear(text),
+            textScaler: scaler ?? TextScaler.linear(text),
             disableAnimations: still,
           ),
           child: child!,
