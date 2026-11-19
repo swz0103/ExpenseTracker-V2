@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/record_version.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/features/entries/model/compose_draft.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +26,9 @@ final _receipt = utf8.encode('a receipt photo, sealed as the app keeps it');
 
 /// The codec the app opens books with (`bootstrap.dart`).
 KeyringCodec _codec() => KeyringCodec(minimumPassword: 6);
+
+/// The record version of the books kept before records.json said it.
+const _recordVersionBefore = {'0.17.0': 2, '0.18.0': 2};
 
 String _appVersion() {
   final line = File('pubspec.yaml')
@@ -58,12 +62,21 @@ void main() {
               ..sort((a, b) => a.path.compareTo(b.path)))
           : <Directory>[]) {
     final version = dir.uri.pathSegments.where((s) => s.isNotEmpty).last;
-    final expected =
+    final written =
         (jsonDecode(
           File('${dir.path}/records.json').readAsStringSync(),
         ) as Map<String, Object?>).map(
           (k, v) => MapEntry(k, [for (final s in v! as List) s as String]),
         );
+    // Through this version's own upgrade steps: a record whose shape
+    // changed since compares equal, and the kept file is never edited.
+    final expected = upgradeRecords(
+      written,
+      switch (written[recordVersionKey]) {
+        [final v] => int.parse(v),
+        _ => _recordVersionBefore[version]!,
+      },
+    );
 
     test('the book kept by $version opens with its password', () async {
       final copy = Directory('${scratch.path}/vault')..createSync();
@@ -75,7 +88,7 @@ void main() {
         codec: _codec(),
       ).unlockWithPassword(_password);
       addTearDown(open.close);
-      expect(bookRecords(await _load(open.store)), expected);
+      expect(canonicalRecords(bookRecords(await _load(open.store))), expected);
     });
 
     test('the backup kept by $version restores the same book', () async {
@@ -95,10 +108,32 @@ void main() {
         accept: SqlLedgerDataSource.check,
         onFile: (name, bytes) async => files[name] = bytes,
       );
-      expect(bookRecords(await _load(into)), expected);
+      expect(canonicalRecords(bookRecords(await _load(into))), expected);
       expect(files, {'r1.etr': _receipt});
     });
   }
+
+  test('a kept record is brought up by the upgrade steps alone', () {
+    const kept = {
+      recordVersionKey: ['2'],
+      'accounts': ['{"opening":50000,"id":"bank"}'],
+      'order of accounts': ['bank'],
+    };
+    // A later version renames a field and adds the step for it.
+    Map<String, Object?> rename(String collection, Map<String, Object?> json) =>
+        (json['_v']! as int) < 3 && collection == 'account'
+        ? ({...json, 'start': json['opening']}..remove('opening'))
+        : json;
+    expect(upgradeRecords(kept, 2, upgrade: rename), {
+      'accounts': ['{"id":"bank","start":50000}'],
+      'order of accounts': ['bank'],
+    });
+    // Without it the record stays as it was written, and so differs from
+    // what the later version writes.
+    expect(upgradeRecords(kept, 2, upgrade: (_, json) => json)['accounts'], [
+      '{"id":"bank","opening":50000}',
+    ]);
+  });
 
   test('writes the book and backup this version keeps', () async {
     final out = Directory('$_books/${_appVersion()}');
@@ -114,7 +149,10 @@ void main() {
     await live.settled;
     expect(live.problem.value, isNull);
     File('${out.path}/records.json').writeAsStringSync(
-      const JsonEncoder.withIndent('  ').convert(bookRecords(live)),
+      const JsonEncoder.withIndent('  ').convert({
+        recordVersionKey: ['$recordVersion'],
+        ...bookRecords(live),
+      }),
     );
     final receipt = File('${scratch.path}/r1.etr')..writeAsBytesSync(_receipt);
     await LedgerBackup.write(
