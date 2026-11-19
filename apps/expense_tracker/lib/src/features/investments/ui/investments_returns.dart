@@ -63,43 +63,17 @@ class _ReturnsState extends State<_Returns> {
       );
     }
     final today = ledger.today;
-    final months = [
-      for (var k = 1; k <= 12; k++) DateTime.utc(today.year, today.month + k),
-    ];
-    // By month, then by holding.
-    final byMonth = [
-      for (final m in months)
-        <String, int>{
-          for (final g in guesses)
-            if (g.month.year == m.year && g.month.month == m.month)
-              g.code: g.amount,
-        },
-    ];
-    // Several from one holding in a month add up.
-    for (final g in guesses) {
-      final k = months.indexWhere(
-        (m) => m.year == g.month.year && m.month == g.month.month,
-      );
-      if (k < 0) continue;
-      byMonth[k][g.code] = guesses
-          .where((x) => x.code == g.code && x.month == g.month)
-          .fold(0, (sum, x) => sum + x.amount);
-    }
-    final names = {for (final g in guesses) g.code: g.name};
-    final totals = <String, int>{};
-    for (final month in byMonth) {
-      for (final MapEntry(:key, :value) in month.entries) {
-        totals[key] = (totals[key] ?? 0) + value;
-      }
-    }
-    final order = totals.keys.toList()
-      ..sort((a, b) => totals[b]!.compareTo(totals[a]!));
+    final outlook = DividendOutlook.of(guesses, today);
+    final months = outlook.months;
+    final byMonth = outlook.byMonth;
+    final names = outlook.names;
+    final order = outlook.order;
     final colour = {
       for (final (i, code) in order.indexed) code: _colors[i % _colors.length],
     };
-    final sums = [for (final m in byMonth) m.values.fold(0, (a, b) => a + b)];
-    final total = sums.fold(0, (a, b) => a + b);
-    final first = sums.indexWhere((s) => s > 0);
+    final sums = outlook.sums;
+    final total = outlook.total;
+    final first = outlook.first;
     final picked = _picked ?? first;
     final average = total / 12;
     final last = months.last;

@@ -24,6 +24,7 @@ void main() {
     'VaultKeeper': 'EncryptedBackupManager',
     'Connector': 'SyncJob',
     'Perf': 'PerformanceMonitor',
+    'ProjectCard': 'TagSummaryCard',
   };
 
   test('no old made-up name comes back', () {

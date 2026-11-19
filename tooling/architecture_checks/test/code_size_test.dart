@@ -30,19 +30,15 @@ const libraryGuide = 1200;
 /// marked; one that grows fails, and one that shrank a good deal must have
 /// its number lowered here, so the list only gets shorter.
 const longerFunctions = <String, int>{
-  'src/app/demo/seed.dart::demoLedger': 448,
   'src/features/accounts/ui/sort_accounts.dart::_SortAccountsPageState.build':
-      177,
-  'src/features/investments/ui/investments.dart::_InvestmentsPageState.build':
-      199,
-  'src/features/investments/ui/holding_bento.dart::_PriceChartState.build': 191,
+      109,
+  'src/features/investments/ui/holding_bento.dart::_PriceChartState.build': 131,
   'src/features/investments/ui/investments_returns.dart::_ReturnsState.build':
-      184,
-  'src/features/tags/ui/tags_page.dart::ProjectCard.build': 164,
+      143,
+  'src/features/tags/ui/tags_page.dart::TagSummaryCard.build': 164,
   'src/features/accounts/forms/account_editor_state.dart::_AccountEditorState.build':
       121,
   'src/features/recurring/ui/recurring_calendar.dart::_Calendar._dayCell': 136,
-  'src/app/demo/seed_history.dart::_history': 152,
   'src/features/recurring/ui/recurring_page.dart::_RecurringPageState.build':
       150,
   'src/core/ledger/portfolio.dart::Portfolio.replay': 143,

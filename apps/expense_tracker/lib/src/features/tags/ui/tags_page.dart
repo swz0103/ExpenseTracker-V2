@@ -108,7 +108,7 @@ class _TagsPageState extends State<TagsPage> {
       ];
     }
     return [
-      ProjectCard(
+      TagSummaryCard(
         ledger: ledger,
         project: project,
         recent: true,
@@ -407,8 +407,8 @@ class _Step extends StatelessWidget {
 /// spending and how many entries, and a bar of its categories with each
 /// one's share. On 標籤與商家 it is the latest tag's, with 最近 and the
 /// name; on the tag's own page it carries the ⋯ menu instead.
-class ProjectCard extends StatelessWidget {
-  const ProjectCard({
+class TagSummaryCard extends StatelessWidget {
+  const TagSummaryCard({
     super.key,
     required this.ledger,
     required this.project,

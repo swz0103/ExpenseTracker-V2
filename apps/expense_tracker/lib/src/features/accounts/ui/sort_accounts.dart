@@ -90,9 +90,77 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
     ),
   );
 
+  /// An account as a card to drag into place: held anywhere it lifts and
+  /// follows the finger; the handle takes it at once.
+  Widget _row(int i) {
+    final ledger = widget.ledger;
+    final a = _order[i];
+    final color = accountHue(a);
+    return ReorderableDelayedDragStartListener(
+      key: ValueKey(a.id),
+      index: i,
+      child: Padding(
+        padding: const EdgeInsets.only(top: Space.s2),
+        child: Container(
+          height: 56,
+          padding: const EdgeInsets.only(left: Space.s4),
+          decoration: BoxDecoration(
+            color: softOf(color),
+            borderRadius: BorderRadius.circular(Radii.large),
+          ),
+          child: Row(
+            children: [
+              SquareIcon(accountIcon(a), color, size: 30),
+              const SizedBox(width: Space.s2),
+              Expanded(
+                child: Text(
+                  a.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: TextSize.body,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                a.kind.isDebt
+                    ? ledger.money(-ledger.balanceService.balance(a.id))
+                    : ledger.moneyIn(
+                        ledger.balanceService.balance(a.id),
+                        a.currency,
+                      ),
+                style: const TextStyle(
+                  fontSize: TextSize.body,
+                  fontWeight: FontWeight.w700,
+                  color: Hue.muted,
+                ),
+              ),
+              // The whole square takes the finger, not only
+              // the lines drawn in it.
+              ReorderableDragStartListener(
+                index: i,
+                child: Semantics(
+                  label: '拖曳${a.name}',
+                  child: const ColoredBox(
+                    color: Colors.transparent,
+                    child: SizedBox(
+                      width: 56,
+                      height: 56,
+                      child: Center(child: _Grip()),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final ledger = widget.ledger;
     return Scaffold(
       backgroundColor: Hue.paper,
       body: SafeArea(
@@ -191,75 +259,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                     });
                   },
                   footer: _byKindButton(),
-                  itemBuilder: (context, i) {
-                    final a = _order[i];
-                    final color = accountHue(a);
-                    // Held anywhere, the card lifts and follows the finger;
-                    // the handle takes it at once.
-                    return ReorderableDelayedDragStartListener(
-                      key: ValueKey(a.id),
-                      index: i,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: Space.s2),
-                        child: Container(
-                          height: 56,
-                          padding: const EdgeInsets.only(left: Space.s4),
-                          decoration: BoxDecoration(
-                            color: softOf(color),
-                            borderRadius: BorderRadius.circular(Radii.large),
-                          ),
-                          child: Row(
-                            children: [
-                              SquareIcon(accountIcon(a), color, size: 30),
-                              const SizedBox(width: Space.s2),
-                              Expanded(
-                                child: Text(
-                                  a.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: TextSize.body,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                a.kind.isDebt
-                                    ? ledger.money(
-                                        -ledger.balanceService.balance(a.id),
-                                      )
-                                    : ledger.moneyIn(
-                                        ledger.balanceService.balance(a.id),
-                                        a.currency,
-                                      ),
-                                style: const TextStyle(
-                                  fontSize: TextSize.body,
-                                  fontWeight: FontWeight.w700,
-                                  color: Hue.muted,
-                                ),
-                              ),
-                              // The whole square takes the finger, not only
-                              // the lines drawn in it.
-                              ReorderableDragStartListener(
-                                index: i,
-                                child: Semantics(
-                                  label: '拖曳${a.name}',
-                                  child: const ColoredBox(
-                                    color: Colors.transparent,
-                                    child: SizedBox(
-                                      width: 56,
-                                      height: 56,
-                                      child: Center(child: _Grip()),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                  itemBuilder: (context, i) => _row(i),
                 ),
               ),
             ],

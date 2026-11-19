@@ -172,7 +172,7 @@ class TagPage extends StatelessWidget {
               if (merchant)
                 _VisitsCard(name: name, visits: entries, menu: menu)
               else
-                ProjectCard(
+                TagSummaryCard(
                   ledger: ledger,
                   project: tagSummaryOf(ledger.entries, name)!,
                   menu: menu,

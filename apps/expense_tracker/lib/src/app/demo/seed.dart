@@ -6,6 +6,8 @@ part 'seed_history.dart';
 /// approved web preview (v114): six months of salary, rent and everyday
 /// spending, a busy fourth of October, sixteen accounts and twelve
 /// holdings, with fifteen plainer months before them for the reports.
+// Exception to function length: the demo book's records, one or two
+// lines each; data, not steps to follow.
 Ledger demoLedger() {
   final entries = <Entry>[];
   var serial = 0;

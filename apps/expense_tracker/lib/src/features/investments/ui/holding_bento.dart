@@ -139,6 +139,72 @@ class _PriceChartState extends State<_PriceChart> {
 
   String _price(double p) => p.toStringAsFixed(p < 100 ? 2 : 0);
 
+  /// The line itself, at least two closes: a touch reads the close under
+  /// the finger, or a buy within its reach.
+  Widget _plot(
+    List<(DateTime, double)> closes,
+    double price,
+    Entry? buy,
+    int? touched,
+  ) => LayoutBuilder(
+    builder: (context, box) {
+      final plot = box.maxWidth - _gutter;
+      final scale = _Scale.of(closes, widget.average, _height);
+      final buys = {for (final e in widget.buys) _day(e.date): e};
+      void touch(Offset at) {
+        final i = (at.dx / plot * (closes.length - 1)).round().clamp(
+          0,
+          closes.length - 1,
+        );
+        // A buy within a finger's reach is read as that buy.
+        Entry? near;
+        var nearest = 24.0;
+        for (final (j, (day, close)) in closes.indexed) {
+          final hit = buys[day];
+          if (hit == null) continue;
+          final d =
+              (Offset(j * plot / (closes.length - 1), scale.y(close)) - at)
+                  .distance;
+          if (d < nearest) {
+            nearest = d;
+            near = hit;
+          }
+        }
+        setState(() {
+          _buy = near;
+          _touched = near == null ? i : null;
+        });
+      }
+
+      return Semantics(
+        label: '走勢圖',
+        child: GestureDetector(
+          onTapDown: (d) => touch(d.localPosition),
+          onHorizontalDragUpdate: (d) => touch(d.localPosition),
+          child: CustomPaint(
+            size: Size(box.maxWidth, _height),
+            painter: _LinePainter(
+              closes: closes,
+              scale: scale,
+              gutter: _gutter,
+              average: widget.average,
+              price: price,
+              buys: buys.keys.toSet(),
+              chosen: buy == null ? null : _day(buy.date),
+              touched: touched,
+              line: Hue.positive,
+              fill: tintOf(Hue.positive, 0.25),
+              dash: Hue.investment,
+              rule: Hue.line,
+              words: Hue.muted,
+              onTag: Hue.onAccent,
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
   @override
   Widget build(BuildContext context) {
     final closes = _closes;
@@ -234,67 +300,7 @@ class _PriceChartState extends State<_PriceChart> {
                     style: mutedSmall,
                   ),
                 )
-              : LayoutBuilder(
-                  builder: (context, box) {
-                    final plot = box.maxWidth - _gutter;
-                    final scale = _Scale.of(closes, widget.average, _height);
-                    final buys = {for (final e in widget.buys) _day(e.date): e};
-                    void touch(Offset at) {
-                      final i = (at.dx / plot * (closes.length - 1))
-                          .round()
-                          .clamp(0, closes.length - 1);
-                      // A buy within a finger's reach is read as that buy.
-                      Entry? near;
-                      var nearest = 24.0;
-                      for (final (j, (day, close)) in closes.indexed) {
-                        final hit = buys[day];
-                        if (hit == null) continue;
-                        final d =
-                            (Offset(
-                                      j * plot / (closes.length - 1),
-                                      scale.y(close),
-                                    ) -
-                                    at)
-                                .distance;
-                        if (d < nearest) {
-                          nearest = d;
-                          near = hit;
-                        }
-                      }
-                      setState(() {
-                        _buy = near;
-                        _touched = near == null ? i : null;
-                      });
-                    }
-
-                    return Semantics(
-                      label: '走勢圖',
-                      child: GestureDetector(
-                        onTapDown: (d) => touch(d.localPosition),
-                        onHorizontalDragUpdate: (d) => touch(d.localPosition),
-                        child: CustomPaint(
-                          size: Size(box.maxWidth, _height),
-                          painter: _LinePainter(
-                            closes: closes,
-                            scale: scale,
-                            gutter: _gutter,
-                            average: widget.average,
-                            price: price,
-                            buys: buys.keys.toSet(),
-                            chosen: buy == null ? null : _day(buy.date),
-                            touched: touched,
-                            line: Hue.positive,
-                            fill: tintOf(Hue.positive, 0.25),
-                            dash: Hue.investment,
-                            rule: Hue.line,
-                            words: Hue.muted,
-                            onTag: Hue.onAccent,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              : _plot(closes, price, buy, touched),
         ),
         if (closes != null && closes.length >= 2) ...[
           const SizedBox(height: Space.s1),
