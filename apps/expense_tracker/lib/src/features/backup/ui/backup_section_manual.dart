@@ -19,16 +19,19 @@ class _Manual extends StatelessWidget {
     final ink = deepOf(color);
     return ColorCard(
       color: color,
-      radius: 18,
+      radius: Radii.large,
       amount: 0.18,
       label: label,
       onTap: onTap,
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      padding: const EdgeInsets.symmetric(
+        vertical: Space.s4,
+        horizontal: Space.s2,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           GlyphIcon(glyph, size: 20, color: ink, tinted: false),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.s2),
           Flexible(
             child: OneLine(
               label,

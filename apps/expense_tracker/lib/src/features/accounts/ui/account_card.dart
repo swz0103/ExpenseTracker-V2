@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/glyphs.dart';
-import '../../../core/ui/icons.dart';
-import '../../../core/look/theme.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ui/shown_amounts.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 /// How tall a card of 我的帳戶 is when it lies in front, and how much of
 /// each card behind it shows.
@@ -14,7 +18,7 @@ const cardStripHeight = 60.0;
 /// The strip and front heights for the phone's text size: larger text
 /// makes the cards taller, so the words still fit.
 (double, double) cardHeights(BuildContext context) {
-  final grow = MediaQuery.textScalerOf(context).scale(16) / 16 - 1;
+  final grow = textGrowth(context) - 1;
   final more = grow > 0 ? grow : 0.0;
   return (cardStripHeight + 26 * more, frontCardHeight + 80 * more);
 }
@@ -26,16 +30,16 @@ String cardKindLabel(Account account) => switch (account.kind) {
   AccountKind.cash => account.foreign ? '現金 · ${account.currency}' : '現金',
   AccountKind.card => '信用卡',
   AccountKind.loan => '貸款',
-  AccountKind.receivable => '代墊',
+  AccountKind.receivable => Words.lend,
 };
 
 /// What [account] spent this month: everything that left it.
 int spentThisMonth(Ledger ledger, Account account) {
   final today = ledger.today;
   var out = 0;
-  for (final e in ledger.entriesIn(today.year, today.month)) {
+  for (final e in ledger.entries.inMonth(today.year, today.month)) {
     if (e.account != account.id && e.to != account.id) continue;
-    final change = ledger.effect(e, account.id);
+    final change = ledger.balanceService.effect(e, account.id);
     if (change < 0) out -= change;
   }
   return out;
@@ -69,8 +73,8 @@ class AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = accountHue(account);
-    final radius = BorderRadius.circular(20);
+    final color = accountColor(account);
+    final radius = BorderRadius.circular(Radii.largeIncreased);
     final (stripHeight, frontHeight) = cardHeights(context);
     final (label, figure, note) = front ? _face() : ('', '', '');
     final head = Row(
@@ -79,13 +83,13 @@ class AccountCard extends StatelessWidget {
           width: 28,
           height: 28,
           decoration: const BoxDecoration(
-            color: Hue.glass,
+            color: AppColors.glass,
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
           child: GlyphIcon(accountIcon(account), size: 17, color: color),
         ),
-        const SizedBox(width: 9),
+        const SizedBox(width: Space.s2),
         Expanded(
           child: Text(
             account.name.isEmpty ? '帳戶名稱' : account.name,
@@ -94,11 +98,11 @@ class AccountCard extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.body,
               fontWeight: FontWeight.w700,
-              color: account.name.isEmpty ? Hue.faint : Hue.ink,
+              color: account.name.isEmpty ? AppColors.faint : AppColors.ink,
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: Space.s2),
         if (front)
           Text(cardKindLabel(account), style: mutedSmall)
         else
@@ -112,13 +116,7 @@ class AccountCard extends StatelessWidget {
       ],
     );
     return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        boxShadow: const [
-          BoxShadow(color: Hue.stackFar, blurRadius: 8, offset: Offset(0, -2)),
-          BoxShadow(color: Hue.stackNear, blurRadius: 2, offset: Offset(0, 1)),
-        ],
-      ),
+      decoration: BoxDecoration(borderRadius: radius, boxShadow: _stacked),
       child: Material(
         color: softOf(color),
         borderRadius: radius,
@@ -129,7 +127,12 @@ class AccountCard extends StatelessWidget {
           child: SizedBox(
             height: front ? frontHeight : stripHeight,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 16, 16, 14),
+              padding: const EdgeInsets.fromLTRB(
+                Space.s4,
+                Space.s4,
+                Space.s4,
+                Space.s4,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -161,7 +164,10 @@ class AccountCard extends StatelessWidget {
                         ),
                         if (note.isNotEmpty)
                           Padding(
-                            padding: const EdgeInsets.only(left: 8, bottom: 4),
+                            padding: const EdgeInsets.only(
+                              left: Space.s2,
+                              bottom: Space.s1,
+                            ),
                             child: Text(note, style: mutedSmall),
                           ),
                       ],
@@ -179,7 +185,7 @@ class AccountCard extends StatelessWidget {
   /// The figure at the end of a card's strip: what is owed on a debt,
   /// else the balance.
   String _strip() {
-    final balance = preview ?? ledger.balance(account.id);
+    final balance = preview ?? ledger.balanceService.balance(account.id);
     return account.kind.isDebt
         ? ledger.money(-balance)
         : ledger.moneyIn(balance, account.currency);
@@ -199,14 +205,14 @@ class AccountCard extends StatelessWidget {
         _ => ('餘額', ledger.moneyIn(shown, account.currency), ''),
       };
     }
-    final balance = ledger.balance(account.id);
+    final balance = ledger.balanceService.balance(account.id);
     switch (account.kind) {
       case AccountKind.card:
-        final (_, _, due) = ledger.statement(account);
+        final (_, _, due) = ledger.statementService.statement(account);
         return (
           '本期應繳',
-          ledger.money(ledger.statementDue(account)),
-          '${due.month}/${due.day} 繳款',
+          ledger.money(ledger.statementService.statementDue(account)),
+          '${formatMd(due)} 繳款',
         );
       case AccountKind.loan:
         return ('尚欠', ledger.money(-balance), '');
@@ -214,7 +220,7 @@ class AccountCard extends StatelessWidget {
         return ('還欠你', ledger.money(balance), '');
       case AccountKind.bank || AccountKind.wallet || AccountKind.cash:
         if (account.foreign) {
-          final home = ledger.toHome(balance, account.currency);
+          final home = ledger.marketData.toHome(balance, account.currency);
           return (
             '餘額',
             ledger.moneyIn(balance, account.currency),
@@ -230,3 +236,10 @@ class AccountCard extends StatelessWidget {
     }
   }
 }
+
+/// A card's shadow in the stack: a soft one above, where the card behind
+/// shows, and a close one under it.
+const _stacked = [
+  BoxShadow(color: AppColors.stackFar, blurRadius: 8, offset: Offset(0, -2)),
+  BoxShadow(color: AppColors.stackNear, blurRadius: 2, offset: Offset(0, 1)),
+];

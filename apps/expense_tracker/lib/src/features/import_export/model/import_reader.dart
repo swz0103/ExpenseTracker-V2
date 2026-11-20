@@ -1,8 +1,10 @@
+// Exception to shared words: the CSV columns read, as written by
+// import_export.dart and by other apps; a file format, not screen words.
 part of 'import_export.dart';
 
 final class _Reader {
   _Reader(this.ledger, this.fallback)
-    : _names = {for (final a in ledger.accounts) a.name: a.id};
+    : _names = {for (final a in ledger.accounts.all) a.name: a.id};
 
   final Ledger ledger;
   final String fallback;
@@ -67,12 +69,12 @@ final class _Reader {
   String _categoryNamed(String name, {required bool income}) {
     final other = income ? '其他收入' : feeCategory;
     if (name.isEmpty) return other;
-    for (final c in [...ledger.categories, ..._categories]) {
+    for (final c in [...ledger.categories.all, ..._categories]) {
       if (c.name == name) return c.income == income ? name : other;
     }
     // A name the ledger keeps for itself is not made a category.
-    if (!ledger.categoryNameFree(name)) return other;
-    final count = ledger.categories.length + _categories.length;
+    if (!ledger.categories.isNameFree(name)) return other;
+    final count = ledger.categories.all.length + _categories.length;
     _categories.add(
       Category(
         name,
@@ -123,8 +125,8 @@ final class _Reader {
     if (entry is! Entry) return entry as String;
     final made = entry;
     if (!made.isReduction) {
-      final problem = ledger.problemWith(made, holdings: false);
-      if (problem != null) return problem;
+      final failure = ledger.entryValidator.validate(made, holdings: false);
+      if (failure != null) return validationMessage(failure);
     }
     if (_already(ledger, made)) return '帳本裡已經有這一筆';
     if (made.isRefund) {
@@ -177,7 +179,9 @@ final class _Reader {
           if (t.isNotEmpty) t,
       ],
       installments: card && !income ? int.tryParse(cell('分期')) ?? 0 : 0,
-      home: from.foreign ? home ?? ledger.toHome(amount, from.currency) : null,
+      home: from.foreign
+          ? home ?? ledger.marketData.toHome(amount, from.currency)
+          : null,
     );
   }
 
@@ -192,7 +196,7 @@ final class _Reader {
   ) {
     final shop = cell('商家');
     final candidates = [
-      for (final e in [...ledger.entries, for (final (_, f) in _found) f])
+      for (final e in [...ledger.entries.all, for (final (_, f) in _found) f])
         if (e.type == EntryType.expense &&
             !e.isRefund &&
             e.account == account &&
@@ -218,7 +222,9 @@ final class _Reader {
   }
 
   int _left(Entry e) {
-    final inBook = ledger.byId(e.id) == null ? e.amount : ledger.refundable(e);
+    final inBook = ledger.entries.byId(e.id) == null
+        ? e.amount
+        : ledger.entryQueryService.refundable(e);
     return inBook - (_refunded[e.id] ?? 0);
   }
 
@@ -280,7 +286,7 @@ final class _Reader {
       },
       amount: amount,
       account: account,
-      category: trade ? '投資' : '股息收入',
+      category: trade ? investmentCategory : dividendCategory,
       note: note,
       holding: code,
       shares: switch (kind) {
@@ -309,7 +315,7 @@ final class _Reader {
       if (e.isInvestment) {
         // Only a sale or a reduction can leave a stock short of shares.
         final takes = e.type == EntryType.sell || e.isReduction;
-        if (takes && !ledger.holdsWith([...trades, e])) {
+        if (takes && !ledger.entryValidator.holdsWith([...trades, e])) {
           skip(line, '${e.holding} 賣出或減少的股數超過當時持股');
           continue;
         }
@@ -339,8 +345,8 @@ final class _Reader {
   }
 }
 
-bool _already(Ledger ledger, Entry entry) => ledger
-    .entriesIn(entry.date.year, entry.date.month)
+bool _already(Ledger ledger, Entry entry) => ledger.entries
+    .inMonth(entry.date.year, entry.date.month)
     .any(
       (e) =>
           e.date == entry.date &&
@@ -364,9 +370,9 @@ const _hints = {
 /// The category for spending at [merchant]: the one the book used last,
 /// else one its name hints at, else 其他支出.
 String guessCategory(Ledger ledger, String merchant, String items) {
-  final used = ledger.categoryAt(merchant);
+  final used = ledger.entryQueryService.categoryAt(merchant);
   if (used != null) return used;
-  final known = ledger.categoriesFor(income: false).map((c) => c.name);
+  final known = ledger.categories.forEntries(income: false).map((c) => c.name);
   final text = '$merchant $items'.toUpperCase();
   for (final MapEntry(key: category, value: words) in _hints.entries) {
     if (!known.contains(category)) continue;
@@ -399,7 +405,8 @@ Import importInvoices(Ledger ledger, String text, {required String account}) {
   final problems = [...found.problems];
   var skipped = found.skipped;
   for (final entry in found.entries) {
-    final problem = ledger.problemWith(entry, holdings: false);
+    final failure = ledger.entryValidator.validate(entry, holdings: false);
+    final problem = failure == null ? null : validationMessage(failure);
     if (problem == null) {
       kept.add(entry);
     } else {
@@ -503,11 +510,11 @@ Import _invoiceCsv(Ledger ledger, String text, {required String account}) {
 
 /// The open NT$ account [shop] was last paid from, if any.
 String? _usualAccount(Ledger ledger, String shop) {
-  final last = shop.isEmpty ? null : ledger.lastAt(shop);
+  final last = shop.isEmpty ? null : ledger.entryQueryService.lastAt(shop);
   if (last == null) return null;
   final account = ledger.account(last.account);
   if (account.archived || account.currency != homeCode) return null;
-  if (!ledger.hasAccount(account.id)) return null;
+  if (!ledger.accounts.contains(account.id)) return null;
   return account.id;
 }
 
@@ -555,8 +562,8 @@ bool _hasInvoice(
   int? amount,
 }) {
   if (day == null) return false;
-  return ledger
-      .entriesIn(day.year, day.month)
+  return ledger.entries
+      .inMonth(day.year, day.month)
       .any(
         (e) =>
             e.note.contains(number) ||

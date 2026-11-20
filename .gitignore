@@ -22,6 +22,8 @@ build/
 *.apk
 *.aab
 *.db
+# Books kept as each version wrote them (docs/adr/0010-data-that-lasts.md).
+!apps/expense_tracker/test/fixtures/**/*.db
 *.db-shm
 *.db-wal
 *.sqlite

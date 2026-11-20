@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../accounts/compose/account_editor.dart';
-import '../../../core/ui/entry_tile.dart';
-import '../../../core/ui/pickers.dart';
-import '../../../core/text/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../accounts/forms/account_editor.dart';
+import '../../../core/widgets/entry_tile.dart';
+import '../../../core/widgets/pickers.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../model/import_export.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ui/shown_amounts.dart';
+import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
 
 /// The colours of the two imports, as on 匯入與匯出.
-const _csvHue = Palette.periwinkle;
-const _invoiceHue = Palette.gold;
+const _csvColor = Palette.periwinkle;
+const _invoiceColor = Palette.gold;
 
 /// Opens the import page: CSV lines, or the e-invoice export when
 /// [invoices] is set, pasted in or read from a file, and added to
@@ -28,7 +30,7 @@ Future<void> importInto(
   Future<String?> Function()? readFile,
 }) async {
   if (!await ensureAccount(context, ledger) || !context.mounted) return;
-  await openFlow<void>(
+  await openFullScreen<void>(
     context,
     (_) => _ImportPage(ledger: ledger, invoices: invoices, readFile: readFile),
   );
@@ -63,10 +65,10 @@ class _ImportPageState extends State<_ImportPage> {
   /// import.
   final _left = <int>{};
 
-  Color get _color => widget.invoices ? _invoiceHue : _csvHue;
+  Color get _color => widget.invoices ? _invoiceColor : _csvColor;
 
   String _first() {
-    final open = widget.ledger.openAccounts;
+    final open = widget.ledger.accounts.open;
     if (!widget.invoices) return open.first.id;
     final home = [
       for (final a in open)
@@ -168,7 +170,7 @@ class _ImportPageState extends State<_ImportPage> {
           children: [
             for (final why in found.problems)
               Padding(
-                padding: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.only(bottom: Space.s2),
                 child: Text(
                   why,
                   style: const TextStyle(fontSize: TextSize.body),
@@ -176,7 +178,7 @@ class _ImportPageState extends State<_ImportPage> {
               ),
             if (found.problems.length < found.skipped)
               const Text('其他的看不懂或是空白行', style: mutedSmall),
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.s2),
             const Text(duplicateRules, style: mutedSmall),
           ],
         ),
@@ -190,18 +192,18 @@ class _ImportPageState extends State<_ImportPage> {
     final found = _found;
     final title = widget.invoices ? '匯入電子發票' : '匯入 CSV';
     return Scaffold(
-      backgroundColor: Hue.paper,
+      backgroundColor: AppColors.paper,
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: Space.s5),
               child: CenterHeader(
                 title,
                 onBack: () => Navigator.of(context).pop(),
               ),
             ),
-            Expanded(child: found == null ? _start() : _read2(found)),
+            Expanded(child: found == null ? _start() : _preview(found)),
             if (found != null) _bottom(),
           ],
         ),
@@ -214,7 +216,12 @@ class _ImportPageState extends State<_ImportPage> {
     final readFile = widget.readFile;
     final color = _color;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s1,
+        Space.s5,
+        Space.s6,
+      ),
       children: [
         CardGrid([
           _BigChoice(
@@ -233,10 +240,10 @@ class _ImportPageState extends State<_ImportPage> {
         ]),
         const RuleHead('範例'),
         Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(Space.s4),
           decoration: BoxDecoration(
-            color: Hue.white,
-            borderRadius: BorderRadius.circular(16),
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(Radii.large),
           ),
           child: Text(
             widget.invoices
@@ -247,7 +254,7 @@ class _ImportPageState extends State<_ImportPage> {
             style: const TextStyle(fontSize: TextSize.small, height: 1.5),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: Space.s3),
         Text(
           widget.invoices
               ? '財政部「消費明細」的 CSV 或載具的 M／D 行都可以，記過的發票不會重複。'
@@ -259,141 +266,166 @@ class _ImportPageState extends State<_ImportPage> {
   }
 
   /// What was read: the main card, the account, what will be added, and
-  /// each entry under its day.
-  Widget _read2(Import found) {
-    final ledger = widget.ledger;
+  /// each entry under its day, the latest first.
+  Widget _preview(Import found) {
     final chosen = _chosen!;
-    final color = _color;
-    final total = chosen.entries.fold(0, (sum, e) => sum + e.amount);
-    final days = <DateTime, List<int>>{};
-    for (final (i, e) in found.entries.indexed) {
-      final d = e.date;
-      days.putIfAbsent(DateTime(d.year, d.month, d.day), () => []).add(i);
-    }
-    final keys = days.keys.toList()..sort((a, b) => b.compareTo(a));
+    final days = groupByDay(
+      found.entries.indexed,
+      (indexed) => indexed.$2.date,
+    ).entries.toList()..sort((a, b) => b.key.compareTo(a.key));
     final added = [
       for (final a in chosen.accounts) a.name,
       for (final c in chosen.categories) c.name,
     ];
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s1,
+        Space.s5,
+        Space.s6,
+      ),
       children: [
-        ColorCard(
-          color: color,
-          amount: 0.22,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '讀到',
-                      style: TextStyle(
-                        fontSize: TextSize.small,
-                        fontWeight: FontWeight.w700,
-                        color: deepOf(color),
-                      ),
-                    ),
-                    Text(
-                      '${found.entries.length} 筆',
-                      style: const TextStyle(
-                        fontSize: TextSize.figure,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    Text(
-                      '合計 ${ledger.money(total)}',
-                      style: TextStyle(
-                        fontSize: TextSize.body,
-                        color: deepOf(color),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (found.skipped > 0)
-                TextButton(
-                  onPressed: () => _skipped(found),
-                  style: wordButton(deepOf(color), minimumSize: Size(0, 48)),
-                  child: Text(
-                    '略過 ${found.skipped} 行 ⓘ',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        ColorCard(
-          color: Hue.accent,
-          amount: 0.1,
-          radius: 16,
-          onTap: _pickAccount,
-          label: widget.invoices ? '付款帳戶' : '沒填帳戶時',
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              const GlyphIcon(Glyph.wallet, size: 20, color: Hue.accent),
-              const SizedBox(width: 10),
-              Text(
-                widget.invoices ? '付款帳戶' : '沒填帳戶時記到',
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const Spacer(),
-              Text(
-                '${ledger.account(_account).name} ›',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: Hue.accent,
-                ),
-              ),
-            ],
-          ),
-        ),
+        _summary(found, chosen.entries.fold(0, (sum, e) => sum + e.amount)),
+        const SizedBox(height: Space.s2),
+        _accountChoice(),
         if (added.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final name in added)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: tintOf(_invoiceHue, 0.3),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '＋ $name',
-                    style: const TextStyle(
-                      fontSize: TextSize.small,
-                      fontWeight: FontWeight.w700,
-                      color: Hue.goldText,
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          const SizedBox(height: Space.s2),
+          _added(added),
         ],
-        for (final day in keys) ...[
+        for (final MapEntry(key: day, value: group) in days) ...[
           Padding(
-            padding: const EdgeInsets.fromLTRB(6, 16, 6, 8),
+            padding: const EdgeInsets.fromLTRB(
+              Space.s2,
+              Space.s4,
+              Space.s2,
+              Space.s2,
+            ),
             child: Text(
-              '${day.month}/${day.day} 週${weekdayNames[day.weekday - 1]}',
+              formatMEd(day),
               style: const TextStyle(
                 fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,
-                color: Hue.muted,
+                color: AppColors.muted,
               ),
             ),
           ),
-          QuoteBoard([for (final i in days[day]!) _row(found.entries[i], i)]),
+          QuoteBoard([for (final (i, e) in group) _row(e, i)]),
         ],
+      ],
+    );
+  }
+
+  /// 讀到: how many entries, their [total], and the lines skipped.
+  Widget _summary(Import found, int total) {
+    final color = _color;
+    return ColorCard(
+      color: color,
+      amount: 0.22,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '讀到',
+                  style: TextStyle(
+                    fontSize: TextSize.small,
+                    fontWeight: FontWeight.w700,
+                    color: deepOf(color),
+                  ),
+                ),
+                Text(
+                  '${found.entries.length} 筆',
+                  style: const TextStyle(
+                    fontSize: TextSize.figure,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  '合計 ${widget.ledger.money(total)}',
+                  style: TextStyle(
+                    fontSize: TextSize.body,
+                    color: deepOf(color),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (found.skipped > 0)
+            TextButton(
+              onPressed: () => _skipped(found),
+              style: wordButton(deepOf(color), minimumSize: Size(0, 48)),
+              child: Text(
+                '略過 ${found.skipped} 行 ⓘ',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// The account entries without one are booked to, or invoices paid
+  /// from.
+  Widget _accountChoice() {
+    return ColorCard(
+      color: AppColors.accent,
+      amount: 0.1,
+      radius: Radii.large,
+      onTap: _pickAccount,
+      label: widget.invoices ? '付款帳戶' : '沒填帳戶時',
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s4,
+        vertical: Space.s4,
+      ),
+      child: Row(
+        children: [
+          const GlyphIcon(Glyph.wallet, size: 20, color: AppColors.accent),
+          const SizedBox(width: Space.s2),
+          Text(
+            widget.invoices ? '付款帳戶' : '沒填帳戶時記到',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const Spacer(),
+          Text(
+            '${widget.ledger.account(_account).name} ›',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppColors.accent,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The accounts and categories the import adds, each on a chip.
+  Widget _added(List<String> names) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (final name in names)
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.s3,
+              vertical: Space.s2,
+            ),
+            decoration: BoxDecoration(
+              color: tintOf(_invoiceColor, 0.3),
+              borderRadius: BorderRadius.circular(Radii.largeIncreased),
+            ),
+            child: Text(
+              '＋ $name',
+              style: const TextStyle(
+                fontSize: TextSize.small,
+                fontWeight: FontWeight.w700,
+                color: AppColors.goldText,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -421,7 +453,7 @@ class _ImportPageState extends State<_ImportPage> {
       detail: e.category.isEmpty ? null : e.category,
       trailing: RowFigure(
         entryAmount(e, currency: ledger.account(e.account).currency),
-        color: ticked ? entryTone(e) : Hue.faint,
+        color: ticked ? entryTone(e) : AppColors.faint,
       ),
     );
   }
@@ -429,8 +461,13 @@ class _ImportPageState extends State<_ImportPage> {
   Widget _bottom() {
     final count = _chosen?.entries.length ?? 0;
     return Container(
-      color: Hue.paper,
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      color: AppColors.paper,
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s2,
+        Space.s5,
+        Space.s4,
+      ),
       child: PanelButton(
         count == 0 ? '沒有勾選的紀錄' : '匯入 $count 筆',
         color: count == 0 ? null : _color,
@@ -459,11 +496,11 @@ class _BigChoice extends StatelessWidget {
     color: color,
     onTap: onTap,
     label: label,
-    padding: const EdgeInsets.symmetric(vertical: 28),
+    padding: const EdgeInsets.symmetric(vertical: Space.s6),
     child: Column(
       children: [
         SquareIcon(glyph, color, size: 60),
-        const SizedBox(height: 12),
+        const SizedBox(height: Space.s3),
         Text(
           label,
           style: TextStyle(

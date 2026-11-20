@@ -2,14 +2,18 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/text/figures.dart';
-import '../../../core/ui/icons.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../model/comparison.dart';
-import 'report_period.dart';
-import '../../../core/ui/shown_amounts.dart';
+import '../model/report_period.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 /// What the period is set against.
 enum _Against {
@@ -86,7 +90,9 @@ class _CompareSectionState extends State<CompareSection> {
     }
     final ledger = widget.ledger;
     final today = _today;
-    final first = ledger.firstDay.isAfter(today) ? today : ledger.firstDay;
+    final first = ledger.reportService.firstDay.isAfter(today)
+        ? today
+        : ledger.reportService.firstDay;
     final (from, to) = _second;
     final picked = await pickDateRange(
       context,
@@ -107,8 +113,8 @@ class _CompareSectionState extends State<CompareSection> {
   static String _span((DateTime, DateTime) days) {
     final (from, to) = days;
     return from.year == to.year
-        ? '${from.month}/${from.day}–${to.month}/${to.day}'
-        : '${from.year}/${from.month}/${from.day}–${to.year}/${to.month}/${to.day}';
+        ? '${formatMd(from)}–${formatMd(to)}'
+        : '${formatYMd(from)}–${formatYMd(to)}';
   }
 
   @override
@@ -116,8 +122,8 @@ class _CompareSectionState extends State<CompareSection> {
     final ledger = widget.ledger;
     final first = _first;
     final second = _second;
-    final a = sumsBetween(ledger, first.$1, first.$2);
-    final b = sumsBetween(ledger, second.$1, second.$2);
+    final a = sumsBetween(ledger.reportService, first.$1, first.$2);
+    final b = sumsBetween(ledger.reportService, second.$1, second.$2);
     final rows = compare(a, b);
     final largest = [
       a.income,
@@ -134,19 +140,24 @@ class _CompareSectionState extends State<CompareSection> {
     String then(String label) =>
         _against == _Against.custom ? '自訂' : label.replaceAll('同期', '');
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       decoration: BoxDecoration(
-        color: Hue.group,
-        borderRadius: BorderRadius.circular(22),
+        color: AppColors.group,
+        borderRadius: BorderRadius.circular(Radii.largeIncreased),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(Space.s1),
             decoration: BoxDecoration(
-              color: Hue.surface,
-              borderRadius: BorderRadius.circular(14),
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(Radii.large),
             ),
             child: Row(
               children: [
@@ -157,14 +168,14 @@ class _CompareSectionState extends State<CompareSection> {
                       button: true,
                       child: Material(
                         color: against == _against
-                            ? Hue.white
+                            ? AppColors.white
                             : Colors.transparent,
-                        borderRadius: BorderRadius.circular(11),
+                        borderRadius: BorderRadius.circular(Radii.medium),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(11),
+                          borderRadius: BorderRadius.circular(Radii.medium),
                           onTap: () => _choose(against),
                           child: ConstrainedBox(
-                            constraints: const BoxConstraints(minHeight: 44),
+                            constraints: const BoxConstraints(minHeight: 48),
                             child: Center(
                               child: Text(
                                 against == _Against.custom && _custom != null
@@ -174,8 +185,8 @@ class _CompareSectionState extends State<CompareSection> {
                                   fontSize: TextSize.body,
                                   fontWeight: FontWeight.w800,
                                   color: against == _against
-                                      ? Hue.ink
-                                      : Hue.muted,
+                                      ? AppColors.ink
+                                      : AppColors.muted,
                                 ),
                               ),
                             ),
@@ -187,7 +198,7 @@ class _CompareSectionState extends State<CompareSection> {
               ],
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           for (final (name, now, before) in rows.take(3))
             _Pair(
               ledger: ledger,
@@ -197,13 +208,13 @@ class _CompareSectionState extends State<CompareSection> {
               thenLabel: then(_against.label),
               largest: largest,
               color: switch (name) {
-                '收入' => Hue.positive,
-                '支出' => Hue.negative,
-                _ => Hue.accent,
+                Words.income => AppColors.positive,
+                Words.expense => AppColors.negative,
+                _ => AppColors.accent,
               },
             ),
           if (moved.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: Space.s4),
             const Text(
               '變化最多的分類',
               style: TextStyle(
@@ -211,7 +222,7 @@ class _CompareSectionState extends State<CompareSection> {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.s2),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -255,7 +266,7 @@ class _Pair extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget bar(int value, Color tone) => ClipRRect(
-      borderRadius: BorderRadius.circular(5),
+      borderRadius: BorderRadius.circular(Radii.extraSmall),
       child: SizedBox(
         height: 9,
         child: Align(
@@ -268,7 +279,7 @@ class _Pair extends StatelessWidget {
       ),
     );
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: Space.s3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -299,9 +310,9 @@ class _Pair extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           bar(now, color),
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.s1),
           bar(then, tintOf(color, 0.4)),
         ],
       ),
@@ -326,26 +337,36 @@ class _MovedChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = shownColor(Color(category.color));
     return Container(
-      padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s2,
+        Space.s2,
+        Space.s3,
+        Space.s2,
+      ),
       decoration: BoxDecoration(
         color: tintOf(color, 0.22),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           SquareIcon(iconFor(category.icon), color, size: 28),
-          const SizedBox(width: 8),
-          Text(
-            category.name,
-            style: TextStyle(fontWeight: FontWeight.w800, color: deepOf(color)),
+          const SizedBox(width: Space.s2),
+          Flexible(
+            child: Text(
+              category.name,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: deepOf(color),
+              ),
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.s2),
           Text(
             ledger.orDots(signed(change)),
             style: TextStyle(
               fontWeight: FontWeight.w800,
-              color: change > 0 ? Hue.negative : Hue.positive,
+              color: change > 0 ? AppColors.negative : AppColors.positive,
             ),
           ),
         ],

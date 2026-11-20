@@ -2,4 +2,4 @@
 /// on shelves, written in transactions.
 library;
 
-export 'src/row_store.dart';
+export 'src/encrypted_database.dart';

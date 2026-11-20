@@ -1,0 +1,99 @@
+import 'package:expense_tracker/src/core/ledger/models/models.dart';
+import 'package:expense_tracker/src/core/ledger/repositories/holding_repository.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+const _tsmc = Holding(
+  '2330',
+  '台積電',
+  shares: 0,
+  price: 1000,
+  cost: 0,
+  change: 0,
+);
+
+Entry _trade(String id, EntryType type, int day, int shares, int amount) =>
+    Entry(
+      id: id,
+      date: DateTime.utc(2026, 9, day),
+      type: type,
+      amount: amount,
+      account: 'bank',
+      holding: '2330',
+      shares: shares,
+    );
+
+void main() {
+  final buy = _trade('buy', EntryType.buy, 1, 10, 9000);
+  final sell = _trade('sell', EntryType.sell, 3, 4, 4400);
+
+  HoldingRepository make({Map<String, double> moves = const {}}) =>
+      HoldingRepository([_tsmc], moveOf: (code) => moves[code])
+        ..replay([buy, sell]);
+
+  test('holdings are read only after a replay', () {
+    final holdings = HoldingRepository([_tsmc], moveOf: (_) => null);
+    expect(() => holdings.all, throwsStateError);
+    holdings.replay(const []);
+    // A stock quoted but not held is not one of the holdings.
+    expect(holdings.all, isEmpty);
+    expect(holdings.hasQuote('2330'), isTrue);
+  });
+
+  test('the trades are replayed over the starting positions', () {
+    final holdings = make();
+    expect(holdings.byCode('2330')?.shares, 6);
+    expect(holdings.byCode('0050'), isNull);
+    expect(holdings.sharesOn('2330', DateTime.utc(2026, 9, 2)), 10);
+    expect(holdings.sharesOn('2330', DateTime.utc(2026, 9, 3)), 6);
+    expect(holdings.lotsOf('2330').fold(0, (n, l) => n + l.shares), 6);
+  });
+
+  test("the day's change follows the shares held", () {
+    final holdings = make(moves: {'2330': 2.5});
+    expect(holdings.byCode('2330')?.change, 15);
+  });
+
+  test('a stock with a fetched close has a quote; another does not', () {
+    final holdings = make();
+    expect(holdings.hasQuote('2330'), isTrue);
+    expect(holdings.hasQuote('0050'), isFalse);
+  });
+
+  test('an oversold replay throws and leaves the holdings as they were', () {
+    final holdings = make();
+    final oversold = _trade('more', EntryType.sell, 4, 7, 7700);
+    expect(() => holdings.replay([buy, sell, oversold]), throwsStateError);
+    expect(holdings.byCode('2330')?.shares, 6);
+  });
+
+  test('a lenient replay leaves the oversold trade out', () {
+    final holdings = make();
+    final oversold = _trade('more', EntryType.sell, 4, 7, 7700);
+    holdings.replay([buy, sell, oversold], lenient: true);
+    expect(holdings.byCode('2330')?.shares, 6);
+  });
+
+  test('whether a book of trades holds is told without changing anything', () {
+    final holdings = make();
+    expect(holdings.holdsWith([buy, sell]), isTrue);
+    expect(holdings.holdsWith([sell]), isFalse);
+    expect(holdings.byCode('2330')?.shares, 6);
+  });
+
+  test('a list handed out stays as it was after another replay', () {
+    final holdings = make();
+    final before = holdings.all;
+    holdings.replay([buy]);
+    expect(before.single.shares, 6);
+    expect(holdings.all.single.shares, 10);
+    expect(() => holdings.all.add(_tsmc), throwsUnsupportedError);
+  });
+
+  test('new starting positions count after the next replay', () {
+    final holdings = make();
+    holdings.replaceStart([_tsmc.copyWith(shares: 5, cost: 4000)]);
+    expect(holdings.start.single.shares, 5);
+    holdings.replay([buy, sell]);
+    expect(holdings.byCode('2330')?.shares, 11);
+  });
+}

@@ -6,6 +6,7 @@ import 'package:vault/ledger_vault.dart';
 
 import '../../../core/platform/startup.dart';
 import 'backup_manager.dart';
+import '../../../core/time/app_clock.dart';
 
 /// The keys and backups of the open encrypted ledger.
 final class EncryptedBackupManager implements BackupManager {
@@ -149,7 +150,7 @@ final class EncryptedBackupManager implements BackupManager {
   /// Writes an encrypted backup into [folder], named by the time it was
   /// taken.
   Future<File> _write(Directory folder, {required bool withPhotos}) async {
-    final now = DateTime.now();
+    final now = AppClock.now();
     String two(int n) => n.toString().padLeft(2, '0');
     final stamp =
         '${now.year}${two(now.month)}${two(now.day)}'
@@ -161,15 +162,24 @@ final class EncryptedBackupManager implements BackupManager {
     for (var n = 2; file.existsSync(); n++) {
       file = File('${folder.path}/記帳本-$stamp-$n.etbk');
     }
-    await LedgerBackup.write(
-      store: _vault.store,
-      keys: _vault.keys,
-      file: file,
-      backupId: PublicId.generate().value,
-      createdAt: now,
-      files: withPhotos ? _receipts() : const {},
-    );
-    return file;
+    // Written beside and renamed once whole: a write cut short, as when
+    // the phone stops the app, never looks like a backup, and so never
+    // takes the place of one of the good ones kept.
+    final part = File('${file.path}.part');
+    try {
+      await LedgerBackup.write(
+        store: _vault.store,
+        keys: _vault.keys,
+        file: part,
+        backupId: PublicId.generate().value,
+        createdAt: now,
+        files: withPhotos ? _receipts() : const {},
+      );
+      return await part.rename(file.path);
+    } on Object {
+      if (part.existsSync()) part.deleteSync();
+      rethrow;
+    }
   }
 
   /// The backups in [backupFolder], newest first; their names carry the
@@ -193,7 +203,7 @@ final class EncryptedBackupManager implements BackupManager {
     if (files.isNotEmpty) {
       try {
         final header = await LedgerBackup.readHeader(files.first);
-        final age = DateTime.now().difference(header.createdAt);
+        final age = AppClock.now().difference(header.createdAt);
         if (age < every || header.revision == _vault.store.revision) {
           return null;
         }

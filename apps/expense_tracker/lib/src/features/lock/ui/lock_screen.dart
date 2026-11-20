@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
+import 'package:vault/ledger_vault.dart';
 
 import '../../backup/model/drive_backup.dart';
 import '../../backup/model/restore_sources.dart';
@@ -14,6 +15,7 @@ import 'views/restore_view.dart';
 import 'views/unlock_view.dart';
 import 'views/welcome_view.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/formatting/dates.dart';
 
 /// The first screen of the phone app. A new ledger starts with one tap,
 /// without a password (one can be set later in settings), or from a
@@ -242,6 +244,12 @@ class _LockScreenState extends State<LockScreen> {
     } on FileSystemException {
       // Said to the person.
       _fail('找不到這個備份檔');
+    } on VaultException catch (error) {
+      // Said to the person, by its kind.
+      _fail(switch (error.problem) {
+        VaultProblem.missingDatabase => '這台裝置上的帳本資料不見了，請從備份還原',
+        _ => '無法開啟帳本（${error.problem.name}）',
+      });
     } on KeyringException catch (error) {
       // Said to the person, by its kind.
       _fail(switch (error.error) {
@@ -276,7 +284,7 @@ class _LockScreenState extends State<LockScreen> {
       final at = header.createdAt.toLocal();
       String two(int n) => n.toString().padLeft(2, '0');
       about =
-          '${at.year}/${at.month}/${at.day} ${two(at.hour)}:${two(at.minute)}'
+          '${formatYMd(at)} ${two(at.hour)}:${two(at.minute)}'
           ' 的備份 · ${header.rows} 筆資料';
     } on Object {
       // A file that is not a backup is said so.
@@ -372,7 +380,7 @@ class _LockScreenState extends State<LockScreen> {
   static String _fileLabel(File file) {
     final at = file.lastModifiedSync();
     String two(int n) => n.toString().padLeft(2, '0');
-    return '${at.year}/${at.month}/${at.day} ${two(at.hour)}:${two(at.minute)} 留下';
+    return '${formatYMd(at)} ${two(at.hour)}:${two(at.minute)} 留下';
   }
 
   static String _driveLabel(DriveFile file) {
@@ -381,7 +389,7 @@ class _LockScreenState extends State<LockScreen> {
     final size = file.size == 0
         ? ''
         : ' · ${(file.size / (1024 * 1024)).toStringAsFixed(1)} MB';
-    return '${at.year}/${at.month}/${at.day} '
+    return '${formatYMd(at)} '
         '${two(at.hour)}:${two(at.minute)}$size';
   }
 

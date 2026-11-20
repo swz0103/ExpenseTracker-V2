@@ -2,8 +2,10 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../look/paint.dart';
-import '../look/theme.dart';
+import '../design_system/paint.dart';
+import '../design_system/theme.dart';
+import '../design_system/shape.dart';
+import '../design_system/motion.dart';
 
 /// One stretch of a report: a week, a month, and what came in and went
 /// out in it. A stretch still ahead has [ahead] set and no figures.
@@ -72,7 +74,7 @@ class PeriodBars extends StatelessWidget {
               onHorizontalDragUpdate: (d) => _follow(d.localPosition.dx, width),
               child: TweenAnimationBuilder<double>(
                 tween: Tween<double>(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 600),
+                duration: Motion.of(context, Motion.long4),
                 curve: Curves.easeOutCubic,
                 builder: (context, grow, _) => CustomPaint(
                   size: Size(width, height),
@@ -114,16 +116,16 @@ class _BarsPainter extends CustomPainter {
             0,
             slot * (i + 1) - 2,
             plot,
-            const Radius.circular(8),
+            const Radius.circular(Radii.small),
           ),
-          Paint()..color = Hue.selected,
+          Paint()..color = AppColors.selected,
         );
       }
       if (!b.ahead) {
         final dim = faded && i != selected;
         for (final (k, (value, color)) in [
-          (b.income, Hue.positive),
-          (b.expense, Hue.negative),
+          (b.income, AppColors.positive),
+          (b.expense, AppColors.negative),
         ].indexed) {
           final h = plot * value / largest * grow;
           final left = k == 0 ? x - bar - 1 : x + 1;
@@ -133,8 +135,8 @@ class _BarsPainter extends CustomPainter {
               plot - h,
               left + bar,
               plot,
-              topLeft: const Radius.circular(3),
-              topRight: const Radius.circular(3),
+              topLeft: const Radius.circular(Radii.extraSmall),
+              topRight: const Radius.circular(Radii.extraSmall),
             ),
             Paint()..color = dim ? color.withValues(alpha: 0.35) : color,
           );
@@ -145,7 +147,7 @@ class _BarsPainter extends CustomPainter {
         b.label,
         TextStyle(
           fontSize: TextSize.tiny,
-          color: i == selected ? Hue.ink : Hue.muted,
+          color: i == selected ? AppColors.ink : AppColors.muted,
           fontWeight: i == selected ? FontWeight.w700 : FontWeight.w400,
         ),
         Offset(x, size.height - _labels / 2),
@@ -154,7 +156,7 @@ class _BarsPainter extends CustomPainter {
     canvas.drawLine(
       Offset(0, plot),
       Offset(size.width, plot),
-      Paint()..color = Hue.line,
+      Paint()..color = AppColors.line,
     );
     _worthLine(canvas, plot, slot);
   }
@@ -175,17 +177,17 @@ class _BarsPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeJoin = StrokeJoin.round
-      ..color = Hue.investment.withValues(alpha: grow);
+      ..color = AppColors.investment.withValues(alpha: grow);
     canvas.drawPath(Path()..addPolygon(points, false), paint);
     for (final p in points) {
-      canvas.drawCircle(p, 3, Paint()..color = Hue.white);
+      canvas.drawCircle(p, 3, Paint()..color = AppColors.white);
       canvas.drawCircle(
         p,
         3,
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.6
-          ..color = Hue.investment.withValues(alpha: grow),
+          ..color = AppColors.investment.withValues(alpha: grow),
       );
     }
   }

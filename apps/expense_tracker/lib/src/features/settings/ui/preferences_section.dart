@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
-import '../../overview/compose/overview_editor.dart';
-import '../../overview/compose/widget_face.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../overview/forms/overview_editor.dart';
+import '../../overview/forms/widget_face.dart';
 import '../../../core/platform/preferences.dart';
-import '../../../core/look/settings_hue.dart';
+import '../../../core/design_system/settings_colors.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
 
 /// 外觀與操作: four cards: light or dark, the small vibrations, what the
 /// home-screen widget shows, and the overview's blocks.
@@ -20,7 +22,7 @@ class AppearanceSection extends StatelessWidget {
     showCenterPanel(
       context,
       glyph: Glyph.moon,
-      color: SettingsHue.appearance,
+      color: SettingsColors.appearance,
       title: '外觀',
       body: (context) => ListenableBuilder(
         listenable: preferences,
@@ -31,7 +33,7 @@ class AppearanceSection extends StatelessWidget {
               Appearance.dark,
               Appearance.system,
             ].indexed) ...[
-              if (i > 0) const SizedBox(width: 10),
+              if (i > 0) const SizedBox(width: Space.s2),
               Expanded(
                 child: _LookChoice(
                   look: a,
@@ -51,7 +53,7 @@ class AppearanceSection extends StatelessWidget {
     showCenterPanel(
       context,
       glyph: Glyph.overview,
-      color: SettingsHue.widget,
+      color: SettingsColors.widget,
       title: '桌面小工具',
       detail: '桌面上任何人都看得到',
       body: (context) => ListenableBuilder(
@@ -69,14 +71,14 @@ class AppearanceSection extends StatelessWidget {
     return CardGrid([
       SettingCard(
         glyph: Glyph.moon,
-        color: SettingsHue.appearance,
+        color: SettingsColors.appearance,
         title: '外觀',
         detail: preferences.appearance.label,
         onTap: () => _pickAppearance(context),
       ),
       SettingCard(
         glyph: Glyph.vibrate,
-        color: SettingsHue.haptics,
+        color: SettingsColors.haptics,
         title: '震動',
         detail: '按下去會輕震',
         value: preferences.haptics,
@@ -85,14 +87,14 @@ class AppearanceSection extends StatelessWidget {
       ),
       SettingCard(
         glyph: Glyph.overview,
-        color: SettingsHue.widget,
+        color: SettingsColors.widget,
         title: '桌面小工具',
         detail: preferences.widgetFigures.label,
         onTap: () => _pickWidget(context),
       ),
       SettingCard(
         glyph: Glyph.list,
-        color: SettingsHue.sections,
+        color: SettingsColors.sections,
         title: '總覽區塊',
         detail: '排序、隱藏',
         onTap: () => editOverview(context, preferences),
@@ -118,18 +120,18 @@ class _LookChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     // Each theme's own paper, surface and line, whichever is showing.
     final light = (
-      Color(Hue.paper.light),
-      Color(Hue.surface.light),
-      Color(Hue.faint.light),
+      Color(AppColors.paper.light),
+      Color(AppColors.surface.light),
+      Color(AppColors.faint.light),
     );
     final dark = (
-      Color(Hue.paper.darkValue),
-      Color(Hue.surface.darkValue),
-      Color(Hue.line.darkValue),
+      Color(AppColors.paper.darkValue),
+      Color(AppColors.surface.darkValue),
+      Color(AppColors.line.darkValue),
     );
     Widget page((Color, Color, Color) c) => Container(
       color: c.$1,
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(Space.s2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -137,17 +139,17 @@ class _LookChoice extends StatelessWidget {
             height: 14,
             decoration: BoxDecoration(
               color: c.$2,
-              borderRadius: BorderRadius.circular(5),
+              borderRadius: BorderRadius.circular(Radii.extraSmall),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           FractionallySizedBox(
             widthFactor: 0.55,
             child: Container(
               height: 6,
               decoration: BoxDecoration(
                 color: c.$3,
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(Radii.extraSmall),
               ),
             ),
           ),
@@ -164,12 +166,11 @@ class _LookChoice extends StatelessWidget {
         ],
       ),
     };
-    const color = SettingsHue.appearance;
-    return Semantics(
-      button: true,
+    const color = SettingsColors.appearance;
+    return ReadAsButton(
       selected: chosen,
       label: look.label,
-      excludeSemantics: true,
+      onTap: onTap,
       child: GestureDetector(
         onTap: onTap,
         child: Column(
@@ -178,9 +179,9 @@ class _LookChoice extends StatelessWidget {
               aspectRatio: 0.9,
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(Radii.large),
                   border: Border.all(
-                    color: chosen ? color : Hue.line,
+                    color: chosen ? color : AppColors.line,
                     width: chosen ? 3 : 1.5,
                   ),
                 ),
@@ -206,14 +207,14 @@ class _LookChoice extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.s2),
             OneLine(
               look.label,
               alignment: Alignment.center,
               style: TextStyle(
                 fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,
-                color: chosen ? deepOf(color) : Hue.ink,
+                color: chosen ? deepOf(color) : AppColors.ink,
               ),
             ),
           ],
@@ -259,7 +260,7 @@ class _WidgetChoices extends StatelessWidget {
             onTap: () => onPick(f),
             child: WidgetRow(snapshot: _samples[f]),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: Space.s2),
         ],
       ],
     );
@@ -281,16 +282,15 @@ class _WidgetChoice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const color = SettingsHue.widget;
-    return Semantics(
-      button: true,
+    const color = SettingsColors.widget;
+    return ReadAsButton(
       selected: chosen,
       label: label,
-      excludeSemantics: true,
+      onTap: onTap,
       child: Material(
         color: tintOf(color, chosen ? 0.2 : 0.1),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(Radii.large),
           side: BorderSide(
             color: chosen ? color : Colors.transparent,
             width: 2,
@@ -300,7 +300,12 @@ class _WidgetChoice extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 10, 12),
+            padding: const EdgeInsets.fromLTRB(
+              Space.s4,
+              Space.s2,
+              Space.s2,
+              Space.s3,
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -314,12 +319,12 @@ class _WidgetChoice extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: Space.s2),
                       IgnorePointer(child: child),
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: Space.s2),
                 IgnorePointer(
                   child: TickSwitch(
                     value: chosen,

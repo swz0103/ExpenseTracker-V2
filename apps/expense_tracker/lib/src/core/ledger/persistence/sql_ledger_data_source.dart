@@ -1,3 +1,6 @@
+// Exception to ledger words: a new book's first categories and accounts
+// are written as data, and the diagnostics log is labelled in words.
+
 import 'dart:convert';
 import 'dart:isolate';
 
@@ -25,7 +28,7 @@ const _starters = [
   ('訂閱服務', 'subscription', 0xFFC9A34A, false),
   ('其他支出', 'other', 0xFFB07A8C, false),
   ('薪資收入', 'salary', 0xFF2F7A65, true),
-  ('股息收入', 'dividend', 0xFF5A6FA8, true),
+  (dividendCategory, 'dividend', 0xFF5A6FA8, true),
   ('其他收入', 'income', 0xFF4E8A9A, true),
 ];
 
@@ -67,6 +70,9 @@ Future<List<Object?>> _decodeApartFrom(List<String> bodies) =>
 /// screen does not freeze while a large book opens.
 const _decodeApart = 2000;
 
+/// How many rows a book is read at a time when it opens.
+const readPage = 5000;
+
 /// The book kept in the encrypted ledger: each of the screens' records a
 /// row of JSON, written as the [Ledger] hands over each change.
 final class SqlLedgerDataSource implements LedgerDataSource {
@@ -74,10 +80,14 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     this._store, {
     this._clock = const SystemClock(),
     MarketDataGateway? market,
+    this._readPage = readPage,
   }) : _gateway = market;
 
-  final RowStore _store;
+  final EncryptedDatabase _store;
   final Clock _clock;
+
+  /// How many rows are read at a time when the book opens.
+  final int _readPage;
 
   /// Where closing prices and rates come from; none in tests.
   final MarketDataGateway? _gateway;
@@ -103,13 +113,27 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
   });
 
+  /// Every row, by its shelf. A page at a time, the screen drawn between
+  /// pages: read at once, a book of 100,000 entries held the screen still
+  /// for a third of a second on a computer, longer on a phone.
+  Future<Map<String, List<StoredRow>>> _shelves() async {
+    final collections = <String, List<StoredRow>>{};
+    for (var after = 0; ;) {
+      final page = _store.rowsAfter(after, limit: _readPage);
+      for (final row in page) {
+        (collections[row.shelf] ??= []).add(row);
+      }
+      if (page.length < _readPage) break;
+      after = page.last.seq;
+      await Future<void>.delayed(Duration.zero);
+    }
+    return collections;
+  }
+
   Future<Ledger> _load() async {
     _start();
     giveCategoriesIds(_store);
-    final collections = <String, List<StoredRow>>{};
-    for (final row in _store.rows()) {
-      (collections[row.shelf] ??= []).add(row);
-    }
+    final collections = await _shelves();
     final records = [
       for (final collection in Collection.values)
         if (collection != Collection.receipt) ...?collections[collection.name],
@@ -221,7 +245,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   }
 
   void _write(WriteBatch batch) {
-    final at = DateTime.now().millisecondsSinceEpoch;
+    final at = _clock.now().value.millisecondsSinceEpoch;
     // A category, as the rest of the batch names it, first; and what a
     // dropped budget was kept under, before its category goes.
     for (final c in batch.categories) {
@@ -340,7 +364,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   // Market data.
 
-  /// The closes and board last fetched, for [Ledger.setMarket].
+  /// The closes and board last fetched, for `HoldingCommands.setMarket`.
   ({
     List<Holding> holdings,
     Map<String, double> moves,

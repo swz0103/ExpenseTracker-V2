@@ -18,8 +18,8 @@ class PersonPage extends StatelessWidget {
   /// Opens the composer on money paid for [person] from the main account
   /// ([lend]), or on money paid back, all that is owed by default.
   void _move(Account person, {required bool lend}) {
-    final main = ledger.mainAccount;
-    final owed = ledger.balance(person.id);
+    final main = ledger.accounts.main;
+    final owed = ledger.balanceService.balance(person.id);
     nav.compose(
       type: EntryType.transfer,
       draft: Entry(
@@ -38,33 +38,33 @@ class PersonPage extends StatelessWidget {
   /// it was part of.
   String _what(Entry e) {
     if (e.note.isNotEmpty) return e.note;
-    final lead = ledger.groupLead(e);
+    final lead = ledger.entryQueryService.groupLead(e);
     if (!identical(lead, e) && lead.type == EntryType.expense) {
       return lead.merchant.isNotEmpty ? lead.merchant : lead.category;
     }
-    return '代墊';
+    return Words.lend;
   }
 
   Future<void> _rename(BuildContext context, Account person) async {
     final name = await askText(context, '改名', initial: person.name);
     if (name == null || name == person.name) return;
-    ledger.updateAccount(person.copyWith(name: name));
+    ledger.accountCommands.updateAccount(person.copyWith(name: name));
   }
 
   Future<void> _delete(BuildContext context, Account person) async {
-    final used = ledger.isUsed(person.id);
+    final used = ledger.accountCommands.isUsed(person.id);
     final ok = await confirm(
       context,
       '刪除「${person.name}」？',
-      '刪除',
+      Words.delete,
       danger: true,
       body: used ? '已記的紀錄會保留，這個人收起來不再出現。' : null,
     );
     if (!ok) return;
     if (used) {
-      ledger.updateAccount(person.copyWith(archived: true));
+      ledger.accountCommands.updateAccount(person.copyWith(archived: true));
     } else {
-      ledger.removeAccount(person.id);
+      ledger.accountCommands.removeAccount(person.id);
     }
     nav.back();
   }
@@ -74,21 +74,21 @@ class PersonPage extends StatelessWidget {
     return ListenableBuilder(
       listenable: ledger,
       builder: (context, _) {
-        if (!ledger.hasAccount(personId)) {
+        if (!ledger.accounts.contains(personId)) {
           WidgetsBinding.instance.addPostFrameCallback((_) => nav.back());
           return const SizedBox.shrink();
         }
         final person = ledger.account(personId);
-        final balance = ledger.balance(person.id);
-        final owed = ledger.owedBy(person.id);
+        final balance = ledger.balanceService.balance(person.id);
+        final owed = ledger.reportService.owedBy(person.id);
         final entries = [
-          for (final e in ledger.entries)
+          for (final e in ledger.entries.all)
             if (e.account == person.id || e.to == person.id) e,
         ]..sort((a, b) => b.date.compareTo(a.date));
         final color = nameColor(person.name);
         final oldest = owed.isEmpty ? null : owed.last.$1.date;
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(person.name, onBack: nav.back),
           children: [
             _DebtHero(
@@ -106,13 +106,13 @@ class PersonPage extends StatelessWidget {
                 DotsItem(Glyph.edit, '改名', () => _rename(context, person)),
                 DotsItem(
                   Glyph.trash,
-                  '刪除',
+                  Words.delete,
                   () => _delete(context, person),
                   danger: true,
                 ),
               ]),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             Row(
               children: [
                 Expanded(
@@ -123,7 +123,7 @@ class PersonPage extends StatelessWidget {
                     onTap: () => _move(person, lend: true),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: Space.s3),
                 Expanded(
                   child: _Action(
                     glyph: Glyph.check,
@@ -141,23 +141,24 @@ class PersonPage extends StatelessWidget {
               ..._board('還沒收回', [
                 for (final (e, left) in owed)
                   QuoteRow(
-                    onTap: () => nav.showEntry(ledger.groupLead(e)),
+                    onTap: () =>
+                        nav.showEntry(ledger.entryQueryService.groupLead(e)),
                     title: _what(e),
                     detail:
-                        '${e.date.month}/${e.date.day}'
+                        '${formatMd(e.date)}'
                         '${left < e.amount ? ' · 共 ${ledger.orDots(groupDigits(e.amount))}' : ''}',
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _DaysTag(_days(ledger, e.date)),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: Space.s3),
                         RowFigure(ledger.orDots(groupDigits(left))),
                       ],
                     ),
                   ),
               ]),
             ..._board('往來紀錄', [
-              for (final e in entries) _move2(e, person.id, color),
+              for (final e in entries) _movementRow(e, person.id, color),
             ]),
           ],
         );
@@ -167,22 +168,22 @@ class PersonPage extends StatelessWidget {
 
   /// One movement with the person: paid back in green with a minus, paid
   /// for with a ＋.
-  Widget _move2(Entry e, String person, Color color) {
+  Widget _movementRow(Entry e, String person, Color color) {
     final back = e.account == person;
     return QuoteRow(
-      onTap: () => nav.showEntry(ledger.groupLead(e)),
+      onTap: () => nav.showEntry(ledger.entryQueryService.groupLead(e)),
       lead: SquareIcon(
         back ? Glyph.check : Glyph.add,
-        back ? Hue.positive : color,
+        back ? AppColors.positive : color,
         size: 40,
       ),
       title: back ? '收回' : _what(e),
-      detail: '${e.date.month}/${e.date.day}',
+      detail: formatMd(e.date),
       trailing: RowFigure(
         back
             ? '−${ledger.orDots(groupDigits(e.amount))}'
             : ledger.orDots(groupDigits(e.amount)),
-        color: back ? Hue.positive : Hue.ink,
+        color: back ? AppColors.positive : AppColors.ink,
       ),
     );
   }
@@ -198,10 +199,13 @@ class _DaysTag extends StatelessWidget {
   Widget build(BuildContext context) {
     final long = days > 14;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s2,
+        vertical: Space.s1,
+      ),
       decoration: BoxDecoration(
-        color: long ? Palette.gold : Hue.surface,
-        borderRadius: BorderRadius.circular(8),
+        color: long ? Palette.gold : AppColors.surface,
+        borderRadius: BorderRadius.circular(Radii.small),
       ),
       child: Text(
         '$days 天',
@@ -209,7 +213,7 @@ class _DaysTag extends StatelessWidget {
         style: TextStyle(
           fontSize: TextSize.caption,
           fontWeight: FontWeight.w800,
-          color: long ? Hue.onAccent : Hue.muted,
+          color: long ? AppColors.onAccent : AppColors.muted,
         ),
       ),
     );
@@ -236,7 +240,7 @@ class LoanPage extends StatelessWidget {
     return ListenableBuilder(
       listenable: ledger,
       builder: (context, _) {
-        if (!ledger.hasAccount(loanId)) {
+        if (!ledger.accounts.contains(loanId)) {
           WidgetsBinding.instance.addPostFrameCallback((_) => nav.back());
           return const SizedBox.shrink();
         }
@@ -246,11 +250,11 @@ class LoanPage extends StatelessWidget {
         final principal = loan.principal;
         final color = nameColor(loan.name);
         final entries = [
-          for (final e in ledger.entries)
+          for (final e in ledger.entries.all)
             if (e.account == loan.id || e.to == loan.id) e,
         ]..sort((a, b) => b.date.compareTo(a.date));
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(loan.name, onBack: nav.back),
           children: [
             _DebtHero(
@@ -276,7 +280,7 @@ class LoanPage extends StatelessWidget {
                       '${ledger.orDots(groupDigits(plan.first))}',
               ],
               menu: DotsMenu([
-                DotsItem(Glyph.edit, '編輯', () async {
+                DotsItem(Glyph.edit, Words.edit, () async {
                   final gone = await editLoan(context, ledger, loan: loan);
                   if (gone) nav.back();
                 }),
@@ -287,7 +291,7 @@ class LoanPage extends StatelessWidget {
                 ),
               ]),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             _Action(
               glyph: Glyph.add,
               label: '記一筆還款',
@@ -300,7 +304,7 @@ class LoanPage extends StatelessWidget {
                   date: ledger.today,
                   type: EntryType.transfer,
                   amount: 0,
-                  account: ledger.mainAccount,
+                  account: ledger.accounts.main,
                   category: transferCategory,
                   to: loan.id,
                 ),
@@ -316,8 +320,8 @@ class LoanPage extends StatelessWidget {
                     size: 40,
                   ),
                   title: e.to == loan.id
-                      ? '還款 ${e.date.month}/${e.date.day}'
-                      : '${e.title} ${e.date.month}/${e.date.day}',
+                      ? '還款 ${formatMd(e.date)}'
+                      : '${e.title} ${formatMd(e.date)}',
                   detail: e.to == loan.id
                       ? '從 ${ledger.account(e.account).name}'
                       : null,

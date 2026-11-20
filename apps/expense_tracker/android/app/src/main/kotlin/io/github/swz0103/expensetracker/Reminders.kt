@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Calendar
+import java.util.TimeZone
 
 /**
  * The app's notifications (lib/src/features/reminders/model/notifications.dart): each alert is an
@@ -149,17 +150,30 @@ object Reminders {
      */
     private fun dueAt(alert: JSONObject): Long {
         if (!alert.has("y")) return alert.getLong("at")
-        return Calendar.getInstance().apply {
-            clear()
-            set(
-                alert.getInt("y"),
-                alert.getInt("m") - 1,
-                alert.getInt("d"),
-                alert.getInt("hour"),
-                alert.getInt("minute"),
-            )
-        }.timeInMillis
+        return wallClock(
+            alert.getInt("y"),
+            alert.getInt("m"),
+            alert.getInt("d"),
+            alert.getInt("hour"),
+            alert.getInt("minute"),
+        )
     }
+
+    /**
+     * The instant a wall-clock time falls on in [zone] (the phone's own by
+     * default); [month] counts from 1, as the app writes it.
+     */
+    fun wallClock(
+        year: Int,
+        month: Int,
+        day: Int,
+        hour: Int,
+        minute: Int,
+        zone: TimeZone = TimeZone.getDefault(),
+    ): Long = Calendar.getInstance(zone).apply {
+        clear()
+        set(year, month - 1, day, hour, minute)
+    }.timeInMillis
 
     /**
      * Sets an alarm for each kept alert still to come, at its time on the

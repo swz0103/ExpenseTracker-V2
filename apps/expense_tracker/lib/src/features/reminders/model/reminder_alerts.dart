@@ -1,11 +1,12 @@
 import 'dart:async';
 
-import '../../../core/text/amounts.dart';
+import '../../../core/formatting/amounts.dart';
 import '../../../core/ledger/ledger.dart';
 import 'reminders.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/platform/quick_action.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/time/app_clock.dart';
 
 /// One notification to show at [at].
 final class Alert {
@@ -75,7 +76,7 @@ const nudgeTag = 'nudge';
 Set<String> wantedTags(Ledger ledger, Preferences preferences) => {
   if (preferences.dueAlerts)
     for (final r in ledger.reminders(days: 30)) 'due:${r.key}',
-  if (preferences.dailyNudge && ledger.entriesOn(ledger.today).isEmpty)
+  if (preferences.dailyNudge && ledger.entries.onDay(ledger.today).isEmpty)
     nudgeTag,
   // A budget's notice stays while the budget is still past its mark.
   for (final c in budgetCrossings(ledger, preferences)) c.tag,
@@ -93,15 +94,13 @@ List<BudgetCrossing> budgetCrossings(Ledger ledger, Preferences preferences) {
   final today = ledger.today;
   final month = '${today.year}-${today.month}';
   final found = <BudgetCrossing>[];
-  for (final b in ledger.budgets) {
+  for (final b in ledger.budgets.all) {
     if (b.limit <= 0) continue;
-    final allowed = ledger.allowance(b, today.year, today.month);
+    final allowed = ledger.budgetService.allowance(b, today.year, today.month);
     if (allowed <= 0) continue;
-    final spent = ledger.spentAgainst(b, today.year, today.month);
+    final spent = ledger.budgetService.spentAgainst(b, today.year, today.month);
     final share = spent * 100 ~/ allowed;
-    final name = b.category == Ledger.allSpending
-        ? '本月總預算'
-        : '「${b.category}」預算';
+    final name = b.category == allSpending ? '本月總預算' : '「${b.category}」預算';
     final BudgetCrossing crossing;
     if (spent > allowed) {
       crossing = (
@@ -165,7 +164,7 @@ List<Alert> alertsFor(Ledger ledger, Preferences preferences, DateTime now) {
   }
   if (preferences.dailyNudge) {
     final today = ledger.today;
-    final recorded = ledger.entriesOn(today).isNotEmpty;
+    final recorded = ledger.entries.onDay(today).isNotEmpty;
     for (var d = 0; d < 7; d++) {
       if (d == 0 && recorded) continue;
       final at = DateTime(
@@ -231,7 +230,7 @@ final class Notifier {
     if (ledger == null) return;
     try {
       await port.schedule(
-        alertsFor(ledger, preferences, DateTime.now()),
+        alertsFor(ledger, preferences, AppClock.now()),
         exact: preferences.exactReminders,
         wanted: wantedTags(ledger, preferences),
       );
@@ -260,7 +259,7 @@ final class Notifier {
     for (final c in fresh) {
       // Ids 700 to 763, apart from the alerts' and the test's (990).
       await port.post(
-        Alert(DateTime.now(), c.title, c.text, tag: c.tag),
+        Alert(AppClock.now(), c.title, c.text, tag: c.tag),
         700 + (c.tag.hashCode & 0x3f),
       );
       posted.add(c.key);

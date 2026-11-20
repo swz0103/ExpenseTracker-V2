@@ -6,6 +6,7 @@ import '../../core/platform/preferences.dart';
 import '../../core/platform/screen_privacy.dart';
 import '../../features/backup/model/backup_manager.dart';
 import '../../features/reminders/model/reminder_alerts.dart';
+import '../../core/time/app_clock.dart';
 
 /// The web preview's stand-ins for the phone: notifications that go
 /// nowhere, screen hiding kept in memory, made-up daily closes and keys
@@ -82,7 +83,7 @@ final class DemoPrices extends SyncJob implements PriceHistory {
   @override
   Future<List<(DateTime, double)>> history(String code, DateTime from) async {
     final ledger = _ledger?.call();
-    final today = ledger?.today ?? DateTime.now().toUtc();
+    final today = ledger?.today ?? AppClock.now().toUtc();
     final end = ledger?.holding(code)?.price ?? 100;
     final days = <DateTime>[
       for (

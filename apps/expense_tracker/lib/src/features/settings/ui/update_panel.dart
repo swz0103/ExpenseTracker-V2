@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/theme.dart';
+import '../../../core/design_system/theme.dart';
 import '../model/app_update.dart';
-import '../../../core/look/kit/buttons.dart';
-import '../../../core/look/keys.dart';
+import '../../../core/design_system/components/buttons.dart';
+import '../../../core/design_system/keys.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
 
 /// A newer version: its name and what it changes in a few lines, with
 /// 更新, and 晚一點再說 or 略過這一版 under it. Only these close it: not a
@@ -16,7 +18,7 @@ Future<void> showUpdatePanel(BuildContext context, AppUpdate update) async {
   if (info == null) return;
   await showDialog<void>(
     context: context,
-    barrierColor: Hue.scrim,
+    barrierColor: AppColors.scrim,
     barrierDismissible: false,
     builder: (context) => PopScope(
       canPop: false,
@@ -58,11 +60,21 @@ class _UpdatePanelState extends State<_UpdatePanel> {
   Widget build(BuildContext context) {
     final info = widget.info;
     return Dialog(
-      backgroundColor: Hue.paper,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+      backgroundColor: AppColors.paper,
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: Space.s6,
+        vertical: Space.s6,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Radii.extraLarge),
+      ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+        padding: const EdgeInsets.fromLTRB(
+          Space.s6,
+          Space.s6,
+          Space.s6,
+          Space.s5,
+        ),
         child: ListenableBuilder(
           listenable: widget.update,
           builder: (context, _) {
@@ -79,10 +91,10 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: Space.s4),
                 for (final line in info.notes)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.only(bottom: Space.s2),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -90,7 +102,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                           '・',
                           style: TextStyle(
                             fontSize: TextSize.body,
-                            color: Hue.accent,
+                            color: AppColors.accent,
                           ),
                         ),
                         Expanded(
@@ -106,54 +118,51 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                   const Text(
                     '修正與改進',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: TextSize.body, color: Hue.muted),
+                    style: mutedBody,
                   ),
                 if (_problem case final problem?)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.only(top: Space.s2),
                     child: Text(
                       problem,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: TextSize.body,
-                        color: Hue.negative,
+                        color: AppColors.negative,
                       ),
                     ),
                   ),
-                const SizedBox(height: 18),
+                const SizedBox(height: Space.s4),
                 if (progress != null) ...[
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(Radii.extraSmall),
                     child: LinearProgressIndicator(
                       value: progress,
                       minHeight: 8,
-                      color: Hue.accent,
-                      backgroundColor: Hue.surface,
+                      color: AppColors.accent,
+                      backgroundColor: AppColors.surface,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: Space.s2),
                   Text(
                     '下載中 ${(progress * 100).round()}%',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: TextSize.body,
-                      color: Hue.muted,
-                    ),
+                    style: mutedBody,
                   ),
                 ] else ...[
                   _Choice(
                     '更新',
                     key: Keys.install,
-                    color: Hue.positive,
+                    color: AppColors.positive,
                     onTap: widget.update.busy ? null : _install,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: Space.s2),
                   Row(
                     children: [
                       Expanded(
                         child: TextButton(
                           key: Keys.later,
-                          style: wordButton(Hue.muted),
+                          style: wordButton(AppColors.muted),
                           onPressed: () {
                             widget.update.later();
                             Navigator.of(context).pop();
@@ -164,7 +173,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                       Expanded(
                         child: TextButton(
                           key: Keys.skip,
-                          style: wordButton(Hue.muted),
+                          style: wordButton(AppColors.muted),
                           onPressed: () {
                             widget.update.skip(info);
                             Navigator.of(context).pop();
@@ -198,7 +207,7 @@ class _Choice extends StatelessWidget {
       style: solidButton(
         color,
         minimumSize: Size(0, 52),
-        radius: 16,
+        radius: Radii.large,
         words: appFont.copyWith(
           fontSize: TextSize.title,
           fontWeight: FontWeight.w800,

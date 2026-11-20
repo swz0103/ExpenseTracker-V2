@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/look/widgets.dart';
+import '../../../../core/design_system/design_system.dart';
 import 'lock_parts.dart';
+import '../../../../core/formatting/words.dart';
 
 /// Restoring a ledger from a backup: the file, then that ledger's
 /// password or recovery code.
@@ -109,7 +110,8 @@ class RestoreView extends StatelessWidget {
       problem: problem,
       extras: [
         LockLink(recovery ? '改用密碼' : '忘記密碼？用救援碼', onToggleRecovery, busy: busy),
-        if (back != null) LockLink('返回', back, busy: busy, key: Keys.back),
+        if (back != null)
+          LockLink(Words.back, back, busy: busy, key: Keys.back),
       ],
     );
   }

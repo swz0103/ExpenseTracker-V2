@@ -1,4 +1,7 @@
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/recurring_messages.dart';
+import '../../../core/formatting/dates.dart';
+import 'recurring_schedule.dart';
 
 /// What the form of a recurring item holds while it is filled in: a new
 /// item, or the changes to [old]. The screen only shows it.
@@ -7,7 +10,7 @@ final class RecurringForm {
     : name = old?.name ?? '',
       income = old?.income ?? false,
       amount = old?.amount ?? 0,
-      account = old?.account ?? ledger.openAccounts.first.id,
+      account = old?.account ?? ledger.accounts.open.first.id,
       unit = old?.unit ?? RepeatUnit.month,
       every = old?.every ?? 1,
       end = old?.end,
@@ -37,7 +40,7 @@ final class RecurringForm {
   bool auto;
 
   String _firstCategory(bool income) {
-    final choices = ledger.categoriesFor(income: income);
+    final choices = ledger.categories.forEntries(income: income);
     return choices.isEmpty ? '' : choices.first.name;
   }
 
@@ -54,6 +57,31 @@ final class RecurringForm {
 
   /// The currency of the account it is paid from or into.
   String get currency => ledger.account(account).currency;
+
+  /// The categories offered under the card: the usual ones of its side,
+  /// with the one chosen first in place of the last when it is not among
+  /// them, so the choice is always in sight.
+  List<Category> get categoryChoices {
+    final usual = usualCategories(ledger, income: income);
+    if (category.isNotEmpty &&
+        usual.isNotEmpty &&
+        !usual.any((c) => c.name == category)) {
+      usual
+        ..removeLast()
+        ..insert(0, ledger.category(category));
+    }
+    return usual;
+  }
+
+  /// What differs from a new item's defaults, as the strip under the
+  /// categories shows it: when it starts, how it is booked, an end and
+  /// whether it is paused.
+  List<String> get notes => [
+    '${formatMd(start)} 起',
+    auto ? '到期自動入帳' : '手動入帳',
+    if (end case final end?) '到 ${formatMd(end)}',
+    if (!active) '已暫停',
+  ];
 
   /// Moves between spending and income, with that side's first category.
   void setIncome(bool value) {
@@ -121,22 +149,24 @@ final class RecurringForm {
   );
 
   /// How often it comes, such as 每月 5 日.
-  String get rhythm => Recurring(
-    id: '',
-    name: '',
-    amount: 0,
-    day: start.day,
-    account: '',
-    category: '',
-    unit: unit,
-    every: every,
-    start: start,
-  ).rhythm;
+  String get rhythm => rhythmOf(
+    Recurring(
+      id: '',
+      name: '',
+      amount: 0,
+      day: start.day,
+      account: '',
+      category: '',
+      unit: unit,
+      every: every,
+      start: start,
+    ),
+  );
 
   /// Writes the item to the ledger; false when it cannot be saved.
   bool save() {
     if (problem != null) return false;
-    ledger.saveRecurring(build());
+    ledger.recurringCommands.saveRecurring(build());
     return true;
   }
 }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:vault/backup_security.dart';
 
 import '../../../core/ledger/ledger.dart';
+import '../../../core/formatting/dates.dart';
 
 /// What the inbox brought when the ledger opened: how many items were
 /// booked, and what could not be, for the person to look at.
@@ -26,9 +27,9 @@ InboxOutcome applyInbox(Ledger ledger, List<InboxItem> items) {
       continue;
     }
     final (id, day) = request;
-    final label = '${day.month}/${day.day}';
+    final label = formatMd(day);
     Recurring? found;
-    for (final r in ledger.recurring) {
+    for (final r in ledger.recurring.all) {
       if (r.id == id) found = r;
     }
     if (found == null) {
@@ -39,14 +40,12 @@ InboxOutcome applyInbox(Ledger ledger, List<InboxItem> items) {
       review.add('「${found.name}」已暫停，$label 的確認沒有入帳');
       continue;
     }
-    final pending = ledger.pendingDate(found);
+    final pending = ledger.recurringService.pendingDate(found);
     if (pending == day) {
-      ledger.confirm(found);
+      ledger.recurringCommands.confirm(found);
       booked++;
     } else if (pending != null && pending.isBefore(day)) {
-      review.add(
-        '「${found.name}」還有 ${pending.month}/${pending.day} 那期沒入帳，請到定期交易確認',
-      );
+      review.add('「${found.name}」還有 ${formatMd(pending)} 那期沒入帳，請到定期交易確認');
     }
     // Otherwise that day is booked already.
   }

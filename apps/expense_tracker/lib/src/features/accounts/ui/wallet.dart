@@ -102,6 +102,9 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
     final far = (target - _spin.value).abs();
     _spin.animateTo(
       target,
+      // Exception to motion: set at once above while motion is off.
+      // Exception to the motion scale: as long as the flick runs on, from
+      // its speed.
       duration: Duration(
         milliseconds: (220 + far * 110).clamp(220, 900).round(),
       ),
@@ -115,7 +118,7 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
     if (d > _count / 2) d -= _count;
     _spin.animateTo(
       (_spin.value + d).roundToDouble(),
-      duration: const Duration(milliseconds: 320),
+      duration: Motion.of(context, Motion.medium2),
       curve: Curves.easeOutCubic,
     );
   }
@@ -124,7 +127,6 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     final (strip, front) = cardHeights(context);
     final rest = (strip - 12) * (_count - 1) + front;
-    final quiet = MediaQuery.disableAnimationsOf(context);
     final wheel = front * 2.9;
     return GestureDetector(
       // A screen reader taps each card instead.
@@ -147,8 +149,8 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
       onVerticalDragEnd: _turning
           ? (d) => _letGo(d.velocity.pixelsPerSecond.dy)
           : null,
-      child: AnimatedSize(
-        duration: quiet ? Duration.zero : const Duration(milliseconds: 220),
+      child: MotionSize(
+        duration: Motion.short4,
         curve: Curves.easeOutCubic,
         alignment: Alignment.topCenter,
         child: _turning
@@ -161,8 +163,8 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
                       TextButton(
                         key: Keys.walletDone,
                         onPressed: _finish,
-                        style: wordButton(Hue.accent),
-                        child: const Text('完成'),
+                        style: wordButton(AppColors.accent),
+                        child: const Text(Words.done),
                       ),
                     ],
                   ),
@@ -236,7 +238,6 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
     final accounts = widget.accounts;
     final last = accounts.length - 1;
     final step = strip - 12;
-    final quiet = MediaQuery.disableAnimationsOf(context);
     // In the drum's order from the front one: the next account just
     // behind it, the one after behind that, round to the one before.
     final at = widget.index;
@@ -249,7 +250,7 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
         for (final (i, a) in order.indexed)
           AnimatedPositioned(
             key: ValueKey(a.id),
-            duration: quiet ? Duration.zero : const Duration(milliseconds: 260),
+            duration: Motion.of(context, Motion.medium1),
             curve: Curves.easeOutCubic,
             top: step * i,
             left: 0,

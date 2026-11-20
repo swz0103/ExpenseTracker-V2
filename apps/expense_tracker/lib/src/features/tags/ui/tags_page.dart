@@ -1,21 +1,25 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/dialogs.dart';
-import '../../../core/text/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/ui/icons.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/design_system/dialogs.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
 import '../model/tag_summary.dart';
-import '../../../core/ui/shown_amounts.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 part 'tag_page.dart';
 
 /// The colours of the two halves of 標籤與商家.
-const _tagHue = Palette.gold;
-const _merchantHue = Palette.orange;
+const _tagColor = Palette.gold;
+const _merchantColor = Palette.orange;
 
 /// 標籤與商家: 標籤 and 商家 on two big segments. Tags: a cover for the
 /// tag of the latest entry (its days, total, a day's spending and its
@@ -50,10 +54,10 @@ class _TagsPageState extends State<TagsPage> {
     return ListenableBuilder(
       listenable: ledger,
       builder: (context, _) {
-        final tags = ledger.tagStats;
-        final merchants = ledger.merchantStats;
+        final tags = ledger.reportService.tagStats;
+        final merchants = ledger.reportService.merchantStats;
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader('標籤與商家', onBack: widget.nav.back),
           children: [
             Row(
@@ -61,27 +65,27 @@ class _TagsPageState extends State<TagsPage> {
                 Expanded(
                   child: _Half(
                     glyph: Glyph.ticket,
-                    label: '標籤',
+                    label: Words.tag,
                     count: tags.length,
-                    color: _tagHue,
+                    color: _tagColor,
                     chosen: !_merchants,
                     onTap: () => setState(() => _merchants = false),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: Space.s2),
                 Expanded(
                   child: _Half(
                     glyph: Glyph.store,
-                    label: '商家',
+                    label: Words.merchant,
                     count: merchants.length,
-                    color: _merchantHue,
+                    color: _merchantColor,
                     chosen: _merchants,
                     onTap: () => setState(() => _merchants = true),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: Space.s4),
             ...(_merchants ? _merchantList(merchants) : _tagList()),
           ],
         );
@@ -90,33 +94,40 @@ class _TagsPageState extends State<TagsPage> {
   }
 
   List<Widget> _tagList() {
-    final latest = latestTag(ledger);
-    final project = latest == null ? null : tagSummaryOf(ledger, latest);
+    final latest = latestTag(ledger.entries);
+    final project = latest == null
+        ? null
+        : tagSummaryOf(ledger.entries, latest);
     if (project == null) {
       return const [
         EmptyState(
           glyph: Glyph.ticket,
-          color: _tagHue,
+          color: _tagColor,
           message: '記帳時在「標籤」加上 #名稱，\n同一趟旅行或計畫的花費就會收在這裡',
         ),
       ];
     }
     return [
-      ProjectCard(
+      TagSummaryCard(
         ledger: ledger,
         project: project,
         recent: true,
-        onTap: () => widget.nav.open(Pages.tag(project.tag)),
+        onTap: () => widget.nav.open(AppRoutes.tag(project.tag)),
       ),
-      for (final (year, names) in tagsByYear(ledger)) ...[
+      for (final (year, names) in tagsByYear(ledger.entries)) ...[
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
+          padding: const EdgeInsets.fromLTRB(
+            Space.s1,
+            Space.s5,
+            Space.s1,
+            Space.s2,
+          ),
           child: Text(
             '$year',
             style: const TextStyle(
               fontSize: TextSize.body,
               fontWeight: FontWeight.w800,
-              color: Hue.muted,
+              color: AppColors.muted,
             ),
           ),
         ),
@@ -124,10 +135,13 @@ class _TagsPageState extends State<TagsPage> {
           for (final name in names)
             ColorCard(
               color: nameColor(name),
-              radius: 16,
+              radius: Radii.large,
               label: '#$name',
-              onTap: () => widget.nav.open(Pages.tag(name)),
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+              onTap: () => widget.nav.open(AppRoutes.tag(name)),
+              padding: const EdgeInsets.symmetric(
+                vertical: Space.s4,
+                horizontal: Space.s2,
+              ),
               child: Text(
                 '#$name',
                 textAlign: TextAlign.center,
@@ -145,12 +159,51 @@ class _TagsPageState extends State<TagsPage> {
     ];
   }
 
+  /// A merchant under 其他: its name and how often it was visited, on
+  /// its colour.
+  Widget _merchantCard(String name, int count) => ColorCard(
+    color: nameColor(name),
+    radius: Radii.large,
+    label: '$name，$count 次',
+    onTap: () => widget.nav.open(AppRoutes.merchant(name)),
+    padding: const EdgeInsets.symmetric(
+      horizontal: Space.s4,
+      vertical: Space.s2,
+    ),
+    // 48 dp to tap, with the padding.
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 32),
+      child: Row(
+        children: [
+          Expanded(
+            child: OneLine(
+              name,
+              style: TextStyle(
+                fontSize: TextSize.body,
+                fontWeight: FontWeight.w800,
+                color: deepOf(nameColor(name)),
+              ),
+            ),
+          ),
+          const SizedBox(width: Space.s2),
+          Text(
+            '$count 次',
+            style: TextStyle(
+              fontSize: TextSize.caption,
+              color: deepOf(nameColor(name)),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
   List<Widget> _merchantList(List<(String, int, int)> merchants) {
     if (merchants.isEmpty) {
       return const [
         EmptyState(
           glyph: Glyph.store,
-          color: _merchantHue,
+          color: _merchantColor,
           message: '記帳時填上「商家」，\n最常去的店就會排在這裡',
         ),
       ];
@@ -171,7 +224,7 @@ class _TagsPageState extends State<TagsPage> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             for (final ((name, count, _), rank) in podium) ...[
-              if (rank != podium.first.$2) const SizedBox(width: 10),
+              if (rank != podium.first.$2) const SizedBox(width: Space.s2),
               Expanded(
                 child: _Step(
                   name: name,
@@ -180,7 +233,7 @@ class _TagsPageState extends State<TagsPage> {
                   height: 70 + 90 * count / most,
                   color: nameColor(name),
                   first: rank == 0,
-                  onTap: () => widget.nav.open(Pages.merchant(name)),
+                  onTap: () => widget.nav.open(AppRoutes.merchant(name)),
                 ),
               ),
             ],
@@ -192,36 +245,7 @@ class _TagsPageState extends State<TagsPage> {
         // Two to a row, each as wide as the other, so long and short
         // names line up.
         CardGrid(gap: 8, [
-          for (final (name, count, _) in rest)
-            ColorCard(
-              color: nameColor(name),
-              radius: 14,
-              label: '$name，$count 次',
-              onTap: () => widget.nav.open(Pages.merchant(name)),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OneLine(
-                      name,
-                      style: TextStyle(
-                        fontSize: TextSize.body,
-                        fontWeight: FontWeight.w800,
-                        color: deepOf(nameColor(name)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '$count 次',
-                    style: TextStyle(
-                      fontSize: TextSize.caption,
-                      color: deepOf(nameColor(name)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          for (final (name, count, _) in rest) _merchantCard(name, count),
         ]),
       ],
     ];
@@ -249,21 +273,22 @@ class _Half extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ink = chosen ? chosenInk(color) : deepOf(color);
-    return Semantics(
+    return ReadAsButton(
       selected: chosen,
-      button: true,
       label: '$label $count 個',
-      excludeSemantics: true,
+      onTap: onTap,
       child: DecoratedBox(
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(Radii.large),
+        ),
         child: Material(
           color: chosen ? chosenFill(color) : tintOf(color, 0.2),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
             side: chosen ? chosenEdge(color) : BorderSide.none,
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
             onTap: onTap,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 52),
@@ -271,7 +296,7 @@ class _Half extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   GlyphIcon(glyph, size: 20, color: ink, tinted: false),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: Space.s2),
                   Text(
                     label,
                     style: TextStyle(
@@ -280,7 +305,7 @@ class _Half extends StatelessWidget {
                       color: ink,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: Space.s2),
                   Text(
                     '$count',
                     style: TextStyle(fontSize: TextSize.small, color: ink),
@@ -317,10 +342,9 @@ class _Step extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ink = deepOf(color);
-    return Semantics(
-      button: true,
+    return ReadAsButton(
       label: '$name，去過 $count 次',
-      excludeSemantics: true,
+      onTap: onTap,
       child: GestureDetector(
         onTap: onTap,
         child: Column(
@@ -331,19 +355,19 @@ class _Step extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: first ? 17 : 15,
+                fontSize: first ? TextSize.title : TextSize.body,
                 fontWeight: FontWeight.w800,
                 color: ink,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: Space.s2),
             Container(
               height: height,
               width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(18),
-                  bottom: Radius.circular(8),
+                  top: Radius.circular(Radii.large),
+                  bottom: Radius.circular(Radii.small),
                 ),
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -351,7 +375,7 @@ class _Step extends StatelessWidget {
                   colors: [tintOf(color, 0.45), tintOf(color, 0.2)],
                 ),
               ),
-              padding: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.only(top: Space.s3),
               alignment: Alignment.topCenter,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -360,7 +384,7 @@ class _Step extends StatelessWidget {
                     '$count',
                     textScaler: TextScaler.noScaling,
                     style: TextStyle(
-                      fontSize: first ? 30 : 26,
+                      fontSize: first ? TextSize.figure : TextSize.large,
                       fontWeight: FontWeight.w800,
                       color: ink,
                     ),
@@ -383,8 +407,8 @@ class _Step extends StatelessWidget {
 /// spending and how many entries, and a bar of its categories with each
 /// one's share. On 標籤與商家 it is the latest tag's, with 最近 and the
 /// name; on the tag's own page it carries the ⋯ menu instead.
-class ProjectCard extends StatelessWidget {
-  const ProjectCard({
+class TagSummaryCard extends StatelessWidget {
+  const TagSummaryCard({
     super.key,
     required this.ledger,
     required this.project,
@@ -405,16 +429,21 @@ class ProjectCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = nameColor(project.tag);
     final ink = deepOf(color);
-    String day(DateTime d) => '${d.month}/${d.day}';
+    String day(DateTime d) => formatMd(d);
     final days = project.from == project.to
         ? day(project.from)
         : '${day(project.from)} – ${day(project.to)} · ${project.days} 天';
     final parts = project.byCategory;
     final spent = project.spent;
     final card = Container(
-      padding: const EdgeInsets.fromLTRB(20, 18, 14, 18),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(Radii.extraLarge),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -433,21 +462,21 @@ class ProjectCard extends StatelessWidget {
                   children: [
                     if (recent)
                       Container(
-                        margin: const EdgeInsets.only(bottom: 8),
+                        margin: const EdgeInsets.only(bottom: Space.s2),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
+                          horizontal: Space.s2,
+                          vertical: Space.half,
                         ),
                         decoration: BoxDecoration(
                           color: color,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(Radii.small),
                         ),
                         child: const Text(
                           '最近',
                           style: TextStyle(
                             fontSize: TextSize.caption,
                             fontWeight: FontWeight.w800,
-                            color: Hue.onSolid,
+                            color: AppColors.onSolid,
                           ),
                         ),
                       ),
@@ -461,7 +490,7 @@ class ProjectCard extends StatelessWidget {
                     ),
                     if (recent)
                       Padding(
-                        padding: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.only(top: Space.s1),
                         child: Text(
                           '#${project.tag}',
                           style: TextStyle(
@@ -477,7 +506,7 @@ class ProjectCard extends StatelessWidget {
               ?menu,
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           Text(
             ledger.orDots(groupDigits(spent)),
             style: const TextStyle(
@@ -495,15 +524,15 @@ class ProjectCard extends StatelessWidget {
             ),
           ),
           if (parts.isNotEmpty && spent > 0) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: Space.s4),
             ClipRRect(
-              borderRadius: BorderRadius.circular(5),
+              borderRadius: BorderRadius.circular(Radii.extraSmall),
               child: SizedBox(
                 height: 10,
                 child: Row(
                   children: [
                     for (final (i, (name, amount)) in parts.indexed) ...[
-                      if (i > 0) const SizedBox(width: 2),
+                      if (i > 0) const SizedBox(width: Space.half),
                       Expanded(
                         flex: (amount * 1000 ~/ spent).clamp(1, 1000),
                         child: ColoredBox(
@@ -516,7 +545,7 @@ class ProjectCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.s2),
             Wrap(
               spacing: 14,
               runSpacing: 4,
@@ -533,7 +562,7 @@ class ProjectCard extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: Space.s2),
                       Text(
                         '$name ${amount * 100 ~/ spent}%',
                         style: TextStyle(

@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../core/text/figures.dart';
-import '../core/look/glyphs.dart';
-import '../core/look/theme.dart';
-import '../core/look/widgets.dart';
+import '../core/formatting/figures.dart';
+import '../core/design_system/glyphs.dart';
+import '../core/design_system/theme.dart';
+import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
-import '../core/nav.dart';
+import '../core/navigation/nav.dart';
 import '../features/debts/ui/debts_page.dart';
+import '../core/design_system/shape.dart';
+import '../core/design_system/spacing.dart';
+import '../core/formatting/words.dart';
 
 /// 更多: the tools as big icon buttons, three to a row, in three groups,
 /// each with one line on what it is about now.
@@ -22,13 +25,13 @@ class MorePage extends StatelessWidget {
       listenable: ledger,
       builder: (context, _) {
         final today = ledger.today;
-        final due = ledger.due;
-        final items = [...due, ...ledger.upcoming];
-        final income = ledger.income(today.year, today.month);
-        final expense = ledger.expense(today.year, today.month);
+        final due = ledger.recurringService.due;
+        final items = [...due, ...ledger.recurringService.upcoming];
+        final income = ledger.reportService.income(today.year, today.month);
+        final expense = ledger.reportService.expense(today.year, today.month);
         final rate = income == 0 ? 0 : (income - expense) * 100 ~/ income;
-        final limit = ledger.allowance(
-          ledger.budgetFor(Ledger.allSpending),
+        final limit = ledger.budgetService.allowance(
+          ledger.budgets.forCategory(allSpending),
           today.year,
           today.month,
         );
@@ -37,81 +40,83 @@ class MorePage extends StatelessWidget {
             .fold<int>(0, (sum, a) => sum + owedFrom(ledger, a));
         final left = limit - expense;
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s6),
           header: const PageHeader('更多'),
           children: [
             const RuleHead('報表與投資'),
             _ToolRow([
               ToolButton(
                 glyph: Glyph.reports,
-                color: ToolHue.reports,
+                color: ToolColors.reports,
                 label: '財務報表',
                 detail: '結餘率 $rate%',
-                onTap: () => nav.open(Pages.reports),
+                onTap: () => nav.open(AppRoutes.reports),
               ),
               ToolButton(
                 glyph: Glyph.pie,
-                color: ToolHue.investments,
+                color: ToolColors.investments,
                 label: '投資與股息',
-                detail: signed(ledger.investValue - ledger.investCost),
-                onTap: () => nav.open(Pages.investments),
+                detail: signed(
+                  ledger.holdings.marketValue - ledger.holdings.costBasis,
+                ),
+                onTap: () => nav.open(AppRoutes.investments),
               ),
             ]),
             const RuleHead('預算與往來'),
             _ToolRow([
               ToolButton(
                 glyph: Glyph.gauge,
-                color: ToolHue.budgets,
+                color: ToolColors.budgets,
                 label: '預算管理',
                 detail: limit == 0
                     ? '還沒設定'
                     : left < 0
                     ? '超支 ${groupDigits(-left)}'
                     : '剩 ${groupDigits(left)}',
-                onTap: () => nav.open(Pages.budgets),
+                onTap: () => nav.open(AppRoutes.budgets),
               ),
               ToolButton(
                 glyph: Glyph.cycleCalendar,
-                color: ToolHue.recurring,
+                color: ToolColors.recurring,
                 label: '定期交易',
                 // What is due shows here, not as a tile of its own.
                 detail: due.isNotEmpty
                     ? '${due.length} 筆到期'
                     : next == null
                     ? '沒有待扣款'
-                    : '下一筆 ${ledger.nextLabel(next)}',
-                onTap: () => nav.open(Pages.recurring),
+                    : '下一筆 ${ledger.recurringService.nextLabel(next)}',
+                onTap: () => nav.open(AppRoutes.recurring),
               ),
               ToolButton(
                 glyph: Glyph.swap,
-                color: ToolHue.debts,
+                color: ToolColors.debts,
                 label: '代墊與借貸',
                 detail: lent == 0 ? '沒有欠款' : '欠你 ${groupDigits(lent)}',
-                onTap: () => nav.open(Pages.debts),
+                onTap: () => nav.open(AppRoutes.debts),
               ),
             ]),
             const RuleHead('分類與設定'),
             _ToolRow([
               ToolButton(
                 glyph: Glyph.grid,
-                color: ToolHue.categories,
-                label: '分類',
-                detail: '${ledger.categories.length} 個',
-                onTap: () => nav.open(Pages.categories),
+                color: ToolColors.categories,
+                label: Words.category,
+                detail: '${ledger.categories.all.length} 個',
+                onTap: () => nav.open(AppRoutes.categories),
               ),
               ToolButton(
                 glyph: Glyph.tag,
-                color: ToolHue.tags,
+                color: ToolColors.tags,
                 label: '標籤與商家',
-                detail: '${ledger.tags.length} 個標籤',
-                onTap: () => nav.open(Pages.tags),
+                detail: '${ledger.reportService.tags.length} 個標籤',
+                onTap: () => nav.open(AppRoutes.tags),
               ),
               ToolButton(
                 glyph: Glyph.gear,
-                color: ToolHue.settings,
+                color: ToolColors.settings,
                 label: '設定',
                 detail: '備份、提醒',
-                onTap: () => nav.open(Pages.settings),
+                onTap: () => nav.open(AppRoutes.settings),
               ),
             ]),
           ],
@@ -159,17 +164,19 @@ class ToolButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
+    return ReadAsButton(
       label: '$label，$detail',
-      excludeSemantics: true,
+      onTap: onTap,
       child: Pressable(
         child: InkWell(
           key: Keys.tool(label),
           onTap: onTap,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(Radii.largeIncreased),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+            padding: const EdgeInsets.symmetric(
+              vertical: Space.s2,
+              horizontal: Space.half,
+            ),
             child: Column(
               children: [
                 Container(
@@ -177,12 +184,12 @@ class ToolButton extends StatelessWidget {
                   height: 62,
                   decoration: BoxDecoration(
                     color: tintOf(color, 0.2),
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(Radii.largeIncreased),
                   ),
                   alignment: Alignment.center,
                   child: GlyphIcon(glyph, size: 30, color: color),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: Space.s2),
                 OneLine(
                   label,
                   alignment: Alignment.center,
@@ -191,15 +198,8 @@ class ToolButton extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
-                OneLine(
-                  detail,
-                  alignment: Alignment.center,
-                  style: const TextStyle(
-                    fontSize: TextSize.small,
-                    color: Hue.muted,
-                  ),
-                ),
+                const SizedBox(height: Space.half),
+                OneLine(detail, alignment: Alignment.center, style: mutedSmall),
               ],
             ),
           ),

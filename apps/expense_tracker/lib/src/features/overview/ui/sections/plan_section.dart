@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/look/glyphs.dart';
-import '../../../../core/look/theme.dart';
-import '../../../../core/look/widgets.dart';
+import '../../../../core/design_system/glyphs.dart';
+import '../../../../core/design_system/theme.dart';
+import '../../../../core/design_system/design_system.dart';
 import '../../../../core/ledger/ledger.dart';
-import '../../../../core/ui/entry_tile.dart';
-import '../../../../core/nav.dart';
-import '../../../../core/ui/shown_amounts.dart';
+import '../../../../core/widgets/entry_tile.dart';
+import '../../../../core/navigation/nav.dart';
+import '../../../../core/widgets/shown_amounts.dart';
+import '../../../../core/design_system/spacing.dart';
+import '../../../../core/design_system/shape.dart';
+import '../../../../core/formatting/words.dart';
 
 /// 預算 and 即將扣款 side by side: what is left of the month's limit, and
 /// what falls due.
@@ -25,7 +28,12 @@ class PlanSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // Only what it shows: a change elsewhere leaves it as it is.
+      listenable: ledger.watch(const {
+        Topic.budgets,
+        Topic.recurring,
+        Topic.entries,
+      }),
       builder: (context, _) => CardRow([_budgetTile(), _dueTile()]),
     );
   }
@@ -36,23 +44,28 @@ class PlanSection extends StatelessWidget {
   /// the month has cost and 設定預算.
   Widget _budgetTile() {
     final (year, m) = month;
-    final spent = ledger.expense(year, m);
-    final limit = ledger.allowance(
-      ledger.budgetFor(Ledger.allSpending),
+    final spent = ledger.reportService.expense(year, m);
+    final limit = ledger.budgetService.allowance(
+      ledger.budgets.forCategory(allSpending),
       year,
       m,
     );
-    final (gone, days) = ledger.daysGone(year, m);
+    final (gone, days) = ledger.budgetService.daysGone(year, m);
     final today = ledger.today;
     final current = today.year == year && today.month == m;
     final left = limit - spent;
     final used = limit <= 0 ? 0 : (spent * 100 / limit).round();
-    const muted = TextStyle(fontSize: TextSize.caption, color: Hue.muted);
+    const muted = mutedCaption;
     return ColorCard(
-      color: ToolHue.budgets,
-      radius: 20,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      onTap: () => nav.open(Pages.budgets),
+      color: ToolColors.budgets,
+      radius: Radii.largeIncreased,
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s4,
+        Space.s3,
+      ),
+      onTap: () => nav.open(AppRoutes.budgets),
       label: limit == 0
           ? '預算，本月花了 ${ledger.money(spent)}'
           : '預算，本月剩 ${ledger.money(left)}',
@@ -61,21 +74,21 @@ class PlanSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              const SquareIcon(Glyph.budget, ToolHue.budgets, size: 28),
-              const SizedBox(width: 8),
+              const SquareIcon(Glyph.budget, ToolColors.budgets, size: 28),
+              const SizedBox(width: Space.s2),
               Expanded(
                 child: OneLine(
                   limit == 0 ? '本月花了' : '本月剩',
                   style: TextStyle(
                     fontSize: TextSize.small,
                     fontWeight: FontWeight.w800,
-                    color: deepOf(ToolHue.budgets),
+                    color: deepOf(ToolColors.budgets),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
@@ -85,11 +98,11 @@ class PlanSection extends StatelessWidget {
                 fontSize: TextSize.large,
                 fontWeight: FontWeight.w800,
                 height: 1.15,
-                color: limit != 0 && left < 0 ? Hue.negative : Hue.ink,
+                color: limit == 0 ? AppColors.ink : AppColors.ofBalance(left),
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           if (limit == 0)
             const OneLine('設定預算 ›', style: accentSmall)
           else
@@ -105,7 +118,7 @@ class PlanSection extends StatelessWidget {
                     height: 10,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.s2),
                 Text('$used%', style: muted),
               ],
             ),
@@ -118,23 +131,28 @@ class PlanSection extends StatelessWidget {
   /// due (今天, or 已到期 in red for one not yet booked), and under it
   /// that item's name and amount; nothing more.
   Widget _dueTile() {
-    final due = ledger.due;
-    final items = [...due, ...ledger.upcoming];
+    final due = ledger.recurringService.due;
+    final items = [...due, ...ledger.recurringService.upcoming];
     final next = items.isEmpty ? null : items.first;
-    final day = next == null ? null : ledger.nextDate(next);
+    final day = next == null ? null : ledger.recurringService.nextDate(next);
     final today = ledger.today;
     final until = day?.difference(today).inDays;
     final (String figure, Color tone) = switch (until) {
-      null => ('—', Hue.ink),
-      _ when due.isNotEmpty => ('已到期 ${due.length} 筆', Hue.negative),
-      0 => ('今天', Hue.negative),
-      final n => ('$n 天後', Hue.ink),
+      null => ('—', AppColors.ink),
+      _ when due.isNotEmpty => ('已到期 ${due.length} 筆', AppColors.negative),
+      0 => (Words.today, AppColors.negative),
+      final n => ('$n 天後', AppColors.ink),
     };
     return ColorCard(
-      color: ToolHue.recurring,
-      radius: 20,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      onTap: () => nav.open(Pages.recurring),
+      color: ToolColors.recurring,
+      radius: Radii.largeIncreased,
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s4,
+        Space.s3,
+      ),
+      onTap: () => nav.open(AppRoutes.recurring),
       label: '即將扣款，$figure',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -143,24 +161,24 @@ class PlanSection extends StatelessWidget {
             children: [
               const SquareIcon(
                 Glyph.cycleCalendar,
-                ToolHue.recurring,
+                ToolColors.recurring,
                 size: 28,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               Expanded(
                 child: OneLine(
                   '即將扣款',
                   style: TextStyle(
                     fontSize: TextSize.small,
                     fontWeight: FontWeight.w800,
-                    color: deepOf(ToolHue.recurring),
+                    color: deepOf(ToolColors.recurring),
                   ),
                 ),
               ),
-              const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
+              const GlyphIcon(Glyph.next, size: 16, color: AppColors.muted),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
@@ -174,7 +192,7 @@ class PlanSection extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: Space.half),
           OneLine(
             next == null
                 ? '沒有待扣款項目'

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/look/widgets.dart';
+import '../../../../core/design_system/design_system.dart';
 import 'lock_parts.dart';
+import '../../../../core/formatting/words.dart';
 
 /// Opening a ledger with the recovery code given when it was made, when
 /// the password is forgotten. The code is shown as typed: it is read off
@@ -49,7 +50,8 @@ class RecoveryView extends StatelessWidget {
       problem: problem,
       extras: [
         LockLink('改用密碼', onPassword, busy: busy),
-        if (back != null) LockLink('返回', back, busy: busy, key: Keys.back),
+        if (back != null)
+          LockLink(Words.back, back, busy: busy, key: Keys.back),
       ],
     );
   }

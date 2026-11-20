@@ -30,29 +30,35 @@ class _Calendar extends StatelessWidget {
     final lead = first.weekday % 7;
     final cells = <Widget>[
       for (var i = 0; i < lead; i++) const SizedBox(),
-      for (var d = 1; d <= days; d++) _dayCell(d, today),
+      for (var d = 1; d <= days; d++) _dayCell(context, d, today),
     ];
     while (cells.length % 7 != 0) {
       cells.add(const SizedBox());
     }
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 12, 8, 10),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s2,
+        Space.s3,
+        Space.s2,
+        Space.s2,
+      ),
       decoration: BoxDecoration(
-        color: Hue.group,
-        borderRadius: BorderRadius.circular(24),
+        color: AppColors.group,
+        borderRadius: BorderRadius.circular(Radii.largeIncreased),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              for (final w in const ['日', '一', '二', '三', '四', '五', '六'])
+              // Sunday first, as a wall calendar is.
+              for (final w in [weekdayNames.last, ...weekdayNames.take(6)])
                 Expanded(
                   child: Center(
                     child: Text(
                       w,
                       style: const TextStyle(
                         fontSize: TextSize.caption,
-                        color: Hue.muted,
+                        color: AppColors.muted,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -60,7 +66,7 @@ class _Calendar extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           for (var r = 0; r < cells.length; r += 7)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,7 +81,37 @@ class _Calendar extends StatelessWidget {
     );
   }
 
-  Widget _dayCell(int d, DateTime today) {
+  /// A day's fill: solid in its one item's colour on the light theme, a
+  /// deep tint of it on the dark one, as an account's card, not a pale
+  /// block; grey with several items; none without.
+  static BoxDecoration? _fillOf(
+    Color color, {
+    required bool single,
+    required bool busy,
+  }) {
+    if (single) {
+      return Shade.dark
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(Radii.medium),
+              color: tintOf(color, 0.34),
+            )
+          : BoxDecoration(
+              borderRadius: BorderRadius.circular(Radii.medium),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color.lerp(color, AppColors.onSolid, 0.15)!, color],
+              ),
+            );
+    }
+    if (!busy) return null;
+    return BoxDecoration(
+      color: _busyDay,
+      borderRadius: BorderRadius.circular(Radii.medium),
+    );
+  }
+
+  Widget _dayCell(BuildContext context, int d, DateTime today) {
     final day = DateTime.utc(year, month, d);
     final todayDay = DateTime.utc(today.year, today.month, today.day);
     final isToday = day == todayDay;
@@ -85,39 +121,17 @@ class _Calendar extends StatelessWidget {
     final due = items.any((x) => !x.settled) && !day.isAfter(todayDay);
     final single = items.length == 1 && !allBooked;
     final (glyph, color) = single
-        ? _mark(ledger, items.first.item)
-        : (Glyph.other, Hue.muted);
+        ? recurringMark(ledger, items.first.item)
+        : (Glyph.other, AppColors.muted);
     final isChosen = d == chosen;
-    BoxDecoration? fill;
-    if (single) {
-      // Solid on the light theme; a deep tint of it on the dark one, as an
-      // account's card, not a pale block.
-      fill = Shade.dark
-          ? BoxDecoration(
-              borderRadius: BorderRadius.circular(11),
-              color: tintOf(color, 0.34),
-            )
-          : BoxDecoration(
-              borderRadius: BorderRadius.circular(11),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color.lerp(color, Hue.onSolid, 0.15)!, color],
-              ),
-            );
-    } else if (items.isNotEmpty) {
-      fill = BoxDecoration(
-        color: _busyDay,
-        borderRadius: BorderRadius.circular(11),
-      );
-    }
-    final onColor = single ? (Shade.dark ? Hue.ink : Hue.onSolid) : Hue.ink;
+    final fill = _fillOf(color, single: single, busy: items.isNotEmpty);
+    final onColor = single && !Shade.dark ? AppColors.onSolid : AppColors.ink;
     final number = Container(
       width: 24,
       height: 24,
       alignment: Alignment.center,
       decoration: isToday
-          ? const BoxDecoration(color: Hue.accent, shape: BoxShape.circle)
+          ? const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle)
           : null,
       child: Text(
         '$d',
@@ -126,23 +140,23 @@ class _Calendar extends StatelessWidget {
           fontSize: TextSize.small,
           fontWeight: FontWeight.w800,
           color: isToday
-              ? Hue.onAccent
+              ? AppColors.onAccent
               : single
               ? onColor
               : past && items.isEmpty
-              ? Hue.faint
-              : Hue.ink,
+              ? AppColors.faint
+              : AppColors.ink,
         ),
       ),
     );
     Widget slot;
     if (allBooked) {
-      slot = const GlyphIcon(Glyph.check, size: 14, color: Hue.muted);
+      slot = const GlyphIcon(Glyph.check, size: 14, color: AppColors.muted);
     } else if (single) {
       slot = GlyphIcon(
         glyph,
         size: 16,
-        color: Shade.dark ? color : Hue.onSolid,
+        color: Shade.dark ? color : AppColors.onSolid,
         tinted: false,
       );
     } else if (items.isNotEmpty) {
@@ -155,7 +169,9 @@ class _Calendar extends StatelessWidget {
               height: 6,
               margin: const EdgeInsets.symmetric(horizontal: 1.5),
               decoration: BoxDecoration(
-                color: !x.settled ? _mark(ledger, x.item).$2 : Hue.faint,
+                color: !x.settled
+                    ? recurringMark(ledger, x.item).$2
+                    : AppColors.faint,
                 shape: BoxShape.circle,
               ),
             ),
@@ -164,31 +180,30 @@ class _Calendar extends StatelessWidget {
     } else {
       slot = const SizedBox();
     }
-    return Semantics(
-      button: true,
+    return ReadAsButton(
       selected: isChosen,
       label:
           '$month 月 $d 日'
           '${items.isEmpty ? '' : '，${items.length} 筆${due ? '，到期' : ''}'}',
-      excludeSemantics: true,
+      onTap: () => onPick(d),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => onPick(d),
         child: Padding(
-          padding: const EdgeInsets.all(1),
+          padding: const EdgeInsets.all(Space.half),
           child: Column(
             children: [
               // Every day keeps the room of the ring, so the chosen one is
               // as large as the rest and the row stays even.
               AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.all(2),
+                duration: Motion.of(context, Motion.short4),
+                padding: const EdgeInsets.all(Space.half),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(Radii.large),
                   border: Border.all(
                     color: isChosen
-                        ? (single ? deepOf(color) : Hue.accent)
-                        : Hue.none,
+                        ? (single ? deepOf(color) : AppColors.accent)
+                        : AppColors.none,
                     width: 2.5,
                   ),
                 ),
@@ -197,14 +212,17 @@ class _Calendar extends StatelessWidget {
                   decoration:
                       fill ??
                       BoxDecoration(
-                        color: isChosen ? Hue.selected : null,
-                        borderRadius: BorderRadius.circular(11),
+                        color: isChosen ? AppColors.selected : null,
+                        borderRadius: BorderRadius.circular(Radii.medium),
                       ),
-                  padding: const EdgeInsets.only(top: 3),
+                  padding: const EdgeInsets.only(top: Space.half),
                   child: Column(
                     children: [
                       number,
-                      SizedBox(height: 16, child: Center(child: slot)),
+                      SizedBox(
+                        height: Space.s4,
+                        child: Center(child: slot),
+                      ),
                     ],
                   ),
                 ),
@@ -219,7 +237,7 @@ class _Calendar extends StatelessWidget {
                     style: TextStyle(
                       fontSize: TextSize.tiny,
                       fontWeight: FontWeight.w800,
-                      color: Hue.negative,
+                      color: AppColors.negative,
                     ),
                   ),
                 ),
@@ -269,10 +287,10 @@ class _DayItemsState extends State<_DayItems> {
     final overdue = items.any((x) => !x.settled) && away < 0;
     final total = items.fold(
       0,
-      (sum, x) => sum + ledger.recurringWorth(x.item),
+      (sum, x) => sum + ledger.recurringService.worth(x.item),
     );
     final when = away == 0
-        ? '今天'
+        ? Words.today
         : away > 0
         ? '$away 天後'
         : '過了 ${-away} 天';
@@ -289,11 +307,11 @@ class _DayItemsState extends State<_DayItems> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(horizontal: Space.s1),
           child: Row(
             children: [
               Text(
-                '${day.month}/${day.day} 週${weekdayNames[day.weekday - 1]}',
+                formatMEd(day),
                 style: const TextStyle(
                   fontSize: TextSize.title,
                   fontWeight: FontWeight.w800,
@@ -305,24 +323,24 @@ class _DayItemsState extends State<_DayItems> {
                 style: TextStyle(
                   fontSize: TextSize.body,
                   fontWeight: FontWeight.w700,
-                  color: overdue ? Hue.negative : Hue.muted,
+                  color: overdue ? AppColors.negative : AppColors.muted,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: Space.s2),
         if (items.isEmpty)
           Row(
             children: [
               const Padding(
-                padding: EdgeInsets.only(left: 4),
-                child: Text('這天沒有固定交易', style: TextStyle(color: Hue.muted)),
+                padding: EdgeInsets.only(left: Space.s1),
+                child: Text('這天沒有固定交易', style: mutedText),
               ),
               const Spacer(),
               TextButton(
                 onPressed: widget.onAdd,
-                style: wordButton(Hue.accent, minimumSize: Size(0, 48)),
+                style: wordButton(AppColors.accent, minimumSize: Size(0, 48)),
                 child: const Text(
                   '＋ 新增',
                   style: TextStyle(fontWeight: FontWeight.w800),
@@ -332,46 +350,101 @@ class _DayItemsState extends State<_DayItems> {
           )
         else
           for (final (i, x) in items.indexed) ...[
-            if (i > 0) const SizedBox(height: 8),
+            if (i > 0) const SizedBox(height: Space.s2),
             _itemCard(x, todayDay),
           ],
       ],
     );
   }
 
+  /// The item's name over its line, read in the card's label already.
+  static Widget _itemWords(
+    String name,
+    String line,
+    Color color, {
+    required bool due,
+  }) => ExcludeSemantics(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: TextSize.body,
+            fontWeight: FontWeight.w800,
+            color: deepOf(color),
+          ),
+        ),
+        Text(
+          line,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: TextSize.caption,
+            color: due ? AppColors.negative : AppColors.muted,
+            fontWeight: due ? FontWeight.w800 : FontWeight.w400,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  /// The small button at a row's end: 入帳 or 恢復.
+  Widget _rowButton(
+    String label,
+    Color fill,
+    VoidCallback onPressed, {
+    Color? ink,
+  }) => FilledButton(
+    onPressed: onPressed,
+    style: solidButton(
+      fill,
+      ink: ink,
+      minimumSize: Size(0, 44),
+      radius: Radii.medium,
+      padding: const EdgeInsets.symmetric(horizontal: Space.s4),
+    ),
+    child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+  );
+
   Widget _itemCard(Due x, DateTime todayDay) {
     final ledger = widget.ledger;
     final item = x.item;
     final booked = x.booked;
-    final (glyph, markColor) = _mark(ledger, item);
+    final (glyph, markColor) = recurringMark(ledger, item);
     final skipped = x.skipped;
-    final color = x.settled ? Hue.faint : markColor;
+    final color = x.settled ? AppColors.faint : markColor;
     final due = !x.settled && !x.day.isAfter(todayDay);
     final away = x.day.difference(todayDay).inDays;
     final account = ledger.account(item.account).name;
     final line = skipped
         ? '已跳過 · 不會再記'
         : booked != null
-        ? '已入帳 · ${booked.date.month}/${booked.date.day}'
+        ? '已入帳 · ${formatMd(booked.date)}'
         : due
         ? '$account · 到期'
-        : '$account · ${away == 0 ? '今天' : '$away 天後'}';
+        : '$account · ${away == 0 ? Words.today : '$away 天後'}';
     final amount = Text(
       '${item.income ? '+' : ''}'
       '${ledger.orDots(recurringAmount(ledger, item))}',
       style: TextStyle(
         fontSize: TextSize.title,
         fontWeight: FontWeight.w800,
-        color: item.income && booked == null ? Hue.positive : Hue.ink,
+        color: item.income && booked == null
+            ? AppColors.positive
+            : AppColors.ink,
       ),
     );
     return ColorCard(
+      controlsInside: true,
       color: color,
       amount: 0.16,
-      radius: 18,
+      radius: Radii.large,
       onTap: () => booked == null ? widget.onEdit(item) : widget.onOpen(booked),
       label: '${item.name}，${line.replaceAll(' · ', '，')}',
-      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+      padding: const EdgeInsets.all(Space.s2),
       child: Row(
         children: [
           !x.settled
@@ -380,76 +453,30 @@ class _DayItemsState extends State<_DayItems> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Hue.white,
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(Radii.medium),
                   ),
                   alignment: Alignment.center,
-                  child: GlyphIcon(glyph, size: 20, color: Hue.muted),
+                  child: GlyphIcon(glyph, size: 20, color: AppColors.muted),
                 ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: TextSize.body,
-                    fontWeight: FontWeight.w800,
-                    color: deepOf(color),
-                  ),
-                ),
-                Text(
-                  line,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: TextSize.caption,
-                    color: due ? Hue.negative : Hue.muted,
-                    fontWeight: due ? FontWeight.w800 : FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.s3),
+          Expanded(child: _itemWords(item.name, line, color, due: due)),
+          const SizedBox(width: Space.s2),
           amount,
           if (due) ...[
-            const SizedBox(width: 10),
-            FilledButton(
-              onPressed: () => widget.onBook(item),
-              style: solidButton(
-                markColor,
-                minimumSize: Size(0, 44),
-                radius: 12,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-              ),
-              child: const Text(
-                '入帳',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ),
+            const SizedBox(width: Space.s2),
+            _rowButton('入帳', markColor, () => widget.onBook(item)),
           ] else if (skipped) ...[
-            const SizedBox(width: 10),
-            FilledButton(
-              onPressed: () => ledger.unskip(item, x.day),
-              style: solidButton(
-                Hue.white,
-                ink: Hue.accent,
-                minimumSize: Size(0, 44),
-                radius: 12,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-              ),
-              child: const Text(
-                '恢復',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
+            const SizedBox(width: Space.s2),
+            _rowButton(
+              '恢復',
+              AppColors.white,
+              ink: AppColors.accent,
+              () => ledger.recurringCommands.unskip(item, x.day),
             ),
           ] else if (booked != null) ...[
-            const SizedBox(width: 8),
-            const GlyphIcon(Glyph.check, size: 20, color: Hue.muted),
+            const SizedBox(width: Space.s2),
+            const GlyphIcon(Glyph.check, size: 20, color: AppColors.muted),
           ],
         ],
       ),
@@ -468,12 +495,17 @@ class _Cell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColorCard(
-      color: Hue.faint,
+      color: AppColors.faint,
       amount: 0.22,
-      radius: 16,
+      radius: Radii.large,
       onTap: onTap,
       label: '$label $value',
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s3,
+        Space.s2,
+        Space.s2,
+        Space.s2,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -484,7 +516,7 @@ class _Cell extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: Space.half),
           OneLine(
             value,
             style: const TextStyle(
@@ -496,29 +528,4 @@ class _Cell extends StatelessWidget {
       ),
     );
   }
-}
-
-/// A small rounded tag in [color]'s tint: the next date.
-class _Tag extends StatelessWidget {
-  const _Tag(this.text, {required this.color});
-
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-    decoration: BoxDecoration(
-      color: tintOf(color, 0.22),
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Text(
-      text,
-      style: TextStyle(
-        fontSize: TextSize.caption,
-        fontWeight: FontWeight.w800,
-        color: deepOf(color),
-      ),
-    ),
-  );
 }

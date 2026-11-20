@@ -3,11 +3,14 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../../../core/charts/treemap.dart';
-import '../../../../core/ui/icons.dart';
-import '../../../../core/look/theme.dart';
-import '../../../../core/look/widgets.dart';
+import '../../../../core/widgets/icons.dart';
+import '../../../../core/design_system/theme.dart';
+import '../../../../core/design_system/design_system.dart';
 import '../../../../core/ledger/ledger.dart';
-import '../../../../core/ui/shown_amounts.dart';
+import '../../../../core/widgets/shown_amounts.dart';
+import '../../../../core/design_system/spacing.dart';
+import '../../../../core/design_system/motion.dart';
+import '../../../../core/formatting/words.dart';
 
 /// 財務分布: where the assets are as a map of tiles, largest first. A tap
 /// picks a tile; a second opens a group of accounts or the holdings.
@@ -28,12 +31,17 @@ class _AssetsSectionState extends State<AssetsSection> {
   String? _assetGroup;
 
   /// Colours for the second level, in v114's order.
-  static const _shades = Hue.shades;
+  static const _shades = AppColors.shades;
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.ledger,
+      // Only what it shows: a change elsewhere leaves it as it is.
+      listenable: widget.ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.market,
+      }),
       builder: (context, _) {
         final parts = _assets();
         if (parts.isEmpty) return const SizedBox.shrink();
@@ -59,36 +67,43 @@ class _AssetsSectionState extends State<AssetsSection> {
 
     if (group == 'investment') {
       return shaded([
-        for (final h in ledger.holdings)
+        for (final h in ledger.holdings.all)
           if (h.value > 0) (h.code, h.name, h.value),
       ]);
     }
     if (group != null) {
       return shaded([
-        for (final a in ledger.accounts)
-          if (a.kind.name == group && _counted(a) && ledger.worthOf(a) > 0)
-            (a.id, a.name, ledger.worthOf(a)),
+        for (final a in ledger.accounts.all)
+          if (a.kind.name == group &&
+              _counted(a) &&
+              ledger.balanceService.worthOf(a) > 0)
+            (a.id, a.name, ledger.balanceService.worthOf(a)),
       ]);
     }
     int sumOf(AccountKind kind) {
       var total = 0;
-      for (final a in ledger.accounts) {
+      for (final a in ledger.accounts.all) {
         if (a.kind == kind && _counted(a)) {
-          total += max(0, ledger.worthOf(a));
+          total += max(0, ledger.balanceService.worthOf(a));
         }
       }
       return total;
     }
 
     final parts = [
-      ('investment', '投資', ledger.investValue, Hue.holdings),
+      (
+        'investment',
+        Words.investment,
+        ledger.holdings.marketValue,
+        AppColors.holdings,
+      ),
       for (final kind in const [
         AccountKind.bank,
         AccountKind.cash,
         AccountKind.wallet,
         AccountKind.receivable,
       ])
-        (kind.name, groupName(kind), sumOf(kind), accountColor(kind)),
+        (kind.name, groupName(kind), sumOf(kind), accountKindColor(kind)),
     ]..sort((a, b) => b.$3.compareTo(a.$3));
     return [
       for (final p in parts)
@@ -146,7 +161,7 @@ class _AssetsSectionState extends State<AssetsSection> {
         child: Row(
           children: [
             Text(scope, style: mutedSmall),
-            const SizedBox(width: 6),
+            const SizedBox(width: Space.s2),
             Flexible(
               child: Text(
                 '$shownName$share',
@@ -165,9 +180,9 @@ class _AssetsSectionState extends State<AssetsSection> {
           ],
         ),
       ),
-      const SizedBox(height: 4),
+      const SizedBox(height: Space.s1),
       AnimatedSwitcher(
-        duration: const Duration(milliseconds: 280),
+        duration: Motion.of(context, Motion.medium2),
         switchInCurve: Curves.easeOutCubic,
         transitionBuilder: (child, animation) => FadeTransition(
           opacity: animation,

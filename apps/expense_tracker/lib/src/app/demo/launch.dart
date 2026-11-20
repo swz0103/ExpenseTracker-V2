@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../../core/ledger/ledger.dart';
-import '../../core/look/app_mark.dart';
-import '../../core/look/theme.dart';
+import '../../core/design_system/app_mark.dart';
+import '../../core/design_system/theme.dart';
 import '../../core/platform/preferences.dart';
 import '../../core/platform/quick_action.dart';
 import '../../features/lock/ui/views/lock_parts.dart';
 import '../../features/lock/ui/views/unlock_view.dart';
 import '../../features/lock/ui/views/welcome_view.dart';
 import '../../features/overview/model/home_widget.dart';
-import '../../features/overview/compose/widget_face.dart';
+import '../../features/overview/forms/widget_face.dart';
 import '../../features/settings/model/platform_services.dart';
 import '../shell.dart';
 import 'preview_services.dart';
 import 'seed.dart';
+import '../../core/formatting/dates.dart';
+import '../../core/design_system/shape.dart';
+import '../../core/design_system/spacing.dart';
+import '../../core/design_system/motion.dart';
 
 /// How the preview's app opens, as a real one would for each person: a
 /// ledger without a password goes straight in, one with a password asks
@@ -112,7 +116,7 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
       ),
       _Stage.splash => LockSplash(onDone: _opened),
       _Stage.lock => Scaffold(
-        backgroundColor: Hue.paper,
+        backgroundColor: AppColors.paper,
         body: SafeArea(child: _lock()),
       ),
       _Stage.app => AppShell(
@@ -146,7 +150,8 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
                     ),
                   ),
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
+              // Exception to motion: the web preview's own launcher.
+              duration: Motion.medium1,
               child: KeyedSubtree(key: ValueKey(_stage), child: screen),
             ),
           ),
@@ -223,7 +228,7 @@ class _HomeHandle extends StatelessWidget {
               height: 5,
               decoration: BoxDecoration(
                 color: const Color(0x99000000),
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(Radii.extraSmall),
               ),
             ),
           ),
@@ -277,10 +282,10 @@ class _HomeScreen extends StatelessWidget {
       ),
       child: Padding(
         padding: EdgeInsets.fromLTRB(
-          20,
-          padding.top + 24,
-          20,
-          padding.bottom + 16,
+          Space.s5,
+          padding.top + Space.s6,
+          Space.s5,
+          padding.bottom + Space.s4,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -293,17 +298,17 @@ class _HomeScreen extends StatelessWidget {
               ),
             ),
             Text(
-              '${ledger.today.month} 月 ${ledger.today.day} 日',
+              formatMMMd(ledger.today),
               style: white.copyWith(fontSize: TextSize.title),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: Space.s6),
             WidgetFace(
               snapshot: snapshot,
               onOpen: () => onOpen(),
               onExpense: () => onOpen(quick: QuickAction.expense),
               onIncome: () => onOpen(quick: QuickAction.income),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: Space.s4),
             WidgetRow(
               snapshot: snapshot,
               onOpen: () => onOpen(),
@@ -320,7 +325,7 @@ class _HomeScreen extends StatelessWidget {
                 _AppIcon(onTap: () => onOpen()),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: Space.s4),
             // Preview only: which person's phone this is.
             Center(
               child: SegmentedButton<PreviewStart>(
@@ -335,12 +340,12 @@ class _HomeScreen extends StatelessWidget {
                   backgroundColor: const Color(0x33FFFFFF),
                   foregroundColor: Colors.white,
                   selectedBackgroundColor: Colors.white,
-                  selectedForegroundColor: Hue.ink,
+                  selectedForegroundColor: AppColors.ink,
                   side: const BorderSide(color: Color(0x66FFFFFF)),
                 ),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: Space.s2),
             Text(
               '預覽：選擇打開 App 的情境',
               textAlign: TextAlign.center,
@@ -373,10 +378,10 @@ class _AppIcon extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(Radii.large),
               child: const AppMark(size: 60),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: Space.s2),
             const Text(
               '記帳本',
               style: TextStyle(
@@ -410,11 +415,11 @@ class _OtherApp extends StatelessWidget {
             height: 60,
             decoration: BoxDecoration(
               color: const Color(0x33FFFFFF),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(Radii.large),
             ),
             child: Icon(icon, color: Colors.white, size: 28),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           Text(
             name,
             style: const TextStyle(

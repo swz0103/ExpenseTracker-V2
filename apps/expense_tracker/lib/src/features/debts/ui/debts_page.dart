@@ -1,43 +1,53 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/text/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/nav.dart';
-import '../../../core/look/dialogs.dart';
-import '../../accounts/compose/account_editor.dart';
-import '../../accounts/compose/reconcile_sheet.dart';
+import '../../../core/navigation/nav.dart';
+import '../../../core/design_system/dialogs.dart';
+import '../../accounts/forms/account_editor.dart';
+import '../../accounts/forms/reconcile_sheet.dart';
 
 import 'package:domain/loans.dart';
 
-import '../../../core/ui/icons.dart';
-import '../../../core/ui/shown_amounts.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 part 'person_page.dart';
+part 'debts_loan_card.dart';
 
 /// The people paid for, most owed first, open ones only.
-List<Account> peopleOwing(Ledger ledger) => [
-  for (final a in ledger.openAccounts)
-    if (a.kind == AccountKind.receivable) a,
-]..sort((a, b) => ledger.balance(b.id).compareTo(ledger.balance(a.id)));
+List<Account> peopleOwing(Ledger ledger) =>
+    [
+      for (final a in ledger.accounts.open)
+        if (a.kind == AccountKind.receivable) a,
+    ]..sort(
+      (a, b) => ledger.balanceService
+          .balance(b.id)
+          .compareTo(ledger.balanceService.balance(a.id)),
+    );
 
 /// The open loans.
 List<Account> openLoans(Ledger ledger) => [
-  for (final a in ledger.openAccounts)
+  for (final a in ledger.accounts.open)
     if (a.kind == AccountKind.loan) a,
 ];
 
 /// What [person] owes in all, as a positive amount or nothing.
 int owedFrom(Ledger ledger, Account person) {
-  final balance = ledger.balance(person.id);
+  final balance = ledger.balanceService.balance(person.id);
   return balance > 0 ? balance : 0;
 }
 
 /// What is left on [loan], as a positive amount or nothing.
 int owedOn(Ledger ledger, Account loan) {
-  final balance = ledger.balance(loan.id);
+  final balance = ledger.balanceService.balance(loan.id);
   return balance < 0 ? -balance : 0;
 }
 
@@ -85,7 +95,7 @@ class DebtsPage extends StatelessWidget {
           (sum, a) => sum + owedOn(ledger, a),
         );
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(
             '代墊與借貸',
             onBack: nav.back,
@@ -105,10 +115,13 @@ class DebtsPage extends StatelessWidget {
               borrowed: borrowed,
               loans: loans.length,
             ),
-            const RuleHead('代墊'),
+            const RuleHead(Words.lend),
             if (people.isEmpty)
               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                padding: EdgeInsets.symmetric(
+                  horizontal: Space.s1,
+                  vertical: Space.s2,
+                ),
                 child: Text(
                   '記一筆支出時按「代墊」選人，幫忙付的錢就會記在這裡，收回時在收入選「對方還錢」。',
                   style: mutedSmall,
@@ -120,22 +133,25 @@ class DebtsPage extends StatelessWidget {
                   _PersonSquare(
                     ledger: ledger,
                     person: person,
-                    onTap: () => nav.open(Pages.debt(person.id)),
+                    onTap: () => nav.open(AppRoutes.debt(person.id)),
                   ),
               ]),
             const RuleHead('貸款'),
             if (loans.isEmpty)
               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                padding: EdgeInsets.symmetric(
+                  horizontal: Space.s1,
+                  vertical: Space.s2,
+                ),
                 child: Text('房貸、信貸或車貸，按右上的＋新增。', style: mutedSmall),
               ),
             for (final loan in loans)
               Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.only(bottom: Space.s2),
                 child: _LoanCard(
                   ledger: ledger,
                   loan: loan,
-                  onTap: () => nav.open(Pages.debt(loan.id)),
+                  onTap: () => nav.open(AppRoutes.debt(loan.id)),
                 ),
               ),
           ],
@@ -171,7 +187,7 @@ class _BothWays extends StatelessWidget {
           style: const TextStyle(
             fontSize: TextSize.small,
             fontWeight: FontWeight.w700,
-            color: Hue.muted,
+            color: AppColors.muted,
           ),
         ),
         // Both figures in full on a line of the same height, so the two
@@ -195,7 +211,12 @@ class _BothWays extends StatelessWidget {
       ],
     );
     return HeroCard(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s4,
+        Space.s5,
+        Space.s4,
+      ),
       child: IntrinsicHeight(
         child: Row(
           children: [
@@ -204,16 +225,16 @@ class _BothWays extends StatelessWidget {
                 '別人欠你',
                 ledger.orDots(groupDigits(lent)),
                 '$people 人',
-                lent > 0 ? Hue.positive : Hue.ink,
+                lent > 0 ? AppColors.positive : AppColors.ink,
               ),
             ),
-            const VerticalDivider(width: 32, color: Hue.accentRule),
+            const VerticalDivider(width: 32, color: AppColors.accentRule),
             Expanded(
               child: half(
                 '你還欠',
                 ledger.orDots(groupDigits(borrowed)),
                 '$loans 筆貸款',
-                Hue.ink,
+                AppColors.ink,
               ),
             ),
           ],
@@ -242,7 +263,7 @@ class _Initial extends StatelessWidget {
       style: TextStyle(
         fontSize: size * 0.42,
         fontWeight: FontWeight.w800,
-        color: Hue.onSolid,
+        color: AppColors.onSolid,
       ),
     ),
   );
@@ -263,19 +284,28 @@ class _PersonSquare extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final owed = ledger.owedBy(person.id);
+    final owed = ledger.reportService.owedBy(person.id);
     final oldest = owed.isEmpty ? null : owed.last.$1.date;
     final color = nameColor(person.name);
     final ink = deepOf(color);
+    final amount = ledger.orDots(groupDigits(owedFrom(ledger, person)));
+    final age = oldest == null ? '沒有欠款' : '最久 ${_days(ledger, oldest)} 天';
     return ColorCard(
       color: color,
-      radius: 20,
+      radius: Radii.largeIncreased,
       onTap: onTap,
-      padding: const EdgeInsets.fromLTRB(8, 14, 8, 12),
+      // Read from the name on, not the initial on the round mark.
+      label: '${person.name}，欠你 $amount，$age',
+      padding: const EdgeInsets.fromLTRB(
+        Space.s2,
+        Space.s4,
+        Space.s2,
+        Space.s3,
+      ),
       child: Column(
         children: [
           _Initial(person.name),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           Text(
             person.name,
             maxLines: 1,
@@ -289,7 +319,7 @@ class _PersonSquare extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              ledger.orDots(groupDigits(owedFrom(ledger, person))),
+              amount,
               style: const TextStyle(
                 fontSize: TextSize.heading,
                 fontWeight: FontWeight.w800,
@@ -297,120 +327,9 @@ class _PersonSquare extends StatelessWidget {
             ),
           ),
           Text(
-            oldest == null ? '沒有欠款' : '最久 ${_days(ledger, oldest)} 天',
+            age,
             maxLines: 1,
             style: TextStyle(fontSize: TextSize.caption, color: ink),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// How much of a loan is paid, as a ring with the share in the middle.
-class _PaidRing extends StatelessWidget {
-  const _PaidRing({required this.share, required this.color, this.size = 64});
-
-  final double share;
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => SizedBox.square(
-    dimension: size,
-    child: Stack(
-      fit: StackFit.expand,
-      children: [
-        CircularProgressIndicator(
-          value: share,
-          strokeWidth: size / 9,
-          strokeCap: StrokeCap.round,
-          color: color,
-          backgroundColor: tintOf(color, 0.3),
-        ),
-        Center(
-          child: Text(
-            '${(share * 100).round()}%',
-            textScaler: TextScaler.noScaling,
-            style: TextStyle(
-              fontSize: size / 4,
-              fontWeight: FontWeight.w800,
-              color: deepOf(color),
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-/// A loan: how much is paid as a ring, its name and amount taken out,
-/// and what is left, on its colour's tint.
-class _LoanCard extends StatelessWidget {
-  const _LoanCard({
-    required this.ledger,
-    required this.loan,
-    required this.onTap,
-  });
-
-  final Ledger ledger;
-  final Account loan;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final share = paidShare(ledger, loan);
-    final principal = loan.principal;
-    final color = nameColor(loan.name);
-    final ink = deepOf(color);
-    return ColorCard(
-      color: color,
-      onTap: onTap,
-      padding: const EdgeInsets.fromLTRB(14, 14, 18, 14),
-      child: Row(
-        children: [
-          if (share != null)
-            _PaidRing(share: share, color: color)
-          else
-            SquareIcon(Glyph.loan, color, size: 52),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  loan.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: TextSize.title,
-                    fontWeight: FontWeight.w800,
-                    color: ink,
-                  ),
-                ),
-                if (principal != null)
-                  OneLine(
-                    '原借 ${ledger.orDots(groupDigits(principal))}',
-                    style: TextStyle(fontSize: TextSize.small, color: ink),
-                  ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '尚欠',
-                style: TextStyle(fontSize: TextSize.caption, color: ink),
-              ),
-              Text(
-                ledger.orDots(groupDigits(owedOn(ledger, loan))),
-                style: const TextStyle(
-                  fontSize: TextSize.heading,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -441,9 +360,14 @@ class _DebtHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final ink = deepOf(color);
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 18, 12, 18),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s3,
+        Space.s4,
+      ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(Radii.extraLarge),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -487,7 +411,7 @@ class _DebtHero extends StatelessWidget {
           );
           // Large text on a narrow phone: the words go under the mark,
           // where the figure has the whole width.
-          final grow = MediaQuery.textScalerOf(context).scale(16) / 16;
+          final grow = textGrowth(context);
           if (box.maxWidth / grow < 230) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -496,7 +420,7 @@ class _DebtHero extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [lead, const Spacer(), menu],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: Space.s2),
                 words,
               ],
             );
@@ -505,7 +429,7 @@ class _DebtHero extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               lead,
-              const SizedBox(width: 16),
+              const SizedBox(width: Space.s4),
               Expanded(child: words),
               menu,
             ],
@@ -538,11 +462,11 @@ class _Action extends StatelessWidget {
     return Material(
       color: solid ? chosenFill(color) : tintOf(color, 0.2),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Radii.large),
         side: solid ? chosenEdge(color) : BorderSide.none,
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Radii.large),
         onTap: onTap,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 54),
@@ -550,7 +474,7 @@ class _Action extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               GlyphIcon(glyph, size: 18, color: ink, tinted: false),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               Text(
                 label,
                 style: TextStyle(
@@ -576,7 +500,7 @@ List<Widget> _board(
   RuleHead(title),
   if (rows.isEmpty)
     Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: Space.s1),
       child: Text(empty, style: mutedSmall),
     )
   else

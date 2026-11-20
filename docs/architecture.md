@@ -22,35 +22,40 @@
 ```
 lib/src/
   app/        組裝：啟動、底部分頁、設定與更多的入口頁、Android 通道、網頁預覽
-  features/   每個功能一個資料夾：model/ compose/ ui/
+  features/   每個功能一個資料夾：model/ forms/ ui/
   core/       所有功能共用：text look charts ledger platform ui，加上 nav.dart
 ```
 
-### core 的七個部分
+### core 的十個部分
+
+規則的唯一來源是 `test/support/layout.dart`；這張表照它寫。
 
 | 部分 | 內容 | 可以用 |
 | --- | --- | --- |
-| `text/` | 金額與日期的文字格式，純函式 | — |
-| `diagnostics/` | `ErrorLog`（去識別化的錯誤記錄）、`PerformanceMonitor`（載入與影格時間） | — |
-| `look/` | 設計系統：顏色、字級、圖示、元件、面板（不知道帳本） | text |
-| `charts/` | 圖表 | look、text |
-| `ledger/` | 帳本 `Ledger`、資料型別、JSON、`TableJournal`；Flutter 只用 `foundation`（顏色存成 ARGB 整數） | text、diagnostics |
-| `platform/` | 偏好設定、背景同步工作、開啟帳本、隱私 | ledger、text、diagnostics |
-| `ui/` | 認得帳本的共用元件：紀錄列、選擇器、計算機、金額顯示 | 以上全部與 `nav.dart` |
+| `formatting/` | 金額、日期與共用詞彙（`Words`）的文字，`JsonFields`；純函式 | — |
+| `time/` | `AppClock`：App 讀時間的唯一地方 | — |
+| `diagnostics/` | `ErrorLog`（去識別化的錯誤記錄）、`PerformanceMonitor`（載入與影格時間） | time |
+| `design_system/` | 設計系統：顏色、字級、圖示、動態、面板；元件在 `components/`（不知道帳本） | formatting |
+| `charts/` | 圖表 | design_system、formatting |
+| `ledger/` | 帳本 `Ledger`、資料型別、JSON、儲存；Flutter 只用 `foundation`（ADR-0012） | formatting、diagnostics、time |
+| `platform/` | 偏好設定、背景同步工作、開啟帳本、隱私 | ledger、formatting、diagnostics、time |
+| `messages/` | 告訴使用者的帳本數值與問題，集中一處 | ledger、formatting |
+| `navigation/` | `Nav`、`AppRoute`、`AppRoutes`：打開頁面與流程 | ledger、platform |
+| `widgets/` | 認得帳本的共用元件：紀錄列、選擇器、計算機、金額顯示 | 以上全部 |
 
 ### features
 
 `accounts` `backup` `budgets` `categories` `debts` `entries` `import_export` `investments` `lock` `overview` `recurring` `reminders` `reports` `settings` `tags`
 
 - `model/`：資料與服務，不碰畫面。
-- `compose/`：表單與面板，別的功能可以打開它。
+- `forms/`：表單與面板，別的功能可以打開它。
 - `ui/`：頁面，只有自己的功能和 `app/` 用。
-- 功能可以用別的功能的 `model/`、`compose/`，不能用 `ui/`；功能之間不能互相需要（含間接）。
+- 功能可以用別的功能的 `model/`、`forms/`，不能用 `ui/`；功能之間不能互相需要（含間接）。
 
 ### 導覽
 
-- 頁面一律是 `core/nav.dart` 的一個 `Place`，由 `Nav.open` 打開、`app/shell.dart` 決定畫哪一頁；返回鍵跟著 `Place.parent`。
-- 有自己「取消／完成」的整頁工作（排序帳戶、匯入）用 `openFlow`，這是全 App 唯一自己推路由的地方。
+- 頁面一律是 `core/navigation/nav.dart` 的一個 `AppRoute`，由 `Nav.open` 打開、`app/shell.dart` 決定畫哪一頁；返回鍵跟著 `AppRoute.parent`。
+- 有自己「取消／完成」的整頁工作（排序帳戶、匯入）用 `openFullScreen`，這是全 App 唯一自己推路由的地方。
 - 表單用底部面板（`showSheet`），設定細項與選擇器用中間面板（`showPanel`、`CenterPanel`）。
 
 ## 帳本與資料流
@@ -58,11 +63,11 @@ lib/src/
 1. 啟動：`core/platform/startup.dart` 解鎖並打開加密帳本，讀進記憶體成一個 `Ledger`。
 2. 讀：頁面讀 `Ledger` 的查詢（報表、規劃、信用卡在各自的 part 檔），並用 `ledger.watch(areas)` 只在相關資料區變動時重畫。
 3. 寫：頁面呼叫 `Ledger` 的修改（紀錄、定期、設定各一個 part 檔）；畫面先生效，再交給 `Journal` 一個 `Batch`。
-4. 存：`TableJournal` 把 `Batch` 寫成 `RowStore` 一個交易；失敗時回報並重讀，畫面回到實際存下的狀態。
+4. 存：`TableJournal` 把 `Batch` 寫成 `EncryptedDatabase` 一個交易；失敗時回報並重讀，畫面回到實際存下的狀態。
 
 - 資料格式：每列 JSON 帶 `_v`；新欄位一律選填、有預設值。改變資料的存法時（不只是加欄位）寫一個升級函式，打開帳本時在**一個交易**裡完成、失敗就整個還原，並用舊格式的樣本資料列測試。
 - 版本 2：紀錄、預算、定期交易、回收區、拆帳都以**分類 id** 存放，載入時換回名稱；分類改名只寫分類那一列。找不到對應分類的名稱（已刪除的）照原樣保留。舊帳本與舊備份打開時自動升級（`persistence/category_id_migration.dart`）。
-- 能不能記（`checks.dart`）只有一處；計算規則呼叫 domain，不在畫面重寫。
+- 能不能記（`EntryValidator`）只有一處；計算規則呼叫 domain，不在畫面重寫。
 
 ## 金鑰與備份
 
@@ -96,14 +101,14 @@ lib/src/
 | 規則 | 測試 |
 | --- | --- |
 | 套件不碰平台、lockfile 一致、CI 涵蓋每個模組 | `tooling/architecture_checks` |
-| core 的六部分只用允許的部分 | `test/app/layers_test.dart` |
+| core 的六部分只用允許的部分 | `test/rules/layers_test.dart` |
 | 功能不用別人的 `ui/`、功能之間沒有循環 | `layers_test` |
-| model 與帳本不碰畫面；帳本只用 Flutter 的 `foundation`；只有 `table_journal.dart` 碰儲存 | `layers_test` |
-| 測試用 `Keys` 按按鈕 | `test/app/test_rules_test.dart` |
-| 只有 `openFlow` 推路由 | `layers_test` |
+| model 與帳本不碰畫面；帳本只用 Flutter 的 `foundation`；只有 `sql_ledger_data_source.dart` 碰儲存 | `layers_test` |
+| 測試用 `Keys` 按按鈕 | `test/rules/test_rules_test.dart` |
+| 只有 `openFullScreen` 推路由 | `layers_test` |
 | 檔案 600 行以內 | `layers_test` |
-| 捕捉到的錯誤要記錄、重新拋出或說明為何不用處理；不把原始例外放進訊息 | `test/app/error_rules_test.dart` |
+| 捕捉到的錯誤要記錄、重新拋出或說明為何不用處理；不把原始例外放進訊息 | `test/rules/error_rules_test.dart` |
 | 範例帳本只在 `app/demo/`，正式入口碰不到 | `layers_test`、`entry_test.dart` |
-| 顏色、字級、按鈕只在 `core/look` | `test/app/design_rules_test.dart` |
-| Android 自動備份只帶 `files/cloud/` | `test/app/backup_rules_test.dart` |
+| 顏色、字級、按鈕只在 `core/design_system` | `test/rules/design_rules_test.dart`；色碼與字級數字由語法樹檢查（`app_syntax_test`） |
+| Android 自動備份只帶 `files/cloud/` | `test/rules/backup_rules_test.dart` |
 | 文件有摘要、150 行以內、連結都有效 | `tooling/architecture_checks/test/docs_test.dart` |

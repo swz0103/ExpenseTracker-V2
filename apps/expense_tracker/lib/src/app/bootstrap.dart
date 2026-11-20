@@ -9,11 +9,11 @@ import 'package:market/market_data.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
-import 'android/backups.dart';
-import 'android/scan.dart';
-import 'android/update.dart';
-import 'android/widgets.dart';
-import 'android/market_cache.dart';
+import 'android/background_backup_adapter.dart';
+import 'android/scanner_adapter.dart';
+import 'android/update_adapter.dart';
+import 'android/home_widget_adapter.dart';
+import 'android/market_cache_adapter.dart';
 import 'app.dart';
 import '../features/backup/model/drive_backup.dart';
 import '../features/backup/model/drive_sync.dart';
@@ -26,13 +26,13 @@ import '../features/investments/model/market_feed.dart';
 import '../features/backup/model/encrypted_backup_manager.dart';
 import '../features/reminders/model/calendar_sync.dart';
 import '../features/entries/model/receipt_photos.dart';
-import '../core/look/widgets.dart';
+import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
 import '../features/reminders/model/inbox_apply.dart';
 import '../features/reminders/model/reminder_alerts.dart';
 import '../features/backup/model/restore_sources.dart';
 import '../features/lock/ui/lock_screen.dart';
-import '../core/look/recovery_code.dart';
+import '../core/design_system/recovery_code.dart';
 import 'shell.dart';
 import '../core/platform/away_clock.dart';
 import 'platform.dart';
@@ -248,7 +248,10 @@ class _OpenedLedgerState extends State<OpenedLedger>
       // for an entry never saved.
       // Done before a photo can be taken, so none is swept as it is saved.
       try {
-        await sweepReceipts(widget.startup.directory, ledger.receiptFiles);
+        await sweepReceipts(
+          widget.startup.directory,
+          ledger.attachmentCommands.receiptFiles,
+        );
       } on Object catch (error) {
         ErrorLog.instance.record('清除收據照片', error);
       }
@@ -258,6 +261,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       );
     }
     await _readInbox(ledger);
+    _checkIntegrity(ledger);
     _bookDue(ledger);
     final market = _market = MarketFeed(
       _journal,
@@ -330,12 +334,30 @@ class _OpenedLedgerState extends State<OpenedLedger>
     });
   }
 
+  /// Notes in the diagnostics log each kind of record that names another
+  /// the book no longer has, once a launch: the sums still add up, but
+  /// the book is not as it was written.
+  void _checkIntegrity(Ledger ledger) {
+    final List<IntegrityProblem> found;
+    try {
+      found = ledger.integrityService.problems();
+    } on Object catch (error) {
+      // A check that cannot finish must not keep the book from opening.
+      ErrorLog.instance.record('帳本健檢', error);
+      return;
+    }
+    final kinds = {for (final problem in found) '$problem': problem};
+    for (final problem in kinds.values) {
+      ErrorLog.instance.record('帳本健檢', problem);
+    }
+  }
+
   /// Books the recurring items marked to book themselves whose day has
   /// come, and says how many.
   void _bookDue(Ledger ledger) {
     final int booked;
     try {
-      booked = ledger.bookDue();
+      booked = ledger.recurringCommands.bookDue();
     } on Object catch (error) {
       ErrorLog.instance.record('定期自動入帳', error);
       return;

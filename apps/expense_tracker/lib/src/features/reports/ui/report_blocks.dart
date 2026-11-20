@@ -1,10 +1,23 @@
-part of 'reports.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 // The pieces the tabs are made of: the readout, the main card, the tinted blocks.
 
 /// The chosen stretch, or the whole period, in one line.
-class _Readout extends StatelessWidget {
-  const _Readout({
+class ReportReadout extends StatelessWidget {
+  const ReportReadout({
+    super.key,
     required this.ledger,
     required this.label,
     required this.income,
@@ -24,10 +37,13 @@ class _Readout extends StatelessWidget {
   Widget build(BuildContext context) {
     final left = income - expense;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s4,
+        vertical: Space.s2,
+      ),
       decoration: BoxDecoration(
-        color: Hue.tile,
-        borderRadius: BorderRadius.circular(14),
+        color: AppColors.tile,
+        borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
         children: [
@@ -38,7 +54,7 @@ class _Readout extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: Space.s3),
           // Wraps onto a second line rather than shrinking when the
           // phone's text is large.
           Expanded(
@@ -47,10 +63,11 @@ class _Readout extends StatelessWidget {
               spacing: 12,
               runSpacing: 2,
               children: [
-                _figure('收', income, Hue.positive),
-                _figure('支', expense, Hue.negative),
-                _figure('餘', left, left < 0 ? Hue.negative : Hue.ink),
-                if (worth case final w?) _figure('淨資產', w, Hue.investment),
+                _figure('收', income, AppColors.positive),
+                _figure('支', expense, AppColors.negative),
+                _figure('餘', left, AppColors.ofBalance(left)),
+                if (worth case final w?)
+                  _figure('淨資產', w, AppColors.investment),
               ],
             ),
           ),
@@ -62,10 +79,7 @@ class _Readout extends StatelessWidget {
   Widget _figure(String label, int value, Color color) => Text.rich(
     TextSpan(
       children: [
-        TextSpan(
-          text: '$label ',
-          style: const TextStyle(color: Hue.muted),
-        ),
+        TextSpan(text: '$label ', style: mutedText),
         TextSpan(
           text: ledger.money(value),
           style: TextStyle(fontWeight: FontWeight.w700, color: color),
@@ -79,8 +93,9 @@ class _Readout extends StatelessWidget {
 /// The main card: 結餘 big on the left, 收入 with what of it was
 /// dividends on the right, a bar of spending against what was kept, and
 /// 支出 against last year beside how much of the income was kept.
-class _Hero extends StatelessWidget {
-  const _Hero({
+class ReportHero extends StatelessWidget {
+  const ReportHero({
+    super.key,
     required this.ledger,
     required this.income,
     required this.expense,
@@ -110,16 +125,21 @@ class _Hero extends StatelessWidget {
         : (expense - lastExpense) * 100 ~/ lastExpense;
     final until = this.until;
     return HeroCard(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            until == null ? '結餘' : '結餘 · 至 ${until.month}/${until.day}',
+            until == null ? '結餘' : '結餘 · 至 ${formatMd(until)}',
             style: const TextStyle(
               fontSize: TextSize.small,
               fontWeight: FontWeight.w800,
-              color: Hue.accent,
+              color: AppColors.accent,
             ),
           ),
           // 收入 goes under 結餘 when both do not fit on a line.
@@ -134,7 +154,7 @@ class _Hero extends StatelessWidget {
                 style: TextStyle(
                   fontSize: TextSize.big,
                   fontWeight: FontWeight.w800,
-                  color: kept < 0 ? Hue.negative : Hue.ink,
+                  color: AppColors.ofBalance(kept),
                 ),
               ),
               Column(
@@ -146,7 +166,7 @@ class _Hero extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: TextSize.title,
                       fontWeight: FontWeight.w800,
-                      color: Hue.positive,
+                      color: AppColors.positive,
                     ),
                   ),
                   if (dividends > 0)
@@ -158,9 +178,9 @@ class _Hero extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           ClipRRect(
-            borderRadius: BorderRadius.circular(5),
+            borderRadius: BorderRadius.circular(Radii.extraSmall),
             child: SizedBox(
               height: 10,
               child: Row(
@@ -169,17 +189,17 @@ class _Hero extends StatelessWidget {
                     Expanded(
                       flex: (spentShare * 1000).round().clamp(1, 1000),
                       child: const ColoredBox(
-                        color: Hue.negative,
+                        color: AppColors.negative,
                         child: SizedBox.expand(),
                       ),
                     ),
                   if (spentShare > 0 && spentShare < 1)
-                    const SizedBox(width: 3),
+                    const SizedBox(width: Space.half),
                   if (spentShare < 1)
                     Expanded(
                       flex: ((1 - spentShare) * 1000).round().clamp(1, 1000),
                       child: const ColoredBox(
-                        color: Hue.positive,
+                        color: AppColors.positive,
                         child: SizedBox.expand(),
                       ),
                     ),
@@ -187,7 +207,7 @@ class _Hero extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: Space.s2),
           Wrap(
             alignment: WrapAlignment.spaceBetween,
             spacing: 12,
@@ -196,20 +216,20 @@ class _Hero extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const LegendKey(Hue.negative, '支出'),
-                  const SizedBox(width: 6),
+                  const LegendKey(AppColors.negative, Words.expense),
+                  const SizedBox(width: Space.s2),
                   Text(
                     ledger.orDots(groupDigits(expense)),
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                   if (change != null) ...[
-                    const SizedBox(width: 6),
+                    const SizedBox(width: Space.s2),
                     Text(
                       '${change >= 0 ? '▲' : '▼'}${change.abs()}%',
                       style: TextStyle(
                         fontSize: TextSize.caption,
                         fontWeight: FontWeight.w800,
-                        color: change >= 0 ? Hue.negative : Hue.positive,
+                        color: AppColors.ofSpendingChange(change),
                       ),
                     ),
                   ],
@@ -218,8 +238,8 @@ class _Hero extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const LegendKey(Hue.positive, '存下'),
-                  const SizedBox(width: 6),
+                  const LegendKey(AppColors.positive, '存下'),
+                  const SizedBox(width: Space.s2),
                   Text(
                     '$keptShare%',
                     style: const TextStyle(fontWeight: FontWeight.w800),
@@ -235,8 +255,9 @@ class _Hero extends StatelessWidget {
 }
 
 /// A tinted block: a solid icon and a label over a figure and a line.
-class _Block extends StatelessWidget {
-  const _Block({
+class ReportBlock extends StatelessWidget {
+  const ReportBlock({
+    super.key,
     required this.glyph,
     required this.color,
     required this.label,
@@ -255,14 +276,19 @@ class _Block extends StatelessWidget {
     final ink = deepOf(color);
     return ColorCard(
       color: color,
-      padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s3,
+        Space.s4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               SquareIcon(glyph, color, size: 32),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               Expanded(
                 child: OneLine(
                   label,
@@ -275,7 +301,7 @@ class _Block extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           OneLine(
             value,
             style: const TextStyle(
@@ -296,8 +322,9 @@ class _Block extends StatelessWidget {
 
 /// A category as a block of the mosaic: its icon, name and share, what
 /// it came to, and against last year's same stretch.
-class _CategoryBlock extends StatelessWidget {
-  const _CategoryBlock({
+class CategoryBlock extends StatelessWidget {
+  const CategoryBlock({
+    super.key,
     required this.ledger,
     required this.category,
     required this.amount,
@@ -323,10 +350,10 @@ class _CategoryBlock extends StatelessWidget {
     return ColorCard(
       color: color,
       amount: 0.24,
-      radius: 18,
+      radius: Radii.large,
       onTap: onTap,
       label: '${category.name} $share%',
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(Space.s2),
       child: LayoutBuilder(
         builder: (context, box) {
           final roomy = box.maxHeight > 70 && box.maxWidth > 70;
@@ -354,7 +381,7 @@ class _CategoryBlock extends StatelessWidget {
                         style: TextStyle(
                           fontSize: TextSize.caption,
                           fontWeight: FontWeight.w800,
-                          color: change >= 0 ? Hue.negative : Hue.positive,
+                          color: AppColors.ofSpendingChange(change),
                         ),
                       ),
                   ],
@@ -397,8 +424,8 @@ class _CategoryBlock extends StatelessWidget {
 }
 
 /// A dashed rule across, for an average.
-class _Dashes extends CustomPainter {
-  _Dashes(this.color);
+class DashesPainter extends CustomPainter {
+  DashesPainter(this.color);
 
   final Color color;
 
@@ -413,5 +440,5 @@ class _Dashes extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_Dashes old) => old.color != color;
+  bool shouldRepaint(DashesPainter old) => old.color != color;
 }

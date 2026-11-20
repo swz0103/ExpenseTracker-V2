@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/ledger/ledger.dart';
-import '../../../core/text/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
-import '../../../core/platform/problems.dart';
-import '../../../core/ui/entry_tile.dart';
-import '../../../core/look/settings_hue.dart';
-import '../../../core/ui/shown_amounts.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/messages/problem_messages.dart';
+import '../../../core/widgets/entry_tile.dart';
+import '../../../core/design_system/settings_colors.dart';
+import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/shape.dart';
 
 /// How long a deleted entry is kept before it is gone for good.
 const _keptDays = 30;
@@ -24,7 +27,7 @@ class TrashSection extends StatelessWidget {
 
   void _restore(BuildContext context, Trashed trashed) {
     try {
-      if (ledger.restoreTrashed(trashed)) {
+      if (ledger.entryCommands.restoreTrashed(trashed)) {
         showNote(context, '已放回「${trashed.entry.title}」');
       }
     } on Object catch (error) {
@@ -36,36 +39,33 @@ class TrashSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trash = ledger.trash;
-    if (trash.isEmpty) {
+    if (trash.all.isEmpty) {
       return const EmptyState(
         glyph: Glyph.trash,
-        color: SettingsHue.trash,
+        color: SettingsColors.trash,
         message: '沒有刪除的紀錄',
       );
     }
     final today = ledger.today;
     // Grouped by the day each entry was for, latest day first.
-    final days = <DateTime, List<Trashed>>{};
-    for (final t in [
-      ...trash,
-    ]..sort((a, b) => b.entry.date.compareTo(a.entry.date))) {
-      final d = t.entry.date;
-      days.putIfAbsent(DateTime(d.year, d.month, d.day), () => []).add(t);
-    }
+    final days = groupByDay(
+      [...trash.all]..sort((a, b) => b.entry.date.compareTo(a.entry.date)),
+      (t) => t.entry.date,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ColorCard(
-          color: SettingsHue.trash,
+          color: SettingsColors.trash,
           child: Row(
             children: [
-              const SquareIcon(Glyph.reset, SettingsHue.trash, size: 54),
-              const SizedBox(width: 16),
+              const SquareIcon(Glyph.reset, SettingsColors.trash, size: 54),
+              const SizedBox(width: Space.s4),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${trash.length} 筆',
+                    '${trash.all.length} 筆',
                     style: const TextStyle(
                       fontSize: TextSize.figure,
                       fontWeight: FontWeight.w800,
@@ -75,7 +75,7 @@ class TrashSection extends StatelessWidget {
                     '保留 $_keptDays 天',
                     style: TextStyle(
                       fontSize: TextSize.body,
-                      color: deepOf(SettingsHue.trash),
+                      color: deepOf(SettingsColors.trash),
                     ),
                   ),
                 ],
@@ -85,13 +85,18 @@ class TrashSection extends StatelessWidget {
         ),
         for (final MapEntry(key: day, value: group) in days.entries) ...[
           Padding(
-            padding: const EdgeInsets.fromLTRB(6, 18, 6, 8),
+            padding: const EdgeInsets.fromLTRB(
+              Space.s2,
+              Space.s4,
+              Space.s2,
+              Space.s2,
+            ),
             child: Text(
-              '${day.month}/${day.day} 週${weekdayNames[day.weekday - 1]} 記的',
+              '${formatMEd(day)} 記的',
               style: const TextStyle(
                 fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,
-                color: Hue.muted,
+                color: AppColors.muted,
               ),
             ),
           ),
@@ -121,15 +126,15 @@ class TrashSection extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           RowFigure(ledger.orDots(groupDigits(e.amount))),
-          const SizedBox(width: 10),
+          const SizedBox(width: Space.s2),
           FilledButton(
             onPressed: () => _restore(context, t),
             style: solidButton(
-              Hue.selected,
-              ink: Hue.accent,
+              AppColors.selected,
+              ink: AppColors.accent,
               minimumSize: Size(56, 44),
-              radius: 14,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              radius: Radii.large,
+              padding: const EdgeInsets.symmetric(horizontal: Space.s4),
             ),
             child: const Text(
               '放回',

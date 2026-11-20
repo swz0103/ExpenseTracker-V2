@@ -22,46 +22,46 @@ class _Pace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (passed, days) = ledger.daysGone(year, month);
+    final (passed, days) = ledger.budgetService.daysGone(year, month);
     String money(int v) => ledger.orDots(groupDigits(v));
     if (!current) {
       final saved = total - spent;
       return CardGrid(gap: 10, [
         _Figure(
           glyph: Glyph.cash,
-          color: Hue.positive,
+          color: AppColors.positive,
           label: '平均每天花',
           value: money(spent ~/ days),
           sub: '$month 月 $days 天',
         ),
         _Figure(
           glyph: Glyph.calendar,
-          color: Hue.accent,
+          color: AppColors.accent,
           label: '跟預算比',
           value: '${saved >= 0 ? '省' : '超'} ${money(saved.abs())}',
-          valueColor: saved >= 0 ? Hue.accent : Hue.negative,
+          valueColor: saved >= 0 ? AppColors.accent : AppColors.negative,
           sub: '用了 ${spent * 100 ~/ total}%',
         ),
       ]);
     }
     final left = total - spent;
     final remaining = days - passed + 1;
-    final heading = ledger.forecast(spent, year, month);
+    final heading = ledger.budgetService.forecast(spent, year, month);
     final over = heading > total;
     return CardGrid(gap: 10, [
       _Figure(
         glyph: Glyph.cash,
-        color: Hue.positive,
+        color: AppColors.positive,
         label: '每天可以花',
         value: left > 0 ? money(left ~/ remaining) : '0',
         sub: '剩 $remaining 天',
       ),
       _Figure(
         glyph: Glyph.calendar,
-        color: over ? Hue.negative : Hue.accent,
+        color: over ? AppColors.negative : AppColors.accent,
         label: '月底預估',
         value: passed >= 7 ? money(heading) : '—',
-        valueColor: over && passed >= 7 ? Hue.negative : null,
+        valueColor: over && passed >= 7 ? AppColors.negative : null,
         sub: passed < 7
             ? '第 7 天起估算'
             : over
@@ -93,15 +93,20 @@ class _Figure extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s2,
+        Space.s2,
+        Space.s2,
+        Space.s2,
+      ),
       decoration: BoxDecoration(
-        color: Hue.group,
-        borderRadius: BorderRadius.circular(18),
+        color: AppColors.group,
+        borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
         children: [
           SquareIcon(glyph, color, size: 36),
-          const SizedBox(width: 10),
+          const SizedBox(width: Space.s2),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -111,7 +116,7 @@ class _Figure extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: TextSize.small,
                     fontWeight: FontWeight.w700,
-                    color: Hue.muted,
+                    color: AppColors.muted,
                   ),
                 ),
                 FittedBox(
@@ -159,20 +164,25 @@ class _Limit extends StatelessWidget {
     final tag = budget.tag != null;
     final category = tag ? null : ledger.category(budget.category);
     final shade = category?.color;
-    final color = shownColor(shade == null ? Hue.accent : Color(shade));
+    final color = shownColor(shade == null ? AppColors.accent : Color(shade));
     final glyph = tag ? Glyph.tag : iconFor(category!.icon);
     final left = limit - used;
     final over = left < 0;
     final near = !over && limit > 0 && used * 100 >= limit * budget.warning;
-    final tone = over ? Hue.negative : (near ? _nearHue : color);
+    final tone = over ? AppColors.negative : (near ? _nearColor : color);
     final share = limit == 0 ? 0.0 : (used / limit).clamp(0.0, 1.0);
     final ink = deepOf(color);
     return ColorCard(
-      color: over ? Hue.negative : (near ? _nearHue : color),
+      color: over ? AppColors.negative : (near ? _nearColor : color),
       amount: 0.18,
       onTap: onTap,
       label: '${budget.category}，${over ? '超支' : '剩'} ${left.abs()}',
-      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s3,
+        Space.s2,
+        Space.s2,
+        Space.s2,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -199,12 +209,12 @@ class _Limit extends StatelessWidget {
               if (over || near)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
+                    horizontal: Space.s2,
+                    vertical: Space.half,
                   ),
                   decoration: BoxDecoration(
                     color: tone,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(Radii.small),
                   ),
                   child: Text(
                     over ? '超支' : '快用完',
@@ -212,13 +222,13 @@ class _Limit extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: TextSize.caption,
                       fontWeight: FontWeight.w800,
-                      color: Hue.onAccent,
+                      color: AppColors.onAccent,
                     ),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           Text(
             budget.category,
             maxLines: 1,
@@ -226,7 +236,7 @@ class _Limit extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.body,
               fontWeight: FontWeight.w800,
-              color: over ? deepOf(Hue.negative) : ink,
+              color: over ? deepOf(AppColors.negative) : ink,
             ),
           ),
           FittedBox(
@@ -237,7 +247,7 @@ class _Limit extends StatelessWidget {
               style: TextStyle(
                 fontSize: TextSize.heading,
                 fontWeight: FontWeight.w800,
-                color: over ? Hue.negative : Hue.ink,
+                color: over ? AppColors.negative : AppColors.ink,
               ),
             ),
           ),

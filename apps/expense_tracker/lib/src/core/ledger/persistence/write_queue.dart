@@ -1,3 +1,5 @@
+// Exception to ledger words: the diagnostics log is labelled in words.
+
 import 'package:flutter/foundation.dart' show ValueNotifier;
 
 import '../../diagnostics/error_log.dart';
@@ -20,7 +22,7 @@ final class WriteQueue {
   final void Function(Ledger fresh) _onReloaded;
 
   /// The last change the data source refused, for the screens to report.
-  final ValueNotifier<Object?> problem;
+  final ValueNotifier<LedgerProblem?> problem;
 
   var _chain = Future<void>.value();
   var _waiting = 0;
@@ -43,7 +45,7 @@ final class WriteQueue {
       await _dataSource.keep(batch);
     } on Object catch (error) {
       ErrorLog.instance.record('寫入帳本', error);
-      problem.value = error;
+      problem.value = KeepFailed(error);
       _stale = true;
     }
     if (--_waiting > 0 || !_stale) return;
@@ -55,7 +57,7 @@ final class WriteQueue {
       if (_waiting == 0) _onReloaded(fresh);
     } on Object catch (error) {
       ErrorLog.instance.record('重新讀取帳本', error);
-      problem.value = error;
+      problem.value = ReloadFailed(error);
       _stale = true;
     }
   }

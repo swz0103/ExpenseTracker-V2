@@ -1,23 +1,27 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/ui/calculator.dart';
-import '../../../core/text/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/ui/icons.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/nav.dart';
-import '../../../core/ui/shown_amounts.dart';
+import '../forms/budget_editor.dart';
+import '../model/budget_month.dart';
+import '../../../core/navigation/nav.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 part 'budgets_pace.dart';
 part 'budgets_month_picker.dart';
 
 /// The colour of 預算管理, as on 更多.
-const _budgetHue = Palette.green;
+const _budgetColor = Palette.green;
 
 /// Gold for a budget nearly used up.
-const _nearHue = Palette.gold;
+const _nearColor = Palette.gold;
 
 /// 預算管理: the month in big words (tapped to pick another), the main
 /// card with what is left, what is used of the total and a bar of the
@@ -39,27 +43,19 @@ class _BudgetsPageState extends State<BudgetsPage> {
 
   Ledger get ledger => widget.ledger;
 
-  (int, int) get _now => (ledger.today.year, ledger.today.month);
+  late final _months = BudgetMonths(ledger);
 
-  (int, int) get _first {
-    final first = ledger.firstDay;
-    return (first.year, first.month);
-  }
+  YearMonth get _now => _months.now;
 
-  static int _key((int, int) m) => m.$1 * 12 + m.$2 - 1;
-
-  static (int, int) _of(int key) => (key ~/ 12, key % 12 + 1);
+  YearMonth get _first => _months.first;
 
   void _step(int by) {
-    final next = _key(_month) + by;
-    if (next > _key(_now) || next < _key(_first)) return;
-    setState(() => _month = _of(next));
+    final next = _months.step(_month, by);
+    if (next != null) setState(() => _month = next);
   }
 
-  Future<void> _edit(String category) => showSheet<void>(
-    context,
-    (_) => _BudgetEditor(ledger: ledger, budget: ledger.budgetFor(category)),
-  );
+  Future<void> _edit(String category) =>
+      editBudget(context, ledger, ledger.budgets.forCategory(category));
 
   Future<void> _addLimit() async {
     final picked = await showSheet<String>(
@@ -93,39 +89,25 @@ class _BudgetsPageState extends State<BudgetsPage> {
       }),
       builder: (context, _) {
         final (year, month) = _month;
-        final spent = ledger.expense(year, month);
-        final whole = ledger.budgetFor(Ledger.allSpending);
-        final total = ledger.allowance(whole, year, month);
-        final rows = [
-          for (final b in ledger.budgets)
-            if (b.category != Ledger.allSpending && b.limit > 0)
-              (
-                b,
-                ledger.spentAgainst(b, year, month),
-                ledger.allowance(b, year, month),
-              ),
-        ];
-        // Overspent first, then by the share used.
-        rows.sort((a, b) {
-          double share((Budget, int, int) row) =>
-              row.$3 == 0 ? 0 : row.$2 / row.$3;
-          return share(b).compareTo(share(a));
-        });
+        final shown = BudgetMonth.of(ledger, _month);
+        final spent = shown.spent;
+        final whole = shown.whole;
+        final total = shown.total;
         final current = _month == _now;
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader('預算管理', onBack: widget.nav.back),
           children: [
             _MonthRow(
               month: month,
               current: current,
-              canBack: _key(_month) > _key(_first),
+              canBack: _months.canGoBack(_month),
               onPick: _pickMonth,
               onBack: () => _step(-1),
               onNext: () => _step(1),
               onToday: () => setState(() => _month = _now),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.s2),
             GestureDetector(
               onHorizontalDragEnd: (d) {
                 final v = d.primaryVelocity ?? 0;
@@ -137,7 +119,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                       spent: spent,
                       month: month,
                       current: current,
-                      onSet: () => _edit(Ledger.allSpending),
+                      onSet: () => _edit(allSpending),
                     )
                   : _Main(
                       ledger: ledger,
@@ -147,11 +129,11 @@ class _BudgetsPageState extends State<BudgetsPage> {
                       spent: spent,
                       total: total,
                       whole: whole,
-                      onEdit: () => _edit(Ledger.allSpending),
+                      onEdit: () => _edit(allSpending),
                     ),
             ),
             if (total > 0) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: Space.s2),
               _Pace(
                 ledger: ledger,
                 year: year,
@@ -162,7 +144,12 @@ class _BudgetsPageState extends State<BudgetsPage> {
               ),
             ],
             Padding(
-              padding: const EdgeInsets.fromLTRB(4, 22, 4, 12),
+              padding: const EdgeInsets.fromLTRB(
+                Space.s1,
+                Space.s6,
+                Space.s1,
+                Space.s3,
+              ),
               child: Row(
                 children: [
                   const Expanded(
@@ -179,30 +166,30 @@ class _BudgetsPageState extends State<BudgetsPage> {
               ),
             ),
             CardGrid(gap: 10, [
-              for (final (budget, used, allowed) in rows)
+              for (final line in shown.lines)
                 _Limit(
                   ledger: ledger,
-                  budget: budget,
-                  used: used,
-                  limit: allowed,
-                  onTap: () => _edit(budget.category),
+                  budget: line.budget,
+                  used: line.spent,
+                  limit: line.allowance,
+                  onTap: () => _edit(line.budget.category),
                 ),
               ColorCard(
-                color: Hue.faint,
+                color: AppColors.faint,
                 amount: 0.22,
                 onTap: _addLimit,
                 label: '為分類或標籤設定額度',
-                padding: const EdgeInsets.symmetric(vertical: 22),
+                padding: const EdgeInsets.symmetric(vertical: Space.s6),
                 child: const Column(
                   children: [
-                    GlyphIcon(Glyph.add, size: 24, color: Hue.accent),
-                    SizedBox(height: 8),
+                    GlyphIcon(Glyph.add, size: 24, color: AppColors.accent),
+                    SizedBox(height: Space.s2),
                     Text(
                       '分類或標籤',
                       style: TextStyle(
                         fontSize: TextSize.body,
                         fontWeight: FontWeight.w800,
-                        color: Hue.accent,
+                        color: AppColors.accent,
                       ),
                     ),
                   ],
@@ -240,9 +227,9 @@ class _MonthRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget round(Glyph glyph, String label, VoidCallback? onTap) => Padding(
-      padding: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.only(left: Space.s2),
       child: Material(
-        color: onTap == null ? Hue.paper : Hue.surface,
+        color: onTap == null ? AppColors.paper : AppColors.surface,
         shape: const CircleBorder(),
         child: IconButton(
           tooltip: label,
@@ -250,22 +237,24 @@ class _MonthRow extends StatelessWidget {
           icon: GlyphIcon(
             glyph,
             size: 20,
-            color: onTap == null ? Hue.faint : Hue.ink,
+            color: onTap == null ? AppColors.faint : AppColors.ink,
           ),
         ),
       ),
     );
     return Row(
       children: [
-        Semantics(
-          button: true,
+        ReadAsButton(
           label: '$month 月，選月份',
-          excludeSemantics: true,
+          onTap: onPick,
           child: InkWell(
             onTap: onPick,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(Radii.medium),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+              padding: const EdgeInsets.symmetric(
+                vertical: Space.s1,
+                horizontal: Space.s1,
+              ),
               child: Row(
                 children: [
                   Text(
@@ -275,13 +264,13 @@ class _MonthRow extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: Space.s2),
                   Transform.rotate(
                     angle: 1.5708,
                     child: const GlyphIcon(
                       Glyph.next,
                       size: 16,
-                      color: Hue.muted,
+                      color: AppColors.muted,
                     ),
                   ),
                 ],
@@ -294,18 +283,18 @@ class _MonthRow extends StatelessWidget {
           TextButton(
             onPressed: onToday,
             style: wordButton(
-              Hue.accent,
-              fill: Hue.selected,
+              AppColors.accent,
+              fill: AppColors.selected,
               minimumSize: Size(0, 44),
-              radius: 22,
+              radius: Radii.largeIncreased,
             ),
             child: const Text(
               '回到本月',
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
-        round(Glyph.back, '上個月', canBack ? onBack : null),
-        round(Glyph.next, '下個月', current ? null : onNext),
+        round(Glyph.back, Words.previousMonth, canBack ? onBack : null),
+        round(Glyph.next, Words.nextMonth, current ? null : onNext),
       ],
     );
   }
@@ -338,12 +327,17 @@ class _Main extends StatelessWidget {
   Widget build(BuildContext context) {
     final left = total - spent;
     final carried = total - whole.limit;
-    final (passed, days) = ledger.daysGone(year, month);
+    final (passed, days) = ledger.budgetService.daysGone(year, month);
     final over = left < 0;
-    final ink = Hue.accent;
+    final ink = AppColors.accent;
     final next = month == 12 ? 1 : month + 1;
     return HeroCard(
-      padding: const EdgeInsets.fromLTRB(18, 14, 12, 14),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s3,
+        Space.s4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -359,7 +353,7 @@ class _Main extends StatelessWidget {
                       style: TextStyle(
                         fontSize: TextSize.body,
                         fontWeight: FontWeight.w800,
-                        color: over ? Hue.negative : ink,
+                        color: over ? AppColors.negative : ink,
                       ),
                     ),
                     FittedBox(
@@ -370,7 +364,7 @@ class _Main extends StatelessWidget {
                         style: TextStyle(
                           fontSize: TextSize.big,
                           fontWeight: FontWeight.w800,
-                          color: over ? Hue.negative : Hue.ink,
+                          color: over ? AppColors.negative : AppColors.ink,
                         ),
                       ),
                     ),
@@ -378,15 +372,15 @@ class _Main extends StatelessWidget {
                 ),
               ),
               Material(
-                color: Hue.white,
-                borderRadius: BorderRadius.circular(14),
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(Radii.large),
                 child: IconButton(
                   tooltip: '改總預算',
                   onPressed: onEdit,
                   icon: const GlyphIcon(
                     Glyph.edit,
                     size: 18,
-                    color: Hue.accent,
+                    color: AppColors.accent,
                   ),
                 ),
               ),
@@ -408,11 +402,11 @@ class _Main extends StatelessWidget {
                 ),
               ],
             ),
-            style: const TextStyle(fontSize: TextSize.body, color: Hue.muted),
+            style: mutedBody,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: Space.s2),
           DayBar(passed: current ? passed : days, days: days, today: current),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           if (current)
             Row(
               children: [
@@ -459,7 +453,12 @@ class _NoBudget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return HeroCard(
-      padding: const EdgeInsets.fromLTRB(18, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s3,
+        Space.s3,
+      ),
       child: Row(
         children: [
           Expanded(
@@ -471,7 +470,7 @@ class _NoBudget extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: TextSize.small,
                     fontWeight: FontWeight.w800,
-                    color: Hue.accent,
+                    color: AppColors.accent,
                   ),
                 ),
                 OneLine(
@@ -484,14 +483,14 @@ class _NoBudget extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: Space.s2),
           FilledButton(
             onPressed: onSet,
             style: solidButton(
-              _budgetHue,
+              _budgetColor,
               minimumSize: Size(0, 48),
-              radius: 14,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              radius: Radii.large,
+              padding: const EdgeInsets.symmetric(horizontal: Space.s4),
             ),
             child: const Text(
               '設定預算',

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/charts/flow_chart.dart';
-import '../../../../core/look/theme.dart';
-import '../../../../core/look/widgets.dart';
+import '../../../../core/design_system/theme.dart';
+import '../../../../core/design_system/design_system.dart';
 import '../../../../core/ledger/ledger.dart';
-import '../../../../core/ui/shown_amounts.dart';
+import '../../../../core/widgets/shown_amounts.dart';
+import '../../../../core/design_system/spacing.dart';
+import '../../../../core/formatting/words.dart';
 
 /// 收支對照: six months of income and spending up to the page's month,
 /// with net worth as a line; a tap on a month reads it out.
@@ -43,9 +45,9 @@ class _FlowSectionState extends State<FlowSection> {
       months.add(
         FlowMonth(
           '${first.month}月',
-          ledger.income(first.year, first.month),
-          ledger.expense(first.year, first.month),
-          ledger.netWorthAt(until),
+          ledger.reportService.income(first.year, first.month),
+          ledger.reportService.expense(first.year, first.month),
+          ledger.balanceService.netWorthAt(until),
         ),
       );
     }
@@ -63,7 +65,12 @@ class _FlowSectionState extends State<FlowSection> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.ledger,
+      // Only what it shows: a change elsewhere leaves it as it is.
+      listenable: widget.ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.market,
+      }),
       builder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: _flow(),
@@ -103,21 +110,21 @@ class _FlowSectionState extends State<FlowSection> {
             style: TextStyle(
               fontSize: TextSize.small,
               fontWeight: FontWeight.w700,
-              color: left < 0 ? Hue.negative : Hue.ink,
+              color: AppColors.ofBalance(left),
             ),
           ),
         ],
       ),
-      const SizedBox(height: 4),
+      const SizedBox(height: Space.s1),
       // Wraps to a second line when the phone's text is large.
       Wrap(
         spacing: 12,
         runSpacing: 4,
         children: [
           for (final (color, name, value, line) in [
-            (Hue.positive, '收入', shown.income, false),
-            (Hue.negative, '支出', shown.expense, false),
-            (Hue.investment, '淨資產', shown.worth, true),
+            (AppColors.positive, Words.income, shown.income, false),
+            (AppColors.negative, Words.expense, shown.expense, false),
+            (AppColors.investment, '淨資產', shown.worth, true),
           ])
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -128,7 +135,7 @@ class _FlowSectionState extends State<FlowSection> {
             ),
         ],
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: Space.s2),
       Semantics(
         container: true,
         label: [

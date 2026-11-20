@@ -2,18 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/ui/pickers.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/haptics.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
-import '../../../core/ledger/batch.dart';
+import '../../../core/widgets/pickers.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/haptics.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ui/entry_tile.dart';
+import '../../../core/widgets/entry_tile.dart';
 import 'entries_filter_sheet.dart';
-import '../../../core/nav.dart';
-import '../../../core/ui/balance_hero.dart';
-import '../../../core/ui/shown_amounts.dart';
+import '../../../core/navigation/nav.dart';
+import '../../../core/widgets/balance_hero.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 /// 收支紀錄: the month's income against spending, then every entry by
 /// day, with search and filters; 設定 exports it.
@@ -82,7 +84,7 @@ class _EntriesPageState extends State<EntriesPage> {
   }
 
   List<Entry> get _pickedEntries => [
-    for (final e in widget.ledger.entries)
+    for (final e in widget.ledger.entries.all)
       if (_picked.contains(e.id)) e,
   ];
 
@@ -110,7 +112,7 @@ class _EntriesPageState extends State<EntriesPage> {
       options: categoryOptions(ledger, income: income),
     );
     if (name == null || !mounted) return;
-    _done('改分類', ledger.recategorize(picked, name));
+    _done('改分類', ledger.entryCommands.recategorize(picked, name));
   }
 
   Future<void> _pickAccount() async {
@@ -124,7 +126,7 @@ class _EntriesPageState extends State<EntriesPage> {
       options: accountOptions(ledger),
     );
     if (id == null || !mounted) return;
-    _done('改帳戶', ledger.moveToAccount(picked, id));
+    _done('改帳戶', ledger.entryCommands.moveToAccount(picked, id));
   }
 
   /// Deletes every picked entry as one change, with one way back for all
@@ -133,9 +135,9 @@ class _EntriesPageState extends State<EntriesPage> {
   void _removePicked() {
     final ledger = widget.ledger;
     // Entries written as one go with the one standing for them.
-    final removed = ledger.removeAll({
+    final removed = ledger.entryCommands.removeAll({
       for (final e in _pickedEntries)
-        for (final m in ledger.groupOf(e)) m.id,
+        for (final m in ledger.entryQueryService.groupOf(e)) m.id,
     });
     if (removed.isEmpty) {
       if (_pickedEntries.isEmpty) setState(_picked.clear);
@@ -146,7 +148,7 @@ class _EntriesPageState extends State<EntriesPage> {
       context,
       '已刪除 ${removed.length} 筆',
       action: '復原',
-      onAction: () => ledger.restoreAll(removed),
+      onAction: () => ledger.entryCommands.restoreAll(removed),
     );
   }
 
@@ -161,7 +163,7 @@ class _EntriesPageState extends State<EntriesPage> {
     final range = filter.range;
     final Iterable<Entry> source;
     if (words.isNotEmpty) {
-      source = ledger.search(words);
+      source = ledger.entryQueryService.search(words);
     } else if (range != null) {
       source = [
         for (
@@ -169,15 +171,16 @@ class _EntriesPageState extends State<EntriesPage> {
           !m.isBefore(DateTime.utc(range.start.year, range.start.month));
           m = DateTime.utc(m.year, m.month - 1)
         )
-          ...ledger.entriesIn(m.year, m.month),
+          ...ledger.entries.inMonth(m.year, m.month),
       ];
     } else {
-      source = ledger.entriesIn(year, month);
+      source = ledger.entries.inMonth(year, month);
     }
     return [
       // Entries written as one are shown as one, by the spending.
       for (final e in source)
-        if (filter.shows(ledger, e) && !ledger.isGroupTail(e)) e,
+        if (filter.shows(ledger, e) && !ledger.entryQueryService.isGroupTail(e))
+          e,
     ];
   }
 
@@ -214,7 +217,7 @@ class _EntriesPageState extends State<EntriesPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: Space.s5),
               child: title,
             ),
             Expanded(
@@ -228,7 +231,12 @@ class _EntriesPageState extends State<EntriesPage> {
                   _stepMonth(speed < 0 ? 1 : -1);
                 },
                 child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  padding: const EdgeInsets.fromLTRB(
+                    Space.s5,
+                    0,
+                    Space.s5,
+                    Space.s4,
+                  ),
                   itemCount: head.length + items.length,
                   itemBuilder: (context, i) =>
                       i < head.length ? head[i] : _line(items[i - head.length]),
@@ -252,6 +260,35 @@ class _EntriesPageState extends State<EntriesPage> {
 
   /// What sits above the entries: the title and month, the month's sums
   /// or what to do with the picked entries, search and the filters on.
+  /// The search box's look: a white pill with a magnifier, and a clear
+  /// button once something is typed.
+  InputDecoration _searchDecoration() => InputDecoration(
+    hintText: '搜尋備註、商家、標籤、金額',
+    isDense: true,
+    filled: true,
+    fillColor: AppColors.white,
+    contentPadding: const EdgeInsets.symmetric(vertical: Space.s4),
+    prefixIcon: const Padding(
+      padding: EdgeInsets.all(Space.s3),
+      child: GlyphIcon(Glyph.search, size: 18, color: AppColors.muted),
+    ),
+    suffixIcon: _searchText.text.isEmpty
+        ? null
+        : IconButton(
+            tooltip: '清除搜尋',
+            onPressed: _clearSearch,
+            icon: const GlyphIcon(
+              Glyph.close,
+              size: 16,
+              color: AppColors.muted,
+            ),
+          ),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(Radii.large),
+      borderSide: BorderSide.none,
+    ),
+  );
+
   List<Widget> _head(List<Entry> shown) {
     final ledger = widget.ledger;
     final (_, month) = _month;
@@ -294,7 +331,7 @@ class _EntriesPageState extends State<EntriesPage> {
           rate: false,
           size: 28,
         ),
-      const SizedBox(height: 10),
+      const SizedBox(height: Space.s2),
       Row(
         children: [
           Expanded(
@@ -304,43 +341,18 @@ class _EntriesPageState extends State<EntriesPage> {
                 controller: _searchText,
                 focusNode: _searchFocus,
                 textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  hintText: '搜尋備註、商家、標籤、金額',
-                  isDense: true,
-                  filled: true,
-                  fillColor: Hue.white,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: GlyphIcon(Glyph.search, size: 18, color: Hue.muted),
-                  ),
-                  suffixIcon: _searchText.text.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: '清除搜尋',
-                          onPressed: _clearSearch,
-                          icon: const GlyphIcon(
-                            Glyph.close,
-                            size: 16,
-                            color: Hue.muted,
-                          ),
-                        ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
+                decoration: _searchDecoration(),
                 onChanged: _typed,
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.s2),
           _FilterButton(count: filter.count, onTap: _openFilter),
         ],
       ),
       if (filter.count > 0)
         Padding(
-          padding: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.only(top: Space.s2),
           child: Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -381,10 +393,8 @@ class _EntriesPageState extends State<EntriesPage> {
         ),
       if (shown.isEmpty)
         const Padding(
-          padding: EdgeInsets.symmetric(vertical: 40),
-          child: Center(
-            child: Text('沒有符合的紀錄', style: TextStyle(color: Hue.muted)),
-          ),
+          padding: EdgeInsets.symmetric(vertical: Space.s10),
+          child: Center(child: Text('沒有符合的紀錄', style: mutedText)),
         ),
     ];
   }
@@ -407,7 +417,7 @@ class _EntriesPageState extends State<EntriesPage> {
 
   Widget _heading(DateTime day) {
     final ledger = widget.ledger;
-    final spent = ledger.spentOn(day);
+    final spent = ledger.reportService.spentOn(day);
     return DayHeading(
       day,
       total: spent == 0 ? null : '支出 ${ledger.money(spent)}',
@@ -419,7 +429,7 @@ class _EntriesPageState extends State<EntriesPage> {
     if (_picked.isNotEmpty) {
       return Container(
         color: _picked.contains(e.id)
-            ? Hue.accent.withValues(alpha: 0.12)
+            ? AppColors.accent.withValues(alpha: 0.12)
             : null,
         child: EntryTile(
           ledger: ledger,
@@ -480,7 +490,7 @@ class _PickBar extends StatelessWidget {
         TextButton(
           key: key,
           onPressed: onTap,
-          style: wordButton(color ?? Hue.accent),
+          style: wordButton(color ?? AppColors.accent),
           child: Text(label),
         );
     return GroupBox(
@@ -496,7 +506,7 @@ class _PickBar extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: '取消',
+                tooltip: Words.cancel,
                 onPressed: onCancel,
                 icon: const GlyphIcon(Glyph.close, size: 18),
               ),
@@ -507,7 +517,12 @@ class _PickBar extends StatelessWidget {
             children: [
               action('改分類', onCategory),
               action('改帳戶', onAccount),
-              action('刪除', onRemove, color: Hue.danger, key: Keys.deletePicked),
+              action(
+                Words.delete,
+                onRemove,
+                color: AppColors.danger,
+                key: Keys.deletePicked,
+              ),
             ],
           ),
         ],
@@ -530,15 +545,17 @@ class _FilterButton extends StatelessWidget {
     return Tooltip(
       message: on ? '篩選（$count）' : '篩選',
       child: Material(
-        color: on ? Hue.accent : Hue.white,
-        borderRadius: BorderRadius.circular(16),
+        color: on ? AppColors.accent : AppColors.white,
+        borderRadius: BorderRadius.circular(Radii.large),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: on ? 12 : 15),
+              padding: EdgeInsets.symmetric(
+                horizontal: on ? Space.s3 : Space.s4,
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -546,15 +563,15 @@ class _FilterButton extends StatelessWidget {
                   GlyphIcon(
                     Glyph.sliders,
                     size: 18,
-                    color: on ? Hue.onAccent : Hue.accent,
+                    color: on ? AppColors.onAccent : AppColors.accent,
                   ),
                   if (on) ...[
-                    const SizedBox(width: 6),
+                    const SizedBox(width: Space.s2),
                     Text(
                       '$count',
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: Hue.onAccent,
+                        color: AppColors.onAccent,
                       ),
                     ),
                   ],

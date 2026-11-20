@@ -30,7 +30,7 @@ extension Lending on ComposeForm {
   /// Puts the entries written as one with [entry] in the fields: the
   /// spending, and what was paid in it for each person.
   void loadGroup(Entry entry) {
-    final members = ledger.groupOf(entry);
+    final members = ledger.entryQueryService.groupOf(entry);
     final own = [
       for (final m in members)
         if (m.type == EntryType.expense) m,
@@ -107,9 +107,58 @@ extension Lending on ComposeForm {
     this.back = back;
     parts = null;
     installments = 0;
-    final main = ledger.mainAccount;
+    final main = ledger.accounts.main;
     if (main.isNotEmpty) account = main;
     final known = {for (final a in people) a.id};
     if (!known.contains(to)) to = people.isEmpty ? '' : people.first.id;
+  }
+
+  /// Everything the person in [to] owes is being paid back: each sum
+  /// ticked and the amount all they owe.
+  void payAll() {
+    if (to.isEmpty) return;
+    paying = {for (final (e, _) in ledger.reportService.owedBy(to)) e.id};
+    final owed = ledger.balanceService.balance(to);
+    if (owed > 0) setAmount(owed);
+  }
+
+  /// One sum ticked or not among what is being paid back; the amount
+  /// follows: all they owe but the sums not ticked, which stay owed.
+  void togglePaying(String id) {
+    paying = {...paying};
+    if (!paying.remove(id)) paying.add(id);
+    final kept = ledger.reportService
+        .owedBy(to)
+        .fold(0, (sum, o) => paying.contains(o.$1.id) ? sum : sum + o.$2);
+    final left = ledger.balanceService.balance(to) - kept;
+    setAmount(left < 0 ? 0 : left);
+  }
+
+  /// What the person in [to] owes now; nothing without one.
+  int get owedNow => to.isEmpty ? 0 : ledger.balanceService.balance(to);
+
+  /// The sums the person in [to] still owes, each with what is left of
+  /// it.
+  List<(Entry, int)> get owedSums =>
+      to.isEmpty ? const [] : ledger.reportService.owedBy(to);
+
+  /// What a sum owed was for: its note, or the merchant or note of the
+  /// spending it was paid in; 代墊 without any.
+  String owedTitle(Entry e) {
+    final lead = ledger.entryQueryService.groupLead(e);
+    for (final words in [e.note, lead.merchant, lead.note]) {
+      if (words.isNotEmpty) return words;
+    }
+    return Words.lend;
+  }
+
+  /// Opens an account for a new person called [name], to keep what they
+  /// owe, and returns it; null for a name with nothing in it.
+  Account? addPerson(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return null;
+    final account = Account(ledger.newId(), trimmed, AccountKind.receivable, 0);
+    ledger.accountCommands.addAccount(account);
+    return account;
   }
 }

@@ -3,17 +3,20 @@ import 'package:flutter/services.dart';
 
 import '../core/diagnostics/error_log.dart';
 import '../core/diagnostics/performance_monitor.dart';
-import '../core/look/dialogs.dart';
-import '../core/look/glyphs.dart';
-import '../core/look/theme.dart';
-import '../core/look/widgets.dart';
+import '../core/design_system/dialogs.dart';
+import '../core/design_system/glyphs.dart';
+import '../core/design_system/theme.dart';
+import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
-import '../core/platform/problems.dart';
+import '../core/messages/problem_messages.dart';
 import '../features/settings/model/app_update.dart';
 import '../features/settings/ui/update_panel.dart';
 import '../features/settings/model/platform_services.dart';
-import '../core/look/settings_hue.dart';
-import '../core/look/app_mark.dart';
+import '../core/design_system/settings_colors.dart';
+import '../core/design_system/app_mark.dart';
+import '../core/formatting/dates.dart';
+import '../core/design_system/shape.dart';
+import '../core/design_system/spacing.dart';
 
 /// 關於: the main card says the version and how it stands against the
 /// newest (已是最新, 有新版 with 更新, or the download with its bar); two
@@ -61,13 +64,18 @@ class AboutSection extends StatelessWidget {
   }
 
   void _diagnostics(BuildContext context) {
-    const color = SettingsHue.about;
+    const color = SettingsColors.about;
     final figures = PerformanceMonitor.instance.figures;
     Widget figure(String label, String value) => Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 10, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s3,
+        Space.s2,
+        Space.s2,
+        Space.s3,
+      ),
       decoration: BoxDecoration(
         color: tintOf(color, 0.14),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,12 +112,12 @@ class AboutSection extends StatelessWidget {
               figure('影格', figures.frame),
               figure('錯誤', '${ErrorLog.instance.count}'),
             ]),
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.s2),
             Text(buildLabel, style: mutedSmall),
             for (final (at, what) in ErrorLog.instance.entries.take(3))
               Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text('${at.month}/${at.day} $what', style: mutedSmall),
+                padding: const EdgeInsets.only(top: Space.s1),
+                child: Text('${formatMd(at)} $what', style: mutedSmall),
               ),
           ],
         ),
@@ -131,32 +139,32 @@ class AboutSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _VersionCard(update: update),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           CardGrid([
             if (preferences != null && (update?.possible ?? false))
-              _Row2(
+              _ActionRow(
                 glyph: Glyph.reset,
-                color: SettingsHue.main,
+                color: SettingsColors.main,
                 title: '自動更新',
                 trailing: TickSwitch(
                   value: preferences.updateChecks,
-                  color: SettingsHue.main,
+                  color: SettingsColors.main,
                   label: '自動更新',
                   onChanged: (on) => preferences.update(updateChecks: on),
                 ),
                 onTap: () =>
                     preferences.update(updateChecks: !preferences.updateChecks),
               ),
-            _Row2(
+            _ActionRow(
               glyph: Glyph.bolt,
-              color: SettingsHue.about,
+              color: SettingsColors.about,
               title: '診斷',
               onTap: () => _diagnostics(context),
             ),
           ], gap: 10),
           // Only the preview's made-up book can be reset.
           if (services.sample case final sample?) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             PanelButton('重設範例資料', onTap: () => _reset(context, sample)),
           ],
         ],
@@ -166,8 +174,8 @@ class AboutSection extends StatelessWidget {
 }
 
 /// A short card with its icon, name and a control on the right.
-class _Row2 extends StatelessWidget {
-  const _Row2({
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({
     required this.glyph,
     required this.color,
     required this.title,
@@ -185,12 +193,12 @@ class _Row2 extends StatelessWidget {
   Widget build(BuildContext context) => ColorCard(
     color: color,
     onTap: onTap,
-    radius: 20,
-    padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+    radius: Radii.largeIncreased,
+    padding: const EdgeInsets.fromLTRB(Space.s3, Space.s2, Space.s2, Space.s2),
     child: Row(
       children: [
         SquareIcon(glyph, color, size: 40),
-        const SizedBox(width: 12),
+        const SizedBox(width: Space.s3),
         Expanded(
           child: Text(
             title,
@@ -262,21 +270,26 @@ class _VersionCardState extends State<_VersionCard> {
     final update = widget.update;
     final newer = update?.newer != null;
     final progress = update?.progress;
-    final color = newer ? Hue.positive : SettingsHue.main;
+    final color = newer ? AppColors.positive : SettingsColors.main;
     return ColorCard(
       color: color,
       amount: 0.2,
       onTap: update == null || !update.possible
           ? null
           : () => _tap(context, update),
-      padding: const EdgeInsets.fromLTRB(18, 18, 14, 18),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       child: Row(
         children: [
           const ClipRRect(
-            borderRadius: BorderRadius.all(Radius.circular(18)),
+            borderRadius: BorderRadius.all(Radius.circular(Radii.large)),
             child: AppMark(size: 60),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: Space.s4),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,14 +311,14 @@ class _VersionCardState extends State<_VersionCard> {
                 ),
                 if (progress != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.only(top: Space.s2),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
+                      borderRadius: BorderRadius.circular(Radii.extraSmall),
                       child: LinearProgressIndicator(
                         value: progress,
                         minHeight: 5,
-                        color: SettingsHue.main,
-                        backgroundColor: Hue.white,
+                        color: SettingsColors.main,
+                        backgroundColor: AppColors.white,
                       ),
                     ),
                   ),
@@ -316,9 +329,9 @@ class _VersionCardState extends State<_VersionCard> {
             FilledButton(
               onPressed: () => _tap(context, update!),
               style: solidButton(
-                Hue.positive,
+                AppColors.positive,
                 minimumSize: Size(0, 48),
-                radius: 14,
+                radius: Radii.large,
               ),
               child: const Text(
                 '更新',

@@ -4,6 +4,8 @@ part of 'seed.dart';
 /// coffee, fuel and a few one-off events, with the card paid off, cash
 /// drawn as spent and savings swept away each month, so that only the
 /// bank keeps a remainder. Returns that remainder, for the bank's opening.
+// Exception to function length: two years of made-up entries, one a
+// line; data, not steps to follow.
 int _history(_Add add) {
   var bankNet = 0;
   for (var i = 0; i < _historyMonths; i++) {

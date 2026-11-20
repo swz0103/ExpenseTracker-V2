@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/look/glyphs.dart';
-import '../../../../core/look/theme.dart';
+import '../../../../core/design_system/glyphs.dart';
+import '../../../../core/design_system/theme.dart';
 import 'lock_parts.dart';
-import '../../../../core/look/kit/buttons.dart';
-import '../../../../core/look/keys.dart';
+import '../../../../core/design_system/components/buttons.dart';
+import '../../../../core/design_system/keys.dart';
+import '../../../../core/formatting/dates.dart';
+import '../../../../core/design_system/spacing.dart';
+import '../../../../core/design_system/shape.dart';
+import '../../../../core/design_system/motion.dart';
 
 /// The first screen of a new ledger: the opening animation, then the page
 /// takes on the tint of 總覽's main tile, the mark rises a little with the
@@ -50,7 +54,8 @@ class _WelcomeViewState extends State<WelcomeView>
   /// The mark moving up and the choices coming in, after the opening.
   late final _settle = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 620),
+    // Exception to motion: not run while motion is off (see build).
+    duration: Motion.long4,
   );
 
   @override
@@ -82,7 +87,7 @@ class _WelcomeViewState extends State<WelcomeView>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Hue.paper,
+      backgroundColor: AppColors.paper,
       body: LayoutBuilder(
         builder: (context, box) => AnimatedBuilder(
           animation: Listenable.merge([opening, _settle]),
@@ -114,7 +119,7 @@ class _WelcomeViewState extends State<WelcomeView>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Hue.hero, Hue.hero, Hue.paper],
+                  colors: [AppColors.hero, AppColors.hero, AppColors.paper],
                   stops: [0, 0.45, 0.78],
                 ),
               ),
@@ -132,7 +137,7 @@ class _WelcomeViewState extends State<WelcomeView>
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [Hue.halo, Hue.none],
+                  colors: [AppColors.halo, AppColors.none],
                   stops: [0, 0.68],
                 ),
               ),
@@ -199,14 +204,14 @@ class _WelcomeViewState extends State<WelcomeView>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ProblemLine(widget.problem),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             FilledButton(
               key: Keys.newBook,
               onPressed: busy ? null : widget.onStart,
               style: solidButton(
-                Hue.accent,
+                AppColors.accent,
                 minimumSize: Size.fromHeight(52),
-                radius: 16,
+                radius: Radii.large,
               ),
               child: busy
                   ? const BusyMark()
@@ -217,9 +222,9 @@ class _WelcomeViewState extends State<WelcomeView>
                           Glyph.add,
                           size: 18,
                           weight: 2.2,
-                          color: Hue.onAccent,
+                          color: AppColors.onAccent,
                         ),
-                        SizedBox(width: 8),
+                        SizedBox(width: Space.s2),
                         Text(
                           '建立新帳本',
                           style: TextStyle(
@@ -230,18 +235,18 @@ class _WelcomeViewState extends State<WelcomeView>
                       ],
                     ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: Space.s2),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('已經有帳本？', style: TextStyle(color: Hue.muted)),
+                const Text('已經有帳本？', style: mutedText),
                 TextButton(
                   key: Keys.restore,
                   onPressed: busy ? null : widget.onRestore,
                   style: wordButton(
-                    Hue.accent,
+                    AppColors.accent,
                     minimumSize: Size(48, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: Space.s2),
                   ),
                   child: const Text(
                     '還原備份',
@@ -268,51 +273,56 @@ class _WelcomeViewState extends State<WelcomeView>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ProblemLine(widget.problem),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             DecoratedBox(
               decoration: const ShapeDecoration(
                 shape: StadiumBorder(),
                 shadows: [
                   BoxShadow(
-                    color: Hue.float,
+                    color: AppColors.float,
                     blurRadius: 26,
                     offset: Offset(0, 10),
                   ),
                 ],
               ),
               child: Material(
-                color: Hue.white,
+                color: AppColors.white,
                 shape: const StadiumBorder(),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   key: Keys.restoreFound,
                   onTap: busy ? null : widget.onRestoreFound,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+                    padding: const EdgeInsets.fromLTRB(
+                      Space.s2,
+                      Space.s2,
+                      Space.s2,
+                      Space.s2,
+                    ),
                     child: Row(
                       children: [
                         Container(
                           width: 42,
                           height: 42,
                           decoration: const BoxDecoration(
-                            color: Hue.accentTrack,
+                            color: AppColors.accentTrack,
                             shape: BoxShape.circle,
                           ),
                           alignment: Alignment.center,
                           child: const GlyphIcon(
                             Glyph.reset,
                             size: 20,
-                            color: Hue.accent,
+                            color: AppColors.accent,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: Space.s3),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                '還原 ${at.month} 月 ${at.day} 日的備份',
+                                '還原 ${formatMMMd(at)}的備份',
                                 style: const TextStyle(
                                   fontSize: TextSize.body,
                                   fontWeight: FontWeight.w700,
@@ -320,20 +330,17 @@ class _WelcomeViewState extends State<WelcomeView>
                               ),
                               Text(
                                 '${_grouped(found.rows)} 筆紀錄',
-                                style: const TextStyle(
-                                  fontSize: TextSize.caption,
-                                  color: Hue.muted,
-                                ),
+                                style: mutedCaption,
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: Space.s3),
                         Container(
                           width: 48,
                           height: 48,
                           decoration: const BoxDecoration(
-                            color: Hue.accent,
+                            color: AppColors.accent,
                             shape: BoxShape.circle,
                           ),
                           alignment: Alignment.center,
@@ -342,7 +349,7 @@ class _WelcomeViewState extends State<WelcomeView>
                               : const GlyphIcon(
                                   Glyph.arrow,
                                   size: 20,
-                                  color: Hue.onAccent,
+                                  color: AppColors.onAccent,
                                 ),
                         ),
                       ],
@@ -351,18 +358,18 @@ class _WelcomeViewState extends State<WelcomeView>
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.s2),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('或', style: TextStyle(color: Hue.muted)),
+                const Text('或', style: mutedText),
                 TextButton(
                   key: Keys.newBook,
                   onPressed: busy ? null : widget.onStart,
                   style: wordButton(
-                    Hue.accent,
+                    AppColors.accent,
                     minimumSize: Size(48, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: Space.s2),
                   ),
                   child: const Text(
                     '建立新帳本',

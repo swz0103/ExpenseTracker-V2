@@ -1,10 +1,12 @@
+import '../time/app_clock.dart';
+
 /// How long the app was away, for locking the ledger again: by the
 /// phone's clock and by a clock that only runs forward, so setting the
 /// phone's time back does not keep the ledger open. A clock that went
 /// backwards counts as away long enough.
 final class AwayClock {
   AwayClock({DateTime Function()? now, this._running})
-    : _now = now ?? DateTime.now;
+    : _now = now ?? AppClock.now;
 
   final DateTime Function() _now;
 

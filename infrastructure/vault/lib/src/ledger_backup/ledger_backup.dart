@@ -54,6 +54,12 @@ final class BackupHeader {
   static const format = 'ExpenseTracker-backup';
   static const version = 3;
 
+  /// The versions this app reads: every one it has written since backups
+  /// were kept for good (docs/adr/0010-data-that-lasts.md). A version is
+  /// added when the format changes and never taken out; reading an older
+  /// one brings it up to [version].
+  static const readable = {3};
+
   final String backupId;
   final DateTime createdAt;
 
@@ -62,7 +68,7 @@ final class BackupHeader {
   final Keyring keyring;
   final int backupEpoch;
 
-  /// The ledger's [RowStore.revision] when this backup was taken: a later
+  /// The ledger's [EncryptedDatabase.revision] when this backup was taken: a later
   /// backup of a changed ledger has a larger one.
   final int revision;
 
@@ -90,7 +96,7 @@ final class BackupHeader {
     if (json is! Map<String, Object?> || json['format'] != format) {
       throw const BackupException(BackupProblem.invalidFormat, 'header');
     }
-    if (json['version'] != version) {
+    if (!readable.contains(json['version'])) {
       throw const BackupException(BackupProblem.unsupportedVersion);
     }
     const keys = {
@@ -138,7 +144,7 @@ abstract final class LedgerBackup {
   /// Writes a backup of [store] to [file]. The records are read at once,
   /// so the backup is one consistent state.
   static Future<BackupHeader> write({
-    required RowStore store,
+    required EncryptedDatabase store,
     required UnlockedKeyring keys,
     required File file,
     required String backupId,
@@ -255,7 +261,7 @@ abstract final class LedgerBackup {
   static Future<BackupHeader> restore({
     required File file,
     required UnlockedKeyring keys,
-    required RowStore into,
+    required EncryptedDatabase into,
     void Function(String shelf, String id, String body)? accept,
     Future<void> Function(String name, List<int> bytes)? onFile,
   }) async {

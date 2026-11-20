@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/look/app_mark.dart';
-import '../../../../core/look/theme.dart';
-import '../../../../core/look/kit/buttons.dart';
-import '../../../../core/look/keys.dart';
+import '../../../../core/design_system/app_mark.dart';
+import '../../../../core/design_system/theme.dart';
+import '../../../../core/design_system/components/buttons.dart';
+import '../../../../core/design_system/keys.dart';
+import '../../../../core/design_system/shape.dart';
+import '../../../../core/design_system/spacing.dart';
+import '../../../../core/design_system/motion.dart';
+import '../../../../core/formatting/words.dart';
 
 /// Opening a ledger with its password, on the welcome's ground: the mark
 /// and the name, the password as dots that fill in as it is typed (the
@@ -54,7 +58,8 @@ class _UnlockViewState extends State<UnlockView>
   /// The mark settling and the rest coming in, after the opening.
   late final _settle = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 620),
+    // Exception to motion: not run while motion is off (see build).
+    duration: Motion.long4,
   );
 
   /// How many dots stand in for nothing typed yet.
@@ -121,7 +126,7 @@ class _UnlockViewState extends State<UnlockView>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Hue.paper,
+      backgroundColor: AppColors.paper,
       body: AnimatedBuilder(
         animation: _settle,
         builder: (context, _) => _page(),
@@ -147,7 +152,7 @@ class _UnlockViewState extends State<UnlockView>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Hue.hero, Hue.hero, Hue.paper],
+                  colors: [AppColors.hero, AppColors.hero, AppColors.paper],
                   stops: [0, 0.45, 0.78],
                 ),
               ),
@@ -178,7 +183,7 @@ class _UnlockViewState extends State<UnlockView>
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: RadialGradient(
-                                colors: [Hue.halo, Hue.none],
+                                colors: [AppColors.halo, AppColors.none],
                                 stops: [0, 0.68],
                               ),
                             ),
@@ -198,19 +203,21 @@ class _UnlockViewState extends State<UnlockView>
                                 child: Semantics(
                                   label: '記帳本',
                                   child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: BorderRadius.circular(
+                                      Radii.large,
+                                    ),
                                     child: const AppMark(size: _mark),
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 14),
+                            const SizedBox(height: Space.s4),
                             _rise(come, _name()),
-                            const SizedBox(height: 22),
+                            const SizedBox(height: Space.s6),
                             _rise(come, _dots()),
                             _rise(come, _problem()),
                             _rise(come, _fingerprint()),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: Space.s2),
                             _rise(come, _forgot()),
                           ],
                         ),
@@ -224,8 +231,8 @@ class _UnlockViewState extends State<UnlockView>
                             TextButton(
                               key: Keys.back,
                               onPressed: widget.busy ? null : back,
-                              style: wordButton(Hue.muted),
-                              child: const Text('返回'),
+                              style: wordButton(AppColors.muted),
+                              child: const Text(Words.back),
                             ),
                           ),
                         ),
@@ -296,11 +303,13 @@ class _UnlockViewState extends State<UnlockView>
                   margin: const EdgeInsets.symmetric(horizontal: 6.5),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: i < filled ? Hue.accent : null,
+                    color: i < filled ? AppColors.accent : null,
                     border: i < filled
                         ? null
                         : Border.all(
-                            color: wrong ? Hue.danger : Hue.accentRule,
+                            color: wrong
+                                ? AppColors.danger
+                                : AppColors.accentRule,
                             width: 1.6,
                           ),
                   ),
@@ -324,7 +333,7 @@ class _UnlockViewState extends State<UnlockView>
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: TextSize.small,
-                  color: Hue.danger,
+                  color: AppColors.danger,
                 ),
               ),
       ),
@@ -342,13 +351,13 @@ class _UnlockViewState extends State<UnlockView>
                 dimension: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.4,
-                  color: Hue.accent,
+                  color: AppColors.accent,
                 ),
               )
             : device == null
             ? null
             : Material(
-                color: Hue.accentTrack,
+                color: AppColors.accentTrack,
                 shape: const CircleBorder(),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
@@ -358,7 +367,7 @@ class _UnlockViewState extends State<UnlockView>
                     child: Icon(
                       Icons.fingerprint,
                       size: 30,
-                      color: Hue.accent,
+                      color: AppColors.accent,
                       semanticLabel: '用指紋或臉部解鎖',
                     ),
                   ),
@@ -374,7 +383,7 @@ class _UnlockViewState extends State<UnlockView>
       child: TextButton(
         onPressed: widget.busy ? null : widget.onRecovery,
         style: wordButton(
-          Hue.muted,
+          AppColors.muted,
           words: appFont.copyWith(fontSize: TextSize.small),
         ),
         child: const Text('忘記密碼？'),

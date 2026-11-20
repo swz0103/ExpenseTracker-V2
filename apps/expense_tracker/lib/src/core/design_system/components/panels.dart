@@ -1,0 +1,228 @@
+import 'package:flutter/material.dart';
+
+import '../controls.dart';
+import '../glyphs.dart';
+import '../theme.dart';
+import '../components.dart';
+import '../shape.dart';
+import '../spacing.dart';
+import '../../formatting/words.dart';
+
+// The panel in the middle of the screen and its buttons.
+
+/// The panel in the middle of the screen that every setting's details
+/// open in, never a sheet from the bottom: its icon, name and a line on
+/// what it does at the top, [trailing] on the right of that, then [body]
+/// and the [actions] along the bottom.
+class CenterPanel extends StatelessWidget {
+  const CenterPanel({
+    super.key,
+    required this.glyph,
+    required this.color,
+    required this.title,
+    this.detail,
+    this.trailing,
+    this.body,
+    this.actions = const [],
+  });
+
+  final Glyph glyph;
+  final Color color;
+  final String title;
+  final String? detail;
+  final Widget? trailing;
+  final Widget? body;
+
+  /// Buttons side by side along the bottom, each as wide as the others.
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColors.paper,
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: Space.s5,
+        vertical: Space.s6,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Radii.extraLarge),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+          Space.s6,
+          Space.s6,
+          Space.s6,
+          Space.s5,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                SquareIcon(glyph, color, size: 56),
+                const SizedBox(width: Space.s4),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Semantics(
+                        header: true,
+                        child: OneLine(
+                          title,
+                          style: const TextStyle(
+                            fontSize: TextSize.heading,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      if (detail != null) OneLine(detail!, style: mutedBody),
+                    ],
+                  ),
+                ),
+                ?trailing,
+              ],
+            ),
+            if (body != null) ...[const SizedBox(height: Space.s4), body!],
+            if (actions.isNotEmpty) ...[
+              const SizedBox(height: Space.s5),
+              Row(
+                children: [
+                  for (final (i, action) in actions.indexed) ...[
+                    if (i > 0) const SizedBox(width: Space.s3),
+                    Expanded(child: action),
+                  ],
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens a [CenterPanel] with 完成 along the bottom and, when [value] is
+/// given, a [TickSwitch] at the top. A tap on the dark around it closes
+/// it as well. [body] is built again after the switch is touched.
+Future<void> showCenterPanel(
+  BuildContext context, {
+  required Glyph glyph,
+  required Color color,
+  required String title,
+  String? detail,
+  bool Function()? value,
+  ValueChanged<bool>? onChanged,
+  WidgetBuilder? body,
+  String done = Words.done,
+}) {
+  return showPanel<void>(
+    context,
+    (context) => StatefulBuilder(
+      builder: (context, setState) {
+        final on = value?.call();
+        return CenterPanel(
+          glyph: glyph,
+          color: color,
+          title: title,
+          detail: detail,
+          trailing: on == null
+              ? null
+              : TickSwitch(
+                  value: on,
+                  color: color,
+                  label: title,
+                  onChanged: onChanged == null
+                      ? null
+                      : (v) {
+                          onChanged(v);
+                          setState(() {});
+                        },
+                ),
+          body: body == null ? null : Builder(builder: body),
+          actions: [
+            PanelButton(done, onTap: () => Navigator.of(context).pop()),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+/// Opens [builder] over a dimmed page, as the middle-of-the-screen panels
+/// are; a tap on the dark closes it unless [dismissible] is off.
+Future<T?> showPanel<T>(
+  BuildContext context,
+  WidgetBuilder builder, {
+  bool dismissible = true,
+}) => showDialog<T>(
+  context: context,
+  barrierDismissible: dismissible,
+  barrierColor: AppColors.scrim,
+  builder: builder,
+);
+
+/// A wide button: grey by default, solid [color] when given.
+class PanelButton extends StatelessWidget {
+  const PanelButton(
+    this.label, {
+    super.key,
+    required this.onTap,
+    this.color,
+    this.tinted = false,
+  });
+
+  final String label;
+  final VoidCallback? onTap;
+  final Color? color;
+
+  /// On [color]'s tint with its deeper words, not solid: one of a row of
+  /// plain actions, such as 買進, 賣出 and 記股息.
+  final bool tinted;
+
+  @override
+  Widget build(BuildContext context) {
+    final solid = color;
+    return Pressable(
+      child: Material(
+        color: solid == null
+            ? AppColors.surface
+            : tinted
+            ? tintOf(solid, 0.22)
+            : chosenFill(solid),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Radii.large),
+          side: solid == null || tinted ? BorderSide.none : chosenEdge(solid),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(Radii.large),
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Space.s4,
+                  vertical: Space.s3,
+                ),
+                child: OneLine(
+                  label,
+                  alignment: Alignment.center,
+                  style: TextStyle(
+                    fontSize: TextSize.title,
+                    fontWeight: FontWeight.w800,
+                    color: solid == null
+                        ? AppColors.ink
+                        : tinted
+                        ? deepOf(solid)
+                        : chosenInk(solid),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

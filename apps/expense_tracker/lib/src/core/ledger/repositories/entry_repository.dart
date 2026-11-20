@@ -22,6 +22,10 @@ abstract interface class EntryReader {
   /// Entries on [day], in [inMonth] order.
   List<Entry> onDay(DateTime day);
 
+  /// Every entry, the oldest day first and within a day in the order
+  /// written: read from the month index, with nothing to sort.
+  Iterable<Entry> get byDate;
+
   /// The day of the first entry; null when there is none.
   DateTime? get firstDate;
 
@@ -39,7 +43,7 @@ abstract interface class EntryReader {
 /// another day) throws the indexes away to be worked out again.
 ///
 /// A list for the commands that write; the screens see an [EntryReader].
-final class EntryRepository extends ListBase<Entry> implements EntryReader {
+final class EntryRepository implements EntryReader {
   EntryRepository([Iterable<Entry> entries = const []]) : _items = [...entries];
 
   final List<Entry> _items;
@@ -170,27 +174,32 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
   // The list, with every change noticed.
 
   @override
+  @override
+  bool get isEmpty => _items.isEmpty;
+
+  /// The place of the first entry that passes [test]; -1 when none does.
+  int indexWhere(bool Function(Entry entry) test) => _items.indexWhere(test);
+
+  /// Whether any entry passes [test].
+  bool any(bool Function(Entry entry) test) => _items.any(test);
+
+  @override
   int get length => _items.length;
 
-  @override
-  set length(int newLength) {
-    _discard();
-    _items.length = newLength;
-  }
-
-  @override
   Entry operator [](int index) => _items[index];
 
-  @override
   void operator []=(int index, Entry entry) {
     final old = _items[index];
     _items[index] = entry;
-    if (old.date == entry.date) {
-      // Put in place of one on the same day: the same place in its month.
+    if (old.id == entry.id && old.date == entry.date) {
+      // A new version of the same entry, on the same day: the same place
+      // in its month.
       _replaceInMonth(old, entry);
     } else {
-      // Moved to another day: where it stands among that day's entries
-      // depends on where each was written, which only the list knows.
+      // Another entry, or another day: where it stands among that day's
+      // entries depends on where each is in the list, which only the list
+      // knows. (Another entry put here may be one moved from elsewhere in
+      // the list, as a sort does.)
       _discard();
     }
   }
@@ -215,13 +224,11 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
     if (old.refundOf != null || entry.refundOf != null) _refunds = null;
   }
 
-  @override
   void add(Entry element) {
     _items.add(element);
     _noteAdded(element);
   }
 
-  @override
   void addAll(Iterable<Entry> iterable) {
     final added = iterable.toList();
     _items.addAll(added);
@@ -232,54 +239,64 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
     }
   }
 
-  @override
   void insert(int index, Entry element) {
     if (index >= _items.length) return add(element);
     _discard();
     _items.insert(index, element);
   }
 
-  @override
-  bool remove(Object? element) {
-    final index = element is Entry ? _items.indexOf(element) : -1;
+  /// Takes away [element], this very entry; false when it is not held.
+  bool remove(Entry element) {
+    final index = _items.indexOf(element);
     if (index < 0) return false;
     removeAt(index);
     return true;
   }
 
-  @override
   Entry removeAt(int index) {
     final removed = _items.removeAt(index);
     _noteRemoved(removed);
     return removed;
   }
 
-  @override
   Entry removeLast() {
     final removed = _items.removeLast();
     _noteRemoved(removed);
     return removed;
   }
 
-  @override
   void removeRange(int start, int end) {
     _discard();
     _items.removeRange(start, end);
   }
 
-  @override
   void removeWhere(bool Function(Entry) test) {
     _discard();
     _items.removeWhere(test);
   }
 
-  @override
   void clear() {
     _discard();
     _items.clear();
   }
 
+  // The rest of what a list can do, each a change that cannot be followed
+  // one entry at a time: done on the list itself, the indexes thrown away.
+
   // What is asked of them.
+
+  /// Puts what [change] gives in place of each entry it gives one for,
+  /// and returns those put in.
+  List<Entry> changeAll(Entry? Function(Entry entry) change) {
+    final changed = <Entry>[];
+    for (var i = 0; i < _items.length; i++) {
+      final next = change(_items[i]);
+      if (next == null) continue;
+      this[i] = next;
+      changed.add(next);
+    }
+    return changed;
+  }
 
   @override
   List<Entry> get all => UnmodifiableListView(_items);
@@ -292,6 +309,16 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
     final months = _months ??= _indexMonths();
     _settle(year * 12 + month);
     return months[year * 12 + month] ?? const <Entry>[];
+  }
+
+  @override
+  Iterable<Entry> get byDate sync* {
+    final months = _months ??= _indexMonths();
+    for (final month in months.keys.toList()..sort()) {
+      _settle(month);
+      // A month is kept newest first.
+      yield* months[month]!.reversed;
+    }
   }
 
   @override

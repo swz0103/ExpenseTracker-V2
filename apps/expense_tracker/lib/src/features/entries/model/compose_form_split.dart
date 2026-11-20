@@ -52,10 +52,10 @@ extension Splitting on ComposeForm {
     received = null;
   }
 
-  /// Starts a new transfer from [entry], one of [Ledger.usualTransfers]:
+  /// Starts a new transfer from [entry], one of `EntryQueryService.usualTransfers`:
   /// its two accounts and amount, on today.
   void startTransferFrom(Entry entry) {
-    final open = {for (final a in ledger.openAccounts) a.id};
+    final open = {for (final a in ledger.accounts.open) a.id};
     final other = entry.to;
     if (!open.contains(entry.account) ||
         other == null ||
@@ -100,4 +100,29 @@ extension Splitting on ComposeForm {
   /// or, with [reduce], a capital reduction.
   bool get stock => type == EntryType.dividend && shares > 0;
   bool get reducing => stock && reduce;
+
+  /// What of the amount the parts have not taken yet: none when they add
+  /// up to it, below none when they take more.
+  int get splitLeft =>
+      amount - (parts ?? const <(String, int)>[]).fold(0, (s, p) => s + p.$2);
+
+  /// The categories in the row under the amount: four of the most used,
+  /// as many as it shows without sliding; the one chosen in place of the
+  /// last when it is not among them, and while splitting each part's.
+  /// [more] is whether 全部 follows, for those not shown or parts to add.
+  ({List<String> shown, bool more}) categoryRow() {
+    final choices = categoryChoices();
+    final shown = choices.take(4).toList();
+    final splitting = parts != null;
+    if (!splitting &&
+        category.isNotEmpty &&
+        !shown.contains(category) &&
+        shown.isNotEmpty) {
+      shown[shown.length - 1] = category;
+    }
+    for (final (name, _) in parts ?? const <(String, int)>[]) {
+      if (!shown.contains(name)) shown.add(name);
+    }
+    return (shown: shown, more: choices.length > shown.length || splitting);
+  }
 }

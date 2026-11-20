@@ -3,15 +3,19 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/ledger/ledger.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
-import '../../../core/platform/problems.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/messages/problem_messages.dart';
 import '../model/calendar_sync.dart';
 import '../model/reminder_alerts.dart';
 import '../model/reminders.dart';
-import '../../../core/look/settings_hue.dart';
+import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/formatting/words.dart';
 
 part 'reminders_phone.dart';
 
@@ -126,7 +130,7 @@ class _RemindersSectionState extends State<RemindersSection>
         minute: preferences.nudgeMinute,
       ),
       title: '每天幾點提醒',
-      color: SettingsHue.daily,
+      color: SettingsColors.daily,
     );
     if (picked != null) {
       preferences.update(nudgeHour: picked.hour, nudgeMinute: picked.minute);
@@ -171,17 +175,17 @@ class _RemindersSectionState extends State<RemindersSection>
         context,
         (context) => CenterPanel(
           glyph: Glyph.calendar,
-          color: SettingsHue.calendar,
+          color: SettingsColors.calendar,
           title: '同步到哪個日曆',
           body: Column(
             children: [
               for (final c in choices)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: Space.s2),
                   child: ColorCard(
-                    color: SettingsHue.calendar,
+                    color: SettingsColors.calendar,
                     amount: c.id == chosen ? 0.32 : 0.14,
-                    radius: 16,
+                    radius: Radii.large,
                     label: c.name,
                     onTap: () => Navigator.of(context).pop(c.id),
                     child: Row(
@@ -205,7 +209,7 @@ class _RemindersSectionState extends State<RemindersSection>
                           const GlyphIcon(
                             Glyph.check,
                             size: 20,
-                            color: SettingsHue.calendar,
+                            color: SettingsColors.calendar,
                           ),
                       ],
                     ),
@@ -214,7 +218,7 @@ class _RemindersSectionState extends State<RemindersSection>
             ],
           ),
           actions: [
-            PanelButton('取消', onTap: () => Navigator.of(context).pop()),
+            PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
           ],
         ),
       );
@@ -245,7 +249,7 @@ class _RemindersSectionState extends State<RemindersSection>
     showCenterPanel(
       context,
       glyph: Glyph.bell,
-      color: SettingsHue.reminders,
+      color: SettingsColors.reminders,
       title: '到期提醒',
       detail: '定期扣款、卡費',
       value: () => preferences.dueAlerts,
@@ -259,8 +263,8 @@ class _RemindersSectionState extends State<RemindersSection>
               : CardGrid([
                   for (final r in coming)
                     _Chip(
-                      color: SettingsHue.reminders,
-                      top: '${r.day.month}/${r.day.day}',
+                      color: SettingsColors.reminders,
+                      top: formatMd(r.day),
                       bottom: r.title,
                     ),
                 ], gap: 10),
@@ -275,13 +279,13 @@ class _RemindersSectionState extends State<RemindersSection>
     showCenterPanel(
       context,
       glyph: Glyph.pie,
-      color: SettingsHue.budget,
+      color: SettingsColors.budget,
       title: '預算提醒',
       detail: '用到警示比例、超支時',
       value: () => preferences.budgetAlerts,
       onChanged: (on) => _notify(notifier, budget: on),
       body: (context) {
-        final budgets = _ledger.budgets.where((b) => b.limit > 0).toList();
+        final budgets = _ledger.budgets.all.where((b) => b.limit > 0).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -292,19 +296,19 @@ class _RemindersSectionState extends State<RemindersSection>
                   : CardGrid([
                       for (final b in budgets.take(4))
                         _Chip(
-                          color: SettingsHue.budget,
+                          color: SettingsColors.budget,
                           top: '用到',
                           bottom:
-                              '${b.category == Ledger.allSpending ? '總預算' : b.category} ${b.warning}%',
+                              '${b.category == allSpending ? '總預算' : b.category} ${b.warning}%',
                         ),
                     ], gap: 10),
             ),
             if (onBudgets != null)
               Padding(
-                padding: const EdgeInsets.only(top: 6),
+                padding: const EdgeInsets.only(top: Space.s2),
                 child: TextButton.icon(
                   style: wordButton(
-                    deepOf(SettingsHue.budget),
+                    deepOf(SettingsColors.budget),
                     minimumSize: Size(0, 48),
                     alignment: Alignment.centerLeft,
                   ),
@@ -327,7 +331,7 @@ class _RemindersSectionState extends State<RemindersSection>
 
   void _dailyDetails(Notifier notifier) {
     final preferences = notifier.preferences;
-    const color = SettingsHue.daily;
+    const color = SettingsColors.daily;
     showCenterPanel(
       context,
       glyph: Glyph.calendar,
@@ -344,10 +348,13 @@ class _RemindersSectionState extends State<RemindersSection>
             ColorCard(
               color: color,
               amount: 0.16,
-              radius: 18,
-              label: '提醒時間',
+              radius: Radii.large,
+              // The time too, not only what it is for.
+              label:
+                  '提醒時間：${_two(preferences.nudgeHour)}:'
+                  '${_two(preferences.nudgeMinute)}',
               onTap: () => _pickNudgeTime(notifier),
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: Space.s4),
               child: Center(
                 child: Text(
                   '${_two(preferences.nudgeHour)} : '
@@ -360,7 +367,7 @@ class _RemindersSectionState extends State<RemindersSection>
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.s2),
             _ToggleRow(
               color: color,
               title: '準時提醒',
@@ -375,7 +382,7 @@ class _RemindersSectionState extends State<RemindersSection>
   }
 
   void _calendarDetails(CalendarSync calendar) {
-    const color = SettingsHue.calendar;
+    const color = SettingsColors.calendar;
     showCenterPanel(
       context,
       glyph: Glyph.calendar,
@@ -392,8 +399,8 @@ class _RemindersSectionState extends State<RemindersSection>
             ColorCard(
               color: color,
               amount: 0.16,
-              radius: 18,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              radius: Radii.large,
+              padding: const EdgeInsets.symmetric(horizontal: Space.s4),
               child: Column(
                 children: [
                   _ToggleRow(
@@ -439,9 +446,9 @@ class _RemindersSectionState extends State<RemindersSection>
                 ],
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: Space.s2),
             TextButton(
-              style: wordButton(Hue.danger, minimumSize: Size(0, 48)),
+              style: wordButton(AppColors.danger, minimumSize: Size(0, 48)),
               onPressed: () {
                 Navigator.of(context).pop();
                 _forgetCalendar(calendar);
@@ -475,7 +482,7 @@ class _RemindersSectionState extends State<RemindersSection>
           if (notifier != null && preferences != null) ...[
             SettingCard(
               glyph: Glyph.bell,
-              color: SettingsHue.reminders,
+              color: SettingsColors.reminders,
               title: '到期提醒',
               detail: '信用卡、定期交易',
               value: preferences.dueAlerts,
@@ -484,7 +491,7 @@ class _RemindersSectionState extends State<RemindersSection>
             ),
             SettingCard(
               glyph: Glyph.pie,
-              color: SettingsHue.budget,
+              color: SettingsColors.budget,
               title: '預算提醒',
               detail: '用到幾成時',
               value: preferences.budgetAlerts,
@@ -493,7 +500,7 @@ class _RemindersSectionState extends State<RemindersSection>
             ),
             SettingCard(
               glyph: Glyph.calendar,
-              color: SettingsHue.daily,
+              color: SettingsColors.daily,
               title: '每日記帳',
               detail:
                   '每天 ${_two(preferences.nudgeHour)}:'
@@ -507,7 +514,7 @@ class _RemindersSectionState extends State<RemindersSection>
           if (calendar != null)
             SettingCard(
               glyph: Glyph.calendar,
-              color: SettingsHue.calendar,
+              color: SettingsColors.calendar,
               title: 'Google 日曆',
               detail: calendar.chosen == null
                   ? '提醒定期扣款與卡費'
@@ -521,7 +528,7 @@ class _RemindersSectionState extends State<RemindersSection>
             ),
         ]),
         if (notifier != null && asked && status != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           _PhoneStrip(
             status: status,
             exact: notifier.preferences.exactReminders,

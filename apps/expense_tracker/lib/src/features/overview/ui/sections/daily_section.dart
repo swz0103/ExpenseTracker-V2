@@ -2,13 +2,17 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/text/figures.dart';
-import '../../../../core/look/theme.dart';
-import '../../../../core/look/widgets.dart';
+import '../../../../core/design_system/theme.dart';
+import '../../../../core/design_system/design_system.dart';
 import '../../../../core/ledger/ledger.dart';
-import '../../../../core/ui/entry_tile.dart';
-import '../../../../core/nav.dart';
-import '../../../../core/ui/shown_amounts.dart';
+import '../../../../core/widgets/entry_tile.dart';
+import '../../../../core/navigation/nav.dart';
+import '../../../../core/widgets/shown_amounts.dart';
+import '../../../../core/formatting/dates.dart';
+import '../../../../core/design_system/shape.dart';
+import '../../../../core/design_system/spacing.dart';
+import '../../../../core/design_system/motion.dart';
+import '../../../../core/formatting/words.dart';
 
 /// 每日紀錄: a week of days with marks for what each holds, and the chosen
 /// day's entries three to a row, six at a time.
@@ -68,10 +72,38 @@ class _DailySectionState extends State<DailySection> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.ledger,
+      // Only what it shows: a change elsewhere leaves it as it is.
+      listenable: widget.ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.categories,
+      }),
       builder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: _daily(),
+      ),
+    );
+  }
+
+  /// The day's spending, its figure in red.
+  Widget _spent(Ledger ledger) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerRight,
+      child: Text.rich(
+        TextSpan(
+          children: [
+            const TextSpan(text: '支出 ', style: mutedSmall),
+            TextSpan(
+              text: ledger.money(ledger.reportService.spentOn(_day)),
+              style: const TextStyle(
+                fontSize: TextSize.title,
+                fontWeight: FontWeight.w700,
+                color: AppColors.negative,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -82,12 +114,14 @@ class _DailySectionState extends State<DailySection> {
     final sunday = monday.add(const Duration(days: 6));
     var weekSpent = 0;
     for (var d = 0; d < 7; d++) {
-      weekSpent += ledger.spentOn(monday.add(Duration(days: d)));
+      weekSpent += ledger.reportService.spentOn(monday.add(Duration(days: d)));
     }
-    final entries = ledger.entriesOn(_day);
+    final entries = ledger.entries.onDay(_day);
     final atToday = !sunday.isBefore(ledger.today);
     final from = '${monday.month} / ${monday.day}';
     final to = '${sunday.month} / ${sunday.day}';
+    final roomy = textGrowth(context) > 1.6;
+    final spent = _spent(ledger);
     return [
       SectionTitle(
         '每日紀錄',
@@ -98,7 +132,7 @@ class _DailySectionState extends State<DailySection> {
         previousLabel: '上一週',
         nextLabel: '下一週',
         expand: true,
-        style: const TextStyle(fontSize: TextSize.body, color: Hue.muted),
+        style: mutedBody,
         onPrevious: () => _moveWeek(-1),
         onNext: atToday ? null : () => _moveWeek(1),
       ),
@@ -111,7 +145,7 @@ class _DailySectionState extends State<DailySection> {
           _moveWeek(speed < 0 ? 1 : -1);
         },
         child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
+          duration: Motion.of(context, Motion.short4),
           // Only the new week shows: two faded strips read as a smear.
           layoutBuilder: (current, previous) => current ?? const SizedBox(),
           child: _WeekStrip(
@@ -127,24 +161,24 @@ class _DailySectionState extends State<DailySection> {
         ),
       ),
       const Padding(
-        padding: EdgeInsets.only(top: 6),
+        padding: EdgeInsets.only(top: Space.s2),
         child: Wrap(
           alignment: WrapAlignment.center,
           spacing: 10,
           children: [
-            LegendKey(Hue.negative, '支出'),
-            LegendKey(Hue.positive, '收入'),
-            LegendKey(Hue.transfer, '轉帳'),
-            LegendKey(Hue.investment, '投資'),
+            LegendKey(AppColors.negative, Words.expense),
+            LegendKey(AppColors.positive, Words.income),
+            LegendKey(AppColors.transfer, Words.transfer),
+            LegendKey(AppColors.investment, Words.investment),
           ],
         ),
       ),
-      const SizedBox(height: 14),
+      const SizedBox(height: Space.s4),
       Row(
         children: [
           Flexible(
             child: Text(
-              '${_day.month} 月 ${_day.day} 日',
+              formatMMMd(_day),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -153,34 +187,16 @@ class _DailySectionState extends State<DailySection> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.s2),
           Text('${entries.length} 筆', style: mutedSmall),
           const Spacer(),
-          // Shrinks rather than overflows when the phone's text is large.
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: Text.rich(
-                TextSpan(
-                  children: [
-                    const TextSpan(text: '支出 ', style: mutedSmall),
-                    TextSpan(
-                      text: ledger.money(ledger.spentOn(_day)),
-                      style: const TextStyle(
-                        fontSize: TextSize.title,
-                        fontWeight: FontWeight.w700,
-                        color: Hue.negative,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          // Shrinks a little rather than overflows when the phone's text
+          // is large; with its largest, on a line of its own.
+          if (!roomy) Flexible(child: spent),
         ],
       ),
-      const SizedBox(height: 8),
+      if (roomy) spent,
+      const SizedBox(height: Space.s2),
       _DayCards(
         ledger: ledger,
         entries: entries,
@@ -210,10 +226,10 @@ class _WeekStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(Space.s1),
       decoration: BoxDecoration(
-        color: Hue.group,
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.group,
+        borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
         children: [
@@ -231,39 +247,38 @@ class _WeekStrip extends StatelessWidget {
     final picked = day == selected;
     final future = day.isAfter(ledger.today);
     final outside = day.month != month;
-    final kinds = {for (final e in ledger.entriesOn(day)) e.type};
+    final kinds = {for (final e in ledger.entries.onDay(day)) e.type};
     final dots = [
-      if (kinds.contains(EntryType.expense)) Hue.negative,
-      if (kinds.contains(EntryType.income)) Hue.positive,
-      if (kinds.contains(EntryType.transfer)) Hue.transfer,
-      if (kinds.any((k) => k.index >= EntryType.buy.index)) Hue.investment,
+      if (kinds.contains(EntryType.expense)) AppColors.negative,
+      if (kinds.contains(EntryType.income)) AppColors.positive,
+      if (kinds.contains(EntryType.transfer)) AppColors.transfer,
+      if (kinds.any((k) => k.index >= EntryType.buy.index))
+        AppColors.investment,
     ];
     // The chosen day in the app's own colour: solid on the light theme,
     // a deep tint with a ring on the dark one.
     final ink = picked
-        ? chosenInk(Hue.accent)
+        ? chosenInk(AppColors.accent)
         : future || outside
-        ? Hue.faint
-        : Hue.ink;
+        ? AppColors.faint
+        : AppColors.ink;
     final tap = future ? null : () => onSelect(day);
-    return Semantics(
-      button: true,
+    return ReadAsButton(
       enabled: !future,
       selected: picked,
-      label: kinds.isEmpty ? longDay(day) : '${longDay(day)}，有紀錄',
+      label: kinds.isEmpty ? formatMMMEd(day) : '${formatMMMEd(day)}，有紀錄',
       onTap: tap,
-      excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: tap,
         child: Container(
           constraints: const BoxConstraints(minHeight: 48),
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: Space.s2),
           decoration: BoxDecoration(
-            color: picked ? chosenFill(Hue.accent) : null,
-            borderRadius: BorderRadius.circular(12),
+            color: picked ? chosenFill(AppColors.accent) : null,
+            borderRadius: BorderRadius.circular(Radii.medium),
             border: picked && Shade.dark
-                ? Border.fromBorderSide(chosenEdge(Hue.accent))
+                ? Border.fromBorderSide(chosenEdge(AppColors.accent))
                 : null,
           ),
           child: Column(
@@ -272,41 +287,53 @@ class _WeekStrip extends StatelessWidget {
                 weekdayNames[day.weekday - 1],
                 style: TextStyle(fontSize: TextSize.small, color: ink),
               ),
-              const SizedBox(height: 4),
-              Text(
-                '${day.day}',
-                style: TextStyle(
-                  fontSize: TextSize.large,
-                  fontWeight: FontWeight.w500,
-                  color: ink,
+              const SizedBox(height: Space.s1),
+              // A seventh of a narrow phone is less than two digits take
+              // with its largest text: they shrink a little, not wrap,
+              // and keep a gap from the next day's.
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Space.s1),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '${day.day}',
+                    style: TextStyle(
+                      fontSize: TextSize.large,
+                      fontWeight: FontWeight.w500,
+                      color: ink,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 4),
-              SizedBox(
-                height: 6,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (final color in dots)
-                      Container(
-                        width: 6,
-                        height: 6,
-                        margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                        decoration: BoxDecoration(
-                          // On the solid day, in its words' colour.
-                          color: picked ? ink : color,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+              const SizedBox(height: Space.s1),
+              _dotsOf(dots, picked ? ink : null),
             ],
           ),
         ),
       ),
     );
   }
+
+  /// A dot in its kind's colour for each kind of entry on a day; on the
+  /// chosen day all in its words' colour, [solid].
+  static Widget _dotsOf(List<Color> dots, Color? solid) => SizedBox(
+    height: 6,
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (final color in dots)
+          Container(
+            width: 6,
+            height: 6,
+            margin: const EdgeInsets.symmetric(horizontal: 1.5),
+            decoration: BoxDecoration(
+              color: solid ?? color,
+              shape: BoxShape.circle,
+            ),
+          ),
+      ],
+    ),
+  );
 }
 
 /// A day's entries as small cards in a row that slides sideways, one
@@ -329,21 +356,21 @@ class _DayCards extends StatelessWidget {
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: Space.s2),
         child: Row(
           children: [
-            const Text('這天沒有紀錄', style: TextStyle(color: Hue.muted)),
+            const Text('這天沒有紀錄', style: mutedText),
             const Spacer(),
             TextButton(
               onPressed: onAdd,
-              style: wordButton(Hue.accent),
+              style: wordButton(AppColors.accent),
               child: const Text('＋ 記一筆'),
             ),
           ],
         ),
       );
     }
-    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final scale = textGrowth(context);
     return SizedBox(
       height: 96 * scale.clamp(1.0, 1.6),
       child: ListView.separated(
@@ -351,7 +378,7 @@ class _DayCards extends StatelessWidget {
         // Out to the screen's edge, so the row reads as going on.
         clipBehavior: Clip.none,
         itemCount: entries.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        separatorBuilder: (_, _) => const SizedBox(width: Space.s2),
         itemBuilder: (context, i) => _card(entries[i]),
       ),
     );
@@ -366,11 +393,16 @@ class _DayCards extends StatelessWidget {
       width: 84,
       child: ColorCard(
         color: mark,
-        radius: 16,
+        radius: Radii.large,
         amount: 0.16,
         label: '${e.title}，$amount',
         onTap: () => onTap(e),
-        padding: const EdgeInsets.fromLTRB(9, 9, 9, 8),
+        padding: const EdgeInsets.fromLTRB(
+          Space.s2,
+          Space.s2,
+          Space.s2,
+          Space.s2,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

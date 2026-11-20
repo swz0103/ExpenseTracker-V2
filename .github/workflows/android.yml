@@ -336,3 +336,25 @@ jobs:
             --notes "從 main 的 ${SOURCE_SHA:0:7} 建置。下載 ExpenseTracker.apk，在手機上開啟安裝。
 
           SHA-256：\`$sum\`"
+      - name: Tag the version
+        # Each version gets a tag of its own, v<version>, on the first build
+        # published as it: the code behind the books and backups that
+        # version writes (docs/adr/0010-data-that-lasts.md). A tag once made
+        # is never moved; later builds of the same version keep it.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          version="$(jq -r .version "$RUNNER_TEMP/apk/update.json")"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Not a version to tag: '$version'."
+            exit 1
+          fi
+          if gh api "repos/$repo/git/ref/tags/v$version" > /dev/null 2>&1; then
+            echo "v$version is already tagged; it stays where it is."
+          else
+            gh api -X POST "repos/$repo/git/refs" \
+              -f ref="refs/tags/v$version" -f sha="$SOURCE_SHA" > /dev/null
+            echo "Tagged v$version at ${SOURCE_SHA:0:7}."
+          fi

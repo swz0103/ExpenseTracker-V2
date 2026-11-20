@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import '../../../core/text/amounts.dart';
+import '../../../core/formatting/amounts.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
@@ -26,14 +26,14 @@ Map<String, Object?>? widgetSnapshot(Ledger ledger, WidgetFigures figures) {
   String two(int n) => n.toString().padLeft(2, '0');
   final month = '${today.year}-${two(m)}';
   final date = '$month-${two(today.day)}';
-  final spent = ledger.expense(today.year, m);
+  final spent = ledger.reportService.expense(today.year, m);
   Budget? total;
-  for (final b in ledger.budgets) {
-    if (b.category == Ledger.allSpending && b.limit > 0) total = b;
+  for (final b in ledger.budgets.all) {
+    if (b.category == allSpending && b.limit > 0) total = b;
   }
   final allowance = total == null
       ? null
-      : ledger.allowance(total, today.year, m);
+      : ledger.budgetService.allowance(total, today.year, m);
   final hasBudget = allowance != null && allowance > 0;
   final used = hasBudget ? (spent * 100 / allowance).round() : null;
   final days = DateTime.utc(today.year, m + 1, 0).day;
@@ -41,7 +41,8 @@ Map<String, Object?>? widgetSnapshot(Ledger ledger, WidgetFigures figures) {
   // The same days as 總覽's week, from Monday.
   final monday = today.subtract(Duration(days: today.weekday - 1));
   final daySpent = [
-    for (var i = 0; i < 7; i++) ledger.spentOn(monday.add(Duration(days: i))),
+    for (var i = 0; i < 7; i++)
+      ledger.reportService.spentOn(monday.add(Duration(days: i))),
   ];
   final most = daySpent.fold(0, (a, b) => max(a, b));
   final weekday = today.weekday - 1;

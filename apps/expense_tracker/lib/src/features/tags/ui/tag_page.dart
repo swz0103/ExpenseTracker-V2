@@ -20,20 +20,22 @@ class TagPage extends StatelessWidget {
 
   void _move(String to) {
     if (merchant) {
-      ledger.renameMerchant(name, to);
+      ledger.entryCommands.renameMerchant(name, to);
     } else {
-      ledger.renameTag(name, to);
+      ledger.entryCommands.renameTag(name, to);
     }
   }
 
   List<String> _others() => [
     for (final (other, _, _)
-        in merchant ? ledger.merchantStats : ledger.tagStats)
+        in merchant
+            ? ledger.reportService.merchantStats
+            : ledger.reportService.tagStats)
       if (other != name) other,
   ];
 
   void _openOther(String other) =>
-      nav.open(merchant ? Pages.merchant(other) : Pages.tag(other));
+      nav.open(merchant ? AppRoutes.merchant(other) : AppRoutes.tag(other));
 
   Future<void> _rename(BuildContext context) async {
     final typed = await showSheet<String>(
@@ -51,8 +53,8 @@ class TagPage extends StatelessWidget {
 
   Future<bool> _askMerge(BuildContext context, String into) {
     final count = merchant
-        ? visitsTo(ledger, name).length
-        : tagSummaryOf(ledger, name)?.entries.length ?? 0;
+        ? visitsTo(ledger.entries, name).length
+        : tagSummaryOf(ledger.entries, name)?.entries.length ?? 0;
     final target = merchant ? into : '#$into';
     return confirm(
       context,
@@ -66,7 +68,7 @@ class TagPage extends StatelessWidget {
     final into = await showSheet<String>(
       context,
       (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s5),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -80,19 +82,19 @@ class TagPage extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: Space.s4),
             Flexible(
               child: SingleChildScrollView(
                 child: CardGrid(columns: 3, gap: 10, [
                   for (final other in _others())
                     ColorCard(
                       color: nameColor(other),
-                      radius: 16,
+                      radius: Radii.large,
                       label: merchant ? other : '#$other',
                       onTap: () => Navigator.of(context).pop(other),
                       padding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 6,
+                        vertical: Space.s4,
+                        horizontal: Space.s2,
                       ),
                       child: Text(
                         merchant ? other : '#$other',
@@ -121,8 +123,8 @@ class TagPage extends StatelessWidget {
 
   Future<void> _remove(BuildContext context) async {
     final count = merchant
-        ? visitsTo(ledger, name).length
-        : tagSummaryOf(ledger, name)?.entries.length ?? 0;
+        ? visitsTo(ledger.entries, name).length
+        : tagSummaryOf(ledger.entries, name)?.entries.length ?? 0;
     final ok = await confirm(
       context,
       '移除 $_shown？',
@@ -143,8 +145,8 @@ class TagPage extends StatelessWidget {
       listenable: ledger,
       builder: (context, _) {
         final entries = merchant
-            ? visitsTo(ledger, name)
-            : tagSummaryOf(ledger, name)?.entries ?? const <Entry>[];
+            ? visitsTo(ledger.entries, name)
+            : tagSummaryOf(ledger.entries, name)?.entries ?? const <Entry>[];
         final menu = DotsMenu([
           DotsItem(Glyph.edit, '改名', () => _rename(context)),
           if (_others().isNotEmpty)
@@ -157,32 +159,37 @@ class TagPage extends StatelessWidget {
           ),
         ]);
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(_shown, onBack: nav.back),
           children: [
             if (entries.isEmpty)
               EmptyState(
                 glyph: merchant ? Glyph.store : Glyph.ticket,
-                color: merchant ? _merchantHue : _tagHue,
+                color: merchant ? _merchantColor : _tagColor,
                 message: '沒有紀錄',
               )
             else ...[
               if (merchant)
                 _VisitsCard(name: name, visits: entries, menu: menu)
               else
-                ProjectCard(
+                TagSummaryCard(
                   ledger: ledger,
-                  project: tagSummaryOf(ledger, name)!,
+                  project: tagSummaryOf(ledger.entries, name)!,
                   menu: menu,
                 ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(6, 20, 6, 10),
+                padding: const EdgeInsets.fromLTRB(
+                  Space.s2,
+                  Space.s5,
+                  Space.s2,
+                  Space.s2,
+                ),
                 child: Text(
                   merchant ? '紀錄' : '紀錄 · ${entries.length} 筆',
                   style: const TextStyle(
                     fontSize: TextSize.body,
                     fontWeight: FontWeight.w800,
-                    color: Hue.muted,
+                    color: AppColors.muted,
                   ),
                 ),
               ),
@@ -195,7 +202,7 @@ class TagPage extends StatelessWidget {
                       size: 42,
                     ),
                     title: e.title,
-                    detail: '${e.category} · ${e.date.month}/${e.date.day}',
+                    detail: '${e.category} · ${formatMd(e.date)}',
                     trailing: RowFigure(ledger.orDots(groupDigits(e.amount))),
                     onTap: () => nav.showEntry(e),
                   ),
@@ -227,9 +234,14 @@ class _VisitsCard extends StatelessWidget {
     final last = visits.first.date;
     final first = visits.last.date;
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 18, 14, 18),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(Radii.extraLarge),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -271,10 +283,10 @@ class _VisitsCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: Space.s2),
                 Text(
-                  '最近 ${last.month}/${last.day} · '
-                  '第一次 ${first.year}/${first.month}/${first.day}',
+                  '最近 ${formatMd(last)} · '
+                  '第一次 ${formatYMd(first)}',
                   style: TextStyle(
                     fontSize: TextSize.body,
                     fontWeight: FontWeight.w700,
@@ -323,11 +335,11 @@ class _RenameSheetState extends State<_RenameSheet> {
     final ink = deepOf(color);
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        20,
+        Space.s5,
         0,
-        20,
+        Space.s5,
         // showSheet already lifts the sheet over the keyboard.
-        20,
+        Space.s5,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -342,12 +354,15 @@ class _RenameSheetState extends State<_RenameSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: Space.s4),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.s4,
+              vertical: Space.s4,
+            ),
             decoration: BoxDecoration(
               color: tintOf(color, 0.25),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(Radii.largeIncreased),
             ),
             child: Row(
               children: [

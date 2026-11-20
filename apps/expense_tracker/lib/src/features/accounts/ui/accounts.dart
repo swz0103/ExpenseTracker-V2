@@ -2,16 +2,20 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../compose/account_editor.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/haptics.dart';
-import '../../../core/ui/icons.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../forms/account_editor.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/haptics.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
 import 'account_card.dart';
-import '../../../core/ui/shown_amounts.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/motion.dart';
+import '../../../core/formatting/words.dart';
 
 part 'sort_accounts.dart';
 part 'wallet.dart';
@@ -29,7 +33,7 @@ const walletKinds = [
 /// places, then the others by kind.
 List<Account> walletAccounts(Ledger ledger) {
   final open = [
-    for (final a in ledger.openAccounts)
+    for (final a in ledger.accounts.open)
       if (walletKinds.contains(a.kind)) a,
   ];
   final order = {for (final (i, a) in open.indexed) a.id: i};
@@ -66,7 +70,7 @@ class _AccountsPageState extends State<AccountsPage> {
   static String? _shown;
 
   Future<void> _sort(BuildContext context) =>
-      openFlow<void>(context, (_) => SortAccountsPage(ledger: ledger));
+      openFullScreen<void>(context, (_) => SortAccountsPage(ledger: ledger));
 
   @override
   Widget build(BuildContext context) {
@@ -75,13 +79,13 @@ class _AccountsPageState extends State<AccountsPage> {
       builder: (context, _) {
         final accounts = walletAccounts(ledger);
         final archived = [
-          for (final a in ledger.accounts)
+          for (final a in ledger.accounts.all)
             if (a.archived && walletKinds.contains(a.kind)) a,
         ];
         final at = accounts.indexWhere((a) => a.id == _shown);
         final index = at < 0 ? accounts.length - 1 : at;
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
           header: PageHeader(
             '我的帳戶',
             trailing: Row(
@@ -90,31 +94,31 @@ class _AccountsPageState extends State<AccountsPage> {
                 if (accounts.length > 1)
                   TextButton(
                     onPressed: () => _sort(context),
-                    style: wordButton(Hue.accent),
+                    style: wordButton(AppColors.accent),
                     child: const Text('排序'),
                   ),
                 TextButton.icon(
                   onPressed: () => editAccount(context, ledger),
                   icon: const GlyphIcon(Glyph.add, size: 16),
-                  label: const Text('新增'),
-                  style: wordButton(Hue.ink),
+                  label: const Text(Words.add),
+                  style: wordButton(AppColors.ink),
                 ),
               ],
             ),
           ),
           children: [
             _NetWorth(ledger: ledger),
-            if (ledger.unrated.isNotEmpty)
+            if (ledger.balanceService.unrated.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.only(top: Space.s2),
                 child: Text(
-                  '尚未取得臺銀匯率，${ledger.unrated.map((a) => a.name).join('、')}'
+                  '尚未取得臺銀匯率，${ledger.balanceService.unrated.map((a) => a.name).join('、')}'
                   '暫不計入總額',
                   style: mutedSmall,
                 ),
               ),
             SectionTitle(
-              '帳戶',
+              Words.account,
               trailing: Text('${accounts.length} 個', style: mutedSmall),
             ),
             if (accounts.isEmpty)
@@ -125,7 +129,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 accounts: accounts,
                 index: index,
                 onShow: (a) => setState(() => _shown = a.id),
-                onOpen: (a) => nav.open(Pages.account(a.id)),
+                onOpen: (a) => nav.open(AppRoutes.account(a.id)),
               ),
             if (archived.isNotEmpty) ...[
               const SectionTitle('已封存'),
@@ -157,46 +161,50 @@ class _NetWorth extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final invest = ledger.investValue;
+    final invest = ledger.holdings.marketValue;
     var lent = 0;
-    for (final a in ledger.accounts) {
+    for (final a in ledger.accounts.all) {
       if (a.kind == AccountKind.receivable && a.inNetWorth) {
-        final worth = ledger.worthOf(a);
+        final worth = ledger.balanceService.worthOf(a);
         if (worth > 0) lent += worth;
       }
     }
-    final debt = ledger.cardDebt + ledger.loanDebt;
-    final saved = ledger.assets - invest - lent;
-    final net = ledger.assets - debt;
+    final debt =
+        ledger.balanceService.cardDebt + ledger.balanceService.loanDebt;
+    final saved = ledger.balanceService.assets - invest - lent;
+    final net = ledger.balanceService.assets - debt;
     final today = ledger.today;
     final moved =
-        net - ledger.netWorthAt(DateTime.utc(today.year, today.month, 0));
+        net -
+        ledger.balanceService.netWorthAt(
+          DateTime.utc(today.year, today.month, 0),
+        );
     final parts = [
-      ('存款', saved, Hue.bank),
-      ('投資', invest, Hue.holdings),
-      ('代墊', lent, Hue.receivable),
-      ('負債', debt, Hue.card),
+      ('存款', saved, AppColors.bank),
+      (Words.investment, invest, AppColors.holdings),
+      (Words.lend, lent, AppColors.receivable),
+      ('負債', debt, AppColors.card),
     ];
     final shown = [
       for (final p in parts)
         if (p.$2 > 0) p,
     ];
-    final shares = visibleShares([for (final p in shown) p.$2]);
+    final portions = visibleShares([for (final p in shown) p.$2]);
     return HeroFigure(
       icon: Glyph.wallet,
       label: '淨資產',
       value: ledger.money(net),
-      valueColor: net < 0 ? Hue.negative : Hue.ink,
+      valueColor: AppColors.ofBalance(net),
       trailing: moved == 0
           ? null
           : Pill(
               '${moved > 0 ? '↑' : '↓'} ${ledger.money(moved.abs())}',
-              color: moved > 0 ? Hue.positive : Hue.negative,
+              color: moved > 0 ? AppColors.positive : AppColors.negative,
             ),
       child: shown.isEmpty
           ? null
           : Padding(
-              padding: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.only(top: Space.s2),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -208,13 +216,15 @@ class _NetWorth extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         for (final (i, (_, _, color)) in shown.indexed) ...[
-                          if (i > 0) const SizedBox(width: 3),
+                          if (i > 0) const SizedBox(width: Space.half),
                           Expanded(
-                            flex: max(1, (shares[i] * 1000).round()),
+                            flex: max(1, (portions[i] * 1000).round()),
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 color: color,
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(
+                                  Radii.extraSmall,
+                                ),
                               ),
                             ),
                           ),
@@ -222,7 +232,7 @@ class _NetWorth extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: Space.s2),
                   Wrap(
                     spacing: 12,
                     runSpacing: 4,

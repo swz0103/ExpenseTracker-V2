@@ -11,6 +11,8 @@ import 'package:integration_test/integration_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
+import '../test/support/places.dart';
+
 /// Times the app on an emulator in profile mode: writing and loading
 /// three years of entries in the encrypted ledger, then switching tabs and
 /// months, scrolling the records, opening the reports and saving one. Run
@@ -45,13 +47,13 @@ Future<void> bench(
   final dataSource = SqlLedgerDataSource(open.store);
   var ledger = await dataSource.load();
   final accounts = [
-    for (final a in ledger.accounts)
+    for (final a in ledger.accounts.all)
       if (!a.kind.isDebt) a.id,
   ];
   final spending = [
-    for (final c in ledger.categoriesFor(income: false)) c.name,
+    for (final c in ledger.categories.forEntries(income: false)) c.name,
   ];
-  final earning = ledger.categoriesFor(income: true).first.name;
+  final earning = ledger.categories.forEntries(income: true).first.name;
   final today = ledger.today;
   final entries = [
     for (var i = 0; i < count; i++)
@@ -78,10 +80,7 @@ Future<void> bench(
 
   await tester.pumpWidget(ExpenseApp(home: AppShell(ledger: ledger)));
   await tester.pumpAndSettle();
-  Future<void> tap(String label) async {
-    await tester.tap(find.text(label).last);
-    await tester.pumpAndSettle();
-  }
+  Future<void> tap(String label) => go(tester, ['^$label']);
 
   Future<void> scroll() async {
     for (var i = 0; i < 4; i++) {
@@ -128,7 +127,7 @@ Future<void> bench(
   final saving = Stopwatch();
   Future<void> save() async {
     saving.start();
-    ledger.add(entries.first.withId(ledger.newId()));
+    ledger.entryCommands.add(entries.first.withId(ledger.newId()));
     await ledger.settled;
     saving.stop();
     await tester.pumpAndSettle();

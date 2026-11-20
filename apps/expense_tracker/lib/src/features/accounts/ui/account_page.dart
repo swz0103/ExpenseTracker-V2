@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/charts/waterfall.dart';
-import '../compose/account_editor.dart';
-import '../compose/reconcile_sheet.dart';
-import '../../../core/text/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/ui/icons.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../forms/account_editor.dart';
+import '../forms/reconcile_sheet.dart';
+import 'account_action.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ui/entry_tile.dart';
-import '../../../core/nav.dart';
-import '../../../core/ui/shown_amounts.dart';
+import '../../../core/widgets/entry_tile.dart';
+import '../../../core/navigation/nav.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 /// One account: its balance and this month's flow over [AccountBody].
 class AccountPage extends StatefulWidget {
@@ -38,17 +42,17 @@ class _AccountPageState extends State<AccountPage> {
       listenable: ledger,
       builder: (context, _) {
         // Gone by another way, such as a restore: nothing to show.
-        if (!ledger.hasAccount(widget.accountId)) {
+        if (!ledger.accounts.contains(widget.accountId)) {
           WidgetsBinding.instance.addPostFrameCallback(
             (_) => widget.nav.back(),
           );
           return const SizedBox.shrink();
         }
         final account = ledger.account(widget.accountId);
-        final balance = ledger.balance(account.id);
+        final balance = ledger.balanceService.balance(account.id);
         final (into, out) = monthFlow(ledger, account);
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(Space.s3, 0, Space.s5, Space.s8),
           header: CenterHeader(
             account.name,
             onBack: widget.nav.back,
@@ -63,14 +67,14 @@ class _AccountPageState extends State<AccountPage> {
                   // Deleted or archived: back to the accounts.
                   if (gone) widget.nav.back();
                 },
-                style: wordButton(Hue.accent),
-                child: const Text('編輯'),
+                style: wordButton(AppColors.accent),
+                child: const Text(Words.edit),
               ),
             ],
           ),
           children: [
             Padding(
-              padding: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.only(left: Space.s2),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -78,10 +82,10 @@ class _AccountPageState extends State<AccountPage> {
                     icon: accountIcon(account),
                     label: groupName(account.kind),
                     value: ledger.moneyIn(balance, account.currency),
-                    valueColor: balance < 0 ? Hue.negative : Hue.ink,
+                    valueColor: AppColors.ofBalance(balance),
                     child: FigureCells([
-                      (Glyph.income, '本月流入', into, Hue.positive),
-                      (Glyph.payout, '本月流出', out, Hue.negative),
+                      (Glyph.income, '本月流入', into, AppColors.positive),
+                      (Glyph.payout, '本月流出', out, AppColors.negative),
                     ]),
                   ),
                   AccountBody(
@@ -105,9 +109,9 @@ class _AccountPageState extends State<AccountPage> {
   final today = ledger.today;
   var inflow = 0;
   var outflow = 0;
-  for (final e in ledger.entriesIn(today.year, today.month)) {
+  for (final e in ledger.entries.inMonth(today.year, today.month)) {
     if (e.account != account.id && e.to != account.id) continue;
-    final change = ledger.effect(e, account.id);
+    final change = ledger.balanceService.effect(e, account.id);
     if (change > 0) {
       inflow += change;
     } else {
@@ -141,6 +145,10 @@ class AccountBody extends StatefulWidget {
 }
 
 class _AccountBodyState extends State<AccountBody> {
+  /// 繳卡費 for a card, 轉帳 for any other account.
+  static String _moveWord(Account account) =>
+      account.kind == AccountKind.card ? '繳卡費' : Words.transfer;
+
   var _week = 3;
   late var _month = (widget.ledger.today.year, widget.ledger.today.month);
 
@@ -163,7 +171,7 @@ class _AccountBodyState extends State<AccountBody> {
   /// payment into it from the main account.
   void _move(Account account) {
     final ledger = widget.ledger;
-    final main = ledger.mainAccount;
+    final main = ledger.accounts.main;
     final card = account.kind == AccountKind.card;
     widget.nav.compose(
       type: EntryType.transfer,
@@ -171,7 +179,7 @@ class _AccountBodyState extends State<AccountBody> {
         id: '',
         date: ledger.today,
         type: EntryType.transfer,
-        amount: card ? ledger.statementDue(account) : 0,
+        amount: card ? ledger.statementService.statementDue(account) : 0,
         account: card || main == account.id ? main : account.id,
         category: transferCategory,
         to: card || main == account.id ? account.id : main,
@@ -183,13 +191,13 @@ class _AccountBodyState extends State<AccountBody> {
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
     final account = widget.account;
-    final balance = ledger.balance(account.id);
+    final balance = ledger.balanceService.balance(account.id);
     final code = account.currency;
-    final weeks = ledger.weeklyChanges(account.id);
+    final weeks = ledger.balanceService.weeklyChanges(account.id);
     final today = ledger.today;
     final (year, month) = _month;
     final entries = [
-      for (final e in ledger.entriesIn(year, month))
+      for (final e in ledger.entries.inMonth(year, month))
         if (e.account == account.id || e.to == account.id) e,
     ]..sort((a, b) => b.date.compareTo(a.date));
     final days = <DateTime, List<Entry>>{};
@@ -202,28 +210,28 @@ class _AccountBodyState extends State<AccountBody> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.only(top: Space.s2),
           child: Row(
             children: [
               Expanded(
-                child: _Action(
+                child: AccountAction(
                   icon: Glyph.add,
                   label: '記一筆',
                   onTap: () => _record(account),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               Expanded(
-                child: _Action(
+                child: AccountAction(
                   icon: Glyph.transfer,
-                  label: account.kind == AccountKind.card ? '繳卡費' : '轉帳',
+                  label: _moveWord(account),
                   onTap: () => _move(account),
                 ),
               ),
               if (reconcilable) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.s2),
                 Expanded(
-                  child: _Action(
+                  child: AccountAction(
                     icon: Glyph.calculator,
                     label: '對帳',
                     onTap: () => reconcileAccount(context, ledger, account),
@@ -250,15 +258,19 @@ class _AccountBodyState extends State<AccountBody> {
             onChanged: (m) => setState(() => _month = m),
           ),
         ),
-        if (entries.isEmpty)
-          const Text('這個月沒有紀錄', style: TextStyle(color: Hue.muted)),
+        if (entries.isEmpty) const Text('這個月沒有紀錄', style: mutedText),
         for (final MapEntry(key: day, value: list) in days.entries) ...[
           Padding(
-            padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
+            padding: const EdgeInsets.fromLTRB(
+              Space.s1,
+              Space.s2,
+              Space.s1,
+              Space.s2,
+            ),
             child: Row(
               children: [
                 Text(
-                  longDay(day),
+                  formatMMMEd(day),
                   style: const TextStyle(
                     fontSize: TextSize.small,
                     fontWeight: FontWeight.w700,
@@ -270,7 +282,8 @@ class _AccountBodyState extends State<AccountBody> {
                     amountIn(
                       list.fold<int>(
                         0,
-                        (sum, e) => sum + ledger.effect(e, account.id),
+                        (sum, e) =>
+                            sum + ledger.balanceService.effect(e, account.id),
                       ),
                       code,
                     ),
@@ -296,37 +309,6 @@ class _AccountBodyState extends State<AccountBody> {
           ),
         ],
       ],
-    );
-  }
-}
-
-/// One of the things done with an account, as a grey block.
-class _Action extends StatelessWidget {
-  const _Action({required this.icon, required this.label, required this.onTap});
-
-  final Glyph icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GroupBox(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-      onTap: onTap,
-      child: Column(
-        children: [
-          SquareIcon(icon, Hue.accent, size: 30),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            maxLines: 1,
-            style: const TextStyle(
-              fontSize: TextSize.body,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

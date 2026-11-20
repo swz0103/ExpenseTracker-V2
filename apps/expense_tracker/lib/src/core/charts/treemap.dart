@@ -2,9 +2,10 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../look/kit/colours.dart';
-import '../look/paint.dart';
-import '../look/theme.dart';
+import '../design_system/components/colours.dart';
+import '../design_system/paint.dart';
+import '../design_system/theme.dart';
+import '../design_system/shape.dart';
 
 /// Splits [bounds] into one rectangle per value, topics in proportion and
 /// as close to square as the values allow (the squarified layout of
@@ -179,14 +180,14 @@ class _TreemapPainter extends CustomPainter {
       // block.
       final fill = Shade.dark ? tintOf(color, 0.4) : color;
       canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+        RRect.fromRectAndRadius(rect, const Radius.circular(Radii.extraSmall)),
         Paint()..color = faded ? fill.withValues(alpha: 0.4) : fill,
       );
       if (rect.width < 36 || rect.height < 20) continue;
       final label = TextStyle(
         fontSize: TextSize.small,
         fontWeight: FontWeight.w600,
-        color: Hue.ink.withValues(alpha: faded ? 0.5 : 0.9),
+        color: AppColors.ink.withValues(alpha: faded ? 0.5 : 0.9),
       );
       paintText(canvas, name, label, rect.center, maxWidth: rect.width - 8);
     }

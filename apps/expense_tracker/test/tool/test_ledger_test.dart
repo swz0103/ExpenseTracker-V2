@@ -14,7 +14,7 @@ import 'package:vault/ledger_vault.dart';
 /// accounts set up first (cards with their days and limits, the foreign
 /// accounts, the car loan), with budgets and recurring items added and the
 /// old salary account archived; kept as a backup that opens with
-/// [password]. Every line must import. With
+/// `password`. Every line must import. With
 /// TEST_BACKUP_OUT set, as the APK build does, the backup is copied
 /// there to be published beside the APK.
 void main() {
@@ -65,7 +65,7 @@ void main() {
     final restored = await SqlLedgerDataSource(
       (phone.state as Ready).vault.store,
     ).load();
-    expect(restored.entries, hasLength(ledger.entries.length));
+    expect(restored.entries.all, hasLength(ledger.entries.length));
     phone.lock();
 
     final out = Platform.environment['TEST_BACKUP_OUT'];
@@ -113,7 +113,7 @@ void _setUp(Ledger ledger) {
       loan: const LoanTerms(rate: 260, months: 60, repay: LoanRepay.even),
     ),
   ]) {
-    ledger.addAccount(account);
+    ledger.accountCommands.addAccount(account);
   }
 }
 
@@ -121,9 +121,9 @@ void _setUp(Ledger ledger) {
 /// salary account archived once emptied.
 void _settle(Ledger ledger) {
   String id(String name) =>
-      ledger.accounts.firstWhere((a) => a.name == name).id;
+      ledger.accounts.all.firstWhere((a) => a.name == name).id;
   for (final (category, limit) in [
-    (Ledger.allSpending, 38000),
+    (allSpending, 38000),
     ('飲食日常', 12000),
     ('居家生活', 16000),
     ('交通通勤', 4500),
@@ -131,7 +131,7 @@ void _settle(Ledger ledger) {
     ('訂閱服務', 900),
     ('寵物', 1500),
   ]) {
-    ledger.setBudget(category, limit);
+    ledger.budgetCommands.setBudget(category, limit);
   }
   for (final item in [
     Recurring(
@@ -199,8 +199,8 @@ void _settle(Ledger ledger) {
       active: false,
     ),
   ]) {
-    ledger.saveRecurring(item);
+    ledger.recurringCommands.saveRecurring(item);
   }
   final old = ledger.account(id('舊薪轉帳戶'));
-  ledger.updateAccount(old.copyWith(archived: true));
+  ledger.accountCommands.updateAccount(old.copyWith(archived: true));
 }

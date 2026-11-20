@@ -1,0 +1,366 @@
+import 'package:flutter/material.dart';
+
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/widgets/shown_amounts.dart';
+
+// The cards of the entry form's fields: a split's bar, a choice and the
+// two ends of a transfer.
+
+/// The parts of a split as one bar: each a stretch as wide as its share,
+/// with its name and amount on it; a tap opens that part's amount.
+class AllocationBar extends StatelessWidget {
+  const AllocationBar({super.key, required this.parts, required this.onTap});
+
+  final List<(Category, int)> parts;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.s3),
+      // 56 high, taller when the phone's text is larger.
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (i, (category, amount)) in parts.indexed) ...[
+              if (i > 0) const SizedBox(width: Space.half),
+              Expanded(
+                flex: amount <= 0 ? 1 : amount,
+                child: Material(
+                  color: shownColor(Color(category.color)),
+                  borderRadius: BorderRadius.circular(Radii.medium),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => onTap(i),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Space.s2,
+                        vertical: Space.s2,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 44),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              category.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.clip,
+                              softWrap: false,
+                              style: TextStyle(
+                                fontSize: TextSize.caption,
+                                fontWeight: FontWeight.w700,
+                                color: wordsOn(
+                                  shownColor(Color(category.color)),
+                                ),
+                              ),
+                            ),
+                            Text(
+                              groupDigits(amount),
+                              maxLines: 1,
+                              overflow: TextOverflow.clip,
+                              softWrap: false,
+                              style: TextStyle(
+                                fontSize: TextSize.body,
+                                fontWeight: FontWeight.w700,
+                                color: wordsOn(
+                                  shownColor(Color(category.color)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A white card with a mark and what was chosen, such as the account or
+/// the day; [label] names it for a screen reader.
+class PickCard extends StatelessWidget {
+  const PickCard({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
+    this.valueColor = AppColors.ink,
+  });
+
+  final Glyph icon;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+  final Color valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(Radii.large);
+    return ReadAsButton(
+      label: '$label：$value',
+      onTap: onTap,
+      child: Material(
+        color: AppColors.group,
+        borderRadius: radius,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.s3,
+                vertical: Space.s2,
+              ),
+              child: Row(
+                children: [
+                  SquareIcon(icon, AppColors.accent, size: 30),
+                  const SizedBox(width: Space.s2),
+                  Expanded(
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: TextSize.title,
+                        fontWeight: FontWeight.w700,
+                        color: valueColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One end of a transfer on a grey card: the account's mark on the left,
+/// its name over what it will hold once the transfer is made. [end] is
+/// the right-hand card, with room on its inner side for the arrow.
+class TransferEndCard extends StatelessWidget {
+  const TransferEndCard({
+    super.key,
+    required this.account,
+    required this.after,
+    required this.label,
+    required this.onTap,
+    this.end = false,
+  });
+
+  final Account account;
+
+  /// What the account holds afterwards, as words.
+  final String after;
+
+  /// What a screen reader calls it: 轉出帳戶 or 轉入帳戶.
+  final String label;
+  final VoidCallback onTap;
+  final bool end;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(Radii.large);
+    return ReadAsButton(
+      label: '$label：${account.name}，$after',
+      onTap: onTap,
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: radius,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 60),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                end ? Space.s6 : Space.s3,
+                Space.s2,
+                end ? Space.s2 : Space.s6,
+                Space.s2,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(Radii.medium),
+                    ),
+                    child: GlyphIcon(
+                      accountIcon(account),
+                      size: 17,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                  const SizedBox(width: Space.s2),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          account.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: TextSize.body,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          after,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: mutedCaption,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One thing written with an entry: its name small, what it is under.
+class ViewFieldTile extends StatelessWidget {
+  const ViewFieldTile({super.key, required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(Space.s3, Space.s2, Space.s3, Space.s2),
+    decoration: BoxDecoration(
+      color: AppColors.group,
+      borderRadius: BorderRadius.circular(Radii.large),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        OneLine(label, style: mutedCaption),
+        Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: TextSize.body,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// A transfer's two ends side by side, [from] and [to], each with what
+/// it holds now, or once [amount] moves (then [fromAfter] and [toAfter]);
+/// 對調 between them swaps the two.
+class TransferEnds extends StatelessWidget {
+  const TransferEnds({
+    super.key,
+    required this.ledger,
+    required this.from,
+    required this.to,
+    required this.amount,
+    required this.fromAfter,
+    required this.toAfter,
+    required this.onPickFrom,
+    required this.onPickTo,
+    required this.onSwap,
+  });
+
+  final Ledger ledger;
+  final Account from;
+  final Account to;
+  final int amount;
+  final int fromAfter;
+  final int toAfter;
+  final VoidCallback onPickFrom;
+  final VoidCallback onPickTo;
+  final VoidCallback onSwap;
+
+  String _held(Account a, int value) => ledger.moneyIn(value, a.currency);
+
+  @override
+  Widget build(BuildContext context) {
+    final moved = amount > 0;
+    final fromNow = ledger.balanceService.balance(from.id);
+    final toNow = ledger.balanceService.balance(to.id);
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.s3),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TransferEndCard(
+                  account: from,
+                  label: '轉出帳戶',
+                  after: moved
+                      ? '剩 ${_held(from, fromAfter)}'
+                      : '餘額 ${_held(from, fromNow)}',
+                  onTap: onPickFrom,
+                ),
+              ),
+              const SizedBox(width: Space.s2),
+              Expanded(
+                child: TransferEndCard(
+                  account: to,
+                  label: '轉入帳戶',
+                  end: true,
+                  after: moved
+                      ? '變 ${_held(to, toAfter)}'
+                      : '餘額 ${_held(to, toNow)}',
+                  onTap: onPickTo,
+                ),
+              ),
+            ],
+          ),
+          IconButton(
+            tooltip: '對調',
+            onPressed: onSwap,
+            style: IconButton.styleFrom(
+              backgroundColor: AppColors.white,
+              elevation: 2,
+              shadowColor: AppColors.lift,
+            ),
+            icon: const GlyphIcon(
+              Glyph.arrow,
+              size: 18,
+              color: AppColors.transfer,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

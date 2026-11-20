@@ -1,9 +1,11 @@
-import 'package:core/foundation_values.dart' show BusinessDate, Currency;
+// Exception to shared words: a CSV's columns and kinds are a file
+// format; they keep their spelling whatever the screens come to say.
+import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:domain/data_exchange.dart';
 
-import '../../../core/text/amounts.dart';
-import '../../../core/ledger/checks.dart';
+import '../../../core/formatting/amounts.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/validation_messages.dart';
 
 part 'import_reader.dart';
 
@@ -70,7 +72,7 @@ const duplicateRules =
 
 /// Adds what [found] holds to [ledger], its new accounts and categories
 /// with its entries, as one change.
-void addImport(Ledger ledger, Import found) => ledger.addAll(
+void addImport(Ledger ledger, Import found) => ledger.entryCommands.addAll(
   found.entries,
   accounts: found.accounts,
   categories: found.categories,
@@ -215,11 +217,7 @@ DateTime? _valid(int year, int month, int day) {
 /// as written, more decimals than the currency has are rounded.
 int? _amount(String text, [String currency = homeCode]) {
   final value = text.replaceAll(RegExp(r'[,\s$]|NT'), '');
-  final exact = minorOf(value, currency);
-  if (exact != null) return exact;
-  final rounded = double.tryParse(value);
-  if (rounded == null) return null;
-  return (rounded * (Currency.scaleOf(currency) == 0 ? 1 : 100)).round();
+  return roundedMinorOf(value, currency);
 }
 
 /// The kinds a CSV line can be, by the names it may use.

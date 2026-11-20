@@ -18,7 +18,7 @@ class _SubPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => HeadedList(
-    padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+    padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
     header: CenterHeader(title, onBack: nav.back, actions: actions),
     children: [...children],
   );
@@ -45,27 +45,29 @@ class _Manage extends StatelessWidget {
         final today = ledger.today;
         List<Widget> side(bool income) {
           final items = [
-            for (final r in ledger.recurring)
+            for (final r in ledger.recurring.all)
               if (r.active && r.income == income) r,
           ];
           if (items.isEmpty) return const [];
           var monthly = 0;
           for (final r in items) {
             monthly +=
-                ledger.recurringWorth(r) *
+                ledger.recurringService.worth(r) *
                 r.datesIn(today.year, today.month).length;
           }
           return [
             Padding(
-              padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
+              padding: const EdgeInsets.fromLTRB(
+                Space.s1,
+                Space.s4,
+                Space.s1,
+                Space.s2,
+              ),
               child: Row(
                 children: [
                   Text(
-                    income ? '收入' : '支出',
-                    style: const TextStyle(
-                      fontSize: TextSize.title,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    income ? Words.income : Words.expense,
+                    style: _sectionTitle,
                   ),
                   const Spacer(),
                   Text(
@@ -76,12 +78,12 @@ class _Manage extends StatelessWidget {
               ),
             ),
             for (final r in items) ...[
-              _ItemRow(
+              RecurringRow(
                 ledger: ledger,
                 item: r,
                 onTap: () => onEdit(item: r),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.s2),
             ],
           ];
         }
@@ -89,7 +91,9 @@ class _Manage extends StatelessWidget {
         return _SubPage(
           nav: nav,
           title: '管理固定項目',
-          actions: [HeaderButton(glyph: Glyph.add, label: '新增', onTap: onEdit)],
+          actions: [
+            HeaderButton(glyph: Glyph.add, label: Words.add, onTap: onEdit),
+          ],
           children: [...side(false), ...side(true)],
         );
       },
@@ -117,7 +121,7 @@ class _Subscriptions extends StatelessWidget {
         if (rows.isEmpty)
           const EmptyState(
             glyph: Glyph.subscription,
-            color: _recurringHue,
+            color: _recurringColor,
             message: '還沒有固定支出',
           )
         else ...[
@@ -139,19 +143,19 @@ class _Subscriptions extends StatelessWidget {
             '平均每月 ${ledger.orDots(groupDigits(total ~/ 12))}',
             style: mutedSmall,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: Space.s4),
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(Radii.small),
             child: SizedBox(
               height: 12,
               child: Row(
                 children: [
                   for (final (i, (item, yearly)) in rows.indexed) ...[
-                    if (i > 0) const SizedBox(width: 2),
+                    if (i > 0) const SizedBox(width: Space.half),
                     Expanded(
                       flex: (yearly * 1000 ~/ total).clamp(1, 1000),
                       child: ColoredBox(
-                        color: _mark(ledger, item).$2,
+                        color: recurringMark(ledger, item).$2,
                         child: const SizedBox.expand(),
                       ),
                     ),
@@ -161,23 +165,22 @@ class _Subscriptions extends StatelessWidget {
             ),
           ),
           const Padding(
-            padding: EdgeInsets.fromLTRB(4, 18, 4, 10),
+            padding: EdgeInsets.fromLTRB(
+              Space.s1,
+              Space.s4,
+              Space.s1,
+              Space.s2,
+            ),
             child: Row(
               children: [
-                Text(
-                  '每一項一年多少',
-                  style: TextStyle(
-                    fontSize: TextSize.title,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Spacer(),
+                Expanded(child: Text('每一項一年多少', style: _sectionTitle)),
+                SizedBox(width: Space.s2),
                 Text('依金額', style: mutedSmall),
               ],
             ),
           ),
           for (final (item, yearly) in rows) ...[
-            _ItemRow(
+            RecurringRow(
               ledger: ledger,
               item: item,
               onTap: () {},
@@ -187,7 +190,7 @@ class _Subscriptions extends StatelessWidget {
                     '佔 ${yearly * 100 ~/ total}%',
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.s2),
           ],
         ],
       ],
@@ -213,7 +216,7 @@ class _Paused extends StatelessWidget {
       listenable: ledger,
       builder: (context, _) {
         final paused = [
-          for (final r in ledger.recurring)
+          for (final r in ledger.recurring.all)
             if (!r.active) r,
         ];
         return _SubPage(
@@ -221,31 +224,32 @@ class _Paused extends StatelessWidget {
           title: '已暫停',
           children: [
             const Padding(
-              padding: EdgeInsets.fromLTRB(4, 0, 4, 14),
+              padding: EdgeInsets.fromLTRB(Space.s1, 0, Space.s1, Space.s4),
               child: Text('暫停的項目不會出現在月曆上，也不算進每月固定支出。', style: mutedSmall),
             ),
             if (paused.isEmpty)
               const EmptyState(
                 glyph: Glyph.cycleCalendar,
-                color: _recurringHue,
+                color: _recurringColor,
                 message: '沒有暫停的項目',
               )
             else
               for (final r in paused) ...[
-                _ItemRow(
+                RecurringRow(
                   ledger: ledger,
                   item: r,
                   grey: true,
                   onTap: () => onEdit(item: r),
                   trailing: FilledButton(
-                    onPressed: () =>
-                        ledger.saveRecurring(r.copyWith(active: true)),
+                    onPressed: () => ledger.recurringCommands.saveRecurring(
+                      r.copyWith(active: true),
+                    ),
                     style: solidButton(
-                      Hue.white,
-                      ink: Hue.accent,
+                      AppColors.white,
+                      ink: AppColors.accent,
                       minimumSize: Size(0, 40),
-                      radius: 12,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      radius: Radii.medium,
+                      padding: const EdgeInsets.symmetric(horizontal: Space.s3),
                     ),
                     child: const Text(
                       '恢復',
@@ -253,7 +257,7 @@ class _Paused extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.s2),
               ],
           ],
         );
@@ -261,3 +265,9 @@ class _Paused extends StatelessWidget {
     );
   }
 }
+
+/// A heading over a group of items, such as 支出 or 每一項一年多少.
+const _sectionTitle = TextStyle(
+  fontSize: TextSize.title,
+  fontWeight: FontWeight.w800,
+);

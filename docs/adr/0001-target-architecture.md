@@ -26,7 +26,7 @@
 
 帳本只有一份：App 的 `Ledger`（`model/`）。它在記憶體裡持有帳戶、分類、紀錄、預算、定期交易，算出餘額、持股、帳單與報表。每個改動先在畫面上生效，再交給 `Journal` 一個 `Batch`：這次放上的資料和拿掉的鍵。`TableJournal`（`book/`）把每筆資料寫成 `RowStore` 裡的一列 JSON（`account`、`category`、`entry`、`budget`、`recurring`、`trash`、`receipt`、`market` 各一架），一個改動一個交易。寫入失敗時回報並重讀檔案，畫面回到實際存下的狀態。
 
-計算規則不在畫面模型另寫：賣出成本、配股減資與分割呼叫 domain 的 `lot_math.dart`；帳單週期、結帳日變更前的舊週期、單期調整、分期入帳月份與每期金額呼叫 domain 的 `CardSchedule` 與分期函式；台股手續費、證交稅、補充保費呼叫 `taiwan.dart`。能不能記（`checks.dart`）也只有一處。
+計算規則不在畫面模型另寫：賣出成本、配股減資與分割呼叫 domain 的 `lot_math.dart`；帳單週期、結帳日變更前的舊週期、單期調整、分期入帳月份與每期金額呼叫 domain 的 `CardSchedule` 與分期函式；台股手續費、證交稅、補充保費呼叫 `taiwan.dart`。能不能記（`EntryValidator`）也只有一處。
 
 分層由 `test/app/layers_test.dart` 守住；2026-10 起 App 改成依功能分資料夾，規則見 [ADR-0002](0002-feature-folders.md)。
 

@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/time/app_clock.dart';
+import '../../../core/formatting/json_fields.dart';
 
 /// This build's number, set by the APK build (android.yml); 0 in a build
 /// made by hand and in the preview, which never look for updates.
@@ -55,8 +57,8 @@ final class UpdateInfo {
       }
       return UpdateInfo(
         build: build,
-        version: json['version'] as String? ?? '',
-        commit: json['commit'] as String? ?? '',
+        version: JsonFields(json).text('version') ?? '',
+        commit: JsonFields(json).text('commit') ?? '',
         sha256: sha256,
         size: size,
         notes: [
@@ -92,7 +94,7 @@ enum UpdateInstall {
   damaged,
 }
 
-/// The internet and Android's installer; [IoUpdatePort] with the app's
+/// The internet and Android's installer; `AndroidUpdatePort` with the app's
 /// channel on the phone, a fake in tests.
 abstract interface class UpdatePort {
   Future<String> fetch(Uri url);
@@ -120,7 +122,7 @@ final class AppUpdate extends ChangeNotifier {
     required this._cache,
     this._build = currentBuild,
     DateTime Function()? clock,
-  }) : _clock = clock ?? DateTime.now;
+  }) : _clock = clock ?? AppClock.now;
 
   final UpdatePort _port;
   final Preferences _preferences;

@@ -6,6 +6,8 @@ part 'seed_history.dart';
 /// approved web preview (v114): six months of salary, rent and everyday
 /// spending, a busy fourth of October, sixteen accounts and twelve
 /// holdings, with fifteen plainer months before them for the reports.
+// Exception to function length: the demo book's records, one or two
+// lines each; data, not steps to follow.
 Ledger demoLedger() {
   final entries = <Entry>[];
   var serial = 0;
@@ -402,7 +404,7 @@ Ledger demoLedger() {
       Holding('2603', '長榮', shares: 3, price: 188, cost: 510, change: 5),
     ],
     budgets: const [
-      Budget(Ledger.allSpending, 32000),
+      Budget(allSpending, 32000),
       Budget('飲食日常', 8000),
       Budget('居家生活', 14000),
       Budget('交通通勤', 2500),

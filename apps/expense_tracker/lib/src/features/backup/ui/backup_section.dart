@@ -4,15 +4,20 @@ import '../model/drive_backup.dart';
 import '../model/drive_sync.dart';
 import '../model/backup_manager.dart';
 import '../model/phone_backup.dart';
-import '../../../core/look/dialogs.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/design_system/dialogs.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/platform/preferences.dart';
-import '../../../core/platform/problems.dart';
-import '../../../core/look/recovery_code.dart';
-import '../../../core/look/settings_hue.dart';
+import '../../../core/messages/problem_messages.dart';
+import '../../../core/design_system/recovery_code.dart';
+import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/time/app_clock.dart';
+import '../../../core/formatting/words.dart';
 
 part 'backup_section_manual.dart';
 part 'backup_section_card_row.dart';
@@ -182,17 +187,20 @@ class _BackupSectionState extends State<BackupSection> {
       context,
       (context) => CenterPanel(
         glyph: Glyph.records,
-        color: SettingsHue.folder,
+        color: SettingsColors.folder,
         title: '存到資料夾',
         body: Text(
           rules,
           style: const TextStyle(fontSize: TextSize.body, height: 1.5),
         ),
         actions: [
-          PanelButton('取消', onTap: () => Navigator.of(context).pop(false)),
+          PanelButton(
+            Words.cancel,
+            onTap: () => Navigator.of(context).pop(false),
+          ),
           PanelButton(
             action,
-            color: SettingsHue.folder,
+            color: SettingsColors.folder,
             onTap: () => Navigator.of(context).pop(true),
           ),
         ],
@@ -211,7 +219,7 @@ class _BackupSectionState extends State<BackupSection> {
   /// 今天 21:03, 昨天 08:14, or 11/2 08:14.
   static String _when(DateTime at) {
     final local = at.toLocal();
-    final now = DateTime.now();
+    final now = AppClock.now();
     String two(int n) => n.toString().padLeft(2, '0');
     final time = '${two(local.hour)}:${two(local.minute)}';
     final day = DateTime(local.year, local.month, local.day);
@@ -219,7 +227,7 @@ class _BackupSectionState extends State<BackupSection> {
     final days = today.difference(day).inDays;
     if (days == 0) return '今天 $time';
     if (days == 1) return '昨天 $time';
-    return '${local.month}/${local.day} $time';
+    return '${formatMd(local)} $time';
   }
 
   static DateTime? _latest(Iterable<DateTime?> times) {
@@ -244,11 +252,11 @@ class _BackupSectionState extends State<BackupSection> {
           children: [
             _status(folder: folder),
             if (drive != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: Space.s3),
               _driveCard(drive),
             ],
             if (phone != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: Space.s3),
               _folderCard(phone),
             ],
             const RuleHead('手動'),
@@ -258,16 +266,16 @@ class _BackupSectionState extends State<BackupSection> {
                   child: _Manual(
                     glyph: Glyph.upload,
                     label: '匯出一份',
-                    color: SettingsHue.csv,
+                    color: SettingsColors.csv,
                     onTap: () => _export(widget.backupManager),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: Space.s3),
                 Expanded(
                   child: _Manual(
                     glyph: Glyph.download,
                     label: '還原',
-                    color: SettingsHue.invoice,
+                    color: SettingsColors.invoice,
                     onTap: () =>
                         restoreFromBackup(context, widget.backupManager),
                   ),
@@ -301,7 +309,7 @@ class _BackupSectionState extends State<BackupSection> {
   /// Google Drive: its tick links or unlinks it; linked, when it last
   /// went up and whether the receipt photos go too.
   Widget _driveCard(DriveSync drive) {
-    const color = SettingsHue.backup;
+    const color = SettingsColors.backup;
     final linked = drive.linked;
     return _BackupCard(
       glyph: Glyph.upload,
@@ -343,7 +351,7 @@ class _BackupSectionState extends State<BackupSection> {
   }
 
   Widget _folderCard(PhoneBackup phone) {
-    const color = SettingsHue.folder;
+    const color = SettingsColors.folder;
     final on = phone.on;
     return _BackupCard(
       glyph: Glyph.records,
@@ -405,11 +413,11 @@ class BackupHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final warn = !on || stale;
-    final color = warn ? SettingsHue.warning : SettingsHue.backup;
+    final color = warn ? SettingsColors.warning : SettingsColors.backup;
     final at = this.at;
     final days = at == null
         ? null
-        : DateTime.now().difference(at.toLocal()).inDays;
+        : AppClock.now().difference(at.toLocal()).inDays;
     final small = !on
         ? (at == null ? '還沒有備份' : '上次 ${_BackupSectionState._when(at)}')
         : stale && days != null
@@ -427,14 +435,19 @@ class BackupHero extends StatelessWidget {
       amount: 0.22,
       onTap: onTap,
       label: '$small，$big',
-      padding: const EdgeInsets.fromLTRB(18, 18, 14, 18),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               SquareIcon(Glyph.safe, color, size: 56),
-              const SizedBox(width: 16),
+              const SizedBox(width: Space.s4),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -458,10 +471,13 @@ class BackupHero extends StatelessWidget {
                 ),
               ),
               if (onTap != null)
-                const GlyphIcon(Glyph.next, size: 18, color: Hue.muted),
+                const GlyphIcon(Glyph.next, size: 18, color: AppColors.muted),
             ],
           ),
-          if (trailing != null) ...[const SizedBox(height: 12), trailing!],
+          if (trailing != null) ...[
+            const SizedBox(height: Space.s3),
+            trailing!,
+          ],
         ],
       ),
     );
@@ -491,8 +507,14 @@ class _BackupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final change = onChanged;
     return ColorCard(
+      controlsInside: true,
       color: color,
-      padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s2,
+        Space.s3,
+      ),
       child: Column(
         children: [
           ToggleRow(
@@ -502,7 +524,7 @@ class _BackupCard extends StatelessWidget {
             child: Row(
               children: [
                 SquareIcon(glyph, color, size: 40),
-                const SizedBox(width: 14),
+                const SizedBox(width: Space.s4),
                 Expanded(
                   child: Text(
                     title,
@@ -524,7 +546,7 @@ class _BackupCard extends StatelessWidget {
           ),
           for (final row in rows) ...[
             Padding(
-              padding: const EdgeInsets.only(right: 6),
+              padding: const EdgeInsets.only(right: Space.s2),
               child: Divider(height: 12, color: tintOf(color, 0.4)),
             ),
             row,

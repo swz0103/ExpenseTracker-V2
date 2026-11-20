@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/text/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ui/pickers.dart';
+import '../../../core/widgets/pickers.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 /// Kinds the record list can be narrowed to.
 enum KindFilter {
   all('全部'),
-  expense('支出'),
-  income('收入'),
-  transfer('轉帳'),
-  investment('投資');
+  expense(Words.expense),
+  income(Words.income),
+  transfer(Words.transfer),
+  investment(Words.investment);
 
   const KindFilter(this.label);
 
@@ -135,8 +139,7 @@ final class EntryFilter {
 
   /// The chosen days as words, such as 9/1–10/4.
   static String rangeLabel(DateTimeRange range) =>
-      '${range.start.month}/${range.start.day}–'
-      '${range.end.month}/${range.end.day}';
+      '${formatMd(range.start)}–${formatMd(range.end)}';
 
   /// The amount bounds as words, such as 金額 100–500.
   String get amountLabel => switch ((least, most)) {
@@ -255,7 +258,7 @@ class _FilterSheetState extends State<_FilterSheet> {
   Future<void> _pickAccount() async {
     final picked = await pickOption<String>(
       context,
-      title: '帳戶',
+      title: Words.account,
       selected: _account,
       columns: 3,
       options: accountOptions(widget.ledger),
@@ -268,7 +271,7 @@ class _FilterSheetState extends State<_FilterSheet> {
     bool top(Category c) => c.parent == null;
     final picked = await pickOption<String>(
       context,
-      title: '分類',
+      title: Words.category,
       selected: _category,
       options: [
         ...categoryOptions(ledger, income: false, where: top),
@@ -311,11 +314,11 @@ class _FilterSheetState extends State<_FilterSheet> {
     final category = _category;
     return CenterPanel(
       glyph: Glyph.sliders,
-      color: Hue.accent,
+      color: AppColors.accent,
       title: '篩選',
       trailing: TextButton(
         onPressed: _clear,
-        style: wordButton(Hue.muted),
+        style: wordButton(AppColors.muted),
         child: const Text('清除'),
       ),
       body: Column(
@@ -324,7 +327,7 @@ class _FilterSheetState extends State<_FilterSheet> {
           Row(
             children: [
               for (final (i, kind) in KindFilter.values.indexed) ...[
-                if (i > 0) const SizedBox(width: 6),
+                if (i > 0) const SizedBox(width: Space.s2),
                 Expanded(
                   child: _KindTile(
                     kind: kind,
@@ -335,7 +338,7 @@ class _FilterSheetState extends State<_FilterSheet> {
               ],
             ],
           ),
-          const _Heading('日期'),
+          const _Heading(Words.date),
           Segments(
             labels: [
               for (final s in _Span.values)
@@ -346,33 +349,33 @@ class _FilterSheetState extends State<_FilterSheet> {
             selected: span.index,
             onChanged: _pickSpan,
           ),
-          const _Heading('金額'),
+          const _Heading(Words.amount),
           Row(
             children: [
               Expanded(child: _AmountField(_least, '最少')),
               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: Text('–', style: TextStyle(color: Hue.muted)),
+                padding: EdgeInsets.symmetric(horizontal: Space.s2),
+                child: Text('–', style: mutedText),
               ),
               Expanded(child: _AmountField(_most, '最多')),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: Space.s4),
           _ChoiceRow(
             glyph: Glyph.wallet,
             color: Palette.teal,
-            label: '帳戶',
+            label: Words.account,
             value: account == null ? '全部' : ledger.account(account).name,
             onTap: _pickAccount,
             onClear: account == null
                 ? null
                 : () => setState(() => _account = null),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           _ChoiceRow(
             glyph: Glyph.categories,
             color: Palette.orange,
-            label: '分類',
+            label: Words.category,
             value: category ?? '全部',
             onTap: _pickCategory,
             onClear: category == null
@@ -382,8 +385,8 @@ class _FilterSheetState extends State<_FilterSheet> {
         ],
       ),
       actions: [
-        PanelButton('取消', onTap: () => Navigator.of(context).pop()),
-        PanelButton('套用', color: Hue.accent, onTap: _apply),
+        PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
+        PanelButton('套用', color: AppColors.accent, onTap: _apply),
       ],
     );
   }
@@ -397,8 +400,8 @@ class _Heading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 16, bottom: 6),
-    child: Text(text, style: const TextStyle(color: Hue.muted)),
+    padding: const EdgeInsets.only(top: Space.s4, bottom: Space.s2),
+    child: Text(text, style: mutedText),
   );
 }
 
@@ -418,29 +421,30 @@ class _KindTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (glyph, color) = switch (kind) {
-      KindFilter.all => (Glyph.records, Hue.accent),
-      KindFilter.expense => (Glyph.payout, Hue.negative),
-      KindFilter.income => (Glyph.income, Hue.positive),
-      KindFilter.transfer => (Glyph.transfer, Hue.transfer),
-      KindFilter.investment => (Glyph.investment, Hue.investment),
+      KindFilter.all => (Glyph.records, AppColors.accent),
+      KindFilter.expense => (Glyph.payout, AppColors.negative),
+      KindFilter.income => (Glyph.income, AppColors.positive),
+      KindFilter.transfer => (Glyph.transfer, AppColors.transfer),
+      KindFilter.investment => (Glyph.investment, AppColors.investment),
     };
     return Semantics(
       button: true,
       selected: selected,
       inMutuallyExclusiveGroup: true,
       label: kind.label,
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         color: selected ? chosenFill(color) : tintOf(color, 0.2),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(Radii.large),
           side: selected ? chosenEdge(color) : BorderSide.none,
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.symmetric(vertical: Space.s2),
             child: Column(
               children: [
                 GlyphIcon(
@@ -448,7 +452,7 @@ class _KindTile extends StatelessWidget {
                   size: 20,
                   color: selected ? chosenInk(color) : deepOf(color),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: Space.s1),
                 Text(
                   kind.label,
                   maxLines: 1,
@@ -489,20 +493,20 @@ class _ChoiceRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final clear = onClear;
     return Material(
-      color: Hue.surface,
-      borderRadius: BorderRadius.circular(14),
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(Radii.large),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Container(
           constraints: const BoxConstraints(minHeight: 52),
-          padding: const EdgeInsets.only(left: 10, right: 4),
+          padding: const EdgeInsets.only(left: Space.s2, right: Space.s1),
           child: Row(
             children: [
               SquareIcon(glyph, color, size: 32),
-              const SizedBox(width: 10),
+              const SizedBox(width: Space.s2),
               Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(width: 12),
+              const SizedBox(width: Space.s3),
               Expanded(
                 child: Text(
                   value,
@@ -511,7 +515,7 @@ class _ChoiceRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: clear == null ? Hue.ink : Hue.accent,
+                    color: clear == null ? AppColors.ink : AppColors.accent,
                   ),
                 ),
               ),
@@ -522,13 +526,17 @@ class _ChoiceRow extends StatelessWidget {
                   icon: const GlyphIcon(
                     Glyph.close,
                     size: 16,
-                    color: Hue.muted,
+                    color: AppColors.muted,
                   ),
                 )
               else
                 const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
+                  padding: EdgeInsets.all(Space.s3),
+                  child: GlyphIcon(
+                    Glyph.next,
+                    size: 16,
+                    color: AppColors.muted,
+                  ),
                 ),
             ],
           ),
@@ -553,10 +561,13 @@ class _AmountField extends StatelessWidget {
       hintText: hint,
       isDense: true,
       filled: true,
-      fillColor: Hue.surface,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      fillColor: AppColors.surface,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: Space.s4,
+        vertical: Space.s4,
+      ),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Radii.large),
         borderSide: BorderSide.none,
       ),
     ),

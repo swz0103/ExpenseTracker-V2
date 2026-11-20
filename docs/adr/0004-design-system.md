@@ -9,7 +9,7 @@
 ## 決策
 
 - 字級是 `TextSize` 的 11 個角色（[design.md](../design.md#字級)），原本的數字對到最接近的角色。
-- 每個顏色在 `Hue`（或 `Palette`、`WidgetLook`）裡有名字；分類顏色是資料，可以出現在帳本、model 與範例帳本。
+- 每個顏色在 `AppColors`（或 `Palette`、`WidgetColors`）裡有名字；分類顏色是資料，可以出現在帳本、model 與範例帳本。
 - 實心與文字按鈕的樣式由 `solidButton`、`wordButton` 產生，深色的處理只寫在那裡。
 - `test/app/design_rules_test.dart`：`core/look` 以外不能寫色碼、字級數字、`styleFrom`。
 

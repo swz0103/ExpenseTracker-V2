@@ -18,6 +18,10 @@ enum VaultProblem {
 
   /// A restored database failed its checks; nothing was kept.
   damagedRestore,
+
+  /// The keyring is here but the ledger's database is gone: opening would
+  /// start an empty ledger as if nothing had been kept, so it is refused.
+  missingDatabase,
 }
 
 final class VaultException implements Exception {
@@ -35,7 +39,7 @@ final class OpenVault {
 
   final LedgerVault _vault;
   UnlockedKeyring _keys;
-  final RowStore store;
+  final EncryptedDatabase store;
 
   UnlockedKeyring get keys => _keys;
 
@@ -96,18 +100,21 @@ final class LedgerVault {
     _requireAbsent();
     await directory.create(recursive: true);
     if (await databaseFile.exists()) await databaseFile.delete();
+    // The database first, then the keyring: a keyring without a database
+    // then always means the database was lost (see [missingDatabase]).
+    _openStore(databaseFile, keys).close();
     await _write(keys.keyring);
     return _open(keys);
   }
 
   Future<OpenVault> unlockWithPassword(String password) async {
     final keyring = await _keyring();
-    return _open(await codec.unlockWithPassword(keyring, password));
+    return _openKept(await codec.unlockWithPassword(keyring, password));
   }
 
   Future<OpenVault> unlockWithRecovery(String recoveryCode) async {
     final keyring = await _keyring();
-    return _open(await codec.unlockWithRecovery(keyring, recoveryCode));
+    return _openKept(await codec.unlockWithRecovery(keyring, recoveryCode));
   }
 
   Future<OpenVault> unlockWithDevice(
@@ -115,7 +122,7 @@ final class LedgerVault {
     DeviceKeyWrapper wrapper,
   ) async {
     final keyring = await _keyring();
-    return _open(await codec.unlockWithDevice(keyring, deviceId, wrapper));
+    return _openKept(await codec.unlockWithDevice(keyring, deviceId, wrapper));
   }
 
   /// Stores a changed keyring: a new password, recovery code, device or
@@ -200,7 +207,7 @@ final class LedgerVault {
   /// it. The app keeps a backup of it first.
   Future<OpenVault> restore(
     UnlockedKeyring keys,
-    Future<void> Function(RowStore staging) fill, {
+    Future<void> Function(EncryptedDatabase staging) fill, {
     bool replacing = false,
   }) async {
     if (!replacing) _requireAbsent();
@@ -236,6 +243,14 @@ final class LedgerVault {
     return _open(keys);
   }
 
+  /// Opens the ledger kept here, which must still have its database.
+  Future<OpenVault> _openKept(UnlockedKeyring keys) async {
+    if (!await databaseFile.exists()) {
+      throw const VaultException(VaultProblem.missingDatabase);
+    }
+    return _open(keys);
+  }
+
   Future<OpenVault> _open(UnlockedKeyring keys) async {
     try {
       return OpenVault._(this, keys, _openStore(databaseFile, keys));
@@ -253,8 +268,8 @@ final class LedgerVault {
     return OpenVault._(this, keys, _openStore(databaseFile, keys));
   }
 
-  RowStore _openStore(File file, UnlockedKeyring keys) =>
-      RowStore.open(file, StorageKey(keys.databaseKey));
+  EncryptedDatabase _openStore(File file, UnlockedKeyring keys) =>
+      EncryptedDatabase.open(file, StorageKey(keys.databaseKey));
 
   static Future<void> _deleteDatabase(File file) async {
     for (final suffix in ['', '-wal', '-shm', '-journal']) {

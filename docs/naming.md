@@ -61,10 +61,10 @@
 | `core/look/kit` | `core/design_system/components` | 元件庫 |
 | `core/ui` | `core/widgets` | 認得帳本的共用 widget |
 | `core/text` | `core/formatting` | 格式化 |
-| `core/nav.dart`、`Place`、`Section`、`SettingsPart`、`Pages`、`openFlow` | `core/navigation/`、`AppRoute`（`Place` 的子類別改成 `*Route`）、`openFullScreen` | Flutter Route |
+| `core/nav.dart`、`Place`、`Section`、`SettingsPart`、`Pages`、`openFlow` | `core/navigation/nav.dart`、`AppRoute`（子類別 `*Route`）、`MoreDestination`、`SettingsDestination`、`AppRoutes`、`openFullScreen` | Flutter Route；destination 是 Material 3 導覽的用語 |
 | `compose/`（功能裡的表單） | `forms/` | 與 Jetpack Compose 撞名 |
-| `Hue` | `AppColors` | Flutter 慣例 |
-| `*Part.kt`（Kotlin 通道處理） | `*Handler.kt` | `MethodCallHandler` |
+| `Hue`、`ToolHue`、`SettingsHue`、`WidgetLook`、`accountHue` | `AppColors`、`ToolColors`、`SettingsColors`、`WidgetColors`、`accountColor`（已改，`naming_test` 守住） | Flutter 的 `Colors`；一看就知道是顏色 |
+| `*Part.kt`（Kotlin 通道處理） | `*Handler.kt`（已改，`naming_test` 守住） | `MethodCallHandler` |
 | `app/android/*.dart` | `app/android/*_adapter.dart` | Ports and Adapters，已有 `NotifyPort`、`CalendarPort` |
 | `Keeper`、`VaultKeeper` | `BackupManager`、`EncryptedBackupManager` | Manager |
 | `Services`（`settings/model/services.dart`） | `PlatformServices` | 描述內容 |
@@ -80,8 +80,9 @@
 
 ## 例外
 
-沒有。若真找不到通用詞，在這裡登記：名稱、為什麼找不到、它的定義。
+若真找不到通用詞，或改名的代價大於好處，在這裡登記：名稱、原因、它的定義。
+
 
 ## 守住的方式
 
-`naming_test`（改名完成後新增）掃描 `lib/` 與 `test/`，出現左欄的舊名就失敗；檔名後綴由 `layers_test` 檢查各資料夾只放允許的後綴。
+`test/rules/naming_test.dart` 掃描 `lib/`、`test/`、`tool/` 的程式（註解除外），出現已改掉的舊名就失敗；檔名後綴由 `layers_test` 檢查各資料夾只放允許的後綴。

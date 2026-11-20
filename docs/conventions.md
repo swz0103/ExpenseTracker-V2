@@ -7,11 +7,11 @@
 | 步驟 | 做什麼 | 規則來源 |
 | --- | --- | --- |
 | 1 | 決定放哪：屬於某個功能就放 `features/<功能>/`，所有功能都要用的才放 `core/` | [architecture.md](architecture.md#app-內部分層) |
-| 2 | 資料與規則寫在 `model/`（不碰畫面），表單寫在 `compose/`，頁面寫在 `ui/` | `layers_test` |
+| 2 | 資料與規則寫在 `model/`（不碰畫面），表單寫在 `forms/`，頁面寫在 `ui/` | `layers_test` |
 | 3 | 純計算（不需要帳本狀態）放 `packages/domain`，App 只呼叫 | [architecture.md](architecture.md#模組) |
-| 4 | 新頁面：在 `core/nav.dart` 加一個 `Place`，`app/shell.dart` 對應頁面；一次性的整頁工作（排序、匯入）用 `openFlow` | `layers_test` |
-| 5 | 畫面只用設計系統：`Hue`、`TextSize`、`solidButton`／`wordButton`、kit 元件 | [design.md](design.md)、`design_rules_test` |
-| 6 | 頁面加進 `test/app/places.dart`，版面、無障礙、截圖就會涵蓋它 | — |
+| 4 | 新頁面：在 `core/navigation/nav.dart` 加一個 `AppRoute`，`app/shell.dart` 對應頁面；一次性的整頁工作（排序、匯入）用 `openFullScreen` | `layers_test` |
+| 5 | 畫面只用設計系統：`AppColors`、`TextSize`、`solidButton`／`wordButton`、components 元件 | [design.md](design.md)、`design_rules_test` |
+| 6 | 頁面加進 `test/support/places.dart`，版面、無障礙、截圖就會涵蓋它 | — |
 | 7 | 寫測試（見第三節），跑全部測試 | — |
 | 8 | 更新文件（見第四節）、版號與 `whats_new.txt`（見第五節） | — |
 
@@ -20,8 +20,8 @@
 ### 放哪裡
 
 - 依賴只能往下：`app/` → `features/` → `core/` → 套件（`packages/`、`infrastructure/`）。
-- 功能可以用別的功能的 `model/` 與 `compose/`（例如開它的表單），不能用它的 `ui/`；功能之間不能互相需要。需要同一個東西的兩個功能，把它搬到 `core/`。
-- `core/` 分七部分，各自只能用表上允許的部分（[architecture.md](architecture.md#core-的七個部分)）。資料夾名稱集中在 `test/app/layout.dart`，改名只改那裡。
+- 功能可以用別的功能的 `model/` 與 `forms/`（例如開它的表單），不能用它的 `ui/`；功能之間不能互相需要。需要同一個東西的兩個功能，把它搬到 `core/`。
+- `core/` 分十部分，各自只能用表上允許的部分（[architecture.md](architecture.md#core-的十個部分)）。資料夾名稱集中在 `test/support/layout.dart`，改名只改那裡。
 - 搬檔案用 `python3 tool/move.py 舊路徑=新路徑`（在 `apps/expense_tracker` 下執行），它會改好所有 import。
 
 ### 錯誤
@@ -29,10 +29,17 @@
 - 每個 `catch` 做三件事之一：用 `ErrorLog.instance.record('做什麼', error)` 記下、重新拋出，或在區塊第一行用註解說明為何什麼都不用做（`error_rules_test`）。
 - 不把例外原樣放進給人看的訊息；要附上原因時用 `ErrorLog.describe(error)`，它去掉路徑、引號內的字和數字。
 
-### 檔案長度
+### 大小與拆分
 
-- 一個檔案 600 行以內（`layers_test` 檢查）。例外只有產生的 `glyphs.dart`（2100）與帳本狀態 `ledger.dart`（650）。
-- 快超過時依主題拆：`python3 tool/split.py <檔案>` 把後段的宣告搬到同一個 library 的 `part` 檔，再把檔名改成看得懂的名字。單一類別太長時，把一組方法搬到同檔 library 的 `extension`（例：`composer_pickers.dart`）。
+- 大小是參考，不是上限：檔案 600 行、函式 80 行、函式庫連同 `part` 1,200 行。超過時依職責拆，或在它上方註明為什麼一份比較好；拆的標準是每一份只做一件事、讀得懂，不是湊行數。
+- 拆的方式：計算移到 `model/`（純 Dart、各有測試）；畫面依區塊拆成有公開建構參數的元件，放在一般函式庫，不用 `part`（`part` 不會讓函式庫變小，還共用全部私有成員）。區塊要讀寫表單時透過介面（例：`ComposeActions`）。
+- 剛導入參考值時已超過的，列在 `tooling/architecture_checks/test/code_size_test.dart` 的債務清單，只准變小。
+
+### 規則的例外
+
+- 規則測試不列檔名。破例寫在程式旁：在那一行或它上方的註解寫 `// Exception to <規則>: <原因>`；整個檔案的例外寫在檔案最上方的註解。規則名稱：`error words`、`the radius scale`、`ledger words`、`motion`、`the motion scale`、`file length`、`function length`、`library length`。
+- 動畫時間用 `Motion` 的標準值（Material 3：`short2` 100 ms 到 `extraLong1` 700 ms），一律經 `Motion.of(context, …)`，伸縮用 `MotionSize`；減少動態效果開啟時不動。停留時間（例如提示訊息多久消失）不是動畫，要標註例外，不可歸零。
+- 定義所在的檔案（例如日期格式在 `dates.dart`、時間在 `core/time/`）本來就是規則的一部分，不算例外。
 
 ### 命名與註解
 
@@ -45,7 +52,7 @@
 
 ### 畫面
 
-- 顏色、字級、按鈕只從 `core/look` 拿，頁面裡不寫色碼、字級數字、`styleFrom`（`design_rules_test`）。
+- 顏色、字級、按鈕只從 `core/design_system` 拿，頁面裡不寫色碼、字級數字、`styleFrom`（`design_rules_test`；色碼、字級數字、轉型與依賴整個帳本的檔數由 `app_syntax_test` 讀語法樹檢查）。
 - 短標籤用 `OneLine`（放不下先縮到 75%，再放不下以…結尾），不讓它斷成兩行（版面測試檢查 12 字以內的文字）。
 - 有標題的頁面用 `HeadedList`，標題固定、內容捲動；內容放得下時不能拖動。
 - 動畫 200～300 ms，並尊重系統的「減少動畫」（`MediaQuery.disableAnimationsOf`）。
@@ -54,13 +61,15 @@
 
 | 放哪 | 測什麼 |
 | --- | --- |
-| `test/core/` | 帳本、規則、共用元件 |
-| `test/features/<功能>/` | 該功能的 model、表單、頁面行為 |
-| `test/app/` | 跨全 App 的規則：分層、設計系統、版面、無障礙、啟動、備份規則 |
+| `test/<lib/src 底下的路徑>/<檔名>_test.dart` | 只測一個檔：`lib/src/a/b.dart` 的測試是 `test/a/b_test.dart` |
+| `test/scenarios/` | 跨好幾個檔的情境：帳本、各功能的流程 |
+| `test/rules/` | 全 App 的規則：分層、設計系統、版面、無障礙、命名、備份規則 |
+| `test/support/` | 測試共用的工具與假物件（`places.dart`、`layout.dart`…） |
+| `test/perf/` | 效能門檻與基準 |
 | 各套件的 `test/` | 套件的規則與格式 |
 
 - 修 bug 先寫一個會重現它的測試，確認在舊程式上失敗、修正後通過。
-- 按按鈕、分頁、選項一律用 `core/look/keys.dart` 的 `Keys`（`find.byKey(Keys.save)`）；新的可按元件要測就先加一個 key。`find.text` 只用來確認畫面文字，或點帳本裡的資料本身（某筆紀錄、某個帳戶）（`test_rules_test` 檢查）。
+- 按按鈕、分頁、選項一律用 `core/design_system/keys.dart` 的 `Keys`（`find.byKey(Keys.save)`）；新的可按元件要測就先加一個 key。`find.text` 只用來確認畫面文字，或點帳本裡的資料本身（某筆紀錄、某個帳戶）（`test_rules_test` 檢查）。
 - 版面、無障礙、對比測試自動涵蓋 `places.dart` 裡的每一頁：新頁面一定要加進去。
 - 不跳過、不停用測試來讓 CI 變綠。
 
@@ -100,8 +109,10 @@
 
 ## 五、提交與發版
 
-- 版號 `主.次.修`：新畫面或改版升次版號，只修 bug 或不改畫面的整理升修訂號；全部實機驗收通過才到 1.0.0。
-- 每個版本：`pubspec.yaml` 版號、`whats_new.txt`（三行以內，給使用者看）、CHANGELOG 一節、acceptance 一節。
+- 版號 `主.次.修`，三碼各在什麼時候變見 [ADR-0011](adr/0011-version-numbers.md)：第一碼是舊版 App 讀不了新資料或有人被留在後面（1.0 前固定 0），第二碼是使用者看得到新的或不一樣的東西，第三碼是看不到刻意的改變（修 bug、整理、效能）。每個會發布的 PR 都要升版，否則驗證失敗；升了某一碼，後面歸零；只升不降。
+- 每個版本：`pubspec.yaml` 版號、`whats_new.txt`（三行以內，給使用者看）、CHANGELOG 一節、acceptance 一節；發行前升級套件一次並記在 [development.md](development.md#套件升級)。
 - commit 訊息用英文：第一行說做了什麼，空一行後條列重點。
 - 一個 PR 一件事（一批回饋或一次整理）；PR 說明列出改了什麼、怎麼驗證。
 - 合併到 main 後 CI 自動建置、簽章、發布；App 內更新會讀到新版。
+- 發布到 main 後，CI 自動為新版本打標籤 `v<版本>`，打在該版第一次發布的組建上，之後不移動（`android.yml` 的 Tag the version）。
+- 每個版本留一份它寫出的帳本與備份：`MAKE_FIXTURES=1 flutter test test/scenarios/ledger/persistence/old_books_test.dart`，產生的檔案進版控後不再改（[ADR-0010](adr/0010-data-that-lasts.md)）。少了這一份，`old_books_test` 失敗。

@@ -15,15 +15,29 @@
 | 做什麼 | 指令 |
 | --- | --- |
 | 全部測試 | `flutter test` |
-| 只看規則 | `flutter test test/app/layers_test.dart test/app/design_rules_test.dart` |
-| 只看版面 | `flutter test test/app/layout_common_test.dart` |
+| 只看規則 | `flutter test test/rules/layers_test.dart test/rules/design_rules_test.dart` |
+| 只看版面 | `flutter test test/rules/layout_common_test.dart` |
 | 分析與排版 | `flutter analyze`、`dart format lib test` |
 | 網頁預覽 | `flutter run -d chrome -t lib/main_preview.dart` |
-| 截圖 | `flutter test tool/screenshots`（`SHOTS_ONLY=頁名,頁名` 只拍幾頁），存到 `build/screenshots` |
-| Android 單元測試 | `cd android && ./gradlew :app:testDebugUnitTest` |
+| 截圖 | `flutter test tool/screenshots`（`SHOTS_ONLY=頁名,頁名` 只拍幾頁，`SHOTS_TEXT=200` 用 Android 最大字級），存到 `build/screenshots` |
+| 效能基準（需要時才跑） | `BENCH=1 flutter test test/perf/`：10 萬筆的寫入與開帳本、帳本運算、總覽一幀 |
+| Android 單元測試（本機沒有 SDK 時：裝 `cmdline-tools` 與 `platforms;android-36`、`build-tools;36.0.0`，`local.properties` 寫 `sdk.dir`；`gradlew` 由 `flutter build` 產生，或在空資料夾 `gradle wrapper --gradle-version 9.3.1` 後複製過來） | `cd android && ./gradlew :app:testDebugUnitTest` |
 | 本機建置 APK | `flutter build apk --release --target-platform android-arm64 --split-debug-info=build/symbols` |
 
 全部模組一次檢查：在根目錄 `./tooling/run-host-checks.ps1 -Package all`（每個模組依序 pub get、格式、analyze、測試）。
+
+## 套件升級
+
+每個發行版前做一次，記在下表：
+
+1. 每個有 `pubspec.lock` 的模組跑 `pub upgrade`（只在 `pubspec.yaml` 允許的範圍內動，lockfile 會變）。
+2. 每個模組的 analyze 與測試、App 的全部檢查與截圖比對都通過才留下。
+3. `pub outdated` 裡仍升不上去的，寫下原因；主版本的升級（例如 `flutter_lints` 7）各自一個 PR，看過變更紀錄再做。
+4. 升不上去的套件數只准變少；變多要寫原因。
+
+| 日期 | 版本 | 升了什麼 | 升不上去的與原因 |
+| --- | --- | --- | --- |
+| 2026-11-19 | 0.18.0 | 架構檢查直接用的 analyzer 14.4 → 14.7（各模組必須同一版，`lockfile_consistency_test`）；全部模組的間接套件小版本：coverage 1.16、crypto 3.0.8、native_toolchain_c 0.19.6、vm_service 15.4、shelf 1.4.3 等；直接依賴都已是最新 | 3 個：`sqlite3` 固定 3.8.0（SQLCipher 的建置設定綁這一版，`infrastructure/storage`、`vault` 一起換）；`material_color_utilities`、`test_api` 由 Flutter SDK 鎖定，跟著升 Flutter |
 
 ## 工具
 
@@ -31,9 +45,9 @@
 | --- | --- |
 | `tool/move.py` | 搬 Dart 檔並改好所有 import 與 part（用 git mv） |
 | `tool/split.py` | 把太長的檔案後段的宣告搬到 part 檔 |
-| `tool/glyphs.py` | 定義所有圖示，產生 `core/look/glyphs.dart`（不要手改產生的檔） |
+| `tool/glyphs.py` | 定義所有圖示，產生 `core/design_system/glyphs.dart`（不要手改產生的檔） |
 | `tool/test_ledger.py` | 產生兩年份、約 2,500 筆的測試帳本 `test-ledger.etbk`（密碼 `test1234`）：多家銀行、三張信用卡、外幣、車貸、代墊、十檔股票、預算與定期 |
-| `tool/screenshots/` | 依 `test/app/places.dart` 拍每頁淺色、深色截圖 |
+| `tool/screenshots/` | 依 `test/support/places.dart` 拍每頁淺色、深色截圖 |
 | `tool/app_icon.svg` | App 圖示原稿 |
 
 ## CI

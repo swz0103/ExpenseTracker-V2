@@ -1,4 +1,5 @@
 import '../../../core/ledger/ledger.dart';
+import '../../../core/formatting/words.dart';
 
 /// What a stretch of days came to: income, spending, and spending by
 /// category.
@@ -13,25 +14,9 @@ final class PeriodSums {
 }
 
 /// The sums of the days from [from] to [to], both counted.
-PeriodSums sumsBetween(Ledger ledger, DateTime from, DateTime to) {
-  var income = 0;
-  var expense = 0;
-  final byCategory = <String, int>{};
-  for (
-    var m = DateTime.utc(from.year, from.month);
-    !m.isAfter(to);
-    m = DateTime.utc(m.year, m.month + 1)
-  ) {
-    for (final e in ledger.entriesIn(m.year, m.month)) {
-      if (e.date.isBefore(from) || e.date.isAfter(to)) continue;
-      income += e.earning;
-      expense += e.spending;
-      for (final (name, value) in e.spendingParts) {
-        byCategory[name] = (byCategory[name] ?? 0) + value;
-      }
-    }
-  }
-  return PeriodSums(income, expense, byCategory);
+PeriodSums sumsBetween(ReportService reports, DateTime from, DateTime to) {
+  final (income, expense) = reports.totalsBetween(from, to);
+  return PeriodSums(income, expense, reports.spendingBetween(from, to));
 }
 
 /// One line of a comparison: what it is, and its amount in each period.
@@ -44,8 +29,8 @@ List<CompareRow> compare(PeriodSums a, PeriodSums b) {
   final names = {...a.byCategory.keys, ...b.byCategory.keys}.toList()
     ..sort((x, y) => gap(y).compareTo(gap(x)));
   return [
-    ('收入', a.income, b.income),
-    ('支出', a.expense, b.expense),
+    (Words.income, a.income, b.income),
+    (Words.expense, a.expense, b.expense),
     ('結餘', a.left, b.left),
     for (final n in names) (n, a.byCategory[n] ?? 0, b.byCategory[n] ?? 0),
   ];

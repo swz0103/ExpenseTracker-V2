@@ -1,5 +1,6 @@
-import '../../../core/text/amounts.dart';
+import '../../../core/formatting/amounts.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/formatting/dates.dart';
 
 /// A day the ledger wants remembered, as a calendar shows it: recurring
 /// items falling due and card payments.
@@ -44,7 +45,7 @@ final class Reminder {
   );
 }
 
-/// What falls due in the next [days] days, soonest first: each unbooked
+/// What falls due in the next `days` days, soonest first: each unbooked
 /// day of an active recurring item, and each card's payment still owed.
 extension LedgerReminders on Ledger {
   List<Reminder> reminders({int days = 60}) {
@@ -53,13 +54,15 @@ extension LedgerReminders on Ledger {
     String key(String kind, String id, DateTime d) =>
         '$kind:$id:${d.year}-${d.month}-${d.day}';
     final found = <Reminder>[];
-    for (final r in recurring) {
+    for (final r in recurring.all) {
       if (!r.active) continue;
       final currency = account(r.account).currency;
       final amount = currency == homeCode
           ? groupDigits(r.amount)
           : '$currency ${plainIn(r.amount, currency)}';
-      final booked = confirmationsIn(r, today.year, today.month).length;
+      final booked = recurringService
+          .confirmationsIn(r, today.year, today.month)
+          .length;
       for (var k = 0; k * 31 <= days + 31; k++) {
         final month = DateTime.utc(today.year, today.month + k);
         final dates = r.datesIn(month.year, month.month);
@@ -78,10 +81,10 @@ extension LedgerReminders on Ledger {
         }
       }
     }
-    for (final card in accounts) {
+    for (final card in accounts.all) {
       if (card.kind != AccountKind.card || card.archived) continue;
-      final (_, end, due) = statement(card);
-      final owed = statementDue(card);
+      final (_, end, due) = statementService.statement(card);
+      final owed = statementService.statementDue(card);
       if (owed <= 0 || !ahead(due)) continue;
       found.add(
         Reminder(
@@ -89,7 +92,7 @@ extension LedgerReminders on Ledger {
           day: due,
           title: '繳卡費：${card.name} ${groupDigits(owed)}',
           bare: '繳卡費：${card.name}',
-          note: '${end.month}/${end.day} 結帳的帳單',
+          note: '${formatMd(end)} 結帳的帳單',
           daysAhead: 2,
         ),
       );

@@ -78,6 +78,27 @@ void main() {
     );
   });
 
+  test(
+    'a ledger whose database is gone is refused, not opened empty',
+    () async {
+      final (open, recovery) = await vault.create(password);
+      keepOne(open);
+      open.close();
+      vault.databaseFile.deleteSync();
+      // Opening would start an empty book as if nothing had been kept.
+      await expectLater(
+        vault.unlockWithPassword(password),
+        fails(VaultProblem.missingDatabase),
+      );
+      await expectLater(
+        vault.unlockWithRecovery(recovery),
+        fails(VaultProblem.missingDatabase),
+      );
+      expect(vault.databaseFile.existsSync(), isFalse, reason: 'none made');
+      expect(vault.keyringFile.existsSync(), isTrue, reason: 'keys kept');
+    },
+  );
+
   test('a changed password is saved; another ledger is refused', () async {
     final (open, _) = await vault.create(password);
     open.close();
@@ -192,7 +213,7 @@ void main() {
 
     tearDown(() => source.close());
 
-    Future<void> copy(RowStore staging) async {
+    Future<void> copy(EncryptedDatabase staging) async {
       staging.write((w) {
         for (final row in source.store.rows()) {
           w.put(row.shelf, row.id, row.body);
@@ -200,7 +221,7 @@ void main() {
       });
     }
 
-    List<(String, String, String)> rowsOf(RowStore store) => [
+    List<(String, String, String)> rowsOf(EncryptedDatabase store) => [
       for (final row in store.rows()) (row.shelf, row.id, row.body),
     ];
 

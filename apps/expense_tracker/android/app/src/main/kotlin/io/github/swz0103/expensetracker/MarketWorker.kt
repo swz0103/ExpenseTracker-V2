@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit
  * Fetches the exchanges' day lists and the bank's rates every few hours,
  * without the app being opened, so the closes are on the phone before
  * 投資 is: the app reads them from `files/market/` when they are fresh
- * (lib/src/app/android/market_cache.dart) and asks the network only when
+ * (lib/src/app/android/market_cache_adapter.dart) and asks the network only when
  * they are not. The addresses are the ones the app wrote in `urls.txt`,
  * a file name and an address a line;
  * only the three public hosts are fetched, and nothing of the ledger is

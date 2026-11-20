@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import '../core/look/haptics.dart';
-import '../core/look/theme.dart';
+import '../core/design_system/haptics.dart';
+import '../core/design_system/theme.dart';
 import '../core/platform/preferences.dart';
-import '../core/ui/privacy_cover.dart';
+import '../core/widgets/privacy_cover.dart';
 
 /// The app shell: the theme, light or dark, the scrolling and [home].
 class ExpenseApp extends StatefulWidget {

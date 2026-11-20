@@ -2,16 +2,20 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/text/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/paint.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/paint.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
 import '../model/returns.dart';
 import 'investments.dart' show yearlyRate;
-import '../../../core/ui/shown_amounts.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 part 'holding_bento.dart';
 
@@ -36,10 +40,10 @@ class HoldingPage extends StatelessWidget {
       listenable: ledger,
       builder: (context, _) {
         final held = ledger.holding(code);
-        final trades = ledger.tradesOf(code);
+        final trades = ledger.entryQueryService.tradesOf(code);
         if (held == null) {
           return HeadedList(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
             header: CenterHeader(code, onBack: nav.back),
             children: [
               _SoldOut(ledger: ledger, trades: trades),
@@ -52,16 +56,16 @@ class HoldingPage extends StatelessWidget {
             ],
           );
         }
-        final tone = held.gain < 0 ? Hue.negative : Hue.positive;
-        final quoted = ledger.hasQuote(code);
-        final lots = ledger.lotsOf(code);
+        final tone = AppColors.ofChange(held.gain);
+        final quoted = ledger.holdings.hasQuote(code);
+        final lots = ledger.holdings.lotsOf(code);
         final average = held.shares == 0 ? 0 : held.cost / held.shares;
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
           header: CenterHeader('${held.name} $code', onBack: nav.back),
           children: [
             _PriceCard(ledger: ledger, held: held, quoted: quoted),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             _PriceChart(
               ledger: ledger,
               nav: nav,
@@ -72,7 +76,7 @@ class HoldingPage extends StatelessWidget {
                   if (e.type == EntryType.buy && e.shares > 0) e,
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             Builder(
               builder: (context) {
                 final rate = returnOf(ledger, code: code);
@@ -93,7 +97,7 @@ class HoldingPage extends StatelessWidget {
                         ],
                       ),
                       _Bento(
-                        color: Hue.faint,
+                        color: AppColors.faint,
                         label: '現在值',
                         value: ledger.orDots(groupDigits(held.value)),
                         lines: [
@@ -104,7 +108,7 @@ class HoldingPage extends StatelessWidget {
                         ],
                       ),
                     ]),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: Space.s2),
                     _DividendCard(
                       ledger: ledger,
                       total: held.dividends,
@@ -116,15 +120,15 @@ class HoldingPage extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             Row(
               children: [
                 for (final (i, (type, label, color)) in const [
-                  (EntryType.buy, '＋ 買進', _buyHue),
-                  (EntryType.sell, '賣出', _sellHue),
-                  (EntryType.dividend, '記股息', _dividendHue),
+                  (EntryType.buy, '＋ 買進', _buyColor),
+                  (EntryType.sell, '賣出', _sellColor),
+                  (EntryType.dividend, '記股息', _dividendColor),
                 ].indexed) ...[
-                  if (i > 0) const SizedBox(width: 8),
+                  if (i > 0) const SizedBox(width: Space.s2),
                   Expanded(
                     child: PanelButton(
                       label,
@@ -135,7 +139,7 @@ class HoldingPage extends StatelessWidget {
                           date: ledger.today,
                           type: type,
                           amount: 0,
-                          account: ledger.mainAccount,
+                          account: ledger.accounts.main,
                           category: '',
                           holding: code,
                         ),
@@ -155,9 +159,9 @@ class HoldingPage extends StatelessWidget {
   }
 }
 
-const _buyHue = Palette.indigo;
-const _sellHue = Palette.brick;
-const _dividendHue = Palette.gold;
+const _buyColor = Palette.indigo;
+const _sellColor = Palette.brick;
+const _dividendColor = Palette.gold;
 
 /// 股息 on its gold tint: the total, when the next one is due and about
 /// how much, and the twelve months with those it pays in filled.
@@ -178,12 +182,17 @@ class _DividendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = deepOf(_dividendHue);
+    final ink = deepOf(_dividendColor);
     final coming = next;
     return ColorCard(
-      color: _dividendHue,
+      color: _dividendColor,
       amount: 0.22,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s4,
+        Space.s4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -195,7 +204,7 @@ class _DividendCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '股息',
+                      Words.dividend,
                       style: TextStyle(
                         fontSize: TextSize.small,
                         fontWeight: FontWeight.w800,
@@ -234,22 +243,24 @@ class _DividendCard extends StatelessWidget {
               style: TextStyle(fontSize: TextSize.caption, color: ink),
             ),
           if (months.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.s2),
             Semantics(
               label: '配息月份 ${months.join('、')} 月',
               child: ExcludeSemantics(
                 child: Row(
                   children: [
                     for (var m = 1; m <= 12; m++) ...[
-                      if (m > 1) const SizedBox(width: 4),
+                      if (m > 1) const SizedBox(width: Space.s1),
                       Expanded(
                         child: Container(
                           height: 12,
                           decoration: BoxDecoration(
                             color: months.contains(m)
-                                ? _dividendHue
-                                : Hue.white.withValues(alpha: 0.7),
-                            borderRadius: BorderRadius.circular(4),
+                                ? _dividendColor
+                                : AppColors.white.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(
+                              Radii.extraSmall,
+                            ),
                           ),
                         ),
                       ),
@@ -289,7 +300,7 @@ class _TradeBoard extends StatelessWidget {
     final shown = [...trades]..sort((a, b) => b.date.compareTo(a.date));
     final count = shown.length + opening.length;
     if (count == 0) return const SizedBox.shrink();
-    String day(DateTime d) => '${d.year}/${d.month}/${d.day}';
+    String day(DateTime d) => formatYMd(d);
     final rows = <Widget>[
       for (final e in shown)
         _TradeRow(
@@ -299,20 +310,18 @@ class _TradeBoard extends StatelessWidget {
             _ => Glyph.add,
           },
           color: switch (e.type) {
-            EntryType.sell => _sellHue,
-            EntryType.dividend => _dividendHue,
-            _ => _buyHue,
+            EntryType.sell => _sellColor,
+            EntryType.dividend => _dividendColor,
+            _ => _buyColor,
           },
           title: switch (e.type) {
             EntryType.buy => '買進',
             EntryType.sell => '賣出',
             _ when e.isReduction => '減資',
             _ when e.shares > 0 => '配股',
-            _ => '股息',
+            _ => Words.dividend,
           },
-          when: e.type == EntryType.dividend
-              ? '${e.date.month}/${e.date.day}'
-              : day(e.date),
+          when: e.type == EntryType.dividend ? formatMd(e.date) : day(e.date),
           detail: e.shares != 0 && e.type != EntryType.dividend
               ? '${groupDigits(e.shares)} 股 × '
                     '${_price(e.amount / e.shares.abs())}'
@@ -324,24 +333,26 @@ class _TradeBoard extends StatelessWidget {
             EntryType.sell => ledger.orDots(signed(e.amount - e.fee)),
             _ => ledger.orDots(signed(e.dividendNet)),
           },
-          amountColor: e.type == EntryType.buy ? Hue.ink : Hue.positive,
+          amountColor: e.type == EntryType.buy
+              ? AppColors.ink
+              : AppColors.positive,
           onTap: () => nav.showEntry(e),
         ),
       for (final l in opening)
         _TradeRow(
           glyph: Glyph.add,
-          color: _buyHue,
+          color: _buyColor,
           title: '期初持有',
           when: '',
           detail: '${ledger.orDots(groupDigits(l.shares))} 股',
           amount: '成本 ${ledger.orDots(groupDigits(l.cost))}',
-          amountColor: Hue.ink,
+          amountColor: AppColors.ink,
         ),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 20),
+        const SizedBox(height: Space.s5),
         TitleRow('交易紀錄', trailing: Text('共 $count 筆', style: mutedSmall)),
         QuoteBoard([
           for (final (i, row) in rows.indexed)
@@ -382,7 +393,10 @@ class _TradeRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.s4,
+          vertical: Space.s3,
+        ),
         child: Row(
           children: [
             Container(
@@ -391,11 +405,11 @@ class _TradeRow extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: tintOf(color, 0.22),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(Radii.large),
               ),
               child: GlyphIcon(glyph, size: 20, color: deepOf(color)),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: Space.s3),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -412,7 +426,7 @@ class _TradeRow extends StatelessWidget {
                             text: '  $when',
                             style: const TextStyle(
                               fontWeight: FontWeight.w400,
-                              color: Hue.muted,
+                              color: AppColors.muted,
                             ),
                           ),
                       ],
@@ -422,7 +436,7 @@ class _TradeRow extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: Space.s2),
             Text(
               amount,
               style: TextStyle(
@@ -465,8 +479,13 @@ class _SoldOut extends StatelessWidget {
     }
     final made = sold + dividends - paid;
     return HeroCard(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      margin: const EdgeInsets.only(bottom: Space.s3),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s4,
+        Space.s5,
+        Space.s4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -475,7 +494,7 @@ class _SoldOut extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.small,
               fontWeight: FontWeight.w800,
-              color: Hue.accent,
+              color: AppColors.accent,
             ),
           ),
           Text(
@@ -483,7 +502,7 @@ class _SoldOut extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.big,
               fontWeight: FontWeight.w800,
-              color: made < 0 ? Hue.negative : Hue.positive,
+              color: AppColors.ofChange(made),
             ),
           ),
           Text(
@@ -513,10 +532,16 @@ class _PriceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final up = held.change >= 0;
+    final tone = up ? AppColors.positive : AppColors.negative;
     final before = held.value - held.change;
     final perShare = held.shares == 0 ? 0.0 : held.change / held.shares;
     return HeroCard(
-      padding: const EdgeInsets.fromLTRB(20, 14, 14, 14),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       child: Row(
         children: [
           Expanded(
@@ -532,17 +557,20 @@ class _PriceCard extends StatelessWidget {
                 ),
                 if (!quoted)
                   Text('尚無收盤價，以成本估算', style: mutedSmall)
-                else if (ledger.quotedOn case final d?)
-                  Text('${d.month}/${d.day} 收盤', style: mutedSmall),
+                else if (ledger.marketData.quotedOn case final d?)
+                  Text('${formatMd(d)} 收盤', style: mutedSmall),
               ],
             ),
           ),
           if (quoted)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.s3,
+                vertical: Space.s2,
+              ),
               decoration: BoxDecoration(
-                color: chosenFill(up ? Hue.positive : Hue.negative),
-                borderRadius: BorderRadius.circular(14),
+                color: chosenFill(tone),
+                borderRadius: BorderRadius.circular(Radii.large),
               ),
               child: Column(
                 children: [
@@ -551,14 +579,14 @@ class _PriceCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: TextSize.title,
                       fontWeight: FontWeight.w800,
-                      color: chosenInk(up ? Hue.positive : Hue.negative),
+                      color: chosenInk(tone),
                     ),
                   ),
                   Text(
                     '${up ? '▲' : '▼'} ${perShare.abs().toStringAsFixed(2)}',
                     style: TextStyle(
                       fontSize: TextSize.caption,
-                      color: chosenInk(up ? Hue.positive : Hue.negative),
+                      color: chosenInk(tone),
                     ),
                   ),
                 ],

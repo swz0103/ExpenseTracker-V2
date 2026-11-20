@@ -79,7 +79,7 @@ final class Portfolio {
           case EntryType.dividend when e.isReduction:
             // A reduction takes away shares that must be there.
             if (-e.shares > held.shares) {
-              throw StateError('減少的股數超過持有股數');
+              throw StateError('A reduction takes more shares than are held.');
             }
             final left = held.shares + e.shares;
             final int lowered;
@@ -197,7 +197,9 @@ final class Portfolio {
   }) {
     final held = lots.fold(BigInt.zero, (sum, l) => sum + l.units);
     final selling = BigInt.from(shares) * unitsPerShare;
-    if (selling > held) throw StateError('賣出股數超過持有股數');
+    if (selling > held) {
+      throw StateError('A sale takes more shares than are held.');
+    }
     final sale = sellFromLots(
       _positions(lots),
       selling,

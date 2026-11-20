@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/widgets.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/platform/preferences.dart';
 import '../model/overview_blocks.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
 import 'sections/assets_section.dart';
 import 'sections/daily_section.dart';
 import 'sections/flow_section.dart';
 import 'sections/market_section.dart';
 import 'sections/plan_section.dart';
 import 'sections/summary_section.dart';
+import '../../../core/design_system/spacing.dart';
 
 /// 總覽: the month in four figures, what falls due, a week of days with
 /// the chosen day's entries, the market, spending against the budget,
@@ -105,7 +106,7 @@ class _OverviewPageState extends State<OverviewPage> {
     final ledger = widget.ledger;
     final preferences = widget.preferences;
     return HeadedList(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
       header: ListenableBuilder(
         listenable: ledger,
         builder: (context, _) => PageHeader(

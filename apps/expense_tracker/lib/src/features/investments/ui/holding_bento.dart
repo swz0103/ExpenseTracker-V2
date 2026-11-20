@@ -21,7 +21,12 @@ class _Bento extends StatelessWidget {
     return ColorCard(
       color: color,
       amount: 0.22,
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s3,
+        Space.s3,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -134,6 +139,72 @@ class _PriceChartState extends State<_PriceChart> {
 
   String _price(double p) => p.toStringAsFixed(p < 100 ? 2 : 0);
 
+  /// The line itself, at least two closes: a touch reads the close under
+  /// the finger, or a buy within its reach.
+  Widget _plot(
+    List<(DateTime, double)> closes,
+    double price,
+    Entry? buy,
+    int? touched,
+  ) => LayoutBuilder(
+    builder: (context, box) {
+      final plot = box.maxWidth - _gutter;
+      final scale = _Scale.of(closes, widget.average, _height);
+      final buys = {for (final e in widget.buys) _day(e.date): e};
+      void touch(Offset at) {
+        final i = (at.dx / plot * (closes.length - 1)).round().clamp(
+          0,
+          closes.length - 1,
+        );
+        // A buy within a finger's reach is read as that buy.
+        Entry? near;
+        var nearest = 24.0;
+        for (final (j, (day, close)) in closes.indexed) {
+          final hit = buys[day];
+          if (hit == null) continue;
+          final d =
+              (Offset(j * plot / (closes.length - 1), scale.y(close)) - at)
+                  .distance;
+          if (d < nearest) {
+            nearest = d;
+            near = hit;
+          }
+        }
+        setState(() {
+          _buy = near;
+          _touched = near == null ? i : null;
+        });
+      }
+
+      return Semantics(
+        label: '走勢圖',
+        child: GestureDetector(
+          onTapDown: (d) => touch(d.localPosition),
+          onHorizontalDragUpdate: (d) => touch(d.localPosition),
+          child: CustomPaint(
+            size: Size(box.maxWidth, _height),
+            painter: _LinePainter(
+              closes: closes,
+              scale: scale,
+              gutter: _gutter,
+              average: widget.average,
+              price: price,
+              buys: buys.keys.toSet(),
+              chosen: buy == null ? null : _day(buy.date),
+              touched: touched,
+              line: AppColors.positive,
+              fill: tintOf(AppColors.positive, 0.25),
+              dash: AppColors.investment,
+              rule: AppColors.line,
+              words: AppColors.muted,
+              onTag: AppColors.onAccent,
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
   @override
   Widget build(BuildContext context) {
     final closes = _closes;
@@ -154,7 +225,7 @@ class _PriceChartState extends State<_PriceChart> {
         '$prefix${up ? '+' : ''}${((to - from) * 100 / from).toStringAsFixed(1)}%',
         style: TextStyle(
           fontWeight: FontWeight.w800,
-          color: up ? Hue.positive : Hue.negative,
+          color: up ? AppColors.positive : AppColors.negative,
         ),
       );
     }
@@ -170,7 +241,7 @@ class _PriceChartState extends State<_PriceChart> {
             _load();
           },
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: Space.s2),
         Row(
           children: [
             if (buy != null) ...[
@@ -178,18 +249,18 @@ class _PriceChartState extends State<_PriceChart> {
                 width: 10,
                 height: 10,
                 decoration: const BoxDecoration(
-                  color: Hue.investment,
+                  color: AppColors.investment,
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: Space.s2),
             ],
             Expanded(
               child: buy != null
                   ? Text.rich(
                       TextSpan(
                         text:
-                            '${buy.date.year}/${buy.date.month}/${buy.date.day} '
+                            '${formatYMd(buy.date)} '
                             '買 ${groupDigits(buy.shares)} 股',
                         style: const TextStyle(fontWeight: FontWeight.w800),
                         children: [
@@ -204,7 +275,7 @@ class _PriceChartState extends State<_PriceChart> {
                   : Text(
                       shown == null
                           ? (_range == 3 ? '從第一次買到現在' : '這段期間')
-                          : '${shown.$1.year}/${shown.$1.month}/${shown.$1.day} '
+                          : '${formatYMd(shown.$1)} '
                                 '收盤 ${_price(shown.$2)}',
                       style: mutedSmall,
                     ),
@@ -215,7 +286,7 @@ class _PriceChartState extends State<_PriceChart> {
               change(first, last, ''),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: Space.s2),
         SizedBox(
           height: _height,
           child: closes == null || closes.length < 2
@@ -229,98 +300,32 @@ class _PriceChartState extends State<_PriceChart> {
                     style: mutedSmall,
                   ),
                 )
-              : LayoutBuilder(
-                  builder: (context, box) {
-                    final plot = box.maxWidth - _gutter;
-                    final scale = _Scale.of(closes, widget.average, _height);
-                    final buys = {for (final e in widget.buys) _day(e.date): e};
-                    void touch(Offset at) {
-                      final i = (at.dx / plot * (closes.length - 1))
-                          .round()
-                          .clamp(0, closes.length - 1);
-                      // A buy within a finger's reach is read as that buy.
-                      Entry? near;
-                      var nearest = 24.0;
-                      for (final (j, (day, close)) in closes.indexed) {
-                        final hit = buys[day];
-                        if (hit == null) continue;
-                        final d =
-                            (Offset(
-                                      j * plot / (closes.length - 1),
-                                      scale.y(close),
-                                    ) -
-                                    at)
-                                .distance;
-                        if (d < nearest) {
-                          nearest = d;
-                          near = hit;
-                        }
-                      }
-                      setState(() {
-                        _buy = near;
-                        _touched = near == null ? i : null;
-                      });
-                    }
-
-                    return Semantics(
-                      label: '走勢圖',
-                      child: GestureDetector(
-                        onTapDown: (d) => touch(d.localPosition),
-                        onHorizontalDragUpdate: (d) => touch(d.localPosition),
-                        child: CustomPaint(
-                          size: Size(box.maxWidth, _height),
-                          painter: _LinePainter(
-                            closes: closes,
-                            scale: scale,
-                            gutter: _gutter,
-                            average: widget.average,
-                            price: price,
-                            buys: buys.keys.toSet(),
-                            chosen: buy == null ? null : _day(buy.date),
-                            touched: touched,
-                            line: Hue.positive,
-                            fill: tintOf(Hue.positive, 0.25),
-                            dash: Hue.investment,
-                            rule: Hue.line,
-                            words: Hue.muted,
-                            onTag: Hue.onAccent,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              : _plot(closes, price, buy, touched),
         ),
         if (closes != null && closes.length >= 2) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.s1),
           Padding(
             padding: const EdgeInsets.only(right: _gutter),
             child: Row(
               children: [
                 for (final (i, label) in _ticks(closes).indexed) ...[
                   if (i > 0) const Spacer(),
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: TextSize.tiny,
-                      color: Hue.muted,
-                    ),
-                  ),
+                  Text(label, style: mutedTiny),
                 ],
               ],
             ),
           ),
         ],
-        const SizedBox(height: 8),
+        const SizedBox(height: Space.s2),
         Wrap(
           spacing: 14,
           runSpacing: 4,
           children: [
             LegendKey(
-              Hue.investment,
+              AppColors.investment,
               widget.buys.isEmpty ? '我買的時候' : '我買的時候（點一下看那批）',
             ),
-            const LegendKey(Hue.investment, '均價', line: true),
+            const LegendKey(AppColors.investment, '均價', line: true),
           ],
         ),
       ],
@@ -333,8 +338,7 @@ class _PriceChartState extends State<_PriceChart> {
     final start = closes.first.$1;
     final middle = closes[closes.length ~/ 2].$1;
     final long = closes.last.$1.difference(start).inDays > 400;
-    String at(DateTime d) =>
-        long ? '${d.year}/${d.month}' : '${d.month}/${d.day}';
+    String at(DateTime d) => long ? formatYM(d) : formatMd(d);
     return [at(start), at(middle), '現在'];
   }
 }
@@ -457,7 +461,7 @@ class _LinePainter extends CustomPainter {
       final at = y(v);
       final box = RRect.fromRectAndRadius(
         Rect.fromLTWH(width + 2, at - 10, gutter - 2, 20),
-        const Radius.circular(6),
+        const Radius.circular(Radii.small),
       );
       canvas.drawRRect(box, Paint()..color = color);
       text.paint(

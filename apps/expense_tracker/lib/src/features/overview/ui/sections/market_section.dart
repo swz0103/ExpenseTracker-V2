@@ -3,14 +3,17 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../../../core/charts/bar_scale.dart';
-import '../../../../core/text/figures.dart';
-import '../../../../core/look/glyphs.dart';
-import '../../../../core/look/theme.dart';
-import '../../../../core/look/widgets.dart';
+import '../../../../core/formatting/figures.dart';
+import '../../../../core/design_system/glyphs.dart';
+import '../../../../core/design_system/theme.dart';
+import '../../../../core/design_system/design_system.dart';
 import '../../../../core/ledger/ledger.dart';
-import '../../../../core/nav.dart';
-import '../../../../core/ui/entry_tile.dart' show holdingLabel;
-import '../../../../core/ui/shown_amounts.dart';
+import '../../../../core/navigation/nav.dart';
+import '../../../../core/widgets/entry_tile.dart' show holdingLabel;
+import '../../../../core/widgets/shown_amounts.dart';
+import '../../../../core/formatting/dates.dart';
+import '../../../../core/design_system/shape.dart';
+import '../../../../core/design_system/spacing.dart';
 
 /// 投資行情: today's profit and the market value, then each holding's move
 /// as a bar; a tap on one shows its value and gain so far.
@@ -30,7 +33,8 @@ class _MarketSectionState extends State<MarketSection> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.ledger,
+      // Only what it shows: a change elsewhere leaves it as it is.
+      listenable: widget.ledger.watch(const {Topic.entries, Topic.market}),
       builder: (context, _) {
         final parts = _market();
         // Nothing to show before the first trade.
@@ -46,28 +50,28 @@ class _MarketSectionState extends State<MarketSection> {
   List<Widget> _market() {
     final ledger = widget.ledger;
     final holdings = ledger.holdings;
-    if (holdings.isEmpty) return const [];
-    final change = ledger.dayChange;
-    final before = ledger.investValue - change;
-    final largest = holdings.fold(0, (m, h) => max(m, h.change.abs()));
-    final anyLoss = holdings.any((h) => h.change < 0);
+    if (holdings.all.isEmpty) return const [];
+    final change = ledger.holdings.dayChange;
+    final before = ledger.holdings.marketValue - change;
+    final largest = holdings.all.fold(0, (m, h) => max(m, h.change.abs()));
+    final anyLoss = holdings.all.any((h) => h.change < 0);
     final code = _holding;
     final picked = code == null ? null : ledger.holding(code);
-    final tone = change < 0 ? Hue.negative : Hue.positive;
+    final tone = AppColors.ofChange(change);
     return [
       SectionTitle(
         '投資行情',
-        trailing: Text(switch (ledger.quotedOn) {
-          final d? => '${d.month}/${d.day} 收盤',
+        trailing: Text(switch (ledger.marketData.quotedOn) {
+          final d? => '${formatMd(d)} 收盤',
           null => '尚未取得收盤價',
         }, style: mutedSmall),
       ),
       CardRow([
         // Before any close there is no move to tell, not a move of zero.
-        if (ledger.quotedOn == null)
+        if (ledger.marketData.quotedOn == null)
           const FigureCard(
             icon: Glyph.investment,
-            color: ToolHue.investments,
+            color: ToolColors.investments,
             label: '當日損益',
             value: '—',
             sub: '尚無收盤價',
@@ -75,7 +79,7 @@ class _MarketSectionState extends State<MarketSection> {
         else
           FigureCard(
             icon: Glyph.investment,
-            color: ToolHue.investments,
+            color: ToolColors.investments,
             label: '當日損益',
             value: ledger.moneySigned(change),
             valueColor: tone,
@@ -83,19 +87,19 @@ class _MarketSectionState extends State<MarketSection> {
           ),
         FigureCard(
           icon: Glyph.briefcase,
-          color: ToolHue.investments,
+          color: ToolColors.investments,
           label: '持股市值',
-          value: ledger.money(ledger.investValue),
-          sub: '${holdings.length} 檔',
-          onTap: () => widget.nav.open(Pages.investments),
+          value: ledger.money(ledger.holdings.marketValue),
+          sub: '${holdings.all.length} 檔',
+          onTap: () => widget.nav.open(AppRoutes.investments),
         ),
       ]),
-      const SizedBox(height: 8),
-      for (final h in holdings)
-        _moveRow(h, largest, anyLoss ? 0.5 : 0, bar: holdings.length > 1),
+      const SizedBox(height: Space.s2),
+      for (final h in holdings.all)
+        _moveRow(h, largest, anyLoss ? 0.5 : 0, bar: holdings.all.length > 1),
       if (picked != null)
         Padding(
-          padding: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.only(top: Space.s2),
           child: Text.rich(
             TextSpan(
               style: mutedSmall,
@@ -103,7 +107,7 @@ class _MarketSectionState extends State<MarketSection> {
                 TextSpan(
                   text: '${holdingLabel(picked)}　',
                   style: const TextStyle(
-                    color: Hue.ink,
+                    color: AppColors.ink,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -113,9 +117,7 @@ class _MarketSectionState extends State<MarketSection> {
                     '${signed(picked.gain)}'
                     '（${percentOf(picked.gain, picked.cost)}）',
                   ),
-                  style: TextStyle(
-                    color: picked.gain < 0 ? Hue.negative : Hue.positive,
-                  ),
+                  style: TextStyle(color: AppColors.ofChange(picked.gain)),
                 ),
               ],
             ),
@@ -129,16 +131,17 @@ class _MarketSectionState extends State<MarketSection> {
   Widget _moveRow(Holding h, int largest, double axis, {required bool bar}) {
     final picked = h.code == _holding;
     final quoted =
-        widget.ledger.hasQuote(h.code) && widget.ledger.quotedOn != null;
+        widget.ledger.holdings.hasQuote(h.code) &&
+        widget.ledger.marketData.quotedOn != null;
     return InkWell(
       onTap: () => setState(() => _holding = picked ? null : h.code),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(Radii.small),
       child: Container(
         constraints: const BoxConstraints(minHeight: 48),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: Space.s1),
         decoration: BoxDecoration(
-          color: picked ? Hue.selected.withValues(alpha: 0.6) : null,
-          borderRadius: BorderRadius.circular(8),
+          color: picked ? AppColors.selected.withValues(alpha: 0.6) : null,
+          borderRadius: BorderRadius.circular(Radii.small),
         ),
         child: Row(
           children: [
@@ -163,8 +166,10 @@ class _MarketSectionState extends State<MarketSection> {
                     )
                   : const SizedBox.shrink(),
             ),
+            // As wide on every row, so the bars share one axis, and wider
+            // with the phone's text, so the amount stays on one line.
             SizedBox(
-              width: 50,
+              width: 50 * textGrowth(context),
               child: Text(
                 quoted ? widget.ledger.moneySigned(h.change) : '—',
                 textAlign: TextAlign.end,
@@ -172,10 +177,8 @@ class _MarketSectionState extends State<MarketSection> {
                   fontSize: TextSize.small,
                   fontWeight: FontWeight.w600,
                   color: !quoted
-                      ? Hue.muted
-                      : h.change < 0
-                      ? Hue.negative
-                      : Hue.positive,
+                      ? AppColors.muted
+                      : AppColors.ofChange(h.change),
                 ),
               ),
             ),

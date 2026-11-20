@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
-import '../compose/category_editor.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/haptics.dart';
-import '../../../core/ui/icons.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../forms/category_editor.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/haptics.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/nav.dart';
+import '../../../core/navigation/nav.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
 
 /// 分類: 支出 or 收入 on two big segments, then that kind's categories
 /// three to a row, each its solid icon and name on its own tint, a small
@@ -26,7 +29,7 @@ class CategoriesPage extends StatefulWidget {
 }
 
 class _CategoriesPageState extends State<CategoriesPage> {
-  static const _colors = Hue.categoryColors;
+  static const _colors = AppColors.categoryColors;
 
   var _income = false;
 
@@ -40,7 +43,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
       editCategory(context, ledger, category);
 
   Future<void> _add() async {
-    final count = ledger.categories.length;
+    final count = ledger.categories.all.length;
     final made = await showCategoryEditor(
       context,
       title: _income ? '新增收入分類' : '新增支出分類',
@@ -53,12 +56,12 @@ class _CategoriesPageState extends State<CategoriesPage> {
       colors: _colors,
       ledger: ledger,
     );
-    if (made != null) ledger.addCategory(made);
+    if (made != null) ledger.categoryCommands.addCategory(made);
   }
 
   /// Top-level open categories of the kind shown, in their order.
   List<Category> _tops(bool income) => [
-    for (final c in ledger.categoriesFor(income: income))
+    for (final c in ledger.categories.forEntries(income: income))
       if (c.parent == null || ledger.category(c.parent!).archived) c,
   ];
 
@@ -66,9 +69,9 @@ class _CategoriesPageState extends State<CategoriesPage> {
   /// everything else in the order it stands. Each kind is shown on its
   /// own, so only the order within a kind is seen.
   void _place(List<String> names) {
-    ledger.placeCategories([
+    ledger.categoryCommands.placeCategories([
       ...names,
-      for (final c in ledger.categories)
+      for (final c in ledger.categories.all)
         if (!names.contains(c.name)) c.name,
     ]);
   }
@@ -109,11 +112,11 @@ class _CategoriesPageState extends State<CategoriesPage> {
         final byName = {for (final c in tops) c.name: c};
         final order = _dragging ?? [for (final c in tops) c.name];
         final archived = [
-          for (final c in ledger.categories)
+          for (final c in ledger.categories.all)
             if (c.archived && c.income == _income) c,
         ];
         final children = <String, int>{};
-        for (final c in ledger.categoriesFor(income: _income)) {
+        for (final c in ledger.categories.forEntries(income: _income)) {
           if (c.parent case final parent?) {
             children[parent] = (children[parent] ?? 0) + 1;
           }
@@ -147,25 +150,25 @@ class _CategoriesPageState extends State<CategoriesPage> {
               ),
           _Tile(
             glyph: Glyph.add,
-            color: Hue.faint,
-            label: '新增',
+            color: AppColors.faint,
+            label: Words.add,
             plain: true,
             onTap: _add,
           ),
         ];
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-          header: CenterHeader('分類', onBack: widget.nav.back),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
+          header: CenterHeader(Words.category, onBack: widget.nav.back),
           children: [
             Row(
               children: [
                 for (final (i, income) in const [false, true].indexed) ...[
-                  if (i > 0) const SizedBox(width: 10),
+                  if (i > 0) const SizedBox(width: Space.s2),
                   Expanded(
                     child: _Kind(
-                      label: income ? '收入' : '支出',
+                      label: income ? Words.income : Words.expense,
                       count: _tops(income).length,
-                      color: income ? Hue.positive : Hue.negative,
+                      color: income ? AppColors.positive : AppColors.negative,
                       chosen: _income == income,
                       onTap: () => setState(() => _income = income),
                     ),
@@ -173,7 +176,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                 ],
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: Space.s4),
             CardGrid(columns: 3, gap: 10, tiles),
             if (archived.isNotEmpty) ...[
               const RuleHead('已封存'),
@@ -183,25 +186,25 @@ class _CategoriesPageState extends State<CategoriesPage> {
                 children: [
                   for (final c in archived)
                     ActionChip(
-                      backgroundColor: Hue.surface,
+                      backgroundColor: AppColors.surface,
                       side: BorderSide.none,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(Radii.large),
                       ),
                       avatar: GlyphIcon(
                         iconFor(c.icon),
                         size: 18,
-                        color: Hue.muted,
+                        color: AppColors.muted,
                       ),
                       label: Text(
                         c.name,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
-                          color: Hue.muted,
+                          color: AppColors.muted,
                         ),
                       ),
                       tooltip: '恢復「${c.name}」',
-                      onPressed: () => ledger.updateCategory(
+                      onPressed: () => ledger.categoryCommands.updateCategory(
                         c.name,
                         c.copyWith(archived: false),
                       ),
@@ -226,10 +229,10 @@ Future<void> editCategory(
     context,
     title: '編輯分類',
     initial: category,
-    colors: Hue.categoryColors,
+    colors: AppColors.categoryColors,
     ledger: ledger,
   );
-  if (next != null) ledger.updateCategory(category.name, next);
+  if (next != null) ledger.categoryCommands.updateCategory(category.name, next);
 }
 
 /// 支出 10 or 收入 4: solid in its colour when chosen.
@@ -250,22 +253,23 @@ class _Kind extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = chosen ? chosenInk(color) : Hue.muted;
-    return Semantics(
+    final ink = chosen ? chosenInk(color) : AppColors.muted;
+    return ReadAsButton(
       selected: chosen,
-      button: true,
       label: '$label $count 個',
-      excludeSemantics: true,
+      onTap: onTap,
       child: DecoratedBox(
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(Radii.large),
+        ),
         child: Material(
-          color: chosen ? chosenFill(color) : Hue.surface,
+          color: chosen ? chosenFill(color) : AppColors.surface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
             side: chosen ? chosenEdge(color) : BorderSide.none,
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
             onTap: onTap,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 52),
@@ -390,20 +394,25 @@ class _Tile extends StatelessWidget {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: Hue.white,
-              borderRadius: BorderRadius.circular(15),
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(Radii.large),
             ),
             alignment: Alignment.center,
-            child: const GlyphIcon(Glyph.add, size: 24, color: Hue.ink),
+            child: const GlyphIcon(Glyph.add, size: 24, color: AppColors.ink),
           )
         : SquareIcon(glyph, color, size: 50);
     return ColorCard(
-      color: plain ? Hue.faint : color,
+      color: plain ? AppColors.faint : color,
       amount: plain ? 0.25 : 0.2,
-      radius: 20,
+      radius: Radii.largeIncreased,
       onTap: onTap,
       label: count > 0 ? '$label，$count 個子分類' : label,
-      padding: const EdgeInsets.fromLTRB(6, 14, 6, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s2,
+        Space.s4,
+        Space.s2,
+        Space.s3,
+      ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -419,7 +428,7 @@ class _Tile extends StatelessWidget {
                     width: 22,
                     height: 22,
                     decoration: const BoxDecoration(
-                      color: Hue.white,
+                      color: AppColors.white,
                       shape: BoxShape.circle,
                     ),
                     alignment: Alignment.center,
@@ -436,7 +445,7 @@ class _Tile extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: Space.s2),
           Text(
             label,
             maxLines: 1,
@@ -445,7 +454,7 @@ class _Tile extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.body,
               fontWeight: FontWeight.w800,
-              color: plain ? Hue.ink : deepOf(color),
+              color: plain ? AppColors.ink : deepOf(color),
             ),
           ),
         ],

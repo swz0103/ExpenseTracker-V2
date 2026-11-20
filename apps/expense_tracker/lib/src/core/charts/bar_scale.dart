@@ -2,7 +2,9 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../look/theme.dart';
+import '../design_system/theme.dart';
+import '../design_system/shape.dart';
+import '../design_system/motion.dart';
 
 /// The share of a bar's full length that [value] takes next to
 /// [largest], in proportion, and at least a sliver when it is not zero.
@@ -21,8 +23,8 @@ class AxisBar extends StatelessWidget {
     required this.value,
     required this.largest,
     this.axis = 0.5,
-    this.positive = Hue.positive,
-    this.negative = Hue.negative,
+    this.positive = AppColors.positive,
+    this.negative = AppColors.negative,
     this.height = 12,
     this.minimum = 0,
   });
@@ -44,7 +46,7 @@ class AxisBar extends StatelessWidget {
     final end = value == 0 ? share : minimum + (1 - minimum) * share;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: end),
-      duration: const Duration(milliseconds: 400),
+      duration: Motion.of(context, Motion.medium4),
       curve: Curves.easeOutCubic,
       builder: (context, share, _) => CustomPaint(
         size: Size(double.infinity, height + 12),
@@ -85,9 +87,9 @@ class _AxisBarPainter extends CustomPainter {
         middle - height / 2,
         size.width,
         middle + height / 2,
-        const Radius.circular(3),
+        const Radius.circular(Radii.extraSmall),
       ),
-      Paint()..color = Hue.surface.withValues(alpha: 0.6),
+      Paint()..color = AppColors.surface.withValues(alpha: 0.6),
     );
     final room = rising ? size.width - x : x;
     final length = room * share;
@@ -98,7 +100,7 @@ class _AxisBarPainter extends CustomPainter {
         middle - height / 2,
         left + length,
         middle + height / 2,
-        const Radius.circular(2),
+        const Radius.circular(Radii.extraSmall),
       ),
       Paint()..color = color,
     );
@@ -106,7 +108,7 @@ class _AxisBarPainter extends CustomPainter {
       Offset(x, 0),
       Offset(x, size.height),
       Paint()
-        ..color = Hue.faint
+        ..color = AppColors.faint
         ..strokeWidth = 1,
     );
   }

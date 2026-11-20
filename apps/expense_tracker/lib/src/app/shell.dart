@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../features/entries/compose/composer.dart';
-import '../core/text/figures.dart';
-import '../core/look/glyphs.dart';
-import '../core/look/haptics.dart';
-import '../core/look/theme.dart';
-import '../core/look/widgets.dart';
+import '../features/entries/forms/composer.dart';
+import '../core/formatting/figures.dart';
+import '../core/design_system/glyphs.dart';
+import '../core/design_system/haptics.dart';
+import '../core/design_system/theme.dart';
+import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
-import '../core/platform/problems.dart';
+import '../core/widgets/problem_note.dart';
 import '../core/platform/quick_action.dart';
-import '../core/ui/tour.dart';
+import '../core/widgets/tour.dart';
 import '../features/settings/model/platform_services.dart';
 import '../features/accounts/ui/account_page.dart';
 import '../features/accounts/ui/accounts.dart';
@@ -22,12 +22,15 @@ import '../features/investments/ui/investments.dart';
 import '../features/tags/ui/tags_page.dart';
 import '../features/entries/ui/entries_page.dart';
 import 'more_page.dart';
-import '../core/nav.dart';
+import '../core/navigation/nav.dart';
 import '../features/overview/ui/overview.dart';
 import '../features/recurring/ui/recurring_page.dart';
 import '../features/reports/ui/reports.dart';
 import 'settings_page.dart';
-import '../core/ui/shown_amounts.dart';
+import '../core/widgets/shown_amounts.dart';
+import '../core/design_system/spacing.dart';
+import '../core/design_system/motion.dart';
+import '../core/formatting/words.dart';
 
 enum _Tab { overview, ledger, accounts, more }
 
@@ -57,7 +60,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   var _tab = _Tab.overview;
-  Place? _page;
+  AppRoute? _page;
   late var _touring = widget.tour;
 
   /// The places the tour lights.
@@ -147,10 +150,10 @@ class _AppShellState extends State<AppShell> {
   }
 
   /// Where back leads from the open page: a holding returns to 投資.
-  Place? get _parent => _page?.parent;
+  AppRoute? get _parent => _page?.parent;
 
   /// Opens [page] over the current tab, which back returns to.
-  void _open(Place page) => setState(() => _page = page);
+  void _open(AppRoute page) => setState(() => _page = page);
 
   Future<void> _compose({
     EntryType type = EntryType.expense,
@@ -161,7 +164,7 @@ class _AppShellState extends State<AppShell> {
     final ledger = widget.ledger;
     // What each holding had realized, so a sale can say what it made.
     final realizedBefore = {
-      for (final h in ledger.holdings) h.code: h.realized,
+      for (final h in ledger.holdings.all) h.code: h.realized,
     };
     final result = await openComposer(
       context,
@@ -182,8 +185,8 @@ class _AppShellState extends State<AppShell> {
     if (outcome == ComposeOutcome.deleted) {
       Haptics.medium();
       // An entry written as one with others goes with them.
-      final removed = ledger.removeAll([
-        for (final e in ledger.groupOf(saved)) e.id,
+      final removed = ledger.entryCommands.removeAll([
+        for (final e in ledger.entryQueryService.groupOf(saved)) e.id,
       ]);
       if (removed.isEmpty) return;
       showNote(
@@ -191,7 +194,7 @@ class _AppShellState extends State<AppShell> {
         '已刪除「${saved.title}」'
         '${saved.recurring == null ? '' : '，這一期跳過'}',
         action: '復原',
-        onAction: () => ledger.restoreAll(removed),
+        onAction: () => ledger.entryCommands.restoreAll(removed),
       );
       return;
     }
@@ -210,7 +213,10 @@ class _AppShellState extends State<AppShell> {
     final sold = saved.type == EntryType.sell ? saved.holding : null;
     final made = sold == null
         ? null
-        : (ledger.holdings.where((h) => h.code == sold).firstOrNull?.realized ??
+        : (ledger.holdings.all
+                      .where((h) => h.code == sold)
+                      .firstOrNull
+                      ?.realized ??
                   0) -
               (realizedBefore[sold] ?? 0);
     showNote(
@@ -247,17 +253,33 @@ class _AppShellState extends State<AppShell> {
     return const SizedBox.shrink();
   }
 
+  /// A page under 更多.
+  Widget _morePage(Ledger ledger, MoreDestination page) => switch (page) {
+    MoreDestination.reports => ReportsPage(ledger: ledger, nav: _nav),
+    MoreDestination.investments => InvestmentsPage(ledger: ledger, nav: _nav),
+    MoreDestination.debts => DebtsPage(ledger: ledger, nav: _nav),
+    MoreDestination.budgets => BudgetsPage(ledger: ledger, nav: _nav),
+    MoreDestination.recurring => RecurringPage(ledger: ledger, nav: _nav),
+    MoreDestination.categories => CategoriesPage(ledger: ledger, nav: _nav),
+    MoreDestination.tags => TagsPage(ledger: ledger, nav: _nav),
+    MoreDestination.settings => SettingsPage(
+      ledger: ledger,
+      nav: _nav,
+      services: widget.services,
+    ),
+  };
+
   Widget _body() {
     final ledger = widget.ledger;
     final page = _page;
     if (page != null) {
       return switch (page) {
         // Gone, such as after a restore: back to the tab.
-        AccountPlace(:final id) ||
-        DebtPlace(:final id) when !ledger.hasAccount(id) => _gone(),
+        AccountRoute(:final id) ||
+        DebtRoute(:final id) when !ledger.accounts.contains(id) => _gone(),
         // Money paid for someone and loans have pages of their own,
         // wherever they are opened from.
-        AccountPlace(:final id) || DebtPlace(:final id)
+        AccountRoute(:final id) || DebtRoute(:final id)
             when ledger.account(id).kind == AccountKind.receivable =>
           PersonPage(
             key: ValueKey(page),
@@ -265,11 +287,11 @@ class _AppShellState extends State<AppShell> {
             nav: _nav,
             personId: id,
           ),
-        AccountPlace(:final id) || DebtPlace(:final id)
+        AccountRoute(:final id) || DebtRoute(:final id)
             when ledger.account(id).kind == AccountKind.loan =>
           LoanPage(key: ValueKey(page), ledger: ledger, nav: _nav, loanId: id),
-        DebtPlace() => _gone(),
-        AccountPlace(:final id) =>
+        DebtRoute() => _gone(),
+        AccountRoute(:final id) =>
           ledger.account(id).kind == AccountKind.card
               ? CardPage(
                   key: ValueKey(page),
@@ -283,51 +305,38 @@ class _AppShellState extends State<AppShell> {
                   nav: _nav,
                   accountId: id,
                 ),
-        TagPlace(:final name, :final merchant) => TagPage(
+        TagRoute(:final name, :final merchant) => TagPage(
           key: ValueKey(page),
           ledger: ledger,
           nav: _nav,
           name: name,
           merchant: merchant,
         ),
-        SettingsPlace(:final part) => SettingsPage(
+        SettingsRoute(:final part) => SettingsPage(
           key: ValueKey(page),
           ledger: ledger,
           nav: _nav,
           services: widget.services,
           part: part,
         ),
-        HoldingPlace(:final code) => HoldingPage(
+        HoldingRoute(:final code) => HoldingPage(
           key: ValueKey(page),
           ledger: ledger,
           nav: _nav,
           code: code,
         ),
-        RecurringPlace(:final view) => RecurringViewPage(
+        RecurringRoute(:final view) => RecurringViewPage(
           key: ValueKey(page),
           ledger: ledger,
           nav: _nav,
           view: view,
         ),
-        MerchantsPlace() => TagsPage(
+        MerchantsRoute() => TagsPage(
           ledger: ledger,
           nav: _nav,
           merchants: true,
         ),
-        SectionPlace(:final section) => switch (section) {
-          Section.reports => ReportsPage(ledger: ledger, nav: _nav),
-          Section.investments => InvestmentsPage(ledger: ledger, nav: _nav),
-          Section.debts => DebtsPage(ledger: ledger, nav: _nav),
-          Section.budgets => BudgetsPage(ledger: ledger, nav: _nav),
-          Section.recurring => RecurringPage(ledger: ledger, nav: _nav),
-          Section.categories => CategoriesPage(ledger: ledger, nav: _nav),
-          Section.tags => TagsPage(ledger: ledger, nav: _nav),
-          Section.settings => SettingsPage(
-            ledger: ledger,
-            nav: _nav,
-            services: widget.services,
-          ),
-        },
+        SectionRoute(:final section) => _morePage(ledger, section),
       };
     }
     return switch (_tab) {
@@ -349,16 +358,16 @@ class _AppShellState extends State<AppShell> {
     if (saved.type != EntryType.expense) return false;
     final ledger = widget.ledger;
     final (year, month) = (saved.date.year, saved.date.month);
-    for (final budget in ledger.budgets) {
-      final allowed = ledger.allowance(budget, year, month);
-      if (allowed > 0 && ledger.spentAgainst(budget, year, month) > allowed) {
+    for (final budget in ledger.budgets.all) {
+      final allowed = ledger.budgetService.allowance(budget, year, month);
+      if (allowed > 0 &&
+          ledger.budgetService.spentAgainst(budget, year, month) > allowed) {
         final names = {
           saved.category,
           ...saved.spendingParts.map((p) => p.$1),
           ...saved.tags,
         };
-        if (budget.category == Ledger.allSpending ||
-            names.contains(budget.category)) {
+        if (budget.category == allSpending || names.contains(budget.category)) {
           return true;
         }
       }
@@ -394,7 +403,7 @@ class _AppShellState extends State<AppShell> {
       body: SafeArea(
         bottom: false,
         child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 240),
+          duration: Motion.of(context, Motion.medium1),
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           // Only the page coming in is drawn: the one going out fading
@@ -450,7 +459,7 @@ class _BottomBar extends StatelessWidget {
   static const _items = [
     (_Tab.overview, Glyph.overview, '總覽'),
     (_Tab.ledger, Glyph.records, '紀錄'),
-    (_Tab.accounts, Glyph.wallet, '帳戶'),
+    (_Tab.accounts, Glyph.wallet, Words.account),
     (_Tab.more, Glyph.other, '更多'),
   ];
 
@@ -458,7 +467,7 @@ class _BottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: Hue.panel,
+        color: AppColors.panel,
         border: Border(top: rowRule),
       ),
       child: SafeArea(
@@ -480,14 +489,14 @@ class _BottomBar extends StatelessWidget {
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Hue.accentGlow,
+                                  color: AppColors.accentGlow,
                                   blurRadius: 12,
                                   offset: Offset(0, 4),
                                 ),
                               ],
                             ),
                             child: Material(
-                              color: Hue.accent,
+                              color: AppColors.accent,
                               shape: const CircleBorder(),
                               child: InkWell(
                                 customBorder: const CircleBorder(),
@@ -502,7 +511,7 @@ class _BottomBar extends StatelessWidget {
                                   child: const Center(
                                     child: GlyphIcon(
                                       Glyph.add,
-                                      color: Hue.onAccent,
+                                      color: AppColors.onAccent,
                                       weight: 2,
                                     ),
                                   ),
@@ -523,31 +532,11 @@ class _BottomBar extends StatelessWidget {
                     child: Center(
                       child: KeyedSubtree(
                         key: item == _Tab.more ? moreKey : null,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AnimatedScale(
-                              scale: item == tab ? 1.12 : 1,
-                              duration: const Duration(milliseconds: 220),
-                              curve: Curves.easeOutBack,
-                              child: GlyphIcon(
-                                icon,
-                                color: item == tab ? Hue.accent : Hue.muted,
-                                tinted: item == tab,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              label,
-                              style: TextStyle(
-                                fontSize: TextSize.caption,
-                                color: item == tab ? Hue.accent : Hue.muted,
-                                fontWeight: item == tab
-                                    ? FontWeight.w700
-                                    : FontWeight.w400,
-                              ),
-                            ),
-                          ],
+                        child: _tabMark(
+                          context,
+                          icon,
+                          label,
+                          chosen: item == tab,
                         ),
                       ),
                     ),
@@ -560,4 +549,35 @@ class _BottomBar extends StatelessWidget {
       ),
     );
   }
+
+  /// A tab's icon over its name, the chosen one larger and in the accent.
+  Widget _tabMark(
+    BuildContext context,
+    Glyph icon,
+    String label, {
+    required bool chosen,
+  }) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      AnimatedScale(
+        scale: chosen ? 1.12 : 1,
+        duration: Motion.of(context, Motion.short4),
+        curve: Curves.easeOutBack,
+        child: GlyphIcon(
+          icon,
+          color: chosen ? AppColors.accent : AppColors.muted,
+          tinted: chosen,
+        ),
+      ),
+      const SizedBox(height: Space.half),
+      Text(
+        label,
+        style: TextStyle(
+          fontSize: TextSize.caption,
+          color: chosen ? AppColors.accent : AppColors.muted,
+          fontWeight: chosen ? FontWeight.w700 : FontWeight.w400,
+        ),
+      ),
+    ],
+  );
 }

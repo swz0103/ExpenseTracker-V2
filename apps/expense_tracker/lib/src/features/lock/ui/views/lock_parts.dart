@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/look/app_mark.dart';
-import '../../../../core/look/theme.dart';
-import '../../../../core/look/kit/buttons.dart';
+import '../../../../core/design_system/app_mark.dart';
+import '../../../../core/design_system/theme.dart';
+import '../../../../core/design_system/components/buttons.dart';
+import '../../../../core/design_system/shape.dart';
+import '../../../../core/design_system/spacing.dart';
 
 /// The page every lock screen form sits on: the mark, a [title], a
 /// [hint] under it, the [fields] on a tinted block, what went wrong, the
@@ -40,7 +42,7 @@ class LockForm extends StatelessWidget {
     return LockPage(
       children: [
         const Center(child: AppMark(size: 72)),
-        const SizedBox(height: 16),
+        const SizedBox(height: Space.s4),
         Text(
           title,
           textAlign: TextAlign.center,
@@ -49,36 +51,32 @@ class LockForm extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 6),
-        Text(
-          hint,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Hue.muted),
-        ),
-        const SizedBox(height: 20),
+        const SizedBox(height: Space.s2),
+        Text(hint, textAlign: TextAlign.center, style: mutedText),
+        const SizedBox(height: Space.s5),
         Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(Space.s4),
           decoration: BoxDecoration(
-            color: Hue.hero,
-            borderRadius: BorderRadius.circular(22),
+            color: AppColors.hero,
+            borderRadius: BorderRadius.circular(Radii.largeIncreased),
           ),
           child: Column(
             children: [
               for (final (i, field) in fields.indexed) ...[
-                if (i > 0) const SizedBox(height: 8),
+                if (i > 0) const SizedBox(height: Space.s2),
                 field,
               ],
             ],
           ),
         ),
         ProblemLine(problem),
-        const SizedBox(height: 16),
+        const SizedBox(height: Space.s4),
         FilledButton(
           onPressed: busy ? null : onSubmit,
           style: solidButton(
-            Hue.accent,
+            AppColors.accent,
             minimumSize: Size.fromHeight(48),
-            radius: 14,
+            radius: Radii.large,
           ),
           child: busy ? const BusyMark() : Text(action),
         ),
@@ -98,11 +96,11 @@ class LockPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Hue.paper,
+      backgroundColor: AppColors.paper,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(Space.s6),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
@@ -129,12 +127,8 @@ class ProblemLine extends StatelessWidget {
     final text = problem;
     if (text == null || text.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(color: Hue.danger),
-      ),
+      padding: const EdgeInsets.only(top: Space.s2),
+      child: Text(text, textAlign: TextAlign.center, style: dangerText),
     );
   }
 }
@@ -147,7 +141,10 @@ class BusyMark extends StatelessWidget {
   Widget build(BuildContext context) {
     return const SizedBox.square(
       dimension: 20,
-      child: CircularProgressIndicator(strokeWidth: 2, color: Hue.onAccent),
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        color: AppColors.onAccent,
+      ),
     );
   }
 }
@@ -169,6 +166,8 @@ class LockLink extends StatelessWidget {
 
 /// How long the opening animation takes: the mark comes in, its bars
 /// grow one after another and the arrow is drawn.
+// Exception to the motion scale: the opening is played whole, not a change
+// from one state to another.
 const splashTime = Duration(milliseconds: 1400);
 
 /// The mark as the opening animation draws it, [t] from 0 to 1 over
@@ -204,9 +203,10 @@ class OpeningMark extends StatelessWidget {
 /// Runs the opening animation once, from the first frame on the screen
 /// (the phone's own start screen shows only the paper colour, so there is
 /// nothing to wait out), at once when the phone asks for less motion, and
-/// calls [onDone] when it has played.
+/// calls `onDone` when it has played.
 mixin OpeningAnimation<T extends StatefulWidget>
     on State<T>, TickerProviderStateMixin<T> {
+  // Exception to motion: the splash is skipped while motion is off.
   late final opening = AnimationController(vsync: this, duration: splashTime)
     ..addStatusListener((status) {
       if (status == AnimationStatus.completed) openingDone();
@@ -262,7 +262,7 @@ class _LockSplashState extends State<LockSplash>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Hue.paper,
+      backgroundColor: AppColors.paper,
       body: Center(
         child: Semantics(
           label: '記帳本',

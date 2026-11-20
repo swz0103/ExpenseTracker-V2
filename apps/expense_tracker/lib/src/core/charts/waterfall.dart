@@ -2,9 +2,12 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../text/figures.dart';
-import '../look/paint.dart';
-import '../look/theme.dart';
+import '../formatting/figures.dart';
+import '../design_system/paint.dart';
+import '../design_system/theme.dart';
+import '../formatting/dates.dart';
+import '../design_system/shape.dart';
+import '../design_system/motion.dart';
 
 /// An account's balance over recent weeks: each bar rises or falls by the
 /// week's net change from where the last one ended, finishing on today's
@@ -51,7 +54,7 @@ class Waterfall extends StatelessWidget {
             },
             child: TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 500),
+              duration: Motion.of(context, Motion.long2),
               curve: Curves.easeOutCubic,
               builder: (context, grow, _) => CustomPaint(
                 size: Size.infinite,
@@ -108,7 +111,7 @@ class _WaterfallPainter extends CustomPainter {
     final slot = size.width / weeks.length;
     final bar = min(36.0, slot * 0.46);
     final connector = Paint()
-      ..color = Hue.faint
+      ..color = AppColors.faint
       ..strokeWidth = 1;
     for (final (i, (monday, change)) in weeks.indexed) {
       final centre = slot * (i + 0.5);
@@ -116,10 +119,10 @@ class _WaterfallPainter extends CustomPainter {
       final to = from + (y(levels[i + 1]) - from) * grow;
       final picked = i == selected;
       final color = change > 0
-          ? Hue.positive
+          ? AppColors.positive
           : change < 0
-          ? Hue.negative
-          : Hue.muted;
+          ? AppColors.negative
+          : AppColors.muted;
       final rect = Rect.fromLTRB(
         centre - bar / 2,
         min(from, to),
@@ -127,7 +130,7 @@ class _WaterfallPainter extends CustomPainter {
         max(max(from, to), min(from, to) + 2),
       );
       canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, const Radius.circular(3)),
+        RRect.fromRectAndRadius(rect, const Radius.circular(Radii.extraSmall)),
         Paint()
           ..color = picked || selected < 0
               ? color
@@ -140,13 +143,13 @@ class _WaterfallPainter extends CustomPainter {
           connector,
         );
       }
-      final label = '${monday.month}/${monday.day}';
+      final label = formatMd(monday);
       paintText(
         canvas,
         label,
         TextStyle(
           fontSize: TextSize.caption,
-          color: picked ? Hue.ink : Hue.muted,
+          color: picked ? AppColors.ink : AppColors.muted,
           fontWeight: picked ? FontWeight.w700 : FontWeight.w400,
         ),
         Offset(centre, size.height - 6),
@@ -157,7 +160,7 @@ class _WaterfallPainter extends CustomPainter {
           Offset(centre - 10, size.height - 1),
           Offset(centre + 10, size.height - 1),
           Paint()
-            ..color = Hue.ink
+            ..color = AppColors.ink
             ..strokeWidth = 2,
         );
         paintText(

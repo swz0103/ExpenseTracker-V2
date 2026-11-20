@@ -2,7 +2,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../look/theme.dart';
+import '../design_system/theme.dart';
+import '../design_system/spacing.dart';
 
 /// A ring cut into [slices], each its value's share of the whole and in
 /// its own colour, clockwise from the top; [center] sits in the hole.
@@ -27,7 +28,10 @@ class Donut extends StatelessWidget {
       child: CustomPaint(
         painter: _DonutPainter(slices, thickness),
         child: Center(
-          child: Padding(padding: EdgeInsets.all(thickness + 4), child: center),
+          child: Padding(
+            padding: EdgeInsets.all(thickness + Space.s1),
+            child: center,
+          ),
         ),
       ),
     );
@@ -53,7 +57,7 @@ class _DonutPainter extends CustomPainter {
       ..strokeWidth = thickness;
     final whole = slices.fold(0, (sum, s) => sum + max(s.$1, 0));
     if (whole <= 0) {
-      canvas.drawArc(rect, 0, 2 * pi, false, stroke..color = Hue.track);
+      canvas.drawArc(rect, 0, 2 * pi, false, stroke..color = AppColors.track);
       return;
     }
     // A thin gap between slices, none when one slice is all of it.

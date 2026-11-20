@@ -15,10 +15,14 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
             ..clear()
             ..addAll(walletAccounts(ledger));
         case _SortBy.balance:
-          _order.sort((a, b) => ledger.worthOf(b).compareTo(ledger.worthOf(a)));
+          _order.sort(
+            (a, b) => ledger.balanceService
+                .worthOf(b)
+                .compareTo(ledger.balanceService.worthOf(a)),
+          );
         case _SortBy.recent:
           final last = <String, DateTime>{};
-          for (final e in ledger.entries) {
+          for (final e in ledger.entries.all) {
             for (final id in [e.account, ?e.to]) {
               final seen = last[id];
               if (seen == null || e.date.isAfter(seen)) last[id] = e.date;
@@ -34,7 +38,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
 
   void _byKind() {
     final ledger = widget.ledger;
-    final first = {for (final (i, a) in ledger.openAccounts.indexed) a.id: i};
+    final first = {for (final (i, a) in ledger.accounts.open.indexed) a.id: i};
     setState(() {
       _order.sort((a, b) {
         final byKind = walletKinds
@@ -46,18 +50,122 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
   }
 
   void _done() {
-    widget.ledger.placeAccounts([for (final a in _order) a.id]);
+    widget.ledger.accountCommands.placeAccounts([for (final a in _order) a.id]);
     Navigator.of(context).pop();
+  }
+
+  /// 依類型重新排, under the list: puts the accounts in the order of their
+  /// kinds.
+  Widget _byKindButton() => Padding(
+    padding: const EdgeInsets.only(top: Space.s4),
+    child: GroupBox(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s4,
+        vertical: Space.s3,
+      ),
+      onTap: () {
+        _byKind();
+        setState(() => _by = _SortBy.hand);
+      },
+      // 48 dp to tap, with the padding.
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 24),
+        child: const Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          runAlignment: WrapAlignment.center,
+          spacing: 12,
+          children: [
+            Text(
+              '依類型重新排',
+              style: TextStyle(
+                fontSize: TextSize.body,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text('銀行→支付→現金→卡', style: mutedSmall),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  /// An account as a card to drag into place: held anywhere it lifts and
+  /// follows the finger; the handle takes it at once.
+  Widget _row(int i) {
+    final ledger = widget.ledger;
+    final a = _order[i];
+    final color = accountColor(a);
+    return ReorderableDelayedDragStartListener(
+      key: ValueKey(a.id),
+      index: i,
+      child: Padding(
+        padding: const EdgeInsets.only(top: Space.s2),
+        child: Container(
+          height: 56,
+          padding: const EdgeInsets.only(left: Space.s4),
+          decoration: BoxDecoration(
+            color: softOf(color),
+            borderRadius: BorderRadius.circular(Radii.large),
+          ),
+          child: Row(
+            children: [
+              SquareIcon(accountIcon(a), color, size: 30),
+              const SizedBox(width: Space.s2),
+              Expanded(
+                child: Text(
+                  a.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: TextSize.body,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                a.kind.isDebt
+                    ? ledger.money(-ledger.balanceService.balance(a.id))
+                    : ledger.moneyIn(
+                        ledger.balanceService.balance(a.id),
+                        a.currency,
+                      ),
+                style: const TextStyle(
+                  fontSize: TextSize.body,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.muted,
+                ),
+              ),
+              // The whole square takes the finger, not only
+              // the lines drawn in it.
+              ReorderableDragStartListener(
+                index: i,
+                child: Semantics(
+                  label: '拖曳${a.name}',
+                  child: const ColoredBox(
+                    color: Colors.transparent,
+                    child: SizedBox(
+                      width: 56,
+                      height: 56,
+                      child: Center(child: _Grip()),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final ledger = widget.ledger;
     return Scaffold(
-      backgroundColor: Hue.paper,
+      backgroundColor: AppColors.paper,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+          padding: const EdgeInsets.fromLTRB(Space.s3, Space.s1, Space.s3, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -65,8 +173,8 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    style: wordButton(Hue.muted),
-                    child: const Text('取消'),
+                    style: wordButton(AppColors.muted),
+                    child: const Text(Words.cancel),
                   ),
                   const Expanded(
                     child: Text(
@@ -81,13 +189,18 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                   TextButton(
                     key: Keys.done,
                     onPressed: _done,
-                    style: wordButton(Hue.accent),
-                    child: const Text('完成'),
+                    style: wordButton(AppColors.accent),
+                    child: const Text(Words.done),
                   ),
                 ],
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                padding: const EdgeInsets.fromLTRB(
+                  Space.s2,
+                  Space.s2,
+                  Space.s2,
+                  0,
+                ),
                 child: Row(
                   children: [
                     for (final (i, (by, label)) in const [
@@ -95,7 +208,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                       (_SortBy.balance, '餘額'),
                       (_SortBy.recent, '最近使用'),
                     ].indexed) ...[
-                      if (i > 0) const SizedBox(width: 6),
+                      if (i > 0) const SizedBox(width: Space.s2),
                       Expanded(
                         child: ChoicePill(
                           label: label,
@@ -107,11 +220,16 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.s2),
               Expanded(
                 child: ReorderableListView.builder(
                   buildDefaultDragHandles: false,
-                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
+                  padding: const EdgeInsets.fromLTRB(
+                    Space.s2,
+                    0,
+                    Space.s2,
+                    Space.s6,
+                  ),
                   itemCount: _order.length,
                   // [to] already counts the card taken out.
                   onReorderStart: (_) => Haptics.medium(),
@@ -125,8 +243,8 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                         child: Material(
                           color: Colors.transparent,
                           elevation: 10 * t,
-                          shadowColor: Hue.lift,
-                          borderRadius: BorderRadius.circular(18),
+                          shadowColor: AppColors.lift,
+                          borderRadius: BorderRadius.circular(Radii.large),
                           child: child,
                         ),
                       );
@@ -140,100 +258,8 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                       _by = _SortBy.hand;
                     });
                   },
-                  footer: Padding(
-                    padding: const EdgeInsets.only(top: 14),
-                    child: GroupBox(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 13,
-                      ),
-                      onTap: () {
-                        _byKind();
-                        setState(() => _by = _SortBy.hand);
-                      },
-                      child: const Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        spacing: 12,
-                        children: [
-                          Text(
-                            '依類型重新排',
-                            style: TextStyle(
-                              fontSize: TextSize.body,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Text('銀行→支付→現金→卡', style: mutedSmall),
-                        ],
-                      ),
-                    ),
-                  ),
-                  itemBuilder: (context, i) {
-                    final a = _order[i];
-                    final color = accountHue(a);
-                    // Held anywhere, the card lifts and follows the finger;
-                    // the handle takes it at once.
-                    return ReorderableDelayedDragStartListener(
-                      key: ValueKey(a.id),
-                      index: i,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Container(
-                          height: 56,
-                          padding: const EdgeInsets.only(left: 14),
-                          decoration: BoxDecoration(
-                            color: softOf(color),
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Row(
-                            children: [
-                              SquareIcon(accountIcon(a), color, size: 30),
-                              const SizedBox(width: 9),
-                              Expanded(
-                                child: Text(
-                                  a.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: TextSize.body,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                a.kind.isDebt
-                                    ? ledger.money(-ledger.balance(a.id))
-                                    : ledger.moneyIn(
-                                        ledger.balance(a.id),
-                                        a.currency,
-                                      ),
-                                style: const TextStyle(
-                                  fontSize: TextSize.body,
-                                  fontWeight: FontWeight.w700,
-                                  color: Hue.muted,
-                                ),
-                              ),
-                              // The whole square takes the finger, not only
-                              // the lines drawn in it.
-                              ReorderableDragStartListener(
-                                index: i,
-                                child: Semantics(
-                                  label: '拖曳${a.name}',
-                                  child: const ColoredBox(
-                                    color: Colors.transparent,
-                                    child: SizedBox(
-                                      width: 56,
-                                      height: 56,
-                                      child: Center(child: _Grip()),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                  footer: _byKindButton(),
+                  itemBuilder: (context, i) => _row(i),
                 ),
               ),
             ],
@@ -257,10 +283,10 @@ class _Grip extends StatelessWidget {
           Container(
             width: 20,
             height: 2.5,
-            margin: const EdgeInsets.symmetric(vertical: 2),
+            margin: const EdgeInsets.symmetric(vertical: Space.half),
             decoration: BoxDecoration(
-              color: Hue.muted,
-              borderRadius: BorderRadius.circular(1),
+              color: AppColors.muted,
+              borderRadius: BorderRadius.circular(Radii.extraSmall),
             ),
           ),
       ],

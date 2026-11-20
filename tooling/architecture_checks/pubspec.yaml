@@ -1,11 +1,11 @@
 name: architecture_checks
-description: "Repository-only checks: test hygiene, lockfile consistency and platform-free domain packages."
+description: "Repository-only checks: test hygiene, lockfile consistency, platform-free domain packages, documents, code size and the app's syntax rules."
 version: 0.1.0
 publish_to: none
 environment:
   sdk: '>=3.13.0 <4.0.0'
 dependencies:
-  analyzer: 14.4.0
+  analyzer: 14.7.0
   path: 1.9.1
   yaml: 3.1.4
 dev_dependencies:

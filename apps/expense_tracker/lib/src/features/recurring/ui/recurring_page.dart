@@ -1,34 +1,32 @@
 import 'package:flutter/material.dart';
 
-import '../../accounts/compose/account_editor.dart';
-import '../compose/recurring_editor.dart';
-import '../../../core/text/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/ui/icons.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import '../../accounts/forms/account_editor.dart';
+import '../forms/recurring_editor.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ui/entry_tile.dart';
-import '../../../core/nav.dart';
+import '../../../core/widgets/entry_tile.dart';
+import '../../../core/navigation/nav.dart';
 import '../model/recurring_schedule.dart';
 import '../model/subscriptions.dart';
-import '../../../core/ui/shown_amounts.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/motion.dart';
+import '../../../core/formatting/words.dart';
+import 'recurring_rows.dart';
 
 part 'recurring_calendar.dart';
 part 'recurring_lists.dart';
-part 'recurring_rows.dart';
 
 /// The colour of 定期交易, as on 更多.
-const _recurringHue = Palette.orange;
+const _recurringColor = Palette.orange;
 
 /// The grey of a day with several items, or with all of them booked.
-const _busyDay = Hue.surface;
-
-/// An item's colour and mark: its category's.
-(Glyph, Color) _mark(Ledger ledger, Recurring item) {
-  final c = ledger.category(item.category);
-  return (iconFor(c.icon), shownColor(Color(c.color)));
-}
+const _busyDay = AppColors.surface;
 
 /// Adds an item, or changes [item], after making sure there is an account
 /// to book it to.
@@ -84,6 +82,10 @@ class RecurringPage extends StatefulWidget {
 }
 
 class _RecurringPageState extends State<RecurringPage> {
+  /// Opens one of 定期交易's own pages.
+  void _view(RecurringView view) =>
+      widget.nav.open(AppRoutes.recurringView(view));
+
   late var _month = _now;
 
   /// The day chosen; null for the month's first with something.
@@ -99,7 +101,8 @@ class _RecurringPageState extends State<RecurringPage> {
     _day = null;
   });
 
-  void _book(Recurring item) => widget.nav.compose(draft: ledger.booking(item));
+  void _book(Recurring item) =>
+      widget.nav.compose(draft: ledger.recurringService.booking(item));
 
   Future<void> _edit({Recurring? item, DateTime? on}) =>
       _editItem(context, ledger, item: item, on: on);
@@ -126,20 +129,19 @@ class _RecurringPageState extends State<RecurringPage> {
             HeaderButton(
               glyph: Glyph.list,
               label: '管理',
-              onTap: () =>
-                  widget.nav.open(Pages.recurringView(RecurringView.manage)),
+              onTap: () => _view(RecurringView.manage),
             ),
-            HeaderButton(glyph: Glyph.add, label: '新增', onTap: _edit),
+            HeaderButton(glyph: Glyph.add, label: Words.add, onTap: _edit),
           ],
         );
-        if (ledger.recurring.isEmpty) {
+        if (ledger.recurring.all.isEmpty) {
           return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+            padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
             children: [
               header,
               EmptyState(
                 glyph: Glyph.cycleCalendar,
-                color: _recurringHue,
+                color: _recurringColor,
                 message: '房租、訂閱、薪水這些固定的，\n記一次就會每期提醒',
                 action: '新增固定交易',
                 onAction: _edit,
@@ -148,20 +150,20 @@ class _RecurringPageState extends State<RecurringPage> {
           );
         }
         final paused = [
-          for (final r in ledger.recurring)
+          for (final r in ledger.recurring.all)
             if (!r.active) r,
         ];
         var toCome = 0;
         for (final list in plan.values) {
           for (final d in list) {
             if (!d.settled && !d.item.income) {
-              toCome += ledger.recurringWorth(d.item);
+              toCome += ledger.recurringService.worth(d.item);
             }
           }
         }
         final yearly = yearlyCosts(ledger).fold(0, (sum, r) => sum + r.$2);
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
           header: header,
           children: [
             Row(
@@ -181,10 +183,10 @@ class _RecurringPageState extends State<RecurringPage> {
                       _day = null;
                     }),
                     style: wordButton(
-                      Hue.accent,
-                      fill: Hue.selected,
+                      AppColors.accent,
+                      fill: AppColors.selected,
                       minimumSize: Size(0, 44),
-                      radius: 22,
+                      radius: Radii.largeIncreased,
                     ),
                     child: const Text(
                       '回到今天',
@@ -192,13 +194,13 @@ class _RecurringPageState extends State<RecurringPage> {
                     ),
                   ),
                 for (final (glyph, label, by) in const [
-                  (Glyph.back, '上個月', -1),
-                  (Glyph.next, '下個月', 1),
+                  (Glyph.back, Words.previousMonth, -1),
+                  (Glyph.next, Words.nextMonth, 1),
                 ])
                   Padding(
-                    padding: const EdgeInsets.only(left: 8),
+                    padding: const EdgeInsets.only(left: Space.s2),
                     child: Material(
-                      color: Hue.surface,
+                      color: AppColors.surface,
                       shape: const CircleBorder(),
                       child: IconButton(
                         tooltip: label,
@@ -209,7 +211,7 @@ class _RecurringPageState extends State<RecurringPage> {
                   ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.s2),
             _Calendar(
               ledger: ledger,
               year: year,
@@ -219,7 +221,7 @@ class _RecurringPageState extends State<RecurringPage> {
               onPick: (d) => setState(() => _day = d),
             ),
             if (day != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: Space.s4),
               _DayItems(
                 ledger: ledger,
                 day: DateTime.utc(year, month, day),
@@ -230,7 +232,7 @@ class _RecurringPageState extends State<RecurringPage> {
                 onAdd: () => _edit(on: DateTime.utc(year, month, day)),
               ),
             ],
-            const SizedBox(height: 16),
+            const SizedBox(height: Space.s4),
             CardGrid(columns: 3, gap: 8, [
               _Cell(
                 label: current ? '還沒扣' : '$month 月要扣',
@@ -240,14 +242,13 @@ class _RecurringPageState extends State<RecurringPage> {
                 label: '固定支出/年 ›',
                 value: ledger.orDots(groupDigits(yearly)),
                 onTap: () => widget.nav.open(
-                  Pages.recurringView(RecurringView.subscriptions),
+                  AppRoutes.recurringView(RecurringView.subscriptions),
                 ),
               ),
               _Cell(
                 label: '已暫停 ›',
                 value: '${paused.length} 項',
-                onTap: () =>
-                    widget.nav.open(Pages.recurringView(RecurringView.paused)),
+                onTap: () => _view(RecurringView.paused),
               ),
             ]),
           ],

@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../backup/model/backup_manager.dart';
-import '../../../core/text/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
-import '../../../core/ui/pickers.dart';
+import '../../../core/formatting/figures.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/widgets/pickers.dart';
 import '../model/import_export.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/platform/problems.dart';
+import '../../../core/messages/problem_messages.dart';
 import 'import_page.dart';
-import '../../../core/look/settings_hue.dart';
+import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/formatting/dates.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
 
 /// 匯入與匯出: 匯出 CSV across the page, which asks how much (this month,
 /// this year, everything, or from one day to another); under 匯入, a CSV
@@ -38,7 +41,7 @@ class ImportExportSection extends StatelessWidget {
       children: [
         const RuleHead('匯出'),
         ColorCard(
-          color: SettingsHue.csv,
+          color: SettingsColors.csv,
           label: '匯出 CSV',
           onTap: () => showSheet<void>(
             context,
@@ -46,8 +49,8 @@ class ImportExportSection extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const SquareIcon(Glyph.upload, SettingsHue.csv, size: 50),
-              const SizedBox(width: 16),
+              const SquareIcon(Glyph.upload, SettingsColors.csv, size: 50),
+              const SizedBox(width: Space.s4),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,14 +60,14 @@ class ImportExportSection extends StatelessWidget {
                       style: TextStyle(
                         fontSize: TextSize.heading,
                         fontWeight: FontWeight.w800,
-                        color: deepOf(SettingsHue.csv),
+                        color: deepOf(SettingsColors.csv),
                       ),
                     ),
                     OneLine(
                       '一個月或全部，選好再匯出',
                       style: TextStyle(
                         fontSize: TextSize.small,
-                        color: deepOf(SettingsHue.csv),
+                        color: deepOf(SettingsColors.csv),
                       ),
                     ),
                   ],
@@ -77,7 +80,7 @@ class ImportExportSection extends StatelessWidget {
         CardGrid([
           SettingCard(
             glyph: Glyph.records,
-            color: SettingsHue.importExport,
+            color: SettingsColors.importExport,
             title: 'CSV 檔案',
             detail: '別的 App 匯出的',
             onTap: () =>
@@ -85,7 +88,7 @@ class ImportExportSection extends StatelessWidget {
           ),
           SettingCard(
             glyph: Glyph.scan,
-            color: SettingsHue.invoice,
+            color: SettingsColors.invoice,
             title: '電子發票',
             detail: '掃載具或 QR',
             onTap: () => importInto(
@@ -133,14 +136,14 @@ class _ExportSheetState extends State<_ExportSheet> {
     }
 
     return switch (span) {
-      _Span.month => _ledger.entriesIn(t.year, t.month),
+      _Span.month => _ledger.entries.inMonth(t.year, t.month),
       _Span.year => [
-        for (final e in _ledger.entries)
+        for (final e in _ledger.entries.all)
           if (e.date.year == t.year) e,
       ],
-      _Span.all => _ledger.entries.toList(),
+      _Span.all => _ledger.entries.all.toList(),
       _Span.custom => [
-        for (final e in _ledger.entries)
+        for (final e in _ledger.entries.all)
           if (within(e.date, _from, _to)) e,
       ],
     };
@@ -203,7 +206,7 @@ class _ExportSheetState extends State<_ExportSheet> {
 
   @override
   Widget build(BuildContext context) {
-    const color = SettingsHue.csv;
+    const color = SettingsColors.csv;
     final t = _today;
     final count = _entries(_span).length;
     String sub(_Span span) => switch (span) {
@@ -219,7 +222,7 @@ class _ExportSheetState extends State<_ExportSheet> {
       _Span.custom: '自訂',
     };
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s5),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -233,13 +236,13 @@ class _ExportSheetState extends State<_ExportSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: Space.s4),
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (final (i, span) in _Span.values.indexed) ...[
-                  if (i > 0) const SizedBox(width: 8),
+                  if (i > 0) const SizedBox(width: Space.s2),
                   Expanded(
                     child: _SpanChoice(
                       label: names[span]!,
@@ -254,11 +257,11 @@ class _ExportSheetState extends State<_ExportSheet> {
             ),
           ),
           if (_span == _Span.custom) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             Container(
               decoration: BoxDecoration(
                 color: tintOf(color, 0.16),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(Radii.large),
               ),
               child: Row(
                 children: [
@@ -281,7 +284,7 @@ class _ExportSheetState extends State<_ExportSheet> {
                     child: const GlyphIcon(
                       Glyph.arrow,
                       size: 18,
-                      color: Hue.onSolid,
+                      color: AppColors.onSolid,
                       tinted: false,
                     ),
                   ),
@@ -297,7 +300,7 @@ class _ExportSheetState extends State<_ExportSheet> {
               ),
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: Space.s4),
           PanelButton(
             '匯出 ${groupDigits(count)} 筆',
             color: color,
@@ -332,16 +335,19 @@ class _SpanChoice extends StatelessWidget {
       child: Material(
         color: chosen ? chosenFill(color) : tintOf(color, 0.16),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(Radii.large),
           side: chosen ? chosenEdge(color) : BorderSide.none,
         ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(Radii.large),
           onTap: onTap,
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 64),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+              padding: const EdgeInsets.symmetric(
+                vertical: Space.s2,
+                horizontal: Space.s1,
+              ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -387,9 +393,9 @@ class _DayEnd extends StatelessWidget {
     final ink = deepOf(color);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(Radii.large),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: Space.s3),
         child: Column(
           children: [
             Text(
@@ -397,7 +403,7 @@ class _DayEnd extends StatelessWidget {
               style: TextStyle(fontSize: TextSize.caption, color: ink),
             ),
             Text(
-              '${day.year}/${day.month}/${day.day}',
+              formatYMd(day),
               style: TextStyle(
                 fontSize: TextSize.heading,
                 fontWeight: FontWeight.w800,
@@ -405,7 +411,7 @@ class _DayEnd extends StatelessWidget {
               ),
             ),
             Text(
-              '週${weekdayNames[day.weekday - 1]}',
+              formatE(day),
               style: TextStyle(fontSize: TextSize.caption, color: ink),
             ),
           ],

@@ -1,21 +1,25 @@
-import '../../../core/text/amounts.dart';
-import '../../../core/ledger/checks.dart';
+import '../../../core/formatting/amounts.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/validation_messages.dart';
 import '../../import_export/model/import_export.dart' show guessCategory;
 import '../../import_export/model/invoice_qr.dart';
 import '../../../core/ledger/trading.dart';
+import '../../../core/formatting/words.dart';
 
+part 'compose_form_extras.dart';
 part 'compose_form_lending.dart';
 part 'compose_form_split.dart';
+part 'compose_form_trade.dart';
+part 'compose_form_transfer.dart';
 
 /// The kinds of record the composer makes. 代墊 has no tab of its own:
 /// it is picked inside 支出 (paid for someone) or 收入 (paid back).
 enum ComposeMode {
-  expense('支出'),
-  income('收入'),
-  transfer('轉帳'),
-  lend('代墊'),
-  investment('投資');
+  expense(Words.expense),
+  income(Words.income),
+  transfer(Words.transfer),
+  lend(Words.lend),
+  investment(Words.investment);
 
   const ComposeMode(this.label);
 
@@ -49,7 +53,7 @@ final class ComposeForm {
     fresh();
     final source = editing ?? draft;
     final editingNow = editing;
-    if (editingNow != null) receipt = ledger.receiptOf(editingNow.id);
+    if (editingNow != null) receipt = ledger.receipts.of(editingNow.id);
     final refundedNow = refunded;
     if (editing != null && editing!.group != null) {
       loadGroup(editing!);
@@ -58,7 +62,7 @@ final class ComposeForm {
       findLending(source);
     } else if (refundedNow != null) {
       mode = ComposeMode.income;
-      amount = ledger.refundable(refundedNow);
+      amount = ledger.entryQueryService.refundable(refundedNow);
       account = refundedNow.account;
       category = refundedNow.category;
     }
@@ -104,6 +108,9 @@ final class ComposeForm {
   final _ids = <String>{};
   String? _ownId;
   final _lentIds = <String, String>{};
+
+  /// The sums someone paid back is made of, by entry, while 對方還錢.
+  Set<String> paying = {};
   String? _group;
   var fee = 0;
 
@@ -179,8 +186,8 @@ final class ComposeForm {
   /// all are archived (the composer makes sure there is an open one
   /// first, but a form put aside may outlive it).
   List<Account> get startAccounts {
-    final open = ledger.openAccounts;
-    return open.isNotEmpty ? open : ledger.accounts;
+    final open = ledger.accounts.open;
+    return open.isNotEmpty ? open : ledger.accounts.all;
   }
 
   /// Empty fields with sensible first choices for the current tab.
@@ -192,7 +199,9 @@ final class ComposeForm {
     to = accounts.length > 1 ? accounts[1].id : accounts.first.id;
     final common = categoryChoices();
     category = common.isEmpty ? '' : common.first;
-    holding = ledger.holdings.isEmpty ? null : ledger.holdings.first.code;
+    holding = ledger.holdings.all.isEmpty
+        ? null
+        : ledger.holdings.all.first.code;
     shares = 0;
     price = 0;
     note = '';
@@ -215,7 +224,7 @@ final class ComposeForm {
     lent = null;
     if (mode == ComposeMode.lend) {
       // Paid from the main account, for the first person owing.
-      final main = ledger.mainAccount;
+      final main = ledger.accounts.main;
       if (main.isNotEmpty) account = main;
       to = people.isEmpty ? '' : people.first.id;
     }
@@ -241,7 +250,7 @@ final class ComposeForm {
   void pickMerchant(String name) {
     merchant = name;
     if (editing != null) return;
-    final last = ledger.lastAt(name);
+    final last = ledger.entryQueryService.lastAt(name);
     if (last == null) return;
     if (parts == null) category = last.category;
     _accountFrom(last);
@@ -250,7 +259,7 @@ final class ComposeForm {
   /// [entry]'s account, when it is open and keeps the same currency as
   /// the one chosen, so an amount typed stays in its unit.
   void _accountFrom(Entry entry) {
-    final open = {for (final a in ledger.openAccounts) a.id};
+    final open = {for (final a in ledger.accounts.open) a.id};
     if (!open.contains(entry.account)) return;
     if (ledger.account(entry.account).currency != currency) return;
     account = entry.account;
@@ -273,7 +282,7 @@ final class ComposeForm {
     // An invoice is in NT$: on an account in another currency, the first
     // open one in NT$ pays it.
     if (currency != homeCode) {
-      for (final a in ledger.openAccounts) {
+      for (final a in ledger.accounts.open) {
         if (a.currency == homeCode) {
           account = a.id;
           break;
@@ -283,13 +292,13 @@ final class ComposeForm {
     setAmount(invoice.total);
   }
 
-  /// Starts a new expense from [entry], one of [Ledger.usual]: its
+  /// Starts a new expense from [entry], one of `EntryQueryService.usual`: its
   /// category, merchant, account and amount, on today.
   void startFrom(Entry entry) {
     category = entry.category;
     merchant = entry.merchant;
     if (entry.merchant.isNotEmpty) more = true;
-    final open = {for (final a in ledger.openAccounts) a.id};
+    final open = {for (final a in ledger.accounts.open) a.id};
     if (open.contains(entry.account)) account = entry.account;
     // The amount only in its own unit.
     if (ledger.account(entry.account).currency == currency) {
@@ -299,13 +308,13 @@ final class ComposeForm {
 
   /// The accounts that keep what someone owes, one per person.
   List<Account> get people => [
-    for (final a in ledger.openAccounts)
+    for (final a in ledger.accounts.open)
       if (a.kind == AccountKind.receivable) a,
   ];
 
   /// Categories of this tab, the most used lately first.
   List<String> categoryChoices() =>
-      ledger.categoriesByUse(income: tab == ComposeMode.income);
+      ledger.reportService.categoriesByUse(income: tab == ComposeMode.income);
 
   /// Brings back a form put aside: [entry] with its receipt photo, on
   /// accounts still open; when none is open, its own accounts stay.
@@ -314,7 +323,7 @@ final class ComposeForm {
     findLending(entry);
     if (entry.isInvestment) trade = entry.type;
     receipt = photo;
-    final accounts = ledger.openAccounts;
+    final accounts = ledger.accounts.open;
     final open = {for (final a in accounts) a.id};
     if (!open.contains(account) && accounts.isNotEmpty) {
       account = accounts.first.id;
@@ -352,13 +361,13 @@ final class ComposeForm {
   /// The shares of a trade: the amount follows at the same price.
   void setShares(int value) {
     shares = value;
-    if (trading) amount = (shares * price).round();
+    if (trading) amount = timesPrice(shares, price);
   }
 
   /// The price of a trade: the amount follows for the same shares.
   void setPrice(double value) {
     price = value;
-    if (trading) amount = (shares * price).round();
+    if (trading) amount = timesPrice(shares, price);
   }
 
   EntryType get type => switch (mode) {
@@ -413,12 +422,12 @@ final class ComposeForm {
     if (original != null && worth != null && original.amount > 0) {
       return (worth * amount / original.amount).round();
     }
-    return ledger.toHome(amount, currency);
+    return ledger.marketData.toHome(amount, currency);
   }
 
   /// [received], else the amount at today's rates.
   int? get receivedValue =>
-      received ?? ledger.convert(amount, currency, toCurrency);
+      received ?? ledger.marketData.convert(amount, currency, toCurrency);
 
   /// The premium withheld from the cash dividend being written.
   int get withheld => premium ?? dividendPremium(amount, date);
@@ -451,8 +460,8 @@ final class ComposeForm {
   String? get problem {
     if (mode == ComposeMode.lend && to.isEmpty) return '請選擇代墊對象';
     if (lending) return _lendingProblem;
-    final found = ledger.problemWith(build(), replacing: editing);
-    if (found != null) return found;
+    final found = ledger.entryValidator.validate(build(), replacing: editing);
+    if (found != null) return validationMessage(found);
     final splitTotal = splitParts?.fold(0, (sum, p) => sum + p.$2);
     if (splitTotal != null && splitTotal != amount) {
       return '拆分的金額要等於總額（差 ${groupDigits(amount - splitTotal)}）';
@@ -465,9 +474,9 @@ final class ComposeForm {
     if (lent!.any((p) => p.$2 <= 0)) return '代墊的金額要大於 0';
     if (own < 0) return '代墊的金額超過總額（多 ${groupDigits(-own)}）';
     for (final e in buildAll()) {
-      final was = ledger.byId(e.id);
-      final found = ledger.problemWith(e, replacing: was);
-      if (found != null) return found;
+      final was = ledger.entries.byId(e.id);
+      final found = ledger.entryValidator.validate(e, replacing: was);
+      if (found != null) return validationMessage(found);
     }
     return null;
   }
@@ -526,8 +535,8 @@ final class ComposeForm {
       account: lendingBack ? to : account,
       category: switch (kind) {
         EntryType.transfer => transferCategory,
-        EntryType.dividend => '股息收入',
-        EntryType.buy || EntryType.sell => '投資',
+        EntryType.dividend => dividendCategory,
+        EntryType.buy || EntryType.sell => investmentCategory,
         _ => split == null || split.isEmpty ? category : split.first.$1,
       },
       note: note.trim(),
