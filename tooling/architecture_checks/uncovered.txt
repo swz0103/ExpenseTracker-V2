@@ -1,0 +1,44 @@
+# Classes and functions of the app that no test runs, as of 2026-11-20.
+# This list only shrinks: bin/declaration_coverage.dart fails when one not
+# listed here is never run, and when one listed here has been tested since.
+# docs/roadmap.md, item 30.
+main.dart::_clearLeftovers
+main.dart::main
+main_preview.dart::main
+src/app/android/calendar_adapter.dart::AndroidCalendar
+src/app/android/folder_adapter.dart::AndroidFolder
+src/app/android/keystore_adapter.dart::KeystoreDeviceKey
+src/app/android/keystore_adapter.dart::androidDeviceUnlock
+src/app/android/notification_adapter.dart::AndroidNotifications
+src/app/android/quick_action_adapter.dart::listenForQuickActions
+src/app/android/receipt_photo_adapter.dart::AndroidReceipts
+src/app/android/receipt_photo_adapter.dart::_SealedImage
+src/app/android/scanner_adapter.dart::androidScanQr
+src/app/android/update_adapter.dart::AndroidUpdatePort
+src/app/bootstrap.dart::VaultRoot
+src/app/bootstrap.dart::_OpenedLedgerState
+src/app/bootstrap.dart::applicationDirectory
+src/app/demo/launch.dart::_AppIcon
+src/app/demo/launch.dart::_HomeHandle
+src/app/demo/launch.dart::_HomeScreen
+src/app/demo/launch.dart::_OtherApp
+src/app/demo/launch.dart::_PreviewLaunchState
+src/core/design_system/dialogs.dart::askText
+src/core/design_system/phone_frame.dart::PhoneFrame
+src/core/design_system/phone_frame.dart::_HomeBar
+src/core/design_system/phone_frame.dart::_StatusBar
+src/core/design_system/phone_frame.dart::_StatusIcons
+src/features/accounts/forms/account_editor_edit_card.dart::_DayKey
+src/features/budgets/ui/budgets.dart::_NoBudget
+src/features/budgets/ui/budgets_month_picker.dart::_AddLimit
+src/features/entries/forms/compose_widgets.dart::OriginalEntryTile
+src/features/entries/forms/trade_cards.dart::SettlementBox
+src/features/entries/forms/trade_cards.dart::TradeOutcomeCard
+src/features/investments/model/market_feed.dart::MarketFeed
+src/features/investments/ui/holding_page.dart::_SoldOut
+src/features/overview/forms/widget_face.dart::WidgetFace
+src/features/overview/forms/widget_face.dart::_Half
+src/features/overview/forms/widget_face.dart::_Week
+src/features/recurring/forms/recurring_repeat.dart::_OtherSheetState
+src/features/recurring/ui/recurring_lists.dart::_Paused
+src/features/tags/ui/tag_page.dart::_RenameSheetState

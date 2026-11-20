@@ -268,16 +268,6 @@ List<String> usualAccountIcons(AccountKind kind) => switch (kind) {
   AccountKind.loan || AccountKind.receivable => const [],
 };
 
-/// The name a screen reader says for the category mark [key].
-String categoryIconName(String key) {
-  for (final (_, marks) in categoryIconGroups) {
-    for (final (k, name) in marks) {
-      if (k == key) return name;
-    }
-  }
-  return key;
-}
-
 /// The name a screen reader says for the account mark [key].
 String accountIconName(String key) {
   for (final (_, marks) in accountIconGroups) {

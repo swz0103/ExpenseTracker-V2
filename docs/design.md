@@ -78,7 +78,7 @@
 | 不換行的短字 | `OneLine` | `components/one_line.dart` |
 | 報價列、空狀態、⋯ 選單 | `QuoteBoard`、`EmptyState`、`DotsMenu` | `components/boards.dart` |
 | 圖示 | `GlyphIcon`；卡片與色塊用方形 `SquareIcon`，清單列與選單用圓形 `RoundIcon`；新圖示加在 `tool/glyphs.py` 再產生 | `glyphs.dart`、`components/marks.dart` |
-| 小標記 | `Pill`、`LegendKey`、`RingGauge` | `components/marks.dart` |
+| 小標記 | `Pill`、`LegendKey` | `components/marks.dart` |
 
 認得帳本的元件（紀錄列、帳戶選擇、計算機、金額顯示）在 `core/widgets/`。
 
