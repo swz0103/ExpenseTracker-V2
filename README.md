@@ -1,21 +1,10 @@
-<h1 align="center">記帳本</h1>
+# 記帳本
 
-<p align="center">
-  一個 Android 記帳 App：日常花費、信用卡、台股與股息、預算、定期扣款，都記在同一本帳裡。<br>
-  資料只存在你的手機，整本加密，不用註冊帳號。
-</p>
+一個 Android 記帳 App：日常花費、信用卡、台股與股息、預算、定期扣款，都記在同一本帳裡。資料只存在你的手機，整本加密，不用註冊帳號。
 
-<p align="center">
-  <a href="https://github.com/swz0103/ExpenseTracker-V2/releases/latest"><b>下載最新版</b></a>
-  ·
-  <a href="#安裝與更新">安裝說明</a>
-  ·
-  <a href="#資料與隱私">資料與隱私</a>
-</p>
+**[下載最新版](https://github.com/swz0103/ExpenseTracker-V2/releases/latest)** · [安裝說明](#安裝與更新) · [資料與隱私](#資料與隱私)
 
-<p align="center">
-  <img src="docs/images/hero.png" alt="記帳本的畫面：總覽、記一筆、財務報表、投資與股息、預算管理" width="100%">
-</p>
+<img src="docs/images/hero.png" alt="記帳本的畫面：總覽、記一筆、財務報表、投資與股息、預算管理" width="100%">
 
 ## 記帳與報表
 
