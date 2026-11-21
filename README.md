@@ -40,4 +40,4 @@ Flutter 寫成，分成 App、基礎設施（加密、儲存、行情）與規�
 
 ## 授權
 
-[GPL-3.0](LICENSE)：可以使用、修改、再發布，改過再發布時要用同樣的授權並公開原始碼。字型 Nunito 與 Noto Sans TC 依 SIL Open Font License（`apps/expense_tracker/fonts/OFL-*.txt`）。
+[GPL-3.0](LICENSE)：可以使用、修改、再發布，改過再發布時要用同樣的授權並公開原始碼。另附一條附加許可（[LICENSE-EXCEPTION.md](LICENSE-EXCEPTION.md)）：允許與 Google Play 服務等 Android 平台的非自由程式庫一起發布。字型 Nunito 與 Noto Sans TC 依 SIL Open Font License（`apps/expense_tracker/fonts/OFL-*.txt`）。
