@@ -64,7 +64,7 @@
 
 1. 在手機上打開 [下載頁](https://github.com/swz0103/ExpenseTracker-V2/releases/latest)，下載 `ExpenseTracker-版號.apk` 並安裝。第一次安裝要允許從瀏覽器安裝 App。
 2. 之後有新版時，App 打開會提示，也可以到「設定 › 關於」更新。
-3. 想先試試看：下載頁的 `test-ledger.etbk` 是半年份的範例帳本。在歡迎頁選「還原備份」，密碼是 `test1234`。
+3. 想先試試看：下載頁的 `test-ledger.etbk` 是五年份、約 8,000 筆的範例帳本。在歡迎頁選「還原備份」，密碼是 `test1234`。
 
 需要 Android 7.0 以上、64 位元（arm64）的手機。
 

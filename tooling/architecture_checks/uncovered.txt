@@ -22,7 +22,6 @@ src/app/demo/launch.dart::_HomeHandle
 src/app/demo/launch.dart::_HomeScreen
 src/app/demo/launch.dart::_OtherApp
 src/app/demo/launch.dart::_PreviewLaunchState
-src/core/design_system/dialogs.dart::askText
 src/core/design_system/phone_frame.dart::PhoneFrame
 src/core/design_system/phone_frame.dart::_HomeBar
 src/core/design_system/phone_frame.dart::_StatusBar

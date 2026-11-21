@@ -46,7 +46,7 @@
 | `tool/move.py` | 搬 Dart 檔並改好所有 import 與 part（用 git mv） |
 | `tool/reroute.py` | 成員搬家或改名後，依分析器的錯誤逐一改寫呼叫處（不靠文字比對） |
 | `tool/glyphs.py` | 定義所有圖示，產生 `core/design_system/glyphs.dart`（不要手改產生的檔） |
-| `tool/test_ledger.py` | 產生兩年份、約 2,500 筆的測試帳本 `test-ledger.etbk`（密碼 `test1234`）：多家銀行、三張信用卡、外幣、車貸、代墊、十檔股票、預算與定期 |
+| `tool/test_ledger.py` | 產生五年份（2021-11～2026-11）、約 8,000 筆的測試帳本 `test-ledger.etbk`（密碼 `test1234`）：多家銀行、三張信用卡、外幣、車貸、代墊、十檔股票與每年配息、每年旅行、分期與退款、預算與定期。產生時自己檢查：除了信用卡與車貸，任何帳戶任何一天都不會變負；賣出不超過持股、配息時有持股；日期不超過今天；到期的卡費都繳了。不對就停下並說出哪一天、哪個帳戶，CI 打包時就會擋下 |
 | `tool/screenshots/` | 依 `test/support/places.dart` 拍每頁淺色、深色截圖 |
 | `tool/app_icon.svg` | App 圖示原稿 |
 
