@@ -64,7 +64,14 @@ class CardPage extends StatelessWidget {
           WidgetsBinding.instance.addPostFrameCallback((_) => nav.back());
           return const SizedBox.shrink();
         }
-        final card = CardSummary.of(ledger, ledger.account(accountId));
+        final card = CardSummary.of(
+          ledger.account(accountId),
+          statements: ledger.statementService,
+          balances: ledger.balanceService,
+          entries: ledger.entries,
+          accounts: ledger.accounts,
+          today: ledger.today,
+        );
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
           header: CenterHeader(

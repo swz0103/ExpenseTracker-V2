@@ -79,7 +79,7 @@ class _MonthPickerState extends State<_MonthPicker> {
     final on =
         key((_year, m)) >= key(widget.first) &&
         key((_year, m)) <= key(widget.last);
-    final sums = BudgetMonth.of(widget.ledger, (_year, m));
+    final sums = budgetMonthOf(widget.ledger, (_year, m));
     final total = sums.total;
     final share = total == 0 ? null : sums.spent * 100 ~/ total;
     final chosen = (_year, m) == widget.chosen;

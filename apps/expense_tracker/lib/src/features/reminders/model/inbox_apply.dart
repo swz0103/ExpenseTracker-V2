@@ -15,7 +15,12 @@ typedef InboxOutcome = ({int booked, List<String> review});
 /// or by itself) is let go. Anything else is not guessed at but listed:
 /// an item deleted, paused or with an earlier day still unbooked, and
 /// requests that cannot be read (sealed for a ledger restored over).
-InboxOutcome applyInbox(Ledger ledger, List<InboxItem> items) {
+InboxOutcome applyInbox(
+  List<InboxItem> items, {
+  required RecurringReader recurring,
+  required RecurringService service,
+  required RecurringCommands commands,
+}) {
   var booked = 0;
   var unreadable = 0;
   final review = <String>[];
@@ -29,7 +34,7 @@ InboxOutcome applyInbox(Ledger ledger, List<InboxItem> items) {
     final (id, day) = request;
     final label = formatMd(day);
     Recurring? found;
-    for (final r in ledger.recurring.all) {
+    for (final r in recurring.all) {
       if (r.id == id) found = r;
     }
     if (found == null) {
@@ -40,9 +45,9 @@ InboxOutcome applyInbox(Ledger ledger, List<InboxItem> items) {
       review.add('「${found.name}」已暫停，$label 的確認沒有入帳');
       continue;
     }
-    final pending = ledger.recurringService.pendingDate(found);
+    final pending = service.pendingDate(found);
     if (pending == day) {
-      ledger.recurringCommands.confirm(found);
+      commands.confirm(found);
       booked++;
     } else if (pending != null && pending.isBefore(day)) {
       review.add('「${found.name}」還有 ${formatMd(pending)} 那期沒入帳，請到定期交易確認');

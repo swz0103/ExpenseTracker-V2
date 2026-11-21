@@ -43,7 +43,7 @@ void main() {
 
   testWidgets('more counted than the book holds is recorded as income, '
       'once agreed', (tester) async {
-    final book = shownBalance(ledger, account);
+    final book = shownBalance(ledger.balanceService, account);
     final count0 = ledger.entries.length;
     await count(tester, book + 120);
     expect(find.textContaining('差 120'), findsOneWidget);
@@ -55,28 +55,28 @@ void main() {
       (added.type, added.amount, added.account),
       (EntryType.income, 120, account.id),
     );
-    expect(shownBalance(ledger, account), book + 120);
+    expect(shownBalance(ledger.balanceService, account), book + 120);
     expect(find.text('已記下對帳調整 +120'), findsOneWidget);
   });
 
   testWidgets('less counted is recorded as spending', (tester) async {
-    final book = shownBalance(ledger, account);
+    final book = shownBalance(ledger.balanceService, account);
     await count(tester, book - 35);
     await go(tester, ['記下']);
     expect(ledger.entries.all.last.type, EntryType.expense);
-    expect(shownBalance(ledger, account), book - 35);
+    expect(shownBalance(ledger.balanceService, account), book - 35);
   });
 
   testWidgets('declining records nothing', (tester) async {
     final count0 = ledger.entries.length;
-    await count(tester, shownBalance(ledger, account) + 5);
+    await count(tester, shownBalance(ledger.balanceService, account) + 5);
     await go(tester, [Words.cancel]);
     expect(ledger.entries.length, count0);
   });
 
   testWidgets('the same amount needs no adjustment', (tester) async {
     final count0 = ledger.entries.length;
-    await count(tester, shownBalance(ledger, account));
+    await count(tester, shownBalance(ledger.balanceService, account));
     expect(find.text('帳上金額一致，不用調整'), findsOneWidget);
     expect(ledger.entries.length, count0);
   });

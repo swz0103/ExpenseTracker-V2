@@ -16,8 +16,8 @@ int countedBalance(Account account, int counted) =>
 
 /// The book's balance of [account] as the person would count it: what is
 /// owed, as a positive amount, for a card or loan.
-int shownBalance(Ledger ledger, Account account) {
-  final balance = ledger.balanceService.balance(account.id);
+int shownBalance(BalanceService balances, Account account) {
+  final balance = balances.balance(account.id);
   return account.kind.isDebt ? -balance : balance;
 }
 
@@ -25,16 +25,21 @@ int shownBalance(Ledger ledger, Account account) {
 /// [counted] (as [shownBalance] shows it), dated today: spending when the
 /// book has more than is there, income when less. Null when they agree.
 /// Accounts in NT$ only: an adjustment elsewhere would need the day's rate.
-Entry? reconcile(Ledger ledger, Account account, int counted) {
+Entry? reconcile(
+  BalanceService balances,
+  Account account,
+  int counted, {
+  required String id,
+  required DateTime today,
+}) {
   if (account.foreign) return null;
   final difference =
-      countedBalance(account, counted) -
-      ledger.balanceService.balance(account.id);
+      countedBalance(account, counted) - balances.balance(account.id);
   if (difference == 0) return null;
   final found = difference > 0;
   return Entry(
-    id: ledger.newId(),
-    date: ledger.today,
+    id: id,
+    date: today,
     type: found ? EntryType.income : EntryType.expense,
     amount: difference.abs(),
     account: account.id,

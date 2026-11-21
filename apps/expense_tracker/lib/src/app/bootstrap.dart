@@ -302,7 +302,12 @@ class _OpenedLedgerState extends State<OpenedLedger>
       );
       final items = await inbox.read();
       if (items.isEmpty) return;
-      outcome = applyInbox(ledger, items);
+      outcome = applyInbox(
+        items,
+        recurring: ledger.recurring,
+        service: ledger.recurringService,
+        commands: ledger.recurringCommands,
+      );
       for (final item in items) {
         await inbox.remove(item.name);
       }

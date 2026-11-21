@@ -51,7 +51,7 @@ class _ReturnsState extends State<_Returns> {
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
-    final guesses = expectedDividends(ledger);
+    final guesses = returnsOf(ledger).expectedDividends();
     if (guesses.isEmpty) {
       return const Padding(
         padding: EdgeInsets.only(top: Space.s4),

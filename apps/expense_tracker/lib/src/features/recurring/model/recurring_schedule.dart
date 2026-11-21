@@ -19,11 +19,16 @@ final class Due {
 /// Each day of [year]/[month] with what falls due on it, the dearest
 /// first: every active item's dates that month, each matched to that
 /// month's bookings in order, as `RecurringService.pendingDate` counts them.
-Map<int, List<Due>> monthPlan(Ledger ledger, int year, int month) {
+Map<int, List<Due>> monthPlan(
+  RecurringReader recurring,
+  RecurringService service,
+  int year,
+  int month,
+) {
   final days = <int, List<Due>>{};
-  for (final item in ledger.recurring.all) {
+  for (final item in recurring.all) {
     if (!item.active) continue;
-    final booked = ledger.recurringService.confirmationsIn(item, year, month);
+    final booked = service.confirmationsIn(item, year, month);
     var next = 0;
     for (final day in item.datesIn(year, month)) {
       final skipped = item.skipped.contains(day);
@@ -39,11 +44,7 @@ Map<int, List<Due>> monthPlan(Ledger ledger, int year, int month) {
     }
   }
   for (final list in days.values) {
-    list.sort(
-      (a, b) => ledger.recurringService
-          .worth(b.item)
-          .compareTo(ledger.recurringService.worth(a.item)),
-    );
+    list.sort((a, b) => service.worth(b.item).compareTo(service.worth(a.item)));
   }
   return days;
 }
@@ -69,13 +70,14 @@ int? firstShown(Map<int, List<Due>> plan, DateTime today, int year, int month) {
 /// The categories a new item is most likely in: the [count] used most by
 /// entries of that side, then the others in their order.
 List<Category> usualCategories(
-  Ledger ledger, {
+  CategoryReader categories,
+  EntryReader entries, {
   required bool income,
   int count = 5,
 }) {
-  final open = ledger.categories.forEntries(income: income);
+  final open = categories.forEntries(income: income);
   final uses = <String, int>{};
-  for (final e in ledger.entries.all) {
+  for (final e in entries.all) {
     uses[e.category] = (uses[e.category] ?? 0) + 1;
   }
   final sorted = [...open]

@@ -57,9 +57,22 @@ void main() {
     // A screen or a model that needs only the entries, or the reports,
     // takes that part (EntryReader, ReportService, exported by
     // ledger.dart): it says what it uses, and a test gives it only that.
-    const most = 82;
+    const most = 73;
     final whole = wholeLedgerFiles(units);
     expect(whole.length, lessThanOrEqualTo(most), reason: 'take the part');
+    expect(whole.length, most, reason: 'fewer now: lower `most`');
+  });
+
+  test('fewer models take the whole ledger', () {
+    // A model takes the readers, services and commands it uses, and the
+    // day as a value: its dependencies show, and a test needs no whole
+    // book (docs/adr/0013-models-take-what-they-use.md). Goal: none.
+    const most = 12;
+    final whole = [
+      for (final path in wholeLedgerFiles(units))
+        if (path.contains('/model/')) path,
+    ];
+    expect(whole.length, lessThanOrEqualTo(most), reason: whole.join('\n'));
     expect(whole.length, most, reason: 'fewer now: lower `most`');
   });
 }

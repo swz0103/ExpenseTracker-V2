@@ -18,7 +18,7 @@ Future<void> reconcileAccount(
   Account account,
 ) async {
   final debt = account.kind.isDebt;
-  final book = shownBalance(ledger, account);
+  final book = shownBalance(ledger.balanceService, account);
   final counted = await showCalculator(
     context,
     title: debt ? '實際欠款' : '實際餘額',
@@ -26,7 +26,13 @@ Future<void> reconcileAccount(
     color: AppColors.accent,
   );
   if (counted == null || !context.mounted) return;
-  final entry = reconcile(ledger, account, counted);
+  final entry = reconcile(
+    ledger.balanceService,
+    account,
+    counted,
+    id: ledger.newId(),
+    today: ledger.today,
+  );
   if (entry == null) {
     showNote(context, '帳上金額一致，不用調整');
     return;

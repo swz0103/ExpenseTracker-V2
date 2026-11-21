@@ -112,7 +112,7 @@ class _Subscriptions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rows = yearlyCosts(ledger);
+    final rows = yearlyCostsOf(ledger);
     final total = rows.fold(0, (sum, row) => sum + row.$2);
     return _SubPage(
       nav: nav,

@@ -59,13 +59,17 @@ final class ComposeDraft {
 
 /// Forms put aside with 暫存, by tab, kept in the ledger they were
 /// written for, so they outlast the app being closed by the phone.
-extension type const ComposeDrafts(Ledger ledger) {
+final class ComposeDrafts {
+  const ComposeDrafts(this._drafts, this._commands);
+
+  final DraftReader _drafts;
+  final AttachmentCommands _commands;
+
   ComposeDraft? operator [](ComposeMode tab) =>
-      ComposeDraft.read(ledger.drafts.of(tab.name));
+      ComposeDraft.read(_drafts.of(tab.name));
 
   void operator []=(ComposeMode tab, ComposeDraft draft) =>
-      ledger.attachmentCommands.setDraft(tab.name, draft.toJson());
+      _commands.setDraft(tab.name, draft.toJson());
 
-  void remove(ComposeMode tab) =>
-      ledger.attachmentCommands.setDraft(tab.name, null);
+  void remove(ComposeMode tab) => _commands.setDraft(tab.name, null);
 }

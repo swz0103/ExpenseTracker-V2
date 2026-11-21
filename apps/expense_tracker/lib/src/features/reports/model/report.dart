@@ -45,20 +45,25 @@ final class Report {
     required this.weekdays,
   });
 
-  factory Report.of(Ledger ledger, ReportPeriod period) {
-    final today = ledger.today;
+  factory Report.of(
+    ReportPeriod period, {
+    required EntryReader entries,
+    required ReportService reports,
+    required BalanceService balances,
+    required DateTime today,
+  }) {
     final from = period.from;
     final to = period.to;
     final until = to.isAfter(today) ? today : to;
     final stretches = period.stretches;
-    final entries = entriesBetween(ledger, from, to);
+    final inPeriod = entriesBetween(entries, from, to);
     var income = 0;
     var expense = 0;
     var dividends = 0;
     Entry? biggest;
     final days = <DateTime>{};
     final weekdays = List.filled(7, 0);
-    for (final e in entries) {
+    for (final e in inPeriod) {
       income += e.earning;
       expense += e.spending;
       weekdays[e.date.weekday - 1] += e.spending;
@@ -69,14 +74,14 @@ final class Report {
         biggest = e;
       }
     }
-    final before = _yearAgo(ledger, from, until);
+    final before = _yearAgo(entries, from, until);
     final lastExpense = before.fold(0, (sum, e) => sum + e.spending);
     final buckets = [
       for (final (label, a, b) in stretches)
         if (a.isAfter(today))
           StretchSum(label, 0, 0, ahead: true)
         else
-          _bucket(label, entriesBetween(ledger, a, b)),
+          _bucket(label, entriesBetween(entries, a, b)),
     ];
     final passed = [
       for (final (i, b) in buckets.indexed)
@@ -89,7 +94,7 @@ final class Report {
           );
     // The ledger's own sum keeps the categories in the order it always
     // has, so equal amounts keep their places.
-    final spending = ledger.reportService.spendingBetween(from, to);
+    final spending = reports.spendingBetween(from, to);
     final lastSpending = _spendingOf(before);
     final names = spending.keys.toList()
       ..sort((a, b) => spending[b]!.compareTo(spending[a]!));
@@ -104,15 +109,13 @@ final class Report {
       buckets: buckets,
       peak: peak,
       perStretch: passed.isEmpty ? 0 : expense ~/ passed.length,
-      worthBefore: ledger.balanceService.netWorthAt(
-        from.subtract(const Duration(days: 1)),
-      ),
-      worthNow: ledger.balanceService.netWorthAt(until),
+      worthBefore: balances.netWorthAt(from.subtract(const Duration(days: 1))),
+      worthNow: balances.netWorthAt(until),
       worth: [
         for (final (_, a, b) in stretches)
           a.isAfter(today)
               ? null
-              : ledger.balanceService.netWorthAt(b.isAfter(today) ? today : b),
+              : balances.netWorthAt(b.isAfter(today) ? today : b),
       ],
       spending: spending,
       lastSpending: lastSpending,
@@ -121,12 +124,9 @@ final class Report {
         1,
         (m, n) => max(m, max(spending[n] ?? 0, lastSpending[n] ?? 0)),
       ),
-      merchants: ledger.reportService
-          .merchantsBetween(from, to)
-          .take(5)
-          .toList(),
-      tags: ledger.reportService.tagsBetween(from, to),
-      count: entries.length,
+      merchants: reports.merchantsBetween(from, to).take(5).toList(),
+      tags: reports.tagsBetween(from, to),
+      count: inPeriod.length,
       days: days.length,
       biggestSpend: biggest,
       weekdays: weekdays,
@@ -183,7 +183,7 @@ final class Report {
 
   /// The entries from [from] to [to], read from those months only.
   static List<Entry> entriesBetween(
-    Ledger ledger,
+    EntryReader entries,
     DateTime from,
     DateTime to,
   ) => [
@@ -192,13 +192,36 @@ final class Report {
       !m.isAfter(to);
       m = DateTime.utc(m.year, m.month + 1)
     )
-      for (final e in ledger.entries.inMonth(m.year, m.month))
+      for (final e in entries.inMonth(m.year, m.month))
         if (!e.date.isBefore(from) && !e.date.isAfter(to)) e,
   ];
 
+  /// The entries of [period] spent (in whole or in part) under the
+  /// category [name], latest first, and how much of them was.
+  static (List<Entry>, int) spentUnder(
+    String name,
+    EntryReader entries,
+    ReportPeriod period,
+  ) {
+    final under = [
+      for (final e in entriesBetween(entries, period.from, period.to))
+        if (e.spendingParts.any((p) => p.$1 == name)) e,
+    ]..sort((a, b) => b.date.compareTo(a.date));
+    var total = 0;
+    for (final e in under) {
+      for (final (category, amount) in e.spendingParts) {
+        if (category == name) total += amount;
+      }
+    }
+    return (under, total);
+  }
+
   /// The entries of the same days a year before.
-  static List<Entry> _yearAgo(Ledger ledger, DateTime from, DateTime to) =>
-      entriesBetween(ledger, _yearBefore(from), _yearBefore(to));
+  static List<Entry> _yearAgo(
+    EntryReader entries,
+    DateTime from,
+    DateTime to,
+  ) => entriesBetween(entries, _yearBefore(from), _yearBefore(to));
 
   static StretchSum _bucket(String label, List<Entry> entries) {
     var income = 0;

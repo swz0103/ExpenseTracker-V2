@@ -35,6 +35,7 @@
 | [0010](adr/0010-data-that-lasts.md) | 資料十年可讀 | 有效 | [architecture.md](architecture.md) |
 | [0011](adr/0011-version-numbers.md) | 版本號 | 有效 | [development.md](development.md) |
 | [0012](adr/0012-ledger-stays-in-the-app.md) | 帳本暫不移出 | 有效 | [ledger.md](ledger.md) |
+| [0013](adr/0013-models-take-what-they-use.md) | 畫面拿帳本，模型只拿它用的部分 | 有效，分批進行；取代 roadmap 第 23 項「40 個檔以下」的目標 | [architecture.md](architecture.md) |
 
 各模組自己的說明在它的 README：`apps/expense_tracker`、`packages/core`、`packages/domain`、`infrastructure/storage`、`infrastructure/vault`、`infrastructure/market`。
 

@@ -9,7 +9,6 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/navigation/nav.dart';
-import '../model/returns.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/formatting/dates.dart';
 import '../../../core/design_system/shape.dart';
@@ -17,6 +16,7 @@ import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 import '../../../core/platform/sync_job.dart';
 import '../model/dividend_outlook.dart';
+import '../model/returns.dart';
 
 part 'investments_hero.dart';
 part 'investments_returns.dart';
@@ -417,3 +417,12 @@ class _StackPainter extends CustomPainter {
   bool shouldRepaint(_StackPainter old) =>
       old.picked != picked || old.sums != sums || old.hidden != hidden;
 }
+
+/// The returns of [ledger] as the screens show them, from the parts the
+/// model reads (docs/adr/0013-models-take-what-they-use.md).
+Returns returnsOf(Ledger ledger) => Returns(
+  entries: ledger.entries,
+  holdings: ledger.holdings,
+  trades: ledger.entryQueryService,
+  today: ledger.today,
+);

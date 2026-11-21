@@ -21,7 +21,8 @@ class _ComposerState extends State<Composer>
   Ledger get _ledger => widget.ledger;
 
   /// This ledger's forms put aside, by tab.
-  ComposeDrafts get _drafts => ComposeDrafts(_ledger);
+  ComposeDrafts get _drafts =>
+      ComposeDrafts(_ledger.drafts, _ledger.attachmentCommands);
 
   /// The form was put aside as the app went to the background, in case
   /// the phone closes it there; taken back when the app returns.

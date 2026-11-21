@@ -29,7 +29,12 @@ void main() {
       [_spend('a', '飲食', 300), _spend('b', '交通', 200)],
       [Budget(allSpending, 1000)],
     );
-    final month = BudgetMonth.of(ledger, (2026, 10));
+    final month = BudgetMonth.of(
+      (2026, 10),
+      reports: ledger.reportService,
+      budgets: ledger.budgets,
+      service: ledger.budgetService,
+    );
     expect((month.spent, month.total), (500, 1000));
     expect(month.lines, isEmpty);
   });
@@ -39,7 +44,12 @@ void main() {
       [_spend('a', '飲食', 900), _spend('b', '交通', 100)],
       [Budget('交通', 1000), Budget('飲食', 1000), Budget('居家', 0)],
     );
-    final lines = BudgetMonth.of(ledger, (2026, 10)).lines;
+    final lines = BudgetMonth.of(
+      (2026, 10),
+      reports: ledger.reportService,
+      budgets: ledger.budgets,
+      service: ledger.budgetService,
+    ).lines;
     expect(
       [for (final l in lines) (l.budget.category, l.spent, l.allowance)],
       [('飲食', 900, 1000), ('交通', 100, 1000)],
@@ -52,8 +62,10 @@ void main() {
   });
 
   test('months run from the first entry to this one', () {
+    final ledger = _book([_spend('old', '飲食', 1, month: 8)], const []);
     final months = BudgetMonths(
-      _book([_spend('old', '飲食', 1, month: 8)], const []),
+      ledger.reportService,
+      today: () => ledger.today,
     );
     expect((months.first, months.now), ((2026, 8), (2026, 10)));
     expect(months.step((2026, 10), -1), (2026, 9));
@@ -83,7 +95,12 @@ void main() {
         tags: ['旅行'],
       ),
     ], const []);
-    final month = BudgetMonth.of(ledger, (2026, 10));
+    final month = BudgetMonth.of(
+      (2026, 10),
+      reports: ledger.reportService,
+      budgets: ledger.budgets,
+      service: ledger.budgetService,
+    );
     expect(month.spentOn(Budget(allSpending, 1)), 350);
     expect(month.spentOn(Budget('飲食', 1)), 300);
     expect(month.spentOn(Budget('#旅行', 1)), 50);

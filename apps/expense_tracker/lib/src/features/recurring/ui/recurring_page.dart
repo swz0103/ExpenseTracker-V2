@@ -10,7 +10,6 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/entry_tile.dart';
 import '../../../core/navigation/nav.dart';
 import '../model/recurring_schedule.dart';
-import '../model/subscriptions.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/formatting/dates.dart';
 import '../../../core/design_system/shape.dart';
@@ -18,6 +17,7 @@ import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/motion.dart';
 import '../../../core/formatting/words.dart';
 import 'recurring_rows.dart';
+import '../model/subscriptions.dart';
 
 part 'recurring_calendar.dart';
 part 'recurring_lists.dart';
@@ -119,7 +119,7 @@ class _RecurringPageState extends State<RecurringPage> {
       builder: (context, _) {
         final (year, month) = _month;
         final today = ledger.today;
-        final plan = monthPlan(ledger, year, month);
+        final plan = monthPlanOf(ledger, year, month);
         final day = _day ?? firstShown(plan, today, year, month);
         final current = _month == _now;
         final header = CenterHeader(
@@ -161,7 +161,7 @@ class _RecurringPageState extends State<RecurringPage> {
             }
           }
         }
-        final yearly = yearlyCosts(ledger).fold(0, (sum, r) => sum + r.$2);
+        final yearly = yearlyCostsOf(ledger).fold(0, (sum, r) => sum + r.$2);
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
           header: header,
@@ -257,3 +257,14 @@ class _RecurringPageState extends State<RecurringPage> {
     );
   }
 }
+
+// The recurring models as the screens use them, from the parts of the
+// ledger each reads (docs/adr/0013-models-take-what-they-use.md).
+
+/// [ledger]'s recurring items due in [month] of [year], by day.
+Map<int, List<Due>> monthPlanOf(Ledger ledger, int year, int month) =>
+    monthPlan(ledger.recurring, ledger.recurringService, year, month);
+
+/// What each active spending item of [ledger] costs over a year.
+List<(Recurring, int)> yearlyCostsOf(Ledger ledger) =>
+    yearlyCosts(ledger.recurring, ledger.recurringService, today: ledger.today);

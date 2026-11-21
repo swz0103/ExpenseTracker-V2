@@ -15,7 +15,7 @@ class _InvestHero extends StatelessWidget {
     final gain = value - cost;
     final day = ledger.holdings.dayChange;
     final before = value - day;
-    final rate = returnOf(ledger);
+    final rate = returnsOf(ledger).rate();
     final figures = [
       _HeroFigure(
         '未實現',

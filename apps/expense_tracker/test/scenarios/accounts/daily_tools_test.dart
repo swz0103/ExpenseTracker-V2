@@ -57,8 +57,14 @@ void main() {
     test('less in the wallet than in the book is spending', () {
       final ledger = book([spend('a', 1, 300)]);
       final cash = ledger.account('cash');
-      expect(shownBalance(ledger, cash), 1700);
-      final entry = reconcile(ledger, cash, 1500)!;
+      expect(shownBalance(ledger.balanceService, cash), 1700);
+      final entry = reconcile(
+        ledger.balanceService,
+        cash,
+        1500,
+        id: ledger.newId(),
+        today: ledger.today,
+      )!;
       expect(entry.type, EntryType.expense);
       expect(entry.amount, 200);
       expect(entry.category, reconcileSpending);
@@ -66,12 +72,27 @@ void main() {
       expect(entry.date, day);
       ledger.entryCommands.add(entry);
       expect(ledger.balanceService.balance('cash'), 1500);
-      expect(reconcile(ledger, cash, 1500), isNull);
+      expect(
+        reconcile(
+          ledger.balanceService,
+          cash,
+          1500,
+          id: ledger.newId(),
+          today: ledger.today,
+        ),
+        isNull,
+      );
     });
 
     test('more in the bank than in the book is income', () {
       final ledger = book(const []);
-      final entry = reconcile(ledger, ledger.account('bank'), 100250)!;
+      final entry = reconcile(
+        ledger.balanceService,
+        ledger.account('bank'),
+        100250,
+        id: ledger.newId(),
+        today: ledger.today,
+      )!;
       expect(entry.type, EntryType.income);
       expect(entry.amount, 250);
       expect(entry.category, reconcileIncome);
@@ -80,9 +101,15 @@ void main() {
     test('a card is counted by what is owed', () {
       final ledger = book([spend('a', 1, 1000, account: 'card')]);
       final card = ledger.account('card');
-      expect(shownBalance(ledger, card), 1000);
+      expect(shownBalance(ledger.balanceService, card), 1000);
       // The bank says 1,200 is owed: 200 of spending was missed.
-      final entry = reconcile(ledger, card, 1200)!;
+      final entry = reconcile(
+        ledger.balanceService,
+        card,
+        1200,
+        id: ledger.newId(),
+        today: ledger.today,
+      )!;
       expect(entry.type, EntryType.expense);
       expect(entry.amount, 200);
       ledger.entryCommands.add(entry);
@@ -91,7 +118,16 @@ void main() {
 
     test('an account in another currency is left alone', () {
       final ledger = book(const []);
-      expect(reconcile(ledger, ledger.account('usd'), 5), isNull);
+      expect(
+        reconcile(
+          ledger.balanceService,
+          ledger.account('usd'),
+          5,
+          id: ledger.newId(),
+          today: ledger.today,
+        ),
+        isNull,
+      );
     });
   });
 

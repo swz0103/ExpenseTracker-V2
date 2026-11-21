@@ -44,10 +44,22 @@ export 'services/entry_validation_failure.dart';
 export 'services/integrity_service.dart'
     show IntegrityProblem, MissingAccount, MissingRefundOriginal, RecordKind;
 export 'models/models.dart';
-// The narrow parts a screen or a model can take in place of the whole
-// ledger (docs/roadmap.md, item 10).
+// The narrow parts a model takes in place of the whole ledger
+// (docs/adr/0013-models-take-what-they-use.md).
+export 'commands/attachment_commands.dart' show AttachmentCommands;
+export 'commands/recurring_commands.dart' show RecurringCommands;
 export 'repositories/account_repository.dart' show AccountReader;
+export 'repositories/budget_repository.dart' show BudgetReader;
+export 'repositories/category_repository.dart' show CategoryReader;
+export 'repositories/draft_repository.dart' show DraftReader;
+export 'repositories/recurring_repository.dart' show RecurringReader;
+export 'services/balance_service.dart' show BalanceService;
+export 'services/budget_service.dart' show BudgetService;
+export 'services/entry_query_service.dart' show EntryQueryService;
+export 'services/recurring_service.dart' show RecurringService;
+export 'services/statement_service.dart' show StatementService;
 export 'repositories/entry_repository.dart' show EntryReader;
+export 'repositories/holding_repository.dart' show HoldingReader;
 export 'services/report_service.dart' show ReportService;
 
 /// The screens' book: accounts, categories, entries, holdings, budgets

@@ -8,7 +8,12 @@ void main() {
   test('a month lays every active item on its days, booked or not', () {
     final ledger = demoLedger();
     final today = ledger.today;
-    final plan = monthPlan(ledger, today.year, today.month);
+    final plan = monthPlan(
+      ledger.recurring,
+      ledger.recurringService,
+      today.year,
+      today.month,
+    );
     final shown = [
       for (final list in plan.values)
         for (final d in list) d.item.id,
@@ -32,7 +37,12 @@ void main() {
   test('it opens on the next day with something to book', () {
     final ledger = demoLedger();
     final today = ledger.today;
-    final plan = monthPlan(ledger, today.year, today.month);
+    final plan = monthPlan(
+      ledger.recurring,
+      ledger.recurringService,
+      today.year,
+      today.month,
+    );
     final day = firstShown(plan, today, today.year, today.month);
     expect(day, isNotNull);
     expect(plan[day]!.any((d) => d.booked == null), isTrue);

@@ -56,7 +56,7 @@ class _ReportsPageState extends State<ReportsPage> {
     final kept = _report;
     if (kept != null && _reportFor == key) return kept;
     _reportFor = key;
-    return _report = Report.of(ledger, _period);
+    return _report = _reportOf(ledger, _period);
   }
 
   /// Moves to [period]; the stretch and category picked in the last one
@@ -537,19 +537,7 @@ class _ReportsPageState extends State<ReportsPage> {
   /// The period's entries spent under [name], in a sheet; each opens.
   Future<void> _showCategory(String name) {
     final ledger = widget.ledger;
-    final period = _period;
-    final entries = [
-      for (final e in Report.entriesBetween(ledger, period.from, period.to))
-        if (e.spendingParts.any((p) => p.$1 == name)) e,
-    ]..sort((a, b) => b.date.compareTo(a.date));
-    final total = entries.fold(
-      0,
-      (sum, e) =>
-          sum +
-          e.spendingParts
-              .where((p) => p.$1 == name)
-              .fold(0, (s, p) => s + p.$2),
-    );
+    final (entries, total) = Report.spentUnder(name, ledger.entries, _period);
     return showSheet<void>(
       context,
       (context) => ConstrainedBox(
@@ -569,7 +557,7 @@ class _ReportsPageState extends State<ReportsPage> {
               ),
             ),
             Text(
-              '${period.title} · ${entries.length} 筆 · ${ledger.money(total)}',
+              '${_period.title} · ${entries.length} 筆 · ${ledger.money(total)}',
               textAlign: TextAlign.center,
               style: mutedSmall,
             ),
