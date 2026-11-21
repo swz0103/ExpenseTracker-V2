@@ -47,6 +47,8 @@ export 'models/models.dart';
 // The narrow parts a model takes in place of the whole ledger
 // (docs/adr/0013-models-take-what-they-use.md).
 export 'commands/attachment_commands.dart' show AttachmentCommands;
+export 'commands/entry_commands.dart' show EntryCommands;
+export 'commands/holding_commands.dart' show HoldingCommands;
 export 'commands/recurring_commands.dart' show RecurringCommands;
 export 'repositories/account_repository.dart' show AccountReader;
 export 'repositories/budget_repository.dart' show BudgetReader;
@@ -56,10 +58,12 @@ export 'repositories/recurring_repository.dart' show RecurringReader;
 export 'services/balance_service.dart' show BalanceService;
 export 'services/budget_service.dart' show BudgetService;
 export 'services/entry_query_service.dart' show EntryQueryService;
+export 'services/entry_validator.dart' show EntryValidator;
 export 'services/recurring_service.dart' show RecurringService;
 export 'services/statement_service.dart' show StatementService;
 export 'repositories/entry_repository.dart' show EntryReader;
 export 'repositories/holding_repository.dart' show HoldingReader;
+export 'repositories/market_data_repository.dart' show MarketDataReader;
 export 'services/report_service.dart' show ReportService;
 
 /// The screens' book: accounts, categories, entries, holdings, budgets

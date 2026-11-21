@@ -3,6 +3,8 @@ import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/reminders/model/reminder_alerts.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:expense_tracker/src/features/reminders/ui/reminders_section.dart'
+    show reminderBookOf;
 
 /// Keeps nothing.
 final class _Nowhere implements LedgerDataSource {
@@ -74,30 +76,33 @@ void main() {
     final notifier = Notifier(port, preferences);
 
     ledger.entryCommands.add(spend('a', 700));
-    await notifier.postBudgets(ledger);
+    await notifier.postBudgets(reminderBookOf(ledger));
     expect(port.posted, isEmpty);
 
     ledger.entryCommands.add(spend('b', 150));
-    await notifier.postBudgets(ledger);
+    await notifier.postBudgets(reminderBookOf(ledger));
     expect([for (final a in port.posted) a.title], ['「飲食」預算已用 85%']);
     expect(port.posted.single.text, '還剩 150');
     // Not again while it stays there.
     ledger.entryCommands.add(spend('c', 50));
-    await notifier.postBudgets(ledger);
+    await notifier.postBudgets(reminderBookOf(ledger));
     expect(port.posted, hasLength(1));
-    expect(wantedTags(ledger, preferences), contains('budget:飲食'));
+    expect(
+      wantedTags(reminderBookOf(ledger), preferences),
+      contains('budget:飲食'),
+    );
 
     ledger.entryCommands.add(spend('d', 200));
-    await notifier.postBudgets(ledger);
+    await notifier.postBudgets(reminderBookOf(ledger));
     expect(port.posted.last.title, '「飲食」預算已超支');
     expect(port.posted.last.text, '已用 1,100，超出 100');
-    await notifier.postBudgets(ledger);
+    await notifier.postBudgets(reminderBookOf(ledger));
     expect(port.posted, hasLength(2));
   });
 
   test('none when budget notifications are off', () {
     final ledger = book()..entryCommands.add(spend('a', 2000));
     final preferences = Preferences()..update(budgetAlerts: false);
-    expect(budgetCrossings(ledger, preferences), isEmpty);
+    expect(budgetCrossings(reminderBookOf(ledger), preferences), isEmpty);
   });
 }

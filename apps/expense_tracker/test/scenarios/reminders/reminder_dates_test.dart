@@ -1,8 +1,9 @@
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/reminders/model/reminder_alerts.dart';
-import 'package:expense_tracker/src/features/reminders/model/reminders.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:expense_tracker/src/features/reminders/ui/reminders_section.dart'
+    show reminderBookOf;
 
 /// Reminders and notifications where days and months turn over: the end
 /// of a month, a short February, a leap year, the end of a year, and a
@@ -36,7 +37,7 @@ void main() {
   );
 
   List<DateTime> days(Ledger ledger, {int ahead = 60}) => [
-    for (final r in ledger.reminders(days: ahead)) r.day,
+    for (final r in reminderBookOf(ledger).reminders(days: ahead)) r.day,
   ];
 
   test('an item on the 31st falls on the last day of shorter months', () {
@@ -161,7 +162,11 @@ void main() {
           ),
         ],
       );
-      final alerts = alertsFor(ledger, on, DateTime(2026, 3, 20, 8));
+      final alerts = alertsFor(
+        reminderBookOf(ledger),
+        on,
+        DateTime(2026, 3, 20, 8),
+      );
       expect(
         [for (final a in alerts) (a.at, a.title)],
         [
@@ -194,7 +199,11 @@ void main() {
           ),
         ],
       );
-      final alerts = alertsFor(ledger, on, DateTime(2026, 12, 20, 8));
+      final alerts = alertsFor(
+        reminderBookOf(ledger),
+        on,
+        DateTime(2026, 12, 20, 8),
+      );
       expect(
         [for (final a in alerts) a.at],
         [DateTime(2026, 12, 30, 9), DateTime(2027, 1, 1, 9)],
@@ -206,8 +215,16 @@ void main() {
         DateTime.utc(2026, 1, 31),
         recurring: [monthly('rent', 31), monthly('phone', 1)],
       );
-      final at9 = alertsFor(ledger, on, DateTime(2026, 1, 31, 8, 59));
-      final at10 = alertsFor(ledger, on, DateTime(2026, 1, 31, 10));
+      final at9 = alertsFor(
+        reminderBookOf(ledger),
+        on,
+        DateTime(2026, 1, 31, 8, 59),
+      );
+      final at10 = alertsFor(
+        reminderBookOf(ledger),
+        on,
+        DateTime(2026, 1, 31, 10),
+      );
       expect([for (final a in at9) a.at].take(2), [
         DateTime(2026, 1, 31, 9),
         DateTime(2026, 2, 1, 9),
@@ -219,7 +236,11 @@ void main() {
       final preferences = Preferences()
         ..update(dailyNudge: true, nudgeHour: 21, nudgeMinute: 30);
       final ledger = book(DateTime.utc(2026, 2, 26));
-      final alerts = alertsFor(ledger, preferences, DateTime(2026, 2, 26, 12));
+      final alerts = alertsFor(
+        reminderBookOf(ledger),
+        preferences,
+        DateTime(2026, 2, 26, 12),
+      );
       expect(
         [for (final a in alerts) a.at],
         [for (var d = 0; d < 7; d++) DateTime(2026, 2, 26 + d, 21, 30)],
@@ -243,7 +264,11 @@ void main() {
           ),
         ],
       );
-      final alerts = alertsFor(ledger, preferences, DateTime(2026, 4, 30, 8));
+      final alerts = alertsFor(
+        reminderBookOf(ledger),
+        preferences,
+        DateTime(2026, 4, 30, 8),
+      );
       expect(alerts.first.at, DateTime(2026, 5, 1, 21));
       expect(alerts, hasLength(6));
     });

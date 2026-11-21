@@ -31,7 +31,7 @@ final class Alert {
   final String tag;
 
   /// The recurring item and day 「確認入帳」 on it books, through the
-  /// ledger's inbox; null when it offers none.
+  /// book's inbox; null when it offers none.
   final (String, DateTime)? confirms;
 }
 
@@ -73,13 +73,13 @@ const nudgeTag = 'nudge';
 /// nudge while nothing was recorded today. Others showing are taken away,
 /// so recording something clears today's nudge and booking or paying an
 /// item clears its notice.
-Set<String> wantedTags(Ledger ledger, Preferences preferences) => {
+Set<String> wantedTags(ReminderBook book, Preferences preferences) => {
   if (preferences.dueAlerts)
-    for (final r in ledger.reminders(days: 30)) 'due:${r.key}',
-  if (preferences.dailyNudge && ledger.entries.onDay(ledger.today).isEmpty)
+    for (final r in book.reminders(days: 30)) 'due:${r.key}',
+  if (preferences.dailyNudge && book.entries.onDay(book.today).isEmpty)
     nudgeTag,
   // A budget's notice stays while the budget is still past its mark.
-  for (final c in budgetCrossings(ledger, preferences)) c.tag,
+  for (final c in budgetCrossings(book, preferences)) c.tag,
 };
 
 /// A budget past its warning share, or used up, this month.
@@ -89,16 +89,19 @@ typedef BudgetCrossing = ({String key, String tag, String title, String text});
 /// the notification to post once: its key names the month, budget and
 /// level, so the warning and the used up notice come once
 /// each. None when budget notifications are off.
-List<BudgetCrossing> budgetCrossings(Ledger ledger, Preferences preferences) {
+List<BudgetCrossing> budgetCrossings(
+  ReminderBook book,
+  Preferences preferences,
+) {
   if (!preferences.budgetAlerts) return const [];
-  final today = ledger.today;
+  final today = book.today;
   final month = '${today.year}-${today.month}';
   final found = <BudgetCrossing>[];
-  for (final b in ledger.budgets.all) {
+  for (final b in book.budgets.all) {
     if (b.limit <= 0) continue;
-    final allowed = ledger.budgetService.allowance(b, today.year, today.month);
+    final allowed = book.budgetService.allowance(b, today.year, today.month);
     if (allowed <= 0) continue;
-    final spent = ledger.budgetService.spentAgainst(b, today.year, today.month);
+    final spent = book.budgetService.spentAgainst(b, today.year, today.month);
     final share = spent * 100 ~/ allowed;
     final name = b.category == allSpending ? '本月總預算' : '「${b.category}」預算';
     final BudgetCrossing crossing;
@@ -127,14 +130,18 @@ List<BudgetCrossing> budgetCrossings(Ledger ledger, Preferences preferences) {
 /// The most notifications kept waiting at once.
 const _most = 48;
 
-/// What the ledger has to say ahead: on each day a recurring item or a
+/// What the book has to say ahead: on each day a recurring item or a
 /// card payment falls due (card payments two days early as well), at
 /// 9:00; and, when asked, a nudge at the chosen time on days nothing was
 /// recorded. Only times after [now], soonest first.
-List<Alert> alertsFor(Ledger ledger, Preferences preferences, DateTime now) {
+List<Alert> alertsFor(
+  ReminderBook book,
+  Preferences preferences,
+  DateTime now,
+) {
   final alerts = <Alert>[];
   if (preferences.dueAlerts) {
-    for (final r in ledger.reminders(days: 30)) {
+    for (final r in book.reminders(days: 30)) {
       DateTime nine(int daysBefore) =>
           DateTime(r.day.year, r.day.month, r.day.day - daysBefore, 9);
       final tag = 'due:${r.key}';
@@ -163,8 +170,8 @@ List<Alert> alertsFor(Ledger ledger, Preferences preferences, DateTime now) {
     }
   }
   if (preferences.dailyNudge) {
-    final today = ledger.today;
-    final recorded = ledger.entries.onDay(today).isNotEmpty;
+    final today = book.today;
+    final recorded = book.entries.onDay(today).isNotEmpty;
     for (var d = 0; d < 7; d++) {
       if (d == 0 && recorded) continue;
       final at = DateTime(
@@ -192,7 +199,7 @@ List<Alert> alertsFor(Ledger ledger, Preferences preferences, DateTime now) {
   return ahead.take(_most).toList();
 }
 
-/// Keeps the phone's notifications matching the ledger and the person's
+/// Keeps the phone's notifications matching the book and the person's
 /// choices: rescheduled a few seconds after either changes.
 final class Notifier {
   Notifier(this.port, this.preferences);
@@ -200,13 +207,13 @@ final class Notifier {
   final NotifyPort port;
   final Preferences preferences;
 
-  Ledger? _following;
+  ReminderBook? _following;
   Timer? _timer;
 
-  void follow(Ledger ledger) {
+  void follow(ReminderBook book) {
     stop();
-    _following = ledger;
-    ledger.addListener(_changed);
+    _following = book;
+    book.addListener(_changed);
     preferences.addListener(_changed);
     unawaited(sync());
   }
@@ -226,15 +233,15 @@ final class Notifier {
   /// Schedules what [alertsFor] gives now, none when nothing is asked
   /// for; and posts each budget notice not posted yet this month.
   Future<void> sync() async {
-    final ledger = _following;
-    if (ledger == null) return;
+    final book = _following;
+    if (book == null) return;
     try {
       await port.schedule(
-        alertsFor(ledger, preferences, AppClock.now()),
+        alertsFor(book, preferences, AppClock.now()),
         exact: preferences.exactReminders,
-        wanted: wantedTags(ledger, preferences),
+        wanted: wantedTags(book, preferences),
       );
-      await postBudgets(ledger);
+      await postBudgets(book);
     } on Object catch (error) {
       ErrorLog.instance.record('通知', error);
     }
@@ -242,15 +249,15 @@ final class Notifier {
 
   /// Posts the budget notices of [budgetCrossings] not posted before, and
   /// forgets those of earlier months.
-  Future<void> postBudgets(Ledger ledger) async {
-    final today = ledger.today;
+  Future<void> postBudgets(ReminderBook book) async {
+    final today = book.today;
     final month = '${today.year}-${today.month}|';
     final posted = {
       for (final key in preferences.budgetAlerted)
         if (key.startsWith(month)) key,
     };
     final fresh = [
-      for (final c in budgetCrossings(ledger, preferences))
+      for (final c in budgetCrossings(book, preferences))
         if (!posted.contains(c.key)) c,
     ];
     if (fresh.isEmpty && posted.length == preferences.budgetAlerted.length) {

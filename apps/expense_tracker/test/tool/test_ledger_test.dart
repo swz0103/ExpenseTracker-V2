@@ -8,6 +8,8 @@ import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
+import 'package:expense_tracker/src/features/import_export/ui/import_page.dart'
+    show importBookOf;
 
 /// The test backup people restore to try the app with real-looking data:
 /// the two years of tool/test_ledger.py imported as its CSV would be, on
@@ -45,12 +47,12 @@ void main() {
     final ledger = await SqlLedgerDataSource(vault.store).load();
     _setUp(ledger);
     final text = await csv.readAsString();
-    final found = importCsv(ledger, text, fallback: '');
+    final found = importCsv(importBookOf(ledger), text, fallback: '');
     expect(found.skipped, 0, reason: found.problems.join('\n'));
     final lines = text.trim().split('\n').length - 1;
     expect(found.entries, hasLength(lines));
     expect(lines, greaterThan(2000));
-    addImport(ledger, found);
+    addImport(ledger.entryCommands, found);
     _settle(ledger);
     await ledger.settled;
     expect(ledger.problem.value, isNull);

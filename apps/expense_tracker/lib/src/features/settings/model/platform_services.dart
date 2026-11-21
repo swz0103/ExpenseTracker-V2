@@ -1,3 +1,6 @@
+// Exception to models take what they use: it hands the preview a made-up
+// ledger to open, so it names the type it makes (ADR-0013).
+
 import 'package:flutter/foundation.dart';
 
 import '../../../core/platform/sync_job.dart';

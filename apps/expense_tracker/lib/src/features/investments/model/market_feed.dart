@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show Listenable;
 import 'package:market/market_data.dart';
 
 import '../../../core/platform/sync_job.dart';
@@ -8,18 +9,32 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../../../core/formatting/json_fields.dart';
 
-/// Closing prices and exchange rates for the `ledger`, fetched at most every
+/// Closing prices and exchange rates for a ledger, fetched at most every
 /// 20 minutes: when the ledger opens, when the app comes back, and at
 /// once when a stock without a close is bought. A stock the exchanges do
 /// not quote is named rather than left to look like it has a value.
 final class MarketFeed extends SyncJob implements PriceHistory {
-  MarketFeed(this._journal, this._ledger, {super.clock, this.historyDir})
-    : super('收盤價與匯率', gap: const Duration(minutes: 20)) {
-    _ledger.addListener(_changed);
+  /// Fetches for the ledger whose [_holdings] it reads and sets with
+  /// [_commands], and whose [_changes] tell it a new stock was bought.
+  MarketFeed(
+    this._journal, {
+    required this._changes,
+    required this._holdings,
+    required this._commands,
+    required this._today,
+    super.clock,
+    this.historyDir,
+  }) : super('收盤價與匯率', gap: const Duration(minutes: 20)) {
+    _changes.addListener(_changed);
   }
 
   final SqlLedgerDataSource _journal;
-  final Ledger _ledger;
+  final Listenable _changes;
+  final HoldingReader _holdings;
+  final HoldingCommands _commands;
+
+  /// The ledger's today, read each time.
+  final DateTime Function() _today;
 
   /// Where finished months of daily closes are kept, so a holding's chart
   /// asks the exchanges only for what it has not seen; none in tests.
@@ -35,15 +50,13 @@ final class MarketFeed extends SyncJob implements PriceHistory {
   var _asked = <String>{};
 
   Set<String> get _held => {
-    for (final h in _ledger.holdings.all)
+    for (final h in _holdings.all)
       if (h.shares > 0) h.code,
   };
 
   void _changed() {
     final held = _held;
-    final fresh = held
-        .difference(_asked)
-        .where((c) => !_ledger.holdings.hasQuote(c));
+    final fresh = held.difference(_asked).where((c) => !_holdings.hasQuote(c));
     if (fresh.isNotEmpty && !busy) refresh(force: true).ignore();
   }
 
@@ -58,7 +71,7 @@ final class MarketFeed extends SyncJob implements PriceHistory {
     ).wait;
     if (quotes || rates) {
       final market = _journal.market();
-      _ledger.holdingCommands.setMarket(
+      _commands.setMarket(
         holdings: market.holdings,
         moves: market.moves,
         rates: market.rates,
@@ -81,7 +94,7 @@ final class MarketFeed extends SyncJob implements PriceHistory {
     final gateway = _journal.gateway;
     if (gateway == null) return const [];
     final kept = _months[code] ??= _read(code);
-    final today = _ledger.today;
+    final today = _today();
     final closes = <(DateTime, double)>[];
     var month = DateTime.utc(from.year, from.month);
     final last = DateTime.utc(today.year, today.month);
@@ -181,7 +194,7 @@ final class MarketFeed extends SyncJob implements PriceHistory {
 
   @override
   void dispose() {
-    _ledger.removeListener(_changed);
+    _changes.removeListener(_changed);
     super.dispose();
   }
 }

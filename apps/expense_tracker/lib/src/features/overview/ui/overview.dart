@@ -12,6 +12,7 @@ import 'sections/market_section.dart';
 import 'sections/plan_section.dart';
 import 'sections/summary_section.dart';
 import '../../../core/design_system/spacing.dart';
+import '../model/home_widget.dart';
 
 /// 總覽: the month in four figures, what falls due, a week of days with
 /// the chosen day's entries, the market, spending against the budget,
@@ -129,3 +130,12 @@ class _OverviewPageState extends State<OverviewPage> {
     );
   }
 }
+
+/// What the home-screen widget is written from in [ledger].
+WidgetBook widgetBookOf(Ledger ledger) => WidgetBook(
+  changes: ledger,
+  clock: () => ledger.today,
+  reportService: ledger.reportService,
+  budgets: ledger.budgets,
+  budgetService: ledger.budgetService,
+);

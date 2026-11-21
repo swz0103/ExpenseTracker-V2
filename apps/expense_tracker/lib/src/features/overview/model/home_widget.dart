@@ -3,10 +3,41 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show Listenable, VoidCallback;
+
 import '../../../core/formatting/amounts.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
+
+/// The parts of the ledger the home-screen widget is written from, its
+/// clock, and its changes to follow
+/// (docs/adr/0013-models-take-what-they-use.md).
+final class WidgetBook implements Listenable {
+  WidgetBook({
+    required this._changes,
+    required this._clock,
+    required this.reportService,
+    required this.budgets,
+    required this.budgetService,
+  });
+
+  final Listenable _changes;
+  final DateTime Function() _clock;
+  final ReportService reportService;
+  final BudgetReader budgets;
+  final BudgetService budgetService;
+
+  /// The ledger's today, read each time.
+  DateTime get today => _clock();
+
+  @override
+  void addListener(VoidCallback listener) => _changes.addListener(listener);
+
+  @override
+  void removeListener(VoidCallback listener) =>
+      _changes.removeListener(listener);
+}
 
 /// What the home-screen widget 本月概況 shows for [figures], as the text it
 /// shows and nothing more; null when it shows no figures. With
@@ -19,21 +50,21 @@ import '../../../core/diagnostics/error_log.dart';
 /// -1 for days still to come; `shortLabel` and `shortFigure` are what the
 /// widget shows when made small; `date` is the day it was written, so the
 /// widget can move the week on by itself when the app is not opened.
-Map<String, Object?>? widgetSnapshot(Ledger ledger, WidgetFigures figures) {
+Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
   if (figures == WidgetFigures.off) return null;
-  final today = ledger.today;
+  final today = book.today;
   final m = today.month;
   String two(int n) => n.toString().padLeft(2, '0');
   final month = '${today.year}-${two(m)}';
   final date = '$month-${two(today.day)}';
-  final spent = ledger.reportService.expense(today.year, m);
+  final spent = book.reportService.expense(today.year, m);
   Budget? total;
-  for (final b in ledger.budgets.all) {
+  for (final b in book.budgets.all) {
     if (b.category == allSpending && b.limit > 0) total = b;
   }
   final allowance = total == null
       ? null
-      : ledger.budgetService.allowance(total, today.year, m);
+      : book.budgetService.allowance(total, today.year, m);
   final hasBudget = allowance != null && allowance > 0;
   final used = hasBudget ? (spent * 100 / allowance).round() : null;
   final days = DateTime.utc(today.year, m + 1, 0).day;
@@ -42,7 +73,7 @@ Map<String, Object?>? widgetSnapshot(Ledger ledger, WidgetFigures figures) {
   final monday = today.subtract(Duration(days: today.weekday - 1));
   final daySpent = [
     for (var i = 0; i < 7; i++)
-      ledger.reportService.spentOn(monday.add(Duration(days: i))),
+      book.reportService.spentOn(monday.add(Duration(days: i))),
   ];
   final most = daySpent.fold(0, (a, b) => max(a, b));
   final weekday = today.weekday - 1;
@@ -102,10 +133,10 @@ Map<String, Object?>? widgetSnapshot(Ledger ledger, WidgetFigures figures) {
   };
 }
 
-/// Keeps the widget's snapshot (`widget.json` beside the ledger) up to
-/// date while the ledger is open, and asks the widget to show it again;
+/// Keeps the widget's snapshot (`widget.json` beside the book) up to
+/// date while the book is open, and asks the widget to show it again;
 /// the widget reads only that file, so it shows the figures while the
-/// ledger is locked. With no figures chosen the file is removed.
+/// book is locked. With no figures chosen the file is removed.
 final class HomeWidget {
   HomeWidget(
     this._file,
@@ -123,7 +154,7 @@ final class HomeWidget {
   /// Changes made one after another are written once.
   final Duration _wait;
 
-  Ledger? _ledger;
+  WidgetBook? _book;
   Timer? _timer;
 
   /// What was written last; [_written] is false until the first time, so
@@ -131,18 +162,18 @@ final class HomeWidget {
   String? _last;
   var _written = false;
 
-  void follow(Ledger ledger) {
-    _ledger = ledger;
-    ledger.addListener(_soon);
+  void follow(WidgetBook book) {
+    _book = book;
+    book.addListener(_soon);
     _preferences.addListener(_soon);
     unawaited(update());
   }
 
   void stop() {
     _timer?.cancel();
-    _ledger?.removeListener(_soon);
+    _book?.removeListener(_soon);
     _preferences.removeListener(_soon);
-    _ledger = null;
+    _book = null;
   }
 
   void _soon() {
@@ -156,9 +187,9 @@ final class HomeWidget {
   Future<void> _pending = Future.value();
 
   Future<void> _update() async {
-    final ledger = _ledger;
-    if (ledger == null) return;
-    final snapshot = widgetSnapshot(ledger, _preferences.widgetFigures);
+    final book = _book;
+    if (book == null) return;
+    final snapshot = widgetSnapshot(book, _preferences.widgetFigures);
     final text = snapshot == null ? null : jsonEncode(snapshot);
     if (_written && text == _last) return;
     _written = true;

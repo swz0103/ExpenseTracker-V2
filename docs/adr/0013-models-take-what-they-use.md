@@ -23,8 +23,9 @@ roadmap 第 23 項原訂「依賴整個 `Ledger` 的檔案降到 40 以下」，
 - **頁面與表單拿 `Ledger`。** 它是畫面的狀態容器：讀取、命令、通知都從這裡來，與 Redux 的 store、Android 的 ViewModel 同一個角色。
 - **模型（`features/*/model/`）只拿它用的部分**：`*Reader`、`*Service`、`*Commands`，以及 `today` 這樣的值。需要的型別由 `ledger.dart` 依名稱匯出（`show`），不開放帳本內部。
 - **只畫不讀的小元件拿值**，不拿帳本。
-- **規則**：依賴整個 `Ledger` 的模型檔只准變少，目標 0；全部檔案的總數照舊只准變少，但不再設 40 的門檻。
-- **例外**：本身就是「一整頁的狀態」的表單模型（例如 `compose_form.dart` 讀 11 個部分）可以拿 `Ledger`，在檔頭寫明原因。
+- **規則**：依賴整個 `Ledger` 的模型檔（沒有例外標記的）目標 0，已達成（2026-11-21）；全部檔案的總數照舊只准變少，但不再設 40 的門檻。
+- **例外**：本身就是「一整頁的狀態」的表單模型（例如 `compose_form.dart` 讀 11 個部分）可以拿 `Ledger`，在檔頭標 `// Exception to models take what they use: <原因>`；規則略過有標記的檔。
+- **跟著帳本變動的服務**（日曆、通知、桌面小工具、收盤價）拿一個 `*Book`：它用到的部分、帳本的時鐘，以及可以 `addListener` 的變動通知；由畫面或 app 從帳本組出來（`reminderBookOf`、`widgetBookOf`、`importBookOf`）。
 
 ## 後果
 

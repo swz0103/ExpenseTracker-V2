@@ -18,6 +18,7 @@ import '../../core/formatting/dates.dart';
 import '../../core/design_system/shape.dart';
 import '../../core/design_system/spacing.dart';
 import '../../core/design_system/motion.dart';
+import '../../features/overview/ui/overview.dart' show widgetBookOf;
 
 /// How the preview's app opens, as a real one would for each person: a
 /// ledger without a password goes straight in, one with a password asks
@@ -256,7 +257,10 @@ class _HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final padding = MediaQuery.paddingOf(context);
-    final snapshot = widgetSnapshot(ledger, WidgetFigures.amounts);
+    final snapshot = widgetSnapshot(
+      widgetBookOf(ledger),
+      WidgetFigures.amounts,
+    );
     const white = TextStyle(
       color: Colors.white,
       decoration: TextDecoration.none,

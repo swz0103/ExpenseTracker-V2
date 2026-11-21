@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show Listenable, VoidCallback;
+
 import '../../../core/formatting/amounts.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/formatting/dates.dart';
@@ -45,9 +47,47 @@ final class Reminder {
   );
 }
 
-/// What falls due in the next `days` days, soonest first: each unbooked
-/// day of an active recurring item, and each card's payment still owed.
-extension LedgerReminders on Ledger {
+/// The parts of the ledger what falls due is read from, its clock, and
+/// its changes to follow: what the calendar and the notifications sync
+/// from (docs/adr/0013-models-take-what-they-use.md).
+final class ReminderBook implements Listenable {
+  ReminderBook({
+    required this._changes,
+    required this._clock,
+    required this.recurring,
+    required this.recurringService,
+    required this.accounts,
+    required this.statementService,
+    required this.entries,
+    required this.budgets,
+    required this.budgetService,
+  });
+
+  final Listenable _changes;
+  final DateTime Function() _clock;
+  final RecurringReader recurring;
+  final RecurringService recurringService;
+  final AccountReader accounts;
+  final StatementService statementService;
+  final EntryReader entries;
+  final BudgetReader budgets;
+  final BudgetService budgetService;
+
+  /// The ledger's today, read each time: a book followed past midnight
+  /// moves on with it.
+  DateTime get today => _clock();
+
+  @override
+  void addListener(VoidCallback listener) => _changes.addListener(listener);
+
+  @override
+  void removeListener(VoidCallback listener) =>
+      _changes.removeListener(listener);
+
+  Account account(String id) => accounts.resolve(id);
+
+  /// What falls due in the next [days] days, soonest first: each unbooked
+  /// day of an active recurring item, and each card's payment still owed.
   List<Reminder> reminders({int days = 60}) {
     final last = today.add(Duration(days: days));
     bool ahead(DateTime d) => !d.isBefore(today) && !d.isAfter(last);

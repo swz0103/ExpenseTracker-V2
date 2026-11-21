@@ -1,3 +1,6 @@
+// Exception to models take what they use: the entry form is the page's
+// whole state and reads eleven parts of the ledger (ADR-0013).
+
 import '../../../core/formatting/amounts.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/validation_messages.dart';
@@ -275,7 +278,8 @@ final class ComposeForm {
     if (!tags.contains('發票')) tags = [...tags, '發票'];
     more = true;
     category = guessCategory(
-      ledger,
+      ledger.entryQueryService,
+      ledger.categories,
       merchant,
       [for (final item in invoice.items) item.name].join(' '),
     );
