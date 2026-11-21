@@ -30,15 +30,10 @@ const libraryGuide = 1200;
 /// marked; one that grows fails, and one that shrank a good deal must have
 /// its number lowered here, so the list only gets shorter.
 const longerFunctions = <String, int>{
-  'src/features/accounts/ui/sort_accounts.dart::_SortAccountsPageState.build':
-      109,
-  'src/features/accounts/forms/account_editor_state.dart::_AccountEditorState.build':
-      121,
   'src/core/ledger/portfolio.dart::Portfolio.replay': 143,
   'src/core/charts/flow_chart.dart::_FlowPainter.paint': 131,
   'src/core/widgets/balance_hero.dart::BalanceHero.build': 85,
   'src/features/investments/ui/holding_page.dart::HoldingPage.build': 122,
-  'src/features/accounts/ui/account_card.dart::AccountCard.build': 115,
   'src/features/lock/ui/views/unlock_view.dart::_UnlockViewState._page': 114,
   'src/app/settings_page.dart::SettingsPage._index': 114,
   'src/features/overview/ui/sections/daily_section.dart::_DailySectionState._daily':
@@ -50,25 +45,14 @@ const longerFunctions = <String, int>{
   'src/features/reports/ui/reports_page_state.dart::_ReportsPageState._flow':
       108,
   'src/features/investments/ui/holding_bento.dart::_LinePainter.paint': 108,
-  'src/features/budgets/ui/budgets.dart::_Main.build': 108,
-  'src/features/accounts/forms/loan_cards.dart::LoanEstimate.build': 106,
   'src/features/settings/ui/preferences_section.dart::_LookChoice.build': 106,
   'src/app/shell.dart::_BottomBar.build': 105,
-  'src/features/import_export/ui/import_export_section.dart::_ExportSheetState.build':
-      105,
   'src/app/more_page.dart::MorePage.build': 104,
-  'src/features/accounts/forms/loan_fields.dart::extension._loanFields': 102,
   'src/features/overview/forms/widget_face.dart::WidgetFace.build': 101,
-  'src/features/accounts/forms/account_editor_edit_card.dart::_EditCard.build':
-      100,
-  'src/features/budgets/ui/budgets_pace.dart::_Limit.build': 100,
   'src/features/overview/ui/sections/assets_section.dart::_AssetsSectionState._assets':
       98,
-  'src/features/debts/ui/person_page.dart::LoanPage.build': 97,
   'src/features/reports/ui/report_habits.dart::merchantsSection': 95,
-  'src/features/debts/ui/person_page.dart::PersonPage.build': 95,
   'src/app/shell.dart::_AppShellState._body': 95,
-  'src/features/accounts/forms/loan_cards.dart::LoanCard.build': 94,
   'src/core/widgets/entry_tile.dart::EntryTile.build': 93,
   'src/features/investments/ui/holding_page.dart::_DividendCard.build': 93,
   'src/core/ledger/persistence/sql_ledger_data_source.dart::SqlLedgerDataSource.refreshQuotes':
@@ -76,13 +60,11 @@ const longerFunctions = <String, int>{
   'src/features/entries/forms/holding_choices.dart::_HoldingChoicesState.build':
       92,
   'src/app/demo/launch.dart::_HomeScreen._wallpaper': 92,
-  'src/features/budgets/ui/budgets_month_picker.dart::_AddLimit.build': 91,
   'src/features/recurring/ui/recurring_lists.dart::_Subscriptions.build': 91,
   'src/core/charts/waterfall.dart::_WaterfallPainter.paint': 89,
   'src/core/design_system/time_panels.dart::_TimePanelState.build': 88,
   'src/features/reports/model/report.dart::Report.of': 87,
   'src/features/recurring/ui/recurring_rows.dart::RecurringRow.build': 86,
-  'src/features/accounts/ui/accounts.dart::_NetWorth.build': 86,
   'src/features/overview/ui/sections/plan_section.dart::PlanSection._budgetTile':
       84,
   'src/features/entries/ui/entries_filter_sheet.dart::_FilterSheetState.build':
@@ -93,7 +75,6 @@ const longerFunctions = <String, int>{
   'src/features/overview/model/home_widget.dart::widgetSnapshot': 82,
   'src/features/reminders/ui/reminders_section.dart::_RemindersSectionState._calendarDetails':
       82,
-  'src/features/debts/ui/debts_page.dart::_DebtHero.build': 81,
 };
 const largerLibraries = <String, int>{};
 

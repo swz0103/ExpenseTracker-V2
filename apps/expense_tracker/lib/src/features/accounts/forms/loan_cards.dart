@@ -67,56 +67,9 @@ class LoanCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              SquareIcon(Glyph.loan, color, size: 36),
-              const SizedBox(width: Space.s2),
-              Expanded(
-                child: TextField(
-                  controller: name,
-                  style: const TextStyle(
-                    fontSize: TextSize.heading,
-                    fontWeight: FontWeight.w800,
-                  ),
-                  decoration: const InputDecoration(
-                    hintText: '貸款名稱，例如房貸',
-                    hintStyle: hintText,
-                    isDense: true,
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(vertical: Space.s2),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _nameRow(),
           const SizedBox(height: Space.s1),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                flex: 3,
-                child: LoanFigure(
-                  label: '借了多少',
-                  value: principal,
-                  size: 30,
-                  ink: ink,
-                  onTap: onPrincipal,
-                ),
-              ),
-              const SizedBox(width: Space.s2),
-              Expanded(
-                flex: 2,
-                child: LoanFigure(
-                  label: '目前尚欠',
-                  value: owed,
-                  size: 18,
-                  ink: ink,
-                  end: true,
-                  onTap: onOwed,
-                ),
-              ),
-            ],
-          ),
+          _figures(ink),
           const SizedBox(height: Space.s2),
           Row(
             children: [
@@ -139,6 +92,63 @@ class LoanCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// The loan's mark and its name typed onto the card.
+  Widget _nameRow() {
+    return Row(
+      children: [
+        SquareIcon(Glyph.loan, color, size: 36),
+        const SizedBox(width: Space.s2),
+        Expanded(
+          child: TextField(
+            controller: name,
+            style: const TextStyle(
+              fontSize: TextSize.heading,
+              fontWeight: FontWeight.w800,
+            ),
+            decoration: const InputDecoration(
+              hintText: '貸款名稱，例如房貸',
+              hintStyle: hintText,
+              isDense: true,
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(vertical: Space.s2),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 借了多少 large, and 目前尚欠 at the end.
+  Widget _figures(Color ink) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          flex: 3,
+          child: LoanFigure(
+            label: '借了多少',
+            value: principal,
+            size: 30,
+            ink: ink,
+            onTap: onPrincipal,
+          ),
+        ),
+        const SizedBox(width: Space.s2),
+        Expanded(
+          flex: 2,
+          child: LoanFigure(
+            label: '目前尚欠',
+            value: owed,
+            size: 18,
+            ink: ink,
+            end: true,
+            onTap: onOwed,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -301,84 +311,108 @@ class LoanEstimate extends StatelessWidget {
         ),
       );
     }
-    Widget block(
-      Glyph glyph,
-      Color tone,
-      String label,
-      String value,
-      String sub,
-    ) => Expanded(
-      child: ColorCard(
-        color: tone,
-        amount: 0.2,
-        radius: Radii.largeIncreased,
-        padding: const EdgeInsets.fromLTRB(
-          Space.s3,
-          Space.s3,
-          Space.s3,
-          Space.s3,
-        ),
-        child: Row(
-          children: [
-            GlyphIcon(glyph, size: 22, color: tone),
-            const SizedBox(width: Space.s2),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: TextSize.caption,
-                      fontWeight: FontWeight.w700,
-                      color: deepOf(tone),
-                    ),
-                  ),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      value,
-                      style: const TextStyle(
-                        fontSize: TextSize.large,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  if (sub.isNotEmpty)
-                    Text(
-                      sub,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: mutedSmall,
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
     return Row(
       children: [
-        block(
-          Glyph.cash,
-          AppColors.accent,
-          switch (repay) {
-            LoanRepay.even => '每月繳',
-            LoanRepay.principal => '第一個月',
-            LoanRepay.interest => '每月利息',
-          },
-          money(plan.first),
-          switch (repay) {
-            LoanRepay.even => '',
-            LoanRepay.principal => '最後 ${money(plan.last)}',
-            LoanRepay.interest => '到期還本金',
-          },
+        Expanded(
+          child: _EstimateBlock(
+            glyph: Glyph.cash,
+            tone: AppColors.accent,
+            label: switch (repay) {
+              LoanRepay.even => '每月繳',
+              LoanRepay.principal => '第一個月',
+              LoanRepay.interest => '每月利息',
+            },
+            value: money(plan.first),
+            sub: switch (repay) {
+              LoanRepay.even => '',
+              LoanRepay.principal => '最後 ${money(plan.last)}',
+              LoanRepay.interest => '到期還本金',
+            },
+          ),
         ),
         const SizedBox(width: Space.s2),
-        block(Glyph.coins, color, '總利息', money(plan.interest), ''),
+        Expanded(
+          child: _EstimateBlock(
+            glyph: Glyph.coins,
+            tone: color,
+            label: '總利息',
+            value: money(plan.interest),
+            sub: '',
+          ),
+        ),
       ],
+    );
+  }
+}
+
+/// One block of the estimate: [label] over [value] in [tone], with [sub]
+/// under it when there is one.
+class _EstimateBlock extends StatelessWidget {
+  const _EstimateBlock({
+    required this.glyph,
+    required this.tone,
+    required this.label,
+    required this.value,
+    required this.sub,
+  });
+
+  final Glyph glyph;
+  final Color tone;
+  final String label;
+  final String value;
+  final String sub;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColorCard(
+      color: tone,
+      amount: 0.2,
+      radius: Radii.largeIncreased,
+      padding: const EdgeInsets.fromLTRB(
+        Space.s3,
+        Space.s3,
+        Space.s3,
+        Space.s3,
+      ),
+      child: Row(
+        children: [
+          GlyphIcon(glyph, size: 22, color: tone),
+          const SizedBox(width: Space.s2),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: TextSize.caption,
+                    fontWeight: FontWeight.w700,
+                    color: deepOf(tone),
+                  ),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: TextSize.large,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                if (sub.isNotEmpty)
+                  Text(
+                    sub,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: mutedSmall,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

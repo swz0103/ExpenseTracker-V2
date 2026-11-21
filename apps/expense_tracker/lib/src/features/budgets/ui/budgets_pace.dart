@@ -186,47 +186,11 @@ class _Limit extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox.square(
-                dimension: 38,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CircularProgressIndicator(
-                      value: share,
-                      strokeWidth: 4,
-                      strokeCap: StrokeCap.round,
-                      color: tone,
-                      backgroundColor: tintOf(tone, 0.3),
-                    ),
-                    Center(child: GlyphIcon(glyph, size: 16, color: tone)),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              if (over || near)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Space.s2,
-                    vertical: Space.half,
-                  ),
-                  decoration: BoxDecoration(
-                    color: tone,
-                    borderRadius: BorderRadius.circular(Radii.small),
-                  ),
-                  child: Text(
-                    over ? '超支' : '快用完',
-                    textScaler: TextScaler.noScaling,
-                    style: const TextStyle(
-                      fontSize: TextSize.caption,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.onAccent,
-                    ),
-                  ),
-                ),
-            ],
+          _LimitHead(
+            share: share,
+            tone: tone,
+            glyph: glyph,
+            alert: over ? '超支' : (near ? '快用完' : null),
           ),
           const SizedBox(height: Space.s2),
           Text(
@@ -258,6 +222,69 @@ class _Limit extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The top of a [_Limit] square: the ring of [share] used around its
+/// [glyph], and [alert] (超支 or 快用完) in the corner when there is one.
+class _LimitHead extends StatelessWidget {
+  const _LimitHead({
+    required this.share,
+    required this.tone,
+    required this.glyph,
+    required this.alert,
+  });
+
+  final double share;
+  final Color tone;
+  final Glyph glyph;
+  final String? alert;
+
+  @override
+  Widget build(BuildContext context) {
+    final alert = this.alert;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox.square(
+          dimension: 38,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CircularProgressIndicator(
+                value: share,
+                strokeWidth: 4,
+                strokeCap: StrokeCap.round,
+                color: tone,
+                backgroundColor: tintOf(tone, 0.3),
+              ),
+              Center(child: GlyphIcon(glyph, size: 16, color: tone)),
+            ],
+          ),
+        ),
+        const Spacer(),
+        if (alert != null)
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.s2,
+              vertical: Space.half,
+            ),
+            decoration: BoxDecoration(
+              color: tone,
+              borderRadius: BorderRadius.circular(Radii.small),
+            ),
+            child: Text(
+              alert,
+              textScaler: TextScaler.noScaling,
+              style: const TextStyle(
+                fontSize: TextSize.caption,
+                fontWeight: FontWeight.w800,
+                color: AppColors.onAccent,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

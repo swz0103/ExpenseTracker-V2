@@ -189,7 +189,6 @@ class _NetWorth extends StatelessWidget {
       for (final p in parts)
         if (p.$2 > 0) p,
     ];
-    final portions = visibleShares([for (final p in shown) p.$2]);
     return HeroFigure(
       icon: Glyph.wallet,
       label: '淨資產',
@@ -201,49 +200,62 @@ class _NetWorth extends StatelessWidget {
               '${moved > 0 ? '↑' : '↓'} ${ledger.money(moved.abs())}',
               color: moved > 0 ? AppColors.positive : AppColors.negative,
             ),
-      child: shown.isEmpty
-          ? null
-          : Padding(
-              padding: const EdgeInsets.only(top: Space.s2),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(
-                    height: 8,
-                    // Stretched: an empty box in a row is otherwise drawn
-                    // no taller than nothing.
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final (i, (_, _, color)) in shown.indexed) ...[
-                          if (i > 0) const SizedBox(width: Space.half),
-                          Expanded(
-                            flex: max(1, (portions[i] * 1000).round()),
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: color,
-                                borderRadius: BorderRadius.circular(
-                                  Radii.extraSmall,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+      child: shown.isEmpty ? null : _MadeOf(ledger: ledger, shown: shown),
+    );
+  }
+}
+
+/// What the net worth is made of under it: one bar of [shown]'s shares,
+/// and a key naming each with its sum.
+class _MadeOf extends StatelessWidget {
+  const _MadeOf({required this.ledger, required this.shown});
+
+  final Ledger ledger;
+
+  /// Each part's name, sum and colour, only those above nothing.
+  final List<(String, int, Color)> shown;
+
+  @override
+  Widget build(BuildContext context) {
+    final portions = visibleShares([for (final p in shown) p.$2]);
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.s2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 8,
+            // Stretched: an empty box in a row is otherwise drawn
+            // no taller than nothing.
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (i, (_, _, color)) in shown.indexed) ...[
+                  if (i > 0) const SizedBox(width: Space.half),
+                  Expanded(
+                    flex: max(1, (portions[i] * 1000).round()),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(Radii.extraSmall),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: Space.s2),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 4,
-                    children: [
-                      for (final (name, value, color) in shown)
-                        LegendKey(color, '$name ${ledger.money(value)}'),
-                    ],
-                  ),
                 ],
-              ),
+              ],
             ),
+          ),
+          const SizedBox(height: Space.s2),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              for (final (name, value, color) in shown)
+                LegendKey(color, '$name ${ledger.money(value)}'),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

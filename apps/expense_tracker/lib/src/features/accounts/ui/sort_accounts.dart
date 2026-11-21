@@ -159,6 +159,94 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
     );
   }
 
+  /// 取消, the title and 完成 across the top.
+  Widget _bar() => Row(
+    children: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        style: wordButton(AppColors.muted),
+        child: const Text(Words.cancel),
+      ),
+      const Expanded(
+        child: Text(
+          '排序帳戶',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: TextSize.title,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      TextButton(
+        key: Keys.done,
+        onPressed: _done,
+        style: wordButton(AppColors.accent),
+        child: const Text(Words.done),
+      ),
+    ],
+  );
+
+  /// 手動, 餘額 and 最近使用: how the cards are lined up.
+  Widget _sortChoices() => Padding(
+    padding: const EdgeInsets.fromLTRB(Space.s2, Space.s2, Space.s2, 0),
+    child: Row(
+      children: [
+        for (final (i, (by, label)) in const [
+          (_SortBy.hand, '手動'),
+          (_SortBy.balance, '餘額'),
+          (_SortBy.recent, '最近使用'),
+        ].indexed) ...[
+          if (i > 0) const SizedBox(width: Space.s2),
+          Expanded(
+            child: ChoicePill(
+              label: label,
+              selected: by == _by,
+              onTap: () => _sortBy(by),
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+
+  /// The cards to drag, with 依類型重新排 under them.
+  Widget _list() => Expanded(
+    child: ReorderableListView.builder(
+      buildDefaultDragHandles: false,
+      padding: const EdgeInsets.fromLTRB(Space.s2, 0, Space.s2, Space.s6),
+      itemCount: _order.length,
+      // [to] already counts the card taken out.
+      onReorderStart: (_) => Haptics.medium(),
+      // The card taken up grows a little and casts a shadow.
+      proxyDecorator: (child, index, lift) => AnimatedBuilder(
+        animation: lift,
+        builder: (context, child) {
+          final t = Curves.easeOut.transform(lift.value);
+          return Transform.scale(
+            scale: 1 + 0.04 * t,
+            child: Material(
+              color: Colors.transparent,
+              elevation: 10 * t,
+              shadowColor: AppColors.lift,
+              borderRadius: BorderRadius.circular(Radii.large),
+              child: child,
+            ),
+          );
+        },
+        child: child,
+      ),
+      onReorderItem: (from, to) {
+        Haptics.selection();
+        setState(() {
+          _order.insert(to, _order.removeAt(from));
+          _by = _SortBy.hand;
+        });
+      },
+      footer: _byKindButton(),
+      itemBuilder: (context, i) => _row(i),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -169,99 +257,10 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: wordButton(AppColors.muted),
-                    child: const Text(Words.cancel),
-                  ),
-                  const Expanded(
-                    child: Text(
-                      '排序帳戶',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: TextSize.title,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    key: Keys.done,
-                    onPressed: _done,
-                    style: wordButton(AppColors.accent),
-                    child: const Text(Words.done),
-                  ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  Space.s2,
-                  Space.s2,
-                  Space.s2,
-                  0,
-                ),
-                child: Row(
-                  children: [
-                    for (final (i, (by, label)) in const [
-                      (_SortBy.hand, '手動'),
-                      (_SortBy.balance, '餘額'),
-                      (_SortBy.recent, '最近使用'),
-                    ].indexed) ...[
-                      if (i > 0) const SizedBox(width: Space.s2),
-                      Expanded(
-                        child: ChoicePill(
-                          label: label,
-                          selected: by == _by,
-                          onTap: () => _sortBy(by),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+              _bar(),
+              _sortChoices(),
               const SizedBox(height: Space.s2),
-              Expanded(
-                child: ReorderableListView.builder(
-                  buildDefaultDragHandles: false,
-                  padding: const EdgeInsets.fromLTRB(
-                    Space.s2,
-                    0,
-                    Space.s2,
-                    Space.s6,
-                  ),
-                  itemCount: _order.length,
-                  // [to] already counts the card taken out.
-                  onReorderStart: (_) => Haptics.medium(),
-                  // The card taken up grows a little and casts a shadow.
-                  proxyDecorator: (child, index, lift) => AnimatedBuilder(
-                    animation: lift,
-                    builder: (context, child) {
-                      final t = Curves.easeOut.transform(lift.value);
-                      return Transform.scale(
-                        scale: 1 + 0.04 * t,
-                        child: Material(
-                          color: Colors.transparent,
-                          elevation: 10 * t,
-                          shadowColor: AppColors.lift,
-                          borderRadius: BorderRadius.circular(Radii.large),
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: child,
-                  ),
-                  onReorderItem: (from, to) {
-                    Haptics.selection();
-                    setState(() {
-                      _order.insert(to, _order.removeAt(from));
-                      _by = _SortBy.hand;
-                    });
-                  },
-                  footer: _byKindButton(),
-                  itemBuilder: (context, i) => _row(i),
-                ),
-              ),
+              _list(),
             ],
           ),
         ),

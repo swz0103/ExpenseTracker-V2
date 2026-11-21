@@ -120,6 +120,9 @@ class _ExportSheet extends StatefulWidget {
 }
 
 class _ExportSheetState extends State<_ExportSheet> {
+  /// The colour of CSV across the sheet.
+  static const _color = SettingsColors.csv;
+
   var _span = _Span.month;
   late DateTime _from = DateTime(_today.year, _today.month);
   late DateTime _to = _today;
@@ -204,11 +207,9 @@ class _ExportSheetState extends State<_ExportSheet> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    const color = SettingsColors.csv;
+  /// 這個月, 今年, 全部 and 自訂 side by side, each with what it covers.
+  Widget _spans() {
     final t = _today;
-    final count = _entries(_span).length;
     String sub(_Span span) => switch (span) {
       _Span.month => '${t.month} 月',
       _Span.year => t.month == 1 ? '1 月' : '1–${t.month} 月',
@@ -221,6 +222,75 @@ class _ExportSheetState extends State<_ExportSheet> {
       _Span.all: '全部',
       _Span.custom: '自訂',
     };
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (i, span) in _Span.values.indexed) ...[
+            if (i > 0) const SizedBox(width: Space.s2),
+            Expanded(
+              child: _SpanChoice(
+                label: names[span]!,
+                sub: sub(span),
+                chosen: span == _span,
+                color: _color,
+                onTap: () => setState(() => _span = span),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 從 and 到 of a span of 自訂, with an arrow between them.
+  Widget _customDays() {
+    return Container(
+      decoration: BoxDecoration(
+        color: tintOf(_color, 0.16),
+        borderRadius: BorderRadius.circular(Radii.large),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _DayEnd(
+              label: '從',
+              day: _from,
+              color: _color,
+              onTap: () => _pick(first: true),
+            ),
+          ),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: const BoxDecoration(
+              color: _color,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: const GlyphIcon(
+              Glyph.arrow,
+              size: 18,
+              color: AppColors.onSolid,
+              tinted: false,
+            ),
+          ),
+          Expanded(
+            child: _DayEnd(
+              label: '到',
+              day: _to,
+              color: _color,
+              onTap: () => _pick(first: false),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = _entries(_span).length;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s5),
       child: Column(
@@ -237,73 +307,15 @@ class _ExportSheetState extends State<_ExportSheet> {
             ),
           ),
           const SizedBox(height: Space.s4),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final (i, span) in _Span.values.indexed) ...[
-                  if (i > 0) const SizedBox(width: Space.s2),
-                  Expanded(
-                    child: _SpanChoice(
-                      label: names[span]!,
-                      sub: sub(span),
-                      chosen: span == _span,
-                      color: color,
-                      onTap: () => setState(() => _span = span),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+          _spans(),
           if (_span == _Span.custom) ...[
             const SizedBox(height: Space.s3),
-            Container(
-              decoration: BoxDecoration(
-                color: tintOf(color, 0.16),
-                borderRadius: BorderRadius.circular(Radii.large),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _DayEnd(
-                      label: '從',
-                      day: _from,
-                      color: color,
-                      onTap: () => _pick(first: true),
-                    ),
-                  ),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: const BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: const GlyphIcon(
-                      Glyph.arrow,
-                      size: 18,
-                      color: AppColors.onSolid,
-                      tinted: false,
-                    ),
-                  ),
-                  Expanded(
-                    child: _DayEnd(
-                      label: '到',
-                      day: _to,
-                      color: color,
-                      onTap: () => _pick(first: false),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _customDays(),
           ],
           const SizedBox(height: Space.s4),
           PanelButton(
             '匯出 ${groupDigits(count)} 筆',
-            color: color,
+            color: _color,
             onTap: count == 0 ? null : _export,
           ),
         ],

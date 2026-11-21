@@ -356,38 +356,11 @@ class _DebtHero extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, box) {
-          final words = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: TextSize.small,
-                  fontWeight: FontWeight.w700,
-                  color: ink,
-                ),
-              ),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: TextSize.big,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              for (final line in lines)
-                OneLine(
-                  line,
-                  style: TextStyle(
-                    fontSize: TextSize.small,
-                    fontWeight: FontWeight.w700,
-                    color: ink,
-                  ),
-                ),
-            ],
+          final words = _HeroWords(
+            label: label,
+            value: value,
+            lines: lines,
+            ink: ink,
           );
           // Large text on a narrow phone: the words go under the mark,
           // where the figure has the whole width.
@@ -416,6 +389,59 @@ class _DebtHero extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+/// The words of [_DebtHero]: [label] over the large [value], then each
+/// of [lines], in [ink].
+class _HeroWords extends StatelessWidget {
+  const _HeroWords({
+    required this.label,
+    required this.value,
+    required this.lines,
+    required this.ink,
+  });
+
+  final String label;
+  final String value;
+  final List<String> lines;
+  final Color ink;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: TextSize.small,
+            fontWeight: FontWeight.w700,
+            color: ink,
+          ),
+        ),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: TextSize.big,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        for (final line in lines)
+          OneLine(
+            line,
+            style: TextStyle(
+              fontSize: TextSize.small,
+              fontWeight: FontWeight.w700,
+              color: ink,
+            ),
+          ),
+      ],
     );
   }
 }

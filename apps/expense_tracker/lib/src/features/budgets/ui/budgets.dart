@@ -364,8 +364,6 @@ class _Main extends StatelessWidget {
     final left = total - spent;
     final carried = total - whole.limit;
     final (passed, days) = ledger.budgetService.daysGone(year, month);
-    final over = left < 0;
-    final ink = AppColors.accent;
     final next = month == 12 ? 1 : month + 1;
     return HeroCard(
       padding: const EdgeInsets.fromLTRB(
@@ -377,51 +375,7 @@ class _Main extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${current ? '本月' : '$month 月'}${over ? '超支' : '剩'}',
-                      style: TextStyle(
-                        fontSize: TextSize.body,
-                        fontWeight: FontWeight.w800,
-                        color: over ? AppColors.negative : ink,
-                      ),
-                    ),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        ledger.orDots(groupDigits(left.abs())),
-                        style: TextStyle(
-                          fontSize: TextSize.big,
-                          fontWeight: FontWeight.w800,
-                          color: over ? AppColors.negative : AppColors.ink,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Material(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(Radii.large),
-                child: IconButton(
-                  tooltip: '改總預算',
-                  onPressed: onEdit,
-                  icon: const GlyphIcon(
-                    Glyph.edit,
-                    size: 18,
-                    color: AppColors.accent,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _head(left),
           Text.rich(
             TextSpan(
               children: [
@@ -444,21 +398,7 @@ class _Main extends StatelessWidget {
           DayBar(passed: current ? passed : days, days: days, today: current),
           const SizedBox(height: Space.s2),
           if (current)
-            Row(
-              children: [
-                Text('$month/1', style: mutedSmall),
-                const Spacer(),
-                Text(
-                  '今天 $month/$passed',
-                  style: const TextStyle(
-                    fontSize: TextSize.small,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const Spacer(),
-                Text('$month/$days', style: mutedSmall),
-              ],
-            )
+            _dayMarks(passed, days)
           else if (whole.carry && left > 0)
             Text(
               '剩下的 ${ledger.orDots(groupDigits(left))} 已加到 $next 月',
@@ -466,6 +406,76 @@ class _Main extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+
+  /// 剩 or 超支 over what is left, and the button to change the total.
+  Widget _head(int left) {
+    final over = left < 0;
+    const ink = AppColors.accent;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${current ? '本月' : '$month 月'}${over ? '超支' : '剩'}',
+                style: TextStyle(
+                  fontSize: TextSize.body,
+                  fontWeight: FontWeight.w800,
+                  color: over ? AppColors.negative : ink,
+                ),
+              ),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  ledger.orDots(groupDigits(left.abs())),
+                  style: TextStyle(
+                    fontSize: TextSize.big,
+                    fontWeight: FontWeight.w800,
+                    color: over ? AppColors.negative : AppColors.ink,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Material(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(Radii.large),
+          child: IconButton(
+            tooltip: '改總預算',
+            onPressed: onEdit,
+            icon: const GlyphIcon(
+              Glyph.edit,
+              size: 18,
+              color: AppColors.accent,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The first day, today and the last day under this month's bar.
+  Widget _dayMarks(int passed, int days) {
+    return Row(
+      children: [
+        Text('$month/1', style: mutedSmall),
+        const Spacer(),
+        Text(
+          '今天 $month/$passed',
+          style: const TextStyle(
+            fontSize: TextSize.small,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const Spacer(),
+        Text('$month/$days', style: mutedSmall),
+      ],
     );
   }
 }

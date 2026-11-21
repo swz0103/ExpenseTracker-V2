@@ -174,60 +174,12 @@ class _AddLimit extends StatelessWidget {
           if (categories.isNotEmpty) ...[
             const RuleHead(Words.category),
             CardGrid(columns: 4, gap: 8, [
-              for (final c in categories)
-                ColorCard(
-                  color: shownColor(Color(c.color)),
-                  radius: Radii.large,
-                  label: c.name,
-                  onTap: () => Navigator.of(context).pop(c.name),
-                  padding: const EdgeInsets.symmetric(
-                    vertical: Space.s2,
-                    horizontal: Space.half,
-                  ),
-                  child: Column(
-                    children: [
-                      GlyphIcon(
-                        iconFor(c.icon),
-                        size: 26,
-                        color: shownColor(Color(c.color)),
-                      ),
-                      const SizedBox(height: Space.s2),
-                      Text(
-                        c.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: TextSize.small,
-                          fontWeight: FontWeight.w700,
-                          color: deepOf(shownColor(Color(c.color))),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              for (final c in categories) _CategoryChoice(category: c),
             ]),
           ],
           if (tags.isNotEmpty) ...[
             const RuleHead(Words.tag),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final tag in tags)
-                  ActionChip(
-                    backgroundColor: AppColors.surface,
-                    side: BorderSide.none,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(Radii.large),
-                    ),
-                    label: Text(
-                      '#$tag',
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    onPressed: () => Navigator.of(context).pop('#$tag'),
-                  ),
-              ],
-            ),
+            _TagChoices(tags: tags),
           ],
           const SizedBox(height: Space.s4),
           const Text(
@@ -237,6 +189,78 @@ class _AddLimit extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// A category to give an allowance, as a square of its colour with its
+/// icon and name; a tap picks it.
+class _CategoryChoice extends StatelessWidget {
+  const _CategoryChoice({required this.category});
+
+  final Category category;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColorCard(
+      color: shownColor(Color(category.color)),
+      radius: Radii.large,
+      label: category.name,
+      onTap: () => Navigator.of(context).pop(category.name),
+      padding: const EdgeInsets.symmetric(
+        vertical: Space.s2,
+        horizontal: Space.half,
+      ),
+      child: Column(
+        children: [
+          GlyphIcon(
+            iconFor(category.icon),
+            size: 26,
+            color: shownColor(Color(category.color)),
+          ),
+          const SizedBox(height: Space.s2),
+          Text(
+            category.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: TextSize.small,
+              fontWeight: FontWeight.w700,
+              color: deepOf(shownColor(Color(category.color))),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The tags to give an allowance, each as a chip; a tap picks it.
+class _TagChoices extends StatelessWidget {
+  const _TagChoices({required this.tags});
+
+  final List<String> tags;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final tag in tags)
+          ActionChip(
+            backgroundColor: AppColors.surface,
+            side: BorderSide.none,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(Radii.large),
+            ),
+            label: Text(
+              '#$tag',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            onPressed: () => Navigator.of(context).pop('#$tag'),
+          ),
+      ],
     );
   }
 }
