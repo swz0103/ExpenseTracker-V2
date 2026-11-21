@@ -111,9 +111,9 @@ abstract final class AppColors {
   /// its own name for where it is used.
   static const panel = white;
   static const surface = Shade(0xFFE9ECEA, 0xFF3E4A50);
-  static const selected = Shade(0xFFDCE8EC, 0xFF35525E);
-  static const ink = Shade(0xFF26323A, 0xFFEEF2F3);
-  static const muted = Shade(0xFF525D63, 0xFFC0CACE);
+  static const selected = Shade(0xFFDCE8EC, 0xFF2C4753);
+  static const ink = Shade(0xFF26323A, 0xFFCDD4D7);
+  static const muted = Shade(0xFF525D63, 0xFFB8C2C6);
   static const faint = Shade(0xFFA7B0B3, 0xFF7E8A90);
   static const line = Shade(0xFFE1E4E0, 0xFF46535A);
 
@@ -123,7 +123,7 @@ abstract final class AppColors {
 
   /// Words that wait to be filled in, such as 未填: quieter than [muted],
   /// still 4.5:1 on every surface.
-  static const hint = Shade(0xFF586369, 0xFFBAC4C8);
+  static const hint = Shade(0xFF586369, 0xFFB4BEC2);
 
   /// Green for a gain, red for a loss; nothing changed reads as a gain.
   static Shade ofChange(num change) => change < 0 ? negative : positive;
@@ -141,7 +141,7 @@ abstract final class AppColors {
   static Shade ofBalance(num balance) => balance < 0 ? negative : ink;
 
   /// Gold as words, darker than [cash], which is for marks and fills.
-  static const goldText = Shade(0xFF7A5E18, 0xFFDEBE6B);
+  static const goldText = Shade(0xFF7A5E18, 0xFFCAAF68);
 
   /// Summary blocks: the page's main block and the smaller ones, both a
   /// tint of [accent] on the paper.
@@ -156,20 +156,20 @@ abstract final class AppColors {
   static const track = Shade(0xFFE9ECEA, 0xFF46535A);
 
   /// The interface colour: tabs, buttons, links, the chosen day.
-  static const accent = Shade(0xFF35657A, 0xFFA5C7D4);
+  static const accent = Shade(0xFF35657A, 0xFF98B7C3);
 
   /// Income, gains and refunds.
-  static const positive = Shade(0xFF276B58, 0xFF8CCEB6);
+  static const positive = Shade(0xFF276B58, 0xFF84BDA8);
 
   /// Spending and losses.
-  static const negative = Shade(0xFF9F4535, 0xFFF1B2A3);
+  static const negative = Shade(0xFF9F4535, 0xFFE0A495);
 
   /// A market's rise and fall as Taiwan's exchanges and brokers show
   /// them: red up, green down, the reverse of income and spending.
   static const rise = negative;
   static const fall = positive;
-  static const transfer = Shade(0xFF356672, 0xFF9FC8D2);
-  static const investment = Shade(0xFF4A5D99, 0xFFB4C0E7);
+  static const transfer = Shade(0xFF356672, 0xFF94B8C1);
+  static const investment = Shade(0xFF4A5D99, 0xFFA5B1D7);
 
   /// Deleting and what went wrong: the spending colour, [negative], under
   /// its own name for where it is used.

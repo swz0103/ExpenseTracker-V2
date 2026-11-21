@@ -104,7 +104,7 @@ void main() {
     const ink = AppColors.ink;
     expect(ink.toARGB32(), 0xFF26323A);
     Shade.dark = true;
-    expect(ink.toARGB32(), 0xFFEEF2F3);
+    expect(ink.toARGB32(), 0xFFCDD4D7);
     expect(AppColors.paper.computeLuminance(), lessThan(0.05));
     expect(AppColors.onAccent.toARGB32(), 0xFF0F1A1F);
     Shade.dark = false;

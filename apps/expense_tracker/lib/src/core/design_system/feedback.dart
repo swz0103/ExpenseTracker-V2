@@ -30,7 +30,7 @@ void showNote(
             : SnackBarAction(
                 key: Keys.snack(action),
                 label: action,
-                textColor: AppColors.selected,
+                textColor: Shade.dark ? AppColors.accent : AppColors.selected,
                 onPressed: act,
               ),
       ),
