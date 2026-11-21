@@ -55,6 +55,9 @@ void layoutTests(
         for (final words in shrunk) {
           faults.add('$name: 「$words」 shrunk too small to read');
         }
+        for (final words in cutOff(tester)) {
+          faults.add('$name: 「$words」 cut off by a box too small for it');
+        }
         for (final words in withoutAppFont(tester)) {
           faults.add('$name: 「$words」 not in the app\'s fonts');
         }
@@ -103,6 +106,26 @@ List<String> wrapped(
       if (b.bottom > floor) floor = b.bottom;
     }
     if (lines > 1) found.add(words);
+  }
+  return found;
+}
+
+/// Words in a box less tall than they are, such as a fixed-height
+/// [SizedBox] around a line: the bottom of the letters is cut off.
+List<String> cutOff(WidgetTester tester) {
+  final found = <String>[];
+  for (final element in find.byType(RichText).evaluate()) {
+    final route = ModalRoute.of(element);
+    if (route != null && !route.isCurrent) continue;
+    final box = element.renderObject;
+    if (box is! RenderParagraph || !box.hasSize || !box.attached) continue;
+    final words = box.text.toPlainText().trim();
+    if (words.isEmpty) continue;
+    // Below the height the words take at this width; half a pixel is
+    // rounding.
+    if (box.size.height + 0.5 < box.getMaxIntrinsicHeight(box.size.width)) {
+      found.add(words);
+    }
   }
   return found;
 }

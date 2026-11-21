@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'controls.dart';
+import 'glyphs.dart';
 import 'theme.dart';
 import 'shape.dart';
 import 'spacing.dart';
@@ -7,8 +9,9 @@ import 'spacing.dart';
 /// A field for a password, a recovery code or a backup's path: no
 /// autocorrect and no suggestions, so the keyboard neither changes what
 /// is typed nor learns it. The words are hidden unless [hidden] is off,
-/// as for a recovery code, which is read off paper.
-class PasswordField extends StatelessWidget {
+/// as for a recovery code, which is read off paper; hidden words have an
+/// eye at the right to show them while typing, and to hide them again.
+class PasswordField extends StatefulWidget {
   const PasswordField({
     super.key,
     required this.controller,
@@ -35,11 +38,23 @@ class PasswordField extends StatelessWidget {
   final bool plain;
 
   @override
+  State<PasswordField> createState() => _PasswordFieldState();
+}
+
+class _PasswordFieldState extends State<PasswordField> {
+  /// Shown by the eye, until it is pressed again.
+  var _shown = false;
+
+  @override
   Widget build(BuildContext context) {
-    final submit = onSubmitted;
-    return TextField(
-      controller: controller,
-      obscureText: hidden,
+    final hidden = widget.hidden;
+    final plain = widget.plain;
+    final boxed = widget.boxed;
+    final hint = widget.hint;
+    final submit = widget.onSubmitted;
+    final field = TextField(
+      controller: widget.controller,
+      obscureText: hidden && !_shown,
       autocorrect: false,
       enableSuggestions: false,
       onSubmitted: submit == null ? null : (_) => submit(),
@@ -62,6 +77,24 @@ class PasswordField extends StatelessWidget {
               ),
             )
           : InputDecoration(hintText: hint),
+    );
+    if (!hidden) return field;
+    return Row(
+      children: [
+        Expanded(child: field),
+        TapArea(
+          label: _shown ? '隱藏密碼' : '顯示密碼',
+          selected: _shown,
+          onTap: () => setState(() => _shown = !_shown),
+          child: SizedBox.square(
+            dimension: 48,
+            child: GlyphIcon(
+              _shown ? Glyph.eyeOff : Glyph.eye,
+              color: _shown ? AppColors.accent : AppColors.muted,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

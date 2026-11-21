@@ -402,12 +402,18 @@ class _AccountEditorState extends State<_AccountEditor> {
                   color: AppColors.white,
                   borderRadius: BorderRadius.circular(Radii.medium),
                 ),
-                child: const Text(
-                  '更多',
-                  style: TextStyle(
-                    fontSize: TextSize.caption,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.muted,
+                padding: const EdgeInsets.all(Space.half),
+                // As large as the phone's text, until the square beside the
+                // icons is full.
+                child: const FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '更多',
+                    style: TextStyle(
+                      fontSize: TextSize.caption,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.muted,
+                    ),
                   ),
                 ),
               ),

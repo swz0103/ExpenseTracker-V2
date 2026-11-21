@@ -177,8 +177,13 @@ class _LookChoice extends StatelessWidget {
           children: [
             AspectRatio(
               aspectRatio: 0.9,
+              // The frame is drawn over the picture: under it, the
+              // picture's corners covered the frame's.
               child: Container(
                 decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(Radii.large),
+                ),
+                foregroundDecoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(Radii.large),
                   border: Border.all(
                     color: chosen ? color : AppColors.line,
@@ -189,7 +194,9 @@ class _LookChoice extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    picture,
+                    // The ones not chosen are faded, so the chosen one
+                    // stands out.
+                    Opacity(opacity: chosen ? 1 : 0.5, child: picture),
                     if (chosen)
                       const Positioned(
                         right: 6,

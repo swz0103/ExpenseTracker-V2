@@ -46,8 +46,8 @@
 - **每個會發布的 PR 都要升版**：動到 `apps/`、`infrastructure/`、`packages/` 的 PR，版號必須比 main 高，否則驗證的第一步失敗（`integration-validation.yml`）。只改文件、CI 或工具的 PR 不發布，不必升。
 - **一次發布有好幾種改變時，照最高的那碼升**；升了某一碼，後面的碼歸零（0.17.3 → 0.18.0 → 1.0.0）。
 - 版號只升不降、不重用。
-- 每個版號在 CI 第一次發布時自動打上標籤 `v<版號>`，之後不移動；並留一份該版寫出的帳本與備份（ADR-0010）。
-- 每個版號有自己的 release `v<版號>`，放 `ExpenseTracker-<版號>.apk`、`update.json` 與測試帳本，最新的一個標成 GitHub 的最新版；App 從 `releases/latest` 找更新（[android.md](../android.md)）。
+- 每個版號在 CI 第一次發布時自動打上標籤 `v<版號>`，並有自己的 release，放 `ExpenseTracker-<版號>.apk`、`update.json` 與測試帳本；App 從 `releases/latest` 找更新（[android.md](../android.md)）。
+- GitHub 上只留最新一版的 release 與標籤：新版公開後，舊的連同標籤刪掉（2026-11-21 起）。每版寫出的帳本與備份樣本留在 repo（ADR-0010），不靠標籤。
 - 每個版號都要有 `whats_new.txt`（三行以內，給使用者看）、CHANGELOG 一節、[acceptance.md](../acceptance.md) 一節。
 
 ### 例子

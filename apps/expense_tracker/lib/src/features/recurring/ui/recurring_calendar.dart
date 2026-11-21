@@ -226,18 +226,16 @@ class _Calendar extends StatelessWidget {
                   ),
                 ),
               ),
-              // 到期 under a day due; a week with none takes no room for it.
+              // 到期 under a day due, as tall as its letters (a fixed box
+              // cut their bottom off); a week with none takes no room for it.
               if (due)
-                const SizedBox(
-                  height: 13,
-                  child: Text(
-                    '到期',
-                    textScaler: TextScaler.noScaling,
-                    style: TextStyle(
-                      fontSize: TextSize.tiny,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.negative,
-                    ),
+                const Text(
+                  '到期',
+                  textScaler: TextScaler.noScaling,
+                  style: TextStyle(
+                    fontSize: TextSize.tiny,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.negative,
                   ),
                 ),
             ],
