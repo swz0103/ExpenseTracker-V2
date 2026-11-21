@@ -245,8 +245,8 @@ class LoanPage extends StatelessWidget {
           return const SizedBox.shrink();
         }
         final loan = ledger.account(loanId);
-        final owed = owedOn(ledger, loan);
-        final share = paidShare(ledger, loan);
+        final owed = owedOn(ledger.balanceService, loan);
+        final share = paidShare(ledger.balanceService, loan);
         final principal = loan.principal;
         final color = nameColor(loan.name);
         final entries = [

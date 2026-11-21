@@ -18,6 +18,7 @@ import '../../../core/formatting/dates.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
+import '../model/debts.dart';
 
 part 'person_page.dart';
 part 'debts_loan_card.dart';
@@ -38,27 +39,6 @@ List<Account> openLoans(Ledger ledger) => [
   for (final a in ledger.accounts.open)
     if (a.kind == AccountKind.loan) a,
 ];
-
-/// What [person] owes in all, as a positive amount or nothing.
-int owedFrom(Ledger ledger, Account person) {
-  final balance = ledger.balanceService.balance(person.id);
-  return balance > 0 ? balance : 0;
-}
-
-/// What is left on [loan], as a positive amount or nothing.
-int owedOn(Ledger ledger, Account loan) {
-  final balance = ledger.balanceService.balance(loan.id);
-  return balance < 0 ? -balance : 0;
-}
-
-/// How much of [loan] is paid, 0 to 1; null without its amount when taken
-/// out.
-double? paidShare(Ledger ledger, Account loan) {
-  final principal = loan.principal;
-  if (principal == null || principal <= 0) return null;
-  final share = (principal - owedOn(ledger, loan)) / principal;
-  return share < 0 ? 0.0 : (share > 1 ? 1.0 : share);
-}
 
 /// Whole days since [day].
 int _days(Ledger ledger, DateTime day) {
@@ -89,10 +69,13 @@ class DebtsPage extends StatelessWidget {
       builder: (context, _) {
         final people = peopleOwing(ledger);
         final loans = openLoans(ledger);
-        final lent = people.fold<int>(0, (sum, a) => sum + owedFrom(ledger, a));
+        final lent = people.fold<int>(
+          0,
+          (sum, a) => sum + owedFrom(ledger.balanceService, a),
+        );
         final borrowed = loans.fold<int>(
           0,
-          (sum, a) => sum + owedOn(ledger, a),
+          (sum, a) => sum + owedOn(ledger.balanceService, a),
         );
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
@@ -111,7 +94,9 @@ class DebtsPage extends StatelessWidget {
             _BothWays(
               ledger: ledger,
               lent: lent,
-              people: people.where((p) => owedFrom(ledger, p) > 0).length,
+              people: people
+                  .where((p) => owedFrom(ledger.balanceService, p) > 0)
+                  .length,
               borrowed: borrowed,
               loans: loans.length,
             ),
@@ -288,7 +273,9 @@ class _PersonSquare extends StatelessWidget {
     final oldest = owed.isEmpty ? null : owed.last.$1.date;
     final color = nameColor(person.name);
     final ink = deepOf(color);
-    final amount = ledger.orDots(groupDigits(owedFrom(ledger, person)));
+    final amount = ledger.orDots(
+      groupDigits(owedFrom(ledger.balanceService, person)),
+    );
     final age = oldest == null ? '沒有欠款' : '最久 ${_days(ledger, oldest)} 天';
     return ColorCard(
       color: color,
