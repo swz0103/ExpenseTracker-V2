@@ -100,7 +100,7 @@ class CardPage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: Space.s2),
               child: FigureCard(
-                color: AppColors.card,
+                color: Palette.violet,
                 icon: Glyph.calendar,
                 label: '下次結帳',
                 value: _day(card.nextClose),
@@ -186,7 +186,7 @@ class CardPage extends StatelessWidget {
     final used = card.usedShare;
     return CardRow([
       FigureCard(
-        color: AppColors.card,
+        color: Palette.orange,
         icon: Glyph.calendar,
         label: '本期未出帳',
         value: ledger.money(card.spentSince),
@@ -203,7 +203,7 @@ class CardPage extends StatelessWidget {
         ),
       ),
       FigureCard(
-        color: AppColors.card,
+        color: Palette.teal,
         icon: Glyph.budget,
         label: '可用額度',
         value: available == null ? '—' : ledger.money(available),
