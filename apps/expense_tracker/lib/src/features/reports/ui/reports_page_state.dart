@@ -219,7 +219,7 @@ class _ReportsPageState extends State<ReportsPage> {
       2 => CompareSection(ledger: ledger, period: period),
       _ => Sections([
         if (period.span == ReportSpan.year) section(null, _summary(report)),
-        section(null, _highlights(report)),
+        section(null, highlightsSection(widget.ledger, report)),
         section(null, weekdaysSection(report)),
         section(null, merchantsSection(widget.ledger, report)),
         section(null, tagsSection(widget.ledger, report)),
@@ -245,7 +245,6 @@ class _ReportsPageState extends State<ReportsPage> {
     int? selected,
   ) {
     final ledger = widget.ledger;
-    final change = report.worthNow - report.worthBefore;
     return [
       CardGrid(gap: 10, [
         ReportBlock(
@@ -266,113 +265,107 @@ class _ReportsPageState extends State<ReportsPage> {
         ),
       ]),
       const SizedBox(height: Space.s3),
-      Container(
-        padding: const EdgeInsets.fromLTRB(
-          Space.s4,
-          Space.s4,
-          Space.s4,
-          Space.s3,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.group,
-          borderRadius: BorderRadius.circular(Radii.largeIncreased),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Row(
-              children: [
-                Expanded(
-                  child: OneLine(
-                    '收支與淨資產',
-                    style: TextStyle(
-                      fontSize: TextSize.title,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                LegendKey(AppColors.negative, Words.expense),
-                SizedBox(width: Space.s2),
-                LegendKey(AppColors.positive, Words.income),
-                SizedBox(width: Space.s2),
-                LegendKey(AppColors.investment, '淨資產', line: true),
-              ],
-            ),
-            const SizedBox(height: Space.s2),
-            PeriodBars(
-              buckets: buckets,
-              worth: report.worth,
-              selected: selected,
-              onSelect: (i) => setState(() => _stretch = i),
-            ),
-            const SizedBox(height: Space.s2),
-            ReportReadout(
-              ledger: ledger,
-              label: readout == null ? '整段期間' : _stretchName(readout),
-              income: readout?.income ?? report.income,
-              expense: readout?.expense ?? report.expense,
-              worth: readout == null || selected == null
-                  ? report.worthNow
-                  : report.worth.elementAtOrNull(selected),
-            ),
-            const SizedBox(height: Space.s2),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '淨資產 期初 ${ledger.orDots(groupDigits(report.worthBefore))}'
-                    ' → 期末 ${ledger.orDots(groupDigits(report.worthNow))}',
-                    style: mutedSmall,
-                  ),
-                ),
-                Text(
-                  ledger.orDots(signed(change)),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.ofChange(change),
-                  ),
-                ),
-              ],
-            ),
-            if (ledger.holdings.all.isNotEmpty)
-              const Padding(
-                padding: EdgeInsets.only(top: Space.s1),
-                child: Text('過去的股票市值以今日股價估算', style: mutedSmall),
-              ),
-          ],
-        ),
-      ),
+      _flowChart(report, buckets, readout, selected),
     ];
   }
 
-  /// 習慣's two highlights: the day of the week spent most on, and the
-  /// merchant gone to most.
-  List<Widget> _highlights(Report report) {
+  /// 收支與淨資產: spending, income and net worth stretch by stretch, the
+  /// figures of the stretch picked, and what the period's net worth did.
+  Widget _flowChart(
+    Report report,
+    List<PeriodBucket> buckets,
+    PeriodBucket? readout,
+    int? selected,
+  ) {
     final ledger = widget.ledger;
-    final days = report.weekdays;
-    final most = days.fold(0, max);
-    final merchant = report.merchants.isEmpty ? null : report.merchants.first;
-    if (most <= 0 && merchant == null) return const [];
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s4,
+        Space.s3,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.group,
+        borderRadius: BorderRadius.circular(Radii.largeIncreased),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _flowKeys,
+          const SizedBox(height: Space.s2),
+          PeriodBars(
+            buckets: buckets,
+            worth: report.worth,
+            selected: selected,
+            onSelect: (i) => setState(() => _stretch = i),
+          ),
+          const SizedBox(height: Space.s2),
+          ReportReadout(
+            ledger: ledger,
+            label: readout == null ? '整段期間' : _stretchName(readout),
+            income: readout?.income ?? report.income,
+            expense: readout?.expense ?? report.expense,
+            worth: readout == null || selected == null
+                ? report.worthNow
+                : report.worth.elementAtOrNull(selected),
+          ),
+          const SizedBox(height: Space.s2),
+          ..._worthChange(report),
+        ],
+      ),
+    );
+  }
+
+  /// The title of 收支與淨資產 and the keys of its chart.
+  static const _flowKeys = Row(
+    children: [
+      Expanded(
+        child: OneLine(
+          '收支與淨資產',
+          style: TextStyle(
+            fontSize: TextSize.title,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+      LegendKey(AppColors.negative, Words.expense),
+      SizedBox(width: Space.s2),
+      LegendKey(AppColors.positive, Words.income),
+      SizedBox(width: Space.s2),
+      LegendKey(AppColors.investment, '淨資產', line: true),
+    ],
+  );
+
+  /// The period's net worth at its start and end and the change, and
+  /// that past stock values are estimated at today's prices.
+  List<Widget> _worthChange(Report report) {
+    final ledger = widget.ledger;
+    final change = report.worthNow - report.worthBefore;
     return [
-      CardGrid(gap: 10, [
-        ReportBlock(
-          glyph: Glyph.calendar,
-          color: AppColors.negative,
-          label: '花最多的一天',
-          value: most <= 0 ? '—' : '週${weekdayNames[days.indexOf(most)]}',
-          sub: most <= 0 ? '' : '這段時間共 ${ledger.orDots(groupDigits(most))}',
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              '淨資產 期初 ${ledger.orDots(groupDigits(report.worthBefore))}'
+              ' → 期末 ${ledger.orDots(groupDigits(report.worthNow))}',
+              style: mutedSmall,
+            ),
+          ),
+          Text(
+            ledger.orDots(signed(change)),
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: AppColors.ofChange(change),
+            ),
+          ),
+        ],
+      ),
+      if (ledger.holdings.all.isNotEmpty)
+        const Padding(
+          padding: EdgeInsets.only(top: Space.s1),
+          child: Text('過去的股票市值以今日股價估算', style: mutedSmall),
         ),
-        ReportBlock(
-          glyph: Glyph.store,
-          color: AppColors.positive,
-          label: '最常去',
-          value: merchant?.$1 ?? '—',
-          sub: merchant == null
-              ? ''
-              : '${merchant.$2} 次 · 每次約 '
-                    '${ledger.orDots(groupDigits(merchant.$3 ~/ merchant.$2))}',
-        ),
-      ]),
     ];
   }
 
@@ -456,88 +449,92 @@ class _ReportsPageState extends State<ReportsPage> {
   /// 分類: every category ranked by what was spent, against the same time
   /// a year before; each opens its entries.
   List<Widget> _mix(Report report) {
-    final names = report.names;
-    if (names.isEmpty) return const [];
-    final ledger = widget.ledger;
-    final spending = report.spending;
-    final lastSpending = report.lastSpending;
-    final expense = report.expense;
-    // As many of the largest as get a block big enough to read, the rest
-    // together: on a small phone or with large text, fewer blocks.
-    List<(String, int, int?)> blocksOf(int count) {
-      final rest = names
-          .skip(count)
-          .fold(0, (sum, n) => sum + (spending[n] ?? 0));
-      return [
-        for (final n in names.take(count))
-          (n, spending[n] ?? 0, lastSpending[n]),
-        if (rest > 0) ('其他', rest, null),
-      ];
-    }
-
+    if (report.names.isEmpty) return const [];
     return [
-      LayoutBuilder(
-        builder: (context, box) {
-          final scale = textGrowth(context);
-          final width = box.maxWidth;
-          // What a block needs: its name with the share over its amount.
-          final minWidth = 84 * scale;
-          final minHeight = 56 * scale;
-          final base = width * 0.82;
-          var height = base;
-          var blocks = blocksOf(names.length);
-          var rects = <Rect>[];
-          // Taller first, then fewer blocks: a category merged into 其他
-          // only when no height up to half again more makes room for it.
-          search:
-          for (var count = min(7, names.length); count >= 1; count--) {
-            blocks = blocksOf(count);
-            for (final stretch in const [1.0, 1.2, 1.4, 1.6]) {
-              height = base * stretch;
-              rects = treemapLayout([
-                for (final b in blocks) b.$2,
-              ], Rect.fromLTWH(0, 0, width, height));
-              if (rects.every(
-                (r) => r.width - 8 >= minWidth && r.height - 8 >= minHeight,
-              )) {
-                break search;
-              }
-            }
-          }
-          return SizedBox(
-            height: height,
-            child: Stack(
-              children: [
-                for (final (i, (name, amount, last)) in blocks.indexed)
-                  if (i < rects.length)
-                    Positioned.fromRect(
-                      rect: rects[i].deflate(4),
-                      child: CategoryBlock(
-                        ledger: ledger,
-                        category: name == '其他' && !spending.containsKey('其他')
-                            ? _restBlock()
-                            : ledger.category(name),
-                        amount: amount,
-                        share: expense == 0 ? 0 : amount * 100 ~/ expense,
-                        change: last == null || last == 0
-                            ? null
-                            : (amount - last) * 100 ~/ last,
-                        large: i == 0,
-                        onTap: name == '其他' && !spending.containsKey('其他')
-                            ? null
-                            : () => _showCategory(name),
-                      ),
-                    ),
-              ],
-            ),
-          );
-        },
-      ),
+      LayoutBuilder(builder: (context, box) => _treemap(context, box, report)),
       const Padding(
         padding: EdgeInsets.only(top: Space.s2, left: Space.s1),
         child: Text('▲▼ 是跟去年同期比', style: mutedSmall),
       ),
     ];
+  }
+
+  /// The [count] largest categories of [report], with what each spent a
+  /// year before, and the rest together as 其他.
+  static List<(String, int, int?)> _blocksOf(Report report, int count) {
+    final names = report.names;
+    final spending = report.spending;
+    final rest = names
+        .skip(count)
+        .fold(0, (sum, n) => sum + (spending[n] ?? 0));
+    return [
+      for (final n in names.take(count))
+        (n, spending[n] ?? 0, report.lastSpending[n]),
+      if (rest > 0) ('其他', rest, null),
+    ];
+  }
+
+  /// The categories of [report] as blocks sized by what they spent, [box]
+  /// wide. As many of the largest as get a block big enough to read, the
+  /// rest together: on a small phone or with large text, fewer blocks.
+  Widget _treemap(BuildContext context, BoxConstraints box, Report report) {
+    final names = report.names;
+    final ledger = widget.ledger;
+    final spending = report.spending;
+    final expense = report.expense;
+    final scale = textGrowth(context);
+    final width = box.maxWidth;
+    // What a block needs: its name with the share over its amount.
+    final minWidth = 84 * scale;
+    final minHeight = 56 * scale;
+    final base = width * 0.82;
+    var height = base;
+    var blocks = _blocksOf(report, names.length);
+    var rects = <Rect>[];
+    // Taller first, then fewer blocks: a category merged into 其他
+    // only when no height up to half again more makes room for it.
+    search:
+    for (var count = min(7, names.length); count >= 1; count--) {
+      blocks = _blocksOf(report, count);
+      for (final stretch in const [1.0, 1.2, 1.4, 1.6]) {
+        height = base * stretch;
+        rects = treemapLayout([
+          for (final b in blocks) b.$2,
+        ], Rect.fromLTWH(0, 0, width, height));
+        if (rects.every(
+          (r) => r.width - 8 >= minWidth && r.height - 8 >= minHeight,
+        )) {
+          break search;
+        }
+      }
+    }
+    return SizedBox(
+      height: height,
+      child: Stack(
+        children: [
+          for (final (i, (name, amount, last)) in blocks.indexed)
+            if (i < rects.length)
+              Positioned.fromRect(
+                rect: rects[i].deflate(4),
+                child: CategoryBlock(
+                  ledger: ledger,
+                  category: name == '其他' && !spending.containsKey('其他')
+                      ? _restBlock()
+                      : ledger.category(name),
+                  amount: amount,
+                  share: expense == 0 ? 0 : amount * 100 ~/ expense,
+                  change: last == null || last == 0
+                      ? null
+                      : (amount - last) * 100 ~/ last,
+                  large: i == 0,
+                  onTap: name == '其他' && !spending.containsKey('其他')
+                      ? null
+                      : () => _showCategory(name),
+                ),
+              ),
+        ],
+      ),
+    );
   }
 
   /// The period's entries spent under [name], in a sheet; each opens.

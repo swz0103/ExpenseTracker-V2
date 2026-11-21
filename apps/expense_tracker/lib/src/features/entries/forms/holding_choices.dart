@@ -57,36 +57,7 @@ class _HoldingChoicesState extends State<HoldingChoices> {
     ];
     final add = widget.onAdd;
     if (add != null) {
-      cards.add(
-        Material(
-          color: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(Radii.large),
-            side: const BorderSide(color: AppColors.line, width: 1.5),
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(Radii.large),
-            onTap: add,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 74),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  GlyphIcon(Glyph.add, size: 20, color: AppColors.muted),
-                  Text(
-                    Words.add,
-                    style: TextStyle(
-                      fontSize: TextSize.small,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.muted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
+      cards.add(_addCard(add));
     }
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -129,4 +100,34 @@ class _HoldingChoicesState extends State<HoldingChoices> {
       ],
     );
   }
+
+  /// 新增 as the last card, opening [add].
+  static Widget _addCard(VoidCallback add) => Material(
+    color: Colors.transparent,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(Radii.large),
+      side: const BorderSide(color: AppColors.line, width: 1.5),
+    ),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(Radii.large),
+      onTap: add,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 74),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            GlyphIcon(Glyph.add, size: 20, color: AppColors.muted),
+            Text(
+              Words.add,
+              style: TextStyle(
+                fontSize: TextSize.small,
+                fontWeight: FontWeight.w700,
+                color: AppColors.muted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

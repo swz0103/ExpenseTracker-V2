@@ -125,45 +125,7 @@ class _Subscriptions extends StatelessWidget {
             message: '還沒有固定支出',
           )
         else ...[
-          const Text(
-            '一年下來',
-            style: TextStyle(
-              fontSize: TextSize.body,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          Text(
-            ledger.orDots(groupDigits(total)),
-            style: const TextStyle(
-              fontSize: TextSize.hero,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          Text(
-            '平均每月 ${ledger.orDots(groupDigits(total ~/ 12))}',
-            style: mutedSmall,
-          ),
-          const SizedBox(height: Space.s4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(Radii.small),
-            child: SizedBox(
-              height: 12,
-              child: Row(
-                children: [
-                  for (final (i, (item, yearly)) in rows.indexed) ...[
-                    if (i > 0) const SizedBox(width: Space.half),
-                    Expanded(
-                      flex: (yearly * 1000 ~/ total).clamp(1, 1000),
-                      child: ColoredBox(
-                        color: recurringMark(ledger, item).$2,
-                        child: const SizedBox.expand(),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
+          ..._yearTotal(rows, total),
           const Padding(
             padding: EdgeInsets.fromLTRB(
               Space.s1,
@@ -196,6 +158,44 @@ class _Subscriptions extends StatelessWidget {
       ],
     );
   }
+
+  /// 一年下來: what [rows] cost in a year together and a month on average,
+  /// and each one's share of [total] as a bar in its colour.
+  List<Widget> _yearTotal(List<(Recurring, int)> rows, int total) => [
+    const Text(
+      '一年下來',
+      style: TextStyle(fontSize: TextSize.body, fontWeight: FontWeight.w700),
+    ),
+    Text(
+      ledger.orDots(groupDigits(total)),
+      style: const TextStyle(
+        fontSize: TextSize.hero,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+    Text('平均每月 ${ledger.orDots(groupDigits(total ~/ 12))}', style: mutedSmall),
+    const SizedBox(height: Space.s4),
+    ClipRRect(
+      borderRadius: BorderRadius.circular(Radii.small),
+      child: SizedBox(
+        height: 12,
+        child: Row(
+          children: [
+            for (final (i, (item, yearly)) in rows.indexed) ...[
+              if (i > 0) const SizedBox(width: Space.half),
+              Expanded(
+                flex: (yearly * 1000 ~/ total).clamp(1, 1000),
+                child: ColoredBox(
+                  color: recurringMark(ledger, item).$2,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+  ];
 }
 
 /// 已暫停: what pausing means, then each paused item in grey with 恢復.

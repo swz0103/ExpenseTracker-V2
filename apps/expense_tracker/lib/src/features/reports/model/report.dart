@@ -58,23 +58,8 @@ final class Report {
     final until = to.isAfter(today) ? today : to;
     final stretches = period.stretches;
     final inPeriod = entriesBetween(entries, from, to);
-    var income = 0;
-    var expense = 0;
-    var dividends = 0;
-    Entry? biggest;
-    final days = <DateTime>{};
-    final weekdays = List.filled(7, 0);
-    for (final e in inPeriod) {
-      income += e.earning;
-      expense += e.spending;
-      weekdays[weekdayIndex(e.date)] += e.spending;
-      dividends += e.dividendNet;
-      days.add(e.date);
-      if (e.type == EntryType.expense &&
-          (biggest == null || e.spending > biggest.spending)) {
-        biggest = e;
-      }
-    }
+    final tally = _tally(inPeriod);
+    final expense = tally.expense;
     final before = _yearAgo(entries, from, until);
     final lastExpense = before.fold(0, (sum, e) => sum + e.spending);
     final buckets = [
@@ -88,11 +73,7 @@ final class Report {
       for (final (i, b) in buckets.indexed)
         if (!b.ahead) i,
     ];
-    final peak = passed.isEmpty
-        ? null
-        : passed.reduce(
-            (a, b) => buckets[b].expense > buckets[a].expense ? b : a,
-          );
+    final peak = _peakOf(buckets, passed);
     // The ledger's own sum keeps the categories in the order it always
     // has, so equal amounts keep their places.
     final spending = reports.spendingBetween(from, to);
@@ -103,9 +84,9 @@ final class Report {
     return Report._(
       today: today,
       stretches: stretches,
-      income: income,
+      income: tally.income,
       expense: expense,
-      dividends: dividends,
+      dividends: tally.dividends,
       lastExpense: lastExpense,
       buckets: buckets,
       peak: peak,
@@ -128,9 +109,9 @@ final class Report {
       merchants: reports.merchantsBetween(from, to).take(5).toList(),
       tags: reports.tagsBetween(from, to),
       count: inPeriod.length,
-      days: days.length,
-      biggestSpend: biggest,
-      weekdays: weekdays,
+      days: tally.days,
+      biggestSpend: tally.biggest,
+      weekdays: tally.weekdays,
     );
   }
 
@@ -217,6 +198,46 @@ final class Report {
     return (under, total);
   }
 
+  /// What came in, went out and was paid as dividends in [inPeriod], on
+  /// how many days, the largest single spending, and the spending on each
+  /// day of the week.
+  static _Tally _tally(List<Entry> inPeriod) {
+    var income = 0;
+    var expense = 0;
+    var dividends = 0;
+    Entry? biggest;
+    final days = <DateTime>{};
+    final weekdays = List.filled(7, 0);
+    for (final e in inPeriod) {
+      income += e.earning;
+      expense += e.spending;
+      weekdays[weekdayIndex(e.date)] += e.spending;
+      dividends += e.dividendNet;
+      days.add(e.date);
+      if (e.type == EntryType.expense &&
+          (biggest == null || e.spending > biggest.spending)) {
+        biggest = e;
+      }
+    }
+    return (
+      income: income,
+      expense: expense,
+      dividends: dividends,
+      biggest: biggest,
+      days: days.length,
+      weekdays: weekdays,
+    );
+  }
+
+  /// The index of the stretch of [buckets] that spent the most, of those
+  /// [passed]; null when none has begun.
+  static int? _peakOf(List<StretchSum> buckets, List<int> passed) =>
+      passed.isEmpty
+      ? null
+      : passed.reduce(
+          (a, b) => buckets[b].expense > buckets[a].expense ? b : a,
+        );
+
   /// The entries of the same days a year before.
   static List<Entry> _yearAgo(
     EntryReader entries,
@@ -245,3 +266,13 @@ final class Report {
     return totals;
   }
 }
+
+/// The sums of a report's period read in one pass over its entries.
+typedef _Tally = ({
+  int income,
+  int expense,
+  int dividends,
+  Entry? biggest,
+  int days,
+  List<int> weekdays,
+});

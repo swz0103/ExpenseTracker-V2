@@ -30,40 +30,6 @@ const libraryGuide = 1200;
 /// marked; one that grows fails, and one that shrank a good deal must have
 /// its number lowered here, so the list only gets shorter.
 const longerFunctions = <String, int>{
-  'src/core/ledger/portfolio.dart::Portfolio.replay': 143,
-  'src/core/charts/flow_chart.dart::_FlowPainter.paint': 131,
-  'src/features/investments/ui/holding_page.dart::HoldingPage.build': 122,
-  'src/features/reports/ui/reports_page_state.dart::_ReportsPageState._flow':
-      108,
-  'src/features/investments/ui/holding_bento.dart::_LinePainter.paint': 108,
-  'src/features/reports/ui/report_habits.dart::merchantsSection': 95,
-  'src/features/investments/ui/holding_page.dart::_DividendCard.build': 93,
-  'src/core/ledger/persistence/sql_ledger_data_source.dart::SqlLedgerDataSource.refreshQuotes':
-      93,
-  'src/features/entries/forms/holding_choices.dart::_HoldingChoicesState.build':
-      92,
-  'src/features/reports/ui/reports_page_state.dart::_ReportsPageState._flow':
-      108,
-  'src/features/investments/ui/holding_bento.dart::_LinePainter.paint': 108,
-  'src/features/reports/ui/report_habits.dart::merchantsSection': 95,
-  'src/features/recurring/ui/recurring_lists.dart::_Subscriptions.build': 91,
-  'src/core/charts/waterfall.dart::_WaterfallPainter.paint': 89,
-  'src/features/reports/model/report.dart::Report.of': 87,
-  'src/features/recurring/ui/recurring_rows.dart::RecurringRow.build': 86,
-  'src/features/reports/ui/reports_page_state.dart::_ReportsPageState._flow':
-      108,
-  'src/features/investments/ui/holding_bento.dart::_LinePainter.paint': 108,
-  'src/features/reports/ui/report_habits.dart::merchantsSection': 95,
-  'src/features/entries/ui/entries_filter_sheet.dart::_FilterSheetState.build':
-      84,
-  'src/features/reports/ui/reports_page_state.dart::_ReportsPageState._mix': 84,
-  'src/core/ledger/persistence/sql_ledger_data_source.dart::SqlLedgerDataSource._load':
-      84,
-  'src/features/overview/model/home_widget.dart::widgetSnapshot': 82,
-  'src/features/reports/ui/reports_page_state.dart::_ReportsPageState._flow':
-      108,
-  'src/features/investments/ui/holding_bento.dart::_LinePainter.paint': 108,
-  'src/features/reports/ui/report_habits.dart::merchantsSection': 95,
 };
 const largerLibraries = <String, int>{};
 
