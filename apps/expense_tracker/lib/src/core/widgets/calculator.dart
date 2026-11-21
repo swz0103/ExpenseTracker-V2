@@ -162,13 +162,6 @@ class _CalculatorState extends State<_Calculator> {
 
   @override
   Widget build(BuildContext context) {
-    final value = _keys.value;
-    final shown = value == null
-        ? '…'
-        : widget.decimal
-        ? _plain(value)
-        : groupDigits(value.round());
-    final working = _keys.working;
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
       child: Column(
@@ -184,86 +177,16 @@ class _CalculatorState extends State<_Calculator> {
             ),
           ),
           const SizedBox(height: Space.s3),
-          Container(
-            padding: const EdgeInsets.fromLTRB(
-              Space.s4,
-              Space.s3,
-              Space.s4,
-              Space.s4,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.hero,
-              borderRadius: BorderRadius.circular(Radii.largeIncreased),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  working ? _keys.expression : widget.unit,
-                  style: mutedBody,
-                ),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    shown,
-                    style: TextStyle(
-                      fontSize: TextSize.hero,
-                      fontWeight: FontWeight.w700,
-                      color: widget.color,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _display(),
           const SizedBox(height: Space.s4),
           SizedBox(
             height: 5 * 54 + 4 * 8,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  flex: 3,
-                  child: Column(
-                    children: [
-                      for (final (i, row) in [
-                        ['C', '⌫', '÷'],
-                        ['7', '8', '9'],
-                        ['4', '5', '6'],
-                        ['1', '2', '3'],
-                        ['00', '0', if (widget.decimal) '.' else '000'],
-                      ].indexed) ...[
-                        if (i > 0) const SizedBox(height: Space.s2),
-                        Expanded(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              for (final (j, key) in row.indexed) ...[
-                                if (j > 0) const SizedBox(width: Space.s2),
-                                Expanded(child: _key(key)),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+                Expanded(flex: 3, child: _digits()),
                 const SizedBox(width: Space.s2),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(child: _key('×')),
-                      const SizedBox(height: Space.s2),
-                      Expanded(child: _key('−')),
-                      const SizedBox(height: Space.s2),
-                      Expanded(child: _key('+')),
-                      const SizedBox(height: Space.s2),
-                      Expanded(flex: 2, child: _key(Words.done)),
-                    ],
-                  ),
-                ),
+                Expanded(child: _operators()),
               ],
             ),
           ),
@@ -271,6 +194,87 @@ class _CalculatorState extends State<_Calculator> {
       ),
     );
   }
+
+  /// The amount so far, large in the calculator's colour, with the sum
+  /// being worked above it (or the unit when there is none).
+  Widget _display() {
+    final value = _keys.value;
+    final shown = value == null
+        ? '…'
+        : widget.decimal
+        ? _plain(value)
+        : groupDigits(value.round());
+    final working = _keys.working;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s4,
+        Space.s4,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.hero,
+        borderRadius: BorderRadius.circular(Radii.largeIncreased),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(working ? _keys.expression : widget.unit, style: mutedBody),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              shown,
+              style: TextStyle(
+                fontSize: TextSize.hero,
+                fontWeight: FontWeight.w700,
+                color: widget.color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The digits, clear and delete, three to a row.
+  Widget _digits() => Column(
+    children: [
+      for (final (i, row) in [
+        ['C', '⌫', '÷'],
+        ['7', '8', '9'],
+        ['4', '5', '6'],
+        ['1', '2', '3'],
+        ['00', '0', if (widget.decimal) '.' else '000'],
+      ].indexed) ...[
+        if (i > 0) const SizedBox(height: Space.s2),
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (j, key) in row.indexed) ...[
+                if (j > 0) const SizedBox(width: Space.s2),
+                Expanded(child: _key(key)),
+              ],
+            ],
+          ),
+        ),
+      ],
+    ],
+  );
+
+  /// The operations down the side, 完成 twice as tall at the bottom.
+  Widget _operators() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Expanded(child: _key('×')),
+      const SizedBox(height: Space.s2),
+      Expanded(child: _key('−')),
+      const SizedBox(height: Space.s2),
+      Expanded(child: _key('+')),
+      const SizedBox(height: Space.s2),
+      Expanded(flex: 2, child: _key(Words.done)),
+    ],
+  );
 
   Widget _key(String key) {
     final operator = '÷×−+'.contains(key);

@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -111,9 +109,9 @@ abstract final class AppColors {
   /// its own name for where it is used.
   static const panel = white;
   static const surface = Shade(0xFFE9ECEA, 0xFF3E4A50);
-  static const selected = Shade(0xFFDCE8EC, 0xFF35525E);
-  static const ink = Shade(0xFF26323A, 0xFFEEF2F3);
-  static const muted = Shade(0xFF525D63, 0xFFC0CACE);
+  static const selected = Shade(0xFFDCE8EC, 0xFF2C4753);
+  static const ink = Shade(0xFF26323A, 0xFFCDD4D7);
+  static const muted = Shade(0xFF525D63, 0xFFB8C2C6);
   static const faint = Shade(0xFFA7B0B3, 0xFF7E8A90);
   static const line = Shade(0xFFE1E4E0, 0xFF46535A);
 
@@ -123,7 +121,7 @@ abstract final class AppColors {
 
   /// Words that wait to be filled in, such as 未填: quieter than [muted],
   /// still 4.5:1 on every surface.
-  static const hint = Shade(0xFF586369, 0xFFBAC4C8);
+  static const hint = Shade(0xFF586369, 0xFFB4BEC2);
 
   /// Green for a gain, red for a loss; nothing changed reads as a gain.
   static Shade ofChange(num change) => change < 0 ? negative : positive;
@@ -141,7 +139,7 @@ abstract final class AppColors {
   static Shade ofBalance(num balance) => balance < 0 ? negative : ink;
 
   /// Gold as words, darker than [cash], which is for marks and fills.
-  static const goldText = Shade(0xFF7A5E18, 0xFFDEBE6B);
+  static const goldText = Shade(0xFF7A5E18, 0xFFCAAF68);
 
   /// Summary blocks: the page's main block and the smaller ones, both a
   /// tint of [accent] on the paper.
@@ -156,31 +154,31 @@ abstract final class AppColors {
   static const track = Shade(0xFFE9ECEA, 0xFF46535A);
 
   /// The interface colour: tabs, buttons, links, the chosen day.
-  static const accent = Shade(0xFF35657A, 0xFFA5C7D4);
+  static const accent = Shade(0xFF35657A, 0xFF98B7C3);
 
   /// Income, gains and refunds.
-  static const positive = Shade(0xFF276B58, 0xFF8CCEB6);
+  static const positive = Shade(0xFF276B58, 0xFF84BDA8);
 
   /// Spending and losses.
-  static const negative = Shade(0xFF9F4535, 0xFFF1B2A3);
+  static const negative = Shade(0xFF9F4535, 0xFFE0A495);
 
   /// A market's rise and fall as Taiwan's exchanges and brokers show
   /// them: red up, green down, the reverse of income and spending.
   static const rise = negative;
   static const fall = positive;
-  static const transfer = Shade(0xFF356672, 0xFF9FC8D2);
-  static const investment = Shade(0xFF4A5D99, 0xFFB4C0E7);
+  static const transfer = Shade(0xFF356672, 0xFF94B8C1);
+  static const investment = Shade(0xFF4A5D99, 0xFFA5B1D7);
 
   /// Deleting and what went wrong: the spending colour, [negative], under
   /// its own name for where it is used.
   static const danger = negative;
 
   /// Account groups.
-  static const cash = Shade(0xFFC9A34A, 0xFFD2BA7E);
-  static const bank = Shade(0xFF5C9A83, 0xFF8BB6A5);
-  static const wallet = Shade(0xFF5B8DB0, 0xFF92B1C8);
-  static const card = Shade(0xFFB5523E, 0xFFD89485);
-  static const holdings = Shade(0xFFD08B5B, 0xFFDAB092);
+  static const cash = Shade(0xFFC9A34A, 0xFFB19146);
+  static const bank = Shade(0xFF5C9A83, 0xFF6E9F8D);
+  static const wallet = Shade(0xFF5B8DB0, 0xFF7699B2);
+  static const card = Shade(0xFFB5523E, 0xFFC48579);
+  static const holdings = Shade(0xFFD08B5B, 0xFFC28860);
   static const receivable = Shade(0xFF625199, 0xFFC2BADE);
 
   /// Thin rules and empty tracks on the tinted blocks, in the interface
@@ -234,20 +232,20 @@ abstract final class AppColors {
   static const pressSplash = Shade(0x1F3B6C80, 0x2972A8BC);
 
   /// Colours for parts of a whole in the charts, in order: the second
-  /// level of 財務分布. Lighter on the dark theme.
+  /// level of 財務分布. Dark values follow [darkFill].
   static const shades = [
-    Shade(0xFF5B8DB0, 0xFF91ADC0),
-    Shade(0xFFD08B5B, 0xFFD5B096),
-    Shade(0xFF5C9A83, 0xFF8EB1A4),
-    Shade(0xFF8E7CC0, 0xFFB3AACE),
-    Shade(0xFFC9A34A, 0xFFCFBA89),
-    Shade(0xFFB07A8C, 0xFFC3A6B0),
-    Shade(0xFF4E8A9A, 0xFF84A6AF),
-    Shade(0xFFA0866A, 0xFFB7A899),
-    Shade(0xFF7686B8, 0xFFA5ADC9),
-    Shade(0xFF9AA35E, 0xFFB2B891),
-    Shade(0xFF6E9C93, 0xFF9BB5AF),
-    Shade(0xFFB08AA6, 0xFFC5B1C0),
+    Shade(0xFF5B8DB0, 0xFF7699B2),
+    Shade(0xFFD08B5B, 0xFFC28860),
+    Shade(0xFF5C9A83, 0xFF6E9F8D),
+    Shade(0xFF8E7CC0, 0xFF9B8EBF),
+    Shade(0xFFC9A34A, 0xFFB19146),
+    Shade(0xFFB07A8C, 0xFFB28A98),
+    Shade(0xFF4E8A9A, 0xFF6C9CA9),
+    Shade(0xFFA0866A, 0xFFA5927E),
+    Shade(0xFF7686B8, 0xFF8894B8),
+    Shade(0xFF9AA35E, 0xFF929963),
+    Shade(0xFF6E9C93, 0xFF799C95),
+    Shade(0xFFB08AA6, 0xFFAB8CA3),
   ];
 
   /// The colours a category may be given, in the order new ones take
@@ -336,40 +334,40 @@ const ruleBelow = BoxDecoration(border: Border(bottom: rowRule));
 /// the same blue everywhere. Words on their tints use deepOf (components.dart).
 abstract final class Palette {
   /// 金：股息、預算快用完、救援碼
-  static const gold = Shade(0xFFC9A34A, 0xFFDDBE73);
+  static const gold = Shade(0xFFC9A34A, 0xFFB19146);
 
   /// 橘：飲食、提醒
-  static const orange = Shade(0xFFD08B5B, 0xFFE3AA82);
+  static const orange = Shade(0xFFD08B5B, 0xFFC28860);
 
   /// 綠：居家、預算、安全
-  static const green = Shade(0xFF5C9A83, 0xFF8CC3AE);
+  static const green = Shade(0xFF5C9A83, 0xFF6E9F8D);
 
   /// 靛：持股、買進、密碼
-  static const indigo = Shade(0xFF4A5D99, 0xFF9FAEE0);
+  static const indigo = Shade(0xFF4A5D99, 0xFF8794BC);
 
   /// 玫瑰
-  static const rose = Shade(0xFFB07A8C, 0xFFD3A2B3);
+  static const rose = Shade(0xFFB07A8C, 0xFFB28A98);
 
   /// 紫：外觀、每日記帳
-  static const violet = Shade(0xFF8E7CC0, 0xFFB5A8DD);
+  static const violet = Shade(0xFF8E7CC0, 0xFF9B8EBF);
 
   /// 藍紫：資料夾、匯入
-  static const periwinkle = Shade(0xFF7686B8, 0xFFA5B1D8);
+  static const periwinkle = Shade(0xFF7686B8, 0xFF8894B8);
 
   /// 藍：交通
-  static const blue = Shade(0xFF5B8DB0, 0xFF8DB5D1);
+  static const blue = Shade(0xFF5B8DB0, 0xFF7699B2);
 
   /// 青：備份、日曆
-  static const teal = Shade(0xFF4E8A9A, 0xFF86B5C1);
+  static const teal = Shade(0xFF4E8A9A, 0xFF6C9CA9);
 
   /// 磚紅：賣出
-  static const brick = Shade(0xFF9F4535, 0xFFF1B2A3);
+  static const brick = Shade(0xFF9F4535, 0xFFC68579);
 
   /// 灰藍：關於
-  static const slate = Shade(0xFF6B767C, 0xFFA3AEB3);
+  static const slate = Shade(0xFF6B767C, 0xFF8E969B);
 
   /// 橄欖
-  static const olive = Shade(0xFF9AA35E, 0xFFC2C98E);
+  static const olive = Shade(0xFF9AA35E, 0xFF929963);
 
   /// Every one of them, by name, as the contrast check reads them.
   static const all = {
@@ -389,22 +387,46 @@ abstract final class Palette {
 }
 
 /// A colour kept with a record, such as a category's, as the screen
-/// shows it: itself on the light theme, a little lighter and quieter on
-/// the dark one (as the [AppColors] colours are), so a dark page is not louder
-/// than the rest. What is saved stays [color] itself.
+/// shows it: itself on the light theme, [darkFill] of it on the dark one,
+/// as bright as every other fill there. What is saved stays [color] itself.
 Color shownColor(Color color) {
   if (color is Shade) return color;
   final argb = color.toARGB32();
-  return Shade(argb, _quieter(argb));
+  return Shade(argb, darkFill(argb));
 }
 
-int _quieter(int argb) {
-  final hsl = HSLColor.fromColor(Color(argb));
-  final quiet = hsl
-      .withSaturation(hsl.saturation * 0.78)
-      .withLightness(math.min(0.8, hsl.lightness + 0.12));
-  return quiet.toColor().toARGB32();
+/// A colour drawn as a mark — a chart's bars and lines, a legend's key, a
+/// progress bar — on the dark theme as [darkFill] of its light value, a
+/// step under the words in the same colour; itself on the light theme.
+Color markOf(Color color) {
+  if (!Shade.dark) return color;
+  return Color(darkFill(color is Shade ? color.light : color.toARGB32()));
 }
+
+/// The one rule for colours drawn as fills on the dark theme (the
+/// palette, account groups, categories, charts): the light value's hue
+/// at 80% of its saturation, as light as reads at 3.6:1 on a card, so all
+/// of them are equally bright. Words keep their own, brighter values
+/// (4.5:1 on every surface).
+int darkFill(int argb) {
+  final hsl = HSLColor.fromColor(Color(argb));
+  final quiet = hsl.withSaturation(hsl.saturation * 0.8);
+  final card = Color(AppColors.white.darkValue).computeLuminance() + 0.05;
+  var (low, high) = (0.0, 1.0);
+  for (var i = 0; i < 30; i++) {
+    final middle = (low + high) / 2;
+    final shown = quiet.withLightness(middle).toColor().computeLuminance();
+    if ((shown + 0.05) / card < darkFillContrast) {
+      low = middle;
+    } else {
+      high = middle;
+    }
+  }
+  return quiet.withLightness(high).toColor().toARGB32();
+}
+
+/// How far a [darkFill] stands off a card on the dark theme.
+const darkFillContrast = 3.6;
 
 /// The app's own fonts, for a style that replaces the theme's own, as a
 /// button's `textStyle` does: without them the phone draws its own font.

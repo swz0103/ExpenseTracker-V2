@@ -91,36 +91,34 @@ class _FlowPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (months.isEmpty) return;
-    const left = FlowChart._left;
-    const right = FlowChart._right;
-    const top = 12.0;
-    final bottom = size.height - 22;
-    final plot = size.width - left - right;
-    final slot = plot / months.length;
+    final frame = _FlowFrame.of(months, size);
+    _paintScales(canvas, frame);
+    // The chosen month behind everything.
+    canvas.drawRRect(
+      RRect.fromLTRBR(
+        _FlowFrame.left + frame.slot * selected + 2,
+        _FlowFrame.top - 6,
+        _FlowFrame.left + frame.slot * (selected + 1) - 2,
+        frame.bottom + 20,
+        const Radius.circular(Radii.small),
+      ),
+      Paint()..color = AppColors.surface,
+    );
+    _paintColumns(canvas, size, frame);
+    _paintWorth(canvas, frame);
+  }
+
+  /// The grid and both axes: amounts on the left, net worth on the right.
+  void _paintScales(Canvas canvas, _FlowFrame frame) {
+    const left = _FlowFrame.left;
     const axis = mutedTiny;
-
-    var high = 1;
-    for (final m in months) {
-      high = max(high, max(m.income, m.expense));
-    }
-    final ceiling = (high / 1000).ceil() * 1000;
-    double y(num v) => bottom - (bottom - top) * v / ceiling;
-
-    final worths = [for (final m in months) m.worth];
-    final low = worths.reduce(min);
-    final peak = worths.reduce(max);
-    final pad = max(1, (peak - low) * 0.2);
-    final floor = low - pad;
-    final span = peak + pad - floor;
-    double yWorth(num v) => bottom - (bottom - top) * (v - floor) / span;
-
-    // Grid and both axes.
+    final plot = frame.plot;
     final grid = Paint()
       ..color = AppColors.line
       ..strokeWidth = 1;
     for (final step in const [0, 1, 2]) {
-      final value = ceiling * step ~/ 2;
-      final yy = y(value);
+      final value = frame.ceiling * step ~/ 2;
+      final yy = frame.y(value);
       if (step == 0) {
         canvas.drawLine(Offset(left, yy), Offset(left + plot, yy), grid);
       } else {
@@ -137,34 +135,29 @@ class _FlowPainter extends CustomPainter {
         Offset(left - 6, yy),
         anchor: const Offset(1, 0.5),
       );
-      final worth = floor + span * step / 2;
+      final worth = frame.floor + frame.span * step / 2;
       paintText(
         canvas,
         hidden ? '••' : '${(worth / 10000).toStringAsFixed(1)}萬',
         axis.copyWith(color: AppColors.investment),
-        Offset(left + plot + 6, y(value)),
+        Offset(left + plot + 6, frame.y(value)),
         anchor: const Offset(0, 0.5),
       );
     }
+  }
 
-    // The chosen month behind everything.
-    canvas.drawRRect(
-      RRect.fromLTRBR(
-        left + slot * selected + 2,
-        top - 6,
-        left + slot * (selected + 1) - 2,
-        bottom + 20,
-        const Radius.circular(Radii.small),
-      ),
-      Paint()..color = AppColors.surface,
-    );
-
+  /// Each month's income and spending as two columns, grown by [grow],
+  /// over its name.
+  void _paintColumns(Canvas canvas, Size size, _FlowFrame frame) {
+    const axis = mutedTiny;
+    final slot = frame.slot;
+    final bottom = frame.bottom;
     final bar = min(12.0, slot * 0.24);
     for (final (i, m) in months.indexed) {
-      final centre = left + slot * (i + 0.5);
+      final centre = _FlowFrame.left + slot * (i + 0.5);
       final faded = i != selected;
       void column(int value, double x, Color color) {
-        final h = (bottom - y(value)) * grow;
+        final h = (bottom - frame.y(value)) * grow;
         canvas.drawRRect(
           RRect.fromRectAndCorners(
             Rect.fromLTWH(x, bottom - h, bar, h),
@@ -175,8 +168,8 @@ class _FlowPainter extends CustomPainter {
         );
       }
 
-      column(m.income, centre - bar - 2, AppColors.positive);
-      column(m.expense, centre + 2, AppColors.negative);
+      column(m.income, centre - bar - 2, markOf(AppColors.positive));
+      column(m.expense, centre + 2, markOf(AppColors.negative));
       paintText(
         canvas,
         m.label,
@@ -188,11 +181,16 @@ class _FlowPainter extends CustomPainter {
         anchor: const Offset(0.5, 1),
       );
     }
+  }
 
-    // Net worth.
+  /// Net worth as a line through a ring on each month, larger on the
+  /// chosen one.
+  void _paintWorth(Canvas canvas, _FlowFrame frame) {
+    Offset pointOf(int i, FlowMonth m) =>
+        Offset(_FlowFrame.left + frame.slot * (i + 0.5), frame.yWorth(m.worth));
     final line = Path();
     for (final (i, m) in months.indexed) {
-      final point = Offset(left + slot * (i + 0.5), yWorth(m.worth));
+      final point = pointOf(i, m);
       if (i == 0) {
         line.moveTo(point.dx, point.dy);
       } else {
@@ -202,19 +200,19 @@ class _FlowPainter extends CustomPainter {
     canvas.drawPath(
       line,
       Paint()
-        ..color = AppColors.investment
+        ..color = markOf(AppColors.investment)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.6,
     );
     for (final (i, m) in months.indexed) {
-      final point = Offset(left + slot * (i + 0.5), yWorth(m.worth));
+      final point = pointOf(i, m);
       final r = i == selected ? 5.0 : 3.0;
       canvas.drawCircle(point, r, Paint()..color = AppColors.panel);
       canvas.drawCircle(
         point,
         r,
         Paint()
-          ..color = AppColors.investment
+          ..color = markOf(AppColors.investment)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5,
       );
@@ -227,6 +225,62 @@ class _FlowPainter extends CustomPainter {
       old.grow != grow ||
       old.months != months ||
       old.hidden != hidden;
+}
+
+/// Where things sit on the flow chart: the plot's bottom and width, a
+/// month's slot, and the scales of the columns and of net worth.
+final class _FlowFrame {
+  const _FlowFrame({
+    required this.bottom,
+    required this.plot,
+    required this.slot,
+    required this.ceiling,
+    required this.floor,
+    required this.span,
+  });
+
+  factory _FlowFrame.of(List<FlowMonth> months, Size size) {
+    final bottom = size.height - 22;
+    final plot = size.width - left - FlowChart._right;
+    var high = 1;
+    for (final m in months) {
+      high = max(high, max(m.income, m.expense));
+    }
+    final worths = [for (final m in months) m.worth];
+    final low = worths.reduce(min);
+    final peak = worths.reduce(max);
+    final pad = max(1, (peak - low) * 0.2);
+    final floor = low - pad;
+    return _FlowFrame(
+      bottom: bottom,
+      plot: plot,
+      slot: plot / months.length,
+      ceiling: (high / 1000).ceil() * 1000,
+      floor: floor,
+      span: peak + pad - floor,
+    );
+  }
+
+  static const left = FlowChart._left;
+  static const top = 12.0;
+
+  final double bottom;
+  final double plot;
+  final double slot;
+
+  /// The amount at the top of the columns' scale, in whole thousands.
+  final int ceiling;
+
+  /// The net worth at the bottom of its scale, and how far the scale
+  /// reaches above it.
+  final num floor;
+  final num span;
+
+  /// Where the amount [v] sits.
+  double y(num v) => bottom - (bottom - top) * v / ceiling;
+
+  /// Where the net worth [v] sits.
+  double yWorth(num v) => bottom - (bottom - top) * (v - floor) / span;
 }
 
 void _dotted(Canvas canvas, Offset from, Offset to, Paint paint) {

@@ -77,7 +77,45 @@ class AccountCard extends StatelessWidget {
     final radius = BorderRadius.circular(Radii.largeIncreased);
     final (stripHeight, frontHeight) = cardHeights(context);
     final (label, figure, note) = front ? _face() : ('', '', '');
-    final head = Row(
+    return DecoratedBox(
+      decoration: BoxDecoration(borderRadius: radius, boxShadow: _stacked),
+      child: Material(
+        color: softOf(color),
+        borderRadius: radius,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onTap,
+          onLongPress: onLongPress,
+          child: SizedBox(
+            height: front ? frontHeight : stripHeight,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Space.s4,
+                Space.s4,
+                Space.s4,
+                Space.s4,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _head(color),
+                  if (front) ...[
+                    const Spacer(),
+                    _Figure(label: label, figure: figure, note: note),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The top line: the mark, the name, and the kind on the front card or
+  /// the figure on a card's strip.
+  Widget _head(Color color) {
+    return Row(
       children: [
         Container(
           width: 28,
@@ -114,71 +152,6 @@ class AccountCard extends StatelessWidget {
             ),
           ),
       ],
-    );
-    return DecoratedBox(
-      decoration: BoxDecoration(borderRadius: radius, boxShadow: _stacked),
-      child: Material(
-        color: softOf(color),
-        borderRadius: radius,
-        child: InkWell(
-          borderRadius: radius,
-          onTap: onTap,
-          onLongPress: onLongPress,
-          child: SizedBox(
-            height: front ? frontHeight : stripHeight,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Space.s4,
-                Space.s4,
-                Space.s4,
-                Space.s4,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  head,
-                  if (front) ...[
-                    const Spacer(),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(label, style: mutedSmall),
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  figure,
-                                  style: const TextStyle(
-                                    fontSize: TextSize.figure,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.15,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (note.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              left: Space.s2,
-                              bottom: Space.s1,
-                            ),
-                            child: Text(note, style: mutedSmall),
-                          ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -234,6 +207,54 @@ class AccountCard extends StatelessWidget {
           out == 0 ? '' : '本月支出 ${ledger.money(out)}',
         );
     }
+  }
+}
+
+/// The bottom of a front card: [label] over the large [figure], with
+/// [note] beside it when there is one.
+class _Figure extends StatelessWidget {
+  const _Figure({
+    required this.label,
+    required this.figure,
+    required this.note,
+  });
+
+  final String label;
+  final String figure;
+  final String note;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: mutedSmall),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  figure,
+                  style: const TextStyle(
+                    fontSize: TextSize.figure,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (note.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: Space.s2, bottom: Space.s1),
+            child: Text(note, style: mutedSmall),
+          ),
+      ],
+    );
   }
 }
 

@@ -7,6 +7,7 @@ import '../../../core/charts/donut.dart';
 import '../../../core/formatting/figures.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
+import '../../../core/design_system/glyphs.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/formatting/dates.dart';
@@ -18,6 +19,38 @@ import 'report_blocks.dart';
 
 // 習慣: where the money goes most, on which days, and under which tags.
 
+/// 習慣's two highlights: the day of the week spent most on, and the
+/// merchant gone to most.
+List<Widget> highlightsSection(Ledger ledger, Report report) {
+  final days = report.weekdays;
+  final most = days.fold(0, max);
+  final merchant = report.merchants.isEmpty ? null : report.merchants.first;
+  if (most <= 0 && merchant == null) return const [];
+  return [
+    CardGrid(gap: 10, [
+      ReportBlock(
+        glyph: Glyph.calendar,
+        color: AppColors.negative,
+        label: '花最多的一天',
+        value: most <= 0 ? '—' : '週${weekdayNames[days.indexOf(most)]}',
+        sub: most <= 0 ? '' : '這段時間共 ${ledger.orDots(groupDigits(most))}',
+      ),
+      ReportBlock(
+        glyph: Glyph.store,
+        color: AppColors.positive,
+        label: '最常去',
+        value: merchant?.$1 ?? '—',
+        sub: merchant == null
+            ? ''
+            : '${merchant.$2} 次 · 每次約 '
+                  '${ledger.orDots(groupDigits(merchant.$3 ~/ merchant.$2))}',
+      ),
+    ]),
+  ];
+}
+
+/// 常去商家: the merchants gone to most, as a donut beside a list of how
+/// often each was gone to and how much each time.
 List<Widget> merchantsSection(Ledger ledger, Report report) {
   final rows = report.merchants.take(4).toList();
   if (rows.isEmpty) return const [];
@@ -56,53 +89,7 @@ List<Widget> merchantsSection(Ledger ledger, Report report) {
             child: Column(
               children: [
                 for (final (i, (name, count, amount)) in rows.indexed)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: Space.s1),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: Space.s1),
-                          child: Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: AppColors
-                                  .shades[(i + 2) % AppColors.shades.length],
-                              borderRadius: BorderRadius.circular(
-                                Radii.extraSmall,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: Space.s2),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              Text(
-                                '$count 次 · 每次約 '
-                                '${ledger.orDots(groupDigits(amount ~/ count))}',
-                                style: mutedCaption,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          ledger.orDots(groupDigits(amount)),
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _merchantRow(ledger, i, name, count, amount),
               ],
             ),
           ),
@@ -111,6 +98,52 @@ List<Widget> merchantsSection(Ledger ledger, Report report) {
     ),
   ];
 }
+
+/// The [i]th merchant of 常去商家: its colour beside the donut's, its
+/// name, how often it was gone to and how much each time, and its total.
+Widget _merchantRow(Ledger ledger, int i, String name, int count, int amount) =>
+    Padding(
+      padding: const EdgeInsets.symmetric(vertical: Space.s1),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: Space.s1),
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: AppColors.shades[(i + 2) % AppColors.shades.length],
+                borderRadius: BorderRadius.circular(Radii.extraSmall),
+              ),
+            ),
+          ),
+          const SizedBox(width: Space.s2),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                Text(
+                  '$count 次 · 每次約 '
+                  '${ledger.orDots(groupDigits(amount ~/ count))}',
+                  style: mutedCaption,
+                ),
+              ],
+            ),
+          ),
+          Text(
+            ledger.orDots(groupDigits(amount)),
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
 
 /// 星期: what was spent on each day of the week over the period, the
 /// heaviest day in the spending colour.
@@ -151,8 +184,8 @@ List<Widget> weekdaysSection(Report report) {
                               child: DecoratedBox(
                                 decoration: BoxDecoration(
                                   color: i == heaviest
-                                      ? AppColors.negative
-                                      : softOf(AppColors.negative),
+                                      ? markOf(AppColors.negative)
+                                      : softOf(markOf(AppColors.negative)),
                                   borderRadius: BorderRadius.circular(
                                     Radii.small,
                                   ),

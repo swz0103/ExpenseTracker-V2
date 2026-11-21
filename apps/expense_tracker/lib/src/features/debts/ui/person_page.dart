@@ -113,49 +113,10 @@ class PersonPage extends StatelessWidget {
               ]),
             ),
             const SizedBox(height: Space.s3),
-            Row(
-              children: [
-                Expanded(
-                  child: _Action(
-                    glyph: Glyph.add,
-                    label: '幫忙付',
-                    color: color,
-                    onTap: () => _move(person, lend: true),
-                  ),
-                ),
-                const SizedBox(width: Space.s3),
-                Expanded(
-                  child: _Action(
-                    glyph: Glyph.check,
-                    label: '收回',
-                    color: color,
-                    solid: true,
-                    onTap: balance > 0
-                        ? () => _move(person, lend: false)
-                        : null,
-                  ),
-                ),
-              ],
-            ),
+            _actions(person, balance, color),
             if (owed.isNotEmpty)
               ..._board('還沒收回', [
-                for (final (e, left) in owed)
-                  QuoteRow(
-                    onTap: () =>
-                        nav.showEntry(ledger.entryQueryService.groupLead(e)),
-                    title: _what(e),
-                    detail:
-                        '${formatMd(e.date)}'
-                        '${left < e.amount ? ' · 共 ${ledger.orDots(groupDigits(e.amount))}' : ''}',
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _DaysTag(_days(ledger, e.date)),
-                        const SizedBox(width: Space.s3),
-                        RowFigure(ledger.orDots(groupDigits(left))),
-                      ],
-                    ),
-                  ),
+                for (final (e, left) in owed) _owedRow(e, left),
               ]),
             ..._board('往來紀錄', [
               for (final e in entries) _movementRow(e, person.id, color),
@@ -163,6 +124,52 @@ class PersonPage extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  /// 幫忙付 and 收回, side by side; 收回 only while they owe.
+  Widget _actions(Account person, int balance, Color color) {
+    return Row(
+      children: [
+        Expanded(
+          child: _Action(
+            glyph: Glyph.add,
+            label: '幫忙付',
+            color: color,
+            onTap: () => _move(person, lend: true),
+          ),
+        ),
+        const SizedBox(width: Space.s3),
+        Expanded(
+          child: _Action(
+            glyph: Glyph.check,
+            label: '收回',
+            color: color,
+            solid: true,
+            onTap: balance > 0 ? () => _move(person, lend: false) : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// A sum paid for the person and not yet paid back: what it was for,
+  /// its day, and how long it has waited.
+  Widget _owedRow(Entry e, int left) {
+    return QuoteRow(
+      onTap: () => nav.showEntry(ledger.entryQueryService.groupLead(e)),
+      title: _what(e),
+      detail:
+          '${formatMd(e.date)}'
+          '${left < e.amount ? ' · 共 ${ledger.orDots(groupDigits(e.amount))}' : ''}',
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _DaysTag(_days(ledger, e.date)),
+          const SizedBox(width: Space.s3),
+          RowFigure(ledger.orDots(groupDigits(left))),
+        ],
+      ),
     );
   }
 
@@ -247,7 +254,6 @@ class LoanPage extends StatelessWidget {
         final loan = ledger.account(loanId);
         final owed = owedOn(ledger.balanceService, loan);
         final share = paidShare(ledger.balanceService, loan);
-        final principal = loan.principal;
         final color = nameColor(loan.name);
         final entries = [
           for (final e in ledger.entries.all)
@@ -264,21 +270,7 @@ class LoanPage extends StatelessWidget {
                   : _PaidRing(share: share, color: color, size: 96),
               label: '尚欠',
               value: ledger.orDots(groupDigits(owed)),
-              lines: [
-                if (principal != null) ...[
-                  '原借 ${ledger.orDots(groupDigits(principal))}',
-                  '已還 ${ledger.orDots(groupDigits(principal - owed < 0 ? 0 : principal - owed))}',
-                ],
-                if (loanPlan(
-                      amount: principal,
-                      rate: loan.loan?.rate,
-                      months: loan.loan?.months,
-                      repay: loan.loan?.repay ?? LoanRepay.even,
-                    )
-                    case final plan?)
-                  '${repayName(loan.loan?.repay ?? LoanRepay.even)} · 每月約 '
-                      '${ledger.orDots(groupDigits(plan.first))}',
-              ],
+              lines: _lines(loan, owed),
               menu: DotsMenu([
                 DotsItem(Glyph.edit, Words.edit, () async {
                   final gone = await editLoan(context, ledger, loan: loan);
@@ -292,45 +284,74 @@ class LoanPage extends StatelessWidget {
               ]),
             ),
             const SizedBox(height: Space.s3),
-            _Action(
-              glyph: Glyph.add,
-              label: '記一筆還款',
-              color: color,
-              solid: true,
-              onTap: () => nav.compose(
-                type: EntryType.transfer,
-                draft: Entry(
-                  id: '',
-                  date: ledger.today,
-                  type: EntryType.transfer,
-                  amount: 0,
-                  account: ledger.accounts.main,
-                  category: transferCategory,
-                  to: loan.id,
-                ),
-              ),
-            ),
+            _payButton(loan, color),
             ..._board('還款紀錄', [
-              for (final e in entries)
-                QuoteRow(
-                  onTap: () => nav.showEntry(e),
-                  lead: SquareIcon(
-                    e.to == loan.id ? Glyph.check : Glyph.loan,
-                    color,
-                    size: 40,
-                  ),
-                  title: e.to == loan.id
-                      ? '還款 ${formatMd(e.date)}'
-                      : '${e.title} ${formatMd(e.date)}',
-                  detail: e.to == loan.id
-                      ? '從 ${ledger.account(e.account).name}'
-                      : null,
-                  trailing: RowFigure(ledger.orDots(groupDigits(e.amount))),
-                ),
+              for (final e in entries) _paymentRow(e, loan, color),
             ]),
           ],
         );
       },
+    );
+  }
+
+  /// The lines under what is owed: what was borrowed and paid, and the
+  /// month's payment when the loan's terms give one.
+  List<String> _lines(Account loan, int owed) {
+    final principal = loan.principal;
+    return [
+      if (principal != null) ...[
+        '原借 ${ledger.orDots(groupDigits(principal))}',
+        '已還 ${ledger.orDots(groupDigits(principal - owed < 0 ? 0 : principal - owed))}',
+      ],
+      if (loanPlan(
+            amount: principal,
+            rate: loan.loan?.rate,
+            months: loan.loan?.months,
+            repay: loan.loan?.repay ?? LoanRepay.even,
+          )
+          case final plan?)
+        '${repayName(loan.loan?.repay ?? LoanRepay.even)} · 每月約 '
+            '${ledger.orDots(groupDigits(plan.first))}',
+    ];
+  }
+
+  /// 記一筆還款: opens the composer on a payment into [loan].
+  Widget _payButton(Account loan, Color color) {
+    return _Action(
+      glyph: Glyph.add,
+      label: '記一筆還款',
+      color: color,
+      solid: true,
+      onTap: () => nav.compose(
+        type: EntryType.transfer,
+        draft: Entry(
+          id: '',
+          date: ledger.today,
+          type: EntryType.transfer,
+          amount: 0,
+          account: ledger.accounts.main,
+          category: transferCategory,
+          to: loan.id,
+        ),
+      ),
+    );
+  }
+
+  /// A payment into the loan with the account it came from, or the money
+  /// taken out.
+  Widget _paymentRow(Entry e, Account loan, Color color) {
+    return QuoteRow(
+      onTap: () => nav.showEntry(e),
+      lead: SquareIcon(
+        e.to == loan.id ? Glyph.check : Glyph.loan,
+        color,
+        size: 40,
+      ),
+      title: e.to == loan.id
+          ? '還款 ${formatMd(e.date)}'
+          : '${e.title} ${formatMd(e.date)}',
+      detail: e.to == loan.id ? '從 ${ledger.account(e.account).name}' : null,
+      trailing: RowFigure(ledger.orDots(groupDigits(e.amount))),
     );
   }
 }

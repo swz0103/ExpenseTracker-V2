@@ -130,10 +130,11 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     return collections;
   }
 
-  Future<Ledger> _load() async {
-    _start();
-    giveCategoriesIds(_store);
-    final collections = await _shelves();
+  /// The record of each row of [collections] but the receipts, decoded
+  /// and brought up to the current version.
+  Future<Map<StoredRow, Map<String, Object?>>> _records(
+    Map<String, List<StoredRow>> collections,
+  ) async {
     final records = [
       for (final collection in Collection.values)
         if (collection != Collection.receipt) ...?collections[collection.name],
@@ -142,10 +143,34 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final decoded = bodies.length > _decodeApart
         ? await _decodeApartFrom(bodies)
         : _decodeAll(bodies);
-    final json = <StoredRow, Map<String, Object?>>{
+    return <StoredRow, Map<String, Object?>>{
       for (final (i, row) in records.indexed)
         row: upgradeRecord(row.shelf, decoded[i]! as Map<String, Object?>),
     };
+  }
+
+  /// Drops the entries of [trash] put there before [from], and their
+  /// receipts, from the store.
+  void _dropExpired(List<Trashed> trash, DateTime from) {
+    final expired = [
+      for (final t in trash)
+        if (t.on.isBefore(from)) t.entry.id,
+    ];
+    if (expired.isEmpty) return;
+    _store.write((w) {
+      for (final id in expired) {
+        w
+          ..drop(Collection.trash.name, id)
+          ..drop(Collection.receipt.name, id);
+      }
+    });
+  }
+
+  Future<Ledger> _load() async {
+    _start();
+    giveCategoriesIds(_store);
+    final collections = await _shelves();
+    final json = await _records(collections);
     List<T> read<T>(
       Collection collection,
       T Function(Map<String, Object?>) from,
@@ -169,19 +194,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final today = _today();
     final trash = read(Collection.trash, (j) => trashedFromJson(j, _refs));
     final from = today.subtract(_keptInTrash);
-    final expired = [
-      for (final t in trash)
-        if (t.on.isBefore(from)) t.entry.id,
-    ];
-    if (expired.isNotEmpty) {
-      _store.write((w) {
-        for (final id in expired) {
-          w
-            ..drop(Collection.trash.name, id)
-            ..drop(Collection.receipt.name, id);
-        }
-      });
-    }
+    _dropExpired(trash, from);
     return Ledger(
       today: today,
       clock: _today,
@@ -413,6 +426,31 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   /// by either exchange, or out of reach.
   List<String> unquoted = const [];
 
+  /// The latest close of [code] from [gateway], TWSE first, or null when
+  /// none is found; [prices] are the closes kept from before.
+  Future<StockClose?> _closeOf(
+    MarketDataGateway gateway,
+    String code,
+    Map<String, double> prices,
+  ) async {
+    try {
+      var result = await gateway.stockClose(Listing(code));
+      if (result.state == MarketState.missing) {
+        result = await gateway.stockClose(Listing(code, market: 'TPEX'));
+      }
+      // Not traded on the day, or left out of the day's list, and no
+      // close kept from before: the last close in TWSE's month report.
+      if (result.value == null && !prices.containsKey(code)) {
+        final fallback = await gateway.listedHistoryClose(code);
+        if (fallback.value != null) result = fallback;
+      }
+      return result.value;
+    } on Object catch (error) {
+      ErrorLog.instance.record('收盤價', error);
+      return null;
+    }
+  }
+
   /// Fetches the latest close of each of [codes], for the holdings' value;
   /// one not found on TWSE is tried on TPEx. Returns whether any price
   /// changed.
@@ -430,27 +468,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     // Every code asked at once: the exchanges' day lists are fetched once
     // and shared, and a code looked for on TPEx or in the month report
     // does not hold up the others.
-    Future<StockClose?> closeOf(String code) async {
-      try {
-        var result = await gateway.stockClose(Listing(code));
-        if (result.state == MarketState.missing) {
-          result = await gateway.stockClose(Listing(code, market: 'TPEX'));
-        }
-        // Not traded on the day, or left out of the day's list, and no
-        // close kept from before: the last close in TWSE's month report.
-        if (result.value == null && !prices.containsKey(code)) {
-          final fallback = await gateway.listedHistoryClose(code);
-          if (fallback.value != null) result = fallback;
-        }
-        return result.value;
-      } on Object catch (error) {
-        ErrorLog.instance.record('收盤價', error);
-        return null;
-      }
-    }
-
     final asked = codes.toList();
-    final closes = await Future.wait([for (final code in asked) closeOf(code)]);
+    final closes = await Future.wait([
+      for (final code in asked) _closeOf(gateway, code, prices),
+    ]);
     for (final (i, code) in asked.indexed) {
       final close = closes[i];
       final price = close == null ? null : double.tryParse(close.decimalPrice);

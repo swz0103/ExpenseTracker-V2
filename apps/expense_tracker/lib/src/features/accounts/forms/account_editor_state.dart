@@ -424,6 +424,130 @@ class _AccountEditorState extends State<_AccountEditor> {
     );
   }
 
+  /// 類型: the kinds of 我的帳戶 as pills.
+  Widget _kindGroup() {
+    return FormGroup(
+      title: '類型',
+      child: Row(
+        children: [
+          for (final (i, kind) in _kinds.indexed) ...[
+            if (i > 0) const SizedBox(width: Space.s2),
+            Expanded(
+              child: ChoicePill(
+                label: switch (kind) {
+                  AccountKind.bank => '銀行',
+                  AccountKind.wallet => '支付',
+                  _ => groupName(kind),
+                },
+                selected: kind == _f.kind,
+                background: AppColors.white,
+                onTap: () => setState(() => _f.kind = kind),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 幣別: the usual currencies, and 更多 for every one.
+  Widget _currencyGroup() {
+    return FormGroup(
+      title: '幣別',
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final code in [
+              ..._common,
+              if (!_common.contains(_f.currency)) _f.currency,
+            ]) ...[
+              ChoicePill(
+                label: code == homeCode ? '台幣' : code,
+                selected: code == _f.currency,
+                background: AppColors.white,
+                onTap: () => setState(() => _f.currency = code),
+              ),
+              const SizedBox(width: Space.s2),
+            ],
+            ChoicePill(
+              label: '更多',
+              selected: false,
+              background: AppColors.white,
+              onTap: _moreCurrencies,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 結帳日 and 繳款日 of a credit card, side by side.
+  Widget _cardDays() {
+    return CardRow([
+      FigureCard(
+        color: AppColors.card,
+        icon: Glyph.calendar,
+        label: '結帳日',
+        value: '每月 ${_f.closing} 日',
+        size: TextSize.body,
+        onTap: () => _pickDay(true),
+      ),
+      FigureCard(
+        color: AppColors.card,
+        icon: Glyph.calendar,
+        label: '繳款日',
+        value: '每月 ${_f.due} 日',
+        size: TextSize.body,
+        onTap: () => _pickDay(false),
+      ),
+    ]);
+  }
+
+  /// The fields of an account other than a loan, top to bottom.
+  List<Widget> _accountFields(Account? old, Color color) {
+    return [
+      Text(
+        old == null ? '新增帳戶' : '編輯帳戶',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: TextSize.heading,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      const SizedBox(height: Space.s3),
+      _EditCard(
+        color: color,
+        icon: accountIcon(_preview),
+        kind: cardKindLabel(_preview),
+        name: _name,
+        balance: _balance,
+        balanceLabel: _f.kind.isDebt ? '目前欠款' : '目前餘額',
+        onColor: _pickColor,
+      ),
+      _kindGroup(),
+      _iconGroup(color),
+      if (old == null && _f.foreignAllowed) _currencyGroup(),
+      if (_f.kind == AccountKind.card) _cardDays(),
+      if (_f.kind == AccountKind.card)
+        FormGroup(
+          title: '信用額度',
+          child: _Field(controller: _limit, hint: '額度', number: true),
+        ),
+      _counted,
+      _buttons(old),
+      if (old != null)
+        Padding(
+          padding: const EdgeInsets.only(top: Space.s2),
+          child: Text(
+            '目前 ${widget.ledger.moneyIn(widget.ledger.balanceService.balance(old.id), old.currency)}',
+            textAlign: TextAlign.center,
+            style: mutedSmall,
+          ),
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final old = _old;
@@ -434,115 +558,7 @@ class _AccountEditorState extends State<_AccountEditor> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: _loanForm
-            ? _loanFields(old)
-            : [
-                Text(
-                  old == null ? '新增帳戶' : '編輯帳戶',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: TextSize.heading,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: Space.s3),
-                _EditCard(
-                  color: color,
-                  icon: accountIcon(_preview),
-                  kind: cardKindLabel(_preview),
-                  name: _name,
-                  balance: _balance,
-                  balanceLabel: _f.kind.isDebt ? '目前欠款' : '目前餘額',
-                  onColor: _pickColor,
-                ),
-                FormGroup(
-                  title: '類型',
-                  child: Row(
-                    children: [
-                      for (final (i, kind) in _kinds.indexed) ...[
-                        if (i > 0) const SizedBox(width: Space.s2),
-                        Expanded(
-                          child: ChoicePill(
-                            label: switch (kind) {
-                              AccountKind.bank => '銀行',
-                              AccountKind.wallet => '支付',
-                              _ => groupName(kind),
-                            },
-                            selected: kind == _f.kind,
-                            background: AppColors.white,
-                            onTap: () => setState(() => _f.kind = kind),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                _iconGroup(color),
-                if (old == null && _f.foreignAllowed)
-                  FormGroup(
-                    title: '幣別',
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final code in [
-                            ..._common,
-                            if (!_common.contains(_f.currency)) _f.currency,
-                          ]) ...[
-                            ChoicePill(
-                              label: code == homeCode ? '台幣' : code,
-                              selected: code == _f.currency,
-                              background: AppColors.white,
-                              onTap: () => setState(() => _f.currency = code),
-                            ),
-                            const SizedBox(width: Space.s2),
-                          ],
-                          ChoicePill(
-                            label: '更多',
-                            selected: false,
-                            background: AppColors.white,
-                            onTap: _moreCurrencies,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (_f.kind == AccountKind.card)
-                  CardRow([
-                    FigureCard(
-                      color: AppColors.card,
-                      icon: Glyph.calendar,
-                      label: '結帳日',
-                      value: '每月 ${_f.closing} 日',
-                      size: TextSize.body,
-                      onTap: () => _pickDay(true),
-                    ),
-                    FigureCard(
-                      color: AppColors.card,
-                      icon: Glyph.calendar,
-                      label: '繳款日',
-                      value: '每月 ${_f.due} 日',
-                      size: TextSize.body,
-                      onTap: () => _pickDay(false),
-                    ),
-                  ]),
-                if (_f.kind == AccountKind.card)
-                  FormGroup(
-                    title: '信用額度',
-                    child: _Field(controller: _limit, hint: '額度', number: true),
-                  ),
-                _counted,
-                _buttons(old),
-                if (old != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: Space.s2),
-                    child: Text(
-                      '目前 ${widget.ledger.moneyIn(widget.ledger.balanceService.balance(old.id), old.currency)}',
-                      textAlign: TextAlign.center,
-                      style: mutedSmall,
-                    ),
-                  ),
-              ],
+        children: _loanForm ? _loanFields(old) : _accountFields(old, color),
       ),
     );
   }

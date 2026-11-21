@@ -23,7 +23,7 @@ double _darkAmount(double amount) =>
 Color deepOf(Color color) {
   final toward = Shade.dark ? const Color(0xFFFFFFFF) : _darkWords;
   final under = tintOf(color, 0.3);
-  for (var amount = Shade.dark ? 0.35 : 0.3; amount < 1; amount += 0.05) {
+  for (var amount = Shade.dark ? 0.2 : 0.3; amount < 1; amount += 0.05) {
     final words = Color.lerp(color, toward, amount)!;
     if (contrastOf(words, under) >= 4.5) return words;
   }

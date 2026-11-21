@@ -56,13 +56,6 @@ class BalanceHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final left = income - expense;
-    final kept = income == 0 ? 0 : (left * 100 / income).round();
-    final total = income + expense;
-    // Each side at least a sliver of the bar, so a small one still shows.
-    int share(int v) => total == 0
-        ? 1
-        : max(1, (max(v / total, v == 0 ? 0 : 0.06) * 1000).round());
     return HeroCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -78,56 +71,9 @@ class BalanceHero extends StatelessWidget {
             ],
           ),
           const SizedBox(height: Space.s2),
-          // 結餘率 at the right, on the figure's line.
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    ledger.money(left),
-                    style: TextStyle(
-                      fontSize: size ?? TextSize.big,
-                      fontWeight: FontWeight.w800,
-                      height: 1.15,
-                      color: AppColors.ofBalance(left),
-                    ),
-                  ),
-                ),
-              ),
-              if (rate) ...[
-                const SizedBox(width: Space.s2),
-                Pill('結餘率 $kept%'),
-              ],
-            ],
-          ),
+          _figure(),
           const SizedBox(height: Space.s3),
-          SizedBox(
-            height: 8,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (total == 0)
-                  const Expanded(child: _Bar(AppColors.line))
-                else ...[
-                  if (income > 0)
-                    Expanded(
-                      flex: share(income),
-                      child: const _Bar(AppColors.positive),
-                    ),
-                  if (income > 0 && expense > 0)
-                    const SizedBox(width: Space.half),
-                  if (expense > 0)
-                    Expanded(
-                      flex: share(expense),
-                      child: const _Bar(AppColors.negative),
-                    ),
-                ],
-              ],
-            ),
-          ),
+          _bar(),
           const SizedBox(height: Space.s2),
           _Ends(
             ends: [
@@ -136,6 +82,65 @@ class BalanceHero extends StatelessWidget {
               (Words.expense, ledger.money(expense), AppColors.negative),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  /// What is left as the figure, with 結餘率 at the right on its line.
+  Widget _figure() {
+    final left = income - expense;
+    final kept = income == 0 ? 0 : (left * 100 / income).round();
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              ledger.money(left),
+              style: TextStyle(
+                fontSize: size ?? TextSize.big,
+                fontWeight: FontWeight.w800,
+                height: 1.15,
+                color: AppColors.ofBalance(left),
+              ),
+            ),
+          ),
+        ),
+        if (rate) ...[const SizedBox(width: Space.s2), Pill('結餘率 $kept%')],
+      ],
+    );
+  }
+
+  /// One bar of what came in against what went out.
+  Widget _bar() {
+    final total = income + expense;
+    // Each side at least a sliver of the bar, so a small one still shows.
+    int share(int v) => total == 0
+        ? 1
+        : max(1, (max(v / total, v == 0 ? 0 : 0.06) * 1000).round());
+    return SizedBox(
+      height: 8,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (total == 0)
+            const Expanded(child: _Bar(AppColors.line))
+          else ...[
+            if (income > 0)
+              Expanded(
+                flex: share(income),
+                child: const _Bar(AppColors.positive),
+              ),
+            if (income > 0 && expense > 0) const SizedBox(width: Space.half),
+            if (expense > 0)
+              Expanded(
+                flex: share(expense),
+                child: const _Bar(AppColors.negative),
+              ),
+          ],
         ],
       ),
     );
@@ -214,7 +219,7 @@ class _Bar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      color: color,
+      color: markOf(color),
       borderRadius: BorderRadius.circular(Radii.extraSmall),
     ),
   );

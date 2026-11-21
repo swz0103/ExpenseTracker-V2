@@ -108,115 +108,120 @@ class _CategoriesPageState extends State<CategoriesPage> {
     return ListenableBuilder(
       listenable: ledger,
       builder: (context, _) {
-        final tops = _tops(_income);
-        final byName = {for (final c in tops) c.name: c};
-        final order = _dragging ?? [for (final c in tops) c.name];
         final archived = [
           for (final c in ledger.categories.all)
             if (c.archived && c.income == _income) c,
-        ];
-        final children = <String, int>{};
-        for (final c in ledger.categories.forEntries(income: _income)) {
-          if (c.parent case final parent?) {
-            children[parent] = (children[parent] ?? 0) + 1;
-          }
-        }
-        final tiles = <Widget>[
-          for (final name in order)
-            if (byName[name] case final c?)
-              _Draggable(
-                name: name,
-                onEarlier: order.first == name
-                    ? null
-                    : () => _shift(order, name, -1),
-                onLater: order.last == name
-                    ? null
-                    : () => _shift(order, name, 1),
-                onStart: () =>
-                    setState(() => _dragging = [for (final c in tops) c.name]),
-                onOver: _moveOver,
-                onEnd: () {
-                  final done = _dragging;
-                  setState(() => _dragging = null);
-                  if (done != null) _place(done);
-                },
-                child: _Tile(
-                  glyph: iconFor(c.icon),
-                  color: shownColor(Color(c.color)),
-                  label: c.name,
-                  count: children[c.name] ?? 0,
-                  onTap: () => _edit(c),
-                ),
-              ),
-          _Tile(
-            glyph: Glyph.add,
-            color: AppColors.faint,
-            label: Words.add,
-            plain: true,
-            onTap: _add,
-          ),
         ];
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(Words.category, onBack: widget.nav.back),
           children: [
-            Row(
-              children: [
-                for (final (i, income) in const [false, true].indexed) ...[
-                  if (i > 0) const SizedBox(width: Space.s2),
-                  Expanded(
-                    child: _Kind(
-                      label: income ? Words.income : Words.expense,
-                      count: _tops(income).length,
-                      color: income ? AppColors.positive : AppColors.negative,
-                      chosen: _income == income,
-                      onTap: () => setState(() => _income = income),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            _kinds(),
             const SizedBox(height: Space.s4),
-            CardGrid(columns: 3, gap: 10, tiles),
+            CardGrid(columns: 3, gap: 10, _tiles()),
             if (archived.isNotEmpty) ...[
               const RuleHead('已封存'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final c in archived)
-                    ActionChip(
-                      backgroundColor: AppColors.surface,
-                      side: BorderSide.none,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(Radii.large),
-                      ),
-                      avatar: GlyphIcon(
-                        iconFor(c.icon),
-                        size: 18,
-                        color: AppColors.muted,
-                      ),
-                      label: Text(
-                        c.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.muted,
-                        ),
-                      ),
-                      tooltip: '恢復「${c.name}」',
-                      onPressed: () => ledger.categoryCommands.updateCategory(
-                        c.name,
-                        c.copyWith(archived: false),
-                      ),
-                    ),
-                ],
-              ),
+              _archived(archived),
             ],
           ],
         );
       },
     );
   }
+
+  /// 支出 and 收入 side by side, the one shown chosen.
+  Widget _kinds() => Row(
+    children: [
+      for (final (i, income) in const [false, true].indexed) ...[
+        if (i > 0) const SizedBox(width: Space.s2),
+        Expanded(
+          child: _Kind(
+            label: income ? Words.income : Words.expense,
+            count: _tops(income).length,
+            color: income ? AppColors.positive : AppColors.negative,
+            chosen: _income == income,
+            onTap: () => setState(() => _income = income),
+          ),
+        ),
+      ],
+    ],
+  );
+
+  /// The kind's top categories in the order shown, each to drag to
+  /// another place, then ＋ 新增.
+  List<Widget> _tiles() {
+    final tops = _tops(_income);
+    final byName = {for (final c in tops) c.name: c};
+    final order = _dragging ?? [for (final c in tops) c.name];
+    final children = <String, int>{};
+    for (final c in ledger.categories.forEntries(income: _income)) {
+      if (c.parent case final parent?) {
+        children[parent] = (children[parent] ?? 0) + 1;
+      }
+    }
+    return [
+      for (final name in order)
+        if (byName[name] case final c?)
+          _Draggable(
+            name: name,
+            onEarlier: order.first == name
+                ? null
+                : () => _shift(order, name, -1),
+            onLater: order.last == name ? null : () => _shift(order, name, 1),
+            onStart: () =>
+                setState(() => _dragging = [for (final c in tops) c.name]),
+            onOver: _moveOver,
+            onEnd: () {
+              final done = _dragging;
+              setState(() => _dragging = null);
+              if (done != null) _place(done);
+            },
+            child: _Tile(
+              glyph: iconFor(c.icon),
+              color: shownColor(Color(c.color)),
+              label: c.name,
+              count: children[c.name] ?? 0,
+              onTap: () => _edit(c),
+            ),
+          ),
+      _Tile(
+        glyph: Glyph.add,
+        color: AppColors.faint,
+        label: Words.add,
+        plain: true,
+        onTap: _add,
+      ),
+    ];
+  }
+
+  /// The [archived] categories as small chips, a tap bringing one back.
+  Widget _archived(List<Category> archived) => Wrap(
+    spacing: 8,
+    runSpacing: 8,
+    children: [
+      for (final c in archived)
+        ActionChip(
+          backgroundColor: AppColors.surface,
+          side: BorderSide.none,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Radii.large),
+          ),
+          avatar: GlyphIcon(iconFor(c.icon), size: 18, color: AppColors.muted),
+          label: Text(
+            c.name,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppColors.muted,
+            ),
+          ),
+          tooltip: '恢復「${c.name}」',
+          onPressed: () => ledger.categoryCommands.updateCategory(
+            c.name,
+            c.copyWith(archived: false),
+          ),
+        ),
+    ],
+  );
 }
 
 /// Opens [category] in the editor and keeps what is saved.

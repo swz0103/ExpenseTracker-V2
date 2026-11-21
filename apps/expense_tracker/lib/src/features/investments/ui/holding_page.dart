@@ -56,7 +56,6 @@ class HoldingPage extends StatelessWidget {
             ],
           );
         }
-        final tone = AppColors.ofMarket(held.gain);
         final quoted = ledger.holdings.hasQuote(code);
         final lots = ledger.holdings.lotsOf(code);
         final average = held.shares == 0 ? 0 : held.cost / held.shares;
@@ -77,85 +76,47 @@ class HoldingPage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: Space.s3),
-            Builder(
-              builder: (context) {
-                final returns = returnsOf(ledger);
-                final rate = returns.rate(code: code);
-                final next = returns.nextDividend(code);
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    CardGrid(gap: 10, [
-                      _Bento(
-                        color: tone,
-                        label: held.gain < 0 ? '賠了' : '賺了',
-                        value: ledger.orDots(signed(held.gain)),
-                        lines: [
-                          '${percentOf(held.gain, held.cost)}'
-                              '${rate == null ? '' : ' · 年化 ${yearlyRate(rate)}'}',
-                        ],
-                      ),
-                      _Bento(
-                        color: AppColors.faint,
-                        label: '現在值',
-                        value: ledger.orDots(groupDigits(held.value)),
-                        lines: [
-                          '${ledger.orDots(groupDigits(held.shares))} 股 · '
-                              '成本 ${ledger.orDots(groupDigits(held.cost))}',
-                          if (quoted)
-                            '今天 ${ledger.orDots(signed(held.change))}',
-                        ],
-                      ),
-                    ]),
-                    const SizedBox(height: Space.s2),
-                    _DividendCard(
-                      ledger: ledger,
-                      total: held.dividends,
-                      next: next,
-                      months: returns.payingMonths(code),
-                      realized: held.realized,
-                    ),
-                  ],
-                );
-              },
-            ),
+            Builder(builder: (context) => _bento(ledger, code, held, quoted)),
             const SizedBox(height: Space.s3),
-            Row(
-              children: [
-                for (final (i, (type, label, color)) in const [
-                  (EntryType.buy, '＋ 買進', _buyColor),
-                  (EntryType.sell, '賣出', _sellColor),
-                  (EntryType.dividend, '記股息', _dividendColor),
-                ].indexed) ...[
-                  if (i > 0) const SizedBox(width: Space.s2),
-                  Expanded(
-                    child: PanelButton(
-                      label,
-                      onTap: () => nav.compose(
-                        type: type,
-                        draft: Entry(
-                          id: '',
-                          date: ledger.today,
-                          type: type,
-                          amount: 0,
-                          account: ledger.accounts.main,
-                          category: '',
-                          holding: code,
-                        ),
-                      ),
-                      color: color,
-                      tinted: true,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            _tradeButtons(),
             _TradeBoard(ledger: ledger, nav: nav, trades: trades, lots: lots),
           ],
         );
       },
     );
   }
+
+  /// ＋ 買進, 賣出 and 記股息, each opening a new entry of this stock.
+  Widget _tradeButtons() => Row(
+    children: [
+      for (final (i, (type, label, color)) in const [
+        (EntryType.buy, '＋ 買進', _buyColor),
+        (EntryType.sell, '賣出', _sellColor),
+        (EntryType.dividend, '記股息', _dividendColor),
+      ].indexed) ...[
+        if (i > 0) const SizedBox(width: Space.s2),
+        Expanded(
+          child: PanelButton(
+            label,
+            onTap: () => nav.compose(
+              type: type,
+              draft: Entry(
+                id: '',
+                date: ledger.today,
+                type: type,
+                amount: 0,
+                account: ledger.accounts.main,
+                category: '',
+                holding: code,
+              ),
+            ),
+            color: color,
+            tinted: true,
+          ),
+        ),
+      ],
+    ],
+  );
 }
 
 const _buyColor = Palette.indigo;
@@ -182,7 +143,6 @@ class _DividendCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ink = deepOf(_dividendColor);
-    final coming = next;
     return ColorCard(
       color: _dividendColor,
       amount: 0.22,
@@ -195,47 +155,7 @@ class _DividendCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      Words.dividend,
-                      style: TextStyle(
-                        fontSize: TextSize.small,
-                        fontWeight: FontWeight.w800,
-                        color: ink,
-                      ),
-                    ),
-                    Text(
-                      ledger.orDots(groupDigits(total)),
-                      style: const TextStyle(
-                        fontSize: TextSize.large,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (coming != null)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '下次 ${coming.month.month} 月',
-                      style: TextStyle(fontSize: TextSize.caption, color: ink),
-                    ),
-                    Text(
-                      '約 ${ledger.orDots(groupDigits(coming.amount))}',
-                      style: TextStyle(fontSize: TextSize.caption, color: ink),
-                    ),
-                  ],
-                ),
-            ],
-          ),
+          _totalAndNext(ink),
           if (realized != 0)
             Text(
               '已實現 ${ledger.orDots(signed(realized))}',
@@ -243,36 +163,84 @@ class _DividendCard extends StatelessWidget {
             ),
           if (months.isNotEmpty) ...[
             const SizedBox(height: Space.s2),
-            Semantics(
-              label: '配息月份 ${months.join('、')} 月',
-              child: ExcludeSemantics(
-                child: Row(
-                  children: [
-                    for (var m = 1; m <= 12; m++) ...[
-                      if (m > 1) const SizedBox(width: Space.s1),
-                      Expanded(
-                        child: Container(
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: months.contains(m)
-                                ? _dividendColor
-                                : AppColors.white.withValues(alpha: 0.7),
-                            borderRadius: BorderRadius.circular(
-                              Radii.extraSmall,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+            _payingMonths(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// The dividends paid in all, and when the next is due and about how
+  /// much, in [ink].
+  Widget _totalAndNext(Color ink) {
+    final coming = next;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                Words.dividend,
+                style: TextStyle(
+                  fontSize: TextSize.small,
+                  fontWeight: FontWeight.w800,
+                  color: ink,
+                ),
+              ),
+              Text(
+                ledger.orDots(groupDigits(total)),
+                style: const TextStyle(
+                  fontSize: TextSize.large,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (coming != null)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '下次 ${coming.month.month} 月',
+                style: TextStyle(fontSize: TextSize.caption, color: ink),
+              ),
+              Text(
+                '約 ${ledger.orDots(groupDigits(coming.amount))}',
+                style: TextStyle(fontSize: TextSize.caption, color: ink),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  /// The twelve months, those it pays in filled.
+  Widget _payingMonths() => Semantics(
+    label: '配息月份 ${months.join('、')} 月',
+    child: ExcludeSemantics(
+      child: Row(
+        children: [
+          for (var m = 1; m <= 12; m++) ...[
+            if (m > 1) const SizedBox(width: Space.s1),
+            Expanded(
+              child: Container(
+                height: 12,
+                decoration: BoxDecoration(
+                  color: months.contains(m)
+                      ? _dividendColor
+                      : AppColors.white.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(Radii.extraSmall),
                 ),
               ),
             ),
           ],
         ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 /// 交易紀錄 on a white board: each buy, sale and dividend with its date,

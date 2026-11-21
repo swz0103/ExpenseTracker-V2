@@ -320,49 +320,57 @@ class _HomeScreen extends StatelessWidget {
               onIncome: () => onOpen(quick: QuickAction.income),
             ),
             const Spacer(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                const _OtherApp(Icons.call_outlined, '電話'),
-                const _OtherApp(Icons.chat_bubble_outline, '訊息'),
-                const _OtherApp(Icons.photo_camera_outlined, '相機'),
-                _AppIcon(onTap: () => onOpen()),
-              ],
-            ),
+            _dock(),
             const SizedBox(height: Space.s4),
-            // Preview only: which person's phone this is.
-            Center(
-              child: SegmentedButton<PreviewStart>(
-                segments: [
-                  for (final s in PreviewStart.values)
-                    ButtonSegment(value: s, label: Text(s.label)),
-                ],
-                selected: {start},
-                showSelectedIcon: false,
-                onSelectionChanged: (picked) => onStart(picked.first),
-                style: SegmentedButton.styleFrom(
-                  backgroundColor: const Color(0x33FFFFFF),
-                  foregroundColor: Colors.white,
-                  selectedBackgroundColor: Colors.white,
-                  selectedForegroundColor: AppColors.ink,
-                  side: const BorderSide(color: Color(0x66FFFFFF)),
-                ),
-              ),
-            ),
-            const SizedBox(height: Space.s2),
-            Text(
-              '預覽：選擇打開 App 的情境',
-              textAlign: TextAlign.center,
-              style: white.copyWith(
-                fontSize: TextSize.caption,
-                color: const Color(0xCCFFFFFF),
-              ),
-            ),
+            ..._starts(white),
           ],
         ),
       ),
     );
   }
+
+  /// A row of other apps and this one's icon.
+  Widget _dock() => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceAround,
+    children: [
+      const _OtherApp(Icons.call_outlined, '電話'),
+      const _OtherApp(Icons.chat_bubble_outline, '訊息'),
+      const _OtherApp(Icons.photo_camera_outlined, '相機'),
+      _AppIcon(onTap: () => onOpen()),
+    ],
+  );
+
+  /// Preview only: which person's phone this is, as a choice of how the
+  /// app opens, with a line saying so.
+  List<Widget> _starts(TextStyle white) => [
+    Center(
+      child: SegmentedButton<PreviewStart>(
+        segments: [
+          for (final s in PreviewStart.values)
+            ButtonSegment(value: s, label: Text(s.label)),
+        ],
+        selected: {start},
+        showSelectedIcon: false,
+        onSelectionChanged: (picked) => onStart(picked.first),
+        style: SegmentedButton.styleFrom(
+          backgroundColor: const Color(0x33FFFFFF),
+          foregroundColor: Colors.white,
+          selectedBackgroundColor: Colors.white,
+          selectedForegroundColor: AppColors.ink,
+          side: const BorderSide(color: Color(0x66FFFFFF)),
+        ),
+      ),
+    ),
+    const SizedBox(height: Space.s2),
+    Text(
+      '預覽：選擇打開 App 的情境',
+      textAlign: TextAlign.center,
+      style: white.copyWith(
+        fontSize: TextSize.caption,
+        color: const Color(0xCCFFFFFF),
+      ),
+    ),
+  ];
 }
 
 /// The app's own icon and name; a tap opens it.

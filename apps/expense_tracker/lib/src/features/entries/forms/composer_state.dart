@@ -119,7 +119,7 @@ class _ComposerState extends State<Composer>
     return result.future;
   }
 
-  /// A category picked: back to a plain expense or income from 代墊.
+  /// A category picked ([ComposeForm.pickCategory] says what else moves).
   void _pickCategoryName(String name) => _set(() => _f.pickCategory(name));
 
   /// Moves to another tab: the fields start afresh, or as that tab's

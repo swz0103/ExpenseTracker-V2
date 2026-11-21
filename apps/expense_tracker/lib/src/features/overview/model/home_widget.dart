@@ -59,13 +59,7 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
   final month = '${today.year}-${two(m)}';
   final date = '$month-${two(today.day)}';
   final spent = book.reportService.expense(today.year, m);
-  Budget? total;
-  for (final b in book.budgets.all) {
-    if (b.category == allSpending && b.limit > 0) total = b;
-  }
-  final allowance = total == null
-      ? null
-      : book.budgetService.allowance(total, today.year, m);
+  final allowance = _monthAllowance(book, today);
   final hasBudget = allowance != null && allowance > 0;
   final used = hasBudget ? (spent * 100 / allowance).round() : null;
   final days = DateTime.utc(today.year, m + 1, 0).day;
@@ -76,16 +70,8 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
     for (var i = 0; i < 7; i++)
       book.reportService.spentOn(first.add(Duration(days: i))),
   ];
-  final most = daySpent.fold(0, (a, b) => max(a, b));
   final weekday = weekdayIndex(today);
-  final week = [
-    for (var i = 0; i < 7; i++)
-      i > weekday
-          ? -1
-          : most <= 0
-          ? 0
-          : (max(daySpent[i], 0) * 100 / most).round(),
-  ];
+  final week = _weekHeights(daySpent, weekday);
   const noBudget = '沒有設定每月總預算';
   return switch (figures) {
     WidgetFigures.amounts => {
@@ -132,6 +118,32 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
     },
     WidgetFigures.off => null,
   };
+}
+
+/// What the month's total budget allows by [today], or null when no
+/// total budget is set.
+int? _monthAllowance(WidgetBook book, DateTime today) {
+  Budget? total;
+  for (final b in book.budgets.all) {
+    if (b.category == allSpending && b.limit > 0) total = b;
+  }
+  return total == null
+      ? null
+      : book.budgetService.allowance(total, today.year, today.month);
+}
+
+/// Each day of [daySpent] as a share of the week's largest day, -1 for
+/// the days after [weekday].
+List<int> _weekHeights(List<int> daySpent, int weekday) {
+  final most = daySpent.fold(0, (a, b) => max(a, b));
+  return [
+    for (var i = 0; i < 7; i++)
+      i > weekday
+          ? -1
+          : most <= 0
+          ? 0
+          : (max(daySpent[i], 0) * 100 / most).round(),
+  ];
 }
 
 /// Keeps the widget's snapshot (`widget.json` beside the book) up to

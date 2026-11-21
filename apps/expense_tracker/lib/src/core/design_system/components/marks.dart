@@ -228,7 +228,7 @@ class LegendKey extends StatelessWidget {
           width: line ? 12 : 8,
           height: line ? 2.5 : 8,
           decoration: BoxDecoration(
-            color: color,
+            color: markOf(color),
             borderRadius: BorderRadius.circular(Radii.extraSmall),
           ),
         ),
@@ -304,7 +304,7 @@ class DayBar extends StatelessWidget {
                         ? AppColors.white
                         : today && d == passed
                         ? AppColors.ink
-                        : color,
+                        : markOf(color),
                   ),
                 ),
               ),

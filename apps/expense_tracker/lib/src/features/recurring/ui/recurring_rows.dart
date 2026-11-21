@@ -62,18 +62,7 @@ class RecurringRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          grey
-              ? Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(Radii.medium),
-                  ),
-                  alignment: Alignment.center,
-                  child: GlyphIcon(glyph, size: 20, color: AppColors.muted),
-                )
-              : SquareIcon(glyph, color, size: 40),
+          _mark(glyph, color),
           const SizedBox(width: Space.s3),
           Expanded(
             child: Column(
@@ -99,31 +88,47 @@ class RecurringRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: Space.s2),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${item.income ? '+' : ''}'
-                '${ledger.orDots(recurringAmount(ledger, item))}',
-                style: TextStyle(
-                  fontSize: TextSize.title,
-                  fontWeight: FontWeight.w800,
-                  color: item.income && !grey
-                      ? AppColors.positive
-                      : AppColors.ink,
-                ),
-              ),
-              if (next.isNotEmpty) ...[
-                const SizedBox(height: Space.half),
-                RecurringTag('下次 $next', color: color),
-              ],
-            ],
-          ),
+          _amountAndNext(color, next),
           if (trailing case final t?) ...[const SizedBox(width: Space.s2), t],
         ],
       ),
     );
   }
+
+  /// The item's [glyph] in [color], or on white in grey when paused.
+  Widget _mark(Glyph glyph, Color color) => grey
+      ? Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(Radii.medium),
+          ),
+          alignment: Alignment.center,
+          child: GlyphIcon(glyph, size: 20, color: AppColors.muted),
+        )
+      : SquareIcon(glyph, color, size: 40);
+
+  /// The amount, over a tag in [color] with the [next] date when there is
+  /// one.
+  Widget _amountAndNext(Color color, String next) => Column(
+    crossAxisAlignment: CrossAxisAlignment.end,
+    children: [
+      Text(
+        '${item.income ? '+' : ''}'
+        '${ledger.orDots(recurringAmount(ledger, item))}',
+        style: TextStyle(
+          fontSize: TextSize.title,
+          fontWeight: FontWeight.w800,
+          color: item.income && !grey ? AppColors.positive : AppColors.ink,
+        ),
+      ),
+      if (next.isNotEmpty) ...[
+        const SizedBox(height: Space.half),
+        RecurringTag('下次 $next', color: color),
+      ],
+    ],
+  );
 }
 
 /// A small rounded tag in [color]'s tint: the next date.

@@ -28,8 +28,33 @@ final class Portfolio {
       for (final h in start)
         h.code: [if (h.shares > 0) Lot(opening, h.shares, h.cost)],
     };
-    // In date order, and in the order written within a day: a sort that
-    // kept no order could put a day's sale before its purchase.
+    final steps = <String, List<(DateTime, int)>>{
+      for (final h in start) h.code: [(opening, h.shares)],
+    };
+    for (final e in _inOrder(entries)) {
+      final code = e.holding!;
+      final held = byCode[code] ?? _firstBought(code, e);
+      final Holding? traded;
+      try {
+        traded = _traded(e, held, lots);
+      } on StateError {
+        if (!lenient) rethrow;
+        continue;
+      }
+      if (traded != null) byCode[code] = traded;
+      _step(steps[code] ??= [], e, held.shares, traded?.shares ?? held.shares);
+    }
+    final holdings = [
+      for (final h in byCode.values)
+        if (h.shares > 0 || h.realized != 0) h,
+    ]..sort((a, b) => b.value.compareTo(a.value));
+    return Portfolio._(List.unmodifiable(holdings), lots, steps);
+  }
+
+  /// The investment entries of [entries] that name a stock, in date order
+  /// and in the order written within a day: a sort that kept no order could
+  /// put a day's sale before its purchase.
+  static List<Entry> _inOrder(List<Entry> entries) {
     final trades = [
       for (final (i, e) in entries.indexed)
         if (e.isInvestment && e.holding != null) (i, e),
@@ -38,127 +63,151 @@ final class Portfolio {
       final byDate = a.$2.date.compareTo(b.$2.date);
       return byDate != 0 ? byDate : a.$1.compareTo(b.$1);
     });
-    final steps = <String, List<(DateTime, int)>>{
-      for (final h in start) h.code: [(opening, h.shares)],
-    };
-    for (final (_, e) in trades) {
-      final code = e.holding!;
-      // A stock bought for the first time takes its first price per share
-      // as the reference until a close is known.
-      final held =
-          byCode[code] ??
-          Holding(
-            code,
-            code,
-            shares: 0,
-            price: e.shares == 0 ? 0 : e.amount / e.shares,
-            cost: 0,
-            change: 0,
-          );
-      try {
-        switch (e.type) {
-          case EntryType.buy:
-            final cost = e.amount + e.fee;
-            lots[code] = [...?lots[code], Lot(e.date, e.shares, cost)];
-            byCode[code] = held.copyWith(
-              shares: held.shares + e.shares,
-              cost: held.cost + cost,
-            );
-          case EntryType.sell:
-            final (part, rest) = _take(
-              lots[code] ?? const [],
-              e.shares,
-              average: e.average,
-            );
-            lots[code] = rest;
-            byCode[code] = held.copyWith(
-              shares: held.shares - e.shares,
-              cost: held.cost - part,
-              realized: held.realized + e.amount - e.fee - e.tax - part,
-            );
-          case EntryType.dividend when e.isReduction:
-            // A reduction takes away shares that must be there.
-            if (-e.shares > held.shares) {
-              throw StateError('A reduction takes more shares than are held.');
-            }
-            final left = held.shares + e.shares;
-            final int lowered;
-            var dropped = 0;
-            if (left == 0) {
-              lots[code] = const [];
-              lowered = min(e.amount, held.cost);
-            } else {
-              final (after, change) = _reratio(
-                lots[code] ?? const [],
-                left,
-                held.shares,
-                capitalReturned: e.amount,
-              );
-              lots[code] = after;
-              lowered = change.basisLowered.toInt();
-              dropped = change.droppedCost.toInt();
-            }
-            final worth = max(0.0, held.price * held.shares - e.amount);
-            byCode[code] = held.copyWith(
-              shares: left,
-              cost: held.cost - lowered - dropped,
-              price: left == 0 ? held.price : worth / left,
-              realized: held.realized + e.amount - lowered - dropped,
-            );
-          case EntryType.dividend when e.shares > 0 && held.shares > 0:
-            // A split or a stock dividend: every lot grows, keeping its
-            // cost and its date.
-            final total = held.shares + e.shares;
-            final (after, change) = _reratio(
-              lots[code] ?? const [],
-              total,
-              held.shares,
-              wholeShares: !e.split,
-            );
-            lots[code] = after;
-            final dropped = change.droppedCost.toInt();
-            byCode[code] = held.copyWith(
-              shares: total,
-              cost: held.cost - dropped,
-              price: e.split ? held.price * held.shares / total : held.price,
-              realized: held.realized - dropped,
-              dividends: held.dividends + e.dividendNet,
-            );
-          case EntryType.dividend:
-            // Shares given with nothing held start a lot of their own.
-            if (e.shares > 0) {
-              lots[code] = [...?lots[code], Lot(e.date, e.shares, 0)];
-            }
-            byCode[code] = held.copyWith(
-              shares: held.shares + e.shares,
-              dividends: held.dividends + e.dividendNet,
-            );
-          default:
-            break;
-        }
-      } on StateError {
-        if (!lenient) rethrow;
-        continue;
-      }
-      final before = held.shares;
-      final after = byCode[code]?.shares ?? before;
-      final rescaled =
-          e.type == EntryType.dividend &&
-          before > 0 &&
-          (e.split || e.isReduction);
-      final kept = steps[code] ??= [];
-      if (rescaled) {
-        for (final (i, (d, n)) in kept.indexed) {
-          kept[i] = (d, (n * after / before).round());
-        }
-      }
-      kept.add((e.date, after));
+    return [for (final (_, e) in trades) e];
+  }
+
+  /// The stock [code] before its first trade [e]: it takes its first price
+  /// per share as the reference until a close is known.
+  static Holding _firstBought(String code, Entry e) => Holding(
+    code,
+    code,
+    shares: 0,
+    price: e.shares == 0 ? 0 : e.amount / e.shares,
+    cost: 0,
+    change: 0,
+  );
+
+  /// [held] after the trade [e], with its lots in [lots] changed to match;
+  /// null for an entry that changes no holding. Throws a [StateError] for
+  /// a trade that takes more shares than are held.
+  static Holding? _traded(Entry e, Holding held, Map<String, List<Lot>> lots) =>
+      switch (e.type) {
+        EntryType.buy => _bought(e, held, lots),
+        EntryType.sell => _sold(e, held, lots),
+        EntryType.dividend when e.isReduction => _reduced(e, held, lots),
+        EntryType.dividend when e.shares > 0 && held.shares > 0 => _grown(
+          e,
+          held,
+          lots,
+        ),
+        EntryType.dividend => _paid(e, held, lots),
+        _ => null,
+      };
+
+  /// [held] after the purchase [e], which adds a lot of its own.
+  static Holding _bought(Entry e, Holding held, Map<String, List<Lot>> lots) {
+    final code = e.holding!;
+    final cost = e.amount + e.fee;
+    lots[code] = [...?lots[code], Lot(e.date, e.shares, cost)];
+    return held.copyWith(
+      shares: held.shares + e.shares,
+      cost: held.cost + cost,
+    );
+  }
+
+  /// [held] after the sale [e], which takes from its lots.
+  static Holding _sold(Entry e, Holding held, Map<String, List<Lot>> lots) {
+    final code = e.holding!;
+    final (part, rest) = _take(
+      lots[code] ?? const [],
+      e.shares,
+      average: e.average,
+    );
+    lots[code] = rest;
+    return held.copyWith(
+      shares: held.shares - e.shares,
+      cost: held.cost - part,
+      realized: held.realized + e.amount - e.fee - e.tax - part,
+    );
+  }
+
+  /// [held] after the capital reduction [e], which returns capital and
+  /// takes away shares that must be there.
+  static Holding _reduced(Entry e, Holding held, Map<String, List<Lot>> lots) {
+    final code = e.holding!;
+    if (-e.shares > held.shares) {
+      throw StateError('A reduction takes more shares than are held.');
     }
-    final holdings = [
-      for (final h in byCode.values)
-        if (h.shares > 0 || h.realized != 0) h,
-    ]..sort((a, b) => b.value.compareTo(a.value));
-    return Portfolio._(List.unmodifiable(holdings), lots, steps);
+    final left = held.shares + e.shares;
+    final int lowered;
+    var dropped = 0;
+    if (left == 0) {
+      lots[code] = const [];
+      lowered = min(e.amount, held.cost);
+    } else {
+      final (after, change) = _reratio(
+        lots[code] ?? const [],
+        left,
+        held.shares,
+        capitalReturned: e.amount,
+      );
+      lots[code] = after;
+      lowered = change.basisLowered.toInt();
+      dropped = change.droppedCost.toInt();
+    }
+    final worth = max(0.0, held.price * held.shares - e.amount);
+    return held.copyWith(
+      shares: left,
+      cost: held.cost - lowered - dropped,
+      price: left == 0 ? held.price : worth / left,
+      realized: held.realized + e.amount - lowered - dropped,
+    );
+  }
+
+  /// [held] after the split or stock dividend [e]: every lot grows,
+  /// keeping its cost and its date.
+  static Holding _grown(Entry e, Holding held, Map<String, List<Lot>> lots) {
+    final code = e.holding!;
+    final total = held.shares + e.shares;
+    final (after, change) = _reratio(
+      lots[code] ?? const [],
+      total,
+      held.shares,
+      wholeShares: !e.split,
+    );
+    lots[code] = after;
+    final dropped = change.droppedCost.toInt();
+    return held.copyWith(
+      shares: total,
+      cost: held.cost - dropped,
+      price: e.split ? held.price * held.shares / total : held.price,
+      realized: held.realized - dropped,
+      dividends: held.dividends + e.dividendNet,
+    );
+  }
+
+  /// [held] after the dividend [e]. Shares given with nothing held start a
+  /// lot of their own.
+  static Holding _paid(Entry e, Holding held, Map<String, List<Lot>> lots) {
+    final code = e.holding!;
+    if (e.shares > 0) {
+      lots[code] = [...?lots[code], Lot(e.date, e.shares, 0)];
+    }
+    return held.copyWith(
+      shares: held.shares + e.shares,
+      dividends: held.dividends + e.dividendNet,
+    );
+  }
+
+  /// Adds the [after] shares held after [e] to [kept], [before] being those
+  /// held before it. A split or reduction scales the earlier counts to the
+  /// new shares.
+  static void _step(
+    List<(DateTime, int)> kept,
+    Entry e,
+    int before,
+    int after,
+  ) {
+    final rescaled =
+        e.type == EntryType.dividend &&
+        before > 0 &&
+        (e.split || e.isReduction);
+    if (rescaled) {
+      for (final (i, (d, n)) in kept.indexed) {
+        kept[i] = (d, (n * after / before).round());
+      }
+    }
+    kept.add((e.date, after));
   }
 
   /// Held stocks, and sold ones with a realised result, largest first.

@@ -112,6 +112,10 @@ final class ComposeForm {
   String? _ownId;
   final _lentIds = <String, String>{};
 
+  /// Paid wholly for the one person in [lent] (opened from 幫忙付): their
+  /// share follows the amount typed, rather than half of it.
+  var _lentWhole = false;
+
   /// The sums someone paid back is made of, by entry, while 對方還錢.
   Set<String> paying = {};
   String? _group;
@@ -225,6 +229,7 @@ final class ComposeForm {
     back = false;
     receipt = null;
     lent = null;
+    _lentWhole = false;
     if (mode == ComposeMode.lend) {
       // Paid from the main account, for the first person owing.
       final main = ledger.accounts.main;
@@ -241,7 +246,9 @@ final class ComposeForm {
     ComposeMode.investment,
   ];
 
-  /// A category picked: back to a plain expense or income from 代墊.
+  /// A category picked: from 代墊's own tab (paying for someone, or
+  /// their paying back) back to a plain expense or income. A spending
+  /// shared with someone stays shared; only its category changes.
   void pickCategory(String name) {
     mode = tab;
     category = name;
@@ -349,7 +356,9 @@ final class ComposeForm {
   void setAmount(int value) {
     // Shares still even follow the new amount; those typed stay.
     final split = lent;
-    if (split != null &&
+    if (_lentWhole && split != null && split.length == 1) {
+      lent = [(split.first.$1, value)];
+    } else if (split != null &&
         split.every((p) => p.$2 == split.first.$2) &&
         split.first.$2 == amount ~/ (split.length + 1)) {
       final share = value ~/ (split.length + 1);

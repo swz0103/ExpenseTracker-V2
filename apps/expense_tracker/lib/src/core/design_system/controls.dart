@@ -95,7 +95,7 @@ class _PressableState extends State<Pressable> {
   var _down = false;
 
   void _set(bool down) {
-    if (_down != down) setState(() => _down = down);
+    if (mounted && _down != down) setState(() => _down = down);
   }
 
   @override

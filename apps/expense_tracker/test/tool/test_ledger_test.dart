@@ -12,7 +12,7 @@ import 'package:expense_tracker/src/features/import_export/ui/import_page.dart'
     show importBookOf;
 
 /// The test backup people restore to try the app with real-looking data:
-/// the two years of tool/test_ledger.py imported as its CSV would be, on
+/// the five years of tool/test_ledger.py imported as its CSV would be, on
 /// accounts set up first (cards with their days and limits, the foreign
 /// accounts, the car loan), with budgets and recurring items added and the
 /// old salary account archived; kept as a backup that opens with
@@ -51,7 +51,7 @@ void main() {
     expect(found.skipped, 0, reason: found.problems.join('\n'));
     final lines = text.trim().split('\n').length - 1;
     expect(found.entries, hasLength(lines));
-    expect(lines, greaterThan(2000));
+    expect(lines, greaterThan(7000));
     addImport(ledger.entryCommands, found);
     _settle(ledger);
     await ledger.settled;
@@ -109,10 +109,10 @@ void _setUp(Ledger ledger) {
     made(
       '車貸',
       AccountKind.loan,
-      opening: -480000,
-      principal: 480000,
+      opening: -600000,
+      principal: 600000,
       dueDay: 25,
-      loan: const LoanTerms(rate: 260, months: 60, repay: LoanRepay.even),
+      loan: const LoanTerms(rate: 260, months: 84, repay: LoanRepay.even),
     ),
   ]) {
     ledger.accountCommands.addAccount(account);
@@ -148,7 +148,7 @@ void _settle(Ledger ledger) {
     Recurring(
       id: 'salary',
       name: '薪資',
-      amount: 55000,
+      amount: 82000,
       day: 5,
       account: id('台新銀行'),
       category: '薪資收入',

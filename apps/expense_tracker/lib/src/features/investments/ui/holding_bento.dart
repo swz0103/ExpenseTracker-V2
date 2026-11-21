@@ -60,6 +60,49 @@ class _Bento extends StatelessWidget {
   }
 }
 
+/// The holding's bento: what [held] made and what it is worth now side by
+/// side, over its 股息.
+Widget _bento(Ledger ledger, String code, Holding held, bool quoted) {
+  final tone = AppColors.ofMarket(held.gain);
+  final returns = returnsOf(ledger);
+  final rate = returns.rate(code: code);
+  final next = returns.nextDividend(code);
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      CardGrid(gap: 10, [
+        _Bento(
+          color: tone,
+          label: held.gain < 0 ? '賠了' : '賺了',
+          value: ledger.orDots(signed(held.gain)),
+          lines: [
+            '${percentOf(held.gain, held.cost)}'
+                '${rate == null ? '' : ' · 年化 ${yearlyRate(rate)}'}',
+          ],
+        ),
+        _Bento(
+          color: AppColors.faint,
+          label: '現在值',
+          value: ledger.orDots(groupDigits(held.value)),
+          lines: [
+            '${ledger.orDots(groupDigits(held.shares))} 股 · '
+                '成本 ${ledger.orDots(groupDigits(held.cost))}',
+            if (quoted) '今天 ${ledger.orDots(signed(held.change))}',
+          ],
+        ),
+      ]),
+      const SizedBox(height: Space.s2),
+      _DividendCard(
+        ledger: ledger,
+        total: held.dividends,
+        next: next,
+        months: returns.payingMonths(code),
+        realized: held.realized,
+      ),
+    ],
+  );
+}
+
 /// The holding's daily closes as a line over 1月, 3月, 1年 or 全部, on
 /// the page itself: the average cost as a dashed line, the buys as dots,
 /// today's close and the average named on the right. A finger on the line
@@ -194,8 +237,8 @@ class _PriceChartState extends State<_PriceChart> {
               buys: buys.keys.toSet(),
               chosen: buy == null ? null : _day(buy.date),
               touched: touched,
-              line: tone,
-              fill: tintOf(tone, 0.25),
+              line: markOf(tone),
+              fill: tintOf(markOf(tone), 0.25),
               dash: AppColors.investment,
               rule: AppColors.line,
               words: AppColors.muted,
@@ -238,8 +281,8 @@ class _PriceChartState extends State<_PriceChart> {
           Container(
             width: 10,
             height: 10,
-            decoration: const BoxDecoration(
-              color: AppColors.investment,
+            decoration: BoxDecoration(
+              color: markOf(AppColors.investment),
               shape: BoxShape.circle,
             ),
           ),
@@ -427,27 +470,7 @@ class _LinePainter extends CustomPainter {
     final width = size.width - gutter;
     double x(int i) => i * width / (closes.length - 1);
     final y = scale.y;
-    // Three faint levels with their prices on the right.
-    final tagged = [if (average > 0) y(average), if (price > 0) y(price)];
-    for (var k = 0; k < 3; k++) {
-      final v = scale.low + (scale.high - scale.low) * (0.15 + k * 0.35);
-      final at = y(v);
-      // A level under a price's tag keeps its line, not its words.
-      final hidden = tagged.any((t) => (t - at).abs() < 18);
-      canvas.drawLine(
-        Offset(0, at),
-        Offset(width, at),
-        Paint()
-          ..color = rule
-          ..strokeWidth = 1,
-      );
-      if (hidden) continue;
-      final text = layoutText(
-        _label(v),
-        TextStyle(fontSize: TextSize.tiny, color: words),
-      );
-      text.paint(canvas, Offset(width + 6, at - text.height / 2));
-    }
+    _paintLevels(canvas, width);
     final path = Path()..moveTo(0, y(closes.first.$2));
     for (var i = 1; i < closes.length; i++) {
       path.lineTo(x(i), y(closes[i].$2));
@@ -465,27 +488,6 @@ class _LinePainter extends CustomPainter {
         ..strokeWidth = 2.2
         ..strokeJoin = StrokeJoin.round,
     );
-    void tag(double v, Color color) {
-      final text = layoutText(
-        _label(v),
-        TextStyle(
-          fontSize: TextSize.tiny,
-          fontWeight: FontWeight.w800,
-          color: onTag,
-        ),
-      );
-      final at = y(v);
-      final box = RRect.fromRectAndRadius(
-        Rect.fromLTWH(width + 2, at - 10, gutter - 2, 20),
-        const Radius.circular(Radii.small),
-      );
-      canvas.drawRRect(box, Paint()..color = color);
-      text.paint(
-        canvas,
-        Offset(width + 2 + (gutter - 2 - text.width) / 2, at - text.height / 2),
-      );
-    }
-
     if (average > 0) {
       final ay = y(average);
       final paint = Paint()
@@ -494,9 +496,9 @@ class _LinePainter extends CustomPainter {
       for (var dx = 0.0; dx < width; dx += 10) {
         canvas.drawLine(Offset(dx, ay), Offset(min(dx + 5, width), ay), paint);
       }
-      tag(average, dash);
+      _paintTag(canvas, width, average, dash);
     }
-    if (price > 0) tag(price, line);
+    if (price > 0) _paintTag(canvas, width, price, line);
     for (final (i, (day, close)) in closes.indexed) {
       if (!buys.contains(day)) continue;
       final at = Offset(x(i), y(close));
@@ -530,6 +532,54 @@ class _LinePainter extends CustomPainter {
       );
       canvas.drawCircle(at, 6, Paint()..color = line);
     }
+  }
+
+  /// Three faint levels across the chart's [width], with their prices on
+  /// the right.
+  void _paintLevels(Canvas canvas, double width) {
+    final y = scale.y;
+    final tagged = [if (average > 0) y(average), if (price > 0) y(price)];
+    for (var k = 0; k < 3; k++) {
+      final v = scale.low + (scale.high - scale.low) * (0.15 + k * 0.35);
+      final at = y(v);
+      // A level under a price's tag keeps its line, not its words.
+      final hidden = tagged.any((t) => (t - at).abs() < 18);
+      canvas.drawLine(
+        Offset(0, at),
+        Offset(width, at),
+        Paint()
+          ..color = rule
+          ..strokeWidth = 1,
+      );
+      if (hidden) continue;
+      final text = layoutText(
+        _label(v),
+        TextStyle(fontSize: TextSize.tiny, color: words),
+      );
+      text.paint(canvas, Offset(width + 6, at - text.height / 2));
+    }
+  }
+
+  /// The price [v] on a tag of [color] in the gutter right of [width].
+  void _paintTag(Canvas canvas, double width, double v, Color color) {
+    final text = layoutText(
+      _label(v),
+      TextStyle(
+        fontSize: TextSize.tiny,
+        fontWeight: FontWeight.w800,
+        color: onTag,
+      ),
+    );
+    final at = scale.y(v);
+    final box = RRect.fromRectAndRadius(
+      Rect.fromLTWH(width + 2, at - 10, gutter - 2, 20),
+      const Radius.circular(Radii.small),
+    );
+    canvas.drawRRect(box, Paint()..color = color);
+    text.paint(
+      canvas,
+      Offset(width + 2 + (gutter - 2 - text.width) / 2, at - text.height / 2),
+    );
   }
 
   @override

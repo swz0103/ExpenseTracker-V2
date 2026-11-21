@@ -116,8 +116,6 @@ class _UnlockViewState extends State<UnlockView>
     widget.onSubmit();
   }
 
-  /// A soft light behind the mark, on the tinted top of the page.
-
   /// The group's fixed parts, top to bottom, so the mark's place is known
   /// before it is laid out (it moves there from the middle).
   static const _mark = 72.0;
@@ -166,75 +164,23 @@ class _UnlockViewState extends State<UnlockView>
               // From the middle of the screen, where the opening drew it.
               final markY = inset.top + top + _mark / 2;
               final from = screen.height / 2 - markY;
-              final grow = 112 / _mark;
               return SingleChildScrollView(
                 child: SizedBox(
                   height: box.maxHeight < _height ? _height : box.maxHeight,
                   child: Stack(
                     children: [
-                      Positioned(
-                        left: box.maxWidth / 2 - 100,
-                        top: top + _mark / 2 - 100,
-                        child: Opacity(
-                          opacity: move,
-                          child: Container(
-                            width: 200,
-                            height: 200,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: RadialGradient(
-                                colors: [AppColors.halo, AppColors.none],
-                                stops: [0, 0.68],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      _halo(move, box, top),
                       Positioned(
                         left: 0,
                         right: 0,
                         top: top,
-                        child: Column(
-                          children: [
-                            Transform.translate(
-                              offset: Offset(0, from * (1 - move)),
-                              child: Transform.scale(
-                                scale: grow + (1 - grow) * move,
-                                child: Semantics(
-                                  label: '記帳本',
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(
-                                      Radii.large,
-                                    ),
-                                    child: const AppMark(size: _mark),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: Space.s4),
-                            _rise(come, _name()),
-                            const SizedBox(height: Space.s6),
-                            _rise(come, _dots()),
-                            _rise(come, _problem()),
-                            _rise(come, _fingerprint()),
-                            const SizedBox(height: Space.s2),
-                            _rise(come, _forgot()),
-                          ],
-                        ),
+                        child: _group(move, come, from),
                       ),
                       if (back != null)
                         Positioned(
                           left: 8,
                           top: 4,
-                          child: _rise(
-                            come,
-                            TextButton(
-                              key: Keys.back,
-                              onPressed: widget.busy ? null : back,
-                              style: wordButton(AppColors.muted),
-                              child: const Text(Words.back),
-                            ),
-                          ),
+                          child: _rise(come, _back(back)),
                         ),
                       // The password itself, typed into but not shown.
                       Positioned(left: 0, top: 0, child: _field()),
@@ -248,6 +194,67 @@ class _UnlockViewState extends State<UnlockView>
       ],
     );
   }
+
+  /// A soft light behind the mark, on the tinted top of the page; it
+  /// shows as the mark settles ([move]).
+  Widget _halo(double move, BoxConstraints box, double top) => Positioned(
+    left: box.maxWidth / 2 - 100,
+    top: top + _mark / 2 - 100,
+    child: Opacity(
+      opacity: move,
+      child: Container(
+        width: 200,
+        height: 200,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [AppColors.halo, AppColors.none],
+            stops: [0, 0.68],
+          ),
+        ),
+      ),
+    ),
+  );
+
+  /// The mark and everything under it, top to bottom: the mark moves up
+  /// [from] the middle and shrinks as [move] goes to 1, the rest rises
+  /// in with [come].
+  Widget _group(double move, double come, double from) {
+    final grow = 112 / _mark;
+    return Column(
+      children: [
+        Transform.translate(
+          offset: Offset(0, from * (1 - move)),
+          child: Transform.scale(
+            scale: grow + (1 - grow) * move,
+            child: Semantics(
+              label: '記帳本',
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(Radii.large),
+                child: const AppMark(size: _mark),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: Space.s4),
+        _rise(come, _name()),
+        const SizedBox(height: Space.s6),
+        _rise(come, _dots()),
+        _rise(come, _problem()),
+        _rise(come, _fingerprint()),
+        const SizedBox(height: Space.s2),
+        _rise(come, _forgot()),
+      ],
+    );
+  }
+
+  /// 返回, to the first screen.
+  Widget _back(VoidCallback back) => TextButton(
+    key: Keys.back,
+    onPressed: widget.busy ? null : back,
+    style: wordButton(AppColors.muted),
+    child: const Text(Words.back),
+  );
 
   /// [child] coming up into place as [come] goes from 0 to 1; it takes
   /// no taps until it is there.

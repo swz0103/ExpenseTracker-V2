@@ -3,12 +3,16 @@ import 'dart:io';
 import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
+import 'package:expense_tracker/src/features/backup/model/restore_sources.dart';
 import 'package:expense_tracker/src/features/lock/ui/lock_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
+
+import '../../../support/fake_drive.dart';
 
 const password = 'correct horse battery';
 
@@ -175,4 +179,515 @@ void main() {
     expect(find.text('從備份還原'), findsOneWidget);
     expect(phone.state, isA<NeedsSetup>());
   });
+
+  // What follows: the ways in once the ledger is made (no password, the
+  // recovery code, the fingerprint), and the backup form's ways to find
+  // a backup (the file picker, Google Drive, the ledger kept before an
+  // earlier restore) and back out of it.
+
+  /// Writes a backup of [startup]'s open ledger to [file].
+  Future<void> backUp(WidgetTester tester, Startup startup, File file) =>
+      tester.runAsync(() async {
+        final open = (startup.state as Ready).vault;
+        await file.parent.create(recursive: true);
+        await LedgerBackup.write(
+          store: open.store,
+          keys: open.keys,
+          file: file,
+          backupId: PublicId.generate().value,
+          createdAt: DateTime(2026, 11, 3, 21, 3),
+          files: const {},
+        );
+      });
+
+  /// Presses what a screen reader calls [label], then draws.
+  Future<void> press(WidgetTester tester, Pattern label) async {
+    await tester.tap(find.bySemanticsLabel(label).last);
+    await tester.pump();
+  }
+
+  testWidgets('a ledger without a password opens by itself after the '
+      'opening', (tester) async {
+    final first = Startup(vault);
+    await tester.runAsync(first.setUpWithoutPassword);
+    first.lock();
+    final startup = Startup(vault);
+    await show(tester, startup);
+    expect(find.text('忘記密碼？'), findsNothing, reason: 'nothing asked');
+    await settleIn(tester);
+    await settle(tester, () => startup.state is Ready);
+    expect(startup.state, isA<Ready>());
+    startup.lock();
+  });
+
+  testWidgets('a ledger without a password whose key cannot open it says '
+      'so and asks for the password', (tester) async {
+    final first = Startup(vault);
+    await tester.runAsync(first.setUpWithoutPassword);
+    first.lock();
+    File('${directory.path}/quick-open.key').writeAsStringSync('not the key');
+    final startup = Startup(vault);
+    await show(tester, startup);
+    await settleIn(tester);
+    await settle(
+      tester,
+      () => find.textContaining('無法開啟帳本').evaluate().isNotEmpty,
+    );
+    expect(find.textContaining('無法開啟帳本（'), findsOneWidget);
+    expect(find.text('忘記密碼？'), findsOneWidget);
+    expect(startup.state, isA<Locked>());
+  });
+
+  testWidgets('忘記密碼？ asks for the recovery code, which opens the ledger '
+      'from then on without a password', (tester) async {
+    final startup = Startup(vault);
+    late String code;
+    await tester.runAsync(() async => code = await startup.setUp(password));
+    startup.lock();
+    await show(tester, startup);
+    final semantics = tester.ensureSemantics();
+    await press(tester, '忘記密碼？');
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('忘記密碼？'), findsNothing);
+    expect(find.text('救援碼'), findsWidgets);
+
+    await tester.enterText(find.byType(TextField), '  $code  ');
+    await tester.testTextInput.receiveAction(TextInputAction.go);
+    await settle(tester, () => startup.state is Ready);
+    expect(startup.state, isA<Ready>());
+    expect(startup.passwordless, isTrue);
+    expect(startup.takeRecoveryNotice(), isTrue);
+    startup.lock();
+    semantics.dispose();
+  });
+
+  testWidgets('a wrong recovery code says so; 改用密碼 goes back to the '
+      'password', (tester) async {
+    final startup = await opened(tester);
+    startup.lock();
+    await show(tester, startup);
+    final semantics = tester.ensureSemantics();
+    await press(tester, '忘記密碼？');
+    await tester.pump(const Duration(milliseconds: 500));
+    // Another ledger's code: well formed, but not this one's.
+    final other = Directory.systemTemp.createTempSync('lock-screen-other-');
+    addTearDown(() => other.deleteSync(recursive: true));
+    final another = Startup(
+      LedgerVault(
+        other,
+        codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
+      ),
+    );
+    late String code;
+    await tester.runAsync(() async => code = await another.setUp(password));
+    another.lock();
+    await tester.enterText(find.byType(TextField), code);
+    await tester.testTextInput.receiveAction(TextInputAction.go);
+    await settle(tester, () => find.text('救援碼不正確').evaluate().isNotEmpty);
+    expect(find.text('救援碼不正確'), findsOneWidget);
+    expect(startup.state, isA<Locked>());
+
+    await press(tester, '改用密碼');
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('忘記密碼？'), findsOneWidget);
+    semantics.dispose();
+  });
+
+  group('with a fingerprint', () {
+    late _DeviceKey key;
+
+    setUp(() => key = _DeviceKey());
+
+    testWidgets('before a password unlock enrolled it, the fingerprint '
+        'asked for as the screen opens says to use the password once', (
+      tester,
+    ) async {
+      final first = await opened(tester);
+      first.lock();
+      final startup = Startup(vault, device: DeviceUnlock('phone', key));
+      startup.takeOpening();
+      await show(tester, startup);
+      await settle(
+        tester,
+        () => find.text('先用密碼打開一次，之後就能用指紋解鎖').evaluate().isNotEmpty,
+      );
+      expect(find.text('先用密碼打開一次，之後就能用指紋解鎖'), findsOneWidget);
+      expect(startup.state, isA<Locked>());
+    });
+
+    testWidgets('once enrolled, the fingerprint asked for after the opening '
+        'opens the ledger', (tester) async {
+      final enrol = Startup(vault, device: DeviceUnlock('phone', key));
+      await tester.runAsync(() => enrol.setUp(password));
+      enrol.lock();
+      final startup = Startup(vault, device: DeviceUnlock('phone', key));
+      await show(tester, startup);
+      await settleIn(tester);
+      await settle(tester, () => startup.state is Ready);
+      expect(startup.state, isA<Ready>());
+      startup.lock();
+    });
+
+    testWidgets('a fingerprint that does not open the ledger says to use '
+        'the password, and the fingerprint can be tried again', (tester) async {
+      final enrol = Startup(vault, device: DeviceUnlock('phone', key));
+      await tester.runAsync(() => enrol.setUp(password));
+      enrol.lock();
+      // Another phone's key: the one kept does not open with it.
+      final startup = Startup(
+        vault,
+        device: DeviceUnlock('phone', _DeviceKey()),
+      );
+      startup.takeOpening();
+      await show(tester, startup);
+      await settle(
+        tester,
+        () => find.textContaining('改用密碼').evaluate().isNotEmpty,
+      );
+      expect(find.text('指紋解鎖失敗，請改用密碼'), findsOneWidget);
+      expect(startup.state, isA<Locked>());
+
+      final semantics = tester.ensureSemantics();
+      await press(tester, '用指紋或臉部解鎖');
+      await settle(
+        tester,
+        () => find.textContaining('改用密碼').evaluate().isNotEmpty,
+      );
+      expect(startup.state, isA<Locked>());
+      semantics.dispose();
+    });
+
+    testWidgets('a fingerprint prompt that is cancelled says so', (
+      tester,
+    ) async {
+      final enrol = Startup(vault, device: DeviceUnlock('phone', key));
+      await tester.runAsync(() => enrol.setUp(password));
+      enrol.lock();
+      final startup = Startup(
+        vault,
+        device: DeviceUnlock(
+          'phone',
+          key,
+          hasKey: () async => throw StateError('cancelled'),
+        ),
+      );
+      startup.takeOpening();
+      await show(tester, startup);
+      await settle(
+        tester,
+        () => find.text('指紋解鎖已取消，可以改用密碼').evaluate().isNotEmpty,
+      );
+      expect(find.text('指紋解鎖已取消，可以改用密碼'), findsOneWidget);
+      expect(startup.state, isA<Locked>());
+    });
+
+    testWidgets('a fingerprint whose key the phone dropped asks for the '
+        'password once more', (tester) async {
+      final enrol = Startup(vault, device: DeviceUnlock('phone', key));
+      await tester.runAsync(() => enrol.setUp(password));
+      enrol.lock();
+      final startup = Startup(
+        vault,
+        device: DeviceUnlock('phone', key, hasKey: () async => false),
+      );
+      startup.takeOpening();
+      await show(tester, startup);
+      await settle(
+        tester,
+        () => find.text('先用密碼打開一次，之後就能用指紋解鎖').evaluate().isNotEmpty,
+      );
+      expect(find.text('先用密碼打開一次，之後就能用指紋解鎖'), findsOneWidget);
+    });
+  });
+
+  group('restoring a backup', () {
+    late Directory elsewhere;
+    late File backup;
+
+    setUp(() {
+      elsewhere = Directory.systemTemp.createTempSync('lock-screen-backup-');
+      backup = File('${elsewhere.path}/記帳本.etbk');
+    });
+
+    tearDown(() => elsewhere.deleteSync(recursive: true));
+
+    /// A ledger with a password backed up to [backup], then locked.
+    Future<Startup> backedUp(WidgetTester tester) async {
+      final startup = await opened(tester);
+      await backUp(tester, startup, backup);
+      startup.lock();
+      return startup;
+    }
+
+    Future<void> showWith(
+      WidgetTester tester,
+      Startup startup,
+      RestoreSources sources,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LockScreen(startup: startup, sources: sources),
+        ),
+      );
+      await tester.pump();
+    }
+
+    testWidgets('from settings, a backup whose path is typed is restored '
+        'with its password', (tester) async {
+      final startup = await backedUp(tester);
+      startup.lockToRestore();
+      await show(tester, startup);
+      await tester.enterText(find.byType(TextField).first, backup.path);
+      await tester.enterText(find.byType(TextField).last, password);
+      // 完成 on the keyboard under the password restores.
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await settle(tester, () => startup.state is Ready);
+      expect(startup.state, isA<Ready>());
+      startup.lock();
+    });
+
+    testWidgets('the file picked says when it was taken and how much it '
+        'holds; a file that is not a backup is said so', (tester) async {
+      final startup = await backedUp(tester);
+      final other = File('${elsewhere.path}/notes.txt')
+        ..writeAsStringSync('hello');
+      var next = other.path;
+      startup.lockToRestore();
+      await showWith(
+        tester,
+        startup,
+        RestoreSources(pickFile: () async => next),
+      );
+      final semantics = tester.ensureSemantics();
+      expect(find.text('選擇備份檔'), findsOneWidget);
+      await press(tester, '選擇備份檔');
+      await settle(
+        tester,
+        () => find.text('這個檔案不是記帳本的備份').evaluate().isNotEmpty,
+      );
+      expect(find.text('這個檔案不是記帳本的備份'), findsOneWidget);
+      expect(find.text('已選好備份檔'), findsOneWidget);
+
+      next = backup.path;
+      await press(tester, '已選好備份檔');
+      await settle(
+        tester,
+        () => find.textContaining('的備份 · ').evaluate().isNotEmpty,
+      );
+      expect(find.textContaining('2026/11/3 21:03 的備份 · '), findsOneWidget);
+      // The picked copy is the app's own: left behind, it goes.
+      await tester.pumpWidget(const SizedBox());
+      expect(backup.existsSync(), isFalse);
+      expect(other.existsSync(), isFalse);
+      semantics.dispose();
+    });
+
+    testWidgets('a backup on Google Drive is listed, downloaded and '
+        'described', (tester) async {
+      final startup = await backedUp(tester);
+      final http = FakeDrive()..folder = 'folder';
+      http.files['b1'] = DriveRow(
+        '記帳本 2026-11-03.etbk',
+        backup.readAsBytesSync(),
+        DateTime.utc(2026, 11, 3, 13, 3),
+        null,
+      );
+      final cache = Directory('${elsewhere.path}/cache')..createSync();
+      startup.lockToRestore();
+      await showWith(
+        tester,
+        startup,
+        RestoreSources(
+          drive: () => DriveBackup(
+            http,
+            token: ({required interactive}) async => 'token',
+            forget: (_) async {},
+          ),
+          cacheDirectory: () async => cache,
+        ),
+      );
+      final semantics = tester.ensureSemantics();
+      await press(tester, '從 Google 雲端硬碟選擇');
+      await settle(
+        tester,
+        () => find.text('記帳本 2026-11-03.etbk').evaluate().isNotEmpty,
+      );
+      expect(find.text('記帳本 2026-11-03.etbk'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 500));
+      await press(tester, RegExp('記帳本 2026-11-03.etbk'));
+      await settle(
+        tester,
+        () => find.textContaining('的備份 · ').evaluate().isNotEmpty,
+      );
+      expect(find.textContaining('的備份 · '), findsOneWidget);
+      expect(File('${cache.path}/restore.etbk').existsSync(), isTrue);
+      semantics.dispose();
+    });
+
+    testWidgets('Google Drive with no backups says so', (tester) async {
+      final startup = await backedUp(tester);
+      final cache = Directory('${elsewhere.path}/cache')..createSync();
+      startup.lockToRestore();
+      await showWith(
+        tester,
+        startup,
+        RestoreSources(
+          drive: () => DriveBackup(
+            FakeDrive()..folder = 'folder',
+            token: ({required interactive}) async => 'token',
+            forget: (_) async {},
+          ),
+          cacheDirectory: () async => cache,
+        ),
+      );
+      final semantics = tester.ensureSemantics();
+      await press(tester, '從 Google 雲端硬碟選擇');
+      await settle(
+        tester,
+        () => find.textContaining('裡沒有備份').evaluate().isNotEmpty,
+      );
+      expect(find.text('Google 雲端硬碟的「記帳本備份」裡沒有備份'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('Google Drive that cannot be reached says why', (tester) async {
+      final startup = await backedUp(tester);
+      final cache = Directory('${elsewhere.path}/cache')..createSync();
+      startup.lockToRestore();
+      await showWith(
+        tester,
+        startup,
+        RestoreSources(
+          drive: () => DriveBackup(
+            FakeDrive(),
+            // Signing in to Google is turned down.
+            token: ({required interactive}) async => null,
+            forget: (_) async {},
+          ),
+          cacheDirectory: () async => cache,
+        ),
+      );
+      final semantics = tester.ensureSemantics();
+      await press(tester, '從 Google 雲端硬碟選擇');
+      await settle(
+        tester,
+        () => find.text('沒有取得 Google 雲端硬碟的權限').evaluate().isNotEmpty,
+      );
+      expect(find.text('沒有取得 Google 雲端硬碟的權限'), findsOneWidget);
+      expect(startup.state, isA<Locked>());
+      semantics.dispose();
+    });
+
+    testWidgets('a backup from Google Drive that cannot be kept on the '
+        'phone says why', (tester) async {
+      final startup = await backedUp(tester);
+      final http = FakeDrive()..folder = 'folder';
+      http.files['b1'] = DriveRow(
+        '記帳本 2026-11-03.etbk',
+        backup.readAsBytesSync(),
+        DateTime.utc(2026, 11, 3, 13, 3),
+        null,
+      );
+      startup.lockToRestore();
+      await showWith(
+        tester,
+        startup,
+        RestoreSources(
+          drive: () => DriveBackup(
+            http,
+            token: ({required interactive}) async => 'token',
+            forget: (_) async {},
+          ),
+          cacheDirectory: () async =>
+              throw const FileSystemException('No space left'),
+        ),
+      );
+      final semantics = tester.ensureSemantics();
+      await press(tester, '從 Google 雲端硬碟選擇');
+      await settle(
+        tester,
+        () => find.text('記帳本 2026-11-03.etbk').evaluate().isNotEmpty,
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      await press(tester, RegExp('記帳本 2026-11-03.etbk'));
+      await settle(
+        tester,
+        () => find.textContaining('無法下載備份（').evaluate().isNotEmpty,
+      );
+      expect(find.textContaining('No space left'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('the ledger kept before an earlier restore can be chosen '
+        'to go back to it', (tester) async {
+      final startup = await backedUp(tester);
+      startup.beforeRestore.createSync(recursive: true);
+      final kept = backup.copySync('${startup.beforeRestore.path}/1.etbk');
+      startup.lockToRestore();
+      await show(tester, startup);
+      final semantics = tester.ensureSemantics();
+      await press(tester, '還原前自動留下的帳本');
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('還原前自動留下的帳本'), findsNWidgets(2));
+      await press(tester, RegExp(' 留下\$'));
+      await settle(
+        tester,
+        () => find.textContaining('的備份 · ').evaluate().isNotEmpty,
+      );
+      expect(find.textContaining('的備份 · '), findsOneWidget);
+      final path = tester
+          .widgetList<TextField>(find.byType(TextField))
+          .first
+          .controller!
+          .text;
+      expect(path, kept.path);
+      semantics.dispose();
+    });
+
+    testWidgets('the system back from the backup form returns to the '
+        'ledger, and on a new phone to the choices', (tester) async {
+      final startup = await backedUp(tester);
+      startup.lockToRestore();
+      await show(tester, startup);
+      expect(find.text('從備份還原'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(find.text('忘記密碼？'), findsOneWidget);
+
+      final fresh = Startup(
+        LedgerVault(
+          elsewhere,
+          codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
+        ),
+      );
+      await show(tester, fresh);
+      await settleIn(tester);
+      await tester.tap(find.byKey(Keys.restore));
+      await tester.pump();
+      expect(find.text('從備份還原'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(find.text('建立新帳本'), findsOneWidget);
+    });
+  });
+}
+
+/// Stands in for an Android Keystore key: a blob opens only with the key
+/// that wrapped it.
+final class _DeviceKey implements DeviceKeyWrapper {
+  final _secrets = <String, List<int>>{};
+
+  @override
+  Future<List<int>> wrap(List<int> secret, List<int> context) async {
+    final handle = 'blob-${_secrets.length}';
+    _secrets[handle] = List.of(secret);
+    return handle.codeUnits;
+  }
+
+  @override
+  Future<List<int>> unwrap(List<int> wrapped, List<int> context) async {
+    final secret = _secrets[String.fromCharCodes(wrapped)];
+    if (secret == null) throw StateError('not this device');
+    return secret;
+  }
 }

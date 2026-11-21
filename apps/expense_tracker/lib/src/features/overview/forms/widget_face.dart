@@ -51,10 +51,6 @@ class WidgetFace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shown = JsonFields(snapshot ?? _empty);
-    final budget = shown.text('budget') ?? '';
-    final detail = shown.text('detail') ?? '';
-    final week = shown.wholes('week');
-    final weekTotal = shown.text('weekTotal') ?? '';
     return _Card(
       radius: 26,
       padding: const EdgeInsets.fromLTRB(
@@ -70,84 +66,97 @@ class WidgetFace extends StatelessWidget {
           GestureDetector(
             onTap: onOpen,
             behavior: HitTestBehavior.opaque,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        shown.text('title') ?? '',
-                        maxLines: 1,
-                        style: _text(11, WidgetColors.muted),
-                      ),
-                    ),
-                    Text(
-                      shown.text('figure') ?? '',
-                      maxLines: 1,
-                      style: _text(24, WidgetColors.ink),
-                    ),
-                  ],
-                ),
-                _BudgetBar(snapshot: shown, height: 8, top: 6),
-                const SizedBox(height: Space.s1),
-                Row(
-                  children: [
-                    Expanded(child: Text(budget, style: _note)),
-                    Flexible(
-                      child: Text(
-                        detail,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _note,
-                      ),
-                    ),
-                  ],
-                ),
-                if (week != null && week.length == 7) ...[
-                  const SizedBox(height: Space.s2),
-                  _Week(
-                    week: week,
-                    total: weekTotal,
-                    today: shown.whole('today') ?? -1,
-                  ),
-                ],
-              ],
-            ),
+            child: _month(shown),
           ),
           const SizedBox(height: Space.s2),
-          SizedBox(
-            height: 44,
-            child: Row(
-              children: [
-                Expanded(
-                  child: _Half(
-                    label: Words.expense,
-                    mark: '−',
-                    color: WidgetColors.expense,
-                    tint: WidgetColors.expenseTint,
-                    onTap: onExpense,
-                  ),
-                ),
-                const SizedBox(width: Space.s2),
-                Expanded(
-                  child: _Half(
-                    label: Words.income,
-                    mark: '＋',
-                    color: WidgetColors.income,
-                    tint: WidgetColors.incomeTint,
-                    onTap: onIncome,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _buttons(),
         ],
       ),
     );
   }
+
+  /// The month's title and figure over its budget bar, the budget line,
+  /// and the week day by day when [shown] has it.
+  Widget _month(JsonFields shown) {
+    final budget = shown.text('budget') ?? '';
+    final detail = shown.text('detail') ?? '';
+    final week = shown.wholes('week');
+    final weekTotal = shown.text('weekTotal') ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Expanded(
+              child: Text(
+                shown.text('title') ?? '',
+                maxLines: 1,
+                style: _text(11, WidgetColors.muted),
+              ),
+            ),
+            Text(
+              shown.text('figure') ?? '',
+              maxLines: 1,
+              style: _text(24, WidgetColors.ink),
+            ),
+          ],
+        ),
+        _BudgetBar(snapshot: shown, height: 8, top: 6),
+        const SizedBox(height: Space.s1),
+        Row(
+          children: [
+            Expanded(child: Text(budget, style: _note)),
+            Flexible(
+              child: Text(
+                detail,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _note,
+              ),
+            ),
+          ],
+        ),
+        if (week != null && week.length == 7) ...[
+          const SizedBox(height: Space.s2),
+          _Week(
+            week: week,
+            total: weekTotal,
+            today: shown.whole('today') ?? -1,
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// 支出 and 收入 side by side at the foot.
+  Widget _buttons() => SizedBox(
+    height: 44,
+    child: Row(
+      children: [
+        Expanded(
+          child: _Half(
+            label: Words.expense,
+            mark: '−',
+            color: WidgetColors.expense,
+            tint: WidgetColors.expenseTint,
+            onTap: onExpense,
+          ),
+        ),
+        const SizedBox(width: Space.s2),
+        Expanded(
+          child: _Half(
+            label: Words.income,
+            mark: '＋',
+            color: WidgetColors.income,
+            tint: WidgetColors.incomeTint,
+            onTap: onIncome,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 /// 本月概況 one row high: what is left of the budget over its bar, and

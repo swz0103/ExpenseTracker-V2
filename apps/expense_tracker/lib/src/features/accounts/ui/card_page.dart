@@ -100,7 +100,7 @@ class CardPage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: Space.s2),
               child: FigureCard(
-                color: AppColors.card,
+                color: Palette.violet,
                 icon: Glyph.calendar,
                 label: '下次結帳',
                 value: _day(card.nextClose),
@@ -186,7 +186,7 @@ class CardPage extends StatelessWidget {
     final used = card.usedShare;
     return CardRow([
       FigureCard(
-        color: AppColors.card,
+        color: Palette.orange,
         icon: Glyph.calendar,
         label: '本期未出帳',
         value: ledger.money(card.spentSince),
@@ -197,13 +197,13 @@ class CardPage extends StatelessWidget {
             value: card.cycleDays == 0 ? 0 : card.daysGone / card.cycleDays,
             minHeight: 6,
             borderRadius: BorderRadius.circular(Radii.extraSmall),
-            color: AppColors.accent,
+            color: markOf(AppColors.accent),
             backgroundColor: AppColors.accentTrack,
           ),
         ),
       ),
       FigureCard(
-        color: AppColors.card,
+        color: Palette.teal,
         icon: Glyph.budget,
         label: '可用額度',
         value: available == null ? '—' : ledger.money(available),
@@ -225,9 +225,9 @@ class CardPage extends StatelessWidget {
                       value: used,
                       minHeight: 6,
                       borderRadius: BorderRadius.circular(Radii.extraSmall),
-                      color: card.nearLimit
-                          ? AppColors.negative
-                          : AppColors.accent,
+                      color: markOf(
+                        card.nearLimit ? AppColors.negative : AppColors.accent,
+                      ),
                       backgroundColor: AppColors.accentTrack,
                     ),
                     const SizedBox(height: Space.s1),
@@ -383,7 +383,7 @@ class CardPage extends StatelessWidget {
                   value: periods / e.installments,
                   minHeight: 5,
                   borderRadius: BorderRadius.circular(Radii.extraSmall),
-                  color: shownColor(Color(category.color)),
+                  color: markOf(shownColor(Color(category.color))),
                   backgroundColor: AppColors.track,
                 ),
                 const SizedBox(height: Space.s1),

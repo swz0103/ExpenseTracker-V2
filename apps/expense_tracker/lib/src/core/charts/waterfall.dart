@@ -97,12 +97,7 @@ class _WaterfallPainter extends CustomPainter {
     if (weeks.isEmpty) return;
     const top = 22.0;
     final bottom = size.height - 22;
-    var level = balance - weeks.fold<int>(0, (sum, w) => sum + w.$2);
-    final levels = <int>[level];
-    for (final (_, change) in weeks) {
-      level += change;
-      levels.add(level);
-    }
+    final levels = _levels();
     final low = min(0, levels.reduce(min));
     final high = max(0, levels.reduce(max));
     final span = max(1, high - low);
@@ -133,8 +128,8 @@ class _WaterfallPainter extends CustomPainter {
         RRect.fromRectAndRadius(rect, const Radius.circular(Radii.extraSmall)),
         Paint()
           ..color = picked || selected < 0
-              ? color
-              : color.withValues(alpha: 0.5),
+              ? markOf(color)
+              : markOf(color).withValues(alpha: 0.5),
       );
       if (i < weeks.length - 1) {
         canvas.drawLine(
@@ -156,31 +151,56 @@ class _WaterfallPainter extends CustomPainter {
         anchor: const Offset(0.5, 1),
       );
       if (picked) {
-        canvas.drawLine(
-          Offset(centre - 10, size.height - 1),
-          Offset(centre + 10, size.height - 1),
-          Paint()
-            ..color = AppColors.ink
-            ..strokeWidth = 2,
-        );
-        paintText(
-          canvas,
-          hidden
-              ? '••••'
-              : currency == 'TWD'
-              ? signed(change)
-              : '${change > 0 ? '+' : ''}${amountIn(change, currency)}',
-          TextStyle(
-            fontSize: TextSize.small,
-            fontWeight: FontWeight.w700,
-            color: color,
-          ),
-          Offset(centre, rect.top - 4),
-          anchor: const Offset(0.5, 1),
-          maxWidth: slot - 4,
-        );
+        _paintPicked(canvas, size, centre, slot, rect, change, color);
       }
     }
+  }
+
+  /// The balance before the first week and after each.
+  List<int> _levels() {
+    var level = balance - weeks.fold<int>(0, (sum, w) => sum + w.$2);
+    final levels = <int>[level];
+    for (final (_, change) in weeks) {
+      level += change;
+      levels.add(level);
+    }
+    return levels;
+  }
+
+  /// The chosen week's mark under its name at [centre], and its [change]
+  /// in [color] over its bar [rect], at most [slot] wide.
+  void _paintPicked(
+    Canvas canvas,
+    Size size,
+    double centre,
+    double slot,
+    Rect rect,
+    int change,
+    Color color,
+  ) {
+    canvas.drawLine(
+      Offset(centre - 10, size.height - 1),
+      Offset(centre + 10, size.height - 1),
+      Paint()
+        ..color = AppColors.ink
+        ..strokeWidth = 2,
+    );
+    paintText(
+      canvas,
+      hidden
+          ? '••••'
+          : currency == 'TWD'
+          ? signed(change)
+          : '${change > 0 ? '+' : ''}${amountIn(change, currency)}',
+      TextStyle(
+        fontSize: TextSize.small,
+        fontWeight: FontWeight.w700,
+        color: color,
+      ),
+      Offset(centre, rect.top - 4),
+      anchor: const Offset(0.5, 1),
+      maxWidth: slot - 4,
+    );
   }
 
   @override

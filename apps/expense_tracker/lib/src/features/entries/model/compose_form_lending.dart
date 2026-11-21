@@ -13,6 +13,7 @@ extension Lending on ComposeForm {
       mode = ComposeMode.expense;
       back = false;
       lent = [(other, entry.amount)];
+      _lentWhole = true;
       _lentIds[other] = entry.id;
       _ids.add(entry.id);
       final common = categoryChoices();
@@ -69,6 +70,7 @@ extension Lending on ComposeForm {
       return;
     }
     parts = null;
+    _lentWhole = false;
     final share = amount ~/ (people.length + 1);
     lent = [for (final p in people) (p, share)];
   }
@@ -77,6 +79,7 @@ extension Lending on ComposeForm {
   void setLent(int index, int value) {
     final now = lent;
     if (now == null) return;
+    _lentWhole = false;
     lent = [
       for (final (i, p) in now.indexed)
         if (i == index) (p.$1, value) else p,
@@ -84,7 +87,10 @@ extension Lending on ComposeForm {
   }
 
   /// Back to a spending all one's own.
-  void stopLending() => lent = null;
+  void stopLending() {
+    lent = null;
+    _lentWhole = false;
+  }
 
   /// Paying for others in a spending.
   bool get lending => mode == ComposeMode.expense && lent != null;

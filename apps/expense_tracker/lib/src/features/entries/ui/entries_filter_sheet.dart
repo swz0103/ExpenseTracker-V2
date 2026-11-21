@@ -307,11 +307,8 @@ class _FilterSheetState extends State<_FilterSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final ledger = widget.ledger;
     final range = _range;
     final span = _span;
-    final account = _account;
-    final category = _category;
     return CenterPanel(
       glyph: Glyph.sliders,
       color: AppColors.accent,
@@ -324,20 +321,7 @@ class _FilterSheetState extends State<_FilterSheet> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              for (final (i, kind) in KindFilter.values.indexed) ...[
-                if (i > 0) const SizedBox(width: Space.s2),
-                Expanded(
-                  child: _KindTile(
-                    kind: kind,
-                    selected: kind == _kind,
-                    onTap: () => setState(() => _kind = kind),
-                  ),
-                ),
-              ],
-            ],
-          ),
+          _kinds(),
           const _Heading(Words.date),
           Segments(
             labels: [
@@ -361,27 +345,7 @@ class _FilterSheetState extends State<_FilterSheet> {
             ],
           ),
           const SizedBox(height: Space.s4),
-          _ChoiceRow(
-            glyph: Glyph.wallet,
-            color: Palette.teal,
-            label: Words.account,
-            value: account == null ? '全部' : ledger.account(account).name,
-            onTap: _pickAccount,
-            onClear: account == null
-                ? null
-                : () => setState(() => _account = null),
-          ),
-          const SizedBox(height: Space.s2),
-          _ChoiceRow(
-            glyph: Glyph.categories,
-            color: Palette.orange,
-            label: Words.category,
-            value: category ?? '全部',
-            onTap: _pickCategory,
-            onClear: category == null
-                ? null
-                : () => setState(() => _category = null),
-          ),
+          ..._choices(),
         ],
       ),
       actions: [
@@ -389,6 +353,51 @@ class _FilterSheetState extends State<_FilterSheet> {
         PanelButton('套用', color: AppColors.accent, onTap: _apply),
       ],
     );
+  }
+
+  /// 全部, 支出, 收入 and the other kinds side by side, the chosen one marked.
+  Widget _kinds() => Row(
+    children: [
+      for (final (i, kind) in KindFilter.values.indexed) ...[
+        if (i > 0) const SizedBox(width: Space.s2),
+        Expanded(
+          child: _KindTile(
+            kind: kind,
+            selected: kind == _kind,
+            onTap: () => setState(() => _kind = kind),
+          ),
+        ),
+      ],
+    ],
+  );
+
+  /// The account and the category chosen, each opening its choices and
+  /// cleared back to 全部.
+  List<Widget> _choices() {
+    final ledger = widget.ledger;
+    final account = _account;
+    final category = _category;
+    return [
+      _ChoiceRow(
+        glyph: Glyph.wallet,
+        color: Palette.teal,
+        label: Words.account,
+        value: account == null ? '全部' : ledger.account(account).name,
+        onTap: _pickAccount,
+        onClear: account == null ? null : () => setState(() => _account = null),
+      ),
+      const SizedBox(height: Space.s2),
+      _ChoiceRow(
+        glyph: Glyph.categories,
+        color: Palette.orange,
+        label: Words.category,
+        value: category ?? '全部',
+        onTap: _pickCategory,
+        onClear: category == null
+            ? null
+            : () => setState(() => _category = null),
+      ),
+    ];
   }
 }
 

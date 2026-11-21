@@ -147,6 +147,11 @@ final class MarketFeed extends SyncJob implements PriceHistory {
     return dir == null ? null : File('${dir.path}/$code.json');
   }
 
+  /// A day kept on the phone as UTC midnight, as fetched closes are: a
+  /// day read back otherwise is local, and neither a buy's day nor the
+  /// span's first day would match it.
+  static DateTime _utcDay(DateTime d) => DateTime.utc(d.year, d.month, d.day);
+
   Map<String, List<(DateTime, double)>> _read(String code) {
     final file = _file(code);
     if (file == null || !file.existsSync()) return {};
@@ -159,7 +164,7 @@ final class MarketFeed extends SyncJob implements PriceHistory {
           key: [
             for (final row in value is List ? value : const [])
               if (row case [final String day, final num close])
-                (DateTime.parse(day), close.toDouble())
+                (_utcDay(DateTime.parse(day)), close.toDouble())
               else
                 throw const FormatException('A close is a day and a price'),
           ],

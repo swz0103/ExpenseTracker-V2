@@ -18,7 +18,7 @@ class _PaidRing extends StatelessWidget {
           value: share,
           strokeWidth: size / 9,
           strokeCap: StrokeCap.round,
-          color: color,
+          color: markOf(color),
           backgroundColor: tintOf(color, 0.3),
         ),
         Center(

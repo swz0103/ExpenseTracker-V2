@@ -154,7 +154,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
       child: LinearProgressIndicator(
         value: progress,
         minHeight: 8,
-        color: AppColors.accent,
+        color: markOf(AppColors.accent),
         backgroundColor: AppColors.surface,
       ),
     ),

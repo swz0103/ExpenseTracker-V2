@@ -13,28 +13,51 @@ Future<String?> askText(
   String title, {
   String initial = '',
 }) async {
-  final controller = TextEditingController(text: initial);
-  final ok = await showDialog<bool>(
+  final text = await showDialog<String>(
     context: context,
-    builder: (context) => AlertDialog(
-      backgroundColor: AppColors.panel,
-      title: Text(title),
-      content: TextField(controller: controller, autofocus: true),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text(Words.cancel),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('確定'),
-        ),
-      ],
-    ),
+    builder: (context) => _TextDialog(title: title, initial: initial),
   );
-  final text = controller.text.trim();
-  controller.dispose();
-  return ok == true && text.isNotEmpty ? text : null;
+  final trimmed = text?.trim() ?? '';
+  return trimmed.isEmpty ? null : trimmed;
+}
+
+/// [askText]'s panel. It owns its text controller, so the controller
+/// lives until the panel has finished closing, not only until it pops.
+class _TextDialog extends StatefulWidget {
+  const _TextDialog({required this.title, required this.initial});
+
+  final String title;
+  final String initial;
+
+  @override
+  State<_TextDialog> createState() => _TextDialogState();
+}
+
+class _TextDialogState extends State<_TextDialog> {
+  late final _controller = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    backgroundColor: AppColors.panel,
+    title: Text(widget.title),
+    content: TextField(controller: _controller, autofocus: true),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text(Words.cancel),
+      ),
+      FilledButton(
+        onPressed: () => Navigator.of(context).pop(_controller.text),
+        child: const Text('確定'),
+      ),
+    ],
+  );
 }
 
 /// Asks to go ahead with something that cannot be taken back easily: a
