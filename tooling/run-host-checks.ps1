@@ -12,7 +12,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $checks = @(
-    @{ Path = 'tooling/architecture_checks'; Dirs = @('test') },
+    @{ Path = 'tooling/architecture_checks'; Dirs = @('bin', 'lib', 'test') },
     @{ Path = 'packages/core'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/domain'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/storage'; Dirs = @('lib', 'bin', 'test'); Workers = @('bin/crash_worker.dart') },
@@ -79,7 +79,9 @@ foreach ($check in $selected) {
             }
         }
         $testArguments = @('test', '--reporter', 'expanded')
-        if ($isFlutter) { $testArguments += '--concurrency=1' }
+        # The app's coverage is read by class and function afterwards
+        # (tooling/architecture_checks/bin/declaration_coverage.dart).
+        if ($isFlutter) { $testArguments += @('--concurrency=1', '--coverage') }
         Invoke-CheckCommand $driver $testArguments
     } finally {
         Pop-Location

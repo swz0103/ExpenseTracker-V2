@@ -123,19 +123,34 @@ Future<void> bench(
   report[key('reports_open_ms')] = opening.elapsedMilliseconds;
   await binding.watchPerformance(scroll, reportKey: key('reports'));
 
-  // One entry saved while the records show.
-  final saving = Stopwatch();
+  // One entry saved while the records show: how long until the screen
+  // shows it (what the person waits for), and how long until the store
+  // has it (in the background), in microseconds, since both can be under
+  // a millisecond. The entry must really be there afterwards, or the
+  // figures mean nothing.
+  final before = ledger.entries.length;
+  final shown = Stopwatch();
+  final kept = Stopwatch();
   Future<void> save() async {
-    saving.start();
+    shown.start();
+    kept.start();
     ledger.entryCommands.add(entries.first.withId(ledger.newId()));
-    await ledger.settled;
-    saving.stop();
     await tester.pumpAndSettle();
+    shown.stop();
+    await ledger.settled;
+    kept.stop();
   }
 
   await tap('紀錄');
   await binding.watchPerformance(save, reportKey: key('save'));
-  report[key('save_ms')] = saving.elapsedMilliseconds;
+  expect(ledger.entries.length, before + 1, reason: 'the entry was not added');
+  expect(
+    (await dataSource.load()).entries.length,
+    before + 1,
+    reason: 'the entry did not reach the store',
+  );
+  report[key('save_shown_us')] = shown.elapsedMicroseconds;
+  report[key('save_kept_us')] = kept.elapsedMicroseconds;
   open.close();
   directory.deleteSync(recursive: true);
 }

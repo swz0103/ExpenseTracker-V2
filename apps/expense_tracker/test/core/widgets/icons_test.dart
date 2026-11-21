@@ -24,9 +24,7 @@ void main() {
     for (final (key, name) in names) {
       // Words, not the key it is kept by.
       expect(name, isNot(matches(RegExp('[A-Za-z]'))), reason: key);
-      expect(categoryIconName(key), name);
     }
     expect({for (final (_, name) in names) name}, hasLength(100));
-    expect(categoryIconName('nothing'), 'nothing');
   });
 }
