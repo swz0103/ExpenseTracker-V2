@@ -27,13 +27,7 @@ src/core/design_system/phone_frame.dart::PhoneFrame
 src/core/design_system/phone_frame.dart::_HomeBar
 src/core/design_system/phone_frame.dart::_StatusBar
 src/core/design_system/phone_frame.dart::_StatusIcons
-src/features/accounts/forms/account_editor_edit_card.dart::_DayKey
 src/features/budgets/ui/budgets.dart::_NoBudget
-src/features/budgets/ui/budgets_month_picker.dart::_AddLimit
-src/features/entries/forms/compose_widgets.dart::OriginalEntryTile
-src/features/entries/forms/trade_cards.dart::SettlementBox
-src/features/entries/forms/trade_cards.dart::SettlementRow
-src/features/entries/forms/trade_cards.dart::TradeOutcomeCard
 src/features/investments/ui/holding_page.dart::_SoldOut
 src/features/overview/forms/widget_face.dart::WidgetFace
 src/features/overview/forms/widget_face.dart::_Half
