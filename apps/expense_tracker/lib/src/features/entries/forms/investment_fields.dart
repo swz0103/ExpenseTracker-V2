@@ -144,9 +144,9 @@ final class InvestmentFields {
                   ? formatMd(settled)
                   : '成本 ${groupDigits(cost)} · 交割 ${formatMd(settled)}',
               value: cost == null ? null : signed(settles - cost),
-              color: cost == null || settles >= cost
+              color: cost == null
                   ? AppColors.positive
-                  : AppColors.negative,
+                  : AppColors.ofMarket(settles - cost),
             ),
           ),
         NoteField(controller: _a.note, viewing: _a.viewing, lines: 2),

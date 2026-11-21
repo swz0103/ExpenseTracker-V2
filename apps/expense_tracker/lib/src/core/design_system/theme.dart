@@ -128,6 +128,11 @@ abstract final class AppColors {
   /// Green for a gain, red for a loss; nothing changed reads as a gain.
   static Shade ofChange(num change) => change < 0 ? negative : positive;
 
+  /// Red for a market's rise or a holding's gain, green for a fall or a
+  /// loss, as Taiwan's exchanges and brokers show them; muted when flat.
+  static Shade ofMarket(num change) =>
+      change > 0 ? rise : (change < 0 ? fall : muted);
+
   /// Red when spending went up (or held), green when it went down.
   static Shade ofSpendingChange(num change) =>
       change >= 0 ? negative : positive;
@@ -158,6 +163,11 @@ abstract final class AppColors {
 
   /// Spending and losses.
   static const negative = Shade(0xFF9F4535, 0xFFF1B2A3);
+
+  /// A market's rise and fall as Taiwan's exchanges and brokers show
+  /// them: red up, green down, the reverse of income and spending.
+  static const rise = negative;
+  static const fall = positive;
   static const transfer = Shade(0xFF356672, 0xFF9FC8D2);
   static const investment = Shade(0xFF4A5D99, 0xFFB4C0E7);
 

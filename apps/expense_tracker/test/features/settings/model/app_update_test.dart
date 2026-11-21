@@ -14,6 +14,7 @@ final class _Port implements UpdatePort {
   Exception? fails;
   var fetched = 0;
   var downloads = 0;
+  Uri? downloadedFrom;
   var outcome = UpdateInstall.started;
   final installed = <(String, String)>[];
 
@@ -21,7 +22,12 @@ final class _Port implements UpdatePort {
   Future<String> fetch(Uri url) async {
     fetched++;
     if (fails case final error?) throw error;
-    expect(url, AppUpdate.infoUrl);
+    expect(
+      url,
+      Uri.parse(
+        'https://github.com/swz0103/ExpenseTracker-V2/releases/latest/download/update.json',
+      ),
+    );
     return info;
   }
 
@@ -32,7 +38,7 @@ final class _Port implements UpdatePort {
     void Function(int received) progress,
   ) async {
     downloads++;
-    expect(url, AppUpdate.apkUrl);
+    downloadedFrom = url;
     into.writeAsStringSync('abc');
     progress(3);
   }
@@ -131,6 +137,9 @@ void main() {
       ..info = '{"build":190,"sha256":"short","size":3}'
       ..fails = null;
     expect(await app.check(), isNull);
+    // Without a version there is no release to download from.
+    port.info = '{"build":190,"sha256":"$_sha","size":3}';
+    expect(await app.check(), isNull);
     port.fails = const SocketException('offline');
     expect(await app.check(), isNull);
     expect(app.problem, '連不上 GitHub，請稍後再試');
@@ -143,6 +152,14 @@ void main() {
       await app.check();
       expect(await app.install(), UpdateInstall.started);
       expect(port.installed, [('ExpenseTracker-190.apk', _sha)]);
+      // From the version's own release, never a moving one.
+      expect(
+        port.downloadedFrom,
+        Uri.parse(
+          'https://github.com/swz0103/ExpenseTracker-V2/releases/download/'
+          'v2.0.0/ExpenseTracker-2.0.0.apk',
+        ),
+      );
       expect(app.progress, isNull);
       // Allowed only now: the same file is handed over again.
       expect(await app.install(), UpdateInstall.started);

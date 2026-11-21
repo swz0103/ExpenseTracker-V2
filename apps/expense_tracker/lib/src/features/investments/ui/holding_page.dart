@@ -56,7 +56,7 @@ class HoldingPage extends StatelessWidget {
             ],
           );
         }
-        final tone = AppColors.ofChange(held.gain);
+        final tone = AppColors.ofMarket(held.gain);
         final quoted = ledger.holdings.hasQuote(code);
         final lots = ledger.holdings.lotsOf(code);
         final average = held.shares == 0 ? 0 : held.cost / held.shares;
@@ -501,7 +501,7 @@ class _SoldOut extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.big,
               fontWeight: FontWeight.w800,
-              color: AppColors.ofChange(made),
+              color: AppColors.ofMarket(made),
             ),
           ),
           Text(
@@ -531,7 +531,7 @@ class _PriceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final up = held.change >= 0;
-    final tone = up ? AppColors.positive : AppColors.negative;
+    final tone = up ? AppColors.rise : AppColors.fall;
     final before = held.value - held.change;
     final perShare = held.shares == 0 ? 0.0 : held.change / held.shares;
     return HeroCard(

@@ -2,9 +2,10 @@ name: Android APK
 
 # Builds the phone app. On main it waits for the push's own validation run
 # (integration-validation.yml) and, once that passed, builds the same commit
-# and puts the APK on the release `android-latest`, where it can be
-# downloaded; validation runs once per push. Pull requests and manual runs
-# only check that it builds, signed with the debug key.
+# and publishes the APK on the version's own release, `v<version>`,
+# marked the latest, where it can be downloaded; validation runs once per
+# push. Pull requests and manual runs only check that it builds, signed
+# with the debug key.
 #
 # Three jobs, each with only what it needs: `build` reads the repository
 # and never sees the signing key (the build runs Gradle plugins and
@@ -283,64 +284,11 @@ jobs:
         with:
           name: apk
           path: ${{ runner.temp }}/apk
-      - name: Publish on the android-latest release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          repo="$GITHUB_REPOSITORY"
-          if ! gh release view android-latest --repo "$repo" > /dev/null 2>&1; then
-            gh release create android-latest --repo "$repo" --prerelease \
-              --target "$SOURCE_SHA" --title '記帳本 Android 最新版' \
-              --notes '從 main 最新一次建置的安裝檔。'
-          fi
-          # Upload the new APK under a name of its own first, so the release
-          # is never left without an APK: only then remove the old one and
-          # give the new one the usual name.
-          staged="ExpenseTracker-$GITHUB_RUN_ID.apk"
-          cp "$RUNNER_TEMP/apk/ExpenseTracker.apk" "$RUNNER_TEMP/$staged"
-          gh release upload android-latest "$RUNNER_TEMP/$staged" --repo "$repo"
-          asset_id() {
-            gh api "repos/$repo/releases/tags/android-latest" \
-              --jq ".assets[] | select(.name == \"$1\") | .id"
-          }
-          new_id="$(asset_id "$staged")"
-          if [ -z "$new_id" ]; then
-            echo "::error::Uploaded $staged but cannot find it on the release."
-            exit 1
-          fi
-          old_id="$(asset_id ExpenseTracker.apk)"
-          if [ -n "$old_id" ]; then
-            gh api -X DELETE "repos/$repo/releases/assets/$old_id"
-          fi
-          gh api -X PATCH "repos/$repo/releases/assets/$new_id" \
-            -f name=ExpenseTracker.apk > /dev/null
-          # Only once the APK is in place: the app never reads of a build
-          # it cannot download.
-          gh release upload android-latest "$RUNNER_TEMP/apk/update.json" \
-            --repo "$repo" --clobber
-          gh release upload android-latest "$RUNNER_TEMP/apk/test-ledger.etbk" \
-            --repo "$repo" --clobber
-          # Leftovers from an earlier publish that stopped half way.
-          gh api "repos/$repo/releases/tags/android-latest" \
-            --jq '.assets[] | select(.name | test("^ExpenseTracker-[0-9]+\\.apk$")) | .id' |
-            while read -r id; do
-              gh api -X DELETE "repos/$repo/releases/assets/$id"
-            done
-          # The tag follows the release: it names the commit this APK was
-          # built from, not the one the release was first made on.
-          gh api -X PATCH "repos/$repo/git/refs/tags/android-latest" \
-            -f sha="$SOURCE_SHA" -F force=true > /dev/null
-          sum=$(sha256sum "$RUNNER_TEMP/apk/ExpenseTracker.apk" | cut -d' ' -f1)
-          gh release edit android-latest --repo "$repo" \
-            --notes "從 main 的 ${SOURCE_SHA:0:7} 建置。下載 ExpenseTracker.apk，在手機上開啟安裝。
-
-          SHA-256：\`$sum\`"
       - name: Tag the version
         # Each version gets a tag of its own, v<version>, on the first build
-        # published as it: the code behind the books and backups that
-        # version writes (docs/adr/0010-data-that-lasts.md). A tag once made
-        # is never moved; later builds of the same version keep it.
+        # published as it: the code behind the APK, and the books and
+        # backups that version writes (docs/adr/0010-data-that-lasts.md).
+        # A tag once made is never moved.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -351,10 +299,62 @@ jobs:
             echo "::error::Not a version to tag: '$version'."
             exit 1
           fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
           if gh api "repos/$repo/git/ref/tags/v$version" > /dev/null 2>&1; then
             echo "v$version is already tagged; it stays where it is."
           else
             gh api -X POST "repos/$repo/git/refs" \
               -f ref="refs/tags/v$version" -f sha="$SOURCE_SHA" > /dev/null
             echo "Tagged v$version at ${SOURCE_SHA:0:7}."
+          fi
+      - name: Publish the version's release
+        # One release a version, v<version>, made once with its APK
+        # (ExpenseTracker-<version>.apk), update.json and the test ledger,
+        # and marked the latest: the app reads update.json from
+        # releases/latest and downloads the APK the version names. Every
+        # PR that ships raises the version (ADR-0011), so a version already
+        # released is a re-run and is left as it is.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          tag="v$VERSION"
+          apk="ExpenseTracker-$VERSION.apk"
+          if gh release view "$tag" --repo "$repo" --json assets \
+              --jq '.assets[].name' 2> /dev/null | grep -qx "$apk"; then
+            echo "$tag is already released with $apk; it stays as it is."
+            exit 0
+          fi
+          cp "$RUNNER_TEMP/apk/ExpenseTracker.apk" "$RUNNER_TEMP/$apk"
+          sum=$(sha256sum "$RUNNER_TEMP/$apk" | cut -d' ' -f1)
+          notes="$(jq -r '.notes | map("- " + .) | join("\n")' "$RUNNER_TEMP/apk/update.json")
+
+          從 ${SOURCE_SHA:0:7} 建置。下載 \`$apk\`，在手機上開啟安裝。
+
+          SHA-256：\`$sum\`"
+          if ! gh release view "$tag" --repo "$repo" > /dev/null 2>&1; then
+            # A draft until every file is on it, so no one, the app
+            # included, finds the release without its APK.
+            gh release create "$tag" --repo "$repo" --verify-tag --draft \
+              --title "記帳本 $VERSION" --notes "$notes"
+          fi
+          gh release upload "$tag" --repo "$repo" --clobber \
+            "$RUNNER_TEMP/$apk" \
+            "$RUNNER_TEMP/apk/update.json" \
+            "$RUNNER_TEMP/apk/test-ledger.etbk"
+          gh release edit "$tag" --repo "$repo" --draft=false --latest \
+            --notes "$notes"
+      - name: Retire android-latest
+        # Builds were once published on a single moving release; versions
+        # have their own now, and the moving one is taken away with its tag.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          if gh release view android-latest --repo "$repo" > /dev/null 2>&1; then
+            gh release delete android-latest --repo "$repo" --cleanup-tag --yes
+          elif gh api "repos/$repo/git/ref/tags/android-latest" > /dev/null 2>&1; then
+            gh api -X DELETE "repos/$repo/git/refs/tags/android-latest"
           fi

@@ -12,6 +12,10 @@ const weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
 /// [d]'s place in the week: 0 for Sunday to 6 for Saturday.
 int weekdayIndex(DateTime d) => d.weekday % DateTime.daysPerWeek;
 
+/// [DateTime.weekday] of the day at [index] in the week, from Sunday:
+/// DateTime numbers Sunday 7, the week here starts on it as 0.
+int weekdayAt(int index) => index == 0 ? DateTime.sunday : index;
+
 /// The Sunday the week of [d] starts on.
 DateTime startOfWeek(DateTime d) => d.subtract(Duration(days: weekdayIndex(d)));
 

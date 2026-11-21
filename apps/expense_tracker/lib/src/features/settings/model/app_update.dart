@@ -14,7 +14,7 @@ import '../../../core/formatting/json_fields.dart';
 const currentBuild = int.fromEnvironment('APP_BUILD');
 
 /// The newest published build, as `update.json` beside the APK on the
-/// release `android-latest` says it (android.yml).
+/// newest version's release, `v<version>`, says it (android.yml).
 final class UpdateInfo {
   const UpdateInfo({
     required this.build,
@@ -38,8 +38,8 @@ final class UpdateInfo {
   /// What this version changes, a few short lines (whats_new.txt).
   final List<String> notes;
 
-  /// 0.9.6, or 第 312 版 for a build without a version name.
-  String get name => version.isEmpty ? '第 $build 版' : version;
+  /// 0.9.6: every published build has a version.
+  String get name => version;
 
   /// Reads `update.json`; null for anything else.
   static UpdateInfo? parse(String text) {
@@ -49,7 +49,11 @@ final class UpdateInfo {
       final build = json['build'];
       final sha256 = json['sha256'];
       final size = json['size'];
+      final version = JsonFields(json).text('version') ?? '';
+      // The APK is found by the version: a build without one has no
+      // release to download from.
       if (build is! int ||
+          !RegExp(r'^[0-9]+\.[0-9]+\.[0-9]+$').hasMatch(version) ||
           size is! int ||
           sha256 is! String ||
           !RegExp(r'^[0-9a-f]{64}$').hasMatch(sha256)) {
@@ -57,7 +61,7 @@ final class UpdateInfo {
       }
       return UpdateInfo(
         build: build,
-        version: JsonFields(json).text('version') ?? '',
+        version: version,
         commit: JsonFields(json).text('commit') ?? '',
         sha256: sha256,
         size: size,
@@ -74,11 +78,8 @@ final class UpdateInfo {
   }
 
   /// 「第 186 版（2.0.0 · 8af812b）」.
-  String get label => [
-    '第 $build 版',
-    if (version.isNotEmpty || commit.isNotEmpty)
-      '（${[version, commit].where((s) => s.isNotEmpty).join(' · ')}）',
-  ].join();
+  String get label =>
+      '第 $build 版（${[version, commit].where((s) => s.isNotEmpty).join(' · ')}）';
 }
 
 /// What became of handing the APK to Android's installer.
@@ -130,10 +131,16 @@ final class AppUpdate extends ChangeNotifier {
   final int _build;
   final DateTime Function() _clock;
 
-  static const _release =
-      'https://github.com/swz0103/ExpenseTracker-V2/releases/download/android-latest';
-  static final infoUrl = Uri.parse('$_release/update.json');
-  static final apkUrl = Uri.parse('$_release/ExpenseTracker.apk');
+  static const _releases =
+      'https://github.com/swz0103/ExpenseTracker-V2/releases';
+
+  /// `update.json` on the release GitHub marks the latest: each version
+  /// has a release of its own, `v<version>`.
+  static final infoUrl = Uri.parse('$_releases/latest/download/update.json');
+
+  /// The APK of [version], on that version's release.
+  static Uri apkUrl(String version) =>
+      Uri.parse('$_releases/download/v$version/ExpenseTracker-$version.apk');
 
   /// Whether this build can be updated: one built by hand cannot.
   bool get possible => _build > 0;
@@ -241,7 +248,7 @@ final class AppUpdate extends ChangeNotifier {
     try {
       await folder.create(recursive: true);
       if (!apk.existsSync() || apk.lengthSync() != info.size) {
-        await _port.download(apkUrl, apk, (received) {
+        await _port.download(apkUrl(info.version), apk, (received) {
           _progress = info.size == 0
               ? 0
               : (received / info.size).clamp(0, 1).toDouble();

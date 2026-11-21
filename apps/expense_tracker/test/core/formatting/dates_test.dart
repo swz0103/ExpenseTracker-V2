@@ -46,6 +46,7 @@ void main() {
     for (var i = 0; i < 7; i++) {
       final day = sunday.add(Duration(days: i));
       expect(weekdayIndex(day), i);
+      expect(weekdayAt(i), day.weekday);
       expect(startOfWeek(day), sunday);
       expect(formatE(day), '週${weekdayNames[i]}');
     }
