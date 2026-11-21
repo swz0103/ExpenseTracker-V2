@@ -202,11 +202,12 @@ String _two(int n) => n.toString().padLeft(2, '0');
 
 /// The rows of [text] read as CSV, a leading byte order mark and blank
 /// lines left out. A quote left open runs to the end, as a spreadsheet
-/// reads it.
+/// reads it; words after a closing quote throw [CsvFormatException].
 List<List<String>> parseCsv(String text) {
   try {
     return readCsv(text);
-  } on FormatException {
+  } on CsvFormatException catch (error) {
+    if (!error.unclosed) rethrow;
     // An unclosed quote is closed at the end of the text and read again.
     return readCsv('$text"');
   }
@@ -303,7 +304,17 @@ const _shades = [
 /// an entry already in the book is left out, and so is one the book
 /// would refuse, such as a sale of more shares than are held then.
 Import importCsv(ImportBook book, String text, {required String fallback}) {
-  final rows = parseCsv(text);
+  final List<List<String>> rows;
+  try {
+    rows = parseCsv(text);
+  } on CsvFormatException catch (error) {
+    // Said to the person: the file is left as it is rather than guessed at.
+    return Import(
+      const [],
+      1,
+      problems: ['第 ${error.line} 行的引號看不懂，整個檔案沒有匯入'],
+    );
+  }
   if (rows.isEmpty) return const Import([], 0);
   final head = [for (final h in rows.first) h.trim()];
   if (!head.contains('日期') || !head.contains('金額')) {

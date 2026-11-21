@@ -25,6 +25,17 @@ void main() {
     expect(readDay('2026-02-30'), isNull);
   });
 
+  test('a file with words after a closing quote is left out, naming the '
+      'line', () {
+    final result = importCsv(
+      importBookOf(demoLedger()),
+      '日期,金額\n2026-10-01,120\n2026-10-02,"12"3\n',
+      fallback: 'cash',
+    );
+    expect(result.entries, isEmpty);
+    expect(result.problems, ['第 3 行的引號看不懂，整個檔案沒有匯入']);
+  });
+
   test('an exported month imports as nothing new', () {
     final ledger = demoLedger();
     final month = ledger.entries.inMonth(2026, 9);
