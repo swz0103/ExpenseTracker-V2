@@ -14,13 +14,15 @@ import '../features/entries/ui/trash_section.dart';
 import '../core/design_system/settings_colors.dart';
 import '../features/lock/ui/security_section.dart';
 import 'about_section.dart';
+import 'settings_search.dart';
 import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
 import '../core/time/app_clock.dart';
 
-/// 設定與資料: the main card says when the ledger was last backed up and
-/// which ways are on (gold after three days without one), then six cards
-/// two to a row, each saying how its page stands. With [part], one of
+/// 設定與資料: a search box for any setting by name, the main card saying
+/// when the ledger was last backed up and which ways are on (gold after
+/// three days without one), then six cards two to a row, each saying how
+/// its page stands. With [part], one of
 /// those pages.
 class SettingsPage extends StatelessWidget {
   const SettingsPage({
@@ -55,7 +57,9 @@ class SettingsPage extends StatelessWidget {
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s6),
           header: CenterHeader(part?.label ?? '設定與資料', onBack: nav.back),
-          children: part == null ? _index(context) : _page(context, part),
+          children: part == null
+              ? [SettingsSearch(onOpen: _open, child: _index(context))]
+              : _page(context, part),
         );
       },
     );

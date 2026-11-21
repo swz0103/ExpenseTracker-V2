@@ -309,11 +309,7 @@ Import importCsv(ImportBook book, String text, {required String fallback}) {
     rows = parseCsv(text);
   } on CsvFormatException catch (error) {
     // Said to the person: the file is left as it is rather than guessed at.
-    return Import(
-      const [],
-      1,
-      problems: ['第 ${error.line} 行的引號看不懂，整個檔案沒有匯入'],
-    );
+    return Import(const [], 1, problems: ['第 ${error.line} 行的引號看不懂，整個檔案沒有匯入']);
   }
   if (rows.isEmpty) return const Import([], 0);
   final head = [for (final h in rows.first) h.trim()];

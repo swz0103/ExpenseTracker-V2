@@ -109,9 +109,11 @@ class SettingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final on = value;
-    // Switched off, the card is grey: on and off read at a glance, not
-    // only by the small tick.
-    final tone = on == false ? AppColors.muted : color;
+    // Switched off, the card fades to a light grey: on and off read at a
+    // glance, not only by the small tick.
+    final off = on == false;
+    final tone = off ? AppColors.faint : color;
+    final words = off ? AppColors.muted : deepOf(color);
     return ColorCard(
       color: tone,
       onTap: onTap,
@@ -132,7 +134,7 @@ class SettingCard extends StatelessWidget {
               if (on != null)
                 TickSwitch(
                   value: on,
-                  color: color,
+                  color: tone,
                   label: title,
                   onChanged: onChanged,
                 ),
@@ -144,13 +146,13 @@ class SettingCard extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.title,
               fontWeight: FontWeight.w700,
-              color: deepOf(tone),
+              color: words,
             ),
           ),
           const SizedBox(height: Space.half),
           OneLine(
             detail,
-            style: TextStyle(fontSize: TextSize.small, color: deepOf(tone)),
+            style: TextStyle(fontSize: TextSize.small, color: words),
           ),
         ],
       ),

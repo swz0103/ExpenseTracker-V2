@@ -214,6 +214,7 @@ class _ActionRow extends StatelessWidget {
         const SizedBox(width: Space.s3),
         Expanded(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
