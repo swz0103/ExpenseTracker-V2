@@ -10,6 +10,7 @@ import '../../../core/design_system/spacing.dart';
 /// The search box and 篩選 beside it, at the top of the entries.
 class EntriesSearchRow extends StatelessWidget {
   const EntriesSearchRow({
+    super.key,
     required this.text,
     required this.focus,
     required this.decoration,
