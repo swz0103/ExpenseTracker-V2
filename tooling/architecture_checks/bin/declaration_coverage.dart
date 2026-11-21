@@ -44,18 +44,21 @@ void main(List<String> args) {
       final first = unit.lineInfo.getLocation(d.offset).lineNumber;
       final last = unit.lineInfo.getLocation(d.end).lineNumber;
       var run = 0, all = 0;
+      // Only what has code to run, the bodies of its functions: constants
+      // and abstract members have none, which is also why the lcov leaves
+      // such a file out. The declaration's own lines, such as a const
+      // constructor, count as run when the file is merely loaded, so they
+      // do not count.
+      final bodies = _Bodies();
+      d.accept(bodies);
       if (lines == null) {
-        // Only what has code to run: constants and abstract members have
-        // none, which is also why the lcov leaves such a file out.
-        final bodies = _Bodies();
-        d.accept(bodies);
         if (bodies.lines > 0) {
           rows.add(('${path.substring(4)}::$name', 0, bodies.lines));
         }
         continue;
       }
       for (final MapEntry(key: line, value: count) in lines.entries) {
-        if (line < first || line > last) continue;
+        if (line < first || line > last || !bodies.holds(line)) continue;
         all++;
         if (count > 0) run++;
       }
@@ -127,6 +130,12 @@ String? _name(CompilationUnitMember d) => switch (d) {
 final class _Bodies extends RecursiveAstVisitor<void> {
   var lines = 0;
 
+  /// The first and last line of each body.
+  final _ranges = <(int, int)>[];
+
+  /// Whether [line] is inside one of the bodies.
+  bool holds(int line) => _ranges.any((r) => line >= r.$1 && line <= r.$2);
+
   @override
   void visitBlockFunctionBody(BlockFunctionBody node) => _count(node);
 
@@ -135,9 +144,9 @@ final class _Bodies extends RecursiveAstVisitor<void> {
 
   void _count(FunctionBody node) {
     final info = (node.root as CompilationUnit).lineInfo;
-    lines +=
-        info.getLocation(node.end).lineNumber -
-        info.getLocation(node.offset).lineNumber +
-        1;
+    final first = info.getLocation(node.offset).lineNumber;
+    final last = info.getLocation(node.end).lineNumber;
+    lines += last - first + 1;
+    _ranges.add((first, last));
   }
 }

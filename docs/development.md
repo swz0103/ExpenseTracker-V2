@@ -65,10 +65,12 @@
 
 ## 發版
 
-1. 改 `apps/expense_tracker/pubspec.yaml` 的版號（規則見 [conventions.md](conventions.md#五提交與發版)）。
+1. 要發布時才改 `apps/expense_tracker/pubspec.yaml` 的版號（規則見 [ADR-0011](adr/0011-version-numbers.md)）；沒改版號的 PR 合併後不發布，等下一個升版的 PR 一起發。
 2. 改 `apps/expense_tracker/whats_new.txt`：三行以內、給使用者看，會出現在 App 的更新浮窗。
-3. 在 [CHANGELOG.md](CHANGELOG.md) 加一節、在 [acceptance.md](acceptance.md) 加驗收項目。
-4. PR 合併到 main：驗證通過後自動建置、簽章、發布；手機在 App 內就能更新。
+3. 在 [CHANGELOG.md](CHANGELOG.md) 加一節；手機上值得留意的新行為寫進 [acceptance.md](acceptance.md)。
+4. PR 合併到 main：驗證通過後自動建置、簽章；版號是新的才發布，GitHub 上只留最新一版，手機在 App 內就能更新。
+
+手機接上電腦時（USB 偵錯，Claude 桌面版的遠端控制分享專案資料夾），可以在真機上跑模擬器的同一套 Android 測試：`cd apps/expense_tracker/android && ./gradlew :app:connectedDebugAndroidTest`。
 
 版本號（versionCode）用工作流程的執行次數，新版一定蓋得過舊版；`APP_VERSION`、`APP_BUILD`、`APP_COMMIT` 會顯示在「設定 › 關於」。
 

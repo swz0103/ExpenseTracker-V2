@@ -1,14 +1,19 @@
-# Classes and functions of the app that no test runs, as of 2026-11-20.
+# Classes and functions of the app whose code no test runs, counted on
+# the bodies of their functions (a const constructor runs when the file
+# is loaded, which proves nothing), as of 2026-11-21.
 # This list only shrinks: bin/declaration_coverage.dart fails when one not
 # listed here is never run, and when one listed here has been tested since.
-# docs/roadmap.md, item 30.
+# docs/roadmap.md.
 main.dart::_clearLeftovers
 main.dart::main
 main_preview.dart::main
+src/app/android/calendar_adapter.dart::AndroidCalendar
+src/app/android/folder_adapter.dart::AndroidFolder
 src/app/android/keystore_adapter.dart::androidDeviceUnlock
+src/app/android/notification_adapter.dart::AndroidNotifications
 src/app/android/receipt_photo_adapter.dart::AndroidReceipts
-src/app/android/receipt_photo_adapter.dart::_SealedImage
 src/app/android/scanner_adapter.dart::androidScanQr
+src/app/android/update_adapter.dart::AndroidUpdatePort
 src/app/bootstrap.dart::VaultRoot
 src/app/bootstrap.dart::_OpenedLedgerState
 src/app/bootstrap.dart::applicationDirectory
@@ -27,6 +32,7 @@ src/features/budgets/ui/budgets.dart::_NoBudget
 src/features/budgets/ui/budgets_month_picker.dart::_AddLimit
 src/features/entries/forms/compose_widgets.dart::OriginalEntryTile
 src/features/entries/forms/trade_cards.dart::SettlementBox
+src/features/entries/forms/trade_cards.dart::SettlementRow
 src/features/entries/forms/trade_cards.dart::TradeOutcomeCard
 src/features/investments/ui/holding_page.dart::_SoldOut
 src/features/overview/forms/widget_face.dart::WidgetFace
