@@ -9,15 +9,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:vault/backup_security.dart';
+import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
 import '../test/support/places.dart';
 
 /// Times the app on an emulator in profile mode: writing and loading
 /// three years of entries in the encrypted ledger, then switching tabs and
-/// months, scrolling the records, opening the reports and saving one. Run
-/// with 3,600 entries (the figures kept since round 22) and with 10,000
-/// (keys starting `10k_`). The emulator workflow prints the timings.
+/// months, scrolling the records, opening the reports and saving one; the
+/// memory the app holds then, and how long a backup of it takes. Run with
+/// 3,600 entries (the figures kept since round 22), 10,000 (keys starting
+/// `10k_`) and 100,000 (`100k_`). The emulator workflow prints them.
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   binding.reportData = {};
@@ -28,6 +30,11 @@ void main() {
 
   testWidgets('ten thousand entries', (tester) async {
     await bench(binding, tester, count: 10000, key: (name) => '10k_$name');
+  });
+
+  // Thirty years of a busy book: where memory and the backup are tested.
+  testWidgets('a hundred thousand entries', (tester) async {
+    await bench(binding, tester, count: 100000, key: (name) => '100k_$name');
   });
 }
 
@@ -77,6 +84,24 @@ Future<void> bench(
   report[key('entries')] = count;
   report[key('write_ms')] = writing.elapsedMilliseconds;
   report[key('load_ms')] = loading.elapsedMilliseconds;
+  // The memory the app holds with the book loaded, and the most it held
+  // so far, in MiB.
+  report[key('memory_mb')] = ProcessInfo.currentRss >> 20;
+  report[key('memory_peak_mb')] = ProcessInfo.maxRss >> 20;
+  // A backup of the whole book, as 設定 › 備份 makes one.
+  final backingUp = Stopwatch()..start();
+  await LedgerBackup.write(
+    store: open.store,
+    keys: open.keys,
+    file: File('${directory.path}/bench.etbk'),
+    backupId: 'bench',
+    createdAt: DateTime.utc(2026, 10, 4),
+  );
+  backingUp.stop();
+  report[key('backup_ms')] = backingUp.elapsedMilliseconds;
+  report[key('backup_kb')] =
+      File('${directory.path}/bench.etbk').lengthSync() >> 10;
+  report[key('memory_peak_after_backup_mb')] = ProcessInfo.maxRss >> 20;
 
   await tester.pumpWidget(ExpenseApp(home: AppShell(ledger: ledger)));
   await tester.pumpAndSettle();
