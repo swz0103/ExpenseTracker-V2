@@ -32,6 +32,12 @@ abstract interface class EntryReader {
   /// How much of the entry with [id] has been refunded by entries that
   /// refund it.
   int refundedTotal(String id);
+
+  /// A number that changes whenever an entry paid from or into [account]
+  /// is added, taken away or changed, and whenever the book changes in a
+  /// way not followed entry by entry: what was worked out for [account]
+  /// alone still holds while it stays the same.
+  int versionOf(String account);
 }
 
 /// Every entry of the book, in the order written, with what is asked of
@@ -69,7 +75,24 @@ final class EntryRepository implements EntryReader {
   DateTime? _first;
   var _firstKnown = false;
 
+  /// Bumped by a change not followed entry by entry: every account's
+  /// [versionOf] changes with it.
+  var _generation = 0;
+
+  /// Changes to the entries of each account, followed one by one.
+  final _changes = <String, int>{};
+
+  void _touch(Entry e) {
+    _changes[e.account] = (_changes[e.account] ?? 0) + 1;
+    final to = e.to;
+    if (to != null) _changes[to] = (_changes[to] ?? 0) + 1;
+  }
+
+  @override
+  int versionOf(String account) => _generation << 32 | (_changes[account] ?? 0);
+
   void _discard() {
+    _generation++;
     _months = null;
     _swaps.clear();
     _stands.clear();
@@ -99,6 +122,7 @@ final class EntryRepository implements EntryReader {
 
   /// Notes that [e], now last in the list, has been added.
   void _noteAdded(Entry e) {
+    _touch(e);
     final months = _months;
     if (months != null) {
       final month = _monthOf(e);
@@ -135,6 +159,7 @@ final class EntryRepository implements EntryReader {
 
   /// Notes that [e] has been taken out of the list, from wherever it was.
   void _noteRemoved(Entry e) {
+    _touch(e);
     final months = _months;
     if (months != null) {
       final month = _monthOf(e);
@@ -191,6 +216,8 @@ final class EntryRepository implements EntryReader {
   void operator []=(int index, Entry entry) {
     final old = _items[index];
     _items[index] = entry;
+    _touch(old);
+    _touch(entry);
     if (old.id == entry.id && old.date == entry.date) {
       // A new version of the same entry, on the same day: the same place
       // in its month.

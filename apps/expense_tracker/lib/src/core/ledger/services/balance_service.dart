@@ -85,10 +85,29 @@ final class BalanceService {
     return by;
   });
 
-  /// [_Running] for [id], built once per change and only for an account
-  /// asked about, from its own entries already in date order.
+  /// Each account's [_Running] as last built, with the account and the
+  /// version of its entries it was built from ([EntryReader.versionOf]).
+  /// Any change to the entries throws away the cached answers of every
+  /// account; this keeps those of the accounts the change did not touch,
+  /// so a save costs the accounts it moves, not every account's entries
+  /// again (with 100,000 entries, every account was rebuilt per save).
+  final _built = <String, (int, Account, _Running)>{};
+
+  /// [_Running] for [id], built once per change of its own entries and
+  /// only for an account asked about, from them already in date order.
   _Running _runningOf(String id) {
     final own = _accounts.resolve(id);
+    final version = _entries.versionOf(id);
+    if (_built[id] case (final was, final from, final kept)
+        when was == version && identical(from, own)) {
+      return kept;
+    }
+    final running = _buildRunning(id, own);
+    _built[id] = (version, own, running);
+    return running;
+  }
+
+  _Running _buildRunning(String id, Account own) {
     final days = <int>[];
     final changes = <int>[];
     // Instalments, each billed when its statement closes: few, and out of

@@ -37,6 +37,32 @@ void main() {
     expect(book.balances.balance('bank'), 600);
   });
 
+  test('a change to one account\'s entries leaves the others\' balances '
+      'as they were, and moves its own', () {
+    final book = Book(
+      entries: [
+        entry('a', amount: 300),
+        entry('t', type: EntryType.transfer, amount: 200, to: 'cash'),
+      ],
+    );
+    expect(book.balances.balance('bank'), 1000 - 300 - 200);
+    expect(book.balances.balance('cash'), 50 + 200);
+    book.entries.add(entry('b', amount: 100));
+    book.cache.forget(const {Topic.entries});
+    expect(book.balances.balance('bank'), 1000 - 300 - 200 - 100);
+    expect(book.balances.balance('cash'), 250, reason: 'kept, and still so');
+    // The transfer made smaller: both of its ends move.
+    book.entries[1] = entry(
+      't',
+      type: EntryType.transfer,
+      amount: 50,
+      to: 'cash',
+    );
+    book.cache.forget(const {Topic.entries});
+    expect(book.balances.balance('cash'), 50 + 50);
+    expect(book.balances.balance('bank'), 1000 - 300 - 50 - 100);
+  });
+
   test('a foreign account without a rate is left out of the worth', () {
     final book = Book(
       accounts: const [

@@ -454,4 +454,52 @@ void main() {
       }
     });
   }
+
+  test('an account\'s version moves with its own entries only', () {
+    Entry at(String id, String account, {String? to}) => Entry(
+      id: id,
+      date: _day(10, 1),
+      type: to == null ? EntryType.expense : EntryType.transfer,
+      amount: 100,
+      account: account,
+      to: to,
+    );
+    final entries = EntryRepository([at('x', 'a')]);
+    final a = entries.versionOf('a');
+    final b = entries.versionOf('b');
+    final c = entries.versionOf('c');
+
+    entries.add(at('y', 'a'));
+    expect(entries.versionOf('a'), isNot(a));
+    expect(entries.versionOf('b'), b, reason: 'not touched');
+
+    // A transfer moves both ends.
+    final a2 = entries.versionOf('a');
+    entries.add(at('t', 'b', to: 'c'));
+    expect(entries.versionOf('b'), isNot(b));
+    expect(entries.versionOf('c'), isNot(c));
+    expect(entries.versionOf('a'), a2);
+
+    // Moved from one account to another: both.
+    final b2 = entries.versionOf('b');
+    final a3 = entries.versionOf('a');
+    entries[0] = at('x', 'b');
+    expect(entries.versionOf('a'), isNot(a3));
+    expect(entries.versionOf('b'), isNot(b2));
+
+    // Taken away.
+    final a4 = entries.versionOf('a');
+    entries.removeLast();
+    entries.removeAt(entries.length - 1);
+    expect(entries.versionOf('a'), isNot(a4));
+
+    // A change not followed entry by entry moves every account.
+    final before = {
+      for (final k in ['a', 'b', 'c', 'd']) k: entries.versionOf(k),
+    };
+    entries.removeWhere((e) => false);
+    for (final MapEntry(:key, :value) in before.entries) {
+      expect(entries.versionOf(key), isNot(value), reason: key);
+    }
+  });
 }
