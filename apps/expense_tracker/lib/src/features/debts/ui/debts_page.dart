@@ -69,14 +69,9 @@ class DebtsPage extends StatelessWidget {
       builder: (context, _) {
         final people = peopleOwing(ledger);
         final loans = openLoans(ledger);
-        final lent = people.fold<int>(
-          0,
-          (sum, a) => sum + owedFrom(ledger.balanceService, a),
-        );
-        final borrowed = loans.fold<int>(
-          0,
-          (sum, a) => sum + owedOn(ledger.balanceService, a),
-        );
+        final balances = ledger.balanceService;
+        final lent = people.fold(0, (sum, a) => sum + owedFrom(balances, a));
+        final borrowed = loans.fold(0, (sum, a) => sum + owedOn(balances, a));
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(
@@ -94,9 +89,7 @@ class DebtsPage extends StatelessWidget {
             _BothWays(
               ledger: ledger,
               lent: lent,
-              people: people
-                  .where((p) => owedFrom(ledger.balanceService, p) > 0)
-                  .length,
+              people: people.where((p) => owedFrom(balances, p) > 0).length,
               borrowed: borrowed,
               loans: loans.length,
             ),

@@ -71,7 +71,6 @@ const longerFunctions = <String, int>{
   'src/features/budgets/ui/budgets_pace.dart::_Limit.build': 100,
   'src/features/overview/ui/sections/assets_section.dart::_AssetsSectionState._assets':
       98,
-  'src/core/design_system/time_panels.dart::_RangePanelState.build': 97,
   'src/features/debts/ui/person_page.dart::LoanPage.build': 97,
   'src/features/reports/ui/report_habits.dart::merchantsSection': 95,
   'src/features/debts/ui/person_page.dart::PersonPage.build': 95,
@@ -101,8 +100,6 @@ const longerFunctions = <String, int>{
   'src/features/overview/model/home_widget.dart::widgetSnapshot': 82,
   'src/features/reminders/ui/reminders_section.dart::_RemindersSectionState._calendarDetails':
       82,
-  'src/features/recurring/forms/recurring_repeat.dart::_OtherSheetState.build':
-      81,
   'src/features/debts/ui/debts_page.dart::_DebtHero.build': 81,
 };
 const largerLibraries = <String, int>{};
