@@ -61,7 +61,11 @@ void main() {
       ],
       dataSource: _Nowhere(),
     );
-    final rows = yearlyCosts(ledger);
+    final rows = yearlyCosts(
+      ledger.recurring,
+      ledger.recurringService,
+      today: ledger.today,
+    );
     expect(
       [for (final (r, yearly) in rows) (r.name, yearly)],
       [('保險', 12000), ('Netflix', 390 * 12)],

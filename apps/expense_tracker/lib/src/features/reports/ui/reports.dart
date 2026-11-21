@@ -46,3 +46,12 @@ class ReportsPage extends StatefulWidget {
 /// The block that gathers the smallest categories, when no real category
 /// is called 其他.
 Category _restBlock() => Category('其他', 'other', AppColors.faint.toARGB32());
+
+/// The report of [period] from the parts of [ledger] it reads.
+Report _reportOf(Ledger ledger, ReportPeriod period) => Report.of(
+  period,
+  entries: ledger.entries,
+  reports: ledger.reportService,
+  balances: ledger.balanceService,
+  today: ledger.today,
+);

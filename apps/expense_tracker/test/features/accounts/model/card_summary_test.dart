@@ -49,7 +49,14 @@ CardSummary _summary({
     budgets: const [],
     recurring: const [],
   );
-  return CardSummary.of(ledger, ledger.account('card'));
+  return CardSummary.of(
+    ledger.account('card'),
+    statements: ledger.statementService,
+    balances: ledger.balanceService,
+    entries: ledger.entries,
+    accounts: ledger.accounts,
+    today: ledger.today,
+  );
 }
 
 void main() {

@@ -11,6 +11,7 @@ import '../../../core/widgets/calculator.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../model/budget_month.dart';
+import '../ui/budgets.dart' show budgetMonthOf;
 
 /// Opens the form of [budget] as a bottom sheet; saving or removing it
 /// writes to [ledger] directly.
@@ -61,7 +62,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
     final shade = category?.color;
     final color = shade == null ? AppColors.accent : Color(shade);
     final today = ledger.today;
-    final used = BudgetMonth.of(ledger, (
+    final used = budgetMonthOf(ledger, (
       today.year,
       today.month,
     )).spentOn(widget.budget);

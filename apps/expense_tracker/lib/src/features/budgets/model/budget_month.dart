@@ -35,57 +35,64 @@ final class BudgetLine {
 /// What 預算管理 shows for one month: all spending against the whole
 /// budget, and each category's and tag's budget, the most used first.
 final class BudgetMonth {
-  BudgetMonth._(this._ledger, this.month);
+  BudgetMonth.of(
+    this.month, {
+    required this._reports,
+    required this._budgets,
+    required this._service,
+  });
 
-  factory BudgetMonth.of(Ledger ledger, YearMonth month) =>
-      BudgetMonth._(ledger, month);
-
-  final Ledger _ledger;
+  final ReportService _reports;
+  final BudgetReader _budgets;
+  final BudgetService _service;
   final YearMonth month;
 
   int get _year => month.$1;
   int get _month => month.$2;
 
   /// All spending of the month.
-  late final int spent = _ledger.reportService.expense(_year, _month);
+  late final int spent = _reports.expense(_year, _month);
 
   /// The budget for all spending; a limit of 0 when none is set.
-  Budget get whole => _ledger.budgets.forCategory(allSpending);
+  Budget get whole => _budgets.forCategory(allSpending);
 
   /// What the whole budget allows this month.
-  late final int total = _ledger.budgetService.allowance(whole, _year, _month);
+  late final int total = _service.allowance(whole, _year, _month);
 
   /// What counts against [budget] this month.
   int spentOn(Budget budget) =>
       BudgetScope.of(budget.category) == BudgetScope.all
       ? spent
-      : _ledger.budgetService.spentAgainst(budget, _year, _month);
+      : _service.spentAgainst(budget, _year, _month);
 
   /// Each category's and tag's budget with a limit, overspent first,
   /// then by the share used.
   late final List<BudgetLine> lines = [
-    for (final b in _ledger.budgets.all)
+    for (final b in _budgets.all)
       if (b.category != allSpending && b.limit > 0)
         BudgetLine(
           b,
-          _ledger.budgetService.spentAgainst(b, _year, _month),
-          _ledger.budgetService.allowance(b, _year, _month),
+          _service.spentAgainst(b, _year, _month),
+          _service.allowance(b, _year, _month),
         ),
   ]..sort((a, b) => b.share.compareTo(a.share));
 }
 
 /// The months 預算管理 can show: from the book's first to this one.
 final class BudgetMonths {
-  BudgetMonths(this._ledger);
+  BudgetMonths(this._reports, {required this._today});
 
-  final Ledger _ledger;
+  final ReportService _reports;
+
+  /// The ledger's clock: a page kept open past midnight moves on with it.
+  final DateTime Function() _today;
 
   /// This month.
-  YearMonth get now => (_ledger.today.year, _ledger.today.month);
+  YearMonth get now => (_today().year, _today().month);
 
   /// The month of the book's first entry.
   YearMonth get first {
-    final day = _ledger.reportService.firstDay;
+    final day = _reports.firstDay;
     return (day.year, day.month);
   }
 

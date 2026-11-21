@@ -77,11 +77,11 @@ void main() {
     ]);
     // Without a close the shares are worth their cost: the dividends are
     // the year's return.
-    final rate = returnOf(ledger, code: '0056')!;
+    final rate = returnsOf(ledger).rate(code: '0056')!;
     expect(rate, greaterThan(0.05));
     expect(rate, lessThan(0.06));
-    expect(returnOf(ledger), closeTo(rate, 1e-9));
-    expect(payingMonths(ledger, '0056'), [1, 7]);
+    expect(returnsOf(ledger).rate(), closeTo(rate, 1e-9));
+    expect(returnsOf(ledger).payingMonths('0056'), [1, 7]);
   });
 
   test("next year's dividends follow this year's, per share held now", () {
@@ -92,11 +92,24 @@ void main() {
       trade('b2', DateTime.utc(2026, 3, 1), EntryType.buy, 36000, shares: 1000),
       trade('d2', DateTime.utc(2026, 7, 15), EntryType.dividend, 2000),
     ]);
-    expect(sharesBefore(ledger, '0056', DateTime.utc(2026, 1, 15)), 1000);
-    final guesses = expectedDividends(ledger);
+    expect(
+      returnsOf(ledger).sharesBefore('0056', DateTime.utc(2026, 1, 15)),
+      1000,
+    );
+    final guesses = returnsOf(ledger).expectedDividends();
     expect(
       [for (final g in guesses) (g.month, g.amount)],
       [(DateTime.utc(2027), 2000), (DateTime.utc(2027, 7), 2000)],
     );
+    expect(returnsOf(ledger).nextDividend('0056')?.month, DateTime.utc(2027));
+    expect(returnsOf(ledger).nextDividend('2330'), isNull);
   });
 }
+
+/// [ledger]'s returns, from the parts the model reads.
+Returns returnsOf(Ledger ledger) => Returns(
+  entries: ledger.entries,
+  holdings: ledger.holdings,
+  trades: ledger.entryQueryService,
+  today: ledger.today,
+);

@@ -43,7 +43,10 @@ class _BudgetsPageState extends State<BudgetsPage> {
 
   Ledger get ledger => widget.ledger;
 
-  late final _months = BudgetMonths(ledger);
+  late final _months = BudgetMonths(
+    ledger.reportService,
+    today: () => ledger.today,
+  );
 
   YearMonth get _now => _months.now;
 
@@ -89,7 +92,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
       }),
       builder: (context, _) {
         final (year, month) = _month;
-        final shown = BudgetMonth.of(ledger, _month);
+        final shown = budgetMonthOf(ledger, _month);
         final spent = shown.spent;
         final whole = shown.whole;
         final total = shown.total;
@@ -502,3 +505,12 @@ class _NoBudget extends StatelessWidget {
     );
   }
 }
+
+/// [month] of [ledger]'s budgets as the screens show it, from the parts
+/// the model reads (docs/adr/0013-models-take-what-they-use.md).
+BudgetMonth budgetMonthOf(Ledger ledger, YearMonth month) => BudgetMonth.of(
+  month,
+  reports: ledger.reportService,
+  budgets: ledger.budgets,
+  service: ledger.budgetService,
+);

@@ -10,7 +10,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/navigation/nav.dart';
 import '../model/returns.dart';
-import 'investments.dart' show yearlyRate;
+import 'investments.dart' show returnsOf, yearlyRate;
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/formatting/dates.dart';
 import '../../../core/design_system/shape.dart';
@@ -79,10 +79,9 @@ class HoldingPage extends StatelessWidget {
             const SizedBox(height: Space.s3),
             Builder(
               builder: (context) {
-                final rate = returnOf(ledger, code: code);
-                final next = expectedDividends(ledger)
-                    .where((g) => g.code == code)
-                    .firstOrNull;
+                final returns = returnsOf(ledger);
+                final rate = returns.rate(code: code);
+                final next = returns.nextDividend(code);
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -113,7 +112,7 @@ class HoldingPage extends StatelessWidget {
                       ledger: ledger,
                       total: held.dividends,
                       next: next,
-                      months: payingMonths(ledger, code),
+                      months: returns.payingMonths(code),
                       realized: held.realized,
                     ),
                   ],

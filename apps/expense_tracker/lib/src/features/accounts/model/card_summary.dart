@@ -6,45 +6,50 @@ import '../../../core/ledger/ledger.dart';
 /// and the entries its buttons start. The words are the page's; every sum
 /// and every day is here, so it can be checked without a screen.
 final class CardSummary {
-  CardSummary._(this._ledger, this.card);
+  /// [card] as the book holds it [today].
+  CardSummary.of(
+    this.card, {
+    required this._statements,
+    required this._balances,
+    required this._entries,
+    required this._accounts,
+    required this.today,
+  });
 
-  /// [card] as the book holds it today.
-  factory CardSummary.of(Ledger ledger, Account card) =>
-      CardSummary._(ledger, card);
-
-  final Ledger _ledger;
+  final StatementService _statements;
+  final BalanceService _balances;
+  final EntryReader _entries;
+  final AccountReader _accounts;
   final Account card;
-
-  DateTime get today => _ledger.today;
+  final DateTime today;
 
   /// The last statement closed: its first and last day, and when it must
   /// be paid.
-  late final (DateTime, DateTime, DateTime) statement = _ledger.statementService
-      .statement(card);
+  late final (DateTime, DateTime, DateTime) statement = _statements.statement(
+    card,
+  );
   DateTime get start => statement.$1;
   DateTime get end => statement.$2;
   DateTime get due => statement.$3;
 
   /// What is still to pay on the last statement.
-  late final int owed = _ledger.statementService.statementDue(card);
+  late final int owed = _statements.statementDue(card);
 
   /// Purchases since the statement closed, and refunds against them.
-  late final List<Entry> unbilled = _ledger.statementService.unbilled(card);
+  late final List<Entry> unbilled = _statements.unbilled(card);
 
   /// What [unbilled] comes to.
   late final int spentSince = unbilled.fold(
     0,
-    (sum, e) => sum - _ledger.balanceService.effect(e, card.id),
+    (sum, e) => sum - _balances.effect(e, card.id),
   );
 
   /// Purchases still being paid in instalments.
-  late final List<Entry> plans = _ledger.statementService.instalmentsOn(card);
+  late final List<Entry> plans = _statements.instalmentsOn(card);
 
   /// How many instalments of [e] have been billed.
-  int periodsBilled(Entry e) => _ledger.statementService.billedPeriods(
-    e,
-    _ledger.statementService.closedBy,
-  );
+  int periodsBilled(Entry e) =>
+      _statements.billedPeriods(e, _statements.closedBy);
 
   /// What 第 n 期 of [e] comes to, n being [periodsBilled] (the first
   /// before any is billed): the first period carries what does not divide
@@ -56,14 +61,13 @@ final class CardSummary {
 
   /// What is left to be billed of [e].
   int unbilledOf(Entry e) =>
-      e.amount -
-      _ledger.statementService.billed(e, _ledger.statementService.closedBy);
+      e.amount - _statements.billed(e, _statements.closedBy);
 
   /// What the instalment purchases have left to bill, all together.
   late final int pending = plans.fold(0, (sum, e) => sum + unbilledOf(e));
 
   /// What is owed on the card now, as a positive amount.
-  late final int debt = -_ledger.balanceService.balance(card.id);
+  late final int debt = -_balances.balance(card.id);
 
   int? get limit => card.limit;
 
@@ -128,7 +132,7 @@ final class CardSummary {
     final year = today.year;
     var total = 0;
     for (var month = 1; month <= today.month; month++) {
-      for (final e in _ledger.entries.inMonth(year, month)) {
+      for (final e in _entries.inMonth(year, month)) {
         if (e.account == card.id && e.type == type && e.tags.contains(tag)) {
           total += e.amount;
         }
@@ -141,7 +145,7 @@ final class CardSummary {
   /// last close: the cycle not billed yet.
   int taggedSinceClose(String tag, EntryType type) {
     var total = 0;
-    for (final e in _ledger.entries.all) {
+    for (final e in _entries.all) {
       if (e.account == card.id &&
           e.type == type &&
           e.tags.contains(tag) &&
@@ -161,7 +165,7 @@ final class CardSummary {
           date: today,
           type: EntryType.transfer,
           amount: owed,
-          account: _ledger.accounts.main,
+          account: _accounts.main,
           category: transferCategory,
           note: '${card.name}繳款',
           to: card.id,

@@ -62,7 +62,11 @@ final class RecurringForm {
   /// with the one chosen first in place of the last when it is not among
   /// them, so the choice is always in sight.
   List<Category> get categoryChoices {
-    final usual = usualCategories(ledger, income: income);
+    final usual = usualCategories(
+      ledger.categories,
+      ledger.entries,
+      income: income,
+    );
     if (category.isNotEmpty &&
         usual.isNotEmpty &&
         !usual.any((c) => c.name == category)) {
