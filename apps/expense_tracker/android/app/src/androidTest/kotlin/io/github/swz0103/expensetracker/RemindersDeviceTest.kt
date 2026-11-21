@@ -58,8 +58,8 @@ class RemindersDeviceTest {
     @Test
     fun theWordsKeptForLaterAreSealed() {
         val prefs = context.getSharedPreferences("reminders", Context.MODE_PRIVATE)
-        // As 0.19 kept them: in plain words, read once and sealed.
-        prefs.edit().putString("alerts", """[{"at":1,"title":"扣款：Netflix 390"}]""").commit()
+        // As 0.19 kept them: in plain words only, read once and sealed.
+        prefs.edit().clear().putString("alerts", """[{"at":1,"title":"扣款：Netflix 390"}]""").commit()
         assertEquals("扣款：Netflix 390", ReminderStore.read(context).getJSONObject(0).getString("title"))
         val later = System.currentTimeMillis() + 86_400_000L
         Reminders.replace(context, listOf(mapOf("at" to later, "title" to "繳卡費 12,800", "text" to "日常信用卡")))

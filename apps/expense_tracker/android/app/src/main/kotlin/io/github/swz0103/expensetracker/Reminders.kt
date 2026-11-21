@@ -214,7 +214,11 @@ object Reminders {
 
     private fun cancel(context: Context, id: Int) {
         val alarms = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        alarms.cancel(pending(context, id))
+        val pending = pending(context, id)
+        alarms.cancel(pending)
+        // And the intent itself, so nothing of a taken-away alert is left
+        // with the system.
+        pending.cancel()
     }
 
     /** Whether notifications may be posted. */

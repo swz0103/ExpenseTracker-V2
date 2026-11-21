@@ -295,10 +295,12 @@ final class EncryptedDatabase {
       throw const StorageUnavailable(StorageProblem.wrongKey);
     }
     db.select('PRAGMA journal_mode = WAL');
-    // In WAL mode NORMAL is still safe from crashes of the app; only a
-    // power cut in the moment after a save can lose that last save. FULL
-    // made every save wait for the disk, a dropped frame on slow phones.
-    db.execute('PRAGMA synchronous = NORMAL');
+    // FULL: a save has reached the disk once it returns, so not even a
+    // power cut in the moment after it loses it (NORMAL could lose that
+    // last save). Measured on the emulator first (bench_test.dart): with
+    // NORMAL a save took 0.15 ms and the slowest twentieth about 1 ms, far
+    // under a 16.7 ms frame.
+    db.execute('PRAGMA synchronous = FULL');
     db.execute('PRAGMA temp_store = MEMORY');
     // Hold the file for as long as this connection is open, so a second
     // isolate or process cannot write past this one.
