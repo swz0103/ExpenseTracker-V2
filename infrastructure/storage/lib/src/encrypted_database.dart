@@ -297,9 +297,9 @@ final class EncryptedDatabase {
     db.select('PRAGMA journal_mode = WAL');
     // FULL: a save has reached the disk once it returns, so not even a
     // power cut in the moment after it loses it (NORMAL could lose that
-    // last save). Measured on the emulator first (bench_test.dart): with
-    // NORMAL a save took 0.15 ms and the slowest twentieth about 1 ms, far
-    // under a 16.7 ms frame.
+    // last save). Measured on the emulator (bench_test.dart): a save takes
+    // 0.45-1.1 ms, the slowest twentieth 1.0-1.3 ms (NORMAL: 0.15 and
+    // about 1), far under a 16.7 ms frame.
     db.execute('PRAGMA synchronous = FULL');
     db.execute('PRAGMA temp_store = MEMORY');
     // Hold the file for as long as this connection is open, so a second
