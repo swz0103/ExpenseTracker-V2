@@ -16,6 +16,17 @@ enum Appearance {
   final String label;
 }
 
+/// 震動: none, Android's light ticks, or a step heavier (標準).
+enum Vibration {
+  off('關'),
+  light('輕'),
+  standard('標準');
+
+  const Vibration(this.label);
+
+  final String label;
+}
+
 /// What the home-screen widget 本月概況 shows: nothing of the ledger, the
 /// month's spending and what is left of the budget, or only the share of
 /// the budget used.
@@ -44,7 +55,12 @@ final class Preferences extends ChangeNotifier {
         (a) => a.name == json.text('appearance'),
         orElse: () => Appearance.system,
       );
-      _haptics = json.flag('haptics') ?? true;
+      // Before 0.20.0 only on or off was kept: on is 標準.
+      _vibration = Vibration.values.firstWhere(
+        (v) => v.name == json.text('vibration'),
+        orElse: () =>
+            json.flag('haptics') == false ? Vibration.off : Vibration.standard,
+      );
       _dueAlerts = json.flag('dueAlerts') ?? false;
       _dailyNudge = json.flag('dailyNudge') ?? false;
       _nudgeHour = json.whole('nudgeHour') ?? 21;
@@ -85,9 +101,9 @@ final class Preferences extends ChangeNotifier {
   Appearance get appearance => _appearance;
   var _appearance = Appearance.system;
 
-  /// 震動: a tick on choices, a tap on saving.
-  bool get haptics => _haptics;
-  var _haptics = true;
+  /// 震動: a tick on choices, a tap on saving, and how heavy.
+  Vibration get vibration => _vibration;
+  var _vibration = Vibration.standard;
 
   /// A notification on the day a recurring item or a card payment falls
   /// due (card payments two days before as well).
@@ -258,7 +274,7 @@ final class Preferences extends ChangeNotifier {
 
   void update({
     Appearance? appearance,
-    bool? haptics,
+    Vibration? vibration,
     bool? dueAlerts,
     bool? dailyNudge,
     int? nudgeHour,
@@ -275,7 +291,7 @@ final class Preferences extends ChangeNotifier {
     bool? budgetAlerts,
   }) {
     _appearance = appearance ?? _appearance;
-    _haptics = haptics ?? _haptics;
+    _vibration = vibration ?? _vibration;
     _dueAlerts = dueAlerts ?? _dueAlerts;
     _dailyNudge = dailyNudge ?? _dailyNudge;
     _nudgeHour = (nudgeHour ?? _nudgeHour).clamp(0, 23);
@@ -305,7 +321,7 @@ final class Preferences extends ChangeNotifier {
       next.writeAsStringSync(
         jsonEncode({
           'appearance': _appearance.name,
-          'haptics': _haptics,
+          'vibration': _vibration.name,
           'dueAlerts': _dueAlerts,
           'dailyNudge': _dailyNudge,
           'nudgeHour': _nudgeHour,

@@ -114,6 +114,10 @@ enum DriveProblem {
   /// Google did not answer, or the phone is offline.
   offline,
 
+  /// Google's sign-in gave no answer at all within [DriveBackup.signInWait]
+  /// (its screen closed without a word, or Android paused the app).
+  noAnswer,
+
   /// Drive refused or failed the request.
   refused,
 }
@@ -131,6 +135,7 @@ final class DriveException implements Exception {
   String get message => switch (problem) {
     DriveProblem.notAllowed => '沒有取得 Google 雲端硬碟的權限',
     DriveProblem.offline => '連不上 Google，請稍後再試',
+    DriveProblem.noAnswer => 'Google 沒有回應，請再試一次',
     DriveProblem.refused => 'Google 雲端硬碟沒有接受（${detail ?? ''}）',
   };
 
@@ -153,6 +158,11 @@ final class DriveBackup {
   static const _folderType = 'application/vnd.google-apps.folder';
   static const _api = 'https://www.googleapis.com/drive/v3/files';
   static const _upload = 'https://www.googleapis.com/upload/drive/v3/files';
+
+  /// How long Google's sign-in may take with its screens shown, as the
+  /// person picks an account; and without them.
+  static const signInWait = Duration(minutes: 2);
+  static const quietSignInWait = Duration(seconds: 30);
 
   String? _cached;
   String? _folder;
@@ -191,7 +201,12 @@ final class DriveBackup {
   Future<String?> _access({required bool interactive}) async {
     final cached = _cached;
     if (cached != null) return cached;
-    final token = await _token(interactive: interactive);
+    // A sign-in that never answers would hold the backup, and every one
+    // after it, forever.
+    final token = await _token(interactive: interactive).timeout(
+      interactive ? signInWait : quietSignInWait,
+      onTimeout: () => throw const DriveException(DriveProblem.noAnswer),
+    );
     _cached = token;
     return token;
   }

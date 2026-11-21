@@ -12,6 +12,8 @@ class UpdateFeedTest {
         assertEquals(412, UpdateFeed.build("""{"build":412,"version":"0.9.1","sha256":"x","size":1}"""))
         assertNull(UpdateFeed.build("<html>not found</html>"))
         assertNull(UpdateFeed.build("""{"version":"0.9.1"}"""))
+        assertEquals("0.9.1", UpdateFeed.version("""{"build":412,"version":"0.9.1"}"""))
+        assertNull(UpdateFeed.version("""{"build":412}"""))
     }
 
     @Test

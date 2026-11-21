@@ -327,7 +327,7 @@ class _BackupSectionState extends State<BackupSection> {
             color: color,
             title: '上次備份',
             value: drive.busy
-                ? '備份中…'
+                ? drive.stage?.label ?? '備份中…'
                 : switch (drive.backedUp) {
                     final at? => _when(at),
                     null => '還沒有',

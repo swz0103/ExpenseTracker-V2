@@ -18,7 +18,7 @@ void main() {
     final file = File('${directory.path}/preferences.json');
     Preferences(file: file).update(
       appearance: Appearance.dark,
-      haptics: false,
+      vibration: Vibration.light,
       dailyNudge: true,
       nudgeHour: 22,
       nudgeMinute: 45,
@@ -36,7 +36,7 @@ void main() {
       ('content://tree/backups', '備份'),
     );
     expect(again.appearance, Appearance.dark);
-    expect(again.haptics, isFalse);
+    expect(again.vibration, Vibration.light);
     expect(again.dueAlerts, isFalse);
     expect(again.dailyNudge, isTrue);
     expect(again.nudgeHour, 22);
@@ -46,11 +46,12 @@ void main() {
     final directory = Directory.systemTemp.createTempSync('preferences-');
     addTearDown(() => directory.deleteSync(recursive: true));
     final file = File('${directory.path}/preferences.json');
-    final preferences = Preferences(file: file)..update(haptics: false);
+    final preferences = Preferences(file: file)
+      ..update(vibration: Vibration.off);
     preferences.driveBackup(DateTime.utc(2026, 10, 27), 4);
     expect(File('${file.path}.new').existsSync(), isFalse);
     final again = Preferences(file: file);
-    expect(again.haptics, isFalse);
+    expect(again.vibration, Vibration.off);
     expect(again.driveRevision, 4);
   });
 
@@ -67,11 +68,25 @@ void main() {
       );
     final read = Preferences(file: file);
     expect(read.driveLinked, isTrue);
-    expect(read.haptics, isTrue, reason: 'not a yes or no: the default');
+    expect(
+      read.vibration,
+      Vibration.standard,
+      reason: 'not a yes or no: the default',
+    );
     expect(read.nudgeHour, 21);
     expect(read.nudgeMinute, 0, reason: 'not a number: the default');
     expect(read.overview, ['flow', 'daily']);
     expect(read.phoneFolder, 'content://tree/backups');
+  });
+
+  test('震動 kept as on or off before 0.20.0 reads as 標準 or 關', () {
+    final directory = Directory.systemTemp.createTempSync('preferences-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final file = File('${directory.path}/preferences.json');
+    file.writeAsStringSync('{"haptics":false}');
+    expect(Preferences(file: file).vibration, Vibration.off);
+    file.writeAsStringSync('{"haptics":true}');
+    expect(Preferences(file: file).vibration, Vibration.standard);
   });
 
   test('a broken file leaves the defaults', () {
@@ -81,7 +96,7 @@ void main() {
       ..writeAsStringSync('{not json');
     final preferences = Preferences(file: file);
     expect(preferences.appearance, Appearance.system);
-    expect(preferences.haptics, isTrue);
+    expect(preferences.vibration, Vibration.standard);
   });
 
   test('the palette turns dark and back when painted', () {

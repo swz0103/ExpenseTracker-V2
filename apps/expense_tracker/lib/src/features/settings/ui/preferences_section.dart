@@ -10,7 +10,8 @@ import '../../../core/design_system/settings_colors.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 
-/// 外觀與操作: four cards: light or dark, the small vibrations, what the
+/// 外觀與操作: four cards: light or dark, the small vibrations (關, 輕 or
+/// 標準), what the
 /// home-screen widget shows, and the overview's blocks.
 class AppearanceSection extends StatelessWidget {
   const AppearanceSection({super.key, required this.preferences});
@@ -48,6 +49,26 @@ class AppearanceSection extends StatelessWidget {
     );
   }
 
+  /// 關, 輕 or 標準: how heavy the taps felt in the hand are.
+  void _pickVibration(BuildContext context) {
+    showCenterPanel(
+      context,
+      glyph: Glyph.vibrate,
+      color: SettingsColors.haptics,
+      title: '震動',
+      detail: '標準比輕重一級',
+      body: (context) => ListenableBuilder(
+        listenable: preferences,
+        builder: (context, _) => Segments(
+          labels: [for (final v in Vibration.values) v.label],
+          selected: preferences.vibration.index,
+          selectedColor: SettingsColors.haptics,
+          onChanged: (i) => preferences.update(vibration: Vibration.values[i]),
+        ),
+      ),
+    );
+  }
+
   /// What the home-screen widget 本月概況 shows, each choice as it looks.
   void _pickWidget(BuildContext context) {
     showCenterPanel(
@@ -80,10 +101,14 @@ class AppearanceSection extends StatelessWidget {
         glyph: Glyph.vibrate,
         color: SettingsColors.haptics,
         title: '震動',
-        detail: '按下去會輕震',
-        value: preferences.haptics,
-        onChanged: (on) => preferences.update(haptics: on),
-        onTap: () => preferences.update(haptics: !preferences.haptics),
+        detail: preferences.vibration.label,
+        value: preferences.vibration != Vibration.off,
+        // The tick turns it off, or back on as 標準; the card offers all
+        // three.
+        onChanged: (on) => preferences.update(
+          vibration: on ? Vibration.standard : Vibration.off,
+        ),
+        onTap: () => _pickVibration(context),
       ),
       SettingCard(
         glyph: Glyph.overview,

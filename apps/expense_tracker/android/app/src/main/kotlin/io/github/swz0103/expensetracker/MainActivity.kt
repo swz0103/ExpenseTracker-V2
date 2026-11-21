@@ -34,6 +34,7 @@ class MainActivity : FlutterFragmentActivity() {
         WidgetsHandler(this),
         UpdateHandler(this),
         ScanHandler(this),
+        HapticsHandler(this),
     )
     private var channel: MethodChannel? = null
 
@@ -66,7 +67,7 @@ class MainActivity : FlutterFragmentActivity() {
         // Set before the engine is configured (during super.onCreate).
         restored = savedInstanceState != null
         super.onCreate(savedInstanceState)
-        // Looks for a newer version once a day while 自動更新 is on.
+        // Looks for a newer version once a day while 自動檢查新版本 is on.
         UpdateWorker.schedule(applicationContext)
         // Keeps the exchanges' closes on the phone before 投資 is opened.
         MarketWorker.schedule(applicationContext)

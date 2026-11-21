@@ -61,7 +61,9 @@ class _ExpenseAppState extends State<ExpenseApp> with WidgetsBindingObserver {
   /// again in place, so nothing open is lost (see [Shade.show]).
   void _follow({bool first = false}) {
     final preferences = widget.preferences;
-    Haptics.on = preferences?.haptics ?? true;
+    final vibration = preferences?.vibration ?? Vibration.standard;
+    Haptics.on = vibration != Vibration.off;
+    Haptics.strong = vibration == Vibration.standard;
     final system =
         WidgetsBinding.instance.platformDispatcher.platformBrightness ==
         Brightness.dark;
