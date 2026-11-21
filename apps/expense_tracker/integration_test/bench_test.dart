@@ -151,6 +151,23 @@ Future<void> bench(
   );
   report[key('save_shown_us')] = shown.elapsedMicroseconds;
   report[key('save_kept_us')] = kept.elapsedMicroseconds;
+
+  // The store's own share of a save, which the figures above hide behind
+  // the screen's: 50 entries kept one at a time, each its own
+  // transaction, timed on the thread that draws the screen. The median
+  // and the slowest twentieth, in microseconds; a frame is 16,667.
+  final each = <int>[];
+  for (var i = 0; i < 50; i++) {
+    final one = Stopwatch()..start();
+    await dataSource.keep(
+      WriteBatch(entries: [entries.first.withId(ledger.newId())]),
+    );
+    each.add(one.elapsedMicroseconds);
+  }
+  each.sort();
+  report[key('keep_one_p50_us')] = each[25];
+  report[key('keep_one_p95_us')] = each[47];
+  report[key('keep_one_max_us')] = each.last;
   open.close();
   directory.deleteSync(recursive: true);
 }

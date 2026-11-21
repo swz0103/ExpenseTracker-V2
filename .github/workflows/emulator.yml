@@ -21,12 +21,15 @@ on:
       - 'infrastructure/**'
       - 'packages/**'
   # A change to the Android side runs its tests on the emulator before it
-  # is merged.
+  # is merged; so does one to how the ledger is stored, or to the bench.
   pull_request:
     branches: [main]
     paths:
       - '.github/workflows/emulator.yml'
       - 'apps/expense_tracker/android/**'
+      - 'apps/expense_tracker/integration_test/**'
+      - 'apps/expense_tracker/lib/src/core/ledger/persistence/**'
+      - 'infrastructure/storage/**'
   workflow_dispatch:
 
 permissions:
