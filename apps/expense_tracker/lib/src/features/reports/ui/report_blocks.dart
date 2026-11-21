@@ -142,116 +142,135 @@ class ReportHero extends StatelessWidget {
               color: AppColors.accent,
             ),
           ),
-          // 收入 goes under 結餘 when both do not fit on a line.
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.end,
-            spacing: 12,
-            runSpacing: 2,
-            children: [
-              Text(
-                ledger.orDots(groupDigits(kept)),
-                style: TextStyle(
-                  fontSize: TextSize.big,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ofBalance(kept),
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '收入 ${ledger.orDots(groupDigits(income))}',
-                    style: const TextStyle(
-                      fontSize: TextSize.title,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.positive,
-                    ),
-                  ),
-                  if (dividends > 0)
-                    Text(
-                      '含股息 ${ledger.orDots(groupDigits(dividends))}',
-                      style: mutedSmall,
-                    ),
-                ],
-              ),
-            ],
-          ),
+          _figures(kept),
           const SizedBox(height: Space.s3),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(Radii.extraSmall),
-            child: SizedBox(
-              height: 10,
-              child: Row(
-                children: [
-                  if (spentShare > 0)
-                    Expanded(
-                      flex: (spentShare * 1000).round().clamp(1, 1000),
-                      child: const ColoredBox(
-                        color: AppColors.negative,
-                        child: SizedBox.expand(),
-                      ),
-                    ),
-                  if (spentShare > 0 && spentShare < 1)
-                    const SizedBox(width: Space.half),
-                  if (spentShare < 1)
-                    Expanded(
-                      flex: ((1 - spentShare) * 1000).round().clamp(1, 1000),
-                      child: const ColoredBox(
-                        color: AppColors.positive,
-                        child: SizedBox.expand(),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
+          _SpentBar(spentShare: spentShare),
           const SizedBox(height: Space.s2),
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            spacing: 12,
-            runSpacing: 4,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const LegendKey(AppColors.negative, Words.expense),
-                  const SizedBox(width: Space.s2),
-                  Text(
-                    ledger.orDots(groupDigits(expense)),
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  if (change != null) ...[
-                    const SizedBox(width: Space.s2),
-                    Text(
-                      '${change >= 0 ? '▲' : '▼'}${change.abs()}%',
-                      style: TextStyle(
-                        fontSize: TextSize.caption,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ofSpendingChange(change),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const LegendKey(AppColors.positive, '存下'),
-                  const SizedBox(width: Space.s2),
-                  Text(
-                    '$keptShare%',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          _legend(keptShare, change),
         ],
       ),
     );
   }
+
+  /// 結餘 big, and 收入 with what of it was dividends; 收入 goes under 結餘
+  /// when both do not fit on a line.
+  Widget _figures(int kept) => Wrap(
+    alignment: WrapAlignment.spaceBetween,
+    crossAxisAlignment: WrapCrossAlignment.end,
+    spacing: 12,
+    runSpacing: 2,
+    children: [
+      Text(
+        ledger.orDots(groupDigits(kept)),
+        style: TextStyle(
+          fontSize: TextSize.big,
+          fontWeight: FontWeight.w800,
+          color: AppColors.ofBalance(kept),
+        ),
+      ),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '收入 ${ledger.orDots(groupDigits(income))}',
+            style: const TextStyle(
+              fontSize: TextSize.title,
+              fontWeight: FontWeight.w800,
+              color: AppColors.positive,
+            ),
+          ),
+          if (dividends > 0)
+            Text(
+              '含股息 ${ledger.orDots(groupDigits(dividends))}',
+              style: mutedSmall,
+            ),
+        ],
+      ),
+    ],
+  );
+
+  /// The key under the bar: 支出 with its [change] on last year in per
+  /// cent, and 存下 the [keptShare] of the income.
+  Widget _legend(int keptShare, int? change) => Wrap(
+    alignment: WrapAlignment.spaceBetween,
+    spacing: 12,
+    runSpacing: 4,
+    children: [
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const LegendKey(AppColors.negative, Words.expense),
+          const SizedBox(width: Space.s2),
+          Text(
+            ledger.orDots(groupDigits(expense)),
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          if (change != null) ...[
+            const SizedBox(width: Space.s2),
+            Text(
+              '${change >= 0 ? '▲' : '▼'}${change.abs()}%',
+              style: TextStyle(
+                fontSize: TextSize.caption,
+                fontWeight: FontWeight.w800,
+                color: AppColors.ofSpendingChange(change),
+              ),
+            ),
+          ],
+        ],
+      ),
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const LegendKey(AppColors.positive, '存下'),
+          const SizedBox(width: Space.s2),
+          Text(
+            '$keptShare%',
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+/// The hero's bar: what was spent, then what was kept, as shares of the
+/// income.
+class _SpentBar extends StatelessWidget {
+  const _SpentBar({required this.spentShare});
+
+  /// How much of the income was spent, 0 to 1.
+  final double spentShare;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(Radii.extraSmall),
+    child: SizedBox(
+      height: 10,
+      child: Row(
+        children: [
+          if (spentShare > 0)
+            Expanded(
+              flex: (spentShare * 1000).round().clamp(1, 1000),
+              child: const ColoredBox(
+                color: AppColors.negative,
+                child: SizedBox.expand(),
+              ),
+            ),
+          if (spentShare > 0 && spentShare < 1)
+            const SizedBox(width: Space.half),
+          if (spentShare < 1)
+            Expanded(
+              flex: ((1 - spentShare) * 1000).round().clamp(1, 1000),
+              child: const ColoredBox(
+                color: AppColors.positive,
+                child: SizedBox.expand(),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// A tinted block: a solid icon and a label over a figure and a line.

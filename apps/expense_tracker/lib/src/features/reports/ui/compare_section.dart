@@ -117,6 +117,54 @@ class _CompareSectionState extends State<CompareSection> {
         : '${formatYMd(from)}–${formatYMd(to)}';
   }
 
+  /// The choice of what to set the period against: 上一期, 去年同期 or
+  /// 自訂, the custom one reading its [second] days once picked.
+  Widget _againstChoices((DateTime, DateTime) second) => Container(
+    padding: const EdgeInsets.all(Space.s1),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(Radii.large),
+    ),
+    child: Row(
+      children: [
+        for (final against in _Against.values)
+          Expanded(
+            child: Semantics(
+              selected: against == _against,
+              button: true,
+              child: Material(
+                color: against == _against
+                    ? AppColors.white
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(Radii.medium),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(Radii.medium),
+                  onTap: () => _choose(against),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    child: Center(
+                      child: Text(
+                        against == _Against.custom && _custom != null
+                            ? _span(second)
+                            : against.label,
+                        style: TextStyle(
+                          fontSize: TextSize.body,
+                          fontWeight: FontWeight.w800,
+                          color: against == _against
+                              ? AppColors.ink
+                              : AppColors.muted,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
@@ -153,51 +201,7 @@ class _CompareSectionState extends State<CompareSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.all(Space.s1),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(Radii.large),
-            ),
-            child: Row(
-              children: [
-                for (final against in _Against.values)
-                  Expanded(
-                    child: Semantics(
-                      selected: against == _against,
-                      button: true,
-                      child: Material(
-                        color: against == _against
-                            ? AppColors.white
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(Radii.medium),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(Radii.medium),
-                          onTap: () => _choose(against),
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(minHeight: 48),
-                            child: Center(
-                              child: Text(
-                                against == _Against.custom && _custom != null
-                                    ? _span(second)
-                                    : against.label,
-                                style: TextStyle(
-                                  fontSize: TextSize.body,
-                                  fontWeight: FontWeight.w800,
-                                  color: against == _against
-                                      ? AppColors.ink
-                                      : AppColors.muted,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+          _againstChoices(second),
           const SizedBox(height: Space.s2),
           for (final (name, now, before) in rows.take(3))
             _Pair(

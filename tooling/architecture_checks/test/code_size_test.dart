@@ -32,9 +32,6 @@ const libraryGuide = 1200;
 const longerFunctions = <String, int>{
   'src/features/accounts/ui/sort_accounts.dart::_SortAccountsPageState.build':
       109,
-  'src/features/investments/ui/holding_bento.dart::_PriceChartState.build': 131,
-  'src/features/investments/ui/investments_returns.dart::_ReturnsState.build':
-      143,
   'src/features/tags/ui/tags_page.dart::TagSummaryCard.build': 164,
   'src/features/accounts/forms/account_editor_state.dart::_AccountEditorState.build':
       121,
@@ -42,16 +39,11 @@ const longerFunctions = <String, int>{
   'src/features/recurring/ui/recurring_page.dart::_RecurringPageState.build':
       150,
   'src/core/ledger/portfolio.dart::Portfolio.replay': 143,
-  'src/features/reports/ui/report_blocks.dart::ReportHero.build': 138,
   'src/features/settings/ui/update_panel.dart::_UpdatePanelState.build': 137,
-  'src/features/reports/ui/reports_page_state.dart::_ReportsPageState.build':
-      133,
   'src/features/recurring/forms/recurring_repeat.dart::_RepeatSheetState.build':
       133,
   'src/core/charts/flow_chart.dart::_FlowPainter.paint': 131,
   'src/core/widgets/balance_hero.dart::BalanceHero.build': 85,
-  'src/features/reports/ui/compare_section.dart::_CompareSectionState.build':
-      122,
   'src/features/investments/ui/holding_page.dart::HoldingPage.build': 122,
   'src/features/accounts/ui/account_card.dart::AccountCard.build': 115,
   'src/features/lock/ui/views/unlock_view.dart::_UnlockViewState._page': 114,

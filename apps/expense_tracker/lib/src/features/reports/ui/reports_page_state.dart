@@ -103,32 +103,9 @@ class _ReportsPageState extends State<ReportsPage> {
         final today = report.today;
         final from = period.from;
         final to = period.to;
-        final income = report.income;
-        final expense = report.expense;
-        final buckets = _bars(report);
-        final peak = report.peak;
-        final byMonth = period.span != ReportSpan.month;
-        final biggest = report.names.isEmpty ? null : report.names.first;
-        final selected = _stretch;
-        final readout = selected == null || selected >= buckets.length
-            ? null
-            : buckets[selected];
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
-          header: CenterHeader(
-            '財務報表',
-            onBack: widget.nav.back,
-            actions: [
-              ?switch (widget.nav.saveFile) {
-                final save? => IconButton(
-                  tooltip: '存成圖片',
-                  onPressed: () => _savePicture(save, period),
-                  icon: const GlyphIcon(Glyph.download, size: 20),
-                ),
-                null => null,
-              },
-            ],
-          ),
+          header: _header(period),
           children: [
             Segments(
               labels: const ['月', '季', '年', '自訂'],
@@ -164,8 +141,8 @@ class _ReportsPageState extends State<ReportsPage> {
                 color: AppColors.paper,
                 child: ReportHero(
                   ledger: ledger,
-                  income: income,
-                  expense: expense,
+                  income: report.income,
+                  expense: report.expense,
                   dividends: report.dividends,
                   lastExpense: report.lastExpense,
                   until: to.isAfter(today) ? today : null,
@@ -179,52 +156,81 @@ class _ReportsPageState extends State<ReportsPage> {
               onChanged: (i) => setState(() => _tab = i),
             ),
             const SizedBox(height: Space.s3),
-            switch (_tab) {
-              0 => Sections([
-                for (final w in _flow(
-                  report,
-                  buckets,
-                  peak,
-                  byMonth,
-                  readout,
-                  selected,
-                ))
-                  if (w is! SizedBox) w,
-              ]),
-              1 => Sections([
-                if (biggest != null && expense > 0)
-                  TitleRow(
-                    '最大分類 $biggest ${report.spending[biggest]! * 100 ~/ expense}%',
-                    trailing: const Text('點分類看紀錄', style: mutedSmall),
-                  ),
-                section(null, _mix(report)),
-                if (biggest == null)
-                  const EmptyState(
-                    glyph: Glyph.grid,
-                    color: AppColors.faint,
-                    message: '這段時間沒有紀錄',
-                  ),
-              ], gap: 0),
-              2 => CompareSection(ledger: ledger, period: period),
-              _ => Sections([
-                if (period.span == ReportSpan.year)
-                  section(null, _summary(report)),
-                section(null, _highlights(report)),
-                section(null, weekdaysSection(report)),
-                section(null, merchantsSection(widget.ledger, report)),
-                section(null, tagsSection(widget.ledger, report)),
-                if (report.count == 0)
-                  const EmptyState(
-                    glyph: Glyph.calendar,
-                    color: AppColors.faint,
-                    message: '這段時間沒有紀錄',
-                  ),
-              ]),
-            },
+            _tabBody(report, period),
           ],
         );
       },
     );
+  }
+
+  /// 財務報表's header, with 存成圖片 where the phone can save files.
+  Widget _header(ReportPeriod period) => CenterHeader(
+    '財務報表',
+    onBack: widget.nav.back,
+    actions: [
+      ?switch (widget.nav.saveFile) {
+        final save? => IconButton(
+          tooltip: '存成圖片',
+          onPressed: () => _savePicture(save, period),
+          icon: const GlyphIcon(Glyph.download, size: 20),
+        ),
+        null => null,
+      },
+    ],
+  );
+
+  /// The tab chosen under the hero: 收支, 分類, 比較 or 習慣.
+  Widget _tabBody(Report report, ReportPeriod period) {
+    final ledger = widget.ledger;
+    final expense = report.expense;
+    final buckets = _bars(report);
+    final byMonth = period.span != ReportSpan.month;
+    final biggest = report.names.isEmpty ? null : report.names.first;
+    final selected = _stretch;
+    final readout = selected == null || selected >= buckets.length
+        ? null
+        : buckets[selected];
+    return switch (_tab) {
+      0 => Sections([
+        for (final w in _flow(
+          report,
+          buckets,
+          report.peak,
+          byMonth,
+          readout,
+          selected,
+        ))
+          if (w is! SizedBox) w,
+      ]),
+      1 => Sections([
+        if (biggest != null && expense > 0)
+          TitleRow(
+            '最大分類 $biggest ${report.spending[biggest]! * 100 ~/ expense}%',
+            trailing: const Text('點分類看紀錄', style: mutedSmall),
+          ),
+        section(null, _mix(report)),
+        if (biggest == null)
+          const EmptyState(
+            glyph: Glyph.grid,
+            color: AppColors.faint,
+            message: '這段時間沒有紀錄',
+          ),
+      ], gap: 0),
+      2 => CompareSection(ledger: ledger, period: period),
+      _ => Sections([
+        if (period.span == ReportSpan.year) section(null, _summary(report)),
+        section(null, _highlights(report)),
+        section(null, weekdaysSection(report)),
+        section(null, merchantsSection(widget.ledger, report)),
+        section(null, tagsSection(widget.ledger, report)),
+        if (report.count == 0)
+          const EmptyState(
+            glyph: Glyph.calendar,
+            color: AppColors.faint,
+            message: '這段時間沒有紀錄',
+          ),
+      ]),
+    };
   }
 
   /// 收支: the average a week or month against last year, the dearest

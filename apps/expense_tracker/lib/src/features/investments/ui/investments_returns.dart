@@ -48,6 +48,43 @@ class _ReturnsState extends State<_Returns> {
     ],
   );
 
+  /// The stacked bars, a tap picking the month under it.
+  Widget _chart(
+    DividendOutlook outlook,
+    Map<String, Color> colour,
+    int picked,
+  ) => Semantics(
+    label: '預計配息長條圖，點一個月份看那個月',
+    child: LayoutBuilder(
+      builder: (context, box) => GestureDetector(
+        onTapDown: (d) => setState(
+          () => _picked = (d.localPosition.dx / box.maxWidth * 12)
+              .floor()
+              .clamp(0, 11),
+        ),
+        child: CustomPaint(
+          size: Size(box.maxWidth, 170),
+          painter: _StackPainter(
+            stacks: [
+              for (final m in outlook.byMonth)
+                [
+                  for (final code in outlook.order)
+                    if (m[code] case final v?) (v, colour[code]!),
+                ],
+            ],
+            sums: outlook.sums,
+            average: outlook.total / 12,
+            picked: picked,
+            hidden: widget.ledger.amounts.hidden,
+            words: AppColors.muted,
+            rule: AppColors.line,
+            band: tintOf(Palette.gold, 0.18),
+          ),
+        ),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
@@ -62,95 +99,22 @@ class _ReturnsState extends State<_Returns> {
         ),
       );
     }
-    final today = ledger.today;
-    final outlook = DividendOutlook.of(guesses, today);
+    final outlook = DividendOutlook.of(guesses, ledger.today);
     final months = outlook.months;
-    final byMonth = outlook.byMonth;
-    final names = outlook.names;
-    final order = outlook.order;
     final colour = {
-      for (final (i, code) in order.indexed) code: _colors[i % _colors.length],
+      for (final (i, code) in outlook.order.indexed)
+        code: _colors[i % _colors.length],
     };
-    final sums = outlook.sums;
-    final total = outlook.total;
     final first = outlook.first;
     final picked = _picked ?? first;
-    final average = total / 12;
-    final last = months.last;
+    final average = outlook.total / 12;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: Space.s4),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '預計配息',
-                    style: TextStyle(
-                      fontSize: TextSize.heading,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    '${months.first.month} 月 – '
-                    '${last.year == today.year ? '' : '明年 '}${last.month} 月',
-                    style: mutedSmall,
-                  ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Text('合計約', style: mutedSmall),
-                Text(
-                  ledger.orDots(groupDigits(total)),
-                  style: TextStyle(
-                    fontSize: TextSize.large,
-                    fontWeight: FontWeight.w800,
-                    color: deepOf(Palette.gold),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+        _ReturnsHeading(ledger: ledger, outlook: outlook),
         const SizedBox(height: Space.s2),
-        Semantics(
-          label: '預計配息長條圖，點一個月份看那個月',
-          child: LayoutBuilder(
-            builder: (context, box) => GestureDetector(
-              onTapDown: (d) => setState(
-                () => _picked = (d.localPosition.dx / box.maxWidth * 12)
-                    .floor()
-                    .clamp(0, 11),
-              ),
-              child: CustomPaint(
-                size: Size(box.maxWidth, 170),
-                painter: _StackPainter(
-                  stacks: [
-                    for (final m in byMonth)
-                      [
-                        for (final code in order)
-                          if (m[code] case final v?) (v, colour[code]!),
-                      ],
-                  ],
-                  sums: sums,
-                  average: average,
-                  picked: picked,
-                  hidden: ledger.amounts.hidden,
-                  words: AppColors.muted,
-                  rule: AppColors.line,
-                  band: tintOf(Palette.gold, 0.18),
-                ),
-              ),
-            ),
-          ),
-        ),
+        _chart(outlook, colour, picked),
         const SizedBox(height: Space.s1),
         _monthLabels(months, picked),
         const SizedBox(height: Space.s2),
@@ -165,24 +129,13 @@ class _ReturnsState extends State<_Returns> {
               Text('${months[first].month} 月是下一次', style: mutedSmall),
           ],
         ),
-        if (picked >= 0 && sums[picked] > 0) ...[
+        if (picked >= 0 && outlook.sums[picked] > 0) ...[
           const SizedBox(height: Space.s2),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _Chip(
-                '${months[picked].month} 月 · 約 '
-                '${ledger.orDots(groupDigits(sums[picked]))}',
-                bold: true,
-              ),
-              for (final code in order)
-                if (byMonth[picked][code] case final v?)
-                  _Chip(
-                    '${names[code]}  ${ledger.orDots(groupDigits(v))}',
-                    color: colour[code],
-                  ),
-            ],
+          _MonthChips(
+            ledger: ledger,
+            outlook: outlook,
+            colour: colour,
+            month: picked,
           ),
         ],
         const Padding(
@@ -192,4 +145,95 @@ class _ReturnsState extends State<_Returns> {
       ],
     );
   }
+}
+
+/// 預計配息's heading: the months it covers on the left, 合計約 the twelve
+/// months' total on the right.
+class _ReturnsHeading extends StatelessWidget {
+  const _ReturnsHeading({required this.ledger, required this.outlook});
+
+  final Ledger ledger;
+  final DividendOutlook outlook;
+
+  @override
+  Widget build(BuildContext context) {
+    final months = outlook.months;
+    final last = months.last;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '預計配息',
+                style: TextStyle(
+                  fontSize: TextSize.heading,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                '${months.first.month} 月 – '
+                '${last.year == ledger.today.year ? '' : '明年 '}${last.month} 月',
+                style: mutedSmall,
+              ),
+            ],
+          ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            const Text('合計約', style: mutedSmall),
+            Text(
+              ledger.orDots(groupDigits(outlook.total)),
+              style: TextStyle(
+                fontSize: TextSize.large,
+                fontWeight: FontWeight.w800,
+                color: deepOf(Palette.gold),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// The picked month's chips: its total, then what each holding pays in it.
+class _MonthChips extends StatelessWidget {
+  const _MonthChips({
+    required this.ledger,
+    required this.outlook,
+    required this.colour,
+    required this.month,
+  });
+
+  final Ledger ledger;
+  final DividendOutlook outlook;
+
+  /// Each holding's colour in the stacks, by its code.
+  final Map<String, Color> colour;
+
+  /// Which of the twelve months, from 0.
+  final int month;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: 8,
+    runSpacing: 8,
+    children: [
+      _Chip(
+        '${outlook.months[month].month} 月 · 約 '
+        '${ledger.orDots(groupDigits(outlook.sums[month]))}',
+        bold: true,
+      ),
+      for (final code in outlook.order)
+        if (outlook.byMonth[month][code] case final v?)
+          _Chip(
+            '${outlook.names[code]}  ${ledger.orDots(groupDigits(v))}',
+            color: colour[code],
+          ),
+    ],
+  );
 }

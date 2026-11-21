@@ -207,6 +207,77 @@ class _PriceChartState extends State<_PriceChart> {
     },
   );
 
+  /// How far the price moved from [from] to [to], in per cent, red up and
+  /// green down, after [prefix].
+  Widget _change(double from, double to, String prefix) {
+    final up = to >= from;
+    return Text(
+      '$prefix${up ? '+' : ''}${((to - from) * 100 / from).toStringAsFixed(1)}%',
+      style: TextStyle(
+        fontWeight: FontWeight.w800,
+        color: up ? AppColors.rise : AppColors.fall,
+      ),
+    );
+  }
+
+  /// The line above the chart: the touched buy, the touched day's close,
+  /// or the span shown, then how far the price moved over it.
+  Widget _reading(
+    Entry? buy,
+    (DateTime, double)? shown,
+    double price,
+    double? first,
+    double? last,
+  ) {
+    final buyPrice = buy == null || buy.shares == 0
+        ? null
+        : buy.amount / buy.shares;
+    return Row(
+      children: [
+        if (buy != null) ...[
+          Container(
+            width: 10,
+            height: 10,
+            decoration: const BoxDecoration(
+              color: AppColors.investment,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: Space.s2),
+        ],
+        Expanded(
+          child: buy != null
+              ? Text.rich(
+                  TextSpan(
+                    text:
+                        '${formatYMd(buy.date)} '
+                        '買 ${groupDigits(buy.shares)} 股',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                    children: [
+                      if (buyPrice != null)
+                        TextSpan(
+                          text: '  @ ${_price(buyPrice)}',
+                          style: mutedSmall,
+                        ),
+                    ],
+                  ),
+                )
+              : Text(
+                  shown == null
+                      ? (_range == 3 ? '從第一次買到現在' : '這段期間')
+                      : '${formatYMd(shown.$1)} '
+                            '收盤 ${_price(shown.$2)}',
+                  style: mutedSmall,
+                ),
+        ),
+        if (buyPrice != null && buyPrice > 0)
+          _change(buyPrice, price, '這批 ')
+        else if (first != null && last != null && first > 0)
+          _change(first, last, ''),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final closes = _closes;
@@ -218,20 +289,6 @@ class _PriceChartState extends State<_PriceChart> {
     final first = closes == null || closes.isEmpty ? null : closes.first.$2;
     final last = closes == null || closes.isEmpty ? null : closes.last.$2;
     final price = widget.ledger.holding(widget.code)?.price ?? last ?? 0;
-    final buyPrice = buy == null || buy.shares == 0
-        ? null
-        : buy.amount / buy.shares;
-    Widget change(double from, double to, String prefix) {
-      final up = to >= from;
-      return Text(
-        '$prefix${up ? '+' : ''}${((to - from) * 100 / from).toStringAsFixed(1)}%',
-        style: TextStyle(
-          fontWeight: FontWeight.w800,
-          color: up ? AppColors.rise : AppColors.fall,
-        ),
-      );
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -244,50 +301,7 @@ class _PriceChartState extends State<_PriceChart> {
           },
         ),
         const SizedBox(height: Space.s2),
-        Row(
-          children: [
-            if (buy != null) ...[
-              Container(
-                width: 10,
-                height: 10,
-                decoration: const BoxDecoration(
-                  color: AppColors.investment,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: Space.s2),
-            ],
-            Expanded(
-              child: buy != null
-                  ? Text.rich(
-                      TextSpan(
-                        text:
-                            '${formatYMd(buy.date)} '
-                            '買 ${groupDigits(buy.shares)} 股',
-                        style: const TextStyle(fontWeight: FontWeight.w800),
-                        children: [
-                          if (buyPrice != null)
-                            TextSpan(
-                              text: '  @ ${_price(buyPrice)}',
-                              style: mutedSmall,
-                            ),
-                        ],
-                      ),
-                    )
-                  : Text(
-                      shown == null
-                          ? (_range == 3 ? '從第一次買到現在' : '這段期間')
-                          : '${formatYMd(shown.$1)} '
-                                '收盤 ${_price(shown.$2)}',
-                      style: mutedSmall,
-                    ),
-            ),
-            if (buyPrice != null && buyPrice > 0)
-              change(buyPrice, price, '這批 ')
-            else if (first != null && last != null && first > 0)
-              change(first, last, ''),
-          ],
-        ),
+        _reading(buy, shown, price, first, last),
         const SizedBox(height: Space.s2),
         SizedBox(
           height: _height,
