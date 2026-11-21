@@ -171,10 +171,6 @@ void main() {
     expect(find.text('鼎泰豐'), findsWidgets);
   });
 
-  // Skipped for a fault outside this page: askText
-  // (core/design_system/dialogs.dart) disposes its field's controller as
-  // soon as the dialog answers, while the closing dialog still draws that
-  // field, so the app's widgets break. Turn it on once that is fixed.
   testWidgets('改名 keeps the new name, trimmed; 取消 keeps the old one', (
     tester,
   ) async {
@@ -190,7 +186,7 @@ void main() {
     await go(tester, ['確定']);
     expect(ledger.account('lent').name, '小明');
     expect(find.text('小明'), findsWidgets);
-  }, skip: true);
+  });
 
   testWidgets('刪除 someone with entries tucks them away and keeps the '
       'entries', (tester) async {

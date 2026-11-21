@@ -181,13 +181,9 @@ void main() {
     await gesture.moveBy(const Offset(2, 2));
     await tester.pump();
     await gesture.up();
-    // Known fault, kept in view: the tile picked up was rebuilt as its
-    // faded copy, and its press effect still hears the finger lift
-    // (Pressable's setState after dispose). Expect null once fixed.
-    expect(
-      tester.takeException().toString(),
-      contains('setState() called after dispose()'),
-    );
+    // The tile picked up is rebuilt as its faded copy; its press effect
+    // hearing the finger lift afterwards must not fail.
+    expect(tester.takeException(), isNull);
     await tester.pumpAndSettle();
     expect(tops().indexOf(first), 2);
     expect(tops().length, before.length);

@@ -151,67 +151,18 @@ extension on _AccountEditorState {
     required List<String> picks,
     String Function(String)? label,
   }) async {
-    final typed = TextEditingController(text: controller.text);
     final picked = await showPanel<String>(
       context,
-      (context) => StatefulBuilder(
-        builder: (context, setState) => CenterPanel(
-          glyph: glyph,
-          color: color,
-          title: title,
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final v in picks)
-                    ChoicePill(
-                      label: label?.call(v) ?? '$v$suffix',
-                      selected: typed.text.trim() == v,
-                      onTap: () => Navigator.of(context).pop(v),
-                    ),
-                ],
-              ),
-              const SizedBox(height: Space.s4),
-              TextField(
-                controller: typed,
-                autofocus: false,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                onChanged: (_) => setState(() {}),
-                onSubmitted: (v) => Navigator.of(context).pop(v),
-                style: const TextStyle(
-                  fontSize: TextSize.large,
-                  fontWeight: FontWeight.w800,
-                ),
-                decoration: InputDecoration(
-                  hintText: '其他',
-                  suffixText: suffix,
-                  filled: true,
-                  fillColor: AppColors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(Radii.large),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
-            PanelButton(
-              Words.done,
-              color: AppColors.accent,
-              onTap: () => Navigator.of(context).pop(typed.text),
-            ),
-          ],
-        ),
+      (context) => _NumberPanel(
+        glyph: glyph,
+        color: color,
+        title: title,
+        initial: controller.text,
+        suffix: suffix,
+        picks: picks,
+        label: label,
       ),
     );
-    typed.dispose();
     if (picked != null && mounted) controller.text = picked.trim();
   }
 
@@ -234,4 +185,94 @@ extension on _AccountEditorState {
     if (picked == null || !mounted) return;
     _set(() => _f.payFrom = picked.isEmpty ? null : picked);
   }
+}
+
+/// The panel for a loan's rate or months: preset pills over a field to
+/// type another. It owns its text controller, so the controller lives
+/// until the panel has finished closing, not only until it pops.
+class _NumberPanel extends StatefulWidget {
+  const _NumberPanel({
+    required this.glyph,
+    required this.color,
+    required this.title,
+    required this.initial,
+    required this.suffix,
+    required this.picks,
+    this.label,
+  });
+
+  final Glyph glyph;
+  final Color color;
+  final String title;
+  final String initial;
+  final String suffix;
+  final List<String> picks;
+  final String Function(String)? label;
+
+  @override
+  State<_NumberPanel> createState() => _NumberPanelState();
+}
+
+class _NumberPanelState extends State<_NumberPanel> {
+  late final _typed = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _typed.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => CenterPanel(
+    glyph: widget.glyph,
+    color: widget.color,
+    title: widget.title,
+    body: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final v in widget.picks)
+              ChoicePill(
+                label: widget.label?.call(v) ?? '$v${widget.suffix}',
+                selected: _typed.text.trim() == v,
+                onTap: () => Navigator.of(context).pop(v),
+              ),
+          ],
+        ),
+        const SizedBox(height: Space.s4),
+        TextField(
+          controller: _typed,
+          autofocus: false,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (v) => Navigator.of(context).pop(v),
+          style: const TextStyle(
+            fontSize: TextSize.large,
+            fontWeight: FontWeight.w800,
+          ),
+          decoration: InputDecoration(
+            hintText: '其他',
+            suffixText: widget.suffix,
+            filled: true,
+            fillColor: AppColors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(Radii.large),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+      ],
+    ),
+    actions: [
+      PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
+      PanelButton(
+        Words.done,
+        color: AppColors.accent,
+        onTap: () => Navigator.of(context).pop(_typed.text),
+      ),
+    ],
+  );
 }

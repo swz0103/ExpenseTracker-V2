@@ -215,13 +215,13 @@ void main() {
         final (_, later) = await open(again, kept: kept);
         final closes = await later.history('2330', DateTime.utc(2026, 8));
         expect(again.twseMonths, 1);
-        expect(
-          [
-            for (final (day, close) in closes)
-              (day.year, day.month, day.day, close),
-          ],
-          [(2026, 8, 28, 1100.0), (2026, 8, 31, 1110.0), (2026, 9, 29, 1234.5)],
-        );
+        // Days read back from the phone are UTC midnight, as fetched ones
+        // are, so a buy's day and the span's first day match them.
+        expect(closes, [
+          (DateTime.utc(2026, 8, 28), 1100.0),
+          (DateTime.utc(2026, 8, 31), 1110.0),
+          (DateTime.utc(2026, 9, 29), 1234.5),
+        ]);
       },
     );
 

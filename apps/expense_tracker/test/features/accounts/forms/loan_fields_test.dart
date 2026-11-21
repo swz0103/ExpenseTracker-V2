@@ -105,6 +105,17 @@ void main() {
     expect(find.bySemanticsLabel('年利率 —'), findsOneWidget);
   });
 
+  testWidgets('a rate typed in 其他 and kept with 完成 is the loan\'s rate', (
+    tester,
+  ) async {
+    await open(tester);
+    await go(tester, ['年利率']);
+    await tester.enterText(find.byType(TextField).last, '1.85');
+    await go(tester, [Words.done]);
+    expect(tester.takeException(), isNull);
+    expect(find.bySemanticsLabel('年利率 1.85%'), findsOneWidget);
+  });
+
   testWidgets('a loan changed keeps what is owed as typed', (tester) async {
     final loan = ledger.accounts.all.firstWhere(
       (a) => a.kind == AccountKind.loan,
