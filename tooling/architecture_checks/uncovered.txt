@@ -38,6 +38,4 @@ src/features/investments/ui/holding_page.dart::_SoldOut
 src/features/overview/forms/widget_face.dart::WidgetFace
 src/features/overview/forms/widget_face.dart::_Half
 src/features/overview/forms/widget_face.dart::_Week
-src/features/recurring/forms/recurring_repeat.dart::_OtherSheetState
 src/features/recurring/ui/recurring_lists.dart::_Paused
-src/features/tags/ui/tag_page.dart::_RenameSheetState
