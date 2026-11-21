@@ -10,7 +10,7 @@
 | 2 | 資料與規則寫在 `model/`（不碰畫面），表單寫在 `forms/`，頁面寫在 `ui/` | `layers_test` |
 | 3 | 純計算（不需要帳本狀態）放 `packages/domain`，App 只呼叫 | [architecture.md](architecture.md#模組) |
 | 4 | 新頁面：在 `core/navigation/nav.dart` 加一個 `AppRoute`，`app/shell.dart` 對應頁面；一次性的整頁工作（排序、匯入）用 `openFullScreen` | `layers_test` |
-| 5 | 畫面只用設計系統：`AppColors`、`TextSize`、`solidButton`／`wordButton`、components 元件 | [design.md](design.md)、`design_rules_test` |
+| 5 | 畫面只用設計系統：`AppColors`、`TextSize`、`solidButton`／`wordButton`、components 元件 | [design.md](design.md)、`app_design_syntax_test` |
 | 6 | 頁面加進 `test/support/places.dart`，版面、無障礙、截圖就會涵蓋它 | — |
 | 7 | 寫測試（見第三節），跑全部測試 | — |
 | 8 | 更新文件（見第四節）、版號與 `whats_new.txt`（見第五節） | — |
@@ -52,7 +52,7 @@
 
 ### 畫面
 
-- 顏色、字級、按鈕只從 `core/design_system` 拿，頁面裡不寫色碼、字級數字、`styleFrom`（`design_rules_test`；色碼、字級數字、轉型與依賴整個帳本的檔數由 `app_syntax_test` 讀語法樹檢查）。
+- 顏色、字級、按鈕只從 `core/design_system` 拿，頁面裡不寫色碼、字級數字、`styleFrom`（`app_syntax_test`、`app_design_syntax_test` 讀語法樹檢查，註解與字串不會誤判）。
 - 短標籤用 `OneLine`（放不下先縮到 75%，再放不下以…結尾），不讓它斷成兩行（版面測試檢查 12 字以內的文字）。
 - 有標題的頁面用 `HeadedList`，標題固定、內容捲動；內容放得下時不能拖動。
 - 動畫 200～300 ms，並尊重系統的「減少動畫」（`MediaQuery.disableAnimationsOf`）。

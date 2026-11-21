@@ -1,6 +1,6 @@
 # 設計系統
 
-> 畫面怎麼長、用哪些顏色、字級和元件。程式在 `apps/expense_tracker/lib/src/core/design_system/`；頁面不自己寫顏色、字級、按鈕樣式（`design_rules_test` 檢查）。
+> 畫面怎麼長、用哪些顏色、字級和元件。程式在 `apps/expense_tracker/lib/src/core/design_system/`；頁面不自己寫顏色、字級、按鈕樣式（`app_design_syntax_test` 讀語法樹檢查）。
 
 ## 原則
 
@@ -82,7 +82,7 @@
 
 認得帳本的元件（紀錄列、帳戶選擇、計算機、金額顯示）在 `core/widgets/`。
 
-頁面不寫白底加陰影的卡（白卡元件已退場）（`design_rules_test`）。
+頁面不寫白底加陰影的卡（白卡元件已退場，`app_design_syntax_test` 檢查）。
 
 ## 版面規則
 

@@ -125,7 +125,7 @@ flowchart LR
 | --- | --- |
 | core 各部分、功能之間、帳本內部的依賴方向；只有 `openFullScreen` 推路由；範例帳本只在 `app/demo/` | `test/rules/layers_test.dart` |
 | 色碼、字級數字、轉型、依賴整本帳本的檔數（模型為 0） | `tooling/architecture_checks/test/app_syntax_test.dart` |
-| 設計系統、動畫、共用詞彙 | `test/rules/design_rules_test.dart` |
+| 設計系統：按鈕、退場元件、字級縮放、圓角與間距、動畫、共用詞 | `tooling/architecture_checks/test/app_design_syntax_test.dart` |
 | 每頁 48 dp、有名稱、念成按鈕就按得下；200% 字級不溢出 | `test/rules/accessibility_test.dart`、`layout_*_test.dart` |
 | 捕捉的錯誤要記錄或說明；訊息不含原始例外 | `test/rules/error_rules_test.dart` |
 | 舊名稱不回來 | `test/rules/naming_test.dart` |

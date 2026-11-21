@@ -15,7 +15,7 @@
 | 做什麼 | 指令 |
 | --- | --- |
 | 全部測試 | `flutter test` |
-| 只看規則 | `flutter test test/rules/layers_test.dart test/rules/design_rules_test.dart` |
+| 只看規則 | `flutter test test/rules`，以及 `tooling/architecture_checks` 裡的 `dart test` |
 | 只看版面 | `flutter test test/rules/layout_common_test.dart` |
 | 分析與排版 | `flutter analyze`、`dart format lib test` |
 | 網頁預覽 | `flutter run -d chrome -t lib/main_preview.dart` |

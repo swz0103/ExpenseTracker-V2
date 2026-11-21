@@ -26,6 +26,8 @@ android {
     }
 
     defaultConfig {
+        // Tests on a phone or the emulator (src/androidTest), run by emulator.yml.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         applicationId = "io.github.swz0103.expensetracker"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -102,4 +104,8 @@ dependencies {
     // Backups delivered while the app is closed (BackupWorker.kt).
     implementation("androidx.work:work-runtime:2.9.1")
     testImplementation("junit:junit:4.13.2")
+    // On the emulator: the Keystore, notifications, photos (src/androidTest).
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
 }
