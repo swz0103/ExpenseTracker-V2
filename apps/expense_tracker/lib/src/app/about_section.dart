@@ -344,7 +344,7 @@ class _VersionCardState extends State<_VersionCard> {
                       child: LinearProgressIndicator(
                         value: progress,
                         minHeight: 5,
-                        color: SettingsColors.main,
+                        color: markOf(SettingsColors.main),
                         backgroundColor: AppColors.white,
                       ),
                     ),

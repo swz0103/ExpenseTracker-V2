@@ -184,8 +184,8 @@ List<Widget> weekdaysSection(Report report) {
                               child: DecoratedBox(
                                 decoration: BoxDecoration(
                                   color: i == heaviest
-                                      ? AppColors.negative
-                                      : softOf(AppColors.negative),
+                                      ? markOf(AppColors.negative)
+                                      : softOf(markOf(AppColors.negative)),
                                   borderRadius: BorderRadius.circular(
                                     Radii.small,
                                   ),

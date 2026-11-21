@@ -252,8 +252,8 @@ class _SpentBar extends StatelessWidget {
           if (spentShare > 0)
             Expanded(
               flex: (spentShare * 1000).round().clamp(1, 1000),
-              child: const ColoredBox(
-                color: AppColors.negative,
+              child: ColoredBox(
+                color: markOf(AppColors.negative),
                 child: SizedBox.expand(),
               ),
             ),
@@ -262,8 +262,8 @@ class _SpentBar extends StatelessWidget {
           if (spentShare < 1)
             Expanded(
               flex: ((1 - spentShare) * 1000).round().clamp(1, 1000),
-              child: const ColoredBox(
-                color: AppColors.positive,
+              child: ColoredBox(
+                color: markOf(AppColors.positive),
                 child: SizedBox.expand(),
               ),
             ),

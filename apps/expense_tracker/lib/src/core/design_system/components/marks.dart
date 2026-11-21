@@ -304,7 +304,7 @@ class DayBar extends StatelessWidget {
                         ? AppColors.white
                         : today && d == passed
                         ? AppColors.ink
-                        : color,
+                        : markOf(color),
                   ),
                 ),
               ),

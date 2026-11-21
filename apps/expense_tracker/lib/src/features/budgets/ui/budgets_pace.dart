@@ -256,7 +256,7 @@ class _LimitHead extends StatelessWidget {
                 value: share,
                 strokeWidth: 4,
                 strokeCap: StrokeCap.round,
-                color: tone,
+                color: markOf(tone),
                 backgroundColor: tintOf(tone, 0.3),
               ),
               Center(child: GlyphIcon(glyph, size: 16, color: tone)),

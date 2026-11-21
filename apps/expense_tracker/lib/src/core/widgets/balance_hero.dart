@@ -219,7 +219,7 @@ class _Bar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      color: color,
+      color: markOf(color),
       borderRadius: BorderRadius.circular(Radii.extraSmall),
     ),
   );

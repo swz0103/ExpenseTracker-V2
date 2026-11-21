@@ -197,7 +197,7 @@ class CardPage extends StatelessWidget {
             value: card.cycleDays == 0 ? 0 : card.daysGone / card.cycleDays,
             minHeight: 6,
             borderRadius: BorderRadius.circular(Radii.extraSmall),
-            color: AppColors.accent,
+            color: markOf(AppColors.accent),
             backgroundColor: AppColors.accentTrack,
           ),
         ),
@@ -225,9 +225,9 @@ class CardPage extends StatelessWidget {
                       value: used,
                       minHeight: 6,
                       borderRadius: BorderRadius.circular(Radii.extraSmall),
-                      color: card.nearLimit
-                          ? AppColors.negative
-                          : AppColors.accent,
+                      color: markOf(
+                        card.nearLimit ? AppColors.negative : AppColors.accent,
+                      ),
                       backgroundColor: AppColors.accentTrack,
                     ),
                     const SizedBox(height: Space.s1),
@@ -383,7 +383,7 @@ class CardPage extends StatelessWidget {
                   value: periods / e.installments,
                   minHeight: 5,
                   borderRadius: BorderRadius.circular(Radii.extraSmall),
-                  color: shownColor(Color(category.color)),
+                  color: markOf(shownColor(Color(category.color))),
                   backgroundColor: AppColors.track,
                 ),
                 const SizedBox(height: Space.s1),

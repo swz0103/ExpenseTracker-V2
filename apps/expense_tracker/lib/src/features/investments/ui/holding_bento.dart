@@ -281,8 +281,8 @@ class _PriceChartState extends State<_PriceChart> {
           Container(
             width: 10,
             height: 10,
-            decoration: const BoxDecoration(
-              color: AppColors.investment,
+            decoration: BoxDecoration(
+              color: markOf(AppColors.investment),
               shape: BoxShape.circle,
             ),
           ),
