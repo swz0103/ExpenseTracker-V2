@@ -9,6 +9,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/navigation/nav.dart';
 import '../model/tag_summary.dart';
+import 'tag_summary_blocks.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/formatting/dates.dart';
 import '../../../core/design_system/shape.dart';
@@ -429,10 +430,6 @@ class TagSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = nameColor(project.tag);
     final ink = deepOf(color);
-    String day(DateTime d) => formatMd(d);
-    final days = project.from == project.to
-        ? day(project.from)
-        : '${day(project.from)} – ${day(project.to)} · ${project.days} 天';
     final parts = project.byCategory;
     final spent = project.spent;
     final card = Container(
@@ -453,59 +450,7 @@ class TagSummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (recent)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: Space.s2),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: Space.s2,
-                          vertical: Space.half,
-                        ),
-                        decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(Radii.small),
-                        ),
-                        child: const Text(
-                          '最近',
-                          style: TextStyle(
-                            fontSize: TextSize.caption,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.onSolid,
-                          ),
-                        ),
-                      ),
-                    Text(
-                      days,
-                      style: TextStyle(
-                        fontSize: TextSize.body,
-                        fontWeight: FontWeight.w700,
-                        color: ink,
-                      ),
-                    ),
-                    if (recent)
-                      Padding(
-                        padding: const EdgeInsets.only(top: Space.s1),
-                        child: Text(
-                          '#${project.tag}',
-                          style: TextStyle(
-                            fontSize: TextSize.large,
-                            fontWeight: FontWeight.w800,
-                            color: ink,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              ?menu,
-            ],
-          ),
+          TagSummaryHeading(project: project, recent: recent, menu: menu),
           const SizedBox(height: Space.s2),
           Text(
             ledger.orDots(groupDigits(spent)),
@@ -525,55 +470,17 @@ class TagSummaryCard extends StatelessWidget {
           ),
           if (parts.isNotEmpty && spent > 0) ...[
             const SizedBox(height: Space.s4),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(Radii.extraSmall),
-              child: SizedBox(
-                height: 10,
-                child: Row(
-                  children: [
-                    for (final (i, (name, amount)) in parts.indexed) ...[
-                      if (i > 0) const SizedBox(width: Space.half),
-                      Expanded(
-                        flex: (amount * 1000 ~/ spent).clamp(1, 1000),
-                        child: ColoredBox(
-                          color: shownColor(Color(ledger.category(name).color)),
-                          child: const SizedBox.expand(),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: Space.s2),
-            Wrap(
-              spacing: 14,
-              runSpacing: 4,
-              children: [
-                for (final (name, amount) in parts.take(5))
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: shownColor(Color(ledger.category(name).color)),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: Space.s2),
-                      Text(
-                        '$name ${amount * 100 ~/ spent}%',
-                        style: TextStyle(
-                          fontSize: TextSize.small,
-                          fontWeight: FontWeight.w700,
-                          color: ink,
-                        ),
-                      ),
-                    ],
+            TagCategoryShares(
+              categories: [
+                for (final (name, amount) in parts)
+                  (
+                    name,
+                    amount,
+                    shownColor(Color(ledger.category(name).color)),
                   ),
               ],
+              spent: spent,
+              ink: ink,
             ),
           ],
         ],

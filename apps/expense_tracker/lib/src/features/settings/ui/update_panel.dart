@@ -92,34 +92,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                   ),
                 ),
                 const SizedBox(height: Space.s4),
-                for (final line in info.notes)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: Space.s2),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '・',
-                          style: TextStyle(
-                            fontSize: TextSize.body,
-                            color: AppColors.accent,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            line,
-                            style: const TextStyle(fontSize: TextSize.body),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (info.notes.isEmpty)
-                  const Text(
-                    '修正與改進',
-                    textAlign: TextAlign.center,
-                    style: mutedBody,
-                  ),
+                ..._notes(info),
                 if (_problem case final problem?)
                   Padding(
                     padding: const EdgeInsets.only(top: Space.s2),
@@ -133,57 +106,10 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                     ),
                   ),
                 const SizedBox(height: Space.s4),
-                if (progress != null) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(Radii.extraSmall),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 8,
-                      color: AppColors.accent,
-                      backgroundColor: AppColors.surface,
-                    ),
-                  ),
-                  const SizedBox(height: Space.s2),
-                  Text(
-                    '下載中 ${(progress * 100).round()}%',
-                    textAlign: TextAlign.center,
-                    style: mutedBody,
-                  ),
-                ] else ...[
-                  _Choice(
-                    '更新',
-                    key: Keys.install,
-                    color: AppColors.positive,
-                    onTap: widget.update.busy ? null : _install,
-                  ),
-                  const SizedBox(height: Space.s2),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          key: Keys.later,
-                          style: wordButton(AppColors.muted),
-                          onPressed: () {
-                            widget.update.later();
-                            Navigator.of(context).pop();
-                          },
-                          child: const Text('晚一點再說'),
-                        ),
-                      ),
-                      Expanded(
-                        child: TextButton(
-                          key: Keys.skip,
-                          style: wordButton(AppColors.muted),
-                          onPressed: () {
-                            widget.update.skip(info);
-                            Navigator.of(context).pop();
-                          },
-                          child: const Text('略過這一版'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                if (progress != null)
+                  ..._download(progress)
+                else
+                  ..._choices(info),
               ],
             );
           },
@@ -191,6 +117,91 @@ class _UpdatePanelState extends State<_UpdatePanel> {
       ),
     );
   }
+
+  /// What the version changes, a line each after a dot, or 修正與改進
+  /// when it says nothing.
+  List<Widget> _notes(UpdateInfo info) => [
+    for (final line in info.notes)
+      Padding(
+        padding: const EdgeInsets.only(bottom: Space.s2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '・',
+              style: TextStyle(
+                fontSize: TextSize.body,
+                color: AppColors.accent,
+              ),
+            ),
+            Expanded(
+              child: Text(
+                line,
+                style: const TextStyle(fontSize: TextSize.body),
+              ),
+            ),
+          ],
+        ),
+      ),
+    if (info.notes.isEmpty)
+      const Text('修正與改進', textAlign: TextAlign.center, style: mutedBody),
+  ];
+
+  /// The download under way: a bar filling and 下載中 with how far.
+  List<Widget> _download(double progress) => [
+    ClipRRect(
+      borderRadius: BorderRadius.circular(Radii.extraSmall),
+      child: LinearProgressIndicator(
+        value: progress,
+        minHeight: 8,
+        color: AppColors.accent,
+        backgroundColor: AppColors.surface,
+      ),
+    ),
+    const SizedBox(height: Space.s2),
+    Text(
+      '下載中 ${(progress * 100).round()}%',
+      textAlign: TextAlign.center,
+      style: mutedBody,
+    ),
+  ];
+
+  /// 更新, and 晚一點再說 and 略過這一版 side by side under it.
+  List<Widget> _choices(UpdateInfo info) => [
+    _Choice(
+      '更新',
+      key: Keys.install,
+      color: AppColors.positive,
+      onTap: widget.update.busy ? null : _install,
+    ),
+    const SizedBox(height: Space.s2),
+    Row(
+      children: [
+        Expanded(
+          child: TextButton(
+            key: Keys.later,
+            style: wordButton(AppColors.muted),
+            onPressed: () {
+              widget.update.later();
+              Navigator.of(context).pop();
+            },
+            child: const Text('晚一點再說'),
+          ),
+        ),
+        Expanded(
+          child: TextButton(
+            key: Keys.skip,
+            style: wordButton(AppColors.muted),
+            onPressed: () {
+              widget.update.skip(info);
+              Navigator.of(context).pop();
+            },
+            child: const Text('略過這一版'),
+          ),
+        ),
+      ],
+    ),
+  ];
 }
 
 class _Choice extends StatelessWidget {

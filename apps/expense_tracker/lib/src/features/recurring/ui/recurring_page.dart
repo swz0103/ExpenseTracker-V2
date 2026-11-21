@@ -135,82 +135,19 @@ class _RecurringPageState extends State<RecurringPage> {
             HeaderButton(glyph: Glyph.add, label: Words.add, onTap: _edit),
           ],
         );
-        if (ledger.recurring.all.isEmpty) {
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
-            children: [
-              header,
-              EmptyState(
-                glyph: Glyph.cycleCalendar,
-                color: _recurringColor,
-                message: '房租、訂閱、薪水這些固定的，\n記一次就會每期提醒',
-                action: '新增固定交易',
-                onAction: _edit,
-              ),
-            ],
-          );
-        }
-        final paused = [
-          for (final r in ledger.recurring.all)
-            if (!r.active) r,
-        ];
-        var toCome = 0;
-        for (final list in plan.values) {
-          for (final d in list) {
-            if (!d.settled && !d.item.income) {
-              toCome += ledger.recurringService.worth(d.item);
-            }
-          }
-        }
-        final yearly = yearlyCostsOf(ledger).fold(0, (sum, r) => sum + r.$2);
+        if (ledger.recurring.all.isEmpty) return _empty(header);
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
           header: header,
           children: [
-            Row(
-              children: [
-                Text(
-                  '$month 月',
-                  style: const TextStyle(
-                    fontSize: TextSize.big,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const Spacer(),
-                if (!current)
-                  TextButton(
-                    onPressed: () => setState(() {
-                      _month = _now;
-                      _day = null;
-                    }),
-                    style: wordButton(
-                      AppColors.accent,
-                      fill: AppColors.selected,
-                      minimumSize: Size(0, 44),
-                      radius: Radii.largeIncreased,
-                    ),
-                    child: const Text(
-                      '回到今天',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                for (final (glyph, label, by) in const [
-                  (Glyph.back, Words.previousMonth, -1),
-                  (Glyph.next, Words.nextMonth, 1),
-                ])
-                  Padding(
-                    padding: const EdgeInsets.only(left: Space.s2),
-                    child: Material(
-                      color: AppColors.surface,
-                      shape: const CircleBorder(),
-                      child: IconButton(
-                        tooltip: label,
-                        onPressed: () => _step(by),
-                        icon: GlyphIcon(glyph, size: 20),
-                      ),
-                    ),
-                  ),
-              ],
+            _MonthBar(
+              month: month,
+              current: current,
+              onToday: () => setState(() {
+                _month = _now;
+                _day = null;
+              }),
+              onStep: _step,
             ),
             const SizedBox(height: Space.s2),
             _Calendar(
@@ -234,27 +171,132 @@ class _RecurringPageState extends State<RecurringPage> {
               ),
             ],
             const SizedBox(height: Space.s4),
-            CardGrid(columns: 3, gap: 8, [
-              _Cell(
-                label: current ? '還沒扣' : '$month 月要扣',
-                value: ledger.orDots(groupDigits(toCome)),
-              ),
-              _Cell(
-                label: '固定支出/年 ›',
-                value: ledger.orDots(groupDigits(yearly)),
-                onTap: () => widget.nav.open(
-                  AppRoutes.recurringView(RecurringView.subscriptions),
-                ),
-              ),
-              _Cell(
-                label: '已暫停 ›',
-                value: '${paused.length} 項',
-                onTap: () => _view(RecurringView.paused),
-              ),
-            ]),
+            _cells(plan, month: month, current: current),
           ],
         );
       },
+    );
+  }
+
+  /// 定期交易 before anything is added: the header over an invitation to
+  /// add the first.
+  Widget _empty(Widget header) => ListView(
+    padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
+    children: [
+      header,
+      EmptyState(
+        glyph: Glyph.cycleCalendar,
+        color: _recurringColor,
+        message: '房租、訂閱、薪水這些固定的，\n記一次就會每期提醒',
+        action: '新增固定交易',
+        onAction: _edit,
+      ),
+    ],
+  );
+
+  /// The three cells under the calendar: what is still to be spent in
+  /// [month] of [plan], 固定支出/年 and 已暫停.
+  Widget _cells(
+    Map<int, List<Due>> plan, {
+    required int month,
+    required bool current,
+  }) {
+    final paused = [
+      for (final r in ledger.recurring.all)
+        if (!r.active) r,
+    ];
+    var toCome = 0;
+    for (final list in plan.values) {
+      for (final d in list) {
+        if (!d.settled && !d.item.income) {
+          toCome += ledger.recurringService.worth(d.item);
+        }
+      }
+    }
+    final yearly = yearlyCostsOf(ledger).fold(0, (sum, r) => sum + r.$2);
+    return CardGrid(columns: 3, gap: 8, [
+      _Cell(
+        label: current ? '還沒扣' : '$month 月要扣',
+        value: ledger.orDots(groupDigits(toCome)),
+      ),
+      _Cell(
+        label: '固定支出/年 ›',
+        value: ledger.orDots(groupDigits(yearly)),
+        onTap: () => widget.nav.open(
+          AppRoutes.recurringView(RecurringView.subscriptions),
+        ),
+      ),
+      _Cell(
+        label: '已暫停 ›',
+        value: '${paused.length} 項',
+        onTap: () => _view(RecurringView.paused),
+      ),
+    ]);
+  }
+}
+
+/// The top of 定期交易: the month in big words, 回到今天 when another
+/// month is shown, and the arrows to the month before and after.
+class _MonthBar extends StatelessWidget {
+  const _MonthBar({
+    required this.month,
+    required this.current,
+    required this.onToday,
+    required this.onStep,
+  });
+
+  final int month;
+
+  /// Whether the month shown is this month, when 回到今天 is not needed.
+  final bool current;
+  final VoidCallback onToday;
+
+  /// Moves the month shown by a month back (-1) or forward (1).
+  final void Function(int by) onStep;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          '$month 月',
+          style: const TextStyle(
+            fontSize: TextSize.big,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const Spacer(),
+        if (!current)
+          TextButton(
+            onPressed: onToday,
+            style: wordButton(
+              AppColors.accent,
+              fill: AppColors.selected,
+              minimumSize: Size(0, 44),
+              radius: Radii.largeIncreased,
+            ),
+            child: const Text(
+              '回到今天',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        for (final (glyph, label, by) in const [
+          (Glyph.back, Words.previousMonth, -1),
+          (Glyph.next, Words.nextMonth, 1),
+        ])
+          Padding(
+            padding: const EdgeInsets.only(left: Space.s2),
+            child: Material(
+              color: AppColors.surface,
+              shape: const CircleBorder(),
+              child: IconButton(
+                tooltip: label,
+                onPressed: () => onStep(by),
+                icon: GlyphIcon(glyph, size: 20),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

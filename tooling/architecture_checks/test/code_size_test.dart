@@ -32,16 +32,9 @@ const libraryGuide = 1200;
 const longerFunctions = <String, int>{
   'src/features/accounts/ui/sort_accounts.dart::_SortAccountsPageState.build':
       109,
-  'src/features/tags/ui/tags_page.dart::TagSummaryCard.build': 164,
   'src/features/accounts/forms/account_editor_state.dart::_AccountEditorState.build':
       121,
-  'src/features/recurring/ui/recurring_calendar.dart::_Calendar._dayCell': 136,
-  'src/features/recurring/ui/recurring_page.dart::_RecurringPageState.build':
-      150,
   'src/core/ledger/portfolio.dart::Portfolio.replay': 143,
-  'src/features/settings/ui/update_panel.dart::_UpdatePanelState.build': 137,
-  'src/features/recurring/forms/recurring_repeat.dart::_RepeatSheetState.build':
-      133,
   'src/core/charts/flow_chart.dart::_FlowPainter.paint': 131,
   'src/core/widgets/balance_hero.dart::BalanceHero.build': 85,
   'src/features/investments/ui/holding_page.dart::HoldingPage.build': 122,
