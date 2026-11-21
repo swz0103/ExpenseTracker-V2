@@ -33,7 +33,7 @@ void main() {
 
   test('a test sits where the file it tests sits', () {
     // lib/src/a/b.dart is tested in test/a/b_test.dart, so whether a
-    // file has its test shows at a glance (ADR-0009). What is not about
+    // file has its test shows at a glance (docs/conventions.md). What is not about
     // one file has a folder of its own.
     const apart = ['rules', 'scenarios', 'support', 'perf', 'tool'];
     final faults = <String>[];

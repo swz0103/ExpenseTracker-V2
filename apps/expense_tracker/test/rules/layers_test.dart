@@ -317,7 +317,7 @@ void main() {
 
   test('no two files of the app share a name', () {
     // A name found twice in a search is a file opened by mistake
-    // (ADR-0009).
+    // (docs/architecture.md).
     final seen = <String, String>{};
     for (final file in imports.keys) {
       final name = file.split('/').last;

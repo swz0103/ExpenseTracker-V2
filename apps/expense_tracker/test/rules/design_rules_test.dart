@@ -81,7 +81,7 @@ void main() {
   });
 
   test('pages use the colour blocks, not the retired white cards', () {
-    // ADR-0006: these were replaced by FigureCard, HeroFigure,
+    // The white cards were retired: replaced by FigureCard, HeroFigure,
     // FigureCells, CardRow, GroupBox, SectionTitle, FormGroup, SquareIcon
     // and RoundIcon; white cards with a shadow went with them.
     final retired = RegExp(

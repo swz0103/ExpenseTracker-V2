@@ -43,8 +43,8 @@
 
 ### 命名與註解
 
-- 名稱用業界通用詞，不自創；怎麼取、檔名後綴、舊名對照見 [naming.md](naming.md)。
-
+- 名稱用業界通用詞，不自創：依序查 Dart／Flutter、Android 官方、DDD（Evans）、PoEAA（Fowler）、會計與證券用語。名稱說它是什麼，不說怎麼做；不用縮寫（`Id`、`Json`、`Csv` 除外）；同一概念程式、資料夾、檔名同一個詞。改掉的舊名列在 `naming_test`，不准回來；改名用 `tool/reroute.py`（依分析器錯誤改寫呼叫處）或 `tool/move.py`，不用文字取代。
+- 檔名後綴：`_page` 整頁、`_sheet` 底部面板、`_dialog` 中央面板、`_section` 頁面一段、`_form` 表單狀態（不含畫面）、`_editor` 編輯表單畫面、`_card`／`_tile` 清單一項、`_repository` 擁有狀態、`_service` 只讀計算、`_commands` 寫入指令、`_adapter` 平台轉接、`_data_source` 資料實際存放處。
 - 檔名小寫底線，名稱說明內容（`loan_blocks.dart`），不用 `_2`、`utils`、`helpers`。
 - 公開的類別、函式都有 `///` 文件註解，用英文寫「它是什麼、什麼時候用」；畫面上的中文字直接寫在註解裡對照（例：`/// 定期交易: …`）。
 - 註解說「為什麼」，不重述程式在做什麼。
@@ -81,14 +81,14 @@
 | --- | --- | --- |
 | [README（根目錄）](../README.md) | App 介紹、安裝 | 功能大改時 |
 | [product.md](product.md) | App 能做什麼（給使用者看） | 新增或拿掉功能時 |
-| [architecture.md](architecture.md) | 模組、分層、資料流、外部來源 | 結構或依賴規則改變時 |
+| [architecture.md](architecture.md) | 模組、分層、帳本、資料流、外部來源 | 結構或依賴規則改變時 |
 | [design.md](design.md) | 設計系統與畫面規則 | 加 token、元件或畫面規則時 |
 | [conventions.md](conventions.md) | 本文件 | 規則改變時 |
 | [development.md](development.md) | 開發、測試、CI、發版 | 工具或流程改變時 |
 | [android.md](android.md) | Android 端的實作與設定 | 改 Kotlin、權限、Google 設定時 |
 | [CHANGELOG.md](CHANGELOG.md) | 每版改了什麼 | 每個版本 |
-| [acceptance.md](acceptance.md) | 待實機驗收的項目 | 每個版本；驗收完標記 |
-| [roadmap.md](roadmap.md) | 已知限制、刻意不做、待辦 | 發現或解決時 |
+| [acceptance.md](acceptance.md) | 要在手機上確認的事，依功能分 | 畫面或手機行為改變時；驗收完打勾 |
+| [roadmap.md](roadmap.md) | 現況數字、待辦、已知限制、刻意不做 | 發現或解決時；做完的移到 CHANGELOG |
 | [adr/](adr/) | 重大決策的理由 | 做出新的取捨時加一篇，不改舊的結論 |
 | 各模組 README | 模組做什麼、對外入口、不做什麼 | 改模組的公開行為時 |
 
@@ -105,12 +105,12 @@
 ### ADR
 
 - 檔名 `adr/NNNN-主題.md`，內容：狀態與日期、背景、決策、後果。
-- 決策改變時加新的 ADR，在舊的狀態列寫「由 ADR-NNNN 取代」，不改寫舊的內容。
+- 決策改變時加新的 ADR，在舊的狀態列寫「由 ADR-NNNN 取代」，不改寫舊的內容；整篇都已被取代或做完、只剩歷史的 ADR 刪掉，現況寫在 architecture.md。
 
 ## 五、提交與發版
 
 - 版號 `主.次.修`，三碼各在什麼時候變見 [ADR-0011](adr/0011-version-numbers.md)：第一碼是舊版 App 讀不了新資料或有人被留在後面（1.0 前固定 0），第二碼是使用者看得到新的或不一樣的東西，第三碼是看不到刻意的改變（修 bug、整理、效能）。每個會發布的 PR 都要升版，否則驗證失敗；升了某一碼，後面歸零；只升不降。
-- 每個版本：`pubspec.yaml` 版號、`whats_new.txt`（三行以內，給使用者看）、CHANGELOG 一節、acceptance 一節；發行前升級套件一次並記在 [development.md](development.md#套件升級)。
+- 每個版本：`pubspec.yaml` 版號、`whats_new.txt`（三行以內，給使用者看）、CHANGELOG 一節，畫面有變就更新 acceptance；發行前升級套件一次並記在 [development.md](development.md#套件升級)。
 - commit 訊息用英文：第一行說做了什麼，空一行後條列重點。
 - 一個 PR 一件事（一批回饋或一次整理）；PR 說明列出改了什麼、怎麼驗證。
 - 合併到 main 後 CI 自動建置、簽章、發布；App 內更新會讀到新版。
