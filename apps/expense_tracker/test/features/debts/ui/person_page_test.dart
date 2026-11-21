@@ -142,22 +142,22 @@ void main() {
     }
     await tester.tap(find.byKey(Keys.save));
     await tester.pumpAndSettle();
-    // 代墊 shares the sum evenly at first: half is their share, owed,
-    // and half one's own spending, kept together as one group.
-    final group = ledger.entries.all.last.group;
-    expect(group, isNotNull);
-    final made = [
-      for (final e in ledger.entries.all)
-        if (e.group == group) e,
-    ];
-    final lent = made.singleWhere((e) => e.type == EntryType.transfer);
+    // Paid for them: all of it is theirs, owed, none one's own spending.
+    final made = ledger.entries.all.last;
     expect(
-      (lent.account, lent.to, lent.amount),
-      (ledger.accounts.main, 'lent', 125),
+      (made.type, made.account, made.to, made.amount),
+      (EntryType.transfer, ledger.accounts.main, 'lent', 250),
     );
-    final own = made.singleWhere((e) => e.type == EntryType.expense);
-    expect((own.account, own.amount), (ledger.accounts.main, 125));
-    expect(ledger.balanceService.balance('lent'), 1925);
+    expect(
+      ledger.entries.all.where(
+        (e) =>
+            e.type == EntryType.expense &&
+            e.date == made.date &&
+            e.amount == 125,
+      ),
+      isEmpty,
+    );
+    expect(ledger.balanceService.balance('lent'), 2050);
     expect(find.text('4 筆還沒收回 · 最久 30 天'), findsOneWidget);
   });
 
