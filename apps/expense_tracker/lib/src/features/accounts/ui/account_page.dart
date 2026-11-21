@@ -187,6 +187,12 @@ class _AccountBodyState extends State<AccountBody> {
     );
   }
 
+  /// How much [entries] of one day changed the account's balance.
+  int _dayChange(List<Entry> entries) => entries.fold<int>(
+    0,
+    (sum, e) => sum + widget.ledger.balanceService.effect(e, widget.account.id),
+  );
+
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
@@ -209,37 +215,13 @@ class _AccountBodyState extends State<AccountBody> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: Space.s2),
-          child: Row(
-            children: [
-              Expanded(
-                child: AccountAction(
-                  icon: Glyph.add,
-                  label: '記一筆',
-                  onTap: () => _record(account),
-                ),
-              ),
-              const SizedBox(width: Space.s2),
-              Expanded(
-                child: AccountAction(
-                  icon: Glyph.transfer,
-                  label: _moveWord(account),
-                  onTap: () => _move(account),
-                ),
-              ),
-              if (reconcilable) ...[
-                const SizedBox(width: Space.s2),
-                Expanded(
-                  child: AccountAction(
-                    icon: Glyph.calculator,
-                    label: '對帳',
-                    onTap: () => reconcileAccount(context, ledger, account),
-                  ),
-                ),
-              ],
-            ],
-          ),
+        _AccountActions(
+          moveWord: _moveWord(account),
+          onRecord: () => _record(account),
+          onMove: () => _move(account),
+          onReconcile: reconcilable
+              ? () => reconcileAccount(context, ledger, account)
+              : null,
         ),
         const SectionTitle('近四週'),
         Waterfall(
@@ -260,38 +242,9 @@ class _AccountBodyState extends State<AccountBody> {
         ),
         if (entries.isEmpty) const Text('這個月沒有紀錄', style: mutedText),
         for (final MapEntry(key: day, value: list) in days.entries) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Space.s1,
-              Space.s2,
-              Space.s1,
-              Space.s2,
-            ),
-            child: Row(
-              children: [
-                Text(
-                  formatMMMEd(day),
-                  style: const TextStyle(
-                    fontSize: TextSize.small,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  ledger.orDots(
-                    amountIn(
-                      list.fold<int>(
-                        0,
-                        (sum, e) =>
-                            sum + ledger.balanceService.effect(e, account.id),
-                      ),
-                      code,
-                    ),
-                  ),
-                  style: mutedSmall,
-                ),
-              ],
-            ),
+          _DayHeading(
+            day: day,
+            total: ledger.orDots(amountIn(_dayChange(list), code)),
           ),
           GroupBox(
             padding: EdgeInsets.zero,
@@ -311,4 +264,89 @@ class _AccountBodyState extends State<AccountBody> {
       ],
     );
   }
+}
+
+/// The row of what is done with an account: 記一筆, a transfer or card
+/// payment, and 對帳 when [onReconcile] is given.
+class _AccountActions extends StatelessWidget {
+  const _AccountActions({
+    required this.moveWord,
+    required this.onRecord,
+    required this.onMove,
+    required this.onReconcile,
+  });
+
+  /// The word for the transfer action: 繳卡費 or 轉帳.
+  final String moveWord;
+  final VoidCallback onRecord;
+  final VoidCallback onMove;
+
+  /// Opens 對帳; null when the account cannot be reconciled.
+  final VoidCallback? onReconcile;
+
+  @override
+  Widget build(BuildContext context) {
+    final onReconcile = this.onReconcile;
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.s2),
+      child: Row(
+        children: [
+          Expanded(
+            child: AccountAction(
+              icon: Glyph.add,
+              label: '記一筆',
+              onTap: onRecord,
+            ),
+          ),
+          const SizedBox(width: Space.s2),
+          Expanded(
+            child: AccountAction(
+              icon: Glyph.transfer,
+              label: moveWord,
+              onTap: onMove,
+            ),
+          ),
+          if (onReconcile != null) ...[
+            const SizedBox(width: Space.s2),
+            Expanded(
+              child: AccountAction(
+                icon: Glyph.calculator,
+                label: '對帳',
+                onTap: onReconcile,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The heading over one day of an account's entries: the date, and how
+/// much that day changed the balance.
+class _DayHeading extends StatelessWidget {
+  const _DayHeading({required this.day, required this.total});
+
+  final DateTime day;
+
+  /// The day's change, as shown money (dots when amounts are hidden).
+  final String total;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(Space.s1, Space.s2, Space.s1, Space.s2),
+    child: Row(
+      children: [
+        Text(
+          formatMMMEd(day),
+          style: const TextStyle(
+            fontSize: TextSize.small,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const Spacer(),
+        Text(total, style: mutedSmall),
+      ],
+    ),
+  );
 }
