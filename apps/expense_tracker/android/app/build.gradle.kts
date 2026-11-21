@@ -105,7 +105,9 @@ dependencies {
     implementation("androidx.work:work-runtime:2.9.1")
     testImplementation("junit:junit:4.13.2")
     // On the emulator: the Keystore, notifications, photos (src/androidTest).
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test:runner:1.6.2")
-    androidTestImplementation("androidx.test:rules:1.6.1")
+    // The versions integration_test brings (runner 1.3.0, rules 1.2.0, the
+    // emulator workflow adds it): the debug build pins them for the tests.
+    androidTestImplementation("androidx.test.ext:junit:1.1.2")
+    androidTestImplementation("androidx.test:runner:1.3.0")
+    androidTestImplementation("androidx.test:rules:1.2.0")
 }
