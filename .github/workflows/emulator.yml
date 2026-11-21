@@ -82,7 +82,7 @@ jobs:
           # the Keystore, notifications and photos (android/app/src/androidTest).
           script: |
             flutter drive --profile --driver=test_driver/integration_test.dart --target=integration_test/bench_test.dart --no-dds
-            cd android && ./gradlew --no-daemon --quiet :app:connectedDebugAndroidTest
+            cd android && ./gradlew --no-daemon --console=plain :app:connectedDebugAndroidTest
       - name: Timings
         if: always()
         working-directory: apps/expense_tracker
