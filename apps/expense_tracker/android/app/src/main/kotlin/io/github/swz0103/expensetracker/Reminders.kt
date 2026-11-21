@@ -37,14 +37,16 @@ import java.util.TimeZone
  * or paid.
  *
  * What is kept is what the notification shows (its title and text, which
- * can name an amount) and which screen tapping it opens. The preferences
- * stay on the phone: the cloud backup and a device transfer take only the
- * encrypted ledger copy in files/cloud/ (res/xml/data_extraction_rules.xml).
+ * can name an amount) and which screen tapping it opens, sealed with a
+ * key of the phone's Keystore ([ReminderStore]); an alarm carries only
+ * the alert's number, and the words are read when it goes off. The
+ * preferences stay on the phone: the cloud backup and a device transfer
+ * take only the encrypted ledger copy in files/cloud/
+ * (res/xml/data_extraction_rules.xml).
  */
 object Reminders {
     private const val CHANNEL = "reminders"
     private const val PREFS = "reminders"
-    private const val KEY = "alerts"
     private const val EXACT = "exact"
     const val EXTRA_TAG = "tag"
     const val EXTRA_RECURRING = "recurring"
@@ -91,9 +93,10 @@ object Reminders {
             kept.put(entry)
         }
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val before = JSONArray(prefs.getString(KEY, "[]"))
+        val before = ReminderStore.read(context)
         for (i in 0 until before.length()) cancel(context, i)
-        prefs.edit().putString(KEY, kept.toString()).putBoolean(EXACT, exact).apply()
+        ReminderStore.write(context, kept)
+        prefs.edit().putBoolean(EXACT, exact).apply()
         scheduleKept(context)
         if (wanted != null) clearShown(context, wanted)
     }
@@ -182,7 +185,7 @@ object Reminders {
      */
     fun scheduleKept(context: Context) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val kept = JSONArray(prefs.getString(KEY, "[]"))
+        val kept = ReminderStore.read(context)
         val now = System.currentTimeMillis()
         val exact = prefs.getBoolean(EXACT, false)
         for (i in 0 until kept.length()) {
@@ -193,20 +196,14 @@ object Reminders {
                 continue
             }
             // The same request code replaces an alarm set before.
-            setAlarm(context, at, pending(context, i, alert), exact)
+            setAlarm(context, at, pending(context, i), exact)
         }
     }
 
-    private fun pending(context: Context, id: Int, alert: JSONObject?): PendingIntent {
+    /** An alarm for the alert numbered [id]: only the number goes with
+     *  it, and its words are read sealed when it goes off. */
+    private fun pending(context: Context, id: Int): PendingIntent {
         val intent = Intent(context, ReminderReceiver::class.java).putExtra(EXTRA_ID, id)
-        if (alert != null) {
-            intent.putExtra(EXTRA_TITLE, alert.optString("title"))
-                .putExtra(EXTRA_TEXT, alert.optString("text"))
-                .putExtra(MainActivity.EXTRA_QUICK, alert.optString("quick"))
-                .putExtra(EXTRA_TAG, alert.optString("tag"))
-                .putExtra(EXTRA_RECURRING, alert.optString("recurring"))
-                .putExtra(EXTRA_DAY, alert.optString("day"))
-        }
         return PendingIntent.getBroadcast(
             context,
             id,
@@ -217,7 +214,7 @@ object Reminders {
 
     private fun cancel(context: Context, id: Int) {
         val alarms = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        alarms.cancel(pending(context, id, null))
+        alarms.cancel(pending(context, id))
     }
 
     /** Whether notifications may be posted. */
@@ -306,15 +303,32 @@ object Reminders {
 /** Posts an alert when its alarm goes off. */
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        val id = intent.getIntExtra(Reminders.EXTRA_ID, 0)
+        // The test notification carries its own words; a kept alert's are
+        // read sealed.
+        intent.getStringExtra(Reminders.EXTRA_TITLE)?.let { title ->
+            Reminders.show(
+                context,
+                id,
+                title,
+                intent.getStringExtra(Reminders.EXTRA_TEXT) ?: "",
+                intent.getStringExtra(MainActivity.EXTRA_QUICK) ?: "",
+                intent.getStringExtra(Reminders.EXTRA_TAG) ?: "",
+                "",
+                "",
+            )
+            return
+        }
+        val alert = ReminderStore.read(context).optJSONObject(id) ?: return
         Reminders.show(
             context,
-            intent.getIntExtra(Reminders.EXTRA_ID, 0),
-            intent.getStringExtra(Reminders.EXTRA_TITLE) ?: return,
-            intent.getStringExtra(Reminders.EXTRA_TEXT) ?: "",
-            intent.getStringExtra(MainActivity.EXTRA_QUICK) ?: "",
-            intent.getStringExtra(Reminders.EXTRA_TAG) ?: "",
-            intent.getStringExtra(Reminders.EXTRA_RECURRING) ?: "",
-            intent.getStringExtra(Reminders.EXTRA_DAY) ?: "",
+            id,
+            alert.optString("title"),
+            alert.optString("text"),
+            alert.optString("quick"),
+            alert.optString("tag"),
+            alert.optString("recurring"),
+            alert.optString("day"),
         )
     }
 }
