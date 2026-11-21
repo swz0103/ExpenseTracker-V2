@@ -358,7 +358,9 @@ class _RenameSheetState extends State<_RenameSheet> {
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: Space.s4,
-              vertical: Space.s4,
+              // The field's own padding makes up the rest, so it is a
+              // 48 dp target and the block is as tall as before.
+              vertical: Space.s2,
             ),
             decoration: BoxDecoration(
               color: tintOf(color, 0.25),
@@ -386,7 +388,12 @@ class _RenameSheetState extends State<_RenameSheet> {
                       fontWeight: FontWeight.w800,
                       color: ink,
                     ),
-                    decoration: const InputDecoration.collapsed(hintText: ''),
+                    decoration: const InputDecoration.collapsed(hintText: '')
+                        .copyWith(
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: Space.s2,
+                          ),
+                        ),
                   ),
                 ),
               ],

@@ -6,6 +6,7 @@ import 'package:domain/data_exchange.dart';
 import '../../../core/formatting/amounts.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/validation_messages.dart';
+import '../../entries/model/invoices.dart';
 
 part 'import_reader.dart';
 

@@ -5,7 +5,7 @@
 ## 做什麼
 
 - 打開時檢查函式庫是 SQLCipher（否則 `notEncrypted`）、金鑰正確（否則 `wrongKey`，訊息不含金鑰）、檔案不比程式新（否則 `newerSchema`）、同時只有一個連線（否則 `inUse`）。
-- 一個檔案、WAL、`synchronous=NORMAL`：App 當掉不會壞，只有存檔後瞬間斷電可能少最後一筆。2026-11-21 量過 FULL：每次寫入中位數 0.2～0.33 ms（NORMAL 0.03 ms，慢約 10 倍，開發機 SSD）；手機快閃記憶體的同步等待常是數毫秒，而寫入目前在畫面的執行緒上，會掉格。寫入移到背景執行緒後（roadmap）改 FULL。
+- 一個檔案、WAL、`synchronous=FULL`（0.21.0 起）：存檔回來時資料已經寫進磁碟，App 當掉或存完瞬間斷電都不會少。模擬器實測（`apps/expense_tracker/integration_test/bench_test.dart` 的 `keep_one`，2026-11-21）：每存一筆 NORMAL 約 0.15 ms、FULL 約 0.45～1.1 ms；最慢的 5% NORMAL 約 1 ms、FULL 約 1.0～1.3 ms，都遠低於一格畫面的 16.7 ms，所以寫入留在畫面的執行緒上。
 - `write` 是一個交易：全部寫入，或丟例外時全部不寫；每次寫入 `revision` 加一，備份用它判斷有沒有變動。
 - 一筆資料改內容時保留原本的順序（`seq`）。
 

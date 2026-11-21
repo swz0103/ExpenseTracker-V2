@@ -37,3 +37,7 @@ Flutter 寫成，分成 App、基礎設施（加密、儲存、行情）與規�
 ```
 
 每個模組會依序跑 `pub get --enforce-lockfile`、格式檢查、`analyze` 與測試；CI 另外建 APK、網頁預覽、每頁截圖，並在模擬器量測速度。沒有 Flutter SDK 時，把分支推到 `tools/<名稱>`，`Flutter tools` 工作流程會更新 `pubspec.lock` 並排版到 `tools/<名稱>-done`。
+
+## 授權
+
+[GPL-3.0](LICENSE)：可以使用、修改、再發布，改過再發布時要用同樣的授權並公開原始碼。另附一條附加許可（[LICENSE-EXCEPTION.md](LICENSE-EXCEPTION.md)）：允許與 Google Play 服務等 Android 平台的非自由程式庫一起發布。字型 Nunito 與 Noto Sans TC 依 SIL Open Font License（`apps/expense_tracker/fonts/OFL-*.txt`）。

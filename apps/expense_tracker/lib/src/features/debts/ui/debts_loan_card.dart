@@ -52,11 +52,13 @@ class _LoanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final share = paidShare(ledger, loan);
+    final share = paidShare(ledger.balanceService, loan);
     final principal = loan.principal;
     final color = nameColor(loan.name);
     final ink = deepOf(color);
-    final owed = ledger.orDots(groupDigits(owedOn(ledger, loan)));
+    final owed = ledger.orDots(
+      groupDigits(owedOn(ledger.balanceService, loan)),
+    );
     return ColorCard(
       color: color,
       onTap: onTap,

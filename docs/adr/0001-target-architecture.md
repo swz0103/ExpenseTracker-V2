@@ -1,6 +1,6 @@
 # ADR-0001：目標架構
 
-- 狀態：採用（2026-10-03）；2026-10-19 修訂模組劃分，2026-10-21 改為單一模型；2026-11-21 改寫成現行名稱，拿掉已不存在的類別與路徑。Android 系統備份見 [ADR-0005](0005-backup-choices.md)，帳本內部見 [ADR-0008](0008-ledger-aggregates.md)，現況整理在 [architecture.md](../architecture.md)。
+- 狀態：採用（2026-10-03）；2026-10-19 修訂模組劃分，2026-10-21 改為單一模型；2026-11-21 改寫成現行名稱，拿掉已不存在的類別與路徑，同日量測後改 `synchronous=FULL`。Android 系統備份見 [ADR-0005](0005-backup-choices.md)，帳本內部見 [ADR-0008](0008-ledger-aggregates.md)，現況整理在 [architecture.md](../architecture.md)。
 - 適用：整個專案
 
 ## 背景
@@ -30,7 +30,7 @@
 
 ### 3. 儲存
 
-單一 SQLCipher 檔、WAL、`synchronous=NORMAL`（量測與理由見 `infrastructure/storage/README.md`）；一個改動一個交易。資料表結構只有一版；每列紀錄帶版本號，讀取時逐版升級（ADR-0010）。1 萬筆紀錄約數 MB，整本讀進記憶體。刪除的紀錄移到垃圾桶保留 30 天；沒有事件歷史，復原靠「最近刪除」與備份。
+單一 SQLCipher 檔、WAL、`synchronous=FULL`（0.21.0 起；量測與理由見 `infrastructure/storage/README.md`）；一個改動一個交易。資料表結構只有一版；每列紀錄帶版本號，讀取時逐版升級（ADR-0010）。1 萬筆紀錄約數 MB，整本讀進記憶體。刪除的紀錄移到垃圾桶保留 30 天；沒有事件歷史，復原靠「最近刪除」與備份。
 
 ### 4. 金鑰
 

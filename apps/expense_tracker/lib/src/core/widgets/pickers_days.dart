@@ -6,7 +6,6 @@ class _DayChoicesState extends State<DayChoices> {
   @override
   Widget build(BuildContext context) {
     final first = _month;
-    final start = startOfWeek(first);
     final latest = widget.latest;
     final atEnd =
         first.year * 12 + first.month >= latest.year * 12 + latest.month;
@@ -56,43 +55,28 @@ class _DayChoicesState extends State<DayChoices> {
                 }),
         ),
         const SizedBox(height: Space.s1),
-        Row(
-          children: [
-            for (final name in weekdayNames)
-              Expanded(
-                child: Text(
-                  name,
-                  textAlign: TextAlign.center,
-                  style: mutedSmall,
-                ),
-              ),
-          ],
+        MonthGrid(
+          year: first.year,
+          month: first.month,
+          blank: 48,
+          day: (d) => _day(DateTime.utc(first.year, first.month, d)),
         ),
-        const SizedBox(height: Space.s1),
-        for (var week = 0; week < 6; week++)
-          Row(
-            children: [
-              for (var d = 0; d < 7; d++)
-                Expanded(child: _day(start.add(Duration(days: week * 7 + d)))),
-            ],
-          ),
       ],
     );
   }
 
   Widget _day(DateTime day) {
-    final inMonth = day.month == _month.month;
     final future = day.isAfter(widget.latest);
     final picked = day == widget.selected;
     // Only the chosen day is filled; a day with entries has a dot.
     final ink = picked
         ? chosenInk(widget.color)
-        : !inMonth || future
+        : future
         ? AppColors.faint
         : AppColors.ink;
-    final dotted = inMonth && !picked && widget.marked.contains(day);
+    final dotted = !picked && widget.marked.contains(day);
     return InkResponse(
-      onTap: future || !inMonth ? null : () => widget.onPick(day),
+      onTap: future ? null : () => widget.onPick(day),
       radius: 24,
       child: SizedBox(
         height: 48,

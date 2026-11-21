@@ -24,17 +24,6 @@ class _Calendar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = ledger.today;
-    final first = DateTime.utc(year, month);
-    final days = DateTime.utc(year, month + 1, 0).day;
-    // The week from Sunday, as everywhere in the app.
-    final lead = weekdayIndex(first);
-    final cells = <Widget>[
-      for (var i = 0; i < lead; i++) const SizedBox(),
-      for (var d = 1; d <= days; d++) _dayCell(context, d, today),
-    ];
-    while (cells.length % 7 != 0) {
-      cells.add(const SizedBox());
-    }
     return Container(
       padding: const EdgeInsets.fromLTRB(
         Space.s2,
@@ -46,36 +35,19 @@ class _Calendar extends StatelessWidget {
         color: AppColors.group,
         borderRadius: BorderRadius.circular(Radii.largeIncreased),
       ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              for (final w in weekdayNames)
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      w,
-                      style: const TextStyle(
-                        fontSize: TextSize.caption,
-                        color: AppColors.muted,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: Space.s2),
-          for (var r = 0; r < cells.length; r += 7)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              // A day due is taller by its 到期: the others sit at the top.
-              children: [
-                for (final cell in cells.sublist(r, r + 7))
-                  Expanded(child: cell),
-              ],
-            ),
-        ],
+      child: MonthGrid(
+        year: year,
+        month: month,
+        sixWeeks: false,
+        // A day due is taller by its 到期: the others sit at the top.
+        top: true,
+        gap: Space.s2,
+        weekdayStyle: const TextStyle(
+          fontSize: TextSize.caption,
+          color: AppColors.muted,
+          fontWeight: FontWeight.w700,
+        ),
+        day: (d) => _dayCell(context, d, today),
       ),
     );
   }
@@ -125,60 +97,22 @@ class _Calendar extends StatelessWidget {
     final isChosen = d == chosen;
     final fill = _fillOf(color, single: single, busy: items.isNotEmpty);
     final onColor = single && !Shade.dark ? AppColors.onSolid : AppColors.ink;
-    final number = Container(
-      width: 24,
-      height: 24,
-      alignment: Alignment.center,
-      decoration: isToday
-          ? const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle)
-          : null,
-      child: Text(
-        '$d',
-        textScaler: TextScaler.noScaling,
-        style: TextStyle(
-          fontSize: TextSize.small,
-          fontWeight: FontWeight.w800,
-          color: isToday
-              ? AppColors.onAccent
-              : single
-              ? onColor
-              : past && items.isEmpty
-              ? AppColors.faint
-              : AppColors.ink,
-        ),
-      ),
+    final number = _number(
+      d,
+      today: isToday,
+      ink: single
+          ? onColor
+          : past && items.isEmpty
+          ? AppColors.faint
+          : AppColors.ink,
     );
-    Widget slot;
-    if (allBooked) {
-      slot = const GlyphIcon(Glyph.check, size: 14, color: AppColors.muted);
-    } else if (single) {
-      slot = GlyphIcon(
-        glyph,
-        size: 16,
-        color: Shade.dark ? color : AppColors.onSolid,
-        tinted: false,
-      );
-    } else if (items.isNotEmpty) {
-      slot = Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          for (final x in items.take(3))
-            Container(
-              width: 6,
-              height: 6,
-              margin: const EdgeInsets.symmetric(horizontal: 1.5),
-              decoration: BoxDecoration(
-                color: !x.settled
-                    ? recurringMark(ledger, x.item).$2
-                    : AppColors.faint,
-                shape: BoxShape.circle,
-              ),
-            ),
-        ],
-      );
-    } else {
-      slot = const SizedBox();
-    }
+    final slot = _slot(
+      items,
+      allBooked: allBooked,
+      single: single,
+      glyph: glyph,
+      color: color,
+    );
     return ReadAsButton(
       selected: isChosen,
       label:
@@ -192,39 +126,13 @@ class _Calendar extends StatelessWidget {
           padding: const EdgeInsets.all(Space.half),
           child: Column(
             children: [
-              // Every day keeps the room of the ring, so the chosen one is
-              // as large as the rest and the row stays even.
-              AnimatedContainer(
-                duration: Motion.of(context, Motion.short4),
-                padding: const EdgeInsets.all(Space.half),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(Radii.large),
-                  border: Border.all(
-                    color: isChosen
-                        ? (single ? deepOf(color) : AppColors.accent)
-                        : AppColors.none,
-                    width: 2.5,
-                  ),
-                ),
-                child: Container(
-                  height: 46,
-                  decoration:
-                      fill ??
-                      BoxDecoration(
-                        color: isChosen ? AppColors.selected : null,
-                        borderRadius: BorderRadius.circular(Radii.medium),
-                      ),
-                  padding: const EdgeInsets.only(top: Space.half),
-                  child: Column(
-                    children: [
-                      number,
-                      SizedBox(
-                        height: Space.s4,
-                        child: Center(child: slot),
-                      ),
-                    ],
-                  ),
-                ),
+              _ring(
+                context,
+                chosen: isChosen,
+                edge: single ? deepOf(color) : AppColors.accent,
+                fill: fill,
+                number: number,
+                slot: slot,
               ),
               // 到期 under a day due, as tall as its letters (a fixed box
               // cut their bottom off); a week with none takes no room for it.
@@ -240,6 +148,110 @@ class _Calendar extends StatelessWidget {
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Day [d]'s number in [ink], or on the accent's circle when it is
+  /// [today].
+  static Widget _number(int d, {required bool today, required Color ink}) {
+    return Container(
+      width: 24,
+      height: 24,
+      alignment: Alignment.center,
+      decoration: today
+          ? const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle)
+          : null,
+      child: Text(
+        '$d',
+        textScaler: TextScaler.noScaling,
+        style: TextStyle(
+          fontSize: TextSize.small,
+          fontWeight: FontWeight.w800,
+          color: today ? AppColors.onAccent : ink,
+        ),
+      ),
+    );
+  }
+
+  /// What sits under a day's number: a tick when all its [items] are
+  /// booked, the one item's mark, a dot for each of the first three, or
+  /// nothing.
+  Widget _slot(
+    List<Due> items, {
+    required bool allBooked,
+    required bool single,
+    required Glyph glyph,
+    required Color color,
+  }) {
+    if (allBooked) {
+      return const GlyphIcon(Glyph.check, size: 14, color: AppColors.muted);
+    }
+    if (single) {
+      return GlyphIcon(
+        glyph,
+        size: 16,
+        color: Shade.dark ? color : AppColors.onSolid,
+        tinted: false,
+      );
+    }
+    if (items.isEmpty) return const SizedBox();
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (final x in items.take(3))
+          Container(
+            width: 6,
+            height: 6,
+            margin: const EdgeInsets.symmetric(horizontal: 1.5),
+            decoration: BoxDecoration(
+              color: !x.settled
+                  ? recurringMark(ledger, x.item).$2
+                  : AppColors.faint,
+              shape: BoxShape.circle,
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// A day's block: its [number] over its [slot] on its [fill], inside a
+  /// ring in [edge] when [chosen].
+  Widget _ring(
+    BuildContext context, {
+    required bool chosen,
+    required Color edge,
+    required BoxDecoration? fill,
+    required Widget number,
+    required Widget slot,
+  }) {
+    // Every day keeps the room of the ring, so the chosen one is as large
+    // as the rest and the row stays even.
+    return AnimatedContainer(
+      duration: Motion.of(context, Motion.short4),
+      padding: const EdgeInsets.all(Space.half),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(Radii.large),
+        border: Border.all(color: chosen ? edge : AppColors.none, width: 2.5),
+      ),
+      child: Container(
+        height: 46,
+        decoration:
+            fill ??
+            BoxDecoration(
+              color: chosen ? AppColors.selected : null,
+              borderRadius: BorderRadius.circular(Radii.medium),
+            ),
+        padding: const EdgeInsets.only(top: Space.half),
+        child: Column(
+          children: [
+            number,
+            SizedBox(
+              height: Space.s4,
+              child: Center(child: slot),
+            ),
+          ],
         ),
       ),
     );

@@ -201,12 +201,17 @@ class AmountHero extends StatelessWidget {
     required this.onTap,
     this.sub,
     this.under,
+    this.empty = false,
   });
 
   final String label;
   final String unit;
   final String value;
   final Color color;
+
+  /// Nothing typed yet: the 0 waits in the quiet colour of words still to
+  /// be filled in, so it is not read as an amount.
+  final bool empty;
   final VoidCallback? onTap;
   final String? sub;
   final Widget? under;
@@ -242,7 +247,7 @@ class AmountHero extends StatelessWidget {
             fontSize: TextSize.hero,
             fontWeight: FontWeight.w700,
             height: 1.1,
-            color: color,
+            color: empty ? AppColors.hint : color,
           ),
         ),
       ],

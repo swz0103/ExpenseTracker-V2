@@ -274,89 +274,11 @@ class _WelcomeViewState extends State<WelcomeView>
           children: [
             ProblemLine(widget.problem),
             const SizedBox(height: Space.s3),
-            DecoratedBox(
-              decoration: const ShapeDecoration(
-                shape: StadiumBorder(),
-                shadows: [
-                  BoxShadow(
-                    color: AppColors.float,
-                    blurRadius: 26,
-                    offset: Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: AppColors.white,
-                shape: const StadiumBorder(),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  key: Keys.restoreFound,
-                  onTap: busy ? null : widget.onRestoreFound,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      Space.s2,
-                      Space.s2,
-                      Space.s2,
-                      Space.s2,
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: const BoxDecoration(
-                            color: AppColors.accentTrack,
-                            shape: BoxShape.circle,
-                          ),
-                          alignment: Alignment.center,
-                          child: const GlyphIcon(
-                            Glyph.reset,
-                            size: 20,
-                            color: AppColors.accent,
-                          ),
-                        ),
-                        const SizedBox(width: Space.s3),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '還原 ${formatMMMd(at)}的備份',
-                                style: const TextStyle(
-                                  fontSize: TextSize.body,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              Text(
-                                '${_grouped(found.rows)} 筆紀錄',
-                                style: mutedCaption,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: Space.s3),
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: const BoxDecoration(
-                            color: AppColors.accent,
-                            shape: BoxShape.circle,
-                          ),
-                          alignment: Alignment.center,
-                          child: busy
-                              ? const BusyMark()
-                              : const GlyphIcon(
-                                  Glyph.arrow,
-                                  size: 20,
-                                  color: AppColors.onAccent,
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+            _FoundBackupPill(
+              at: at,
+              rows: found.rows,
+              busy: busy,
+              onTap: widget.onRestoreFound,
             ),
             const SizedBox(height: Space.s2),
             Row(
@@ -383,10 +305,117 @@ class _WelcomeViewState extends State<WelcomeView>
       ),
     );
   }
+}
+
+/// The pill offering the backup Android brought back: its date and record
+/// count; tapped, it asks for that backup's password or recovery code.
+class _FoundBackupPill extends StatelessWidget {
+  const _FoundBackupPill({
+    required this.at,
+    required this.rows,
+    required this.busy,
+    required this.onTap,
+  });
+
+  /// When the backup was taken, in local time.
+  final DateTime at;
+
+  /// How many records the backup holds.
+  final int rows;
+
+  /// Restoring: the pill takes no taps and shows a busy mark.
+  final bool busy;
+  final VoidCallback? onTap;
 
   /// 1234 as 1,234.
   static String _grouped(int n) => n.toString().replaceAllMapped(
     RegExp(r'\B(?=(\d{3})+(?!\d))'),
     (_) => ',',
   );
+
+  /// What the backup is: 還原 and its date, then how many records.
+  Widget _summary() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        '還原 ${formatMMMd(at)}的備份',
+        style: const TextStyle(
+          fontSize: TextSize.body,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      Text('${_grouped(rows)} 筆紀錄', style: mutedCaption),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const ShapeDecoration(
+        shape: StadiumBorder(),
+        shadows: [
+          BoxShadow(
+            color: AppColors.float,
+            blurRadius: 26,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Material(
+        color: AppColors.white,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: Keys.restoreFound,
+          onTap: busy ? null : onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Space.s2,
+              Space.s2,
+              Space.s2,
+              Space.s2,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: const BoxDecoration(
+                    color: AppColors.accentTrack,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: const GlyphIcon(
+                    Glyph.reset,
+                    size: 20,
+                    color: AppColors.accent,
+                  ),
+                ),
+                const SizedBox(width: Space.s3),
+                Expanded(child: _summary()),
+                const SizedBox(width: Space.s3),
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: const BoxDecoration(
+                    color: AppColors.accent,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: busy
+                      ? const BusyMark()
+                      : const GlyphIcon(
+                          Glyph.arrow,
+                          size: 20,
+                          color: AppColors.onAccent,
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

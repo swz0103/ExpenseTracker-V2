@@ -11,6 +11,7 @@ import 'theme.dart';
 import '../formatting/dates.dart';
 import 'shape.dart';
 import 'spacing.dart';
+import 'month_grid.dart';
 import 'motion.dart';
 import '../formatting/words.dart';
 
@@ -141,8 +142,6 @@ class _RangePanelState extends State<_RangePanel> {
     final month = _month;
     final atStart = !month.isAfter(_monthOf(widget.first));
     final atEnd = !month.isBefore(_monthOf(widget.last));
-    // The Sunday on or before the first of the month.
-    final grid = startOfWeek(month);
     return CenterPanel(
       glyph: Glyph.calendar,
       color: color,
@@ -183,31 +182,12 @@ class _RangePanelState extends State<_RangePanel> {
                   ),
           ),
           const SizedBox(height: Space.s1),
-          Row(
-            children: [
-              for (final name in weekdayNames)
-                Expanded(
-                  child: Text(
-                    name,
-                    textAlign: TextAlign.center,
-                    style: mutedSmall,
-                  ),
-                ),
-            ],
+          MonthGrid(
+            year: month.year,
+            month: month.month,
+            blank: 44,
+            day: (d) => _cell(_make(month.year, month.month, d)),
           ),
-          const SizedBox(height: Space.s1),
-          for (var week = 0; week < 6; week++)
-            Row(
-              children: [
-                for (var d = 0; d < 7; d++)
-                  Expanded(
-                    child: _cell(
-                      _make(grid.year, grid.month, grid.day + week * 7 + d),
-                      month,
-                    ),
-                  ),
-              ],
-            ),
         ],
       ),
       actions: [
@@ -225,9 +205,7 @@ class _RangePanelState extends State<_RangePanel> {
     );
   }
 
-  Widget _cell(DateTime day, DateTime month) {
-    final inMonth = day.month == month.month;
-    if (!inMonth) return const SizedBox(height: 44);
+  Widget _cell(DateTime day) {
     final start = _start;
     final end = _end ?? start;
     final out = day.isBefore(widget.first) || day.isAfter(widget.last);

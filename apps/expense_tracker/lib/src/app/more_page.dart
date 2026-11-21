@@ -10,6 +10,7 @@ import '../features/debts/ui/debts_page.dart';
 import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
 import '../core/formatting/words.dart';
+import '../features/debts/model/debts.dart';
 
 /// 更多: the tools as big icon buttons, three to a row, in three groups,
 /// each with one line on what it is about now.
@@ -37,7 +38,7 @@ class MorePage extends StatelessWidget {
         );
         final next = items.isEmpty ? null : items.first;
         final lent = peopleOwing(ledger)
-            .fold<int>(0, (sum, a) => sum + owedFrom(ledger, a));
+            .fold<int>(0, (sum, a) => sum + owedFrom(ledger.balanceService, a));
         final left = limit - expense;
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s6),

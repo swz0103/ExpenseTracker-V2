@@ -28,6 +28,7 @@ extension _Amount on _ComposerState {
       value:
           '${_f.sign}${unit == null ? figuresIn(_f.amount, _f.currency) : amountIn(_f.amount, _f.currency)}',
       color: _color,
+      empty: _f.amount == 0,
       // Only while editing: an entry looked at shows no calculator.
       onTap: _viewing ? null : _calculate,
       sub: refunded == null

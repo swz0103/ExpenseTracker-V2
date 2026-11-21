@@ -34,6 +34,81 @@ class _RepeatSheetState extends State<_RepeatSheet> {
       _cell('$d', _f.start.day == d, () => _f.setDayOfMonth(d)),
   ]);
 
+  /// The days of the week, from Sunday, to choose which a weekly item
+  /// falls on.
+  Widget _weekdays() => Row(
+    children: [
+      for (final (i, name) in weekdayNames.indexed) ...[
+        if (i > 0) const SizedBox(width: Space.s2),
+        Expanded(
+          child: _cell(
+            name,
+            weekdayIndex(_f.start) == i,
+            () => _f.setWeekday(weekdayAt(i)),
+          ),
+        ),
+      ],
+    ],
+  );
+
+  /// 哪個月 and 哪一天: the month and the day a yearly item falls on.
+  Widget _dayOfYear() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const Text('哪個月', style: mutedSmall),
+      const SizedBox(height: Space.s2),
+      CardGrid(columns: 6, gap: 6, [
+        for (var m = 1; m <= 12; m++)
+          _cell('$m', _f.start.month == m, () => _setMonth(m)),
+      ]),
+      const SizedBox(height: Space.s3),
+      const Text('哪一天', style: mutedSmall),
+      const SizedBox(height: Space.s2),
+      CardGrid(columns: 7, gap: 6, [
+        for (var d = 1; d <= 31; d++)
+          _cell('$d', _f.start.day == d, () {
+            final s = _f.start;
+            final day = DateTime.utc(s.year, s.month, d);
+            if (day.month == s.month) _f.start = day;
+          }),
+      ]),
+    ],
+  );
+
+  /// 每 n 天, 週, 月 or 年, with − and + to change n.
+  Widget _every() => Row(
+    children: [
+      const Text('每', style: TextStyle(fontSize: TextSize.title)),
+      IconButton(
+        tooltip: '少一',
+        onPressed: _f.every > 1 ? () => setState(() => _f.step(-1)) : null,
+        icon: const Text(
+          '−',
+          style: TextStyle(
+            fontSize: TextSize.large,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+      Text(
+        '${_f.every}',
+        style: const TextStyle(
+          fontSize: TextSize.heading,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      IconButton(
+        tooltip: '多一',
+        onPressed: () => setState(() => _f.step(1)),
+        icon: const GlyphIcon(Glyph.add, size: 20),
+      ),
+      Text(
+        repeatUnitLabel(_f.unit),
+        style: const TextStyle(fontSize: TextSize.title),
+      ),
+    ],
+  );
+
   void _setMonth(int month) {
     final start = _f.start;
     var day = DateTime.utc(start.year, month, start.day);
@@ -89,79 +164,12 @@ class _RepeatSheetState extends State<_RepeatSheet> {
                 _days(),
               ],
             ),
-            RepeatUnit.week => Row(
-              children: [
-                for (final (i, name) in weekdayNames.indexed) ...[
-                  if (i > 0) const SizedBox(width: Space.s2),
-                  Expanded(
-                    child: _cell(
-                      name,
-                      weekdayIndex(_f.start) == i,
-                      () => _f.setWeekday(weekdayAt(i)),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            RepeatUnit.year => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text('哪個月', style: mutedSmall),
-                const SizedBox(height: Space.s2),
-                CardGrid(columns: 6, gap: 6, [
-                  for (var m = 1; m <= 12; m++)
-                    _cell('$m', _f.start.month == m, () => _setMonth(m)),
-                ]),
-                const SizedBox(height: Space.s3),
-                const Text('哪一天', style: mutedSmall),
-                const SizedBox(height: Space.s2),
-                CardGrid(columns: 7, gap: 6, [
-                  for (var d = 1; d <= 31; d++)
-                    _cell('$d', _f.start.day == d, () {
-                      final s = _f.start;
-                      final day = DateTime.utc(s.year, s.month, d);
-                      if (day.month == s.month) _f.start = day;
-                    }),
-                ]),
-              ],
-            ),
+            RepeatUnit.week => _weekdays(),
+            RepeatUnit.year => _dayOfYear(),
             RepeatUnit.day => const SizedBox(),
           },
           const SizedBox(height: Space.s4),
-          Row(
-            children: [
-              const Text('每', style: TextStyle(fontSize: TextSize.title)),
-              IconButton(
-                tooltip: '少一',
-                onPressed: _f.every > 1
-                    ? () => setState(() => _f.step(-1))
-                    : null,
-                icon: const Text(
-                  '−',
-                  style: TextStyle(
-                    fontSize: TextSize.large,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Text(
-                '${_f.every}',
-                style: const TextStyle(
-                  fontSize: TextSize.heading,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              IconButton(
-                tooltip: '多一',
-                onPressed: () => setState(() => _f.step(1)),
-                icon: const GlyphIcon(Glyph.add, size: 20),
-              ),
-              Text(
-                repeatUnitLabel(_f.unit),
-                style: const TextStyle(fontSize: TextSize.title),
-              ),
-            ],
-          ),
+          _every(),
           const SizedBox(height: Space.s2),
           Text(
             '接下來：${next.map((d) => formatMd(d)).join('、')}',
@@ -334,30 +342,11 @@ class _OtherSheetState extends State<_OtherSheet> {
             ),
           ),
           const SizedBox(height: Space.s2),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: _toggle(
-                    '到期自動入帳',
-                    '到期就自動記一筆',
-                    _f.auto,
-                    (v) => _f.auto = v,
-                  ),
-                ),
-                const SizedBox(width: Space.s2),
-                Expanded(
-                  child: _toggle(
-                    '暫停',
-                    '先不出現在月曆',
-                    !_f.active,
-                    (v) => _f.active = !v,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // One to a row: side by side, their words broke onto a second
+          // line on every phone.
+          _toggle('到期自動入帳', '到期就自動記一筆', _f.auto, (v) => _f.auto = v),
+          const SizedBox(height: Space.s2),
+          _toggle('暫停', '先不出現在月曆', !_f.active, (v) => _f.active = !v),
           const SizedBox(height: Space.s4),
           PanelButton(
             Words.done,

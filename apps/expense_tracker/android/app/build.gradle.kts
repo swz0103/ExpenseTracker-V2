@@ -104,10 +104,13 @@ dependencies {
     // Backups delivered while the app is closed (BackupWorker.kt).
     implementation("androidx.work:work-runtime:2.9.1")
     testImplementation("junit:junit:4.13.2")
-    // On the emulator: the Keystore, notifications, photos (src/androidTest).
+    // On the emulator: the Keystore, notifications and their alarms, photos,
+    // the background backup (src/androidTest).
     // The versions integration_test brings (runner 1.3.0, rules 1.2.0, the
     // emulator workflow adds it): the debug build pins them for the tests.
     androidTestImplementation("androidx.test.ext:junit:1.1.2")
     androidTestImplementation("androidx.test:runner:1.3.0")
     androidTestImplementation("androidx.test:rules:1.2.0")
+    // Runs the background backup job in the test, without waiting hours.
+    androidTestImplementation("androidx.work:work-testing:2.9.1")
 }

@@ -365,25 +365,7 @@ class OwedCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Container(
-                    width: 20,
-                    height: 20,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: picked ? color : AppColors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: picked
-                        ? const Text(
-                            '✓',
-                            style: TextStyle(
-                              fontSize: TextSize.caption,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          )
-                        : null,
-                  ),
+                  _TickMark(picked: picked, color: color),
                 ],
               ),
             ),
@@ -392,6 +374,36 @@ class OwedCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The round mark in an [OwedCard]'s corner: white, or filled in
+/// [color] with a ✓ when [picked].
+class _TickMark extends StatelessWidget {
+  const _TickMark({required this.picked, required this.color});
+
+  final bool picked;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 20,
+    height: 20,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: picked ? color : AppColors.white,
+      shape: BoxShape.circle,
+    ),
+    child: picked
+        ? const Text(
+            '✓',
+            style: TextStyle(
+              fontSize: TextSize.caption,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          )
+        : null,
+  );
 }
 
 /// A word to pick in a row of them, such as a merchant or a tag: grey,

@@ -10,6 +10,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/entry_tile.dart';
 import 'entries_filter_sheet.dart';
+import 'entries_search.dart';
 import '../../../core/navigation/nav.dart';
 import '../../../core/widgets/balance_hero.dart';
 import '../../../core/widgets/shown_amounts.dart';
@@ -258,8 +259,6 @@ class _EntriesPageState extends State<EntriesPage> {
     setState(() => _month = (date.year, date.month));
   }
 
-  /// What sits above the entries: the title and month, the month's sums
-  /// or what to do with the picked entries, search and the filters on.
   /// The search box's look: a white pill with a magnifier, and a clear
   /// button once something is typed.
   InputDecoration _searchDecoration() => InputDecoration(
@@ -289,6 +288,8 @@ class _EntriesPageState extends State<EntriesPage> {
     ),
   );
 
+  /// What sits above the entries: the title and month, the month's sums
+  /// or what to do with the picked entries, search and the filters on.
   List<Widget> _head(List<Entry> shown) {
     final ledger = widget.ledger;
     final (_, month) = _month;
@@ -298,7 +299,6 @@ class _EntriesPageState extends State<EntriesPage> {
     final income = shown.fold(0, (sum, e) => sum + e.earning);
     final expense = shown.fold(0, (sum, e) => sum + e.spending);
     final account = filter.account;
-    final category = filter.category;
     return [
       PageHeader(
         '收支紀錄',
@@ -332,64 +332,19 @@ class _EntriesPageState extends State<EntriesPage> {
           size: 28,
         ),
       const SizedBox(height: Space.s2),
-      Row(
-        children: [
-          Expanded(
-            child: ListenableBuilder(
-              listenable: _searchText,
-              builder: (context, _) => TextField(
-                controller: _searchText,
-                focusNode: _searchFocus,
-                textInputAction: TextInputAction.search,
-                decoration: _searchDecoration(),
-                onChanged: _typed,
-              ),
-            ),
-          ),
-          const SizedBox(width: Space.s2),
-          _FilterButton(count: filter.count, onTap: _openFilter),
-        ],
+      EntriesSearchRow(
+        text: _searchText,
+        focus: _searchFocus,
+        decoration: _searchDecoration,
+        onChanged: _typed,
+        filterCount: filter.count,
+        onFilter: _openFilter,
       ),
       if (filter.count > 0)
-        Padding(
-          padding: const EdgeInsets.only(top: Space.s2),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (filter.kind != KindFilter.all)
-                ChoicePill.removable(
-                  label: filter.kind.label,
-                  onRemove: () => setState(
-                    () => _filter = _filter.withKind(KindFilter.all),
-                  ),
-                ),
-              if (filter.range case final range?)
-                ChoicePill.removable(
-                  label: EntryFilter.rangeLabel(range),
-                  onRemove: () =>
-                      setState(() => _filter = _filter.withoutRange()),
-                ),
-              if (filter.boundsAmount)
-                ChoicePill.removable(
-                  label: filter.amountLabel,
-                  onRemove: () =>
-                      setState(() => _filter = _filter.withoutAmounts()),
-                ),
-              if (account != null)
-                ChoicePill.removable(
-                  label: ledger.account(account).name,
-                  onRemove: () =>
-                      setState(() => _filter = _filter.withoutAccount()),
-                ),
-              if (category != null)
-                ChoicePill.removable(
-                  label: category,
-                  onRemove: () =>
-                      setState(() => _filter = _filter.withoutCategory()),
-                ),
-            ],
-          ),
+        EntriesFilterPills(
+          filter: filter,
+          accountName: account == null ? null : ledger.account(account).name,
+          onChange: (change) => setState(() => _filter = change(_filter)),
         ),
       if (shown.isEmpty)
         const Padding(
@@ -526,60 +481,6 @@ class _PickBar extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// 篩選 beside the search: filled in the accent, with how many filters
-/// are on, while any narrows the list.
-class _FilterButton extends StatelessWidget {
-  const _FilterButton({required this.count, required this.onTap});
-
-  final int count;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final on = count > 0;
-    return Tooltip(
-      message: on ? '篩選（$count）' : '篩選',
-      child: Material(
-        color: on ? AppColors.accent : AppColors.white,
-        borderRadius: BorderRadius.circular(Radii.large),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: on ? Space.s3 : Space.s4,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  GlyphIcon(
-                    Glyph.sliders,
-                    size: 18,
-                    color: on ? AppColors.onAccent : AppColors.accent,
-                  ),
-                  if (on) ...[
-                    const SizedBox(width: Space.s2),
-                    Text(
-                      '$count',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.onAccent,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

@@ -81,6 +81,43 @@ class _BudgetsPageState extends State<BudgetsPage> {
     if (picked != null && mounted) setState(() => _month = picked);
   }
 
+  /// The month's main card, or what to do when it has no budget; swiped
+  /// sideways, it goes to the month before or after.
+  Widget _monthCard(
+    BudgetMonth shown, {
+    required int year,
+    required int month,
+    required bool current,
+  }) {
+    final spent = shown.spent;
+    final total = shown.total;
+    final whole = shown.whole;
+    return GestureDetector(
+      onHorizontalDragEnd: (d) {
+        final v = d.primaryVelocity ?? 0;
+        if (v.abs() > 200) _step(v < 0 ? 1 : -1);
+      },
+      child: total == 0
+          ? _NoBudget(
+              ledger: ledger,
+              spent: spent,
+              month: month,
+              current: current,
+              onSet: () => _edit(allSpending),
+            )
+          : _Main(
+              ledger: ledger,
+              year: year,
+              month: month,
+              current: current,
+              spent: spent,
+              total: total,
+              whole: whole,
+              onEdit: () => _edit(allSpending),
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -94,7 +131,6 @@ class _BudgetsPageState extends State<BudgetsPage> {
         final (year, month) = _month;
         final shown = budgetMonthOf(ledger, _month);
         final spent = shown.spent;
-        final whole = shown.whole;
         final total = shown.total;
         final current = _month == _now;
         return HeadedList(
@@ -111,30 +147,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
               onToday: () => setState(() => _month = _now),
             ),
             const SizedBox(height: Space.s2),
-            GestureDetector(
-              onHorizontalDragEnd: (d) {
-                final v = d.primaryVelocity ?? 0;
-                if (v.abs() > 200) _step(v < 0 ? 1 : -1);
-              },
-              child: total == 0
-                  ? _NoBudget(
-                      ledger: ledger,
-                      spent: spent,
-                      month: month,
-                      current: current,
-                      onSet: () => _edit(allSpending),
-                    )
-                  : _Main(
-                      ledger: ledger,
-                      year: year,
-                      month: month,
-                      current: current,
-                      spent: spent,
-                      total: total,
-                      whole: whole,
-                      onEdit: () => _edit(allSpending),
-                    ),
-            ),
+            _monthCard(shown, year: year, month: month, current: current),
             if (total > 0) ...[
               const SizedBox(height: Space.s2),
               _Pace(
@@ -146,28 +159,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                 total: total,
               ),
             ],
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Space.s1,
-                Space.s6,
-                Space.s1,
-                Space.s3,
-              ),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: OneLine(
-                      '分類與標籤額度',
-                      style: TextStyle(
-                        fontSize: TextSize.heading,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  Text(current ? '超支、快用完的排前面' : '$month 月', style: mutedSmall),
-                ],
-              ),
-            ),
+            _LimitsHeading(month: month, current: current),
             CardGrid(gap: 10, [
               for (final line in shown.lines)
                 _Limit(
@@ -177,33 +169,74 @@ class _BudgetsPageState extends State<BudgetsPage> {
                   limit: line.allowance,
                   onTap: () => _edit(line.budget.category),
                 ),
-              ColorCard(
-                color: AppColors.faint,
-                amount: 0.22,
-                onTap: _addLimit,
-                label: '為分類或標籤設定額度',
-                padding: const EdgeInsets.symmetric(vertical: Space.s6),
-                child: const Column(
-                  children: [
-                    GlyphIcon(Glyph.add, size: 24, color: AppColors.accent),
-                    SizedBox(height: Space.s2),
-                    Text(
-                      '分類或標籤',
-                      style: TextStyle(
-                        fontSize: TextSize.body,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.accent,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _AddLimitCard(onTap: _addLimit),
             ]),
           ],
         );
       },
     );
   }
+}
+
+/// The heading over the allowances: 分類與標籤額度, and on the right how
+/// they are ordered this month or which month they are.
+class _LimitsHeading extends StatelessWidget {
+  const _LimitsHeading({required this.month, required this.current});
+
+  final int month;
+
+  /// Whether [month] is this month.
+  final bool current;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(Space.s1, Space.s6, Space.s1, Space.s3),
+    child: Row(
+      children: [
+        const Expanded(
+          child: OneLine(
+            '分類與標籤額度',
+            style: TextStyle(
+              fontSize: TextSize.heading,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        Text(current ? '超支、快用完的排前面' : '$month 月', style: mutedSmall),
+      ],
+    ),
+  );
+}
+
+/// The last square of the allowances: tapped, it sets one for another
+/// category or tag.
+class _AddLimitCard extends StatelessWidget {
+  const _AddLimitCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ColorCard(
+    color: AppColors.faint,
+    amount: 0.22,
+    onTap: onTap,
+    label: '為分類或標籤設定額度',
+    padding: const EdgeInsets.symmetric(vertical: Space.s6),
+    child: const Column(
+      children: [
+        GlyphIcon(Glyph.add, size: 24, color: AppColors.accent),
+        SizedBox(height: Space.s2),
+        Text(
+          '分類或標籤',
+          style: TextStyle(
+            fontSize: TextSize.body,
+            fontWeight: FontWeight.w800,
+            color: AppColors.accent,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 /// 「11 月 ⌄」 big on the left, tapped to pick a month; 回到本月 when

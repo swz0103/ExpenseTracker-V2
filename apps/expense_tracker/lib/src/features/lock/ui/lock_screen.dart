@@ -3,12 +3,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:vault/backup_security.dart';
-import 'package:vault/ledger_backup.dart';
-import 'package:vault/ledger_vault.dart';
 
 import '../../backup/model/drive_backup.dart';
 import '../../backup/model/restore_sources.dart';
 import '../../../core/platform/startup.dart';
+import '../model/unlock_failure.dart';
 import 'views/lock_parts.dart';
 import 'views/recovery_view.dart';
 import 'views/restore_view.dart';
@@ -238,27 +237,9 @@ class _LockScreenState extends State<LockScreen> {
       await (_recovery
           ? startup.unlockWithRecovery(secret.trim())
           : startup.unlockWithPassword(secret));
-    } on BackupException catch (error) {
-      // Said to the person, by its kind.
-      _fail('無法讀取這個備份（${error.problem.name}）');
-    } on FileSystemException {
-      // Said to the person.
-      _fail('找不到這個備份檔');
-    } on VaultException catch (error) {
-      // Said to the person, by its kind.
-      _fail(switch (error.problem) {
-        VaultProblem.missingDatabase => '這台裝置上的帳本資料不見了，請從備份還原',
-        _ => '無法開啟帳本（${error.problem.name}）',
-      });
-    } on KeyringException catch (error) {
-      // Said to the person, by its kind.
-      _fail(switch (error.error) {
-        KeyringError.wrongSecret => _recovery ? '救援碼不正確' : '密碼不正確',
-        _ => '無法開啟帳本（${error.error.name}）',
-      });
     } on Object catch (error) {
-      ErrorLog.instance.record('還原備份', error);
-      _fail('無法開啟帳本（${ErrorLog.describe(error)}）');
+      // Said to the person by its kind (unlockFailure).
+      _fail(unlockFailure(error, recovery: _recovery));
     }
   }
 

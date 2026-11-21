@@ -359,33 +359,6 @@ bool _already(ImportBook book, Entry entry) => book.entries
           e.shares == entry.shares,
     );
 
-/// Words that tell a merchant's category when the book has not seen it.
-const _hints = {
-  '交通通勤': ['加油', '中油', '台塑', '停車', '捷運', '高鐵', '台鐵', '客運', 'Uber'],
-  '飲食日常': ['7-ELEVEN', '統一超商', '全家', '萊爾富', '咖啡', '餐', '麵', '飯', '食品'],
-  '居家生活': ['全聯', '家樂福', '大潤發', '屈臣氏', '康是美', '寶雅', 'IKEA'],
-  '購物休閒': ['MOMO', 'PChome', '蝦皮', '誠品', '影城', '百貨'],
-};
-
-/// The category for spending at [merchant]: the one the book used last,
-/// else one its name hints at, else 其他支出.
-String guessCategory(
-  EntryQueryService queries,
-  CategoryReader categories,
-  String merchant,
-  String items,
-) {
-  final used = queries.categoryAt(merchant);
-  if (used != null) return used;
-  final known = categories.forEntries(income: false).map((c) => c.name);
-  final text = '$merchant $items'.toUpperCase();
-  for (final MapEntry(key: category, value: words) in _hints.entries) {
-    if (!known.contains(category)) continue;
-    if (words.any((w) => text.contains(w.toUpperCase()))) return category;
-  }
-  return feeCategory;
-}
-
 /// Spending from the Ministry of Finance e-invoice export: an M line per
 /// invoice (載具名稱|載具號碼|日期|統編|店名|發票號碼|總金額|狀態) and D
 /// lines with its items. Each invoice becomes spending on [account] at
@@ -446,7 +419,7 @@ Import _invoiceLines(ImportBook book, String text, {required String account}) {
     final seen =
         number.isNotEmpty &&
         (entries.any((e) => e.note.contains(number)) ||
-            _hasInvoice(book.entries, day, number, shop: shop, amount: value));
+            hasInvoice(book.entries, day, number, shop: shop, amount: value));
     final why = day == null
         ? '日期看不懂'
         : value == null || value <= 0
@@ -487,7 +460,7 @@ Import _invoiceCsv(ImportBook book, String text, {required String account}) {
     final value = invoice.amount.minorUnits.toInt();
     if (value <= 0 ||
         entries.any((e) => e.note.contains(number)) ||
-        _hasInvoice(
+        hasInvoice(
           book.entries,
           date,
           number,
@@ -554,34 +527,4 @@ Entry _invoice(
     merchant: shop,
     tags: const ['發票'],
   );
-}
-
-/// Whether the invoice [number] of [day] is in the book already, as an
-/// import or a scan would find it.
-bool invoiceRecorded(EntryReader entries, DateTime day, String number) =>
-    _hasInvoice(entries, day, number);
-
-/// Whether the invoice [number] of [day] was imported before: its number
-/// is in a note, or an invoice entry of that day, shop and [amount] is
-/// there, as when its note was edited since.
-bool _hasInvoice(
-  EntryReader entries,
-  DateTime? day,
-  String number, {
-  String shop = '',
-  int? amount,
-}) {
-  if (day == null) return false;
-  return entries
-      .inMonth(day.year, day.month)
-      .any(
-        (e) =>
-            e.note.contains(number) ||
-            (e.tags.contains('發票') &&
-                // An entry still noting its own number is another invoice.
-                !e.note.contains(RegExp(r'發票 \S')) &&
-                e.date == day &&
-                e.merchant == shop &&
-                e.amount == amount),
-      );
 }

@@ -39,3 +39,6 @@ __pycache__/
 
 # Test coverage reports (flutter test --coverage)
 coverage/
+
+# Worktrees of helper sessions, never part of the repository.
+.claude/worktrees/
