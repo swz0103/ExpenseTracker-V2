@@ -294,7 +294,6 @@ class _Card extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final detail = stop.detail;
     final label = last ? '開始' : '下一步';
     final card = DecoratedBox(
       decoration: const ShapeDecoration(
@@ -330,32 +329,7 @@ class _Card extends StatelessWidget {
                 child: GlyphIcon(stop.glyph, size: 21, color: _accent),
               ),
               const SizedBox(width: Space.s3),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      stop.title,
-                      style: const TextStyle(
-                        fontSize: TextSize.body,
-                        fontWeight: FontWeight.w700,
-                        height: 1.35,
-                        color: _ink,
-                      ),
-                    ),
-                    if (detail != null)
-                      Text(
-                        detail,
-                        style: const TextStyle(
-                          fontSize: TextSize.caption,
-                          height: 1.4,
-                          color: _muted,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+              Expanded(child: _words()),
               const SizedBox(width: Space.s3),
               _nextButton(label),
             ],
@@ -378,6 +352,35 @@ class _Card extends StatelessWidget {
         ),
       ),
       child: framed,
+    );
+  }
+
+  /// The stop's line, with the small one under it when there is one.
+  Widget _words() {
+    final detail = stop.detail;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          stop.title,
+          style: const TextStyle(
+            fontSize: TextSize.body,
+            fontWeight: FontWeight.w700,
+            height: 1.35,
+            color: _ink,
+          ),
+        ),
+        if (detail != null)
+          Text(
+            detail,
+            style: const TextStyle(
+              fontSize: TextSize.caption,
+              height: 1.4,
+              color: _muted,
+            ),
+          ),
+      ],
     );
   }
 

@@ -421,47 +421,44 @@ class _RemindersSectionState extends State<RemindersSection>
                     },
                   ),
                   const Divider(height: 1),
-                  InkWell(
-                    onTap: () async {
-                      Navigator.of(context).pop();
-                      await _linkCalendar(calendar);
-                    },
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 52),
-                      child: Row(
-                        children: [
-                          Text(
-                            '換日曆',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: deepOf(color),
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '${calendar.chosen?.$2 ?? ''} ›',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: deepOf(color),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  _changeCalendar(context, calendar),
                 ],
               ),
             ),
             const SizedBox(height: Space.s2),
-            TextButton(
-              style: wordButton(AppColors.danger, minimumSize: Size(0, 48)),
-              onPressed: () {
-                Navigator.of(context).pop();
-                _forgetCalendar(calendar);
-              },
-              child: const Text(
-                '不再同步',
-                style: TextStyle(fontWeight: FontWeight.w700),
+            _stopSync(context, calendar),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 換日曆 with the calendar now chosen: closes the [panel] and asks
+  /// for another.
+  Widget _changeCalendar(BuildContext panel, CalendarSync calendar) {
+    const color = SettingsColors.calendar;
+    return InkWell(
+      onTap: () async {
+        Navigator.of(panel).pop();
+        await _linkCalendar(calendar);
+      },
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 52),
+        child: Row(
+          children: [
+            Text(
+              '換日曆',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: deepOf(color),
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${calendar.chosen?.$2 ?? ''} ›',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: deepOf(color),
               ),
             ),
           ],
@@ -469,6 +466,16 @@ class _RemindersSectionState extends State<RemindersSection>
       ),
     );
   }
+
+  /// 不再同步: closes the [panel] and stops writing to the calendar.
+  Widget _stopSync(BuildContext panel, CalendarSync calendar) => TextButton(
+    style: wordButton(AppColors.danger, minimumSize: Size(0, 48)),
+    onPressed: () {
+      Navigator.of(panel).pop();
+      _forgetCalendar(calendar);
+    },
+    child: const Text('不再同步', style: TextStyle(fontWeight: FontWeight.w700)),
+  );
 
   @override
   Widget build(BuildContext context) {

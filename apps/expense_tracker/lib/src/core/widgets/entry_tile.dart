@@ -154,64 +154,70 @@ class EntryTile extends StatelessWidget {
             children: [
               entryBadge(ledger, entry),
               const SizedBox(width: Space.s3),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entry.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: TextSize.body,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      entryDetail(ledger, entry),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: mutedSmall,
-                    ),
-                    if (forOthers != null)
-                      Text(
-                        forOthers,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: TextSize.caption,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.receivable,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+              Expanded(child: _words(forOthers)),
               const SizedBox(width: Space.s2),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    shown,
-                    style: TextStyle(
-                      fontSize: TextSize.title,
-                      fontWeight: FontWeight.w500,
-                      color: entryTone(entry),
-                    ),
-                  ),
-                  if (back > 0)
-                    Text(
-                      ledger.orDots('已退 ${amountIn(back, currency)}'),
-                      style: mutedSmall,
-                    ),
-                ],
-              ),
+              _amount(shown, back, currency),
             ],
           ),
         ),
       ),
     );
   }
+
+  /// The entry's title over what it is and which account, and for whom
+  /// how much when part was paid for others ([forOthers]).
+  Widget _words(String? forOthers) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        entry.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: TextSize.body,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      Text(
+        entryDetail(ledger, entry),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: mutedSmall,
+      ),
+      if (forOthers != null)
+        Text(
+          forOthers,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: TextSize.caption,
+            fontWeight: FontWeight.w600,
+            color: AppColors.receivable,
+          ),
+        ),
+    ],
+  );
+
+  /// The amount [shown] in the entry's colour, and under it how much was
+  /// given [back] in [currency], if any.
+  Widget _amount(String shown, int back, String currency) => Column(
+    crossAxisAlignment: CrossAxisAlignment.end,
+    children: [
+      Text(
+        shown,
+        style: TextStyle(
+          fontSize: TextSize.title,
+          fontWeight: FontWeight.w500,
+          color: entryTone(entry),
+        ),
+      ),
+      if (back > 0)
+        Text(
+          ledger.orDots('已退 ${amountIn(back, currency)}'),
+          style: mutedSmall,
+        ),
+    ],
+  );
 }
 
 /// An entry as a list row that slides open to 編輯 and 刪除; a delete can

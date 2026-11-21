@@ -136,65 +136,10 @@ class _DailySectionState extends State<DailySection> {
         onPrevious: () => _moveWeek(-1),
         onNext: atToday ? null : () => _moveWeek(1),
       ),
-      // A swipe across the week goes to the week before or after.
-      GestureDetector(
-        onHorizontalDragEnd: (details) {
-          final speed = details.primaryVelocity ?? 0.0;
-          if (speed.abs() < 150) return;
-          if (speed < 0 && atToday) return;
-          _moveWeek(speed < 0 ? 1 : -1);
-        },
-        child: AnimatedSwitcher(
-          duration: Motion.of(context, Motion.short4),
-          // Only the new week shows: two faded strips read as a smear.
-          layoutBuilder: (current, previous) => current ?? const SizedBox(),
-          child: _WeekStrip(
-            key: ValueKey(first),
-            ledger: ledger,
-            weekStart: first,
-            selected: _day,
-            month: widget.month.$2,
-            onSelect: (day) => setState(() {
-              _day = day;
-            }),
-          ),
-        ),
-      ),
-      const Padding(
-        padding: EdgeInsets.only(top: Space.s2),
-        child: Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 10,
-          children: [
-            LegendKey(AppColors.negative, Words.expense),
-            LegendKey(AppColors.positive, Words.income),
-            LegendKey(AppColors.transfer, Words.transfer),
-            LegendKey(AppColors.investment, Words.investment),
-          ],
-        ),
-      ),
+      _week(first, atToday),
+      _legend(),
       const SizedBox(height: Space.s4),
-      Row(
-        children: [
-          Flexible(
-            child: Text(
-              formatMMMd(_day),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: TextSize.body,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: Space.s2),
-          Text('${entries.length} 筆', style: mutedSmall),
-          const Spacer(),
-          // Shrinks a little rather than overflows when the phone's text
-          // is large; with its largest, on a line of its own.
-          if (!roomy) Flexible(child: spent),
-        ],
-      ),
+      _dayHeading(entries.length, roomy, spent),
       if (roomy) spent,
       const SizedBox(height: Space.s2),
       _DayCards(
@@ -205,6 +150,71 @@ class _DailySectionState extends State<DailySection> {
       ),
     ];
   }
+
+  /// The week starting on [first]; a swipe across it goes to the week
+  /// before or after (not after when [atToday]).
+  Widget _week(DateTime first, bool atToday) => GestureDetector(
+    onHorizontalDragEnd: (details) {
+      final speed = details.primaryVelocity ?? 0.0;
+      if (speed.abs() < 150) return;
+      if (speed < 0 && atToday) return;
+      _moveWeek(speed < 0 ? 1 : -1);
+    },
+    child: AnimatedSwitcher(
+      duration: Motion.of(context, Motion.short4),
+      // Only the new week shows: two faded strips read as a smear.
+      layoutBuilder: (current, previous) => current ?? const SizedBox(),
+      child: _WeekStrip(
+        key: ValueKey(first),
+        ledger: widget.ledger,
+        weekStart: first,
+        selected: _day,
+        month: widget.month.$2,
+        onSelect: (day) => setState(() {
+          _day = day;
+        }),
+      ),
+    ),
+  );
+
+  /// What each colour of dot under a day stands for.
+  Widget _legend() => const Padding(
+    padding: EdgeInsets.only(top: Space.s2),
+    child: Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 10,
+      children: [
+        LegendKey(AppColors.negative, Words.expense),
+        LegendKey(AppColors.positive, Words.income),
+        LegendKey(AppColors.transfer, Words.transfer),
+        LegendKey(AppColors.investment, Words.investment),
+      ],
+    ),
+  );
+
+  /// The chosen day's date and how many entries it has, with its
+  /// spending at the end unless the text is [roomy].
+  Widget _dayHeading(int count, bool roomy, Widget spent) => Row(
+    children: [
+      Flexible(
+        child: Text(
+          formatMMMd(_day),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: TextSize.body,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      const SizedBox(width: Space.s2),
+      Text('$count 筆', style: mutedSmall),
+      const Spacer(),
+      // Shrinks a little rather than overflows when the phone's text
+      // is large; with its largest, on a line of its own.
+      if (!roomy) Flexible(child: spent),
+    ],
+  );
 }
 
 class _WeekStrip extends StatelessWidget {

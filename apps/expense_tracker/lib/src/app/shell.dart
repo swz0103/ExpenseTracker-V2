@@ -270,87 +270,78 @@ class _AppShellState extends State<AppShell> {
   };
 
   Widget _body() {
-    final ledger = widget.ledger;
     final page = _page;
-    if (page != null) {
-      return switch (page) {
-        // Gone, such as after a restore: back to the tab.
-        AccountRoute(:final id) ||
-        DebtRoute(:final id) when !ledger.accounts.contains(id) => _gone(),
-        // Money paid for someone and loans have pages of their own,
-        // wherever they are opened from.
-        AccountRoute(:final id) || DebtRoute(:final id)
-            when ledger.account(id).kind == AccountKind.receivable =>
-          PersonPage(
-            key: ValueKey(page),
-            ledger: ledger,
-            nav: _nav,
-            personId: id,
-          ),
-        AccountRoute(:final id) || DebtRoute(:final id)
-            when ledger.account(id).kind == AccountKind.loan =>
-          LoanPage(key: ValueKey(page), ledger: ledger, nav: _nav, loanId: id),
-        DebtRoute() => _gone(),
-        AccountRoute(:final id) =>
-          ledger.account(id).kind == AccountKind.card
-              ? CardPage(
-                  key: ValueKey(page),
-                  ledger: ledger,
-                  nav: _nav,
-                  accountId: id,
-                )
-              : AccountPage(
-                  key: ValueKey(page),
-                  ledger: ledger,
-                  nav: _nav,
-                  accountId: id,
-                ),
-        TagRoute(:final name, :final merchant) => TagPage(
-          key: ValueKey(page),
-          ledger: ledger,
-          nav: _nav,
-          name: name,
-          merchant: merchant,
-        ),
-        SettingsRoute(:final part) => SettingsPage(
-          key: ValueKey(page),
-          ledger: ledger,
-          nav: _nav,
-          services: widget.services,
-          part: part,
-        ),
-        HoldingRoute(:final code) => HoldingPage(
-          key: ValueKey(page),
-          ledger: ledger,
-          nav: _nav,
-          code: code,
-        ),
-        RecurringRoute(:final view) => RecurringViewPage(
-          key: ValueKey(page),
-          ledger: ledger,
-          nav: _nav,
-          view: view,
-        ),
-        MerchantsRoute() => TagsPage(
-          ledger: ledger,
-          nav: _nav,
-          merchants: true,
-        ),
-        SectionRoute(:final section) => _morePage(ledger, section),
-      };
-    }
+    if (page != null) return _routed(widget.ledger, page);
     return switch (_tab) {
       _Tab.overview => OverviewPage(
-        ledger: ledger,
+        ledger: widget.ledger,
         nav: _nav,
         preferences: widget.services.preferences,
         summaryKey: _touring ? _summaryKey : null,
       ),
-      _Tab.ledger => EntriesPage(ledger: ledger, nav: _nav),
-      _Tab.accounts => AccountsPage(ledger: ledger, nav: _nav),
-      _Tab.more => MorePage(ledger: ledger, nav: _nav),
+      _Tab.ledger => EntriesPage(ledger: widget.ledger, nav: _nav),
+      _Tab.accounts => AccountsPage(ledger: widget.ledger, nav: _nav),
+      _Tab.more => MorePage(ledger: widget.ledger, nav: _nav),
     };
   }
+
+  /// The page [page] opens over the tabs.
+  Widget _routed(Ledger ledger, AppRoute page) => switch (page) {
+    // Gone, such as after a restore: back to the tab.
+    AccountRoute(:final id) ||
+    DebtRoute(:final id) when !ledger.accounts.contains(id) => _gone(),
+    // Money paid for someone and loans have pages of their own,
+    // wherever they are opened from.
+    AccountRoute(:final id) || DebtRoute(:final id)
+        when ledger.account(id).kind == AccountKind.receivable =>
+      PersonPage(key: ValueKey(page), ledger: ledger, nav: _nav, personId: id),
+    AccountRoute(:final id) || DebtRoute(:final id)
+        when ledger.account(id).kind == AccountKind.loan =>
+      LoanPage(key: ValueKey(page), ledger: ledger, nav: _nav, loanId: id),
+    DebtRoute() => _gone(),
+    AccountRoute(:final id) =>
+      ledger.account(id).kind == AccountKind.card
+          ? CardPage(
+              key: ValueKey(page),
+              ledger: ledger,
+              nav: _nav,
+              accountId: id,
+            )
+          : AccountPage(
+              key: ValueKey(page),
+              ledger: ledger,
+              nav: _nav,
+              accountId: id,
+            ),
+    TagRoute(:final name, :final merchant) => TagPage(
+      key: ValueKey(page),
+      ledger: ledger,
+      nav: _nav,
+      name: name,
+      merchant: merchant,
+    ),
+    SettingsRoute(:final part) => SettingsPage(
+      key: ValueKey(page),
+      ledger: ledger,
+      nav: _nav,
+      services: widget.services,
+      part: part,
+    ),
+    HoldingRoute(:final code) => HoldingPage(
+      key: ValueKey(page),
+      ledger: ledger,
+      nav: _nav,
+      code: code,
+    ),
+    RecurringRoute(:final view) => RecurringViewPage(
+      key: ValueKey(page),
+      ledger: ledger,
+      nav: _nav,
+      view: view,
+    ),
+    MerchantsRoute() => TagsPage(ledger: ledger, nav: _nav, merchants: true),
+    SectionRoute(:final section) => _morePage(ledger, section),
+  };
 
   /// Whether [saved] left a budget it counts against over its allowance
   /// for that month.
@@ -477,71 +468,8 @@ class _BottomBar extends StatelessWidget {
           child: Row(
             children: [
               for (final (i, (item, icon, label)) in _items.indexed) ...[
-                if (i == 2)
-                  Expanded(
-                    child: Center(
-                      child: Tooltip(
-                        message: '記一筆',
-                        child: Pressable(
-                          depth: 0.9,
-                          child: DecoratedBox(
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.accentGlow,
-                                  blurRadius: 12,
-                                  offset: Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Material(
-                              color: AppColors.accent,
-                              shape: const CircleBorder(),
-                              child: InkWell(
-                                customBorder: const CircleBorder(),
-                                onTap: () {
-                                  Haptics.light();
-                                  onRecord();
-                                },
-                                child: SizedBox(
-                                  key: recordKey,
-                                  width: 50,
-                                  height: 50,
-                                  child: const Center(
-                                    child: GlyphIcon(
-                                      Glyph.add,
-                                      color: AppColors.onAccent,
-                                      weight: 2,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                Expanded(
-                  child: InkResponse(
-                    key: Keys.tab(label),
-                    onTap: () => onTab(item),
-                    highlightColor: Colors.transparent,
-                    hoverColor: Colors.transparent,
-                    child: Center(
-                      child: KeyedSubtree(
-                        key: item == _Tab.more ? moreKey : null,
-                        child: _tabMark(
-                          context,
-                          icon,
-                          label,
-                          chosen: item == tab,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                if (i == 2) Expanded(child: Center(child: _record())),
+                Expanded(child: _tabButton(context, item, icon, label)),
               ],
             ],
           ),
@@ -549,6 +477,68 @@ class _BottomBar extends StatelessWidget {
       ),
     );
   }
+
+  /// 記一筆: the round accent button in the middle of the bar.
+  Widget _record() => Tooltip(
+    message: '記一筆',
+    child: Pressable(
+      depth: 0.9,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accentGlow,
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: AppColors.accent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: () {
+              Haptics.light();
+              onRecord();
+            },
+            child: SizedBox(
+              key: recordKey,
+              width: 50,
+              height: 50,
+              child: const Center(
+                child: GlyphIcon(
+                  Glyph.add,
+                  color: AppColors.onAccent,
+                  weight: 2,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  /// The tab for [item], a tap going to it.
+  Widget _tabButton(
+    BuildContext context,
+    _Tab item,
+    Glyph icon,
+    String label,
+  ) => InkResponse(
+    key: Keys.tab(label),
+    onTap: () => onTab(item),
+    highlightColor: Colors.transparent,
+    hoverColor: Colors.transparent,
+    child: Center(
+      child: KeyedSubtree(
+        key: item == _Tab.more ? moreKey : null,
+        child: _tabMark(context, icon, label, chosen: item == tab),
+      ),
+    ),
+  );
 
   /// A tab's icon over its name, the chosen one larger and in the accent.
   Widget _tabMark(

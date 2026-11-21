@@ -141,8 +141,78 @@ class _LookChoice extends StatelessWidget {
   final bool chosen;
   final VoidCallback onTap;
 
+  static const _color = SettingsColors.appearance;
+
   @override
   Widget build(BuildContext context) {
+    return ReadAsButton(
+      selected: chosen,
+      label: look.label,
+      onTap: onTap,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          children: [
+            AspectRatio(aspectRatio: 0.9, child: _frame(_picture())),
+            const SizedBox(height: Space.s2),
+            OneLine(
+              look.label,
+              alignment: Alignment.center,
+              style: TextStyle(
+                fontSize: TextSize.body,
+                fontWeight: FontWeight.w700,
+                color: chosen ? deepOf(_color) : AppColors.ink,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// [picture] in a rounded frame, thick and ticked when chosen, faded
+  /// when not.
+  Widget _frame(Widget picture) {
+    // The frame is drawn over the picture: under it, the picture's
+    // corners covered the frame's.
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(Radii.large),
+      ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(Radii.large),
+        border: Border.all(
+          color: chosen ? _color : AppColors.line,
+          width: chosen ? 3 : 1.5,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // The ones not chosen are faded, so the chosen one stands out.
+          Opacity(opacity: chosen ? 1 : 0.5, child: picture),
+          if (chosen)
+            const Positioned(
+              right: 6,
+              bottom: 6,
+              child: IgnorePointer(
+                child: TickSwitch(
+                  value: true,
+                  color: _color,
+                  label: '',
+                  onChanged: null,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// The look as a small page in its theme's colours; 跟著手機 as both
+  /// side by side.
+  Widget _picture() {
     // Each theme's own paper, surface and line, whichever is showing.
     final light = (
       Color(AppColors.paper.light),
@@ -154,106 +224,47 @@ class _LookChoice extends StatelessWidget {
       Color(AppColors.surface.darkValue),
       Color(AppColors.line.darkValue),
     );
-    Widget page((Color, Color, Color) c) => Container(
-      color: c.$1,
-      padding: const EdgeInsets.all(Space.s2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 14,
-            decoration: BoxDecoration(
-              color: c.$2,
-              borderRadius: BorderRadius.circular(Radii.extraSmall),
-            ),
-          ),
-          const SizedBox(height: Space.s2),
-          FractionallySizedBox(
-            widthFactor: 0.55,
-            child: Container(
-              height: 6,
-              decoration: BoxDecoration(
-                color: c.$3,
-                borderRadius: BorderRadius.circular(Radii.extraSmall),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    final picture = switch (look) {
-      Appearance.light => page(light),
-      Appearance.dark => page(dark),
+    return switch (look) {
+      Appearance.light => _page(light),
+      Appearance.dark => _page(dark),
       Appearance.system => Row(
         children: [
-          Expanded(child: page(light)),
-          Expanded(child: page(dark)),
+          Expanded(child: _page(light)),
+          Expanded(child: _page(dark)),
         ],
       ),
     };
-    const color = SettingsColors.appearance;
-    return ReadAsButton(
-      selected: chosen,
-      label: look.label,
-      onTap: onTap,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Column(
-          children: [
-            AspectRatio(
-              aspectRatio: 0.9,
-              // The frame is drawn over the picture: under it, the
-              // picture's corners covered the frame's.
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(Radii.large),
-                ),
-                foregroundDecoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(Radii.large),
-                  border: Border.all(
-                    color: chosen ? color : AppColors.line,
-                    width: chosen ? 3 : 1.5,
-                  ),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // The ones not chosen are faded, so the chosen one
-                    // stands out.
-                    Opacity(opacity: chosen ? 1 : 0.5, child: picture),
-                    if (chosen)
-                      const Positioned(
-                        right: 6,
-                        bottom: 6,
-                        child: IgnorePointer(
-                          child: TickSwitch(
-                            value: true,
-                            color: color,
-                            label: '',
-                            onChanged: null,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: Space.s2),
-            OneLine(
-              look.label,
-              alignment: Alignment.center,
-              style: TextStyle(
-                fontSize: TextSize.body,
-                fontWeight: FontWeight.w700,
-                color: chosen ? deepOf(color) : AppColors.ink,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
+
+  /// A small page in [c]'s paper, surface and line: a bar and a short
+  /// line under it.
+  static Widget _page((Color, Color, Color) c) => Container(
+    color: c.$1,
+    padding: const EdgeInsets.all(Space.s2),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 14,
+          decoration: BoxDecoration(
+            color: c.$2,
+            borderRadius: BorderRadius.circular(Radii.extraSmall),
+          ),
+        ),
+        const SizedBox(height: Space.s2),
+        FractionallySizedBox(
+          widthFactor: 0.55,
+          child: Container(
+            height: 6,
+            decoration: BoxDecoration(
+              color: c.$3,
+              borderRadius: BorderRadius.circular(Radii.extraSmall),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 /// The three choices for 本月概況, each drawn one row high with made-up

@@ -55,7 +55,6 @@ class PlanSection extends StatelessWidget {
     final current = today.year == year && today.month == m;
     final left = limit - spent;
     final used = limit <= 0 ? 0 : (spent * 100 / limit).round();
-    const muted = mutedCaption;
     return ColorCard(
       color: ToolColors.budgets,
       radius: Radii.largeIncreased,
@@ -72,22 +71,7 @@ class PlanSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              const SquareIcon(Glyph.budget, ToolColors.budgets, size: 28),
-              const SizedBox(width: Space.s2),
-              Expanded(
-                child: OneLine(
-                  limit == 0 ? '本月花了' : '本月剩',
-                  style: TextStyle(
-                    fontSize: TextSize.small,
-                    fontWeight: FontWeight.w800,
-                    color: deepOf(ToolColors.budgets),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _budgetHead(limit == 0 ? '本月花了' : '本月剩'),
           const SizedBox(height: Space.s2),
           FittedBox(
             fit: BoxFit.scaleDown,
@@ -106,26 +90,42 @@ class PlanSection extends StatelessWidget {
           if (limit == 0)
             const OneLine('設定預算 ›', style: accentSmall)
           else
-            // Ten segments for the month, as many filled as tenths gone,
-            // and the share of the budget spent at their end.
-            Row(
-              children: [
-                Expanded(
-                  child: DayBar(
-                    passed: current ? (gone * 10 / days).ceil() : 10,
-                    days: 10,
-                    today: current,
-                    height: 10,
-                  ),
-                ),
-                const SizedBox(width: Space.s2),
-                Text('$used%', style: muted),
-              ],
-            ),
+            _tenths(current ? (gone * 10 / days).ceil() : 10, current, used),
         ],
       ),
     );
   }
+
+  /// The budget's icon and [title], 本月剩 or 本月花了.
+  Widget _budgetHead(String title) => Row(
+    children: [
+      const SquareIcon(Glyph.budget, ToolColors.budgets, size: 28),
+      const SizedBox(width: Space.s2),
+      Expanded(
+        child: OneLine(
+          title,
+          style: TextStyle(
+            fontSize: TextSize.small,
+            fontWeight: FontWeight.w800,
+            color: deepOf(ToolColors.budgets),
+          ),
+        ),
+      ),
+    ],
+  );
+
+  /// Ten segments for the month, [passed] of them filled (the last one
+  /// today's when [current]), and the share of the budget [used] at their
+  /// end.
+  Widget _tenths(int passed, bool current, int used) => Row(
+    children: [
+      Expanded(
+        child: DayBar(passed: passed, days: 10, today: current, height: 10),
+      ),
+      const SizedBox(width: Space.s2),
+      Text('$used%', style: mutedCaption),
+    ],
+  );
 
   /// 即將扣款 as a countdown: how many days until the next item falls
   /// due (今天, or 已到期 in red for one not yet booked), and under it

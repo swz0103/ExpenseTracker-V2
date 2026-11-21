@@ -32,49 +32,38 @@ const libraryGuide = 1200;
 const longerFunctions = <String, int>{
   'src/core/ledger/portfolio.dart::Portfolio.replay': 143,
   'src/core/charts/flow_chart.dart::_FlowPainter.paint': 131,
-  'src/core/widgets/balance_hero.dart::BalanceHero.build': 85,
   'src/features/investments/ui/holding_page.dart::HoldingPage.build': 122,
-  'src/features/lock/ui/views/unlock_view.dart::_UnlockViewState._page': 114,
-  'src/app/settings_page.dart::SettingsPage._index': 114,
-  'src/features/overview/ui/sections/daily_section.dart::_DailySectionState._daily':
-      113,
-  'src/features/categories/ui/categories_page.dart::_CategoriesPageState.build':
-      113,
-  'src/core/widgets/calculator.dart::_CalculatorState.build': 113,
-  'src/core/widgets/tour.dart::_Card.build': 87,
   'src/features/reports/ui/reports_page_state.dart::_ReportsPageState._flow':
       108,
   'src/features/investments/ui/holding_bento.dart::_LinePainter.paint': 108,
-  'src/features/settings/ui/preferences_section.dart::_LookChoice.build': 106,
-  'src/app/shell.dart::_BottomBar.build': 105,
-  'src/app/more_page.dart::MorePage.build': 104,
-  'src/features/overview/forms/widget_face.dart::WidgetFace.build': 101,
-  'src/features/overview/ui/sections/assets_section.dart::_AssetsSectionState._assets':
-      98,
   'src/features/reports/ui/report_habits.dart::merchantsSection': 95,
-  'src/app/shell.dart::_AppShellState._body': 95,
-  'src/core/widgets/entry_tile.dart::EntryTile.build': 93,
   'src/features/investments/ui/holding_page.dart::_DividendCard.build': 93,
   'src/core/ledger/persistence/sql_ledger_data_source.dart::SqlLedgerDataSource.refreshQuotes':
       93,
   'src/features/entries/forms/holding_choices.dart::_HoldingChoicesState.build':
       92,
-  'src/app/demo/launch.dart::_HomeScreen._wallpaper': 92,
+  'src/features/reports/ui/reports_page_state.dart::_ReportsPageState._flow':
+      108,
+  'src/features/investments/ui/holding_bento.dart::_LinePainter.paint': 108,
+  'src/features/reports/ui/report_habits.dart::merchantsSection': 95,
   'src/features/recurring/ui/recurring_lists.dart::_Subscriptions.build': 91,
   'src/core/charts/waterfall.dart::_WaterfallPainter.paint': 89,
-  'src/core/design_system/time_panels.dart::_TimePanelState.build': 88,
   'src/features/reports/model/report.dart::Report.of': 87,
   'src/features/recurring/ui/recurring_rows.dart::RecurringRow.build': 86,
-  'src/features/overview/ui/sections/plan_section.dart::PlanSection._budgetTile':
-      84,
+  'src/features/reports/ui/reports_page_state.dart::_ReportsPageState._flow':
+      108,
+  'src/features/investments/ui/holding_bento.dart::_LinePainter.paint': 108,
+  'src/features/reports/ui/report_habits.dart::merchantsSection': 95,
   'src/features/entries/ui/entries_filter_sheet.dart::_FilterSheetState.build':
       84,
   'src/features/reports/ui/reports_page_state.dart::_ReportsPageState._mix': 84,
   'src/core/ledger/persistence/sql_ledger_data_source.dart::SqlLedgerDataSource._load':
       84,
   'src/features/overview/model/home_widget.dart::widgetSnapshot': 82,
-  'src/features/reminders/ui/reminders_section.dart::_RemindersSectionState._calendarDetails':
-      82,
+  'src/features/reports/ui/reports_page_state.dart::_ReportsPageState._flow':
+      108,
+  'src/features/investments/ui/holding_bento.dart::_LinePainter.paint': 108,
+  'src/features/reports/ui/report_habits.dart::merchantsSection': 95,
 };
 const largerLibraries = <String, int>{};
 

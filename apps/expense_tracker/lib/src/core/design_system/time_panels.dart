@@ -408,70 +408,9 @@ class _TimePanelState extends State<_TimePanel> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final t in widget.usual)
-                ChoicePill(
-                  label: '${_two(t.hour)}:${_two(t.minute)}',
-                  selected: t.hour == _hour && t.minute == _minute,
-                  onTap: () => _set(t),
-                ),
-            ],
-          ),
+          _usual(),
           const SizedBox(height: Space.s3),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(Radii.large),
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // The band the chosen hour and minute stop in.
-                IgnorePointer(
-                  child: Container(
-                    height: 44,
-                    margin: const EdgeInsets.symmetric(horizontal: Space.s2),
-                    decoration: BoxDecoration(
-                      color: tintOf(color, 0.18),
-                      borderRadius: BorderRadius.circular(Radii.medium),
-                    ),
-                  ),
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _wheel(
-                        _hours,
-                        24,
-                        '時',
-                        (h) => setState(() => _hour = h),
-                        _hour,
-                      ),
-                    ),
-                    const Text(
-                      ':',
-                      style: TextStyle(
-                        fontSize: TextSize.figure,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    Expanded(
-                      child: _wheel(
-                        _minutes,
-                        60,
-                        '分',
-                        (m) => setState(() => _minute = m),
-                        _minute,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          _wheels(color),
         ],
       ),
       actions: [
@@ -486,4 +425,72 @@ class _TimePanelState extends State<_TimePanel> {
       ],
     );
   }
+
+  /// The usual times as pills, the one chosen marked.
+  Widget _usual() => Wrap(
+    spacing: 6,
+    runSpacing: 6,
+    children: [
+      for (final t in widget.usual)
+        ChoicePill(
+          label: '${_two(t.hour)}:${_two(t.minute)}',
+          selected: t.hour == _hour && t.minute == _minute,
+          onTap: () => _set(t),
+        ),
+    ],
+  );
+
+  /// The hour and minute wheels on white, over a band in [color] where
+  /// the chosen ones stop.
+  Widget _wheels(Color color) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: AppColors.white,
+      borderRadius: BorderRadius.circular(Radii.large),
+    ),
+    child: Stack(
+      alignment: Alignment.center,
+      children: [
+        // The band the chosen hour and minute stop in.
+        IgnorePointer(
+          child: Container(
+            height: 44,
+            margin: const EdgeInsets.symmetric(horizontal: Space.s2),
+            decoration: BoxDecoration(
+              color: tintOf(color, 0.18),
+              borderRadius: BorderRadius.circular(Radii.medium),
+            ),
+          ),
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: _wheel(
+                _hours,
+                24,
+                '時',
+                (h) => setState(() => _hour = h),
+                _hour,
+              ),
+            ),
+            const Text(
+              ':',
+              style: TextStyle(
+                fontSize: TextSize.figure,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Expanded(
+              child: _wheel(
+                _minutes,
+                60,
+                '分',
+                (m) => setState(() => _minute = m),
+                _minute,
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
 }

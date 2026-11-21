@@ -154,69 +154,89 @@ class _AssetsSectionState extends State<AssetsSection> {
           ),
         ),
       ),
-      // One height whether or not the links show, so a tap on the map
-      // does not push the page down.
-      SizedBox(
-        height: 36,
-        child: Row(
-          children: [
-            Text(scope, style: mutedSmall),
-            const SizedBox(width: Space.s2),
-            Flexible(
-              child: Text(
-                '$shownName$share',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: TextSize.small,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const Spacer(),
-            if (tile != null)
-              SmallLink('全部', () => setState(() => _tile = null)),
-            if (group != null) SmallLink('返回資產', () => _openAssets(null)),
-          ],
-        ),
-      ),
+      _scope(scope, '$shownName$share', tile: tile, group: group),
       const SizedBox(height: Space.s1),
-      AnimatedSwitcher(
-        duration: Motion.of(context, Motion.medium2),
-        switchInCurve: Curves.easeOutCubic,
-        transitionBuilder: (child, animation) => FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.94, end: 1).animate(animation),
-            child: child,
+      _map(parts, allName, tile: tile, group: group),
+    ];
+  }
+
+  /// Where in the assets the map is and the part picked ([shown]), with
+  /// 全部 and 返回資產 when there is somewhere to go back to. One height
+  /// whether or not the links show, so a tap on the map does not push the
+  /// page down.
+  Widget _scope(
+    String scope,
+    String shown, {
+    required int? tile,
+    required String? group,
+  }) => SizedBox(
+    height: 36,
+    child: Row(
+      children: [
+        Text(scope, style: mutedSmall),
+        const SizedBox(width: Space.s2),
+        Flexible(
+          child: Text(
+            shown,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: TextSize.small,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-        child: Semantics(
-          key: ValueKey(group),
-          container: true,
-          label:
-              '$allName：'
-              '${[for (final p in parts) '${p.$2} ${ledger.money(p.$3)}'].join('、')}',
-          child: Treemap(
-            tiles: [for (final p in parts) (p.$2, p.$3, p.$4)],
-            selected: tile,
-            onSelect: (index) => setState(() => _tile = index),
-            // A part of one holding or account has nothing more to show.
-            onOpen: (index) {
-              if (group != null) {
-                _openAssets(null);
-                return;
-              }
-              final key = parts[index].$1;
-              if (_assetParts(key).length > 1) {
-                _openAssets(key);
-              } else {
-                setState(() => _tile = index);
-              }
-            },
-          ),
+        const Spacer(),
+        if (tile != null) SmallLink('全部', () => setState(() => _tile = null)),
+        if (group != null) SmallLink('返回資產', () => _openAssets(null)),
+      ],
+    ),
+  );
+
+  /// The [parts] as a map of tiles, read out as [allName] and each part;
+  /// it grows in when another level opens.
+  Widget _map(
+    List<(String, String, int, Color)> parts,
+    String allName, {
+    required int? tile,
+    required String? group,
+  }) {
+    final ledger = widget.ledger;
+    return AnimatedSwitcher(
+      duration: Motion.of(context, Motion.medium2),
+      switchInCurve: Curves.easeOutCubic,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.94, end: 1).animate(animation),
+          child: child,
         ),
       ),
-    ];
+      child: Semantics(
+        key: ValueKey(group),
+        container: true,
+        label:
+            '$allName：'
+            '${[for (final p in parts) '${p.$2} ${ledger.money(p.$3)}'].join('、')}',
+        child: Treemap(
+          tiles: [for (final p in parts) (p.$2, p.$3, p.$4)],
+          selected: tile,
+          onSelect: (index) => setState(() => _tile = index),
+          // A part of one holding or account has nothing more to show.
+          onOpen: (index) {
+            if (group != null) {
+              _openAssets(null);
+              return;
+            }
+            final key = parts[index].$1;
+            if (_assetParts(key).length > 1) {
+              _openAssets(key);
+            } else {
+              setState(() => _tile = index);
+            }
+          },
+        ),
+      ),
+    );
   }
 }
