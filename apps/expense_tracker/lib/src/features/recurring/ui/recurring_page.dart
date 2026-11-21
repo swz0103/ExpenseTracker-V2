@@ -14,6 +14,7 @@ import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/formatting/dates.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/month_grid.dart';
 import '../../../core/design_system/motion.dart';
 import '../../../core/formatting/words.dart';
 import 'recurring_rows.dart';

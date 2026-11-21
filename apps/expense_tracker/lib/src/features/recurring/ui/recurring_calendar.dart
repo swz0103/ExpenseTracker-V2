@@ -24,17 +24,6 @@ class _Calendar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = ledger.today;
-    final first = DateTime.utc(year, month);
-    final days = DateTime.utc(year, month + 1, 0).day;
-    // The week from Sunday, as everywhere in the app.
-    final lead = weekdayIndex(first);
-    final cells = <Widget>[
-      for (var i = 0; i < lead; i++) const SizedBox(),
-      for (var d = 1; d <= days; d++) _dayCell(context, d, today),
-    ];
-    while (cells.length % 7 != 0) {
-      cells.add(const SizedBox());
-    }
     return Container(
       padding: const EdgeInsets.fromLTRB(
         Space.s2,
@@ -46,36 +35,19 @@ class _Calendar extends StatelessWidget {
         color: AppColors.group,
         borderRadius: BorderRadius.circular(Radii.largeIncreased),
       ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              for (final w in weekdayNames)
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      w,
-                      style: const TextStyle(
-                        fontSize: TextSize.caption,
-                        color: AppColors.muted,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: Space.s2),
-          for (var r = 0; r < cells.length; r += 7)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              // A day due is taller by its 到期: the others sit at the top.
-              children: [
-                for (final cell in cells.sublist(r, r + 7))
-                  Expanded(child: cell),
-              ],
-            ),
-        ],
+      child: MonthGrid(
+        year: year,
+        month: month,
+        sixWeeks: false,
+        // A day due is taller by its 到期: the others sit at the top.
+        top: true,
+        gap: Space.s2,
+        weekdayStyle: const TextStyle(
+          fontSize: TextSize.caption,
+          color: AppColors.muted,
+          fontWeight: FontWeight.w700,
+        ),
+        day: (d) => _dayCell(context, d, today),
       ),
     );
   }
