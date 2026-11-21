@@ -13,12 +13,9 @@ void main() {
     final known = ledger.entries.all.firstWhere((e) => e.merchant.isNotEmpty);
     expect(
       guessCategory(queries, ledger.categories, known.merchant, ''),
-      ledger.category(known.category)?.name ?? known.category,
+      ledger.category(known.category).name,
     );
-    expect(
-      guessCategory(queries, ledger.categories, '台塑石油 某某站', ''),
-      '交通通勤',
-    );
+    expect(guessCategory(queries, ledger.categories, '台塑石油 某某站', ''), '交通通勤');
     expect(
       guessCategory(queries, ledger.categories, '某間小店', '貼紙'),
       feeCategory,

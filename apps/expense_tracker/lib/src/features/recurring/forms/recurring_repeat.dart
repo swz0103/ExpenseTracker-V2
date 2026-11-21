@@ -334,30 +334,11 @@ class _OtherSheetState extends State<_OtherSheet> {
             ),
           ),
           const SizedBox(height: Space.s2),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: _toggle(
-                    '到期自動入帳',
-                    '到期就自動記一筆',
-                    _f.auto,
-                    (v) => _f.auto = v,
-                  ),
-                ),
-                const SizedBox(width: Space.s2),
-                Expanded(
-                  child: _toggle(
-                    '暫停',
-                    '先不出現在月曆',
-                    !_f.active,
-                    (v) => _f.active = !v,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // One to a row: side by side, their words broke onto a second
+          // line on every phone.
+          _toggle('到期自動入帳', '到期就自動記一筆', _f.auto, (v) => _f.auto = v),
+          const SizedBox(height: Space.s2),
+          _toggle('暫停', '先不出現在月曆', !_f.active, (v) => _f.active = !v),
           const SizedBox(height: Space.s4),
           PanelButton(
             Words.done,
