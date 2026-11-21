@@ -17,8 +17,9 @@ import '../../../support/book_records.dart';
 
 /// A book and a backup kept by each version of the app, byte for byte as
 /// it wrote them, must open in this one and hold the same records
-/// (docs/adr/0010-data-that-lasts.md). One kept per version is checked
-/// on every change; `MAKE_FIXTURES=1` writes the one for this version.
+/// (docs/adr/0010-data-that-lasts.md). One kept per minor version is
+/// checked on every change; `MAKE_FIXTURES=1` writes the one for this
+/// version.
 const _books = 'test/fixtures/books';
 const _password = 'fixture password';
 final _clock = FixedClock(UtcInstant(DateTime.utc(2026, 10, 4, 4)));
@@ -45,10 +46,19 @@ void main() {
   setUp(() => scratch = Directory.systemTemp.createTempSync('old-books-'));
   tearDown(() => scratch.deleteSync(recursive: true));
 
-  test('this version keeps a book for later versions to open', () {
-    // A release without one could change the format unnoticed.
+  test('each minor version keeps a book for later versions to open', () {
+    // A release without one could change the format unnoticed. A format
+    // change raises the minor version at least (ADR-0011), so one book
+    // per minor version is enough; a fix (0.20.1) writes none.
+    final current = _appVersion();
+    final minor = current.substring(0, current.lastIndexOf('.'));
     expect(
-      Directory('$_books/${_appVersion()}').existsSync(),
+      Directory(_books).listSync().whereType<Directory>().any(
+        (d) => d.uri.pathSegments
+            .where((s) => s.isNotEmpty)
+            .last
+            .startsWith('$minor.'),
+      ),
       isTrue,
       reason:
           'run MAKE_FIXTURES=1 flutter test '

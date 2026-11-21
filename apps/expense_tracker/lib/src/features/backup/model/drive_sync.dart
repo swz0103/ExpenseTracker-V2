@@ -95,21 +95,41 @@ final class DriveSync extends ChangeNotifier {
     return true;
   }
 
+  /// What a backup going up is doing now; null when none is.
+  DriveStage? get stage => _busy ? _stage : null;
+  static var _stage = DriveStage.packing;
+
   Future<void> _send({required bool interactive}) async {
     if (_busy) return;
     _busy = true;
+    _stage = DriveStage.packing;
     notifyListeners();
     try {
       final revision = _revision();
-      await _withBackup(
-        (file) =>
-            _drive.upload(file, ledger: _ledger, interactive: interactive),
-        withPhotos: photos,
-      );
+      await _withBackup((file) {
+        _stage = DriveStage.uploading;
+        notifyListeners();
+        return _drive.upload(file, ledger: _ledger, interactive: interactive);
+      }, withPhotos: photos);
       _preferences.driveBackup(_clock(), revision);
     } finally {
+      // Also when Google never answers: DriveBackup gives up on its
+      // sign-in after a while, so a backup is never held for good.
       _busy = false;
       notifyListeners();
     }
   }
+}
+
+/// The steps of a backup going to Google Drive, as the card says them.
+enum DriveStage {
+  /// The ledger, and the photos when they go too, sealed into one file.
+  packing('打包中…'),
+
+  /// The file going to Drive, after Google's sign-in.
+  uploading('上傳中…');
+
+  const DriveStage(this.label);
+
+  final String label;
 }

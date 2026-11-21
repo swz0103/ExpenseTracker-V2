@@ -8,7 +8,7 @@
 
 每次 main 有變更，`V2 integration validation` 跑完且全部通過後，`Android APK` 工作流程建置同一個 commit，發布在這個版號自己的 release `v<版號>`（`ExpenseTracker-<版號>.apk`，旁邊有 `update.json` 與測試帳本 `test-ledger.etbk`），並標成 GitHub 的最新版；驗證每次 push 只跑一次（驗證進行中又有好幾次 push 時，GitHub 只留最新一次排隊，中間的 commit 不會各自驗證與發布）。PR 與手動執行只檢查能否建置。
 
-工作流程分成三個工作：`build` 只有讀取權限、看不到簽章 Secrets，建置 debug 簽章的 APK 並存下；`sign` 只在驗證過的 main 執行，不取出程式碼，用 `apksigner` 換上正式簽章、確認不是 debug 金鑰並寫出 `update.json`；`publish` 是唯一能寫 release 的工作。`publish` 有自己的 concurrency 群組且不取消進行中的執行，所以之後完成的驗證（即使失敗或略過）或建置都不會把它中途打斷；main 的建置也依序排隊，發布順序與 commit 順序一致。`publish` 先打標籤 `v<版號>`（打了就不移動），再建立這個版號的 release：先建成草稿，三個檔案都上傳後才公開並標成最新版，所以沒有人（包括 App）會看到缺安裝檔的 release；說明列出 `whats_new.txt` 的每一行與 APK 的 SHA-256。會發布的 PR 都要升版（ADR-0011），所以同一個版號只發布一次；重跑時發現這個版號已有 APK 就不再動它。早期所有建置都放在同一個會移動的 release `android-latest`，`publish` 會把它和它的標籤刪掉。PR 的建置有新 push 時會取消舊的。每次建置都檢查 16 KB 分頁對齊。版本名稱取自 `pubspec.yaml`，版本號（versionCode）用工作流程的執行次數，所以新版一定能蓋過舊版安裝；兩者與 commit 也以 `--dart-define`（`APP_VERSION`、`APP_BUILD`、`APP_COMMIT`）傳進 App，顯示在「設定 › 關於」。
+工作流程分成三個工作：`build` 只有讀取權限、看不到簽章 Secrets，建置 debug 簽章的 APK 並存下；`sign` 只在驗證過的 main 執行，不取出程式碼，用 `apksigner` 換上正式簽章、確認不是 debug 金鑰並寫出 `update.json`；`publish` 是唯一能寫 release 的工作。`publish` 有自己的 concurrency 群組且不取消進行中的執行，所以之後完成的驗證（即使失敗或略過）或建置都不會把它中途打斷；main 的建置也依序排隊，發布順序與 commit 順序一致。`publish` 先打標籤 `v<版號>`（打了就不移動，直到下一版發布），再建立這個版號的 release：先建成草稿，三個檔案都上傳後才公開並標成最新版，所以沒有人（包括 App）會看到缺安裝檔的 release；說明列出 `whats_new.txt` 的每一行與 APK 的 SHA-256。會發布的 PR 都要升版（ADR-0011），所以同一個版號只發布一次；重跑時發現這個版號已有 APK 就不再動它。新版公開後，`publish` 刪掉其他所有 release 與標籤（包括舊的 `v<版號>` 與早期會移動的 `android-latest`），GitHub 上只留最新一版；App 讀 `releases/latest`，任何舊版手機都找得到它。各版寫出的帳本與備份樣本留在 repo 的 `test/fixtures/books`，不靠標籤。PR 的建置有新 push 時會取消舊的。每次建置都檢查 16 KB 分頁對齊。版本名稱取自 `pubspec.yaml`，版本號（versionCode）用工作流程的執行次數，所以新版一定能蓋過舊版安裝；兩者與 commit 也以 `--dart-define`（`APP_VERSION`、`APP_BUILD`、`APP_COMMIT`）傳進 App，顯示在「設定 › 關於」。
 
 APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform android-arm64` 建置，`build.gradle.kts` 的 release 也只收 `arm64-v8a`（debug 與 profile 不限，模擬器才能跑 x86_64）。除錯符號不放進安裝檔，每次建置另存成工作流程的 artifact `symbols-<commit>`（保留 90 天），用 `flutter symbolize` 還原當機堆疊。中文字型是 Noto Sans TC 的 Regular 與 Bold（見 App 的 README）。main 的安裝檔一定用正式金鑰簽章：缺 Secrets 時工作流程直接失敗，不會發出無法覆蓋安裝的版本。正式金鑰只在 `sign` 工作裡寫出（簽完即刪除），建置過程（Gradle 外掛與套件的程式）碰不到它；PR 與手動執行一律用 debug 金鑰。debug 簽章的安裝檔只供試用，不能覆蓋正式版。除錯符號的 artifact 以實際建置的 commit 命名：main 是驗證過的 commit，PR 是 GitHub 測試用的合併 commit。
 
@@ -24,9 +24,10 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
   - `ACCESS_NETWORK_STATE`：判斷是否連上 Wi-Fi，雲端硬碟的收據照片只在 Wi-Fi 上傳（`NetworkHandler.kt`）。
   - `SCHEDULE_EXACT_ALARM`：只在打開「準時提醒」時使用；Android 12 起要使用者在系統設定允許「鬧鐘與提醒」（App 會帶過去），沒允許時退回一般鬧鐘。不申請 `USE_EXACT_ALARM`（Play 只給鬧鐘、行事曆類 App）。
   - `RECEIVE_BOOT_COMPLETED`：重開機後重新排定提醒。`RestartReceiver` 也在 App 更新、改時間（`TIME_SET`）與改時區（`TIMEZONE_CHANGED`）時重排，這兩個不需要權限。
+  - `VIBRATE`：按鈕的輕震用手機自己的點擊效果（`HapticsHandler.kt`，Android 10 以上用系統預設的 tick、click、heavy click），屬於觸控震動，手機設定關掉觸控震動時一起停；安裝時自動給，不需詢問。
 - 收件匣（`InboxWriter.kt`）：到期通知的「確認入帳」由 `ConfirmReceiver` 收下，用 `filesDir/inbox.pub` 的公鑰加密後寫進 `filesDir/inbox/`，帳本仍鎖著；下次打開帳本時才讀出入帳。加密用 Tink（`tink-android`）的 X25519 與 HKDF 加上系統的 AES-GCM；`InboxWriterTest.kt` 在 CI 以 `testDebugUnitTest` 驗證與 Dart 端相同的範例。
 - 通知（`Reminders.kt`）：每則提醒記下手機當地的日期與時、分（另存當時的時間點，給舊版留下的資料用）。重開機、改時間或改時區時，依現在的時區重新算出時間點，所以 9:00 的提醒到了別的時區仍是當地 9:00；時間已過的則取消。鬧鐘預設用 `setAndAllowWhileIdle`，不是精準鬧鐘，手機休眠（Doze）時可能晚幾分鐘；打開「準時提醒」且系統允許時改用 `setExactAndAllowWhileIdle`。每則提醒帶標籤（`nudge`、`due:<key>`），重排時把已跳出但不再適用的通知收回（當天記過帳的每日提醒、已入帳或已繳的到期通知；測試通知除外）。「傳送測試通知」用另一個鬧鐘在一分鐘後跳出。設定頁的狀態列讀 `areNotificationsEnabled`、`canScheduleExactAlarms`、`isIgnoringBatteryOptimizations`，並可開 `ACTION_REQUEST_SCHEDULE_EXACT_ALARM`、`ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`。
-  - 已知限制：為了重開機後能重排，每則提醒的標題、內文（可能含金額）與點下去要開的畫面以明文存在 App 的 SharedPreferences（`reminders`）。這是 App 私有資料，其他 App 讀不到，也不在自動備份規則內（規則只收 `file` 網域），但不受帳本的 SQLCipher 加密保護。關掉通知後下次同步就會清空。
+  - 提醒的標題、內文（可能含金額）與點下去要開的畫面，為了重開機後能重排，存在 App 的 SharedPreferences（`reminders`），用手機 Keystore 裡一把不需指紋的金鑰加密（`ReminderStore.kt`，0.20.0 起；0.19 以前的明文第一次讀到時就改成加密）。鬧鐘只帶提醒的編號，響的時候才解開文字。關掉通知後下次同步就會清空。
 - 收據照片：相機寫到快取的 `camera/`（`FileProvider`，`res/xml/file_paths.xml`），縮小、加密存進 `receipts/` 後刪掉。
 
 ## Google 雲端硬碟備份

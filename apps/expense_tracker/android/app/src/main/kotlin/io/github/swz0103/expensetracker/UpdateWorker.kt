@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
  * per new build; tapping it opens the app, where 關於 downloads it. Only
  * `update.json` is fetched; nothing of the ledger is read or sent.
  *
- * It follows 自動更新 in 關於 (`updateChecks` in preferences.json, which
+ * It follows 自動檢查新版本 in 關於 (`updateChecks` in preferences.json, which
  * only the app writes) and does nothing in a build made by hand, whose
  * version code is 1 (lib/src/features/settings/model/app_update.dart).
  */
@@ -49,10 +49,11 @@ class UpdateWorker(context: Context, params: WorkerParameters) : Worker(context,
         if (!on) return
         val current = currentBuild(context)
         if (current <= 1) return
-        val newest = UpdateFeed.build(fetch(URL(INFO_URL))) ?: return
+        val info = fetch(URL(INFO_URL))
+        val newest = UpdateFeed.build(info) ?: return
         val kept = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
         if (!UpdateFeed.worthSaying(current, newest, kept.getInt(SAID, 0))) return
-        notify(context, newest)
+        notify(context, UpdateFeed.version(info))
         kept.edit().putInt(SAID, newest).apply()
     }
 
@@ -68,7 +69,7 @@ class UpdateWorker(context: Context, params: WorkerParameters) : Worker(context,
         }
     }
 
-    private fun notify(context: Context, build: Int) {
+    private fun notify(context: Context, version: String?) {
         if (!Reminders.allowed(context)) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26 && manager.getNotificationChannel(CHANNEL) == null) {
@@ -80,8 +81,8 @@ class UpdateWorker(context: Context, params: WorkerParameters) : Worker(context,
         }
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("記帳本有新版本")
-            .setContentText("第 $build 版，打開 App 就能更新")
+            .setContentTitle(if (version == null) "記帳本有新版本" else "記帳本 $version 可以更新")
+            .setContentText("打開 App 就能更新")
             .setContentIntent(MainActivity.opening(context, "", 900))
             .setAutoCancel(true)
             .build()
@@ -120,11 +121,16 @@ class UpdateWorker(context: Context, params: WorkerParameters) : Worker(context,
 /** What the job decides, kept apart from Android to be tested. */
 internal object UpdateFeed {
     private val buildField = Regex("\"build\"\\s*:\\s*(\\d+)")
+    private val versionField = Regex("\"version\"\\s*:\\s*\"(\\d+\\.\\d+\\.\\d+)\"")
 
     /** The build `update.json` names; null for anything else. Read
      *  without org.json, which unit tests do not have. */
     fun build(text: String): Int? =
         buildField.find(text)?.groupValues?.get(1)?.toIntOrNull()
+
+    /** The version `update.json` names, as the app shows it (0.20.0);
+     *  null when it names none. */
+    fun version(text: String): String? = versionField.find(text)?.groupValues?.get(1)
 
     /** Said once per newer build: not again for one already said. */
     fun worthSaying(current: Long, newest: Int, said: Int): Boolean =

@@ -57,9 +57,9 @@ void main() {
     // A screen or a model that needs only the entries, or the reports,
     // takes that part (EntryReader, ReportService, exported by
     // ledger.dart): it says what it uses, and a test gives it only that.
-    // 68 since the app's start was split in three (bootstrap.dart,
-    // LedgerSession, LifecycleServices): one composition root, three files.
-    const most = 68;
+    // Only the features count: the app's own files put the ledger
+    // together and hand it out (lib/app_syntax.dart).
+    const most = 58;
     final whole = wholeLedgerFiles(units);
     expect(whole.length, lessThanOrEqualTo(most), reason: 'take the part');
     expect(whole.length, most, reason: 'fewer now: lower `most`');

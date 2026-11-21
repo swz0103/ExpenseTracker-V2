@@ -285,10 +285,11 @@ jobs:
           name: apk
           path: ${{ runner.temp }}/apk
       - name: Tag the version
-        # Each version gets a tag of its own, v<version>, on the first build
-        # published as it: the code behind the APK, and the books and
-        # backups that version writes (docs/adr/0010-data-that-lasts.md).
-        # A tag once made is never moved.
+        # The version gets a tag of its own, v<version>, on the first build
+        # published as it: the code behind the APK. It is never moved, and
+        # stays until a newer version is published (the last step). The
+        # books and backups each version writes are kept in the repository
+        # (test/fixtures/books, docs/adr/0010-data-that-lasts.md).
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -345,16 +346,31 @@ jobs:
             "$RUNNER_TEMP/apk/test-ledger.etbk"
           gh release edit "$tag" --repo "$repo" --draft=false --latest \
             --notes "$notes"
-      - name: Retire android-latest
-        # Builds were once published on a single moving release; versions
-        # have their own now, and the moving one is taken away with its tag.
+      - name: Keep only the newest version
+        # Only the version just published keeps a release and a tag: older
+        # releases are deleted with their tags, and so are older v<version>
+        # tags without one, and the moving android-latest of old. The app
+        # reads releases/latest, so phones on any version still find this
+        # one. Runs only once the new release is in place (the step above
+        # stops the job otherwise), so there is always one to download.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           repo="$GITHUB_REPOSITORY"
-          if gh release view android-latest --repo "$repo" > /dev/null 2>&1; then
-            gh release delete android-latest --repo "$repo" --cleanup-tag --yes
-          elif gh api "repos/$repo/git/ref/tags/android-latest" > /dev/null 2>&1; then
-            gh api -X DELETE "repos/$repo/git/refs/tags/android-latest"
-          fi
+          keep="v$VERSION"
+          gh api --paginate "repos/$repo/releases" --jq '.[].tag_name' |
+            while read -r tag; do
+              if [ "$tag" != "$keep" ]; then
+                echo "Deleting the release $tag and its tag."
+                gh release delete "$tag" --repo "$repo" --cleanup-tag --yes
+              fi
+            done
+          gh api --paginate "repos/$repo/git/matching-refs/tags/" --jq '.[].ref' |
+            sed 's#^refs/tags/##' |
+            while read -r tag; do
+              if [ "$tag" != "$keep" ] && { [ "$tag" = android-latest ] || [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; }; then
+                echo "Deleting the tag $tag."
+                gh api -X DELETE "repos/$repo/git/refs/tags/$tag"
+              fi
+            done

@@ -1,6 +1,6 @@
 # ADR-0010：使用者的資料要能讀十年
 
-- 狀態：採用（2026-11-18）
+- 狀態：採用（2026-11-18）；2026-11-21 改成每個次版號留一份（修訂版不改格式，不必留）
 - 補充：ADR-0005（備份的選擇）
 
 ## 背景
@@ -15,12 +15,12 @@
 
 1. **讀取只增不減。** 帳本的每列帶版本（`record_version.dart`，逐版升級）；備份標頭有 `LedgerBackup` 的 `readable` 清單，格式改版時加入新版本並寫升級步驟，舊版本永不移出。
 2. **密碼參數可以退役，不能消失。** `PasswordKdf.retired` 記下以前用過的參數；帳本記著哪一組就用哪一組打開。新設的密碼一律用目前的參數，並記下目前的名稱。
-3. **每個發行版留一份真檔案。** `apps/expense_tracker/test/fixtures/books/<版本>/` 放該版寫出的帳本（`vault/`，用密碼打開）、備份（`backup.etbk`，含一張收據）與當時的紀錄（`records.json`）。產生方式：`MAKE_FIXTURES=1 flutter test test/scenarios/ledger/persistence/old_books_test.dart`。檔案進版控後不再改。
-4. **每次變更都打開全部。** `old_books_test.dart` 用 App 實際的元件（`LedgerVault`、`KeyringCodec`、`LedgerBackup`、`SqlLedgerDataSource`）打開每一份，讀出的紀錄必須與 `records.json` 相同；目前的版本號沒有對應的檔案時測試失敗，發行前就得補上。
+3. **每個次版號留一份真檔案。** 格式改變至少升次版號（ADR-0011），所以每個次版號一份就夠；修訂版不留。`apps/expense_tracker/test/fixtures/books/<版本>/` 放該版寫出的帳本（`vault/`，用密碼打開）、備份（`backup.etbk`，含一張收據）與當時的紀錄（`records.json`）。產生方式：`MAKE_FIXTURES=1 flutter test test/scenarios/ledger/persistence/old_books_test.dart`。檔案進版控後不再改。
+4. **每次變更都打開全部。** `old_books_test.dart` 用 App 實際的元件（`LedgerVault`、`KeyringCodec`、`LedgerBackup`、`SqlLedgerDataSource`）打開每一份，讀出的紀錄必須與 `records.json` 相同；目前的次版號（例如 0.20）沒有任何一份檔案時測試失敗，發行前就得補上。
 
 ## 後果
 
 - 改格式的人必須寫升級步驟，否則舊檔的測試失敗；改密碼參數的人必須把舊值放進 `retired`。
-- 測試資料夾會隨版本變多；每份約 40 KB。
+- 測試資料夾隨次版號變多；每份約 40 KB。
 - 只保證 0.17.0 起的資料。更早的格式已無法取得真檔案，維持在已知限制。
 - 比對前，`records.json` 的每筆紀錄只經過 App 自己的升級步驟（`upgradeRecord`），不經現在的讀取程式，兩邊都依鍵排序後再比。所以刻意改一個欄位的寫法並寫了升級步驟時，舊檔不必改也會通過；少了升級步驟，或讀取時丟了欄位，都會失敗（三種情況都實際改過程式驗證）。新的 `records.json` 會寫下自己的紀錄版本（`record version`）；0.17.0 與 0.18.0 寫於此之前，皆為版本 2。

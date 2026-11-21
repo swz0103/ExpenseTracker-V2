@@ -21,7 +21,9 @@ void main() {
           File(p.join(d.path, 'README.md')),
   ];
 
-  test('a document opens with its summary and stays under 150 lines', () {
+  test('a document opens with its summary', () {
+    // No cap on length: one at 150 lines was split or squeezed to fit,
+    // which made it harder to read, not easier.
     for (final f in docs) {
       // A decision record keeps the shape of ADR-0001, its status first.
       if (f.path.contains('${p.separator}adr${p.separator}')) continue;
@@ -29,7 +31,6 @@ void main() {
       final name = p.relative(f.path, from: root);
       final first = lines.skip(1).firstWhere((l) => l.trim().isNotEmpty);
       expect(first, startsWith('> '), reason: '$name: no summary line');
-      expect(lines.length, lessThanOrEqualTo(150), reason: name);
     }
   });
 

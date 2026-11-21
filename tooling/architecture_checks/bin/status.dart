@@ -52,7 +52,7 @@ void main() {
     ),
     ('從未執行的類別與函式', '$uncovered 個', 'uncovered.txt，只准變少'),
     ('超過 80 行的函式', '$debt 個', 'code_size_test 的債務清單'),
-    ('依賴整個 Ledger', '$whole 個檔', '功能與 app 裡提到 Ledger 的檔（語法樹）'),
+    ('依賴整個 Ledger', '$whole 個檔', '功能裡提到 Ledger 的檔（語法樹；app/ 是組裝點，不算）'),
     ('轉成基本型別', '$casts 處', '`as Map`、`as String` 等（語法樹）'),
   ];
   final table = StringBuffer()

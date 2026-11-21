@@ -266,4 +266,52 @@ void main() {
     );
     expect(await sync.backUpIfDue(), isTrue);
   });
+
+  testWidgets('a sign-in Google never answers gives up, and the next backup '
+      'goes up', (tester) async {
+    var answer = Completer<String?>();
+    var asked = 0;
+    final client = DriveBackup(
+      http,
+      token: ({required interactive}) {
+        asked++;
+        return answer.future;
+      },
+      forget: (token) async {},
+    );
+    final sync = DriveSync(
+      client,
+      Preferences(),
+      withBackup: (use, {withPhotos = true}) => use(File('unused.etbk')),
+      revision: () => 1,
+      ledger: 'L1',
+    );
+    addTearDown(sync.dispose);
+    final stages = <DriveStage?>[];
+    sync.addListener(() => stages.add(sync.stage));
+
+    Object? failed;
+    final first = sync.backUpNow().catchError((Object e) => failed = e);
+    await tester.pump();
+    expect(sync.busy, isTrue);
+    expect(stages, [DriveStage.packing, DriveStage.uploading]);
+    // Google's screen closed without a word: nothing comes back.
+    await tester.pump(DriveBackup.signInWait);
+    await first;
+    expect(
+      failed,
+      isA<DriveException>().having(
+        (e) => e.problem,
+        'problem',
+        DriveProblem.noAnswer,
+      ),
+    );
+    expect(sync.busy, isFalse, reason: 'the next backup is not held');
+    expect(sync.stage, isNull);
+
+    // The next one asks again, and goes up.
+    answer = Completer()..complete('token');
+    await tester.runAsync(() => sync.backUpNow().catchError((Object _) {}));
+    expect(asked, 2);
+  });
 }

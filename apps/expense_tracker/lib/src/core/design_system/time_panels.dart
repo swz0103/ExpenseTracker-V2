@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'controls.dart';
@@ -270,16 +272,21 @@ class _RangePanelState extends State<_RangePanel> {
                       ? Border.all(color: color, width: 1.5)
                       : null,
                 ),
-                child: Text(
-                  '${day.day}',
-                  style: TextStyle(
-                    fontSize: TextSize.body,
-                    fontWeight: edge ? FontWeight.w800 : FontWeight.w500,
-                    color: out
-                        ? AppColors.faint
-                        : edge
-                        ? chosenInk(color)
-                        : AppColors.ink,
+                // Grows with the phone's text until the circle is full, then
+                // keeps to it, as the seven days must share the width.
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '${day.day}',
+                    style: TextStyle(
+                      fontSize: TextSize.body,
+                      fontWeight: edge ? FontWeight.w800 : FontWeight.w500,
+                      color: out
+                          ? AppColors.faint
+                          : edge
+                          ? chosenInk(color)
+                          : AppColors.ink,
+                    ),
                   ),
                 ),
               ),
@@ -374,14 +381,18 @@ class _TimePanelState extends State<_TimePanel> {
     ValueChanged<int> onChanged,
     int value,
   ) {
+    // Each line as tall as its figure at the phone's text size (one and a
+    // half times the letters), 44 at least: a fixed 44 cut the figures off
+    // once the text was larger.
+    final extent = math.max(44.0, TextSize.figure * textGrowth(context) * 1.5);
     return Semantics(
       label: unit,
       value: _two(value),
       child: SizedBox(
-        height: 168,
+        height: extent * 168 / 44,
         child: ListWheelScrollView.useDelegate(
           controller: controller,
-          itemExtent: 44,
+          itemExtent: extent,
           diameterRatio: 4,
           physics: const FixedExtentScrollPhysics(),
           onSelectedItemChanged: (i) {

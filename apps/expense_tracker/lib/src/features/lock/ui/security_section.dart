@@ -113,8 +113,11 @@ class _SecuritySectionState extends State<SecuritySection> {
         SettingCard(
           glyph: Glyph.eyeOff,
           color: SettingsColors.appearance,
-          title: '不讓截圖',
-          detail: '最近使用的 App 也看不到',
+          // The recent apps list never shows the ledger, switched on or
+          // not (Android 13 and later itself, before that PrivacyCover):
+          // this only stops screenshots and recordings.
+          title: '禁止截圖',
+          detail: privacy.on ? '截圖、錄影都擋下' : '最近使用畫面已自動遮住',
           value: privacy.on,
           onChanged: (on) => _hideScreen(privacy, on),
           onTap: () => _hideScreen(privacy, !privacy.on),

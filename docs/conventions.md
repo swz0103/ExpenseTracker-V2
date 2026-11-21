@@ -55,7 +55,6 @@
 - 顏色、字級、按鈕只從 `core/design_system` 拿，頁面裡不寫色碼、字級數字、`styleFrom`（`app_syntax_test`、`app_design_syntax_test` 讀語法樹檢查，註解與字串不會誤判）。
 - 短標籤用 `OneLine`（放不下先縮到 75%，再放不下以…結尾），不讓它斷成兩行（版面測試檢查 12 字以內的文字）。
 - 有標題的頁面用 `HeadedList`，標題固定、內容捲動；內容放得下時不能拖動。
-- 動畫 200～300 ms，並尊重系統的「減少動畫」（`MediaQuery.disableAnimationsOf`）。
 
 ## 三、測試
 
@@ -95,7 +94,7 @@
 ### 寫法
 
 - 開頭一行 `>` 摘要：這份文件回答什麼問題。
-- 一份文件 150 行以內；超過就拆，或把細節留在程式註解。
+- 文件開頭一行摘要（`> `）；長度不設上限，寫清楚比壓短重要。
 - 摘要、長度與每個連結都由 `tooling/architecture_checks/test/docs_test.dart` 檢查（ADR 除外）。
 - 能用表格就用表格，能用條列就不寫長段落；一段不超過三句。
 - 寫現在的狀態，不寫歷史；歷史在 CHANGELOG、ADR 與 git。
@@ -109,10 +108,10 @@
 
 ## 五、提交與發版
 
-- 版號 `主.次.修`，三碼各在什麼時候變見 [ADR-0011](adr/0011-version-numbers.md)：第一碼是舊版 App 讀不了新資料或有人被留在後面（1.0 前固定 0），第二碼是使用者看得到新的或不一樣的東西，第三碼是看不到刻意的改變（修 bug、整理、效能）。每個會發布的 PR 都要升版，否則驗證失敗；升了某一碼，後面歸零；只升不降。
-- 每個版本：`pubspec.yaml` 版號、`whats_new.txt`（三行以內，給使用者看）、CHANGELOG 一節，畫面有變就更新 acceptance；發行前升級套件一次並記在 [development.md](development.md#套件升級)。
+- 版號 `主.次.修`，三碼各在什麼時候變見 [ADR-0011](adr/0011-version-numbers.md)：第一碼是舊版 App 讀不了新資料或有人被留在後面（1.0 前固定 0），第二碼是使用者看得到新的或不一樣的東西，第三碼是看不到刻意的改變（修 bug、效能）。要發布時才升版：PR 可以不升，合併後不發布，等下一個升版的 PR 一起發；一次發布只升一次；升了某一碼，後面歸零；只升不降。
+- 每個版本：`pubspec.yaml` 版號、`whats_new.txt`（三行以內，給使用者看）、CHANGELOG 一節；發行前升級套件一次並記在 [development.md](development.md#套件升級)。
 - commit 訊息用英文：第一行說做了什麼，空一行後條列重點。
 - 一個 PR 一件事（一批回饋或一次整理）；PR 說明列出改了什麼、怎麼驗證。
 - 合併到 main 後 CI 自動建置、簽章、發布；App 內更新會讀到新版。
-- 發布到 main 後，CI 自動為新版本打標籤 `v<版本>`，打在該版第一次發布的組建上，之後不移動（`android.yml` 的 Tag the version）。
-- 每個版本留一份它寫出的帳本與備份：`MAKE_FIXTURES=1 flutter test test/scenarios/ledger/persistence/old_books_test.dart`，產生的檔案進版控後不再改（[ADR-0010](adr/0010-data-that-lasts.md)）。少了這一份，`old_books_test` 失敗。
+- 發布到 main 後，CI 自動為新版本打標籤 `v<版本>`，打在該版第一次發布的組建上，之後不移動；下一版發布時連同它的 release 一起刪掉，GitHub 上只留最新一版（`android.yml`）。
+- 每個次版號留一份它寫出的帳本與備份：`MAKE_FIXTURES=1 flutter test test/scenarios/ledger/persistence/old_books_test.dart`，產生的檔案進版控後不再改（[ADR-0010](adr/0010-data-that-lasts.md)）。少了這一份，`old_books_test` 失敗。

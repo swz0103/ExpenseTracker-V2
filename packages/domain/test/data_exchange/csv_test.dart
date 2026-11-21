@@ -24,4 +24,35 @@ void main() {
     expect(text, contains(",'plain,"));
     expect(readCsv(text), [row]);
   });
+
+  test('a quote inside a field is part of the words', () {
+    expect(readCsv('5",a"b\n'), [
+      ['5"', 'a"b'],
+    ]);
+    expect(readCsv('"a""b",c\r\n'), [
+      ['a"b', 'c'],
+    ]);
+  });
+
+  test('words after a closing quote are refused, naming the line', () {
+    expect(
+      () => readCsv('日期,金額\n2026-10-01,"12"3\n'),
+      throwsA(
+        isA<CsvFormatException>()
+            .having((e) => e.line, 'line', 2)
+            .having((e) => e.unclosed, 'unclosed', isFalse),
+      ),
+    );
+  });
+
+  test('a quote never closed names the line it opened on', () {
+    expect(
+      () => readCsv('a\nb,"c\nd\n'),
+      throwsA(
+        isA<CsvFormatException>()
+            .having((e) => e.line, 'line', 2)
+            .having((e) => e.unclosed, 'unclosed', isTrue),
+      ),
+    );
+  });
 }

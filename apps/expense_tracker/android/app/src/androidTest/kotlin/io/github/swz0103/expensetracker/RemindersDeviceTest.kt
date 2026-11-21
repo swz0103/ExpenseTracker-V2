@@ -54,4 +54,19 @@ class RemindersDeviceTest {
         assertTrue("due:test-kept" in tags)
         assertTrue("due:test-card" !in tags)
     }
+
+    @Test
+    fun theWordsKeptForLaterAreSealed() {
+        val prefs = context.getSharedPreferences("reminders", Context.MODE_PRIVATE)
+        // As 0.19 kept them: in plain words, read once and sealed.
+        prefs.edit().putString("alerts", """[{"at":1,"title":"扣款：Netflix 390"}]""").commit()
+        assertEquals("扣款：Netflix 390", ReminderStore.read(context).getJSONObject(0).getString("title"))
+        val later = System.currentTimeMillis() + 86_400_000L
+        Reminders.replace(context, listOf(mapOf("at" to later, "title" to "繳卡費 12,800", "text" to "日常信用卡")))
+        val written = prefs.all.values.joinToString(" ")
+        assertTrue(written, "12,800" !in written && "Netflix" !in written && "日常信用卡" !in written)
+        assertTrue(!prefs.contains("alerts"))
+        assertEquals("繳卡費 12,800", ReminderStore.read(context).getJSONObject(0).getString("title"))
+        Reminders.replace(context, emptyList())
+    }
 }

@@ -22,10 +22,13 @@ Map<String, CompilationUnit> appUnits(String root) {
   };
 }
 
-/// The screens and models that take the whole ledger.
+/// The screens and models of the features that take the whole ledger.
+/// The app's own files (src/app/) are where the ledger is put together and
+/// handed out: they take it whole by their nature, and splitting one of
+/// them in two would count as one more.
 List<String> wholeLedgerFiles(Map<String, CompilationUnit> units) => [
   for (final MapEntry(key: path, value: unit) in units.entries)
-    if (path.startsWith('src/features/') || path.startsWith('src/app/'))
+    if (path.startsWith('src/features/'))
       if (LedgerUses().run(unit).isNotEmpty) path,
 ];
 

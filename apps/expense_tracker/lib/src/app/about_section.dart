@@ -20,7 +20,7 @@ import '../core/design_system/spacing.dart';
 
 /// 關於: the main card says the version and how it stands against the
 /// newest (已是最新, 有新版 with 更新, or the download with its bar); two
-/// cards: 自動更新 and 診斷, whose panel has the load, frame and fault
+/// rows: 自動檢查新版本 and 診斷, whose panel has the load, frame and fault
 /// figures, the build's details, and 複製 or 下載. In the preview, starting
 /// the made-up book over.
 class AboutSection extends StatelessWidget {
@@ -140,28 +140,37 @@ class AboutSection extends StatelessWidget {
         children: [
           _VersionCard(update: update),
           const SizedBox(height: Space.s3),
-          CardGrid([
-            if (preferences != null && (update?.possible ?? false))
-              _ActionRow(
-                glyph: Glyph.reset,
-                color: SettingsColors.main,
-                title: '自動更新',
-                trailing: TickSwitch(
-                  value: preferences.updateChecks,
+          CardGrid(
+            [
+              if (preferences != null && (update?.possible ?? false))
+                _ActionRow(
+                  glyph: Glyph.reset,
                   color: SettingsColors.main,
-                  label: '自動更新',
-                  onChanged: (on) => preferences.update(updateChecks: on),
+                  title: '自動檢查新版本',
+                  // It looks and tells; installing is always the person's
+                  // own choice (Android lets no app from outside the store
+                  // update itself).
+                  detail: '有新版會通知你，按了才更新',
+                  trailing: TickSwitch(
+                    value: preferences.updateChecks,
+                    color: SettingsColors.main,
+                    label: '自動檢查新版本',
+                    onChanged: (on) => preferences.update(updateChecks: on),
+                  ),
+                  onTap: () => preferences.update(
+                    updateChecks: !preferences.updateChecks,
+                  ),
                 ),
-                onTap: () =>
-                    preferences.update(updateChecks: !preferences.updateChecks),
+              _ActionRow(
+                glyph: Glyph.bolt,
+                color: SettingsColors.about,
+                title: '診斷',
+                onTap: () => _diagnostics(context),
               ),
-            _ActionRow(
-              glyph: Glyph.bolt,
-              color: SettingsColors.about,
-              title: '診斷',
-              onTap: () => _diagnostics(context),
-            ),
-          ], gap: 10),
+            ],
+            columns: 1,
+            gap: 10,
+          ),
           // Only the preview's made-up book can be reset.
           if (services.sample case final sample?) ...[
             const SizedBox(height: Space.s3),
@@ -180,12 +189,16 @@ class _ActionRow extends StatelessWidget {
     required this.color,
     required this.title,
     required this.onTap,
+    this.detail,
     this.trailing,
   });
 
   final Glyph glyph;
   final Color color;
   final String title;
+
+  /// A line under [title] saying what it does; none for a plain action.
+  final String? detail;
   final VoidCallback onTap;
   final Widget? trailing;
 
@@ -200,13 +213,27 @@ class _ActionRow extends StatelessWidget {
         SquareIcon(glyph, color, size: 40),
         const SizedBox(width: Space.s3),
         Expanded(
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: TextSize.title,
-              fontWeight: FontWeight.w800,
-              color: deepOf(color),
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: TextSize.title,
+                  fontWeight: FontWeight.w800,
+                  color: deepOf(color),
+                ),
+              ),
+              if (detail case final detail?)
+                Text(
+                  detail,
+                  style: TextStyle(
+                    fontSize: TextSize.small,
+                    color: deepOf(color),
+                  ),
+                ),
+            ],
           ),
         ),
         ?trailing,
