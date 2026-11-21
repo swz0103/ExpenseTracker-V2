@@ -5,11 +5,22 @@ library;
 /// `DateFormat.Md()` and its kin are: M month, d day, y year, E weekday,
 /// MMM the month in words.
 
-/// The days of the week from Monday, as 週 is followed by them.
-const weekdayNames = ['一', '二', '三', '四', '五', '六', '日'];
+/// The days of the week in its order, from Sunday as Taiwan's calendars
+/// print it, as 週 is followed by them.
+const weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
+
+/// [d]'s place in the week: 0 for Sunday to 6 for Saturday.
+int weekdayIndex(DateTime d) => d.weekday % DateTime.daysPerWeek;
+
+/// [DateTime.weekday] of the day at [index] in the week, from Sunday:
+/// DateTime numbers Sunday 7, the week here starts on it as 0.
+int weekdayAt(int index) => index == 0 ? DateTime.sunday : index;
+
+/// The Sunday the week of [d] starts on.
+DateTime startOfWeek(DateTime d) => d.subtract(Duration(days: weekdayIndex(d)));
 
 /// 「週日」.
-String formatE(DateTime d) => '週${weekdayNames[d.weekday - 1]}';
+String formatE(DateTime d) => '週${weekdayNames[weekdayIndex(d)]}';
 
 /// 「10/4」.
 String formatMd(DateTime d) => '${d.month}/${d.day}';

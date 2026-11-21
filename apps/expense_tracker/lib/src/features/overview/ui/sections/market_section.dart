@@ -57,7 +57,7 @@ class _MarketSectionState extends State<MarketSection> {
     final anyLoss = holdings.all.any((h) => h.change < 0);
     final code = _holding;
     final picked = code == null ? null : ledger.holding(code);
-    final tone = AppColors.ofChange(change);
+    final tone = AppColors.ofMarket(change);
     return [
       SectionTitle(
         '投資行情',
@@ -117,7 +117,7 @@ class _MarketSectionState extends State<MarketSection> {
                     '${signed(picked.gain)}'
                     '（${percentOf(picked.gain, picked.cost)}）',
                   ),
-                  style: TextStyle(color: AppColors.ofChange(picked.gain)),
+                  style: TextStyle(color: AppColors.ofMarket(picked.gain)),
                 ),
               ],
             ),
@@ -163,6 +163,8 @@ class _MarketSectionState extends State<MarketSection> {
                       axis: axis,
                       height: 8,
                       minimum: 0.08,
+                      positive: AppColors.rise,
+                      negative: AppColors.fall,
                     )
                   : const SizedBox.shrink(),
             ),
@@ -178,7 +180,7 @@ class _MarketSectionState extends State<MarketSection> {
                   fontWeight: FontWeight.w600,
                   color: !quoted
                       ? AppColors.muted
-                      : AppColors.ofChange(h.change),
+                      : AppColors.ofMarket(h.change),
                 ),
               ),
             ),

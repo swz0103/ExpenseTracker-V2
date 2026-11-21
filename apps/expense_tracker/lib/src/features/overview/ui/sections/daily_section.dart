@@ -41,7 +41,7 @@ class DailySection extends StatefulWidget {
 class _DailySectionState extends State<DailySection> {
   late DateTime _day = widget.ledger.today;
 
-  DateTime get _monday => _day.subtract(Duration(days: _day.weekday - 1));
+  DateTime get _weekStart => startOfWeek(_day);
 
   @override
   void didUpdateWidget(DailySection old) {
@@ -110,16 +110,16 @@ class _DailySectionState extends State<DailySection> {
 
   List<Widget> _daily() {
     final ledger = widget.ledger;
-    final monday = _monday;
-    final sunday = monday.add(const Duration(days: 6));
+    final first = _weekStart;
+    final last = first.add(const Duration(days: 6));
     var weekSpent = 0;
     for (var d = 0; d < 7; d++) {
-      weekSpent += ledger.reportService.spentOn(monday.add(Duration(days: d)));
+      weekSpent += ledger.reportService.spentOn(first.add(Duration(days: d)));
     }
     final entries = ledger.entries.onDay(_day);
-    final atToday = !sunday.isBefore(ledger.today);
-    final from = '${monday.month} / ${monday.day}';
-    final to = '${sunday.month} / ${sunday.day}';
+    final atToday = !last.isBefore(ledger.today);
+    final from = '${first.month} / ${first.day}';
+    final to = '${last.month} / ${last.day}';
     final roomy = textGrowth(context) > 1.6;
     final spent = _spent(ledger);
     return [
@@ -149,9 +149,9 @@ class _DailySectionState extends State<DailySection> {
           // Only the new week shows: two faded strips read as a smear.
           layoutBuilder: (current, previous) => current ?? const SizedBox(),
           child: _WeekStrip(
-            key: ValueKey(monday),
+            key: ValueKey(first),
             ledger: ledger,
-            monday: monday,
+            weekStart: first,
             selected: _day,
             month: widget.month.$2,
             onSelect: (day) => setState(() {
@@ -211,14 +211,16 @@ class _WeekStrip extends StatelessWidget {
   const _WeekStrip({
     super.key,
     required this.ledger,
-    required this.monday,
+    required this.weekStart,
     required this.selected,
     required this.month,
     required this.onSelect,
   });
 
   final Ledger ledger;
-  final DateTime monday;
+
+  /// The Sunday the week starts on.
+  final DateTime weekStart;
   final DateTime selected;
   final int month;
   final ValueChanged<DateTime> onSelect;
@@ -234,7 +236,7 @@ class _WeekStrip extends StatelessWidget {
       child: Row(
         children: [
           for (var d = 0; d < 7; d++)
-            Expanded(child: _dayCell(monday.add(Duration(days: d)))),
+            Expanded(child: _dayCell(weekStart.add(Duration(days: d)))),
         ],
       ),
     );
@@ -284,7 +286,7 @@ class _WeekStrip extends StatelessWidget {
           child: Column(
             children: [
               Text(
-                weekdayNames[day.weekday - 1],
+                weekdayNames[weekdayIndex(day)],
                 style: TextStyle(fontSize: TextSize.small, color: ink),
               ),
               const SizedBox(height: Space.s1),

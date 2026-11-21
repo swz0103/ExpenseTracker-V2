@@ -91,13 +91,13 @@ class _RepeatSheetState extends State<_RepeatSheet> {
             ),
             RepeatUnit.week => Row(
               children: [
-                for (var w = 1; w <= 7; w++) ...[
-                  if (w > 1) const SizedBox(width: Space.s2),
+                for (final (i, name) in weekdayNames.indexed) ...[
+                  if (i > 0) const SizedBox(width: Space.s2),
                   Expanded(
                     child: _cell(
-                      weekdayNames[w - 1],
-                      _f.start.weekday == w,
-                      () => _f.setWeekday(w),
+                      name,
+                      weekdayIndex(_f.start) == i,
+                      () => _f.setWeekday(weekdayAt(i)),
                     ),
                   ),
                 ],

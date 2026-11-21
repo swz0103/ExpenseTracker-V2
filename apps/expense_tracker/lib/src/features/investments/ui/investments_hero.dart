@@ -20,19 +20,19 @@ class _InvestHero extends StatelessWidget {
       _HeroFigure(
         '未實現',
         ledger.orDots(signed(gain)),
-        AppColors.ofChange(gain),
+        AppColors.ofMarket(gain),
         percentOf(gain, cost),
       ),
       _HeroFigure(
         '已實現',
         ledger.orDots(signed(ledger.holdings.realizedGain)),
-        AppColors.ofChange(ledger.holdings.realizedGain),
+        AppColors.ofMarket(ledger.holdings.realizedGain),
         '已賣出',
       ),
       _HeroFigure(
         '年化',
         rate == null ? '—' : yearlyRate(rate),
-        rate == null || rate >= 0 ? AppColors.positive : AppColors.negative,
+        AppColors.ofMarket(rate ?? 0),
         rate == null ? '資料不足' : '含股息',
       ),
     ];
@@ -73,7 +73,7 @@ class _InvestHero extends StatelessWidget {
                 Pill(
                   '今日 ${ledger.orDots(signed(day))}'
                   '${before == 0 ? '' : ' · ${percentOf(day, before)}'}',
-                  color: AppColors.ofChange(day),
+                  color: AppColors.ofMarket(day),
                 ),
             ],
           ),
@@ -200,7 +200,7 @@ class _HoldingRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: !quoted
                   ? AppColors.surface
-                  : chosenFill(up ? AppColors.positive : AppColors.negative),
+                  : chosenFill(up ? AppColors.rise : AppColors.fall),
               borderRadius: BorderRadius.circular(Radii.medium),
             ),
             child: Column(
@@ -212,9 +212,7 @@ class _HoldingRow extends StatelessWidget {
                     fontSize: TextSize.small,
                     fontWeight: FontWeight.w800,
                     color: quoted
-                        ? chosenInk(
-                            up ? AppColors.positive : AppColors.negative,
-                          )
+                        ? chosenInk(up ? AppColors.rise : AppColors.fall)
                         : AppColors.muted,
                   ),
                 ),
@@ -224,9 +222,7 @@ class _HoldingRow extends StatelessWidget {
                     textScaler: TextScaler.noScaling,
                     style: TextStyle(
                       fontSize: TextSize.tiny,
-                      color: chosenInk(
-                        up ? AppColors.positive : AppColors.negative,
-                      ),
+                      color: chosenInk(up ? AppColors.rise : AppColors.fall),
                     ),
                   ),
               ],

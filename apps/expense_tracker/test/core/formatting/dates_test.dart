@@ -39,4 +39,18 @@ void main() {
     expect([for (final (i, _) in days[DateTime.utc(2026, 10, 4)]!) i], [0, 2]);
     expect(groupByDay(<DateTime>[], (d) => d), isEmpty);
   });
+
+  test('the week starts on Sunday, everywhere in the app', () {
+    expect(weekdayNames, ['日', '一', '二', '三', '四', '五', '六']);
+    final sunday = DateTime.utc(2026, 10, 4);
+    for (var i = 0; i < 7; i++) {
+      final day = sunday.add(Duration(days: i));
+      expect(weekdayIndex(day), i);
+      expect(weekdayAt(i), day.weekday);
+      expect(startOfWeek(day), sunday);
+      expect(formatE(day), '週${weekdayNames[i]}');
+    }
+    // A Saturday belongs to the week begun the Sunday before.
+    expect(startOfWeek(DateTime.utc(2026, 10, 3)), DateTime.utc(2026, 9, 27));
+  });
 }

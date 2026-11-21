@@ -162,8 +162,8 @@ internal object WidgetView {
                 return era * 146097 + doe - 719468
             }
 
-        /** Monday 0 to Sunday 6; 1970-01-01 was a Thursday. */
-        val weekday: Int get() = (epoch + 3).mod(7L).toInt()
+        /** Sunday 0 to Saturday 6, the week as the app shows it; 1970-01-01 was a Thursday. */
+        val weekday: Int get() = (epoch + 4).mod(7L).toInt()
 
         val daysInMonth: Int
             get() = when (month) {

@@ -1,50 +1,28 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
 
 import 'package:flutter/material.dart';
-import 'package:market/market_adapters.dart';
-import 'package:market/market_data.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
-import 'android/background_backup_adapter.dart';
 import 'android/scanner_adapter.dart';
-import 'android/update_adapter.dart';
-import 'android/home_widget_adapter.dart';
-import 'android/market_cache_adapter.dart';
 import 'app.dart';
-import '../features/backup/model/drive_backup.dart';
-import '../features/backup/model/drive_sync.dart';
-import '../features/backup/model/file_cleanup.dart';
-import '../features/backup/model/outbox.dart';
-import '../features/overview/model/home_widget.dart';
-import '../features/backup/model/phone_backup.dart';
+import 'ledger_session.dart';
+import 'lifecycle_services.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
-import '../features/investments/model/market_feed.dart';
-import '../features/backup/model/encrypted_backup_manager.dart';
-import '../features/reminders/model/calendar_sync.dart';
-import '../features/entries/model/receipt_photos.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
 import '../features/reminders/model/inbox_apply.dart';
-import '../features/reminders/model/reminder_alerts.dart';
 import '../features/backup/model/restore_sources.dart';
 import '../features/lock/ui/lock_screen.dart';
 import '../core/design_system/recovery_code.dart';
 import 'shell.dart';
-import '../core/platform/away_clock.dart';
 import 'platform.dart';
 import '../core/platform/preferences.dart';
 import '../core/platform/screen_privacy.dart';
-import '../features/settings/model/app_update.dart';
 import '../features/settings/ui/update_panel.dart';
 import '../features/settings/model/platform_services.dart';
 import '../core/platform/startup.dart';
-import '../core/diagnostics/error_log.dart';
-import '../features/reminders/ui/reminders_section.dart' show reminderBookOf;
-import '../features/overview/ui/overview.dart' show widgetBookOf;
 
 /// The only production composition (code audit C-01): the encrypted ledger
 /// in [directory], opened through [Startup]. The memory preview is not
@@ -138,339 +116,81 @@ class OpenedLedger extends StatefulWidget {
 
 class _OpenedLedgerState extends State<OpenedLedger>
     with WidgetsBindingObserver {
-  /// How long the app may sit in the background before the ledger locks.
-  static const _away = Duration(minutes: 5);
-
   /// A ledger just started on this phone: the app shows its tour.
   late final _fresh = widget.startup.takeFresh();
 
-  /// How long the app was away, by a clock that cannot be set back.
-  final _awayClock = AwayClock();
-
-  /// On Android, the day lists the background job keeps (`MarketWorker`),
-  /// read before the network.
-  late final _marketCache = Platform.isAndroid
-      ? CachedMarketTransport(
-          const IoMarketTransport(),
-          Directory('${widget.startup.directory.path}/market'),
-        )
-      : null;
-
-  late final _journal = SqlLedgerDataSource(
-    widget.vault.store,
-    market: MarketDataGateway(
-      transport: _marketCache ?? const IoMarketTransport(),
-      // The exchanges' snapshots are a few MiB of JSON.
-      decodeJson: (body) => Isolate.run(() => jsonDecode(body)),
-    ),
+  /// What runs beside the ledger: prices, backups, the calendar,
+  /// notifications, the widget, updates and the lock when away.
+  late final _services = LifecycleServices(
+    startup: widget.startup,
+    vault: widget.vault,
+    preferences: widget.preferences,
+    android: Platform.isAndroid,
+    say: (note) {
+      if (mounted) showNote(context, note);
+    },
+    offerUpdate: (update) async {
+      if (mounted) await showUpdatePanel(context, update);
+    },
   );
 
-  /// The phone's calendar for due dates, on Android.
-  late final _calendar = Platform.isAndroid
-      ? CalendarSync(const AndroidCalendar(), widget.startup.directory)
-      : null;
-
-  /// The phone's notifications, on Android.
-  late final _notifier = Platform.isAndroid
-      ? Notifier(const AndroidNotifications(), widget.preferences)
-      : null;
-
-  late final _backupManager = EncryptedBackupManager(
-    widget.startup,
-    widget.vault,
-    beforeLock: () async => _loaded?.settled,
-    export: Platform.isAndroid ? androidExportFile : null,
-    pick: Platform.isAndroid ? androidPickFile : null,
+  /// Opening the book: load, inbox, health check, what is due.
+  late final _session = LedgerSession(
+    load: _services.dataSource.load,
+    inbox: Platform.isAndroid
+        ? () async {
+            final inbox = await LedgerInbox.open(
+              widget.startup.directory,
+              widget.vault.keys,
+            );
+            return (read: inbox.read, remove: inbox.remove);
+          }
+        : null,
   );
 
-  /// Backups on Google Drive, on Android.
-  late final _drive = Platform.isAndroid
-      ? DriveSync(
-          androidDrive(),
-          widget.preferences,
-          withBackup: _backupManager.withBackup<void>,
-          revision: () => _backupManager.revision,
-          ledger: _backupManager.ledgerId,
-          unmetered: androidUnmetered,
-        )
-      : null;
-
-  /// Backups to a folder on the phone, on Android.
-  late final _phone = Platform.isAndroid
-      ? PhoneBackup(
-          const AndroidFolder(),
-          widget.preferences,
-          withBackup: _backupManager.withBackup<void>,
-          revision: () => _backupManager.revision,
-          ledger: _backupManager.ledgerId,
-        )
-      : null;
-
-  /// Backups left on leaving the app, delivered by a background job, on
-  /// Android.
-  late final _outbox = Platform.isAndroid
-      ? Outbox(
-          widget.startup.directory,
-          widget.preferences,
-          write: _backupManager.writeInto,
-          revision: () => _backupManager.revision,
-          ledger: _backupManager.ledgerId,
-          schedule: androidBackgroundBackups,
-        )
-      : null;
-
-  /// The figures the home-screen widget 本月概況 shows, on Android.
-  late final _homeWidget = Platform.isAndroid
-      ? HomeWidget(
-          File('${widget.startup.directory.path}/widget.json'),
-          widget.preferences,
-          refresh: androidRefreshWidgets,
-        )
-      : null;
-
-  Ledger? _loaded;
   late final Future<Ledger> _ledger = _open();
 
-  /// Closing prices and rates, once the book is loaded.
-  MarketFeed? _market;
-
-  /// Newer versions of the app, on Android, once the book is loaded.
-  AppUpdate? _update;
-
-  /// The phone's receipt photos, sealed with the ledger's key.
-  ReceiptPhotos? _receipts;
-
-  /// Loads the book, then fetches closing prices and takes the weekly
-  /// backup in the background.
   Future<Ledger> _open() async {
-    final ledger = await _journal.load();
-    _loaded = ledger;
-    if (Platform.isAndroid) {
-      // Photos no entry keeps any more: replaced, taken away, or taken
-      // for an entry never saved.
-      // Done before a photo can be taken, so none is swept as it is saved.
-      try {
-        await sweepReceipts(
-          widget.startup.directory,
-          ledger.attachmentCommands.receiptFiles,
-        );
-      } on Object catch (error) {
-        ErrorLog.instance.record('清除收據照片', error);
-      }
-      _receipts = AndroidReceipts(
-        widget.startup.directory,
-        await FileBox.derive(widget.vault.keys, 'receipts'),
-      );
-    }
-    await _readInbox(ledger);
-    _checkIntegrity(ledger);
-    _bookDue(ledger);
-    final market = _market = MarketFeed(
-      _journal,
-      changes: ledger,
-      holdings: ledger.holdings,
-      commands: ledger.holdingCommands,
-      today: () => ledger.today,
-      historyDir: Directory('${widget.startup.directory.path}/prices'),
-    );
-    unawaited(market.refresh());
-    unawaited(_marketCache?.writeList());
-    unawaited(_weeklyBackup());
-    if (Platform.isAndroid) {
-      try {
-        _update = AppUpdate(
-          const AndroidUpdatePort(),
-          widget.preferences,
-          cache: await androidCacheDirectory(),
-        );
-        unawaited(_checkUpdate());
-      } on Object catch (error) {
-        ErrorLog.instance.record('檢查更新', error);
-      }
-    }
-    _calendar?.follow(reminderBookOf(ledger));
-    _notifier?.follow(reminderBookOf(ledger));
-    _homeWidget?.follow(widgetBookOf(ledger));
-    return ledger;
+    final start = await _session.open();
+    await _services.start(start.ledger);
+    _afterFrame(() {
+      if (start.inbox case final inbox?) _tellInbox(inbox);
+      _tellBooked(start.booked);
+    });
+    return start.ledger;
   }
 
-  /// Applies what was written into the ledger's inbox while it was
-  /// locked (「確認入帳」 on notifications), then empties it; what could
-  /// not be booked is listed once. Opening the inbox also writes its
-  /// public key, which the notifications seal with.
-  Future<void> _readInbox(Ledger ledger) async {
-    final InboxOutcome outcome;
-    try {
-      final inbox = await LedgerInbox.open(
-        widget.startup.directory,
-        widget.vault.keys,
-      );
-      final items = await inbox.read();
-      if (items.isEmpty) return;
-      outcome = applyInbox(
-        items,
-        recurring: ledger.recurring,
-        service: ledger.recurringService,
-        commands: ledger.recurringCommands,
-      );
-      for (final item in items) {
-        await inbox.remove(item.name);
-      }
-    } on Object catch (error) {
-      ErrorLog.instance.record('收件匣', error);
-      return;
+  void _afterFrame(VoidCallback then) =>
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) then();
+      });
+
+  /// What the inbox booked, and what it could not, listed once.
+  void _tellInbox(InboxOutcome outcome) {
+    if (outcome.booked > 0) {
+      showNote(context, '已依通知上的確認記下 ${outcome.booked} 筆');
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (outcome.booked > 0) {
-        showNote(context, '已依通知上的確認記下 ${outcome.booked} 筆');
-      }
-      if (outcome.review.isEmpty) return;
-      unawaited(
-        showDialog<void>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('通知上的確認'),
-            content: Text(outcome.review.join('\n')),
-            actions: [
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('知道了'),
-              ),
-            ],
-          ),
+    if (outcome.review.isEmpty) return;
+    unawaited(_notice('通知上的確認', outcome.review.join('\n')));
+  }
+
+  void _tellBooked(int booked) {
+    if (booked > 0) showNote(context, '已自動記下 $booked 筆定期交易');
+  }
+
+  Future<void> _notice(String title, String text) => showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: Text(text),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('知道了'),
         ),
-      );
-    });
-  }
-
-  /// Notes in the diagnostics log each kind of record that names another
-  /// the book no longer has, once a launch: the sums still add up, but
-  /// the book is not as it was written.
-  void _checkIntegrity(Ledger ledger) {
-    final List<IntegrityProblem> found;
-    try {
-      found = ledger.integrityService.problems();
-    } on Object catch (error) {
-      // A check that cannot finish must not keep the book from opening.
-      ErrorLog.instance.record('帳本健檢', error);
-      return;
-    }
-    final kinds = {for (final problem in found) '$problem': problem};
-    for (final problem in kinds.values) {
-      ErrorLog.instance.record('帳本健檢', problem);
-    }
-  }
-
-  /// Books the recurring items marked to book themselves whose day has
-  /// come, and says how many.
-  void _bookDue(Ledger ledger) {
-    final int booked;
-    try {
-      booked = ledger.recurringCommands.bookDue();
-    } on Object catch (error) {
-      ErrorLog.instance.record('定期自動入帳', error);
-      return;
-    }
-    if (booked == 0) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) showNote(context, '已自動記下 $booked 筆定期交易');
-    });
-  }
-
-  /// Writes the backup to the phone's folder when one is due. A failure
-  /// is said once a run, not at each return to the app; the settings page
-  /// keeps showing it.
-  Future<void> _phoneBackup() async {
-    final phone = _phone;
-    if (phone == null || await phone.backUpIfDue()) return;
-    final problem = phone.problem;
-    if (problem == null || _phoneWarned) return;
-    _phoneWarned = true;
-    ErrorLog.instance.record('手機資料夾備份', problem);
-    if (mounted) showNote(context, '沒有備份到手機資料夾，可以到「設定」重新選擇');
-  }
-
-  var _phoneWarned = false;
-
-  /// Looks for a newer version on opening and coming back to the app,
-  /// and offers it at once, with what it changes; offered once a run,
-  /// after which it waits in 設定 › 關於.
-  Future<void> _checkUpdate() async {
-    final update = _update;
-    final newer = await update?.checkIfDue();
-    if (update == null || newer == null || !mounted) return;
-    if (_offered == newer.build || !update.mayOffer(newer)) return;
-    _offered = newer.build;
-    await showUpdatePanel(context, update);
-  }
-
-  /// The build last offered this run.
-  int? _offered;
-
-  /// When the app is left with changes not in a backup yet, keeps the
-  /// copy Android takes to the person's Google account by itself, and
-  /// leaves the backup for the background job, so it reaches the phone's
-  /// folder and Drive without the app being opened again.
-  Future<void> _prepareOutbox() async {
-    final ledger = _loaded;
-    if (ledger == null) return;
-    try {
-      await ledger.settled;
-      // Android's own backup takes this copy, so a new phone can restore
-      // the ledger from the welcome page. No longer a choice on 備份與還原
-      // (0.13.0): one turned off before is kept again.
-      if (Platform.isAndroid) {
-        await _backupManager.keepCloudCopy();
-      }
-    } on Object catch (error) {
-      ErrorLog.instance.record('Google 備份', error);
-    }
-    final outbox = _outbox;
-    if (outbox == null) return;
-    try {
-      await outbox.prepare();
-    } on Object catch (error) {
-      ErrorLog.instance.record('背景備份', error);
-    }
-  }
-
-  /// Notes what the background job delivered while the app was closed.
-  void _collectOutbox() {
-    try {
-      for (final problem in _outbox?.collect() ?? const <String>[]) {
-        ErrorLog.instance.record('背景備份', problem);
-      }
-    } on Object catch (error) {
-      ErrorLog.instance.record('背景備份', error);
-    }
-  }
-
-  /// Takes the weekly backup, then sends one to Google Drive when linked;
-  /// a failure is said, not kept quiet. Drive out of reach is tried again
-  /// at the next start.
-  Future<void> _weeklyBackup() async {
-    try {
-      await _backupManager.backUpIfDue();
-    } on Object catch (error) {
-      ErrorLog.instance.record('每週備份', error);
-      if (mounted) showNote(context, '每週自動備份沒有完成，可以到「設定」手動備份');
-    }
-    _collectOutbox();
-    await _phoneBackup();
-    final drive = _drive;
-    if (drive == null) return;
-    try {
-      await drive.backUpIfDue();
-    } on DriveException catch (error) {
-      ErrorLog.instance.record('雲端硬碟備份', error);
-      if (error.problem != DriveProblem.offline && mounted) {
-        showNote(context, '沒有備份到 Google 雲端硬碟，可以到「設定」重新連結');
-      }
-    } on Object catch (error) {
-      ErrorLog.instance.record('雲端硬碟備份', error);
-    }
-  }
+      ],
+    ),
+  );
 
   @override
   void initState() {
@@ -478,8 +198,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     WidgetsBinding.instance.addObserver(this);
     final code = widget.startup.takeRecoveryCode();
     final recovered = widget.startup.takeRecoveryNotice();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+    _afterFrame(() {
       if (code != null) {
         unawaited(
           widget.startup.passwordless
@@ -492,59 +211,31 @@ class _OpenedLedgerState extends State<OpenedLedger>
         );
       }
       if (recovered) {
-        unawaited(
-          showDialog<void>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('已用救援碼打開'),
-              content: const Text('現在打開 App 不需要密碼。想要密碼的話，可以到「設定」重新設定。'),
-              actions: [
-                FilledButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('知道了'),
-                ),
-              ],
-            ),
-          ),
-        );
+        unawaited(_notice('已用救援碼打開', '現在打開 App 不需要密碼。想要密碼的話，可以到「設定」重新設定。'));
       }
     });
   }
 
   @override
   void dispose() {
-    _calendar?.stop();
-    _notifier?.stop();
-    _homeWidget?.stop();
-    _drive?.dispose();
-    _phone?.dispose();
-    _market?.dispose();
-    _update?.dispose();
+    _services.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  /// Locks the ledger when the app comes back after [_away] or more.
+  /// Locks the ledger when the app comes back after a while away; books
+  /// what fell due meanwhile.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.paused || AppLifecycleState.hidden:
-        _awayClock.leave();
-        unawaited(_prepareOutbox());
+        unawaited(_services.paused());
       case AppLifecycleState.resumed:
         _ledger.then((ledger) {
           ledger.checkDay();
-          _bookDue(ledger);
+          if (mounted) _tellBooked(_session.bookDue(ledger));
         }).ignore();
-        _market?.refresh().ignore();
-        unawaited(_checkUpdate());
-        if (_loaded != null) {
-          _collectOutbox();
-          unawaited(_phoneBackup());
-        }
-        if (_awayClock.back(_away) && !widget.startup.passwordless) {
-          unawaited(_backupManager.lock());
-        }
+        unawaited(_services.resumed());
       default:
         break;
     }
@@ -565,17 +256,17 @@ class _OpenedLedgerState extends State<OpenedLedger>
         ledger: ledger,
         tour: _fresh,
         services: PlatformServices(
-          backupManager: _backupManager,
-          calendar: _calendar,
+          backupManager: _services.backupManager,
+          calendar: _services.calendar,
           privacy: widget.privacy,
           preferences: widget.preferences,
-          notifier: _notifier,
+          notifier: _services.notifier,
           quick: Platform.isAndroid ? quickAction : null,
-          receipts: _receipts,
-          drive: _drive,
-          phone: _phone,
-          market: _market,
-          update: _update,
+          receipts: _services.receipts,
+          drive: _services.drive,
+          phone: _services.phone,
+          market: _services.market,
+          update: _services.update,
           scanQr: Platform.isAndroid ? androidScanQr : null,
         ),
       );

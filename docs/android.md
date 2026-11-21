@@ -6,9 +6,9 @@
 
 ## 下載安裝檔
 
-每次 main 有變更，`V2 integration validation` 跑完且全部通過後，`Android APK` 工作流程建置同一個 commit，放在 GitHub 的 release `android-latest`（`ExpenseTracker.apk`）；驗證每次 push 只跑一次（驗證進行中又有好幾次 push 時，GitHub 只留最新一次排隊，中間的 commit 不會各自驗證與發布）。PR 與手動執行只檢查能否建置。
+每次 main 有變更，`V2 integration validation` 跑完且全部通過後，`Android APK` 工作流程建置同一個 commit，發布在這個版號自己的 release `v<版號>`（`ExpenseTracker-<版號>.apk`，旁邊有 `update.json` 與測試帳本 `test-ledger.etbk`），並標成 GitHub 的最新版；驗證每次 push 只跑一次（驗證進行中又有好幾次 push 時，GitHub 只留最新一次排隊，中間的 commit 不會各自驗證與發布）。PR 與手動執行只檢查能否建置。
 
-工作流程分成三個工作：`build` 只有讀取權限、看不到簽章 Secrets，建置 debug 簽章的 APK 並存下；`sign` 只在驗證過的 main 執行，不取出程式碼，用 `apksigner` 換上正式簽章、確認不是 debug 金鑰並寫出 `update.json`；`publish` 是唯一能寫 release 的工作。`publish` 有自己的 concurrency 群組且不取消進行中的執行，所以之後完成的驗證（即使失敗或略過）或建置都不會把它中途打斷；main 的建置也依序排隊，發布順序與 commit 順序一致。上傳時先以暫名（`ExpenseTracker-<執行編號>.apk`）放上新檔，成功後才刪掉舊的並改名，release 不會出現沒有安裝檔的狀態（只有改名前一瞬間固定網址會找不到檔案）。PR 的建置有新 push 時會取消舊的。發布時 `android-latest` 這個 tag 會移到這次建置的 commit，說明附上 APK 的 SHA-256。每次建置都檢查 16 KB 分頁對齊。版本名稱取自 `pubspec.yaml`，版本號（versionCode）用工作流程的執行次數，所以新版一定能蓋過舊版安裝；兩者與 commit 也以 `--dart-define`（`APP_VERSION`、`APP_BUILD`、`APP_COMMIT`）傳進 App，顯示在「設定 › 關於」。
+工作流程分成三個工作：`build` 只有讀取權限、看不到簽章 Secrets，建置 debug 簽章的 APK 並存下；`sign` 只在驗證過的 main 執行，不取出程式碼，用 `apksigner` 換上正式簽章、確認不是 debug 金鑰並寫出 `update.json`；`publish` 是唯一能寫 release 的工作。`publish` 有自己的 concurrency 群組且不取消進行中的執行，所以之後完成的驗證（即使失敗或略過）或建置都不會把它中途打斷；main 的建置也依序排隊，發布順序與 commit 順序一致。`publish` 先打標籤 `v<版號>`（打了就不移動），再建立這個版號的 release：先建成草稿，三個檔案都上傳後才公開並標成最新版，所以沒有人（包括 App）會看到缺安裝檔的 release；說明列出 `whats_new.txt` 的每一行與 APK 的 SHA-256。會發布的 PR 都要升版（ADR-0011），所以同一個版號只發布一次；重跑時發現這個版號已有 APK 就不再動它。早期所有建置都放在同一個會移動的 release `android-latest`，`publish` 會把它和它的標籤刪掉。PR 的建置有新 push 時會取消舊的。每次建置都檢查 16 KB 分頁對齊。版本名稱取自 `pubspec.yaml`，版本號（versionCode）用工作流程的執行次數，所以新版一定能蓋過舊版安裝；兩者與 commit 也以 `--dart-define`（`APP_VERSION`、`APP_BUILD`、`APP_COMMIT`）傳進 App，顯示在「設定 › 關於」。
 
 APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform android-arm64` 建置，`build.gradle.kts` 的 release 也只收 `arm64-v8a`（debug 與 profile 不限，模擬器才能跑 x86_64）。除錯符號不放進安裝檔，每次建置另存成工作流程的 artifact `symbols-<commit>`（保留 90 天），用 `flutter symbolize` 還原當機堆疊。中文字型是 Noto Sans TC 的 Regular 與 Bold（見 App 的 README）。main 的安裝檔一定用正式金鑰簽章：缺 Secrets 時工作流程直接失敗，不會發出無法覆蓋安裝的版本。正式金鑰只在 `sign` 工作裡寫出（簽完即刪除），建置過程（Gradle 外掛與套件的程式）碰不到它；PR 與手動執行一律用 debug 金鑰。debug 簽章的安裝檔只供試用，不能覆蓋正式版。除錯符號的 artifact 以實際建置的 commit 命名：main 是驗證過的 commit，PR 是 GitHub 測試用的合併 commit。
 
@@ -49,7 +49,7 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 
 ## App 內更新
 
-每次發布時，`android.yml` 在 APK 旁邊放 `update.json`（`build` 為 workflow 的 run number，與 App 的 `APP_BUILD` 相同；另有 `version`、`commit`、`sha256`、`size`，以及 `notes`：`apps/expense_tracker/whats_new.txt` 的每一行，App 更新前在浮窗裡列出），APK 換好名字後才上傳它，所以它說的版本一定下載得到。App（`lib/src/features/settings/model/app_update.dart`）從 `github.com/swz0103/ExpenseTracker-V2/releases/download/android-latest/` 取這兩個檔（repo 是公開的，不需登入），下載到快取 `updates/`（啟動時清掉），`UpdateHandler.kt` 核對 SHA-256 後以 `FileProvider` 交給系統安裝程式（`REQUEST_INSTALL_PACKAGES`；Android 8 以上第一次會開「安裝不明應用程式」設定）。Android 只在簽章相同時才覆蓋安裝，資料保留；側載的 App 不能在背景自動更新，每次都要使用者確認。
+每次發布時，`android.yml` 在 APK 旁邊放 `update.json`（`build` 為 workflow 的 run number，與 App 的 `APP_BUILD` 相同；另有 `version`、`commit`、`sha256`、`size`，以及 `notes`：`apps/expense_tracker/whats_new.txt` 的每一行，App 更新前在浮窗裡列出），release 在檔案都上傳後才公開，所以它說的版本一定下載得到。App（`lib/src/features/settings/model/app_update.dart`）從 `github.com/swz0103/ExpenseTracker-V2/releases/latest/download/update.json` 讀最新版的資訊（repo 是公開的，不需登入），再到那個版號的 release 下載 `v<版號>/ExpenseTracker-<版號>.apk`；背景的 `UpdateWorker.kt` 也讀同一個 `update.json`，下載到快取 `updates/`（啟動時清掉），`UpdateHandler.kt` 核對 SHA-256 後以 `FileProvider` 交給系統安裝程式（`REQUEST_INSTALL_PACKAGES`；Android 8 以上第一次會開「安裝不明應用程式」設定）。Android 只在簽章相同時才覆蓋安裝，資料保留；側載的 App 不能在背景自動更新，每次都要使用者確認。
 
 ## 桌面小工具
 

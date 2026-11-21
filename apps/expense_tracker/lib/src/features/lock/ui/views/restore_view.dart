@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/theme.dart';
 import '../../../../core/design_system/design_system.dart';
 import 'lock_parts.dart';
 import '../../../../core/formatting/words.dart';
@@ -60,11 +61,9 @@ class RestoreView extends StatelessWidget {
       hint: '輸入備份檔的位置，和那個帳本的密碼或救援碼。',
       fields: [
         if (pick != null)
-          OutlinedButton(
+          FilledButton(
             onPressed: busy ? null : pick,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(44),
-            ),
+            style: _choice,
             child: Text(file.text.isEmpty ? '選擇備份檔' : '已選好備份檔'),
           )
         else
@@ -81,19 +80,15 @@ class RestoreView extends StatelessWidget {
             style: const TextStyle(fontSize: TextSize.small),
           ),
         if (drive != null)
-          OutlinedButton(
+          FilledButton(
             onPressed: busy ? null : drive,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(44),
-            ),
+            style: _choice,
             child: const Text('從 Google 雲端硬碟選擇'),
           ),
         if (onPickKept case final kept?)
-          OutlinedButton(
+          FilledButton(
             onPressed: busy ? null : kept,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(44),
-            ),
+            style: _choice,
             child: const Text('還原前自動留下的帳本'),
           ),
         PasswordField(
@@ -116,3 +111,10 @@ class RestoreView extends StatelessWidget {
     );
   }
 }
+
+/// A way to find the backup: a quiet button the width of the form.
+final _choice = solidButton(
+  AppColors.surface,
+  ink: AppColors.accent,
+  minimumSize: const Size.fromHeight(44),
+);

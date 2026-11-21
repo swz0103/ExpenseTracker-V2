@@ -151,6 +151,8 @@ class _PriceChartState extends State<_PriceChart> {
       final plot = box.maxWidth - _gutter;
       final scale = _Scale.of(closes, widget.average, _height);
       final buys = {for (final e in widget.buys) _day(e.date): e};
+      // Red when the span closed higher than it began, green when lower.
+      final tone = AppColors.ofMarket(closes.last.$2 - closes.first.$2);
       void touch(Offset at) {
         final i = (at.dx / plot * (closes.length - 1)).round().clamp(
           0,
@@ -192,8 +194,8 @@ class _PriceChartState extends State<_PriceChart> {
               buys: buys.keys.toSet(),
               chosen: buy == null ? null : _day(buy.date),
               touched: touched,
-              line: AppColors.positive,
-              fill: tintOf(AppColors.positive, 0.25),
+              line: tone,
+              fill: tintOf(tone, 0.25),
               dash: AppColors.investment,
               rule: AppColors.line,
               words: AppColors.muted,
@@ -225,7 +227,7 @@ class _PriceChartState extends State<_PriceChart> {
         '$prefix${up ? '+' : ''}${((to - from) * 100 / from).toStringAsFixed(1)}%',
         style: TextStyle(
           fontWeight: FontWeight.w800,
-          color: up ? AppColors.positive : AppColors.negative,
+          color: up ? AppColors.rise : AppColors.fall,
         ),
       );
     }

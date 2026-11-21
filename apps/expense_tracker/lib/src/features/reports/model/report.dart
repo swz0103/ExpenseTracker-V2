@@ -2,6 +2,7 @@ import 'dart:math';
 
 import '../../../core/ledger/ledger.dart';
 import 'report_period.dart';
+import '../../../core/formatting/dates.dart';
 
 // The figures of one period, worked out once for every tab.
 
@@ -66,7 +67,7 @@ final class Report {
     for (final e in inPeriod) {
       income += e.earning;
       expense += e.spending;
-      weekdays[e.date.weekday - 1] += e.spending;
+      weekdays[weekdayIndex(e.date)] += e.spending;
       dividends += e.dividendNet;
       days.add(e.date);
       if (e.type == EntryType.expense &&
@@ -171,7 +172,7 @@ final class Report {
   /// The largest single spending.
   final Entry? biggestSpend;
 
-  /// Spending on each day of the week, Monday first.
+  /// Spending on each day of the week, Sunday first.
   final List<int> weekdays;
 
   /// The same day a year earlier, the 29th of February becoming the 28th.

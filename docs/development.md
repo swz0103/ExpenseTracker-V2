@@ -15,7 +15,7 @@
 | 做什麼 | 指令 |
 | --- | --- |
 | 全部測試 | `flutter test` |
-| 只看規則 | `flutter test test/rules/layers_test.dart test/rules/design_rules_test.dart` |
+| 只看規則 | `flutter test test/rules`，以及 `tooling/architecture_checks` 裡的 `dart test` |
 | 只看版面 | `flutter test test/rules/layout_common_test.dart` |
 | 分析與排版 | `flutter analyze`、`dart format lib test` |
 | 網頁預覽 | `flutter run -d chrome -t lib/main_preview.dart` |
@@ -55,7 +55,7 @@
 | 工作流程 | 什麼時候 | 做什麼 |
 | --- | --- | --- |
 | `V2 integration validation` | PR 與 main | `dart`：純 Dart 模組；`flutter-host`：App 的 analyze、測試、截圖（artifact `screenshots`） |
-| `Android APK` | PR 與驗證過的 main | `build`（看不到金鑰）→ `sign`（apksigner 換正式簽章）→ `publish`（release `android-latest`） |
+| `Android APK` | PR 與驗證過的 main | `build`（看不到金鑰）→ `sign`（apksigner 換正式簽章）→ `publish`（每個版號一個 release `v<版號>`） |
 | `V2 web preview` | PR 與 main | 建網頁預覽 |
 | `Emulator timings` | main | 模擬器量測載入、捲動、存檔時間 |
 | `Supply chain` | 每週 | OSV 弱點與授權掃描 |

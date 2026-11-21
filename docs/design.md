@@ -1,6 +1,6 @@
 # 設計系統
 
-> 畫面怎麼長、用哪些顏色、字級和元件。程式在 `apps/expense_tracker/lib/src/core/design_system/`；頁面不自己寫顏色、字級、按鈕樣式（`design_rules_test` 檢查）。
+> 畫面怎麼長、用哪些顏色、字級和元件。程式在 `apps/expense_tracker/lib/src/core/design_system/`；頁面不自己寫顏色、字級、按鈕樣式（`app_design_syntax_test` 讀語法樹檢查）。
 
 ## 原則
 
@@ -19,6 +19,7 @@
 | 底與面 | `AppColors.paper` `white` `surface` `group` `tile` `hero` `line` | 頁面底、輸入框、按鈕底、清單分組、主卡、分隔線 |
 | 文字 | `AppColors.ink` `muted` `faint` `hint` | 主要、次要、停用、待填 |
 | 意義 | `AppColors.accent` `positive` `negative` `transfer` `investment` | 介面主色、收入、支出、轉帳、投資 |
+| 漲跌 | `AppColors.rise` `fall`、`AppColors.ofMarket` | 股價與持股損益，照台股習慣漲紅跌綠（與收支的紅綠相反），持平用 `muted` |
 | 帳戶類型 | `AppColors.cash` `bank` `wallet` `card` `holdings` `receivable` | 帳戶卡與分組 |
 | 疊加 | `AppColors.glass` `scrim` `lift` `float` `halo` `none` | 色卡上的霧面、面板後的暗幕、拿起的陰影 |
 | 工具 | `ToolColors.*` | 每個工具在更多、自己的頁面與總覽卡片的顏色 |
@@ -82,7 +83,7 @@
 
 認得帳本的元件（紀錄列、帳戶選擇、計算機、金額顯示）在 `core/widgets/`。
 
-頁面不寫白底加陰影的卡（白卡元件已退場）（`design_rules_test`）。
+頁面不寫白底加陰影的卡（白卡元件已退場，`app_design_syntax_test` 檢查）。
 
 ## 版面規則
 

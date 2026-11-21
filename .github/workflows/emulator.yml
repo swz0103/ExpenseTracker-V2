@@ -5,8 +5,10 @@ name: Emulator timings
 # smooth scrolling and switching pages and months are
 # (integration_test/bench_test.dart). An emulator is
 # not a phone: the figures are for spotting a slow-down between changes.
-# Too slow for every pull request: it runs on demand and after a change to
-# main where speed is decided.
+# It also runs the Android side's tests on the emulator (src/androidTest).
+# Too slow for every pull request: it runs on demand, on a pull request
+# that changes the Android side, and after a change to main where speed is
+# decided.
 on:
   push:
     branches: [main]
@@ -15,8 +17,16 @@ on:
       - '.github/workflows/emulator.yml'
       - 'apps/expense_tracker/integration_test/**'
       - 'apps/expense_tracker/lib/src/core/ledger/**'
+      - 'apps/expense_tracker/android/**'
       - 'infrastructure/**'
       - 'packages/**'
+  # A change to the Android side runs its tests on the emulator before it
+  # is merged.
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/emulator.yml'
+      - 'apps/expense_tracker/android/**'
   workflow_dispatch:
 
 permissions:
@@ -68,7 +78,11 @@ jobs:
           ram-size: 4096M
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           working-directory: apps/expense_tracker
-          script: flutter drive --profile --driver=test_driver/integration_test.dart --target=integration_test/bench_test.dart --no-dds
+          # The bench, then the Android side's own tests on the phone itself:
+          # the Keystore, notifications and photos (android/app/src/androidTest).
+          script: |
+            flutter drive --profile --driver=test_driver/integration_test.dart --target=integration_test/bench_test.dart --no-dds
+            cd android && ./gradlew --no-daemon --console=plain :app:connectedDebugAndroidTest
       - name: Timings
         if: always()
         working-directory: apps/expense_tracker

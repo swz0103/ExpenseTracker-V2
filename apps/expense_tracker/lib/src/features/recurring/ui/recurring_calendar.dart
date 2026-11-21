@@ -26,8 +26,8 @@ class _Calendar extends StatelessWidget {
     final today = ledger.today;
     final first = DateTime.utc(year, month);
     final days = DateTime.utc(year, month + 1, 0).day;
-    // Sunday first, as the design reads.
-    final lead = first.weekday % 7;
+    // The week from Sunday, as everywhere in the app.
+    final lead = weekdayIndex(first);
     final cells = <Widget>[
       for (var i = 0; i < lead; i++) const SizedBox(),
       for (var d = 1; d <= days; d++) _dayCell(context, d, today),
@@ -50,8 +50,7 @@ class _Calendar extends StatelessWidget {
         children: [
           Row(
             children: [
-              // Sunday first, as a wall calendar is.
-              for (final w in [weekdayNames.last, ...weekdayNames.take(6)])
+              for (final w in weekdayNames)
                 Expanded(
                   child: Center(
                     child: Text(

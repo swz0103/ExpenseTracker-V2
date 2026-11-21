@@ -93,7 +93,7 @@ class UpdateWorker(context: Context, params: WorkerParameters) : Worker(context,
         private const val SAID = "said"
         private const val CHANNEL = "updates"
         private const val INFO_URL =
-            "https://github.com/swz0103/ExpenseTracker-V2/releases/download/android-latest/update.json"
+            "https://github.com/swz0103/ExpenseTracker-V2/releases/latest/download/update.json"
 
         /** Looks about once a day while there is a network. */
         fun schedule(context: Context) {
