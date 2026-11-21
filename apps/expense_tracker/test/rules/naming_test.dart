@@ -2,7 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// The made-up names docs/naming.md replaced with the usual words: none
+/// The made-up names replaced with the usual words (docs/conventions.md,
+/// naming): none
 /// may come back in the app's code or its tests. Comments are left out,
 /// where an old name may be told as history.
 void main() {

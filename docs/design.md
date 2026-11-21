@@ -82,7 +82,7 @@
 
 認得帳本的元件（紀錄列、帳戶選擇、計算機、金額顯示）在 `core/widgets/`。
 
-白卡元件已退場（[ADR-0006](adr/0006-retire-white-cards.md)），頁面不寫白底加陰影的卡（`design_rules_test`）。
+頁面不寫白底加陰影的卡（白卡元件已退場）（`design_rules_test`）。
 
 ## 版面規則
 

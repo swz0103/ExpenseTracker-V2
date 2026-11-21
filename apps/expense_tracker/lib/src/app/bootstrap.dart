@@ -43,6 +43,8 @@ import '../features/settings/ui/update_panel.dart';
 import '../features/settings/model/platform_services.dart';
 import '../core/platform/startup.dart';
 import '../core/diagnostics/error_log.dart';
+import '../features/reminders/ui/reminders_section.dart' show reminderBookOf;
+import '../features/overview/ui/overview.dart' show widgetBookOf;
 
 /// The only production composition (code audit C-01): the encrypted ledger
 /// in [directory], opened through [Startup]. The memory preview is not
@@ -265,7 +267,10 @@ class _OpenedLedgerState extends State<OpenedLedger>
     _bookDue(ledger);
     final market = _market = MarketFeed(
       _journal,
-      ledger,
+      changes: ledger,
+      holdings: ledger.holdings,
+      commands: ledger.holdingCommands,
+      today: () => ledger.today,
       historyDir: Directory('${widget.startup.directory.path}/prices'),
     );
     unawaited(market.refresh());
@@ -283,9 +288,9 @@ class _OpenedLedgerState extends State<OpenedLedger>
         ErrorLog.instance.record('檢查更新', error);
       }
     }
-    _calendar?.follow(ledger);
-    _notifier?.follow(ledger);
-    _homeWidget?.follow(ledger);
+    _calendar?.follow(reminderBookOf(ledger));
+    _notifier?.follow(reminderBookOf(ledger));
+    _homeWidget?.follow(widgetBookOf(ledger));
     return ledger;
   }
 

@@ -9,6 +9,33 @@ import '../../../core/messages/validation_messages.dart';
 
 part 'import_reader.dart';
 
+/// The parts of the book an import reads: what is there already, to
+/// leave out what it holds and to add what it lacks, and new ids
+/// (docs/adr/0013-models-take-what-they-use.md).
+final class ImportBook {
+  ImportBook({
+    required this.accounts,
+    required this.categories,
+    required this.entries,
+    required this.entryQueryService,
+    required this.entryValidator,
+    required this.marketData,
+    required this._newId,
+  });
+
+  final AccountReader accounts;
+  final CategoryReader categories;
+  final EntryReader entries;
+  final EntryQueryService entryQueryService;
+  final EntryValidator entryValidator;
+  final MarketDataReader marketData;
+  final String Function() _newId;
+
+  Account account(String id) => accounts.resolve(id);
+
+  String newId() => _newId();
+}
+
 /// What an import found: the entries to add, the accounts and categories
 /// they name that the book does not have yet, and the lines left out, as
 /// already in the book or unusable.
@@ -70,9 +97,9 @@ const duplicateRules =
     '電子發票：備註裡已有同一個發票號碼；或同一天、同商家、同金額、'
     '標了「發票」標籤的紀錄。檔案裡重複的發票也只算一次。';
 
-/// Adds what [found] holds to [ledger], its new accounts and categories
+/// Adds what [found] holds with [commands], its new accounts and categories
 /// with its entries, as one change.
-void addImport(Ledger ledger, Import found) => ledger.entryCommands.addAll(
+void addImport(EntryCommands commands, Import found) => commands.addAll(
   found.entries,
   accounts: found.accounts,
   categories: found.categories,
@@ -116,15 +143,15 @@ String _typeOf(Entry e) => switch (e) {
 /// as UTF-8. Every kind of entry is written with what it takes to read
 /// it back: amounts in their account's currency, a split as
 /// 分類=金額;分類=金額, fees and taxes in NT$.
-String toCsv(Ledger ledger, List<Entry> entries) {
+String toCsv(AccountReader accounts, List<Entry> entries) {
   final sorted = [...entries]..sort((a, b) => a.date.compareTo(b.date));
-  return writeCsv([_header, for (final e in sorted) _row(ledger, e)]);
+  return writeCsv([_header, for (final e in sorted) _row(accounts, e)]);
 }
 
-List<String> _row(Ledger ledger, Entry e) {
+List<String> _row(AccountReader accounts, Entry e) {
   String count(int n) => n == 0 ? '' : '$n';
-  final account = ledger.account(e.account);
-  final to = e.to == null ? null : ledger.account(e.to!);
+  final account = accounts.resolve(e.account);
+  final to = e.to == null ? null : accounts.resolve(e.to!);
   final received = e.received;
   return [
     _day(e.date),
@@ -275,14 +302,14 @@ const _shades = [
 /// 錢包…); a line without an account goes to [fallback]. A line matching
 /// an entry already in the book is left out, and so is one the book
 /// would refuse, such as a sale of more shares than are held then.
-Import importCsv(Ledger ledger, String text, {required String fallback}) {
+Import importCsv(ImportBook book, String text, {required String fallback}) {
   final rows = parseCsv(text);
   if (rows.isEmpty) return const Import([], 0);
   final head = [for (final h in rows.first) h.trim()];
   if (!head.contains('日期') || !head.contains('金額')) {
     return Import(const [], rows.length, problems: const ['第一行要有「日期」和「金額」欄位']);
   }
-  final reader = _Reader(ledger, fallback);
+  final reader = _Reader(book, fallback);
   for (final (i, row) in rows.skip(1).indexed) {
     String cell(String name) {
       final at = head.indexOf(name);

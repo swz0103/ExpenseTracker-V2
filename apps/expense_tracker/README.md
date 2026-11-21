@@ -37,7 +37,7 @@
 ## 測試與工具
 
 - `flutter test`：全部測試；頁面清單在 `test/support/places.dart`，新頁面加進去就有版面、無障礙與截圖。
-- `tool/`：`move.py`（搬檔改 import）、`split.py`（拆長檔）、`glyphs.py`（產生圖示）、`test_ledger.py`（測試帳本）、`screenshots/`（截圖）。
+- `tool/`：`move.py`（搬檔改 import）、`reroute.py`（依分析器錯誤改寫呼叫處）、`glyphs.py`（產生圖示）、`test_ledger.py`（測試帳本）、`screenshots/`（截圖）。
 - `integration_test/bench_test.dart`：模擬器量測載入、捲動、存檔時間。
 
 指令見 [development.md](../../docs/development.md)。

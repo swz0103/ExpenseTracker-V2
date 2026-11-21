@@ -223,8 +223,11 @@ class _RemindersSectionState extends State<RemindersSection>
         ),
       );
       if (picked == null || !mounted) return;
-      await calendar.choose(choices.firstWhere((c) => c.id == picked), _ledger);
-      final written = await calendar.sync(_ledger);
+      await calendar.choose(
+        choices.firstWhere((c) => c.id == picked),
+        reminderBookOf(_ledger),
+      );
+      final written = await calendar.sync(reminderBookOf(_ledger));
       if (!mounted) return;
       setState(() {});
       showNote(context, written == null ? '日曆沒有同步成功' : '已把 $written 個到期提醒放進日曆');
@@ -235,7 +238,7 @@ class _RemindersSectionState extends State<RemindersSection>
   }
 
   Future<void> _forgetCalendar(CalendarSync calendar) async {
-    await calendar.forget(_ledger);
+    await calendar.forget(reminderBookOf(_ledger));
     if (mounted) showNote(context, '已停止同步，之後的提醒已從日曆移除');
     if (mounted) setState(() {});
   }
@@ -255,7 +258,10 @@ class _RemindersSectionState extends State<RemindersSection>
       value: () => preferences.dueAlerts,
       onChanged: (on) => _notify(notifier, due: on),
       body: (context) {
-        final coming = _ledger.reminders(days: 30).take(4).toList();
+        final coming = reminderBookOf(_ledger)
+            .reminders(days: 30)
+            .take(4)
+            .toList();
         return _Labelled(
           '接下來會提醒',
           coming.isEmpty
@@ -410,7 +416,7 @@ class _RemindersSectionState extends State<RemindersSection>
                     detail: calendar.amounts ? '例：繳卡費：玉山卡 12,345' : '例：繳卡費：玉山卡',
                     value: calendar.amounts,
                     onChanged: (on) async {
-                      await calendar.setAmounts(on, _ledger);
+                      await calendar.setAmounts(on, reminderBookOf(_ledger));
                       setState(() {});
                     },
                   ),
@@ -542,3 +548,17 @@ class _RemindersSectionState extends State<RemindersSection>
     );
   }
 }
+
+/// What falls due in [ledger], as the calendar and the notifications
+/// follow it.
+ReminderBook reminderBookOf(Ledger ledger) => ReminderBook(
+  changes: ledger,
+  clock: () => ledger.today,
+  recurring: ledger.recurring,
+  recurringService: ledger.recurringService,
+  accounts: ledger.accounts,
+  statementService: ledger.statementService,
+  entries: ledger.entries,
+  budgets: ledger.budgets,
+  budgetService: ledger.budgetService,
+);

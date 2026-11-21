@@ -44,7 +44,7 @@
 | 工具 | 做什麼 |
 | --- | --- |
 | `tool/move.py` | 搬 Dart 檔並改好所有 import 與 part（用 git mv） |
-| `tool/split.py` | 把太長的檔案後段的宣告搬到 part 檔 |
+| `tool/reroute.py` | 成員搬家或改名後，依分析器的錯誤逐一改寫呼叫處（不靠文字比對） |
 | `tool/glyphs.py` | 定義所有圖示，產生 `core/design_system/glyphs.dart`（不要手改產生的檔） |
 | `tool/test_ledger.py` | 產生兩年份、約 2,500 筆的測試帳本 `test-ledger.etbk`（密碼 `test1234`）：多家銀行、三張信用卡、外幣、車貸、代墊、十檔股票、預算與定期 |
 | `tool/screenshots/` | 依 `test/support/places.dart` 拍每頁淺色、深色截圖 |

@@ -3,6 +3,8 @@ import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/features/import_export/model/import_export.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:expense_tracker/src/features/import_export/ui/import_page.dart'
+    show importBookOf;
 
 void main() {
   test('CSV fields are quoted and read back', () {
@@ -26,12 +28,12 @@ void main() {
   test('an exported month imports as nothing new', () {
     final ledger = demoLedger();
     final month = ledger.entries.inMonth(2026, 9);
-    final csv = toCsv(ledger, month);
-    final again = importCsv(ledger, csv, fallback: 'cash');
+    final csv = toCsv(ledger.accounts, month);
+    final again = importCsv(importBookOf(ledger), csv, fallback: 'cash');
     expect(again.entries, isEmpty);
     expect(again.accounts, isEmpty);
     final fresh = importCsv(
-      ledger,
+      importBookOf(ledger),
       '日期,類型,金額,帳戶,分類,商家,標籤,備註\n'
       '2026-10-01,支出,120,隨身現金,飲食日常,早餐店,家用,蛋餅\n'
       '2026-10-01,收入,500,不存在的帳戶,不存在,,,紅包\n'
@@ -50,7 +52,7 @@ void main() {
     expect(fresh.entries.last.category, '不存在');
     expect(fresh.categories.single.income, isTrue);
     final before = ledger.reportService.expense(2026, 10);
-    addImport(ledger, fresh);
+    addImport(ledger.entryCommands, fresh);
     expect(ledger.account(made.id).name, '不存在的帳戶');
     expect(ledger.reportService.expense(2026, 10), before + 120);
   });
@@ -69,7 +71,7 @@ void main() {
         '2026-10-07,退款,100,新信用卡,,,好市多,,退貨\n'
         '2026-10-08,賣出,1,日常銀行,,,,,,00713,999999\n'
         '2026-10-09,魔法,1,日常銀行\n';
-    final found = importCsv(ledger, text, fallback: 'bank');
+    final found = importCsv(importBookOf(ledger), text, fallback: 'bank');
     expect(found.entries.map((e) => e.type), [
       EntryType.expense,
       EntryType.transfer,
@@ -98,11 +100,11 @@ void main() {
     expect(found.entries[6].shares, 50);
     expect(found.entries.last.refundOf, spent.id);
 
-    addImport(ledger, found);
+    addImport(ledger.entryCommands, found);
     expect(ledger.holding('00713')!.shares, 550);
     final again = importCsv(
-      ledger,
-      toCsv(ledger, found.entries),
+      importBookOf(ledger),
+      toCsv(ledger.accounts, found.entries),
       fallback: 'bank',
     );
     expect(again.entries, isEmpty);
@@ -117,7 +119,7 @@ void main() {
         'D|AB00000001|69|吐司\n'
         'M|手機條碼|/ABC123|20261004|87654321|中油加油站|AB00000002|900|開立\n'
         'M|手機條碼|/ABC123|20261004|87654321|某店|AB00000003|50|作廢\n';
-    final found = importInvoices(ledger, text, account: 'card');
+    final found = importInvoices(importBookOf(ledger), text, account: 'card');
     expect(found.entries, hasLength(2));
     expect(found.skipped, 1);
     final first = found.entries.first;
@@ -126,7 +128,10 @@ void main() {
     expect(first.note, '鮮奶 等 2 項 發票 AB00000001');
     expect(found.entries.last.category, '交通通勤');
     ledger.entryCommands.addAll(found.entries);
-    expect(importInvoices(ledger, text, account: 'card').entries, isEmpty);
+    expect(
+      importInvoices(importBookOf(ledger), text, account: 'card').entries,
+      isEmpty,
+    );
   });
 
   test('invoices are not recorded on a foreign-currency account', () {
@@ -135,7 +140,7 @@ void main() {
         const Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
       );
     const text = 'M|手機條碼|/ABC123|20261003|12345678|全聯福利中心|AB00000001|268|開立\n';
-    final found = importInvoices(ledger, text, account: 'usd');
+    final found = importInvoices(importBookOf(ledger), text, account: 'usd');
     expect(found.entries, isEmpty);
     expect(found.skipped, 1);
     expect(found.problems, isNotEmpty);
@@ -148,14 +153,20 @@ void main() {
         '20261003,CD00000001,全聯福利中心,開立,鮮奶,199\n'
         '20261003,CD00000001,全聯福利中心,開立,吐司,69\n'
         '20261004,CD00000002,某店,作廢,飲料,50\n';
-    final found = importInvoices(ledger, text, account: 'card');
+    final found = importInvoices(importBookOf(ledger), text, account: 'card');
     expect(found.entries, hasLength(1));
     final first = found.entries.single;
     expect((first.amount, first.merchant), (268, '全聯福利中心'));
     expect(first.note, '鮮奶 等 2 項 發票 CD00000001');
     ledger.entryCommands.addAll(found.entries);
-    expect(importInvoices(ledger, text, account: 'card').entries, isEmpty);
-    expect(importInvoices(ledger, '發票號碼\n壞', account: 'card').skipped, 1);
+    expect(
+      importInvoices(importBookOf(ledger), text, account: 'card').entries,
+      isEmpty,
+    );
+    expect(
+      importInvoices(importBookOf(ledger), '發票號碼\n壞', account: 'card').skipped,
+      1,
+    );
   });
 
   test('a foreign account imports in its own currency', () {
@@ -164,14 +175,14 @@ void main() {
         const Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
       );
     final found = importCsv(
-      ledger,
+      importBookOf(ledger),
       '日期,類型,金額,帳戶,分類\n2026-10-01,支出,12.5,美元,飲食日常\n',
       fallback: 'bank',
     );
     final entry = found.entries.single;
     expect((entry.account, entry.amount), ('usd', 1250));
     expect(entry.home, (12.5 * 32.1).round());
-    expect(toCsv(ledger, [entry]), contains(',12.50,美元,'));
+    expect(toCsv(ledger.accounts, [entry]), contains(',12.50,美元,'));
   });
 
   test('stock dividends and splits grow every lot at its own cost', () {

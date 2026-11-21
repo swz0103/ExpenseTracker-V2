@@ -85,8 +85,8 @@ class _ImportPageState extends State<_ImportPage> {
     setState(() {
       _left.clear();
       _found = widget.invoices
-          ? importInvoices(ledger, _text, account: _account)
-          : importCsv(ledger, _text, fallback: _account);
+          ? importInvoices(importBookOf(ledger), _text, account: _account)
+          : importCsv(importBookOf(ledger), _text, fallback: _account);
     });
   }
 
@@ -148,7 +148,7 @@ class _ImportPageState extends State<_ImportPage> {
   void _add() {
     final chosen = _chosen;
     if (chosen == null || chosen.entries.isEmpty) return;
-    addImport(widget.ledger, chosen);
+    addImport(widget.ledger.entryCommands, chosen);
     showNote(context, '已匯入 ${chosen.entries.length} 筆紀錄');
     Navigator.of(context).pop();
   }
@@ -513,3 +513,14 @@ class _BigChoice extends StatelessWidget {
     ),
   );
 }
+
+/// What an import reads from [ledger].
+ImportBook importBookOf(Ledger ledger) => ImportBook(
+  accounts: ledger.accounts,
+  categories: ledger.categories,
+  entries: ledger.entries,
+  entryQueryService: ledger.entryQueryService,
+  entryValidator: ledger.entryValidator,
+  marketData: ledger.marketData,
+  newId: ledger.newId,
+);

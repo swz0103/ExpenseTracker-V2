@@ -1,3 +1,6 @@
+// Exception to models take what they use: the account form is the page's
+// state; it reads balances and writes accounts and entries (ADR-0013).
+
 import '../../../core/formatting/amounts.dart';
 import '../../../core/ledger/ledger.dart';
 

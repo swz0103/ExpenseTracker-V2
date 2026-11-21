@@ -182,7 +182,7 @@ extension _Pickers on _ComposerState {
         _say('這不是電子發票左邊的 QR Code，請掃左邊那個');
         return;
       }
-      if (invoiceRecorded(_ledger, invoice.date, invoice.number)) {
+      if (invoiceRecorded(_ledger.entries, invoice.date, invoice.number)) {
         _say('發票 ${invoice.number} 已經記過了');
         return;
       }

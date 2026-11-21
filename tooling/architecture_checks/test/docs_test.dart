@@ -51,8 +51,8 @@ void main() {
 
   test('every source file a current document names is there', () {
     // Decision records, the change log and the review keep the names of
-    // their day; naming.md lists old names on purpose.
-    const history = ['adr', 'CHANGELOG.md', 'naming.md', 'roadmap.md'];
+    // their day.
+    const history = ['adr', 'CHANGELOG.md', 'roadmap.md'];
     // A path in back quotes with a source file's extension, matched by its
     // tail so a document can name it from its own folder.
     final named = RegExp(

@@ -1,0 +1,104 @@
+{
+  "record version": [
+    "2"
+  ],
+  "accounts": [
+    "{\"id\":\"01a1fc03-f818-7594-8e7b-361276481a9f\",\"name\":\"現金\",\"kind\":\"cash\",\"opening\":0}",
+    "{\"id\":\"01a1fc03-f818-7a1f-a7e3-03f9a78c115d\",\"name\":\"銀行帳戶\",\"kind\":\"bank\",\"opening\":0}",
+    "{\"id\":\"ann\",\"name\":\"阿安\",\"kind\":\"receivable\",\"opening\":0}",
+    "{\"id\":\"bank\",\"name\":\"銀行\",\"kind\":\"bank\",\"opening\":50000}",
+    "{\"id\":\"card\",\"name\":\"信用卡\",\"kind\":\"card\",\"opening\":0,\"closingDay\":20,\"dueDay\":5,\"limit\":80000}",
+    "{\"id\":\"cash\",\"name\":\"現金\",\"kind\":\"cash\",\"opening\":2000,\"icon\":\"wallet\"}",
+    "{\"id\":\"old\",\"name\":\"舊帳戶\",\"kind\":\"cash\",\"opening\":0,\"archived\":true}",
+    "{\"id\":\"usd\",\"name\":\"美元\",\"kind\":\"bank\",\"opening\":10000,\"currency\":\"USD\"}"
+  ],
+  "categories": [
+    "{\"id\":\"01a1fc03-f817-7326-bee6-acd5b5109f36\",\"name\":\"居家生活\",\"icon\":\"home\",\"color\":4284258947}",
+    "{\"id\":\"01a1fc03-f818-710f-b25e-afe9040c84bd\",\"name\":\"購物休閒\",\"icon\":\"bag\",\"color\":4287528128}",
+    "{\"id\":\"01a1fc03-f818-71ad-9488-c1f3083fafda\",\"name\":\"訂閱服務\",\"icon\":\"subscription\",\"color\":4291404618}",
+    "{\"id\":\"01a1fc03-f818-71d0-abe8-e5326ffa3050\",\"name\":\"其他收入\",\"icon\":\"income\",\"color\":4283337370,\"income\":true}",
+    "{\"id\":\"01a1fc03-f818-7802-acd8-47702773aa54\",\"name\":\"交通通勤\",\"icon\":\"travel\",\"color\":4284190128}",
+    "{\"id\":\"01a1fc03-f818-7b64-a54f-b10825f6a928\",\"name\":\"飲食日常\",\"icon\":\"food\",\"color\":4291857243}",
+    "{\"id\":\"01a1fc03-f818-7dc5-a153-d21f8a95fe70\",\"name\":\"其他支出\",\"icon\":\"other\",\"color\":4289755788}",
+    "{\"id\":\"01a1fc03-f818-7dff-9813-2e7e73f2a761\",\"name\":\"股息收入\",\"icon\":\"dividend\",\"color\":4284116904,\"income\":true}",
+    "{\"id\":\"01a1fc03-f818-7f47-ab39-6ca3046f75c4\",\"name\":\"薪資收入\",\"icon\":\"salary\",\"color\":4281301605,\"income\":true}",
+    "{\"id\":\"01a1fc03-f81f-7056-a234-90d8e86ab943\",\"name\":\"居家\",\"icon\":\"home\",\"color\":4284258947}",
+    "{\"id\":\"01a1fc03-f81f-72c4-85c5-e564ba5ac4e5\",\"name\":\"舊分類\",\"icon\":\"other\",\"color\":4287137928,\"archived\":true}",
+    "{\"id\":\"01a1fc03-f81f-798b-a174-be742f982114\",\"name\":\"早餐\",\"icon\":\"food\",\"color\":4291857243,\"parent\":\"飲食\"}",
+    "{\"id\":\"01a1fc03-f81f-7f97-ae35-898fa4762b78\",\"name\":\"飲食\",\"icon\":\"food\",\"color\":4291857243}",
+    "{\"id\":\"01a1fc03-f820-74d1-9821-a815698995d1\",\"name\":\"薪水\",\"icon\":\"salary\",\"color\":4281301605,\"income\":true}"
+  ],
+  "entries": [
+    "{\"id\":\"buy\",\"date\":\"2026-09-04\",\"type\":\"buy\",\"amount\":60000,\"account\":\"bank\",\"holding\":\"2330\",\"shares\":100,\"installments\":1}",
+    "{\"id\":\"div\",\"date\":\"2026-09-26\",\"type\":\"dividend\",\"amount\":450,\"account\":\"bank\",\"holding\":\"2330\",\"installments\":1}",
+    "{\"id\":\"fx\",\"date\":\"2026-09-29\",\"type\":\"transfer\",\"amount\":3210,\"account\":\"bank\",\"to\":\"usd\",\"installments\":1,\"received\":10000}",
+    "{\"id\":\"lunch\",\"date\":\"2026-10-03\",\"type\":\"expense\",\"amount\":120,\"account\":\"bank\",\"category\":\"早餐\",\"note\":\"蛋餅\",\"merchant\":\"早餐店\",\"tags\":[\"家用\"],\"installments\":1}",
+    "{\"id\":\"meal\",\"date\":\"2026-09-28\",\"type\":\"expense\",\"amount\":600,\"account\":\"bank\",\"category\":\"飲食\",\"group\":\"g1\"}",
+    "{\"id\":\"meal-ann\",\"date\":\"2026-09-28\",\"type\":\"transfer\",\"amount\":300,\"account\":\"bank\",\"to\":\"ann\",\"group\":\"g1\"}",
+    "{\"id\":\"move\",\"date\":\"2026-10-02\",\"type\":\"transfer\",\"amount\":1000,\"account\":\"bank\",\"to\":\"cash\",\"installments\":1}",
+    "{\"id\":\"pay\",\"date\":\"2026-10-01\",\"type\":\"income\",\"amount\":52000,\"account\":\"bank\",\"category\":\"薪水\",\"installments\":1}",
+    "{\"id\":\"sell\",\"date\":\"2026-09-24\",\"type\":\"sell\",\"amount\":33000,\"account\":\"bank\",\"holding\":\"2330\",\"shares\":50,\"installments\":1}",
+    "{\"id\":\"tv\",\"date\":\"2026-09-14\",\"type\":\"expense\",\"amount\":10001,\"account\":\"card\",\"category\":\"居家\",\"installments\":3}"
+  ],
+  "budgets": [
+    "{\"category\":\"#家用\",\"limit\":3000,\"since\":\"2026-10-01\"}",
+    "{\"category\":\"全部支出\",\"limit\":30000,\"warning\":90,\"carry\":true,\"since\":\"2026-10-01\"}",
+    "{\"category\":\"飲食\",\"limit\":6000,\"since\":\"2026-10-01\"}"
+  ],
+  "recurring": [
+    "{\"id\":\"gym\",\"name\":\"健身房\",\"amount\":990,\"day\":15,\"account\":\"card\",\"category\":\"居家\",\"active\":false,\"unit\":\"week\",\"every\":2,\"start\":\"2026-09-01\"}",
+    "{\"id\":\"rent\",\"name\":\"房租\",\"amount\":12500,\"day\":1,\"account\":\"bank\",\"category\":\"居家\",\"start\":\"2026-01-01\",\"auto\":true}"
+  ],
+  "trash": [
+    "{\"on\":\"2026-10-04\",\"entry\":{\"id\":\"gone\",\"date\":\"2026-09-30\",\"type\":\"expense\",\"amount\":80,\"account\":\"bank\",\"category\":\"飲食\",\"installments\":1}}"
+  ],
+  "receipts": [
+    "r1.etr"
+  ],
+  "drafts": [
+    "expense {\"entry\":{\"id\":\"draft\",\"date\":\"2026-10-04\",\"type\":\"expense\",\"amount\":99,\"account\":\"bank\",\"category\":\"飲食\",\"installments\":1},\"lent\":[[\"ann\",40]]}",
+    "income null",
+    "transfer null"
+  ],
+  "order of accounts": [
+    "01a1fc03-f818-7594-8e7b-361276481a9f",
+    "01a1fc03-f818-7a1f-a7e3-03f9a78c115d",
+    "bank",
+    "cash",
+    "card",
+    "usd",
+    "ann",
+    "old"
+  ],
+  "order of categories": [
+    "居家生活",
+    "飲食日常",
+    "交通通勤",
+    "購物休閒",
+    "訂閱服務",
+    "其他支出",
+    "薪資收入",
+    "股息收入",
+    "其他收入",
+    "飲食",
+    "早餐",
+    "居家",
+    "舊分類",
+    "薪水"
+  ],
+  "order of entries": [
+    "lunch",
+    "pay",
+    "move",
+    "fx",
+    "tv",
+    "buy",
+    "sell",
+    "div",
+    "meal",
+    "meal-ann"
+  ],
+  "order of trash": [
+    "gone"
+  ]
+}

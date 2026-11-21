@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import '../../../core/ledger/ledger.dart';
 import 'reminders.dart';
 import '../../../core/diagnostics/error_log.dart';
 
@@ -28,9 +27,9 @@ abstract interface class CalendarPort {
   Future<int> replace(int calendar, DateTime from, List<Reminder> reminders);
 }
 
-/// Keeps the chosen calendar holding what the ledger has falling due, so
+/// Keeps the chosen calendar holding what the book has falling due, so
 /// the calendar's own reminders say when to pay. The choice belongs to
-/// this phone and is kept beside the ledger.
+/// this phone and is kept beside the book.
 final class CalendarSync {
   CalendarSync(this.port, this.directory);
 
@@ -58,12 +57,12 @@ final class CalendarSync {
   }
 
   /// Writes the events with or without amounts from now on, and again
-  /// now for [ledger].
-  Future<void> setAmounts(bool on, Ledger ledger) async {
+  /// now for [book].
+  Future<void> setAmounts(bool on, ReminderBook book) async {
     final calendar = chosen;
     if (calendar == null) return;
     await _write(calendar.$1, calendar.$2, amounts: on);
-    await sync(ledger);
+    await sync(book);
   }
 
   Future<void> _write(int id, String name, {required bool amounts}) => _file
@@ -71,11 +70,11 @@ final class CalendarSync {
 
   /// Syncs to [calendar] from now on; reminders still to come leave the
   /// calendar chosen before, so they are not shown twice.
-  Future<void> choose(CalendarChoice calendar, Ledger ledger) async {
+  Future<void> choose(CalendarChoice calendar, ReminderBook book) async {
     final before = chosen;
     if (before != null && before.$1 != calendar.id) {
       try {
-        await port.replace(before.$1, ledger.today, const []);
+        await port.replace(before.$1, book.today, const []);
       } on Object catch (error) {
         ErrorLog.instance.record('清除舊日曆的提醒', error);
       }
@@ -84,22 +83,22 @@ final class CalendarSync {
   }
 
   /// Stops syncing and takes the reminders still to come off the calendar.
-  Future<void> forget(Ledger ledger) async {
+  Future<void> forget(ReminderBook book) async {
     final calendar = chosen;
     if (calendar == null) return;
-    await port.replace(calendar.$1, ledger.today, const []);
+    await port.replace(calendar.$1, book.today, const []);
     await _file.delete();
   }
 
   Timer? _timer;
-  Ledger? _following;
+  ReminderBook? _following;
 
-  /// Syncs [ledger] now, then a few seconds after it last changed.
-  void follow(Ledger ledger) {
+  /// Syncs [book] now, then a few seconds after it last changed.
+  void follow(ReminderBook book) {
     stop();
-    _following = ledger;
-    ledger.addListener(_changed);
-    unawaited(sync(ledger));
+    _following = book;
+    book.addListener(_changed);
+    unawaited(sync(book));
   }
 
   void stop() {
@@ -109,20 +108,20 @@ final class CalendarSync {
   }
 
   void _changed() {
-    final ledger = _following;
-    if (ledger == null) return;
+    final book = _following;
+    if (book == null) return;
     _timer?.cancel();
-    _timer = Timer(const Duration(seconds: 5), () => unawaited(sync(ledger)));
+    _timer = Timer(const Duration(seconds: 5), () => unawaited(sync(book)));
   }
 
   /// Writes what falls due into the chosen calendar; null when none is
   /// chosen or the calendar cannot be reached.
-  Future<int?> sync(Ledger ledger) async {
+  Future<int?> sync(ReminderBook book) async {
     final calendar = chosen;
     if (calendar == null) return null;
     try {
-      final reminders = ledger.reminders();
-      return await port.replace(calendar.$1, ledger.today, [
+      final reminders = book.reminders();
+      return await port.replace(calendar.$1, book.today, [
         for (final r in reminders) amounts ? r : r.withoutAmount,
       ]);
     } on Object catch (error) {

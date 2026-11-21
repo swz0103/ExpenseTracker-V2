@@ -8,6 +8,8 @@ import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/core/platform/quick_action.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:expense_tracker/src/features/reminders/ui/reminders_section.dart'
+    show reminderBookOf;
 
 void main() {
   test('preferences are kept in their file and read back', () {
@@ -146,12 +148,15 @@ void main() {
     final morning = DateTime(2026, 10, 4, 8);
 
     test('none unless asked for', () {
-      expect(alertsFor(ledger, Preferences(), morning), isEmpty);
+      expect(
+        alertsFor(reminderBookOf(ledger), Preferences(), morning),
+        isEmpty,
+      );
     });
 
     test('due dates at nine, card payments two days early as well', () {
       final preferences = Preferences()..update(dueAlerts: true);
-      final alerts = alertsFor(ledger, preferences, morning);
+      final alerts = alertsFor(reminderBookOf(ledger), preferences, morning);
       expect(alerts, isNotEmpty);
       expect(alerts.every((a) => a.at.hour == 9), isTrue);
       expect(alerts.every((a) => a.at.isAfter(morning)), isTrue);
@@ -168,7 +173,7 @@ void main() {
 
     test('the nudge skips today once something is recorded', () {
       final preferences = Preferences()..update(dailyNudge: true);
-      final alerts = alertsFor(ledger, preferences, morning);
+      final alerts = alertsFor(reminderBookOf(ledger), preferences, morning);
       // The demo book has entries on its today, 10/4.
       expect(alerts.first.at, DateTime(2026, 10, 5, 21));
       expect(alerts, hasLength(6));
@@ -179,14 +184,17 @@ void main() {
     test('the nudge comes on the minute chosen', () {
       final preferences = Preferences()
         ..update(dailyNudge: true, nudgeHour: 20, nudgeMinute: 30);
-      expect(alertsFor(ledger, preferences, morning).first.at.minute, 30);
+      expect(
+        alertsFor(reminderBookOf(ledger), preferences, morning).first.at.minute,
+        30,
+      );
     });
 
     test('a nudge showing is taken away once something is recorded', () {
       final preferences = Preferences()
         ..update(dailyNudge: true, dueAlerts: true);
       // The demo book has entries on its today.
-      final wanted = wantedTags(ledger, preferences);
+      final wanted = wantedTags(reminderBookOf(ledger), preferences);
       expect(wanted, isNot(contains(nudgeTag)));
       // Due dates, and the demo's budgets already past their mark.
       expect(
@@ -196,7 +204,7 @@ void main() {
         isTrue,
       );
       final dueTags = {
-        for (final a in alertsFor(ledger, preferences, morning))
+        for (final a in alertsFor(reminderBookOf(ledger), preferences, morning))
           if (a.tag.startsWith('due:')) a.tag,
       };
       expect(wanted, containsAll(dueTags));

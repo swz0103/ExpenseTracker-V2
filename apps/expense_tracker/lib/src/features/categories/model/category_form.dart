@@ -1,3 +1,7 @@
+// Exception to models take what they use: the form of a category is the
+// page's state; it checks names, places the category and merges or
+// archives it, across most of the ledger's category parts (ADR-0013).
+
 import '../../../core/ledger/ledger.dart';
 
 /// What the form of a category holds while it is filled in: a new one,

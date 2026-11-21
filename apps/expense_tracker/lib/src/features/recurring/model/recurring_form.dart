@@ -1,3 +1,7 @@
+// Exception to models take what they use: the recurring form is the
+// page's state, across accounts, categories, entries and commands
+// (ADR-0013).
+
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/recurring_messages.dart';
 import '../../../core/formatting/dates.dart';

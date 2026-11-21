@@ -1,6 +1,7 @@
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/features/reminders/model/reminders.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:expense_tracker/src/features/reminders/ui/reminders_section.dart'
+    show reminderBookOf;
 
 void main() {
   test('what falls due goes to the calendar, soonest first', () {
@@ -48,7 +49,7 @@ void main() {
         ),
       ],
     );
-    final found = ledger.reminders();
+    final found = reminderBookOf(ledger).reminders();
     final titles = [for (final r in found) r.title];
     expect(titles, ['扣款：Netflix 390', '繳卡費：信用卡 1,000', '扣款：Netflix 390']);
     expect(found[1].day, DateTime.utc(2026, 4, 10));

@@ -57,7 +57,7 @@ void main() {
     // A screen or a model that needs only the entries, or the reports,
     // takes that part (EntryReader, ReportService, exported by
     // ledger.dart): it says what it uses, and a test gives it only that.
-    const most = 73;
+    const most = 66;
     final whole = wholeLedgerFiles(units);
     expect(whole.length, lessThanOrEqualTo(most), reason: 'take the part');
     expect(whole.length, most, reason: 'fewer now: lower `most`');
@@ -67,10 +67,16 @@ void main() {
     // A model takes the readers, services and commands it uses, and the
     // day as a value: its dependencies show, and a test needs no whole
     // book (docs/adr/0013-models-take-what-they-use.md). Goal: none.
-    const most = 12;
+    // A form model that is a page's whole state may hold it, marked
+    // `// Exception to models take what they use: <why>`.
+    const most = 0;
     final whole = [
       for (final path in wholeLedgerFiles(units))
-        if (path.contains('/model/')) path,
+        if (path.contains('/model/'))
+          if (!File(p.join(root, 'apps', 'expense_tracker', 'lib', path))
+              .readAsStringSync()
+              .contains('// Exception to models take what they use:'))
+            path,
     ];
     expect(whole.length, lessThanOrEqualTo(most), reason: whole.join('\n'));
     expect(whole.length, most, reason: 'fewer now: lower `most`');

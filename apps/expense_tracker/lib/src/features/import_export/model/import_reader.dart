@@ -3,10 +3,10 @@
 part of 'import_export.dart';
 
 final class _Reader {
-  _Reader(this.ledger, this.fallback)
-    : _names = {for (final a in ledger.accounts.all) a.name: a.id};
+  _Reader(this.book, this.fallback)
+    : _names = {for (final a in book.accounts.all) a.name: a.id};
 
-  final Ledger ledger;
+  final ImportBook book;
   final String fallback;
   final Map<String, String> _names;
   final _accounts = <Account>[];
@@ -30,7 +30,7 @@ final class _Reader {
     for (final a in _accounts) {
       if (a.id == id) return a;
     }
-    return ledger.account(id);
+    return book.account(id);
   }
 
   /// The account named [name], added when the book has none.
@@ -41,7 +41,7 @@ final class _Reader {
     final kind = _kindOf(name);
     final card = kind == AccountKind.card;
     final made = Account(
-      ledger.newId(),
+      book.newId(),
       name,
       kind,
       0,
@@ -69,12 +69,12 @@ final class _Reader {
   String _categoryNamed(String name, {required bool income}) {
     final other = income ? '其他收入' : feeCategory;
     if (name.isEmpty) return other;
-    for (final c in [...ledger.categories.all, ..._categories]) {
+    for (final c in [...book.categories.all, ..._categories]) {
       if (c.name == name) return c.income == income ? name : other;
     }
-    // A name the ledger keeps for itself is not made a category.
-    if (!ledger.categories.isNameFree(name)) return other;
-    final count = ledger.categories.all.length + _categories.length;
+    // A name the book keeps for itself is not made a category.
+    if (!book.categories.isNameFree(name)) return other;
+    final count = book.categories.all.length + _categories.length;
     _categories.add(
       Category(
         name,
@@ -125,10 +125,10 @@ final class _Reader {
     if (entry is! Entry) return entry as String;
     final made = entry;
     if (!made.isReduction) {
-      final failure = ledger.entryValidator.validate(made, holdings: false);
+      final failure = book.entryValidator.validate(made, holdings: false);
       if (failure != null) return validationMessage(failure);
     }
-    if (_already(ledger, made)) return '帳本裡已經有這一筆';
+    if (_already(book, made)) return '帳本裡已經有這一筆';
     if (made.isRefund) {
       _refunded[made.refundOf!] = (_refunded[made.refundOf!] ?? 0) + amount;
     }
@@ -163,7 +163,7 @@ final class _Reader {
     final home = int.tryParse(cell('台幣金額').replaceAll(',', ''));
     final card = from.kind == AccountKind.card;
     return Entry(
-      id: ledger.newId(),
+      id: book.newId(),
       date: day,
       type: income ? EntryType.income : EntryType.expense,
       amount: amount,
@@ -180,7 +180,7 @@ final class _Reader {
       ],
       installments: card && !income ? int.tryParse(cell('分期')) ?? 0 : 0,
       home: from.foreign
-          ? home ?? ledger.marketData.toHome(amount, from.currency)
+          ? home ?? book.marketData.toHome(amount, from.currency)
           : null,
     );
   }
@@ -196,7 +196,7 @@ final class _Reader {
   ) {
     final shop = cell('商家');
     final candidates = [
-      for (final e in [...ledger.entries.all, for (final (_, f) in _found) f])
+      for (final e in [...book.entries.all, for (final (_, f) in _found) f])
         if (e.type == EntryType.expense &&
             !e.isRefund &&
             e.account == account &&
@@ -210,7 +210,7 @@ final class _Reader {
       orElse: () => candidates.first,
     );
     return Entry(
-      id: ledger.newId(),
+      id: book.newId(),
       date: day,
       type: EntryType.income,
       amount: amount,
@@ -222,9 +222,9 @@ final class _Reader {
   }
 
   int _left(Entry e) {
-    final inBook = ledger.entries.byId(e.id) == null
+    final inBook = book.entries.byId(e.id) == null
         ? e.amount
-        : ledger.entryQueryService.refundable(e);
+        : book.entryQueryService.refundable(e);
     return inBook - (_refunded[e.id] ?? 0);
   }
 
@@ -245,7 +245,7 @@ final class _Reader {
     if (target.kind == AccountKind.card && fee > 0) return '繳卡費不能有手續費';
     if (fee > 0 && from.foreign) return '外幣帳戶轉出不能記手續費';
     return Entry(
-      id: ledger.newId(),
+      id: book.newId(),
       date: day,
       type: EntryType.transfer,
       amount: amount,
@@ -277,7 +277,7 @@ final class _Reader {
     if (needsShares && shares <= 0) return '請填股數';
     final trade = kind == _Kind.buy || kind == _Kind.sell;
     return Entry(
-      id: ledger.newId(),
+      id: book.newId(),
       date: day,
       type: switch (kind) {
         _Kind.buy => EntryType.buy,
@@ -315,7 +315,7 @@ final class _Reader {
       if (e.isInvestment) {
         // Only a sale or a reduction can leave a stock short of shares.
         final takes = e.type == EntryType.sell || e.isReduction;
-        if (takes && !ledger.entryValidator.holdsWith([...trades, e])) {
+        if (takes && !book.entryValidator.holdsWith([...trades, e])) {
           skip(line, '${e.holding} 賣出或減少的股數超過當時持股');
           continue;
         }
@@ -345,7 +345,7 @@ final class _Reader {
   }
 }
 
-bool _already(Ledger ledger, Entry entry) => ledger.entries
+bool _already(ImportBook book, Entry entry) => book.entries
     .inMonth(entry.date.year, entry.date.month)
     .any(
       (e) =>
@@ -369,10 +369,15 @@ const _hints = {
 
 /// The category for spending at [merchant]: the one the book used last,
 /// else one its name hints at, else 其他支出.
-String guessCategory(Ledger ledger, String merchant, String items) {
-  final used = ledger.entryQueryService.categoryAt(merchant);
+String guessCategory(
+  EntryQueryService queries,
+  CategoryReader categories,
+  String merchant,
+  String items,
+) {
+  final used = queries.categoryAt(merchant);
   if (used != null) return used;
-  final known = ledger.categories.forEntries(income: false).map((c) => c.name);
+  final known = categories.forEntries(income: false).map((c) => c.name);
   final text = '$merchant $items'.toUpperCase();
   for (final MapEntry(key: category, value: words) in _hints.entries) {
     if (!known.contains(category)) continue;
@@ -387,14 +392,14 @@ String guessCategory(Ledger ledger, String merchant, String items) {
 /// the shop, noted with its invoice number; void ones and invoices
 /// already in the book are left out. The ministry's 消費明細 CSV, with a
 /// 發票號碼 column, is read too.
-Import importInvoices(Ledger ledger, String text, {required String account}) {
+Import importInvoices(ImportBook book, String text, {required String account}) {
   final found = text.contains('發票號碼')
-      ? _invoiceCsv(ledger, text, account: account)
-      : _invoiceLines(ledger, text, account: account);
+      ? _invoiceCsv(book, text, account: account)
+      : _invoiceLines(book, text, account: account);
   // Each is checked as one typed in would be: an invoice is in NT$, so a
   // foreign-currency account, for one, is refused rather than recorded at
   // the wrong value.
-  if (ledger.account(account).currency != homeCode) {
+  if (book.account(account).currency != homeCode) {
     return Import(
       const [],
       found.skipped + found.entries.length,
@@ -405,7 +410,7 @@ Import importInvoices(Ledger ledger, String text, {required String account}) {
   final problems = [...found.problems];
   var skipped = found.skipped;
   for (final entry in found.entries) {
-    final failure = ledger.entryValidator.validate(entry, holdings: false);
+    final failure = book.entryValidator.validate(entry, holdings: false);
     final problem = failure == null ? null : validationMessage(failure);
     if (problem == null) {
       kept.add(entry);
@@ -418,7 +423,7 @@ Import importInvoices(Ledger ledger, String text, {required String account}) {
 }
 
 /// The ministry's M and D lines.
-Import _invoiceLines(Ledger ledger, String text, {required String account}) {
+Import _invoiceLines(ImportBook book, String text, {required String account}) {
   final items = <String, List<String>>{};
   final heads = <List<String>>[];
   for (final raw in text.split('\n')) {
@@ -441,7 +446,7 @@ Import _invoiceLines(Ledger ledger, String text, {required String account}) {
     final seen =
         number.isNotEmpty &&
         (entries.any((e) => e.note.contains(number)) ||
-            _hasInvoice(ledger, day, number, shop: shop, amount: value));
+            _hasInvoice(book.entries, day, number, shop: shop, amount: value));
     final why = day == null
         ? '日期看不懂'
         : value == null || value <= 0
@@ -457,14 +462,14 @@ Import _invoiceLines(Ledger ledger, String text, {required String account}) {
       continue;
     }
     final bought = items[number] ?? const [];
-    entries.add(_invoice(ledger, account, day!, shop, number, bought, value!));
+    entries.add(_invoice(book, account, day!, shop, number, bought, value!));
   }
   return Import(entries, skipped, problems: problems);
 }
 
 /// The ministry's 消費明細 CSV, one row per item, added up per invoice by
 /// `data_exchange`. A row it cannot read leaves the whole file out.
-Import _invoiceCsv(Ledger ledger, String text, {required String account}) {
+Import _invoiceCsv(ImportBook book, String text, {required String account}) {
   final List<EInvoice> invoices;
   try {
     invoices = parseEInvoices(text);
@@ -483,7 +488,7 @@ Import _invoiceCsv(Ledger ledger, String text, {required String account}) {
     if (value <= 0 ||
         entries.any((e) => e.note.contains(number)) ||
         _hasInvoice(
-          ledger,
+          book.entries,
           date,
           number,
           shop: invoice.seller,
@@ -495,7 +500,7 @@ Import _invoiceCsv(Ledger ledger, String text, {required String account}) {
     }
     entries.add(
       _invoice(
-        ledger,
+        book,
         account,
         date,
         invoice.seller,
@@ -509,19 +514,19 @@ Import _invoiceCsv(Ledger ledger, String text, {required String account}) {
 }
 
 /// The open NT$ account [shop] was last paid from, if any.
-String? _usualAccount(Ledger ledger, String shop) {
-  final last = shop.isEmpty ? null : ledger.entryQueryService.lastAt(shop);
+String? _usualAccount(ImportBook book, String shop) {
+  final last = shop.isEmpty ? null : book.entryQueryService.lastAt(shop);
   if (last == null) return null;
-  final account = ledger.account(last.account);
+  final account = book.account(last.account);
   if (account.archived || account.currency != homeCode) return null;
-  if (!ledger.accounts.contains(account.id)) return null;
+  if (!book.accounts.contains(account.id)) return null;
   return account.id;
 }
 
 /// Spending at [shop] on [day] for the invoice [number], noted with its
 /// first item and how many there were.
 Entry _invoice(
-  Ledger ledger,
+  ImportBook book,
   String account,
   DateTime day,
   String shop,
@@ -532,14 +537,19 @@ Entry _invoice(
   final what = bought.isEmpty ? '' : bought.first;
   final more = bought.length > 1 ? ' 等 ${bought.length} 項' : '';
   return Entry(
-    id: ledger.newId(),
+    id: book.newId(),
     date: day,
     type: EntryType.expense,
     amount: value,
     // The account the shop was last paid from, while it is open and in
     // NT$; the one chosen for the import otherwise.
-    account: _usualAccount(ledger, shop) ?? account,
-    category: guessCategory(ledger, shop, bought.join(' ')),
+    account: _usualAccount(book, shop) ?? account,
+    category: guessCategory(
+      book.entryQueryService,
+      book.categories,
+      shop,
+      bought.join(' '),
+    ),
     note: '$what$more 發票 $number'.trim(),
     merchant: shop,
     tags: const ['發票'],
@@ -548,21 +558,21 @@ Entry _invoice(
 
 /// Whether the invoice [number] of [day] is in the book already, as an
 /// import or a scan would find it.
-bool invoiceRecorded(Ledger ledger, DateTime day, String number) =>
-    _hasInvoice(ledger, day, number);
+bool invoiceRecorded(EntryReader entries, DateTime day, String number) =>
+    _hasInvoice(entries, day, number);
 
 /// Whether the invoice [number] of [day] was imported before: its number
 /// is in a note, or an invoice entry of that day, shop and [amount] is
 /// there, as when its note was edited since.
 bool _hasInvoice(
-  Ledger ledger,
+  EntryReader entries,
   DateTime? day,
   String number, {
   String shop = '',
   int? amount,
 }) {
   if (day == null) return false;
-  return ledger.entries
+  return entries
       .inMonth(day.year, day.month)
       .any(
         (e) =>

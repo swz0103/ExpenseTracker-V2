@@ -4,6 +4,8 @@ import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/features/reminders/model/calendar_sync.dart';
 import 'package:expense_tracker/src/features/reminders/model/reminders.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:expense_tracker/src/features/reminders/ui/reminders_section.dart'
+    show reminderBookOf;
 
 /// A calendar app in memory: what each calendar holds from a day on.
 final class _Calendars implements CalendarPort {
@@ -40,24 +42,30 @@ void main() {
     final ledger = demoLedger();
     final port = _Calendars();
     final sync = CalendarSync(port, directory);
-    expect(await sync.sync(ledger), isNull);
+    expect(await sync.sync(reminderBookOf(ledger)), isNull);
 
-    await sync.choose(const CalendarChoice(1, '個人', 'me'), ledger);
+    await sync.choose(
+      const CalendarChoice(1, '個人', 'me'),
+      reminderBookOf(ledger),
+    );
     expect(sync.chosen, (1, '個人'));
-    final written = await sync.sync(ledger);
-    expect(written, ledger.reminders().length);
+    final written = await sync.sync(reminderBookOf(ledger));
+    expect(written, reminderBookOf(ledger).reminders().length);
     expect(written, greaterThan(0));
 
     // Moving to another calendar takes them off the first.
-    await sync.choose(const CalendarChoice(2, '家庭', 'me'), ledger);
+    await sync.choose(
+      const CalendarChoice(2, '家庭', 'me'),
+      reminderBookOf(ledger),
+    );
     expect(port.held[1], isEmpty);
-    await sync.sync(ledger);
+    await sync.sync(reminderBookOf(ledger));
     expect(port.held[2], isNotEmpty);
 
     // Chosen again after a restart of the app.
     expect(CalendarSync(port, directory).chosen, (2, '家庭'));
 
-    await sync.forget(ledger);
+    await sync.forget(reminderBookOf(ledger));
     expect(port.held[2], isEmpty);
     expect(sync.chosen, isNull);
   });
@@ -66,22 +74,28 @@ void main() {
     final ledger = demoLedger();
     final port = _Calendars();
     final sync = CalendarSync(port, directory);
-    await sync.choose(const CalendarChoice(1, '個人', 'me'), ledger);
+    await sync.choose(
+      const CalendarChoice(1, '個人', 'me'),
+      reminderBookOf(ledger),
+    );
     port.reachable = false;
-    expect(await sync.sync(ledger), isNull);
+    expect(await sync.sync(reminderBookOf(ledger)), isNull);
   });
 
   test('events can leave the amounts out, and keep that choice', () async {
     final ledger = demoLedger();
     final port = _Calendars();
     final sync = CalendarSync(port, directory);
-    await sync.choose(const CalendarChoice(1, '個人', 'me'), ledger);
+    await sync.choose(
+      const CalendarChoice(1, '個人', 'me'),
+      reminderBookOf(ledger),
+    );
     expect(sync.amounts, isTrue);
-    await sync.sync(ledger);
+    await sync.sync(reminderBookOf(ledger));
     final withAmounts = [for (final r in port.held[1]!) r.title];
     expect(withAmounts.any((t) => RegExp(r'\d').hasMatch(t)), isTrue);
 
-    await sync.setAmounts(false, ledger);
+    await sync.setAmounts(false, reminderBookOf(ledger));
     expect(CalendarSync(port, directory).amounts, isFalse);
     final bare = [for (final r in port.held[1]!) r.title];
     expect(bare, hasLength(withAmounts.length));
@@ -89,7 +103,10 @@ void main() {
       expect(title, isNot(contains(RegExp(r'\d'))));
     }
     // The choice stays when the calendar changes.
-    await sync.choose(const CalendarChoice(2, '家庭', 'me'), ledger);
+    await sync.choose(
+      const CalendarChoice(2, '家庭', 'me'),
+      reminderBookOf(ledger),
+    );
     expect(sync.amounts, isFalse);
   });
 }

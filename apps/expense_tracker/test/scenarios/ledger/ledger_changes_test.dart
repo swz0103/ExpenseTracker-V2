@@ -2,6 +2,8 @@ import 'package:expense_tracker/src/features/import_export/model/import_export.d
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:expense_tracker/src/features/import_export/ui/import_page.dart'
+    show importBookOf;
 
 /// Keeps nothing: only remembers the batches it was handed.
 final class _Batches implements LedgerDataSource {
@@ -397,9 +399,9 @@ void main() {
       tags: const ['家用 午餐', '公司'],
     );
     final from = book(entries: [buy, sell, lunch]);
-    final csv = toCsv(from, from.entries.all);
+    final csv = toCsv(from.accounts, from.entries.all);
     final into = book();
-    final found = importCsv(into, csv, fallback: 'bank');
+    final found = importCsv(importBookOf(into), csv, fallback: 'bank');
     expect(found.problems, isEmpty);
     final back = {for (final e in found.entries) e.type: e};
     expect(back[EntryType.sell]!.average, isTrue);
