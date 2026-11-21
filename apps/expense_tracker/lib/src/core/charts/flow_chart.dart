@@ -168,8 +168,8 @@ class _FlowPainter extends CustomPainter {
         );
       }
 
-      column(m.income, centre - bar - 2, AppColors.positive);
-      column(m.expense, centre + 2, AppColors.negative);
+      column(m.income, centre - bar - 2, markOf(AppColors.positive));
+      column(m.expense, centre + 2, markOf(AppColors.negative));
       paintText(
         canvas,
         m.label,
@@ -200,7 +200,7 @@ class _FlowPainter extends CustomPainter {
     canvas.drawPath(
       line,
       Paint()
-        ..color = AppColors.investment
+        ..color = markOf(AppColors.investment)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.6,
     );
@@ -212,7 +212,7 @@ class _FlowPainter extends CustomPainter {
         point,
         r,
         Paint()
-          ..color = AppColors.investment
+          ..color = markOf(AppColors.investment)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5,
       );

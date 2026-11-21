@@ -54,7 +54,7 @@ class AxisBar extends StatelessWidget {
           share: share,
           rising: value >= 0,
           axis: axis,
-          color: value >= 0 ? positive : negative,
+          color: markOf(value >= 0 ? positive : negative),
           height: height,
         ),
       ),

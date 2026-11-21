@@ -29,8 +29,7 @@ const libraryGuide = 1200;
 /// size then. Each may only shrink, and comes off once it is split or
 /// marked; one that grows fails, and one that shrank a good deal must have
 /// its number lowered here, so the list only gets shorter.
-const longerFunctions = <String, int>{
-};
+const longerFunctions = <String, int>{};
 const largerLibraries = <String, int>{};
 
 /// How far below its number an entry may fall before the number must be

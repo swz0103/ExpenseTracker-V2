@@ -128,8 +128,8 @@ class _WaterfallPainter extends CustomPainter {
         RRect.fromRectAndRadius(rect, const Radius.circular(Radii.extraSmall)),
         Paint()
           ..color = picked || selected < 0
-              ? color
-              : color.withValues(alpha: 0.5),
+              ? markOf(color)
+              : markOf(color).withValues(alpha: 0.5),
       );
       if (i < weeks.length - 1) {
         canvas.drawLine(

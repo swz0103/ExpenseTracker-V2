@@ -124,8 +124,8 @@ class _BarsPainter extends CustomPainter {
       if (!b.ahead) {
         final dim = faded && i != selected;
         for (final (k, (value, color)) in [
-          (b.income, AppColors.positive),
-          (b.expense, AppColors.negative),
+          (b.income, markOf(AppColors.positive)),
+          (b.expense, markOf(AppColors.negative)),
         ].indexed) {
           final h = plot * value / largest * grow;
           final left = k == 0 ? x - bar - 1 : x + 1;
@@ -177,7 +177,7 @@ class _BarsPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeJoin = StrokeJoin.round
-      ..color = AppColors.investment.withValues(alpha: grow);
+      ..color = markOf(AppColors.investment).withValues(alpha: grow);
     canvas.drawPath(Path()..addPolygon(points, false), paint);
     for (final p in points) {
       canvas.drawCircle(p, 3, Paint()..color = AppColors.white);
@@ -187,7 +187,7 @@ class _BarsPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.6
-          ..color = AppColors.investment.withValues(alpha: grow),
+          ..color = markOf(AppColors.investment).withValues(alpha: grow),
       );
     }
   }

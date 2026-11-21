@@ -19,7 +19,7 @@ abstract final class SettingsColors {
   static const importExport = Palette.periwinkle;
   static const csv = Palette.green;
   static const invoice = Palette.gold;
-  static const trash = Shade(0xFFA8503E, 0xFFE0907E);
+  static const trash = Shade(0xFFA8503E, 0xFFC2867A);
   static const about = Palette.slate;
 
   /// 上次備份 and 關於's main card, in the interface colour.
