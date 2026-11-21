@@ -84,8 +84,10 @@ void main() {
     );
     final weeks = book.balances.weeklyChanges('bank');
     expect(weeks, hasLength(4));
-    // Today is a Sunday; this week began on Monday the 28th.
-    expect(weeks.last, (DateTime.utc(2026, 9, 28), -150));
+    // Today is a Sunday, the first day of its week: nothing yet. The week
+    // before began on Sunday the 27th and holds both entries.
+    expect(weeks.last, (DateTime.utc(2026, 10, 4), 0));
+    expect(weeks[2], (DateTime.utc(2026, 9, 27), -150));
     expect(weeks.first.$2, 0);
   });
 }

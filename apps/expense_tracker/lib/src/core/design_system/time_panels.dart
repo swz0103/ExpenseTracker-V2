@@ -88,7 +88,7 @@ class _RangePanelState extends State<_RangePanel> {
   /// The quick choices, each as the days it covers within the limits.
   List<(String, DateTime, DateTime)> get _quick {
     final today = widget.last;
-    final weekStart = today.subtract(Duration(days: today.weekday - 1));
+    final weekStart = startOfWeek(today);
     final lastMonth = _make(today.year, today.month - 1, 1);
     return [
       (Words.today, today, today),
@@ -139,8 +139,8 @@ class _RangePanelState extends State<_RangePanel> {
     final month = _month;
     final atStart = !month.isAfter(_monthOf(widget.first));
     final atEnd = !month.isBefore(_monthOf(widget.last));
-    // The Monday on or before the first of the month.
-    final grid = month.subtract(Duration(days: month.weekday - 1));
+    // The Sunday on or before the first of the month.
+    final grid = startOfWeek(month);
     return CenterPanel(
       glyph: Glyph.calendar,
       color: color,

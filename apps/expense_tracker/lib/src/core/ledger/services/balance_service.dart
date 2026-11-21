@@ -6,6 +6,7 @@ import '../repositories/account_repository.dart';
 import '../repositories/entry_repository.dart';
 import '../repositories/holding_repository.dart';
 import '../repositories/market_data_repository.dart';
+import '../../formatting/dates.dart';
 
 /// Balances and worth: each account's on any day, what is owned and owed
 /// in all, and how an account moved week by week.
@@ -177,7 +178,7 @@ final class BalanceService {
   }
 
   /// The change of [account] in each of the [weeks] calendar weeks
-  /// ending with this one, oldest first, with each week's Monday.
+  /// ending with this one, oldest first, with the Sunday each starts on.
   List<(DateTime, int)> weeklyChanges(String account, {int weeks = 4}) =>
       _cache.remember((
         'weekly',
@@ -187,8 +188,8 @@ final class BalanceService {
       ), () => _weeklyChanges(account, weeks));
 
   List<(DateTime, int)> _weeklyChanges(String account, int weeks) {
-    final monday = _today().subtract(Duration(days: _today().weekday - 1));
-    final first = monday.subtract(Duration(days: 7 * (weeks - 1)));
+    final first = startOfWeek(_today())
+        .subtract(Duration(days: 7 * (weeks - 1)));
     final result = <(DateTime, int)>[];
     for (var w = 0; w < weeks; w++) {
       final start = first.add(Duration(days: 7 * w));

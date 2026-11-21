@@ -69,7 +69,7 @@ void main() {
     test('four weeks of an account end on its balance', () {
       final weeks = ledger.balanceService.weeklyChanges('cash');
       expect(weeks, hasLength(4));
-      expect(weeks.last.$1, DateTime.utc(2026, 9, 28));
+      expect(weeks.last.$1, DateTime.utc(2026, 10, 4));
       expect(weeks.last.$2, -1390);
     });
   });

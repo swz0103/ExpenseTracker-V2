@@ -23,7 +23,7 @@ class Waterfall extends StatelessWidget {
     this.hidden = false,
   });
 
-  /// Each week's Monday and net change, oldest first.
+  /// The Sunday each week starts on and its net change, oldest first.
   final List<(DateTime, int)> weeks;
 
   /// The balance after the last week.
@@ -113,7 +113,7 @@ class _WaterfallPainter extends CustomPainter {
     final connector = Paint()
       ..color = AppColors.faint
       ..strokeWidth = 1;
-    for (final (i, (monday, change)) in weeks.indexed) {
+    for (final (i, (weekStart, change)) in weeks.indexed) {
       final centre = slot * (i + 0.5);
       final from = y(levels[i]);
       final to = from + (y(levels[i + 1]) - from) * grow;
@@ -143,7 +143,7 @@ class _WaterfallPainter extends CustomPainter {
           connector,
         );
       }
-      final label = formatMd(monday);
+      final label = formatMd(weekStart);
       paintText(
         canvas,
         label,

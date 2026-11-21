@@ -48,7 +48,8 @@ void main() {
   });
 
   test('amounts: the month spent, the budget, the pace and the week', () {
-    // 2026-10-20 is a Tuesday: Monday spent nothing, Wednesday on is to come.
+    // 2026-10-20 is a Tuesday: Sunday and Monday spent nothing, Wednesday
+    // on is to come.
     expect(
       widgetSnapshot(
         widgetBookOf(book(budgets: [total])),
@@ -64,9 +65,9 @@ void main() {
         'detail': '剩 7,655',
         'progress': 62,
         'pace': 65,
-        'week': [0, 100, -1, -1, -1, -1, -1],
+        'week': [0, 0, 100, -1, -1, -1, -1],
         'weekTotal': '12,345',
-        'today': 1,
+        'today': 2,
         'shortLabel': '10 月預算剩',
         'shortFigure': '7,655',
       },
@@ -95,7 +96,7 @@ void main() {
     );
     expect(snapshot?['figure'], '已用 62%');
     expect(snapshot?['weekTotal'], '');
-    expect(snapshot?['week'], [0, 100, -1, -1, -1, -1, -1]);
+    expect(snapshot?['week'], [0, 0, 100, -1, -1, -1, -1]);
     expect(jsonEncode(snapshot), isNot(contains('12')));
     expect(
       widgetSnapshot(widgetBookOf(book()), WidgetFigures.percent)?['figure'],

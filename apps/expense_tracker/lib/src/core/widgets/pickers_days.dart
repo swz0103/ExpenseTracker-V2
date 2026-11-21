@@ -6,7 +6,7 @@ class _DayChoicesState extends State<DayChoices> {
   @override
   Widget build(BuildContext context) {
     final first = _month;
-    final start = first.subtract(Duration(days: first.weekday - 1));
+    final start = startOfWeek(first);
     final latest = widget.latest;
     final atEnd =
         first.year * 12 + first.month >= latest.year * 12 + latest.month;

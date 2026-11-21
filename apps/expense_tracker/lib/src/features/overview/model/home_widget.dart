@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart' show Listenable, VoidCallback;
 
 import '../../../core/formatting/amounts.dart';
+import '../../../core/formatting/dates.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
@@ -46,7 +47,7 @@ final class WidgetBook implements Listenable {
 ///
 /// `budget` and `detail` sit under the budget bar, left and right;
 /// `pace` is how far through the month today is, a mark on that bar;
-/// `week` is each day from Monday as a share of the week's largest day,
+/// `week` is each day from Sunday as a share of the week's largest day,
 /// -1 for days still to come; `shortLabel` and `shortFigure` are what the
 /// widget shows when made small; `date` is the day it was written, so the
 /// widget can move the week on by itself when the app is not opened.
@@ -69,14 +70,14 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
   final used = hasBudget ? (spent * 100 / allowance).round() : null;
   final days = DateTime.utc(today.year, m + 1, 0).day;
   final pace = hasBudget ? (today.day * 100 / days).round() : null;
-  // The same days as 總覽's week, from Monday.
-  final monday = today.subtract(Duration(days: today.weekday - 1));
+  // The same days as 總覽's week, from Sunday.
+  final first = startOfWeek(today);
   final daySpent = [
     for (var i = 0; i < 7; i++)
-      book.reportService.spentOn(monday.add(Duration(days: i))),
+      book.reportService.spentOn(first.add(Duration(days: i))),
   ];
   final most = daySpent.fold(0, (a, b) => max(a, b));
-  final weekday = today.weekday - 1;
+  final weekday = weekdayIndex(today);
   final week = [
     for (var i = 0; i < 7; i++)
       i > weekday

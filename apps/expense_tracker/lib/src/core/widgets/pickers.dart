@@ -450,7 +450,7 @@ class _AccountChoice extends StatelessWidget {
   }
 }
 
-/// A month calendar, six rows from Monday; days after [latest] cannot
+/// A month calendar, six rows from Sunday; days after [latest] cannot
 /// be chosen and days in [marked] have a dot.
 Future<DateTime?> pickDate(
   BuildContext context, {
