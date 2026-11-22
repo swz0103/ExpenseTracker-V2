@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../formatting/figures.dart';
+import '../../../design_system/display/amount.dart';
 import '../design_system/glyphs.dart';
 import '../design_system/haptics.dart';
 import 'icons.dart';

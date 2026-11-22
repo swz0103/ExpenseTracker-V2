@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import '../../../core/formatting/amounts.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
 import 'reminders.dart';
 import '../../../core/platform/preferences.dart';

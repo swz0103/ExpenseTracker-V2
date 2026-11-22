@@ -6,7 +6,7 @@ import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/formatting/dates.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/widgets/calculator.dart';
 import '../model/compose_form.dart';
 import 'compose_actions.dart';

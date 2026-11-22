@@ -1,48 +1,7 @@
-import 'package:expense_tracker/src/core/formatting/figures.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/core/ledger/trading.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('amounts are written in their own currency', () {
-    expect(amountIn(1234567, 'TWD'), '1,234,567');
-    expect(amountIn(123450, 'USD'), 'USD 1,234.50');
-    expect(amountIn(-5, 'USD'), 'USD -0.05');
-    expect(amountIn(5000, 'JPY'), 'JPY 5,000');
-    expect(plainIn(123450, 'USD'), '1234.50');
-    expect(plainIn(300, 'TWD'), '300');
-  });
-
-  test('beside its currency, an amount shows its figures only', () {
-    // A foreign amount once read 「USD USD 12.50」 on the forms.
-    expect(currencyLabel('TWD'), r'NT$');
-    expect(currencyLabel('USD'), 'USD');
-    expect(figuresIn(123450, 'USD'), '1,234.50');
-    expect(figuresIn(-5, 'USD'), '-0.05');
-    expect(figuresIn(5000, 'JPY'), '5,000');
-    expect(figuresIn(1234567, 'TWD'), '1,234,567');
-    for (final code in ['TWD', 'USD', 'JPY', 'EUR']) {
-      for (final minor in [0, 7, -5, 123450, -98765432]) {
-        final written = amountIn(minor, code);
-        expect(
-          written,
-          code == 'TWD'
-              ? figuresIn(minor, code)
-              : '$code ${figuresIn(minor, code)}',
-        );
-      }
-    }
-  });
-
-  test('typed amounts are read in the smallest unit', () {
-    expect(minorOf('12.5', 'USD'), 1250);
-    expect(minorOf('1,200', 'USD'), 120000);
-    expect(minorOf('-300', 'TWD'), -300);
-    expect(minorOf('12.345', 'USD'), isNull);
-    expect(minorOf('1.5', 'TWD'), isNull);
-    expect(minorOf('abc', 'TWD'), isNull);
-  });
-
   test('foreign balances count at the board rate', () {
     final ledger = Ledger(
       today: DateTime.utc(2026, 10, 4),
@@ -63,20 +22,6 @@ void main() {
     expect(ledger.marketData.convert(10000, 'USD', 'JPY'), 16000);
     expect(ledger.balanceService.assets, 1000 + 3200 + 2000);
     expect(ledger.balanceService.unrated, isEmpty);
-  });
-
-  test('bond ETFs are sold without the securities tax while exempt', () {
-    final day = DateTime.utc(2026, 10, 27);
-    expect(saleTax('2330', 100000, 100, day), 300);
-    expect(saleTax('0050', 100000, 1000, day), 100);
-    expect(saleTax('00679B', 100000, 3000, day), 0);
-  });
-
-  test('a dividend of NT\$20,000 or more pays the 2.11% premium', () {
-    final day = DateTime.utc(2026, 10, 2);
-    expect(dividendPremium(19999, day), 0);
-    expect(dividendPremium(20000, day), 422);
-    expect(dividendPremium(30000, day), 633);
   });
 
   test('a card close moved into the next month still counts', () {

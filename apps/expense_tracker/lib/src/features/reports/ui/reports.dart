@@ -8,7 +8,7 @@ import '../../../core/charts/treemap.dart';
 import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 
 import '../../../core/charts/period_charts.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';

@@ -39,7 +39,7 @@ extension on _AccountEditorState {
   Widget _loanCard(Account? old, Color color) {
     String money(int? v) => v == null ? '0' : groupDigits(v);
     final principal = _f.typedPrincipal;
-    final owed = minorOf(_f.balance, homeCode);
+    final owed = _f.typedOwed;
     return LoanCard(
       color: color,
       name: _name,
@@ -134,7 +134,7 @@ extension on _AccountEditorState {
     final value = await showCalculator(
       context,
       title: title,
-      initial: int.tryParse(controller.text.replaceAll(',', '')) ?? 0,
+      initial: parseAmount(controller.text, scale: 0).minorOrNull ?? 0,
       color: AppColors.accent,
     );
     if (value != null) controller.text = '$value';

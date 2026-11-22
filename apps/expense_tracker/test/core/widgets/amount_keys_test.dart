@@ -1,3 +1,4 @@
+import 'package:core/money/amount_parser.dart';
 import 'package:expense_tracker/src/core/widgets/amount_keys.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -34,5 +35,43 @@ void main() {
   test('⌫ takes back one key and C all', () {
     expect(typed(['1', '2', '⌫']).expression, '1');
     expect(typed(['1', '2', 'C']).expression, '');
+  });
+
+  group('ENT-04: amount says what is kept, or why nothing is', () {
+    test('an amount in minor units', () {
+      // 120 + 35 = 155.
+      expect(typed(['1', '2', '0', '+', '3', '5']).amount, const AmountOk(155));
+      // 12.5 US$ = 1250 cents.
+      expect(
+        typed(['1', '2', '.', '5'], decimal: true).amount,
+        const AmountOk(1250),
+      );
+    });
+    test('÷0, below zero and past the limit are refused', () {
+      expect(
+        typed(['5', '÷', '0']).amount,
+        const AmountRefused(AmountProblem.divisionByZero),
+      );
+      expect(
+        typed(['1', '2', '−', '2', '0']).amount,
+        AmountRefused(AmountProblem.negative, cameTo: BigInt.from(-8)),
+      );
+      expect(
+        (typed('1234567890'.split('')).amount as AmountRefused).problem,
+        AmountProblem.tooLarge,
+      );
+    });
+    test('the limit is the same with decimals', () {
+      // 999,999,999.99 US$ is taken; 1,000,000,000 is not.
+      expect(
+        typed('999999999.99'.split(''), decimal: true).amount,
+        const AmountOk(99999999999),
+      );
+      expect(
+        (typed('1000000000'.split(''), decimal: true).amount as AmountRefused)
+            .problem,
+        AmountProblem.tooLarge,
+      );
+    });
   });
 }

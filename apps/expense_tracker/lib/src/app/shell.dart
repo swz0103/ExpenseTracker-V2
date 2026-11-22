@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/entries/forms/composer.dart';
-import '../core/formatting/figures.dart';
+import '../../design_system/display/amount.dart';
 import '../core/design_system/glyphs.dart';
 import '../core/design_system/haptics.dart';
 import '../core/design_system/theme.dart';
