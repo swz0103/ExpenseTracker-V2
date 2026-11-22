@@ -26,10 +26,15 @@ final class NewerRecord extends FormatException {
 
 /// The record version [json] was written at: its `_v`, or 1 when it has
 /// none. Throws a [FormatException] when `_v` is not a number.
-int rowVersion(Map<String, Object?> json) => switch (json['_v']) {
+int rowVersion(Map<String, Object?> json) =>
+    versionOf(json) ?? (throw const FormatException('_v: expected a number'));
+
+/// The record version [json] was written at, as [rowVersion], or null
+/// when its `_v` is not a number.
+int? versionOf(Map<String, Object?> json) => switch (json['_v']) {
   null => 1,
   final num v => v.toInt(),
-  _ => throw const FormatException('_v: expected a number'),
+  _ => null,
 };
 
 /// Brings a stored row up to [recordVersion], one version at a time; a

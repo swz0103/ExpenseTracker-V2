@@ -2,12 +2,17 @@ import 'package:core/foundation_values.dart';
 import 'package:flutter/services.dart';
 
 import '../ledger/persistence/ledger_data_source.dart';
+import '../ledger/persistence/quarantine.dart' show RowSetAside;
 import '../ledger/ledger.dart'
     show KeepFailed, NameTaken, ReloadFailed, SharesShort;
 
 /// Why a command was refused or a step failed, in words a person can act
 /// on.
 String describeProblem(Object error) => switch (error) {
+  KeepFailed(cause: DataSourceException(cause: RowSetAside())) ||
+  DataSourceException(
+    cause: RowSetAside(),
+  ) => '這筆變更會覆蓋一筆讀不出來、已隔離的資料，為了保護它沒有存下。',
   DataSourceException() || KeepFailed() => '帳本無法寫入，請重新打開 App 再試。',
   ReloadFailed() => '帳本無法重新讀取，請重新打開 App；畫面上的內容可能與保存的不同。',
   SharesShort() => '這樣之後的賣出或減資會超過持股，請先改那一筆。',

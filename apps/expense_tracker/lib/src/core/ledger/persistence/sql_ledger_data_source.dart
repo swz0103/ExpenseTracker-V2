@@ -15,6 +15,7 @@ import 'ledger_data_source.dart';
 import '../ledger.dart';
 import 'codec/category_refs.dart';
 import 'codec/record_fields.dart';
+import 'codec/row_decoding.dart';
 import 'quarantine.dart';
 import 'record_version.dart';
 import 'codec/record_json.dart';
@@ -61,28 +62,11 @@ const _noted = {
   Collection.recurring,
 };
 
-/// A row whose body is not JSON, as [_decodeAll] gives it.
-final class _NotJson {
-  const _NotJson();
-}
-
-List<Object?> _decodeAll(List<String> bodies) => [
-  for (final body in bodies) _decode(body),
-];
-
-Object? _decode(String body) {
-  try {
-    return jsonDecode(body);
-  } on FormatException {
-    return const _NotJson();
-  }
-}
-
-/// [_decodeAll] on a worker isolate. Kept out of the methods of the data
+/// [decodeBodies] on a worker isolate. Kept out of the methods of the data
 /// source: a closure made beside one that uses `this` carries it along,
 /// and the database cannot be sent to another isolate.
-Future<List<Object?>> _decodeApartFrom(List<String> bodies) =>
-    Isolate.run(() => _decodeAll(bodies));
+Future<DecodedRows> _decodeApartFrom(List<String> bodies) =>
+    Isolate.run(() => decodeBodies(bodies));
 
 /// Above this many rows the JSON is decoded on a worker isolate, so the
 /// screen does not freeze while a large book opens.
@@ -128,8 +112,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// The rows set aside the last time the book was opened, in the order
   /// they are kept.
-  List<QuarantinedRow> get quarantined => List.unmodifiable(_aside.values);
-  final _aside = <String, QuarantinedRow>{};
+  List<QuarantinedRow> get quarantined => _aside.rows;
+  final _aside = Quarantine();
 
   /// The fields a record was read with that this version does not know,
   /// by `collection/key`, to be written back with it. An entry's are kept
@@ -171,23 +155,6 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     return collections;
   }
 
-  /// Sets [row] aside for [reason].
-  void _setAside(
-    StoredRow row,
-    QuarantineReason reason, {
-    String detail = '',
-    int? version,
-  }) {
-    final aside = QuarantinedRow(
-      row.shelf,
-      row.id,
-      reason,
-      detail: detail,
-      version: version,
-    );
-    _aside[aside.key] = aside;
-  }
-
   /// The record of each row of [collections] but the receipts, decoded
   /// and brought up to the current version; a row that is not a JSON
   /// object, or that a later version wrote, is set aside instead.
@@ -201,28 +168,38 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final bodies = [for (final row in records) row.body];
     final decoded = bodies.length > _decodeApart
         ? await _decodeApartFrom(bodies)
-        : _decodeAll(bodies);
+        : decodeBodies(bodies);
     final json = <StoredRow, Map<String, Object?>>{};
     for (final (i, row) in records.indexed) {
-      final record = decoded[i];
+      final record = decoded.values[i];
       if (record is! Map<String, Object?>) {
-        _setAside(
-          row,
+        _aside.record(
+          row.shelf,
+          row.id,
           QuarantineReason.unreadable,
-          detail: record is _NotJson ? 'not JSON' : 'not a JSON object',
+          detail: decoded.failures.containsKey(i)
+              ? 'not JSON'
+              : 'not a JSON object',
         );
         continue;
       }
-      try {
-        json[row] = upgradeRecord(row.shelf, record);
-      } on NewerRecord catch (newer) {
-        _setAside(row, QuarantineReason.newer, version: newer.version);
-      } on FormatException catch (error) {
-        _setAside(
-          row,
-          QuarantineReason.invalid,
-          detail: quarantineDetail(error),
-        );
+      switch (versionOf(record)) {
+        case null:
+          _aside.record(
+            row.shelf,
+            row.id,
+            QuarantineReason.invalid,
+            detail: '_v is not a number',
+          );
+        case final version when version > recordVersion:
+          _aside.record(
+            row.shelf,
+            row.id,
+            QuarantineReason.newer,
+            version: version,
+          );
+        case _:
+          json[row] = upgradeRecord(row.shelf, record);
       }
     }
     return json;
@@ -249,9 +226,11 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         if (t.on.isBefore(from)) t.entry.id,
     ];
     final cutoff = from.millisecondsSinceEpoch;
+    final notes = decodeBodies([for (final row in gone) row.body]).values;
     final forgotten = [
-      for (final row in gone)
-        if (_noteTime(row) case final at? when at < cutoff) row.id,
+      for (final (i, row) in gone.indexed)
+        // A note that cannot be read is left as it is.
+        if (notes[i] case {'at': final num at} when at < cutoff) row.id,
     ];
     if (expired.isEmpty && forgotten.isEmpty) return;
     _store.write((w) {
@@ -265,19 +244,6 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       }
       // Only an entry gone for good is a change of the book.
     }, counts: expired.isNotEmpty);
-  }
-
-  /// When the deletion noted in [row] was made, in milliseconds; null
-  /// when the note cannot be read.
-  static int? _noteTime(StoredRow row) {
-    try {
-      return switch (jsonDecode(row.body)) {
-        {'at': final num at} => at.toInt(),
-        _ => null,
-      };
-    } on FormatException {
-      return null;
-    }
   }
 
   /// Brings the book up to this version before it is read: a new one is
@@ -317,10 +283,11 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         try {
           read.add(from(record));
         } on Object catch (error) {
-          _setAside(
-            row,
+          _aside.record(
+            row.shelf,
+            row.id,
             QuarantineReason.invalid,
-            detail: quarantineDetail(error),
+            error: error,
           );
           continue;
         }
@@ -374,10 +341,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       },
       dataSource: this,
     );
-    if (_aside.isNotEmpty) {
+    if (!_aside.isEmpty) {
       ErrorLog.instance.record(
         '開啟帳本',
-        StateError('${_aside.length} rows set aside'),
+        StateError('${_aside.rows.length} rows set aside'),
       );
     }
     return ledger;
@@ -427,8 +394,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       jsonEncode(name),
       shelves: namingCollections,
     )) {
-      if (_aside.containsKey('${row.shelf}/${row.id}')) continue;
-      final json = readableRecord(row);
+      if (_aside.holds(row.shelf, row.id)) continue;
+      final json = readableRecord(row.body);
       if (json == null) continue;
       final byId = namesToIds(row.shelf, json, (n) => n == name ? id : null);
       if (byId == null) continue;
@@ -472,8 +439,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
 
     void mayChange(String shelf, String id) {
-      if (_aside.containsKey('$shelf/$id')) {
-        throw StateError('A row set aside is not written over ($shelf).');
+      if (_aside.holds(shelf, id)) {
+        throw RowSetAside(shelf);
       }
     }
 

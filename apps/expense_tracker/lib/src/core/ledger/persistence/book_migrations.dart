@@ -5,6 +5,7 @@ import 'package:core/foundation_values.dart' show PublicId;
 import 'package:storage/storage.dart';
 
 import 'codec/category_refs.dart';
+import 'codec/row_decoding.dart';
 import 'ledger_data_source.dart' show Collection;
 import 'record_version.dart';
 
@@ -78,23 +79,6 @@ void bringUpBook(EncryptedDatabase store, {List<BookStep>? steps}) {
 void markCurrent(RowWriter writer) =>
     writer.setMeta(bookVersionKey, bookVersion);
 
-/// The record [row] holds, when this version can bring it up: null for a
-/// row that is not a JSON object, or that a later version wrote.
-Map<String, Object?>? readableRecord(StoredRow row) {
-  final Object? json;
-  try {
-    json = jsonDecode(row.body);
-  } on FormatException {
-    return null;
-  }
-  if (json is! Map<String, Object?>) return null;
-  try {
-    return rowVersion(json) > recordVersion ? null : json;
-  } on FormatException {
-    return null;
-  }
-}
-
 /// Version 0 to 1: each category kept by its name, as books were before
 /// categories had ids, is given an id and kept under it. Two kept under
 /// the same name become one, the later kept.
@@ -103,13 +87,13 @@ void _categoryIds(EncryptedDatabase store, RowWriter w) {
   final shelf = Collection.category.name;
   final rows = store.rows(shelf: shelf);
   for (final row in rows) {
-    final json = readableRecord(row);
+    final json = readableRecord(row.body);
     if (json case {'id': final String id, 'name': final String name}) {
       named[name] = id;
     }
   }
   for (final row in rows) {
-    final json = readableRecord(row);
+    final json = readableRecord(row.body);
     if (json == null || json['id'] != null) continue;
     final name = json['name'];
     if (name is! String) continue;
@@ -128,7 +112,7 @@ void _categoryIds(EncryptedDatabase store, RowWriter w) {
 void _namesToIds(EncryptedDatabase store, RowWriter w) {
   final ids = <String, String>{};
   for (final row in store.rows(shelf: Collection.category.name)) {
-    if (readableRecord(row) case {
+    if (readableRecord(row.body) case {
       'id': final String id,
       'name': final String name,
     }) {
@@ -137,7 +121,7 @@ void _namesToIds(EncryptedDatabase store, RowWriter w) {
   }
   for (final shelf in namingCollections) {
     for (final row in store.rows(shelf: shelf)) {
-      final json = readableRecord(row);
+      final json = readableRecord(row.body);
       if (json == null) continue;
       final version = rowVersion(json);
       final byId = namesToIds(shelf, json, (name) => ids[name]);
