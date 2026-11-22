@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:ledger_trade_costs/rules/instruments.dart' show isEtf;
 
 import '../../../core/formatting/figures.dart';
 import '../../../core/design_system/glyphs.dart';
@@ -102,14 +103,14 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
             '個股',
             [
               for (final h in holdings.all)
-                if (!h.code.startsWith('00')) h,
+                if (!isEtf(h.code)) h,
             ],
           ),
           (
             'ETF',
             [
               for (final h in holdings.all)
-                if (h.code.startsWith('00')) h,
+                if (isEtf(h.code)) h,
             ],
           ),
         ])

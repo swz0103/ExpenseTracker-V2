@@ -84,6 +84,34 @@ final class BalanceService {
     return by;
   });
 
+  /// The entries paid from or into [account], newest first: from the
+  /// index the balances keep, rather than a pass over every entry.
+  List<Entry> entriesOf(String account) =>
+      List.unmodifiable((_touching()[account] ?? const <Entry>[]).reversed);
+
+  /// What came into [account] and what left it in [month] (the month of
+  /// that day), each as a positive amount in its currency, as of today.
+  ({int inflow, int outflow}) flowOf(String account, DateTime month) {
+    final today = _today();
+    return _cache.remember(
+      ('flow', account, month.year, month.month, today),
+      () {
+        var inflow = 0;
+        var outflow = 0;
+        for (final e in _entries.inMonth(month.year, month.month)) {
+          if (e.account != account && e.to != account) continue;
+          final change = _effect(e, account, today);
+          if (change > 0) {
+            inflow += change;
+          } else {
+            outflow -= change;
+          }
+        }
+        return (inflow: inflow, outflow: outflow);
+      },
+    );
+  }
+
   /// Each account's [_Running] as last built, with the account and the
   /// version of its entries it was built from ([EntryReader.versionOf]).
   /// Any change to the entries throws away the cached answers of every

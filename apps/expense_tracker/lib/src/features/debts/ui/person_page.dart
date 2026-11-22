@@ -81,10 +81,7 @@ class PersonPage extends StatelessWidget {
         final person = ledger.account(personId);
         final balance = ledger.balanceService.balance(person.id);
         final owed = ledger.reportService.owedBy(person.id);
-        final entries = [
-          for (final e in ledger.entries.all)
-            if (e.account == person.id || e.to == person.id) e,
-        ]..sort((a, b) => b.date.compareTo(a.date));
+        final entries = ledger.balanceService.entriesOf(person.id);
         final color = nameColor(person.name);
         final oldest = owed.isEmpty ? null : owed.last.$1.date;
         return HeadedList(
@@ -255,10 +252,7 @@ class LoanPage extends StatelessWidget {
         final owed = owedOn(ledger.balanceService, loan);
         final share = paidShare(ledger.balanceService, loan);
         final color = nameColor(loan.name);
-        final entries = [
-          for (final e in ledger.entries.all)
-            if (e.account == loan.id || e.to == loan.id) e,
-        ]..sort((a, b) => b.date.compareTo(a.date));
+        final entries = ledger.balanceService.entriesOf(loan.id);
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(loan.name, onBack: nav.back),
