@@ -101,9 +101,10 @@ Map<String, Object?>? unknownFields(
   final known = recordFields[collection];
   if (known == null) return null;
   Map<String, Object?>? unknown;
-  for (final MapEntry(:key, :value) in json.entries) {
+  // By key, not by entry: every record of a book comes through here.
+  for (final key in json.keys) {
     if (known.contains(key) || _rowFields.contains(key)) continue;
-    (unknown ??= {})[key] = value;
+    (unknown ??= {})[key] = json[key];
   }
   return unknown;
 }

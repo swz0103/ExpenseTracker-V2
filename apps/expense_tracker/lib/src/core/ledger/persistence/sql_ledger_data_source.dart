@@ -120,10 +120,45 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   List<QuarantinedRow> get quarantined => _aside.rows;
   final _aside = Quarantine();
 
-  /// The fields a record was read with that this version does not know,
-  /// by `collection/key`, to be written back with it. An entry's are kept
-  /// under `entry/id` in the trash too, so they go with it there and back.
-  final _unknown = <String, Map<String, Object?>>{};
+  /// The fields this version does not know of the record kept as [id] of
+  /// [collection], to be written back with it; null when none. Read from
+  /// the row about to be written over, at write time rather than as the
+  /// book opens: few records are written, every record is read. An
+  /// entry's go with it to the trash and back, so an entry's are looked
+  /// for in its trash row too, and a trash row's entry in the entry row.
+  Map<String, Object?>? _unknownOf(Collection collection, String id) {
+    Map<String, Object?>? kept(Collection c) =>
+        switch (_store.row(c.name, id)) {
+          final row? => readableRecord(row.body),
+          null => null,
+        };
+    switch (collection) {
+      case Collection.entry:
+        final json =
+            kept(Collection.entry) ??
+            switch (kept(Collection.trash)?['entry']) {
+              final Map<String, Object?> entry => entry,
+              _ => null,
+            };
+        return json == null ? null : unknownFields(collection.name, json);
+      case Collection.trash:
+        final trash = kept(Collection.trash);
+        final entry = switch (trash?['entry']) {
+          final Map<String, Object?> entry => entry,
+          _ => kept(Collection.entry),
+        };
+        final inner = entry == null
+            ? null
+            : unknownFields(Collection.entry.name, entry);
+        return {
+          ...?(trash == null ? null : unknownFields(collection.name, trash)),
+          'entry': ?inner,
+        };
+      case _:
+        final json = kept(collection);
+        return json == null ? null : unknownFields(collection.name, json);
+    }
+  }
 
   /// The exchanges, for a holding's daily closes; none in tests and the
   /// preview.
@@ -210,18 +245,6 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     return json;
   }
 
-  /// Notes the fields of [json], the record of [row], that this version
-  /// does not read, to keep them when it is written again.
-  void _keepUnknown(StoredRow row, Map<String, Object?> json) {
-    final unknown = unknownFields(row.shelf, json);
-    if (unknown != null) _unknown['${row.shelf}/${row.id}'] = unknown;
-    if (row.shelf != Collection.trash.name) return;
-    if (json['entry'] case final Map<String, Object?> entry) {
-      final inner = unknownFields(Collection.entry.name, entry);
-      if (inner != null) _unknown['${Collection.entry.name}/${row.id}'] = inner;
-    }
-  }
-
   /// Drops the entries of [trash] put there before [from], and their
   /// receipts, and the notes in [_gone] of deletions made before [from].
   /// A row set aside is never dropped.
@@ -273,7 +296,6 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   Future<Ledger> _load() async {
     _aside.clear();
-    _unknown.clear();
     _named.clear();
     _namesOf.clear();
     await _bringUp();
@@ -299,7 +321,6 @@ final class SqlLedgerDataSource implements LedgerDataSource {
           );
           continue;
         }
-        _keepUnknown(row, record);
         _indexNames(row.shelf, row.id, record);
       }
       return read;
@@ -401,6 +422,14 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   final _named = <String, Set<String>>{};
   final _namesOf = <String, Set<String>>{};
 
+  /// The names [_indexNames] finds in a record, gathered by [_collectName].
+  final _collected = <String>{};
+  late final _collectName = _collect;
+  String? _collect(String name) {
+    _collected.add(name);
+    return null;
+  }
+
   /// Notes the categories [json], the record kept as [id] of [shelf],
   /// names by name; none when it is dropped (null).
   void _noteNames(String shelf, String id, Map<String, Object?>? json) {
@@ -414,13 +443,11 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// Adds what [json] names by name to [_named], as the book is read.
   void _indexNames(String shelf, String id, Map<String, Object?> json) {
-    Set<String>? names;
-    namesToIds(shelf, json, (name) {
-      (names ??= {}).add(name);
-      return null;
-    });
-    final found = names;
-    if (found == null) return;
+    // One collector for every record, not a closure made for each.
+    namesToIds(shelf, json, _collectName);
+    if (_collected.isEmpty) return;
+    final found = {..._collected};
+    _collected.clear();
     final key = '$shelf/$id';
     _namesOf[key] = found;
     for (final name in found) {
@@ -455,8 +482,6 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       after.add(() {
         _noteNames(shelf, row.id, null);
         _noteNames(shelf, kept, byId);
-        final unknown = _unknown.remove('$shelf/${row.id}');
-        if (unknown != null) _unknown['$shelf/$kept'] = unknown;
       });
     }
   }
@@ -474,15 +499,12 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         if (collection == Collection.budget) key: _refs.idOf(key) ?? key,
     };
     String text(Collection collection, String id, Map<String, Object?> json) {
-      final unknown = _unknown['${collection.name}/$id'];
-      if (collection == Collection.trash) {
-        final inner = _unknown['${Collection.entry.name}/$id'];
-        if (inner != null) {
-          json = {
-            ...json,
-            'entry': {...inner, ...json['entry']! as Map<String, Object?>},
-          };
-        }
+      final unknown = _unknownOf(collection, id);
+      if (unknown?.remove('entry') case final Map<String, Object?> inner) {
+        json = {
+          ...json,
+          'entry': {...inner, ...json['entry']! as Map<String, Object?>},
+        };
       }
       return jsonEncode({...?unknown, ...json, '_v': recordVersion, '_at': at});
     }
@@ -543,14 +565,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
           w.put(_gone, '${collection.name}/$id', jsonEncode({'at': at}));
         }
         if (collection == Collection.category) _refs.remove(id);
-        after.add(() {
-          _noteNames(collection.name, id, null);
-          // An entry's unknown fields go with it to the trash and back.
-          if (collection != Collection.entry &&
-              collection != Collection.trash) {
-            _unknown.remove('${collection.name}/$id');
-          }
-        });
+        after.add(() => _noteNames(collection.name, id, null));
       }
       for (final MapEntry(key: tab, value: json) in batch.drafts.entries) {
         if (json == null) {
