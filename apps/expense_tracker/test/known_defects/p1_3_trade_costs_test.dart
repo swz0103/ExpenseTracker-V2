@@ -134,7 +134,6 @@ void main() {
       expect(texts, contains('+996,145'));
       expect(texts, isNot(contains('+999,145')));
     },
-    skip: knownDefect('INV-01', '1.3') != null,
   );
 
   test('ENT-08: the cost preview of an old sale uses the lots of that day', () {

@@ -43,9 +43,8 @@ final class BalanceService {
     if (e.account == account) {
       change += switch (e.type) {
         EntryType.income => e.amount,
-        EntryType.dividend => e.isReduction ? e.amount : e.dividendNet,
-        EntryType.sell => e.amount - e.fee - e.tax,
-        EntryType.buy || EntryType.transfer => -(e.amount + e.fee),
+        EntryType.buy || EntryType.sell || EntryType.dividend => e.settlement,
+        EntryType.transfer => -(e.amount + e.fee),
         EntryType.expense => -from.billed(e, at),
       };
     }

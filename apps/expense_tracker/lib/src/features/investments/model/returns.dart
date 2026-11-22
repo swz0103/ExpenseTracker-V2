@@ -41,17 +41,6 @@ double? xirr(List<(DateTime, int)> flows) {
   return (low + high) / 2;
 }
 
-/// The money an investment entry moved: a buy paid with its fee, a sale
-/// received after fee and tax, a cash dividend after the premium, the cash
-/// back of a capital reduction. Shares given carry no money.
-int cashOf(Entry e) => switch (e.type) {
-  EntryType.buy => -(e.amount + e.fee),
-  EntryType.sell => e.amount - e.fee - e.tax,
-  EntryType.dividend when e.isReduction => e.amount,
-  EntryType.dividend => e.dividendNet,
-  _ => 0,
-};
-
 /// A dividend expected in `month`, from what `code` paid a year before.
 typedef DividendGuess = ({
   String code,
@@ -93,7 +82,7 @@ final class Returns {
     final flows = <(DateTime, int)>[
       for (final e in entries.all)
         if (e.isInvestment && codes.contains(e.holding))
-          if (cashOf(e) case final cash when cash != 0) (e.date, cash),
+          if (e.settlement case final cash when cash != 0) (e.date, cash),
     ];
     final held = [
       for (final h in holdings.all)

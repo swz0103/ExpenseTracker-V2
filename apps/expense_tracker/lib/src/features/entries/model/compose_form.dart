@@ -1,6 +1,9 @@
 // Exception to models take what they use: the entry form is the page's
 // whole state and reads eleven parts of the ledger (ADR-0013).
 
+import 'package:ledger_trade_costs/calc/settlement.dart';
+import 'package:ledger_trade_costs/model/trade_values.dart' show TradeKind;
+
 import '../../../core/formatting/amounts.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/validation_messages.dart';
@@ -461,11 +464,13 @@ final class ComposeForm {
     return (tradeFee ?? fee, tradeTax ?? tax);
   }
 
-  /// What a trade settles at: paid for a buy with its fee, received for a
-  /// sale less fee and tax.
+  /// What a trade settles at, by the same rule as the saved entry
+  /// (`settlementAmount`): paid for a buy with its fee, received for a
+  /// sale less fee and tax; as a size, without its sign.
   int get settlement {
     final (fee, tax) = charges;
-    return trade == EntryType.sell ? amount - fee - tax : amount + fee;
+    final kind = trade == EntryType.sell ? TradeKind.sell : TradeKind.buy;
+    return settlementAmount(kind, gross: amount, fee: fee, tax: tax).abs();
   }
 
   /// Why the entry cannot be kept yet; null when it can. The ledger's

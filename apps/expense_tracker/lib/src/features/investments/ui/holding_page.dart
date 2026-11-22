@@ -295,11 +295,8 @@ class _TradeBoard extends StatelessWidget {
               : e.shares != 0
               ? '${groupDigits(e.shares.abs())} 股'
               : null,
-          amount: switch (e.type) {
-            EntryType.buy => ledger.orDots(signed(-(e.amount + e.fee))),
-            EntryType.sell => ledger.orDots(signed(e.amount - e.fee)),
-            _ => ledger.orDots(signed(e.dividendNet)),
-          },
+          // What reached or left the account, as the balances count it.
+          amount: ledger.orDots(signed(e.settlement)),
           amountColor: e.type == EntryType.buy
               ? AppColors.ink
               : AppColors.positive,
@@ -435,9 +432,9 @@ class _SoldOut extends StatelessWidget {
     for (final e in trades) {
       switch (e.type) {
         case EntryType.sell:
-          sold += e.amount - e.fee;
+          sold += e.settlement;
         case EntryType.buy:
-          paid += e.amount + e.fee;
+          paid -= e.settlement;
         case EntryType.dividend:
           dividends += e.dividendNet;
         default:
