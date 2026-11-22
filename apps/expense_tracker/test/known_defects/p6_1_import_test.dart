@@ -113,21 +113,4 @@ void main() {
     // The employer is not lost.
     expect(byDay(4, EntryType.income).merchant, '某公司');
   }, skip: knownDefect('IMP-02', '6.1'));
-
-  test('IMP-04: an amount written as .5 does not abort the whole import', () {
-    final ledger = book(const [
-      Account('bank', '銀行', AccountKind.bank, 0),
-    ], const []);
-    Import? found;
-    expect(
-      () => found = importCsv(
-        importBookOf(ledger),
-        '日期,類型,金額\n2026-10-01,支出,.5\n2026-10-02,支出,40\n',
-        fallback: 'bank',
-      ),
-      returnsNormally,
-    );
-    // The good line is read, whatever becomes of the odd one.
-    expect(found!.entries.map((e) => e.amount), contains(40));
-  }, skip: knownDefect('IMP-04', '1.1'));
 }

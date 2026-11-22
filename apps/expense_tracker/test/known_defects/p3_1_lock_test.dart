@@ -1,0 +1,55 @@
+// Work package 3.1: one lock gate above every screen.
+import 'dart:io';
+
+import 'package:expense_tracker/src/app/bootstrap.dart';
+import 'package:expense_tracker/src/app/shell.dart';
+import 'package:expense_tracker/src/core/design_system/feedback.dart';
+import 'package:expense_tracker/src/core/platform/preferences.dart';
+import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:vault/backup_security.dart';
+import 'package:vault/ledger_vault.dart';
+
+import 'known_defect.dart';
+
+void main() {
+  late Directory dir;
+  setUp(() => dir = Directory.systemTemp.createTempSync('p3-1-'));
+  tearDown(() => dir.deleteSync(recursive: true));
+
+  testWidgets(
+    'SEC-05: locking closes a sheet that is open, so no book shows over the '
+    'lock screen',
+    (tester) async {
+      final startup = Startup(
+        LedgerVault(
+          dir,
+          codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
+        ),
+      );
+      await tester.runAsync(() => startup.setUp('correct horse battery'));
+      await tester.pumpWidget(
+        VaultRoot(startup: startup, preferences: Preferences()),
+      );
+      // The ledger opens on the real encrypted store.
+      for (var i = 0; i < 50 && find.byType(AppShell).evaluate().isEmpty; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await tester.pump();
+      }
+      expect(find.byType(AppShell), findsOneWidget);
+      // A sheet is open over the book.
+      final context = tester.element(find.byType(AppShell));
+      showSheet<void>(context, (_) => const Text('帳務內容'));
+      await tester.pumpAndSettle();
+      expect(find.text('帳務內容'), findsOneWidget);
+      // The phone locks.
+      startup.lock();
+      await tester.pumpAndSettle();
+      expect(find.text('帳務內容'), findsNothing);
+    },
+    skip: knownDefect('SEC-05', '3.1') != null,
+  );
+}

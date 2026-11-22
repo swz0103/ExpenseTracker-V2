@@ -1,6 +1,7 @@
 // Work package 2.5: rates and quotes keep what they last knew.
 import 'dart:io';
 
+import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/features/investments/model/dividend_outlook.dart';
@@ -74,6 +75,34 @@ void main() {
       expect(rates['JPY'], 0.2125);
     },
     skip: knownDefect('PKG-02', '2.5'),
+  );
+
+  test(
+    'F22: a rate board that cannot be read is written to the diagnostics log',
+    () async {
+      final dir = Directory.systemTemp.createTempSync('p2-5-');
+      final db = EncryptedDatabase.open(
+        File('${dir.path}/l.db'),
+        StorageKey.random(),
+      );
+      addTearDown(() {
+        db.close();
+        dir.deleteSync(recursive: true);
+      });
+      final gateway = MarketDataGateway(
+        transport: _Transport('<html>maintenance</html>'),
+        clock: () => DateTime.utc(2026, 10, 2, 4),
+      );
+      final before = ErrorLog.instance.count;
+      final changed = await SqlLedgerDataSource(
+        db,
+        market: gateway,
+      ).refreshRates();
+      expect(changed, isFalse);
+      // The failure is on record, not silent.
+      expect(ErrorLog.instance.count, greaterThan(before));
+    },
+    skip: knownDefect('F22', '2.5'),
   );
 
   test(

@@ -53,4 +53,34 @@ void main() {
       expect(ledger.entries.all, isEmpty);
     }, skip: knownDefect('LOG-02', '1.4'));
   }
+
+  test('LOG-12: renaming a merchant renames it on the recurring items too', () {
+    const rent = Recurring(
+      id: 'rent',
+      name: '房租',
+      amount: 10000,
+      day: 1,
+      account: 'bank',
+      category: '居住',
+      merchant: '舊房東',
+    );
+    final ledger = ledgerOf(
+      today: day(2026, 10, 4),
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 1000)],
+      entries: [
+        entryOf(
+          'a',
+          day(2026, 10, 1),
+          EntryType.expense,
+          10000,
+          'bank',
+          merchant: '舊房東',
+        ),
+      ],
+      recurring: [rent],
+    );
+    ledger.entryCommands.renameMerchant('舊房東', '新房東');
+    expect(ledger.entries.byId('a')!.merchant, '新房東');
+    expect(ledger.recurring.byId('rent')!.merchant, '新房東');
+  }, skip: knownDefect('LOG-12', '1.4'));
 }
