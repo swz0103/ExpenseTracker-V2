@@ -1,3 +1,5 @@
+import 'package:core/percent/percent.dart' show percent;
+
 import '../../../core/ledger/ledger.dart';
 
 /// What a card's page shows, worked out from the book: the last statement
@@ -89,7 +91,7 @@ final class CardSummary {
   int? get usedPercent {
     final l = limit;
     if (l == null || l <= 0) return null;
-    return roundedQuotient((debt + pending) * 100, l);
+    return percent(debt + pending, l);
   }
 
   /// Whether 80% or more of the limit is taken.

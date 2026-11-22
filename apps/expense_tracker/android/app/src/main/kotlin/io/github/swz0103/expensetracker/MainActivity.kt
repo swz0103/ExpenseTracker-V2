@@ -32,7 +32,8 @@ class MainActivity : FlutterFragmentActivity() {
         FolderHandler(this),
         BackupsHandler(this),
         WidgetsHandler(this),
-        UpdateHandler(this),
+        // The installer for a downloaded update: the sideload build only.
+        *SelfUpdate.handlers(this).toTypedArray(),
         ScanHandler(this),
         HapticsHandler(this),
         ClipboardHandler(this),
@@ -68,8 +69,9 @@ class MainActivity : FlutterFragmentActivity() {
         // Set before the engine is configured (during super.onCreate).
         restored = savedInstanceState != null
         super.onCreate(savedInstanceState)
-        // Looks for a newer version once a day while 自動檢查新版本 is on.
-        UpdateWorker.schedule(applicationContext)
+        // Sideload build: looks for a newer version once a day while
+        // 自動檢查新版本 is on. Play build: nothing.
+        SelfUpdate.start(applicationContext)
         // Keeps the exchanges' closes on the phone before 投資 is opened.
         MarketWorker.schedule(applicationContext)
         // Android 13 and later show no picture of the app in the recent

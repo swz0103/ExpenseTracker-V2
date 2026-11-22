@@ -17,6 +17,7 @@ import '../core/diagnostics/error_log.dart';
 import '../core/ledger/ledger.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../core/platform/away_clock.dart';
+import '../core/platform/distribution.dart';
 import '../core/platform/preferences.dart';
 import '../core/platform/startup.dart';
 import '../features/backup/model/drive_backup.dart';
@@ -204,7 +205,7 @@ final class LifecycleServices {
     unawaited(market.refresh());
     unawaited(_marketCache?.writeList());
     unawaited(weeklyBackup());
-    if (android) {
+    if (android && canSelfUpdate) {
       try {
         _update = AppUpdate(
           const AndroidUpdatePort(),

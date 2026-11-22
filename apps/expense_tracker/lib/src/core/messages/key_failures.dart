@@ -4,6 +4,7 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
+import '../../../design_system/display/amount.dart';
 import '../formatting/dates.dart';
 
 /// The words of the ledger's keys, in one place: passwords and their rule,
@@ -85,7 +86,7 @@ String? describeUnlockFailure(Object error, {required bool recovery}) =>
 
 /// When a backup was taken and how many records it holds.
 String describeBackup(BackupHeader header) =>
-    '${formatYMdHm(header.createdAt.toLocal())} 的備份 · ${header.rows} 筆資料';
+    '${formatYMdHm(header.createdAt.toLocal())} 的備份 · ${countOf(header.rows, CountUnit.entries)}資料';
 
 /// What opens the backup [header] describes, said on the restore form.
 String restoreNeeds(BackupHeader header) => header.keyring.hasPassword
@@ -100,15 +101,15 @@ String keptLabel(BackupHeader? header, {required bool broughtBack}) {
   if (header == null) return '無法讀取的備份';
   final at = formatYMdHm(header.createdAt.toLocal());
   final from = broughtBack ? '（Google 系統備份帶回）' : '';
-  return '$at 的帳本 · ${header.rows} 筆$from';
+  return '$at 的帳本 · ${countOf(header.rows, CountUnit.entries)}$from';
 }
 
 /// The warning before a backup replaces a ledger with more records, or a
 /// newer state of the same ledger: both dates and counts.
 String olderBackupWarning(BackupHeader backup, BackupHeader current) =>
     '要還原的備份比目前的帳本舊或筆數較少：\n'
-    '目前的帳本：${current.rows} 筆（${formatYMdHm(current.createdAt.toLocal())} 留下一份）\n'
-    '要還原的備份：${backup.rows} 筆（${formatYMdHm(backup.createdAt.toLocal())}）\n'
+    '目前的帳本：${countOf(current.rows, CountUnit.entries)}（${formatYMdHm(current.createdAt.toLocal())} 留下一份）\n'
+    '要還原的備份：${countOf(backup.rows, CountUnit.entries)}（${formatYMdHm(backup.createdAt.toLocal())}）\n'
     '還原後，目前帳本裡較新的資料會被換掉。確定要還原嗎？';
 
 /// Whether [backup] would replace [current] with less: an earlier state of

@@ -19,6 +19,9 @@ abstract final class Keys {
   /// A key of the amount calculator: a digit, an operation or 完成.
   static Key calc(String name) => ValueKey('calc:$name');
 
+  /// Why the calculator's sum cannot be kept, under its figure.
+  static const calcProblem = ValueKey('calc-problem');
+
   /// The composer's main button: 記下支出, 記下代墊 and the like.
   static const save = ValueKey('compose:save');
 

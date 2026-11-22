@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/messages/amount_messages.dart';
+import '../../design_system/display/amount.dart';
 import '../core/diagnostics/error_log.dart';
 import '../core/diagnostics/performance_monitor.dart';
 import '../core/design_system/dialogs.dart';
@@ -9,6 +11,7 @@ import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
 import '../core/messages/problem_messages.dart';
+import '../core/platform/distribution.dart';
 import '../features/settings/model/app_update.dart';
 import '../features/settings/ui/update_panel.dart';
 import '../features/settings/model/platform_services.dart';
@@ -267,10 +270,13 @@ class _VersionCardState extends State<_VersionCard> {
     });
   }
 
-  String _state(AppUpdate? update) {
+  /// What the card says under the version; null when it says nothing: the
+  /// play build has no update to speak of.
+  String? _state(AppUpdate? update) {
+    if (!canSelfUpdate) return null;
     if (update == null || !update.possible) return '自行建置的版本';
     final progress = update.progress;
-    if (progress != null) return '下載中 ${(progress * 100).round()}%';
+    if (progress != null) return '下載中 ${ratioWholePercent(progress)}';
     if (update.checking) return '檢查中…';
     final newer = update.newer;
     if (newer != null) {
@@ -328,14 +334,15 @@ class _VersionCardState extends State<_VersionCard> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                Text(
-                  _state(update),
-                  style: TextStyle(
-                    fontSize: TextSize.body,
-                    fontWeight: FontWeight.w700,
-                    color: deepOf(color),
+                if (_state(update) case final state?)
+                  Text(
+                    state,
+                    style: TextStyle(
+                      fontSize: TextSize.body,
+                      fontWeight: FontWeight.w700,
+                      color: deepOf(color),
+                    ),
                   ),
-                ),
                 if (progress != null)
                   Padding(
                     padding: const EdgeInsets.only(top: Space.s2),
@@ -343,6 +350,8 @@ class _VersionCardState extends State<_VersionCard> {
                       borderRadius: BorderRadius.circular(Radii.extraSmall),
                       child: LinearProgressIndicator(
                         value: progress,
+                        semanticsLabel: ProgressWords.downloading,
+                        semanticsValue: ratioWholePercent(progress),
                         minHeight: 5,
                         color: markOf(SettingsColors.main),
                         backgroundColor: AppColors.white,

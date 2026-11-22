@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../glyphs.dart';
 import '../theme.dart';
 import '../components.dart';
@@ -45,6 +46,8 @@ class QuoteRow extends StatelessWidget {
     required this.title,
     this.lead,
     this.detail,
+    this.detailAmount,
+    this.hidden = false,
     this.trailing,
     this.onTap,
   });
@@ -52,6 +55,11 @@ class QuoteRow extends StatelessWidget {
   final Widget? lead;
   final String title;
   final String? detail;
+
+  /// An amount with a sign written in [detail], read out with its
+  /// direction in words rather than the sign; hidden while [hidden].
+  final int? detailAmount;
+  final bool hidden;
   final Widget? trailing;
   final VoidCallback? onTap;
 
@@ -71,7 +79,14 @@ class QuoteRow extends StatelessWidget {
         if (detail != null)
           Padding(
             padding: const EdgeInsets.only(top: Space.half),
-            child: OneLine(detail!, style: mutedSmall),
+            child: OneLine(
+              detail!,
+              style: mutedSmall,
+              semanticsLabel: switch (detailAmount) {
+                final amount? => readOut(detail!, amount, hidden: hidden),
+                null => null,
+              },
+            ),
           ),
       ],
     );
@@ -102,14 +117,24 @@ class QuoteRow extends StatelessWidget {
 
 /// A big figure on the right of a [QuoteRow].
 class RowFigure extends StatelessWidget {
-  const RowFigure(this.text, {super.key, this.color = AppColors.ink});
+  const RowFigure(
+    this.text, {
+    super.key,
+    this.color = AppColors.ink,
+    this.spoken,
+  });
 
   final String text;
   final Color color;
 
+  /// What a screen reader says for an amount: its direction in words
+  /// (`spokenAmount`), never the sign alone.
+  final String? spoken;
+
   @override
   Widget build(BuildContext context) => Text(
     text,
+    semanticsLabel: spoken,
     style: TextStyle(
       fontSize: TextSize.title,
       fontWeight: FontWeight.w800,

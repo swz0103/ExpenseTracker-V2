@@ -2,7 +2,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/amount_text.dart' show AmountText;
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/paint.dart';
 import '../../../core/design_system/theme.dart';
@@ -157,8 +158,10 @@ class _DividendCard extends StatelessWidget {
         children: [
           _totalAndNext(ink),
           if (realized != 0)
-            Text(
+            AmountText.within(
               '已實現 ${ledger.orDots(signed(realized))}',
+              realized,
+              hidden: ledger.amounts.hidden,
               style: TextStyle(fontSize: TextSize.caption, color: ink),
             ),
           if (months.isNotEmpty) ...[
@@ -295,11 +298,9 @@ class _TradeBoard extends StatelessWidget {
               : e.shares != 0
               ? '${groupDigits(e.shares.abs())} 股'
               : null,
-          amount: switch (e.type) {
-            EntryType.buy => ledger.orDots(signed(-(e.amount + e.fee))),
-            EntryType.sell => ledger.orDots(signed(e.amount - e.fee)),
-            _ => ledger.orDots(signed(e.dividendNet)),
-          },
+          // What reached or left the account, as the balances count it.
+          amount: ledger.orDots(signed(e.settlement)),
+          spoken: ledger.spoken(e.settlement),
           amountColor: e.type == EntryType.buy
               ? AppColors.ink
               : AppColors.positive,
@@ -320,7 +321,13 @@ class _TradeBoard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: Space.s5),
-        TitleRow('交易紀錄', trailing: Text('共 $count 筆', style: mutedSmall)),
+        TitleRow(
+          '交易紀錄',
+          trailing: Text(
+            '共 ${countOf(count, CountUnit.entries)}',
+            style: mutedSmall,
+          ),
+        ),
         QuoteBoard([
           for (final (i, row) in rows.indexed)
             Container(decoration: i == 0 ? null : ruleAbove, child: row),
@@ -329,8 +336,7 @@ class _TradeBoard extends StatelessWidget {
     );
   }
 
-  static String _price(double p) =>
-      p == p.roundToDouble() ? groupDigits(p.round()) : p.toStringAsFixed(2);
+  static String _price(double p) => stockPrice(p);
 }
 
 class _TradeRow extends StatelessWidget {
@@ -341,6 +347,7 @@ class _TradeRow extends StatelessWidget {
     required this.when,
     required this.detail,
     required this.amount,
+    this.spoken,
     required this.amountColor,
     this.onTap,
   });
@@ -351,6 +358,9 @@ class _TradeRow extends StatelessWidget {
   final String when;
   final String? detail;
   final String amount;
+
+  /// What a screen reader says for [amount]: its direction in words.
+  final String? spoken;
   final Color amountColor;
   final VoidCallback? onTap;
 
@@ -406,6 +416,7 @@ class _TradeRow extends StatelessWidget {
             const SizedBox(width: Space.s2),
             Text(
               amount,
+              semanticsLabel: spoken,
               style: TextStyle(
                 fontSize: TextSize.title,
                 fontWeight: FontWeight.w800,
@@ -435,9 +446,9 @@ class _SoldOut extends StatelessWidget {
     for (final e in trades) {
       switch (e.type) {
         case EntryType.sell:
-          sold += e.amount - e.fee;
+          sold += e.settlement;
         case EntryType.buy:
-          paid += e.amount + e.fee;
+          paid -= e.settlement;
         case EntryType.dividend:
           dividends += e.dividendNet;
         default:
@@ -466,6 +477,7 @@ class _SoldOut extends StatelessWidget {
           ),
           Text(
             ledger.orDots(signed(made)),
+            semanticsLabel: ledger.spoken(made),
             style: TextStyle(
               fontSize: TextSize.big,
               fontWeight: FontWeight.w800,
@@ -516,7 +528,7 @@ class _PriceCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  held.price.toStringAsFixed(held.price < 100 ? 2 : 0),
+                  stockPrice(held.price),
                   style: const TextStyle(
                     fontSize: TextSize.big,
                     fontWeight: FontWeight.w800,
@@ -550,7 +562,7 @@ class _PriceCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${up ? '▲' : '▼'} ${perShare.abs().toStringAsFixed(2)}',
+                    '${up ? '▲' : '▼'} ${priceMove(perShare)}',
                     style: TextStyle(
                       fontSize: TextSize.caption,
                       color: chosenInk(tone),

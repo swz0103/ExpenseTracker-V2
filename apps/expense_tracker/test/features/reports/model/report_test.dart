@@ -4,6 +4,8 @@ import 'package:expense_tracker/src/features/reports/model/report.dart';
 import 'package:expense_tracker/src/features/reports/model/report_period.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../../baseline/baseline_ledger.dart';
+
 void main() {
   final ledger = demoLedger();
   final period = ReportPeriod.range(
@@ -56,6 +58,61 @@ void main() {
     for (var i = 1; i < under.length; i++) {
       expect(under[i - 1].date.isBefore(under[i].date), isFalse);
     }
+  });
+
+  group('F34: the average per month', () {
+    final book = ledgerOf(
+      today: DateTime.utc(2026, 10, 9),
+      categories: [Category('飲食', 'food', 0xFF5C9A83)],
+      entries: [
+        entryOf(
+          'a',
+          DateTime.utc(2026, 8, 10),
+          EntryType.expense,
+          1000,
+          'bank',
+        ),
+        entryOf(
+          's',
+          DateTime.utc(2026, 9, 10),
+          EntryType.expense,
+          2001,
+          'bank',
+        ),
+        entryOf('o', DateTime.utc(2026, 10, 5), EntryType.expense, 500, 'bank'),
+      ],
+    );
+    Report of(ReportPeriod p) => Report.of(
+      p,
+      entries: book.entries,
+      reports: book.reportService,
+      balances: book.balanceService,
+      today: book.today,
+    );
+
+    test('counts whole months only, rounded half away from zero', () {
+      // August and September are over: (1,000 + 2,001) / 2 = 1,500.5,
+      // rounded to 1,501. October is under way and left out; counted as
+      // a whole month and truncated it was 3,501 / 3 = 1,167.
+      final r = of(
+        ReportPeriod.range(
+          DateTime.utc(2026, 8, 1),
+          DateTime.utc(2026, 10, 31),
+        ),
+      );
+      expect(r.perStretch, 1501);
+    });
+
+    test('with no whole month, the month so far as it is', () {
+      // Only October, 9 days in: 500 spent so far.
+      final r = of(
+        ReportPeriod.range(
+          DateTime.utc(2026, 10, 1),
+          DateTime.utc(2026, 10, 31),
+        ),
+      );
+      expect(r.perStretch, 500);
+    });
   });
 
   test('a category nothing was spent under has nothing', () {

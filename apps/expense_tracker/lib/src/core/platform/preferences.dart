@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../formatting/json_fields.dart';
+import '../ledger/trading.dart' show defaultBrokerDiscount;
 
 /// Light or dark colours.
 enum Appearance {
@@ -91,6 +92,9 @@ final class Preferences extends ChangeNotifier {
       _widgetFigures = WidgetFigures.values.firstWhere(
         (f) => f.name == json.text('widgetFigures'),
         orElse: () => WidgetFigures.off,
+      );
+      _brokerDiscount = _discountIn(
+        json.whole('brokerDiscount') ?? defaultBrokerDiscount,
       );
     } on Object {
       // An unreadable file leaves the defaults.
@@ -188,6 +192,16 @@ final class Preferences extends ChangeNotifier {
   /// home screen is seen by anyone holding the phone.
   WidgetFigures get widgetFigures => _widgetFigures;
   var _widgetFigures = WidgetFigures.off;
+
+  /// The broker's discount on the fee a trade suggests, in basis points of
+  /// the full fee: 6000 for 6折, 2800 for 2.8折, 10000 for none. The one
+  /// setting of it; 6折 until changed.
+  int get brokerDiscount => _brokerDiscount;
+  var _brokerDiscount = defaultBrokerDiscount;
+
+  /// [basisPoints] held to a discount a fee can have: from 0.01% of the
+  /// fee to all of it.
+  static int _discountIn(int basisPoints) => basisPoints.clamp(1, 10000);
 
   /// A notification when a budget reaches its warning share, and again
   /// when it is used up.
@@ -302,6 +316,7 @@ final class Preferences extends ChangeNotifier {
     WidgetFigures? widgetFigures,
     bool? updateChecks,
     bool? budgetAlerts,
+    int? brokerDiscount,
   }) {
     _appearance = appearance ?? _appearance;
     _vibration = vibration ?? _vibration;
@@ -319,6 +334,7 @@ final class Preferences extends ChangeNotifier {
     _widgetFigures = widgetFigures ?? _widgetFigures;
     _updateChecks = updateChecks ?? _updateChecks;
     _budgetAlerts = budgetAlerts ?? _budgetAlerts;
+    _brokerDiscount = _discountIn(brokerDiscount ?? _brokerDiscount);
     notifyListeners();
     _save();
   }
@@ -361,6 +377,7 @@ final class Preferences extends ChangeNotifier {
           'updateCheckedAt': _updateCheckedAt?.toUtc().toIso8601String(),
           'updateLaterUntil': _updateLaterUntil?.toUtc().toIso8601String(),
           'updateSkipped': _updateSkipped,
+          'brokerDiscount': _brokerDiscount,
         }),
         flush: true,
       );

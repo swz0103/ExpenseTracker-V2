@@ -4,7 +4,7 @@ import '../../../core/charts/waterfall.dart';
 import '../forms/account_editor.dart';
 import '../forms/reconcile_sheet.dart';
 import 'account_action.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
@@ -106,21 +106,10 @@ class _AccountPageState extends State<AccountPage> {
 
 /// What flowed into and out of [account] this month, as its money.
 (String, String) monthFlow(Ledger ledger, Account account) {
-  final today = ledger.today;
-  var inflow = 0;
-  var outflow = 0;
-  for (final e in ledger.entries.inMonth(today.year, today.month)) {
-    if (e.account != account.id && e.to != account.id) continue;
-    final change = ledger.balanceService.effect(e, account.id);
-    if (change > 0) {
-      inflow += change;
-    } else {
-      outflow -= change;
-    }
-  }
+  final flow = ledger.balanceService.flowOf(account.id, ledger.today);
   return (
-    ledger.moneyIn(inflow, account.currency),
-    ledger.moneyIn(outflow, account.currency),
+    ledger.moneyIn(flow.inflow, account.currency),
+    ledger.moneyIn(flow.outflow, account.currency),
   );
 }
 

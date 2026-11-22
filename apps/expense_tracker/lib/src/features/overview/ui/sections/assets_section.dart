@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../../../../design_system/display/amount.dart';
 import '../../../../core/charts/treemap.dart';
 import '../../../../core/widgets/icons.dart';
 import '../../../../core/design_system/theme.dart';
@@ -142,7 +143,7 @@ class _AssetsSectionState extends State<AssetsSection> {
     final shownAmount = tile == null ? total : parts[tile].$3;
     final share = tile == null || total == 0
         ? ''
-        : '　${(shownAmount * 100 / total).round()}%';
+        : '　${wholePercent(shownAmount, total)}';
     return [
       SectionTitle(
         '財務分布',

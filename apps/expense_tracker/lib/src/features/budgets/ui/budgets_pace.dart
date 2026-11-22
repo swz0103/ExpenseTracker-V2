@@ -32,7 +32,7 @@ class _Pace extends StatelessWidget {
           color: AppColors.positive,
           label: '平均每天花',
           value: money(spent ~/ days),
-          sub: '$month 月 $days 天',
+          sub: '$month 月 ${countOf(days, CountUnit.days)}',
         ),
         _Figure(
           glyph: Glyph.calendar,
@@ -40,7 +40,7 @@ class _Pace extends StatelessWidget {
           label: '跟預算比',
           value: '${saved >= 0 ? '省' : '超'} ${money(saved.abs())}',
           valueColor: saved >= 0 ? AppColors.accent : AppColors.negative,
-          sub: '用了 ${spent * 100 ~/ total}%',
+          sub: '用了 ${wholePercent(spent, total)}',
         ),
       ]);
     }
@@ -54,7 +54,7 @@ class _Pace extends StatelessWidget {
         color: AppColors.positive,
         label: '每天可以花',
         value: left > 0 ? money(left ~/ remaining) : '0',
-        sub: '剩 $remaining 天',
+        sub: '剩 ${countOf(remaining, CountUnit.days)}',
       ),
       _Figure(
         glyph: Glyph.calendar,
@@ -254,6 +254,8 @@ class _LimitHead extends StatelessWidget {
             children: [
               CircularProgressIndicator(
                 value: share,
+                semanticsLabel: ProgressWords.used,
+                semanticsValue: ratioWholePercent(share),
                 strokeWidth: 4,
                 strokeCap: StrokeCap.round,
                 color: markOf(tone),

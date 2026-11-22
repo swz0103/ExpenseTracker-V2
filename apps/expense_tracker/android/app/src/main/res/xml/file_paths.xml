@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Where the camera writes a receipt photo before it is made smaller,
-     and where a newer version waits for Android's installer. -->
+<!-- Where the camera writes a receipt photo before it is made smaller.
+     The sideload build replaces this file with one that also has the
+     folder a downloaded update waits in (src/sideload/res/xml). -->
 <paths>
     <cache-path name="camera" path="camera/" />
-    <cache-path name="updates" path="updates/" />
 </paths>

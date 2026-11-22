@@ -117,7 +117,7 @@ class _Calendar extends StatelessWidget {
       selected: isChosen,
       label:
           '$month 月 $d 日'
-          '${items.isEmpty ? '' : '，${items.length} 筆${due ? '，到期' : ''}'}',
+          '${items.isEmpty ? '' : '，${countOf(items.length, CountUnit.entries)}${due ? '，到期' : ''}'}',
       onTap: () => onPick(d),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -301,10 +301,10 @@ class _DayItemsState extends State<_DayItems> {
     final when = away == 0
         ? Words.today
         : away > 0
-        ? '$away 天後'
-        : '過了 ${-away} 天';
+        ? '${countOf(away, CountUnit.days)}後'
+        : '過了 ${countOf(-away, CountUnit.days)}';
     final right = items.isEmpty
-        ? (away > 0 ? '$away 天後' : '')
+        ? (away > 0 ? '${countOf(away, CountUnit.days)}後' : '')
         : allBooked
         ? '已入帳'
         : overdue
@@ -434,10 +434,15 @@ class _DayItemsState extends State<_DayItems> {
         ? '已入帳 · ${formatMd(booked.date)}'
         : due
         ? '$account · 到期'
-        : '$account · ${away == 0 ? Words.today : '$away 天後'}';
+        : '$account · ${away == 0 ? Words.today : '${countOf(away, CountUnit.days)}後'}';
     final amount = Text(
       '${item.income ? '+' : ''}'
       '${ledger.orDots(recurringAmount(ledger, item))}',
+      semanticsLabel: ledger.spoken(
+        item.amount,
+        currency: ledger.account(item.account).currency,
+        sense: item.income ? AmountSense.income : AmountSense.spending,
+      ),
       style: TextStyle(
         fontSize: TextSize.title,
         fontWeight: FontWeight.w800,

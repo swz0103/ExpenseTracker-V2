@@ -6,7 +6,7 @@ import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/formatting/dates.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/widgets/calculator.dart';
 import '../model/compose_form.dart';
 import 'compose_actions.dart';
@@ -73,9 +73,7 @@ final class InvestmentFields {
           TradeFigureCard(
             icon: Glyph.coins,
             label: '成交價',
-            value: _f.price == _f.price.roundToDouble()
-                ? '${_f.price.round()}'
-                : _f.price.toStringAsFixed(2),
+            value: plainPrice(_f.price),
             current: _f.shares > 0 && _f.price == 0,
             onTap: () async {
               final value = await showPriceCalculator(
@@ -144,6 +142,9 @@ final class InvestmentFields {
                   ? formatMd(settled)
                   : '成本 ${groupDigits(cost)} · 交割 ${formatMd(settled)}',
               value: cost == null ? null : signed(settles - cost),
+              spokenValue: cost == null
+                  ? null
+                  : spokenAmount(settles - cost, sense: AmountSense.signed),
               color: cost == null
                   ? AppColors.positive
                   : AppColors.ofMarket(settles - cost),

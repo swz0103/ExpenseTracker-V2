@@ -21,8 +21,9 @@
 | 網頁預覽 | `flutter run -d chrome -t lib/main_preview.dart` |
 | 截圖 | `flutter test tool/screenshots`（`SHOTS_ONLY=頁名,頁名` 只拍幾頁，`SHOTS_TEXT=200` 用 Android 最大字級），存到 `build/screenshots` |
 | 效能基準（需要時才跑） | `BENCH=1 flutter test test/perf/`：10 萬筆的寫入與開帳本、帳本運算、總覽一幀 |
-| Android 單元測試（本機沒有 SDK 時：裝 `cmdline-tools` 與 `platforms;android-36`、`build-tools;36.0.0`，`local.properties` 寫 `sdk.dir`；`gradlew` 由 `flutter build` 產生，或在空資料夾 `gradle wrapper --gradle-version 9.3.1` 後複製過來） | `cd android && ./gradlew :app:testDebugUnitTest` |
-| 本機建置 APK | `flutter build apk --release --target-platform android-arm64 --split-debug-info=build/symbols` |
+| Android 單元測試（本機沒有 SDK 時：裝 `cmdline-tools` 與 `platforms;android-36`、`build-tools;36.0.0`，`local.properties` 寫 `sdk.dir`；`gradlew` 由 `flutter build` 產生，或在空資料夾 `gradle wrapper --gradle-version 9.3.1` 後複製過來） | `cd android && ./gradlew :app:testSideloadDebugUnitTest :app:testPlayDebugUnitTest` |
+| 本機建置 APK（沒有 `android/key.properties` 時 release 會失敗；只想試裝時加 `-PallowDebugSignedRelease=true`，產出以 debug 金鑰簽署，不能覆蓋正式版） | `flutter build apk --release --flavor sideload -PallowDebugSignedRelease=true --target-platform android-arm64 --split-debug-info=build/symbols` |
+| 本機建置 Play 版（App Bundle；還沒上架，只用來檢查它沒有自我更新） | `flutter build appbundle --release --flavor play -PallowDebugSignedRelease=true` |
 
 全部模組一次檢查：在根目錄 `./tooling/run-host-checks.ps1 -Package all`（每個模組依序 pub get、格式、analyze、測試）。
 
@@ -68,9 +69,9 @@
 1. 要發布時才改 `apps/expense_tracker/pubspec.yaml` 的版號（規則見 [ADR-0011](adr/0011-version-numbers.md)）；沒改版號的 PR 合併後不發布，等下一個升版的 PR 一起發。
 2. 改 `apps/expense_tracker/whats_new.txt`：三行以內、給使用者看，會出現在 App 的更新浮窗。
 3. 在 [CHANGELOG.md](CHANGELOG.md) 加一節；手機上值得留意的新行為寫進 [acceptance.md](acceptance.md)。
-4. PR 合併到 main：驗證通過後自動建置、簽章；版號是新的才發布，GitHub 上只留最新一版，手機在 App 內就能更新。
+4. PR 合併到 main：驗證通過後自動建置、簽章（簽章金鑰在 GitHub Environment `release-signing`，需審核）；版號是新的才發布，舊版本與標籤都保留，手機在 App 內就能更新。
 
-手機接上電腦時（USB 偵錯，Claude 桌面版的遠端控制分享專案資料夾），可以在真機上跑模擬器的同一套 Android 測試：`cd apps/expense_tracker/android && ./gradlew :app:connectedDebugAndroidTest`。
+手機接上電腦時（USB 偵錯，Claude 桌面版的遠端控制分享專案資料夾），可以在真機上跑模擬器的同一套 Android 測試：`cd apps/expense_tracker/android && ./gradlew :app:connectedSideloadDebugAndroidTest`。
 
 版本號（versionCode）用工作流程的執行次數，新版一定蓋得過舊版；`APP_VERSION`、`APP_BUILD`、`APP_COMMIT` 會顯示在「設定 › 關於」。
 

@@ -103,6 +103,27 @@ void main() {
     expect(outcomes.single!.$1, ComposeOutcome.saved);
   });
 
+  testWidgets('F03: the untouched 0 waits faint; a typed amount is not, '
+      'and is read out as spending', (tester) async {
+    await open(tester);
+    Color? colour(String figure) =>
+        tester.widget<Text>(find.text(figure)).style?.color;
+    // Nothing typed: the placeholder's faint colour, in light and dark.
+    expect(colour('0'), AppColors.faint);
+    await amount(tester, '120');
+    expect(colour('−120'), isNot(AppColors.faint));
+    // Read as 金額, 支出 120 元: the direction in words, not the sign.
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Semantics &&
+            w.properties.label == '金額' &&
+            w.properties.value == '支出 120 元',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('a spending split over categories keeps each part', (
     tester,
   ) async {

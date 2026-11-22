@@ -36,6 +36,43 @@ void main() {
     expect(result.problems, ['第 3 行的引號看不懂，整個檔案沒有匯入']);
   });
 
+  test('IMP-04: an amount that could be misread is that line\'s error, '
+      'never a guess or an exception', () {
+    final result = importCsv(
+      importBookOf(demoLedger()),
+      '日期,類型,金額\n'
+      '2026-10-01,支出,.5\n'
+      '2026-10-02,支出,99999999999999999999\n'
+      '2026-10-03,支出,"1.234,50"\n'
+      '2026-10-04,支出,12.345\n'
+      '2026-10-05,支出,1 200\n'
+      '2026-10-06,支出,"1,200"\n',
+      fallback: 'cash',
+    );
+    // Only the well-written 1,200 is read; once 1.234,50 read as 1,
+    // 12.345 as 12 and 1 200 as 1200, and .5 threw.
+    expect(result.entries.map((e) => e.amount), [1200]);
+    expect(result.problems, [
+      '第 2 行：金額看不懂：不是有效的金額',
+      '第 3 行：金額看不懂：金額不能超過 999,999,999',
+      '第 4 行：金額看不懂：看不出是哪個數字，請寫成 1,234.50 這樣',
+      '第 5 行：金額看不懂：看不出是哪個數字，請寫成 1,234.50 這樣',
+      '第 6 行：金額看不懂：不是有效的金額',
+    ]);
+  });
+
+  test('IMP-04: an e-invoice line with an odd total is left out, not '
+      'thrown on', () {
+    final result = importInvoices(
+      importBookOf(demoLedger()),
+      'M|手機條碼|/ABC123|20261003|12345678|甲店|AB00000001|.5|開立\n'
+      'M|手機條碼|/ABC123|20261003|12345678|乙店|AB00000002|120|開立\n',
+      account: 'cash',
+    );
+    expect(result.entries.map((e) => e.amount), [120]);
+    expect(result.problems, ['AB00000001：金額看不懂']);
+  });
+
   test('an exported month imports as nothing new', () {
     final ledger = demoLedger();
     final month = ledger.entries.inMonth(2026, 9);

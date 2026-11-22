@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
@@ -230,7 +231,12 @@ class _RemindersSectionState extends State<RemindersSection>
       final written = await calendar.sync(reminderBookOf(_ledger));
       if (!mounted) return;
       setState(() {});
-      showNote(context, written == null ? '日曆沒有同步成功' : '已把 $written 個到期提醒放進日曆');
+      showNote(
+        context,
+        written == null
+            ? '日曆沒有同步成功'
+            : '已把 ${countOf(written, CountUnit.pieces)}到期提醒放進日曆',
+      );
     } on Object catch (error) {
       ErrorLog.instance.record('日曆同步', error);
       if (mounted) showNote(context, '日曆沒有連上：${describeProblem(error)}');

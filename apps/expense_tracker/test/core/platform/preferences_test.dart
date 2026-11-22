@@ -42,6 +42,25 @@ void main() {
     expect(again.nudgeHour, 22);
   });
 
+  test(
+    "the broker's discount is 6折 until set, kept, and held to 0.01%-100%",
+    () {
+      final directory = Directory.systemTemp.createTempSync('preferences-');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final file = File('${directory.path}/preferences.json');
+      expect(Preferences(file: file).brokerDiscount, 6000);
+      Preferences(file: file).update(brokerDiscount: 2800);
+      expect(Preferences(file: file).brokerDiscount, 2800);
+      final preferences = Preferences(file: file)..update(brokerDiscount: 0);
+      expect(preferences.brokerDiscount, 1);
+      preferences.update(brokerDiscount: 12000);
+      expect(preferences.brokerDiscount, 10000);
+      // A file written before the setting existed reads as 6折.
+      file.writeAsStringSync('{"appearance": "dark"}');
+      expect(Preferences(file: file).brokerDiscount, 6000);
+    },
+  );
+
   test('a save leaves one whole file behind', () {
     final directory = Directory.systemTemp.createTempSync('preferences-');
     addTearDown(() => directory.deleteSync(recursive: true));

@@ -43,6 +43,7 @@ void main() {
       'tool',
       'baseline',
       'known_defects',
+      'design_system',
     ];
     final faults = <String>[];
     for (final file in Directory('test').listSync(recursive: true)) {

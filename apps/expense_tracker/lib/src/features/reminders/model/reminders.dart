@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart' show Listenable, VoidCallback;
 
-import '../../../core/formatting/amounts.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/formatting/dates.dart';
 

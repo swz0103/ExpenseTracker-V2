@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../backup/model/backup_manager.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
@@ -167,7 +167,7 @@ class _ExportSheetState extends State<_ExportSheet> {
   Future<void> _export() async {
     final entries = _entries(_span);
     final text = toCsv(_ledger.accounts, entries);
-    final what = ' ${entries.length} 筆紀錄的 CSV';
+    final what = ' ${countOf(entries.length, CountUnit.entries)}紀錄的 CSV';
     final backupManager = widget.backupManager;
     final messenger = ScaffoldMessenger.maybeOf(context);
     Navigator.of(context).pop();

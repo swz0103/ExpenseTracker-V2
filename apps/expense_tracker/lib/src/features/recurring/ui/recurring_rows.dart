@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
@@ -117,6 +118,11 @@ class RecurringRow extends StatelessWidget {
       Text(
         '${item.income ? '+' : ''}'
         '${ledger.orDots(recurringAmount(ledger, item))}',
+        semanticsLabel: ledger.spoken(
+          item.amount,
+          currency: ledger.account(item.account).currency,
+          sense: item.income ? AmountSense.income : AmountSense.spending,
+        ),
         style: TextStyle(
           fontSize: TextSize.title,
           fontWeight: FontWeight.w800,

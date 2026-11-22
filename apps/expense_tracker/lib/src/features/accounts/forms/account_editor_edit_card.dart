@@ -131,11 +131,15 @@ class _Field extends StatelessWidget {
     required this.controller,
     required this.hint,
     this.number = false,
+    this.error,
   });
 
   final TextEditingController controller;
   final String hint;
   final bool number;
+
+  /// What is wrong with what was typed, shown under the field.
+  final String? error;
 
   @override
   Widget build(BuildContext context) {
@@ -146,6 +150,7 @@ class _Field extends StatelessWidget {
           : TextInputType.text,
       decoration: InputDecoration(
         hintText: hint,
+        errorText: error,
         isDense: true,
         filled: true,
         fillColor: AppColors.white,

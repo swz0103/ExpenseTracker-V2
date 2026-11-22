@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../model/drive_backup.dart';
 import '../model/drive_sync.dart';
 import '../model/backup_manager.dart';
@@ -434,7 +435,7 @@ class BackupHero extends StatelessWidget {
         (at == null
             ? '還沒有備份'
             : stale && days != null
-            ? '已經 $days 天沒備份'
+            ? '已經 ${countOf(days, CountUnit.days)}沒備份'
             : _BackupSectionState._when(at));
     return ColorCard(
       color: color,

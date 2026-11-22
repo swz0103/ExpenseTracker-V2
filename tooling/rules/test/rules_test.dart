@@ -95,6 +95,21 @@ void main() {
       });
       expect(v, hasLength(7));
     });
+    test('covers the lib of every ledger subject package', () {
+      final v = run(rule, {
+        'packages/ledger/loans/lib/calc/plan.dart':
+            "import 'dart:io';\nfinal a = DateTime.now();\n",
+        'packages/ledger/trade_costs/lib/model/x.dart':
+            "import 'package:flutter/widgets.dart';\n",
+        'packages/ledger/loans/test/calc/plan_test.dart':
+            'final a = DateTime.now();\n',
+      });
+      expect(v.map((e) => e.file), [
+        'packages/ledger/loans/lib/calc/plan.dart',
+        'packages/ledger/loans/lib/calc/plan.dart',
+        'packages/ledger/trade_costs/lib/model/x.dart',
+      ]);
+    });
     test('passes pure code, the clock file and tests', () {
       expect(
         run(rule, {
@@ -128,10 +143,19 @@ void f(double d, String s) {
       });
       expect(v, hasLength(8));
     });
-    test('passes the owners and other parse calls', () {
+    test('the old formatting folder is no longer an owner', () {
       expect(
         run(rule, {
           '$_app/src/core/formatting/a.dart':
+              'void f(String s) { int.parse(s); }\n',
+        }),
+        hasLength(1),
+      );
+    });
+    test('passes the owners and other parse calls', () {
+      expect(
+        run(rule, {
+          '$_app/design_system/display/a.dart':
               'void f(String s) { int.parse(s); }\n',
           '$_app/src/features/a/x.dart':
               'void f(String s) { DateTime.parse(s); s.trim(); }\n',
@@ -278,6 +302,20 @@ void f() {
       expect(v.map((e) => e.file), [
         'packages/core/lib/src/a/fx.dart',
         '$_feat/accounts',
+      ]);
+    });
+    test('every lib file of a ledger package needs a test', () {
+      final v = run(rule, {
+        'packages/ledger/loans/lib/calc/loan_plan.dart': '',
+        'packages/ledger/loans/lib/model/rate.dart': '',
+        'packages/ledger/loans/test/calc/loan_plan_test.dart': '',
+        'packages/ledger/trade_costs/lib/calc/settlement.dart': '',
+        // A test of the same name in another package does not count.
+        'packages/ledger/loans/test/settlement_test.dart': '',
+      });
+      expect(v.map((e) => e.file), [
+        'packages/ledger/loans/lib/model/rate.dart',
+        'packages/ledger/trade_costs/lib/calc/settlement.dart',
       ]);
     });
     test('passes when every file and feature is covered', () {

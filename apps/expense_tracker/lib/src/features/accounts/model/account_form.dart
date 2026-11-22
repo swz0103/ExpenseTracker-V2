@@ -1,10 +1,15 @@
 // Exception to models take what they use: the account form is the page's
 // state; it reads balances and writes accounts and entries (ADR-0013).
 
-import '../../../core/formatting/amounts.dart';
-import '../../../core/ledger/ledger.dart';
+import 'package:core/foundation_values.dart' show Currency;
+import 'package:core/money/amount_parser.dart';
 
-import 'package:domain/loans.dart';
+import '../../../../design_system/display/amount.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/amount_messages.dart';
+
+import 'package:ledger_loans/calc/loan_plan.dart';
+import 'package:ledger_loans/model/rate.dart';
 
 /// What the account form holds while it is filled in, and what saving
 /// it does to the ledger: a new account, or the changes to [old] with
@@ -108,21 +113,41 @@ final class AccountForm {
   bool get loan => kind == AccountKind.loan;
 
   /// Why the account cannot be saved yet; null when it can.
-  String? get problem => name.trim().isEmpty ? '請輸入帳戶名稱' : null;
+  String? get problem => name.trim().isEmpty ? '請輸入帳戶名稱' : limitProblem;
+
+  /// What is wrong with the card's credit limit as typed: 80,000 and
+  /// 80000.0 are 80,000, but 8萬 or 1.234,5 is not a limit, and is said
+  /// so rather than kept as no limit. Null when it is fine or left empty.
+  String? get limitProblem => card ? typedProblem(_limitTyped) : null;
+
+  /// The card's credit limit as typed; null when left empty or not a
+  /// limit ([limitProblem]).
+  int? get typedLimit => card ? _limitTyped.minorOrNull : null;
+
+  AmountResult get _limitTyped =>
+      parseAmount(limit, scale: Currency.scaleOf(homeCode));
+
+  /// [text] in minor units of [code], exactly as typed; null when it is
+  /// empty or not an amount.
+  static int? _amountOf(String text, String code) =>
+      parseAmount(text, scale: Currency.scaleOf(code)).minorOrNull;
 
   /// The balance typed, in the ledger's sign; null when left empty, which
   /// keeps the balance of an account being changed.
   int? get typedBalance {
     final typed =
-        minorOf(balance, foreignAllowed ? currency : homeCode) ??
+        _amountOf(balance, foreignAllowed ? currency : homeCode) ??
         (loan && old == null ? typedPrincipal : null);
     if (typed == null) return null;
     return kind.isDebt ? -typed : typed;
   }
 
+  /// What is owed on a loan as typed, in NT\$; null when left empty.
+  int? get typedOwed => _amountOf(balance, homeCode);
+
   /// A loan's amount when taken out, from what was typed; null when left
   /// empty or not a loan.
-  int? get typedPrincipal => loan ? minorOf(principal, homeCode) : null;
+  int? get typedPrincipal => loan ? _amountOf(principal, homeCode) : null;
 
   /// The place after every placed account, so a new one comes last on
   /// 我的帳戶; null while none has been placed.
@@ -145,7 +170,7 @@ final class AccountForm {
     final terms = (
       closingDay: card ? closing : null,
       dueDay: card || loan ? due : null,
-      limit: card ? int.tryParse(limit.trim()) : null,
+      limit: typedLimit,
     );
     if (before == null) {
       return Account(
