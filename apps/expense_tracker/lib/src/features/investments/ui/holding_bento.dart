@@ -1,3 +1,6 @@
+// Exception to file length: the bento and its price chart read the same
+// holding and closes. Reading its signed amounts aloud took it past a
+// screenful; splitting it is left to the holding page's own rework.
 part of 'holding_page.dart';
 
 /// A block of the holding's bento: a label, a big figure and a line or
@@ -8,8 +11,7 @@ class _Bento extends StatelessWidget {
     required this.label,
     required this.value,
     required this.lines,
-    this.spokenValue,
-    this.lineAmounts = const [],
+    this.amounts = const [],
     this.hidden = false,
   });
 
@@ -18,14 +20,15 @@ class _Bento extends StatelessWidget {
   final String value;
   final List<String> lines;
 
-  /// What a screen reader says for [value] when it is an amount with a
-  /// sign: its direction in words.
-  final String? spokenValue;
-
-  /// By place, the amount with a sign written in each of [lines], read
-  /// out in words rather than the sign; hidden while [hidden].
-  final List<int?> lineAmounts;
+  /// The amount with a sign in [value], then in each of [lines] (null
+  /// for none), read out in words ([readOut]); hidden while [hidden].
+  final List<int?> amounts;
   final bool hidden;
+
+  String? _said(String text, int i) => switch (amounts.elementAtOrNull(i)) {
+    final a? => readOut(text, a, hidden: hidden),
+    null => null,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +58,7 @@ class _Bento extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               value,
-              semanticsLabel: spokenValue,
+              semanticsLabel: _said(value, 0),
               style: const TextStyle(
                 fontSize: TextSize.large,
                 fontWeight: FontWeight.w800,
@@ -65,10 +68,7 @@ class _Bento extends StatelessWidget {
           for (final (i, line) in lines.indexed)
             Text(
               line,
-              semanticsLabel: switch (lineAmounts.elementAtOrNull(i)) {
-                final amount? => readOut(line, amount, hidden: hidden),
-                null => null,
-              },
+              semanticsLabel: _said(line, i + 1),
               style: TextStyle(fontSize: TextSize.caption, color: ink),
             ),
         ],
@@ -92,7 +92,8 @@ Widget _bento(Ledger ledger, String code, Holding held, bool quoted) {
           color: tone,
           label: held.gain < 0 ? '賠了' : '賺了',
           value: ledger.orDots(signed(held.gain)),
-          spokenValue: ledger.spoken(held.gain),
+          amounts: [held.gain],
+          hidden: ledger.amounts.hidden,
           lines: [
             '${percentOf(held.gain, held.cost)}'
                 '${rate == null ? '' : ' · 年化 ${yearlyRate(rate)}'}',
@@ -107,7 +108,7 @@ Widget _bento(Ledger ledger, String code, Holding held, bool quoted) {
                 '成本 ${ledger.orDots(groupDigits(held.cost))}',
             if (quoted) '今天 ${ledger.orDots(signed(held.change))}',
           ],
-          lineAmounts: [null, if (quoted) held.change],
+          amounts: [null, null, if (quoted) held.change],
           hidden: ledger.amounts.hidden,
         ),
       ]),

@@ -339,6 +339,8 @@ class _CalculatorState extends State<_Calculator> {
           button: true,
           enabled: !held,
           label: _spokenKey(key),
+          // The key itself, as the words inside are left out.
+          onTap: held ? null : () => _press(key),
           excludeSemantics: true,
           child: InkWell(
             borderRadius: BorderRadius.circular(Radii.large),

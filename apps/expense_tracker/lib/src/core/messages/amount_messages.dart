@@ -14,6 +14,13 @@ String amountProblemMessage(AmountProblem problem) => switch (problem) {
   AmountProblem.negative => '金額不能小於 0',
 };
 
+/// Why what was typed into an amount field is not an amount, said under
+/// the field; null when it is one or the field is left empty.
+String? typedProblem(AmountResult typed) => switch (typed) {
+  AmountOk() || AmountRefused(problem: AmountProblem.empty) => null,
+  AmountRefused(:final problem) => amountProblemMessage(problem),
+};
+
 /// Why a [column] of an imported line is left out: 金額看不懂：不是有效的金額.
 String unreadableColumn(String column, AmountProblem problem) =>
     '$column看不懂：${amountProblemMessage(problem)}';

@@ -56,9 +56,8 @@ final class EntryFilter {
   /// A span of days in place of the month; null shows the month.
   final DateTimeRange? range;
 
-  /// The smallest and largest amount shown, in whole NT\$; null for no
-  /// bound. An entry in another currency is compared by its worth in
-  /// NT\$, the figure the reports count ([Entry.worth]).
+  /// The bounds, in NT\$ as reports count an entry ([Entry.worth]); null
+  /// for no bound.
   final int? least;
   final int? most;
 
@@ -196,23 +195,15 @@ class _FilterSheetState extends State<_FilterSheet> {
   late var _range = widget.initial.range;
   late final _least = TextEditingController(
     text: widget.initial.least?.toString() ?? '',
-  )..addListener(_typed);
+  )..addListener(() => setState(() {}));
   late final _most = TextEditingController(
     text: widget.initial.most?.toString() ?? '',
-  )..addListener(_typed);
+  )..addListener(() => setState(() {}));
 
-  void _typed() => setState(() {});
-
-  /// A bound as typed, in whole NT\$.
+  /// A bound as typed, in whole NT\$, and why it is not one ([_problem]).
   static AmountResult _bound(TextEditingController c) =>
       parseAmount(c.text, scale: 0);
-
-  /// Why a bound as typed is not an amount; null when it is one or is
-  /// left empty.
-  static String? _problem(TextEditingController c) => switch (_bound(c)) {
-    AmountOk() || AmountRefused(problem: AmountProblem.empty) => null,
-    AmountRefused(:final problem) => amountProblemMessage(problem),
-  };
+  static String? _problem(TextEditingController c) => typedProblem(_bound(c));
 
   DateTime get _today {
     final t = widget.ledger.today;
@@ -310,8 +301,6 @@ class _FilterSheetState extends State<_FilterSheet> {
   }
 
   void _apply() {
-    // A bound that is not an amount is said so under its field, never
-    // taken as no bound.
     if (_problem(_least) != null || _problem(_most) != null) return;
     Navigator.of(context).pop(
       EntryFilter(
@@ -579,14 +568,12 @@ class _ChoiceRow extends StatelessWidget {
   }
 }
 
-/// A bound for the amount filter, digits only.
+/// A bound for the amount filter, digits only, with what is wrong with it.
 class _AmountField extends StatelessWidget {
   const _AmountField(this.controller, this.hint, {this.error});
 
   final TextEditingController controller;
   final String hint;
-
-  /// What is wrong with what was typed, shown under the field.
   final String? error;
 
   @override
@@ -596,7 +583,6 @@ class _AmountField extends StatelessWidget {
     decoration: InputDecoration(
       hintText: hint,
       errorText: error,
-      errorMaxLines: 2,
       isDense: true,
       filled: true,
       fillColor: AppColors.surface,

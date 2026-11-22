@@ -117,13 +117,7 @@ final class AccountForm {
   /// What is wrong with the card's credit limit as typed: 80,000 and
   /// 80000.0 are 80,000, but 8萬 or 1.234,5 is not a limit, and is said
   /// so rather than kept as no limit. Null when it is fine or left empty.
-  String? get limitProblem {
-    if (!card) return null;
-    return switch (_limitTyped) {
-      AmountRefused(problem: AmountProblem.empty) || AmountOk() => null,
-      AmountRefused(:final problem) => amountProblemMessage(problem),
-    };
-  }
+  String? get limitProblem => card ? typedProblem(_limitTyped) : null;
 
   /// The card's credit limit as typed; null when left empty or not a
   /// limit ([limitProblem]).
