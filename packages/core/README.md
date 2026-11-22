@@ -16,6 +16,7 @@
 | `foundation_values.dart` | `Money`、`Currency`（`Currency.supported` 的常用幣別）、`FxRate`、`PublicId`（UUID v7）、`BusinessDate`、`UtcInstant`、`BankingCalendar` |
 | `money/amount_parser.dart` | `parseAmount`：人輸入或匯入的金額文字的唯一解析；不丟例外，回傳金額或原因（空白、不是數字、小數太多、太大、有歧義）；`maxAmountUnits`（999,999,999）是全 App 唯一的金額上限 |
 | `money/amount_format.dart` | 千分位、依幣別小數位寫出數字、正負號拆分、半數遠離零的取位；不含中文 |
+| `money/price.dart` | 股數乘股價的精確金額（`timesPrice`），股價取到萬分之一再以整數運算 |
 | `money/amount_sum.dart` | 計算機算式的精確運算（分數，不經 `double`）與是否為合法金額 |
 | `percent/percent.dart` | 百分比與比例，唯一的取位規則（半數遠離零）；超過與否用 `isOver` 比金額 |
 | `app_core.dart` | `Clock`：唯一的「現在」，`today()` 是台灣的今天；測試用 `FixedClock` |
