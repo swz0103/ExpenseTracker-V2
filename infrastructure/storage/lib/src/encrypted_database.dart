@@ -223,23 +223,6 @@ final class EncryptedDatabase {
     return found.isEmpty ? null : _stored(found.single);
   }
 
-  /// Every record on [shelves] whose body holds [text] as it is, in the
-  /// order first kept: the few records that could name something, found
-  /// without the app reading every record.
-  List<StoredRow> rowsHolding(String text, {required List<String> shelves}) {
-    _requireOpen();
-    if (shelves.isEmpty) return const [];
-    final marks = List.filled(shelves.length, '?').join(', ');
-    return [
-      for (final row in _db.select(
-        'SELECT * FROM rows WHERE shelf IN ($marks) AND instr(body, ?) > 0 '
-        'ORDER BY seq',
-        [...shelves, text],
-      ))
-        _stored(row),
-    ];
-  }
-
   static StoredRow _stored(Row row) => StoredRow(
     row['seq'] as int,
     row['shelf'] as String,

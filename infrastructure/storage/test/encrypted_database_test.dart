@@ -212,24 +212,15 @@ void main() {
     expect(store.revision, 0);
   });
 
-  test('one record, and the records holding some words, are found', () {
+  test('one record is found by its shelf and id', () {
     final store = open();
     store.write((w) {
       w.put('entry', 'e1', '{"category":"飲食"}');
-      w.put('entry', 'e2', '{"category":"飲食日常"}');
-      w.put('budget', 'b1', '{"category":"飲食"}');
-      w.put('draft', 'd1', '{"category":"飲食"}');
+      w.put('budget', 'e1', '{"limit":1}');
     });
-    expect(store.row('entry', 'e2')!.body, '{"category":"飲食日常"}');
+    expect(store.row('entry', 'e1')!.body, '{"category":"飲食"}');
+    expect(store.row('budget', 'e1')!.body, '{"limit":1}');
     expect(store.row('entry', 'nope'), isNull);
-    // As the text is written, quotes and all: "飲食" is not "飲食日常".
-    expect(
-      store
-          .rowsHolding('"飲食"', shelves: ['entry', 'budget'])
-          .map((r) => '${r.shelf}/${r.id}'),
-      ['entry/e1', 'budget/b1'],
-    );
-    expect(store.rowsHolding('"飲食"', shelves: const []), isEmpty);
   });
 
   test('a ledger of the old event-journal format is told apart', () {

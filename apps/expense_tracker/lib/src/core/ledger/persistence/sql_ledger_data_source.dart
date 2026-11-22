@@ -269,6 +269,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   Future<Ledger> _load() async {
     _aside.clear();
     _unknown.clear();
+    _named.clear();
+    _namesOf.clear();
     await _bringUp();
     final collections = await _shelves();
     final json = await _records(collections);
@@ -292,6 +294,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
           continue;
         }
         _keepUnknown(row, record);
+        _indexNames(row.shelf, row.id, record);
       }
       return read;
     }
@@ -386,29 +389,69 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       if (_refs.idOf(c.name) != c.id) c.name: c.id,
   };
 
+  /// The records kept naming a category by name, by that name; and the
+  /// names each of them names so, by `collection/key`. Few or none: a
+  /// record names a category by name only while no category has it.
+  final _named = <String, Set<String>>{};
+  final _namesOf = <String, Set<String>>{};
+
+  /// Notes the categories [json], the record kept as [id] of [shelf],
+  /// names by name; none when it is dropped (null).
+  void _noteNames(String shelf, String id, Map<String, Object?>? json) {
+    final key = '$shelf/$id';
+    for (final name in _namesOf.remove(key) ?? const <String>{}) {
+      final keys = _named[name]!..remove(key);
+      if (keys.isEmpty) _named.remove(name);
+    }
+    if (json != null) _indexNames(shelf, id, json);
+  }
+
+  /// Adds what [json] names by name to [_named], as the book is read.
+  void _indexNames(String shelf, String id, Map<String, Object?> json) {
+    Set<String>? names;
+    namesToIds(shelf, json, (name) {
+      (names ??= {}).add(name);
+      return null;
+    });
+    final found = names;
+    if (found == null) return;
+    final key = '$shelf/$id';
+    _namesOf[key] = found;
+    for (final name in found) {
+      (_named[name] ??= {}).add(key);
+    }
+  }
+
   /// Each record kept naming [name] by name names it by [id] instead, so
-  /// a later rename reaches it (DAT-05). Found by the name as the JSON
-  /// writes it, without reading the whole book.
-  void _claimName(RowWriter w, String name, String id) {
-    for (final row in _store.rowsHolding(
-      jsonEncode(name),
-      shelves: namingCollections,
-    )) {
-      if (_aside.holds(row.shelf, row.id)) continue;
+  /// a later rename reaches it (DAT-05); what to note once the write is
+  /// kept is added to [after].
+  void _claimName(
+    RowWriter w,
+    String name,
+    String id,
+    List<void Function()> after,
+  ) {
+    for (final key in List.of(_named[name] ?? const <String>{})) {
+      final slash = key.indexOf('/');
+      final shelf = key.substring(0, slash);
+      final row = _store.row(shelf, key.substring(slash + 1));
+      if (row == null || _aside.holds(row.shelf, row.id)) continue;
       final json = readableRecord(row.body);
       if (json == null) continue;
-      final byId = namesToIds(row.shelf, json, (n) => n == name ? id : null);
+      final byId = namesToIds(shelf, json, (n) => n == name ? id : null);
       if (byId == null) continue;
-      var key = row.id;
-      if (row.shelf == Collection.budget.name) {
-        key = budgetKeyAfter(_store, row, byId);
-        if (key != row.id) {
-          w.drop(row.shelf, row.id);
-          final unknown = _unknown.remove('${row.shelf}/${row.id}');
-          if (unknown != null) _unknown['${row.shelf}/$key'] = unknown;
-        }
+      var kept = row.id;
+      if (shelf == Collection.budget.name) {
+        kept = budgetKeyAfter(_store, row, byId);
+        if (kept != row.id) w.drop(shelf, row.id);
       }
-      w.put(row.shelf, key, jsonEncode(byId));
+      w.put(shelf, kept, jsonEncode(byId));
+      after.add(() {
+        _noteNames(shelf, row.id, null);
+        _noteNames(shelf, kept, byId);
+        final unknown = _unknown.remove('$shelf/${row.id}');
+        if (unknown != null) _unknown['$shelf/$kept'] = unknown;
+      });
     }
   }
 
@@ -444,6 +487,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       }
     }
 
+    // What the data source notes of the rows written, once they are kept:
+    // nothing of a write that throws.
+    final after = <void Function()>[];
     _store.write((w) {
       void keep(Collection collection, String id, Map<String, Object?> json) {
         mayChange(collection.name, id);
@@ -451,6 +497,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         if (_noted.contains(collection)) {
           w.drop(_gone, '${collection.name}/$id');
         }
+        after.add(() => _noteNames(collection.name, id, json));
       }
 
       for (final a in batch.accounts) {
@@ -490,10 +537,14 @@ final class SqlLedgerDataSource implements LedgerDataSource {
           w.put(_gone, '${collection.name}/$id', jsonEncode({'at': at}));
         }
         if (collection == Collection.category) _refs.remove(id);
-        // An entry's unknown fields go with it to the trash and back.
-        if (collection != Collection.entry && collection != Collection.trash) {
-          _unknown.remove('${collection.name}/$id');
-        }
+        after.add(() {
+          _noteNames(collection.name, id, null);
+          // An entry's unknown fields go with it to the trash and back.
+          if (collection != Collection.entry &&
+              collection != Collection.trash) {
+            _unknown.remove('${collection.name}/$id');
+          }
+        });
       }
       for (final MapEntry(key: tab, value: json) in batch.drafts.entries) {
         if (json == null) {
@@ -503,10 +554,13 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         }
       }
       for (final MapEntry(key: name, value: id) in claimed.entries) {
-        _claimName(w, name, id);
+        _claimName(w, name, id, after);
       }
       also?.call(w);
     }, counts: !batch.onlyDrafts);
+    for (final note in after) {
+      note();
+    }
   }
 
   /// Throws a [FormatException] for a record this app cannot read, so a

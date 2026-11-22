@@ -254,6 +254,51 @@ void main() {
     );
   });
 
+  test('a category made later takes over what named it by name '
+      '(DAT-05)', () async {
+    var ledger = await load();
+    final cash = ledger.accounts.all.first.id;
+    // Named before any category had the name: kept by the name.
+    ledger.entryCommands.add(
+      Entry(
+        id: 'e1',
+        date: DateTime.utc(2026, 10, 2),
+        type: EntryType.expense,
+        amount: 30,
+        account: cash,
+        category: '飲食日常',
+        parts: const [('寵物', 10), ('飲食日常', 20)],
+      ),
+    );
+    ledger.budgetCommands.setBudget('寵物', 900);
+    await ledger.settled;
+    expect(row('budget', '寵物')['category'], '寵物');
+    expect(row('entry', 'e1')['parts'], [
+      {'name': '寵物', 'amount': 10},
+      {'categoryId': ledger.category('飲食日常').id, 'amount': 20},
+    ]);
+
+    ledger.categoryCommands.addCategory(Category('寵物', 'pet', 0xFF123456));
+    await ledger.settled;
+    final pet = ledger.category('寵物').id;
+    expect(store!.row('budget', '寵物'), isNull);
+    expect(row('budget', pet)['categoryId'], pet);
+    expect((row('entry', 'e1')['parts']! as List).first, {
+      'categoryId': pet,
+      'amount': 10,
+    });
+
+    ledger.categoryCommands.updateCategory(
+      '寵物',
+      ledger.category('寵物').copyWith(name: '毛孩'),
+    );
+    await ledger.settled;
+    expect(ledger.problem.value, isNull);
+    ledger = await load();
+    expect(ledger.budgets.all.map((b) => (b.category, b.limit)), [('毛孩', 900)]);
+    expect(ledger.entries.byId('e1')!.parts.first, ('毛孩', 10));
+  });
+
   group('the starting records', () {
     test('are given to a new book only, not again once removed', () async {
       final ledger = await load();
