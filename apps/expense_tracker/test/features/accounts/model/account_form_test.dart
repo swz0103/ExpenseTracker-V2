@@ -27,6 +27,12 @@ void main() {
     dataSource: _Nowhere(),
   );
 
+  test('a blank name is said, in the words of the rule (F68)', () {
+    final form = AccountForm(book())..name = '   ';
+    expect(form.problem, '請輸入帳戶名稱');
+    expect(form.save(), isFalse);
+  });
+
   test('a new account needs a name and opens at the balance typed', () {
     final ledger = book();
     final form = AccountForm(ledger);

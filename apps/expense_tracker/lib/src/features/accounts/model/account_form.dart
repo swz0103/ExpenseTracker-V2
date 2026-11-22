@@ -3,6 +3,7 @@
 
 import '../../../core/formatting/amounts.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/validation_messages.dart';
 
 import 'package:domain/loans.dart';
 
@@ -107,8 +108,18 @@ final class AccountForm {
 
   bool get loan => kind == AccountKind.loan;
 
-  /// Why the account cannot be saved yet; null when it can.
-  String? get problem => name.trim().isEmpty ? '請輸入帳戶名稱' : null;
+  /// Why the account cannot be saved yet; null when it can: the ledger's
+  /// write rules, which the save asks again.
+  String? get problem {
+    final account = build();
+    final found = accountIssues(
+      name: account.name,
+      closingDay: account.closingDay,
+      dueDay: account.dueDay,
+      limit: account.limit,
+    );
+    return found.isEmpty ? null : validationMessage(found.first);
+  }
 
   /// The balance typed, in the ledger's sign; null when left empty, which
   /// keeps the balance of an account being changed.

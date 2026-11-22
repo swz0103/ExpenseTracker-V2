@@ -6,6 +6,7 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/calculator.dart';
+import '../../../core/widgets/problem_note.dart';
 import '../model/reconcile.dart';
 import '../../../core/formatting/words.dart';
 
@@ -47,6 +48,6 @@ Future<void> reconcileAccount(
     '記下',
   );
   if (!ok || !context.mounted) return;
-  ledger.entryCommands.add(entry);
+  if (!refusalShown(context, () => ledger.entryCommands.add(entry))) return;
   showNote(context, '已記下對帳調整 ${spent ? '−' : '+'}${groupDigits(entry.amount)}');
 }

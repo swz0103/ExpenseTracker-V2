@@ -249,29 +249,20 @@ class _ComposerState extends State<Composer>
       setState(() => _problem = problem);
       return;
     }
-    // Paid partly for others, more than one entry, written as one.
+    // Paid partly for others, more than one entry, written as one, with
+    // the receipt photo, in place of what was opened.
     final made = _f.buildAll();
     final entry = made.first;
     try {
-      if (widget.entry != null) {
-        _ledger.entryCommands.replaceGroup(
-          made,
-          _f.openedIds,
-          receipt: _f.receipt,
-          receiptOn: entry.id,
-        );
-      } else if (made.length == 1) {
-        _ledger.entryCommands.add(entry, receipt: _f.receipt);
-      } else {
-        _ledger.entryCommands.addAll(made);
-        final photo = _f.receipt;
-        if (photo != null) {
-          _ledger.attachmentCommands.setReceipt(entry.id, photo);
-        }
-      }
-    } on StateError catch (error) {
-      // Said to the person below the form.
-      setState(() => _problem = error.message);
+      _ledger.entryCommands.save(
+        made,
+        replacing: _f.openedIds,
+        receipt: _f.receipt,
+        receiptOn: entry.id,
+      );
+    } on LedgerProblem catch (error) {
+      // Said to the person below the form, as anywhere else.
+      setState(() => _problem = describeProblem(error));
       return;
     }
     _drafts.remove(_f.tab);
@@ -363,6 +354,8 @@ class _ComposerState extends State<Composer>
       _ => null,
     };
     final problem = _problem;
+    // Said before saving; the entry may still be kept.
+    final warning = _viewing ? null : _f.warning;
     final below = [
       if (hero?.under case final under?) ...[
         const SizedBox(height: Space.s1),
@@ -373,6 +366,15 @@ class _ComposerState extends State<Composer>
         Padding(
           padding: const EdgeInsets.only(top: Space.s2),
           child: Text(problem, textAlign: TextAlign.center, style: dangerText),
+        )
+      else if (warning != null)
+        Padding(
+          padding: const EdgeInsets.only(top: Space.s2),
+          child: Text(
+            warning,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.goldText),
+          ),
         ),
     ];
     return [

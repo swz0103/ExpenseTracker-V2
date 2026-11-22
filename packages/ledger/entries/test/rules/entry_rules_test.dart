@@ -353,6 +353,12 @@ void main() {
         isEmpty,
       );
     });
+    test('a reduction is not checked against shares not looked up', () {
+      expect(
+        _issues(_entry(type: EntryType.dividend, holding: '2330', shares: -11)),
+        isEmpty,
+      );
+    });
     test('a sale leaving a trade short of shares is refused', () {
       final sale = _entry(type: EntryType.sell, holding: '2330', shares: 1);
       expect(_issues(sale, const EntryFacts(account: _bank, oversells: true)), [

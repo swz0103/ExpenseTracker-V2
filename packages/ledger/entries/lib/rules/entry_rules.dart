@@ -27,7 +27,7 @@ final class EntryFacts {
   const EntryFacts({
     required this.account,
     this.to,
-    this.heldBefore = 0,
+    this.heldBefore,
     this.oversells = false,
     this.refunded,
     this.balanceAfter,
@@ -41,8 +41,9 @@ final class EntryFacts {
   /// book does not have.
   final AccountFacts? to;
 
-  /// For a reduction, the shares of its stock held before it.
-  final int heldBefore;
+  /// For a reduction, the shares of its stock held before it; null when
+  /// the shares are checked otherwise, as by replaying the trades.
+  final int? heldBefore;
 
   /// Whether, with the entry kept, a sale or reduction would take more
   /// shares than are held by then.
@@ -126,8 +127,9 @@ List<RecordIssue> entryIssues(Entry e, EntryFacts facts) {
   if (e.isInvestment && (from?.kind.isDebt ?? false)) {
     found.add(const InvestmentFromDebt());
   }
-  if (e.isReduction && -e.shares > facts.heldBefore) {
-    found.add(ReductionExceedsHolding(facts.heldBefore));
+  final held = facts.heldBefore;
+  if (e.isReduction && held != null && -e.shares > held) {
+    found.add(ReductionExceedsHolding(held));
   }
   if (e.type == EntryType.dividend && !e.isReduction && e.tax > e.amount) {
     found.add(const TaxExceedsDividend());

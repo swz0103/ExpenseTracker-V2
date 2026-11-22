@@ -12,25 +12,24 @@ List<RecordIssue> recurringIssues({
   DateTime? end,
 }) => [
   if (amount <= 0) const MissingAmount(trade: false),
-  ...recurringShapeIssues(every: every, day: day, start: start, end: end),
+  ...recurringShapeIssues(every: every, day: day),
+  if (start != null && end != null && end.isBefore(start))
+    const EndsBeforeStart(),
 ];
 
 /// What a recurring item read back from elsewhere, such as a backup, must
-/// be for its dates to be worked out at all: [recurringIssues] less the
-/// amount of nothing, which only stops it being booked. [amount] below
-/// nothing is refused as well.
+/// be for its dates to be worked out at all: an interval of at least one
+/// and a day of the month, and no amount below nothing. An amount of
+/// nothing, which only stops it being booked, and an end before its
+/// start, which only ends it, still read.
 List<RecordIssue> recurringShapeIssues({
   int amount = 0,
   required int every,
   required int day,
-  DateTime? start,
-  DateTime? end,
 }) => [
   if (amount < 0) const MissingAmount(trade: false),
   if (every < 1) const IntervalTooSmall(),
   if (day < 1 || day > 31) const DayOutOfRange(),
-  if (start != null && end != null && end.isBefore(start))
-    const EndsBeforeStart(),
 ];
 
 /// Why an account of these fields cannot be kept: no name, a card's days

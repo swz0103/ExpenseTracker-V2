@@ -15,8 +15,6 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | ENT-01 | 1.3 | p1_3_trade_costs_test.dart | yes | 2 tests; fee stays 513 after doubling shares (expects 1,026); sale fee stays 855 (expects 427) |
 | ENT-08 | 1.3 | p1_3_trade_costs_test.dart | yes | sale-cost preview of an old sale is 200,000, expected 100,000 |
 | INV-01 | 1.3 | p1_3_trade_costs_test.dart | yes | holding page row shows +999,145, the account got +996,145 |
-| LOG-02 | 1.4 | p1_4_write_invariants_test.dart | yes | 3 tests; add() stores a zero amount, a same-account transfer and foreign spending without NT$ amount |
-| LOG-12 | 1.4 | p1_4_write_invariants_test.dart | yes | renaming a merchant leaves the recurring item on the old name |
 | DAT-01 | 2.1 | p2_1_loading_test.dart | yes | 3 tests (not json / newer _v / wrong JSON type); load() throws, 0 of 100 good rows load |
 | DAT-05 | 2.1 | p2_1_loading_test.dart | yes | category rename is not written to entries on disk; reopened entry keeps the old name |
 | BUD-01 | 2.2 | p2_2_budgets_test.dart | yes | raising the limit on Dec 10 rewrites November allowance to 15,000 (expects 10,000) |
@@ -49,7 +47,14 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | IMP-02 | 6.1 | p6_1_import_test.dart | yes | round trip loses the US$ currency (first of 10 differences) |
 | AND-01 | 6.3 | p6_3_release_test.dart | yes | main AndroidManifest.xml declares REQUEST_INSTALL_PACKAGES |
 
-40 findings covered.
+38 findings covered (2 more fixed, below).
+
+## fixed in 1.4
+
+The tests run unskipped in `p1_4_write_invariants_test.dart`.
+
+- LOG-02: 3 tests; every command that writes an entry checks it against the write rules of `packages/ledger/entries` and refuses a zero amount, a same-account transfer and foreign spending without NT$ amount (`RecordRefused`)
+- LOG-12: renaming a merchant renames it on the recurring items too; a refused write is one typed `LedgerProblem` (`RecordRefused`, `SharesShort`) told by `describeProblem` wherever it is caught
 
 ## not covered
 
@@ -64,7 +69,7 @@ One line per finding that has no test here. Findings with an executed reproducti
 - AND-02 (S1, 3.4): Android alarm receiver behaviour after reboot; needs a device or emulator (Kotlin side), reproduced on an API 34 emulator
 - REM-01 (S1, 3.4): the resume path is inline in a State (didChangeAppLifecycleState) and the inbox source exists only on Android; testable once LedgerSession gets a resume step
 - PKG-01 (S2, 1.3): the fix adds a configurable discount and a day-trade parameter (new API); today's fixed 6折 is what the baseline pins
-- F24 (S2, 1.4): the intended behaviour (warn or refuse a buy that overdraws) is not decided
+- F24 (S2, 1.4): the intended behaviour (warn or refuse a buy that overdraws) is not decided; 1.4 shows a non-blocking warning (`NegativeBalanceAfter`) for the owner to confirm
 - F19 (S2, 1.5): wording and one shared overdue judgement across three screens; no single value to assert
 - F77 (S2, 2.2): does not reproduce at ledger level: budgetCrossings already reports 本月總預算已超支 for the same data; the device case came from other state
 - F80 (S2, 2.2): the fix is a design choice (start month of carry-over or retroactive leftover); no single correct value

@@ -1,11 +1,16 @@
 import '../ledger/ledger.dart';
 import '../formatting/amounts.dart';
 
-/// What the person is told when the ledger will not keep an entry: every
-/// reason's words, in one place.
-String validationMessage(EntryValidationFailure failure) => switch (failure) {
+/// What the person is told when the ledger will not keep a record, or
+/// warns before keeping it: every reason's words, in one place.
+String validationMessage(RecordIssue issue) => switch (issue) {
   MissingAmount(trade: true) => '請輸入股數和成交價',
   MissingAmount() => '請輸入金額',
+  AmountTooLarge() => '金額超過可記錄的上限',
+  NegativeCharge() => '手續費和稅不能是負數',
+  DateNotMidnight() => '日期無效，請重新選擇',
+  UnknownAccount() => '找不到這個帳戶，請重新選擇',
+  MissingDestination() => '請選擇轉入帳戶',
   SameAccountTransfer() => '轉出與轉入不能是同一個帳戶',
   MissingHomeAmount() => '還沒有匯率，請輸入折合台幣的金額',
   CardTransferOut() => '信用卡不能轉出，請記成支出',
@@ -22,4 +27,20 @@ String validationMessage(EntryValidationFailure failure) => switch (failure) {
   SaleExceedsHolding() => '賣出股數超過持股',
   RefundToOtherAccount() => '信用卡消費的退款要退回同一張卡',
   RefundExceedsRemaining(:final left) => '超過可退金額 ${groupDigits(left)}',
+  SplitPartNotPositive() => '拆分的每一項金額都要大於 0',
+  SplitTotalMismatch(:final difference) =>
+    '拆分的金額要等於總額（差 ${groupDigits(difference)}）',
+  InstallmentsOffCard() => '只有信用卡消費可以分期',
+  InstallmentsOutOfRange(:final max) => '分期最多 $max 期',
+  NegativeBalanceAfter(:final after) => '扣款後餘額為負（${groupDigits(after)}）',
+  IntervalTooSmall() => '重複的間隔至少要 1',
+  DayOutOfRange() => '日期要在 1 到 31 日之間',
+  EndsBeforeStart() => '結束日不能早於開始日',
+  BlankName() => '請輸入帳戶名稱',
+  ClosingDayOutOfRange() => '結帳日要在 1 到 31 日之間',
+  DueDayOutOfRange() => '繳款日要在 1 到 31 日之間',
+  NegativeCreditLimit() => '信用額度不能是負數',
+  CloseMoveRefused() => '結帳日只能前後調整 7 天內，而且要在繳款日之前',
+  NegativeBudgetLimit() => '預算額度不能是負數',
+  WarningOutOfRange() => '提醒比例要在 1% 到 100% 之間',
 };

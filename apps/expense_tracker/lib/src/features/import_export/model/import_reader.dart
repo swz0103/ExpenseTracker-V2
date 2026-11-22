@@ -124,10 +124,14 @@ final class _Reader {
     };
     if (entry is! Entry) return entry as String;
     final made = entry;
-    if (!made.isReduction) {
-      final failure = book.entryValidator.validate(made, holdings: false);
-      if (failure != null) return validationMessage(failure);
-    }
+    // Checked as one typed in would be, with the accounts this file adds;
+    // the shares its trades take are checked together when it is added.
+    final failure = book.entryValidator.validate(
+      made,
+      holdings: false,
+      opening: _accounts,
+    );
+    if (failure != null) return validationMessage(failure);
     if (_already(book, made)) return '帳本裡已經有這一筆';
     if (made.isRefund) {
       _refunded[made.refundOf!] = (_refunded[made.refundOf!] ?? 0) + amount;
@@ -156,8 +160,8 @@ final class _Reader {
         final name = piece.substring(0, at).trim();
         parts.add((_categoryNamed(name, income: false), part));
       }
-      final total = parts.fold(0, (sum, p) => sum + p.$2);
-      if (total != amount) return '拆分的金額加起來不等於總額';
+      // One part is none; parts that do not add up to the amount are the
+      // ledger's to refuse, as a split typed in.
       if (parts.length == 1) parts = [];
     }
     final home = int.tryParse(cell('台幣金額').replaceAll(',', ''));

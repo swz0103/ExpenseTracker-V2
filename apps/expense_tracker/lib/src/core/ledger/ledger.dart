@@ -40,7 +40,9 @@ import 'services/statement_service.dart';
 export 'card_cycle.dart';
 export 'cache/topic.dart';
 export 'commands/command_exceptions.dart';
-export 'services/entry_validation_failure.dart';
+
+export 'package:ledger_entries/rules.dart';
+
 export 'services/integrity_service.dart'
     show IntegrityProblem, MissingAccount, MissingRefundOriginal, RecordKind;
 export 'models/models.dart';
@@ -300,6 +302,7 @@ final class Ledger extends ChangeNotifier {
     accounts: _accounts,
     holdings: _holdings,
     entryQueryService: entryQueryService,
+    balanceService: balanceService,
   );
 
   late final CommandContext _context = _LedgerContext(this);
@@ -345,6 +348,7 @@ final class Ledger extends ChangeNotifier {
     accounts: _accounts,
     recurringService: recurringService,
     entryCommands: entryCommands,
+    entryValidator: entryValidator,
   );
   late final holdingCommands = HoldingCommands(
     context: _context,
@@ -396,6 +400,9 @@ final class _LedgerContext implements CommandContext {
 
   @override
   ValueNotifier<LedgerProblem?> get problem => _ledger.problem;
+
+  @override
+  void report(LedgerProblem refused) => _ledger.problem.value = refused;
 
   @override
   String newId() => _ledger.newId();

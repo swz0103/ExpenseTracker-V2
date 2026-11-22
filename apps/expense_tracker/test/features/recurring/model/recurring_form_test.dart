@@ -63,6 +63,13 @@ void main() {
     },
   );
 
+  test('an end before the start is refused, in the rule\'s words', () {
+    final form = RecurringForm(book())..amount = 500;
+    form.end = form.start.subtract(const Duration(days: 1));
+    expect(form.problem, '結束日不能早於開始日');
+    expect(form.save(), isFalse);
+  });
+
   test('payments are at least one step apart', () {
     final form = RecurringForm(book())..step(-1);
     expect(form.every, 1);

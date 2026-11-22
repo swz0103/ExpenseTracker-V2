@@ -15,7 +15,15 @@ class _AccountEditorState extends State<_AccountEditor> {
   bool get _loanForm => _f.kind == AccountKind.loan;
   // The card on top shows what is typed as it is typed.
   late final TextEditingController _name = TextEditingController(text: _f.name)
-    ..addListener(() => setState(() => _f.name = _name.text));
+    ..addListener(
+      () => setState(() {
+        _f.name = _name.text;
+        _problem = null;
+      }),
+    );
+
+  /// Why 儲存 did nothing, said above it.
+  String? _problem;
   late final TextEditingController _balance = TextEditingController(
     text: _f.balance,
   )..addListener(() => setState(() => _f.balance = _balance.text));
@@ -47,6 +55,11 @@ class _AccountEditorState extends State<_AccountEditor> {
   }
 
   void _save() {
+    final problem = _f.problem;
+    if (problem != null) {
+      setState(() => _problem = problem);
+      return;
+    }
     if (_f.save()) Navigator.of(context).pop();
   }
 
@@ -69,8 +82,13 @@ class _AccountEditorState extends State<_AccountEditor> {
           where: (a) => a.id != old.id && !a.kind.isDebt,
         ),
       );
-      if (into == null) return;
-      ledger.entryCommands.add(AccountForm.settlement(ledger, old, into));
+      if (into == null || !mounted) return;
+      final settled = refusalShown(
+        context,
+        () =>
+            ledger.entryCommands.add(AccountForm.settlement(ledger, old, into)),
+      );
+      if (!settled) return;
     }
     ledger.accountCommands.updateAccount(old.copyWith(archived: !old.archived));
     if (mounted) Navigator.of(context).pop(!old.archived);
@@ -301,9 +319,19 @@ class _AccountEditorState extends State<_AccountEditor> {
   Widget _buttons(Account? old) {
     final removable =
         old != null && !widget.ledger.accountCommands.isUsed(old.id);
+    final problem = _problem;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (problem != null)
+          Padding(
+            padding: const EdgeInsets.only(top: Space.s3),
+            child: Text(
+              problem,
+              textAlign: TextAlign.center,
+              style: dangerText,
+            ),
+          ),
         const SizedBox(height: Space.s4),
         Row(
           children: [
