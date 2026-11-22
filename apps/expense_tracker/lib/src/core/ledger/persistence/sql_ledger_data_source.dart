@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:isolate';
 
 import 'package:core/app_core.dart';
+import 'package:core/constants/retention.dart';
 import 'package:core/foundation_values.dart';
 import 'package:core/money/amount_parser.dart' show parseDecimal;
 import 'package:flutter/foundation.dart' show mapEquals;
@@ -19,6 +20,7 @@ import 'record_version.dart';
 import 'codec/record_json.dart';
 import '../../diagnostics/performance_monitor.dart';
 import '../../diagnostics/error_log.dart';
+import '../../time/app_clock.dart';
 
 /// The categories a new ledger starts with, with their marks and colours.
 const _starters = [
@@ -32,9 +34,6 @@ const _starters = [
   (dividendCategory, 'dividend', 0xFF5A6FA8, true),
   ('其他收入', 'income', 0xFF4E8A9A, true),
 ];
-
-/// How long a deleted entry is kept to be restored.
-const _keptInTrash = Duration(days: 30);
 
 /// The collection of the last closing prices and rate board, kept so holdings
 /// and foreign accounts are valued offline.
@@ -79,13 +78,17 @@ const readPage = 5000;
 final class SqlLedgerDataSource implements LedgerDataSource {
   SqlLedgerDataSource(
     this._store, {
-    this._clock = const SystemClock(),
+    Clock? clock,
     MarketDataGateway? market,
     this._readPage = readPage,
-  }) : _gateway = market;
+  }) : _gateway = market,
+       _fixedClock = clock;
 
   final EncryptedDatabase _store;
-  final Clock _clock;
+
+  /// A clock a test sets; otherwise the app's one clock.
+  final Clock? _fixedClock;
+  Clock get _clock => _fixedClock ?? AppClock.clock;
 
   /// How many rows are read at a time when the book opens.
   final int _readPage;
@@ -100,10 +103,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   /// preview.
   MarketDataGateway? get gateway => _gateway;
 
-  DateTime _today() {
-    final day = _clock.today();
-    return DateTime.utc(day.year, day.month, day.day);
-  }
+  DateTime _today() => _clock.today().asUtcMidnight;
 
   @override
   Future<Ledger> load() => PerformanceMonitor.instance.timeLoad(() async {
@@ -194,7 +194,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final market = _marketFrom(collections[_market] ?? const []);
     final today = _today();
     final trash = read(Collection.trash, (j) => trashedFromJson(j, _refs));
-    final from = today.subtract(_keptInTrash);
+    final from = today.subtract(trashRetention);
     _dropExpired(trash, from);
     return Ledger(
       today: today,

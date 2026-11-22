@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:core/app_core.dart' show untilNextMidnight;
 import 'package:flutter/material.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
@@ -24,6 +25,7 @@ import '../core/platform/screen_privacy.dart';
 import '../features/settings/ui/update_panel.dart';
 import '../features/settings/model/platform_services.dart';
 import '../core/platform/startup.dart';
+import '../core/time/app_clock.dart';
 
 /// The only production composition (code audit C-01): the encrypted ledger
 /// in [directory], opened through [Startup]. The memory preview is not
@@ -161,6 +163,18 @@ class _OpenedLedgerState extends State<OpenedLedger>
     return start.ledger;
   }
 
+  /// Fires at the next local midnight, so a screen left open moves on to
+  /// the new day; set again each time it fires and when the app returns.
+  Timer? _midnight;
+
+  void _watchMidnight(Ledger ledger) {
+    _midnight?.cancel();
+    _midnight = Timer(untilNextMidnight(AppClock.now()), () {
+      ledger.checkDay();
+      if (mounted) _watchMidnight(ledger);
+    });
+  }
+
   void _afterFrame(VoidCallback then) =>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) then();
@@ -202,6 +216,9 @@ class _OpenedLedgerState extends State<OpenedLedger>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _ledger.then((ledger) {
+      if (mounted) _watchMidnight(ledger);
+    }).ignore();
     final code = widget.startup.takeRecoveryCode();
     final recovered = widget.startup.takeRecoveryNotice();
     _afterFrame(() {
@@ -224,6 +241,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
 
   @override
   void dispose() {
+    _midnight?.cancel();
     _services.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -239,6 +257,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       case AppLifecycleState.resumed:
         _ledger.then((ledger) {
           ledger.checkDay();
+          if (mounted) _watchMidnight(ledger);
           if (mounted) _tellBooked(_session.bookDue(ledger));
         }).ignore();
         unawaited(_services.resumed());

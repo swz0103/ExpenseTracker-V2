@@ -47,14 +47,16 @@ items:
       - apps/expense_tracker/lib/src/features/budgets/model/budget_month.dart
     target: packages/core/lib/time/
     status: scattered
+  # The app holds the one clock at its composition level
+  # (core/time/app_clock.dart) and asks core's Clock for "today".
   - id: clock-now
     what: 「今天」與現在時間
     layer: core
     owner:
-      - packages/core/lib/src/app_core/clock.dart
+      - packages/core/lib/time/clock.dart
       - apps/expense_tracker/lib/src/core/time/app_clock.dart
     target: packages/core/lib/time/
-    status: scattered
+    status: owned
   - id: holidays-business-days
     what: 假日與營業日順延
     layer: core
@@ -73,9 +75,10 @@ items:
   - id: shared-constants
     what: 共用常數（保留天數、上限）
     layer: core
-    owner: []
+    owner:
+      - packages/core/lib/constants/
     target: packages/core/lib/constants/
-    status: planned
+    status: owned
 
   # ---- ledger ----
   - id: data-validity

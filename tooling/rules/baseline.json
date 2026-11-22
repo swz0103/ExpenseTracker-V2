@@ -182,8 +182,6 @@
     "apps/expense_tracker/lib/src/features/tags/ui/tags_page.dart": 8
   },
   "C1-tests-exist": {
-    "packages/core/lib/src/foundation_values/identity.dart": 1,
-    "packages/core/lib/src/foundation_values/time.dart": 1,
     "packages/domain/lib/src/credit_cards/card_billing.dart": 1,
     "packages/domain/lib/src/investments/values.dart": 1
   },

@@ -85,7 +85,7 @@ final class DemoPrices extends SyncJob implements PriceHistory {
   @override
   Future<List<(DateTime, double)>> history(String code, DateTime from) async {
     final ledger = _ledger?.call();
-    final today = ledger?.today ?? AppClock.now().toUtc();
+    final today = ledger?.today ?? AppClock.today();
     final end = ledger?.holding(code)?.price ?? 100;
     final days = <DateTime>[
       for (
