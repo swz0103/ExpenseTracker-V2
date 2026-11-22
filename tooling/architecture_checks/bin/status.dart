@@ -27,16 +27,6 @@ void main() {
   final casts = [for (final u in units.values) ...Casts().run(u)].length;
   final whole = wholeLedgerFiles(units).length;
   final checks = p.join(root, 'tooling', 'architecture_checks');
-  final debt = RegExp(r"^  'src/[^']+':", multiLine: true)
-      .allMatches(
-        _between(
-          File(p.join(checks, 'test', 'code_size_test.dart'))
-              .readAsStringSync(),
-          'const longerFunctions',
-          '};',
-        ),
-      )
-      .length;
   final uncovered = File(p.join(checks, 'uncovered.txt'))
       .readAsLinesSync()
       .where((l) => l.trim().isNotEmpty && !l.startsWith('#'))
@@ -51,7 +41,6 @@ void main() {
       'flutter test --coverage 的 lcov；沒有測試載入的檔不在其中，看下一列',
     ),
     ('從未執行的類別與函式', '$uncovered 個', 'uncovered.txt，只准變少'),
-    ('超過 80 行的函式', '$debt 個', 'code_size_test 的債務清單'),
     ('依賴整個 Ledger', '$whole 個檔', '功能裡提到 Ledger 的檔（語法樹；app/ 是組裝點，不算）'),
     ('轉成基本型別', '$casts 處', '`as Map`、`as String` 等（語法樹）'),
   ];
@@ -67,11 +56,6 @@ void main() {
     File(summary)
         .writeAsStringSync('### 現況\n\n$table\n', mode: FileMode.append);
   }
-}
-
-String _between(String text, String from, String to) {
-  final start = text.indexOf(from);
-  return text.substring(start, text.indexOf(to, start));
 }
 
 String _coverage(File lcov) {

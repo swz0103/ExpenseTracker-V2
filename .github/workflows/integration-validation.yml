@@ -88,6 +88,7 @@ jobs:
         run: |
           $packages = @(
             'tooling/architecture_checks',
+            'tooling/rules',
             'packages/core',
             'packages/domain',
             'infrastructure/storage',
@@ -98,6 +99,17 @@ jobs:
             ./tooling/run-host-checks.ps1 -Package $package
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
+      - name: The rulebook
+        # The rules as one runnable check (tooling/rules); its own tests ran
+        # above with the package.
+        run: dart run tooling/rules/bin/check.dart
+      - name: Coverage floors
+        # Line coverage the tests above wrote (coverage/lcov.info of each
+        # package) must not fall below tooling/coverage_floors.json.
+        run: |
+          dart run tooling/architecture_checks/bin/check_coverage.dart \
+            packages/core packages/domain infrastructure/storage \
+            infrastructure/vault infrastructure/market
 
   flutter-host:
     runs-on: ubuntu-latest
@@ -114,6 +126,15 @@ jobs:
           flutter-version: '3.47.5'
           channel: stable
           cache: true
+      - name: Baseline and known defects
+        # The behaviour recorded before the refactoring (test/baseline) and
+        # the defects pinned as they are (test/known_defects): first, for a
+        # quick answer; the full run below includes them again.
+        working-directory: apps/expense_tracker
+        run: |
+          flutter config --no-analytics
+          flutter pub get --enforce-lockfile
+          flutter test test/baseline test/known_defects
       - shell: pwsh
         run: |
           flutter config --no-analytics
@@ -129,6 +150,7 @@ jobs:
           (cd ../../tooling/architecture_checks && dart pub get --enforce-lockfile)
           dart run ../../tooling/architecture_checks/bin/status.dart
           dart run ../../tooling/architecture_checks/bin/declaration_coverage.dart
+          dart run ../../tooling/architecture_checks/bin/check_coverage.dart apps/expense_tracker
       - name: Screenshots
         # Every page, light and dark, at 360 dp (tool/screenshots), kept
         # with the run to look at a page without a phone.
@@ -205,3 +227,28 @@ jobs:
           path: apps/expense_tracker/build/screenshot-changes
           if-no-files-found: ignore
           retention-days: 14
+
+  # Rule C3: a pull request may add baseline files, but changing or deleting
+  # one needs a `Baseline-Change: <reason>` line in a commit message.
+  baseline-protection:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          # The whole history: the diff and the log run against the base.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d
+        with:
+          sdk: '3.13.4'
+      - name: Existing baseline files stay unless a commit says why
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          (cd tooling/architecture_checks && dart pub get --enforce-lockfile)
+          dart run tooling/architecture_checks/bin/check_baseline_change.dart "$BASE"

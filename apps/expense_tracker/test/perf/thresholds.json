@@ -1,0 +1,20 @@
+{
+  "load_ms": 400,
+  "10k_load_ms": 150,
+  "100k_load_ms": 1700,
+  "save_shown_us": 250000,
+  "10k_save_shown_us": 250000,
+  "100k_save_shown_us": 270000,
+  "month_ms": 240,
+  "10k_month_ms": 240,
+  "100k_month_ms": 240,
+  "reports_open_ms": 470,
+  "10k_reports_open_ms": 470,
+  "100k_reports_open_ms": 500,
+  "save.average_frame_build_time_millis": 4,
+  "10k_save.average_frame_build_time_millis": 5,
+  "100k_save.average_frame_build_time_millis": 13,
+  "memory_mb": 470,
+  "10k_memory_mb": 580,
+  "100k_memory_mb": 950
+}

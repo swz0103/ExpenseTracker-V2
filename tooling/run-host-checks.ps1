@@ -13,11 +13,12 @@ Set-StrictMode -Version Latest
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $checks = @(
     @{ Path = 'tooling/architecture_checks'; Dirs = @('bin', 'lib', 'test') },
-    @{ Path = 'packages/core'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/domain'; Dirs = @('lib', 'test') },
-    @{ Path = 'infrastructure/storage'; Dirs = @('lib', 'bin', 'test'); Workers = @('bin/crash_worker.dart') },
-    @{ Path = 'infrastructure/vault'; Dirs = @('lib', 'test') },
-    @{ Path = 'infrastructure/market'; Dirs = @('lib', 'test') },
+    @{ Path = 'tooling/rules'; Dirs = @('bin', 'lib', 'test') },
+    @{ Path = 'packages/core'; Dirs = @('lib', 'test'); Coverage = $true },
+    @{ Path = 'packages/domain'; Dirs = @('lib', 'test'); Coverage = $true },
+    @{ Path = 'infrastructure/storage'; Dirs = @('lib', 'bin', 'test'); Workers = @('bin/crash_worker.dart'); Coverage = $true },
+    @{ Path = 'infrastructure/vault'; Dirs = @('lib', 'test'); Coverage = $true },
+    @{ Path = 'infrastructure/market'; Dirs = @('lib', 'test'); Coverage = $true },
     @{ Path = 'apps/expense_tracker'; Dirs = @('lib', 'test'); Flutter = $true }
 )
 
@@ -57,12 +58,14 @@ foreach ($check in $selected) {
         $pubArguments = @('pub', 'get', '--enforce-lockfile')
         if ($Offline) { $pubArguments += '--offline' }
         Invoke-CheckCommand $driver $pubArguments
-        & $Dart (@('format', '--output=none', '--set-exit-if-changed') + $check.Dirs)
+        # Only the folders the package has (a small package may have no bin).
+        $dirs = @($check.Dirs | Where-Object { Test-Path $_ })
+        & $Dart (@('format', '--output=none', '--set-exit-if-changed') + $dirs)
         if ($LASTEXITCODE -ne 0) {
             if ($env:CI) {
                 # Show the expected layout so a fix needs no local SDK; the
                 # checkout is thrown away, so rewriting it costs nothing.
-                & $Dart (@('format') + $check.Dirs) | Out-Null
+                & $Dart (@('format') + $dirs) | Out-Null
                 git --no-pager diff -- .
             }
             throw "dart format found unformatted files in $($check.Path). Run dart format to fix them."
@@ -82,6 +85,9 @@ foreach ($check in $selected) {
         # The app's coverage is read by class and function afterwards
         # (tooling/architecture_checks/bin/declaration_coverage.dart).
         if ($isFlutter) { $testArguments += @('--concurrency=1', '--coverage') }
+        # Line coverage per package, held to tooling/coverage_floors.json by
+        # tooling/architecture_checks/bin/check_coverage.dart.
+        if ($check.ContainsKey('Coverage')) { $testArguments += @('--coverage-path=coverage/lcov.info') }
         Invoke-CheckCommand $driver $testArguments
     } finally {
         Pop-Location
