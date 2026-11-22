@@ -8,6 +8,40 @@ part of 'compose_form.dart';
 enum ShareChange { none, stockDividend, split, capitalReduction }
 
 extension TradeFields on ComposeForm {
+  /// The broker's fee and tax the ledger's Taiwan rules suggest for the
+  /// trade being written.
+  (int, int) get suggested =>
+      _suggestedFor(type, holding ?? '', amount, shares, date);
+
+  /// The fee and tax the rules suggest for a [kind] of [shares] of [code]
+  /// for [amount] on [day], at the [brokerDiscount].
+  (int, int) _suggestedFor(
+    EntryType kind,
+    String code,
+    int amount,
+    int shares,
+    DateTime day,
+  ) {
+    final tax = kind == EntryType.sell ? saleTax(code, amount, shares, day) : 0;
+    return (brokerFee(amount, shares, discount: brokerDiscount), tax);
+  }
+
+  /// The trade's fee and tax: as typed, else as suggested.
+  (int, int) get charges {
+    if (type != EntryType.buy && type != EntryType.sell) return (0, 0);
+    final (fee, tax) = suggested;
+    return (tradeFee ?? fee, tradeTax ?? tax);
+  }
+
+  /// What a trade settles at, by the same rule as the saved entry
+  /// (`settlementAmount`): paid for a buy with its fee, received for a
+  /// sale less fee and tax; as a size, without its sign.
+  int get settlement {
+    final (fee, tax) = charges;
+    final kind = trade == EntryType.sell ? TradeKind.sell : TradeKind.buy;
+    return settlementAmount(kind, gross: amount, fee: fee, tax: tax).abs();
+  }
+
   /// What the shares being sold cost, by the method chosen ([average] or
   /// first in, first out), from the lots held on the sale's day: the
   /// book's trades up to then, the sale being changed left out. Null for

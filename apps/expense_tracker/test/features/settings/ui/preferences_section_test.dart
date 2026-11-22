@@ -1,3 +1,4 @@
+import 'package:expense_tracker/src/core/design_system/design_system.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/settings/ui/preferences_section.dart';
@@ -26,9 +27,17 @@ void main() {
     );
     expect(find.text('券商手續費折扣'), findsOneWidget);
     expect(find.text('6 折'), findsOneWidget);
-    await tester.tap(find.text('券商手續費折扣'));
+    // The last card opens the choices: two rows, 2.8折 the middle of the
+    // second.
+    await tester.tap(find.byType(SettingCard).last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('2.8 折'));
+    expect(find.text('2.8 折'), findsOneWidget);
+    final secondRow = find.byType(Segments).at(1);
+    await tester.tap(
+      find
+          .descendant(of: secondRow, matching: find.byType(GestureDetector))
+          .at(1),
+    );
     await tester.pumpAndSettle();
     expect(preferences.brokerDiscount, 2800);
   });

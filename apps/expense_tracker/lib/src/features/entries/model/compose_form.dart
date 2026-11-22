@@ -464,40 +464,6 @@ final class ComposeForm {
   /// The premium withheld from the cash dividend being written.
   int get withheld => premium ?? dividendPremium(amount, date);
 
-  /// The broker's fee and tax the ledger's Taiwan rules suggest for the
-  /// trade being written.
-  (int, int) get suggested =>
-      _suggestedFor(type, holding ?? '', amount, shares, date);
-
-  /// The fee and tax the rules suggest for a [kind] of [shares] of [code]
-  /// for [amount] on [day], at the [brokerDiscount].
-  (int, int) _suggestedFor(
-    EntryType kind,
-    String code,
-    int amount,
-    int shares,
-    DateTime day,
-  ) {
-    final tax = kind == EntryType.sell ? saleTax(code, amount, shares, day) : 0;
-    return (brokerFee(amount, shares, discount: brokerDiscount), tax);
-  }
-
-  /// The trade's fee and tax: as typed, else as suggested.
-  (int, int) get charges {
-    if (type != EntryType.buy && type != EntryType.sell) return (0, 0);
-    final (fee, tax) = suggested;
-    return (tradeFee ?? fee, tradeTax ?? tax);
-  }
-
-  /// What a trade settles at, by the same rule as the saved entry
-  /// (`settlementAmount`): paid for a buy with its fee, received for a
-  /// sale less fee and tax; as a size, without its sign.
-  int get settlement {
-    final (fee, tax) = charges;
-    final kind = trade == EntryType.sell ? TradeKind.sell : TradeKind.buy;
-    return settlementAmount(kind, gross: amount, fee: fee, tax: tax).abs();
-  }
-
   /// Why the entry cannot be kept yet; null when it can. The ledger's
   /// own checks, and a split that must add up to the amount.
   String? get problem {
