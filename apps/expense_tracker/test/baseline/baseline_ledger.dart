@@ -14,8 +14,10 @@ Ledger ledgerOf({
   List<Budget> budgets = const [],
   List<Recurring> recurring = const [],
   Map<String, double> rates = const {},
+  DateTime Function()? clock,
 }) => Ledger(
   today: today,
+  clock: clock,
   accounts: accounts,
   categories: categories,
   entries: entries,
