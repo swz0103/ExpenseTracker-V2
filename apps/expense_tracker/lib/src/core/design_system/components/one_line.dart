@@ -15,6 +15,7 @@ class OneLine extends StatelessWidget {
     this.textAlign,
     this.alignment = AlignmentDirectional.centerStart,
     this.least = 0.75,
+    this.semanticsLabel,
   });
 
   final String text;
@@ -23,6 +24,10 @@ class OneLine extends StatelessWidget {
   final AlignmentGeometry alignment;
   final double least;
 
+  /// What a screen reader says in place of [text], such as an amount
+  /// with its direction in words.
+  final String? semanticsLabel;
+
   @override
   Widget build(BuildContext context) {
     return _Fit(
@@ -30,6 +35,7 @@ class OneLine extends StatelessWidget {
       least: least,
       child: Text(
         text,
+        semanticsLabel: semanticsLabel,
         style: style,
         textAlign: textAlign,
         maxLines: 1,

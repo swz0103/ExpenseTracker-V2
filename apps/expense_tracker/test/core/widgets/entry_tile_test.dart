@@ -73,6 +73,45 @@ void main() {
     expect(amount.style?.color, AppColors.muted);
   });
 
+  test('F06: shares are counted with thousands commas', () {
+    final split = Entry(
+      id: 'split',
+      date: day,
+      type: EntryType.dividend,
+      amount: 0,
+      account: 'bank',
+      category: '股息',
+      holding: '0050',
+      shares: 21000,
+      split: true,
+    );
+    final buy = Entry(
+      id: 'buy',
+      date: day,
+      type: EntryType.buy,
+      amount: 1000,
+      account: 'bank',
+      category: '投資',
+      holding: '0050',
+      shares: 1500,
+    );
+    final ledger = book();
+    expect(entryDetail(ledger, split), '0050 · 分割 21,000 股');
+    expect(entryDetail(ledger, buy), '0050 · 1,500 股 · 銀行');
+  });
+
+  testWidgets('F107: the amount is read out with its direction', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    final ledger = book();
+    await show(tester, ledger, lunch);
+    // 1,000 spent less 300 given back: read 支出 700 元, not −700.
+    expect(find.bySemanticsLabel(RegExp('支出 700 元')), findsWidgets);
+    expect(find.bySemanticsLabel(RegExp('−700')), findsNothing);
+    handle.dispose();
+  });
+
   test('a holding without a name is shown by its code once', () {
     const named = Holding(
       '2330',

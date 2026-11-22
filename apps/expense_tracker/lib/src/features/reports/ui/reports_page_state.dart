@@ -205,7 +205,7 @@ class _ReportsPageState extends State<ReportsPage> {
       1 => Sections([
         if (biggest != null && expense > 0)
           TitleRow(
-            '最大分類 $biggest ${report.spending[biggest]! * 100 ~/ expense}%',
+            '最大分類 $biggest ${wholePercent(report.spending[biggest]!, expense)}',
             trailing: const Text('點分類看紀錄', style: mutedSmall),
           ),
         section(null, _mix(report)),
@@ -354,6 +354,7 @@ class _ReportsPageState extends State<ReportsPage> {
           ),
           Text(
             ledger.orDots(signed(change)),
+            semanticsLabel: ledger.spoken(change),
             style: TextStyle(
               fontWeight: FontWeight.w800,
               color: AppColors.ofChange(change),
@@ -397,9 +398,12 @@ class _ReportsPageState extends State<ReportsPage> {
         '存下',
         income <= 0
             ? ledger.moneySigned(kept)
-            : '${ledger.moneySigned(kept)}（收入的 ${(kept * 100 / income).round()}%）',
+            : '${ledger.moneySigned(kept)}（收入的 ${wholePercent(kept, income)}）',
       ),
-      ('記帳', '${report.days} 天、${report.count} 筆'),
+      (
+        '記帳',
+        '${countOf(report.days, CountUnit.days)}、${countOf(report.count, CountUnit.entries)}',
+      ),
       if (busiest != null)
         ('花最多的月份', '${busiest.label} 月 ${ledger.money(busiest.expense)}'),
       if (biggest != null)
@@ -408,7 +412,8 @@ class _ReportsPageState extends State<ReportsPage> {
           '${formatMd(biggest.date)} ${biggest.title} '
               '${ledger.money(biggest.spending)}',
         ),
-      if (merchant != null) ('最常去', '${merchant.$1}（${merchant.$2} 次）'),
+      if (merchant != null)
+        ('最常去', '${merchant.$1}（${countOf(merchant.$2, CountUnit.times)}）'),
     ];
     return [
       const TitleRow('年度總結'),
@@ -522,10 +527,10 @@ class _ReportsPageState extends State<ReportsPage> {
                       ? _restBlock()
                       : ledger.category(name),
                   amount: amount,
-                  share: expense == 0 ? 0 : amount * 100 ~/ expense,
+                  share: percent(amount, expense),
                   change: last == null || last == 0
                       ? null
-                      : (amount - last) * 100 ~/ last,
+                      : percent(amount - last, last),
                   large: i == 0,
                   onTap: name == '其他' && !spending.containsKey('其他')
                       ? null
@@ -560,7 +565,7 @@ class _ReportsPageState extends State<ReportsPage> {
               ),
             ),
             Text(
-              '${_period.title} · ${entries.length} 筆 · ${ledger.money(total)}',
+              '${_period.title} · ${countOf(entries.length, CountUnit.entries)} · ${ledger.money(total)}',
               textAlign: TextAlign.center,
               style: mutedSmall,
             ),

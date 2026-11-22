@@ -1,4 +1,6 @@
-import '../../formatting/amounts.dart';
+import 'package:core/foundation_values.dart' show Currency;
+import 'package:core/money/amount_format.dart' show figures;
+
 import '../cache/query_cache.dart';
 import 'tracked_readers.dart';
 import '../models/models.dart';
@@ -51,7 +53,12 @@ final class EntryQueryService {
       for (final (i, e) in _entries.all.indexed)
         if (texts[i].contains(lower) ||
             '${e.amount}' == words ||
-            plainIn(e.amount, currencies[e.account] ?? homeCode) == words)
+            figures(
+                  e.amount,
+                  Currency.scaleOf(currencies[e.account] ?? homeCode),
+                  grouped: false,
+                ) ==
+                words)
           (i, e),
     ];
     found.sort((a, b) {

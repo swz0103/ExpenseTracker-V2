@@ -11,11 +11,13 @@
 
 ## 資料夾（`lib/src/`）
 
+金額、筆數、股價、百分比怎麼顯示、怎麼念，只在 `lib/design_system/display/`（`amount.dart`、`AmountText`）；解析與取位在 `packages/core` 的 `money/`、`percent/`。
+
 | 位置 | 內容 |
 | --- | --- |
 | `app/` | 啟動、底部分頁（`shell.dart`）、設定與更多的入口頁、Android 通道（`android/`）、網頁預覽（`demo/`） |
 | `features/<功能>/` | `model/` 資料與服務、`forms/` 表單與面板、`ui/` 頁面 |
-| `core/formatting/` | 金額、日期的文字格式 |
+| `core/formatting/` | 日期的文字格式、共用用詞 |
 | `core/design_system/` | 設計系統：`theme.dart`（顏色 `AppColors`）、`type.dart`（字級）、`glyphs.dart`（圖示，產生的）、`components/`（元件） |
 | `core/charts/` | 圖表 |
 | `core/ledger/` | 帳本 `Ledger` 與資料型別；`persistence/sql_ledger_data_source.dart` 寫進加密檔 |

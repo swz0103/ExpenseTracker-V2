@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/formatting/figures.dart';
+import '../../../core/messages/amount_messages.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
@@ -202,7 +203,7 @@ class _BothWays extends StatelessWidget {
               child: half(
                 '別人欠你',
                 ledger.orDots(groupDigits(lent)),
-                '$people 人',
+                countOf(people, CountUnit.people),
                 lent > 0 ? AppColors.positive : AppColors.ink,
               ),
             ),
@@ -211,7 +212,7 @@ class _BothWays extends StatelessWidget {
               child: half(
                 '你還欠',
                 ledger.orDots(groupDigits(borrowed)),
-                '$loans 筆貸款',
+                '${countOf(loans, CountUnit.entries)}貸款',
                 AppColors.ink,
               ),
             ),
@@ -269,7 +270,9 @@ class _PersonSquare extends StatelessWidget {
     final amount = ledger.orDots(
       groupDigits(owedFrom(ledger.balanceService, person)),
     );
-    final age = oldest == null ? '沒有欠款' : '最久 ${_days(ledger, oldest)} 天';
+    final age = oldest == null
+        ? '沒有欠款'
+        : '最久 ${countOf(_days(ledger, oldest), CountUnit.days)}';
     return ColorCard(
       color: color,
       radius: Radii.largeIncreased,

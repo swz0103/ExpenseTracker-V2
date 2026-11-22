@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:vault/backup_security.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../../backup/model/drive_backup.dart';
 import '../../backup/model/restore_sources.dart';
 import '../../../core/platform/startup.dart';
@@ -266,7 +267,7 @@ class _LockScreenState extends State<LockScreen> {
       String two(int n) => n.toString().padLeft(2, '0');
       about =
           '${formatYMd(at)} ${two(at.hour)}:${two(at.minute)}'
-          ' 的備份 · ${header.rows} 筆資料';
+          ' 的備份 · ${countOf(header.rows, CountUnit.entries)}資料';
     } on Object {
       // A file that is not a backup is said so.
       about = '這個檔案不是記帳本的備份';

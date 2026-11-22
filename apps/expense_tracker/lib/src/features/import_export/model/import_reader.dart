@@ -96,7 +96,8 @@ final class _Reader {
     if (typed.isNotEmpty && named == null) return '不認得的類型「$typed」';
     final account = _accountNamed(cell('帳戶'));
     final from = _account(account);
-    final value = _amount(cell('金額'), from.currency);
+    final (value, unreadable) = _cellAmount(cell, '金額', from.currency);
+    if (unreadable != null) return unreadable;
     final kind =
         named ??
         (value == null || value == 0
@@ -151,7 +152,10 @@ final class _Reader {
       for (final piece in written.split(RegExp('[;；]'))) {
         final at = piece.lastIndexOf('=');
         if (at < 0) continue;
-        final part = _amount(piece.substring(at + 1), from.currency);
+        final part = _amount(
+          piece.substring(at + 1),
+          from.currency,
+        ).minorOrNull;
         if (part == null || part <= 0) return '拆分的金額看不懂';
         final name = piece.substring(0, at).trim();
         parts.add((_categoryNamed(name, income: false), part));
@@ -160,7 +164,8 @@ final class _Reader {
       if (total != amount) return '拆分的金額加起來不等於總額';
       if (parts.length == 1) parts = [];
     }
-    final home = int.tryParse(cell('台幣金額').replaceAll(',', ''));
+    final (home, homeProblem) = _cellAmount(cell, '台幣金額');
+    if (homeProblem != null) return homeProblem;
     final card = from.kind == AccountKind.card;
     return Entry(
       id: book.newId(),
@@ -241,7 +246,12 @@ final class _Reader {
     final to = _accountNamed(into);
     final target = _account(to);
     if (from.kind == AccountKind.card) return '信用卡不能轉出，請記成支出';
-    final fee = _amount(cell('手續費')) ?? 0;
+    final (charged, feeProblem) = _cellAmount(cell, '手續費');
+    final (received, receivedProblem) = target.currency == from.currency
+        ? (null, null)
+        : _cellAmount(cell, '轉入金額', target.currency);
+    if (feeProblem ?? receivedProblem case final why?) return why;
+    final fee = charged ?? 0;
     if (target.kind == AccountKind.card && fee > 0) return '繳卡費不能有手續費';
     if (fee > 0 && from.foreign) return '外幣帳戶轉出不能記手續費';
     return Entry(
@@ -254,9 +264,7 @@ final class _Reader {
       note: note,
       to: to,
       fee: fee,
-      received: target.currency == from.currency
-          ? null
-          : _amount(cell('轉入金額'), target.currency),
+      received: received,
     );
   }
 
@@ -276,6 +284,11 @@ final class _Reader {
     final needsShares = kind != _Kind.cash;
     if (needsShares && shares <= 0) return '請填股數';
     final trade = kind == _Kind.buy || kind == _Kind.sell;
+    final (fee, feeProblem) = trade ? _cellAmount(cell, '手續費') : (null, null);
+    final (tax, taxProblem) = kind == _Kind.cut
+        ? (null, null)
+        : _cellAmount(cell, '稅');
+    if (feeProblem ?? taxProblem case final why?) return why;
     return Entry(
       id: book.newId(),
       date: day,
@@ -294,8 +307,8 @@ final class _Reader {
         _Kind.cut => -shares,
         _ => shares,
       },
-      fee: trade ? _amount(cell('手續費')) ?? 0 : 0,
-      tax: kind == _Kind.cut ? 0 : _amount(cell('稅')) ?? 0,
+      fee: fee ?? 0,
+      tax: tax ?? 0,
       split: kind == _Kind.split,
       average: kind == _Kind.sell && cell('成本算法').contains('平均'),
     );
@@ -414,7 +427,7 @@ Import _invoiceLines(ImportBook book, String text, {required String account}) {
     final day = readDay(cells[3]);
     final shop = cells[5];
     final number = cells[6];
-    final value = _amount(cells[7]);
+    final value = _amount(cells[7]).minorOrNull;
     final voided = cells.length > 8 && cells[8].contains('作廢');
     final seen =
         number.isNotEmpty &&
@@ -508,7 +521,9 @@ Entry _invoice(
   int value,
 ) {
   final what = bought.isEmpty ? '' : bought.first;
-  final more = bought.length > 1 ? ' 等 ${bought.length} 項' : '';
+  final more = bought.length > 1
+      ? ' 等 ${countOf(bought.length, CountUnit.items)}'
+      : '';
   return Entry(
     id: book.newId(),
     date: day,

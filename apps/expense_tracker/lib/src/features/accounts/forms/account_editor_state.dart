@@ -21,7 +21,7 @@ class _AccountEditorState extends State<_AccountEditor> {
   )..addListener(() => setState(() => _f.balance = _balance.text));
   late final TextEditingController _limit = TextEditingController(
     text: _f.limit,
-  )..addListener(() => _f.limit = _limit.text);
+  )..addListener(() => setState(() => _f.limit = _limit.text));
 
   late final TextEditingController _rate = TextEditingController(text: _f.rate)
     ..addListener(() => setState(() => _f.rate = _rate.text));
@@ -532,7 +532,12 @@ class _AccountEditorState extends State<_AccountEditor> {
       if (_f.kind == AccountKind.card)
         FormGroup(
           title: '信用額度',
-          child: _Field(controller: _limit, hint: '額度', number: true),
+          child: _Field(
+            controller: _limit,
+            hint: '額度',
+            number: true,
+            error: _f.limitProblem,
+          ),
         ),
       _counted,
       _buttons(old),

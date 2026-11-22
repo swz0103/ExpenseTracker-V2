@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../forms/account_editor.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/haptics.dart';
@@ -119,7 +120,10 @@ class _AccountsPageState extends State<AccountsPage> {
               ),
             SectionTitle(
               Words.account,
-              trailing: Text('${accounts.length} 個', style: mutedSmall),
+              trailing: Text(
+                countOf(accounts.length, CountUnit.pieces),
+                style: mutedSmall,
+              ),
             ),
             if (accounts.isEmpty)
               const Text('還沒有帳戶，按右上的新增開始。', style: mutedSmall)

@@ -1,8 +1,8 @@
 import 'dart:math';
 
-import 'package:expense_tracker/src/core/ledger/models/fixed_point.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/market_data_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:core/money/price.dart' show timesPrice;
 
 /// [n] / [d] rounded half away from zero, on whole numbers only: the
 /// answer a sum of decimals should give.

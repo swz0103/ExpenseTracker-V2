@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/paint.dart';
 import '../../../core/design_system/theme.dart';
@@ -122,7 +122,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                 Space.s2,
               ),
               child: Text(
-                '$name · ${group.length} 檔',
+                '$name · ${countOf(group.length, CountUnit.stocks)}',
                 style: const TextStyle(
                   fontSize: TextSize.small,
                   fontWeight: FontWeight.w800,
@@ -258,8 +258,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
 }
 
 /// A rate as 「+8.4%」.
-String yearlyRate(double rate) =>
-    '${rate > 0 ? '+' : ''}${(rate * 100).toStringAsFixed(1)}%';
+String yearlyRate(double rate) => ratioPercent(rate);
 
 /// A grey pill with words, and a square of [color] before them.
 class _Chip extends StatelessWidget {
@@ -333,8 +332,7 @@ class _StackPainter extends CustomPainter {
   final Color rule;
   final Color band;
 
-  static String _short(int v) =>
-      v >= 1000 ? '${(v / 1000).toStringAsFixed(1)}k' : '$v';
+  static String _short(int v) => countTick(v);
 
   @override
   void paint(Canvas canvas, Size size) {

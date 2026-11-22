@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/entries/forms/composer.dart';
-import '../core/formatting/figures.dart';
+import '../../design_system/display/amount.dart';
 import '../core/design_system/glyphs.dart';
 import '../core/design_system/haptics.dart';
 import '../core/design_system/theme.dart';
@@ -219,10 +219,13 @@ class _AppShellState extends State<AppShell> {
                       ?.realized ??
                   0) -
               (realizedBefore[sold] ?? 0);
+    final note =
+        '${entry == null ? '已記下' : '已更新'}'
+        '${made == null || made == 0 ? '' : ' · 已實現 ${ledger.orDots(signed(made))}'}';
     showNote(
       context,
-      '${entry == null ? '已記下' : '已更新'}'
-      '${made == null || made == 0 ? '' : ' · 已實現 ${ledger.orDots(signed(made))}'}',
+      note,
+      spoken: made == null ? null : ledger.readAloud(note, made),
       action: again ? '再記一筆' : '查看',
       onAction: again
           ? () => _compose(type: saved.type, draft: _again(saved))

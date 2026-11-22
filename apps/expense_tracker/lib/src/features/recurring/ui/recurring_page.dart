@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../accounts/forms/account_editor.dart';
 import '../forms/recurring_editor.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
@@ -228,7 +228,7 @@ class _RecurringPageState extends State<RecurringPage> {
       ),
       _Cell(
         label: '已暫停 ›',
-        value: '${paused.length} 項',
+        value: countOf(paused.length, CountUnit.items),
         onTap: () => _view(RecurringView.paused),
       ),
     ]);

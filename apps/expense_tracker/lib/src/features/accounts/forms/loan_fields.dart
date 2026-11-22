@@ -39,14 +39,16 @@ extension on _AccountEditorState {
   Widget _loanCard(Account? old, Color color) {
     String money(int? v) => v == null ? '0' : groupDigits(v);
     final principal = _f.typedPrincipal;
-    final owed = minorOf(_f.balance, homeCode);
+    final owed = _f.typedOwed;
     return LoanCard(
       color: color,
       name: _name,
       principal: money(principal),
       owed: owed == null ? (old == null ? '同本金' : '0') : groupDigits(owed),
       rate: _f.rate.trim().isEmpty ? '—' : '${_f.rate.trim()}%',
-      months: _f.typedMonths == null ? '—' : '${_f.typedMonths} 期',
+      months: _f.typedMonths == null
+          ? '—'
+          : countOf(_f.typedMonths!, CountUnit.periods),
       day: '${_f.due} 日',
       onPrincipal: () => _amount(_principal, '本金'),
       onOwed: () => _amount(_balance, '目前尚欠'),
@@ -134,7 +136,7 @@ extension on _AccountEditorState {
     final value = await showCalculator(
       context,
       title: title,
-      initial: int.tryParse(controller.text.replaceAll(',', '')) ?? 0,
+      initial: parseAmount(controller.text, scale: 0).minorOrNull ?? 0,
       color: AppColors.accent,
     );
     if (value != null) controller.text = '$value';

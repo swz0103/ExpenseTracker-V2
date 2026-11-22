@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/messages/amount_messages.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/theme.dart';
 import '../model/app_update.dart';
 import '../../../core/design_system/components/buttons.dart';
@@ -153,6 +155,8 @@ class _UpdatePanelState extends State<_UpdatePanel> {
       borderRadius: BorderRadius.circular(Radii.extraSmall),
       child: LinearProgressIndicator(
         value: progress,
+        semanticsLabel: ProgressWords.downloading,
+        semanticsValue: ratioWholePercent(progress),
         minHeight: 8,
         color: markOf(AppColors.accent),
         backgroundColor: AppColors.surface,
@@ -160,7 +164,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
     ),
     const SizedBox(height: Space.s2),
     Text(
-      '下載中 ${(progress * 100).round()}%',
+      '下載中 ${ratioWholePercent(progress)}',
       textAlign: TextAlign.center,
       style: mutedBody,
     ),

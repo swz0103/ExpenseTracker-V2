@@ -18,26 +18,25 @@ items:
     what: 金額的解析、進位、正負
     layer: core
     owner:
-      - packages/core/lib/src/foundation_values/money.dart
-      - apps/expense_tracker/lib/src/core/ledger/models/fixed_point.dart
-      - apps/expense_tracker/lib/src/core/formatting/amounts.dart
+      - packages/core/lib/money/
     target: packages/core/lib/money/
-    status: scattered
+    status: owned
   - id: currency-fx
     what: 幣別與匯率換算（含用哪一天的匯率）
     layer: core
     owner:
       - packages/core/lib/src/foundation_values/fx.dart
       - apps/expense_tracker/lib/src/core/ledger/repositories/market_data_repository.dart
+      - apps/expense_tracker/lib/src/core/ledger/models/fixed_point.dart
     target: packages/core/lib/fx/
     status: scattered
   - id: ratio-rounding
     what: 百分比與比例的進位
     layer: core
     owner:
-      - apps/expense_tracker/lib/src/core/formatting/figures.dart
+      - packages/core/lib/percent/
     target: packages/core/lib/percent/
-    status: scattered
+    status: owned
   - id: dates-periods
     what: 日期、年月、期間範圍
     layer: core
@@ -306,15 +305,15 @@ items:
       - apps/expense_tracker/lib/src/core/widgets/entry_tile.dart
     target: apps/expense_tracker/lib/design_system/components/
     status: scattered
+  # core/widgets/shown_amounts.dart only passes a book's 隱藏金額 switch
+  # (core/ledger/amount_visibility.dart) on to display/.
   - id: amount-display
     what: 金額怎麼顯示、怎麼念
     layer: design_system
     owner:
-      - apps/expense_tracker/lib/src/core/formatting/amounts.dart
-      - apps/expense_tracker/lib/src/core/widgets/shown_amounts.dart
-      - apps/expense_tracker/lib/src/core/ledger/amount_visibility.dart
+      - apps/expense_tracker/lib/design_system/display/
     target: apps/expense_tracker/lib/design_system/display/
-    status: scattered
+    status: owned
   - id: date-display
     what: 日期怎麼顯示
     layer: design_system

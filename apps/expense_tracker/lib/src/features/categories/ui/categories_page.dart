@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../forms/category_editor.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/haptics.dart';
@@ -261,7 +262,7 @@ class _Kind extends StatelessWidget {
     final ink = chosen ? chosenInk(color) : AppColors.muted;
     return ReadAsButton(
       selected: chosen,
-      label: '$label $count 個',
+      label: '$label ${countOf(count, CountUnit.pieces)}',
       onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -411,7 +412,9 @@ class _Tile extends StatelessWidget {
       amount: plain ? 0.25 : 0.2,
       radius: Radii.largeIncreased,
       onTap: onTap,
-      label: count > 0 ? '$label，$count 個子分類' : label,
+      label: count > 0
+          ? '$label，${countOf(count, CountUnit.pieces)}子分類'
+          : label,
       padding: const EdgeInsets.fromLTRB(
         Space.s2,
         Space.s4,

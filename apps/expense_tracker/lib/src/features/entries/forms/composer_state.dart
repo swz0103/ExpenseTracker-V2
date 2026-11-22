@@ -389,6 +389,9 @@ class _ComposerState extends State<Composer>
               color: hero.color,
               onTap: hero.onTap,
               sub: hero.sub,
+              // Kept from the tab's own hero: the untouched 0 stays faint.
+              empty: hero.empty,
+              spoken: hero.spoken,
             ),
           ),
         ),

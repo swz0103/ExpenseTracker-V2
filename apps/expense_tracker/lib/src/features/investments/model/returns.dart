@@ -1,3 +1,5 @@
+import 'package:core/percent/percent.dart' show divideRounded;
+
 import 'dart:math';
 
 import '../../../core/ledger/ledger.dart';
@@ -137,7 +139,7 @@ final class Returns {
           code: h.code,
           name: h.name,
           month: next,
-          amount: roundedQuotient(e.dividendNet * h.shares, then),
+          amount: divideRounded(e.dividendNet * h.shares, then),
         ));
       }
     }

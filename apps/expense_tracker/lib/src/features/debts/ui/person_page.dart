@@ -100,7 +100,7 @@ class PersonPage extends StatelessWidget {
                 if (oldest == null)
                   '沒有待收回的'
                 else
-                  '${owed.length} 筆還沒收回 · 最久 ${_days(ledger, oldest)} 天',
+                  '${countOf(owed.length, CountUnit.entries)}還沒收回 · 最久 ${countOf(_days(ledger, oldest), CountUnit.days)}',
               ],
               menu: DotsMenu([
                 DotsItem(Glyph.edit, '改名', () => _rename(context, person)),
@@ -190,6 +190,10 @@ class PersonPage extends StatelessWidget {
         back
             ? '−${ledger.orDots(groupDigits(e.amount))}'
             : ledger.orDots(groupDigits(e.amount)),
+        spoken: ledger.spoken(
+          back ? -e.amount : e.amount,
+          sense: AmountSense.plain,
+        ),
         color: back ? AppColors.positive : AppColors.ink,
       ),
     );
@@ -215,7 +219,7 @@ class _DaysTag extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.small),
       ),
       child: Text(
-        '$days 天',
+        countOf(days, CountUnit.days),
         textScaler: TextScaler.noScaling,
         style: TextStyle(
           fontSize: TextSize.caption,

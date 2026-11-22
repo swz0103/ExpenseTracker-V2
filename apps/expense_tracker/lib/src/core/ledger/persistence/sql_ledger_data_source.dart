@@ -6,6 +6,7 @@ import 'dart:isolate';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
+import 'package:core/money/amount_parser.dart' show parseDecimal;
 import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:market/market_data.dart';
 import 'package:storage/storage.dart';
@@ -474,7 +475,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     ]);
     for (final (i, code) in asked.indexed) {
       final close = closes[i];
-      final price = close == null ? null : double.tryParse(close.decimalPrice);
+      final price = close == null ? null : parseDecimal(close.decimalPrice);
       if (close == null || price == null) {
         missed.add(code);
         continue;
@@ -492,7 +493,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         days[code] = day;
         changed = true;
       }
-      final move = double.tryParse(close.decimalChange ?? '');
+      final move = parseDecimal(close.decimalChange ?? '');
       final name = close.name;
       if (prices[code] == price &&
           moves[code] == move &&
