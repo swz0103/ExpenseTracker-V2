@@ -397,3 +397,10 @@ items:
       - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/ChannelHandler.kt
     target: infrastructure/platform/lib/
     status: scattered
+  - id: build-flavor
+    what: 這個版本能不能自己更新（sideload 或 play）
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/distribution.dart
+    target: apps/expense_tracker/lib/app/coordinators/
+    status: owned

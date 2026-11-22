@@ -14,10 +14,6 @@
     <!-- Reminders on the minute, only when the person asks for them and
          allows it in the system settings. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
-    <!-- Handing a newer version of the app, downloaded from its release
-         page, to Android's installer (UpdateHandler.kt); the person allows
-         it once and confirms each update. -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <!-- The small vibrations of taps, Android's own (HapticsHandler.kt);
          granted with the app, and off with the phone's touch vibration. -->
     <uses-permission android:name="android.permission.VIBRATE"/>

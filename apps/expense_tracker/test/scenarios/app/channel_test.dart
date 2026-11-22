@@ -20,7 +20,12 @@ void main() {
   };
 
   final dart = all('lib', '.dart');
-  final kotlin = all('android/app/src/main/kotlin', '.kt');
+  // The shared code and the sideload flavor's (the update installer; the
+  // play flavor answers nothing more).
+  final kotlin = [
+    all('android/app/src/main/kotlin', '.kt'),
+    all('android/app/src/sideload/kotlin', '.kt'),
+  ].join('\n');
 
   test('every method the app calls is answered on Android', () {
     final called = found(dart, [

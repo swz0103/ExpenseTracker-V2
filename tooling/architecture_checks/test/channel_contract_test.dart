@@ -13,11 +13,16 @@ import 'package:test/test.dart';
 void main() {
   final root = p.normalize(p.join(Directory.current.path, '..', '..'));
   final app = p.join(root, 'apps', 'expense_tracker');
+  // What the app's builds are made of: the shared code and each flavor's
+  // (sideload has the update installer, play has stand-ins); not the tests.
   final kotlin = [
-    for (final f in Directory(
-      p.join(app, 'android', 'app', 'src', 'main', 'kotlin'),
-    ).listSync(recursive: true))
-      if (f is File && f.path.endsWith('.kt')) f.readAsStringSync(),
+    for (final source in ['main', 'sideload', 'play'])
+      if (Directory(p.join(app, 'android', 'app', 'src', source, 'kotlin'))
+          .existsSync())
+        for (final f in Directory(
+          p.join(app, 'android', 'app', 'src', source, 'kotlin'),
+        ).listSync(recursive: true))
+          if (f is File && f.path.endsWith('.kt')) f.readAsStringSync(),
   ];
   final dart = appSources(root);
 

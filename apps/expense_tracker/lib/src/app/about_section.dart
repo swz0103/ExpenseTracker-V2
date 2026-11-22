@@ -11,6 +11,7 @@ import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
 import '../core/messages/problem_messages.dart';
+import '../core/platform/distribution.dart';
 import '../features/settings/model/app_update.dart';
 import '../features/settings/ui/update_panel.dart';
 import '../features/settings/model/platform_services.dart';
@@ -269,7 +270,10 @@ class _VersionCardState extends State<_VersionCard> {
     });
   }
 
-  String _state(AppUpdate? update) {
+  /// What the card says under the version; null when it says nothing: the
+  /// play build has no update to speak of.
+  String? _state(AppUpdate? update) {
+    if (!canSelfUpdate) return null;
     if (update == null || !update.possible) return '自行建置的版本';
     final progress = update.progress;
     if (progress != null) return '下載中 ${ratioWholePercent(progress)}';
@@ -330,14 +334,15 @@ class _VersionCardState extends State<_VersionCard> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                Text(
-                  _state(update),
-                  style: TextStyle(
-                    fontSize: TextSize.body,
-                    fontWeight: FontWeight.w700,
-                    color: deepOf(color),
+                if (_state(update) case final state?)
+                  Text(
+                    state,
+                    style: TextStyle(
+                      fontSize: TextSize.body,
+                      fontWeight: FontWeight.w700,
+                      color: deepOf(color),
+                    ),
                   ),
-                ),
                 if (progress != null)
                   Padding(
                     padding: const EdgeInsets.only(top: Space.s2),

@@ -43,9 +43,8 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | DSN-01 | 5.1 | p5_1_design_test.dart | yes | 收入 tab text is 2.21:1 on white (expects 4.5:1) |
 | IMP-01 | 6.1 | p6_1_import_test.dart | yes | a positive amount with no type column is imported as income |
 | IMP-02 | 6.1 | p6_1_import_test.dart | yes | round trip loses the US$ currency (first of 10 differences) |
-| AND-01 | 6.3 | p6_3_release_test.dart | yes | main AndroidManifest.xml declares REQUEST_INSTALL_PACKAGES |
 
-36 findings covered.
+35 findings covered.
 
 ## fixed in 1.1
 
@@ -63,6 +62,12 @@ Work package 1.1 (one source for amounts). Each test below now runs in the ordin
 - F34: `test/features/reports/model/report_test.dart`
 - INV-03: `test/features/investments/ui/holding_page_test.dart`
 - F21: `test/features/accounts/ui/card_page_test.dart`
+
+## fixed in 6.3
+
+These tests run (no `knownDefect` skip) and pass.
+
+- AND-01 (p6_3_release_test.dart): REQUEST_INSTALL_PACKAGES and the update code are in the sideload flavor only; the play flavor has neither.
 
 ## not covered
 

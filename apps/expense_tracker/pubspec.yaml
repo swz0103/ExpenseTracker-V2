@@ -36,6 +36,10 @@ hooks:
 
 flutter:
   uses-material-design: true
+  # Android has two flavors (android/app/build.gradle.kts): `sideload`, the
+  # one published on GitHub Releases, and `play`, which cannot update
+  # itself. Without --flavor the sideload one is built and run.
+  default-flavor: sideload
   fonts:
     # Nunito for numbers and Latin text, Noto Sans TC (Adobe's Source
     # Han Sans, Traditional Chinese) for Chinese; both under the SIL

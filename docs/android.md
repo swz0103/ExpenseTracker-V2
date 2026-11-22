@@ -8,7 +8,7 @@
 
 每次 main 有變更，`V2 integration validation` 跑完且全部通過後，`Android APK` 工作流程建置同一個 commit，發布在這個版號自己的 release `v<版號>`（`ExpenseTracker-<版號>.apk`，旁邊有 `update.json` 與測試帳本 `test-ledger.etbk`），並標成 GitHub 的最新版；驗證每次 push 只跑一次（驗證進行中又有好幾次 push 時，GitHub 只留最新一次排隊，中間的 commit 不會各自驗證與發布）。PR 與手動執行只檢查能否建置。
 
-工作流程分成三個工作：`build` 只有讀取權限、看不到簽章 Secrets，建置 debug 簽章的 APK 並存下；`sign` 只在驗證過的 main 執行，不取出程式碼，用 `apksigner` 換上正式簽章、確認不是 debug 金鑰並寫出 `update.json`；`publish` 是唯一能寫 release 的工作。`publish` 有自己的 concurrency 群組且不取消進行中的執行，所以之後完成的驗證（即使失敗或略過）或建置都不會把它中途打斷；main 的建置也依序排隊，發布順序與 commit 順序一致。`publish` 先打標籤 `v<版號>`（打了就不移動，直到下一版發布），再建立這個版號的 release：先建成草稿，三個檔案都上傳後才公開並標成最新版，所以沒有人（包括 App）會看到缺安裝檔的 release；說明列出 `whats_new.txt` 的每一行與 APK 的 SHA-256。會發布的 PR 都要升版（ADR-0011），所以同一個版號只發布一次；重跑時發現這個版號已有 APK 就不再動它。新版公開後，`publish` 刪掉其他所有 release 與標籤（包括舊的 `v<版號>` 與早期會移動的 `android-latest`），GitHub 上只留最新一版；App 讀 `releases/latest`，任何舊版手機都找得到它。各版寫出的帳本與備份樣本留在 repo 的 `test/fixtures/books`，不靠標籤。PR 的建置有新 push 時會取消舊的。每次建置都檢查 16 KB 分頁對齊。版本名稱取自 `pubspec.yaml`，版本號（versionCode）用工作流程的執行次數，所以新版一定能蓋過舊版安裝；兩者與 commit 也以 `--dart-define`（`APP_VERSION`、`APP_BUILD`、`APP_COMMIT`）傳進 App，顯示在「設定 › 關於」。
+工作流程分成四個工作：`play` 另外建置給 Google Play 的 `play` 版（App Bundle，不上傳到任何地方），確認它的清單沒有 `REQUEST_INSTALL_PACKAGES`、程式裡沒有自我更新的程式碼，`publish` 也要等它通過；`build` 只有讀取權限、看不到簽章 Secrets，建置 `sideload` 版的 APK（沒有金鑰，要明確加 `-PallowDebugSignedRelease=true` 才會用 debug 金鑰簽署，否則 release 建置會失敗）並存下；`sign` 只在驗證過的 main 執行，簽章金鑰放在 GitHub Environment `release-signing` 的 Secrets（需審核才能使用），不取出程式碼，用 `apksigner` 換上正式簽章、確認不是 debug 金鑰並寫出 `update.json`；`publish` 是唯一能寫 release 的工作。`publish` 有自己的 concurrency 群組且不取消進行中的執行，所以之後完成的驗證（即使失敗或略過）或建置都不會把它中途打斷；main 的建置也依序排隊，發布順序與 commit 順序一致。`publish` 先打標籤 `v<版號>`（打了就不移動，也不刪除），再建立這個版號的 release：先建成草稿，三個檔案都上傳後才公開並標成最新版，所以沒有人（包括 App）會看到缺安裝檔的 release；說明列出 `whats_new.txt` 的每一行與 APK 的 SHA-256。會發布的 PR 都要升版（ADR-0011），所以同一個版號只發布一次；重跑時發現這個版號已有 APK 就不再動它。舊版的 release 與標籤都保留，新版出問題時可以退回前一版；App 讀 `releases/latest`，任何舊版手機都找得到最新的那一版。各版寫出的帳本與備份樣本留在 repo 的 `test/fixtures/books`，不靠標籤。PR 的建置有新 push 時會取消舊的。每次建置都檢查 16 KB 分頁對齊。版本名稱取自 `pubspec.yaml`，版本號（versionCode）用工作流程的執行次數，所以新版一定能蓋過舊版安裝；兩者與 commit 也以 `--dart-define`（`APP_VERSION`、`APP_BUILD`、`APP_COMMIT`）傳進 App，顯示在「設定 › 關於」。
 
 APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform android-arm64` 建置，`build.gradle.kts` 的 release 也只收 `arm64-v8a`（debug 與 profile 不限，模擬器才能跑 x86_64）。除錯符號不放進安裝檔，每次建置另存成工作流程的 artifact `symbols-<commit>`（保留 90 天），用 `flutter symbolize` 還原當機堆疊。中文字型是 Noto Sans TC 的 Regular 與 Bold（見 App 的 README）。main 的安裝檔一定用正式金鑰簽章：缺 Secrets 時工作流程直接失敗，不會發出無法覆蓋安裝的版本。正式金鑰只在 `sign` 工作裡寫出（簽完即刪除），建置過程（Gradle 外掛與套件的程式）碰不到它；PR 與手動執行一律用 debug 金鑰。debug 簽章的安裝檔只供試用，不能覆蓋正式版。除錯符號的 artifact 以實際建置的 commit 命名：main 是驗證過的 commit，PR 是 GitHub 測試用的合併 commit。
 
@@ -25,7 +25,7 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
   - `SCHEDULE_EXACT_ALARM`：只在打開「準時提醒」時使用；Android 12 起要使用者在系統設定允許「鬧鐘與提醒」（App 會帶過去），沒允許時退回一般鬧鐘。不申請 `USE_EXACT_ALARM`（Play 只給鬧鐘、行事曆類 App）。
   - `RECEIVE_BOOT_COMPLETED`：重開機後重新排定提醒。`RestartReceiver` 也在 App 更新、改時間（`TIME_SET`）與改時區（`TIMEZONE_CHANGED`）時重排，這兩個不需要權限。
   - `VIBRATE`：按鈕的輕震用手機自己的點擊效果（`HapticsHandler.kt`，Android 10 以上用系統預設的 tick、click、heavy click），屬於觸控震動，手機設定關掉觸控震動時一起停；安裝時自動給，不需詢問。
-- 收件匣（`InboxWriter.kt`）：到期通知的「確認入帳」由 `ConfirmReceiver` 收下，用 `filesDir/inbox.pub` 的公鑰加密後寫進 `filesDir/inbox/`，帳本仍鎖著；下次打開帳本時才讀出入帳。加密用 Tink（`tink-android`）的 X25519 與 HKDF 加上系統的 AES-GCM；`InboxWriterTest.kt` 在 CI 以 `testDebugUnitTest` 驗證與 Dart 端相同的範例。
+- 收件匣（`InboxWriter.kt`）：到期通知的「確認入帳」由 `ConfirmReceiver` 收下，用 `filesDir/inbox.pub` 的公鑰加密後寫進 `filesDir/inbox/`，帳本仍鎖著；下次打開帳本時才讀出入帳。加密用 Tink（`tink-android`）的 X25519 與 HKDF 加上系統的 AES-GCM；`InboxWriterTest.kt` 在 CI 以 `testSideloadDebugUnitTest` 驗證與 Dart 端相同的範例。
 - 通知（`Reminders.kt`）：每則提醒記下手機當地的日期與時、分（另存當時的時間點，給舊版留下的資料用）。重開機、改時間或改時區時，依現在的時區重新算出時間點，所以 9:00 的提醒到了別的時區仍是當地 9:00；時間已過的則取消。鬧鐘預設用 `setAndAllowWhileIdle`，不是精準鬧鐘，手機休眠（Doze）時可能晚幾分鐘；打開「準時提醒」且系統允許時改用 `setExactAndAllowWhileIdle`。每則提醒帶標籤（`nudge`、`due:<key>`），重排時把已跳出但不再適用的通知收回（當天記過帳的每日提醒、已入帳或已繳的到期通知；測試通知除外）。「傳送測試通知」用另一個鬧鐘在一分鐘後跳出。設定頁的狀態列讀 `areNotificationsEnabled`、`canScheduleExactAlarms`、`isIgnoringBatteryOptimizations`，並可開 `ACTION_REQUEST_SCHEDULE_EXACT_ALARM`、`ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`。
   - 提醒的標題、內文（可能含金額）與點下去要開的畫面，為了重開機後能重排，存在 App 的 SharedPreferences（`reminders`），用手機 Keystore 裡一把不需指紋的金鑰加密（`ReminderStore.kt`，0.20.0 起；0.19 以前的明文第一次讀到時就改成加密）。鬧鐘只帶提醒的編號，響的時候才解開文字。關掉通知後下次同步就會清空。
 - 收據照片：相機寫到快取的 `camera/`（`FileProvider`，`res/xml/file_paths.xml`），縮小、加密存進 `receipts/` 後刪掉。
@@ -50,7 +50,13 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 
 ## App 內更新
 
-每次發布時，`android.yml` 在 APK 旁邊放 `update.json`（`build` 為 workflow 的 run number，與 App 的 `APP_BUILD` 相同；另有 `version`、`commit`、`sha256`、`size`，以及 `notes`：`apps/expense_tracker/whats_new.txt` 的每一行，App 更新前在浮窗裡列出），release 在檔案都上傳後才公開，所以它說的版本一定下載得到。App（`lib/src/features/settings/model/app_update.dart`）從 `github.com/swz0103/ExpenseTracker-V2/releases/latest/download/update.json` 讀最新版的資訊（repo 是公開的，不需登入），再到那個版號的 release 下載 `v<版號>/ExpenseTracker-<版號>.apk`；背景的 `UpdateWorker.kt` 也讀同一個 `update.json`，下載到快取 `updates/`（啟動時清掉），`UpdateHandler.kt` 核對 SHA-256 後以 `FileProvider` 交給系統安裝程式（`REQUEST_INSTALL_PACKAGES`；Android 8 以上第一次會開「安裝不明應用程式」設定）。Android 只在簽章相同時才覆蓋安裝，資料保留；側載的 App 不能在背景自動更新，每次都要使用者確認。
+每次發布時，`android.yml` 在 APK 旁邊放 `update.json`（`build` 為 workflow 的 run number，與 App 的 `APP_BUILD` 相同；另有 `version`、`commit`、`sha256`、`size`，以及 `notes`：`apps/expense_tracker/whats_new.txt` 的每一行，App 更新前在浮窗裡列出），release 在檔案都上傳後才公開，所以它說的版本一定下載得到。App（`lib/src/features/settings/model/app_update.dart`）從 `github.com/swz0103/ExpenseTracker-V2/releases/latest/download/update.json` 讀最新版的資訊（repo 是公開的，不需登入），再到那個版號的 release 下載 `v<版號>/ExpenseTracker-<版號>.apk`；背景的 `UpdateWorker.kt` 也讀同一個 `update.json`，下載到快取 `updates/`（啟動時清掉），`UpdateHandler.kt` 先核對（`UpdateGate.kt`）：大小不超過 150 MiB（`maxApkBytes`，Dart 端也在下載時擋）、SHA-256、APK 內的套件名等於本 App、版本碼嚴格大於已安裝的、簽章憑證的 SHA-256 與正在執行的 App 相同，任何一項不符就刪掉檔案不安裝，通過才以 `FileProvider` 交給系統安裝程式（`REQUEST_INSTALL_PACKAGES`；Android 8 以上第一次會開「安裝不明應用程式」設定）。Android 只在簽章相同時才覆蓋安裝，資料保留；側載的 App 不能在背景自動更新，每次都要使用者確認。
+
+### 兩個建置版本
+
+Android 有兩個 product flavor（`android/app/build.gradle.kts`，`pubspec.yaml` 的 `default-flavor` 是 `sideload`）：`sideload` 是發布在 GitHub Releases 的版本，有上面的自我更新；`play` 是預留給 Google Play 的版本（還沒上架，套件名目前相同），政策不允許 App 用 Play 以外的方式更新自己，所以它沒有 `REQUEST_INSTALL_PACKAGES`、沒有 `UpdateHandler`／`UpdateWorker`（`src/play` 只有空的 `SelfUpdate`）、沒有 `updates/` 的 FileProvider 路徑，也不會連網檢查更新，「關於」看不到更新的介面。Dart 端只在 `lib/src/core/platform/distribution.dart` 的 `canSelfUpdate` 判斷這件事。
+
+`compileSdk`、`targetSdk`（36）與 `minSdk`（24）寫在 `build.gradle.kts`，不再跟著 Flutter 預設浮動。沒有 `android/key.properties` 時，release 的 APK 與 Bundle 建置會失敗並說明原因；要建 debug 簽章的 release（CI 就是，之後由 `sign` 換簽章）要明確加 `-PallowDebugSignedRelease=true`。
 
 ## 桌面小工具
 
@@ -131,7 +137,8 @@ main 只能經由通過檢查的 PR 改變，正式簽章的 APK 才只會從驗
 
 ```bash
 cd apps/expense_tracker
-flutter build apk --release --target-platform android-arm64 \
+flutter build apk --release --flavor sideload -PallowDebugSignedRelease=true \
+  --target-platform android-arm64 \
   --split-debug-info=build/symbols   # 和 CI 相同；或 flutter run --release
 ```
 
