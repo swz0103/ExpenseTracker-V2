@@ -55,6 +55,7 @@ Their tests run without `knownDefect` and must pass.
 - INV-01 (p1_3_trade_costs_test.dart): the holding page, the entry list, the balances and the composer all show a trade at `Entry.settlement` (ledger_trade_costs `settlementAmount`); the sale shows +996,145
 - ENT-01 (p1_3_trade_costs_test.dart, 2 tests): a fee or tax still at its suggestion when the trade is opened is untouched and follows every change (1,026 after doubling the shares; 427 and 1,500 for half a sale); one the person typed stays
 - ENT-08 (p1_3_trade_costs_test.dart): the cost preview of a sale replays the book up to the sale's day without the sale being changed (100,000, not 200,000)
+- ACC-06 (no known-defect test; tests in test/core/ledger/services/balance_service_test.dart): `BalanceService.entriesOf` and `flowOf` replace the scans of the person, loan and account pages; ETFs are grouped by ledger_trade_costs `isEtf`
 
 ## not covered
 
@@ -68,7 +69,7 @@ One line per finding that has no test here. Findings with an executed reproducti
 - F65 (S1, 3.3): device-only: Google system backup copy rename race on Android
 - AND-02 (S1, 3.4): Android alarm receiver behaviour after reboot; needs a device or emulator (Kotlin side), reproduced on an API 34 emulator
 - REM-01 (S1, 3.4): the resume path is inline in a State (didChangeAppLifecycleState) and the inbox source exists only on Android; testable once LedgerSession gets a resume step
-- PKG-01 (S2, 1.3): the fix adds a configurable discount and a day-trade parameter (new API); today's fixed 6折 is what the baseline pins
+- PKG-01 (S2, 1.3): partly fixed in 1.3: the discount is the preference 券商手續費折扣 (default 6折; tests in test/core/platform/preferences_test.dart and test/features/entries/model/compose_form_test.dart); the day-trade tax stays open, as an entry has no notion of a day trade, and the holiday table belongs to the dates package
 - F24 (S2, 1.4): the intended behaviour (warn or refuse a buy that overdraws) is not decided
 - F19 (S2, 1.5): wording and one shared overdue judgement across three screens; no single value to assert
 - F77 (S2, 2.2): does not reproduce at ledger level: budgetCrossings already reports 本月總預算已超支 for the same data; the device case came from other state
@@ -122,7 +123,7 @@ One line per finding that has no test here. Findings with an executed reproducti
 - INV-03 (S2, 1.1): no executed reproduction; not turned into a test
 - PKG-05 (S2, 1.2): no executed reproduction; not turned into a test
 - PKG-07 (S2, 1.2): no executed reproduction; not turned into a test
-- PKG-04 (S2, 1.3): no executed reproduction; not turned into a test
+- PKG-04 (S2, 1.3): partly fixed in 1.3: an interest-only plan adds up exactly (packages/ledger/loans/test/calc/loan_plan_test.dart); equal-payment and equal-principal plans wait on the owner, as an exact schedule changes figures that test/baseline/loans_baseline_test.dart pins
 - LOG-03 (S2, 1.4): no executed reproduction; not turned into a test
 - LOG-07 (S2, 1.4): no executed reproduction; not turned into a test
 - DAT-02 (S2, 2.1): no executed reproduction; not turned into a test
@@ -178,8 +179,7 @@ One line per finding that has no test here. Findings with an executed reproducti
 - F25 (S3, 1.2): no executed reproduction; not turned into a test
 - F75 (S3, 1.2): no executed reproduction; not turned into a test
 - F86 (S3, 1.2): no executed reproduction; not turned into a test
-- ACC-06 (S3, 1.3): no executed reproduction; not turned into a test
-- PKG-08 (S3, 1.3): no executed reproduction; not turned into a test
+- PKG-08 (S3, 1.3): stopped in 1.3: the 2027 and 2028 rows of the rate table are the end dates the law in force sets (bond-ETF exemption, day-trade halving), not forecasts, and test/baseline/fees_and_tax_baseline_test.dart pins the 2027 bond-ETF tax
 - DAT-11 (S3, 1.4): no executed reproduction; not turned into a test
 - DAT-13 (S3, 1.4): no executed reproduction; not turned into a test
 - ENT-12 (S3, 1.4): no executed reproduction; not turned into a test
