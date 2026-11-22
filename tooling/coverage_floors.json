@@ -1,0 +1,8 @@
+{
+  "packages/core": 93,
+  "packages/domain": 90,
+  "infrastructure/storage": 93,
+  "infrastructure/vault": 96,
+  "infrastructure/market": 85,
+  "apps/expense_tracker": 90
+}
