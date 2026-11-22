@@ -65,7 +65,7 @@ class _MonthPickerState extends State<_MonthPicker> {
           ]),
           const SizedBox(height: Space.s3),
           const Text(
-            '每個月下面寫用了幾成；超支紅、九成以上金色',
+            '每個月下面寫用了幾成；${StatusWords.over}紅、到警示比例金色',
             textAlign: TextAlign.center,
             style: mutedSmall,
           ),
@@ -81,18 +81,17 @@ class _MonthPickerState extends State<_MonthPicker> {
         key((_year, m)) <= key(widget.last);
     final sums = budgetMonthOf(widget.ledger, (_year, m));
     final total = sums.total;
-    // Over is decided by the amounts: 50,174 of 50,000 is over, though
-    // its rounded share is 100%.
-    final over = total != 0 && isOver(sums.spent, total);
+    // Over and near are decided by the budget rules on the amounts:
+    // 50,174 of 50,000 is over, though its rounded share is 100%.
+    final status = total == 0 ? null : sums.status;
+    final over = status is BudgetOver;
     final share = total == 0 ? null : percent(sums.spent, total);
     final chosen = (_year, m) == widget.chosen;
-    final tone = share == null
-        ? AppColors.muted
-        : over
-        ? AppColors.negative
-        : share >= 90
-        ? AppColors.goldText
-        : AppColors.muted;
+    final tone = switch (status) {
+      BudgetOver() => AppColors.negative,
+      BudgetNear() => AppColors.goldText,
+      _ => AppColors.muted,
+    };
     final pick = on ? () => Navigator.of(context).pop((_year, m)) : null;
     return ReadAsButton(
       selected: chosen,
@@ -126,7 +125,7 @@ class _MonthPickerState extends State<_MonthPicker> {
                   !on || share == null
                       ? ' '
                       : over
-                      ? '超支'
+                      ? StatusWords.over
                       : '$share%',
                   style: TextStyle(
                     fontSize: TextSize.small,

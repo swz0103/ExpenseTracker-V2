@@ -72,6 +72,7 @@ class SummaryWidget : AppWidgetProvider() {
             views.setTextViewText(R.id.summary_figure, shown.figure)
             views.setTextViewText(R.id.summary_budget, shown.budget)
             views.setTextViewText(R.id.summary_detail, shown.detail)
+            views.setTextColor(R.id.summary_detail, stateColor(context, shown.state))
             bar(views, R.id.summary_bar, shown)
             val week = shown.week
             if (week == null) {
@@ -101,6 +102,7 @@ class SummaryWidget : AppWidgetProvider() {
         private fun compact(context: Context, shown: WidgetView.Shown, layout: Int): RemoteViews {
             val views = RemoteViews(context.packageName, layout)
             views.setTextViewText(R.id.short_label, shown.shortLabel)
+            views.setTextColor(R.id.short_label, stateColor(context, shown.state))
             views.setTextViewText(R.id.short_figure, shown.shortFigure)
             bar(views, R.id.short_bar, shown)
             views.setOnClickPendingIntent(R.id.short_body, MainActivity.opening(context, "", 3))
@@ -119,6 +121,19 @@ class SummaryWidget : AppWidgetProvider() {
             views.setProgressBar(id, 100, progress, false)
             views.setInt(id, "setSecondaryProgress", shown.pace ?: 0)
         }
+
+        /**
+         * The colour of the budget's words for [state], the id the app wrote
+         * with them (status.dart): the app decides and words the state, the
+         * widget only colours it.
+         */
+        private fun stateColor(context: Context, state: String): Int = context.getColor(
+            when (state) {
+                "over" -> R.color.widget_expense
+                "near" -> R.color.widget_pace
+                else -> R.color.widget_muted
+            },
+        )
 
         private fun visible(views: RemoteViews, id: Int, shown: Boolean) =
             views.setViewVisibility(id, if (shown) View.VISIBLE else View.GONE)
@@ -198,6 +213,7 @@ internal object WidgetView {
         val shortLabel: String = title,
         val shortFigure: String = figure,
         val date: String = "",
+        val state: String = "",
     )
 
     data class Shown(
@@ -212,6 +228,7 @@ internal object WidgetView {
         val today: Int = -1,
         val shortLabel: String = title,
         val shortFigure: String = figure,
+        val state: String = "",
     )
 
     /** A snapshot as the app wrote it; one from before the week was added still reads. */
@@ -234,6 +251,7 @@ internal object WidgetView {
             shortLabel = json.optString("shortLabel", title),
             shortFigure = json.optString("shortFigure", figure),
             date = json.optString("date"),
+            state = json.optString("state"),
         )
     }
 
@@ -283,6 +301,7 @@ internal object WidgetView {
             today = at,
             shortLabel = snapshot.shortLabel,
             shortFigure = snapshot.shortFigure,
+            state = snapshot.state,
         )
     }
 }

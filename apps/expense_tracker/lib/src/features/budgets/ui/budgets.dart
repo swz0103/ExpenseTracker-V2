@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/messages/amount_messages.dart';
 import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
@@ -20,9 +21,6 @@ part 'budgets_month_picker.dart';
 
 /// The colour of 預算管理, as on 更多.
 const _budgetColor = Palette.green;
-
-/// Gold for a budget nearly used up.
-const _nearColor = Palette.gold;
 
 /// 預算管理: the month in big words (tapped to pick another), the main
 /// card with what is left, what is used of the total and a bar of the
@@ -376,7 +374,13 @@ class _Main extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _head(left),
+          _head(
+            budgetStatus(
+              spent: spent,
+              limit: total,
+              warningPercent: whole.warning,
+            ),
+          ),
           Text.rich(
             TextSpan(
               children: [
@@ -411,8 +415,8 @@ class _Main extends StatelessWidget {
   }
 
   /// 剩 or 超支 over what is left, and the button to change the total.
-  Widget _head(int left) {
-    final over = left < 0;
+  Widget _head(BudgetStatus status) {
+    final over = status is BudgetOver;
     const ink = AppColors.accent;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -422,7 +426,7 @@ class _Main extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${current ? '本月' : '$month 月'}${over ? '超支' : '剩'}',
+                '${current ? '本月' : '$month 月'}${budgetLead(status)}',
                 style: TextStyle(
                   fontSize: TextSize.body,
                   fontWeight: FontWeight.w800,
@@ -433,7 +437,7 @@ class _Main extends StatelessWidget {
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  ledger.orDots(groupDigits(left.abs())),
+                  ledger.orDots(groupDigits(budgetFigure(status))),
                   style: TextStyle(
                     fontSize: TextSize.big,
                     fontWeight: FontWeight.w800,

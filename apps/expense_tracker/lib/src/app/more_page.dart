@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../design_system/display/amount.dart';
+import '../../design_system/display/status.dart';
 import '../core/design_system/glyphs.dart';
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
@@ -81,17 +82,21 @@ class MorePage extends StatelessWidget {
     final next = items.isEmpty ? null : items.first;
     final lent = peopleOwing(ledger)
         .fold<int>(0, (sum, a) => sum + owedFrom(ledger.balanceService, a));
-    final left = limit - expense;
+    final status = limit == 0
+        ? null
+        : budgetStatus(
+            spent: expense,
+            limit: limit,
+            warningPercent: ledger.budgets.forCategory(allSpending).warning,
+          );
     return _ToolRow([
       ToolButton(
         glyph: Glyph.gauge,
         color: ToolColors.budgets,
         label: '預算管理',
-        detail: limit == 0
+        detail: status == null
             ? '還沒設定'
-            : left < 0
-            ? '超支 ${groupDigits(-left)}'
-            : '剩 ${groupDigits(left)}',
+            : '${budgetLead(status)} ${groupDigits(budgetFigure(status))}',
         onTap: () => nav.open(AppRoutes.budgets),
       ),
       ToolButton(

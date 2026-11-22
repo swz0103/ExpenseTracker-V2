@@ -63,6 +63,8 @@ void main() {
         'figure': '12,345',
         'budget': '預算 20,000',
         'detail': '剩 7,655',
+        // 12,345 of 20,000 is under the 80% warning share.
+        'state': 'within',
         'progress': 62,
         'pace': 65,
         'week': [0, 0, 100, -1, -1, -1, -1],
@@ -77,11 +79,13 @@ void main() {
       WidgetFigures.amounts,
     );
     expect(over?['detail'], '超支 2,345');
+    expect(over?['state'], 'over');
     expect(over?['progress'], 100);
     expect(over?['shortLabel'], '10 月超支');
     expect(over?['shortFigure'], '2,345');
     final none = widgetSnapshot(widgetBookOf(book()), WidgetFigures.amounts);
     expect(none?['detail'], '沒有設定每月總預算');
+    expect(none?['state'], '');
     expect(none?['budget'], '');
     expect(none?['progress'], isNull);
     expect(none?['pace'], isNull);

@@ -42,6 +42,13 @@ class WidgetViewTest {
     }
 
     @Test
+    fun theBudgetStateTheAppWroteIsKept() {
+        val over = snapshot.copy(detail = "超支 2,345", shortLabel = "10 月超支", state = "over")
+        assertEquals("over", WidgetView.of(over, "2026-10").state)
+        assertEquals("", WidgetView.of(snapshot, "2026-10").state)
+    }
+
+    @Test
     fun withoutASnapshotItSaysWhereToTurnFiguresOn() {
         assertEquals(null, WidgetView.of(null, "2026-10").progress)
     }
