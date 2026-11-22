@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ledger_trade_costs/rules/instruments.dart' show isEtf;
 
 import '../../../core/messages/amount_messages.dart';
 import '../../../core/ledger/ledger.dart';
@@ -278,8 +279,8 @@ String shortHoldingName(Holding h) {
   ];
   var short = name;
   // Only a fund is named for its house; a company such as 中信金 is not
-  // 金. Taiwan's exchange-traded funds are the codes that start with 00.
-  for (final house in h.code.startsWith('00') ? houses : const <String>[]) {
+  // 金.
+  for (final house in isEtf(h.code) ? houses : const <String>[]) {
     if (short.startsWith(house) && short.length > house.length) {
       short = short.substring(house.length);
       break;

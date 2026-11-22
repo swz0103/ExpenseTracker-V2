@@ -17,6 +17,10 @@ dependencies:
     path: ../../packages/core
   domain:
     path: ../../packages/domain
+  ledger_loans:
+    path: ../../packages/ledger/loans
+  ledger_trade_costs:
+    path: ../../packages/ledger/trade_costs
   market:
     path: ../../infrastructure/market
   storage:

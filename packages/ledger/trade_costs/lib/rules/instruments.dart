@@ -1,4 +1,4 @@
-import 'values.dart';
+import '../model/trade_values.dart';
 
 /// The codes TWSE and TPEx quote: ordinary and preferred shares (2330,
 /// 2881A) and ETFs, bond, leveraged and inverse ones included (0050,
@@ -23,3 +23,7 @@ InstrumentKind instrumentKindOf(String code) {
   if (!tidy.startsWith('00')) return InstrumentKind.stock;
   return tidy.endsWith('B') ? InstrumentKind.bondEtf : InstrumentKind.etf;
 }
+
+/// Whether [code] is an ETF of any kind, bond ETFs included: the one rule
+/// the screens group holdings by.
+bool isEtf(String code) => instrumentKindOf(code) != InstrumentKind.stock;

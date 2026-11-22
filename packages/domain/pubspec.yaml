@@ -1,5 +1,5 @@
 name: domain
-description: "Bookkeeping rules shared by the screens: lot costs, Taiwan trade charges, card statement cycles and instalments, CSV and e-invoices."
+description: "Bookkeeping rules shared by the screens: lot costs, card statement cycles and instalments, CSV and e-invoices."
 version: 0.1.0
 publish_to: none
 environment:

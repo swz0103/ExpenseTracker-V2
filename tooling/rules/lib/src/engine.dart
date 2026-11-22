@@ -67,6 +67,8 @@ final class Project {
       for (final f in dir.listSync(recursive: true).whereType<File>()) {
         if (!f.path.endsWith('.dart')) continue;
         final rel = p.posix.joinAll(p.split(p.relative(f.path, from: root)));
+        // Tool output such as .dart_tool is not source.
+        if (rel.split('/').any((part) => part.startsWith('.'))) continue;
         sources[rel] = f.readAsStringSync();
       }
     }

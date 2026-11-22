@@ -21,6 +21,38 @@ void main() {
     );
   });
 
+  test("an account's entries, newest first, both ends of a transfer", () {
+    final book = Book(
+      entries: [
+        entry('a', amount: 300, date: DateTime.utc(2026, 9, 1)),
+        entry('c', type: EntryType.transfer, amount: 200, to: 'cash'),
+        entry('b', type: EntryType.income, amount: 500, account: 'cash'),
+      ],
+    );
+    expect([for (final e in book.balances.entriesOf('bank')) e.id], ['c', 'a']);
+    expect([for (final e in book.balances.entriesOf('cash')) e.id], ['b', 'c']);
+    expect(book.balances.entriesOf('gone'), isEmpty);
+  });
+
+  test("an account's flow in a month, in and out apart", () {
+    final book = Book(
+      entries: [
+        entry('old', amount: 999, date: DateTime.utc(2026, 9, 30)),
+        entry('a', amount: 300),
+        entry('b', type: EntryType.income, amount: 500),
+        entry('c', type: EntryType.transfer, amount: 200, to: 'cash'),
+      ],
+    );
+    // October: 500 in; 300 + 200 out. September's 999 is not counted.
+    expect(book.balances.flowOf('bank', day), (inflow: 500, outflow: 500));
+    // The cash account received the 200 transfer.
+    expect(book.balances.flowOf('cash', day), (inflow: 200, outflow: 0));
+    expect(book.balances.flowOf('bank', DateTime.utc(2026, 9, 1)), (
+      inflow: 0,
+      outflow: 999,
+    ));
+  });
+
   test('an account the book has none of has a balance of nothing', () {
     expect(Book().balances.balance('gone'), 0);
   });

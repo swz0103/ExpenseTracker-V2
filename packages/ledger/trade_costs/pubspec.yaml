@@ -1,0 +1,12 @@
+name: ledger_trade_costs
+description: "What a trade costs and what it settles at: Taiwan broker fee and discount, securities transaction tax, the NHI dividend premium, the settlement amount and day."
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  core:
+    path: ../../core
+dev_dependencies:
+  lints: ^6.1.0
+  test: 1.33.0

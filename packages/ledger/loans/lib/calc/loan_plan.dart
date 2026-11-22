@@ -22,8 +22,16 @@ LoanPlan? loanPlan({
   final r = (rate ?? 0) / 10000 / 12;
   switch (repay) {
     case LoanRepay.interest:
-      final each = (amount * r).round();
-      return (first: each, last: each + amount, interest: each * months);
+      // The interest of the first k months, rounded once; each month pays
+      // the step from k - 1 to k, so the months add up to the whole and
+      // the last one takes what rounding left over.
+      int upTo(int k) => _interestOf(amount, rate ?? 0, k);
+      final interest = upTo(months);
+      return (
+        first: upTo(1),
+        last: amount + interest - upTo(months - 1),
+        interest: interest,
+      );
     case LoanRepay.principal:
       final share = amount / months;
       return (
@@ -45,29 +53,13 @@ LoanPlan? loanPlan({
   }
 }
 
-/// A rate as typed, such as 「2.15」, in hundredths of a percent; null
-/// when it is not a number from 0 to 100.
-///
-/// Read from the digits themselves, not through a double, which holds
-/// 1.005 as 1.00499...: past two places it rounds half up, as written.
-int? rateOf(String typed) {
-  final match = RegExp(r'^(\d*)(?:\.(\d*))?$').firstMatch(typed.trim());
-  if (match == null || !typed.contains(RegExp(r'\d'))) return null;
-  final decimals = match[2] ?? '';
-  final whole = int.tryParse(match[1]!) ?? 0;
-  final kept = int.parse(decimals.padRight(2, '0').substring(0, 2));
-  final next = decimals.length > 2 ? int.parse(decimals[2]) : 0;
-  final hundredths = whole * 100 + kept + (next >= 5 ? 1 : 0);
-  return hundredths > 10000 ? null : hundredths;
-}
-
-/// A rate in hundredths of a percent as the form shows it: 215 as 2.15.
-String rateText(int? rate) {
-  if (rate == null) return '';
-  final whole = rate ~/ 100;
-  final cents = rate % 100;
-  if (cents == 0) return '$whole';
-  return cents % 10 == 0
-      ? '$whole.${cents ~/ 10}'
-      : '$whole.${'$cents'.padLeft(2, '0')}';
+/// [amount] x [rate] (hundredths of a percent a year) x [months] / 12,
+/// rounded half up to a whole NT$; in big integers, so a large loan over
+/// many months cannot overflow.
+int _interestOf(int amount, int rate, int months) {
+  final numerator =
+      BigInt.from(amount) * BigInt.from(rate) * BigInt.from(months);
+  final denominator = BigInt.from(120000);
+  return ((numerator * BigInt.two + denominator) ~/ (denominator * BigInt.two))
+      .toInt();
 }

@@ -1,4 +1,5 @@
-import 'package:domain/investments.dart';
+import 'package:ledger_trade_costs/model/trade_values.dart';
+import 'package:ledger_trade_costs/rules/instruments.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -21,5 +22,13 @@ void main() {
     expect(instrumentKindOf('2330'), InstrumentKind.stock);
     expect(instrumentKindOf('0050'), InstrumentKind.etf);
     expect(instrumentKindOf('00679b'), InstrumentKind.bondEtf);
+  });
+
+  test('ETFs of every kind, bond ETFs included, are ETFs', () {
+    expect(isEtf('0050'), isTrue);
+    expect(isEtf('00679B'), isTrue);
+    expect(isEtf(' 00631l.tw '), isTrue);
+    expect(isEtf('2330'), isFalse);
+    expect(isEtf('2881A'), isFalse);
   });
 }

@@ -5,14 +5,15 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../overview/forms/overview_editor.dart';
 import '../../overview/forms/widget_face.dart';
+import '../../../core/messages/trade_messages.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/design_system/settings_colors.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 
-/// 外觀與操作: four cards: light or dark, the small vibrations (關, 輕 or
-/// 標準), what the
-/// home-screen widget shows, and the overview's blocks.
+/// 外觀與操作: five cards: light or dark, the small vibrations (關, 輕 or
+/// 標準), what the home-screen widget shows, the overview's blocks, and
+/// the broker's discount a trade's fee is suggested at.
 class AppearanceSection extends StatelessWidget {
   const AppearanceSection({super.key, required this.preferences});
 
@@ -87,6 +88,34 @@ class AppearanceSection extends StatelessWidget {
     );
   }
 
+  /// The broker's discount the fee of a trade is suggested at, from the
+  /// usual ones, in two rows.
+  void _pickDiscount(BuildContext context) {
+    showCenterPanel(
+      context,
+      glyph: Glyph.percent,
+      color: SettingsColors.brokerDiscount,
+      title: BrokerDiscountText.title,
+      detail: BrokerDiscountText.detail,
+      body: (context) => ListenableBuilder(
+        listenable: preferences,
+        builder: (context, _) => Column(
+          children: [
+            for (final (i, row) in BrokerDiscountText.rows.indexed) ...[
+              if (i > 0) const SizedBox(height: Space.s2),
+              Segments(
+                labels: [for (final d in row) discountName(d)],
+                selected: row.indexOf(preferences.brokerDiscount),
+                selectedColor: SettingsColors.brokerDiscount,
+                onChanged: (k) => preferences.update(brokerDiscount: row[k]),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return CardGrid([
@@ -123,6 +152,13 @@ class AppearanceSection extends StatelessWidget {
         title: '總覽區塊',
         detail: '排序、隱藏',
         onTap: () => editOverview(context, preferences),
+      ),
+      SettingCard(
+        glyph: Glyph.percent,
+        color: SettingsColors.brokerDiscount,
+        title: BrokerDiscountText.title,
+        detail: discountName(preferences.brokerDiscount),
+        onTap: () => _pickDiscount(context),
       ),
     ]);
   }

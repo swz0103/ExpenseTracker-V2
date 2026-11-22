@@ -8,7 +8,8 @@ import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/amount_messages.dart';
 
-import 'package:domain/loans.dart';
+import 'package:ledger_loans/calc/loan_plan.dart';
+import 'package:ledger_loans/model/rate.dart';
 
 /// What the account form holds while it is filled in, and what saving
 /// it does to the ledger: a new account, or the changes to [old] with
