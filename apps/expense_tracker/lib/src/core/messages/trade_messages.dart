@@ -1,3 +1,5 @@
+import '../formatting/words.dart';
+
 /// The words of the setting 券商手續費折扣: the broker's discount a trade's
 /// fee is suggested at.
 abstract final class BrokerDiscountText {
@@ -7,7 +9,7 @@ abstract final class BrokerDiscountText {
   static const detail = '記買進、賣出時試算的手續費：成交金額 × 0.1425% × 折扣';
 
   /// Other words it is found by in the settings' search.
-  static const searchWords = ['手續費', '折扣', '券商', '股票'];
+  static const searchWords = [Words.fee, '折扣', '券商', '股票'];
 
   /// The discounts offered, in basis points of the full fee, as rows of
   /// choices: none, 6折, 5折; 3.8折, 2.8折, 2折.
