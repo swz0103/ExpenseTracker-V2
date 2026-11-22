@@ -7,6 +7,7 @@ import '../model/card_summary.dart';
 import 'account_action.dart';
 import '../../../core/widgets/pickers.dart';
 import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
@@ -124,17 +125,15 @@ class CardPage extends StatelessWidget {
   /// The last statement, what is owed on it and 繳卡款.
   Widget _statement(CardSummary card) {
     final owed = card.owed;
-    final left = card.daysLeft;
+    final status = cardBillLook(card.billStatus);
     final payment = card.payment;
     return HeroFigure(
       icon: Glyph.card,
       label: '本期帳單 · ${_day(card.start)}–${_day(card.end)}',
-      trailing: Pill(owed == 0 ? '已繳清' : '已出帳'),
+      trailing: Pill(owed == 0 ? StatusWords.paid : StatusWords.billed),
       value: ledger.money(owed),
       valueColor: owed > 0 ? AppColors.negative : AppColors.positive,
-      sub: owed == 0
-          ? '這期已繳清'
-          : '繳款截止 ${_day(card.due)}（${left < 0 ? '已逾期' : '還有 ${countOf(left, CountUnit.days)}'}）',
+      sub: status.words,
       child: payment == null
           ? null
           : Padding(

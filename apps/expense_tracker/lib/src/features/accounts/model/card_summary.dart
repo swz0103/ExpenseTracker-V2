@@ -1,4 +1,5 @@
 import 'package:core/percent/percent.dart' show percent;
+import 'package:domain/credit_cards.dart' show CardBillStatus;
 
 import '../../../core/ledger/ledger.dart';
 
@@ -36,6 +37,9 @@ final class CardSummary {
 
   /// What is still to pay on the last statement.
   late final int owed = _statements.statementDue(card);
+
+  /// Where the last statement stands today: paid, due or overdue.
+  late final CardBillStatus billStatus = _statements.billStatus(card);
 
   /// Purchases since the statement closed, and refunds against them.
   late final List<Entry> unbilled = _statements.unbilled(card);
@@ -108,9 +112,6 @@ final class CardSummary {
   /// The days of the cycle under way, and how many have gone.
   int get cycleDays => following.difference(end).inDays;
   int get daysGone => today.difference(end).inDays;
-
-  /// Days left to pay the statement; below zero when overdue.
-  int get daysLeft => due.difference(today).inDays;
 
   /// The next close, as it may have been moved.
   late final DateTime nextClose = card.closingOn(

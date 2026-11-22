@@ -67,8 +67,8 @@ abstract final class StatusWords {
 }
 
 /// A card's last statement on screen: 已繳清, 11/20 繳款 · 還有 3 天,
-/// 今天繳款 or 已逾期 2 天. The same words on the card's page, the
-/// account list and 總覽.
+/// 今天繳款 or 11/20 繳款 · 已逾期 2 天. The same words on the card's
+/// page, the account list and 總覽.
 StatusLook cardBillLook(CardBillStatus status) => switch (status) {
   BillNotYetBilled() => const StatusLook(
     id: 'notBilled',
@@ -89,9 +89,10 @@ StatusLook cardBillLook(CardBillStatus status) => switch (status) {
     color: Palette.gold,
     glyph: Glyph.bell,
   ),
-  BillOverdue(:final days) => StatusLook(
+  BillOverdue(:final dueOn, :final days) => StatusLook(
     id: 'overdue',
-    words: '${StatusWords.overdue} ${countOf(days, CountUnit.days)}',
+    words:
+        '${formatMd(_day(dueOn))} 繳款 · ${StatusWords.overdue} ${countOf(days, CountUnit.days)}',
     color: AppColors.negative,
     glyph: Glyph.bell,
   ),
