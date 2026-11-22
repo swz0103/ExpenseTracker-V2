@@ -30,11 +30,13 @@ void main() {
       expect(p.interest, 200833);
     });
     test('interest only: 1,667 a month, the principal with the last', () {
-      // 1000000 x 0.02 / 12 = 1666.67 -> 1667; x 240 = 400,080.
+      // 1000000 x 0.02 / 12 = 1666.67 -> 1667 a month.
+      // The total interest is left out on purpose: the code gives 400,080
+      // (the rounded payment x 240) where the exact figure is 400,000.
+      // That is finding F72 / PKG-04, not behaviour to keep.
       final p = plan(1000000, 200, 240, LoanRepay.interest);
       expect(p.first, 1667);
       expect(p.last, 1001667);
-      expect(p.interest, 400080);
     });
   });
 
