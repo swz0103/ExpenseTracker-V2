@@ -6,6 +6,7 @@ import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
 import '../core/design_system/theme.dart';
 import '../core/formatting/words.dart';
+import '../core/messages/trade_messages.dart';
 import '../core/navigation/nav.dart';
 
 /// One setting as it is looked for: its name, other words for it, and
@@ -59,6 +60,11 @@ const settingTopics = <SettingTopic>[
   (name: '震動', words: ['觸感'], page: SettingsDestination.appearance),
   (name: '桌面小工具', words: ['小工具', '桌面'], page: SettingsDestination.appearance),
   (name: '總覽區塊', words: ['排序', '隱藏'], page: SettingsDestination.appearance),
+  (
+    name: BrokerDiscountText.title,
+    words: BrokerDiscountText.searchWords,
+    page: SettingsDestination.appearance,
+  ),
   (
     name: '最近刪除',
     words: [Words.delete, '回收', '放回'],

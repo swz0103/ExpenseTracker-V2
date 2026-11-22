@@ -10,6 +10,7 @@ class _ComposerState extends State<Composer>
     editing: widget.entry,
     draft: widget.draft,
     refunded: widget.refundOf,
+    brokerDiscount: widget.brokerDiscount,
   );
 
   final _note = TextEditingController();

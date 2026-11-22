@@ -40,7 +40,6 @@ void main() {
       expect(form.amount, 1201000);
       expect(form.build().fee, 1026);
     },
-    skip: knownDefect('ENT-01', '1.3'),
   );
 
   test('ENT-01: editing the shares of a sale works fee and tax out again', () {
@@ -77,7 +76,7 @@ void main() {
     expect(form.amount, 500000);
     expect(form.build().fee, 427);
     expect(form.build().tax, 1500);
-  }, skip: knownDefect('ENT-01', '1.3'));
+  });
 
   testWidgets(
     'INV-01: the holding page shows a sale at what reached the account',

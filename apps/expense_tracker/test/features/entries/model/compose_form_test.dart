@@ -70,6 +70,60 @@ void main() {
     },
   );
 
+  test("a trade's fee is suggested at the broker's discount given", () {
+    final form = ComposeForm(book(), type: EntryType.buy, brokerDiscount: 2800)
+      ..holding = '2330';
+    form
+      ..setShares(1000)
+      ..setPrice(100);
+    // 100,000 x 0.001425 = 142.5; x 0.28 = 39.9 -> 39.
+    expect(form.charges, (39, 0));
+    // Without one, 6折: 142.5 x 0.6 = 85.5 -> 85.
+    final usual = ComposeForm(book(), type: EntryType.buy)..holding = '2330';
+    usual
+      ..setShares(1000)
+      ..setPrice(100);
+    expect(usual.charges, (85, 0));
+  });
+
+  test('a fee typed stays when the shares change; one untouched follows', () {
+    // 1000 shares at 100 = 100,000; fee 85 as suggested at 6折, so the
+    // saved entry reads as untouched.
+    final bought = Entry(
+      id: 'b',
+      date: day,
+      type: EntryType.buy,
+      amount: 100000,
+      account: 'bank',
+      holding: '2330',
+      shares: 1000,
+      fee: 85,
+    );
+    final untouched = ComposeForm(book(), type: EntryType.buy, editing: bought)
+      ..setShares(2000);
+    // 200,000 x 0.000855 = 171.
+    expect(untouched.build().fee, 171);
+    // A fee of 50 was typed from the broker's slip: it stays.
+    final slip = Entry(
+      id: 'b',
+      date: day,
+      type: EntryType.buy,
+      amount: 100000,
+      account: 'bank',
+      holding: '2330',
+      shares: 1000,
+      fee: 50,
+    );
+    final typed = ComposeForm(book(), type: EntryType.buy, editing: slip)
+      ..setShares(2000);
+    expect(typed.build().fee, 50);
+    // Typed now, it stays through a change of price as well.
+    untouched
+      ..tradeFee = 120
+      ..setPrice(110);
+    expect(untouched.build().fee, 120);
+  });
+
   test('a split must add up to the amount', () {
     final form = ComposeForm(book(), type: EntryType.expense)
       ..setAmount(300)
