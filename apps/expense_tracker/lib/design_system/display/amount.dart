@@ -8,6 +8,8 @@ import 'package:core/foundation_values.dart' show Currency;
 import 'package:core/money/amount_format.dart';
 import 'package:core/percent/percent.dart';
 
+import '../../src/core/formatting/words.dart';
+
 export 'package:core/money/amount_format.dart' show groupDigits;
 export 'package:core/percent/percent.dart' show divideRounded, isOver, percent;
 
@@ -205,8 +207,8 @@ String spokenAmount(
   bool hidden = false,
 }) {
   final direction = switch (sense) {
-    AmountSense.spending => '支出',
-    AmountSense.income => '收入',
+    AmountSense.spending => Words.expense,
+    AmountSense.income => Words.income,
     AmountSense.signed when minor > 0 => '正',
     AmountSense.signed || AmountSense.plain when minor < 0 => '負',
     _ => '',
