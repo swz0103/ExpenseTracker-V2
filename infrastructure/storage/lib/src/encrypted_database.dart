@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:sqlite3/sqlite3.dart';
 
+import 'layout.dart';
+
 /// Why a store could not be opened. Never carries key material.
 enum StorageProblem {
   /// The SQLite library is not SQLCipher; the file would be plaintext.
@@ -107,6 +109,20 @@ final class RowWriter {
     _db.execute('DELETE FROM rows WHERE shelf = ? AND id = ?', [shelf, id]);
   }
 
+  /// Keeps [value] under [key] beside the records, such as the version
+  /// the app last brought the book up to ([EncryptedDatabase.meta]).
+  void setMeta(String key, int value) {
+    _requireOpen();
+    if (key == EncryptedDatabase._revision) {
+      throw ArgumentError.value(key, 'key', 'kept by the store itself');
+    }
+    _db.execute(
+      'INSERT INTO meta (key, value) VALUES (?, ?) '
+      'ON CONFLICT (key) DO UPDATE SET value = excluded.value',
+      [key, value],
+    );
+  }
+
   void _requireOpen() {
     if (!_open) throw StateError('Write already finished.');
   }
@@ -122,6 +138,7 @@ final class EncryptedDatabase {
 
   /// Opens or creates [file].
   factory EncryptedDatabase.open(File file, StorageKey key) {
+    assert(_layout.length == schema, 'schema is the number of layout steps');
     final db = sqlite3.open(file.path);
     try {
       _configure(db, key);
@@ -133,8 +150,19 @@ final class EncryptedDatabase {
     }
   }
 
-  /// The layout this build writes.
+  /// The layout this build writes: the tables, not what their rows hold.
+  /// It is the number of steps in [_layout].
   static const schema = 1;
+
+  /// The steps that bring a file's layout up, one version at a time:
+  /// `_layout[n]` takes a file at version n to n + 1. A file is brought
+  /// up by every step it lacks, all in one transaction, as it opens; a
+  /// new file is at version 0. A change of layout adds a step here and
+  /// raises [schema].
+  static const List<void Function(Database db)> _layout = [_createTables];
+
+  /// The [meta] key the store keeps its [revision] under.
+  static const _revision = 'revision';
 
   final Database _db;
   bool _closed = false;
@@ -148,6 +176,14 @@ final class EncryptedDatabase {
     _requireOpen();
     final rows = _db.select("SELECT value FROM meta WHERE key = 'revision'");
     return rows.isEmpty ? 0 : rows.single['value'] as int;
+  }
+
+  /// The number kept under [key] beside the records, or null when none
+  /// is ([RowWriter.setMeta]).
+  int? meta(String key) {
+    _requireOpen();
+    final rows = _db.select('SELECT value FROM meta WHERE key = ?', [key]);
+    return rows.isEmpty ? null : rows.single['value'] as int;
   }
 
   /// How many records are kept.
@@ -174,16 +210,42 @@ final class EncryptedDatabase {
         : _db.select('SELECT * FROM rows WHERE shelf = ? ORDER BY seq', [
             shelf,
           ]);
+    return [for (final row in found) _stored(row)];
+  }
+
+  /// The record [id] on [shelf], or null when there is none.
+  StoredRow? row(String shelf, String id) {
+    _requireOpen();
+    final found = _db.select('SELECT * FROM rows WHERE shelf = ? AND id = ?', [
+      shelf,
+      id,
+    ]);
+    return found.isEmpty ? null : _stored(found.single);
+  }
+
+  /// Every record on [shelves] whose body holds [text] as it is, in the
+  /// order first kept: the few records that could name something, found
+  /// without the app reading every record.
+  List<StoredRow> rowsHolding(String text, {required List<String> shelves}) {
+    _requireOpen();
+    if (shelves.isEmpty) return const [];
+    final marks = List.filled(shelves.length, '?').join(', ');
     return [
-      for (final row in found)
-        StoredRow(
-          row['seq'] as int,
-          row['shelf'] as String,
-          row['id'] as String,
-          row['body'] as String,
-        ),
+      for (final row in _db.select(
+        'SELECT * FROM rows WHERE shelf IN ($marks) AND instr(body, ?) > 0 '
+        'ORDER BY seq',
+        [...shelves, text],
+      ))
+        _stored(row),
     ];
   }
+
+  static StoredRow _stored(Row row) => StoredRow(
+    row['seq'] as int,
+    row['shelf'] as String,
+    row['id'] as String,
+    row['body'] as String,
+  );
 
   /// At most [limit] records kept after the one numbered [after], in the
   /// order first kept: a large book read a page at a time, so the app can
@@ -196,12 +258,7 @@ final class EncryptedDatabase {
         'SELECT * FROM rows WHERE seq > ? ORDER BY seq LIMIT ?',
         [after, limit],
       ))
-        StoredRow(
-          row['seq'] as int,
-          row['shelf'] as String,
-          row['id'] as String,
-          row['body'] as String,
-        ),
+        _stored(row),
     ];
   }
 
@@ -237,41 +294,33 @@ final class EncryptedDatabase {
   }
 
   static void _create(Database db) {
-    final version = db.userVersion;
     final journal = db.select(
       "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'events'",
     );
     if (journal.isNotEmpty) {
       throw const StorageUnavailable(StorageProblem.oldFormat);
     }
-    if (version > schema) {
-      throw const StorageUnavailable(StorageProblem.newerSchema);
-    }
-    if (version == schema) return;
-    db.execute('BEGIN IMMEDIATE');
-    try {
-      db.execute('''
-        CREATE TABLE rows (
-          seq INTEGER PRIMARY KEY AUTOINCREMENT,
-          shelf TEXT NOT NULL,
-          id TEXT NOT NULL,
-          body TEXT NOT NULL,
-          UNIQUE (shelf, id)
-        ) STRICT
-      ''');
-      db.execute('''
-        CREATE TABLE meta (
-          key TEXT PRIMARY KEY,
-          value INTEGER NOT NULL
-        ) STRICT, WITHOUT ROWID
-      ''');
-      db.execute("INSERT INTO meta VALUES ('revision', 0)");
-      db.userVersion = schema;
-      db.execute('COMMIT');
-    } catch (_) {
-      if (!db.autocommit) db.execute('ROLLBACK');
-      rethrow;
-    }
+    bringUpLayout(db, _layout);
+  }
+
+  /// Version 0 to 1: the records' table and the store's own.
+  static void _createTables(Database db) {
+    db.execute('''
+      CREATE TABLE rows (
+        seq INTEGER PRIMARY KEY AUTOINCREMENT,
+        shelf TEXT NOT NULL,
+        id TEXT NOT NULL,
+        body TEXT NOT NULL,
+        UNIQUE (shelf, id)
+      ) STRICT
+    ''');
+    db.execute('''
+      CREATE TABLE meta (
+        key TEXT PRIMARY KEY,
+        value INTEGER NOT NULL
+      ) STRICT, WITHOUT ROWID
+    ''');
+    db.execute("INSERT INTO meta VALUES ('$_revision', 0)");
   }
 
   static void _configure(Database db, StorageKey key) {
