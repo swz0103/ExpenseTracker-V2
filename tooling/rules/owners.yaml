@@ -106,17 +106,16 @@ items:
     what: 手續費、稅、交割金額
     layer: ledger
     owner:
-      - packages/domain/lib/src/investments/taiwan.dart
-      - apps/expense_tracker/lib/src/core/ledger/trading.dart
+      - packages/ledger/trade_costs/lib
     target: packages/ledger/trade_costs/lib/calc/
-    status: scattered
+    status: owned
   - id: installments-billing-cycle
     what: 分期排程與帳單週期
     layer: ledger
     owner:
       - packages/domain/lib/src/credit_cards/installments.dart
       - packages/domain/lib/src/credit_cards/card_billing.dart
-      - packages/domain/lib/src/loans/loan_plan.dart
+      - packages/ledger/loans/lib/calc/loan_plan.dart
       - apps/expense_tracker/lib/src/core/ledger/card_cycle.dart
     target: packages/ledger/installments/lib/calc/ + packages/ledger/card_cycles/lib/calc/
     status: scattered

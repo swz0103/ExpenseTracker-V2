@@ -196,8 +196,7 @@
   "C1-tests-exist": {
     "packages/core/lib/src/foundation_values/identity.dart": 1,
     "packages/core/lib/src/foundation_values/time.dart": 1,
-    "packages/domain/lib/src/credit_cards/card_billing.dart": 1,
-    "packages/domain/lib/src/investments/values.dart": 1
+    "packages/domain/lib/src/credit_cards/card_billing.dart": 1
   },
   "D2-no-part": {
     "apps/expense_tracker/lib/src/app/demo/seed.dart": 1,

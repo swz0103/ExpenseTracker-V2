@@ -12,6 +12,8 @@ const strictPackages = [
   'infrastructure/vault',
   'packages/core',
   'packages/domain',
+  'packages/ledger/loans',
+  'packages/ledger/trade_costs',
 ];
 
 final _vague = RegExp(r'throwsA\(\s*(anything|isA<(Object|Exception)>\(\))');
