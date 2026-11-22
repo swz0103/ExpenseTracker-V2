@@ -1,5 +1,5 @@
 {
-  "load_ms": 30,
+  "load_ms": 400,
   "10k_load_ms": 150,
   "100k_load_ms": 1700,
   "save_shown_us": 250000,

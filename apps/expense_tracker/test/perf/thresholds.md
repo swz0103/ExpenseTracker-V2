@@ -16,7 +16,7 @@ shared CI runner does not fail the build but a real regression does.
 
 | key | unit | measured 3.6k / 10k / 100k | limit 3.6k / 10k / 100k |
 |---|---|---|---|
-| `load_ms` | ms | 15 / 72 / 838 | 30 / 150 / 1,700 |
+| `load_ms` | ms | 15–151 / 72–76 / 838–1,007 | 400 / 150 / 1,700 |
 | `save_shown_us` (save until the screen shows it) | microseconds | 117 / 118 / 133 ms | 250 / 250 / 270 ms |
 | `month_ms` (one month switch) | ms | 115 / 116 / 116 | 240 / 240 / 240 |
 | `reports_open_ms` | ms | 232 / 233 / 249 | 470 / 470 / 500 |
@@ -33,3 +33,12 @@ Real-phone reference (Galaxy A56, not gated, for context only): load
 
 Raising a limit needs a reason in the commit message; lowering one after an
 optimisation is welcome.
+
+## Why the smallest ledger has the loosest load limit
+
+The 3,600-entry load is the first thing the bench measures after the app
+starts, so it carries one-time start-up cost: two runs of the same code gave
+15 ms (run 44913445914) and 151 ms (run 45014933750), while the 10k load in
+the same runs was 72 and 76 ms. Its limit is therefore an absolute ceiling
+(400 ms), not twice a measurement; the 10k and 100k limits are the ones that
+catch a regression in loading itself.
