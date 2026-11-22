@@ -26,9 +26,28 @@ Future<DeviceUnlock?> androidDeviceUnlock(Directory directory) async {
   );
 }
 
+/// The Keystore's methods over the platform channel (`KeystoreHandler.kt`);
+/// `context` is bound in as AES-GCM associated data.
+abstract base class _KeystoreChannel implements DeviceKeyWrapper {
+  const _KeystoreChannel();
+
+  Future<List<int>> _call(
+    String method,
+    List<int> data,
+    List<int> context,
+  ) async {
+    final result = await platformChannel.invokeMethod<Uint8List>(method, {
+      'data': Uint8List.fromList(data),
+      'context': Uint8List.fromList(context),
+    });
+    if (result == null) throw StateError('The device key gave nothing.');
+    return result;
+  }
+}
+
 /// Wraps the ledger key with an Android Keystore key bound to biometric
-/// confirmation; `context` is bound in as AES-GCM associated data.
-final class KeystoreDeviceKey implements DeviceKeyWrapper {
+/// confirmation.
+final class KeystoreDeviceKey extends _KeystoreChannel {
   const KeystoreDeviceKey();
 
   @override
@@ -38,37 +57,20 @@ final class KeystoreDeviceKey implements DeviceKeyWrapper {
   @override
   Future<List<int>> unwrap(List<int> wrapped, List<int> context) =>
       _call('unwrap', wrapped, context);
-
-  Future<List<int>> _call(String method, List<int> data, List<int> context) =>
-      _keystore(method, data, context);
 }
 
 /// Seals the key of a ledger opened without a password with an Android
 /// Keystore key that never leaves the phone's secure hardware and needs no
-/// fingerprint, so the ledger still opens by itself (`KeystoreHandler.kt`,
-/// `quickWrap` and `quickUnwrap`); `context` is bound in as AES-GCM
-/// associated data.
-final class KeystoreQuickKey implements DeviceKeyWrapper {
+/// fingerprint, so the ledger still opens by itself (`quickWrap` and
+/// `quickUnwrap`).
+final class KeystoreQuickKey extends _KeystoreChannel {
   const KeystoreQuickKey();
 
   @override
   Future<List<int>> wrap(List<int> secret, List<int> context) =>
-      _keystore('quickWrap', secret, context);
+      _call('quickWrap', secret, context);
 
   @override
   Future<List<int>> unwrap(List<int> wrapped, List<int> context) =>
-      _keystore('quickUnwrap', wrapped, context);
-}
-
-Future<List<int>> _keystore(
-  String method,
-  List<int> data,
-  List<int> context,
-) async {
-  final result = await platformChannel.invokeMethod<Uint8List>(method, {
-    'data': Uint8List.fromList(data),
-    'context': Uint8List.fromList(context),
-  });
-  if (result == null) throw StateError('The device key gave nothing.');
-  return result;
+      _call('quickUnwrap', wrapped, context);
 }
