@@ -63,6 +63,22 @@ void main() {
     expect(filter.amountLabel, '金額 100–5,000');
   });
 
+  testWidgets('ENT-09: bounds are read as typed, and one that is not an '
+      'amount is said so, not dropped', (tester) async {
+    final got = await open(tester);
+    await tester.enterText(find.byType(TextField).first, '1,000');
+    await tester.enterText(find.byType(TextField).last, '12.5');
+    await tester.pump();
+    expect(find.text('小數位數比這個幣別多'), findsOneWidget);
+    await go(tester, ['套用']);
+    // Still open: nothing applied with the upper bound silently unset.
+    expect(got, isEmpty);
+    await tester.enterText(find.byType(TextField).last, '5,000');
+    await tester.pump();
+    await go(tester, ['套用']);
+    expect((got.single!.least, got.single!.most), (1000, 5000));
+  });
+
   testWidgets('the account and category chosen are shown and can be put '
       'back to all', (tester) async {
     final got = await open(
@@ -217,6 +233,24 @@ void main() {
       expect(const EntryFilter(least: 3).amountLabel, '金額 3 以上');
       expect(const EntryFilter(most: 3).amountLabel, '金額 3 以下');
       expect(const EntryFilter().amountLabel, '');
+    });
+
+    test('ENT-09: a foreign entry is compared by its worth in NT\$', () {
+      final ledger = demoLedger();
+      const filter = EntryFilter(most: 5000);
+      // US$80.00 is 8,000 cents but NT$2,560 at 32: under NT$5,000.
+      final dollars = Entry(
+        id: 'usd',
+        date: day,
+        type: EntryType.expense,
+        amount: 8000,
+        account: 'usd',
+        category: '居家生活',
+        home: 2560,
+      );
+      expect(filter.shows(ledger, dollars), isTrue);
+      // ...and not over NT$3,000, though 8,000 cents is.
+      expect(const EntryFilter(least: 3000).shows(ledger, dollars), isFalse);
     });
 
     test('money into its account as well as out of it', () {

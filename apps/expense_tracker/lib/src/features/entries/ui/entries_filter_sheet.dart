@@ -1,3 +1,4 @@
+import 'package:core/money/amount_parser.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/display/amount.dart';
@@ -5,6 +6,7 @@ import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/amount_messages.dart';
 import '../../../core/widgets/pickers.dart';
 import '../../../core/formatting/dates.dart';
 import '../../../core/design_system/shape.dart';
@@ -54,7 +56,9 @@ final class EntryFilter {
   /// A span of days in place of the month; null shows the month.
   final DateTimeRange? range;
 
-  /// The smallest and largest amount shown; null for no bound.
+  /// The smallest and largest amount shown, in whole NT\$; null for no
+  /// bound. An entry in another currency is compared by its worth in
+  /// NT\$, the figure the reports count ([Entry.worth]).
   final int? least;
   final int? most;
 
@@ -124,8 +128,8 @@ final class EntryFilter {
         return false;
       }
     }
-    if (least != null && e.amount < least) return false;
-    if (most != null && e.amount > most) return false;
+    if (least != null && e.worth < least) return false;
+    if (most != null && e.worth > most) return false;
     if (account != null && e.account != account && e.to != account) {
       return false;
     }
@@ -192,10 +196,23 @@ class _FilterSheetState extends State<_FilterSheet> {
   late var _range = widget.initial.range;
   late final _least = TextEditingController(
     text: widget.initial.least?.toString() ?? '',
-  );
+  )..addListener(_typed);
   late final _most = TextEditingController(
     text: widget.initial.most?.toString() ?? '',
-  );
+  )..addListener(_typed);
+
+  void _typed() => setState(() {});
+
+  /// A bound as typed, in whole NT\$.
+  static AmountResult _bound(TextEditingController c) =>
+      parseAmount(c.text, scale: 0);
+
+  /// Why a bound as typed is not an amount; null when it is one or is
+  /// left empty.
+  static String? _problem(TextEditingController c) => switch (_bound(c)) {
+    AmountOk() || AmountRefused(problem: AmountProblem.empty) => null,
+    AmountRefused(:final problem) => amountProblemMessage(problem),
+  };
 
   DateTime get _today {
     final t = widget.ledger.today;
@@ -293,14 +310,17 @@ class _FilterSheetState extends State<_FilterSheet> {
   }
 
   void _apply() {
+    // A bound that is not an amount is said so under its field, never
+    // taken as no bound.
+    if (_problem(_least) != null || _problem(_most) != null) return;
     Navigator.of(context).pop(
       EntryFilter(
         kind: _kind,
         account: _account,
         category: _category,
         range: _range,
-        least: int.tryParse(_least.text.trim()),
-        most: int.tryParse(_most.text.trim()),
+        least: _bound(_least).minorOrNull,
+        most: _bound(_most).minorOrNull,
       ),
     );
   }
@@ -336,12 +356,16 @@ class _FilterSheetState extends State<_FilterSheet> {
           const _Heading(Words.amount),
           Row(
             children: [
-              Expanded(child: _AmountField(_least, '最少')),
+              Expanded(
+                child: _AmountField(_least, '最少', error: _problem(_least)),
+              ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: Space.s2),
                 child: Text('–', style: mutedText),
               ),
-              Expanded(child: _AmountField(_most, '最多')),
+              Expanded(
+                child: _AmountField(_most, '最多', error: _problem(_most)),
+              ),
             ],
           ),
           const SizedBox(height: Space.s4),
@@ -557,10 +581,13 @@ class _ChoiceRow extends StatelessWidget {
 
 /// A bound for the amount filter, digits only.
 class _AmountField extends StatelessWidget {
-  const _AmountField(this.controller, this.hint);
+  const _AmountField(this.controller, this.hint, {this.error});
 
   final TextEditingController controller;
   final String hint;
+
+  /// What is wrong with what was typed, shown under the field.
+  final String? error;
 
   @override
   Widget build(BuildContext context) => TextField(
@@ -568,6 +595,8 @@ class _AmountField extends StatelessWidget {
     keyboardType: TextInputType.number,
     decoration: InputDecoration(
       hintText: hint,
+      errorText: error,
+      errorMaxLines: 2,
       isDense: true,
       filled: true,
       fillColor: AppColors.surface,
