@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/messages/update_messages.dart';
 import '../../../core/platform/distribution.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
@@ -262,7 +263,7 @@ final class AppUpdate extends ChangeNotifier {
     notifyListeners();
     if (info.size > maxApkBytes) {
       // Not even started: nothing this large is an update of this app.
-      _problem = '更新檔大小不合理，已取消下載';
+      _problem = UpdateMessages.absurdSize;
       _progress = null;
       notifyListeners();
       return null;
@@ -285,12 +286,15 @@ final class AppUpdate extends ChangeNotifier {
       if (outcome == UpdateInstall.damaged) {
         _problem = '下載的檔案不完整，請再試一次';
       } else if (outcome == UpdateInstall.rejected) {
-        _problem = '這個更新檔不是「記帳本」的新版（套件、版本或簽章不符），已刪除，不會安裝';
+        _problem = UpdateMessages.notThisApp;
       }
       return outcome;
     } on _OversizedDownload {
-      ErrorLog.instance.record('下載更新', '下載的大小超過更新資訊所說');
-      _problem = '下載的檔案比預期大，已中止';
+      ErrorLog.instance.record(
+        UpdateMessages.downloadStep,
+        UpdateMessages.grewPastSize,
+      );
+      _problem = UpdateMessages.grewPastSize;
       if (apk.existsSync()) await apk.delete();
       return null;
     } on Object catch (error) {
