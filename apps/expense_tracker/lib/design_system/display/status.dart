@@ -20,6 +20,9 @@ import '../../src/core/ledger/rules/advance_rules.dart';
 import '../../src/core/ledger/rules/budget_rules.dart';
 import '../../src/core/ledger/rules/recurring_rules.dart';
 import 'amount.dart';
+import 'status_messages.dart';
+
+export 'status_messages.dart';
 
 /// One status as it is shown: [words] on screen, in [color] with
 /// [glyph], read out as [spoken]; [id] names the state for the home
@@ -30,6 +33,7 @@ final class StatusLook {
     required this.words,
     required this.color,
     required this.glyph,
+    this.alerts = false,
     String? spoken,
   }) : spoken = spoken ?? words;
 
@@ -41,29 +45,7 @@ final class StatusLook {
 
   /// Whether the state asks for attention: the one treatment for it is
   /// the [StatusBadge].
-  bool get alerts => color == AppColors.negative || color == Palette.gold;
-}
-
-/// The words of the statuses, kept together.
-abstract final class StatusWords {
-  static const notBilled = '未出帳';
-  static const billed = '已出帳';
-  static const dueTodayCard = '今天繳款';
-  static const overdue = '已逾期';
-  static const paid = '已繳清';
-  static const left = '剩';
-  static const near = '快用完';
-  static const over = '超支';
-  static const held = '持有中';
-  static const soldOut = '已賣光';
-  static const upcoming = '未到期';
-  static const due = '到期';
-  static const booked = '已入帳';
-  static const skipped = '已略過';
-  static const paused = '已暫停';
-  static const open = '未收回';
-  static const partlySettled = '部分收回';
-  static const settled = '已結清';
+  final bool alerts;
 }
 
 /// A card's last statement on screen: 已繳清, 11/20 繳款 · 還有 3 天,
@@ -88,6 +70,7 @@ StatusLook cardBillLook(CardBillStatus status) => switch (status) {
     words: StatusWords.dueTodayCard,
     color: Palette.gold,
     glyph: Glyph.bell,
+    alerts: true,
   ),
   BillOverdue(:final dueOn, :final days) => StatusLook(
     id: 'overdue',
@@ -95,6 +78,7 @@ StatusLook cardBillLook(CardBillStatus status) => switch (status) {
         '${formatMd(_day(dueOn))} 繳款 · ${StatusWords.overdue} ${countOf(days, CountUnit.days)}',
     color: AppColors.negative,
     glyph: Glyph.bell,
+    alerts: true,
   ),
   BillPaid() => const StatusLook(
     id: 'paid',
@@ -121,12 +105,14 @@ StatusLook budgetLook(BudgetStatus status) => switch (status) {
     words: StatusWords.near,
     color: Palette.gold,
     glyph: Glyph.hourglass,
+    alerts: true,
   ),
   BudgetOver() => const StatusLook(
     id: 'over',
     words: StatusWords.over,
     color: AppColors.negative,
     glyph: Glyph.gauge,
+    alerts: true,
   ),
 };
 

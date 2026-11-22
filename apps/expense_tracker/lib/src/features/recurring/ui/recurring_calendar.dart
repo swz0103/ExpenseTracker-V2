@@ -89,7 +89,9 @@ class _Calendar extends StatelessWidget {
     final past = day.isBefore(todayDay);
     final items = plan[d] ?? const <Due>[];
     final allBooked = items.isNotEmpty && items.every((x) => x.settled);
-    final due = items.any((x) => !x.settled) && !day.isAfter(todayDay);
+    final due = items.any(
+      (x) => x.statusOn(todayDay) == RecurringPeriodStatus.due,
+    );
     final single = items.length == 1 && !allBooked;
     final (glyph, color) = single
         ? recurringMark(ledger, items.first.item)
@@ -117,7 +119,7 @@ class _Calendar extends StatelessWidget {
       selected: isChosen,
       label:
           '$month 月 $d 日'
-          '${items.isEmpty ? '' : '，${countOf(items.length, CountUnit.entries)}${due ? '，到期' : ''}'}',
+          '${items.isEmpty ? '' : '，${countOf(items.length, CountUnit.entries)}${due ? '，${StatusWords.due}' : ''}'}',
       onTap: () => onPick(d),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -138,7 +140,7 @@ class _Calendar extends StatelessWidget {
               // cut their bottom off); a week with none takes no room for it.
               if (due)
                 const Text(
-                  '到期',
+                  StatusWords.due,
                   textScaler: TextScaler.noScaling,
                   style: TextStyle(
                     fontSize: TextSize.tiny,
@@ -292,7 +294,7 @@ class _DayItemsState extends State<_DayItems> {
     final day = widget.day;
     final items = widget.items;
     final away = day.difference(todayDay).inDays;
-    final allBooked = items.isNotEmpty && items.every((x) => x.settled);
+    final allSettled = items.isNotEmpty && items.every((x) => x.settled);
     final overdue = items.any((x) => !x.settled) && away < 0;
     final total = items.fold(
       0,
@@ -305,8 +307,8 @@ class _DayItemsState extends State<_DayItems> {
         : '過了 ${countOf(-away, CountUnit.days)}';
     final right = items.isEmpty
         ? (away > 0 ? '${countOf(away, CountUnit.days)}後' : '')
-        : allBooked
-        ? '已入帳'
+        : allSettled
+        ? settledDayWords([for (final x in items) x.statusOn(todayDay)])
         : overdue
         ? when
         : items.length > 1
@@ -425,16 +427,18 @@ class _DayItemsState extends State<_DayItems> {
     final (glyph, markColor) = recurringMark(ledger, item);
     final skipped = x.skipped;
     final color = x.settled ? AppColors.faint : markColor;
-    final due = !x.settled && !x.day.isAfter(todayDay);
+    final status = x.statusOn(todayDay);
+    final due = status == RecurringPeriodStatus.due;
+    final words = recurringLook(status).words;
     final away = x.day.difference(todayDay).inDays;
     final account = ledger.account(item.account).name;
-    final line = skipped
-        ? '已跳過 · 不會再記'
-        : booked != null
-        ? '已入帳 · ${formatMd(booked.date)}'
-        : due
-        ? '$account · 到期'
-        : '$account · ${away == 0 ? Words.today : '${countOf(away, CountUnit.days)}後'}';
+    final line = switch (status) {
+      RecurringPeriodStatus.skipped => '$words · 不會再記',
+      RecurringPeriodStatus.booked => '$words · ${formatMd(booked!.date)}',
+      RecurringPeriodStatus.due => '$account · $words',
+      _ =>
+        '$account · ${away == 0 ? Words.today : '${countOf(away, CountUnit.days)}後'}',
+    };
     final amount = Text(
       '${item.income ? '+' : ''}'
       '${ledger.orDots(recurringAmount(ledger, item))}',

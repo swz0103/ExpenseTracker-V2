@@ -49,6 +49,9 @@ class _Manage extends StatelessWidget {
               if (r.active && r.income == income) r,
           ];
           if (items.isEmpty) return const [];
+          // What this month's dates come to: a yearly item counts only in
+          // the month it falls, so the total is this month's (本月合計),
+          // not a monthly average.
           var monthly = 0;
           for (final r in items) {
             monthly +=
@@ -71,7 +74,7 @@ class _Manage extends StatelessWidget {
                   ),
                   const Spacer(),
                   Text(
-                    '${items.length} 項 · 每月 ${ledger.orDots(groupDigits(monthly))}',
+                    '${items.length} 項 · 本月合計 ${ledger.orDots(groupDigits(monthly))}',
                     style: mutedSmall,
                   ),
                 ],
@@ -105,10 +108,15 @@ class _Manage extends StatelessWidget {
 /// a bar of each item's share, and each item's year, month and share,
 /// the dearest first.
 class _Subscriptions extends StatelessWidget {
-  const _Subscriptions({required this.ledger, required this.nav});
+  const _Subscriptions({
+    required this.ledger,
+    required this.nav,
+    required this.onEdit,
+  });
 
   final Ledger ledger;
   final Nav nav;
+  final Future<void> Function({Recurring? item, DateTime? on}) onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +153,7 @@ class _Subscriptions extends StatelessWidget {
             RecurringRow(
               ledger: ledger,
               item: item,
-              onTap: () {},
+              onTap: () => onEdit(item: item),
               lines: [
                 '一年 ${ledger.orDots(groupDigits(yearly))}',
                 '每月 ${ledger.orDots(groupDigits(divideRounded(yearly, 12)))} · '
@@ -221,7 +229,7 @@ class _Paused extends StatelessWidget {
         ];
         return _SubPage(
           nav: nav,
-          title: '已暫停',
+          title: StatusWords.paused,
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(Space.s1, 0, Space.s1, Space.s4),

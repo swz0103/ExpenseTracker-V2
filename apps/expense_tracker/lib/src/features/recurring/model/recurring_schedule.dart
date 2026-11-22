@@ -14,6 +14,15 @@ final class Due {
 
   /// Booked or let go: nothing more to do for it.
   bool get settled => booked != null || skipped;
+
+  /// Where this period stands on [today], as the recurring rules decide.
+  RecurringPeriodStatus statusOn(DateTime today) => recurringPeriodStatus(
+    active: item.active,
+    booked: booked != null,
+    skipped: skipped,
+    day: day,
+    today: today,
+  );
 }
 
 /// Each day of [year]/[month] with what falls due on it, the dearest
