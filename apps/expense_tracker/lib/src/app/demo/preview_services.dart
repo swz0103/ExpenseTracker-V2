@@ -68,6 +68,27 @@ final class DemoBackupManager implements BackupManager {
 
   @override
   Future<String> restoreAnother() async => '';
+
+  @override
+  DateTime? get exportedAt => null;
+
+  @override
+  bool get passwordBelowRule => false;
+
+  var _passphrase = false;
+
+  @override
+  bool get hasBackupPassphrase => _passphrase;
+
+  @override
+  Future<void> setBackupPassphrase(String passphrase) async =>
+      _passphrase = true;
+
+  @override
+  Future<void> removeBackupPassphrase() async => _passphrase = false;
+
+  @override
+  Future<void> resetKeys(String? currentPassword) async {}
 }
 
 /// Made-up daily closes for the demo's holdings: a walk of its own for

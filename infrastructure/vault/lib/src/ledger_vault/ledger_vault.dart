@@ -117,6 +117,13 @@ final class LedgerVault {
     return _openKept(await codec.unlockWithRecovery(keyring, recoveryCode));
   }
 
+  /// Opens with the backup passphrase, as a ledger restored from a backup
+  /// does until a password is set for it.
+  Future<OpenVault> unlockWithPassphrase(String passphrase) async {
+    final keyring = await _keyring();
+    return _openKept(await codec.unlockWithPassphrase(keyring, passphrase));
+  }
+
   Future<OpenVault> unlockWithDevice(
     String deviceId,
     DeviceKeyWrapper wrapper,

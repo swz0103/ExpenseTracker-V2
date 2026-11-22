@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import '../platform/sensitive_clipboard.dart';
 import 'glyphs.dart';
 import 'theme.dart';
 import 'design_system.dart';
@@ -37,8 +37,10 @@ class _RecoveryPanel extends StatefulWidget {
 class _RecoveryPanelState extends State<_RecoveryPanel> {
   var _copied = false;
 
+  /// Copied as a secret: flagged sensitive, and taken off the clipboard
+  /// after a minute.
   Future<void> _copy() async {
-    await Clipboard.setData(ClipboardData(text: widget.code));
+    await SensitiveClipboard.copy(widget.code);
     if (mounted) setState(() => _copied = true);
   }
 
@@ -87,7 +89,7 @@ class _RecoveryPanelState extends State<_RecoveryPanel> {
             ),
           ),
           const SizedBox(height: Space.s3),
-          const Text('抄下來或複製存好，只會顯示這一次。', style: mutedSmall),
+          const Text('抄下來或複製存好，只會顯示這一次。複製的內容一分鐘後會從剪貼簿清除。', style: mutedSmall),
         ],
       ),
       actions: [

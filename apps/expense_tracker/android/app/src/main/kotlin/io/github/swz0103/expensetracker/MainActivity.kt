@@ -35,6 +35,7 @@ class MainActivity : FlutterFragmentActivity() {
         UpdateHandler(this),
         ScanHandler(this),
         HapticsHandler(this),
+        ClipboardHandler(this),
     )
     private var channel: MethodChannel? = null
 

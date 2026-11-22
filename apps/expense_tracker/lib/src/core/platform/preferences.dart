@@ -71,6 +71,7 @@ final class Preferences extends ChangeNotifier {
       _googleBackup = json.flag('googleBackup') ?? true;
       _driveBackedUp = DateTime.tryParse(json.text('driveBackedUp') ?? '');
       _driveRevision = json.whole('driveRevision');
+      _driveAccount = json.text('driveAccount');
       _nudgeMinute = json.whole('nudgeMinute') ?? 0;
       _exactReminders = json.flag('exactReminders') ?? false;
       _phoneFolder = json.text('phoneFolder');
@@ -264,6 +265,18 @@ final class Preferences extends ChangeNotifier {
   int? get driveRevision => _driveRevision;
   int? _driveRevision;
 
+  /// The Google account the backups go to, as Drive names it (its
+  /// address); null before it is known.
+  String? get driveAccount => _driveAccount;
+  String? _driveAccount;
+
+  /// Notes the Google account Drive is linked to; null forgets it.
+  void driveAccountIs(String? account) {
+    _driveAccount = account;
+    notifyListeners();
+    _save();
+  }
+
   /// Notes a backup of the ledger at [revision] kept on Google Drive.
   void driveBackup(DateTime at, int revision) {
     _driveBackedUp = at;
@@ -332,6 +345,7 @@ final class Preferences extends ChangeNotifier {
           'googleBackup': _googleBackup,
           'driveBackedUp': _driveBackedUp?.toUtc().toIso8601String(),
           'driveRevision': _driveRevision,
+          'driveAccount': _driveAccount,
           'nudgeMinute': _nudgeMinute,
           'exactReminders': _exactReminders,
           'phoneFolder': _phoneFolder,

@@ -27,18 +27,46 @@ abstract interface class BackupManager {
   /// returns its text; null when they cancel or there is no file picker.
   Future<String?> readFile();
 
+  /// When a backup was last handed over by hand ([exportBackup]); null
+  /// before the first.
+  DateTime? get exportedAt;
+
   /// False for a ledger that opens without a password.
   bool get hasPassword;
 
-  /// Gives a ledger without a password the password [next].
+  /// Whether the password last typed to open the ledger is shorter or
+  /// simpler than one set today may be: it keeps working, and the
+  /// settings suggest changing it.
+  bool get passwordBelowRule;
+
+  /// Gives a ledger without a password the password [next]. Throws a
+  /// `KeyringException` (weakPassword) for one against the policy.
   Future<void> setPassword(String next);
 
-  /// Replaces the password; [current] must open the ledger.
+  /// Replaces the password; [current] must open the ledger. Throws a
+  /// `KeyringException`: wrongSecret for [current], weakPassword for
+  /// [next]. Backups already taken keep opening as they did.
   Future<void> changePassword(String current, String next);
 
-  /// Replaces the recovery code and returns the new one, to show once;
-  /// the old one stops working.
+  /// Replaces the recovery code and returns the new one, to show once.
+  /// It opens the ledger and the backups from now on; backups already
+  /// taken still open with the old one.
   Future<String> newRecoveryCode();
+
+  /// Whether backups open with a backup passphrase as well as the
+  /// recovery code.
+  bool get hasBackupPassphrase;
+
+  /// Sets the backup passphrase, held to the password policy.
+  Future<void> setBackupPassphrase(String passphrase);
+
+  /// Backups from now on open with the recovery code alone.
+  Future<void> removeBackupPassphrase();
+
+  /// Replaces every key of the ledger; [currentPassword] (null for a
+  /// ledger without one) must open it. The app then opens the ledger
+  /// afresh and shows the new recovery code.
+  Future<void> resetKeys(String? currentPassword);
 
   /// Whether a recovery code has been shown on this phone, so exporting
   /// a backup need not replace it.
