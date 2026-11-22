@@ -1,8 +1,10 @@
 import 'dart:math';
 
+import 'package:domain/investments.dart' show HoldingStatus;
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/paint.dart';
 import '../../../core/design_system/theme.dart';
@@ -97,21 +99,23 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
           onAction: () => widget.nav.compose(type: EntryType.buy),
         )
       else
+        // Sold-out stocks are listed apart and not counted as holdings.
         for (final (name, group) in [
           (
             '個股',
             [
-              for (final h in holdings.all)
+              for (final h in holdings.held)
                 if (!h.code.startsWith('00')) h,
             ],
           ),
           (
             'ETF',
             [
-              for (final h in holdings.all)
+              for (final h in holdings.held)
                 if (h.code.startsWith('00')) h,
             ],
           ),
+          (holdingLook(HoldingStatus.soldOut).words, holdings.soldOut),
         ])
           if (group.isNotEmpty) ...[
             Padding(

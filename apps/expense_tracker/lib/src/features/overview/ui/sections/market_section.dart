@@ -49,12 +49,13 @@ class _MarketSectionState extends State<MarketSection> {
 
   List<Widget> _market() {
     final ledger = widget.ledger;
-    final holdings = ledger.holdings;
-    if (holdings.all.isEmpty) return const [];
+    // Only the stocks still held: one sold out is no longer a holding.
+    final held = ledger.holdings.held;
+    if (held.isEmpty) return const [];
     final change = ledger.holdings.dayChange;
     final before = ledger.holdings.marketValue - change;
-    final largest = holdings.all.fold(0, (m, h) => max(m, h.change.abs()));
-    final anyLoss = holdings.all.any((h) => h.change < 0);
+    final largest = held.fold(0, (m, h) => max(m, h.change.abs()));
+    final anyLoss = held.any((h) => h.change < 0);
     final code = _holding;
     final picked = code == null ? null : ledger.holding(code);
     final tone = AppColors.ofMarket(change);
@@ -91,13 +92,13 @@ class _MarketSectionState extends State<MarketSection> {
           color: ToolColors.investments,
           label: '持股市值',
           value: ledger.money(ledger.holdings.marketValue),
-          sub: countOf(holdings.all.length, CountUnit.stocks),
+          sub: countOf(held.length, CountUnit.stocks),
           onTap: () => widget.nav.open(AppRoutes.investments),
         ),
       ]),
       const SizedBox(height: Space.s2),
-      for (final h in holdings.all)
-        _moveRow(h, largest, anyLoss ? 0.5 : 0, bar: holdings.all.length > 1),
+      for (final h in held)
+        _moveRow(h, largest, anyLoss ? 0.5 : 0, bar: held.length > 1),
       if (picked != null)
         Padding(
           padding: const EdgeInsets.only(top: Space.s2),

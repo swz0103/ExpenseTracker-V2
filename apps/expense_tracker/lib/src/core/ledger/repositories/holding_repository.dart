@@ -1,9 +1,26 @@
 import 'package:core/money/price.dart' show timesPrice;
+import 'package:domain/investments.dart' show HoldingStatus, holdingStatus;
 
 import 'dart:collection';
 
 import '../models/models.dart';
 import '../portfolio.dart';
+
+/// The holdings split by [holdingStatus]: the one filter every list and
+/// count of holdings uses.
+extension HoldingsByStatus on HoldingReader {
+  /// The stocks with shares still held.
+  List<Holding> get held => [
+    for (final h in all)
+      if (holdingStatus(h.shares) == HoldingStatus.held) h,
+  ];
+
+  /// The stocks sold to the last share, kept for their history.
+  List<Holding> get soldOut => [
+    for (final h in all)
+      if (holdingStatus(h.shares) == HoldingStatus.soldOut) h,
+  ];
+}
 
 /// What the screens and queries may ask of the holdings.
 abstract interface class HoldingReader {

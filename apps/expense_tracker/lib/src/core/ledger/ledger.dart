@@ -65,7 +65,8 @@ export 'services/entry_validator.dart' show EntryValidator;
 export 'services/recurring_service.dart' show RecurringService;
 export 'services/statement_service.dart' show StatementService;
 export 'repositories/entry_repository.dart' show EntryReader;
-export 'repositories/holding_repository.dart' show HoldingReader;
+export 'repositories/holding_repository.dart'
+    show HoldingReader, HoldingsByStatus;
 export 'repositories/market_data_repository.dart' show MarketDataReader;
 export 'services/report_service.dart' show ReportService;
 
