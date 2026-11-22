@@ -51,6 +51,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
       case UpdateInstall.needsPermission:
         setState(() => _problem = '請允許「記帳本」安裝應用程式，回來後再按一次更新');
       case UpdateInstall.damaged:
+      case UpdateInstall.rejected:
       case null:
         setState(() => _problem = widget.update.problem ?? '下載失敗，請稍後再試');
     }

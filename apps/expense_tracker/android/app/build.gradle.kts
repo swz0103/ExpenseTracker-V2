@@ -7,8 +7,14 @@ plugins {
 }
 
 // Release signing comes from android/key.properties (storeFile, storePassword,
-// keyAlias, keyPassword), which is never committed; without it a release
-// build is signed with the debug key.
+// keyAlias, keyPassword), which is never committed. Without it a release
+// build FAILS (see the task graph check below), unless it is asked for
+// explicitly with -PallowDebugSignedRelease=true (flutter build ... -P
+// allowDebugSignedRelease=true): then it is signed with the debug key, which
+// cannot update the released app. CI builds that way and re-signs the
+// APK in its `sign` job (.github/workflows/android.yml).
+val allowDebugSignedRelease =
+    providers.gradleProperty("allowDebugSignedRelease").orNull == "true"
 val keyProperties =
     Properties().apply {
         val file = rootProject.file("key.properties")
@@ -17,7 +23,9 @@ val keyProperties =
 
 android {
     namespace = "io.github.swz0103.expensetracker"
-    compileSdk = flutter.compileSdkVersion
+    // Written out rather than taken from Flutter's defaults, so a Flutter
+    // upgrade cannot move them unseen (Flutter 3.47.5 gives 36, 24, 36).
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -31,14 +39,30 @@ android {
         applicationId = "io.github.swz0103.expensetracker"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 24
+        targetSdk = 36
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
         // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    // Two builds of the same app (the package name is the same for now):
+    //   sideload  what is published on GitHub Releases: it updates itself
+    //             (src/sideload: UpdateHandler.kt, UpdateWorker.kt, the
+    //             REQUEST_INSTALL_PACKAGES permission, the FileProvider path
+    //             of the downloaded APK).
+    //   play      for Google Play, which does not allow an app to update
+    //             itself by other means: none of that is in it (src/play
+    //             has no-op stand-ins). Not published yet.
+    // Dart reads the flavor as `appFlavor` (lib/src/core/platform/
+    // distribution.dart).
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("sideload") { dimension = "distribution" }
+        create("play") { dimension = "distribution" }
     }
 
     signingConfigs {
@@ -68,6 +92,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // Without the key only an explicit opt-in gets this far (the
+            // check below the android block): then the debug key signs it.
             signingConfig =
                 if (keyProperties.isEmpty()) {
                     signingConfigs.getByName("debug")
@@ -75,6 +101,26 @@ android {
                     signingConfigs.getByName("release")
                 }
         }
+    }
+}
+
+// A release APK or bundle without the release key is refused, so nobody
+// ships (or is handed) one that the released app cannot be updated from.
+gradle.taskGraph.whenReady {
+    val packagesRelease =
+        allTasks.any {
+            it.project == project &&
+                Regex("^(assemble|package|bundle)[A-Za-z]*Release$").matches(it.name)
+        }
+    if (packagesRelease && keyProperties.isEmpty && !allowDebugSignedRelease) {
+        throw GradleException(
+            "No release key: android/key.properties is missing, so this release " +
+                "build would be signed with the debug key and could not update " +
+                "the released app. Create android/key.properties (storeFile, " +
+                "storePassword, keyAlias, keyPassword), or, to build a " +
+                "debug-signed release on purpose (CI does, then re-signs it), " +
+                "pass -PallowDebugSignedRelease=true.",
+        )
     }
 }
 
