@@ -2,6 +2,7 @@ import 'package:vault/backup_security.dart' show InboxItem;
 
 import '../core/diagnostics/error_log.dart';
 import '../core/ledger/ledger.dart';
+import '../core/ledger/persistence/quarantine.dart';
 import '../features/reminders/model/inbox_apply.dart';
 
 /// The inbox of confirmations written while the ledger was locked
@@ -13,9 +14,18 @@ typedef InboxSource = ({
 
 /// What opening a ledger found to tell the person.
 final class SessionStart {
-  const SessionStart(this.ledger, {this.inbox, this.booked = 0});
+  const SessionStart(
+    this.ledger, {
+    this.inbox,
+    this.booked = 0,
+    this.quarantined = const [],
+  });
 
   final Ledger ledger;
+
+  /// The rows of the book that could not be read and were set aside, the
+  /// rest of the book open without them.
+  final List<QuarantinedRow> quarantined;
 
   /// What the inbox brought; null when it was empty or could not be read.
   final InboxOutcome? inbox;
@@ -29,7 +39,7 @@ final class SessionStart {
 /// from the screens: they show what [open] returns. A step that fails is
 /// logged and the others still run; only loading stops the opening.
 final class LedgerSession {
-  LedgerSession({required this.load, this.inbox});
+  LedgerSession({required this.load, this.inbox, this.quarantined});
 
   /// Reads the book from where it is kept.
   final Future<Ledger> Function() load;
@@ -37,12 +47,21 @@ final class LedgerSession {
   /// Opens the inbox; none off Android.
   final Future<InboxSource> Function()? inbox;
 
+  /// The rows the last [load] set aside; none where nothing is.
+  final List<QuarantinedRow> Function()? quarantined;
+
   Future<SessionStart> open() async {
     final ledger = await load();
+    final aside = quarantined?.call() ?? const <QuarantinedRow>[];
     final inbox = await readInbox(ledger);
     checkIntegrity(ledger);
     final booked = bookDue(ledger);
-    return SessionStart(ledger, inbox: inbox, booked: booked);
+    return SessionStart(
+      ledger,
+      inbox: inbox,
+      booked: booked,
+      quarantined: aside,
+    );
   }
 
   /// Applies the inbox, then empties it. Opening the inbox also writes

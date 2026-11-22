@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:expense_tracker/src/app/ledger_session.dart';
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/quarantine.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 
@@ -66,6 +67,19 @@ void main() {
     expect(start.ledger, same(ledger));
     expect(start.inbox, isNull);
     expect(start.booked, 0);
+  });
+
+  test('the rows set aside as the book loaded are told', () async {
+    final ledger = book();
+    const aside = [
+      QuarantinedRow('entry', 'e9', QuarantineReason.newer, version: 3),
+    ];
+    final start = await LedgerSession(
+      load: () async => ledger,
+      quarantined: () => aside,
+    ).open();
+    expect(start.ledger, same(ledger));
+    expect(start.quarantined, aside);
   });
 
   test('the inbox books its confirmations and is emptied', () async {

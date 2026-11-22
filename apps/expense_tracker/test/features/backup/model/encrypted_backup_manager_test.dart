@@ -44,6 +44,27 @@ void main() {
     _ => throw StateError('Not open'),
   };
 
+  test('a copy kept before an upgrade is offered to restore, the last two '
+      'kept', () async {
+    final startup = startupIn('upgrade');
+    await startup.setUp(password);
+    final backupManager = EncryptedBackupManager(startup, vaultOf(startup));
+    final kept = [
+      for (var i = 0; i < 3; i++) await backupManager.keepBeforeUpgrade(),
+    ];
+    expect(kept.first.existsSync(), isFalse);
+    expect(kept.skip(1).every((f) => f.existsSync()), isTrue);
+    expect(
+      kept.last.uri.pathSegments.last,
+      startsWith('before-upgrade-'),
+    );
+    expect(
+      startup.keptBeforeRestore().map((f) => f.path).toSet(),
+      {kept[1].path, kept[2].path},
+    );
+    vaultOf(startup).close();
+  });
+
   test('a backup restores on another device', () async {
     final first = startupIn('first');
     await first.setUp(password);
