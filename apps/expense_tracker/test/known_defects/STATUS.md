@@ -12,7 +12,6 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | F107 | 1.1 | p1_1_amounts_test.dart | yes | no semantics label carrying 支出 on the amount of an entry row |
 | F78 | 1.1 | p1_1_amounts_test.dart | yes | a month 100.35% used shows 100% in the picker, not 超支 |
 | IMP-04 | 1.1 | p1_1_amounts_test.dart | yes | importCsv throws FormatException on an amount of .5 (TWD) |
-| ENT-08 | 1.3 | p1_3_trade_costs_test.dart | yes | sale-cost preview of an old sale is 200,000, expected 100,000 |
 | LOG-02 | 1.4 | p1_4_write_invariants_test.dart | yes | 3 tests; add() stores a zero amount, a same-account transfer and foreign spending without NT$ amount |
 | LOG-12 | 1.4 | p1_4_write_invariants_test.dart | yes | renaming a merchant leaves the recurring item on the old name |
 | DAT-01 | 2.1 | p2_1_loading_test.dart | yes | 3 tests (not json / newer _v / wrong JSON type); load() throws, 0 of 100 good rows load |
@@ -47,7 +46,7 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | IMP-02 | 6.1 | p6_1_import_test.dart | yes | round trip loses the US$ currency (first of 10 differences) |
 | AND-01 | 6.3 | p6_3_release_test.dart | yes | main AndroidManifest.xml declares REQUEST_INSTALL_PACKAGES |
 
-38 findings still open.
+37 findings still open.
 
 ## fixed in 1.3
 
@@ -55,6 +54,7 @@ Their tests run without `knownDefect` and must pass.
 
 - INV-01 (p1_3_trade_costs_test.dart): the holding page, the entry list, the balances and the composer all show a trade at `Entry.settlement` (ledger_trade_costs `settlementAmount`); the sale shows +996,145
 - ENT-01 (p1_3_trade_costs_test.dart, 2 tests): a fee or tax still at its suggestion when the trade is opened is untouched and follows every change (1,026 after doubling the shares; 427 and 1,500 for half a sale); one the person typed stays
+- ENT-08 (p1_3_trade_costs_test.dart): the cost preview of a sale replays the book up to the sale's day without the sale being changed (100,000, not 200,000)
 
 ## not covered
 

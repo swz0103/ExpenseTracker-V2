@@ -27,6 +27,16 @@ abstract interface class HoldingReader {
   /// The shares of [code] held at the end of [day], in today's shares.
   int sharesOn(String code, DateTime day);
 
+  /// What selling [shares] of [code] would cost after the trades of
+  /// [entries] alone, from the starting positions: the lots held then,
+  /// not today. Null when fewer shares were held.
+  int? saleCostWith(
+    List<Entry> entries,
+    String code,
+    int shares, {
+    bool average = false,
+  });
+
   /// Whether [entries] can be the book's: none of their trades sells more
   /// shares than are held by then.
   bool holdsWith(List<Entry> entries);
@@ -114,6 +124,22 @@ final class HoldingRepository implements HoldingReader {
 
   @override
   int sharesOn(String code, DateTime day) => _replayed.sharesOn(code, day);
+
+  @override
+  int? saleCostWith(
+    List<Entry> entries,
+    String code,
+    int shares, {
+    bool average = false,
+  }) {
+    final then = Portfolio.replay(_start, entries, lenient: true);
+    var held = 0;
+    for (final h in then.holdings) {
+      if (h.code == code) held = h.shares;
+    }
+    if (shares > held) return null;
+    return then.saleCost(code, shares, average: average);
+  }
 
   @override
   bool holdsWith(List<Entry> entries) {

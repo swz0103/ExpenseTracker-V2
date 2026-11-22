@@ -124,6 +124,43 @@ void main() {
     expect(untouched.build().fee, 120);
   });
 
+  test('a back-dated sale is costed from the lots of its day', () {
+    Entry buy(String id, DateTime on, int amount) => Entry(
+      id: id,
+      date: on,
+      type: EntryType.buy,
+      amount: amount,
+      account: 'bank',
+      holding: '2330',
+      shares: 1000,
+    );
+    final ledger = Ledger(
+      today: day,
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 1000000)],
+      categories: const [],
+      entries: [
+        buy('b1', DateTime.utc(2026, 1, 5), 100000),
+        buy('b2', DateTime.utc(2026, 3, 5), 200000),
+      ],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      dataSource: _Nowhere(),
+    );
+    final form = ComposeForm(ledger, type: EntryType.sell)
+      ..holding = '2330'
+      ..average = true
+      ..setShares(1000);
+    // Today both lots: 300,000 for 2000 shares, 1000 of them 150,000.
+    expect(form.saleCost, 150000);
+    // On Feb 1 only the first lot was held: 1000 shares cost 100,000.
+    form.date = DateTime.utc(2026, 2, 1);
+    expect(form.saleCost, 100000);
+    // 1500 shares were more than held then.
+    form.setShares(1500);
+    expect(form.saleCost, isNull);
+  });
+
   test('a split must add up to the amount', () {
     final form = ComposeForm(book(), type: EntryType.expense)
       ..setAmount(300)

@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../baseline/baseline_ledger.dart';
-import 'known_defect.dart';
 
 Ledger book(List<Entry> entries) => ledgerOf(
   today: day(2026, 10, 10),
@@ -173,5 +172,5 @@ void main() {
     // On Feb 5 the 1000 shares sold cost the first buy, 100,000; the
     // later 200,000 lot was not yet held.
     expect(form.saleCost, 100000);
-  }, skip: knownDefect('ENT-08', '1.3'));
+  });
 }
