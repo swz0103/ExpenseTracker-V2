@@ -29,10 +29,30 @@ const scanRoots = [
   'packages/core/test',
   'packages/domain/lib',
   'packages/domain/test',
+  'packages/ledger',
 ];
 
 /// Pure packages (rule A4) and the tests they must have (rule C1a).
 const purePackages = ['packages/core', 'packages/domain'];
+
+/// Folders whose every subfolder is a pure package, such as
+/// `packages/ledger/entries`.
+const purePackageGroups = ['packages/ledger'];
+
+/// The pure package [path] lies in, such as `packages/ledger/entries`;
+/// null outside them.
+String? purePackageOf(String path) {
+  for (final pkg in purePackages) {
+    if (path.startsWith('$pkg/')) return pkg;
+  }
+  for (final group in purePackageGroups) {
+    if (!path.startsWith('$group/')) continue;
+    final rest = path.substring(group.length + 1);
+    final slash = rest.indexOf('/');
+    if (slash > 0) return '$group/${rest.substring(0, slash)}';
+  }
+  return null;
+}
 
 /// Packages a feature must not import (rule A3).
 const dataPackages = ['storage', 'vault', 'market'];

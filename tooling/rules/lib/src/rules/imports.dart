@@ -93,11 +93,14 @@ final class PureCalc extends FileRule {
 
   @override
   String get purpose =>
-      'core or domain imports Flutter or the platform, or reads the clock or Random';
+      'a pure package imports Flutter or the platform, or reads the clock or Random';
 
   @override
   bool appliesTo(SourceFile file) =>
-      purePackages.any((pkg) => file.isUnder('$pkg/lib')) &&
+      switch (purePackageOf(file.path)) {
+        final pkg? => file.isUnder('$pkg/lib'),
+        null => false,
+      } &&
       !clockFiles.contains(file.path);
 
   @override

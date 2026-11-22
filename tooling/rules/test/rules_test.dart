@@ -92,8 +92,19 @@ void main() {
             'final c = Random(3);\n'
             'final d = new DateTime.now();\n',
         'packages/domain/lib/src/b.dart': "import 'dart:ui';\n",
+        'packages/ledger/entries/lib/rules/c.dart':
+            'final c = DateTime.now();\n',
       });
-      expect(v, hasLength(7));
+      expect(v, hasLength(8));
+    });
+    test('covers every package under packages/ledger, not its tests', () {
+      final v = run(rule, {
+        'packages/ledger/budgets/lib/model/a.dart': "import 'dart:io';\n",
+        'packages/ledger/budgets/test/a_test.dart': "import 'dart:io';\n",
+      });
+      expect(v.map((e) => e.file), [
+        'packages/ledger/budgets/lib/model/a.dart',
+      ]);
     });
     test('passes pure code, the clock file and tests', () {
       expect(
@@ -271,12 +282,14 @@ void f() {
         'packages/core/lib/src/a/money.dart': '',
         'packages/core/lib/src/a/fx.dart': '',
         'packages/core/test/a/money_test.dart': '',
+        'packages/ledger/entries/lib/model/entry.dart': '',
         '$_feat/accounts/ui/page.dart': '',
         '$_feat/tags/ui/page.dart': '',
         'apps/expense_tracker/test/features/tags/ui/page_test.dart': '',
       });
       expect(v.map((e) => e.file), [
         'packages/core/lib/src/a/fx.dart',
+        'packages/ledger/entries/lib/model/entry.dart',
         '$_feat/accounts',
       ]);
     });
@@ -286,6 +299,9 @@ void f() {
           'packages/domain/lib/src/a/b.dart': '',
           'packages/domain/test/b_test.dart': '',
           'packages/domain/lib/a.dart': '',
+          'packages/ledger/entries/lib/rules.dart': '',
+          'packages/ledger/entries/lib/rules/entry_rules.dart': '',
+          'packages/ledger/entries/test/rules/entry_rules_test.dart': '',
           '$_feat/tags/ui/page.dart': '',
           'apps/expense_tracker/test/features/tags/page_test.dart': '',
         }),

@@ -1,6 +1,7 @@
 {
   "packages/core": 93,
   "packages/domain": 90,
+  "packages/ledger/entries": 96,
   "infrastructure/storage": 93,
   "infrastructure/vault": 96,
   "infrastructure/market": 85,

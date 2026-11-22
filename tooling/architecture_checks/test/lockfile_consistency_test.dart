@@ -14,9 +14,19 @@ void main() {
     final versions = <String, Map<String, List<String>>>{};
     var checked = 0;
     for (final top in ['packages', 'infrastructure', 'tooling']) {
-      for (final dir in Directory(p.join(root, top)).listSync()) {
+      // A folder without a pubspec, such as packages/ledger, groups
+      // packages one level down.
+      final dirs = [
+        for (final dir in Directory(p.join(root, top)).listSync())
+          if (dir is Directory)
+            if (File(p.join(dir.path, 'pubspec.yaml')).existsSync())
+              dir
+            else
+              ...dir.listSync().whereType<Directory>(),
+      ];
+      for (final dir in dirs) {
         final lock = File(p.join(dir.path, 'pubspec.lock'));
-        if (dir is! Directory || !lock.existsSync()) continue;
+        if (!lock.existsSync()) continue;
         checked++;
         final name = p.relative(dir.path, from: root);
         final yaml = loadYaml(lock.readAsStringSync()) as YamlMap;

@@ -91,6 +91,7 @@ jobs:
             'tooling/rules',
             'packages/core',
             'packages/domain',
+            'packages/ledger/entries',
             'infrastructure/storage',
             'infrastructure/vault',
             'infrastructure/market'
@@ -108,8 +109,8 @@ jobs:
         # package) must not fall below tooling/coverage_floors.json.
         run: |
           dart run tooling/architecture_checks/bin/check_coverage.dart \
-            packages/core packages/domain infrastructure/storage \
-            infrastructure/vault infrastructure/market
+            packages/core packages/domain packages/ledger/entries \
+            infrastructure/storage infrastructure/vault infrastructure/market
 
   flutter-host:
     runs-on: ubuntu-latest
