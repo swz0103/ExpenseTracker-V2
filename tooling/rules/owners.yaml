@@ -377,10 +377,10 @@ items:
     what: 密碼政策與金鑰推導
     layer: data
     owner:
+      - infrastructure/vault/lib/src/backup_security/password_policy.dart
       - infrastructure/vault/lib/src/backup_security/keyring.dart
-      - infrastructure/vault/lib/src/ledger_vault/ledger_vault.dart
     target: infrastructure/vault/lib/
-    status: scattered
+    status: owned
   - id: backup-format-names
     what: 備份格式與檔名
     layer: data
