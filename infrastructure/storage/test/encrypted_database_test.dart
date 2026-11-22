@@ -1,3 +1,7 @@
+// The first run builds the crash worker, which can take a while.
+@Timeout(Duration(minutes: 5))
+library;
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
@@ -7,7 +11,60 @@ import 'package:sqlite3/sqlite3.dart';
 import 'package:storage/storage.dart';
 import 'package:test/test.dart';
 
+/// The crash worker the "killed writer" test starts: built here when it is
+/// missing or older than its source, the same way tooling/run-host-checks.ps1
+/// does, so a plain `dart test` works on a clean checkout.
+Future<void> _ensureCrashWorker() async {
+  final suffix = Platform.isWindows ? '.exe' : '';
+  final built = File('.dart_tool/worker/bundle/bin/crash_worker$suffix');
+  final sources = [
+    File('bin/crash_worker.dart'),
+    for (final entity in Directory('lib').listSync(recursive: true))
+      if (entity is File && entity.path.endsWith('.dart')) entity,
+    File('pubspec.lock'),
+  ];
+  final newest = sources
+      .map((f) => f.lastModifiedSync())
+      .reduce((a, b) => a.isAfter(b) ? a : b);
+  if (built.existsSync() && !built.lastModifiedSync().isBefore(newest)) return;
+  final out = Directory('.dart_tool/build-crash_worker');
+  final result = await Process.run(Platform.resolvedExecutable, [
+    'build',
+    'cli',
+    '--target',
+    'bin/crash_worker.dart',
+    '--output',
+    out.path,
+  ]);
+  if (result.exitCode != 0) {
+    fail(
+      'Could not build the crash worker (dart build cli, exit '
+      '${result.exitCode}); the "killed writer" test needs it.\n'
+      '${result.stdout}\n${result.stderr}',
+    );
+  }
+  final bundle = Directory('.dart_tool/worker/bundle');
+  if (bundle.existsSync()) bundle.deleteSync(recursive: true);
+  bundle.createSync(recursive: true);
+  await _copy(Directory('${out.path}/bundle'), bundle);
+}
+
+Future<void> _copy(Directory from, Directory to) async {
+  for (final entity in from.listSync(recursive: true, followLinks: false)) {
+    final relative = entity.path.substring(from.path.length + 1);
+    final target = '${to.path}/$relative';
+    if (entity is Directory) {
+      Directory(target).createSync(recursive: true);
+    } else if (entity is File) {
+      Directory(target).parent.createSync(recursive: true);
+      entity.copySync(target);
+    }
+  }
+}
+
 void main() {
+  setUpAll(_ensureCrashWorker);
+
   late Directory directory;
   late File file;
   late StorageKey key;

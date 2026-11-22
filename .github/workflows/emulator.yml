@@ -17,6 +17,8 @@ on:
     paths:
       - '.github/workflows/emulator.yml'
       - 'apps/expense_tracker/integration_test/**'
+      - 'apps/expense_tracker/test/perf/thresholds.json'
+      - 'apps/expense_tracker/tool/check_bench.dart'
       - 'apps/expense_tracker/lib/src/core/ledger/**'
       - 'apps/expense_tracker/android/**'
       - 'infrastructure/**'
@@ -29,6 +31,8 @@ on:
       - '.github/workflows/emulator.yml'
       - 'apps/expense_tracker/android/**'
       - 'apps/expense_tracker/integration_test/**'
+      - 'apps/expense_tracker/test/perf/thresholds.json'
+      - 'apps/expense_tracker/tool/check_bench.dart'
       - 'apps/expense_tracker/lib/src/core/ledger/persistence/**'
       - 'infrastructure/storage/**'
   workflow_dispatch:
@@ -121,6 +125,12 @@ jobs:
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
               summary.write(text + '\n')
           PY
+
+      - name: Bench limits
+        # Fails when a figure is over its limit or missing
+        # (test/perf/thresholds.json, explained in thresholds.md).
+        working-directory: apps/expense_tracker
+        run: dart run tool/check_bench.dart build/integration_response_data.json test/perf/thresholds.json
 
       - name: Upload benchmark results
         if: always()
