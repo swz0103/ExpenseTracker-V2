@@ -17,6 +17,8 @@ on:
     paths:
       - '.github/workflows/emulator.yml'
       - 'apps/expense_tracker/integration_test/**'
+      - 'apps/expense_tracker/test/perf/thresholds.json'
+      - 'apps/expense_tracker/tool/check_bench.dart'
       - 'apps/expense_tracker/lib/src/core/ledger/**'
       - 'apps/expense_tracker/android/**'
       - 'infrastructure/**'
@@ -29,6 +31,8 @@ on:
       - '.github/workflows/emulator.yml'
       - 'apps/expense_tracker/android/**'
       - 'apps/expense_tracker/integration_test/**'
+      - 'apps/expense_tracker/test/perf/thresholds.json'
+      - 'apps/expense_tracker/tool/check_bench.dart'
       - 'apps/expense_tracker/lib/src/core/ledger/persistence/**'
       - 'infrastructure/storage/**'
   workflow_dispatch:
