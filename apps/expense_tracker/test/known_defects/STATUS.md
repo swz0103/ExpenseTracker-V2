@@ -17,8 +17,6 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | INV-01 | 1.3 | p1_3_trade_costs_test.dart | yes | holding page row shows +999,145, the account got +996,145 |
 | LOG-02 | 1.4 | p1_4_write_invariants_test.dart | yes | 3 tests; add() stores a zero amount, a same-account transfer and foreign spending without NT$ amount |
 | LOG-12 | 1.4 | p1_4_write_invariants_test.dart | yes | renaming a merchant leaves the recurring item on the old name |
-| DAT-01 | 2.1 | p2_1_loading_test.dart | yes | 3 tests (not json / newer _v / wrong JSON type); load() throws, 0 of 100 good rows load |
-| DAT-05 | 2.1 | p2_1_loading_test.dart | yes | category rename is not written to entries on disk; reopened entry keeps the old name |
 | BUD-01 | 2.2 | p2_2_budgets_test.dart | yes | raising the limit on Dec 10 rewrites November allowance to 15,000 (expects 10,000) |
 | BUD-02 | 2.2 | p2_2_budgets_test.dart | yes | spentAgainst(parent) is 0, expected 3,000 from the child category |
 | F14 | 2.3 | p2_3_recurring_test.dart | yes | auto-booking adds a second entry on the day already entered by hand |
@@ -49,7 +47,18 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | IMP-02 | 6.1 | p6_1_import_test.dart | yes | round trip loses the US$ currency (first of 10 differences) |
 | AND-01 | 6.3 | p6_3_release_test.dart | yes | main AndroidManifest.xml declares REQUEST_INSTALL_PACKAGES |
 
-40 findings covered.
+38 findings still open here (40 were covered; 2 fixed, below).
+
+## fixed in 2.1
+
+The tests of these ids run in every test run now, no longer skipped.
+
+- DAT-01 (p2_1_loading_test.dart, 3 tests): a row that cannot be read (not JSON, a newer `_v`, the wrong JSON type) is set aside and kept on disk; the other 100 entries load. More cases in test/core/ledger/persistence/sql_ledger_opening_test.dart.
+- DAT-05 (p2_1_loading_test.dart): a category made after an entry named it by name takes that entry over by id, so a rename reaches it on disk.
+- DAT-02 (no known-defect test before): test/core/ledger/persistence/write_queue_test.dart, "a change made while the book is being read back brings another read" (fails before the fix).
+- DAT-08 (no known-defect test before): notes of deletions older than the trash's 30 days are dropped when the book opens; test/core/ledger/persistence/sql_ledger_opening_test.dart.
+- DAT-09 (no known-defect test before): book version and migration steps (book_migrations_test.dart), unknown fields kept on rewrite (sql_ledger_opening_test.dart), every kept book opens, is brought up and reads the same again (old_books_test.dart).
+- DAT-12 (no known-defect test before): a book that was opened before is never given the starting accounts again; sql_ledger_opening_test.dart.
 
 ## not covered
 
@@ -120,7 +129,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - PKG-04 (S2, 1.3): no executed reproduction; not turned into a test
 - LOG-03 (S2, 1.4): no executed reproduction; not turned into a test
 - LOG-07 (S2, 1.4): no executed reproduction; not turned into a test
-- DAT-02 (S2, 2.1): no executed reproduction; not turned into a test
 - BUD-03 (S2, 2.2): no executed reproduction; not turned into a test
 - BUD-04 (S2, 2.2): no executed reproduction; not turned into a test
 - REC-02 (S2, 2.3): no executed reproduction; not turned into a test
@@ -186,9 +194,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - F70 (S3, 1.5): no executed reproduction; not turned into a test
 - F84 (S3, 1.5): no executed reproduction; not turned into a test
 - INV-06 (S3, 1.5): no executed reproduction; not turned into a test
-- DAT-08 (S3, 2.1): no executed reproduction; not turned into a test
-- DAT-09 (S3, 2.1): no executed reproduction; not turned into a test
-- DAT-12 (S3, 2.1): no executed reproduction; not turned into a test
 - F33 (S3, 2.3): no executed reproduction; not turned into a test
 - F94 (S3, 2.3): no executed reproduction; not turned into a test
 - F31 (S3, 2.4): no executed reproduction; not turned into a test

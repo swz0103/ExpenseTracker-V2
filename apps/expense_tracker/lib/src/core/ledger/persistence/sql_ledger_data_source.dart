@@ -10,10 +10,12 @@ import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:market/market_data.dart';
 import 'package:storage/storage.dart';
 
+import 'book_migrations.dart';
 import 'ledger_data_source.dart';
 import '../ledger.dart';
-import 'category_id_migration.dart';
 import 'codec/category_refs.dart';
+import 'codec/record_fields.dart';
+import 'quarantine.dart';
 import 'record_version.dart';
 import 'codec/record_json.dart';
 import '../../diagnostics/performance_monitor.dart';
@@ -32,16 +34,19 @@ const _starters = [
   ('其他收入', 'income', 0xFF4E8A9A, true),
 ];
 
-/// How long a deleted entry is kept to be restored.
-const _keptInTrash = Duration(days: 30);
+/// How long a deleted entry is kept to be restored, and how long the note
+/// of a deletion is kept in [_gone]. (The trash page says the same number
+/// of days with its own constant, `_keptDays` in trash_section.dart.)
+const keptInTrash = Duration(days: 30);
 
 /// The collection of the last closing prices and rate board, kept so holdings
 /// and foreign accounts are valued offline.
 const _market = 'market';
 
-/// When each record was deleted, by `collection/id`, so a deletion can be told
-/// from a record never kept (for a later sync); dropped when the id is
-/// kept again.
+/// When each record was deleted, by `collection/id`, so a deletion can be
+/// told from a record never kept (for a later sync); dropped when the id
+/// is kept again, and once [keptInTrash] has passed. Nothing reads them
+/// but a backup's check.
 const _gone = 'gone';
 
 /// Forms put aside in the composer, by tab ([WriteBatch.drafts]).
@@ -56,9 +61,22 @@ const _noted = {
   Collection.recurring,
 };
 
+/// A row whose body is not JSON, as [_decodeAll] gives it.
+final class _NotJson {
+  const _NotJson();
+}
+
 List<Object?> _decodeAll(List<String> bodies) => [
-  for (final body in bodies) jsonDecode(body),
+  for (final body in bodies) _decode(body),
 ];
+
+Object? _decode(String body) {
+  try {
+    return jsonDecode(body);
+  } on FormatException {
+    return const _NotJson();
+  }
+}
 
 /// [_decodeAll] on a worker isolate. Kept out of the methods of the data
 /// source: a closure made beside one that uses `this` carries it along,
@@ -75,12 +93,19 @@ const readPage = 5000;
 
 /// The book kept in the encrypted ledger: each of the screens' records a
 /// row of JSON, written as the [Ledger] hands over each change.
+///
+/// Opening reads row by row: a row this version cannot read is set aside
+/// ([quarantined]), kept on disk as it is and never written over, and
+/// the rest of the book opens. A book kept by an earlier version is first
+/// brought up (book_migrations.dart), after [beforeUpgrade] has kept a
+/// copy of it.
 final class SqlLedgerDataSource implements LedgerDataSource {
   SqlLedgerDataSource(
     this._store, {
     this._clock = const SystemClock(),
     MarketDataGateway? market,
     this._readPage = readPage,
+    this.beforeUpgrade,
   }) : _gateway = market;
 
   final EncryptedDatabase _store;
@@ -92,8 +117,24 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   /// Where closing prices and rates come from; none in tests.
   final MarketDataGateway? _gateway;
 
+  /// Keeps a copy of the book as it is, before a book kept by an earlier
+  /// version is brought up; none in tests. A copy that cannot be kept is
+  /// noted in the diagnostics log and the book is brought up all the same:
+  /// the steps run in one transaction, so a failing one changes nothing.
+  final Future<void> Function()? beforeUpgrade;
+
   /// Which category each id stands for, as the records are read and kept.
   final _refs = CategoryRefs();
+
+  /// The rows set aside the last time the book was opened, in the order
+  /// they are kept.
+  List<QuarantinedRow> get quarantined => List.unmodifiable(_aside.values);
+  final _aside = <String, QuarantinedRow>{};
+
+  /// The fields a record was read with that this version does not know,
+  /// by `collection/key`, to be written back with it. An entry's are kept
+  /// under `entry/id` in the trash too, so they go with it there and back.
+  final _unknown = <String, Map<String, Object?>>{};
 
   /// The exchanges, for a holding's daily closes; none in tests and the
   /// preview.
@@ -130,8 +171,26 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     return collections;
   }
 
+  /// Sets [row] aside for [reason].
+  void _setAside(
+    StoredRow row,
+    QuarantineReason reason, {
+    String detail = '',
+    int? version,
+  }) {
+    final aside = QuarantinedRow(
+      row.shelf,
+      row.id,
+      reason,
+      detail: detail,
+      version: version,
+    );
+    _aside[aside.key] = aside;
+  }
+
   /// The record of each row of [collections] but the receipts, decoded
-  /// and brought up to the current version.
+  /// and brought up to the current version; a row that is not a JSON
+  /// object, or that a later version wrote, is set aside instead.
   Future<Map<StoredRow, Map<String, Object?>>> _records(
     Map<String, List<StoredRow>> collections,
   ) async {
@@ -143,59 +202,151 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final decoded = bodies.length > _decodeApart
         ? await _decodeApartFrom(bodies)
         : _decodeAll(bodies);
-    return <StoredRow, Map<String, Object?>>{
-      for (final (i, row) in records.indexed)
-        row: upgradeRecord(row.shelf, decoded[i]! as Map<String, Object?>),
-    };
+    final json = <StoredRow, Map<String, Object?>>{};
+    for (final (i, row) in records.indexed) {
+      final record = decoded[i];
+      if (record is! Map<String, Object?>) {
+        _setAside(
+          row,
+          QuarantineReason.unreadable,
+          detail: record is _NotJson ? 'not JSON' : 'not a JSON object',
+        );
+        continue;
+      }
+      try {
+        json[row] = upgradeRecord(row.shelf, record);
+      } on NewerRecord catch (newer) {
+        _setAside(row, QuarantineReason.newer, version: newer.version);
+      } on FormatException catch (error) {
+        _setAside(
+          row,
+          QuarantineReason.invalid,
+          detail: quarantineDetail(error),
+        );
+      }
+    }
+    return json;
+  }
+
+  /// Notes the fields of [json], the record of [row], that this version
+  /// does not read, to keep them when it is written again.
+  void _keepUnknown(StoredRow row, Map<String, Object?> json) {
+    final unknown = unknownFields(row.shelf, json);
+    if (unknown != null) _unknown['${row.shelf}/${row.id}'] = unknown;
+    if (row.shelf != Collection.trash.name) return;
+    if (json['entry'] case final Map<String, Object?> entry) {
+      final inner = unknownFields(Collection.entry.name, entry);
+      if (inner != null) _unknown['${Collection.entry.name}/${row.id}'] = inner;
+    }
   }
 
   /// Drops the entries of [trash] put there before [from], and their
-  /// receipts, from the store.
-  void _dropExpired(List<Trashed> trash, DateTime from) {
+  /// receipts, and the notes in [_gone] of deletions made before [from].
+  /// A row set aside is never dropped.
+  void _dropExpired(List<Trashed> trash, List<StoredRow> gone, DateTime from) {
     final expired = [
       for (final t in trash)
         if (t.on.isBefore(from)) t.entry.id,
     ];
-    if (expired.isEmpty) return;
+    final cutoff = from.millisecondsSinceEpoch;
+    final forgotten = [
+      for (final row in gone)
+        if (_noteTime(row) case final at? when at < cutoff) row.id,
+    ];
+    if (expired.isEmpty && forgotten.isEmpty) return;
     _store.write((w) {
       for (final id in expired) {
         w
           ..drop(Collection.trash.name, id)
           ..drop(Collection.receipt.name, id);
       }
-    });
+      for (final id in forgotten) {
+        w.drop(_gone, id);
+      }
+      // Only an entry gone for good is a change of the book.
+    }, counts: expired.isNotEmpty);
+  }
+
+  /// When the deletion noted in [row] was made, in milliseconds; null
+  /// when the note cannot be read.
+  static int? _noteTime(StoredRow row) {
+    try {
+      return switch (jsonDecode(row.body)) {
+        {'at': final num at} => at.toInt(),
+        _ => null,
+      };
+    } on FormatException {
+      return null;
+    }
+  }
+
+  /// Brings the book up to this version before it is read: a new one is
+  /// given its first records, one kept by an earlier version goes through
+  /// the steps it lacks. A book that was opened before is never given
+  /// records again, even when the person removed every account.
+  Future<void> _bringUp() async {
+    switch (standingOf(_store)) {
+      case BookStanding.fresh:
+        _start();
+      case BookStanding.behind:
+        try {
+          await beforeUpgrade?.call();
+        } on Object catch (error) {
+          ErrorLog.instance.record('升級前備份', error);
+        }
+        bringUpBook(_store);
+      case BookStanding.current || BookStanding.ahead:
+        break;
+    }
   }
 
   Future<Ledger> _load() async {
-    _start();
-    giveCategoriesIds(_store);
+    _aside.clear();
+    _unknown.clear();
+    await _bringUp();
     final collections = await _shelves();
     final json = await _records(collections);
     List<T> read<T>(
       Collection collection,
       T Function(Map<String, Object?>) from,
-    ) => [
-      for (final row in collections[collection.name] ?? const <StoredRow>[])
-        from(json[row]!),
-    ];
+    ) {
+      final read = <T>[];
+      for (final row in collections[collection.name] ?? const <StoredRow>[]) {
+        final record = json[row];
+        if (record == null) continue;
+        try {
+          read.add(from(record));
+        } on Object catch (error) {
+          _setAside(
+            row,
+            QuarantineReason.invalid,
+            detail: quarantineDetail(error),
+          );
+          continue;
+        }
+        _keepUnknown(row, record);
+      }
+      return read;
+    }
+
     // What each category id stands for first: a category's parent and every
     // other record name theirs through it.
     _refs.fill([
       for (final row
           in collections[Collection.category.name] ?? const <StoredRow>[])
-        if (json[row]! case {'id': final String id, 'name': final String name})
+        if (json[row] case {'id': final String id, 'name': final String name})
           (id, name),
     ]);
     final categories = read(
       Collection.category,
       (j) => categoryFromJson(j, _refs),
     );
-    final market = _marketFrom(collections[_market] ?? const []);
+    final market = _marketFrom(_readableMarket(collections[_market]));
     final today = _today();
     final trash = read(Collection.trash, (j) => trashedFromJson(j, _refs));
-    final from = today.subtract(_keptInTrash);
-    _dropExpired(trash, from);
-    return Ledger(
+    final from = today.subtract(keptInTrash);
+    _dropExpired(trash, collections[_gone] ?? const [], from);
+    final ledger = Ledger(
       today: today,
       clock: _today,
       accounts: read(Collection.account, accountFromJson),
@@ -223,28 +374,31 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       },
       dataSource: this,
     );
+    if (_aside.isNotEmpty) {
+      ErrorLog.instance.record(
+        '開啟帳本',
+        StateError('${_aside.length} rows set aside'),
+      );
+    }
+    return ledger;
   }
 
-  /// Gives a ledger that has none its first categories, and a cash and a
-  /// bank account, so the first entry can be written at once.
+  /// Gives a ledger just made its first categories, and a cash and a bank
+  /// account, so the first entry can be written at once; and notes that
+  /// it is at this version, in the same write.
   void _start() {
-    final noCategories = _store.rows(shelf: Collection.category.name).isEmpty;
-    final noAccounts = _store.rows(shelf: Collection.account.name).isEmpty;
-    if (!noCategories && !noAccounts) return;
     _write(
       WriteBatch(
         categories: [
-          if (noCategories)
-            for (final (name, icon, color, income) in _starters)
-              Category(name, icon, color, income: income),
+          for (final (name, icon, color, income) in _starters)
+            Category(name, icon, color, income: income),
         ],
         accounts: [
-          if (noAccounts) ...[
-            Account(PublicId.generate().value, '現金', AccountKind.cash, 0),
-            Account(PublicId.generate().value, '銀行帳戶', AccountKind.bank, 0),
-          ],
+          Account(PublicId.generate().value, '現金', AccountKind.cash, 0),
+          Account(PublicId.generate().value, '銀行帳戶', AccountKind.bank, 0),
         ],
       ),
+      also: markCurrent,
     );
   }
 
@@ -257,8 +411,43 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
   }
 
-  void _write(WriteBatch batch) {
+  /// The categories of [batch] whose name stands for them from now on,
+  /// newly made or renamed, by that name: the records kept naming it by
+  /// name are to name it by id ([_claimName]).
+  Map<String, String> _claimed(WriteBatch batch) => {
+    for (final c in batch.categories)
+      if (_refs.idOf(c.name) != c.id) c.name: c.id,
+  };
+
+  /// Each record kept naming [name] by name names it by [id] instead, so
+  /// a later rename reaches it (DAT-05). Found by the name as the JSON
+  /// writes it, without reading the whole book.
+  void _claimName(RowWriter w, String name, String id) {
+    for (final row in _store.rowsHolding(
+      jsonEncode(name),
+      shelves: namingCollections,
+    )) {
+      if (_aside.containsKey('${row.shelf}/${row.id}')) continue;
+      final json = readableRecord(row);
+      if (json == null) continue;
+      final byId = namesToIds(row.shelf, json, (n) => n == name ? id : null);
+      if (byId == null) continue;
+      var key = row.id;
+      if (row.shelf == Collection.budget.name) {
+        key = budgetKeyAfter(_store, row, byId);
+        if (key != row.id) {
+          w.drop(row.shelf, row.id);
+          final unknown = _unknown.remove('${row.shelf}/${row.id}');
+          if (unknown != null) _unknown['${row.shelf}/$key'] = unknown;
+        }
+      }
+      w.put(row.shelf, key, jsonEncode(byId));
+    }
+  }
+
+  void _write(WriteBatch batch, {void Function(RowWriter writer)? also}) {
     final at = _clock.now().value.millisecondsSinceEpoch;
+    final claimed = _claimed(batch);
     // A category, as the rest of the batch names it, first; and what a
     // dropped budget was kept under, before its category goes.
     for (final c in batch.categories) {
@@ -268,11 +457,30 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       for (final (collection, key) in batch.dropped)
         if (collection == Collection.budget) key: _refs.idOf(key) ?? key,
     };
-    String text(Map<String, Object?> json) =>
-        jsonEncode({...json, '_v': recordVersion, '_at': at});
+    String text(Collection collection, String id, Map<String, Object?> json) {
+      final unknown = _unknown['${collection.name}/$id'];
+      if (collection == Collection.trash) {
+        final inner = _unknown['${Collection.entry.name}/$id'];
+        if (inner != null) {
+          json = {
+            ...json,
+            'entry': {...inner, ...json['entry']! as Map<String, Object?>},
+          };
+        }
+      }
+      return jsonEncode({...?unknown, ...json, '_v': recordVersion, '_at': at});
+    }
+
+    void mayChange(String shelf, String id) {
+      if (_aside.containsKey('$shelf/$id')) {
+        throw StateError('A row set aside is not written over ($shelf).');
+      }
+    }
+
     _store.write((w) {
       void keep(Collection collection, String id, Map<String, Object?> json) {
-        w.put(collection.name, id, text(json));
+        mayChange(collection.name, id);
+        w.put(collection.name, id, text(collection, id, json));
         if (_noted.contains(collection)) {
           w.drop(_gone, '${collection.name}/$id');
         }
@@ -309,11 +517,16 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       }
       for (final (collection, name) in batch.dropped) {
         final id = collection == Collection.budget ? budgetKeys[name]! : name;
+        mayChange(collection.name, id);
         w.drop(collection.name, id);
         if (_noted.contains(collection)) {
           w.put(_gone, '${collection.name}/$id', jsonEncode({'at': at}));
         }
         if (collection == Collection.category) _refs.remove(id);
+        // An entry's unknown fields go with it to the trash and back.
+        if (collection != Collection.entry && collection != Collection.trash) {
+          _unknown.remove('${collection.name}/$id');
+        }
       }
       for (final MapEntry(key: tab, value: json) in batch.drafts.entries) {
         if (json == null) {
@@ -322,6 +535,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
           w.put(_draft, tab, json);
         }
       }
+      for (final MapEntry(key: name, value: id) in claimed.entries) {
+        _claimName(w, name, id);
+      }
+      also?.call(w);
     }, counts: !batch.onlyDrafts);
   }
 
@@ -375,6 +592,23 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     reader(upgradeRecord(collection, json));
   }
 
+  /// The rows of [rows] of the [_market] collection that can be read: a
+  /// close or rate kept that cannot is fetched again, and noted.
+  static List<StoredRow> _readableMarket(List<StoredRow>? rows) => [
+    for (final row in rows ?? const <StoredRow>[])
+      if (_marketReadable(row)) row,
+  ];
+
+  static bool _marketReadable(StoredRow row) {
+    try {
+      _marketFrom([row]);
+      return true;
+    } on Object catch (error) {
+      ErrorLog.instance.record('讀取行情', error);
+      return false;
+    }
+  }
+
   // Market data.
 
   /// The closes and board last fetched, for `HoldingCommands.setMarket`.
@@ -386,7 +620,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     Map<String, DateTime> days,
   })
   market() {
-    final kept = _marketFrom(_store.rows(shelf: _market));
+    final kept = _marketFrom(_readableMarket(_store.rows(shelf: _market)));
     return (
       holdings: _holdingsOf(kept),
       moves: kept.moves,
@@ -408,7 +642,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       final rate = row.valuation;
       if (rate != null) fetched[code] = rate.numerator / rate.denominator;
     }
-    final kept = _marketFrom(_store.rows(shelf: _market));
+    final kept = _marketFrom(_readableMarket(_store.rows(shelf: _market)));
     if (fetched.isEmpty || mapEquals(fetched, kept.rates)) return false;
     // Fetched, not changed by the person: no new backup is due for it.
     _store.write(
@@ -457,7 +691,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   Future<bool> refreshQuotes(Iterable<String> codes) async {
     final gateway = _gateway;
     if (gateway == null) return false;
-    final kept = _marketFrom(_store.rows(shelf: _market));
+    final kept = _marketFrom(_readableMarket(_store.rows(shelf: _market)));
     final prices = {...kept.prices};
     final moves = {...kept.moves};
     final names = {...kept.names};
