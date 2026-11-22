@@ -17,9 +17,8 @@ void main() {
   // (sideload has the update installer, play has stand-ins); not the tests.
   final kotlin = [
     for (final source in ['main', 'sideload', 'play'])
-      if (Directory(
-        p.join(app, 'android', 'app', 'src', source, 'kotlin'),
-      ).existsSync())
+      if (Directory(p.join(app, 'android', 'app', 'src', source, 'kotlin'))
+          .existsSync())
         for (final f in Directory(
           p.join(app, 'android', 'app', 'src', source, 'kotlin'),
         ).listSync(recursive: true))
