@@ -1,7 +1,7 @@
 // 關於 in the two Android flavors. Whether the build may update itself is a
 // compile-time constant (core/platform/distribution.dart), so each case
 // runs in the build it is written for: the play case with
-// `flutter test --flavor play test/app/about_flavor_test.dart`
+// `flutter test --flavor play test/app/about_section_test.dart`
 // (CI's play job does), the sideload case in every other run.
 import 'dart:io';
 

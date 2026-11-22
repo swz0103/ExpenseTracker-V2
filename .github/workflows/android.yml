@@ -285,7 +285,7 @@ jobs:
           fi
       - name: About shows no update in the play flavor
         working-directory: apps/expense_tracker
-        run: flutter test --flavor play test/app/about_flavor_test.dart
+        run: flutter test --flavor play test/app/about_section_test.dart
 
   sign:
     # The release key goes on the APK the build made, in a job that checks
