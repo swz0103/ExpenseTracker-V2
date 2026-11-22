@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:core/percent/percent.dart' show percent;
 
 import '../../../../core/design_system/glyphs.dart';
 import '../../../../core/design_system/theme.dart';
@@ -54,7 +55,7 @@ class PlanSection extends StatelessWidget {
     final today = ledger.today;
     final current = today.year == year && today.month == m;
     final left = limit - spent;
-    final used = limit <= 0 ? 0 : (spent * 100 / limit).round();
+    final used = limit <= 0 ? 0 : percent(spent, limit);
     return ColorCard(
       color: ToolColors.budgets,
       radius: Radii.largeIncreased,

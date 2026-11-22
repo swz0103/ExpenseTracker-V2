@@ -40,7 +40,7 @@ class _Pace extends StatelessWidget {
           label: '跟預算比',
           value: '${saved >= 0 ? '省' : '超'} ${money(saved.abs())}',
           valueColor: saved >= 0 ? AppColors.accent : AppColors.negative,
-          sub: '用了 ${spent * 100 ~/ total}%',
+          sub: '用了 ${wholePercent(spent, total)}',
         ),
       ]);
     }

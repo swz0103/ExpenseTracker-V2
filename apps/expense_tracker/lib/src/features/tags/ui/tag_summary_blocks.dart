@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../model/tag_summary.dart';
@@ -164,7 +165,7 @@ class TagCategoryShares extends StatelessWidget {
                   ),
                   const SizedBox(width: Space.s2),
                   Text(
-                    '$name ${amount * 100 ~/ spent}%',
+                    '$name ${wholePercent(amount, spent)}',
                     style: TextStyle(
                       fontSize: TextSize.small,
                       fontWeight: FontWeight.w700,

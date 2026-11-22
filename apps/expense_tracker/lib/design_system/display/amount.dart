@@ -9,6 +9,7 @@ import 'package:core/money/amount_format.dart';
 import 'package:core/percent/percent.dart';
 
 export 'package:core/money/amount_format.dart' show groupDigits;
+export 'package:core/percent/percent.dart' show divideRounded, isOver, percent;
 
 /// The home currency, whose amounts are written without a code.
 const _home = 'TWD';
@@ -132,6 +133,10 @@ String ratioPercent(double ratio) =>
 
 /// [part] of [whole] as a whole percent: `33%`. `0%` when [whole] is 0.
 String wholePercent(int part, int whole) => '${percent(part, whole)}%';
+
+/// A ratio held as a double (0.125 for 12.5%) as a whole percent: `13%`.
+String ratioWholePercent(double ratio) =>
+    '${roundHalfAwayFromZero(ratio * 100, 0)}%';
 
 /// What an amount says by its sign, for reading it out.
 enum AmountSense {

@@ -116,13 +116,13 @@ class ReportHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final kept = income - expense;
-    final keptShare = income <= 0 ? 0 : (kept * 100 / income).round();
+    final keptShare = income <= 0 ? 0 : percent(kept, income);
     final spentShare = income <= 0
         ? (expense > 0 ? 1.0 : 0.0)
         : (expense / income).clamp(0.0, 1.0);
     final change = lastExpense == 0
         ? null
-        : (expense - lastExpense) * 100 ~/ lastExpense;
+        : percent(expense - lastExpense, lastExpense);
     final until = this.until;
     return HeroCard(
       padding: const EdgeInsets.fromLTRB(

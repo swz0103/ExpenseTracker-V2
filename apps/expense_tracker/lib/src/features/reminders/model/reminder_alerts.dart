@@ -102,7 +102,7 @@ List<BudgetCrossing> budgetCrossings(
     final allowed = book.budgetService.allowance(b, today.year, today.month);
     if (allowed <= 0) continue;
     final spent = book.budgetService.spentAgainst(b, today.year, today.month);
-    final share = spent * 100 ~/ allowed;
+    final share = percent(spent, allowed);
     final name = b.category == allSpending ? '本月總預算' : '「${b.category}」預算';
     final BudgetCrossing crossing;
     if (spent > allowed) {
@@ -112,7 +112,7 @@ List<BudgetCrossing> budgetCrossings(
         title: '$name已超支',
         text: '已用 ${groupDigits(spent)}，超出 ${groupDigits(spent - allowed)}',
       );
-    } else if (share >= b.warning) {
+    } else if (spent * 100 >= b.warning * allowed) {
       crossing = (
         key: '$month|${b.category}|${b.warning}',
         tag: 'budget:${b.category}',

@@ -43,7 +43,7 @@ List<Widget> highlightsSection(Ledger ledger, Report report) {
         sub: merchant == null
             ? ''
             : '${merchant.$2} 次 · 每次約 '
-                  '${ledger.orDots(groupDigits(merchant.$3 ~/ merchant.$2))}',
+                  '${ledger.orDots(groupDigits(divideRounded(merchant.$3, merchant.$2)))}',
       ),
     ]),
   ];
@@ -131,7 +131,7 @@ Widget _merchantRow(Ledger ledger, int i, String name, int count, int amount) =>
                 ),
                 Text(
                   '$count 次 · 每次約 '
-                  '${ledger.orDots(groupDigits(amount ~/ count))}',
+                  '${ledger.orDots(groupDigits(divideRounded(amount, count)))}',
                   style: mutedCaption,
                 ),
               ],

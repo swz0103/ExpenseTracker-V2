@@ -61,9 +61,9 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
   final spent = book.reportService.expense(today.year, m);
   final allowance = _monthAllowance(book, today);
   final hasBudget = allowance != null && allowance > 0;
-  final used = hasBudget ? (spent * 100 / allowance).round() : null;
+  final used = hasBudget ? percent(spent, allowance) : null;
   final days = DateTime.utc(today.year, m + 1, 0).day;
-  final pace = hasBudget ? (today.day * 100 / days).round() : null;
+  final pace = hasBudget ? percent(today.day, days) : null;
   // The same days as 總覽's week, from Sunday.
   final first = startOfWeek(today);
   final daySpent = [
@@ -142,7 +142,7 @@ List<int> _weekHeights(List<int> daySpent, int weekday) {
           ? -1
           : most <= 0
           ? 0
-          : (max(daySpent[i], 0) * 100 / most).round(),
+          : percent(max(daySpent[i], 0), most),
   ];
 }
 

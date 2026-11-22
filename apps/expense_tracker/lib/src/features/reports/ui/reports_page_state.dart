@@ -205,7 +205,7 @@ class _ReportsPageState extends State<ReportsPage> {
       1 => Sections([
         if (biggest != null && expense > 0)
           TitleRow(
-            '最大分類 $biggest ${report.spending[biggest]! * 100 ~/ expense}%',
+            '最大分類 $biggest ${wholePercent(report.spending[biggest]!, expense)}',
             trailing: const Text('點分類看紀錄', style: mutedSmall),
           ),
         section(null, _mix(report)),
@@ -397,7 +397,7 @@ class _ReportsPageState extends State<ReportsPage> {
         '存下',
         income <= 0
             ? ledger.moneySigned(kept)
-            : '${ledger.moneySigned(kept)}（收入的 ${(kept * 100 / income).round()}%）',
+            : '${ledger.moneySigned(kept)}（收入的 ${wholePercent(kept, income)}）',
       ),
       ('記帳', '${report.days} 天、${report.count} 筆'),
       if (busiest != null)
@@ -522,10 +522,10 @@ class _ReportsPageState extends State<ReportsPage> {
                       ? _restBlock()
                       : ledger.category(name),
                   amount: amount,
-                  share: expense == 0 ? 0 : amount * 100 ~/ expense,
+                  share: percent(amount, expense),
                   change: last == null || last == 0
                       ? null
-                      : (amount - last) * 100 ~/ last,
+                      : percent(amount - last, last),
                   large: i == 0,
                   onTap: name == '其他' && !spending.containsKey('其他')
                       ? null

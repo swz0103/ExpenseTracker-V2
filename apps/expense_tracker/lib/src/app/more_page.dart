@@ -44,13 +44,12 @@ class MorePage extends StatelessWidget {
     final today = ledger.today;
     final income = ledger.reportService.income(today.year, today.month);
     final expense = ledger.reportService.expense(today.year, today.month);
-    final rate = income == 0 ? 0 : (income - expense) * 100 ~/ income;
     return _ToolRow([
       ToolButton(
         glyph: Glyph.reports,
         color: ToolColors.reports,
         label: '財務報表',
-        detail: '結餘率 $rate%',
+        detail: '結餘率 ${wholePercent(income - expense, income)}',
         onTap: () => nav.open(AppRoutes.reports),
       ),
       ToolButton(

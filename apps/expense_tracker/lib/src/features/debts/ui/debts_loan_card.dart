@@ -23,7 +23,7 @@ class _PaidRing extends StatelessWidget {
         ),
         Center(
           child: Text(
-            '${(share * 100).round()}%',
+            ratioWholePercent(share),
             textScaler: TextScaler.noScaling,
             style: TextStyle(
               fontSize: size / 4,
@@ -68,7 +68,7 @@ class _LoanCard extends StatelessWidget {
         loan.name,
         if (principal != null) '原借 ${ledger.orDots(groupDigits(principal))}',
         '尚欠 $owed',
-        if (share != null) '已還 ${(share * 100).round()}%',
+        if (share != null) '已還 ${ratioWholePercent(share)}',
       ].join('，'),
       padding: const EdgeInsets.fromLTRB(
         Space.s4,
