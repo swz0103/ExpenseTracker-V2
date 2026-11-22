@@ -1,0 +1,400 @@
+# Registry of single sources (rule B1): for each thing the app must decide
+# in exactly one place, who owns it today and where it should live.
+#
+#   id      kebab-case, unique
+#   what    short, Traditional Chinese
+#   layer   core | ledger | app | design_system | data
+#   owner   paths in the repo that implement it today (list; empty if none)
+#   target  path in the target architecture (provisional; edit with the plan)
+#   status  owned      exactly the listed owner implements it today
+#           scattered  implemented in several places today
+#           planned    does not exist yet
+#
+# Statuses were set by reading the file names and a few call sites, not by
+# a full audit; where unsure they say `scattered`.
+items:
+  # ---- core ----
+  - id: money-amount
+    what: 金額的解析、進位、正負
+    layer: core
+    owner:
+      - packages/core/lib/src/foundation_values/money.dart
+      - apps/expense_tracker/lib/src/core/ledger/models/fixed_point.dart
+      - apps/expense_tracker/lib/src/core/formatting/amounts.dart
+    target: packages/core/lib/src/money.dart
+    status: scattered
+  - id: currency-fx
+    what: 幣別與匯率換算（含用哪一天的匯率）
+    layer: core
+    owner:
+      - packages/core/lib/src/foundation_values/fx.dart
+      - apps/expense_tracker/lib/src/core/ledger/repositories/market_data_repository.dart
+    target: packages/core/lib/src/fx.dart
+    status: scattered
+  - id: ratio-rounding
+    what: 百分比與比例的進位
+    layer: core
+    owner:
+      - apps/expense_tracker/lib/src/core/formatting/figures.dart
+    target: packages/core/lib/src/ratio.dart
+    status: scattered
+  - id: dates-periods
+    what: 日期、年月、期間範圍
+    layer: core
+    owner:
+      - packages/core/lib/src/foundation_values/time.dart
+      - apps/expense_tracker/lib/src/core/formatting/dates.dart
+      - apps/expense_tracker/lib/src/features/reports/model/report_period.dart
+      - apps/expense_tracker/lib/src/features/budgets/model/budget_month.dart
+    target: packages/core/lib/src/dates.dart
+    status: scattered
+  - id: clock-now
+    what: 「今天」與現在時間
+    layer: core
+    owner:
+      - packages/core/lib/src/app_core/clock.dart
+      - apps/expense_tracker/lib/src/core/time/app_clock.dart
+    target: packages/core/lib/src/clock.dart
+    status: scattered
+  - id: holidays-business-days
+    what: 假日與營業日順延
+    layer: core
+    owner:
+      - packages/core/lib/src/foundation_values/time.dart
+      - packages/core/lib/src/app_core/clock.dart
+    target: packages/core/lib/src/calendar.dart
+    status: scattered
+  - id: identifiers
+    what: 識別碼
+    layer: core
+    owner:
+      - packages/core/lib/src/foundation_values/identity.dart
+    target: packages/core/lib/src/ids.dart
+    status: scattered
+  - id: shared-constants
+    what: 共用常數（保留天數、上限）
+    layer: core
+    owner: []
+    target: packages/core/lib/src/limits.dart
+    status: planned
+
+  # ---- ledger ----
+  - id: data-validity
+    what: 資料是否合法
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/services/entry_validator.dart
+      - apps/expense_tracker/lib/src/core/ledger/services/integrity_service.dart
+    target: packages/ledger/lib/src/validation.dart
+    status: scattered
+  - id: income-expense-kinds
+    what: 什麼算「支出」「收入」
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/models/entry.dart
+    target: packages/ledger/lib/src/entry_kind.dart
+    status: scattered
+  - id: balance-net-worth
+    what: 餘額與淨資產
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/services/balance_service.dart
+      - apps/expense_tracker/lib/src/core/ledger/portfolio.dart
+    target: packages/ledger/lib/src/balance.dart
+    status: scattered
+  - id: fees-tax-settlement
+    what: 手續費、稅、交割金額
+    layer: ledger
+    owner:
+      - packages/domain/lib/src/investments/taiwan.dart
+      - apps/expense_tracker/lib/src/core/ledger/trading.dart
+    target: packages/ledger/lib/src/settlement.dart
+    status: scattered
+  - id: installments-billing-cycle
+    what: 分期排程與帳單週期
+    layer: ledger
+    owner:
+      - packages/domain/lib/src/credit_cards/installments.dart
+      - packages/domain/lib/src/credit_cards/card_billing.dart
+      - packages/domain/lib/src/loans/loan_plan.dart
+      - apps/expense_tracker/lib/src/core/ledger/card_cycle.dart
+    target: packages/ledger/lib/src/schedules.dart
+    status: scattered
+  - id: status-flags
+    what: 逾期、超支、已清倉等狀態
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/features/budgets/ui/budgets_pace.dart
+      - apps/expense_tracker/lib/src/features/accounts/model/card_summary.dart
+    target: packages/ledger/lib/src/status.dart
+    status: scattered
+  - id: budget-limits-rollover
+    what: 預算額度與結轉
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/services/budget_service.dart
+      - apps/expense_tracker/lib/src/features/budgets/model/budget_month.dart
+    target: packages/ledger/lib/src/budget.dart
+    status: scattered
+  - id: recurring-due
+    what: 定期項目哪幾期到期
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/services/recurring_service.dart
+      - apps/expense_tracker/lib/src/features/recurring/model/recurring_schedule.dart
+    target: packages/ledger/lib/src/recurring.dart
+    status: scattered
+  - id: duplicate-detection
+    what: 重複判斷（匯入、發票、定期對手動）
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/features/import_export/model/import_reader.dart
+      - apps/expense_tracker/lib/src/features/entries/model/invoices.dart
+      - apps/expense_tracker/lib/src/core/ledger/services/recurring_service.dart
+    target: packages/ledger/lib/src/duplicates.dart
+    status: scattered
+  - id: default-account-ordering
+    what: 預設帳戶與排序規則
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/features/accounts/ui/sort_accounts.dart
+    target: packages/ledger/lib/src/ordering.dart
+    status: scattered
+  - id: reminder-content
+    what: 該提醒什麼
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/features/reminders/model/reminders.dart
+      - apps/expense_tracker/lib/src/features/reminders/model/reminder_alerts.dart
+    target: packages/ledger/lib/src/reminders.dart
+    status: scattered
+
+  # ---- app ----
+  - id: ledger-writes
+    what: 寫入帳本
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/commands
+    target: apps/expense_tracker/lib/src/app/commands
+    status: scattered
+  - id: ledger-reads
+    what: 讀取與彙總
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/services/entry_query_service.dart
+      - apps/expense_tracker/lib/src/core/ledger/services/report_service.dart
+    target: apps/expense_tracker/lib/src/app/queries
+    status: scattered
+  - id: cache-invalidation
+    what: 快取何時失效
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/cache
+    target: apps/expense_tracker/lib/src/app/cache
+    status: owned
+  - id: screen-lock
+    what: 畫面能不能顯示（鎖定）
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/lock/ui/lock_screen.dart
+      - apps/expense_tracker/lib/src/core/platform/screen_privacy.dart
+      - apps/expense_tracker/lib/src/core/platform/away_clock.dart
+    target: apps/expense_tracker/lib/src/app/lock
+    status: scattered
+  - id: lifecycle
+    what: 進背景、回前景做什麼
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/app/lifecycle_services.dart
+    target: apps/expense_tracker/lib/src/app/lifecycle
+    status: scattered
+  - id: reminder-scheduling
+    what: 向系統排程提醒
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/app/android/notification_adapter.dart
+      - apps/expense_tracker/lib/src/features/reminders/model/reminder_alerts.dart
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/Reminders.kt
+    target: apps/expense_tracker/lib/src/app/reminders
+    status: scattered
+  - id: backup-write-mutex
+    what: 備份的寫入與互斥
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/backup/model/backup_manager.dart
+      - apps/expense_tracker/lib/src/features/backup/model/encrypted_backup_manager.dart
+      - apps/expense_tracker/lib/src/features/backup/model/outbox.dart
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/BackupPlan.kt
+    target: apps/expense_tracker/lib/src/app/backup
+    status: scattered
+  - id: market-refresh
+    what: 行情與匯率的更新與失敗處理
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/investments/model/market_feed.dart
+      - apps/expense_tracker/lib/src/core/ledger/repositories/market_data_repository.dart
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/MarketWorker.kt
+    target: apps/expense_tracker/lib/src/app/market
+    status: scattered
+  - id: trash-undo
+    what: 刪除、復原與垃圾桶
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/repositories/trash_repository.dart
+      - apps/expense_tracker/lib/src/core/ledger/models/trashed.dart
+      - apps/expense_tracker/lib/src/features/entries/ui/trash_section.dart
+    target: apps/expense_tracker/lib/src/app/trash
+    status: scattered
+  - id: navigation-entrypoints
+    what: 導覽與快速動作的入口
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/navigation/nav.dart
+      - apps/expense_tracker/lib/src/core/platform/quick_action.dart
+      - apps/expense_tracker/lib/src/app/shell.dart
+    target: apps/expense_tracker/lib/src/app/navigation
+    status: scattered
+  - id: permission-prompts
+    what: 權限詢問
+    layer: app
+    owner: []
+    target: apps/expense_tracker/lib/src/app/permissions
+    status: planned
+  - id: settings-storage
+    what: 設定的儲存
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/preferences.dart
+    target: apps/expense_tracker/lib/src/app/settings
+    status: scattered
+  - id: error-log
+    what: 錯誤紀錄與回報
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/diagnostics/error_log.dart
+    target: apps/expense_tracker/lib/src/app/diagnostics
+    status: owned
+
+  # ---- design_system ----
+  - id: colors-dark-scale
+    what: 顏色與深色色階
+    layer: design_system
+    owner:
+      - apps/expense_tracker/lib/src/core/design_system/theme.dart
+      - apps/expense_tracker/lib/src/core/design_system/components/colours.dart
+      - apps/expense_tracker/lib/src/core/design_system/settings_colors.dart
+      - apps/expense_tracker/lib/src/core/design_system/widget_colors.dart
+    target: packages/design_system/lib/src/colors.dart
+    status: scattered
+  - id: type-spacing-touch
+    what: 字級、間距、觸控高度
+    layer: design_system
+    owner:
+      - apps/expense_tracker/lib/src/core/design_system/type.dart
+      - apps/expense_tracker/lib/src/core/design_system/spacing.dart
+      - apps/expense_tracker/lib/src/core/design_system/shape.dart
+    target: packages/design_system/lib/src/tokens.dart
+    status: scattered
+  - id: dialogs-sheets-pickers
+    what: 對話框、面板、選擇器、計算機、清單列
+    layer: design_system
+    owner:
+      - apps/expense_tracker/lib/src/core/design_system/dialogs.dart
+      - apps/expense_tracker/lib/src/core/design_system/components/panels.dart
+      - apps/expense_tracker/lib/src/core/widgets/pickers.dart
+      - apps/expense_tracker/lib/src/core/widgets/calculator.dart
+      - apps/expense_tracker/lib/src/core/widgets/entry_tile.dart
+    target: packages/design_system/lib/src/components
+    status: scattered
+  - id: amount-display
+    what: 金額怎麼顯示、怎麼念
+    layer: design_system
+    owner:
+      - apps/expense_tracker/lib/src/core/formatting/amounts.dart
+      - apps/expense_tracker/lib/src/core/widgets/shown_amounts.dart
+      - apps/expense_tracker/lib/src/core/ledger/amount_visibility.dart
+    target: packages/design_system/lib/src/amount_text.dart
+    status: scattered
+  - id: date-display
+    what: 日期怎麼顯示
+    layer: design_system
+    owner:
+      - apps/expense_tracker/lib/src/core/formatting/dates.dart
+    target: packages/design_system/lib/src/date_text.dart
+    status: scattered
+  - id: status-badges
+    what: 狀態徽章的用詞與顏色
+    layer: design_system
+    owner:
+      - apps/expense_tracker/lib/src/core/design_system/components/marks.dart
+      - apps/expense_tracker/lib/src/core/widgets/problem_note.dart
+    target: packages/design_system/lib/src/badges.dart
+    status: scattered
+  - id: form-behaviour
+    what: 表單的草稿、返回、錯誤、鍵盤
+    layer: design_system
+    owner:
+      - apps/expense_tracker/lib/src/features/entries/forms/form_frame.dart
+      - apps/expense_tracker/lib/src/core/ledger/repositories/draft_repository.dart
+    target: packages/design_system/lib/src/forms
+    status: scattered
+  - id: empty-error-states
+    what: 空白與錯誤狀態的畫面
+    layer: design_system
+    owner:
+      - apps/expense_tracker/lib/src/core/design_system/feedback.dart
+      - apps/expense_tracker/lib/src/core/widgets/problem_note.dart
+    target: packages/design_system/lib/src/states.dart
+    status: scattered
+  - id: all-text
+    what: 所有文字
+    layer: design_system
+    owner:
+      - apps/expense_tracker/lib/src/core/messages
+    target: apps/expense_tracker/lib/src/core/messages
+    status: scattered
+  - id: icons-haptics-motion
+    what: 圖示、震動、動畫時間
+    layer: design_system
+    owner:
+      - apps/expense_tracker/lib/src/core/widgets/icons.dart
+      - apps/expense_tracker/lib/src/core/design_system/haptics.dart
+      - apps/expense_tracker/lib/src/core/design_system/motion.dart
+    target: packages/design_system/lib/src/motion.dart
+    status: scattered
+
+  # ---- data ----
+  - id: data-format-migration
+    what: 資料格式與版本遷移
+    layer: data
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/persistence/record_version.dart
+      - apps/expense_tracker/lib/src/core/ledger/persistence/category_id_migration.dart
+      - apps/expense_tracker/lib/src/core/ledger/persistence/codec
+    target: infrastructure/storage/lib/src/format
+    status: scattered
+  - id: password-key-derivation
+    what: 密碼政策與金鑰推導
+    layer: data
+    owner:
+      - infrastructure/vault/lib/src/backup_security/keyring.dart
+      - infrastructure/vault/lib/src/ledger_vault/ledger_vault.dart
+    target: infrastructure/vault/lib/src/keys.dart
+    status: scattered
+  - id: backup-format-names
+    what: 備份格式與檔名
+    layer: data
+    owner:
+      - infrastructure/vault/lib/src/ledger_backup/ledger_backup.dart
+      - infrastructure/vault/lib/src/backup_security/file_box.dart
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/BackupPlan.kt
+    target: infrastructure/vault/lib/src/backup_format.dart
+    status: scattered
+  - id: channel-contract
+    what: Dart 與 Kotlin 的通道契約
+    layer: data
+    owner:
+      - apps/expense_tracker/lib/src/app/android/platform_channel.dart
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/ChannelHandler.kt
+    target: apps/expense_tracker/lib/src/app/android/platform_channel.dart
+    status: scattered
