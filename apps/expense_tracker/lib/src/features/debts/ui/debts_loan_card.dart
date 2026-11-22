@@ -16,6 +16,9 @@ class _PaidRing extends StatelessWidget {
       children: [
         CircularProgressIndicator(
           value: share,
+          // Read once, as words and a percent: 已還 1%, not 1, 1%.
+          semanticsLabel: ProgressWords.repaid,
+          semanticsValue: ratioWholePercent(share),
           strokeWidth: size / 9,
           strokeCap: StrokeCap.round,
           color: markOf(color),
@@ -24,6 +27,7 @@ class _PaidRing extends StatelessWidget {
         Center(
           child: Text(
             ratioWholePercent(share),
+            semanticsLabel: '',
             textScaler: TextScaler.noScaling,
             style: TextStyle(
               fontSize: size / 4,

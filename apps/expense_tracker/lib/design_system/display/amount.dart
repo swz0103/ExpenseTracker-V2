@@ -93,8 +93,47 @@ String shortAmount(int value) {
   return '${text.endsWith('.0') ? text.substring(0, text.length - 2) : text}萬';
 }
 
+/// What a count is counted in.
+enum CountUnit {
+  /// Records: 8,177 筆.
+  entries('筆'),
+
+  /// Shares: 21,000 股.
+  shares('股'),
+
+  /// Days: 1,780 天.
+  days('天'),
+
+  /// Instalments or months of a loan: 12 期.
+  periods('期'),
+
+  /// Stocks held: 3 檔.
+  stocks('檔'),
+
+  /// Things counted as such: 5 個.
+  pieces('個'),
+
+  /// Items of a list: 2 項.
+  items('項'),
+
+  /// Times: 4 次.
+  times('次'),
+
+  /// People: 2 人.
+  people('人'),
+
+  /// Notifications or messages: 1 則.
+  notes('則');
+
+  const CountUnit(this.word);
+
+  final String word;
+}
+
 /// A count with its unit, grouped: `8,177 筆`, `21,000 股`, `1,780 天`.
-String countOf(int count, String unit) => '${groupDigits(count)} $unit';
+/// Every count, share number and number of days is written this way.
+String countOf(int count, CountUnit unit) =>
+    '${groupDigits(count)} ${unit.word}';
 
 /// A share price with up to two decimals, trailing zeros trimmed and
 /// grouped: `128.5`, `1,045`, `23.45`. Never rounds away a real tick.
@@ -178,6 +217,29 @@ String spokenAmount(
       ? '${groupDigits(minor.abs())} 元'
       : '${currencyName(currency)} ${figuresIn(minor.abs(), currency)}';
   return direction.isEmpty ? size : '$direction $size';
+}
+
+/// [shown], a line with [minor] written in it as [shownAmount] writes it,
+/// as a screen reader should say it: the amount in words in its place.
+/// `已實現 +1,200` → `已實現 正 1,200 元`. [shown] itself when it does not
+/// hold the amount.
+String readOut(
+  String shown,
+  int minor, {
+  String currency = _home,
+  AmountSense sense = AmountSense.signed,
+  bool hidden = false,
+}) {
+  final written = shownAmount(
+    minor,
+    currency: currency,
+    sense: sense,
+    hidden: hidden,
+  );
+  return shown.replaceFirst(
+    written,
+    spokenAmount(minor, currency: currency, sense: sense, hidden: hidden),
+  );
 }
 
 /// An amount as it is written beside [spokenAmount]: `−1,844`, `+25,000`,

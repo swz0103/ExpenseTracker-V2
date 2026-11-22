@@ -42,10 +42,10 @@ void main() {
   });
 
   test('F06: counts are grouped like amounts', () {
-    expect(countOf(8177, '筆'), '8,177 筆');
-    expect(countOf(21000, '股'), '21,000 股');
-    expect(countOf(1780, '天'), '1,780 天');
-    expect(countOf(12, '期'), '12 期');
+    expect(countOf(8177, CountUnit.entries), '8,177 筆');
+    expect(countOf(21000, CountUnit.shares), '21,000 股');
+    expect(countOf(1780, CountUnit.days), '1,780 天');
+    expect(countOf(12, CountUnit.periods), '12 期');
   });
 
   test('INV-03: a share price keeps its real ticks', () {

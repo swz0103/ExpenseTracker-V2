@@ -260,14 +260,17 @@ AmountResult _amount(String text, [String currency = homeCode]) {
   );
 }
 
-/// Why the [column] of a line, written as [text], is not an amount; null
-/// when it is one or is left empty.
-String? _unreadable(String column, String text, [String currency = homeCode]) =>
-    switch (_amount(text, currency)) {
-      AmountOk() || AmountRefused(problem: AmountProblem.empty) => null,
-      AmountRefused(:final problem) =>
-        '$column看不懂：${amountProblemMessage(problem)}',
-    };
+/// The amount in [column] of a line, read by [cell], in [currency]: its
+/// minor units (null when left empty), or why it is not an amount.
+(int?, String?) _cellAmount(
+  String Function(String) cell,
+  String column, [
+  String currency = homeCode,
+]) => switch (_amount(cell(column), currency)) {
+  AmountOk(:final minor) => (minor, null),
+  AmountRefused(problem: AmountProblem.empty) => (null, null),
+  AmountRefused(:final problem) => (null, unreadableColumn(column, problem)),
+};
 
 /// The kinds a CSV line can be, by the names it may use.
 enum _Kind {

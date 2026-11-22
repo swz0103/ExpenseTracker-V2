@@ -12,13 +12,14 @@ void showNote(
   String message, {
   String? action,
   VoidCallback? onAction,
+  String? spoken,
 }) {
   final act = onAction;
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(message, semanticsLabel: spoken),
         // A note with an action (復原) would stay until swiped away; every
         // note goes by itself, a little later when it offers one.
         persist: false,

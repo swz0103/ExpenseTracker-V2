@@ -22,12 +22,14 @@ class _InvestHero extends StatelessWidget {
         ledger.orDots(signed(gain)),
         AppColors.ofMarket(gain),
         percentOf(gain, cost),
+        spoken: ledger.spoken(gain),
       ),
       _HeroFigure(
         '已實現',
         ledger.orDots(signed(ledger.holdings.realizedGain)),
         AppColors.ofMarket(ledger.holdings.realizedGain),
         '已賣出',
+        spoken: ledger.spoken(ledger.holdings.realizedGain),
       ),
       _HeroFigure(
         '年化',
@@ -73,6 +75,8 @@ class _InvestHero extends StatelessWidget {
                 Pill(
                   '今日 ${ledger.orDots(signed(day))}'
                   '${before == 0 ? '' : ' · ${percentOf(day, before)}'}',
+                  amount: day,
+                  hidden: ledger.amounts.hidden,
                   color: AppColors.ofMarket(day),
                 ),
             ],
@@ -87,10 +91,19 @@ class _InvestHero extends StatelessWidget {
 
 /// One of the hero's three figures: a label, the figure and one short line.
 class _HeroFigure extends StatelessWidget {
-  const _HeroFigure(this.label, this.figure, this.color, this.sub);
+  const _HeroFigure(
+    this.label,
+    this.figure,
+    this.color,
+    this.sub, {
+    this.spoken,
+  });
 
   final String label;
   final String figure;
+
+  /// What a screen reader says for [figure]: its direction in words.
+  final String? spoken;
   final Color color;
   final String sub;
 
@@ -108,6 +121,7 @@ class _HeroFigure extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               figure,
+              semanticsLabel: spoken,
               style: TextStyle(
                 fontSize: TextSize.title,
                 fontWeight: FontWeight.w800,
@@ -190,6 +204,8 @@ class _HoldingRow extends StatelessWidget {
           '${held.name.isEmpty ? '' : '${held.code} · '}'
           '${ledger.orDots(groupDigits(held.shares))} 股 · 損益 '
           '${ledger.orDots(signed(held.gain))}',
+      detailAmount: held.gain,
+      hidden: ledger.amounts.hidden,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

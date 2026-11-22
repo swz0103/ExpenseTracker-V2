@@ -8,12 +8,24 @@ class _Bento extends StatelessWidget {
     required this.label,
     required this.value,
     required this.lines,
+    this.spokenValue,
+    this.lineAmounts = const [],
+    this.hidden = false,
   });
 
   final Color color;
   final String label;
   final String value;
   final List<String> lines;
+
+  /// What a screen reader says for [value] when it is an amount with a
+  /// sign: its direction in words.
+  final String? spokenValue;
+
+  /// By place, the amount with a sign written in each of [lines], read
+  /// out in words rather than the sign; hidden while [hidden].
+  final List<int?> lineAmounts;
+  final bool hidden;
 
   @override
   Widget build(BuildContext context) {
@@ -43,15 +55,20 @@ class _Bento extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               value,
+              semanticsLabel: spokenValue,
               style: const TextStyle(
                 fontSize: TextSize.large,
                 fontWeight: FontWeight.w800,
               ),
             ),
           ),
-          for (final line in lines)
+          for (final (i, line) in lines.indexed)
             Text(
               line,
+              semanticsLabel: switch (lineAmounts.elementAtOrNull(i)) {
+                final amount? => readOut(line, amount, hidden: hidden),
+                null => null,
+              },
               style: TextStyle(fontSize: TextSize.caption, color: ink),
             ),
         ],
@@ -75,6 +92,7 @@ Widget _bento(Ledger ledger, String code, Holding held, bool quoted) {
           color: tone,
           label: held.gain < 0 ? '賠了' : '賺了',
           value: ledger.orDots(signed(held.gain)),
+          spokenValue: ledger.spoken(held.gain),
           lines: [
             '${percentOf(held.gain, held.cost)}'
                 '${rate == null ? '' : ' · 年化 ${yearlyRate(rate)}'}',
@@ -89,6 +107,8 @@ Widget _bento(Ledger ledger, String code, Holding held, bool quoted) {
                 '成本 ${ledger.orDots(groupDigits(held.cost))}',
             if (quoted) '今天 ${ledger.orDots(signed(held.change))}',
           ],
+          lineAmounts: [null, if (quoted) held.change],
+          hidden: ledger.amounts.hidden,
         ),
       ]),
       const SizedBox(height: Space.s2),

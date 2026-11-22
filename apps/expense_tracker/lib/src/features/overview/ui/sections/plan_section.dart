@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:core/percent/percent.dart' show percent;
 
+import '../../../../../design_system/display/amount.dart';
 import '../../../../core/design_system/glyphs.dart';
 import '../../../../core/design_system/theme.dart';
 import '../../../../core/design_system/design_system.dart';
@@ -140,9 +140,12 @@ class PlanSection extends StatelessWidget {
     final until = day?.difference(today).inDays;
     final (String figure, Color tone) = switch (until) {
       null => ('—', AppColors.ink),
-      _ when due.isNotEmpty => ('已到期 ${due.length} 筆', AppColors.negative),
+      _ when due.isNotEmpty => (
+        '已到期 ${countOf(due.length, CountUnit.entries)}',
+        AppColors.negative,
+      ),
       0 => (Words.today, AppColors.negative),
-      final n => ('$n 天後', AppColors.ink),
+      final n => ('${countOf(n, CountUnit.days)}後', AppColors.ink),
     };
     return ColorCard(
       color: ToolColors.recurring,

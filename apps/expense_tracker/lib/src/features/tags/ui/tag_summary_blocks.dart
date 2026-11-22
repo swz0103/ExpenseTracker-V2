@@ -34,7 +34,7 @@ class TagSummaryHeading extends StatelessWidget {
     String day(DateTime d) => formatMd(d);
     final days = project.from == project.to
         ? day(project.from)
-        : '${day(project.from)} – ${day(project.to)} · ${project.days} 天';
+        : '${day(project.from)} – ${day(project.to)} · ${countOf(project.days, CountUnit.days)}';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

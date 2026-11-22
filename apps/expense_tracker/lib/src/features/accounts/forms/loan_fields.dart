@@ -46,7 +46,9 @@ extension on _AccountEditorState {
       principal: money(principal),
       owed: owed == null ? (old == null ? '同本金' : '0') : groupDigits(owed),
       rate: _f.rate.trim().isEmpty ? '—' : '${_f.rate.trim()}%',
-      months: _f.typedMonths == null ? '—' : '${_f.typedMonths} 期',
+      months: _f.typedMonths == null
+          ? '—'
+          : countOf(_f.typedMonths!, CountUnit.periods),
       day: '${_f.due} 日',
       onPrincipal: () => _amount(_principal, '本金'),
       onOwed: () => _amount(_balance, '目前尚欠'),

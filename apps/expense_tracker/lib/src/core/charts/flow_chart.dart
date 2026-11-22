@@ -138,7 +138,7 @@ class _FlowPainter extends CustomPainter {
       final worth = frame.floor + frame.span * step / 2;
       paintText(
         canvas,
-        hidden ? '••' : '${(worth / 10000).toStringAsFixed(1)}萬',
+        hidden ? '••' : '${tenThousands(worth.round())}萬',
         axis.copyWith(color: AppColors.investment),
         Offset(left + plot + 6, frame.y(value)),
         anchor: const Offset(0, 0.5),

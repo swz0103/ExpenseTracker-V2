@@ -122,7 +122,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                 Space.s2,
               ),
               child: Text(
-                '$name · ${group.length} 檔',
+                '$name · ${countOf(group.length, CountUnit.stocks)}',
                 style: const TextStyle(
                   fontSize: TextSize.small,
                   fontWeight: FontWeight.w800,

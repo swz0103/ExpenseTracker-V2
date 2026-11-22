@@ -142,6 +142,9 @@ final class InvestmentFields {
                   ? formatMd(settled)
                   : '成本 ${groupDigits(cost)} · 交割 ${formatMd(settled)}',
               value: cost == null ? null : signed(settles - cost),
+              spokenValue: cost == null
+                  ? null
+                  : spokenAmount(settles - cost, sense: AmountSense.signed),
               color: cost == null
                   ? AppColors.positive
                   : AppColors.ofMarket(settles - cost),

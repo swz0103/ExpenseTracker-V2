@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../../../core/widgets/pickers.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/haptics.dart';
@@ -97,8 +98,8 @@ class _EntriesPageState extends State<EntriesPage> {
     showNote(
       context,
       changed == total
-          ? '已$what $changed 筆'
-          : '已$what $changed 筆，其餘 ${total - changed} 筆不適用',
+          ? '已$what ${countOf(changed, CountUnit.entries)}'
+          : '已$what ${countOf(changed, CountUnit.entries)}，其餘 ${countOf(total - changed, CountUnit.entries)}不適用',
     );
   }
 
@@ -147,7 +148,7 @@ class _EntriesPageState extends State<EntriesPage> {
     setState(_picked.clear);
     showNote(
       context,
-      '已刪除 ${removed.length} 筆',
+      '已刪除 ${countOf(removed.length, CountUnit.entries)}',
       action: '復原',
       onAction: () => ledger.entryCommands.restoreAll(removed),
     );
@@ -456,7 +457,7 @@ class _PickBar extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '已選 $count 筆 · 點紀錄可加選或取消',
+                  '已選 ${countOf(count, CountUnit.entries)} · 點紀錄可加選或取消',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/messages/amount_messages.dart';
 import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';

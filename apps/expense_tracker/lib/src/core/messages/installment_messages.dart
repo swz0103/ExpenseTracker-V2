@@ -13,6 +13,6 @@ String installmentPlan(
   final amounts = installmentAmounts(total, count);
   final (first, rest) = (amounts.first, amounts.last);
   return first == rest
-      ? '$count 期 · 每期 ${money(rest)}'
-      : '$count 期 · 首期 ${money(first)}，其後每期 ${money(rest)}';
+      ? '${countOf(count, CountUnit.periods)} · 每期 ${money(rest)}'
+      : '${countOf(count, CountUnit.periods)} · 首期 ${money(first)}，其後每期 ${money(rest)}';
 }

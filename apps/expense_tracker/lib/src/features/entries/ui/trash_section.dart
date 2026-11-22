@@ -65,14 +65,14 @@ class TrashSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${trash.all.length} 筆',
+                    countOf(trash.all.length, CountUnit.entries),
                     style: const TextStyle(
                       fontSize: TextSize.figure,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   Text(
-                    '保留 $_keptDays 天',
+                    '保留 ${countOf(_keptDays, CountUnit.days)}',
                     style: TextStyle(
                       fontSize: TextSize.body,
                       color: deepOf(SettingsColors.trash),
@@ -120,7 +120,7 @@ class TrashSection extends StatelessWidget {
       detail: [
         if (e.category.isNotEmpty) e.category,
         account,
-        '還剩 ${left.clamp(0, _keptDays)} 天',
+        '還剩 ${countOf(left.clamp(0, _keptDays), CountUnit.days)}',
       ].join(' · '),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,

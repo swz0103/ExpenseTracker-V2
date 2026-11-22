@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import 'amount.dart';
 
-export 'amount.dart' show AmountSense, spokenAmount, shownAmount;
+export 'amount.dart' show AmountSense, readOut, spokenAmount, shownAmount;
 
 /// An amount on screen. It is always read out with its direction in
 /// words ([spokenAmount]: `支出 1,844 元`), so a screen reader never
@@ -37,6 +37,36 @@ class AmountText extends StatelessWidget {
          shownAmount(minor, currency: currency, sense: sense, hidden: hidden),
          key: key,
          spoken: spokenAmount(
+           minor,
+           currency: currency,
+           sense: sense,
+           hidden: hidden,
+         ),
+         style: style,
+         textAlign: textAlign,
+         maxLines: maxLines,
+         overflow: overflow,
+       );
+
+  /// [shown], a line with [minor] written in it, read out with the
+  /// amount in words in its place ([readOut]): `已實現 +1,200` is read
+  /// 已實現 正 1,200 元.
+  AmountText.within(
+    String shown,
+    int minor, {
+    Key? key,
+    String currency = 'TWD',
+    AmountSense sense = AmountSense.signed,
+    bool hidden = false,
+    TextStyle? style,
+    TextAlign? textAlign,
+    int? maxLines,
+    TextOverflow? overflow,
+  }) : this(
+         shown,
+         key: key,
+         spoken: readOut(
+           shown,
            minor,
            currency: currency,
            sense: sense,

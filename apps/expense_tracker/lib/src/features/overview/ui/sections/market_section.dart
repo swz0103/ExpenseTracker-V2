@@ -82,6 +82,7 @@ class _MarketSectionState extends State<MarketSection> {
             color: ToolColors.investments,
             label: '當日損益',
             value: ledger.moneySigned(change),
+            spokenValue: ledger.spoken(change),
             valueColor: tone,
             sub: '當日 ${percentOf(change, before)}',
           ),
@@ -90,7 +91,7 @@ class _MarketSectionState extends State<MarketSection> {
           color: ToolColors.investments,
           label: '持股市值',
           value: ledger.money(ledger.holdings.marketValue),
-          sub: '${holdings.all.length} 檔',
+          sub: countOf(holdings.all.length, CountUnit.stocks),
           onTap: () => widget.nav.open(AppRoutes.investments),
         ),
       ]),
@@ -116,6 +117,13 @@ class _MarketSectionState extends State<MarketSection> {
                   text: ledger.orDots(
                     '${signed(picked.gain)}'
                     '（${percentOf(picked.gain, picked.cost)}）',
+                  ),
+                  semanticsLabel: ledger.readAloud(
+                    ledger.orDots(
+                      '${signed(picked.gain)}'
+                      '（${percentOf(picked.gain, picked.cost)}）',
+                    ),
+                    picked.gain,
                   ),
                   style: TextStyle(color: AppColors.ofMarket(picked.gain)),
                 ),
@@ -174,6 +182,7 @@ class _MarketSectionState extends State<MarketSection> {
               width: 50 * textGrowth(context),
               child: Text(
                 quoted ? widget.ledger.moneySigned(h.change) : '—',
+                semanticsLabel: quoted ? widget.ledger.spoken(h.change) : null,
                 textAlign: TextAlign.end,
                 style: TextStyle(
                   fontSize: TextSize.small,

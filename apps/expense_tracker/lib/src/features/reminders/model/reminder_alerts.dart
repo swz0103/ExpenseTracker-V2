@@ -161,7 +161,7 @@ List<Alert> alertsFor(
         alerts.add(
           Alert(
             nine(r.daysAhead),
-            '${r.daysAhead} 天後 ${r.title}',
+            '${countOf(r.daysAhead, CountUnit.days)}後 ${r.title}',
             r.note,
             tag: tag,
           ),

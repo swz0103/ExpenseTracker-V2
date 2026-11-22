@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/messages/amount_messages.dart';
+import '../../design_system/display/amount.dart';
 import '../core/diagnostics/error_log.dart';
 import '../core/diagnostics/performance_monitor.dart';
 import '../core/design_system/dialogs.dart';
@@ -270,7 +272,7 @@ class _VersionCardState extends State<_VersionCard> {
   String _state(AppUpdate? update) {
     if (update == null || !update.possible) return '自行建置的版本';
     final progress = update.progress;
-    if (progress != null) return '下載中 ${(progress * 100).round()}%';
+    if (progress != null) return '下載中 ${ratioWholePercent(progress)}';
     if (update.checking) return '檢查中…';
     final newer = update.newer;
     if (newer != null) {
@@ -343,6 +345,8 @@ class _VersionCardState extends State<_VersionCard> {
                       borderRadius: BorderRadius.circular(Radii.extraSmall),
                       child: LinearProgressIndicator(
                         value: progress,
+                        semanticsLabel: ProgressWords.downloading,
+                        semanticsValue: ratioWholePercent(progress),
                         minHeight: 5,
                         color: markOf(SettingsColors.main),
                         backgroundColor: AppColors.white,

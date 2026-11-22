@@ -48,5 +48,14 @@ Future<void> reconcileAccount(
   );
   if (!ok || !context.mounted) return;
   ledger.entryCommands.add(entry);
-  showNote(context, '已記下對帳調整 ${spent ? '−' : '+'}${groupDigits(entry.amount)}');
+  final note = '已記下對帳調整 ${spent ? '−' : '+'}${groupDigits(entry.amount)}';
+  showNote(
+    context,
+    note,
+    spoken: readOut(
+      note,
+      entry.amount,
+      sense: spent ? AmountSense.spending : AmountSense.income,
+    ),
+  );
 }

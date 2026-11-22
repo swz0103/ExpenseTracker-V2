@@ -368,6 +368,7 @@ class _MovedChip extends StatelessWidget {
           const SizedBox(width: Space.s2),
           Text(
             ledger.orDots(signed(change)),
+            semanticsLabel: ledger.spoken(change),
             style: TextStyle(
               fontWeight: FontWeight.w800,
               color: change > 0 ? AppColors.negative : AppColors.positive,

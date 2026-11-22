@@ -228,7 +228,7 @@ class _RecurringPageState extends State<RecurringPage> {
       ),
       _Cell(
         label: '已暫停 ›',
-        value: '${paused.length} 項',
+        value: countOf(paused.length, CountUnit.items),
         onTap: () => _view(RecurringView.paused),
       ),
     ]);
