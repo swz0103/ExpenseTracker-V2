@@ -225,7 +225,7 @@ void main() {
     final first = Startup(vault);
     await tester.runAsync(first.setUpWithoutPassword);
     first.lock();
-    File('${directory.path}/quick-open.key').writeAsStringSync('not the key');
+    File('${directory.path}/quick-open.sealed').writeAsStringSync('not sealed');
     final startup = Startup(vault);
     await show(tester, startup);
     await settleIn(tester);
@@ -239,7 +239,7 @@ void main() {
   });
 
   testWidgets('忘記密碼？ asks for the recovery code, which opens the ledger '
-      'from then on without a password', (tester) async {
+      'and keeps its password until a new one is set (SEC-04)', (tester) async {
     final startup = Startup(vault);
     late String code;
     await tester.runAsync(() async => code = await startup.setUp(password));
@@ -255,8 +255,8 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.go);
     await settle(tester, () => startup.state is Ready);
     expect(startup.state, isA<Ready>());
-    expect(startup.passwordless, isTrue);
-    expect(startup.takeRecoveryNotice(), isTrue);
+    expect(startup.passwordless, isFalse);
+    expect(startup.needsNewPassword, isTrue);
     startup.lock();
     semantics.dispose();
   });
@@ -411,9 +411,13 @@ void main() {
 
     tearDown(() => elsewhere.deleteSync(recursive: true));
 
+    /// The recovery code of the ledger [backedUp] made.
+    late String code;
+
     /// A ledger with a password backed up to [backup], then locked.
     Future<Startup> backedUp(WidgetTester tester) async {
-      final startup = await opened(tester);
+      final startup = Startup(vault);
+      await tester.runAsync(() async => code = await startup.setUp(password));
       await backUp(tester, startup, backup);
       startup.lock();
       return startup;
@@ -433,17 +437,95 @@ void main() {
     }
 
     testWidgets('from settings, a backup whose path is typed is restored '
-        'with its password', (tester) async {
+        'with its recovery code, not the app password (SEC-02)', (
+      tester,
+    ) async {
       final startup = await backedUp(tester);
       startup.lockToRestore();
       await show(tester, startup);
       await tester.enterText(find.byType(TextField).first, backup.path);
       await tester.enterText(find.byType(TextField).last, password);
-      // 完成 on the keyboard under the password restores.
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await settle(
+        tester,
+        () => find.text('救援碼的格式不對，請檢查是否少打或打錯字').evaluate().isNotEmpty,
+      );
+      expect(startup.state, isA<Locked>());
+      await tester.enterText(find.byType(TextField).last, code);
+      // 完成 on the keyboard under the code restores.
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await settle(tester, () => startup.state is Ready);
       expect(startup.state, isA<Ready>());
+      expect(startup.needsNewPassword, isTrue);
       startup.lock();
+    });
+
+    testWidgets('a backup chosen says it opens with its recovery code; one '
+        'older than the ledger it replaces is restored only once confirmed, '
+        'both shown (SEC-10)', (tester) async {
+      final startup = await backedUp(tester);
+      // The ledger has grown since: kept just now with two records more.
+      final open = await tester.runAsync(
+        () => vault.unlockWithPassword(password),
+      );
+      open!.store.write((w) {
+        w.put('entry', 'e1', '{"amount":1}');
+        w.put('entry', 'e2', '{"amount":2}');
+      });
+      final keptFile = File('${elsewhere.path}/kept.etbk');
+      await tester.runAsync(
+        () => LedgerBackup.write(
+          store: open.store,
+          keys: open.keys,
+          file: keptFile,
+          backupId: 'kept',
+          createdAt: DateTime(2026, 11, 20, 9, 30),
+        ),
+      );
+      open.close();
+      final kept = await tester.runAsync(
+        () => LedgerBackup.readHeader(keptFile),
+      );
+      startup.lockToRestore(kept);
+      var next = backup.path;
+      await showWith(
+        tester,
+        startup,
+        RestoreSources(pickFile: () async => next),
+      );
+      final semantics = tester.ensureSemantics();
+      await press(tester, '選擇備份檔');
+      await settle(
+        tester,
+        () => find.textContaining('的備份 · ').evaluate().isNotEmpty,
+      );
+      expect(find.text('這份備份要用救援碼打開（不是 App 的密碼）。'), findsOneWidget);
+      expect(find.text('忘記密碼？用救援碼'), findsNothing);
+      await tester.enterText(find.byType(TextField).last, code);
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      expect(find.text('備份比較舊'), findsOneWidget);
+      expect(
+        find.textContaining('目前的帳本：2 筆（2026/11/20 09:30 留下一份）'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('要還原的備份：0 筆（2026/11/3 21:03）'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(startup.state, isA<Locked>());
+
+      await tester.tap(find.widgetWithText(FilledButton, '還原'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(Keys.confirm));
+      await tester.pump();
+      await settle(tester, () => startup.state is Ready);
+      expect(startup.state, isA<Ready>());
+      startup.lock();
+      next = '';
+      semantics.dispose();
     });
 
     testWidgets('the file picked says when it was taken and how much it '
@@ -627,9 +709,16 @@ void main() {
       await show(tester, startup);
       final semantics = tester.ensureSemantics();
       await press(tester, '還原前自動留下的帳本');
+      // Each kept backup's header is read first.
+      await settle(
+        tester,
+        () => find.text('還原前自動留下的帳本').evaluate().length == 2,
+      );
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('還原前自動留下的帳本'), findsNWidgets(2));
-      await press(tester, RegExp(' 留下\$'));
+      // Named by when its backup was taken, as its header says (F91).
+      expect(find.text('2026/11/3 21:03 的帳本 · 0 筆'), findsOneWidget);
+      await press(tester, RegExp('的帳本 · '));
       await settle(
         tester,
         () => find.textContaining('的備份 · ').evaluate().isNotEmpty,

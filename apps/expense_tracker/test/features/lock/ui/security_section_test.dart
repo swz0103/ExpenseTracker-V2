@@ -6,18 +6,28 @@ import 'package:expense_tracker/src/features/backup/model/backup_manager.dart';
 import 'package:expense_tracker/src/features/lock/ui/security_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vault/backup_security.dart';
 
 import '../../../support/places.dart';
 
-/// A ledger's keys without a ledger: remembers what it was asked.
+/// A ledger's keys without a ledger: remembers what it was asked, and
+/// refuses as the vault does, by the error's type.
 final class _StubBackupManager implements BackupManager {
   var password = '';
   var locked = false;
+  var passphrase = '';
+  var resets = <String?>[];
+
+  @override
+  var passwordBelowRule = false;
 
   /// What changing the password, or making a new code, fails with.
   Object? fails;
   Object? codeFails;
   var codes = 0;
+
+  /// The calls that reached the keys.
+  var calls = 0;
 
   @override
   Future<bool> exportBackup() async => true;
@@ -38,17 +48,26 @@ final class _StubBackupManager implements BackupManager {
   DateTime? get googleTakenAt => null;
 
   @override
+  DateTime? get exportedAt => null;
+
+  @override
   bool get hasPassword => password.isNotEmpty;
 
   @override
-  Future<void> setPassword(String next) async => password = next;
+  Future<void> setPassword(String next) async {
+    calls++;
+    password = next;
+  }
 
   @override
   Future<void> changePassword(String current, String next) async {
+    calls++;
     if (fails case final error?) {
       Error.throwWithStackTrace(error, StackTrace.current);
     }
-    if (current != password) throw StateError('wrongSecret');
+    if (current != password) {
+      throw const KeyringException(KeyringError.wrongSecret);
+    }
     password = next;
   }
 
@@ -65,6 +84,23 @@ final class _StubBackupManager implements BackupManager {
   bool get recoveryGiven => true;
 
   @override
+  bool get hasBackupPassphrase => passphrase.isNotEmpty;
+
+  @override
+  Future<void> setBackupPassphrase(String next) async => passphrase = next;
+
+  @override
+  Future<void> removeBackupPassphrase() async => passphrase = '';
+
+  @override
+  Future<void> resetKeys(String? currentPassword) async {
+    if (hasPassword && currentPassword != password) {
+      throw const KeyringException(KeyringError.wrongSecret);
+    }
+    resets.add(currentPassword);
+  }
+
+  @override
   Future<void> lock() async => locked = true;
 
   @override
@@ -76,22 +112,25 @@ void main() {
     WidgetTester tester,
     BackupManager? backupManager, {
     ScreenPrivacy? privacy,
-  }) => tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: ListView(
-          children: [
-            SecuritySection(backupManager: backupManager, privacy: privacy),
-          ],
+  }) async {
+    tester.view.physicalSize = const Size(400, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListView(
+            children: [
+              SecuritySection(backupManager: backupManager, privacy: privacy),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 
-  /// Opens 密碼 and types [fields] into its fields, then 變更.
-  Future<void> change(WidgetTester tester, List<String> fields) async {
-    await tester.tap(find.byKey(Keys.password));
-    await tester.pumpAndSettle();
+  /// Types [fields] into the open panel's fields, then its main button.
+  Future<void> type(WidgetTester tester, List<String> fields) async {
     for (final (i, text) in fields.indexed) {
       await tester.enterText(find.byType(TextField).at(i), text);
     }
@@ -99,39 +138,65 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('new passwords that differ are refused', (tester) async {
+  /// Opens 密碼 and types [fields] into its fields, then 變更.
+  Future<void> change(WidgetTester tester, List<String> fields) async {
+    await tester.tap(find.byKey(Keys.password));
+    await tester.pumpAndSettle();
+    await type(tester, fields);
+  }
+
+  /// What the panel's fields hold now.
+  List<String> typed(WidgetTester tester) => [
+    for (final field in tester.widgetList<TextField>(find.byType(TextField)))
+      field.controller!.text,
+  ];
+
+  testWidgets('new passwords that differ are said in the panel, with what '
+      'was typed kept (F97)', (tester) async {
     final backupManager = _StubBackupManager();
     await show(tester, backupManager);
     expect(find.text('還沒設定 · 點了設定'), findsOneWidget);
     expect(find.text('現在鎖上'), findsNothing);
     await tester.tap(find.byKey(Keys.password));
     await tester.pumpAndSettle();
-    final fields = find.byType(TextField);
-    expect(fields, findsNWidgets(2));
-    await tester.enterText(fields.at(0), 'secret1');
-    await tester.enterText(fields.at(1), 'secret2');
-    await tester.tap(find.byKey(Keys.changePassword));
-    await tester.pump();
+    expect(find.byType(TextField), findsNWidgets(2));
+    expect(find.textContaining('至少 8 個字，不能全是數字'), findsOneWidget);
+    await type(tester, ['apple pie 1', 'apple pie 2']);
     expect(find.text('兩次輸入的新密碼不一樣'), findsOneWidget);
-    expect(backupManager.hasPassword, isFalse);
+    expect(typed(tester), ['apple pie 1', 'apple pie 2']);
+    expect(backupManager.calls, 0);
   });
 
-  testWidgets('a wrong current password is said, and lock is offered', (
+  testWidgets('a new password against the rule is said in the panel '
+      '(SEC-02, F97)', (tester) async {
+    final backupManager = _StubBackupManager()..password = 'old secret';
+    await show(tester, backupManager);
+    await change(tester, ['old secret', 'abc', 'abc']);
+    expect(find.text('至少要 8 個字'), findsOneWidget);
+    expect(typed(tester), ['old secret', 'abc', 'abc']);
+    // Six digits, the lock screen's old suggestion, are refused too.
+    await type(tester, ['old secret', '12345678', '12345678']);
+    expect(find.text('不能全是數字，請加上文字或符號'), findsOneWidget);
+    expect(backupManager.calls, 0);
+    expect(backupManager.password, 'old secret');
+  });
+
+  testWidgets('a wrong current password is said in the panel, which stays '
+      'open with what was typed; then it goes through (F97, SEC-13)', (
     tester,
   ) async {
-    final backupManager = _StubBackupManager()..password = 'secret1';
+    final backupManager = _StubBackupManager()..password = 'old secret';
     await show(tester, backupManager);
     expect(find.text('現在鎖上'), findsOneWidget);
-    await tester.tap(find.byKey(Keys.password));
-    await tester.pumpAndSettle();
-    final fields = find.byType(TextField);
-    await tester.enterText(fields.at(0), 'wrong');
-    await tester.enterText(fields.at(1), 'secret2');
-    await tester.enterText(fields.at(2), 'secret2');
-    await tester.tap(find.byKey(Keys.changePassword));
-    await tester.pumpAndSettle();
+    await change(tester, ['wrong one', 'new secret', 'new secret']);
     expect(find.text('目前的密碼不正確'), findsOneWidget);
-    expect(backupManager.password, 'secret1');
+    expect(typed(tester), ['wrong one', 'new secret', 'new secret']);
+    expect(backupManager.password, 'old secret');
+
+    await type(tester, ['old secret']);
+    expect(find.byType(TextField), findsNothing, reason: 'closed');
+    expect(backupManager.password, 'new secret');
+    expect(find.text('密碼已變更'), findsOneWidget);
 
     await tester.tap(find.byKey(Keys.lockNow));
     await tester.pump();
@@ -142,8 +207,8 @@ void main() {
       'says it is set', (tester) async {
     final backupManager = _StubBackupManager();
     await show(tester, backupManager);
-    await change(tester, ['secret1', 'secret1']);
-    expect(backupManager.password, 'secret1');
+    await change(tester, ['apple pie 1', 'apple pie 1']);
+    expect(backupManager.password, 'apple pie 1');
     expect(find.text('新的救援碼'), findsOneWidget);
     expect(find.text('密碼設好了。忘記密碼時，只有它能打開帳本'), findsOneWidget);
     await go(tester, ['存好了']);
@@ -153,38 +218,44 @@ void main() {
     expect(find.text('現在鎖上'), findsOneWidget);
   });
 
-  testWidgets('a password changed says so', (tester) async {
-    final backupManager = _StubBackupManager()..password = 'secret1';
+  testWidgets('changing the password says what it does not change', (
+    tester,
+  ) async {
+    final backupManager = _StubBackupManager()..password = 'old secret';
     await show(tester, backupManager);
-    await change(tester, ['secret1', 'secret2', 'secret2']);
-    expect(backupManager.password, 'secret2');
-    expect(find.text('密碼已變更'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.password));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('已經存在的舊備份不會改變，仍可用當時的密碼或救援碼打開'), findsOneWidget);
+    await type(tester, ['old secret', 'new secret', 'new secret']);
+    expect(backupManager.password, 'new secret');
     expect(backupManager.codes, 0, reason: 'the code stays');
   });
 
-  testWidgets('a password too short, or a failure, is said by its kind', (
-    tester,
-  ) async {
+  testWidgets('a failure not foreseen is said in the panel', (tester) async {
     final backupManager = _StubBackupManager()
-      ..password = 'secret1'
-      ..fails = StateError('weakPassword');
+      ..password = 'old secret'
+      ..fails = const FileSystemException('disk full');
     await show(tester, backupManager);
-    await change(tester, ['secret1', 'abc', 'abc']);
-    expect(find.text('新密碼至少要 6 個字'), findsOneWidget);
-
-    backupManager.fails = const FileSystemException('disk full');
-    await change(tester, ['secret1', 'secret2', 'secret2']);
-    expect(find.textContaining('無法變更密碼（'), findsOneWidget);
-    expect(backupManager.password, 'secret1');
+    await change(tester, ['old secret', 'new secret', 'new secret']);
+    expect(find.textContaining('沒有完成（'), findsOneWidget);
+    expect(backupManager.password, 'old secret');
   });
 
-  testWidgets('救援碼 makes a new code only once agreed, and shows it', (
-    tester,
-  ) async {
-    final backupManager = _StubBackupManager()..password = 'secret1';
+  testWidgets('a password in use below the rule is pointed out, not '
+      'refused', (tester) async {
+    final backupManager = _StubBackupManager()
+      ..password = '123456'
+      ..passwordBelowRule = true;
+    await show(tester, backupManager);
+    expect(find.text('目前的密碼比現在的規定短或太簡單，仍可使用，建議變更'), findsOneWidget);
+  });
+
+  testWidgets('救援碼 makes a new code only once agreed, saying what old '
+      'backups still open with, and shows it', (tester) async {
+    final backupManager = _StubBackupManager()..password = 'old secret';
     await show(tester, backupManager);
     await go(tester, ['忘記密碼、換手機用']);
-    expect(find.text('換一組新的？舊的會立刻失效'), findsOneWidget);
+    expect(find.textContaining('已經存在的舊備份仍可用舊的救援碼打開'), findsOneWidget);
     await go(tester, ['取消']);
     expect(backupManager.codes, 0);
 
@@ -205,6 +276,72 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('沒有換成：'), findsOneWidget);
     expect(find.text('新的救援碼'), findsNothing);
+  });
+
+  testWidgets('a backup passphrase is set under the rule, and can be '
+      'dropped', (tester) async {
+    final backupManager = _StubBackupManager()..password = 'old secret';
+    await show(tester, backupManager);
+    expect(find.text('沒有設定 · 備份只能用救援碼打開'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.passphrase));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsNWidgets(2));
+    await tester.enterText(find.byType(TextField).at(0), 'short');
+    await tester.enterText(find.byType(TextField).at(1), 'short');
+    await go(tester, ['設定']);
+    expect(find.text('至少要 8 個字'), findsOneWidget);
+    expect(backupManager.passphrase, '');
+    await tester.enterText(
+      find.byType(TextField).at(0),
+      'a long backup phrase',
+    );
+    await tester.enterText(
+      find.byType(TextField).at(1),
+      'a long backup phrase',
+    );
+    await go(tester, ['設定']);
+    expect(backupManager.passphrase, 'a long backup phrase');
+    expect(find.text('已設定 · 備份可用它或救援碼打開'), findsOneWidget);
+
+    await tester.tap(find.byKey(Keys.passphrase));
+    await tester.pumpAndSettle();
+    await go(tester, ['停用']);
+    expect(find.textContaining('之後的備份只能用救援碼還原'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.confirm));
+    await tester.pumpAndSettle();
+    expect(backupManager.passphrase, '');
+  });
+
+  testWidgets('重設金鑰 says what it does, asks for the password, and says a '
+      'wrong one in the panel (SEC-06)', (tester) async {
+    final backupManager = _StubBackupManager()..password = 'old secret';
+    await show(tester, backupManager);
+    await tester.tap(find.byKey(Keys.resetKeys));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('資料庫與收據照片重新加密'), findsOneWidget);
+    expect(find.textContaining('已經存在的舊備份'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'wrong one');
+    await tester.tap(find.byKey(Keys.resetGo));
+    await tester.pumpAndSettle();
+    expect(find.text('目前的密碼不正確'), findsOneWidget);
+    expect(backupManager.resets, isEmpty);
+    await tester.enterText(find.byType(TextField), 'old secret');
+    await tester.tap(find.byKey(Keys.resetGo));
+    await tester.pumpAndSettle();
+    expect(backupManager.resets, ['old secret']);
+    expect(find.byType(TextField), findsNothing);
+  });
+
+  testWidgets('重設金鑰 without a password asks for none', (tester) async {
+    final backupManager = _StubBackupManager();
+    await show(tester, backupManager);
+    await tester.tap(find.byKey(Keys.resetKeys));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsNothing);
+    await tester.tap(find.byKey(Keys.resetGo));
+    await tester.pumpAndSettle();
+    expect(backupManager.resets, [null]);
   });
 
   testWidgets('禁止截圖 is turned on and off, and the card says what it '

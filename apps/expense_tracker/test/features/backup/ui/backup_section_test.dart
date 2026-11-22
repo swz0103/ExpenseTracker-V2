@@ -30,9 +30,13 @@ final class _Keys implements BackupManager {
   var restores = 0;
 
   @override
+  DateTime? exportedAt;
+
+  @override
   Future<bool> exportBackup() async {
     exports++;
     if (exportFails case final error?) throw error;
+    if (saves) exportedAt = DateTime.now();
     return saves;
   }
 
@@ -176,6 +180,19 @@ void main() {
       expect(find.text('已匯出備份檔'), findsOneWidget);
     });
 
+    testWidgets('after an export the page no longer says 還沒有備份 (F46)', (
+      tester,
+    ) async {
+      keys.hasPassword = true;
+      await open(tester);
+      expect(find.text('還沒有備份'), findsOneWidget);
+      await tap(tester, '匯出一份');
+      expect(find.text('還沒有備份'), findsNothing);
+      expect(find.textContaining('上次 今天 '), findsOneWidget);
+      // No automatic backup is on, which it still says.
+      expect(find.text('沒有自動備份'), findsOneWidget);
+    });
+
     testWidgets('a failure is said', (tester) async {
       keys
         ..hasPassword = true
@@ -220,6 +237,9 @@ void main() {
       expect(find.text('上次備份'), findsWidgets);
       expect(find.textContaining('今天'), findsWidgets);
       expect(find.text('沒有自動備份'), findsNothing);
+      // Which Google account it goes to (F90).
+      expect(find.text('帳號'), findsOneWidget);
+      expect(find.text('me@example.com'), findsOneWidget);
 
       // Stopping asks first, and leaves what is on Drive.
       await tester.tap(tick('Google 雲端硬碟'));

@@ -1,12 +1,11 @@
-// Work packages 3.1 and 3.2: locking and the key held next to the ledger.
+// Work package 3.2: the key held next to the ledger. Fixed in 3.2; kept as
+// regression tests of SEC-01 and SEC-04.
 import 'dart:io';
 
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
-
-import 'known_defect.dart';
 
 void main() {
   late Directory dir;
@@ -22,7 +21,7 @@ void main() {
     await startup.setUpWithoutPassword();
     (startup.state as Ready).vault.close();
     expect(File('${dir.path}/quick-open.key').existsSync(), isFalse);
-  }, skip: knownDefect('SEC-01', '3.2'));
+  });
 
   test(
     'SEC-04: unlocking with the recovery code does not drop the password',
@@ -36,6 +35,5 @@ void main() {
       expect(startup.passwordless, isFalse);
       expect(File('${dir.path}/quick-open.key').existsSync(), isFalse);
     },
-    skip: knownDefect('SEC-04', '3.2'),
   );
 }

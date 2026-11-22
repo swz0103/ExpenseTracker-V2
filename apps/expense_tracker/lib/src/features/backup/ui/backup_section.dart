@@ -328,7 +328,7 @@ class _BackupSectionState extends State<BackupSection> {
       rows: [
         if (linked) ...[
           if (drive.account case final account?)
-            _CardRow(color: color, title: BackupWords.account, value: account),
+            _CardRow(color: color, title: BackupWords.account, detail: account),
           _CardRow(
             color: color,
             title: '上次備份',

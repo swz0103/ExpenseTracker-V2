@@ -111,7 +111,7 @@ void main() {
 
   test('a set-up without a password that stopped part way leaves no key '
       'for a ledger never made, and keeps the one for a ledger made', () async {
-    final key = File('${directory.path}/quick-open.key');
+    final key = File('${directory.path}/quick-open.sealed');
     final pending = File('${key.path}.new');
     pending.writeAsStringSync('left over');
     final none = Startup(vault);
