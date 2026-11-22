@@ -1,5 +1,10 @@
 // Exception to ledger words: a new book's first categories and accounts
 // are written as data, and the diagnostics log is labelled in words.
+// Exception to file length: this is the one place rows are read from and
+// written to the store; what it notes of them as it reads (rows set
+// aside, unknown fields, records naming a category by name) is checked
+// on every write, and split across files those notes would have to be
+// public. The pure parts live in codec/ and book_migrations.dart.
 
 import 'dart:convert';
 import 'dart:isolate';
@@ -285,6 +290,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         try {
           read.add(from(record));
         } on Object catch (error) {
+          // Not logged per row: the row is set aside and told on opening.
           _aside.record(
             row.shelf,
             row.id,

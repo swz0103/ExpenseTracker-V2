@@ -53,12 +53,12 @@ The expectations were written against today's APIs. A fix that changes an API (f
 
 The tests of these ids run in every test run now, no longer skipped.
 
-- DAT-01 (p2_1_loading_test.dart, 3 tests): a row that cannot be read (not JSON, a newer `_v`, the wrong JSON type) is set aside and kept on disk; the other 100 entries load. More cases in test/core/ledger/persistence/sql_ledger_opening_test.dart.
+- DAT-01 (p2_1_loading_test.dart, 3 tests): a row that cannot be read (not JSON, a newer `_v`, the wrong JSON type) is set aside and kept on disk; the other 100 entries load. More cases in test/core/ledger/persistence/quarantine_test.dart.
 - DAT-05 (p2_1_loading_test.dart): a category made after an entry named it by name takes that entry over by id, so a rename reaches it on disk.
 - DAT-02 (no known-defect test before): test/core/ledger/persistence/write_queue_test.dart, "a change made while the book is being read back brings another read" (fails before the fix).
-- DAT-08 (no known-defect test before): notes of deletions older than the trash's 30 days are dropped when the book opens; test/core/ledger/persistence/sql_ledger_opening_test.dart.
-- DAT-09 (no known-defect test before): book version and migration steps (book_migrations_test.dart), unknown fields kept on rewrite (sql_ledger_opening_test.dart), every kept book opens, is brought up and reads the same again (old_books_test.dart).
-- DAT-12 (no known-defect test before): a book that was opened before is never given the starting accounts again; sql_ledger_opening_test.dart.
+- DAT-08 (no known-defect test before): notes of deletions older than the trash's 30 days are dropped when the book opens; test/core/ledger/persistence/quarantine_test.dart.
+- DAT-09 (no known-defect test before): book version and migration steps (book_migrations_test.dart), unknown fields kept on rewrite (quarantine_test.dart), every kept book opens, is brought up and reads the same again (old_books_test.dart).
+- DAT-12 (no known-defect test before): a book that was opened before is never given the starting accounts again; quarantine_test.dart.
 
 ## not covered
 

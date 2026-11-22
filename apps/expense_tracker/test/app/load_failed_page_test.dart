@@ -1,4 +1,5 @@
 import 'package:expense_tracker/src/app/load_failed_page.dart';
+import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -17,9 +18,10 @@ void main() {
       ),
     );
     expect(find.text('帳本打不開'), findsOneWidget);
-    await tester.tap(find.text('再試一次'));
-    await tester.tap(find.text('從備份還原'));
-    await tester.tap(find.text('匯出診斷'));
+    await tester.tap(find.byKey(Keys.loadFailed('retry')));
+    await tester.tap(find.byKey(Keys.loadFailed('restore')));
+    expect(find.text('從備份還原'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.loadFailed('export')));
     expect(pressed, ['retry', 'restore', 'export']);
   });
 }

@@ -54,14 +54,11 @@ void main() {
     ];
     expect(kept.first.existsSync(), isFalse);
     expect(kept.skip(1).every((f) => f.existsSync()), isTrue);
-    expect(
-      kept.last.uri.pathSegments.last,
-      startsWith('before-upgrade-'),
-    );
-    expect(
-      startup.keptBeforeRestore().map((f) => f.path).toSet(),
-      {kept[1].path, kept[2].path},
-    );
+    expect(kept.last.uri.pathSegments.last, startsWith('before-upgrade-'));
+    expect(startup.keptBeforeRestore().map((f) => f.path).toSet(), {
+      kept[1].path,
+      kept[2].path,
+    });
     vaultOf(startup).close();
   });
 

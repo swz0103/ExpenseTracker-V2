@@ -1,3 +1,4 @@
+import '../formatting/words.dart';
 import '../ledger/persistence/quarantine.dart';
 
 // What opening the book tells the person: rows set aside, and a book that
@@ -27,8 +28,8 @@ String quarantineReason(QuarantinedRow row) => switch (row.reason) {
 
 /// The words of each kind of row.
 String _shelf(String shelf) => switch (shelf) {
-  'account' => '帳戶',
-  'category' => '分類',
+  'account' => Words.account,
+  'category' => Words.category,
   'entry' => '紀錄',
   'budget' => '預算',
   'recurring' => '定期項目',

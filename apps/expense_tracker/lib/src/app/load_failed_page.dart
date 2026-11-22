@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/design_system/keys.dart';
 import '../core/design_system/spacing.dart';
 import '../core/messages/loading_messages.dart';
 
@@ -36,16 +37,19 @@ class LoadFailedPage extends StatelessWidget {
               const Text(loadFailedBody, textAlign: TextAlign.center),
               const SizedBox(height: Space.s6),
               FilledButton(
+                key: Keys.loadFailed('retry'),
                 onPressed: onRetry,
                 child: const Text(loadFailedRetry),
               ),
               const SizedBox(height: Space.s2),
               OutlinedButton(
+                key: Keys.loadFailed('restore'),
                 onPressed: onRestore,
                 child: const Text(loadFailedRestore),
               ),
               const SizedBox(height: Space.s2),
               TextButton(
+                key: Keys.loadFailed('export'),
                 onPressed: onExport,
                 child: const Text(loadFailedExport),
               ),

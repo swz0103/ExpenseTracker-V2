@@ -25,6 +25,7 @@ DecodedRows decodeBodies(List<String> bodies) {
     try {
       decoded.values.add(jsonDecode(body));
     } on FormatException catch (error) {
+      // Not logged: the row is noted by place, and opening sets it aside.
       decoded.values.add(null);
       decoded.record(i, error);
     }
