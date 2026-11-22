@@ -21,9 +21,10 @@ abstract final class KeyWords {
   static const notReplaced = '沒有換成：';
   static const notDone = '沒有完成，請再試一次';
 
-  /// A failed unlock or restore not foreseen: its diagnostics heading,
-  /// and what is said, with [detail] (ErrorLog.describe).
+  /// The diagnostics heading of a failed unlock or restore not foreseen.
   static const unforeseenHeading = '還原備份';
+
+  /// What such a failure says, with [detail] (`ErrorLog.describe`).
   static String unforeseen(String detail) => '無法開啟帳本（$detail）';
 
   static const passphrase = '備份密碼';
