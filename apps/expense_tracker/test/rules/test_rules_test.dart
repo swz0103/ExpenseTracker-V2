@@ -35,7 +35,15 @@ void main() {
     // lib/src/a/b.dart is tested in test/a/b_test.dart, so whether a
     // file has its test shows at a glance (docs/conventions.md). What is not about
     // one file has a folder of its own.
-    const apart = ['rules', 'scenarios', 'support', 'perf', 'tool'];
+    const apart = [
+      'rules',
+      'scenarios',
+      'support',
+      'perf',
+      'tool',
+      'baseline',
+      'known_defects',
+    ];
     final faults = <String>[];
     for (final file in Directory('test').listSync(recursive: true)) {
       if (file is! File || !file.path.endsWith('_test.dart')) continue;
