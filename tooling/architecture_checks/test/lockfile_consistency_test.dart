@@ -13,32 +13,31 @@ void main() {
     final root = p.normalize(p.join(Directory.current.path, '..', '..'));
     final versions = <String, Map<String, List<String>>>{};
     var checked = 0;
-    for (final top in ['packages', 'infrastructure', 'tooling']) {
-      // A folder without a pubspec, such as packages/ledger, groups
-      // packages one level down.
-      final dirs = [
+    // Packages sit one level down, or two under a grouping folder such as
+    // packages/ledger.
+    final dirs = [
+      for (final top in ['packages', 'infrastructure', 'tooling'])
         for (final dir in Directory(p.join(root, top)).listSync())
-          if (dir is Directory)
-            if (File(p.join(dir.path, 'pubspec.yaml')).existsSync())
-              dir
-            else
+          if (dir is Directory) ...[
+            dir,
+            if (!File(p.join(dir.path, 'pubspec.yaml')).existsSync())
               ...dir.listSync().whereType<Directory>(),
-      ];
-      for (final dir in dirs) {
-        final lock = File(p.join(dir.path, 'pubspec.lock'));
-        if (!lock.existsSync()) continue;
-        checked++;
-        final name = p.relative(dir.path, from: root);
-        final yaml = loadYaml(lock.readAsStringSync()) as YamlMap;
-        final packages = yaml['packages'] as YamlMap;
-        for (final entry in packages.entries) {
-          final info = entry.value as YamlMap;
-          if (info['source'] != 'hosted') continue;
-          final package = entry.key as String;
-          final version = info['version'] as String;
-          final byVersion = versions[package] ??= {};
-          (byVersion[version] ??= []).add(name);
-        }
+          ],
+    ];
+    for (final dir in dirs) {
+      final lock = File(p.join(dir.path, 'pubspec.lock'));
+      if (!lock.existsSync()) continue;
+      checked++;
+      final name = p.relative(dir.path, from: root);
+      final yaml = loadYaml(lock.readAsStringSync()) as YamlMap;
+      final packages = yaml['packages'] as YamlMap;
+      for (final entry in packages.entries) {
+        final info = entry.value as YamlMap;
+        if (info['source'] != 'hosted') continue;
+        final package = entry.key as String;
+        final version = info['version'] as String;
+        final byVersion = versions[package] ??= {};
+        (byVersion[version] ??= []).add(name);
       }
     }
     expect(checked, greaterThanOrEqualTo(6));

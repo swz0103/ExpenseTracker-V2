@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../features/entries/forms/composer.dart';
-import '../core/formatting/figures.dart';
+import '../../design_system/display/amount.dart';
 import '../core/design_system/glyphs.dart';
 import '../core/design_system/haptics.dart';
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
+import '../core/ledger/trading.dart' show defaultBrokerDiscount;
 import '../core/widgets/problem_note.dart';
 import '../core/platform/quick_action.dart';
 import '../core/widgets/tour.dart';
@@ -175,6 +176,8 @@ class _AppShellState extends State<AppShell> {
       refundOf: refundOf,
       photos: widget.services.receipts,
       scan: widget.services.scanQr,
+      brokerDiscount:
+          widget.services.preferences?.brokerDiscount ?? defaultBrokerDiscount,
     );
     if (result == null || !mounted) return;
     final (outcome, saved) = result;
@@ -219,10 +222,13 @@ class _AppShellState extends State<AppShell> {
                       ?.realized ??
                   0) -
               (realizedBefore[sold] ?? 0);
+    final note =
+        '${entry == null ? '已記下' : '已更新'}'
+        '${made == null || made == 0 ? '' : ' · 已實現 ${ledger.orDots(signed(made))}'}';
     showNote(
       context,
-      '${entry == null ? '已記下' : '已更新'}'
-      '${made == null || made == 0 ? '' : ' · 已實現 ${ledger.orDots(signed(made))}'}',
+      note,
+      spoken: made == null ? null : ledger.readAloud(note, made),
       action: again ? '再記一筆' : '查看',
       onAction: again
           ? () => _compose(type: saved.type, draft: _again(saved))

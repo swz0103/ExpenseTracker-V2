@@ -1,5 +1,13 @@
 import 'package:core/foundation_values.dart';
-import 'package:domain/investments.dart';
+import 'package:ledger_trade_costs/calc/charges.dart';
+import 'package:ledger_trade_costs/calc/settlement.dart';
+import 'package:ledger_trade_costs/model/trade_values.dart';
+import 'package:ledger_trade_costs/rules/instruments.dart';
+
+/// The broker's discount on the fee before it is set, in basis points of
+/// the full fee: 6折. The one setting that changes it is the preference
+/// 券商手續費折扣; this is its default.
+const defaultBrokerDiscount = 6000;
 
 /// [code] as the exchanges write it: no spaces, upper case, without a
 /// `.TW` or `.TWO` ending.
@@ -11,7 +19,6 @@ bool quotable(String code) => isTaiwanSymbol(code);
 /// Suggested charges for the composer, from the ledger's own Taiwan rules
 /// (`TaiwanTradeCharges`, `TaiwanRates`), so what it suggests is what the
 /// ledger would work out. The person can still type what was charged.
-final _charges = TaiwanTradeCharges(discountBasisPoints: 6000);
 final _twd = Currency.of('TWD');
 
 Money _ntd(int amount) => Money(_twd, BigInt.from(amount));
@@ -19,12 +26,14 @@ Money _ntd(int amount) => Money(_twd, BigInt.from(amount));
 BusinessDate _day(DateTime date) =>
     BusinessDate(date.year, date.month, date.day);
 
-/// The broker's fee on a trade of [amount] for [shares]: 0.1425% at a 6折
-/// discount, at least NT$20 for a board lot and NT$1 for an odd lot.
-int brokerFee(int amount, int shares) {
+/// The broker's fee on a trade of [amount] for [shares]: 0.1425% at the
+/// [discount] (basis points of the full fee, 6折 unless set), at least
+/// NT$20 for a board lot and NT$1 for an odd lot.
+int brokerFee(int amount, int shares, {int discount = defaultBrokerDiscount}) {
   if (amount <= 0 || shares <= 0) return 0;
   final quantity = ShareQuantity.parse('$shares');
-  return _charges.fee(_ntd(amount), quantity).minorUnits.toInt();
+  final charges = TaiwanTradeCharges(discountBasisPoints: discount);
+  return charges.fee(_ntd(amount), quantity).minorUnits.toInt();
 }
 
 /// The securities transaction tax on selling [shares] of [code] for
@@ -34,7 +43,7 @@ int saleTax(String code, int amount, int shares, DateTime tradedOn) {
   if (amount <= 0 || shares <= 0) return 0;
   final kind = instrumentKindOf(code);
   try {
-    return _charges
+    return TaiwanTradeCharges()
         .sellTax(
           _ntd(amount),
           ShareQuantity.parse('$shares'),

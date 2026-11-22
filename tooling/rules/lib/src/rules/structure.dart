@@ -105,9 +105,9 @@ final class CatchHandled extends FileRule {
 
 /// C1: every unit of the pure packages and every feature has a test.
 ///
-/// (a) A file in a folder of a pure package's lib (`lib/src/**`,
-/// `lib/rules/**`, ...) named `<name>.dart` needs a
-/// `<name>_test.dart` anywhere under the package's `test/`. (b) A feature
+/// (a) A file `lib/src/**/<name>.dart` of core or domain, or any file
+/// under `lib/` of a ledger subject package (`packages/ledger/<subject>`),
+/// needs a `<name>_test.dart` anywhere under the package's `test/`. (b) A feature
 /// folder needs at least one `*_test.dart` under its test folder.
 ///
 /// Known noise: matching by file name only. A file tested through another
@@ -120,28 +120,40 @@ final class TestsExist extends Rule {
   String get id => 'C1-tests-exist';
 
   @override
-  String get purpose => 'a pure-package file or a feature has no test file';
+  String get purpose =>
+      'a core/domain/ledger package file or a feature has no test file';
 
   @override
   List<Violation> check(Project project) {
     final found = <Violation>[];
     final paths = [for (final f in project.files) f.path];
-    final packages = {
-      for (final path in paths)
-        if (purePackageOf(path) case final pkg?) pkg,
-    };
-    for (final pkg in packages) {
+    for (final pkg in purePackages) {
       final testNames = {
         for (final path in paths)
           if (path.startsWith('$pkg/test/')) p.posix.basename(path),
       };
       for (final path in paths) {
-        // A unit is a file in a folder of lib (lib/src/..., lib/rules/...);
-        // the files directly in lib are the entry points that gather them.
-        if (!path.startsWith('$pkg/lib/') ||
-            !path.substring('$pkg/lib/'.length).contains('/')) {
-          continue;
+        if (!path.startsWith('$pkg/lib/src/')) continue;
+        final base = p.posix.basenameWithoutExtension(path);
+        if (!testNames.contains('${base}_test.dart')) {
+          found.add(
+            Violation(id, path, 1, 'no ${base}_test.dart under $pkg/test'),
+          );
         }
+      }
+    }
+    // A ledger subject package: every file of its lib/, folders and all.
+    final ledgerPackages = {
+      for (final path in paths)
+        if (ledgerPackageOf(path) case final pkg?) pkg,
+    };
+    for (final pkg in ledgerPackages) {
+      final testNames = {
+        for (final path in paths)
+          if (path.startsWith('$pkg/test/')) p.posix.basename(path),
+      };
+      for (final path in paths) {
+        if (!path.startsWith('$pkg/lib/')) continue;
         final base = p.posix.basenameWithoutExtension(path);
         if (!testNames.contains('${base}_test.dart')) {
           found.add(

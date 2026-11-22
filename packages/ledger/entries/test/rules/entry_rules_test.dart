@@ -90,12 +90,12 @@ void main() {
       );
     });
     test('the most of a US\$ account is counted in cents', () {
-      // 999,999,999 dollars × 100 cents.
-      expect(maxAmountOf('USD'), 99999999900);
+      // (999,999,999 + 1) dollars × 100 cents − 1: up to US$999,999,999.99.
+      expect(maxAmountOf('USD'), 99999999999);
       expect(maxAmountOf('JPY'), 999999999);
       expect(
         _issues(
-          _entry(amount: 99999999900, account: 'usd', home: 1),
+          _entry(amount: 99999999999, account: 'usd', home: 1),
           const EntryFacts(account: _usd),
         ),
         isEmpty,

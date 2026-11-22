@@ -22,6 +22,7 @@ class FigureCard extends StatelessWidget {
     required this.label,
     this.color = AppColors.accent,
     this.value,
+    this.spokenValue,
     this.valueColor = AppColors.ink,
     this.size,
     this.sub,
@@ -35,6 +36,10 @@ class FigureCard extends StatelessWidget {
   final String label;
   final Color color;
   final String? value;
+
+  /// What a screen reader says for [value] when it is an amount with a
+  /// sign: its direction in words.
+  final String? spokenValue;
   final Color valueColor;
 
   /// The figure's size; [TextSize.heading] when null.
@@ -60,6 +65,7 @@ class FigureCard extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               figure,
+              semanticsLabel: spokenValue,
               style: TextStyle(
                 fontSize: size ?? TextSize.heading,
                 fontWeight: FontWeight.w800,

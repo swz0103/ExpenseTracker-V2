@@ -1,8 +1,9 @@
 import 'package:core/foundation_values.dart' show Currency;
+import 'package:core/money/amount_parser.dart' show parseAmount;
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/dialogs.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';

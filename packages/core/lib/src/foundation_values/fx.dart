@@ -1,4 +1,4 @@
-import 'money.dart';
+import '../../money/money.dart';
 
 enum FxError { invalidInput, precision, currencyMismatch }
 

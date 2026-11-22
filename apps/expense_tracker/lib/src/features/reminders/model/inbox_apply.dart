@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:vault/backup_security.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/formatting/dates.dart';
 import '../../../core/messages/recurring_messages.dart';
@@ -62,7 +63,9 @@ InboxOutcome applyInbox(
     // Otherwise that day is booked already.
   }
   if (unreadable > 0) {
-    review.add('有 $unreadable 則通知上的確認無法讀取（可能是換帳本前留下的），已略過');
+    review.add(
+      '有 ${countOf(unreadable, CountUnit.notes)}通知上的確認無法讀取（可能是換帳本前留下的），已略過',
+    );
   }
   return (booked: booked, review: review);
 }

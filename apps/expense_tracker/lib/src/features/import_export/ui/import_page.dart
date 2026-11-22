@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../../accounts/forms/account_editor.dart';
 import '../../../core/widgets/entry_tile.dart';
 import '../../../core/widgets/pickers.dart';
@@ -157,7 +158,10 @@ class _ImportPageState extends State<_ImportPage> {
     )) {
       return;
     }
-    showNote(context, '已匯入 ${chosen.entries.length} 筆紀錄');
+    showNote(
+      context,
+      '已匯入 ${countOf(chosen.entries.length, CountUnit.entries)}紀錄',
+    );
     Navigator.of(context).pop();
   }
 
@@ -345,7 +349,7 @@ class _ImportPageState extends State<_ImportPage> {
                   ),
                 ),
                 Text(
-                  '${found.entries.length} 筆',
+                  countOf(found.entries.length, CountUnit.entries),
                   style: const TextStyle(
                     fontSize: TextSize.figure,
                     fontWeight: FontWeight.w800,
@@ -461,6 +465,7 @@ class _ImportPageState extends State<_ImportPage> {
       detail: e.category.isEmpty ? null : e.category,
       trailing: RowFigure(
         entryAmount(e, currency: ledger.account(e.account).currency),
+        spoken: entrySpoken(e, currency: ledger.account(e.account).currency),
         color: ticked ? entryTone(e) : AppColors.faint,
       ),
     );
@@ -477,7 +482,7 @@ class _ImportPageState extends State<_ImportPage> {
         Space.s4,
       ),
       child: PanelButton(
-        count == 0 ? '沒有勾選的紀錄' : '匯入 $count 筆',
+        count == 0 ? '沒有勾選的紀錄' : '匯入 ${countOf(count, CountUnit.entries)}',
         color: count == 0 ? null : _color,
         onTap: count == 0 ? null : _add,
       ),

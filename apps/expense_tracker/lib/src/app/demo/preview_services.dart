@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:core/money/amount_format.dart' show roundHalfAwayFromZero;
+
 import '../../core/platform/sync_job.dart';
 import '../../core/ledger/ledger.dart';
 import '../../core/platform/preferences.dart';
@@ -103,7 +105,7 @@ final class DemoPrices extends SyncJob implements PriceHistory {
     final scale = end / walk.last;
     return [
       for (final (i, day) in days.indexed)
-        (day, double.parse((walk[i] * scale).toStringAsFixed(2))),
+        (day, roundHalfAwayFromZero(walk[i] * scale, 2) / 100),
     ];
   }
 }

@@ -29,30 +29,25 @@ const scanRoots = [
   'packages/core/test',
   'packages/domain/lib',
   'packages/domain/test',
-  'packages/ledger',
+  ledgerDir,
 ];
+
+/// The subject packages of the ledger, `<ledgerDir>/<subject>/` each with
+/// `lib/{model,rules,calc}/` and `test/`. Pure (rule A4); every file of
+/// their `lib/` needs a test (rule C1a).
+const ledgerDir = 'packages/ledger';
+
+/// The ledger subject package [path] belongs to, as
+/// `packages/ledger/<subject>`, or null.
+String? ledgerPackageOf(String path) {
+  const prefix = '$ledgerDir/';
+  if (!path.startsWith(prefix)) return null;
+  final subject = path.substring(prefix.length).split('/').first;
+  return subject.isEmpty ? null : '$prefix$subject';
+}
 
 /// Pure packages (rule A4) and the tests they must have (rule C1a).
 const purePackages = ['packages/core', 'packages/domain'];
-
-/// Folders whose every subfolder is a pure package, such as
-/// `packages/ledger/entries`.
-const purePackageGroups = ['packages/ledger'];
-
-/// The pure package [path] lies in, such as `packages/ledger/entries`;
-/// null outside them.
-String? purePackageOf(String path) {
-  for (final pkg in purePackages) {
-    if (path.startsWith('$pkg/')) return pkg;
-  }
-  for (final group in purePackageGroups) {
-    if (!path.startsWith('$group/')) continue;
-    final rest = path.substring(group.length + 1);
-    final slash = rest.indexOf('/');
-    if (slash > 0) return '$group/${rest.substring(0, slash)}';
-  }
-  return null;
-}
 
 /// Packages a feature must not import (rule A3).
 const dataPackages = ['storage', 'vault', 'market'];
@@ -70,10 +65,11 @@ const impurePrefixes = ['package:flutter/', 'dart:io', 'dart:ui', 'dart:ffi'];
 /// call `DateTime.now()` (rule A4).
 const clockFiles = ['packages/core/lib/src/app_core/clock.dart'];
 
-/// Owners of number formatting and parsing (rule B2).
+/// Owners of number formatting and parsing (rule B2): the amount parser,
+/// figures and percentages of core, and how the app shows them.
 const numberFormatOwners = [
   'packages/core/lib',
-  '$appLib/src/core/formatting/',
+  '$appLib/design_system/display/',
 ];
 
 /// Owners of "now" (rule B3): the time folder and the composition roots.

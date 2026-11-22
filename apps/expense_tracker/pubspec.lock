@@ -189,6 +189,20 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  ledger_loans:
+    dependency: "direct main"
+    description:
+      path: "../../packages/ledger/loans"
+      relative: true
+    source: path
+    version: "0.1.0"
+  ledger_trade_costs:
+    dependency: "direct main"
+    description:
+      path: "../../packages/ledger/trade_costs"
+      relative: true
+    source: path
+    version: "0.1.0"
   lints:
     dependency: transitive
     description:

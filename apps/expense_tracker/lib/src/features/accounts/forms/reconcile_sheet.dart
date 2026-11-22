@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/dialogs.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
@@ -49,5 +49,14 @@ Future<void> reconcileAccount(
   );
   if (!ok || !context.mounted) return;
   if (!refusalShown(context, () => ledger.entryCommands.add(entry))) return;
-  showNote(context, '已記下對帳調整 ${spent ? '−' : '+'}${groupDigits(entry.amount)}');
+  final note = '已記下對帳調整 ${spent ? '−' : '+'}${groupDigits(entry.amount)}';
+  showNote(
+    context,
+    note,
+    spoken: readOut(
+      note,
+      entry.amount,
+      sense: spent ? AmountSense.spending : AmountSense.income,
+    ),
+  );
 }

@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../baseline/baseline_ledger.dart';
-import 'known_defect.dart';
 
 Ledger book(List<Entry> entries) => ledgerOf(
   today: day(2026, 10, 10),
@@ -40,7 +39,6 @@ void main() {
       expect(form.amount, 1201000);
       expect(form.build().fee, 1026);
     },
-    skip: knownDefect('ENT-01', '1.3'),
   );
 
   test('ENT-01: editing the shares of a sale works fee and tax out again', () {
@@ -77,7 +75,7 @@ void main() {
     expect(form.amount, 500000);
     expect(form.build().fee, 427);
     expect(form.build().tax, 1500);
-  }, skip: knownDefect('ENT-01', '1.3'));
+  });
 
   testWidgets(
     'INV-01: the holding page shows a sale at what reached the account',
@@ -134,7 +132,6 @@ void main() {
       expect(texts, contains('+996,145'));
       expect(texts, isNot(contains('+999,145')));
     },
-    skip: knownDefect('INV-01', '1.3') != null,
   );
 
   test('ENT-08: the cost preview of an old sale uses the lots of that day', () {
@@ -175,5 +172,5 @@ void main() {
     // On Feb 5 the 1000 shares sold cost the first buy, 100,000; the
     // later 200,000 lot was not yet held.
     expect(form.saleCost, 100000);
-  }, skip: knownDefect('ENT-08', '1.3'));
+  });
 }

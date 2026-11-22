@@ -1,10 +1,12 @@
 // Exception to shared words: a CSV's columns and kinds are a file
 // format; they keep their spelling whatever the screens come to say.
-import 'package:core/foundation_values.dart' show BusinessDate;
+import 'package:core/foundation_values.dart' show BusinessDate, Currency;
+import 'package:core/money/amount_parser.dart';
 import 'package:domain/data_exchange.dart';
 
-import '../../../core/formatting/amounts.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/amount_messages.dart';
 import '../../../core/messages/validation_messages.dart';
 import '../../entries/model/invoices.dart';
 
@@ -243,11 +245,32 @@ DateTime? _valid(int year, int month, int day) {
 }
 
 /// [text] in the smallest unit of [currency]: `1,200` and `NT$ 120` read
-/// as written, more decimals than the currency has are rounded.
-int? _amount(String text, [String currency = homeCode]) {
-  final value = text.replaceAll(RegExp(r'[,\s$]|NT'), '');
-  return roundedMinorOf(value, currency);
+/// as written, more decimals than the currency has are rounded. What
+/// could be read more than one way, such as `1.234,50` or `1 200`, is
+/// refused with its reason rather than guessed at.
+AmountResult _amount(String text, [String currency = homeCode]) {
+  final value = text.trim().replaceFirstMapped(
+    RegExp(r'^([-−+]?)\s*(?:NT)?\$\s*'),
+    (m) => m[1]!,
+  );
+  return parseAmount(
+    value,
+    scale: Currency.scaleOf(currency),
+    decimals: Decimals.round,
+  );
 }
+
+/// The amount in [column] of a line, read by [cell], in [currency]: its
+/// minor units (null when left empty), or why it is not an amount.
+(int?, String?) _cellAmount(
+  String Function(String) cell,
+  String column, [
+  String currency = homeCode,
+]) => switch (_amount(cell(column), currency)) {
+  AmountOk(:final minor) => (minor, null),
+  AmountRefused(problem: AmountProblem.empty) => (null, null),
+  AmountRefused(:final problem) => (null, unreadableColumn(column, problem)),
+};
 
 /// The kinds a CSV line can be, by the names it may use.
 enum _Kind {

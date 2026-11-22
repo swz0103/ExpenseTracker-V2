@@ -89,8 +89,8 @@ jobs:
           # The bench, then the Android side's own tests on the phone itself:
           # the Keystore, notifications and photos (android/app/src/androidTest).
           script: |
-            flutter drive --profile --driver=test_driver/integration_test.dart --target=integration_test/bench_test.dart --no-dds
-            cd android && ./gradlew --no-daemon --console=plain :app:connectedDebugAndroidTest
+            flutter drive --profile --flavor sideload --driver=test_driver/integration_test.dart --target=integration_test/bench_test.dart --no-dds
+            cd android && ./gradlew --no-daemon --console=plain :app:connectedSideloadDebugAndroidTest
       - name: Timings
         if: always()
         working-directory: apps/expense_tracker

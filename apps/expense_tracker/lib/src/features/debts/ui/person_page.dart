@@ -81,10 +81,7 @@ class PersonPage extends StatelessWidget {
         final person = ledger.account(personId);
         final balance = ledger.balanceService.balance(person.id);
         final owed = ledger.reportService.owedBy(person.id);
-        final entries = [
-          for (final e in ledger.entries.all)
-            if (e.account == person.id || e.to == person.id) e,
-        ]..sort((a, b) => b.date.compareTo(a.date));
+        final entries = ledger.balanceService.entriesOf(person.id);
         final color = nameColor(person.name);
         final oldest = owed.isEmpty ? null : owed.last.$1.date;
         return HeadedList(
@@ -100,7 +97,7 @@ class PersonPage extends StatelessWidget {
                 if (oldest == null)
                   '沒有待收回的'
                 else
-                  '${owed.length} 筆還沒收回 · 最久 ${_days(ledger, oldest)} 天',
+                  '${countOf(owed.length, CountUnit.entries)}還沒收回 · 最久 ${countOf(_days(ledger, oldest), CountUnit.days)}',
               ],
               menu: DotsMenu([
                 DotsItem(Glyph.edit, '改名', () => _rename(context, person)),
@@ -190,6 +187,10 @@ class PersonPage extends StatelessWidget {
         back
             ? '−${ledger.orDots(groupDigits(e.amount))}'
             : ledger.orDots(groupDigits(e.amount)),
+        spoken: ledger.spoken(
+          back ? -e.amount : e.amount,
+          sense: AmountSense.plain,
+        ),
         color: back ? AppColors.positive : AppColors.ink,
       ),
     );
@@ -215,7 +216,7 @@ class _DaysTag extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.small),
       ),
       child: Text(
-        '$days 天',
+        countOf(days, CountUnit.days),
         textScaler: TextScaler.noScaling,
         style: TextStyle(
           fontSize: TextSize.caption,
@@ -255,10 +256,7 @@ class LoanPage extends StatelessWidget {
         final owed = owedOn(ledger.balanceService, loan);
         final share = paidShare(ledger.balanceService, loan);
         final color = nameColor(loan.name);
-        final entries = [
-          for (final e in ledger.entries.all)
-            if (e.account == loan.id || e.to == loan.id) e,
-        ]..sort((a, b) => b.date.compareTo(a.date));
+        final entries = ledger.balanceService.entriesOf(loan.id);
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(loan.name, onBack: nav.back),

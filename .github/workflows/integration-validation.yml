@@ -92,6 +92,8 @@ jobs:
             'packages/core',
             'packages/domain',
             'packages/ledger/entries',
+            'packages/ledger/loans',
+            'packages/ledger/trade_costs',
             'infrastructure/storage',
             'infrastructure/vault',
             'infrastructure/market'
@@ -110,6 +112,7 @@ jobs:
         run: |
           dart run tooling/architecture_checks/bin/check_coverage.dart \
             packages/core packages/domain packages/ledger/entries \
+            packages/ledger/loans packages/ledger/trade_costs \
             infrastructure/storage infrastructure/vault infrastructure/market
 
   flutter-host:

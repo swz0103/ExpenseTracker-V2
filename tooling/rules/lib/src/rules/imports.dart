@@ -93,15 +93,19 @@ final class PureCalc extends FileRule {
 
   @override
   String get purpose =>
-      'a pure package imports Flutter or the platform, or reads the clock or Random';
+      'core, domain or a ledger package imports Flutter or the platform, '
+      'or reads the clock or Random';
 
   @override
   bool appliesTo(SourceFile file) =>
-      switch (purePackageOf(file.path)) {
-        final pkg? => file.isUnder('$pkg/lib'),
-        null => false,
-      } &&
+      (purePackages.any((pkg) => file.isUnder('$pkg/lib')) ||
+          _inLedgerLib(file.path)) &&
       !clockFiles.contains(file.path);
+
+  static bool _inLedgerLib(String path) {
+    final pkg = ledgerPackageOf(path);
+    return pkg != null && path.startsWith('$pkg/lib/');
+  }
 
   @override
   List<Violation> checkFile(SourceFile file) {

@@ -16,6 +16,9 @@ final class _Port implements UpdatePort {
   var downloads = 0;
   Uri? downloadedFrom;
   var outcome = UpdateInstall.started;
+
+  /// The size the fake download reports as received.
+  var reports = 3;
   final installed = <(String, String)>[];
 
   @override
@@ -40,7 +43,7 @@ final class _Port implements UpdatePort {
     downloads++;
     downloadedFrom = url;
     into.writeAsStringSync('abc');
-    progress(3);
+    progress(reports);
   }
 
   @override
@@ -173,5 +176,39 @@ void main() {
     port.outcome = UpdateInstall.damaged;
     expect(await app.install(), UpdateInstall.damaged);
     expect(app.problem, '下載的檔案不完整，請再試一次');
+  });
+
+  test('an update that is not this app says so', () async {
+    final app = update();
+    await app.check();
+    port.outcome = UpdateInstall.rejected;
+    expect(await app.install(), UpdateInstall.rejected);
+    expect(app.problem, contains('不會安裝'));
+  });
+
+  test('an update of an absurd size is not downloaded', () async {
+    // 157286400 = 150 * 1024 * 1024; the feed says one byte more.
+    expect(maxApkBytes, 157286400);
+    port.info =
+        '{"build":190,"version":"2.0.0","sha256":"$_sha","size":157286401}';
+    final app = update();
+    await app.check();
+    expect(await app.install(), isNull);
+    expect(port.downloads, 0);
+    expect(app.problem, '更新檔大小不合理，已取消下載');
+  });
+
+  test('a download that grows past its announced size is stopped', () async {
+    final app = update();
+    await app.check();
+    // update.json says 3 bytes; the stream reports 4.
+    port.reports = 4;
+    expect(await app.install(), isNull);
+    expect(port.installed, isEmpty);
+    expect(app.problem, '下載的檔案比預期大，已中止');
+    expect(
+      File('${cache.path}/updates/ExpenseTracker-190.apk').existsSync(),
+      isFalse,
+    );
   });
 }

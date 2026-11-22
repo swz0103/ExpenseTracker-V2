@@ -1,24 +1,16 @@
 import 'package:core/foundation_values.dart' show Currency;
+import 'package:core/money/amount_parser.dart' show maxMinorUnits;
 
 import '../model/account_kind.dart';
 import '../model/entry.dart';
 import 'issues.dart';
 
-/// The largest amount kept, in whole units of the account's currency: the
-/// most the amount keys can type.
-const maxWholeAmount = 999999999;
-
 /// The most monthly instalments a card purchase may be paid in.
 const maxInstallments = 60;
 
-/// [maxWholeAmount] in the smallest unit of [currency]: cents for US$.
-int maxAmountOf(String currency) {
-  var max = maxWholeAmount;
-  for (var i = 0; i < Currency.scaleOf(currency); i++) {
-    max *= 10;
-  }
-  return max;
-}
+/// The largest amount kept in [currency], in its smallest unit: the
+/// app's one limit (core's `maxMinorUnits`), cents for US$.
+int maxAmountOf(String currency) => maxMinorUnits(Currency.scaleOf(currency));
 
 /// What the rules need to know of the book around an entry, gathered by
 /// whoever asks: the accounts it names, the shares and refund it touches,

@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/messages/update_messages.dart';
+import '../../../core/platform/distribution.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/time/app_clock.dart';
@@ -91,9 +93,22 @@ enum UpdateInstall {
   /// opened, to allow it and try again.
   needsPermission,
 
-  /// The download does not match its SHA-256 and was deleted.
+  /// The download does not match its SHA-256, is larger than allowed or
+  /// cannot be read as an APK, and was deleted.
   damaged,
+
+  /// The file is an APK, but not a newer version of this app signed with
+  /// the same key (its package name, version code or signing certificate
+  /// differ), and was deleted: it is not installed.
+  rejected,
 }
+
+/// The most an update may weigh, in bytes: the APK is about 28 MB, so
+/// 150 MiB stops a download that fills the phone. Checked before it is
+/// downloaded (against `update.json`'s size), while it arrives, and again
+/// by Android's side before it is installed (UpdateGate.kt, which is told
+/// this number with the file).
+const maxApkBytes = 150 * 1024 * 1024;
 
 /// The internet and Android's installer; `AndroidUpdatePort` with the app's
 /// channel on the phone, a fake in tests.
@@ -107,7 +122,9 @@ abstract interface class UpdatePort {
     void Function(int received) progress,
   );
 
-  /// Checks [apk] against [sha256] and opens Android's installer with it.
+  /// Checks [apk] (its size, [sha256], its package name, version code and
+  /// signing certificate against the running app's) and opens Android's
+  /// installer with it.
   Future<UpdateInstall> install(File apk, String sha256);
 }
 
@@ -142,8 +159,9 @@ final class AppUpdate extends ChangeNotifier {
   static Uri apkUrl(String version) =>
       Uri.parse('$_releases/download/v$version/ExpenseTracker-$version.apk');
 
-  /// Whether this build can be updated: one built by hand cannot.
-  bool get possible => _build > 0;
+  /// Whether this build can be updated: one built by hand cannot, nor
+  /// can the play build (distribution.dart).
+  bool get possible => canSelfUpdate && _build > 0;
 
   /// The newer build found; null when none was, or not yet looked.
   UpdateInfo? get newer => _newer;
@@ -243,12 +261,21 @@ final class AppUpdate extends ChangeNotifier {
     _problem = null;
     _progress = 0;
     notifyListeners();
+    if (info.size > maxApkBytes) {
+      // Not even started: nothing this large is an update of this app.
+      _problem = UpdateMessages.absurdSize;
+      _progress = null;
+      notifyListeners();
+      return null;
+    }
     final folder = Directory('${_cache.path}/updates');
     final apk = File('${folder.path}/ExpenseTracker-${info.build}.apk');
     try {
       await folder.create(recursive: true);
       if (!apk.existsSync() || apk.lengthSync() != info.size) {
         await _port.download(apkUrl(info.version), apk, (received) {
+          // More than update.json says it weighs: stopped, not saved.
+          if (received > info.size) throw const _OversizedDownload();
           _progress = info.size == 0
               ? 0
               : (received / info.size).clamp(0, 1).toDouble();
@@ -258,8 +285,18 @@ final class AppUpdate extends ChangeNotifier {
       final outcome = await _port.install(apk, info.sha256);
       if (outcome == UpdateInstall.damaged) {
         _problem = '下載的檔案不完整，請再試一次';
+      } else if (outcome == UpdateInstall.rejected) {
+        _problem = UpdateMessages.notThisApp;
       }
       return outcome;
+    } on _OversizedDownload {
+      ErrorLog.instance.record(
+        UpdateMessages.downloadStep,
+        UpdateMessages.grewPastSize,
+      );
+      _problem = UpdateMessages.grewPastSize;
+      if (apk.existsSync()) await apk.delete();
+      return null;
     } on Object catch (error) {
       ErrorLog.instance.record('下載更新', error);
       _problem = error is IOException || error is TimeoutException
@@ -272,4 +309,9 @@ final class AppUpdate extends ChangeNotifier {
       notifyListeners();
     }
   }
+}
+
+/// A download that went past the size `update.json` gave for it.
+final class _OversizedDownload implements Exception {
+  const _OversizedDownload();
 }

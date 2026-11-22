@@ -60,7 +60,8 @@ class TagPage extends StatelessWidget {
       context,
       '合併到 $target？',
       '合併',
-      body: '$name 的 $count 筆紀錄會改成 $target，$_shown 就不見了。',
+      body:
+          '$name 的 ${countOf(count, CountUnit.entries)}紀錄會改成 $target，$_shown 就不見了。',
     );
   }
 
@@ -131,8 +132,8 @@ class TagPage extends StatelessWidget {
       '移除',
       danger: true,
       body: merchant
-          ? '$count 筆紀錄會拿掉這個商家，紀錄本身保留。'
-          : '$count 筆紀錄會拿掉這個標籤，紀錄本身保留。',
+          ? '${countOf(count, CountUnit.entries)}紀錄會拿掉這個商家，紀錄本身保留。'
+          : '${countOf(count, CountUnit.entries)}紀錄會拿掉這個標籤，紀錄本身保留。',
     );
     if (!ok) return;
     _move('');
@@ -185,7 +186,9 @@ class TagPage extends StatelessWidget {
                   Space.s2,
                 ),
                 child: Text(
-                  merchant ? '紀錄' : '紀錄 · ${entries.length} 筆',
+                  merchant
+                      ? '紀錄'
+                      : '紀錄 · ${countOf(entries.length, CountUnit.entries)}',
                   style: const TextStyle(
                     fontSize: TextSize.body,
                     fontWeight: FontWeight.w800,

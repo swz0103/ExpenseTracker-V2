@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/dialogs.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
@@ -69,7 +69,8 @@ enum ComposeOutcome { saved, deleted, refund }
 
 /// Opens the composer as a bottom sheet for a new entry of [type] (filled
 /// in from [draft] if given), to show and change [entry], or to refund
-/// [refundOf]. Returns what happened and the entry, or null when closed.
+/// [refundOf]. A trade's fee is suggested at [brokerDiscount]. Returns
+/// what happened and the entry, or null when closed.
 Future<(ComposeOutcome, Entry)?> openComposer(
   BuildContext context,
   Ledger ledger, {
@@ -79,6 +80,7 @@ Future<(ComposeOutcome, Entry)?> openComposer(
   Entry? refundOf,
   ReceiptPhotos? photos,
   Future<String?> Function()? scan,
+  int brokerDiscount = defaultBrokerDiscount,
 }) async {
   if (!await ensureAccount(context, ledger) || !context.mounted) return null;
   return showSheet<(ComposeOutcome, Entry)>(
@@ -91,6 +93,7 @@ Future<(ComposeOutcome, Entry)?> openComposer(
       refundOf: refundOf ?? _original(ledger, entry),
       photos: photos,
       scan: scan,
+      brokerDiscount: brokerDiscount,
     ),
     capHeight: true,
   );
@@ -112,6 +115,7 @@ class Composer extends StatefulWidget {
     this.refundOf,
     this.photos,
     this.scan,
+    this.brokerDiscount = defaultBrokerDiscount,
   });
 
   final Ledger ledger;
@@ -132,6 +136,10 @@ class Composer extends StatefulWidget {
   /// Reads a QR code with the camera, for a paper e-invoice; none in the
   /// preview.
   final Future<String?> Function()? scan;
+
+  /// The broker's discount a trade's fee is suggested at, in basis points
+  /// of the full fee: the preference 券商手續費折扣.
+  final int brokerDiscount;
 
   @override
   State<Composer> createState() => _ComposerState();

@@ -10,6 +10,7 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/widgets/entry_tile.dart' show entrySpoken;
 import '../model/compose_form.dart';
 import '../model/entry_details.dart';
 import '../model/receipt_photos.dart';
@@ -91,6 +92,11 @@ class EntryViewCard extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               '${entrySign(e.type)}${ledger.moneyIn(e.amount, currency)}',
+              semanticsLabel: entrySpoken(
+                e,
+                currency: currency,
+                hidden: ledger.amounts.hidden,
+              ),
               style: TextStyle(
                 fontSize: TextSize.big,
                 fontWeight: FontWeight.w800,

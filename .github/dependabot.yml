@@ -1,8 +1,8 @@
 # Weekly updates: the actions (pinned by commit, so each update is a
-# reviewed change) and the Dart packages' dependencies, each kind in one
-# pull request a week (the packages share versions, and the lockfile check
-# wants them moved together). Every update has to pass the same checks;
-# nothing merges by itself.
+# reviewed change), the Dart packages' dependencies and the Android side's
+# Gradle dependencies, each kind in one pull request a week (the packages
+# share versions, and the lockfile check wants them moved together). Every
+# update has to pass the same checks; nothing merges by itself.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -24,5 +24,16 @@ updates:
       interval: weekly
     groups:
       dart:
+        patterns: ['*']
+    open-pull-requests-limit: 2
+  # The Android side: androidx, Play services, Tink, WorkManager (declared
+  # in android/app/build.gradle.kts, with no lockfile). One pull request a
+  # week; the unit tests and both flavor builds (android.yml) must pass.
+  - package-ecosystem: gradle
+    directory: /apps/expense_tracker/android
+    schedule:
+      interval: weekly
+    groups:
+      android:
         patterns: ['*']
     open-pull-requests-limit: 2

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
+import '../../design_system/display/amount.dart';
 import 'android/scanner_adapter.dart';
 import 'app.dart';
 import 'ledger_session.dart';
@@ -168,14 +169,19 @@ class _OpenedLedgerState extends State<OpenedLedger>
   /// What the inbox booked, and what it could not, listed once.
   void _tellInbox(InboxOutcome outcome) {
     if (outcome.booked > 0) {
-      showNote(context, '已依通知上的確認記下 ${outcome.booked} 筆');
+      showNote(
+        context,
+        '已依通知上的確認記下 ${countOf(outcome.booked, CountUnit.entries)}',
+      );
     }
     if (outcome.review.isEmpty) return;
     unawaited(_notice('通知上的確認', outcome.review.join('\n')));
   }
 
   void _tellBooked(int booked) {
-    if (booked > 0) showNote(context, '已自動記下 $booked 筆定期交易');
+    if (booked > 0) {
+      showNote(context, '已自動記下 ${countOf(booked, CountUnit.entries)}定期交易');
+    }
   }
 
   Future<void> _notice(String title, String text) => showDialog<void>(

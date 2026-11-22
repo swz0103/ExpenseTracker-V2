@@ -183,7 +183,7 @@ void main() {
           expect(
             sum.contains(RegExp('[*/]')) && money.hasMatch(sum),
             isFalse,
-            reason: '${file.path}:${i + 1}: use timesPrice or roundedQuotient',
+            reason: '${file.path}:${i + 1}: use timesPrice or divideRounded',
           );
         }
       }

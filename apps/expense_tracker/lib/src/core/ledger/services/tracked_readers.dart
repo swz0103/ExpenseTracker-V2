@@ -211,6 +211,17 @@ final class TrackedHoldingReader implements HoldingReader {
   }
 
   @override
+  int? saleCostWith(
+    List<Entry> entries,
+    String code,
+    int shares, {
+    bool average = false,
+  }) {
+    _cache.noteReads(_topics);
+    return _inner.saleCostWith(entries, code, shares, average: average);
+  }
+
+  @override
   bool holdsWith(List<Entry> entries) {
     _cache.noteReads(_topics);
     return _inner.holdsWith(entries);

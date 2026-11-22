@@ -8,6 +8,8 @@ const platformFree = [
   'packages/core',
   'packages/domain',
   'packages/ledger/entries',
+  'packages/ledger/loans',
+  'packages/ledger/trade_costs',
 ];
 
 /// The only SDK libraries the business packages may use.

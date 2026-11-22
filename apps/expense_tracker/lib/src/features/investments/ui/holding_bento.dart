@@ -1,3 +1,6 @@
+// Exception to file length: the bento and its price chart read the same
+// holding and closes. Reading its signed amounts aloud took it past a
+// screenful; splitting it is left to the holding page's own rework.
 part of 'holding_page.dart';
 
 /// A block of the holding's bento: a label, a big figure and a line or
@@ -8,12 +11,24 @@ class _Bento extends StatelessWidget {
     required this.label,
     required this.value,
     required this.lines,
+    this.amounts = const [],
+    this.hidden = false,
   });
 
   final Color color;
   final String label;
   final String value;
   final List<String> lines;
+
+  /// The amount with a sign in [value], then in each of [lines] (null
+  /// for none), read out in words ([readOut]); hidden while [hidden].
+  final List<int?> amounts;
+  final bool hidden;
+
+  String? _said(String text, int i) => switch (amounts.elementAtOrNull(i)) {
+    final a? => readOut(text, a, hidden: hidden),
+    null => null,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -43,15 +58,17 @@ class _Bento extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               value,
+              semanticsLabel: _said(value, 0),
               style: const TextStyle(
                 fontSize: TextSize.large,
                 fontWeight: FontWeight.w800,
               ),
             ),
           ),
-          for (final line in lines)
+          for (final (i, line) in lines.indexed)
             Text(
               line,
+              semanticsLabel: _said(line, i + 1),
               style: TextStyle(fontSize: TextSize.caption, color: ink),
             ),
         ],
@@ -75,6 +92,8 @@ Widget _bento(Ledger ledger, String code, Holding held, bool quoted) {
           color: tone,
           label: held.gain < 0 ? '賠了' : '賺了',
           value: ledger.orDots(signed(held.gain)),
+          amounts: [held.gain],
+          hidden: ledger.amounts.hidden,
           lines: [
             '${percentOf(held.gain, held.cost)}'
                 '${rate == null ? '' : ' · 年化 ${yearlyRate(rate)}'}',
@@ -89,6 +108,8 @@ Widget _bento(Ledger ledger, String code, Holding held, bool quoted) {
                 '成本 ${ledger.orDots(groupDigits(held.cost))}',
             if (quoted) '今天 ${ledger.orDots(signed(held.change))}',
           ],
+          amounts: [null, null, if (quoted) held.change],
+          hidden: ledger.amounts.hidden,
         ),
       ]),
       const SizedBox(height: Space.s2),
@@ -180,7 +201,7 @@ class _PriceChartState extends State<_PriceChart> {
 
   static DateTime _day(DateTime d) => DateTime.utc(d.year, d.month, d.day);
 
-  String _price(double p) => p.toStringAsFixed(p < 100 ? 2 : 0);
+  String _price(double p) => stockPrice(p);
 
   /// The line itself, at least two closes: a touch reads the close under
   /// the finger, or a buy within its reach.
@@ -255,7 +276,7 @@ class _PriceChartState extends State<_PriceChart> {
   Widget _change(double from, double to, String prefix) {
     final up = to >= from;
     return Text(
-      '$prefix${up ? '+' : ''}${((to - from) * 100 / from).toStringAsFixed(1)}%',
+      '$prefix${ratioPercent((to - from) / from)}',
       style: TextStyle(
         fontWeight: FontWeight.w800,
         color: up ? AppColors.rise : AppColors.fall,
@@ -463,7 +484,7 @@ class _LinePainter extends CustomPainter {
   final Color words;
   final Color onTag;
 
-  String _label(double v) => v.toStringAsFixed(v < 100 ? 1 : 0);
+  String _label(double v) => priceTick(v);
 
   @override
   void paint(Canvas canvas, Size size) {

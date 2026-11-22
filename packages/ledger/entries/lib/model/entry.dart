@@ -1,3 +1,6 @@
+import 'package:ledger_trade_costs/calc/settlement.dart';
+import 'package:ledger_trade_costs/model/trade_values.dart';
+
 // Exception to ledger words: 轉帳, 投資, 股息收入 and 其他支出 are names the
 // book keeps as data, the categories a transfer, a trade, a dividend and
 // a fee are written in.
@@ -134,9 +137,26 @@ final class Entry {
   /// returns [amount] in cash, which lowers the cost rather than earning.
   bool get isReduction => type == EntryType.dividend && shares < 0;
 
+  /// What an investment entry moves on its account, from the one rule
+  /// for a trade's money (`settlementAmount`): a buy paid with its fee
+  /// (negative), a sale received less fee and tax, a cash dividend less
+  /// the premium withheld, the cash back of a capital reduction. 0 for
+  /// any other entry.
+  int get settlement {
+    final kind = switch (type) {
+      EntryType.buy => TradeKind.buy,
+      EntryType.sell => TradeKind.sell,
+      EntryType.dividend when isReduction => TradeKind.capitalReturn,
+      EntryType.dividend => TradeKind.dividend,
+      _ => null,
+    };
+    if (kind == null) return 0;
+    return settlementAmount(kind, gross: amount, fee: fee, tax: tax);
+  }
+
   /// What a dividend paid out, after the premium withheld.
   int get dividendNet =>
-      type == EntryType.dividend && !isReduction ? amount - tax : 0;
+      type == EntryType.dividend && !isReduction ? settlement : 0;
 
   /// What the entry brings in: income and dividends, not refunds.
   int get earning => switch (type) {

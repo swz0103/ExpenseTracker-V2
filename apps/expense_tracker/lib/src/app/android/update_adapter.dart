@@ -5,7 +5,10 @@ import '../../features/settings/model/app_update.dart';
 import 'platform_channel.dart';
 
 /// [UpdatePort] on the phone: dart:io for the two files, and Android's
-/// installer through `UpdateHandler.kt`, which checks the SHA-256 first.
+/// installer through `UpdateHandler.kt`, which checks the file first (size,
+/// SHA-256, package name, version code, signing certificate). Only the
+/// sideload build has that handler; the play build never makes this port
+/// (distribution.dart).
 final class AndroidUpdatePort implements UpdatePort {
   const AndroidUpdatePort();
 
@@ -75,6 +78,7 @@ final class AndroidUpdatePort implements UpdatePort {
     final outcome = await platformChannel.invokeMethod<String>('installApk', {
       'path': apk.path,
       'sha256': sha256,
+      'maxBytes': maxApkBytes,
     });
     return UpdateInstall.values.firstWhere(
       (o) => o.name == outcome,

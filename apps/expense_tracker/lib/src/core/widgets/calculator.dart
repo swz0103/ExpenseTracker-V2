@@ -1,7 +1,9 @@
 import 'package:core/foundation_values.dart' show Currency;
+import 'package:core/money/amount_format.dart' show roundHalfAwayFromZero;
+import 'package:core/money/amount_parser.dart';
 import 'package:flutter/material.dart';
 
-import '../formatting/figures.dart';
+import '../../../design_system/display/amount.dart';
 import '../design_system/glyphs.dart';
 import '../design_system/haptics.dart';
 import '../design_system/theme.dart';
@@ -10,12 +12,14 @@ import 'amount_keys.dart';
 import '../design_system/shape.dart';
 import '../design_system/spacing.dart';
 import '../formatting/words.dart';
+import '../messages/amount_messages.dart';
 
 export 'amount_keys.dart';
 
 /// The amount calculator: digits and the four operations; 完成 returns
 /// the amount in the smallest unit of [unit] (whole NT$, US cents), or
-/// null when dismissed.
+/// null when dismissed. A sum that is not an amount (÷0, below zero,
+/// past 999,999,999) says why, and 完成 waits until it is one.
 Future<int?> showCalculator(
   BuildContext context, {
   required String title,
@@ -24,22 +28,17 @@ Future<int?> showCalculator(
   String unit = 'TWD',
 }) async {
   final cents = takesCents(unit);
-  final value = await showSheet<num>(
+  return showSheet<int>(
     context,
     (_) => _Calculator(
       title: title,
-      initial: initial == 0
-          ? ''
-          : cents
-          ? _plain(initial / 100)
-          : '$initial',
+      // The keys type no minus: a balance below zero starts from nothing.
+      initial: initial <= 0 ? '' : keyedAmount(initial, cents ? 2 : 0),
       color: color,
       unit: unit,
       decimal: cents,
     ),
   );
-  if (value == null) return null;
-  return cents ? (value * 100).round() : value.round();
 }
 
 /// The calculator for a price with two decimals, such as 194.35.
@@ -49,17 +48,19 @@ Future<double?> showPriceCalculator(
   required double initial,
   required Color color,
 }) async {
-  final value = await showSheet<num>(
+  final cents = await showSheet<int>(
     context,
     (_) => _Calculator(
       title: title,
-      initial: initial == 0 ? '' : _plain(initial),
+      initial: initial == 0
+          ? ''
+          : keyedAmount(roundHalfAwayFromZero(initial, 2), 2),
       color: color,
       unit: '元／股',
       decimal: true,
     ),
   );
-  return value?.toDouble();
+  return cents == null ? null : cents / 100;
 }
 
 /// An amount to change with the calculator: all of it opens it, the
@@ -122,9 +123,19 @@ class AmountTap extends StatelessWidget {
 bool takesCents(String unit) =>
     Currency.supported.contains(unit) && Currency.scaleOf(unit) > 0;
 
-String _plain(double value) => value == value.roundToDouble()
-    ? '${value.round()}'
-    : value.toStringAsFixed(2);
+/// What a key is called aloud: 減 for −, 兩個零 for 00.
+String _spokenKey(String key) => switch (key) {
+  '÷' => '除以',
+  '×' => '乘以',
+  '−' => '減',
+  '+' => '加',
+  'C' => '清除',
+  '⌫' => Words.delete,
+  '00' => '兩個零',
+  '000' => '三個零',
+  '.' => '小數點',
+  _ => key,
+};
 
 class _Calculator extends StatefulWidget {
   const _Calculator({
@@ -151,9 +162,12 @@ class _CalculatorState extends State<_Calculator> {
   void _press(String key) {
     Haptics.selection();
     if (key == Words.done) {
-      final result = _keys.result;
+      // Only an amount is kept, the one shown; otherwise the reason
+      // stays on screen.
+      final amount = _keys.amount;
+      if (amount is! AmountOk) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).pop(result);
+        if (mounted) Navigator.of(context).pop(amount.minor);
       });
       return;
     }
@@ -196,14 +210,23 @@ class _CalculatorState extends State<_Calculator> {
   }
 
   /// The amount so far, large in the calculator's colour, with the sum
-  /// being worked above it (or the unit when there is none).
+  /// being worked above it (or the unit when there is none), and why it
+  /// cannot be kept when it is not an amount.
   Widget _display() {
-    final value = _keys.value;
-    final shown = value == null
-        ? '…'
-        : widget.decimal
-        ? _plain(value)
-        : groupDigits(value.round());
+    final amount = _keys.amount;
+    final scale = _keys.scale;
+    final shown = switch (amount) {
+      AmountOk(:final minor) => keyedResult(minor, scale),
+      AmountRefused(:final cameTo?) when cameTo.isValidInt =>
+        cameTo.isNegative
+            ? '−${keyedResult(-cameTo.toInt(), scale)}'
+            : keyedResult(cameTo.toInt(), scale),
+      AmountRefused() => '…',
+    };
+    final problem = switch (amount) {
+      AmountRefused(:final problem) => amountProblemMessage(problem),
+      AmountOk() => null,
+    };
     final working = _keys.working;
     return Container(
       padding: const EdgeInsets.fromLTRB(
@@ -227,10 +250,21 @@ class _CalculatorState extends State<_Calculator> {
               style: TextStyle(
                 fontSize: TextSize.hero,
                 fontWeight: FontWeight.w700,
-                color: widget.color,
+                color: problem == null ? widget.color : AppColors.muted,
               ),
             ),
           ),
+          if (problem != null)
+            Text(
+              problem,
+              key: Keys.calcProblem,
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                fontSize: TextSize.small,
+                fontWeight: FontWeight.w600,
+                color: AppColors.danger,
+              ),
+            ),
         ],
       ),
     );
@@ -279,12 +313,18 @@ class _CalculatorState extends State<_Calculator> {
   Widget _key(String key) {
     final operator = '÷×−+'.contains(key);
     final done = key == Words.done;
-    final background = done
+    // 完成 waits while the sum is not an amount.
+    final held = done && _keys.amount is! AmountOk;
+    final background = held
+        ? AppColors.tile
+        : done
         ? chosenFill(AppColors.accent)
         : operator || key == 'C' || key == '⌫'
         ? AppColors.hero
         : AppColors.tile;
-    final ink = done
+    final ink = held
+        ? AppColors.muted
+        : done
         ? chosenInk(AppColors.accent)
         : operator || key == 'C' || key == '⌫'
         ? AppColors.accent
@@ -295,32 +335,37 @@ class _CalculatorState extends State<_Calculator> {
       child: Material(
         color: background,
         borderRadius: BorderRadius.circular(Radii.large),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(Radii.large),
-          onTap: () => _press(key),
-          child: Center(
-            child: key == '⌫'
-                ? Semantics(
-                    label: Words.delete,
-                    child: GlyphIcon(
+        child: Semantics(
+          button: true,
+          enabled: !held,
+          label: _spokenKey(key),
+          // The key itself, as the words inside are left out.
+          onTap: held ? null : () => _press(key),
+          excludeSemantics: true,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(Radii.large),
+            onTap: () => _press(key),
+            child: Center(
+              child: key == '⌫'
+                  ? GlyphIcon(
                       Glyph.backspace,
                       size: 24,
                       color: AppColors.accent,
-                    ),
-                  )
-                // 000 on a narrow phone with its largest text shrinks a
-                // little rather than wraps.
-                : FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      key,
-                      style: TextStyle(
-                        fontSize: done ? TextSize.title : TextSize.large,
-                        fontWeight: done ? FontWeight.w700 : FontWeight.w500,
-                        color: ink,
+                    )
+                  // 000 on a narrow phone with its largest text shrinks a
+                  // little rather than wraps.
+                  : FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        key,
+                        style: TextStyle(
+                          fontSize: done ? TextSize.title : TextSize.large,
+                          fontWeight: done ? FontWeight.w700 : FontWeight.w500,
+                          color: ink,
+                        ),
                       ),
                     ),
-                  ),
+            ),
           ),
         ),
       ),
