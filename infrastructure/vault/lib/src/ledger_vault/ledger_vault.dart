@@ -141,21 +141,39 @@ final class LedgerVault {
 
   File get _staging => File('${directory.path}/ledger.db.restore');
 
-  /// Finishes, or undoes, what a crash during [restore] or [_write] left
-  /// part way, so the keyring and the database belong together:
+  /// The sealed receipt photos kept beside the ledger, each sealed by a
+  /// [FileBox] of purpose `receipts` under its file name.
+  Directory get receiptsDirectory => Directory('${directory.path}/receipts');
+
+  /// Files a [restore] or [resetKeys] puts beside the ledger, each at its
+  /// path under [directory] (such as `receipts/r1.etr`). Written while
+  /// the staging database is filled, and moved into place with it, after
+  /// its check: never before, so a restore that fails keeps the photos
+  /// here as they were.
+  Directory get stagedFiles => Directory('${directory.path}/files.restore');
+
+  /// The files [stagedFiles] replaced, until the move is done.
+  Directory get _replacedFiles => Directory('${directory.path}/files.replaced');
+
+  /// Finishes, or undoes, what a crash during [restore], [resetKeys] or
+  /// [_write] left part way, so the keyring, the database and the files
+  /// beside it belong together:
   ///
   /// - the copy still waiting beside a database: the restore had not
-  ///   begun replacing, so the copy and its keyring go and the ledger
-  ///   here stays as it was;
+  ///   begun replacing, so the copy, its files and its keyring go and the
+  ///   ledger here stays as it was;
   /// - the copy waiting and no database: the old one was already gone,
-  ///   so the copy goes into place with the keyring written for it;
+  ///   so the copy goes into place, then its files, with the keyring
+  ///   written for it;
   /// - no copy and a complete new keyring: the database is the new one
-  ///   (or the same, for a changed password), so the new keyring is used.
+  ///   (or the same, for a changed password), so its files go into place
+  ///   and the new keyring is used.
   Future<void> _settle() async {
     if (await _staging.exists()) {
       if (!await databaseFile.exists() && _completePending()) {
         await _staging.rename(databaseFile.path);
       } else {
+        await _dropStagedFiles();
         await _deleteDatabase(_staging);
         if (await keyringFile.exists() && await _pending.exists()) {
           await _pending.delete();
@@ -163,8 +181,47 @@ final class LedgerVault {
         return;
       }
     }
-    if (await keyringFile.exists() && _completePending()) {
-      await _pending.rename(keyringFile.path);
+    if (_completePending()) {
+      await _placeStagedFiles();
+      if (await keyringFile.exists()) await _pending.rename(keyringFile.path);
+    } else {
+      // Files of a copy that never went into place.
+      await _dropStagedFiles();
+    }
+  }
+
+  /// Moves every file of [stagedFiles] into place, the one it replaces
+  /// first aside into [_replacedFiles], then lets those go. Done again
+  /// after a crash, it picks up where it stopped.
+  Future<void> _placeStagedFiles() async {
+    final staged = stagedFiles;
+    if (await staged.exists()) {
+      final files = [
+        for (final entity in staged.listSync(recursive: true))
+          if (entity is File) entity,
+      ]..sort((a, b) => a.path.compareTo(b.path));
+      for (final file in files) {
+        final path = file.path.substring(staged.path.length + 1);
+        final target = File('${directory.path}/$path');
+        if (await target.exists()) {
+          final aside = File('${_replacedFiles.path}/$path');
+          await aside.parent.create(recursive: true);
+          await target.rename(aside.path);
+        }
+        await target.parent.create(recursive: true);
+        await file.rename(target.path);
+      }
+      await staged.delete(recursive: true);
+    }
+    if (await _replacedFiles.exists()) {
+      await _replacedFiles.delete(recursive: true);
+    }
+  }
+
+  Future<void> _dropStagedFiles() async {
+    if (await stagedFiles.exists()) await stagedFiles.delete(recursive: true);
+    if (await _replacedFiles.exists()) {
+      await _replacedFiles.delete(recursive: true);
     }
   }
 
@@ -175,6 +232,7 @@ final class LedgerVault {
       if (!_completePending()) {
         throw const VaultException(VaultProblem.missing);
       }
+      await _placeStagedFiles();
       await _pending.rename(keyringFile.path);
     }
     try {
@@ -195,11 +253,12 @@ final class LedgerVault {
 
   /// Restores a backup as this device's ledger, all or nothing. [fill]
   /// writes into a staging database, which must pass SQLite's integrity
-  /// check.
+  /// check, and puts the files the backup carries into [stagedFiles].
   /// Only then is its keyring written beside the old one, the database
-  /// renamed into place, and the keyring, which is what makes a ledger
-  /// exist, named last. A failure before the check leaves things as they
-  /// were; a crash after it is finished on the next open ([_settle]).
+  /// renamed into place, then the files, and the keyring, which is what
+  /// makes a ledger exist, named last. A failure before the check leaves
+  /// things as they were, the photos too; a crash after it is finished on
+  /// the next open ([_settle]).
   ///
   /// With [replacing], a closed ledger already here is replaced, as when
   /// a backup is restored from settings: until the copy has passed its
@@ -211,9 +270,91 @@ final class LedgerVault {
     bool replacing = false,
   }) async {
     if (!replacing) _requireAbsent();
+    await _replace(keys, fill);
+    return _open(keys);
+  }
+
+  /// Replaces every key of the ledger [open] with [next]
+  /// ([UnlockedKeyring.reset]): the database is copied, record by record,
+  /// into a new one encrypted with the new database key, and the receipt
+  /// photos and the inbox key are sealed again under it, the same staged
+  /// and checked way as [restore], so a crash at any step leaves either
+  /// the old ledger with its old keys or the new one with its new keys.
+  /// [open] is closed once the copy has passed its check; on a failure
+  /// before then it stays open and nothing changed.
+  ///
+  /// Afterwards the old keyring, as an older backup carries it, opens
+  /// only the old keys: no longer this database or these photos.
+  Future<OpenVault> resetKeys(OpenVault open, UnlockedKeyring next) async {
+    final old = open.keys;
+    if (open._vault != this || next.keyring.id != old.keyring.id) {
+      throw const VaultException(VaultProblem.otherLedger);
+    }
+    await _replace(next, (staging) async {
+      final rows = open.store.rows();
+      staging.write((w) {
+        for (final row in rows) {
+          w.put(row.shelf, row.id, row.body);
+        }
+      });
+      await _sealAgain(old, next);
+    }, beforeSwap: open.close);
+    return _open(next);
+  }
+
+  /// Seals the receipt photos and the inbox key again, from the box of
+  /// [old] to that of [next], into [stagedFiles]. A file the old box does
+  /// not open (not this ledger's) is left as it is.
+  Future<void> _sealAgain(UnlockedKeyring old, UnlockedKeyring next) async {
+    final receipts = receiptsDirectory;
+    if (await receipts.exists()) {
+      final from = await FileBox.derive(old, 'receipts');
+      final to = await FileBox.derive(next, 'receipts');
+      for (final entity in receipts.listSync()) {
+        if (entity is! File) continue;
+        final name = entity.uri.pathSegments.last;
+        final List<int> plain;
+        try {
+          plain = await from.open(name, await entity.readAsBytes());
+        } on Object {
+          continue;
+        }
+        final staged = File('${stagedFiles.path}/receipts/$name');
+        await staged.parent.create(recursive: true);
+        await staged.writeAsBytes(await to.seal(name, plain), flush: true);
+      }
+    }
+    // The inbox's private key (LedgerInbox), so what was posted while
+    // locked still opens.
+    const inboxKey = 'inbox.key';
+    final inbox = File('${directory.path}/$inboxKey');
+    if (await inbox.exists()) {
+      try {
+        final from = await FileBox.derive(old, 'inbox');
+        final to = await FileBox.derive(next, 'inbox');
+        final seed = await from.open(inboxKey, await inbox.readAsBytes());
+        await stagedFiles.create(recursive: true);
+        await File('${stagedFiles.path}/$inboxKey')
+            .writeAsBytes(await to.seal(inboxKey, seed), flush: true);
+      } on Object {
+        // Not this ledger's: the inbox makes a new one when it opens.
+      }
+    }
+  }
+
+  /// Fills a staging database and [stagedFiles], checks it, then puts
+  /// both in place with [keys]' keyring (see [restore]). [beforeSwap]
+  /// runs once the copy is checked, before anything here changes.
+  Future<void> _replace(
+    UnlockedKeyring keys,
+    Future<void> Function(EncryptedDatabase staging) fill, {
+    void Function()? beforeSwap,
+  }) async {
     await directory.create(recursive: true);
     final staging = _staging;
+    await _dropStagedFiles();
     await _deleteDatabase(staging);
+    var committed = false;
     try {
       final store = _openStore(staging, keys);
       try {
@@ -229,18 +370,27 @@ final class LedgerVault {
       }
       // The new keyring is written in full before the database changes,
       // and named last: a crash between any two steps leaves what
-      // [_settle] can finish or undo, never a keyring and a database that
-      // do not belong together.
+      // [_settle] can finish or undo, never a keyring, a database and
+      // files that do not belong together.
       await _pending.writeAsString(keys.keyring.encode(), flush: true);
+      beforeSwap?.call();
+      committed = true;
       await _deleteDatabase(databaseFile);
       await staging.rename(databaseFile.path);
+      await _placeStagedFiles();
       await _pending.rename(keyringFile.path);
     } on Object {
-      await _deleteDatabase(staging);
-      if (!exists) await _deleteDatabase(databaseFile);
+      // Once the old database is gone, only going forward is left: the
+      // next open finishes it ([_settle]).
+      if (!committed) {
+        await _dropStagedFiles();
+        await _deleteDatabase(staging);
+        // Written by this call, for a copy that does not go in.
+        if (await _pending.exists()) await _pending.delete();
+        if (!exists) await _deleteDatabase(databaseFile);
+      }
       rethrow;
     }
-    return _open(keys);
   }
 
   /// Opens the ledger kept here, which must still have its database.
