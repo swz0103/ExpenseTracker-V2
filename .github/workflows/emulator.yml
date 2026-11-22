@@ -122,6 +122,12 @@ jobs:
               summary.write(text + '\n')
           PY
 
+      - name: Bench limits
+        # Fails when a figure is over its limit or missing
+        # (test/perf/thresholds.json, explained in thresholds.md).
+        working-directory: apps/expense_tracker
+        run: dart run tool/check_bench.dart build/integration_response_data.json test/perf/thresholds.json
+
       - name: Upload benchmark results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
