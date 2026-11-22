@@ -1,3 +1,4 @@
+import 'package:core/percent/percent.dart' show isOver, percent;
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/display/amount.dart';

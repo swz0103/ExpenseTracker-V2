@@ -11,7 +11,6 @@ import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/core/formatting/words.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/features/budgets/ui/budgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -22,13 +21,23 @@ void main() {
   // The demo book begins in January of last year.
   setUp(() => ledger = demoLedger());
 
-  /// What a month's square says under its name, as the page works it out.
-  String used((int, int) month) {
-    final sums = budgetMonthOf(ledger, month);
-    if (sums.total == 0) return ' ';
-    final share = sums.spent * 100 ~/ sums.total;
-    return share > 100 ? '超支' : '$share%';
-  }
+  /// What each month of 2026 in the demo book says under its name: the
+  /// share of the 32,000 budget spent, rounded half away from zero, or
+  /// 超支 when more than 32,000 was spent; months to come say nothing.
+  const used2026 = {
+    1: '超支', // 36,409 > 32,000
+    2: '超支', // 43,694 > 32,000
+    3: '超支', // 35,319 > 32,000
+    4: '78%', // 24,849 / 32,000 = 77.65%
+    5: '79%', // 25,294 / 32,000 = 79.04%
+    6: '80%', // 25,739 / 32,000 = 80.43%
+    7: '超支', // 62,184 > 32,000
+    8: '83%', // 26,629 / 32,000 = 83.22%
+    9: '85%', // 27,074 / 32,000 = 84.61%
+    10: '55%', // 17,519 / 32,000 = 54.75%
+    11: ' ',
+    12: ' ',
+  };
 
   testWidgets('each month of this year says how much of its budget was used', (
     tester,
@@ -41,10 +50,8 @@ void main() {
     ];
     for (var m = 1; m <= 12; m++) {
       final at = texts.lastIndexOf('$m 月');
-      // Months still to come say nothing.
-      expect(texts[at + 1], m > 10 ? ' ' : used((2026, m)), reason: '$m 月');
+      expect(texts[at + 1], used2026[m], reason: '$m 月');
     }
-    expect(texts, containsAll(['超支', '54%']));
     // The months still to come cannot be picked.
     final semantics = tester.ensureSemantics();
     final december = tester.getSemantics(find.bySemanticsLabel('12 月'));
@@ -64,7 +71,8 @@ void main() {
     final texts = [
       for (final e in find.byType(Text).evaluate()) (e.widget as Text).data,
     ];
-    expect(texts[texts.lastIndexOf('3 月') + 1], used((2025, 3)));
+    // March 2025: 35,664 spent of 32,000.
+    expect(texts[texts.lastIndexOf('3 月') + 1], '超支');
     // No year before the book's first.
     await go(tester, ['~前一年']);
     expect(find.text('2025'), findsOneWidget);
