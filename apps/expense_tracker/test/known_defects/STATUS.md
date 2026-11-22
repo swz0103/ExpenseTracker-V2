@@ -8,10 +8,6 @@ The expectations were written against today's APIs. A fix that changes an API (f
 
 | id | package | test file | fails-when-enabled | note |
 |---|---|---|---|---|
-| ACC-05 | 1.1 | p1_1_amounts_test.dart | yes | a credit limit typed as 80,000 becomes null |
-| F107 | 1.1 | p1_1_amounts_test.dart | yes | no semantics label carrying 支出 on the amount of an entry row |
-| F78 | 1.1 | p1_1_amounts_test.dart | yes | a month 100.35% used shows 100% in the picker, not 超支 |
-| IMP-04 | 1.1 | p1_1_amounts_test.dart | yes | importCsv throws FormatException on an amount of .5 (TWD) |
 | ENT-01 | 1.3 | p1_3_trade_costs_test.dart | yes | 2 tests; fee stays 513 after doubling shares (expects 1,026); sale fee stays 855 (expects 427) |
 | ENT-08 | 1.3 | p1_3_trade_costs_test.dart | yes | sale-cost preview of an old sale is 200,000, expected 100,000 |
 | INV-01 | 1.3 | p1_3_trade_costs_test.dart | yes | holding page row shows +999,145, the account got +996,145 |
@@ -49,7 +45,24 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | IMP-02 | 6.1 | p6_1_import_test.dart | yes | round trip loses the US$ currency (first of 10 differences) |
 | AND-01 | 6.3 | p6_3_release_test.dart | yes | main AndroidManifest.xml declares REQUEST_INSTALL_PACKAGES |
 
-40 findings covered.
+36 findings covered.
+
+## fixed in 1.1
+
+Work package 1.1 (one source for amounts). Each test below now runs in the ordinary suite and states the corrected behaviour; the four that were known-defect tests keep their place in `p1_1_amounts_test.dart` without the skip.
+
+- F107: `p1_1_amounts_test.dart` (entry row read as 支出 1,844); `test/design_system/display/amount_text_test.dart`, `test/core/widgets/entry_tile_test.dart`, `test/core/widgets/calculator_test.dart` (keys named)
+- IMP-04: `p1_1_amounts_test.dart` (.5 does not abort the import); `test/features/import_export/model/import_export_test.dart` (misreads refused per line)
+- F78: `p1_1_amounts_test.dart` (100.35% says 超支); `test/features/budgets/ui/budgets_month_picker_test.dart` (literal expectations)
+- ACC-05: `p1_1_amounts_test.dart` (80,000 is 80000; only the amount part); `test/features/accounts/model/account_form_test.dart`
+- ENT-04: `test/core/widgets/calculator_test.dart`, `test/core/widgets/amount_keys_test.dart`
+- ENT-09: `test/features/entries/ui/entries_filter_sheet_test.dart`
+- F06: `test/design_system/display/amount_test.dart`, `test/core/widgets/entry_tile_test.dart`
+- F03: `test/features/entries/forms/composer_state_test.dart`
+- RPT-06: `test/app/more_page_test.dart`, `test/design_system/display/amount_test.dart` (number part only; dates belong to the next package)
+- F34: `test/features/reports/model/report_test.dart`
+- INV-03: `test/features/investments/ui/holding_page_test.dart`
+- F21: `test/features/accounts/ui/card_page_test.dart`
 
 ## not covered
 
@@ -95,8 +108,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - LOG-10 (S2, 5.4): performance, not correctness; belongs to the benchmark gate (0.2)
 - RPT-02 (S2, 5.4): needs a new period-aware tag count API
 - IMP-03 (S2, 6.1): feature request (column mapping, other encodings)
-- F06 (S3, 1.1): thousands separators: the amount type of 1.1 defines the correct strings
-- F34 (S3, 1.1): rounding of averages: defined by the amount rules of 1.1
 - F07 (S3, 1.5): wording on the budget card; UI text only
 - REC-04 (S3, 1.5): labels and an inert row in the recurring page; UI only
 - REC-03 (S3, 2.3): the division by zero is inside widget code (yearly share); no API returns it
@@ -112,9 +123,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - TST-01 (S2, 0.1): no executed reproduction; not turned into a test
 - TST-03 (S2, 0.2): no executed reproduction; not turned into a test
 - TST-05 (S2, 0.2): no executed reproduction; not turned into a test
-- ENT-04 (S2, 1.1): no executed reproduction; not turned into a test
-- ENT-09 (S2, 1.1): no executed reproduction; not turned into a test
-- INV-03 (S2, 1.1): no executed reproduction; not turned into a test
 - PKG-05 (S2, 1.2): no executed reproduction; not turned into a test
 - PKG-07 (S2, 1.2): no executed reproduction; not turned into a test
 - PKG-04 (S2, 1.3): no executed reproduction; not turned into a test
@@ -165,9 +173,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - TST-04 (S3, 0.1): no executed reproduction; not turned into a test
 - TST-06 (S3, 0.1): no executed reproduction; not turned into a test
 - TST-02 (S3, 0.2): no executed reproduction; not turned into a test
-- F03 (S3, 1.1): no executed reproduction; not turned into a test
-- F21 (S3, 1.1): no executed reproduction; not turned into a test
-- RPT-06 (S3, 1.1): no executed reproduction; not turned into a test
 - ARC-09 (S3, 1.2): no executed reproduction; not turned into a test
 - ENT-16 (S3, 1.2): no executed reproduction; not turned into a test
 - F25 (S3, 1.2): no executed reproduction; not turned into a test

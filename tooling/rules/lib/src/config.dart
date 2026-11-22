@@ -50,10 +50,11 @@ const impurePrefixes = ['package:flutter/', 'dart:io', 'dart:ui', 'dart:ffi'];
 /// call `DateTime.now()` (rule A4).
 const clockFiles = ['packages/core/lib/src/app_core/clock.dart'];
 
-/// Owners of number formatting and parsing (rule B2).
+/// Owners of number formatting and parsing (rule B2): the amount parser,
+/// figures and percentages of core, and how the app shows them.
 const numberFormatOwners = [
   'packages/core/lib',
-  '$appLib/src/core/formatting/',
+  '$appLib/design_system/display/',
 ];
 
 /// Owners of "now" (rule B3): the time folder and the composition roots.

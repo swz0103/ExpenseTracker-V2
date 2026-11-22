@@ -128,10 +128,19 @@ void f(double d, String s) {
       });
       expect(v, hasLength(8));
     });
-    test('passes the owners and other parse calls', () {
+    test('the old formatting folder is no longer an owner', () {
       expect(
         run(rule, {
           '$_app/src/core/formatting/a.dart':
+              'void f(String s) { int.parse(s); }\n',
+        }),
+        hasLength(1),
+      );
+    });
+    test('passes the owners and other parse calls', () {
+      expect(
+        run(rule, {
+          '$_app/design_system/display/a.dart':
               'void f(String s) { int.parse(s); }\n',
           '$_app/src/features/a/x.dart':
               'void f(String s) { DateTime.parse(s); s.trim(); }\n',
