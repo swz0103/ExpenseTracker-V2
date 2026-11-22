@@ -52,9 +52,14 @@ final class WriteQueue {
     _stale = false;
     try {
       final fresh = await _dataSource.load();
-      // A change made while loading is newer than what was loaded; the
-      // load after it brings both.
-      if (_waiting == 0) _onReloaded(fresh);
+      // A change made while loading is newer than what was loaded: this
+      // load is dropped, and the screens are still ahead of the data
+      // source, so the load after that change brings both.
+      if (_waiting == 0) {
+        _onReloaded(fresh);
+      } else {
+        _stale = true;
+      }
     } on Object catch (error) {
       ErrorLog.instance.record('重新讀取帳本', error);
       problem.value = ReloadFailed(error);
