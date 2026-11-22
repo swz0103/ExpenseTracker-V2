@@ -1,4 +1,5 @@
 // Work package 3.1: one lock gate above every screen.
+import 'dart:async';
 import 'dart:io';
 
 import 'package:expense_tracker/src/app/bootstrap.dart';
@@ -42,7 +43,7 @@ void main() {
       expect(find.byType(AppShell), findsOneWidget);
       // A sheet is open over the book.
       final context = tester.element(find.byType(AppShell));
-      showSheet<void>(context, (_) => const Text('帳務內容'));
+      unawaited(showSheet<void>(context, (_) => const Text('帳務內容')));
       await tester.pumpAndSettle();
       expect(find.text('帳務內容'), findsOneWidget);
       // The phone locks.
@@ -51,5 +52,33 @@ void main() {
       expect(find.text('帳務內容'), findsNothing);
     },
     skip: knownDefect('SEC-05', '3.1') != null,
+  );
+
+  LedgerVault vault() =>
+      LedgerVault(dir, codec: KeyringCodec(kdf: PasswordKdf.insecureForTests));
+
+  test(
+    'SEC-03: after ten wrong passwords the right one is not accepted at once',
+    () async {
+      const password = 'correct horse battery';
+      final first = Startup(vault());
+      await first.setUp(password);
+      first.lock();
+      final startup = Startup(vault());
+      for (var i = 0; i < 10; i++) {
+        try {
+          await startup.unlockWithPassword('wrong password $i');
+        } on KeyringException {
+          // Each wrong one is refused.
+        }
+      }
+      try {
+        await startup.unlockWithPassword(password);
+      } on Object {
+        // A lock-out may refuse by throwing.
+      }
+      expect(startup.state, isNot(isA<Ready>()));
+    },
+    skip: knownDefect('SEC-03', '3.1'),
   );
 }

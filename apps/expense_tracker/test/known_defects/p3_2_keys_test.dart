@@ -25,31 +25,6 @@ void main() {
   }, skip: knownDefect('SEC-01', '3.2'));
 
   test(
-    'SEC-03: after ten wrong passwords the right one is not accepted at once',
-    () async {
-      const password = 'correct horse battery';
-      final first = Startup(vault());
-      await first.setUp(password);
-      first.lock();
-      final startup = Startup(vault());
-      for (var i = 0; i < 10; i++) {
-        try {
-          await startup.unlockWithPassword('wrong password $i');
-        } on KeyringException {
-          // Each wrong one is refused.
-        }
-      }
-      try {
-        await startup.unlockWithPassword(password);
-      } on Object {
-        // A lock-out may refuse by throwing.
-      }
-      expect(startup.state, isNot(isA<Ready>()));
-    },
-    skip: knownDefect('SEC-03', '3.1'),
-  );
-
-  test(
     'SEC-04: unlocking with the recovery code does not drop the password',
     () async {
       final first = Startup(vault());
