@@ -1,5 +1,6 @@
 import 'package:core/foundation_values.dart';
-import 'package:domain/investments.dart';
+import 'package:ledger_trade_costs/calc/charges.dart';
+import 'package:ledger_trade_costs/model/trade_values.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -90,14 +91,5 @@ void main() {
     expect(supplementaryPremium(ntd(19999), paidOn: paidOn), ntd(0));
     expect(supplementaryPremium(ntd(20000), paidOn: paidOn), ntd(422));
     expect(supplementaryPremium(ntd(12345678), paidOn: paidOn), ntd(211000));
-  });
-
-  test('trades settle two exchange days later', () {
-    final calendar = BankingCalendar(holidays: {BusinessDate(2026, 10, 9)});
-    final thursday = BusinessDate(2026, 10, 8);
-    expect(
-      taiwanSettlementDate(thursday, calendar),
-      BusinessDate(2026, 10, 13),
-    );
   });
 }

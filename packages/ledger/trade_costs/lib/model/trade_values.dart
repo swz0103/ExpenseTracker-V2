@@ -15,6 +15,10 @@ final class InvestmentException implements Exception {
 
 enum InstrumentKind { stock, etf, bondEtf }
 
+/// What a trade does with money: a buy pays, a sale and a cash dividend
+/// bring in, a capital reduction returns capital.
+enum TradeKind { buy, sell, dividend, capitalReturn }
+
 /// Exact positive share quantity, at most 12 decimal places.
 final class ShareQuantity {
   ShareQuantity._(this._decimal);

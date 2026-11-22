@@ -10,7 +10,7 @@ import '../../../core/design_system/dialogs.dart';
 import '../../accounts/forms/account_editor.dart';
 import '../../accounts/forms/reconcile_sheet.dart';
 
-import 'package:domain/loans.dart';
+import 'package:ledger_loans/calc/loan_plan.dart';
 
 import '../../../core/widgets/icons.dart';
 import '../../../core/widgets/shown_amounts.dart';
