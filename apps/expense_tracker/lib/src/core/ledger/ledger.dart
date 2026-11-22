@@ -44,6 +44,9 @@ export 'services/entry_validation_failure.dart';
 export 'services/integrity_service.dart'
     show IntegrityProblem, MissingAccount, MissingRefundOriginal, RecordKind;
 export 'models/models.dart';
+export 'rules/advance_rules.dart';
+export 'rules/budget_rules.dart';
+export 'rules/recurring_rules.dart';
 // The narrow parts a model takes in place of the whole ledger
 // (docs/adr/0013-models-take-what-they-use.md).
 export 'commands/attachment_commands.dart' show AttachmentCommands;
