@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/design_system/design_system.dart';
 import '../../../../core/design_system/dialogs.dart';
 import '../../../../core/diagnostics/error_log.dart';
+import '../../../../core/messages/key_failures.dart';
 import '../../../../core/messages/key_messages.dart';
 import 'lock_parts.dart';
 

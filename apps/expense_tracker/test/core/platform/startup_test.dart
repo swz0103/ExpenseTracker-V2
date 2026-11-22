@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
+import 'startup_keys.dart';
+
 const password = 'correct horse battery';
 
 /// Stands in for an Android Keystore key; a blob opens only for the
@@ -31,6 +33,8 @@ final class FakeDeviceKey implements DeviceKeyWrapper {
 }
 
 void main() {
+  group('keys', startupKeyTests);
+
   late Directory directory;
   late LedgerVault vault;
   final device = DeviceUnlock('phone-1', FakeDeviceKey());

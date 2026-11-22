@@ -6,6 +6,7 @@ import 'package:expense_tracker/src/features/backup/model/backup_manager.dart';
 import 'package:expense_tracker/src/features/lock/ui/security_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:expense_tracker/src/core/messages/key_failures.dart';
 import 'package:vault/backup_security.dart';
 
 import '../../../support/places.dart';
@@ -54,6 +55,12 @@ final class _StubBackupManager implements BackupManager {
   bool get hasPassword => password.isNotEmpty;
 
   @override
+  String get passwordRule => passwordRuleWords;
+
+  @override
+  String? refusePassword(String password) => passwordRefusal(password);
+
+  @override
   Future<void> setPassword(String next) async {
     calls++;
     password = next;
@@ -65,9 +72,7 @@ final class _StubBackupManager implements BackupManager {
     if (fails case final error?) {
       Error.throwWithStackTrace(error, StackTrace.current);
     }
-    if (current != password) {
-      throw const KeyringException(KeyringError.wrongSecret);
-    }
+    if (current != password) throw _wrong;
     password = next;
   }
 
@@ -94,9 +99,7 @@ final class _StubBackupManager implements BackupManager {
 
   @override
   Future<void> resetKeys(String? currentPassword) async {
-    if (hasPassword && currentPassword != password) {
-      throw const KeyringException(KeyringError.wrongSecret);
-    }
+    if (hasPassword && currentPassword != password) throw _wrong;
     resets.add(currentPassword);
   }
 
@@ -106,6 +109,14 @@ final class _StubBackupManager implements BackupManager {
   @override
   Future<String> restoreAnother() async => '';
 }
+
+/// A wrong current password, as EncryptedBackupManager says it.
+final _wrong = KeyRefused(
+  keyRefusal(const KeyringException(KeyringError.wrongSecret))!,
+);
+
+/// The rule's words, as the app says them.
+final passwordRuleWords = passwordRule;
 
 void main() {
   Future<void> show(
@@ -237,7 +248,7 @@ void main() {
       ..fails = const FileSystemException('disk full');
     await show(tester, backupManager);
     await change(tester, ['old secret', 'new secret', 'new secret']);
-    expect(find.textContaining('沒有完成（'), findsOneWidget);
+    expect(find.text('沒有完成，請再試一次'), findsOneWidget);
     expect(backupManager.password, 'old secret');
   });
 

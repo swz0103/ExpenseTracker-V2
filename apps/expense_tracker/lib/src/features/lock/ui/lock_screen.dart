@@ -8,6 +8,7 @@ import '../../backup/model/drive_backup.dart';
 import '../../backup/model/restore_sources.dart';
 import '../../../core/platform/startup.dart';
 import '../../../core/design_system/dialogs.dart';
+import '../../../core/messages/key_failures.dart';
 import '../../../core/messages/key_messages.dart';
 import 'views/lock_parts.dart';
 import 'views/recovery_view.dart';
@@ -266,7 +267,9 @@ class _LockScreenState extends State<LockScreen> {
           : startup.unlockWithPassword(secret));
     } on Object catch (error) {
       // Said to the person by its kind, in words.
-      _fail(describeUnlockFailure(error, recovery: recovery));
+      _fail(
+        describeUnlockFailure(error, recovery: recovery) ?? _unforeseen(error),
+      );
     }
   }
 
@@ -404,6 +407,13 @@ class _LockScreenState extends State<LockScreen> {
         : ' · ${(file.size / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${formatYMd(at)} '
         '${two(at.hour)}:${two(at.minute)}$size';
+  }
+
+  /// A failure not foreseen: noted for diagnostics, said without its own
+  /// words.
+  static String _unforeseen(Object error) {
+    ErrorLog.instance.record(KeyWords.unforeseenHeading, error);
+    return KeyWords.unforeseen(ErrorLog.describe(error));
   }
 
   void _fail(String problem) {

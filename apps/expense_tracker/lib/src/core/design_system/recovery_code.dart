@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-import '../platform/sensitive_clipboard.dart';
 import 'glyphs.dart';
 import 'theme.dart';
 import 'design_system.dart';
 import 'shape.dart';
 import 'spacing.dart';
+
+/// How a recovery code is copied: as a secret, flagged sensitive and
+/// taken off the clipboard after a minute (`SensitiveClipboard.copy`, set
+/// at start); a plain copy where nothing is set, as in the preview.
+Future<void> Function(String code) copyRecoveryCode = (code) =>
+    Clipboard.setData(ClipboardData(text: code));
 
 /// The gold of the recovery code, on 安全 and wherever a new one is shown.
 const recoveryColor = Palette.gold;
@@ -40,7 +46,7 @@ class _RecoveryPanelState extends State<_RecoveryPanel> {
   /// Copied as a secret: flagged sensitive, and taken off the clipboard
   /// after a minute.
   Future<void> _copy() async {
-    await SensitiveClipboard.copy(widget.code);
+    await copyRecoveryCode(widget.code);
     if (mounted) setState(() => _copied = true);
   }
 

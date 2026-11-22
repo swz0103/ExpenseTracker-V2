@@ -4,6 +4,7 @@ import 'package:core/foundation_values.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
+import '../../../core/messages/key_failures.dart' as words;
 import '../../../core/platform/startup.dart';
 import 'backup_manager.dart';
 import '../../../core/time/app_clock.dart';
@@ -283,11 +284,29 @@ final class EncryptedBackupManager implements BackupManager {
   bool get passwordBelowRule => hasPassword && _startup.passwordBelowRule;
 
   @override
+  String get passwordRule => words.passwordRule;
+
+  @override
+  String? refusePassword(String password) => words.passwordRefusal(password);
+
+  /// Runs [change], a refusal by the keys said in words ([KeyRefused]).
+  static Future<T> _said<T>(Future<T> Function() change) async {
+    try {
+      return await change();
+    } on Exception catch (error) {
+      final said = words.keyRefusal(error);
+      if (said == null) rethrow;
+      throw KeyRefused(said);
+    }
+  }
+
+  @override
   bool get hasBackupPassphrase => _vault.keys.keyring.hasPassphrase;
 
   @override
-  Future<void> setBackupPassphrase(String passphrase) async =>
-      _vault.updateKeys(await _vault.keys.setPassphrase(passphrase));
+  Future<void> setBackupPassphrase(String passphrase) => _said(
+    () async => _vault.updateKeys(await _vault.keys.setPassphrase(passphrase)),
+  );
 
   @override
   Future<void> removeBackupPassphrase() =>
@@ -299,7 +318,7 @@ final class EncryptedBackupManager implements BackupManager {
   @override
   Future<void> resetKeys(String? currentPassword) async {
     await _beforeLock?.call();
-    await _startup.resetKeys(password: currentPassword);
+    await _said(() => _startup.resetKeys(password: currentPassword));
   }
 
   @override
@@ -309,10 +328,10 @@ final class EncryptedBackupManager implements BackupManager {
   }
 
   @override
-  Future<void> changePassword(String current, String next) async {
+  Future<void> changePassword(String current, String next) => _said(() async {
     await _startup.codec.unlockWithPassword(_vault.keys.keyring, current);
     await _vault.updateKeys(await _vault.keys.changePassword(next));
-  }
+  });
 
   @override
   Future<String> newRecoveryCode() async {

@@ -75,6 +75,13 @@ final class DemoBackupManager implements BackupManager {
   @override
   bool get passwordBelowRule => false;
 
+  /// The preview keeps no keys, so holds no password to any rule.
+  @override
+  String get passwordRule => '';
+
+  @override
+  String? refusePassword(String password) => null;
+
   var _passphrase = false;
 
   @override

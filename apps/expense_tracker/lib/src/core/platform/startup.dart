@@ -11,6 +11,7 @@ import 'package:vault/ledger_vault.dart';
 import '../diagnostics/error_log.dart';
 import '../time/app_clock.dart';
 import 'memory_keystore.dart';
+import 'quick_key.dart';
 
 /// What a backup says of itself before any key: when it was taken, its
 /// records, and what opens it. Named here for the screens, which do not
@@ -78,13 +79,16 @@ final class Startup extends ChangeNotifier {
   /// by itself while the key never lies on disk in plain form; elsewhere
   /// [MemoryKeystore].
   Startup(this._vault, {this.device, this.check, DeviceKeyWrapper? quickKey})
-    : _quickKeystore = quickKey ?? MemoryKeystore.instance {
+    : _quick = QuickKey(_vault.directory, quickKey ?? MemoryKeystore.instance) {
     _state = _locked();
   }
 
   final LedgerVault _vault;
   final DeviceUnlock? device;
-  final DeviceKeyWrapper _quickKeystore;
+
+  /// The key of a ledger opened without a password, sealed, until the
+  /// person sets a password.
+  final QuickKey _quick;
 
   /// Throws for a record the app cannot read, so a backup holding one is
   /// refused rather than restored.
@@ -100,26 +104,12 @@ final class Startup extends ChangeNotifier {
   /// Opens and checks the ledger's keys.
   KeyringCodec get codec => _vault.codec;
 
-  /// The key of a ledger opened without a password, sealed by the
-  /// [_quickKeystore], until the person sets a password.
-  File get _sealedKey => File('${directory.path}/quick-open.sealed');
-
-  /// Where versions before 0.23 kept that key in plain form. Read once,
-  /// sealed, then overwritten and deleted ([quickSecret]).
-  File get _plainKey => File('${directory.path}/quick-open.key');
-
-  /// A new sealed key written before the keys are reset, named over
-  /// [_sealedKey] after ([resetKeys]).
-  File get _nextSealedKey => File('${_sealedKey.path}.next');
-
-  static final _quickContext = utf8.encode('expense_tracker/quick-open');
-
   /// Kept when the person turned the fingerprint down, so a password
   /// unlock stops asking; asking for the fingerprint drops it.
   File get _noDevice => File('${directory.path}/no-fingerprint');
 
   /// The ledger opens without asking: no password has been set.
-  bool get passwordless => _sealedKey.existsSync() || _plainKey.existsSync();
+  bool get passwordless => _quick.exists;
 
   /// Creates the ledger without asking for anything: a random key, sealed
   /// by the phone's Keystore, opens it, and a password can be set later.
@@ -132,10 +122,9 @@ final class Startup extends ChangeNotifier {
     final secret = _newSecret();
     // Kept aside until the ledger it opens exists: a key with no ledger
     // would say there is no password for a ledger never made.
-    final pending = File('${_sealedKey.path}.new');
-    await _writeSealed(pending, secret);
+    await _quick.write(_quick.pending, secret);
     final (open, recovery) = await _vault.create(secret);
-    await pending.rename(_sealedKey.path);
+    await _quick.pending.rename(_quick.sealed.path);
     _recovery = recovery;
     await recoveryGiven.writeAsString('', flush: true);
     _fresh = true;
@@ -203,17 +192,6 @@ final class Startup extends ChangeNotifier {
     return base64Url.encode([for (var i = 0; i < 32; i++) random.nextInt(256)]);
   }
 
-  /// Seals [secret] with the phone's Keystore into [file], written in full
-  /// before anything names it.
-  Future<void> _writeSealed(File file, String secret) async {
-    final blob = await _quickKeystore.wrap(utf8.encode(secret), _quickContext);
-    await file.writeAsBytes(blob, flush: true);
-  }
-
-  Future<String> _readSealed(File file) async => utf8.decode(
-    await _quickKeystore.unwrap(await file.readAsBytes(), _quickContext),
-  );
-
   /// Opens a ledger set up without a password. One whose recovery code
   /// was never shown gets a new one, shown once ([takeRecoveryCode]): the
   /// copy Android takes to the person's Google account opens with it.
@@ -231,11 +209,11 @@ final class Startup extends ChangeNotifier {
   /// A reset of the keys stopped before its new sealed key was named:
   /// whichever of the two opens the keyring is the ledger's.
   Future<OpenVault> _openWithQuickKey() async {
-    final next = _nextSealedKey;
+    final next = _quick.next;
     if (next.existsSync()) {
       try {
-        final open = await _vault.unlockWithPassword(await _readSealed(next));
-        await next.rename(_sealedKey.path);
+        final open = await _vault.unlockWithPassword(await _quick.read(next));
+        await next.rename(_quick.sealed.path);
         return open;
       } on KeyringException catch (error) {
         // The reset never finished: the old key is still the ledger's.
@@ -249,35 +227,10 @@ final class Startup extends ChangeNotifier {
   /// The key a ledger without a password opens with. One kept in plain
   /// form by an earlier version is sealed now, and the plain file
   /// overwritten and deleted.
-  Future<String> quickSecret() async {
-    final plain = _plainKey;
-    if (plain.existsSync()) {
-      final secret = (await plain.readAsString()).trim();
-      final pending = File('${_sealedKey.path}.new');
-      await _writeSealed(pending, secret);
-      await pending.rename(_sealedKey.path);
-      await _shred(plain);
-      return secret;
-    }
-    return _readSealed(_sealedKey);
-  }
-
-  /// Overwrites [file] with zeros before deleting it, so its words are
-  /// not left in the free space of the file system it was on.
-  static Future<void> _shred(File file) async {
-    if (!file.existsSync()) return;
-    final length = await file.length();
-    await file.writeAsBytes(Uint8List(length), flush: true);
-    await file.delete();
-  }
+  Future<String> quickSecret() => _quick.secret();
 
   /// Drops the kept key once the person has set a password.
-  Future<void> forgetQuickKey() async {
-    await _shred(_plainKey);
-    for (final file in [_sealedKey, _nextSealedKey]) {
-      if (await file.exists()) await file.delete();
-    }
-  }
+  Future<void> forgetQuickKey() => _quick.forget();
 
   /// Creates the ledger. Returns the recovery code, to show once; it is
   /// also kept for [takeRecoveryCode].
@@ -435,10 +388,9 @@ final class Startup extends ChangeNotifier {
   Future<void> openWithoutPassword() async {
     final open = (_state as Ready).vault;
     final secret = _newSecret();
-    final pending = File('${_sealedKey.path}.new');
-    await _writeSealed(pending, secret);
+    await _quick.write(_quick.pending, secret);
     await open.updateKeys(await open.keys.changePassword(secret));
-    await pending.rename(_sealedKey.path);
+    await _quick.pending.rename(_quick.sealed.path);
     _belowRule = false;
     _newPassword = false;
     notifyListeners();
@@ -463,17 +415,15 @@ final class Startup extends ChangeNotifier {
       secret = password;
     }
     final reset = await open.keys.reset(password: secret);
-    if (quick) await _writeSealed(_nextSealedKey, secret);
+    if (quick) await _quick.write(_quick.next, secret);
     final OpenVault next;
     try {
       next = await _vault.resetKeys(open, reset.unlocked);
     } on Object {
-      if (quick && _nextSealedKey.existsSync()) {
-        await _nextSealedKey.delete();
-      }
+      if (quick && _quick.next.existsSync()) await _quick.next.delete();
       rethrow;
     }
-    if (quick) await _nextSealedKey.rename(_sealedKey.path);
+    if (quick) await _quick.next.rename(_quick.sealed.path);
     await recoveryGiven.writeAsString('', flush: true);
     _recovery = reset.recoveryCode;
     _keysReset = true;
@@ -592,31 +542,6 @@ final class Startup extends ChangeNotifier {
     }
   }
 
-  /// A set-up without a password stopped part way: the key kept aside
-  /// is the ledger's when the ledger was made, and nothing otherwise. A
-  /// plain one left by an earlier version is never named, only removed.
-  void _settleQuickKey() {
-    final pending = File('${_sealedKey.path}.new');
-    if (pending.existsSync()) {
-      if (_vault.exists && !passwordless) {
-        pending.renameSync(_sealedKey.path);
-      } else {
-        pending.deleteSync();
-      }
-    }
-    final plainPending = File('${_plainKey.path}.new');
-    if (plainPending.existsSync()) {
-      if (_vault.exists && !passwordless) {
-        // Sealed when the ledger opens (quickSecret).
-        plainPending.renameSync(_plainKey.path);
-      } else {
-        plainPending
-          ..writeAsBytesSync(Uint8List(plainPending.lengthSync()), flush: true)
-          ..deleteSync();
-      }
-    }
-  }
-
   void _ready(OpenVault open) {
     _opening = false;
     _state = Ready(open);
@@ -624,7 +549,7 @@ final class Startup extends ChangeNotifier {
   }
 
   StartupState _locked() {
-    _settleQuickKey();
+    _quick.settle(ledgerExists: _vault.exists);
     if (!_vault.exists) return const NeedsSetup();
     return Locked(
       deviceUnlock: device != null,

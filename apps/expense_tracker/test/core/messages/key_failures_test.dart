@@ -1,17 +1,16 @@
 import 'dart:io';
 
-import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
-import 'package:expense_tracker/src/core/messages/key_messages.dart';
+import 'package:expense_tracker/src/core/messages/key_failures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
 /// What a failed unlock or restore says: by its kind, in words, never the
-/// error as it is or an internal code; one not foreseen is noted for
-/// diagnostics too.
+/// error as it is or an internal code; one not foreseen is left to the
+/// caller.
 void main() {
-  String say(Object error, {bool recovery = false}) =>
+  String? say(Object error, {bool recovery = false}) =>
       describeUnlockFailure(error, recovery: recovery);
 
   test('a wrong secret names which one', () {
@@ -67,12 +66,8 @@ void main() {
     expect(say(none), '這本帳本沒有密碼，請改用救援碼');
   });
 
-  test('one not foreseen is said without its words, and noted', () {
-    final before = ErrorLog.instance.entries.length;
-    final said = say(StateError('at /data/user/0/secret/path 1234'));
-    expect(said, startsWith('無法開啟帳本（'));
-    expect(said, isNot(contains('/data/user')));
-    expect(ErrorLog.instance.entries.length, before + 1);
+  test('one not foreseen is left to the caller', () {
+    expect(say(StateError('at /data/user/0/secret/path 1234')), isNull);
   });
 
   group('the password rule (SEC-02, SEC-13)', () {
@@ -82,11 +77,6 @@ void main() {
       expect(passwordRefusal('1234567'), '至少要 8 個字');
       expect(passwordRefusal('12345678'), '不能全是數字，請加上文字或符號');
       expect(passwordRefusal('apple pie'), isNull);
-    });
-
-    test('a password in use below the rule is told apart', () {
-      expect(passwordBelowRule('123456'), isTrue);
-      expect(passwordBelowRule('correct horse'), isFalse);
     });
 
     test('a failed change is said by the error\'s kind, not its words', () {
@@ -113,9 +103,11 @@ void main() {
         '至少要 8 個字',
       );
       // A StateError that merely mentions the word is not taken for it.
+      expect(describeKeyProblem(StateError('wrongSecret')), '沒有完成，請再試一次');
+      expect(keyRefusal(StateError('wrongSecret')), isNull);
       expect(
-        describeKeyProblem(StateError('wrongSecret')),
-        startsWith('沒有完成（'),
+        keyRefusal(const KeyringException(KeyringError.wrongSecret)),
+        '目前的密碼不正確',
       );
     });
   });

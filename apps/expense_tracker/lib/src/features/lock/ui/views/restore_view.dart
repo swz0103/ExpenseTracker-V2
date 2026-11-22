@@ -112,6 +112,7 @@ class RestoreView extends StatelessWidget {
         ),
       ],
       action: '還原',
+      actionKey: Keys.restoreGo,
       busy: busy,
       onSubmit: onSubmit,
       problem: problem,

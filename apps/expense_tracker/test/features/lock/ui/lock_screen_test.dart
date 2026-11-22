@@ -13,6 +13,7 @@ import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
 import '../../../support/fake_drive.dart';
+import '../../../support/places.dart';
 
 const password = 'correct horse battery';
 
@@ -513,11 +514,10 @@ void main() {
         find.textContaining('要還原的備份：0 筆（2026/11/3 21:03）'),
         findsOneWidget,
       );
-      await tester.tap(find.text('取消'));
-      await tester.pumpAndSettle();
+      await go(tester, ['取消']);
       expect(startup.state, isA<Locked>());
 
-      await tester.tap(find.widgetWithText(FilledButton, '還原'));
+      await tester.tap(find.byKey(Keys.restoreGo));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(Keys.confirm));
       await tester.pump();

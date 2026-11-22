@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
+import 'package:expense_tracker/src/features/backup/model/backup_manager.dart';
 import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
@@ -119,7 +120,9 @@ void main() {
     final backupManager = EncryptedBackupManager(startup, vault);
     await expectLater(
       backupManager.changePassword('not the password at all', changed),
-      throwsA(isA<KeyringException>()),
+      throwsA(
+        isA<KeyRefused>().having((e) => e.message, 'message', '目前的密碼不正確'),
+      ),
     );
     await backupManager.changePassword(password, changed);
     final newCode = await backupManager.newRecoveryCode();

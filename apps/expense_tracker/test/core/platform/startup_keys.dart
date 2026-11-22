@@ -34,7 +34,10 @@ final class FakeKeystore implements DeviceKeyWrapper {
   }
 }
 
-void main() {
+/// The keys of a ledger at start: the sealed key without a password, the
+/// recovery code, restoring and resetting (SEC-01, SEC-04, SEC-06, SEC-09,
+/// F91); run by startup_test.dart.
+void startupKeyTests() {
   late Directory directory;
   late LedgerVault vault;
   late FakeKeystore keystore;

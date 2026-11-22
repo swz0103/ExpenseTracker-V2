@@ -68,6 +68,9 @@ abstract final class Keys {
   static const resetKeys = ValueKey('security:reset-keys');
   static const resetGo = ValueKey('security:reset-go');
 
+  /// The restore form's 還原.
+  static const restoreGo = ValueKey('lock:restore-go');
+
   /// The screen asking for a new password after the recovery code: its
   /// button, and the way to choose no password.
   static const newPassword = ValueKey('keys:new-password');

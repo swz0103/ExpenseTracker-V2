@@ -1,3 +1,14 @@
+/// A change of the keys refused, with [message] to tell the person: the
+/// current password wrong, or a new one against the password rule.
+final class KeyRefused implements Exception {
+  const KeyRefused(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'KeyRefused';
+}
+
 /// The ledger's keys and backups, for the settings screen. Only the
 /// encrypted ledger has one; the preview has none.
 abstract interface class BackupManager {
@@ -39,13 +50,20 @@ abstract interface class BackupManager {
   /// settings suggest changing it.
   bool get passwordBelowRule;
 
-  /// Gives a ledger without a password the password [next]. Throws a
-  /// `KeyringException` (weakPassword) for one against the policy.
+  /// The password rule, said under the fields where one is set.
+  String get passwordRule;
+
+  /// Why [password] cannot be set as a password or backup passphrase, or
+  /// null when it can: the vault's one rule.
+  String? refusePassword(String password);
+
+  /// Gives a ledger without a password the password [next]. Throws
+  /// [KeyRefused] for one against the rule.
   Future<void> setPassword(String next);
 
-  /// Replaces the password; [current] must open the ledger. Throws a
-  /// `KeyringException`: wrongSecret for [current], weakPassword for
-  /// [next]. Backups already taken keep opening as they did.
+  /// Replaces the password; [current] must open the ledger. Throws
+  /// [KeyRefused] for a wrong [current] or a [next] against the rule.
+  /// Backups already taken keep opening as they did.
   Future<void> changePassword(String current, String next);
 
   /// Replaces the recovery code and returns the new one, to show once.

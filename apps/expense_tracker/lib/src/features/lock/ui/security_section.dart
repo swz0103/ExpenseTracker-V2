@@ -40,11 +40,12 @@ class _SecuritySectionState extends State<SecuritySection> {
         color: SettingsColors.password,
         title: first ? KeyWords.setPassword : KeyWords.changePassword,
         detail: first
-            ? passwordRule
-            : '$passwordRule。${KeyWords.passwordScope}',
+            ? backupManager.passwordRule
+            : '${backupManager.passwordRule}。${KeyWords.passwordScope}',
         askCurrent: !first,
         action: first ? KeyWords.set : KeyWords.change,
         actionKey: Keys.changePassword,
+        refuse: backupManager.refusePassword,
         submit: (current, next) => first
             ? backupManager.setPassword(next)
             : backupManager.changePassword(current, next),
@@ -98,9 +99,10 @@ class _SecuritySectionState extends State<SecuritySection> {
         glyph: Glyph.safe,
         color: SettingsColors.backup,
         title: KeyWords.passphrase,
-        detail: '${KeyWords.passphraseWhy}$passwordRule。',
+        detail: '${KeyWords.passphraseWhy}${backupManager.passwordRule}。',
         askCurrent: false,
         action: KeyWords.set,
+        refuse: backupManager.refusePassword,
         submit: (_, next) => backupManager.setBackupPassphrase(next),
         extra: has
             ? PanelButton(
@@ -129,7 +131,7 @@ class _SecuritySectionState extends State<SecuritySection> {
       showNote(context, KeyWords.passphraseRemoved);
     } on Object catch (error) {
       ErrorLog.instance.record('備份密碼', error);
-      if (mounted) showNote(context, describeKeyProblem(error));
+      if (mounted) showNote(context, _said(error));
     }
   }
 
@@ -148,6 +150,7 @@ class _SecuritySectionState extends State<SecuritySection> {
         askNew: false,
         action: KeyWords.resetGo,
         actionKey: Keys.resetGo,
+        refuse: backupManager.refusePassword,
         submit: (current, _) =>
             backupManager.resetKeys(backupManager.hasPassword ? current : null),
       ),
@@ -258,6 +261,7 @@ class _SecretPanel extends StatefulWidget {
     required this.askCurrent,
     required this.action,
     required this.submit,
+    required this.refuse,
     this.askNew = true,
     this.actionKey,
     this.extra,
@@ -273,8 +277,11 @@ class _SecretPanel extends StatefulWidget {
   final Key? actionKey;
 
   /// Does the change with the current and the new secret; throws when it
-  /// cannot (said by [describeKeyProblem]).
+  /// cannot ([KeyRefused] says why in words).
   final Future<void> Function(String current, String next) submit;
+
+  /// Why a new secret cannot be set, or null (the password rule).
+  final String? Function(String secret) refuse;
 
   /// Another button beside the main one, such as 停用.
   final Widget? extra;
@@ -305,7 +312,7 @@ class _SecretPanelState extends State<_SecretPanel> {
         setState(() => _problem = KeyWords.mismatch);
         return;
       }
-      if (passwordRefusal(_next.text) case final refusal?) {
+      if (widget.refuse(_next.text) case final refusal?) {
         setState(() => _problem = refusal);
         return;
       }
@@ -322,7 +329,7 @@ class _SecretPanelState extends State<_SecretPanel> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _problem = describeKeyProblem(error);
+          _problem = _said(error);
         });
       }
     }
@@ -393,3 +400,8 @@ class _SecretPanelState extends State<_SecretPanel> {
     );
   }
 }
+
+/// What the person is told of [error]: the keys' own words when they
+/// refused, general ones otherwise.
+String _said(Object error) =>
+    error is KeyRefused ? error.message : KeyWords.notDone;
