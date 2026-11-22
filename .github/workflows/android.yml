@@ -7,11 +7,16 @@ name: Android APK
 # push. Pull requests and manual runs only check that it builds, signed
 # with the debug key.
 #
-# Three jobs, each with only what it needs: `build` reads the repository
+# Four jobs, each with only what it needs: `build` reads the repository
 # and never sees the signing key (the build runs Gradle plugins and
 # packages' code); `sign` sees only the key and the built APK, and checks
 # nothing out; `publish` is the only one that may write (the release).
-# `sign` and `publish` run only for a validated push to main.
+# `sign` and `publish` run only for a validated push to main. The key is
+# a secret of the GitHub Environment `release-signing` (settings of the
+# repository, with required reviewers and main as the only branch), so
+# only `sign` can read it, and only once approved. `play` builds the
+# Google Play flavor as an App Bundle and checks that it cannot update
+# itself; it is uploaded nowhere (the app is not on Google Play yet).
 on:
   workflow_run:
     workflows: ['V2 integration validation']
@@ -87,7 +92,13 @@ jobs:
           version=$(sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
           # Phones in use are 64-bit ARM: one architecture keeps the download
           # near 28 MB instead of 78 MB. Symbols stay out of the APK.
-          flutter build apk --release --build-number=${{ github.run_number }} \
+          # The sideload flavor is the one published here (it updates
+          # itself); `play` is built by its own job below. A release build
+          # without the release key fails unless asked for: this one is
+          # debug-signed on purpose, and `sign` re-signs it.
+          flutter build apk --release --flavor sideload \
+            -PallowDebugSignedRelease=true \
+            --build-number=${{ github.run_number }} \
             --dart-define=APP_VERSION="$version" \
             --dart-define=APP_BUILD=${{ github.run_number }} \
             --dart-define=APP_COMMIT="${SOURCE_SHA:0:7}" \
@@ -95,8 +106,15 @@ jobs:
             --split-debug-info="$RUNNER_TEMP/symbols"
           # Signed with the debug key here; `sign` puts the release key on
           # it for main.
-          cp build/app/outputs/flutter-apk/app-release.apk \
+          cp build/app/outputs/flutter-apk/app-sideload-release.apk \
             "$RUNNER_TEMP/ExpenseTracker.apk"
+          # The sideload build must still be able to install its updates.
+          aapt2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          if ! "$aapt2" dump permissions "$RUNNER_TEMP/ExpenseTracker.apk" |
+              grep -q 'android.permission.REQUEST_INSTALL_PACKAGES'; then
+            echo '::error::The sideload APK lost REQUEST_INSTALL_PACKAGES: it could not update itself.'
+            exit 1
+          fi
           echo "$version" > "$RUNNER_TEMP/version.txt"
           # What this version changes, shown before updating (whats_new.txt).
           cp whats_new.txt "$RUNNER_TEMP/whats_new.txt"
@@ -112,9 +130,10 @@ jobs:
       - name: Kotlin unit tests
         # The Android side's own checks, such as the inbox sealing the
         # vault's worked example the same (InboxWriterTest.kt). The Android
-        # build tools make unit tests for the debug build only.
+        # build tools make unit tests for the debug build only; the update
+        # checks (UpdateGateTest.kt) belong to the sideload flavor.
         working-directory: apps/expense_tracker/android
-        run: ./gradlew --no-daemon --quiet :app:testDebugUnitTest
+        run: ./gradlew --no-daemon --quiet :app:testSideloadDebugUnitTest :app:testPlayDebugUnitTest
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
@@ -187,6 +206,87 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+  play:
+    # The play flavor, for Google Play: an App Bundle, built unsigned of
+    # any release key (debug-signed, on purpose) and kept nowhere. It
+    # checks what Google Play would reject: the bundle asks for no
+    # REQUEST_INSTALL_PACKAGES and holds none of the self-update code.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    concurrency:
+      group: >-
+        ${{ github.event_name == 'pull_request' && format('android-play-pr-{0}', github.ref) ||
+        format('android-play-{0}', github.run_id) }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+      # Gradle's downloads and build cache; v6.1.0.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('apps/expense_tracker/android/**/*.gradle*', 'apps/expense_tracker/android/**/gradle-wrapper.properties', 'apps/expense_tracker/android/gradle.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+      - name: Build the App Bundle
+        working-directory: apps/expense_tracker
+        run: |
+          flutter config --no-analytics
+          flutter pub get --enforce-lockfile
+          flutter build appbundle --release --flavor play \
+            -PallowDebugSignedRelease=true \
+            --build-number=${{ github.run_number }} \
+            --target-platform android-arm64
+      - name: The play flavor cannot update itself
+        # No aapt2 on a bundle: the merged manifest Gradle made (text) and
+        # the bundle's own manifest (protobuf, whose strings are plain) are
+        # both searched. The permissions the app does need are looked for
+        # too, so a manifest that could not be read fails rather than
+        # passing as empty.
+        working-directory: apps/expense_tracker
+        run: |
+          set -euo pipefail
+          aab=build/app/outputs/bundle/playRelease/app-play-release.aab
+          merged=build/app/intermediates/merged_manifests/playRelease/processPlayReleaseManifest/AndroidManifest.xml
+          test -s "$aab"
+          test -s "$merged"
+          bundled="$RUNNER_TEMP/bundle-manifest.bin"
+          unzip -p "$aab" base/manifest/AndroidManifest.xml > "$bundled"
+          for manifest in "$merged" "$bundled"; do
+            grep -aq 'android.permission.INTERNET' "$manifest" || {
+              echo "::error::$manifest could not be read (no INTERNET permission in it)."
+              exit 1
+            }
+            if grep -aq 'REQUEST_INSTALL_PACKAGES' "$manifest"; then
+              echo "::error::$manifest asks for REQUEST_INSTALL_PACKAGES: Google Play rejects an app that installs packages itself."
+              exit 1
+            fi
+          done
+          # Nor the installer's channel method or the update feed's address
+          # in the code.
+          if unzip -p "$aab" 'base/dex/*.dex' | grep -aq 'installApk\|releases/latest/download/update.json'; then
+            echo '::error::The play bundle still holds the self-update code.'
+            exit 1
+          fi
+      - name: About shows no update in the play flavor
+        working-directory: apps/expense_tracker
+        run: flutter test --flavor play test/app/about_flavor_test.dart
+
   sign:
     # The release key goes on the APK the build made, in a job that checks
     # nothing out and runs nothing from the repository or its packages.
@@ -194,6 +294,11 @@ jobs:
     if: github.event_name == 'workflow_run'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # The key lives in this Environment's secrets, not the repository's:
+    # the owner makes it in the repository's settings (Environments), with
+    # required reviewers and a deployment branch rule for main, and moves
+    # the four ANDROID_PREVIEW_* secrets into it.
+    environment: release-signing
     permissions:
       contents: read
     concurrency:
@@ -263,8 +368,9 @@ jobs:
           retention-days: 3
 
   publish:
-    # Only a validated push to main is published, and only once signed.
-    needs: sign
+    # Only a validated push to main is published, and only once signed and
+    # once the play flavor has passed too (nothing of it is published).
+    needs: [sign, play]
     if: github.event_name == 'workflow_run'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -287,7 +393,9 @@ jobs:
       - name: Tag the version
         # The version gets a tag of its own, v<version>, on the first build
         # published as it: the code behind the APK. It is never moved, and
-        # stays until a newer version is published (the last step). The
+        # no release or tag is ever deleted: every version stays on the
+        # releases page, so a bad one can be rolled back to the one before
+        # (the app reads releases/latest, which is the newest). The
         # books and backups each version writes are kept in the repository
         # (test/fixtures/books, docs/adr/0010-data-that-lasts.md).
         env:
@@ -346,31 +454,3 @@ jobs:
             "$RUNNER_TEMP/apk/test-ledger.etbk"
           gh release edit "$tag" --repo "$repo" --draft=false --latest \
             --notes "$notes"
-      - name: Keep only the newest version
-        # Only the version just published keeps a release and a tag: older
-        # releases are deleted with their tags, and so are older v<version>
-        # tags without one, and the moving android-latest of old. The app
-        # reads releases/latest, so phones on any version still find this
-        # one. Runs only once the new release is in place (the step above
-        # stops the job otherwise), so there is always one to download.
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          repo="$GITHUB_REPOSITORY"
-          keep="v$VERSION"
-          gh api --paginate "repos/$repo/releases" --jq '.[].tag_name' |
-            while read -r tag; do
-              if [ "$tag" != "$keep" ]; then
-                echo "Deleting the release $tag and its tag."
-                gh release delete "$tag" --repo "$repo" --cleanup-tag --yes
-              fi
-            done
-          gh api --paginate "repos/$repo/git/matching-refs/tags/" --jq '.[].ref' |
-            sed 's#^refs/tags/##' |
-            while read -r tag; do
-              if [ "$tag" != "$keep" ] && { [ "$tag" = android-latest ] || [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; }; then
-                echo "Deleting the tag $tag."
-                gh api -X DELETE "repos/$repo/git/refs/tags/$tag"
-              fi
-            done

@@ -1,0 +1,33 @@
+name: 回報問題
+description: App 的行為不對、當機、數字算錯
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        安全相關的問題（帳本外洩、備份、更新檔）請不要在這裡公開回報，見 SECURITY.md。
+        貼上畫面或紀錄前，請先把真實的金額與名稱遮掉。
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 「設定 › 關於」顯示的版本與建置編號
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 怎麼重現
+      description: 一步一步寫
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 預期的結果與實際的結果
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: 手機與 Android 版本
