@@ -332,10 +332,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   static void check(String collection, String id, String body) {
     try {
       _check(collection, id, body);
-    } on Object catch (e) {
-      throw FormatException(
-        '$collection $id: ${e is FormatException ? e.message : e.runtimeType}',
-      );
+    } on Object catch (slip) {
+      final what = slip is FormatException ? slip.message : slip.runtimeType;
+      throw FormatException('$collection $id: $what');
     }
   }
 
