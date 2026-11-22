@@ -1,6 +1,7 @@
 // Loan plans (first and last payment, total interest) and how a loan
 // stands in the balances. Hand arithmetic is beside each figure.
-import 'package:domain/loans.dart';
+import 'package:ledger_loans/calc/loan_plan.dart';
+import 'package:ledger_loans/model/rate.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/features/debts/model/debts.dart';
 import 'package:flutter_test/flutter_test.dart';
