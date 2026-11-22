@@ -3,11 +3,6 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-/// Packages that exist on disk but are not yet registered in
-/// tooling/run-host-checks.ps1 / the integration workflow. Empty once the
-/// CI owner registers tooling/rules; delete this set then.
-const pendingRegistration = {'tooling/rules'};
-
 /// A package left out of the host script or the workflow would never be
 /// analyzed or tested (health check G1-15). Kept from the former
 /// workflow_inventory_test; its checks of the workflow's triggers, job
@@ -28,10 +23,7 @@ void main() {
     final covered = RegExp(
       r"(?:-Package |')((?:apps|packages|infrastructure|tooling)/[a-z_]+)'?",
     ).allMatches(workflow).map((m) => m.group(1)!).toSet();
-    expect(
-      covered.union(pendingRegistration),
-      registered.union(pendingRegistration),
-    );
+    expect(covered, registered);
   });
 
   test('every package on disk is checked by the host script', () {
@@ -47,6 +39,6 @@ void main() {
         }
       }
     }
-    expect(registered.union(pendingRegistration), onDisk);
+    expect(registered, onDisk);
   });
 }
