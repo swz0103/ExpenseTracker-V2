@@ -258,8 +258,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
 }
 
 /// A rate as 「+8.4%」.
-String yearlyRate(double rate) =>
-    '${rate > 0 ? '+' : ''}${(rate * 100).toStringAsFixed(1)}%';
+String yearlyRate(double rate) => ratioPercent(rate);
 
 /// A grey pill with words, and a square of [color] before them.
 class _Chip extends StatelessWidget {
@@ -333,8 +332,7 @@ class _StackPainter extends CustomPainter {
   final Color rule;
   final Color band;
 
-  static String _short(int v) =>
-      v >= 1000 ? '${(v / 1000).toStringAsFixed(1)}k' : '$v';
+  static String _short(int v) => countTick(v);
 
   @override
   void paint(Canvas canvas, Size size) {

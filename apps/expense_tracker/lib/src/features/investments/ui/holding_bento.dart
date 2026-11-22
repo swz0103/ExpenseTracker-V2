@@ -180,7 +180,7 @@ class _PriceChartState extends State<_PriceChart> {
 
   static DateTime _day(DateTime d) => DateTime.utc(d.year, d.month, d.day);
 
-  String _price(double p) => p.toStringAsFixed(p < 100 ? 2 : 0);
+  String _price(double p) => stockPrice(p);
 
   /// The line itself, at least two closes: a touch reads the close under
   /// the finger, or a buy within its reach.
@@ -255,7 +255,7 @@ class _PriceChartState extends State<_PriceChart> {
   Widget _change(double from, double to, String prefix) {
     final up = to >= from;
     return Text(
-      '$prefix${up ? '+' : ''}${((to - from) * 100 / from).toStringAsFixed(1)}%',
+      '$prefix${ratioPercent((to - from) / from)}',
       style: TextStyle(
         fontWeight: FontWeight.w800,
         color: up ? AppColors.rise : AppColors.fall,
@@ -463,7 +463,7 @@ class _LinePainter extends CustomPainter {
   final Color words;
   final Color onTag;
 
-  String _label(double v) => v.toStringAsFixed(v < 100 ? 1 : 0);
+  String _label(double v) => priceTick(v);
 
   @override
   void paint(Canvas canvas, Size size) {

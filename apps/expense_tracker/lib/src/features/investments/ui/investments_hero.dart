@@ -193,7 +193,7 @@ class _HoldingRow extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          RowFigure(held.price.toStringAsFixed(held.price < 100 ? 2 : 0)),
+          RowFigure(stockPrice(held.price)),
           const SizedBox(width: Space.s2),
           Container(
             width: 72,
@@ -219,7 +219,7 @@ class _HoldingRow extends StatelessWidget {
                 ),
                 if (quoted)
                   Text(
-                    '${up ? '▲' : '▼'}${perShare.abs().toStringAsFixed(2)}',
+                    '${up ? '▲' : '▼'}${priceMove(perShare)}',
                     textScaler: TextScaler.noScaling,
                     style: TextStyle(
                       fontSize: TextSize.tiny,

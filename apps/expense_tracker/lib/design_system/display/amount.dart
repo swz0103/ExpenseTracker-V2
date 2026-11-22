@@ -99,6 +99,15 @@ String countOf(int count, String unit) => '${groupDigits(count)} $unit';
 /// grouped: `128.5`, `1,045`, `23.45`. Never rounds away a real tick.
 String stockPrice(double price) => trimmedDecimals(price, 2);
 
+/// A price on a chart's axis, a tick rather than a close: one decimal
+/// under 100 (`23.5`), whole above (`129`).
+String priceTick(double price) => fixedDecimals(price, price < 100 ? 1 : 0);
+
+/// A count on a chart's axis: `850`, `1.5k` for 1,500.
+String countTick(int count) => count >= 1000
+    ? '${figures(divideRounded(count, 100), 1, grouped: false)}k'
+    : '$count';
+
 /// A share price as typed into a field: `128.5`, `194.35`, `600`.
 String plainPrice(double price) => trimmedDecimals(price, 2, grouped: false);
 

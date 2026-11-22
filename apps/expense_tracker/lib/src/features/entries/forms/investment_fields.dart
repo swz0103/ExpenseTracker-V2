@@ -73,9 +73,7 @@ final class InvestmentFields {
           TradeFigureCard(
             icon: Glyph.coins,
             label: '成交價',
-            value: _f.price == _f.price.roundToDouble()
-                ? '${_f.price.round()}'
-                : _f.price.toStringAsFixed(2),
+            value: plainPrice(_f.price),
             current: _f.shares > 0 && _f.price == 0,
             onTap: () async {
               final value = await showPriceCalculator(

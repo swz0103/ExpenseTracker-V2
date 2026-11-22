@@ -329,8 +329,7 @@ class _TradeBoard extends StatelessWidget {
     );
   }
 
-  static String _price(double p) =>
-      p == p.roundToDouble() ? groupDigits(p.round()) : p.toStringAsFixed(2);
+  static String _price(double p) => stockPrice(p);
 }
 
 class _TradeRow extends StatelessWidget {
@@ -516,7 +515,7 @@ class _PriceCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  held.price.toStringAsFixed(held.price < 100 ? 2 : 0),
+                  stockPrice(held.price),
                   style: const TextStyle(
                     fontSize: TextSize.big,
                     fontWeight: FontWeight.w800,
@@ -550,7 +549,7 @@ class _PriceCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${up ? '▲' : '▼'} ${perShare.abs().toStringAsFixed(2)}',
+                    '${up ? '▲' : '▼'} ${priceMove(perShare)}',
                     style: TextStyle(
                       fontSize: TextSize.caption,
                       color: chosenInk(tone),
