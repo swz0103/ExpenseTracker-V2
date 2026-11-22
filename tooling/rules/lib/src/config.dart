@@ -48,7 +48,7 @@ const impurePrefixes = ['package:flutter/', 'dart:io', 'dart:ui', 'dart:ffi'];
 
 /// The clock implementation: the one file of the pure packages that may
 /// call `DateTime.now()` (rule A4).
-const clockFiles = ['packages/core/lib/src/app_core/clock.dart'];
+const clockFiles = ['packages/core/lib/time/clock.dart'];
 
 /// Owners of number formatting and parsing (rule B2): the amount parser,
 /// figures and percentages of core, and how the app shows them.
