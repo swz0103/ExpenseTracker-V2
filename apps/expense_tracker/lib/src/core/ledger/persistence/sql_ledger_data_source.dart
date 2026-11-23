@@ -568,6 +568,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// The longest the screen is kept waiting while the rows of a change
   /// written apart are made: half a frame at 60 frames a second.
+  // Exception to the motion scale: a share of a frame's time, not a
+  // movement.
   static const _slice = Duration(milliseconds: 8);
 
   /// The rows [batch] puts in place and drops, handed to [put] and
