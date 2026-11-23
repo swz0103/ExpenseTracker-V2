@@ -45,6 +45,10 @@ The expectations were written against today's APIs. A fix that changes an API (f
 
 34 findings covered.
 
+## fixed in 2.0
+
+Work package 2.0 (the journal of postings) was assigned no finding of the audit, and fixes none. It adds the ten JRN rows above: the old shapes of records the journal makes visible, each posted today in a recorded form that keeps every figure as the app shows it and counted in the kept book of awkward shapes (`test/fixtures/journal/awkward_book.json`), each waiting for the owner's decision. The package's own tests: `packages/kernel/test`, `packages/ledger/postings/test`, `infrastructure/storage/test/journal_store_test.dart`, `test/core/ledger/journal/parity_test.dart`, `test/scenarios/ledger/journal/awkward_book_test.dart`, `test/core/ledger/persistence/journal_keeper_test.dart`.
+
 ## fixed in 1.1
 
 Work package 1.1 (one source for amounts). Each test below now runs in the ordinary suite and states the corrected behaviour; the four that were known-defect tests keep their place in `p1_1_amounts_test.dart` without the skip.

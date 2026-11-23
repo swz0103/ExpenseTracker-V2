@@ -32,7 +32,7 @@ dart run tooling/rules/bin/check.dart --update
 `--allow-growth`，並在 PR 說明原因。
 
 路徑設定全部在 `lib/src/config.dart`；搬動程式碼時只改那一個檔案。
-`owners.yaml` 是「單一來源」登記表（規則 B1）：47 項各自今天由誰負責、目標位置在哪、
+`owners.yaml` 是「單一來源」登記表（規則 B1）：59 項各自今天由誰負責、目標位置在哪、
 狀態是 `owned`／`scattered`／`planned`。
 
 ## 規則一覽

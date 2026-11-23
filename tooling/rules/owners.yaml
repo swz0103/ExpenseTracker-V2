@@ -128,6 +128,9 @@ items:
       - packages/ledger/loans/lib/calc/loan_plan.dart
     target: packages/ledger/loans/lib/calc/
     status: owned
+  # 2.0: the day each instalment is billed is domain's
+  # installmentBillingDays alone; the card cycle and the journal's
+  # instalments amender both ask it. The cycle itself is still in two.
   - id: installments-billing-cycle
     what: 分期排程與帳單週期
     layer: ledger
@@ -137,6 +140,53 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/card_cycle.dart
     target: packages/ledger/installments/lib/calc/ + packages/ledger/card_cycles/lib/calc/
     status: scattered
+  # Work package 2.0: the journal of postings beside the records. The
+  # kernel is pure and knows no kind of record; the postings package says
+  # how each of today's records posts; the file keeps the derived tables.
+  - id: journal-write-path
+    what: 分錄的唯一寫入路徑、不變式（每筆每幣別為零、帳戶幣別）、串的重算、寫入結果型別
+    layer: ledger
+    owner:
+      - packages/kernel/lib/journal/
+    target: packages/kernel/lib/journal/
+    status: owned
+  # Account classes, the report flags (inNetWorth, inFlowReports) and the
+  # quantity scale (a millionth of a unit, checked on the way in).
+  - id: journal-accounts-scale
+    what: 帳戶類別、是否計入淨值／收支、數量刻度
+    layer: ledger
+    owner:
+      - packages/kernel/lib/model/accounts.dart
+      - packages/kernel/lib/model/quantity.dart
+    target: packages/kernel/lib/model/
+    status: owned
+  # Each kind's posting rule, the two amenders (foreign value,
+  # instalments), and the one vocabulary of accounts, tags, streams,
+  # slots and refusal words.
+  - id: posting-rules
+    what: 每種紀錄如何記成分錄（含外幣、分期修訂）與帳戶命名
+    layer: ledger
+    owner:
+      - packages/ledger/postings/lib/
+    target: modules/<名稱>/calc/
+    status: owned
+  - id: journal-tables
+    what: 分錄資料表與每月合計（衍生、可重建、不進備份）
+    layer: data
+    owner:
+      - infrastructure/storage/lib/src/journal_store.dart
+    target: infrastructure/storage/lib/
+    status: owned
+  # Today's records as intents, the old shapes each posted in a recorded
+  # form, posting afresh, the rules version and the parity check.
+  - id: journal-replay-parity
+    what: 現行紀錄重放成分錄、舊資料形狀、規則版本、與現行數字的比對
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/journal/
+      - apps/expense_tracker/lib/src/core/ledger/persistence/journal_keeper.dart
+    target: apps/expense_tracker/lib/src/core/ledger/journal/
+    status: owned
   - id: status-flags
     what: 逾期、超支、已清倉等狀態
     layer: ledger
