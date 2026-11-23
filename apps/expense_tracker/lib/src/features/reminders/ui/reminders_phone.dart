@@ -220,7 +220,8 @@ class _ToggleRow extends StatelessWidget {
 /// The Google 日曆 card's actions: linking a calendar, its details,
 /// changing it and stopping the sync.
 mixin _CalendarActions on State<RemindersSection> {
-  Ledger get _ledger;
+  /// What falls due in the ledger shown, read afresh each time.
+  ReminderBook get _book;
 
   /// Links a calendar for the due dates, or changes it.
   Future<void> _linkCalendar(CalendarSync calendar) async {
@@ -288,11 +289,8 @@ mixin _CalendarActions on State<RemindersSection> {
         ),
       );
       if (picked == null || !mounted) return;
-      await calendar.choose(
-        choices.firstWhere((c) => c.id == picked),
-        reminderBookOf(_ledger),
-      );
-      final written = await calendar.sync(reminderBookOf(_ledger));
+      await calendar.choose(choices.firstWhere((c) => c.id == picked), _book);
+      final written = await calendar.sync(_book);
       if (!mounted) return;
       setState(() {});
       showNote(
@@ -313,7 +311,7 @@ mixin _CalendarActions on State<RemindersSection> {
   }
 
   Future<void> _forgetCalendar(CalendarSync calendar) async {
-    final cleared = await calendar.forget(reminderBookOf(_ledger));
+    final cleared = await calendar.forget(_book);
     if (mounted) {
       showNote(
         context,
@@ -356,7 +354,7 @@ mixin _CalendarActions on State<RemindersSection> {
                         : ReminderMessages.calendarAmountsOff,
                     value: calendar.amounts,
                     onChanged: (on) async {
-                      await calendar.setAmounts(on, reminderBookOf(_ledger));
+                      await calendar.setAmounts(on, _book);
                       setState(() {});
                     },
                   ),

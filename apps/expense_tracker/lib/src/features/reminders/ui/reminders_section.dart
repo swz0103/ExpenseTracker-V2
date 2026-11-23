@@ -52,8 +52,10 @@ class _RemindersSectionState extends State<RemindersSection>
   /// What the phone allows, read again when back from its settings.
   ReminderStatus? _status;
 
-  @override
   Ledger get _ledger => widget.ledger;
+
+  @override
+  ReminderBook get _book => reminderBookOf(_ledger);
 
   @override
   void initState() {
