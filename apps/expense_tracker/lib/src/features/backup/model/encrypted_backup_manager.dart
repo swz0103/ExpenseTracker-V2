@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:core/foundation_values.dart';
 import 'package:vault/ledger_backup.dart';
@@ -170,12 +171,34 @@ final class EncryptedBackupManager implements BackupManager {
     return file.path;
   }
 
+  /// What a backup's file name starts with, before the time it was taken.
+  static const _backupName = '記帳本';
+
+  /// The backups being written, one after another: two at once could take
+  /// the same name in the same millisecond (F65).
+  var _writing = Future<void>.value();
+
+  /// Runs [work] once every backup asked for before it is written.
+  Future<T> _oneAtATime<T>(Future<T> Function() work) {
+    final run = _writing.then((_) => work());
+    _writing = run.then<void>((_) {}, onError: (Object _) {});
+    return run;
+  }
+
   /// Writes an encrypted backup into [folder], named [name] and the time
-  /// it was taken.
+  /// it was taken, once the backups asked for before are written.
   Future<File> _write(
     Directory folder, {
     required bool withPhotos,
-    String name = '記帳本',
+    String name = _backupName,
+  }) =>
+      _oneAtATime(() => _writeNow(folder, withPhotos: withPhotos, name: name));
+
+  /// [_write], to be called only while no other backup is written.
+  Future<File> _writeNow(
+    Directory folder, {
+    required bool withPhotos,
+    required String name,
   }) async {
     final now = AppClock.now();
     final two = twoDigits;
@@ -191,8 +214,12 @@ final class EncryptedBackupManager implements BackupManager {
     }
     // Written beside and renamed once whole: a write cut short, as when
     // the phone stops the app, never looks like a backup, and so never
-    // takes the place of one of the good ones kept.
-    final part = File('${file.path}.part');
+    // takes the place of one of the good ones kept. Its name is its own,
+    // so no other write can take it away before the rename (F65).
+    final part = File(
+      '${file.path}.${Random.secure().nextInt(1 << 32).toRadixString(36)}'
+      '.part',
+    );
     try {
       await LedgerBackup.write(
         store: _vault.store,
@@ -249,8 +276,12 @@ final class EncryptedBackupManager implements BackupManager {
   /// Keeps [Startup.cloudCopy], the copy Android's own backup takes to
   /// the person's Google account, as the ledger now stands, without its
   /// photos (they go to Drive or a folder). Written again only when the
-  /// ledger changed since. True when it was written.
-  Future<bool> keepCloudCopy() async {
+  /// ledger changed since. True when it was written. Asked for twice at
+  /// once, the second waits for the first and finds the copy current
+  /// (F65: the two had raced over one file).
+  Future<bool> keepCloudCopy() => _oneAtATime(_keepCloudCopy);
+
+  Future<bool> _keepCloudCopy() async {
     final target = _startup.cloudCopy;
     if (target.existsSync()) {
       try {
@@ -265,7 +296,11 @@ final class EncryptedBackupManager implements BackupManager {
     // cloud/, so a write cut short there would go to the person's Google
     // account. Renamed over the last one in the same storage: Android
     // never takes half a file.
-    final file = await _write(_exports, withPhotos: false);
+    final file = await _writeNow(
+      _exports,
+      withPhotos: false,
+      name: _backupName,
+    );
     await target.parent.create(recursive: true);
     await file.rename(target.path);
     return true;
@@ -367,11 +402,13 @@ final class EncryptedBackupManager implements BackupManager {
 
   File get _given => _startup.recoveryGiven;
 
-  /// Locks once queued changes are kept, so nothing writes to a closed
-  /// store.
+  /// Locks once queued changes are kept and the backups being written
+  /// have read what they need, so nothing writes to or reads from a
+  /// closed store (ARC-04: the weekly backup did).
   @override
   Future<void> lock() async {
     await _beforeLock?.call();
+    await _writing;
     _startup.lock();
   }
 

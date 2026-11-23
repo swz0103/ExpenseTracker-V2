@@ -18,6 +18,7 @@ import '../core/ledger/ledger.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../core/time/app_clock.dart';
 import '../core/platform/distribution.dart';
+import '../core/platform/one_at_a_time.dart';
 import '../core/platform/preferences.dart';
 import '../core/platform/startup.dart';
 import '../core/messages/update_messages.dart';
@@ -219,8 +220,14 @@ final class LifecycleServices {
     _homeWidget?.follow(widgetBookOf(ledger));
   }
 
-  /// The app was left: the backup is left for the background job.
-  Future<void> paused() => prepareOutbox();
+  /// The app was left (AppLifecycle calls this once a leave): the copy
+  /// for Android's own backup is kept and the backup left for the
+  /// background job. One at a time: a leave while these run starts them
+  /// once more after, not beside them, so two never write at once and
+  /// the change made in between is still kept. Done when the last is.
+  Future<void> left() => _leaving.run();
+
+  late final _leaving = OneAtATime(_prepareOutbox);
 
   /// The app came back and the ledger stays open: prices and versions are
   /// looked for again, and what the background job did is noted.
@@ -292,7 +299,7 @@ final class LifecycleServices {
   /// Android takes to the person's Google account by itself, and leaves
   /// the backup for the background job, so it reaches the phone's folder
   /// and Drive without the app being opened again.
-  Future<void> prepareOutbox() async {
+  Future<void> _prepareOutbox() async {
     final ledger = _ledger;
     if (ledger == null) return;
     try {

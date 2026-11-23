@@ -85,7 +85,7 @@ void main() {
     await pumpEventQueue();
     final first = offline.asked;
     expect(first, greaterThan(0), reason: 'rates are always asked for');
-    await s.paused();
+    await s.left();
     s.resumed();
     await pumpEventQueue();
     // Asked at most every 20 minutes (MarketFeed's gap).
@@ -98,7 +98,7 @@ void main() {
     () async {
       final s = services();
       await s.start(await s.dataSource.load());
-      await s.paused();
+      await s.left();
       s.resumed();
       await pumpEventQueue();
       expect(startup.state, isA<Ready>());
@@ -108,7 +108,7 @@ void main() {
 
   test('leaving before the ledger is open does nothing', () async {
     final s = services();
-    await s.paused();
+    await s.left();
     s.resumed();
     expect(startup.state, isA<Ready>());
     s.dispose();

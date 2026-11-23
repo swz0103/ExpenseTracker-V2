@@ -27,6 +27,7 @@ import '../features/lock/ui/views/new_password_view.dart';
 import '../core/messages/key_messages.dart';
 import '../core/diagnostics/error_steps.dart';
 import '../core/design_system/feedback.dart';
+import '../core/platform/app_lifecycle.dart';
 import '../core/platform/away_clock.dart';
 import '../core/platform/errands.dart';
 import '../core/navigation/nav.dart' show AppRoute;
@@ -126,6 +127,10 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
     clock: widget.awayClock,
   );
 
+  /// The one owner of leaving and coming back: the gate first, then the
+  /// open ledger's session.
+  late final _lifecycle = AppLifecycle(_gate);
+
   /// The navigator of the session now open; a new one for each.
   var _navigator = GlobalKey<NavigatorState>();
 
@@ -190,20 +195,12 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
     });
   }
 
-  /// The gate hears of leaving and coming back before any screen does
-  /// (it was made first), so the ledger is covered or locked before a
-  /// frame of it is drawn.
+  /// Leaving and coming back go through [AppLifecycle] only: the gate
+  /// covers or locks the ledger before a frame of it is drawn, then the
+  /// open ledger's session runs, in that order.
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    switch (state) {
-      case AppLifecycleState.hidden || AppLifecycleState.paused:
-        _gate.left();
-      case AppLifecycleState.inactive || AppLifecycleState.resumed:
-        _gate.returned();
-      case AppLifecycleState.detached:
-        break;
-    }
-  }
+  void didChangeAppLifecycleState(AppLifecycleState state) =>
+      _lifecycle.changed(state);
 
   @override
   Widget build(BuildContext context) {
@@ -227,6 +224,7 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
             privacy: widget.privacy,
             preferences: widget.preferences,
             gate: _gate,
+            lifecycle: _lifecycle,
             leave: widget.leave,
           ),
           final state => LockScreen(
@@ -255,6 +253,7 @@ class OpenedLedger extends StatefulWidget {
     required this.vault,
     required this.preferences,
     required this.gate,
+    required this.lifecycle,
     this.privacy,
     this.leave,
   });
@@ -267,6 +266,9 @@ class OpenedLedger extends StatefulWidget {
   /// The lock gate this opening of the ledger sits behind.
   final LockGate<AppRoute> gate;
 
+  /// Tells this opening of the ledger when the app leaves and comes back.
+  final AppLifecycle lifecycle;
+
   /// Puts the app in the background without closing it.
   final Future<void> Function()? leave;
 
@@ -275,7 +277,7 @@ class OpenedLedger extends StatefulWidget {
 }
 
 class _OpenedLedgerState extends State<OpenedLedger>
-    with WidgetsBindingObserver {
+    implements LifecycleSession {
   /// A ledger just started on this phone: the app shows its tour.
   late final _fresh = widget.startup.takeFresh();
 
@@ -446,7 +448,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    widget.lifecycle.attach(this);
     widget.gate.attach(_lock);
     _ledger.then((ledger) {
       if (mounted) _watchMidnight(ledger);
@@ -474,31 +476,37 @@ class _OpenedLedgerState extends State<OpenedLedger>
   void dispose() {
     _midnight?.cancel();
     widget.gate.detach(_lock);
+    widget.lifecycle.detach(this);
     _services.dispose();
-    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  /// Leaves the backup for the background on going away; back, books what
-  /// fell due meanwhile. Whether the ledger locks is the gate's, decided
-  /// before this hears of coming back: nothing new starts on a ledger
-  /// that is closing.
+  /// Whether this opening of the ledger is still the open one and not
+  /// being closed: only then is anything written to it.
+  bool get _writable =>
+      mounted &&
+      !widget.gate.closing &&
+      switch (widget.startup.state) {
+        Ready(:final vault) => identical(vault, widget.vault),
+        _ => false,
+      };
+
+  /// Going away leaves the backups (AppLifecycle calls this once a leave).
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    switch (state) {
-      case AppLifecycleState.paused || AppLifecycleState.hidden:
-        unawaited(_services.paused());
-      case AppLifecycleState.resumed:
-        if (widget.gate.closing) break;
-        _ledger.then((ledger) {
-          ledger.checkDay();
-          if (mounted) _watchMidnight(ledger);
-          if (mounted) _tellBooked(_session.bookDue(ledger));
-        }).ignore();
-        _services.resumed();
-      default:
-        break;
-    }
+  void leave() => unawaited(_services.left());
+
+  /// Back with the ledger still open (the gate decided first): once the
+  /// book is open, and only while it stays open, books what fell due
+  /// meanwhile and looks for prices and versions again.
+  @override
+  void returned() {
+    _ledger.then((ledger) {
+      if (!_writable) return;
+      ledger.checkDay();
+      _watchMidnight(ledger);
+      _tellBooked(_session.bookDue(ledger));
+      _services.resumed();
+    }).ignore();
   }
 
   @override

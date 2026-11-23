@@ -3,7 +3,12 @@ import 'dart:io';
 
 import 'package:expense_tracker/src/app/bootstrap.dart';
 import 'package:expense_tracker/src/app/settings_page.dart';
+import 'package:core/app_core.dart';
+import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/app/shell.dart';
+import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
+import 'package:expense_tracker/src/core/ledger/ledger.dart';
+import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:expense_tracker/src/core/design_system/feedback.dart';
 import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/core/navigation/nav.dart';
@@ -252,6 +257,98 @@ void main() {
       quick.value = QuickAction.expense;
       await tester.pumpAndSettle();
       expect(find.byKey(Keys.save), findsOneWidget);
+    });
+  });
+
+  group('coming back with an item due (ARC-04)', () {
+    // 2026-11-04 23:58 UTC (this clock stands in UTC); three minutes away
+    // makes it 11-05 00:01, the day the item falls due.
+    late FixedClock clock;
+    setUp(() {
+      clock = FixedClock(UtcInstant(DateTime.utc(2026, 11, 4, 23, 58)));
+      AppClock.use(clock);
+    });
+    tearDown(AppClock.reset);
+
+    /// The open book, given an item that books itself on the 5th from
+    /// 2026-11-05.
+    Ledger bookWithRent(WidgetTester tester) {
+      final ledger = tester.widget<AppShell>(find.byType(AppShell)).ledger;
+      ledger.recurringCommands.saveRecurring(
+        Recurring(
+          id: 'rent',
+          name: '房租',
+          amount: 500,
+          day: 5,
+          account: ledger.accounts.all.first.id,
+          category: '居家生活',
+          auto: true,
+          start: DateTime.utc(2026, 11, 5),
+        ),
+      );
+      return ledger;
+    }
+
+    int booked(Ledger ledger) =>
+        ledger.entries.all.where((e) => e.recurring == 'rent').length;
+
+    testWidgets('back within the time, what fell due meanwhile is booked '
+        'once', (tester) async {
+      await setUpLedger(tester);
+      await root(tester);
+      await untilBook(tester);
+      final ledger = bookWithRent(tester);
+      expect(booked(ledger), 0);
+      clock.advance(const Duration(minutes: 3));
+      await awayFor(tester, const Duration(minutes: 3));
+      await until(tester, () => booked(ledger) > 0);
+      expect(startup.state, isA<Ready>());
+      expect(booked(ledger), 1);
+    });
+
+    testWidgets('a lock that is done before the app is resumed never lets '
+        'it be written to the closed ledger', (tester) async {
+      await setUpLedger(tester);
+      await root(tester);
+      await untilBook(tester);
+      bookWithRent(tester);
+      await tester.runAsync(() => pumpEventQueue());
+      final before = ErrorLog.instance.entries.length;
+      lifecycle(tester, AppLifecycleState.inactive);
+      lifecycle(tester, AppLifecycleState.hidden);
+      lifecycle(tester, AppLifecycleState.paused);
+      await tester.pump();
+      running += const Duration(minutes: 5);
+      clock.advance(const Duration(minutes: 5));
+      lifecycle(tester, AppLifecycleState.hidden);
+      lifecycle(tester, AppLifecycleState.inactive);
+      // The lock finishes between inactive and resumed, before a frame:
+      // the ledger's screens are still in the tree, its store closed.
+      for (var i = 0; i < 80 && startup.state is! Locked; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+      }
+      expect(startup.state, isA<Locked>());
+      lifecycle(tester, AppLifecycleState.resumed);
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 200)),
+      );
+      await tester.pump();
+      // Before the fix: 寫入帳本: DataSourceException(Bad state: Store is
+      // closed.), the booking kept only in memory.
+      expect(
+        ErrorLog.instance.entries.take(
+          ErrorLog.instance.entries.length - before,
+        ),
+        isEmpty,
+      );
+      expect(find.byType(LockScreen), findsOneWidget);
+
+      // Unlocked again, the item is booked once, on the open ledger.
+      await unlock(tester);
+      final ledger = tester.widget<AppShell>(find.byType(AppShell)).ledger;
+      expect(booked(ledger), 1);
     });
   });
 

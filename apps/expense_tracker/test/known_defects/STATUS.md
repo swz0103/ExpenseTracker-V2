@@ -23,7 +23,6 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | F22 | 2.5 | p2_5_market_test.dart | yes | only the silent-failure part: an unreadable board writes nothing to the diagnostics log; the live parse failure itself is not reproducible offline |
 | INV-02 | 2.5 | p2_5_market_test.dart | yes | a dividend due on Nov 28 (a week out) gives an outlook total of 0, expected 1,000 |
 | PKG-02 | 2.5 | p2_5_market_test.dart | yes | JPY missing from the second board is dropped from the stored rates |
-| ARC-05 | 3.3 | p3_3_lifecycle_test.dart | yes | two back-to-back prepare() calls write two backups |
 | REM-05 | 3.4 | p3_4_reminders_test.dart | yes | a reminder is still made for the skipped Nov 25 |
 | ENT-02 | 4.2 | p4_2_forms_test.dart | yes | form keeps the split but build() drops it after switching to a US$ account |
 | ENT-03 | 4.2 | p4_2_forms_test.dart | yes | 2 widget tests (back key, scrim tap); sheet closes with no dialog and no draft |
@@ -33,7 +32,7 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | IMP-01 | 6.1 | p6_1_import_test.dart | yes | a positive amount with no type column is imported as income |
 | IMP-02 | 6.1 | p6_1_import_test.dart | yes | round trip loses the US$ currency (first of 10 differences) |
 
-24 findings covered.
+23 findings covered.
 
 ## fixed in 1.1
 
