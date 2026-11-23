@@ -78,6 +78,12 @@ const _decodeApart = 2000;
 /// How many rows a book is read at a time when it opens.
 const readPage = 5000;
 
+/// From this many records a change is written on a worker isolate
+/// ([EncryptedDatabase.writeApart]): a merchant renamed on every entry,
+/// categories merged, an import. Fewer, it is written at once, as a
+/// single save is (well under a frame: storage's README).
+const writeApartFrom = 500;
+
 /// The book kept in the encrypted ledger: each of the screens' records a
 /// row of JSON, written as the [Ledger] hands over each change.
 ///
@@ -92,6 +98,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     this._clock = const SystemClock(),
     MarketDataGateway? market,
     this._readPage = readPage,
+    this._writeApartFrom = writeApartFrom,
     this.beforeUpgrade,
   }) : _gateway = market;
 
@@ -102,6 +109,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// How many rows are read at a time when the book opens.
   final int _readPage;
+
+  /// From how many records a change is written apart ([writeApartFrom]).
+  final int _writeApartFrom;
 
   /// Where closing prices and rates come from; none in tests.
   final MarketDataGateway? _gateway;
@@ -399,9 +409,34 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   @override
   Future<void> keep(WriteBatch batch) async {
     try {
-      _write(batch);
+      // A category made or renamed reads the records naming it as the
+      // change is written (_claimName): such a change is written at once.
+      if (_sizeOf(batch) >= _writeApartFrom && _claimed(batch).isEmpty) {
+        await _writeApart(batch);
+      } else {
+        _write(batch);
+      }
     } on Object catch (error) {
       throw DataSourceException(error);
+    }
+  }
+
+  static int _sizeOf(WriteBatch batch) =>
+      batch.accounts.length +
+      batch.categories.length +
+      batch.entries.length +
+      batch.budgets.length +
+      batch.recurring.length +
+      batch.trash.length +
+      batch.receipts.length +
+      batch.dropped.length +
+      batch.drafts.length;
+
+  /// Waits until no write runs apart, so the store may be read and
+  /// written here again.
+  Future<void> _quiet() async {
+    while (_store.writingApart) {
+      await _store.idle;
     }
   }
 
@@ -483,7 +518,71 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
   }
 
+  /// Writes [batch] at once, in one transaction, with what [also] adds.
   void _write(WriteBatch batch, {void Function(RowWriter writer)? also}) {
+    final after = <void Function()>[];
+    _store.write((w) {
+      for (final _ in _fill(
+        batch,
+        put: w.put,
+        drop: w.drop,
+        after: after,
+        claim: w,
+      )) {}
+      also?.call(w);
+    }, counts: !batch.onlyDrafts);
+    for (final note in after) {
+      note();
+    }
+  }
+
+  /// Writes [batch] on a worker isolate (DAT-03): its rows are made here a
+  /// slice at a time, the screen drawn between slices ([_slice]), then
+  /// kept in one transaction apart; what this notes of them follows once
+  /// they are kept, a slice at a time too.
+  Future<void> _writeApart(WriteBatch batch) async {
+    final changes = <RowChange>[];
+    final after = <void Function()>[];
+    final watch = Stopwatch()..start();
+    Future<void> breathe() async {
+      if (watch.elapsed < _slice) return;
+      await Future<void>.delayed(Duration.zero);
+      watch.reset();
+    }
+
+    for (final _ in _fill(
+      batch,
+      put: (shelf, id, body) => changes.add(RowChange.put(shelf, id, body)),
+      drop: (shelf, id) => changes.add(RowChange.drop(shelf, id)),
+      after: after,
+    )) {
+      await breathe();
+    }
+    await _quiet();
+    await _store.writeApart(changes, counts: !batch.onlyDrafts);
+    for (final note in after) {
+      note();
+      await breathe();
+    }
+  }
+
+  /// The longest the screen is kept waiting while the rows of a change
+  /// written apart are made: half a frame at 60 frames a second.
+  static const _slice = Duration(milliseconds: 8);
+
+  /// The rows [batch] puts in place and drops, handed to [put] and
+  /// [drop] in the order they are written, a record at a time: it yields
+  /// after each, so a caller may let the screen draw. What to note once
+  /// they are kept is added to [after]. [claim] is the writer of a
+  /// transaction under way, for the records that named a category by
+  /// name; none when the batch claims none ([keep] writes those at once).
+  Iterable<void> _fill(
+    WriteBatch batch, {
+    required void Function(String shelf, String id, String body) put,
+    required void Function(String shelf, String id) drop,
+    required List<void Function()> after,
+    RowWriter? claim,
+  }) sync* {
     final at = _clock.now().value.millisecondsSinceEpoch;
     final claimed = _claimed(batch);
     // A category, as the rest of the batch names it, first; and what a
@@ -514,70 +613,76 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
     // What the data source notes of the rows written, once they are kept:
     // nothing of a write that throws.
-    final after = <void Function()>[];
-    _store.write((w) {
-      void keep(Collection collection, String id, Map<String, Object?> json) {
-        mayChange(collection.name, id);
-        w.put(collection.name, id, text(collection, id, json));
-        if (_noted.contains(collection)) {
-          w.drop(_gone, '${collection.name}/$id');
-        }
-        after.add(() => _noteNames(collection.name, id, json));
+    void keep(Collection collection, String id, Map<String, Object?> json) {
+      mayChange(collection.name, id);
+      put(collection.name, id, text(collection, id, json));
+      if (_noted.contains(collection)) {
+        drop(_gone, '${collection.name}/$id');
       }
+      after.add(() => _noteNames(collection.name, id, json));
+    }
 
-      for (final a in batch.accounts) {
-        keep(Collection.account, a.id, accountToJson(a));
+    for (final a in batch.accounts) {
+      keep(Collection.account, a.id, accountToJson(a));
+      yield null;
+    }
+    for (final c in batch.categories) {
+      keep(Collection.category, c.id, categoryToJson(c, _refs));
+      yield null;
+    }
+    for (final e in batch.entries) {
+      keep(Collection.entry, e.id, entryToJson(e, _refs));
+      yield null;
+    }
+    for (final b in batch.budgets) {
+      keep(
+        Collection.budget,
+        _refs.idOf(b.category) ?? b.category,
+        budgetToJson(b, _refs),
+      );
+      yield null;
+    }
+    for (final r in batch.recurring) {
+      keep(Collection.recurring, r.id, recurringToJson(r, _refs));
+      yield null;
+    }
+    for (final t in batch.trash) {
+      keep(Collection.trash, t.entry.id, trashedToJson(t, _refs));
+      yield null;
+    }
+    for (final MapEntry(key: id, value: file) in batch.receipts.entries) {
+      if (file == null) {
+        drop(Collection.receipt.name, id);
+      } else {
+        put(Collection.receipt.name, id, file);
       }
-      for (final c in batch.categories) {
-        keep(Collection.category, c.id, categoryToJson(c, _refs));
+      yield null;
+    }
+    for (final (collection, name) in batch.dropped) {
+      final id = collection == Collection.budget ? budgetKeys[name]! : name;
+      mayChange(collection.name, id);
+      drop(collection.name, id);
+      if (_noted.contains(collection)) {
+        put(_gone, '${collection.name}/$id', jsonEncode({'at': at}));
       }
-      for (final e in batch.entries) {
-        keep(Collection.entry, e.id, entryToJson(e, _refs));
+      if (collection == Collection.category) _refs.remove(id);
+      after.add(() => _noteNames(collection.name, id, null));
+      yield null;
+    }
+    for (final MapEntry(key: tab, value: json) in batch.drafts.entries) {
+      if (json == null) {
+        drop(_draft, tab);
+      } else {
+        put(_draft, tab, json);
       }
-      for (final b in batch.budgets) {
-        keep(
-          Collection.budget,
-          _refs.idOf(b.category) ?? b.category,
-          budgetToJson(b, _refs),
-        );
-      }
-      for (final r in batch.recurring) {
-        keep(Collection.recurring, r.id, recurringToJson(r, _refs));
-      }
-      for (final t in batch.trash) {
-        keep(Collection.trash, t.entry.id, trashedToJson(t, _refs));
-      }
-      for (final MapEntry(key: id, value: file) in batch.receipts.entries) {
-        if (file == null) {
-          w.drop(Collection.receipt.name, id);
-        } else {
-          w.put(Collection.receipt.name, id, file);
-        }
-      }
-      for (final (collection, name) in batch.dropped) {
-        final id = collection == Collection.budget ? budgetKeys[name]! : name;
-        mayChange(collection.name, id);
-        w.drop(collection.name, id);
-        if (_noted.contains(collection)) {
-          w.put(_gone, '${collection.name}/$id', jsonEncode({'at': at}));
-        }
-        if (collection == Collection.category) _refs.remove(id);
-        after.add(() => _noteNames(collection.name, id, null));
-      }
-      for (final MapEntry(key: tab, value: json) in batch.drafts.entries) {
-        if (json == null) {
-          w.drop(_draft, tab);
-        } else {
-          w.put(_draft, tab, json);
-        }
-      }
+      yield null;
+    }
+    if (claimed.isNotEmpty) {
+      // Only a write at once claims: keep() sends no claiming batch apart.
+      final w = claim!;
       for (final MapEntry(key: name, value: id) in claimed.entries) {
         _claimName(w, name, id, after);
       }
-      also?.call(w);
-    }, counts: !batch.onlyDrafts);
-    for (final note in after) {
-      note();
     }
   }
 
@@ -669,6 +774,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     if (gateway == null) return false;
     final board = (await gateway.bankRates()).value;
     if (board == null) return false;
+    await _quiet();
     final fetched = <String, double>{};
     for (final MapEntry(key: code, value: row) in board.rates.entries) {
       final rate = row.valuation;
@@ -723,6 +829,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   Future<bool> refreshQuotes(Iterable<String> codes) async {
     final gateway = _gateway;
     if (gateway == null) return false;
+    await _quiet();
     final kept = _marketFrom(_readableMarket(_store.rows(shelf: _market)));
     final prices = {...kept.prices};
     final moves = {...kept.moves};
@@ -776,6 +883,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
     unquoted = List.unmodifiable(missed);
     if (changed) {
+      await _quiet();
       _store.write(
         (w) => w.put(
           _market,

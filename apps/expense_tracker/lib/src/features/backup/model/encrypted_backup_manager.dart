@@ -220,6 +220,13 @@ final class EncryptedBackupManager implements BackupManager {
       '${file.path}.${Random.secure().nextInt(1 << 32).toRadixString(36)}'
       '.part',
     );
+    // A large change being kept on a worker is waited for: the backup
+    // reads the whole book at once, as one state (DAT-03). Nothing waits
+    // between this and that read.
+    final store = _vault.store;
+    while (store.writingApart) {
+      await store.idle;
+    }
     try {
       await LedgerBackup.write(
         store: _vault.store,
