@@ -39,4 +39,30 @@ void main() {
       25,
     ));
   });
+
+  test('instalments are billed on the days their statements close', () {
+    // Closing on the 20th; the September statement closed on the 18th.
+    final schedule = CardSchedule(
+      closingDay: 20,
+      dueDay: 5,
+      overrides: [
+        CardCycleOverride(
+          scheduledClose: BusinessDate(2026, 9, 20),
+          closesOn: BusinessDate(2026, 9, 18),
+          dueOn: BusinessDate(2026, 10, 5),
+        ),
+      ],
+    );
+    // Bought on 9/14: the statement closing on 9/18 bills the first.
+    expect(installmentBillingDays(schedule, BusinessDate(2026, 9, 14), 3), [
+      BusinessDate(2026, 9, 18),
+      BusinessDate(2026, 10, 20),
+      BusinessDate(2026, 11, 20),
+    ]);
+    // Bought on 9/19, after the moved close: the October statement first.
+    expect(installmentBillingDays(schedule, BusinessDate(2026, 9, 19), 2), [
+      BusinessDate(2026, 10, 20),
+      BusinessDate(2026, 11, 20),
+    ]);
+  });
 }

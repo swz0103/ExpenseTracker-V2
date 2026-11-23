@@ -41,3 +41,19 @@ List<BusinessDate> installmentCloses(
   final first = schedule.cycleFor(postedOn).scheduledClose;
   return (first, schedule.closingDayOn(first));
 }
+
+/// The day each of [count] instalments of a purchase posted on [postedOn]
+/// is billed: the day the statement it falls in actually closes, moved
+/// closes and earlier billing days included. The one schedule the
+/// balances and the journal both bill instalments by.
+List<BusinessDate> installmentBillingDays(
+  CardSchedule schedule,
+  BusinessDate postedOn,
+  int count,
+) {
+  final (first, closingDay) = installmentStart(schedule, postedOn);
+  return [
+    for (final close in installmentCloses(first, closingDay, count))
+      schedule.datesOf(close).$1,
+  ];
+}

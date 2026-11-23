@@ -4,6 +4,7 @@
   "packages/kernel": 97,
   "packages/ledger/entries": 96,
   "packages/ledger/loans": 99,
+  "packages/ledger/postings": 99,
   "packages/ledger/trade_costs": 99,
   "infrastructure/storage": 93,
   "infrastructure/vault": 96,

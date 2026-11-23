@@ -170,9 +170,18 @@ final class Entry {
   List<(String, int)> get spendingParts {
     if (spending == 0) return const [];
     if (type == EntryType.transfer) return [(feeCategory, fee)];
-    if (parts.isNotEmpty && home == null) return parts;
+    if (_splitCounts) return parts;
     return [(category, spending)];
   }
+
+  /// [amount] by category, in the account's own currency: the parts of a
+  /// split, or the whole under [category]. A foreign entry with a value at
+  /// home goes whole under [category], as [spendingParts] counts it.
+  List<(String, int)> get amountParts =>
+      _splitCounts ? parts : [(category, amount)];
+
+  /// Whether the parts of a split are what is counted by category.
+  bool get _splitCounts => parts.isNotEmpty && home == null;
 
   /// This entry with the given fields changed.
   Entry _with({

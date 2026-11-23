@@ -1,0 +1,20 @@
+name: ledger_postings
+description: "Today's records as intents of the journal: each kind's posting rule, the foreign-value and instalment amenders, and the accounts they post to."
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  core:
+    path: ../../core
+  domain:
+    path: ../../domain
+  kernel:
+    path: ../../kernel
+  ledger_entries:
+    path: ../entries
+  ledger_trade_costs:
+    path: ../trade_costs
+dev_dependencies:
+  lints: ^6.1.0
+  test: 1.33.0

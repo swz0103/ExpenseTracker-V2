@@ -64,14 +64,13 @@ extension CardBilling on Account {
     final count = e.installments;
     if (count < 2) return [(e.date, e.amount)];
     final shares = installmentShares(e.amount, count).toList();
-    final (first, closingDay) = installmentStart(schedule, _day(e.date));
     return [
-      for (final (k, close) in installmentCloses(
-        first,
-        closingDay,
+      for (final (k, day) in installmentBillingDays(
+        schedule,
+        _day(e.date),
         count,
       ).indexed)
-        (_utc(schedule.datesOf(close).$1), shares[k]),
+        (_utc(day), shares[k]),
     ];
   }
 
@@ -79,11 +78,14 @@ extension CardBilling on Account {
   /// statement has closed, on the ledger's own instalment schedule.
   int billedPeriods(Entry e, DateTime at) {
     if (e.installments < 1) return 0;
-    final (first, closingDay) = installmentStart(schedule, _day(e.date));
     final until = _day(at);
     var periods = 0;
-    for (final close in installmentCloses(first, closingDay, e.installments)) {
-      if (schedule.datesOf(close).$1.compareTo(until) > 0) break;
+    for (final day in installmentBillingDays(
+      schedule,
+      _day(e.date),
+      e.installments,
+    )) {
+      if (day.compareTo(until) > 0) break;
       periods++;
     }
     return periods;

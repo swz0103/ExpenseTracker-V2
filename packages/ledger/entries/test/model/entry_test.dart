@@ -45,6 +45,20 @@ void main() {
     test('a split counts by its parts', () {
       final split = _entry(EntryType.expense, parts: [('食', 600), ('衣', 400)]);
       expect(split.spendingParts, [('食', 600), ('衣', 400)]);
+      expect(split.amountParts, [('食', 600), ('衣', 400)]);
+    });
+    test('by category in its own currency: a foreign split goes whole', () {
+      final split = _entry(
+        EntryType.expense,
+        home: 320,
+        parts: [('食', 600), ('衣', 400)],
+      );
+      // The 1,000 cents go whole under the category, worth NT$320.
+      expect(split.amountParts, [(split.category, 1000)]);
+      expect(split.spendingParts, [(split.category, 320)]);
+      expect(_entry(EntryType.expense).amountParts, [
+        (_entry(EntryType.expense).category, 1000),
+      ]);
     });
   });
 
