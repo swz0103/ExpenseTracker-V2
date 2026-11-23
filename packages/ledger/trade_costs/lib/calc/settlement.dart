@@ -1,6 +1,7 @@
 import 'package:core/foundation_values.dart';
 
 import '../model/trade_values.dart';
+import '../rules/taiwan_market_days.dart';
 
 /// What [kind] moves on its account, in the account's smallest unit: the
 /// one rule for a trade's money, which the balances, the lists and the
@@ -22,9 +23,14 @@ int settlementAmount(
   TradeKind.capitalReturn => gross,
 };
 
-/// Taiwan stock trades settle two exchange days after the trade (T+2), on
-/// [calendar]'s open days; the holidays are the calendar's to know.
-BusinessDate taiwanSettlementDate(
+/// When a Taiwan stock trade of [tradedOn] settles: two exchange days
+/// later (T+2, [taiwanSettlementDays]) on [calendar], which skips
+/// weekends and days off; the exchanges' days are `taiwanMarketDays`.
+///
+/// [Verified] when every day counted is in a year the calendar knows;
+/// otherwise [WeekendsOnly]: days off in the unknown year were not
+/// skipped, and the caller says so.
+BusinessDayAnswer<BusinessDate> taiwanSettlementDate(
   BusinessDate tradedOn,
-  BankingCalendar calendar,
-) => calendar.addOpenDays(tradedOn, 2);
+  HolidayCalendar calendar,
+) => calendar.addBusinessDays(tradedOn, taiwanSettlementDays);

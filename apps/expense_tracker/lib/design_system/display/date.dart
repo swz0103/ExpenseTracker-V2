@@ -118,9 +118,17 @@ String? postponedTo(
 ) {
   final day = payBy.value.asUtcMidnight;
   if (day == DateTime.utc(due.year, due.month, due.day)) return null;
-  final note = payBy is time.WeekendsOnly ? '（未含國定假日）' : '';
-  return '順延至 ${formatMd(day)}$note';
+  return '順延至 ${formatMd(day)}${_weekendsOnlyNote(payBy)}';
 }
+
+/// 「10/12」, the day a trade settles; with 「（未含國定假日）」 when its
+/// year is not in the holiday tables and only weekends were skipped.
+String settlesOn(time.BusinessDayAnswer<time.BusinessDate> settles) =>
+    '${formatMd(settles.value.asUtcMidnight)}${_weekendsOnlyNote(settles)}';
+
+/// What a day counted without the holidays of its year is followed by.
+String _weekendsOnlyNote(time.BusinessDayAnswer<Object> answer) =>
+    answer is time.WeekendsOnly ? '（未含國定假日）' : '';
 
 /// [items] grouped by the day [dateOf] gives each, the time of day left
 /// out: the days in the order first met, each with its items in their

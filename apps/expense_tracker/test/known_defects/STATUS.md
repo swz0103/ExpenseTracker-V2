@@ -100,7 +100,7 @@ Work package 1.2 (one source for dates, the clock and holidays). None of these h
 
 - PKG-05: `packages/core/test/time/clock_test.dart`, `test/core/time/app_clock_test.dart` (today is the phone's own calendar day, not Taipei's)
 - ARC-09: `packages/core/test/time/clock_test.dart` (time to the next local midnight; the app's lifecycle sets a timer to it)
-- PKG-07 (partly): `packages/core/test/time/holidays/business_days_test.dart`, `test/features/accounts/model/card_summary_test.dart`, `test/design_system/display/date_test.dart` (card due date 順延至); stock settlement not wired, see the package report
+- PKG-07: `packages/core/test/time/holidays/business_days_test.dart`, `test/features/accounts/model/card_summary_test.dart`, `test/design_system/display/date_test.dart` (card due date 順延至); stock settlement skips holidays, the market's own closures (5/1) and make-up Saturdays (the exchange neither trades nor settles on them) since decision D24 (approved by the owner 2026-11-23); 2025 to 2027 checked against the exchange's published schedule: `packages/ledger/trade_costs/test/calc/settlement_test.dart`, `packages/ledger/trade_costs/test/rules/taiwan_market_days_test.dart`, `test/core/ledger/trading_test.dart`, `test/features/entries/forms/investment_fields_test.dart` (a year in no table: weekends only, shown as 未含國定假日)
 - ENT-16 (b, c): `test/features/entries/model/compose_draft_test.dart` (a draft left on today follows today); the trash retention is `packages/core/lib/constants/retention.dart`; (a) future dates left for a product decision
 - F25: `test/core/ledger/repositories/holding_repository_test.dart`, `test/design_system/display/date_test.dart`
 - F75: `test/design_system/display/date_test.dart` (本月 only for the current month)

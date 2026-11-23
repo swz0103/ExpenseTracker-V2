@@ -1,5 +1,4 @@
 import '../calendar_day.dart';
-import 'banking_calendar.dart';
 import 'taiwan_calendar_data.dart';
 
 /// An answer about business days: [Verified] when every day it looked at
@@ -104,10 +103,18 @@ final class HolidayCalendar {
     return count == 0 ? _answer(date, [date]) : _walk(date, 1, count);
   }
 
-  /// This calendar as the [BankingCalendar] the trade rules take.
-  BankingCalendar get banking => BankingCalendar(
-    holidays: holidays.keys.toSet(),
-    workdays: workdays.keys.toSet(),
+  /// This calendar with the days off of [closures] closed as well, such
+  /// as the stock exchange's own closures on top of the official days: a
+  /// make-up workday that [closures] closes is not worked. Only the years
+  /// both cover are known, so an answer about any other year is
+  /// [WeekendsOnly].
+  HolidayCalendar closedAlso(HolidayCalendar closures) => HolidayCalendar(
+    years: years.intersection(closures.years),
+    holidays: {...holidays, ...closures.holidays},
+    workdays: {
+      for (final MapEntry(:key, :value) in workdays.entries)
+        if (!closures.holidays.containsKey(key)) key: value,
+    },
   );
 
   BusinessDayAnswer<BusinessDate> _walk(

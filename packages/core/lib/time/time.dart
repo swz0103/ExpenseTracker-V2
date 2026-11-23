@@ -4,7 +4,6 @@ library;
 export 'calendar_day.dart';
 export 'clock.dart';
 export 'date_range.dart';
-export 'holidays/banking_calendar.dart';
 export 'holidays/business_days.dart';
 export 'instant.dart';
 export 'month_arithmetic.dart';

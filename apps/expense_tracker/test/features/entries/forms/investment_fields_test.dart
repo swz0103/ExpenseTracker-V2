@@ -24,6 +24,7 @@ void main() {
   Future<void> open(
     WidgetTester tester, {
     EntryType type = EntryType.expense,
+    Entry? draft,
   }) async {
     tester.view.physicalSize = const Size(420, 1800);
     tester.view.devicePixelRatio = 1;
@@ -34,7 +35,8 @@ void main() {
         home: Scaffold(
           body: Builder(
             builder: (context) => TextButton(
-              onPressed: () => openComposer(context, ledger, type: type),
+              onPressed: () =>
+                  openComposer(context, ledger, type: type, draft: draft),
               child: const Text('open'),
             ),
           ),
@@ -92,6 +94,38 @@ void main() {
       (EntryType.buy, '2330', 1000, 1000000, 500),
     );
     expect(ledger.holding('2330')!.shares, held + 1000);
+  });
+
+  /// A buy of 1,000 shares for 1,000,000 begun on [date], its fee not
+  /// yet set (0).
+  Entry buyOn(DateTime date) => Entry(
+    id: '',
+    date: date,
+    type: EntryType.buy,
+    amount: 1000000,
+    account: 'broker',
+    holding: '2330',
+    shares: 1000,
+  );
+
+  testWidgets('a trade before a holiday settles after it (D24)', (
+    tester,
+  ) async {
+    // Wed 2026-10-07: Thu 10-08 is day 1, Fri 10-09 is 補假, then the
+    // weekend, so Mon 10-12 is day 2.
+    await open(tester, draft: buyOn(DateTime.utc(2026, 10, 7)));
+    await go(tester, ['手續費 0']);
+    expect(find.text('10/12'), findsOneWidget);
+    expect(find.textContaining('未含國定假日'), findsNothing);
+  });
+
+  testWidgets('a trade in a year with no holidays on record says so', (
+    tester,
+  ) async {
+    // Wed 2028-01-05 + 2 weekdays = Fri 01-07; 2028 is in no table.
+    await open(tester, draft: buyOn(DateTime.utc(2028, 1, 5)));
+    await go(tester, ['手續費 0']);
+    expect(find.text('1/7（未含國定假日）'), findsOneWidget);
   });
 
   testWidgets('a sale shows what it made and is recorded with its tax', (

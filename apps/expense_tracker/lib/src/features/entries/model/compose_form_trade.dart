@@ -79,8 +79,9 @@ extension TradeFields on ComposeForm {
     return before;
   }
 
-  /// The day the trade settles: two weekdays after it (T+2).
-  DateTime get settles => settlementDay(date);
+  /// The day the trade settles: two exchange days after it (T+2),
+  /// holidays skipped where the calendar knows the year.
+  BusinessDayAnswer<BusinessDate> get settles => settlementDay(date);
 
   /// How the dividend being written changes the shares held.
   ShareChange get shareChangeKind => !shareChange

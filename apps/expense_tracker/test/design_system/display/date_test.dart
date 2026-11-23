@@ -123,6 +123,14 @@ void main() {
     );
   });
 
+  test('a settlement day says when holidays were not counted (D24)', () {
+    expect(settlesOn(Verified(BusinessDate(2026, 10, 12))), '10/12');
+    expect(
+      settlesOn(WeekendsOnly(BusinessDate(2028, 1, 7), 2028)),
+      '1/7（未含國定假日）',
+    );
+  });
+
   test('a market change is 今日 only on its own trading day (F25)', () {
     expect(tradingDayWord(DateTime.utc(2026, 11, 22), today: today), '今日');
     // Sunday 11/22: the close is Friday 11/20's.

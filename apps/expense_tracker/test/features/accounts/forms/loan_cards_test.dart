@@ -4,7 +4,6 @@ library;
 
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
-import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/features/accounts/forms/loan_cards.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

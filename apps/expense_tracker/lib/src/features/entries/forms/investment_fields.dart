@@ -139,8 +139,8 @@ final class InvestmentFields {
             child: TradeOutcomeCard(
               title: cost == null ? '交割' : '已實現損益',
               sub: cost == null
-                  ? formatMd(settled)
-                  : '成本 ${groupDigits(cost)} · 交割 ${formatMd(settled)}',
+                  ? settlesOn(settled)
+                  : '成本 ${groupDigits(cost)} · 交割 ${settlesOn(settled)}',
               value: cost == null ? null : signed(settles - cost),
               spokenValue: cost == null
                   ? null

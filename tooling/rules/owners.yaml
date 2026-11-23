@@ -101,6 +101,16 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/portfolio.dart
     target: packages/ledger/accounts/lib/calc/ + packages/ledger/net_worth/lib/calc/
     status: scattered
+  # Decision D24: T+2 counts the exchanges' open days: core's official
+  # calendar less the market's own closures (a dated table).
+  - id: market-days-settlement-date
+    what: 股市開休市日與交割日（T+2）
+    layer: ledger
+    owner:
+      - packages/ledger/trade_costs/lib/rules/taiwan_market_days.dart
+      - packages/ledger/trade_costs/lib/calc/settlement.dart
+    target: packages/ledger/trade_costs/lib/
+    status: owned
   - id: fees-tax-settlement
     what: 手續費、稅、交割金額
     layer: ledger

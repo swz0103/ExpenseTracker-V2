@@ -81,9 +81,40 @@ void main() {
         throwsArgumentError,
       );
     });
-    test('the banking form agrees', () {
-      final banking = taiwanHolidays.banking;
-      expect(banking.addOpenDays(d(2026, 10, 7), 2), d(2026, 10, 12));
+  });
+
+  group('closedAlso', () {
+    final office = HolidayCalendar(
+      years: {2026, 2027},
+      holidays: {d(2026, 10, 9): '補假'},
+      workdays: {d(2026, 10, 17): '補行上班', d(2026, 10, 24): '補行上班'},
+    );
+    final market = office.closedAlso(
+      HolidayCalendar(
+        years: {2025, 2026},
+        holidays: {d(2026, 10, 13): '休市', d(2026, 10, 24): '休市'},
+        workdays: const {},
+      ),
+    );
+    test('closes the days of both', () {
+      // Fri 10-09 is off in the first, Tue 10-13 in the second.
+      expect(market.isBusinessDay(d(2026, 10, 9)).value, isFalse);
+      expect(market.isBusinessDay(d(2026, 10, 13)).value, isFalse);
+      expect(market.isBusinessDay(d(2026, 10, 14)).value, isTrue);
+      // Thu 10-08 + 2: Fri off, weekend, Mon 10-12 is day 1, Tue off,
+      // Wed 10-14 is day 2.
+      expect(market.addBusinessDays(d(2026, 10, 8), 2).value, d(2026, 10, 14));
+    });
+    test('a make-up Saturday is worked unless the other closes it', () {
+      expect(market.isBusinessDay(d(2026, 10, 17)).value, isTrue);
+      expect(market.isBusinessDay(d(2026, 10, 24)).value, isFalse);
+      expect(market.workdays.keys, [d(2026, 10, 17)]);
+    });
+    test('knows only the years both cover', () {
+      expect(market.years, {2026});
+      expect(market.isBusinessDay(d(2026, 6, 1)), isA<Verified<bool>>());
+      expect(market.isBusinessDay(d(2027, 6, 1)), isA<WeekendsOnly<bool>>());
+      expect(market.isBusinessDay(d(2025, 6, 2)), isA<WeekendsOnly<bool>>());
     });
   });
 

@@ -1,3 +1,4 @@
+import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/trading.dart';
@@ -545,9 +546,12 @@ void main() {
       ..trade = EntryType.sell
       ..holding = null;
     expect(form.saleCost, isNull);
-    // Settled two weekdays on: Friday's trade on Tuesday.
+    // Settled two exchange days on: Friday's trade on Tuesday.
     form.date = DateTime.utc(2026, 10, 2);
-    expect(form.settles, DateTime.utc(2026, 10, 6));
+    expect(form.settles.value, BusinessDate(2026, 10, 6));
+    // Wed 10-07: Fri 10-09 is 補假, so Mon 10-12 (decision D24).
+    form.date = DateTime.utc(2026, 10, 7);
+    expect(form.settles.value, BusinessDate(2026, 10, 12));
   });
 
   test('a dividend changes the shares held one way at a time', () {

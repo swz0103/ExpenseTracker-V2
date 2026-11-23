@@ -1,6 +1,8 @@
 // Exception to models take what they use: the entry form is the page's
 // whole state and reads eleven parts of the ledger (ADR-0013).
 
+import 'package:core/foundation_values.dart'
+    show BusinessDate, BusinessDayAnswer;
 import 'package:core/money/price.dart' show timesPrice;
 import 'package:ledger_trade_costs/calc/settlement.dart';
 import 'package:ledger_trade_costs/model/trade_values.dart' show TradeKind;

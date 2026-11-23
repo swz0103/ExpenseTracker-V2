@@ -3,6 +3,7 @@ import 'package:ledger_trade_costs/calc/charges.dart';
 import 'package:ledger_trade_costs/calc/settlement.dart';
 import 'package:ledger_trade_costs/model/trade_values.dart';
 import 'package:ledger_trade_costs/rules/instruments.dart';
+import 'package:ledger_trade_costs/rules/taiwan_market_days.dart';
 
 /// The broker's discount on the fee before it is set, in basis points of
 /// the full fee: 6折. The one setting that changes it is the preference
@@ -71,14 +72,11 @@ int dividendPremium(int gross, DateTime paidOn) {
   }
 }
 
-/// When a trade on [day] settles: two open days of [calendar] later
-/// (T+2). By default only weekends are skipped, so a trade before a
-/// holiday settles a day early; Taiwan's holidays are
-/// `taiwanHolidays.banking`, left out until the owner decides.
-DateTime settlementDay(DateTime day, {BankingCalendar? calendar}) {
-  final settles = taiwanSettlementDate(
-    _day(day),
-    calendar ?? BankingCalendar(),
-  );
-  return DateTime.utc(settles.year, settles.month, settles.day);
-}
+/// When a trade on [day] settles: two exchange days later (T+2) on
+/// `taiwanMarketDays`, which skips weekends (make-up workdays too, as
+/// the exchanges neither trade nor settle on them), public holidays and
+/// the market's own closures. [WeekendsOnly]
+/// when a day counted is in a year the calendars do not cover: only
+/// weekends were skipped there, for the form to say so.
+BusinessDayAnswer<BusinessDate> settlementDay(DateTime day) =>
+    taiwanSettlementDate(_day(day), taiwanMarketDays);
