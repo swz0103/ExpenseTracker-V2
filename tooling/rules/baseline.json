@@ -44,7 +44,6 @@
     "apps/expense_tracker/lib/src/features/import_export/ui/import_export_section.dart": 3,
     "apps/expense_tracker/lib/src/features/investments/model/market_feed.dart": 1,
     "apps/expense_tracker/lib/src/features/lock/ui/lock_screen.dart": 3,
-    "apps/expense_tracker/lib/src/features/overview/model/home_widget.dart": 1,
     "apps/expense_tracker/lib/src/features/reminders/ui/reminders_section.dart": 1
   },
   "B9-text-literals": {

@@ -11,16 +11,16 @@ class _MonthPicker extends StatefulWidget {
   });
 
   final Ledger ledger;
-  final (int, int) chosen;
-  final (int, int) first;
-  final (int, int) last;
+  final YearMonth chosen;
+  final YearMonth first;
+  final YearMonth last;
 
   @override
   State<_MonthPicker> createState() => _MonthPickerState();
 }
 
 class _MonthPickerState extends State<_MonthPicker> {
-  late var _year = widget.chosen.$1;
+  late var _year = widget.chosen.year;
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +45,7 @@ class _MonthPickerState extends State<_MonthPicker> {
         children: [
           Row(
             children: [
-              arrow(Glyph.back, '前一年', _year > widget.first.$1, -1),
+              arrow(Glyph.back, '前一年', _year > widget.first.year, -1),
               Expanded(
                 child: Text(
                   '$_year',
@@ -56,7 +56,7 @@ class _MonthPickerState extends State<_MonthPicker> {
                   ),
                 ),
               ),
-              arrow(Glyph.next, '下一年', _year < widget.last.$1, 1),
+              arrow(Glyph.next, '下一年', _year < widget.last.year, 1),
             ],
           ),
           const SizedBox(height: Space.s4),
@@ -75,17 +75,16 @@ class _MonthPickerState extends State<_MonthPicker> {
   }
 
   Widget _monthCell(BuildContext context, int m) {
-    const key = BudgetMonths.key;
+    final month = YearMonth(_year, m);
     final on =
-        key((_year, m)) >= key(widget.first) &&
-        key((_year, m)) <= key(widget.last);
-    final sums = budgetMonthOf(widget.ledger, (_year, m));
+        month.compareTo(widget.first) >= 0 && month.compareTo(widget.last) <= 0;
+    final sums = budgetMonthOf(widget.ledger, month);
     final total = sums.total;
     // Over is decided by the amounts: 50,174 of 50,000 is over, though
     // its rounded share is 100%.
     final over = total != 0 && isOver(sums.spent, total);
     final share = total == 0 ? null : percent(sums.spent, total);
-    final chosen = (_year, m) == widget.chosen;
+    final chosen = month == widget.chosen;
     final tone = share == null
         ? AppColors.muted
         : over
@@ -93,7 +92,7 @@ class _MonthPickerState extends State<_MonthPicker> {
         : share >= 90
         ? AppColors.goldText
         : AppColors.muted;
-    final pick = on ? () => Navigator.of(context).pop((_year, m)) : null;
+    final pick = on ? () => Navigator.of(context).pop(month) : null;
     return ReadAsButton(
       selected: chosen,
       enabled: on,

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
-import 'package:expense_tracker/src/core/formatting/dates.dart';
+import 'package:expense_tracker/design_system/display/date.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/reminders/model/calendar_sync.dart';

@@ -1,3 +1,4 @@
+import 'package:core/foundation_values.dart' show YearMonth;
 import 'package:flutter/material.dart';
 
 import '../../../core/ledger/ledger.dart';
@@ -62,10 +63,10 @@ class _BudgetEditorState extends State<_BudgetEditor> {
     final shade = category?.color;
     final color = shade == null ? AppColors.accent : Color(shade);
     final today = ledger.today;
-    final used = budgetMonthOf(ledger, (
-      today.year,
-      today.month,
-    )).spentOn(widget.budget);
+    final used = budgetMonthOf(
+      ledger,
+      YearMonth.of(today),
+    ).spentOn(widget.budget);
     final ink = deepOf(color);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s5),

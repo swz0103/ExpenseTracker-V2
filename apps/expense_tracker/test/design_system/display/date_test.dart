@@ -1,4 +1,4 @@
-import 'package:expense_tracker/src/core/formatting/dates.dart';
+import 'package:expense_tracker/design_system/display/date.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -52,5 +52,56 @@ void main() {
     }
     // A Saturday belongs to the week begun the Sunday before.
     expect(startOfWeek(DateTime.utc(2026, 10, 3)), DateTime.utc(2026, 9, 27));
+  });
+
+  final today = DateTime.utc(2026, 11, 22);
+
+  test('a day carries its year only outside the current one', () {
+    expect(formatDay(DateTime.utc(2026, 1, 8), today: today), '1/8');
+    expect(formatDay(DateTime.utc(2025, 1, 8), today: today), '2025/1/8');
+  });
+
+  test('a range carries years when it is not all in this year (F86)', () {
+    expect(
+      formatDayRange(
+        DateTime.utc(2026, 1, 8),
+        DateTime.utc(2026, 11, 22),
+        today: today,
+      ),
+      '1/8 – 11/22',
+    );
+    // The F86 case: 1780 days cannot fit in one year.
+    expect(
+      formatDayRange(
+        DateTime.utc(2021, 12, 9),
+        DateTime.utc(2026, 11, 22),
+        today: today,
+      ),
+      '2021/12/9 – 2026/11/22',
+    );
+    expect(
+      formatDayRange(
+        DateTime.utc(2025, 3, 1),
+        DateTime.utc(2025, 3, 9),
+        today: today,
+      ),
+      '2025/3/1 – 2025/3/9',
+    );
+  });
+
+  test('本月 only for the current month (F75)', () {
+    expect(monthWord(2026, 11, today: today), '本月');
+    expect(monthWord(2026, 9, today: today), '9 月');
+    expect(monthWord(2025, 11, today: today), '2025 年 11 月');
+  });
+
+  test('relative days and clock times', () {
+    expect(relativeDay(DateTime.utc(2026, 11, 22, 21), today: today), '今天');
+    expect(relativeDay(DateTime.utc(2026, 11, 21), today: today), '昨天');
+    expect(relativeDay(DateTime.utc(2026, 11, 2), today: today), '11/2');
+    expect(relativeDay(DateTime.utc(2025, 12, 31), today: today), '2025/12/31');
+    expect(formatHm(9, 5), '09:05');
+    expect(formatWhen(DateTime(2026, 11, 21, 8, 14), today: today), '昨天 08:14');
+    expect(formatYMdHm(DateTime(2026, 3, 4, 21, 3)), '2026/3/4 21:03');
   });
 }

@@ -1,7 +1,6 @@
-import '../../../core/ledger/ledger.dart';
+import 'package:core/foundation_values.dart' show YearMonth;
 
-/// A year and a month, such as (2026, 10).
-typedef YearMonth = (int, int);
+import '../../../core/ledger/ledger.dart';
 
 /// What a budget covers: all spending, a tag's, or a category's.
 enum BudgetScope {
@@ -47,8 +46,8 @@ final class BudgetMonth {
   final BudgetService _service;
   final YearMonth month;
 
-  int get _year => month.$1;
-  int get _month => month.$2;
+  int get _year => month.year;
+  int get _month => month.month;
 
   /// All spending of the month.
   late final int spent = _reports.expense(_year, _month);
@@ -88,27 +87,24 @@ final class BudgetMonths {
   final DateTime Function() _today;
 
   /// This month.
-  YearMonth get now => (_today().year, _today().month);
+  YearMonth get now => YearMonth.of(_today());
 
   /// The month of the book's first entry.
   YearMonth get first {
-    final day = _reports.firstDay;
-    return (day.year, day.month);
+    return YearMonth.of(_reports.firstDay);
   }
 
-  /// [month] as a count of months, to compare and step by.
-  static int key(YearMonth month) => month.$1 * 12 + month.$2 - 1;
-
-  static YearMonth _of(int key) => (key ~/ 12, key % 12 + 1);
-
   /// Whether a month before [month] can be shown.
-  bool canGoBack(YearMonth month) => key(month) > key(first);
+  bool canGoBack(YearMonth month) => month.compareTo(first) > 0;
+
+  /// Whether [month] is from the first month to this one.
+  bool covers(YearMonth month) =>
+      month.compareTo(first) >= 0 && month.compareTo(now) <= 0;
 
   /// [by] months on from [month]; null past this month or before the
   /// first.
   YearMonth? step(YearMonth month, int by) {
-    final next = key(month) + by;
-    if (next > key(now) || next < key(first)) return null;
-    return _of(next);
+    final next = month.addMonths(by);
+    return covers(next) ? next : null;
   }
 }

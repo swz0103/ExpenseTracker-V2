@@ -22,7 +22,7 @@ import '../model/invoices.dart';
 import '../model/invoice_qr.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
 
 export '../model/compose_form.dart' show ComposeMode;

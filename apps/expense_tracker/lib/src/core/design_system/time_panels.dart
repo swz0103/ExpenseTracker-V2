@@ -8,7 +8,7 @@ import 'haptics.dart';
 import 'page_header.dart';
 import 'components.dart';
 import 'theme.dart';
-import '../formatting/dates.dart';
+import '../../../design_system/display/date.dart';
 import 'shape.dart';
 import 'spacing.dart';
 import 'month_grid.dart';

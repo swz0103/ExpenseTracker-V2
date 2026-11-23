@@ -11,6 +11,7 @@ import '../../../../core/widgets/shown_amounts.dart';
 import '../../../../core/design_system/spacing.dart';
 import '../../../../core/design_system/shape.dart';
 import '../../../../core/formatting/words.dart';
+import '../../../../../design_system/display/date.dart';
 
 /// 預算 and 即將扣款 side by side: what is left of the month's limit, and
 /// what falls due.
@@ -54,6 +55,8 @@ class PlanSection extends StatelessWidget {
     final (gone, days) = ledger.budgetService.daysGone(year, m);
     final today = ledger.today;
     final current = today.year == year && today.month == m;
+    // 本月 only when the month shown is this month.
+    final shown = monthWord(year, m, today: today);
     final left = limit - spent;
     final used = limit <= 0 ? 0 : percent(spent, limit);
     return ColorCard(
@@ -67,12 +70,12 @@ class PlanSection extends StatelessWidget {
       ),
       onTap: () => nav.open(AppRoutes.budgets),
       label: limit == 0
-          ? '預算，本月花了 ${ledger.money(spent)}'
-          : '預算，本月剩 ${ledger.money(left)}',
+          ? '預算，$shown花了 ${ledger.money(spent)}'
+          : '預算，$shown剩 ${ledger.money(left)}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _budgetHead(limit == 0 ? '本月花了' : '本月剩'),
+          _budgetHead(limit == 0 ? '$shown花了' : '$shown剩'),
           const SizedBox(height: Space.s2),
           FittedBox(
             fit: BoxFit.scaleDown,
@@ -97,7 +100,7 @@ class PlanSection extends StatelessWidget {
     );
   }
 
-  /// The budget's icon and [title], 本月剩 or 本月花了.
+  /// The budget's icon and [title], such as 本月剩 or 9 月花了.
   Widget _budgetHead(String title) => Row(
     children: [
       const SquareIcon(Glyph.budget, ToolColors.budgets, size: 28),

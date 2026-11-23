@@ -20,7 +20,6 @@ import 'record_version.dart';
 import 'codec/record_json.dart';
 import '../../diagnostics/performance_monitor.dart';
 import '../../diagnostics/error_log.dart';
-import '../../time/app_clock.dart';
 
 /// The categories a new ledger starts with, with their marks and colours.
 const _starters = [
@@ -78,17 +77,15 @@ const readPage = 5000;
 final class SqlLedgerDataSource implements LedgerDataSource {
   SqlLedgerDataSource(
     this._store, {
-    Clock? clock,
+    this._clock = const SystemClock(),
     MarketDataGateway? market,
     this._readPage = readPage,
-  }) : _gateway = market,
-       _fixedClock = clock;
+  }) : _gateway = market;
 
   final EncryptedDatabase _store;
 
-  /// A clock a test sets; otherwise the app's one clock.
-  final Clock? _fixedClock;
-  Clock get _clock => _fixedClock ?? AppClock.clock;
+  /// The app's one clock, handed over where the app is put together.
+  final Clock _clock;
 
   /// How many rows are read at a time when the book opens.
   final int _readPage;

@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart' show Listenable, VoidCallback;
 
 import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 
 /// A day the ledger wants remembered, as a calendar shows it: recurring
 /// items falling due and card payments.

@@ -9,7 +9,7 @@ import '../design_system/design_system.dart';
 import '../ledger/ledger.dart';
 import 'swipe_actions.dart';
 import 'shown_amounts.dart';
-import '../formatting/dates.dart';
+import '../../../design_system/display/date.dart';
 import '../design_system/spacing.dart';
 import '../formatting/words.dart';
 import '../../../design_system/display/amount_text.dart';

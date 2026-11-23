@@ -14,7 +14,7 @@ import '../../../core/messages/problem_messages.dart';
 import '../../../core/design_system/recovery_code.dart';
 import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/time/app_clock.dart';

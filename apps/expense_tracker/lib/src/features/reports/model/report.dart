@@ -4,7 +4,8 @@ import 'package:core/percent/percent.dart' show divideRounded;
 
 import '../../../core/ledger/ledger.dart';
 import 'report_period.dart';
-import '../../../core/formatting/dates.dart';
+
+import 'package:core/foundation_values.dart' show BusinessDate, weekdayIndex;
 
 // The figures of one period, worked out once for every tab.
 
@@ -227,7 +228,7 @@ final class Report {
     for (final e in inPeriod) {
       income += e.earning;
       expense += e.spending;
-      weekdays[weekdayIndex(e.date)] += e.spending;
+      weekdays[weekdayIndex(BusinessDate.of(e.date))] += e.spending;
       dividends += e.dividendNet;
       days.add(e.date);
       if (e.type == EntryType.expense &&

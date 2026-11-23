@@ -8,7 +8,8 @@ import '../repositories/account_repository.dart';
 import '../repositories/entry_repository.dart';
 import '../repositories/holding_repository.dart';
 import '../repositories/market_data_repository.dart';
-import '../../formatting/dates.dart';
+
+import 'package:core/foundation_values.dart' show BusinessDate, startOfWeek;
 
 /// Balances and worth: each account's on any day, what is owned and owed
 /// in all, and how an account moved week by week.
@@ -209,7 +210,7 @@ final class BalanceService {
       ), () => _weeklyChanges(account, weeks));
 
   List<(DateTime, int)> _weeklyChanges(String account, int weeks) {
-    final first = startOfWeek(_today())
+    final first = startOfWeek(BusinessDate.of(_today())).asUtcMidnight
         .subtract(Duration(days: 7 * (weeks - 1)));
     final result = <(DateTime, int)>[];
     for (var w = 0; w < weeks; w++) {

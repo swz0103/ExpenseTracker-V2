@@ -6,7 +6,10 @@ import 'dart:math';
 import 'package:flutter/foundation.dart' show Listenable, VoidCallback;
 
 import '../../../../design_system/display/amount.dart';
-import '../../../core/formatting/dates.dart';
+
+import 'package:core/foundation_values.dart'
+    show BusinessDate, YearMonth, startOfWeek, weekdayIndex;
+
 import '../../../core/ledger/ledger.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
@@ -55,9 +58,8 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
   if (figures == WidgetFigures.off) return null;
   final today = book.today;
   final m = today.month;
-  String two(int n) => n.toString().padLeft(2, '0');
-  final month = '${today.year}-${two(m)}';
-  final date = '$month-${two(today.day)}';
+  final month = YearMonth(today.year, m).toString();
+  final date = BusinessDate.of(today).toString();
   final spent = book.reportService.expense(today.year, m);
   final allowance = _monthAllowance(book, today);
   final hasBudget = allowance != null && allowance > 0;
@@ -65,12 +67,12 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
   final days = DateTime.utc(today.year, m + 1, 0).day;
   final pace = hasBudget ? percent(today.day, days) : null;
   // The same days as 總覽's week, from Sunday.
-  final first = startOfWeek(today);
+  final first = startOfWeek(BusinessDate.of(today)).asUtcMidnight;
   final daySpent = [
     for (var i = 0; i < 7; i++)
       book.reportService.spentOn(first.add(Duration(days: i))),
   ];
-  final weekday = weekdayIndex(today);
+  final weekday = weekdayIndex(BusinessDate.of(today));
   final week = _weekHeights(daySpent, weekday);
   const noBudget = '沒有設定每月總預算';
   return switch (figures) {
