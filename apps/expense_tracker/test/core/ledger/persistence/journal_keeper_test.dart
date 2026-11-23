@@ -210,6 +210,16 @@ void main() {
     },
   );
 
+  test('a row set aside has no postings; the rest is in parity', () async {
+    final store = keptStore(scratch);
+    store.write((w) => w.put('entry', 'broken', 'not a record'));
+    final (ledger, source, _) = await openWithJournal(store);
+    expect(ledger.entries.byId('broken'), isNull);
+    expect(store.journal.intent(const IntentId('broken')), isNull);
+    expect(store.journal.intent(const IntentId('pay')), isNotNull);
+    expect(source.journal.lastParity, isA<InParity>());
+  });
+
   test('work left when the book is closed is let go', () async {
     final store = keptStore(scratch);
     final source = SqlLedgerDataSource(
