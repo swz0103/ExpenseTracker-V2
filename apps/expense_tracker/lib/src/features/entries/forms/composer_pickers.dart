@@ -175,28 +175,33 @@ extension _Pickers on _ComposerState {
   /// 掃發票: reads a paper e-invoice's left QR code (and its right one when
   /// the items go on there) and fills the form: the day, the total, its
   /// items and number in the note, tagged 發票, and a category guessed from
-  /// the items. One already in the book is said, not filled again.
+  /// the items. One already in the book is said, not filled again. When
+  /// the right code cannot be read, the left one still fills the form.
   Future<void> _scanInvoice() async {
     if (widget.scan == null) return;
     final left = await _scanCode();
     if (left == null || !mounted) return;
     var invoice = InvoiceQr.parse(left);
     if (invoice == null) {
-      _say('這不是電子發票左邊的 QR Code，請掃左邊那個');
+      _say(InvoiceMessages.notLeft);
       return;
     }
     if (invoiceRecorded(_ledger.entries, invoice.date, invoice.number)) {
-      _say('發票 ${invoice.number} 已經記過了');
+      _say(InvoiceMessages.recorded(invoice.number));
       return;
     }
     if (invoice.wantsMore) {
-      _say('還有品項在右邊的 QR Code，請再掃一次');
+      _say(InvoiceMessages.scanRight);
       final right = await _scanCode();
       if (right != null) invoice = invoice.withRight(right);
     }
     if (!mounted) return;
     final scanned = invoice;
     _set(() => _f.fillInvoice(scanned));
+    // The right code failed: what the left one gives is filled in, and
+    // the person is told the items are missing; every field stays theirs
+    // to change (D30).
+    if (scanned.wantsMore) _say(InvoiceMessages.filledWithoutItems);
   }
 
   /// One code from the scanner; null when there is none, the person
