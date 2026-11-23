@@ -14,6 +14,7 @@ import java.io.File
 class FilesHandler(private val activity: FragmentActivity) : ChannelHandler {
     private var pendingExport: Pair<String, MethodChannel.Result>? = null
     private var pendingPick: MethodChannel.Result? = null
+    private val offMain = OffMain.of(activity)
 
     /**
      * Copies a backup to where the person chooses: Downloads, Drive, ...
@@ -30,16 +31,12 @@ class FilesHandler(private val activity: FragmentActivity) : ChannelHandler {
                 result.success(false)
                 return@registerForActivityResult
             }
-            Thread {
-                try {
-                    val output = activity.contentResolver.openOutputStream(uri)
-                        ?: throw IllegalStateException("The chosen place cannot be written.")
-                    output.use { File(source).inputStream().use { input -> input.copyTo(it) } }
-                    activity.runOnUiThread { result.success(true) }
-                } catch (e: Exception) {
-                    activity.runOnUiThread { result.error("export", e.message, null) }
-                }
-            }.start()
+            offMain.answer(result, "export") {
+                val output = activity.contentResolver.openOutputStream(uri)
+                    ?: throw IllegalStateException("The chosen place cannot be written.")
+                output.use { File(source).inputStream().use { input -> input.copyTo(it) } }
+                true
+            }
         }
 
     /**
@@ -55,17 +52,13 @@ class FilesHandler(private val activity: FragmentActivity) : ChannelHandler {
                 result.success(null)
                 return@registerForActivityResult
             }
-            Thread {
-                try {
-                    val input = activity.contentResolver.openInputStream(uri)
-                        ?: throw IllegalStateException("The chosen file cannot be read.")
-                    val copy = File(activity.cacheDir, "restore.etbk")
-                    input.use { copy.outputStream().use { output -> it.copyTo(output) } }
-                    activity.runOnUiThread { result.success(copy.absolutePath) }
-                } catch (e: Exception) {
-                    activity.runOnUiThread { result.error("pick", e.message, null) }
-                }
-            }.start()
+            offMain.answer(result, "pick") {
+                val input = activity.contentResolver.openInputStream(uri)
+                    ?: throw IllegalStateException("The chosen file cannot be read.")
+                val copy = File(activity.cacheDir, "restore.etbk")
+                input.use { copy.outputStream().use { output -> it.copyTo(output) } }
+                copy.absolutePath
+            }
         }
 
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {

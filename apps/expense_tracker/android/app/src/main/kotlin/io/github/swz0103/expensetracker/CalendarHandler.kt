@@ -56,14 +56,9 @@ class CalendarHandler(private val activity: FragmentActivity) : ChannelHandler {
                     result.error("bad-arguments", "calendar, from and events are required", null)
                 } else {
                     // Off the main thread: a calendar provider can be slow.
-                    Thread {
-                        try {
-                            val written = CalendarBridge.replace(activity.contentResolver, calendar, from, events)
-                            activity.runOnUiThread { result.success(written) }
-                        } catch (e: Exception) {
-                            activity.runOnUiThread { result.error("calendar", e.message, null) }
-                        }
-                    }.start()
+                    OffMain.of(activity).answer(result, "calendar") {
+                        CalendarBridge.replace(activity.contentResolver, calendar, from, events)
+                    }
                 }
             }
             else -> return false

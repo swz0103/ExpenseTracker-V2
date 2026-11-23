@@ -90,6 +90,21 @@ void main() {
     },
   );
 
+  test('backups with photos wait for Wi-Fi until the person says otherwise, '
+      'kept under the name the background job reads (AND-05)', () {
+    final directory = Directory.systemTemp.createTempSync('preferences-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final file = File('${directory.path}/preferences.json');
+    expect(Preferences(file: file).photosOnWifi, isTrue);
+    Preferences(file: file).update(photosOnWifi: false);
+    expect(Preferences(file: file).photosOnWifi, isFalse);
+    // BackupWorker.kt reads this name.
+    expect(Preferences.photosOnWifiKey, 'photosOnWifi');
+    expect(file.readAsStringSync(), contains('"photosOnWifi":false'));
+    file.writeAsStringSync('{"drivePhotos": true}');
+    expect(Preferences(file: file).photosOnWifi, isTrue);
+  });
+
   test('自動上鎖 is 5 分鐘 until chosen, and the choice is kept (SEC-07)', () {
     final directory = Directory.systemTemp.createTempSync('preferences-');
     addTearDown(() => directory.deleteSync(recursive: true));

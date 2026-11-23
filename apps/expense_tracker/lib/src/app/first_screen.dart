@@ -62,7 +62,8 @@ Future<Widget> firstScreen(
   try {
     folder = await steps.folder();
   } on Object catch (error, stack) {
-    return _failed(ErrorSteps.startFolder, error, stack, retry);
+    ErrorLog.instance.record(ErrorSteps.startFolder, error, stack);
+    return _failed(error, retry);
   }
   steps.keepLog?.call(folder);
   DeviceUnlock? device;
@@ -81,21 +82,16 @@ Future<Widget> firstScreen(
   try {
     app = steps.compose(folder, device, privacy);
   } on Object catch (error, stack) {
-    return _failed(ErrorSteps.startScreen, error, stack, retry);
+    ErrorLog.instance.record(ErrorSteps.startScreen, error, stack);
+    return _failed(error, retry);
   }
   steps.started?.call(folder);
   return app;
 }
 
-Widget _failed(
-  String step,
-  Object error,
-  StackTrace stack,
-  VoidCallback retry,
-) {
-  ErrorLog.instance.record(step, error, stack);
-  return StartFailedApp(what: ErrorLog.describe(error), retry: retry);
-}
+/// The failure page of [error], already kept in the error log.
+Widget _failed(Object error, VoidCallback retry) =>
+    StartFailedApp(what: ErrorLog.describe(error), retry: retry);
 
 /// The whole app when it could not start: what happened, try again, or
 /// copy the diagnostics to report it. No backup can be restored from

@@ -65,9 +65,27 @@ void main() {
 
   test('the list for the background job names each kept address', () async {
     final cache = CachedMarketTransport(_Network(), dir);
-    await cache.writeList();
+    expect(await cache.writeList(stocks: true, rates: true), isTrue);
     final lines = File('${dir.path}/urls.txt').readAsLinesSync();
     expect(lines, hasLength(3));
     expect(lines.first, startsWith('twse\thttps://openapi.twse.com.tw/'));
   });
+
+  test(
+    'the background job fetches only what the ledger needs (AND-05)',
+    () async {
+      final cache = CachedMarketTransport(_Network(), dir);
+      final list = File('${dir.path}/urls.txt');
+      List<String> names() => [
+        for (final line in list.readAsLinesSync()) line.split('\t').first,
+      ];
+      expect(await cache.writeList(stocks: true, rates: false), isTrue);
+      expect(names(), ['twse', 'tpex']);
+      expect(await cache.writeList(stocks: false, rates: true), isTrue);
+      expect(names(), ['rates']);
+      // No holdings and no foreign account: nothing, and the job is stopped.
+      expect(await cache.writeList(stocks: false, rates: false), isFalse);
+      expect(list.readAsStringSync(), isEmpty);
+    },
+  );
 }

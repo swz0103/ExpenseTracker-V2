@@ -85,8 +85,8 @@ class PhotosHandler(private val activity: FragmentActivity) : ChannelHandler {
      * main thread.
      */
     private fun keepPhoto(source: Uri, into: File = File(activity.cacheDir, "receipt-ready.jpg")) {
-        Thread {
-            try {
+        OffMain.of(activity).run(
+            work = {
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 activity.contentResolver.openInputStream(source)?.use {
                     BitmapFactory.decodeStream(it, null, bounds)
@@ -114,16 +114,16 @@ class PhotosHandler(private val activity: FragmentActivity) : ChannelHandler {
                 val ready = into
                 ready.outputStream().use { photo.compress(Bitmap.CompressFormat.JPEG, 82, it) }
                 cameraFile.delete()
-                activity.runOnUiThread { finishPhoto(ready.absolutePath) }
-            } catch (e: Throwable) {
-                // Any failure, running out of memory on a huge photo
-                // included, ends the request, so takePhoto is not left busy.
-                activity.runOnUiThread {
-                    val result = pendingPhoto
-                    pendingPhoto = null
-                    result?.error("photo", e.message, null)
-                }
-            }
-        }.start()
+                ready.absolutePath
+            },
+            done = ::finishPhoto,
+            // Any failure, running out of memory on a huge photo included,
+            // ends the request, so takePhoto is not left busy.
+            failed = { e ->
+                val result = pendingPhoto
+                pendingPhoto = null
+                result?.error("photo", e.message, OffMain.kindOf(e))
+            },
+        )
     }
 }

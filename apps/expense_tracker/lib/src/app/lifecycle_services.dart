@@ -14,6 +14,7 @@ import 'android/market_cache_adapter.dart';
 import 'android/update_adapter.dart';
 import 'platform.dart';
 import '../core/diagnostics/error_log.dart';
+import '../core/diagnostics/error_steps.dart';
 import '../core/ledger/ledger.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../core/time/app_clock.dart';
@@ -201,7 +202,7 @@ final class LifecycleServices {
       historyDir: Directory('${_directory.path}/prices'),
     );
     unawaited(market.refresh());
-    unawaited(_marketCache?.writeList());
+    unawaited(_followMarket());
     unawaited(weeklyBackup());
     if (android && canSelfUpdate) {
       try {
@@ -218,6 +219,32 @@ final class LifecycleServices {
     calendar?.follow(reminderBookOf(ledger));
     notifier?.follow(reminderBookOf(ledger));
     _homeWidget?.follow(widgetBookOf(ledger));
+  }
+
+  /// What the market's background job fetches while the app is closed:
+  /// the exchanges' lists while shares are held, the bank's rates while an
+  /// account is kept in another currency (AND-05).
+  static ({bool stocks, bool rates}) marketWanted(Ledger ledger) => (
+    stocks: ledger.holdings.all.any((h) => h.shares > 0),
+    rates: ledger.accounts.all.any((a) => a.foreign),
+  );
+
+  /// Tells the market's background job what the ledger needs now, and
+  /// stops it when it needs nothing. Done at start and on each leave.
+  Future<void> _followMarket() async {
+    final cache = _marketCache;
+    final ledger = _ledger;
+    if (cache == null || ledger == null) return;
+    final wanted = marketWanted(ledger);
+    try {
+      final any = await cache.writeList(
+        stocks: wanted.stocks,
+        rates: wanted.rates,
+      );
+      await androidMarketJob(on: any);
+    } on Object catch (error) {
+      ErrorLog.instance.record(ErrorSteps.marketCache, error);
+    }
   }
 
   /// The app was left (AppLifecycle calls this once a leave): the copy
@@ -302,6 +329,7 @@ final class LifecycleServices {
   Future<void> _prepareOutbox() async {
     final ledger = _ledger;
     if (ledger == null) return;
+    await _followMarket();
     try {
       await ledger.settled;
       // Android's own backup takes this copy, so a new phone can restore

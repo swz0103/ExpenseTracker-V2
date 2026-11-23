@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:market/market_data.dart';
 
+import 'platform_channel.dart';
 import '../../core/time/app_clock.dart';
 import '../../core/diagnostics/error_log.dart';
 import '../../core/diagnostics/error_steps.dart';
@@ -22,19 +23,35 @@ final class CachedMarketTransport implements MarketTransport {
   /// The addresses kept, by the name of the file each is kept in, which
   /// the background job fetches.
   static final kept = {
-    'twse': MarketDataGateway.twseUri,
-    'tpex': MarketDataGateway.tpexUri,
-    'rates': MarketDataGateway.bankRatesUri,
+    _twse: MarketDataGateway.twseUri,
+    _tpex: MarketDataGateway.tpexUri,
+    rateBoard: MarketDataGateway.bankRatesUri,
   };
 
-  /// Tells the background job what to fetch: a name and an address a
-  /// line, a tab between.
-  Future<void> writeList() async {
+  static const _twse = 'twse';
+  static const _tpex = 'tpex';
+
+  /// The day lists of the exchanges, by the names in [kept].
+  static const stockLists = {_twse, _tpex};
+
+  /// The bank's board, by its name in [kept].
+  static const rateBoard = 'rates';
+
+  /// Tells the background job what to fetch, a name and an address a
+  /// line, a tab between: the exchanges' day lists only while [stocks]
+  /// are held, the bank's rates only while an account is kept in
+  /// another currency ([rates]); nothing for a ledger that needs neither
+  /// (AND-05). True when there is anything to fetch.
+  Future<bool> writeList({required bool stocks, required bool rates}) async {
+    final wanted = {if (stocks) ...stockLists, if (rates) rateBoard};
     await dir.create(recursive: true);
     await File('${dir.path}/urls.txt').writeAsString(
-      [for (final MapEntry(:key, :value) in kept.entries) '$key\t$value']
-          .join('\n'),
+      [
+        for (final MapEntry(:key, :value) in kept.entries)
+          if (wanted.contains(key)) '$key\t$value',
+      ].join('\n'),
     );
+    return wanted.isNotEmpty;
   }
 
   /// The file [uri] is kept in, the one the background job writes; null
@@ -88,3 +105,8 @@ final class CachedMarketTransport implements MarketTransport {
     return response;
   }
 }
+
+/// Starts the background job that fetches the lists of `urls.txt`
+/// (`MarketWorker.kt`), or stops it with `on: false`.
+Future<void> androidMarketJob({required bool on}) =>
+    platformChannel.invokeMethod<void>('marketJob', {'on': on});
