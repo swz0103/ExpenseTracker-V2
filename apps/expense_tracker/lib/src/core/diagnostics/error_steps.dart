@@ -59,4 +59,15 @@ abstract final class ErrorSteps {
   /// The phone could not say whether it hides the app in the recents
   /// list, or could not be told to: the app keeps covering itself.
   static const screenPrivacy = '螢幕隱私';
+
+  /// The app's own folder could not be found as it started: nothing can
+  /// open, the failure page says so.
+  static const startFolder = '啟動：帳本資料夾';
+
+  /// The phone could not say whether it unlocks with a fingerprint or
+  /// face as the app started: the app starts without it.
+  static const startDevice = '啟動：指紋解鎖';
+
+  /// The first screen could not be put together.
+  static const startScreen = '啟動：第一個畫面';
 }
