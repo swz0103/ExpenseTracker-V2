@@ -2,6 +2,8 @@ library;
 
 import 'package:core/foundation_values.dart' as time;
 
+import '../../src/core/formatting/words.dart';
+
 /// Dates as the app shows them to people, each in one place. The formats
 /// are named for the ICU (CLDR) date skeletons, as `intl`'s
 /// `DateFormat.Md()` and its kin are: M month, d day, y year, E weekday,
@@ -87,7 +89,7 @@ String relativeDay(DateTime d, {required DateTime today}) {
     today.month,
     today.day,
   ).difference(day).inDays;
-  if (days == 0) return '今天';
+  if (days == 0) return Words.today;
   if (days == 1) return '昨天';
   return formatDay(d, today: today);
 }
