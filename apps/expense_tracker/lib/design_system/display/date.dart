@@ -97,6 +97,20 @@ String relativeDay(DateTime d, {required DateTime today}) {
 String formatWhen(DateTime at, {required DateTime today}) =>
     '${relativeDay(at, today: today)} ${formatHm(at.hour, at.minute)}';
 
+/// 「順延至 10/12」 when a due day [due] moves to [payBy], the next
+/// business day; with 「（未含國定假日）」 when [payBy]'s year is not in
+/// the holiday table and only weekends were skipped. Null when it does
+/// not move.
+String? postponedTo(
+  DateTime due,
+  time.BusinessDayAnswer<time.BusinessDate> payBy,
+) {
+  final day = payBy.value.asUtcMidnight;
+  if (day == DateTime.utc(due.year, due.month, due.day)) return null;
+  final note = payBy is time.WeekendsOnly ? '（未含國定假日）' : '';
+  return '順延至 ${formatMd(day)}$note';
+}
+
 /// [items] grouped by the day [dateOf] gives each, the time of day left
 /// out: the days in the order first met, each with its items in their
 /// order.

@@ -1,3 +1,5 @@
+import 'package:core/foundation_values.dart'
+    show BusinessDate, BusinessDayAnswer, taiwanHolidays;
 import 'package:core/percent/percent.dart' show percent;
 
 import '../../../core/ledger/ledger.dart';
@@ -109,8 +111,13 @@ final class CardSummary {
   int get cycleDays => following.difference(end).inDays;
   int get daysGone => today.difference(end).inDays;
 
-  /// Days left to pay the statement; below zero when overdue.
-  int get daysLeft => due.difference(today).inDays;
+  /// When the statement can still be paid: [due], or the next business
+  /// day when it falls on a weekend or a holiday. The stored due day is
+  /// left as it is.
+  BusinessDayAnswer<BusinessDate> get payBy => payByOf(due);
+
+  /// Days left to pay the statement, to [payBy]; below zero when overdue.
+  int get daysLeft => payBy.value.asUtcMidnight.difference(today).inDays;
 
   /// The next close, as it may have been moved.
   late final DateTime nextClose = card.closingOn(
@@ -198,3 +205,9 @@ final class CardSummary {
     );
   }
 }
+
+/// When a statement due on [due] can be paid by: [due], or the next
+/// business day on Taiwan's calendar when it falls on a day off (banks
+/// take payment then without a late fee).
+BusinessDayAnswer<BusinessDate> payByOf(DateTime due) =>
+    taiwanHolidays.onOrAfter(BusinessDate.of(due));

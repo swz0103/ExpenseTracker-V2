@@ -1,3 +1,5 @@
+import 'package:core/foundation_values.dart'
+    show BusinessDate, Verified, WeekendsOnly;
 import 'package:expense_tracker/design_system/display/date.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -105,5 +107,19 @@ void main() {
     expect(formatTimeField(7), '07');
     expect(formatWhen(DateTime(2026, 11, 21, 8, 14), today: today), '昨天 08:14');
     expect(formatYMdHm(DateTime(2026, 3, 4, 21, 3)), '2026/3/4 21:03');
+  });
+
+  test('a due day that moves says where to (PKG-07)', () {
+    final due = DateTime.utc(2026, 10, 10);
+    // Sat 10-10 → Mon 10-12 on the official calendar.
+    expect(postponedTo(due, Verified(BusinessDate(2026, 10, 12))), '順延至 10/12');
+    expect(postponedTo(due, Verified(BusinessDate(2026, 10, 10))), isNull);
+    expect(
+      postponedTo(
+        DateTime.utc(2028, 1, 1),
+        WeekendsOnly(BusinessDate(2028, 1, 3), 2028),
+      ),
+      '順延至 1/3（未含國定假日）',
+    );
   });
 }
