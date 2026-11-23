@@ -22,6 +22,11 @@ const journalRules = 1;
 /// screen draw: half a frame at 60 Hz.
 const journalSlice = Duration(milliseconds: 8);
 
+/// How many intents one transaction posts when the whole book is posted
+/// afresh: about 12 ms of a desktop's time (journal bench), so the screen
+/// is drawn between them on a phone too, at a few more commits.
+const journalChunk = 100;
+
 /// Keeps the journal of postings beside the records, and checks it. When
 /// the book opens, its postings are posted afresh unless they are the
 /// records' own (the store's mark: this [journalRules] and the records'
@@ -37,6 +42,7 @@ final class JournalKeeper {
     required this._entrySeqs,
     required this._recordOf,
     required this._isOpen,
+    this.compares = true,
   });
 
   final PostingStore _store;
@@ -53,6 +59,11 @@ final class JournalKeeper {
   /// Whether the store can still be read and written: work left when the
   /// book is closed is let go.
   final bool Function() _isOpen;
+
+  /// Whether the journal is compared with the figures the app shows
+  /// after it changes: as the app keeps it; a bench timing the posting
+  /// alone leaves it out.
+  final bool compares;
 
   var _chain = Future<void>.value();
   var _queued = 0;
@@ -168,6 +179,7 @@ final class JournalKeeper {
         for (final e in ledger.entries.all)
           if (seqs[e.id] case final seq?) (entry: e, seq: seq),
       ],
+      chunk: journalChunk,
       pause: _slicer(),
     );
     _store.transaction(
@@ -335,7 +347,7 @@ final class JournalKeeper {
   /// Compares once nothing else is queued and the ledger's own writes
   /// have all been kept, so both sides say the same book.
   void _checkWhenIdle() {
-    if (_queued > 0 || _checking || _wanted == null) return;
+    if (!compares || _queued > 0 || _checking || _wanted == null) return;
     _checking = true;
     _queued++;
     _chain = _chain.then((_) async {

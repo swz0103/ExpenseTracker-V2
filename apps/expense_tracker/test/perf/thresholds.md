@@ -42,3 +42,28 @@ starts, so it carries one-time start-up cost: two runs of the same code gave
 the same runs was 72 and 76 ms. Its limit is therefore an absolute ceiling
 (400 ms), not twice a measurement; the 10k and 100k limits are the ones that
 catch a regression in loading itself.
+
+## The journal of postings (host bench, work package 2.0)
+
+`journal_thresholds.json` holds the limits of `journal_bench_test.dart`
+(`BENCH=1 flutter test test/perf/journal_bench_test.dart`): a book of
+100,000 entries (70% spending, 2% of it in 3 instalments, 10% income, 15%
+transfers, 5% buys of three stocks; 100,017 intents, 212,340 postings) in
+the encrypted file, as the app keeps it. Measured on the development VM
+(Xeon, shared with other runs at the time, Flutter test JIT), three runs,
+2026-11-23; each limit about twice the slowest run, rounded. Not measured
+on a phone: expect two to four times these there.
+
+| key | what | measured | limit |
+|---|---|---|---|
+| `rebuild_100k_ms` | every posting thrown away and posted afresh from the records, 1,000 intents a transaction (in the app 100, the screen drawn between) | 11,788 / 12,698 / 12,157 ms | 26,000 ms |
+| `save_posting_us` | one entry's posting and the journal's mark, one transaction, `synchronous=FULL` | 784 / 1,495 / 853 µs | 3,000 µs |
+| `every_balance_us` | every account's balance today, from the months' sums and this month's postings | 1,611 / 1,048 / 1,454 µs | 3,500 µs |
+| `month_report_us` | a month's income and spending by category | 61 / 39 / 38 µs | 130 µs |
+
+The save gate (`save_scale_gate_test.dart`) counts the journal's update in
+the save it times, so a journal update that grows with the book fails it in
+CI on any machine. Posting the whole book afresh happens once (the first
+opening after this version, after a restore, or when the posting rules
+change) and in the background; about a quarter of its time is the months'
+sums, which could be built once at the end instead of with each posting.

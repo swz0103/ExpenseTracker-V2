@@ -48,10 +48,12 @@ void createJournalTables(Database db) {
       quantity INTEGER NOT NULL,
       sub TEXT NOT NULL,
       date INTEGER NOT NULL,
-      seq INTEGER NOT NULL,
-      PRIMARY KEY (intent_id, line)
-    ) STRICT, WITHOUT ROWID
+      seq INTEGER NOT NULL
+    ) STRICT
   ''');
+  // Kept in the order written (rowid), so posting a whole book appends;
+  // an intent's lines are found by the first index.
+  db.execute('CREATE UNIQUE INDEX posting_line ON posting (intent_id, line)');
   // A period's sums read this index alone; one account's history in
   // book order the second.
   db.execute(
@@ -178,9 +180,18 @@ final class SqlPostingStore implements PostingStore {
 
   @override
   void put(IntentRow row, List<Posting> postings) {
-    remove(row.id);
-    _sql('INSERT INTO intent_index (id, type, date, seq) VALUES (?, ?, ?, ?)')
-        .execute([row.id.value, row.type.value, row.date.ymd, row.seq]);
+    final index = [row.id.value, row.type.value, row.date.ymd, row.seq];
+    _sql(
+      'INSERT OR IGNORE INTO intent_index (id, type, date, seq) '
+      'VALUES (?, ?, ?, ?)',
+    ).execute(index);
+    if (_db.updatedRows == 0) {
+      // Kept before: what it had goes first. A new one, as when the whole
+      // book is posted afresh, has nothing to take away.
+      remove(row.id);
+      _sql('INSERT INTO intent_index (id, type, date, seq) VALUES (?, ?, ?, ?)')
+          .execute(index);
+    }
     final stream = _sql(
       'INSERT OR IGNORE INTO intent_stream (stream, date, seq, intent_id) '
       'VALUES (?, ?, ?, ?)',
@@ -192,6 +203,7 @@ final class SqlPostingStore implements PostingStore {
       'INSERT INTO posting (intent_id, line, account, currency, amount, '
       'quantity, sub, date, seq) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     );
+    final months = <(String, String, int), (int, int)>{};
     for (final p in postings) {
       insert.execute([
         row.id.value,
@@ -204,13 +216,13 @@ final class SqlPostingStore implements PostingStore {
         p.date.ymd,
         row.seq,
       ]);
-      _addToMonth(
-        p.account.value,
-        p.currency.value,
-        p.date.monthKey,
-        p.amount,
-        p.quantity,
-      );
+      final key = (p.account.value, p.currency.value, p.date.monthKey);
+      final (amount, quantity) = months[key] ?? (0, 0);
+      months[key] = (amount + p.amount, quantity + p.quantity);
+    }
+    for (final MapEntry(key: (account, currency, month), value: (a, q))
+        in months.entries) {
+      _addToMonth(account, currency, month, a, q);
     }
   }
 
@@ -247,19 +259,16 @@ final class SqlPostingStore implements PostingStore {
       'DO UPDATE SET amount = amount + excluded.amount, '
       'quantity = quantity + excluded.quantity',
     ).execute([account, currency, month, amount, quantity]);
-    _sql(
-      'DELETE FROM month_sum WHERE account = ? AND currency = ? AND month = ? '
-      'AND amount = 0 AND quantity = 0',
-    ).execute([account, currency, month]);
   }
 
   @override
   List<IntentRow> inStream(String stream, {required Position from}) => [
     for (final r in _sql(
       'SELECT i.* FROM intent_stream s JOIN intent_index i ON i.id = s.intent_id '
-      'WHERE s.stream = ? AND (s.date, s.seq) >= (?, ?) '
+      // A range on the index's day, so a stream is not read whole.
+      'WHERE s.stream = ? AND s.date >= ? AND (s.date > ? OR s.seq >= ?) '
       'ORDER BY s.date, s.seq, s.intent_id',
-    ).select([stream, from.date.ymd, from.seq]))
+    ).select([stream, from.date.ymd, from.date.ymd, from.seq]))
       _row(r),
   ];
 
@@ -273,10 +282,16 @@ final class SqlPostingStore implements PostingStore {
 
   @override
   List<Posting> postingsOf(AccountId account, {Position? before}) => [
-    for (final r in _sql(
-      'SELECT * FROM posting WHERE account = ? AND (date, seq) < (?, ?) '
-      'ORDER BY date, seq, intent_id, line',
-    ).select([account.value, before?.date.ymd ?? _end + 1, before?.seq ?? 0]))
+    for (final r
+        in _sql(
+          'SELECT * FROM posting WHERE account = ? AND date <= ? '
+          'AND (date < ? OR seq < ?) ORDER BY date, seq, intent_id, line',
+        ).select([
+          account.value,
+          before?.date.ymd ?? _end,
+          before?.date.ymd ?? _end + 1,
+          before?.seq ?? 0,
+        ]))
       _posting(r),
   ];
 
