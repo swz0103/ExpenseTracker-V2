@@ -165,8 +165,7 @@ class _LockScreenState extends State<LockScreen> {
     // The opening plays once per start, with a password or without.
     final opening = widget.startup.takeOpening();
     if (_quiet) {
-      // Opened at once, while the opening plays: the animation never
-      // holds the ledger up (ARC-06). The book shows when it is open.
+      // Opened at once, while the opening plays: it never holds it up.
       _busy = true;
       unawaited(_openQuietly());
       return;
@@ -479,12 +478,9 @@ class _LockScreenState extends State<LockScreen> {
       _file.clear();
       _password.clear();
     });
-    // A ledger without a password opens by itself, the opening shown
-    // while it does.
-    if (_quiet) {
-      setState(() => _busy = true);
-      unawaited(_openQuietly());
-    }
+    // A ledger without a password opens by itself, the opening shown.
+    if (_quiet) setState(() => _busy = true);
+    if (_quiet) unawaited(_openQuietly());
     await _countdown.refresh();
   }
 
