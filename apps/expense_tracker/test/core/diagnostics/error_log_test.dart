@@ -291,6 +291,33 @@ void main() {
       expect(log.entries.map((e) => e.$2.substring(0, 2)), ['診斷', 'c：', 'a：']);
     });
 
+    test('what is written after a file that ends part way through a line '
+        'starts on a line of its own', () async {
+      file.writeAsStringSync(
+        '{"at":"2026-11-23T04:00:00.000Z","what":"a：StateError: x","frames":[]}\n'
+        '{"at":"2026-11-23T04:00:01.000Z","what":"b：Sta',
+      );
+      final log = ErrorLog.detached()..keepIn(file);
+      log.record('c', StateError('x'), StackTrace.empty);
+      await log.flush();
+      log.record('d', StateError('x'), StackTrace.empty);
+      await log.flush();
+      // What this run wrote began on a new line after the cut one, so the
+      // next run reads every whole line.
+      final later = ErrorLog.detached()..keepIn(file);
+      expect(later.entries.map((e) => e.$2.substring(0, 2)), [
+        // Reading the cut line again, this run.
+        '診斷',
+        'd：',
+        'c：',
+        // The fault of reading it, kept by the run before.
+        '診斷',
+        'a：',
+      ]);
+      // No blank line was left by the second write.
+      expect(file.readAsLinesSync().where((l) => l.isEmpty), isEmpty);
+    });
+
     test('the same fault again and again is counted, not kept anew', () async {
       final log = ErrorLog.detached()..keepIn(file);
       log.record('other', StateError('x'), StackTrace.empty);

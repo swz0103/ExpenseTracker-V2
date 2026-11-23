@@ -103,6 +103,10 @@ final class ErrorLog {
   /// A failed write is being noted: nothing new is scheduled for it.
   var _noting = false;
 
+  /// The file ends part way through a line, as a crash while writing
+  /// leaves it: the next write starts on a line of its own.
+  var _cutShort = false;
+
   /// The file the one before [log] is put aside as.
   static File _aside(File log) => File('${log.path}.1');
 
@@ -160,12 +164,17 @@ final class ErrorLog {
     _pending.clear();
     _repeated = false;
     _size = null;
+    _cutShort = false;
     _log = file;
     final before = <_Problem>[];
     try {
       for (final part in [_aside(file), file]) {
         if (!part.existsSync()) continue;
-        for (final line in part.readAsLinesSync()) {
+        final text = part.readAsStringSync();
+        if (identical(part, file)) {
+          _cutShort = text.isNotEmpty && !text.endsWith('\n');
+        }
+        for (final line in const LineSplitter().convert(text)) {
           try {
             _readLine(line, before);
           } on FormatException catch (error) {
@@ -347,15 +356,21 @@ final class ErrorLog {
     final lines = List.of(_pending);
     _pending.clear();
     try {
-      final bytes = utf8.encode([for (final line in lines) '$line\n'].join());
       var size = _size ?? (await log.exists() ? await log.length() : 0);
-      if (size > 0 && size + bytes.length > maxFileBytes) {
+      var text = [for (final line in lines) '$line\n'].join();
+      if (size > 0 && size + utf8.encode(text).length > maxFileBytes) {
         await log.rename(_aside(log).path);
         size = 0;
+      } else if (_cutShort) {
+        text = '\n$text';
       }
+      final bytes = utf8.encode(text);
       await log.writeAsBytes(bytes, mode: FileMode.append, flush: true);
       // Only when the file is still the one written to.
-      if (identical(log, _log)) _size = size + bytes.length;
+      if (identical(log, _log)) {
+        _size = size + bytes.length;
+        _cutShort = false;
+      }
     } on Object catch (error) {
       // Kept in memory; the next problem's write takes these with it.
       if (!identical(log, _log)) return;
