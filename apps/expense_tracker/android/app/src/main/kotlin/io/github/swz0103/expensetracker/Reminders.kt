@@ -30,7 +30,9 @@ import java.util.TimeZone
  * phone now is. The alarms are inexact (setAndAllowWhileIdle), so Android
  * may post one up to an hour late while the phone sleeps (Doze), unless
  * the person asked for reminders on the minute and allowed the app's
- * alarms (setExactAndAllowWhileIdle).
+ * alarms (setExactAndAllowWhileIdle). An alarm on the minute has an
+ * inexact twin at the same time, so the alert still comes when Android
+ * cancels the exact alarms with their permission ([ReminderAlarms]).
  *
  * The plan is armed again from what is kept after a restart, an update of
  * the app, a change of time zone or clock, and when alarms on the minute
@@ -67,7 +69,7 @@ object Reminders {
     const val EXTRA_CHANNEL = "channel"
 
     /** The test notification's alarm, apart from the kept alerts'. */
-    private const val TEST_ID = 990
+    private const val TEST_ID = ReminderAlarms.TEST_CODE
     private const val TEST_DELAY = 60_000L
     const val EXTRA_TITLE = "title"
     const val EXTRA_TEXT = "text"
@@ -97,7 +99,8 @@ object Reminders {
     ) {
         ensureChannels(context, channels, retired)
         val kept = JSONArray()
-        for (alert in alerts) {
+        // Never past Android's limit on alarms (the app asks for fewer).
+        for (alert in alerts.take(ReminderAlarms.MOST_ALERTS)) {
             val at = (alert["at"] as? Number)?.toLong() ?: continue
             val entry = JSONObject().put("at", at)
             for (name in TEXT_FIELDS) entry.put(name, alert[name] as? String ?: "")
@@ -231,6 +234,21 @@ object Reminders {
         }
     }
 
+    /**
+     * Arms the kept alert numbered [index] for [at]: its alarm, and when
+     * that one is on the minute, its inexact twin at the same time; without
+     * an alarm on the minute, no twin is left.
+     */
+    private fun arm(context: Context, index: Int, at: Long, exact: Boolean) {
+        // The same request codes replace the alarms set before.
+        setAlarm(context, at, pending(context, index), exact)
+        if (exact && exactAllowed(context)) {
+            setAlarm(context, at, twin(context, index), exact = false)
+        } else {
+            cancelIntent(context, twin(context, index))
+        }
+    }
+
     /** A test notification in a minute, as the reminders would come, with
      *  the app's words in its [channel]. */
     fun test(context: Context, exact: Boolean, channel: String, title: String, text: String) {
@@ -297,8 +315,7 @@ object Reminders {
             val at = dueAt(alert)
             val id = idOf(alert, i)
             when (ReminderGrace.step(at, alert.optLong("grace"), now, id in posted)) {
-                // The same request code replaces an alarm set before.
-                ReminderGrace.Step.ARM -> setAlarm(context, at, pending(context, i), exact)
+                ReminderGrace.Step.ARM -> arm(context, i, at, exact)
                 ReminderGrace.Step.POST_NOW -> {
                     cancel(context, i)
                     postKept(context, i, alert)
@@ -333,9 +350,13 @@ object Reminders {
         val id = idOf(alert, index)
         when (ReminderGrace.step(at, alert.optLong("grace"), now, id in posted(context))) {
             ReminderGrace.Step.ARM ->
-                setAlarm(context, at, pending(context, index), prefs(context).getBoolean(EXACT, false))
-            ReminderGrace.Step.POST_NOW -> postKept(context, index, alert)
-            ReminderGrace.Step.DROP, ReminderGrace.Step.DONE -> Unit
+                arm(context, index, at, prefs(context).getBoolean(EXACT, false))
+            ReminderGrace.Step.POST_NOW -> {
+                // The other alarm of the pair has nothing left to do.
+                cancel(context, index)
+                postKept(context, index, alert)
+            }
+            ReminderGrace.Step.DROP, ReminderGrace.Step.DONE -> cancel(context, index)
         }
     }
 
@@ -351,9 +372,26 @@ object Reminders {
         )
     }
 
+    /** The inexact twin of the alarm of the alert numbered [id]: the same
+     *  intent under its own request code. */
+    private fun twin(context: Context, id: Int): PendingIntent {
+        val intent = Intent(context, ReminderReceiver::class.java).putExtra(EXTRA_ID, id)
+        return PendingIntent.getBroadcast(
+            context,
+            ReminderAlarms.twinCode(id),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    /** Takes away the alarms of the alert numbered [id], twin included. */
     private fun cancel(context: Context, id: Int) {
+        cancelIntent(context, pending(context, id))
+        cancelIntent(context, twin(context, id))
+    }
+
+    private fun cancelIntent(context: Context, pending: PendingIntent) {
         val alarms = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val pending = pending(context, id)
         alarms.cancel(pending)
         // And the intent itself, so nothing of a taken-away alert is left
         // with the system.
@@ -498,8 +536,9 @@ class ConfirmReceiver : BroadcastReceiver() {
  * again from its wall-clock time, in the time zone the phone is in now),
  * and when alarms on the minute are allowed (they ring on the minute from
  * then on). Taking that permission away stops the app and cancels its
- * alarms on the minute, and Android tells nothing of it: the plan is
- * armed again, inexact, when the app is next opened or the phone restarts.
+ * alarms on the minute, and Android tells nothing of it: their inexact
+ * twins still ring ([ReminderAlarms]), and the plan is armed again,
+ * inexact, when the app is next opened or the phone restarts.
  */
 class RestartReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
