@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:core/foundation_values.dart' show YearMonth;
+
 import '../../../../design_system/display/date.dart';
 
 /// How long a report runs.
@@ -46,14 +48,13 @@ final class ReportPeriod {
   final DateTime end;
 
   static DateTime lastDay(DateTime month) =>
-      DateTime.utc(month.year, month.month + 1, 0);
+      YearMonth.of(month).lastDay.asUtcMidnight;
 
   int get months => switch (span) {
     ReportSpan.month => 1,
     ReportSpan.quarter => 3,
     ReportSpan.year => 12,
-    ReportSpan.custom =>
-      (end.year - start.year) * 12 + end.month - start.month + 1,
+    ReportSpan.custom => YearMonth.of(start).monthsUntil(YearMonth.of(end)) + 1,
   };
 
   /// The first and last day.

@@ -1,3 +1,4 @@
+import 'package:core/foundation_values.dart' show BusinessDate, YearMonth;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -153,11 +154,10 @@ class _ExportSheetState extends State<_ExportSheet> {
   }
 
   String _name(_Span span) {
-    String day(DateTime d) =>
-        '${d.year}${'${d.month}'.padLeft(2, '0')}${'${d.day}'.padLeft(2, '0')}';
+    String day(DateTime d) => BusinessDate.of(d).compact;
     final t = _today;
     return switch (span) {
-      _Span.month => '記帳本-${t.year}-${'${t.month}'.padLeft(2, '0')}.csv',
+      _Span.month => '記帳本-${YearMonth.of(t)}.csv',
       _Span.year => '記帳本-${t.year}.csv',
       _Span.all => '記帳本-全部.csv',
       _Span.custom => '記帳本-${day(_from)}-${day(_to)}.csv',

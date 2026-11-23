@@ -64,8 +64,10 @@ const clockOwners = [
   '$appLib/main_preview.dart',
 ];
 
-/// Owner of padding numbers into text (rule B3).
-const paddingOwners = ['$appLib/src/core/formatting/'];
+/// Owner of padding numbers into dates and times shown to people
+/// (rule B3); machine forms (`2026-01-05`, file stamps) are core's
+/// `BusinessDate`, `YearMonth` and `twoDigits`.
+const paddingOwners = ['$appLib/design_system/display/'];
 
 /// Where user-facing text must not be written inline (rule B9).
 const textScopes = ['$appLib/src/features/', '$appLib/src/app/'];

@@ -264,9 +264,8 @@ class _LockScreenState extends State<LockScreen> {
     try {
       final header = await widget.startup.peek(path);
       final at = header.createdAt.toLocal();
-      String two(int n) => n.toString().padLeft(2, '0');
       about =
-          '${formatYMd(at)} ${two(at.hour)}:${two(at.minute)}'
+          '${formatYMdHm(at)}'
           ' 的備份 · ${countOf(header.rows, CountUnit.entries)}資料';
     } on Object {
       // A file that is not a backup is said so.
@@ -361,18 +360,15 @@ class _LockScreenState extends State<LockScreen> {
 
   static String _fileLabel(File file) {
     final at = file.lastModifiedSync();
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${formatYMd(at)} ${two(at.hour)}:${two(at.minute)} 留下';
+    return '${formatYMdHm(at)} 留下';
   }
 
   static String _driveLabel(DriveFile file) {
     final at = file.modified.toLocal();
-    String two(int n) => n.toString().padLeft(2, '0');
     final size = file.size == 0
         ? ''
         : ' · ${(file.size / (1024 * 1024)).toStringAsFixed(1)} MB';
-    return '${formatYMd(at)} '
-        '${two(at.hour)}:${two(at.minute)}$size';
+    return '${formatYMdHm(at)}$size';
   }
 
   void _fail(String problem) {

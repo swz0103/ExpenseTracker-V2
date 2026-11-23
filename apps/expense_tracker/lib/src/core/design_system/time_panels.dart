@@ -299,8 +299,6 @@ Future<TimeOfDay?> pickTime(
   );
 }
 
-String _two(int n) => n.toString().padLeft(2, '0');
-
 class _TimePanel extends StatefulWidget {
   const _TimePanel({
     required this.initial,
@@ -365,7 +363,7 @@ class _TimePanelState extends State<_TimePanel> {
     final extent = math.max(44.0, TextSize.figure * textGrowth(context) * 1.5);
     return Semantics(
       label: unit,
-      value: _two(value),
+      value: formatTimeField(value),
       child: SizedBox(
         height: extent * 168 / 44,
         child: ListWheelScrollView.useDelegate(
@@ -382,7 +380,7 @@ class _TimePanelState extends State<_TimePanel> {
               for (var i = 0; i < count; i++)
                 Center(
                   child: Text(
-                    _two(i),
+                    formatTimeField(i),
                     style: TextStyle(
                       fontSize: TextSize.figure,
                       fontWeight: FontWeight.w800,
@@ -404,7 +402,7 @@ class _TimePanelState extends State<_TimePanel> {
       glyph: Glyph.bell,
       color: color,
       title: widget.title,
-      detail: '${_two(_hour)}:${_two(_minute)}',
+      detail: formatHm(_hour, _minute),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -433,7 +431,7 @@ class _TimePanelState extends State<_TimePanel> {
     children: [
       for (final t in widget.usual)
         ChoicePill(
-          label: '${_two(t.hour)}:${_two(t.minute)}',
+          label: formatHm(t.hour, t.minute),
           selected: t.hour == _hour && t.minute == _minute,
           onTap: () => _set(t),
         ),

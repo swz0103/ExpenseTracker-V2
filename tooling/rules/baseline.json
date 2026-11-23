@@ -34,18 +34,7 @@
     "apps/expense_tracker/lib/src/features/reminders/model/calendar_sync.dart": 1,
     "apps/expense_tracker/lib/src/features/reminders/model/inbox_apply.dart": 3
   },
-  "B3-clock": {
-    "apps/expense_tracker/lib/src/app/android/notification_adapter.dart": 2,
-    "apps/expense_tracker/lib/src/core/design_system/time_panels.dart": 1,
-    "apps/expense_tracker/lib/src/features/backup/model/encrypted_backup_manager.dart": 1,
-    "apps/expense_tracker/lib/src/features/backup/model/phone_backup.dart": 1,
-    "apps/expense_tracker/lib/src/features/backup/ui/backup_section.dart": 1,
-    "apps/expense_tracker/lib/src/features/import_export/model/import_export.dart": 1,
-    "apps/expense_tracker/lib/src/features/import_export/ui/import_export_section.dart": 3,
-    "apps/expense_tracker/lib/src/features/investments/model/market_feed.dart": 1,
-    "apps/expense_tracker/lib/src/features/lock/ui/lock_screen.dart": 3,
-    "apps/expense_tracker/lib/src/features/reminders/ui/reminders_section.dart": 1
-  },
+  "B3-clock": {},
   "B9-text-literals": {
     "apps/expense_tracker/lib/src/app/about_section.dart": 29,
     "apps/expense_tracker/lib/src/app/android/network_adapter.dart": 1,
@@ -83,7 +72,7 @@
     "apps/expense_tracker/lib/src/features/backup/model/file_cleanup.dart": 1,
     "apps/expense_tracker/lib/src/features/backup/model/outbox.dart": 3,
     "apps/expense_tracker/lib/src/features/backup/model/phone_backup.dart": 3,
-    "apps/expense_tracker/lib/src/features/backup/ui/backup_section.dart": 59,
+    "apps/expense_tracker/lib/src/features/backup/ui/backup_section.dart": 57,
     "apps/expense_tracker/lib/src/features/budgets/forms/budget_editor.dart": 15,
     "apps/expense_tracker/lib/src/features/budgets/ui/budgets.dart": 24,
     "apps/expense_tracker/lib/src/features/budgets/ui/budgets_month_picker.dart": 8,

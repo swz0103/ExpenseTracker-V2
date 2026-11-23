@@ -249,8 +249,6 @@ class _RemindersSectionState extends State<RemindersSection>
     if (mounted) setState(() {});
   }
 
-  static String _two(int n) => n.toString().padLeft(2, '0');
-
   // The details of each card.
 
   void _dueDetails(Notifier notifier) {
@@ -363,14 +361,15 @@ class _RemindersSectionState extends State<RemindersSection>
               radius: Radii.large,
               // The time too, not only what it is for.
               label:
-                  '提醒時間：${_two(preferences.nudgeHour)}:'
-                  '${_two(preferences.nudgeMinute)}',
+                  '提醒時間：${formatHm(preferences.nudgeHour, preferences.nudgeMinute)}',
               onTap: () => _pickNudgeTime(notifier),
               padding: const EdgeInsets.symmetric(vertical: Space.s4),
               child: Center(
                 child: Text(
-                  '${_two(preferences.nudgeHour)} : '
-                  '${_two(preferences.nudgeMinute)}',
+                  formatHmSpaced(
+                    preferences.nudgeHour,
+                    preferences.nudgeMinute,
+                  ),
                   style: TextStyle(
                     fontSize: TextSize.hero,
                     fontWeight: FontWeight.w800,
@@ -522,8 +521,7 @@ class _RemindersSectionState extends State<RemindersSection>
               color: SettingsColors.daily,
               title: '每日記帳',
               detail:
-                  '每天 ${_two(preferences.nudgeHour)}:'
-                  '${_two(preferences.nudgeMinute)}'
+                  '每天 ${formatHm(preferences.nudgeHour, preferences.nudgeMinute)}'
                   '${preferences.exactReminders ? ' · 準時' : ''}',
               value: preferences.dailyNudge,
               onChanged: (on) => _notify(notifier, nudge: on),

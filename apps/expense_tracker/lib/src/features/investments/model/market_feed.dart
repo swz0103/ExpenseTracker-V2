@@ -1,3 +1,5 @@
+import 'package:core/foundation_values.dart' show YearMonth;
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -101,7 +103,7 @@ final class MarketFeed extends SyncJob implements PriceHistory {
     final last = DateTime.utc(today.year, today.month);
     var changed = false;
     while (!month.isAfter(last)) {
-      final key = '${month.year}-${'${month.month}'.padLeft(2, '0')}';
+      final key = YearMonth.of(month).toString();
       final current = month == last;
       var days = current ? null : kept[key];
       if (days == null) {

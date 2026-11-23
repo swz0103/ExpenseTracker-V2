@@ -101,6 +101,8 @@ void main() {
     expect(relativeDay(DateTime.utc(2026, 11, 2), today: today), '11/2');
     expect(relativeDay(DateTime.utc(2025, 12, 31), today: today), '2025/12/31');
     expect(formatHm(9, 5), '09:05');
+    expect(formatHmSpaced(9, 5), '09 : 05');
+    expect(formatTimeField(7), '07');
     expect(formatWhen(DateTime(2026, 11, 21, 8, 14), today: today), '昨天 08:14');
     expect(formatYMdHm(DateTime(2026, 3, 4, 21, 3)), '2026/3/4 21:03');
   });

@@ -49,6 +49,13 @@ String formatMMMEd(DateTime d) => '${formatMMMd(d)} · ${formatE(d)}';
 String formatHm(int hour, int minute) =>
     '${time.twoDigits(hour)}:${time.twoDigits(minute)}';
 
+/// 「09 : 05」, spaced for a time shown large.
+String formatHmSpaced(int hour, int minute) =>
+    '${time.twoDigits(hour)} : ${time.twoDigits(minute)}';
+
+/// 「09」: an hour or a minute alone, as a time picker lists them.
+String formatTimeField(int value) => time.twoDigits(value);
+
 /// 「2026/10/4 09:05」.
 String formatYMdHm(DateTime d) =>
     '${formatYMd(d)} ${formatHm(d.hour, d.minute)}';

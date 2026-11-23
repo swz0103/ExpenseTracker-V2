@@ -199,9 +199,7 @@ bool _isSplit(String cell) {
   return pieces.every((p) => RegExp(r'=\s*[\d,.]+\s*$').hasMatch(p));
 }
 
-String _day(DateTime d) => '${d.year}-${_two(d.month)}-${_two(d.day)}';
-
-String _two(int n) => n.toString().padLeft(2, '0');
+String _day(DateTime d) => BusinessDate.of(d).toString();
 
 /// The rows of [text] read as CSV, a leading byte order mark and blank
 /// lines left out. A quote left open runs to the end, as a spreadsheet
