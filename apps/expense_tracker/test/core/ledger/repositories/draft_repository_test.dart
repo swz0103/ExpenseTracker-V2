@@ -1,4 +1,5 @@
 import 'package:expense_tracker/src/core/ledger/repositories/draft_repository.dart';
+import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -29,6 +30,20 @@ void main() {
       'sell': '[1, 2]',
     });
     expect(drafts.receipts.toList(), ['a.jpg']);
+  });
+
+  test('a form that cannot be read is kept in the error log, not passed '
+      'over unseen', () {
+    final before = ErrorLog.instance.count;
+    final drafts = DraftRepository({'buy': 'not json'});
+    expect(drafts.receipts.toList(), isEmpty);
+    expect(ErrorLog.instance.count, before + 1);
+    expect(
+      ErrorLog.instance.entries.first.$2,
+      startsWith(
+        '暫存的表單：FormatException: FormatException: Unexpected character',
+      ),
+    );
   });
 
   test('another read anew is taken whole', () {

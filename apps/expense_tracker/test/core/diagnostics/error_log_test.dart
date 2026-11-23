@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:core/app_core.dart';
@@ -66,11 +67,19 @@ void main() {
     // only a line that is a function name and a source is kept, so the
     // second one, which is neither, is dropped whole.
     final kept = file.readAsStringSync();
+    final line = jsonDecode(kept) as Map<String, Object?>;
     expect(
-      kept.substring(kept.indexOf('\t')),
-      '\t記一筆：StateError: Bad state: Cannot save # for … in … …'
-      '\t#0 Ledger.save (package:expense_tracker/src/ledger.dart:12:5)\n',
+      line['what'],
+      '記一筆：StateError: Bad state: Cannot save # for … in … …',
     );
+    expect(line['frames'], [
+      '#0 Ledger.save (package:expense_tracker/src/ledger.dart:12:5)',
+    ]);
+    // Nothing else is in the file: when, what, where.
+    expect(line.keys, ['at', 'what', 'frames']);
+    for (final secret in ['98765', '王小明', '生日', '全聯', 'sdcard', '秘密']) {
+      expect(kept, isNot(contains(secret)), reason: secret);
+    }
     expect(log.text, isNot(contains('98765')));
     expect(log.text, isNot(contains('王小明')));
     expect(log.text, isNot(contains('sdcard')));
@@ -172,7 +181,8 @@ void main() {
 
     /// The words of each line of [of], without their times and stacks.
     List<String> words(File of) => [
-      for (final line in of.readAsLinesSync()) line.split('\t')[1],
+      for (final line in of.readAsLinesSync())
+        (jsonDecode(line) as Map<String, Object?>)['what']! as String,
     ];
 
     test('keeps the newest first, and at most fifty', () {
@@ -271,6 +281,16 @@ void main() {
       expect(log.entries.single.$2, '備份：StateError: paid # to …');
     });
 
+    test('a line cut short by a crash costs only itself', () {
+      file.writeAsStringSync(
+        '{"at":"2026-11-23T04:00:00.000Z","what":"a：StateError: x","frames":[]}\n'
+        '{"at":"2026-11-23T04:00:01.000Z","what":"b：Sta\n'
+        '{"at":"2026-11-23T04:00:02.000Z","what":"c：StateError: x","frames":[]}\n',
+      );
+      final log = ErrorLog.detached()..keepIn(file);
+      expect(log.entries.map((e) => e.$2.substring(0, 2)), ['診斷', 'c：', 'a：']);
+    });
+
     test('the same fault again and again is counted, not kept anew', () async {
       final log = ErrorLog.detached()..keepIn(file);
       log.record('other', StateError('x'), StackTrace.empty);
@@ -282,6 +302,7 @@ void main() {
       await log.flush();
       // Two problems and one count: three lines, not 121.
       expect(file.readAsLinesSync().length, 3);
+      expect(file.readAsLinesSync().last, endsWith(',"times":120}'));
       final later = ErrorLog.detached()..keepIn(file);
       expect(later.entries.first.$2, '畫面錯誤：StateError: Bad state: y ×120');
       expect(later.entries.last.$2, 'other：StateError: Bad state: x');
@@ -307,7 +328,8 @@ void main() {
       // Filled again: the file put aside before is replaced, so there are
       // never more than two.
       file.writeAsStringSync(
-        '2026-11-23T04:00:00.000Z\told：StateError: Bad state: x\n'
+        '{"at":"2026-11-23T04:00:00.000Z",'
+        '"what":"old：StateError: Bad state: x","frames":[]}\n'
         '${'x' * 131000}\n',
       );
       final again = ErrorLog.detached()..keepIn(file);
@@ -315,7 +337,7 @@ void main() {
       await again.flush();
       expect(
         aside.readAsLinesSync().first,
-        endsWith('old：StateError: Bad state: x'),
+        contains('old：StateError: Bad state: x'),
       );
       expect(directory.listSync().length, 2);
       final later = ErrorLog.detached()..keepIn(file);

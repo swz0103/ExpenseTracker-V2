@@ -10,7 +10,9 @@ import 'src/app/platform.dart';
 import 'src/core/platform/preferences.dart';
 import 'src/core/platform/screen_privacy.dart';
 import 'src/core/diagnostics/error_log.dart';
+import 'src/core/diagnostics/error_steps.dart';
 import 'src/core/diagnostics/unhandled_errors.dart';
+import 'src/core/messages/diagnostics_messages.dart';
 import 'src/core/design_system/feedback.dart';
 import 'src/app/android/clipboard_adapter.dart';
 import 'src/app/android/haptics_adapter.dart';
@@ -28,7 +30,10 @@ Future<void> main() async {
   ErrorLog.instance.keepIn(File('${directory.path}/diagnostics.log'));
   // A fault nothing catches is kept with its stack; a release build tells
   // the person once, any other shows it to the developer.
-  UnhandledErrors(log: ErrorLog.instance, tell: showNoteAnywhere).install();
+  UnhandledErrors(
+    log: ErrorLog.instance,
+    tell: () => showNoteAnywhere(DiagnosticsMessages.unforeseenNote),
+  ).install();
   final device = Platform.isAndroid
       ? await androidDeviceUnlock(directory)
       : null;
@@ -46,7 +51,7 @@ Future<void> main() async {
   try {
     await privacy?.apply();
   } on Object catch (error) {
-    ErrorLog.instance.record('螢幕隱私', error);
+    ErrorLog.instance.record(ErrorSteps.screenPrivacy, error);
   }
   final preferences = Preferences(
     file: File('${directory.path}/preferences.json'),
@@ -83,12 +88,12 @@ Future<void> _clearLeftovers(Directory directory) async {
     try {
       cache = await androidCacheDirectory();
     } on Object catch (error) {
-      ErrorLog.instance.record('清除暫存檔', error);
+      ErrorLog.instance.record(ErrorSteps.cleanup, error);
     }
   }
   try {
     await clearLeftovers(directory, cache: cache);
   } on Object catch (error) {
-    ErrorLog.instance.record('清除暫存檔', error);
+    ErrorLog.instance.record(ErrorSteps.cleanup, error);
   }
 }

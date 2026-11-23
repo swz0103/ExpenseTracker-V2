@@ -1,4 +1,6 @@
 import '../../formatting/json_fields.dart';
+import '../../diagnostics/error_log.dart';
+import '../../diagnostics/error_steps.dart';
 
 /// What the composer may ask of the forms put aside.
 abstract interface class DraftReader {
@@ -39,8 +41,9 @@ final class DraftRepository implements DraftReader {
       try {
         final file = JsonFields.decode(json).text('receipt');
         if (file != null) yield file;
-      } on Object {
+      } on FormatException catch (error) {
         // A form that cannot be read keeps no photo.
+        ErrorLog.instance.record(ErrorSteps.draft, error);
       }
     }
   }

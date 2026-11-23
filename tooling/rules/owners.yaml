@@ -266,12 +266,38 @@ items:
       - apps/expense_tracker/lib/src/core/platform/preferences.dart
     target: apps/expense_tracker/lib/app/settings/
     status: scattered
+  # The log (what is kept of an error: the redaction rule, the stack and
+  # its limits, batching, rotation), the one handler of faults nobody
+  # caught, and the names quiet failures are kept under.
   - id: error-log
-    what: 錯誤紀錄與回報
+    what: 錯誤紀錄與回報（去識別化規則、堆疊上限、批次寫入、未處理錯誤）
     layer: app
     owner:
       - apps/expense_tracker/lib/src/core/diagnostics/error_log.dart
+      - apps/expense_tracker/lib/src/core/diagnostics/unhandled_errors.dart
+      - apps/expense_tracker/lib/src/core/diagnostics/error_steps.dart
     target: apps/expense_tracker/lib/app/diagnostics/
+    status: owned
+  # How the build stands against the newest one (the states and why a
+  # look failed) and the words for each.
+  - id: update-status
+    what: 檢查更新的狀態與說法
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/update_status.dart
+      - apps/expense_tracker/lib/src/core/messages/update_messages.dart
+    target: apps/expense_tracker/lib/app/coordinators/
+    status: owned
+  # What a scan came to (read, closed, failed and why), the words for
+  # each, and the reason names the phone gives.
+  - id: scan-outcome
+    what: 掃描器的結果、失敗原因與說法
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/scan.dart
+      - apps/expense_tracker/lib/src/core/messages/scan_messages.dart
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/ScanFault.kt
+    target: apps/expense_tracker/lib/app/coordinators/
     status: owned
 
   # ---- design_system ----

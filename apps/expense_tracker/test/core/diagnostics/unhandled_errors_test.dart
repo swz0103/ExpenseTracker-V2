@@ -6,6 +6,7 @@ import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/design_system/feedback.dart';
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/diagnostics/unhandled_errors.dart';
+import 'package:expense_tracker/src/core/messages/diagnostics_messages.dart';
 import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,8 +30,8 @@ void main() {
       UnhandledErrors(
         log: log,
         surface: surface,
-        tell: (note) {
-          told.add(note);
+        tell: () {
+          told.add(DiagnosticsMessages.unforeseenNote);
           return somewhere;
         },
       );
@@ -128,7 +129,7 @@ void main() {
       final handler = UnhandledErrors(
         log: log,
         surface: false,
-        tell: (_) {
+        tell: () {
           asked++;
           throw StateError('no screen');
         },
@@ -165,7 +166,7 @@ void main() {
       final handler = UnhandledErrors(
         log: log,
         surface: false,
-        tell: showNoteAnywhere,
+        tell: () => showNoteAnywhere(DiagnosticsMessages.unforeseenNote),
       );
       var fail = false;
       late StateSetter redraw;
@@ -256,8 +257,8 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       await written(3);
       expect(
-        file.readAsLinesSync().last.split('\t')[1],
-        'later：StateError: Bad state: c',
+        file.readAsLinesSync().last,
+        contains('"what":"later：StateError: Bad state: c"'),
       );
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);

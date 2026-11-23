@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/formatting/json_fields.dart';
+import '../../../core/diagnostics/error_steps.dart';
 
 /// One HTTP exchange with Google Drive: the status, the headers (lower
 /// case) and, unless it was saved to a file, the body.
@@ -193,8 +194,9 @@ final class DriveBackup {
         headers: {'content-type': 'application/x-www-form-urlencoded'},
         text: 'token=${Uri.encodeQueryComponent(token)}',
       );
-    } on Object {
+    } on Object catch (error, stack) {
       // Revoked later from the Google account's settings, if wanted.
+      ErrorLog.instance.record(ErrorSteps.driveRevoke, error, stack);
     }
     await _forget(token);
   }
@@ -260,7 +262,7 @@ final class DriveBackup {
   static String _reason(String body) {
     try {
       return JsonFields.decode(body).object('error')?.text('message') ?? '';
-    } on Object {
+    } on FormatException {
       // A body that is not JSON has no message.
       return '';
     }
@@ -408,8 +410,9 @@ final class DriveBackup {
       for (final old in kept.skip(keep)) {
         await _trash(old.id, interactive: interactive);
       }
-    } on DriveException {
+    } on DriveException catch (error) {
       // Tried again after the next upload.
+      ErrorLog.instance.record(ErrorSteps.driveTrim, error);
     }
   }
 

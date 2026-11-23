@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:market/market_data.dart';
 
 import '../../core/time/app_clock.dart';
+import '../../core/diagnostics/error_log.dart';
+import '../../core/diagnostics/error_steps.dart';
 
 /// The exchanges' day lists and the bank's rates as Android's background
 /// job last fetched them (`MarketWorker.kt`), so the closes are there
@@ -67,8 +69,9 @@ final class CachedMarketTransport implements MarketTransport {
       if (file.existsSync() && fresh(uri, file.lastModifiedSync())) {
         return MarketResponse(200, await file.readAsString());
       }
-    } on FileSystemException {
+    } on FileSystemException catch (error) {
       // Read from the network instead.
+      ErrorLog.instance.record(ErrorSteps.marketCache, error);
     }
     final response = await inner.get(uri);
     if (response.statusCode == 200) {
@@ -77,8 +80,9 @@ final class CachedMarketTransport implements MarketTransport {
         final partial = File('${file.path}.part');
         await partial.writeAsString(response.body);
         await partial.rename(file.path);
-      } on FileSystemException {
+      } on FileSystemException catch (error) {
         // Kept next time.
+        ErrorLog.instance.record(ErrorSteps.marketCache, error);
       }
     }
     return response;

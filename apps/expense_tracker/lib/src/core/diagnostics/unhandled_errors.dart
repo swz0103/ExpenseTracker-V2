@@ -5,9 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
-import '../messages/diagnostics_messages.dart';
 import '../time/app_clock.dart';
 import 'error_log.dart';
+import 'error_steps.dart';
 
 /// What happens to a fault nothing caught, wherever it comes from: the
 /// drawing of a screen (`FlutterError.onError`), anything else on the
@@ -31,9 +31,9 @@ final class UnhandledErrors {
 
   final ErrorLog log;
 
-  /// Says [DiagnosticsMessages.unforeseenNote] to the person; false when
-  /// there was nowhere to say it yet.
-  final bool Function(String note) tell;
+  /// Tells the person that something went wrong and where it was kept;
+  /// false when there was nowhere to say it yet.
+  final bool Function() tell;
 
   /// Whether faults are shown to the developer rather than told to the
   /// person: every build but a release one.
@@ -79,18 +79,14 @@ final class UnhandledErrors {
 
   /// A fault while a screen was built, laid out or drawn.
   void onFlutterError(FlutterErrorDetails details) {
-    log.record(
-      DiagnosticsMessages.screenError,
-      details.exception,
-      details.stack,
-    );
+    log.record(ErrorSteps.screenError, details.exception, details.stack);
     _after(() => FlutterError.presentError(details));
   }
 
   /// A fault nothing caught, outside the drawing of a screen. True when
   /// it was dealt with here; false leaves it to Flutter, which prints it.
   bool onPlatformError(Object error, StackTrace stack) {
-    log.record(DiagnosticsMessages.unforeseenError, error, stack);
+    log.record(ErrorSteps.unforeseenError, error, stack);
     _after(null);
     return !surface;
   }
@@ -103,11 +99,11 @@ final class UnhandledErrors {
       _ => [message, null],
     };
     log.record(
-      DiagnosticsMessages.isolateError,
+      ErrorSteps.isolateError,
       IsolateFault('$error'),
       stack == null ? StackTrace.empty : StackTrace.fromString('$stack'),
     );
-    _after(() => debugPrint('${DiagnosticsMessages.isolateError}: $error'));
+    _after(() => debugPrint('${ErrorSteps.isolateError}: $error'));
   }
 
   /// After a fault is kept: it is written now, then shown with [show] to
@@ -139,10 +135,10 @@ final class UnhandledErrors {
     final before = _told;
     _told = now;
     try {
-      if (!tell(DiagnosticsMessages.unforeseenNote)) _told = before;
+      if (!tell()) _told = before;
     } on Object catch (error, stack) {
       // Kept like any other; the gap already counts from this try.
-      log.record(DiagnosticsMessages.unforeseenError, error, stack);
+      log.record(ErrorSteps.unforeseenError, error, stack);
     }
   }
 }

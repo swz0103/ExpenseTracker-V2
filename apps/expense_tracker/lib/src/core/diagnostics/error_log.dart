@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart'
     show debugPrint, kReleaseMode, visibleForTesting;
 import 'package:flutter/services.dart' show PlatformException;
 
-import '../messages/diagnostics_messages.dart';
+import 'error_steps.dart';
 import '../time/app_clock.dart';
 
 /// One fault kept: when it first happened, what did not work with the
@@ -106,8 +106,51 @@ final class ErrorLog {
   /// The file the one before [log] is put aside as.
   static File _aside(File log) => File('${log.path}.1');
 
-  /// Marks a line that says how often the problem before it happened.
-  static const _times = '×';
+  // The file is one JSON object a line: a problem is `at`, `what` and
+  // `frames`; a line with `at` and `times` says how often the problem
+  // before it has happened by then.
+  static const _at = 'at';
+  static const _what = 'what';
+  static const _frames = 'frames';
+  static const _times = 'times';
+
+  /// A problem as a line of the file.
+  static String _line(_Problem problem) => jsonEncode({
+    _at: problem.at.toIso8601String(),
+    _what: problem.words,
+    _frames: problem.frames,
+  });
+
+  /// Brings the problem of [line] back into [into], or the count of the
+  /// one before it. A line that says neither is left out.
+  static void _readLine(String line, List<_Problem> into) {
+    if (!line.startsWith('{')) {
+      // As versions before the stack was kept wrote it: when, a tab, what.
+      final tab = line.indexOf('\t');
+      final at = tab < 0 ? null : DateTime.tryParse(line.substring(0, tab));
+      if (at != null) {
+        into.add(_Problem(at, _cleanKept(line.substring(tab + 1)), const []));
+      }
+      return;
+    }
+    switch (jsonDecode(line)) {
+      case {
+        _at: final String time,
+        _what: final String what,
+        _frames: final List<Object?> frames,
+      }:
+        final at = DateTime.tryParse(time);
+        if (at == null) return;
+        into.add(
+          _Problem(at, _cleanKept(what), [
+            for (final frame in frames.whereType<String>().take(maxFrames))
+              ?_frame(frame),
+          ]),
+        );
+      case {_at: String _, _times: final int times}:
+        if (into.isNotEmpty) into.last.times = times;
+    }
+  }
 
   /// Keeps problems in [file] from now on, and brings back those kept
   /// there before, so a fault before a crash can still be exported.
@@ -123,25 +166,17 @@ final class ErrorLog {
       for (final part in [_aside(file), file]) {
         if (!part.existsSync()) continue;
         for (final line in part.readAsLinesSync()) {
-          final fields = line.split('\t');
-          final at = DateTime.tryParse(fields.first);
-          if (at == null || fields.length < 2) continue;
-          if (fields[1] == _times) {
-            final times = fields.length > 2 ? int.tryParse(fields[2]) : null;
-            if (times != null && before.isNotEmpty) before.last.times = times;
-            continue;
+          try {
+            _readLine(line, before);
+          } on FormatException catch (error) {
+            // A line cut short by a crash costs only itself.
+            record(ErrorSteps.logFile, error);
           }
-          before.add(
-            _Problem(at, _cleanKept(fields[1]), [
-              for (final frame in fields.skip(2).take(maxFrames))
-                ?_frame(frame),
-            ]),
-          );
         }
       }
     } on Object catch (error) {
       // An unreadable log starts again, and says so.
-      record(DiagnosticsMessages.logFile, error);
+      record(ErrorSteps.logFile, error);
     }
     // Those of earlier runs are older than any of this one.
     _problems.insertAll(0, before);
@@ -276,11 +311,9 @@ final class ErrorLog {
       _repeated = true;
     } else {
       _writeTimes();
-      final at = AppClock.now();
-      _problems.add(_Problem(at, words, where));
-      if (_log != null) {
-        _pending.add([at.toIso8601String(), words, ...where].join('\t'));
-      }
+      final problem = _Problem(AppClock.now(), words, where);
+      _problems.add(problem);
+      if (_log != null) _pending.add(_line(problem));
       _trim();
     }
     if (_log == null || _noting) return;
@@ -294,7 +327,7 @@ final class ErrorLog {
     if (_log == null) return;
     final last = _problems.last;
     _pending.add(
-      [AppClock.now().toIso8601String(), _times, '${last.times}'].join('\t'),
+      jsonEncode({_at: AppClock.now().toIso8601String(), _times: last.times}),
     );
   }
 
@@ -329,7 +362,7 @@ final class ErrorLog {
       _pending.insertAll(0, lines);
       _size = null;
       _noting = true;
-      record(DiagnosticsMessages.logFile, error);
+      record(ErrorSteps.logFile, error);
       _noting = false;
     }
   }

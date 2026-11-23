@@ -129,6 +129,14 @@ Work package 1.5 (one decision and one wording per status). These findings had n
 - INV-06: `test/core/ledger/repositories/holding_repository_test.dart` (sold-out not held); `packages/domain/test/investments/holding_rules_test.dart` — the sold-out part only; the stale-price mark and the neutral flat colour are not done
 - REC-04: the total reads 本月合計 and a subscription row opens its item; the end-before-start check is 1.4's
 
+## fixed in 3.5
+
+Work package 3.5 (errors and diagnostics). These findings had no known-defect test; the tests below run in the ordinary suite.
+
+- ARC-07: `test/core/diagnostics/error_log_test.dart` (the stack is kept, cleaned and bounded; an amount and a note never reach the file; nothing is written while recording, batches go in order, a repeated fault is counted, a full file is put aside); `test/core/diagnostics/unhandled_errors_test.dart` (faults nobody caught are kept, shown while developing, told once a minute at most in a release build; the log is written when the app is left). Quiet failures that used to pass unseen are kept now: `test/core/platform/preferences_test.dart`, `test/core/ledger/repositories/draft_repository_test.dart`, `test/app/android/market_cache_adapter_test.dart`. Not done: an opt-in crash report sent off the phone (the fix line's alternative, 一鍵回報, is the existing 診斷 › 複製／下載).
+- F66: `test/app/android/scanner_adapter_test.dart` (a failed download is kept in the log with the phone's reason), `test/features/entries/forms/composer_pickers_test.dart` (each failure says what to do; the wait for the download is said), `test/core/messages/scan_messages_test.dart`, `android/app/src/test/.../ScanFaultTest.kt`. The download itself failing on the owner's phone (GMS 26.45.31) is Google Play services' side and is not reproduced here; the log now says why.
+- F102: `test/app/about_section_test.dart` (group 檢查更新 always answers), `test/features/settings/model/app_update_test.dart` (group how the build stands), `test/core/messages/update_messages_test.dart`
+
 ## not covered
 
 One line per finding that has no test here. Findings with an executed reproduction come first with the specific reason; the rest were found by reading code (no executed reproduction), which the brief does not require.
@@ -172,7 +180,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - REC-03 (S3, 2.3): the division by zero is inside widget code (yearly share); no API returns it
 - ACC-04 (S3, 2.4): the fix is a prompt at archive time; the correct end state is not one assertion
 - F16 (S3, 2.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
-- F66 (S3, 3.5): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
 
 ### Found by reading code, no executed reproduction
 
@@ -193,7 +200,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - DAT-03 (S2, 3.3): no executed reproduction; not turned into a test
 - REM-03 (S2, 3.4): no executed reproduction; not turned into a test
 - REM-04 (S2, 3.4): no executed reproduction; not turned into a test
-- ARC-07 (S2, 3.5): no executed reproduction; not turned into a test
 - ARC-02 (S2, 4.1): no executed reproduction; not turned into a test
 - DAT-06 (S2, 4.1): no executed reproduction; not turned into a test
 - DSN-02 (S2, 4.1): no executed reproduction; not turned into a test
@@ -260,7 +266,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - F45 (S3, 3.4): no executed reproduction; not turned into a test
 - F81 (S3, 3.4): no executed reproduction; not turned into a test
 - REM-02 (S3, 3.4): no executed reproduction; not turned into a test
-- F102 (S3, 3.5): no executed reproduction; not turned into a test
 - DAT-07 (S3, 4.1): no executed reproduction; not turned into a test
 - DAT-10 (S3, 4.1): no executed reproduction; not turned into a test
 - OVR-01 (S3, 4.1): no executed reproduction; not turned into a test
