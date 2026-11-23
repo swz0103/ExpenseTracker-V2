@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 
 import '../formatting/json_fields.dart';
 import '../ledger/trading.dart' show defaultBrokerDiscount;
+import '../diagnostics/error_log.dart';
+import '../diagnostics/error_steps.dart';
 
 /// Light or dark colours.
 enum Appearance {
@@ -136,8 +138,9 @@ final class Preferences extends ChangeNotifier {
         (a) => a.name == json.text('autoLock'),
         orElse: () => AutoLock.standard,
       );
-    } on Object {
+    } on Object catch (error, stack) {
       // An unreadable file leaves the defaults.
+      ErrorLog.instance.record(ErrorSteps.preferencesRead, error, stack);
     }
   }
 
@@ -430,8 +433,9 @@ final class Preferences extends ChangeNotifier {
         flush: true,
       );
       next.renameSync(file.path);
-    } on Object {
+    } on Object catch (error, stack) {
       // Kept in memory for this run; the next change tries again.
+      ErrorLog.instance.record(ErrorSteps.preferencesWrite, error, stack);
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:expense_tracker/src/app/android/market_cache_adapter.dart';
+import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:market/market_data.dart';
 
@@ -46,6 +47,20 @@ void main() {
     expect(read.body, '[]');
     expect(network.asked, 1);
     expect(file.readAsStringSync(), '[]');
+  });
+
+  test('a list that cannot be kept is still answered, and the fault is in '
+      'the error log', () async {
+    final network = _Network();
+    // A file where the cache's folder should be: nothing can be kept.
+    final blocked = File('${dir.path}/blocked')..writeAsStringSync('x');
+    final cache = CachedMarketTransport(network, Directory(blocked.path));
+    final before = ErrorLog.instance.count;
+    final read = await cache.get(MarketDataGateway.twseUri);
+    expect(read.body, '[]');
+    expect(network.asked, 1);
+    expect(ErrorLog.instance.count, greaterThan(before));
+    expect(ErrorLog.instance.entries.first.$2, startsWith('行情快取：'));
   });
 
   test('the list for the background job names each kept address', () async {

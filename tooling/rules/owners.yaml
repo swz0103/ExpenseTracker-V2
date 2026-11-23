@@ -191,15 +191,38 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/cache
     target: apps/expense_tracker/lib/app/queries/
     status: owned
+  # The one gate above every screen (work package 3.1): whether the
+  # ledger may be seen, the cover while away, the way every shortcut,
+  # widget tap and notification takes, and screenshots while locked.
   - id: screen-lock
-    what: 畫面能不能顯示（鎖定）
+    what: 畫面能不能顯示（鎖定閘門、離開時遮蓋、外部入口先解鎖）
     layer: app
     owner:
+      - apps/expense_tracker/lib/src/core/platform/lock_gate.dart
+      - apps/expense_tracker/lib/src/core/widgets/lock_cover.dart
       - apps/expense_tracker/lib/src/features/lock/ui/lock_screen.dart
       - apps/expense_tracker/lib/src/core/platform/screen_privacy.dart
       - apps/expense_tracker/lib/src/core/platform/away_clock.dart
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/LockHandler.kt
     target: apps/expense_tracker/lib/app/coordinators/lock/
-    status: scattered
+    status: owned
+  # The choices of 自動上鎖 and the one that holds until another is made.
+  - id: auto-lock-choices
+    what: 自動上鎖的時間選項與預設
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/preferences.dart
+    target: apps/expense_tracker/lib/app/settings/
+    status: owned
+  # What the home-screen widget may show of the ledger; the snapshot is
+  # written from it and Kotlin only draws what it is given.
+  - id: widget-privacy
+    what: 桌面小工具可顯示的內容（不顯示數字／百分比／金額）
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/overview/model/home_widget.dart
+    target: apps/expense_tracker/lib/app/coordinators/
+    status: owned
   - id: lifecycle
     what: 進背景、回前景做什麼
     layer: app
@@ -266,12 +289,38 @@ items:
       - apps/expense_tracker/lib/src/core/platform/preferences.dart
     target: apps/expense_tracker/lib/app/settings/
     status: scattered
+  # The log (what is kept of an error: the redaction rule, the stack and
+  # its limits, batching, rotation), the one handler of faults nobody
+  # caught, and the names quiet failures are kept under.
   - id: error-log
-    what: 錯誤紀錄與回報
+    what: 錯誤紀錄與回報（去識別化規則、堆疊上限、批次寫入、未處理錯誤）
     layer: app
     owner:
       - apps/expense_tracker/lib/src/core/diagnostics/error_log.dart
+      - apps/expense_tracker/lib/src/core/diagnostics/unhandled_errors.dart
+      - apps/expense_tracker/lib/src/core/diagnostics/error_steps.dart
     target: apps/expense_tracker/lib/app/diagnostics/
+    status: owned
+  # How the build stands against the newest one (the states and why a
+  # look failed) and the words for each.
+  - id: update-status
+    what: 檢查更新的狀態與說法
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/update_status.dart
+      - apps/expense_tracker/lib/src/core/messages/update_messages.dart
+    target: apps/expense_tracker/lib/app/coordinators/
+    status: owned
+  # What a scan came to (read, closed, failed and why), the words for
+  # each, and the reason names the phone gives.
+  - id: scan-outcome
+    what: 掃描器的結果、失敗原因與說法
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/scan.dart
+      - apps/expense_tracker/lib/src/core/messages/scan_messages.dart
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/ScanFault.kt
+    target: apps/expense_tracker/lib/app/coordinators/
     status: owned
 
   # ---- design_system ----
@@ -375,6 +424,16 @@ items:
       # each record's JSON, its fields, how it names a category
       - apps/expense_tracker/lib/src/core/ledger/persistence/codec
     target: infrastructure/storage/lib/
+    status: owned
+  # How wrong passwords and recovery codes are slowed down: the one
+  # table; the count is kept beside the keyring by the app.
+  - id: unlock-attempt-limit
+    what: 密碼與救援碼輸錯後的等待時間表
+    layer: data
+    owner:
+      - infrastructure/vault/lib/src/backup_security/attempt_policy.dart
+      - apps/expense_tracker/lib/src/core/platform/unlock_attempts.dart
+    target: infrastructure/vault/lib/
     status: owned
   - id: password-key-derivation
     what: 密碼政策與金鑰推導

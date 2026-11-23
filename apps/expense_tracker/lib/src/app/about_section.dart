@@ -11,6 +11,8 @@ import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
 import '../core/messages/problem_messages.dart';
+import '../core/messages/update_messages.dart';
+import '../core/platform/update_status.dart';
 import '../core/platform/distribution.dart';
 import '../features/settings/model/app_update.dart';
 import '../features/settings/ui/update_panel.dart';
@@ -270,30 +272,36 @@ class _VersionCardState extends State<_VersionCard> {
     });
   }
 
+  /// How the build stands when there is no [AppUpdate] to ask: the play
+  /// build has no update to speak of, and elsewhere (the preview, a
+  /// phone that is not Android) the build was made by hand.
+  static const UpdateStatus _withoutUpdate = canSelfUpdate
+      ? UpdateHandBuilt()
+      : UpdateNotOffered();
+
   /// What the card says under the version; null when it says nothing: the
   /// play build has no update to speak of.
-  String? _state(AppUpdate? update) {
-    if (!canSelfUpdate) return null;
-    if (update == null || !update.possible) return '自行建置的版本';
-    final progress = update.progress;
-    if (progress != null) return '下載中 ${ratioWholePercent(progress)}';
-    if (update.checking) return '檢查中…';
-    final newer = update.newer;
-    if (newer != null) {
-      return '有新版 ${newer.name}';
-    }
-    final problem = update.problem;
-    if (problem != null) return problem;
-    if (update.upToDate) return '已是最新';
-    return '點這裡檢查更新';
-  }
+  String? _state(AppUpdate? update) => UpdateMessages.status(
+    update?.status ?? _withoutUpdate,
+    version: appVersion,
+  );
 
+  /// 檢查更新 always answers. With a newer version known, its panel
+  /// opens. Otherwise it looks, the card saying 檢查中… meanwhile, and
+  /// what it found is said in a note as well as on the card, since a look
+  /// that finds nothing new changes nothing there to see: the newest
+  /// version with its number, a newer one (its panel opens), or why it
+  /// could not tell.
   Future<void> _tap(BuildContext context, AppUpdate update) async {
     if (!update.possible || update.busy) return;
-    final newer = update.newer;
-    if (newer == null) {
+    if (update.newer == null) {
       await update.check();
-      return;
+      if (!context.mounted) return;
+      if (update.newer == null) {
+        final answer = _state(update);
+        if (answer != null) showNote(context, answer);
+        return;
+      }
     }
     await showUpdatePanel(context, update);
   }
@@ -305,6 +313,7 @@ class _VersionCardState extends State<_VersionCard> {
     final progress = update?.progress;
     final color = newer ? AppColors.positive : SettingsColors.main;
     return ColorCard(
+      key: Keys.checkUpdate,
       color: color,
       amount: 0.2,
       onTap: update == null || !update.possible

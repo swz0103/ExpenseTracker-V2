@@ -1,3 +1,7 @@
+// Exception to file length: Startup is the one state machine of the
+// ledger's keys (set up, locked, open, restoring, the fingerprint and the
+// attempt limit); the keys it holds stay private to this file, and split
+// across files they would have to be opened to the rest of the app.
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';

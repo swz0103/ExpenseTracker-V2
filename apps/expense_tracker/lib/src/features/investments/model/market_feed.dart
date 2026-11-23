@@ -11,6 +11,8 @@ import '../../../core/platform/sync_job.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../../../core/formatting/json_fields.dart';
+import '../../../core/diagnostics/error_log.dart';
+import '../../../core/diagnostics/error_steps.dart';
 
 /// Closing prices and exchange rates for a ledger, fetched at most every
 /// 20 minutes: when the ledger opens, when the app comes back, and at
@@ -170,8 +172,9 @@ final class MarketFeed extends SyncJob implements PriceHistory {
                 throw const FormatException('A close is a day and a price'),
           ],
       };
-    } on Object {
+    } on Object catch (error, stack) {
       // A cache that cannot be read is fetched again.
+      ErrorLog.instance.record(ErrorSteps.priceHistory, error, stack);
       return {};
     }
   }
@@ -193,8 +196,9 @@ final class MarketFeed extends SyncJob implements PriceHistory {
           },
         }),
       );
-    } on Object {
+    } on Object catch (error, stack) {
       // Kept in memory for this run.
+      ErrorLog.instance.record(ErrorSteps.priceHistory, error, stack);
     }
   }
 

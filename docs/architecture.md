@@ -45,12 +45,12 @@ flowchart TB
 | --- | --- | --- |
 | `formatting/` | 金額、日期、共用詞彙 `Words`、`JsonFields`；純函式 | — |
 | `time/` | `AppClock`：讀時間的唯一地方 | — |
-| `diagnostics/` | `ErrorLog`（去識別化）、`PerformanceMonitor` | time |
+| `diagnostics/` | `ErrorLog`（去識別化、堆疊、批次寫入）、`UnhandledErrors`（未處理錯誤）、`ErrorSteps`、`PerformanceMonitor` | time |
 | `design_system/` | 顏色 `AppColors`、字級、圖示、動態、面板；`components/` 不知道帳本 | formatting |
 | `charts/` | 圖表 | design_system、formatting |
 | `ledger/` | 帳本，見下一節；Flutter 只用 `foundation`（ADR-0012） | formatting、diagnostics、time |
 | `platform/` | 偏好設定、背景同步工作、開帳、隱私 | ledger、formatting、diagnostics、time |
-| `messages/` | 告訴使用者的帳本數值與問題 | ledger、formatting |
+| `messages/` | 告訴使用者的帳本數值與問題，以及手機回覆的結果（掃描、檢查更新） | ledger、formatting、platform |
 | `navigation/` | `Nav`、`AppRoute`、`AppRoutes`、`openFullScreen` | ledger、platform |
 | `widgets/` | 認得帳本的共用元件：紀錄列、選擇器、計算機 | 以上全部 |
 

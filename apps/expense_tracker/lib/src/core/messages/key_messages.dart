@@ -1,5 +1,7 @@
 /// The words of the key settings and the screens about keys.
 abstract final class KeyWords {
+  /// The heading of the chooser of ledgers kept before a restore.
+  static const keptLedgers = '還原前自動留下的帳本';
   static const setPassword = '設定密碼';
   static const changePassword = '變更密碼';
   static const currentPassword = '目前的密碼';

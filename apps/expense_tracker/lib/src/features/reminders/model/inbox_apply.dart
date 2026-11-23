@@ -90,8 +90,9 @@ InboxOutcome applyInbox(
         int.parse(match[3]!),
       ),
     );
-  } on Object {
-    // A line that is not a time is left out.
+  } on FormatException {
+    // A line that cannot be read is left out, and counted for the person
+    // (`unreadable` above).
     return null;
   }
 }

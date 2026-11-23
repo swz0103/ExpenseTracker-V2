@@ -8,6 +8,8 @@ import '../../../core/messages/key_failures.dart' as words;
 import '../../../core/platform/startup.dart';
 import 'backup_manager.dart';
 import '../../../core/time/app_clock.dart';
+import '../../../core/diagnostics/error_log.dart';
+import '../../../core/diagnostics/error_steps.dart';
 
 /// The keys and backups of the open encrypted ledger.
 final class EncryptedBackupManager implements BackupManager {
@@ -232,8 +234,9 @@ final class EncryptedBackupManager implements BackupManager {
         if (age < every || header.revision == _vault.store.revision) {
           return null;
         }
-      } on Object {
+      } on Object catch (error, stack) {
         // An unreadable newest backup is replaced by a good one.
+        ErrorLog.instance.record(ErrorSteps.backupHeader, error, stack);
       }
     }
     final path = await backUp();
@@ -253,8 +256,9 @@ final class EncryptedBackupManager implements BackupManager {
       try {
         final header = await LedgerBackup.readHeader(target);
         if (header.revision == _vault.store.revision) return false;
-      } on Object {
+      } on Object catch (error, stack) {
         // Unreadable: written again.
+        ErrorLog.instance.record(ErrorSteps.backupHeader, error, stack);
       }
     }
     // Written in exports/, not in cloud/: Android's backup takes all of

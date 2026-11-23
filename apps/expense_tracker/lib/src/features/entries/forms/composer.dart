@@ -18,6 +18,8 @@ import '../model/compose_draft.dart';
 import '../model/compose_form.dart';
 import '../../../core/messages/installment_messages.dart';
 import '../../../core/messages/problem_messages.dart';
+import '../../../core/messages/scan_messages.dart';
+import '../../../core/platform/scan.dart';
 import '../model/receipt_photos.dart';
 import '../model/invoices.dart';
 import '../model/invoice_qr.dart';
@@ -79,7 +81,7 @@ Future<(ComposeOutcome, Entry)?> openComposer(
   Entry? draft,
   Entry? refundOf,
   ReceiptPhotos? photos,
-  Future<String?> Function()? scan,
+  ScanQr? scan,
   int brokerDiscount = defaultBrokerDiscount,
 }) async {
   if (!await ensureAccount(context, ledger) || !context.mounted) return null;
@@ -135,7 +137,7 @@ class Composer extends StatefulWidget {
 
   /// Reads a QR code with the camera, for a paper e-invoice; none in the
   /// preview.
-  final Future<String?> Function()? scan;
+  final ScanQr? scan;
 
   /// The broker's discount a trade's fee is suggested at, in basis points
   /// of the full fee: the preference 券商手續費折扣.

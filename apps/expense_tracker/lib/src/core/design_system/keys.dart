@@ -54,6 +54,9 @@ abstract final class Keys {
   /// 完成 at the top of a whole-screen task, such as 排序帳戶.
   static const done = ValueKey('flow:done');
 
+  /// 關於's card with the version: tapped, it looks for a newer one.
+  static const checkUpdate = ValueKey('update:check');
+
   /// The update panel's 更新, 晚一點再說 and 略過這一版.
   static const install = ValueKey('update:install');
   static const later = ValueKey('update:later');

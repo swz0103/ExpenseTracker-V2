@@ -120,9 +120,10 @@ void main() {
   const sheetWords = '帳務內容：台新銀行 385,400';
   const pageWords = '全螢幕頁：郵局儲蓄 320,000';
   const dialogWords = '對話框：停車場 40';
+  const noteWords = '提示：已記下 7-ELEVEN 45';
 
   testWidgets('locking leaves nothing of the ledger on screen or in the '
-      'tree: a sheet, a pushed page and a dialog all go (SEC-05)', (
+      'tree: a sheet, a pushed page, a dialog and a note all go (SEC-05)', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
@@ -151,10 +152,13 @@ void main() {
     expect(find.text(pageWords, skipOffstage: false), findsOneWidget);
     expect(find.text(sheetWords), findsOneWidget);
     expect(find.text(dialogWords), findsOneWidget);
+    expect(showNoteAnywhere(noteWords), isTrue);
+    await tester.pump();
+    expect(find.text(noteWords), findsOneWidget);
 
     startup.lock();
     await tester.pump();
-    for (final words in [pageWords, sheetWords, dialogWords]) {
+    for (final words in [pageWords, sheetWords, dialogWords, noteWords]) {
       expect(find.text(words, skipOffstage: false), findsNothing);
       expect(find.semantics.byLabel(words), findsNothing);
     }
@@ -163,6 +167,7 @@ void main() {
     // And still nothing once every animation has run out.
     await tester.pumpAndSettle();
     expect(find.text(sheetWords, skipOffstage: false), findsNothing);
+    expect(find.text(noteWords, skipOffstage: false), findsNothing);
     expect(find.byType(AppShell, skipOffstage: false), findsNothing);
     semantics.dispose();
   });

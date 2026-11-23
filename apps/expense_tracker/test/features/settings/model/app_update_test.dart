@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
+import 'package:expense_tracker/src/core/platform/update_status.dart';
 import 'package:expense_tracker/src/features/settings/model/app_update.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,6 +15,9 @@ final class _Port implements UpdatePort {
       '{"build":190,"version":"2.0.0","commit":"8af812b",'
       '"sha256":"$_sha","size":3}';
   Exception? fails;
+
+  /// What the download fails with; null when it works.
+  Exception? downloadFails;
   var fetched = 0;
   var downloads = 0;
   Uri? downloadedFrom;
@@ -41,6 +47,7 @@ final class _Port implements UpdatePort {
     void Function(int received) progress,
   ) async {
     downloads++;
+    if (downloadFails case final error?) throw error;
     downloadedFrom = url;
     into.writeAsStringSync('abc');
     progress(reports);
@@ -146,6 +153,108 @@ void main() {
     port.fails = const SocketException('offline');
     expect(await app.check(), isNull);
     expect(app.problem, '連不上 GitHub，請稍後再試');
+  });
+
+  // F102: there is always one answer to give, and a failure says why in
+  // words rather than as the error's own text.
+  group('how the build stands', () {
+    test('not looked, looking, then the newest', () async {
+      final app = update(build: 190);
+      expect(app.status, isA<UpdateNotLooked>());
+      final seen = <UpdateStatus>[];
+      app.addListener(() => seen.add(app.status));
+      await app.check();
+      expect(seen.first, isA<UpdateChecking>());
+      expect(seen.last, isA<UpdateCurrent>());
+      expect(app.status, isA<UpdateCurrent>());
+    });
+
+    test('a newer version, by its number', () async {
+      final app = update();
+      await app.check();
+      expect((app.status as UpdateAvailable).version, '2.0.0');
+    });
+
+    test('a build made by hand', () {
+      expect(update(build: 0).status, isA<UpdateHandBuilt>());
+    });
+
+    test(
+      'each way of failing is told apart and kept in the error log',
+      () async {
+        final app = update();
+        Future<(UpdateFailure, String?, String)> failing() async {
+          final before = ErrorLog.instance.count;
+          expect(await app.check(), isNull);
+          expect(ErrorLog.instance.count, before + 1);
+          return (
+            (app.status as UpdateFailed).failure,
+            app.problem,
+            ErrorLog.instance.entries.first.$2,
+          );
+        }
+
+        port.fails = const SocketException('offline');
+        expect(await failing(), (
+          UpdateFailure.offline,
+          '連不上 GitHub，請稍後再試',
+          '檢查更新：SocketException: SocketException: offline',
+        ));
+        port.fails = TimeoutException('slow');
+        expect((await failing()).$1, UpdateFailure.offline);
+        port.fails = const HttpException('GitHub answered 404');
+        expect(await failing(), (
+          UpdateFailure.refused,
+          'GitHub 現在沒有提供更新資訊，請稍後再試',
+          '檢查更新：HttpException: HttpException: GitHub answered #',
+        ));
+        port.fails = const FormatException('odd');
+        expect(await failing(), (
+          UpdateFailure.checkUnforeseen,
+          '檢查更新時發生未預期的錯誤，已記在診斷，請稍後再試',
+          '檢查更新：FormatException: FormatException: odd',
+        ));
+        port
+          ..fails = null
+          ..info = '<html>not found</html>';
+        expect(await failing(), (
+          UpdateFailure.unreadableFeed,
+          '更新資訊看不懂',
+          '檢查更新：FormatException: FormatException: update.json is not an '
+              'update feed',
+        ));
+        // Working again, the failure is gone.
+        port.info = '{"build":186,"version":"2.0.0","sha256":"$_sha","size":3}';
+        await app.check();
+        expect(app.status, isA<UpdateCurrent>());
+        expect(app.problem, isNull);
+      },
+    );
+
+    test('a download cut short says so, and the newer version still '
+        'stands', () async {
+      final app = update();
+      await app.check();
+      port.downloadFails = const SocketException('cut');
+      expect(await app.install(), isNull);
+      expect(app.failure, UpdateFailure.downloadCut);
+      expect(app.problem, '下載中斷，請稍後再試');
+      expect(app.status, isA<UpdateAvailable>());
+      port.downloadFails = const FormatException('odd');
+      expect(await app.install(), isNull);
+      expect(app.failure, UpdateFailure.installUnforeseen);
+      expect(app.problem, '更新時發生未預期的錯誤，已記在診斷，請稍後再試');
+    });
+
+    test('while it downloads, how far it is', () async {
+      final app = update();
+      await app.check();
+      final seen = <UpdateStatus>[];
+      app.addListener(() => seen.add(app.status));
+      await app.install();
+      // 3 of 3 bytes arrived: all of it.
+      expect(seen.whereType<UpdateDownloading>().last.share, 1);
+    });
   });
 
   test(

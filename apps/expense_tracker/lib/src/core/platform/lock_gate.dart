@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:vault/ledger_vault.dart' show OpenVault;
 
 import '../diagnostics/error_log.dart';
-import '../navigation/nav.dart' show AppRoute;
 import 'away_clock.dart';
 import 'errands.dart';
 import 'preferences.dart';
@@ -30,7 +29,10 @@ import 'startup.dart';
 ///
 /// It listens to [startup], so a lock from anywhere (settings, a restore,
 /// new keys) is followed the same way.
-final class LockGate extends ChangeNotifier {
+///
+/// [Place] is what names a page of the app (the app's routes); the gate
+/// only keeps one and hands it back, so it need not know what pages are.
+final class LockGate<Place extends Object> extends ChangeNotifier {
   LockGate(
     this.startup, {
     required this._autoLock,
@@ -128,15 +130,15 @@ final class LockGate extends ChangeNotifier {
   }
 
   /// The page the open ledger shows over its tabs, told by the app frame.
-  AppRoute? place;
+  Place? place;
 
   /// Where to go back to once the ledger reopens after a restore was
   /// given up.
-  AppRoute? _returnTo;
+  Place? _returnTo;
 
   /// The page the person was on when they left for a restore they then
   /// gave up, once; null otherwise.
-  AppRoute? takeReturn() {
+  Place? takeReturn() {
     final to = _returnTo;
     _returnTo = null;
     return to;

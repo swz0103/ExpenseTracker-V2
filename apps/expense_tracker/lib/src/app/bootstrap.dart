@@ -25,9 +25,11 @@ import '../features/backup/model/restore_sources.dart';
 import '../features/lock/ui/lock_screen.dart';
 import '../features/lock/ui/views/new_password_view.dart';
 import '../core/messages/key_messages.dart';
-import '../core/messages/lock_messages.dart';
+import '../core/diagnostics/error_steps.dart';
+import '../core/design_system/feedback.dart';
 import '../core/platform/away_clock.dart';
 import '../core/platform/errands.dart';
+import '../core/navigation/nav.dart' show AppRoute;
 import '../core/platform/lock_gate.dart';
 import '../core/platform/memory_keystore.dart';
 import '../core/platform/quick_action.dart';
@@ -118,7 +120,7 @@ class VaultRoot extends StatefulWidget {
 }
 
 class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
-  late final _gate = LockGate(
+  late final _gate = LockGate<AppRoute>(
     widget.startup,
     autoLock: () => widget.preferences.autoLock,
     clock: widget.awayClock,
@@ -156,6 +158,9 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
     if (_gate.generation != _generation) {
       _generation = _gate.generation;
       _navigator = GlobalKey<NavigatorState>();
+      // A note of the session before (it may name an amount) lives above
+      // the navigator, in the app's one messenger: it goes too.
+      appMessenger.currentState?.clearSnackBars();
       _hideScreen();
     }
     setState(() {});
@@ -181,7 +186,7 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
     privacy.showing(locked: widget.startup.state is! Ready).catchError((
       Object error,
     ) {
-      ErrorLog.instance.record(screenPrivacyHeading, error);
+      ErrorLog.instance.record(ErrorSteps.screenPrivacy, error);
     });
   }
 
@@ -260,7 +265,7 @@ class OpenedLedger extends StatefulWidget {
   final Preferences preferences;
 
   /// The lock gate this opening of the ledger sits behind.
-  final LockGate gate;
+  final LockGate<AppRoute> gate;
 
   /// Puts the app in the background without closing it.
   final Future<void> Function()? leave;
@@ -542,7 +547,10 @@ class _OpenedLedgerState extends State<OpenedLedger>
           market: _services.market,
           update: _services.update,
           // The camera is a trip the app sends the person on.
-          scanQr: Platform.isAndroid ? () => Errands.run(androidScanQr) : null,
+          scanQr: Platform.isAndroid
+              ? ({preparing}) =>
+                    Errands.run(() => androidScanQr(preparing: preparing))
+              : null,
           onPlace: (page) => widget.gate.place = page,
           takeReturn: widget.gate.takeReturn,
           leave: widget.leave,

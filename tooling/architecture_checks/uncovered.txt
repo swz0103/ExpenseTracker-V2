@@ -13,8 +13,6 @@ src/app/android/keystore_adapter.dart::androidDeviceUnlock
 src/app/android/notification_adapter.dart::AndroidNotifications
 src/app/android/receipt_photo_adapter.dart::AndroidReceipts
 src/app/android/update_adapter.dart::AndroidUpdatePort
-src/app/bootstrap.dart::VaultRoot
-src/app/bootstrap.dart::_OpenedLedgerState
 src/app/demo/launch.dart::_AppIcon
 src/app/demo/launch.dart::_HomeHandle
 src/app/demo/launch.dart::_HomeScreen

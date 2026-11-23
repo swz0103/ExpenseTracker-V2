@@ -1,8 +1,5 @@
 import '../platform/preferences.dart' show AutoLock;
 
-/// The diagnostics heading of a failure to hide the screens.
-const screenPrivacyHeading = '螢幕隱私';
-
 /// The words of the lock: the wait after wrong passwords, the fingerprint,
 /// auto-lock and hiding the screens.
 abstract final class LockWords {

@@ -45,7 +45,7 @@ void main() {
     directory.deleteSync(recursive: true);
   });
 
-  LockGate gate() => LockGate(
+  LockGate<AppRoute> gate() => LockGate<AppRoute>(
     startup,
     autoLock: () => choice,
     clock: AwayClock(running: () => running),
@@ -53,7 +53,7 @@ void main() {
   );
 
   /// Away for [time], then back; whether the gate locked.
-  bool away(LockGate gate, Duration time) {
+  bool away(LockGate<AppRoute> gate, Duration time) {
     gate.left();
     running += time;
     return gate.returned();

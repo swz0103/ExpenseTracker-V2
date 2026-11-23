@@ -5,6 +5,8 @@ import 'package:core/foundation_values.dart' show BusinessDate;
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ledger/persistence/codec/record_json.dart';
 import 'compose_form.dart';
+import '../../../core/diagnostics/error_log.dart';
+import '../../../core/diagnostics/error_steps.dart';
 
 /// A form put aside with 暫存: the entry as it stood and the receipt
 /// photo chosen for it, which is not part of the entry until it is saved.
@@ -71,8 +73,9 @@ final class ComposeDraft {
         );
       }
       return null;
-    } on Object {
+    } on Object catch (error, stack) {
       // A form that cannot be read is left out.
+      ErrorLog.instance.record(ErrorSteps.draft, error, stack);
       return null;
     }
   }

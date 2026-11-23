@@ -64,18 +64,20 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('a wrong password says so and keeps the ledger locked', (
-    tester,
-  ) async {
+  testWidgets('a wrong password says so, keeps the ledger locked and '
+      'notes no fault', (tester) async {
     final startup = await opened(tester);
     startup.lock();
     await show(tester, startup);
     expect(find.text('忘記密碼？'), findsOneWidget);
+    final noted = ErrorLog.instance.entries.length;
     await tester.enterText(find.byType(TextField), 'not the password');
     await tester.testTextInput.receiveAction(TextInputAction.go);
     await settle(tester, () => find.text('密碼不正確').evaluate().isNotEmpty);
     expect(find.text('密碼不正確'), findsOneWidget);
     expect(startup.state, isA<Locked>());
+    // A wrong password is expected: nothing for the diagnostics log.
+    expect(ErrorLog.instance.entries.length, noted);
 
     await tester.enterText(find.byType(TextField), password);
     await tester.testTextInput.receiveAction(TextInputAction.go);
@@ -542,6 +544,8 @@ void main() {
       );
       expect(find.text('指紋解鎖失敗，請改用密碼'), findsOneWidget);
       expect(startup.state, isA<Locked>());
+      // A key that does not open the ledger is a fault worth keeping.
+      expect(ErrorLog.instance.entries.first.$2, contains('指紋解鎖'));
 
       final semantics = tester.ensureSemantics();
       await press(tester, '用指紋或臉部解鎖');
@@ -816,6 +820,8 @@ void main() {
       );
       expect(find.text('這個檔案不是記帳本的備份'), findsOneWidget);
       expect(find.text('已選好備份檔'), findsOneWidget);
+      // Why it could not be read is kept for the diagnostics log.
+      expect(ErrorLog.instance.entries.first.$2, contains('讀取備份檔'));
 
       next = backup.path;
       await press(tester, '已選好備份檔');

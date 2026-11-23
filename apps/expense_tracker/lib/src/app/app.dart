@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import '../core/design_system/feedback.dart';
 import '../core/design_system/haptics.dart';
 import '../core/design_system/theme.dart';
 import '../core/platform/preferences.dart';
@@ -96,6 +97,7 @@ class _ExpenseAppState extends State<ExpenseApp> with WidgetsBindingObserver {
       child: MaterialApp(
         title: '記帳本',
         navigatorKey: widget.navigatorKey,
+        scaffoldMessengerKey: appMessenger,
         debugShowCheckedModeBanner: false,
         // Every word the framework shows is Traditional Chinese, as the
         // app's own are.
