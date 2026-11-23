@@ -34,6 +34,12 @@ final class FakeDrive implements DriveHttp {
   /// Moving files to the trash fails.
   var trashFails = false;
 
+  /// The Google account Drive says it is; null when it says none.
+  String? account = 'me@example.com';
+
+  /// Where Drive says to send a backup's bytes.
+  var uploadAt = 'https://www.googleapis.com';
+
   /// Files that are not in the trash.
   Iterable<DriveRow> get kept => files.values.where((f) => !f.trashed);
 
@@ -62,6 +68,11 @@ final class FakeDrive implements DriveHttp {
       return const DriveResponse(401);
     }
     final path = url.path;
+    if (method == 'GET' && path == '/drive/v3/about') {
+      return _json({
+        if (account case final address?) 'user': {'emailAddress': address},
+      });
+    }
     if (method == 'GET' && path == '/drive/v3/files') {
       final q = url.queryParameters['q']!;
       if (q.contains('mimeType')) {
@@ -101,7 +112,7 @@ final class FakeDrive implements DriveHttp {
         200,
         headers: {
           'location':
-              'https://www.googleapis.com/upload/session/$id?name='
+              '$uploadAt/upload/session/$id?name='
               '${Uri.encodeComponent(body['name']! as String)}',
         },
       );

@@ -106,21 +106,10 @@ class _AccountPageState extends State<AccountPage> {
 
 /// What flowed into and out of [account] this month, as its money.
 (String, String) monthFlow(Ledger ledger, Account account) {
-  final today = ledger.today;
-  var inflow = 0;
-  var outflow = 0;
-  for (final e in ledger.entries.inMonth(today.year, today.month)) {
-    if (e.account != account.id && e.to != account.id) continue;
-    final change = ledger.balanceService.effect(e, account.id);
-    if (change > 0) {
-      inflow += change;
-    } else {
-      outflow -= change;
-    }
-  }
+  final flow = ledger.balanceService.flowOf(account.id, ledger.today);
   return (
-    ledger.moneyIn(inflow, account.currency),
-    ledger.moneyIn(outflow, account.currency),
+    ledger.moneyIn(flow.inflow, account.currency),
+    ledger.moneyIn(flow.outflow, account.currency),
   );
 }
 

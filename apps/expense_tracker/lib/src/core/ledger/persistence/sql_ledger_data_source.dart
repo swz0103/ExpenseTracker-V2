@@ -18,6 +18,7 @@ import 'category_id_migration.dart';
 import 'codec/category_refs.dart';
 import 'record_version.dart';
 import 'codec/record_json.dart';
+import 'codec/record_shape.dart';
 import '../../diagnostics/performance_monitor.dart';
 import '../../diagnostics/error_log.dart';
 
@@ -323,9 +324,19 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }, counts: !batch.onlyDrafts);
   }
 
-  /// Throws a [FormatException] for a record this app cannot read, so a
-  /// backup with one is refused rather than restored.
+  /// Throws a [FormatException] naming the row, whatever its slip, for a
+  /// record this app cannot read or no version of it would write
+  /// ([shapeIssues]), so a backup with one is refused, not restored.
   static void check(String collection, String id, String body) {
+    try {
+      _check(collection, id, body);
+    } on Object catch (slip) {
+      final what = slip is FormatException ? slip.message : slip.runtimeType;
+      throw FormatException('$collection $id: $what');
+    }
+  }
+
+  static void _check(String collection, String id, String body) {
     if (collection == Collection.receipt.name) {
       if (!RegExp(r'^[\w.-]+$').hasMatch(body)) {
         throw const FormatException('receipt');
@@ -353,24 +364,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       _marketFrom([StoredRow(0, collection, id, body)]);
       return;
     }
-    // Out of context, a category's id is as good as its name.
-    final refs = CategoryRefs.lenient();
-    final reader = switch (Collection.values.asNameMap()[collection]) {
-      Collection.account => accountFromJson,
-      Collection.category => (Map<String, Object?> j) => categoryFromJson(
-        j,
-        refs,
-      ),
-      Collection.entry => (Map<String, Object?> j) => entryFromJson(j, refs),
-      Collection.budget => (Map<String, Object?> j) => budgetFromJson(j, refs),
-      Collection.recurring => (Map<String, Object?> j) => recurringFromJson(
-        j,
-        refs,
-      ),
-      Collection.trash => (Map<String, Object?> j) => trashedFromJson(j, refs),
-      _ => throw FormatException('Unknown collection $collection'),
-    };
-    reader(upgradeRecord(collection, json));
+    checkRecord(collection, upgradeRecord(collection, json));
   }
 
   // Market data.

@@ -112,6 +112,41 @@ void main() {
     handle.dispose();
   });
 
+  test('a trade shows what reached or left the account', () {
+    Entry trade(EntryType type, int amount, {int fee = 0, int tax = 0}) =>
+        Entry(
+          id: type.name,
+          date: day,
+          type: type,
+          amount: amount,
+          account: 'bank',
+          holding: '2330',
+          shares: type == EntryType.dividend ? 0 : 1000,
+          fee: fee,
+          tax: tax,
+        );
+    // A sale of 100,000 less 85 fee and 300 tax: 99,615 came in.
+    expect(
+      entryAmount(trade(EntryType.sell, 100000, fee: 85, tax: 300)),
+      '+99,615',
+    );
+    // A dividend of 25,000 less the 528 premium: 24,472 came in.
+    expect(entryAmount(trade(EntryType.dividend, 25000, tax: 528)), '+24,472');
+    // A buy of 100,000 with an 85 fee: 100,085 left.
+    expect(entryAmount(trade(EntryType.buy, 100000, fee: 85)), '−100,085');
+    // A capital reduction returns its 40,000 whole.
+    final reduction = Entry(
+      id: 'r',
+      date: day,
+      type: EntryType.dividend,
+      amount: 40000,
+      account: 'bank',
+      holding: '2330',
+      shares: -500,
+    );
+    expect(entryAmount(reduction), '+40,000');
+  });
+
   test('a holding without a name is shown by its code once', () {
     const named = Holding(
       '2330',

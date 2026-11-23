@@ -16,6 +16,8 @@ class RecoveryView extends StatelessWidget {
     required this.onPassword,
     this.onBack,
     this.problem,
+    this.hint = '輸入建立帳本時拿到的救援碼。',
+    this.codeLabel = '救援碼',
   });
 
   final TextEditingController code;
@@ -29,16 +31,22 @@ class RecoveryView extends StatelessWidget {
   final VoidCallback? onBack;
   final String? problem;
 
+  /// What the form asks for, said under its title.
+  final String hint;
+
+  /// The words in the field, such as 救援碼或備份密碼.
+  final String codeLabel;
+
   @override
   Widget build(BuildContext context) {
     final back = onBack;
     return LockForm(
       title: '打開帳本',
-      hint: '輸入建立帳本時拿到的救援碼。',
+      hint: hint,
       fields: [
         PasswordField(
           controller: code,
-          hint: '救援碼',
+          hint: codeLabel,
           hidden: false,
           boxed: true,
           onSubmitted: onSubmit,

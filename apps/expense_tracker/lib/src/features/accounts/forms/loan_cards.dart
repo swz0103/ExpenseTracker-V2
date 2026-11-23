@@ -6,7 +6,7 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 
-import 'package:domain/loans.dart';
+import 'package:ledger_loans/calc/loan_plan.dart';
 
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/design_system/shape.dart';

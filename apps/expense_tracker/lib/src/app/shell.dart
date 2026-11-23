@@ -7,6 +7,7 @@ import '../core/design_system/haptics.dart';
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
+import '../core/ledger/trading.dart' show defaultBrokerDiscount;
 import '../core/widgets/problem_note.dart';
 import '../core/platform/quick_action.dart';
 import '../core/widgets/tour.dart';
@@ -175,6 +176,8 @@ class _AppShellState extends State<AppShell> {
       refundOf: refundOf,
       photos: widget.services.receipts,
       scan: widget.services.scanQr,
+      brokerDiscount:
+          widget.services.preferences?.brokerDiscount ?? defaultBrokerDiscount,
     );
     if (result == null || !mounted) return;
     final (outcome, saved) = result;

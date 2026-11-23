@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../formatting/json_fields.dart';
+import '../ledger/trading.dart' show defaultBrokerDiscount;
 
 /// Light or dark colours.
 enum Appearance {
@@ -71,6 +72,7 @@ final class Preferences extends ChangeNotifier {
       _googleBackup = json.flag('googleBackup') ?? true;
       _driveBackedUp = DateTime.tryParse(json.text('driveBackedUp') ?? '');
       _driveRevision = json.whole('driveRevision');
+      _driveAccount = json.text('driveAccount');
       _nudgeMinute = json.whole('nudgeMinute') ?? 0;
       _exactReminders = json.flag('exactReminders') ?? false;
       _phoneFolder = json.text('phoneFolder');
@@ -90,6 +92,9 @@ final class Preferences extends ChangeNotifier {
       _widgetFigures = WidgetFigures.values.firstWhere(
         (f) => f.name == json.text('widgetFigures'),
         orElse: () => WidgetFigures.off,
+      );
+      _brokerDiscount = _discountIn(
+        json.whole('brokerDiscount') ?? defaultBrokerDiscount,
       );
     } on Object {
       // An unreadable file leaves the defaults.
@@ -188,6 +193,16 @@ final class Preferences extends ChangeNotifier {
   WidgetFigures get widgetFigures => _widgetFigures;
   var _widgetFigures = WidgetFigures.off;
 
+  /// The broker's discount on the fee a trade suggests, in basis points of
+  /// the full fee: 6000 for 6折, 2800 for 2.8折, 10000 for none. The one
+  /// setting of it; 6折 until changed.
+  int get brokerDiscount => _brokerDiscount;
+  var _brokerDiscount = defaultBrokerDiscount;
+
+  /// [basisPoints] held to a discount a fee can have: from 0.01% of the
+  /// fee to all of it.
+  static int _discountIn(int basisPoints) => basisPoints.clamp(1, 10000);
+
   /// A notification when a budget reaches its warning share, and again
   /// when it is used up.
   bool get budgetAlerts => _budgetAlerts;
@@ -264,6 +279,18 @@ final class Preferences extends ChangeNotifier {
   int? get driveRevision => _driveRevision;
   int? _driveRevision;
 
+  /// The Google account the backups go to, as Drive names it (its
+  /// address); null before it is known.
+  String? get driveAccount => _driveAccount;
+  String? _driveAccount;
+
+  /// Notes the Google account Drive is linked to; null forgets it.
+  void driveAccountIs(String? account) {
+    _driveAccount = account;
+    notifyListeners();
+    _save();
+  }
+
   /// Notes a backup of the ledger at [revision] kept on Google Drive.
   void driveBackup(DateTime at, int revision) {
     _driveBackedUp = at;
@@ -289,6 +316,7 @@ final class Preferences extends ChangeNotifier {
     WidgetFigures? widgetFigures,
     bool? updateChecks,
     bool? budgetAlerts,
+    int? brokerDiscount,
   }) {
     _appearance = appearance ?? _appearance;
     _vibration = vibration ?? _vibration;
@@ -306,6 +334,7 @@ final class Preferences extends ChangeNotifier {
     _widgetFigures = widgetFigures ?? _widgetFigures;
     _updateChecks = updateChecks ?? _updateChecks;
     _budgetAlerts = budgetAlerts ?? _budgetAlerts;
+    _brokerDiscount = _discountIn(brokerDiscount ?? _brokerDiscount);
     notifyListeners();
     _save();
   }
@@ -332,6 +361,7 @@ final class Preferences extends ChangeNotifier {
           'googleBackup': _googleBackup,
           'driveBackedUp': _driveBackedUp?.toUtc().toIso8601String(),
           'driveRevision': _driveRevision,
+          'driveAccount': _driveAccount,
           'nudgeMinute': _nudgeMinute,
           'exactReminders': _exactReminders,
           'phoneFolder': _phoneFolder,
@@ -347,6 +377,7 @@ final class Preferences extends ChangeNotifier {
           'updateCheckedAt': _updateCheckedAt?.toUtc().toIso8601String(),
           'updateLaterUntil': _updateLaterUntil?.toUtc().toIso8601String(),
           'updateSkipped': _updateSkipped,
+          'brokerDiscount': _brokerDiscount,
         }),
         flush: true,
       );

@@ -7,6 +7,12 @@ import 'design_system.dart';
 import 'shape.dart';
 import 'spacing.dart';
 
+/// How a recovery code is copied: as a secret, flagged sensitive and
+/// taken off the clipboard after a minute (`SensitiveClipboard.copy`, set
+/// at start); a plain copy where nothing is set, as in the preview.
+Future<void> Function(String code) copyRecoveryCode = (code) =>
+    Clipboard.setData(ClipboardData(text: code));
+
 /// The gold of the recovery code, on 安全 and wherever a new one is shown.
 const recoveryColor = Palette.gold;
 
@@ -37,8 +43,10 @@ class _RecoveryPanel extends StatefulWidget {
 class _RecoveryPanelState extends State<_RecoveryPanel> {
   var _copied = false;
 
+  /// Copied as a secret: flagged sensitive, and taken off the clipboard
+  /// after a minute.
   Future<void> _copy() async {
-    await Clipboard.setData(ClipboardData(text: widget.code));
+    await copyRecoveryCode(widget.code);
     if (mounted) setState(() => _copied = true);
   }
 
@@ -87,7 +95,7 @@ class _RecoveryPanelState extends State<_RecoveryPanel> {
             ),
           ),
           const SizedBox(height: Space.s3),
-          const Text('抄下來或複製存好，只會顯示這一次。', style: mutedSmall),
+          const Text('抄下來或複製存好，只會顯示這一次。複製的內容一分鐘後會從剪貼簿清除。', style: mutedSmall),
         ],
       ),
       actions: [

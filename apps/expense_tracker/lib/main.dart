@@ -11,8 +11,11 @@ import 'src/app/platform.dart';
 import 'src/core/platform/preferences.dart';
 import 'src/core/platform/screen_privacy.dart';
 import 'src/core/diagnostics/error_log.dart';
+import 'src/app/android/clipboard_adapter.dart';
 import 'src/app/android/haptics_adapter.dart';
 import 'src/core/design_system/haptics.dart';
+import 'src/core/design_system/recovery_code.dart';
+import 'src/core/platform/sensitive_clipboard.dart';
 
 /// The production entry: the encrypted ledger only. The web preview starts
 /// from `main_preview.dart`.
@@ -41,6 +44,12 @@ Future<void> main() async {
       : null;
   // The phone's own taps, which it tunes for the hand.
   if (Platform.isAndroid) Haptics.perform = androidHaptic;
+  // A recovery code copied is a secret: flagged sensitive for the phone,
+  // and taken off the clipboard after a minute.
+  copyRecoveryCode = SensitiveClipboard.copy;
+  if (Platform.isAndroid) {
+    SensitiveClipboard.platformCopy = androidCopySensitive;
+  }
   try {
     await privacy?.apply();
   } on Object catch (error) {

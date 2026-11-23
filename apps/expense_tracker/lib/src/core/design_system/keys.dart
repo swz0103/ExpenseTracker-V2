@@ -65,4 +65,17 @@ abstract final class Keys {
   static const password = ValueKey('security:password');
   static const changePassword = ValueKey('security:change');
   static const lockNow = ValueKey('security:lock-now');
+
+  /// 安全: the backup passphrase card, and 重設金鑰 with its button.
+  static const passphrase = ValueKey('security:passphrase');
+  static const resetKeys = ValueKey('security:reset-keys');
+  static const resetGo = ValueKey('security:reset-go');
+
+  /// The restore form's 還原.
+  static const restoreGo = ValueKey('lock:restore-go');
+
+  /// The screen asking for a new password after the recovery code: its
+  /// button, and the way to choose no password.
+  static const newPassword = ValueKey('keys:new-password');
+  static const noPassword = ValueKey('keys:no-password');
 }

@@ -70,6 +70,97 @@ void main() {
     },
   );
 
+  test("a trade's fee is suggested at the broker's discount given", () {
+    final form = ComposeForm(book(), type: EntryType.buy, brokerDiscount: 2800)
+      ..holding = '2330';
+    form
+      ..setShares(1000)
+      ..setPrice(100);
+    // 100,000 x 0.001425 = 142.5; x 0.28 = 39.9 -> 39.
+    expect(form.charges, (39, 0));
+    // Without one, 6折: 142.5 x 0.6 = 85.5 -> 85.
+    final usual = ComposeForm(book(), type: EntryType.buy)..holding = '2330';
+    usual
+      ..setShares(1000)
+      ..setPrice(100);
+    expect(usual.charges, (85, 0));
+  });
+
+  test('a fee typed stays when the shares change; one untouched follows', () {
+    // 1000 shares at 100 = 100,000; fee 85 as suggested at 6折, so the
+    // saved entry reads as untouched.
+    final bought = Entry(
+      id: 'b',
+      date: day,
+      type: EntryType.buy,
+      amount: 100000,
+      account: 'bank',
+      holding: '2330',
+      shares: 1000,
+      fee: 85,
+    );
+    final untouched = ComposeForm(book(), type: EntryType.buy, editing: bought)
+      ..setShares(2000);
+    // 200,000 x 0.000855 = 171.
+    expect(untouched.build().fee, 171);
+    // A fee of 50 was typed from the broker's slip: it stays.
+    final slip = Entry(
+      id: 'b',
+      date: day,
+      type: EntryType.buy,
+      amount: 100000,
+      account: 'bank',
+      holding: '2330',
+      shares: 1000,
+      fee: 50,
+    );
+    final typed = ComposeForm(book(), type: EntryType.buy, editing: slip)
+      ..setShares(2000);
+    expect(typed.build().fee, 50);
+    // Typed now, it stays through a change of price as well.
+    untouched
+      ..tradeFee = 120
+      ..setPrice(110);
+    expect(untouched.build().fee, 120);
+  });
+
+  test('a back-dated sale is costed from the lots of its day', () {
+    Entry buy(String id, DateTime on, int amount) => Entry(
+      id: id,
+      date: on,
+      type: EntryType.buy,
+      amount: amount,
+      account: 'bank',
+      holding: '2330',
+      shares: 1000,
+    );
+    final ledger = Ledger(
+      today: day,
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 1000000)],
+      categories: const [],
+      entries: [
+        buy('b1', DateTime.utc(2026, 1, 5), 100000),
+        buy('b2', DateTime.utc(2026, 3, 5), 200000),
+      ],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      dataSource: _Nowhere(),
+    );
+    final form = ComposeForm(ledger, type: EntryType.sell)
+      ..holding = '2330'
+      ..average = true
+      ..setShares(1000);
+    // Today both lots: 300,000 for 2000 shares, 1000 of them 150,000.
+    expect(form.saleCost, 150000);
+    // On Feb 1 only the first lot was held: 1000 shares cost 100,000.
+    form.date = DateTime.utc(2026, 2, 1);
+    expect(form.saleCost, 100000);
+    // 1500 shares were more than held then.
+    form.setShares(1500);
+    expect(form.saleCost, isNull);
+  });
+
   test('a split must add up to the amount', () {
     final form = ComposeForm(book(), type: EntryType.expense)
       ..setAmount(300)
@@ -84,6 +175,52 @@ void main() {
     form.evenly();
     expect(form.parts, [('飲食', 150), ('居家', 150)]);
     expect(form.build().parts, hasLength(2));
+  });
+
+  test('a split part of nothing is refused (F56)', () {
+    // 300 + 0: everything shared out, then one more part with nothing.
+    final form = ComposeForm(book(), type: EntryType.expense)
+      ..setAmount(300)
+      ..category = '飲食'
+      ..toggleSplit()
+      ..addPart('居家');
+    expect(form.parts, [('飲食', 300), ('居家', 0)]);
+    expect(form.problem, '拆分的每一項金額都要大於 0');
+  });
+
+  test('a split of one part must still add up to the amount', () {
+    final form = ComposeForm(book(), type: EntryType.expense)
+      ..setAmount(300)
+      ..category = '飲食'
+      ..toggleSplit()
+      ..setAmount(500);
+    // 500 − 300 = 200.
+    expect(form.problem, '拆分的金額要等於總額（差 200）');
+  });
+
+  test('buying shares past the cash held warns, and may still be saved', () {
+    final ledger = book();
+    final form = ComposeForm(ledger, type: EntryType.buy)
+      ..holding = '2330'
+      ..account = 'cash'
+      ..tradeFee = 20;
+    form
+      ..setShares(10)
+      ..setPrice(300);
+    // 2,000 − (3,000 + 20) = −1,020.
+    expect(form.problem, isNull);
+    expect(form.warning, '扣款後餘額為負（-1,020）');
+    ledger.entryCommands.save(form.buildAll());
+    expect(ledger.balanceService.balance('cash'), -1020);
+    // Within what is held, nothing to say.
+    final paid = ComposeForm(ledger, type: EntryType.buy)
+      ..holding = '2330'
+      ..account = 'bank'
+      ..tradeFee = 20;
+    paid
+      ..setShares(10)
+      ..setPrice(300);
+    expect(paid.warning, isNull);
   });
 
   test('lending needs someone to lend to', () {
@@ -235,7 +372,7 @@ void main() {
     );
     expect(again.lent, [('ann', 600), ('bo', 600)]);
     again.setLent(1, 300);
-    ledger.entryCommands.replaceGroup(again.buildAll(), again.openedIds);
+    ledger.entryCommands.save(again.buildAll(), replacing: again.openedIds);
     expect(ledger.balanceService.balance('bo'), 300);
     expect(ledger.reportService.expense(2026, 10), 900);
     expect(ledger.entryQueryService.groupOf(made.first), hasLength(3));

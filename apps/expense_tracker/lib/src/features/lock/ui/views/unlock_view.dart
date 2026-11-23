@@ -62,9 +62,6 @@ class _UnlockViewState extends State<UnlockView>
     duration: Motion.long4,
   );
 
-  /// How many dots stand in for nothing typed yet.
-  static const _room = 6;
-
   /// The most dots shown; a longer password keeps the row this wide.
   static const _most = 14;
 
@@ -281,8 +278,9 @@ class _UnlockViewState extends State<UnlockView>
     ),
   );
 
-  /// The password as dots: filled for each letter typed, hollow for the
-  /// room left; a tap brings the keyboard back.
+  /// The password as dots: filled for each letter typed, then one hollow
+  /// for the next. No row of hollow dots stands for a length, so none is
+  /// suggested; a tap brings the keyboard back.
   Widget _dots() => GestureDetector(
     behavior: HitTestBehavior.opaque,
     onTap: _type,
@@ -294,11 +292,7 @@ class _UnlockViewState extends State<UnlockView>
         builder: (context, _) {
           final typed = widget.password.text.length;
           final filled = typed > _most ? _most : typed;
-          final hollow = filled >= _most
-              ? 0
-              : filled >= _room
-              ? 1
-              : _room - filled;
+          final hollow = filled >= _most ? 0 : 1;
           final wrong = widget.problem != null && typed == 0;
           return Row(
             mainAxisAlignment: MainAxisAlignment.center,

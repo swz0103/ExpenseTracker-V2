@@ -1,5 +1,6 @@
 import '../ledger/ledger.dart';
 import '../../../design_system/display/date.dart';
+import 'validation_messages.dart';
 
 /// The unit as it follows a count: 「天」「週」「個月」「年」.
 String repeatUnitLabel(RepeatUnit unit) => switch (unit) {
@@ -24,3 +25,8 @@ String rhythmOf(Recurring item) {
     RepeatUnit.year => '每$n年$date',
   };
 }
+
+/// A confirmation from a notification that the ledger refused to book:
+/// 「房租」10/5 沒有入帳：還沒有匯率，請輸入折合台幣的金額.
+String inboxRefused(String name, String day, RecordIssue issue) =>
+    '「$name」$day 沒有入帳：${validationMessage(issue)}';

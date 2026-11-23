@@ -16,6 +16,7 @@ abstract final class SettingsColors {
   static const haptics = Palette.orange;
   static const widget = Palette.teal;
   static const sections = Palette.green;
+  static const brokerDiscount = Palette.indigo;
   static const importExport = Palette.periwinkle;
   static const csv = Palette.green;
   static const invoice = Palette.gold;

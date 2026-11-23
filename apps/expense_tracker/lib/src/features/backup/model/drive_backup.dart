@@ -158,6 +158,7 @@ final class DriveBackup {
   static const _folderType = 'application/vnd.google-apps.folder';
   static const _api = 'https://www.googleapis.com/drive/v3/files';
   static const _upload = 'https://www.googleapis.com/upload/drive/v3/files';
+  static const _about = 'https://www.googleapis.com/drive/v3/about';
 
   /// How long Google's sign-in may take with its screens shown, as the
   /// person picks an account; and without them.
@@ -390,9 +391,14 @@ final class DriveBackup {
     if (location == null) {
       throw const DriveException(DriveProblem.refused, 'no upload address');
     }
+    final target = Uri.tryParse(location);
+    if (target == null || !isGoogleUpload(target)) {
+      // Never sent elsewhere, with the token, whatever answered.
+      throw const DriveException(DriveProblem.refused, 'upload address');
+    }
     await _send(
       'PUT',
-      Uri.parse(location),
+      target,
       interactive: interactive,
       headers: {'content-type': 'application/octet-stream'},
       file: file,
@@ -422,6 +428,29 @@ final class DriveBackup {
     } on DriveException catch (error) {
       if (error.status != 404) rethrow;
     }
+  }
+
+  /// The address of the Google account Drive is linked to; null when
+  /// Drive does not say.
+  Future<String?> account({bool interactive = true}) async {
+    final response = await _send(
+      'GET',
+      Uri.parse(_about)
+          .replace(queryParameters: {'fields': 'user(emailAddress)'}),
+      interactive: interactive,
+    );
+    final user = _answer(response).object('user');
+    final address = user?.text('emailAddress');
+    return address == null || address.isEmpty ? null : address;
+  }
+
+  /// Whether [location], where Drive says to send a backup's bytes, is
+  /// Google's own over HTTPS: the backup and the access token go only
+  /// there.
+  static bool isGoogleUpload(Uri location) {
+    final host = location.host.toLowerCase();
+    return location.scheme == 'https' &&
+        (host == 'googleapis.com' || host.endsWith('.googleapis.com'));
   }
 
   /// Saves the backup [id] into [into].

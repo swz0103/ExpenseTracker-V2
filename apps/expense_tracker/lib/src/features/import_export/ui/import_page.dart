@@ -5,6 +5,7 @@ import '../../../../design_system/display/amount.dart';
 import '../../accounts/forms/account_editor.dart';
 import '../../../core/widgets/entry_tile.dart';
 import '../../../core/widgets/pickers.dart';
+import '../../../core/widgets/problem_note.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
@@ -149,7 +150,14 @@ class _ImportPageState extends State<_ImportPage> {
   void _add() {
     final chosen = _chosen;
     if (chosen == null || chosen.entries.isEmpty) return;
-    addImport(widget.ledger.entryCommands, chosen);
+    // What the ledger refuses, such as a sale of shares not held by then,
+    // is said here and nothing is added.
+    if (!refusalShown(
+      context,
+      () => addImport(widget.ledger.entryCommands, chosen),
+    )) {
+      return;
+    }
     showNote(
       context,
       '已匯入 ${countOf(chosen.entries.length, CountUnit.entries)}紀錄',

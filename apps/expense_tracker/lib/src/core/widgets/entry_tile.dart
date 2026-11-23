@@ -82,9 +82,13 @@ String entrySpoken(
 );
 
 /// `−200`, `+52,000`, or a plain amount for transfers, in the [currency]
-/// of the entry's account.
+/// of the entry's account. A trade or dividend shows what reached or left
+/// the account (`Entry.settlement`), fee, tax and premium counted.
 String entryAmount(Entry e, {String currency = homeCode}) {
-  final amount = amountIn(e.amount, currency);
+  final amount = amountIn(
+    e.isInvestment ? e.settlement.abs() : e.amount,
+    currency,
+  );
   return switch (e.type) {
     EntryType.expense || EntryType.buy => '−$amount',
     EntryType.transfer => amount,

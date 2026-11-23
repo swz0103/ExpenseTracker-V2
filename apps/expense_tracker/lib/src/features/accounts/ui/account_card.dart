@@ -35,16 +35,8 @@ String cardKindLabel(Account account) => switch (account.kind) {
 };
 
 /// What [account] spent this month: everything that left it.
-int spentThisMonth(Ledger ledger, Account account) {
-  final today = ledger.today;
-  var out = 0;
-  for (final e in ledger.entries.inMonth(today.year, today.month)) {
-    if (e.account != account.id && e.to != account.id) continue;
-    final change = ledger.balanceService.effect(e, account.id);
-    if (change < 0) out -= change;
-  }
-  return out;
-}
+int spentThisMonth(Ledger ledger, Account account) =>
+    ledger.balanceService.flowOf(account.id, ledger.today).outflow;
 
 /// The face of an account's card: one tint, its own or its kind's, with the name,
 /// one large figure and one line under it. Behind the front card only

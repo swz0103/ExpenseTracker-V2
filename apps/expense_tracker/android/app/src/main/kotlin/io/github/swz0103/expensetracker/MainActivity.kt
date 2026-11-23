@@ -36,6 +36,7 @@ class MainActivity : FlutterFragmentActivity() {
         *SelfUpdate.handlers(this).toTypedArray(),
         ScanHandler(this),
         HapticsHandler(this),
+        ClipboardHandler(this),
     )
     private var channel: MethodChannel? = null
 

@@ -97,7 +97,8 @@ final class Portfolio {
   /// [held] after the purchase [e], which adds a lot of its own.
   static Holding _bought(Entry e, Holding held, Map<String, List<Lot>> lots) {
     final code = e.holding!;
-    final cost = e.amount + e.fee;
+    // What the purchase paid, fee and all, is what its lot cost.
+    final cost = -e.settlement;
     lots[code] = [...?lots[code], Lot(e.date, e.shares, cost)];
     return held.copyWith(
       shares: held.shares + e.shares,
@@ -117,7 +118,7 @@ final class Portfolio {
     return held.copyWith(
       shares: held.shares - e.shares,
       cost: held.cost - part,
-      realized: held.realized + e.amount - e.fee - e.tax - part,
+      realized: held.realized + e.settlement - part,
     );
   }
 

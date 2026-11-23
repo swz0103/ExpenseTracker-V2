@@ -1,7 +1,8 @@
 // Broker fee, transaction tax, dividend premium and settlement day: every
 // expected figure is worked out by hand in the comment beside it.
 import 'package:core/foundation_values.dart';
-import 'package:domain/investments.dart';
+import 'package:ledger_trade_costs/calc/charges.dart';
+import 'package:ledger_trade_costs/model/trade_values.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/trading.dart';
 import 'package:flutter_test/flutter_test.dart';

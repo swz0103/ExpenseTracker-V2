@@ -5,6 +5,7 @@
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/recurring_messages.dart';
 import '../../../../design_system/display/date.dart';
+import '../../../core/messages/validation_messages.dart';
 import 'recurring_schedule.dart';
 
 /// What the form of a recurring item holds while it is filled in: a new
@@ -130,10 +131,17 @@ final class RecurringForm {
     start = DateTime.utc(start.year, start.month, start.day + ahead);
   }
 
-  /// Why the item cannot be saved yet; null when it can.
+  /// Why the item cannot be saved yet; null when it can: the ledger's
+  /// write rules, which the save asks again.
   String? get problem {
-    if (amount <= 0) return '請輸入金額';
-    return null;
+    final found = recurringIssues(
+      amount: amount,
+      every: every,
+      day: start.day,
+      start: start,
+      end: end,
+    );
+    return found.isEmpty ? null : validationMessage(found.first);
   }
 
   /// The item as the form now stands.

@@ -62,6 +62,7 @@ final class _Writes {
     accounts: book.accounts,
     recurringService: book.recurringService,
     entryCommands: entries,
+    entryValidator: book.validator,
   );
 }
 

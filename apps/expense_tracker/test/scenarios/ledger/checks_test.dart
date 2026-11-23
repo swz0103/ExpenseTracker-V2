@@ -103,5 +103,5 @@ void main() {
   });
 }
 
-String? _messageOf(EntryValidationFailure? failure) =>
+String? _messageOf(RecordIssue? failure) =>
     failure == null ? null : validationMessage(failure);
