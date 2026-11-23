@@ -141,7 +141,7 @@ extension _Pickers on _ComposerState {
         ring: _color,
         onPick: done,
         options: [
-          for (final n in const [0, 3, 6, 12, 24, 30])
+          for (final n in installmentChoices)
             Option(
               n,
               n == 0 ? '不分期' : countOf(n, CountUnit.periods),

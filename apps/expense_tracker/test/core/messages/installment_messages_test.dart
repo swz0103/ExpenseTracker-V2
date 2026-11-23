@@ -27,4 +27,23 @@ void main() {
   test('amounts are written as asked, such as hidden', () {
     expect(installmentPlan(9000, 3, money: (_) => '••••'), '3 期 · 每期 ••••');
   });
+
+  test('D11: the form offers up to 60, the most the write rules keep', () {
+    expect(installmentChoices.first, 0);
+    expect(installmentChoices.last, 60);
+    expect(maxInstallments, 60);
+    Entry card(int count) => Entry(
+      id: 'tv',
+      date: DateTime.utc(2026, 11, 23),
+      type: EntryType.expense,
+      amount: 60000,
+      account: 'card',
+      category: '家電',
+      installments: count,
+    );
+    for (final n in installmentChoices) {
+      expect(entryShapeIssues(card(n)), isEmpty, reason: '$n');
+    }
+    expect(entryShapeIssues(card(61)), [isA<InstallmentsOutOfRange>()]);
+  });
 }
