@@ -104,8 +104,11 @@ final class Ledger extends ChangeNotifier {
        _entries = EntryRepository(entries),
        _budgets = BudgetRepository(budgets),
        _recurring = RecurringRepository(recurring) {
-    _holdings = HoldingRepository(holdings, moveOf: _market.moveOf)
-      ..replay(_entries.all, lenient: true);
+    _holdings = HoldingRepository(
+      holdings,
+      moveOf: _market.moveOf,
+      quoteDayOf: (code) => _market.quoteDays[code] ?? _market.quotedOn,
+    )..replay(_entries.all, lenient: true);
     amounts.addListener(_signal);
     final source = dataSource;
     if (source != null) {

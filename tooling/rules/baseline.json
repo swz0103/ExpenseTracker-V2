@@ -120,7 +120,7 @@
     "apps/expense_tracker/lib/src/features/investments/ui/holding_bento.dart": 23,
     "apps/expense_tracker/lib/src/features/investments/ui/holding_page.dart": 23,
     "apps/expense_tracker/lib/src/features/investments/ui/investments.dart": 12,
-    "apps/expense_tracker/lib/src/features/investments/ui/investments_hero.dart": 9,
+    "apps/expense_tracker/lib/src/features/investments/ui/investments_hero.dart": 8,
     "apps/expense_tracker/lib/src/features/investments/ui/investments_returns.dart": 10,
     "apps/expense_tracker/lib/src/features/lock/model/unlock_failure.dart": 9,
     "apps/expense_tracker/lib/src/features/lock/ui/lock_screen.dart": 15,

@@ -53,6 +53,20 @@ void main() {
     expect(holdings.byCode('2330')?.change, 15);
   });
 
+  test('shares bought after the quote day are not in its change (F25)', () {
+    // The close is Friday 9/4's; 10 more shares are bought Monday 9/7.
+    final monday = _trade('monday', EntryType.buy, 7, 10, 10000);
+    final holdings = HoldingRepository(
+      [_tsmc],
+      moveOf: (_) => 2.5,
+      quoteDayOf: (_) => DateTime.utc(2026, 9, 4),
+    )..replay([buy, sell, monday]);
+    expect(holdings.byCode('2330')?.shares, 16);
+    // 6 shares held at the end of 9/4 × 2.5 = 15, not 16 × 2.5 = 40.
+    expect(holdings.byCode('2330')?.change, 15);
+    expect(holdings.dayChange, 15);
+  });
+
   test('a stock with a fetched close has a quote; another does not', () {
     final holdings = make();
     expect(holdings.hasQuote('2330'), isTrue);

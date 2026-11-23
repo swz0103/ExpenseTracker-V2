@@ -122,4 +122,14 @@ void main() {
       '順延至 1/3（未含國定假日）',
     );
   });
+
+  test('a market change is 今日 only on its own trading day (F25)', () {
+    expect(tradingDayWord(DateTime.utc(2026, 11, 22), today: today), '今日');
+    // Sunday 11/22: the close is Friday 11/20's.
+    expect(tradingDayWord(DateTime.utc(2026, 11, 20), today: today), '11/20');
+    expect(
+      tradingDayWord(DateTime.utc(2025, 12, 31), today: today),
+      '2025/12/31',
+    );
+  });
 }

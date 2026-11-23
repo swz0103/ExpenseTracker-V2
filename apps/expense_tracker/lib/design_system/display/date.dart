@@ -92,6 +92,15 @@ String relativeDay(DateTime d, {required DateTime today}) {
   return formatDay(d, today: today);
 }
 
+/// What a day's market change is labelled by: 「今日」 when [quoteDay],
+/// the trading day of the close, is [today]; otherwise that day, as on a
+/// weekend or a holiday (「10/9」).
+String tradingDayWord(DateTime quoteDay, {required DateTime today}) =>
+    DateTime.utc(quoteDay.year, quoteDay.month, quoteDay.day) ==
+        DateTime.utc(today.year, today.month, today.day)
+    ? '今日'
+    : formatDay(quoteDay, today: today);
+
 /// 「今天 21:03」, 「昨天 08:14」 or 「11/2 08:14」: when something
 /// happened, for a list of recent events.
 String formatWhen(DateTime at, {required DateTime today}) =>
