@@ -72,7 +72,7 @@ Future<void> _show(WidgetTester tester, Widget child) async {
 
 void main() {
   // 10/12 is two days after the due day 10/10.
-  const overdue = '10/10 繳款 · 已逾期 2 天';
+  const overdue = '已逾期 2 天';
   final late = _book(DateTime.utc(2026, 10, 12));
 
   testWidgets('the card page says it is overdue', (tester) async {

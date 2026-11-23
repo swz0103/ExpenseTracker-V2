@@ -73,7 +73,7 @@ These tests run (no `knownDefect` skip) and pass.
 
 Work package 1.5 (one decision and one wording per status). These findings had no known-defect test; the tests below run in the ordinary suite.
 
-- F19: `test/features/accounts/ui/bill_status_screens_test.dart` (card page, account list and 總覽 say 10/10 繳款 · 已逾期 2 天); `packages/domain/test/credit_cards/card_rules_test.dart`
+- F19: `test/features/accounts/ui/bill_status_screens_test.dart` (card page, account list and 總覽 say 已逾期 2 天); `packages/domain/test/credit_cards/card_rules_test.dart`
 - F29: `test/design_system/display/status_test.dart`; the budget square keeps its colour and shows the 快用完/超支 badge only
 - F07: `test/core/ledger/rules/status_rules_test.dart` (over by amount, not rounded percent); the overview card says 本月超支 with the badge
 - F44: `test/features/overview/model/home_widget_test.dart` (`state` written for the widget); `android/app/src/test/.../WidgetViewTest.kt`

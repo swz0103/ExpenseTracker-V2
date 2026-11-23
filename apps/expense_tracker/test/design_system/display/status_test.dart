@@ -12,9 +12,11 @@ void main() {
   final due = BusinessDate(2026, 11, 20);
 
   test('a card bill has one wording per state', () {
-    expect(cardBillLook(BillDue(due, 3)).words, '11/20 繳款 · 還有 3 天');
+    expect(cardBillLook(BillDue(due, 3)).words, '11/20 繳款');
+    expect(cardBillLook(BillDue(due, 3)).spoken, '11/20 繳款，還有 3 天');
     expect(cardBillLook(BillDueToday(due)).words, '今天繳款');
-    expect(cardBillLook(BillOverdue(due, 1)).words, '11/20 繳款 · 已逾期 1 天');
+    expect(cardBillLook(BillOverdue(due, 1)).words, '已逾期 1 天');
+    expect(cardBillLook(BillOverdue(due, 1)).spoken, '11/20 繳款，已逾期 1 天');
     expect(cardBillLook(const BillPaid()).words, '已繳清');
     expect(cardBillLook(const BillNotYetBilled()).words, '未出帳');
   });

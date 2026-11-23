@@ -48,8 +48,9 @@ final class StatusLook {
   final bool alerts;
 }
 
-/// A card's last statement on screen: 已繳清, 11/20 繳款 · 還有 3 天,
-/// 今天繳款 or 11/20 繳款 · 已逾期 2 天. The same words on the card's
+/// A card's last statement on screen: 已繳清, 11/20 繳款, 今天繳款 or
+/// 已逾期 2 天, short enough for an account card's line; read out with
+/// the due day and the days left or late. The same words on the card's
 /// page, the account list and 總覽.
 StatusLook cardBillLook(CardBillStatus status) => switch (status) {
   BillNotYetBilled() => const StatusLook(
@@ -60,8 +61,9 @@ StatusLook cardBillLook(CardBillStatus status) => switch (status) {
   ),
   BillDue(:final dueOn, :final daysLeft) => StatusLook(
     id: 'due',
-    words:
-        '${formatMd(_day(dueOn))} 繳款 · 還有 ${countOf(daysLeft, CountUnit.days)}',
+    words: '${formatMd(_day(dueOn))} 繳款',
+    spoken:
+        '${formatMd(_day(dueOn))} 繳款，還有 ${countOf(daysLeft, CountUnit.days)}',
     color: AppColors.muted,
     glyph: Glyph.calendar,
   ),
@@ -74,8 +76,9 @@ StatusLook cardBillLook(CardBillStatus status) => switch (status) {
   ),
   BillOverdue(:final dueOn, :final days) => StatusLook(
     id: 'overdue',
-    words:
-        '${formatMd(_day(dueOn))} 繳款 · ${StatusWords.overdue} ${countOf(days, CountUnit.days)}',
+    words: '${StatusWords.overdue} ${countOf(days, CountUnit.days)}',
+    spoken:
+        '${formatMd(_day(dueOn))} 繳款，${StatusWords.overdue} ${countOf(days, CountUnit.days)}',
     color: AppColors.negative,
     glyph: Glyph.bell,
     alerts: true,
