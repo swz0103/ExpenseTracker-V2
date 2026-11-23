@@ -7,6 +7,7 @@ import 'package:test/test.dart';
 const platformFree = [
   'packages/core',
   'packages/domain',
+  'packages/ledger/entries',
   'packages/ledger/loans',
   'packages/ledger/trade_costs',
 ];
@@ -27,7 +28,7 @@ const forbiddenPackages = {'flutter', 'storage', 'vault', 'market', 'sqlite3'};
 final _directive = RegExp(r'''^\s*(?:import|export)\s+['"]([^'"]+)['"]''');
 
 void main() {
-  test('core and domain import no platform library', () {
+  test('the business packages import no platform library', () {
     final root = p.normalize(p.join(Directory.current.path, '..', '..'));
     final offenders = <String>[];
     var checked = 0;

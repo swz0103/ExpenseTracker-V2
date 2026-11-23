@@ -12,6 +12,7 @@ const strictPackages = [
   'infrastructure/vault',
   'packages/core',
   'packages/domain',
+  'packages/ledger/entries',
   'packages/ledger/loans',
   'packages/ledger/trade_costs',
 ];

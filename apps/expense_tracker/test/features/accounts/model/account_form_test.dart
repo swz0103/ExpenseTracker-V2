@@ -27,6 +27,12 @@ void main() {
     dataSource: _Nowhere(),
   );
 
+  test('a blank name is said, in the words of the rule (F68)', () {
+    final form = AccountForm(book())..name = '   ';
+    expect(form.problem, '請輸入帳戶名稱');
+    expect(form.save(), isFalse);
+  });
+
   group('ACC-05: a credit limit is read with the one parser', () {
     AccountForm card(String limit) => AccountForm(book())
       ..kind = AccountKind.card

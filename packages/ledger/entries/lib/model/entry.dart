@@ -1,7 +1,25 @@
 import 'package:ledger_trade_costs/calc/settlement.dart';
 import 'package:ledger_trade_costs/model/trade_values.dart';
 
-import 'category.dart';
+// Exception to ledger words: 轉帳, 投資, 股息收入 and 其他支出 are names the
+// book keeps as data, the categories a transfer, a trade, a dividend and
+// a fee are written in.
+
+/// The category every transfer carries.
+// Exception to shared words: a name kept in every book, which cannot
+// follow what the screens say.
+const transferCategory = '轉帳';
+
+/// The category every buy and sell of shares carries.
+// Exception to shared words: kept in every book, as above.
+const investmentCategory = '投資';
+
+/// The category a dividend is written under.
+const dividendCategory = '股息收入';
+
+/// Where fees go that have no category of their own, such as a
+/// transfer's.
+const feeCategory = '其他支出';
 
 /// What an entry does. Buys, sells and dividends are investment entries.
 enum EntryType { expense, income, transfer, buy, sell, dividend }

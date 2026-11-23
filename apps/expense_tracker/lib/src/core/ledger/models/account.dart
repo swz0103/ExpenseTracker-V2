@@ -1,22 +1,8 @@
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
+import 'package:ledger_entries/model.dart' show AccountKind, homeCode;
 import 'package:ledger_loans/calc/loan_plan.dart' show LoanRepay;
 
 export 'package:ledger_loans/calc/loan_plan.dart' show LoanRepay;
-
-/// The code of the currency the books are kept in: NT$.
-const homeCode = 'TWD';
-
-enum AccountKind {
-  cash,
-  bank,
-  wallet,
-  card,
-  loan,
-  receivable;
-
-  /// Kinds whose balance is owed rather than held.
-  bool get isDebt => this == card || this == loan;
-}
 
 final class Account {
   const Account(

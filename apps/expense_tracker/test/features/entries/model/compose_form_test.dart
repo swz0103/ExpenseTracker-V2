@@ -177,6 +177,52 @@ void main() {
     expect(form.build().parts, hasLength(2));
   });
 
+  test('a split part of nothing is refused (F56)', () {
+    // 300 + 0: everything shared out, then one more part with nothing.
+    final form = ComposeForm(book(), type: EntryType.expense)
+      ..setAmount(300)
+      ..category = '飲食'
+      ..toggleSplit()
+      ..addPart('居家');
+    expect(form.parts, [('飲食', 300), ('居家', 0)]);
+    expect(form.problem, '拆分的每一項金額都要大於 0');
+  });
+
+  test('a split of one part must still add up to the amount', () {
+    final form = ComposeForm(book(), type: EntryType.expense)
+      ..setAmount(300)
+      ..category = '飲食'
+      ..toggleSplit()
+      ..setAmount(500);
+    // 500 − 300 = 200.
+    expect(form.problem, '拆分的金額要等於總額（差 200）');
+  });
+
+  test('buying shares past the cash held warns, and may still be saved', () {
+    final ledger = book();
+    final form = ComposeForm(ledger, type: EntryType.buy)
+      ..holding = '2330'
+      ..account = 'cash'
+      ..tradeFee = 20;
+    form
+      ..setShares(10)
+      ..setPrice(300);
+    // 2,000 − (3,000 + 20) = −1,020.
+    expect(form.problem, isNull);
+    expect(form.warning, '扣款後餘額為負（-1,020）');
+    ledger.entryCommands.save(form.buildAll());
+    expect(ledger.balanceService.balance('cash'), -1020);
+    // Within what is held, nothing to say.
+    final paid = ComposeForm(ledger, type: EntryType.buy)
+      ..holding = '2330'
+      ..account = 'bank'
+      ..tradeFee = 20;
+    paid
+      ..setShares(10)
+      ..setPrice(300);
+    expect(paid.warning, isNull);
+  });
+
   test('lending needs someone to lend to', () {
     final form = ComposeForm(book(), type: EntryType.expense)
       ..setAmount(500)
@@ -326,7 +372,7 @@ void main() {
     );
     expect(again.lent, [('ann', 600), ('bo', 600)]);
     again.setLent(1, 300);
-    ledger.entryCommands.replaceGroup(again.buildAll(), again.openedIds);
+    ledger.entryCommands.save(again.buildAll(), replacing: again.openedIds);
     expect(ledger.balanceService.balance('bo'), 300);
     expect(ledger.reportService.expense(2026, 10), 900);
     expect(ledger.entryQueryService.groupOf(made.first), hasLength(3));

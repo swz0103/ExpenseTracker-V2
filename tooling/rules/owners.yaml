@@ -82,15 +82,14 @@ items:
     what: 資料是否合法
     layer: ledger
     owner:
-      - apps/expense_tracker/lib/src/core/ledger/services/entry_validator.dart
-      - apps/expense_tracker/lib/src/core/ledger/services/integrity_service.dart
+      - packages/ledger/entries/lib/rules
     target: packages/ledger/entries/lib/rules/
-    status: scattered
+    status: owned
   - id: income-expense-kinds
     what: 什麼算「支出」「收入」
     layer: ledger
     owner:
-      - apps/expense_tracker/lib/src/core/ledger/models/entry.dart
+      - packages/ledger/entries/lib/model/entry.dart
     target: packages/ledger/entries/lib/rules/
     status: scattered
   - id: balance-net-worth

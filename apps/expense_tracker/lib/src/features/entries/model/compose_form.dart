@@ -465,16 +465,29 @@ final class ComposeForm {
   /// The premium withheld from the cash dividend being written.
   int get withheld => premium ?? dividendPremium(amount, date);
 
-  /// Why the entry cannot be kept yet; null when it can. The ledger's
-  /// own checks, and a split that must add up to the amount.
+  /// Why the entry cannot be kept yet; null when it can: the ledger's
+  /// write rules, which the save asks again, on the entry as it stands
+  /// (a split of one part included, though it is kept as no split).
   String? get problem {
     if (mode == ComposeMode.lend && to.isEmpty) return '請選擇代墊對象';
     if (lending) return _lendingProblem;
-    final found = ledger.entryValidator.validate(build(), replacing: editing);
-    if (found != null) return validationMessage(found);
-    final splitTotal = splitParts?.fold(0, (sum, p) => sum + p.$2);
-    if (splitTotal != null && splitTotal != amount) {
-      return '拆分的金額要等於總額（差 ${groupDigits(amount - splitTotal)}）';
+    final found = ledger.entryValidator.validate(
+      build(wholeSplit: true),
+      replacing: editing,
+    );
+    return found == null ? null : validationMessage(found);
+  }
+
+  /// What the ledger says before keeping the entry, which may still be
+  /// kept, such as a cash account left below nothing by buying shares;
+  /// null when nothing, or while [problem] stands.
+  String? get warning {
+    if (problem != null) return null;
+    for (final e in buildAll()) {
+      final was = ledger.entries.byId(e.id);
+      for (final issue in ledger.entryValidator.issues(e, replacing: was)) {
+        if (!issue.isError) return validationMessage(issue);
+      }
     }
     return null;
   }
@@ -531,8 +544,9 @@ final class ComposeForm {
     return [for (final e in made) e.inGroup(group)];
   }
 
-  /// The entry as the form now stands.
-  Entry build() {
+  /// The entry as the form now stands. A split of one part is kept as
+  /// none, unless [wholeSplit], for its part to be checked.
+  Entry build({bool wholeSplit = false}) {
     final kind = type;
     final split = splitParts;
     final (tradeFee, tradeTax) = charges;
@@ -564,7 +578,9 @@ final class ComposeForm {
       recurring: editing?.recurring ?? draft?.recurring,
       merchant: kind == EntryType.expense ? merchant : '',
       tags: kind == EntryType.expense || kind == EntryType.income ? tags : [],
-      parts: split != null && split.length > 1 ? split : const [],
+      parts: split != null && split.length > (wholeSplit ? 0 : 1)
+          ? split
+          : const [],
       fee: kind == EntryType.transfer ? (takesFee ? fee : 0) : tradeFee,
       tax: kind == EntryType.dividend ? (reducing ? 0 : withheld) : tradeTax,
       refundOf: refunded?.id ?? editing?.refundOf,

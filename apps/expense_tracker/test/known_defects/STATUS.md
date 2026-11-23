@@ -8,8 +8,6 @@ The expectations were written against today's APIs. A fix that changes an API (f
 
 | id | package | test file | fails-when-enabled | note |
 |---|---|---|---|---|
-| LOG-02 | 1.4 | p1_4_write_invariants_test.dart | yes | 3 tests; add() stores a zero amount, a same-account transfer and foreign spending without NT$ amount |
-| LOG-12 | 1.4 | p1_4_write_invariants_test.dart | yes | renaming a merchant leaves the recurring item on the old name |
 | DAT-01 | 2.1 | p2_1_loading_test.dart | yes | 3 tests (not json / newer _v / wrong JSON type); load() throws, 0 of 100 good rows load |
 | DAT-05 | 2.1 | p2_1_loading_test.dart | yes | category rename is not written to entries on disk; reopened entry keeps the old name |
 | BUD-01 | 2.2 | p2_2_budgets_test.dart | yes | raising the limit on Dec 10 rewrites November allowance to 15,000 (expects 10,000) |
@@ -39,7 +37,7 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | IMP-01 | 6.1 | p6_1_import_test.dart | yes | a positive amount with no type column is imported as income |
 | IMP-02 | 6.1 | p6_1_import_test.dart | yes | round trip loses the US$ currency (first of 10 differences) |
 
-30 findings covered.
+28 findings covered.
 
 ## fixed in 1.1
 
@@ -90,6 +88,13 @@ The tests that were skipped here now run unskipped in `p3_2_keys_test.dart`; the
 - F91: `startup_keys.dart`, `lock_screen_test.dart`
 - F46, F90: `test/features/backup/ui/backup_section_test.dart`, `drive_backup_test.dart`
 
+## fixed in 1.4
+
+The tests run unskipped in `p1_4_write_invariants_test.dart`.
+
+- LOG-02: 3 tests; every command that writes an entry checks it against the write rules of `packages/ledger/entries` and refuses a zero amount, a same-account transfer and foreign spending without NT$ amount (`RecordRefused`)
+- LOG-12: renaming a merchant renames it on the recurring items too; a refused write is one typed `LedgerProblem` (`RecordRefused`, `SharesShort`) told by `describeProblem` wherever it is caught
+
 ## not covered
 
 One line per finding that has no test here. Findings with an executed reproduction come first with the specific reason; the rest were found by reading code (no executed reproduction), which the brief does not require.
@@ -102,7 +107,7 @@ One line per finding that has no test here. Findings with an executed reproducti
 - AND-02 (S1, 3.4): Android alarm receiver behaviour after reboot; needs a device or emulator (Kotlin side), reproduced on an API 34 emulator
 - REM-01 (S1, 3.4): the resume path is inline in a State (didChangeAppLifecycleState) and the inbox source exists only on Android; testable once LedgerSession gets a resume step
 - PKG-01 (S2, 1.3): partly fixed in 1.3: the discount is the preference 券商手續費折扣 (default 6折; tests in test/core/platform/preferences_test.dart and test/features/entries/model/compose_form_test.dart); the day-trade tax stays open, as an entry has no notion of a day trade, and the holiday table belongs to the dates package
-- F24 (S2, 1.4): the intended behaviour (warn or refuse a buy that overdraws) is not decided
+- F24 (S2, 1.4): the intended behaviour (warn or refuse a buy that overdraws) is not decided; 1.4 shows a non-blocking warning (`NegativeBalanceAfter`) for the owner to confirm
 - F19 (S2, 1.5): wording and one shared overdue judgement across three screens; no single value to assert
 - F77 (S2, 2.2): does not reproduce at ledger level: budgetCrossings already reports 本月總預算已超支 for the same data; the device case came from other state
 - F80 (S2, 2.2): the fix is a design choice (start month of carry-over or retroactive leftover); no single correct value

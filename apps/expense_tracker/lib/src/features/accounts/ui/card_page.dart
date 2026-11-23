@@ -6,6 +6,7 @@ import '../forms/reconcile_sheet.dart';
 import '../model/card_summary.dart';
 import 'account_action.dart';
 import '../../../core/widgets/pickers.dart';
+import '../../../core/widgets/problem_note.dart';
 import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
@@ -47,12 +48,12 @@ class CardPage extends StatelessWidget {
       latest: scheduled.add(const Duration(days: 7)),
       marked: {scheduled},
     );
-    if (picked == null) return;
-    if (picked.difference(scheduled).inDays.abs() > 7) {
-      if (context.mounted) showNote(context, '結帳日最多只能前後移動 7 天');
-      return;
-    }
-    ledger.accountCommands.moveClose(card.card.id, scheduled, picked);
+    if (picked == null || !context.mounted) return;
+    // A day the card cannot close on is said as the ledger refuses it.
+    refusalShown(
+      context,
+      () => ledger.accountCommands.moveClose(card.card.id, scheduled, picked),
+    );
   }
 
   @override
