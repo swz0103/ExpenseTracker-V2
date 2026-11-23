@@ -108,13 +108,22 @@ items:
       - packages/ledger/trade_costs/lib
     target: packages/ledger/trade_costs/lib/calc/
     status: owned
+  # Decision D4: every loan figure (a month's payment, the last month, the
+  # interest over the term) is read off `loanSchedule`; the rounding of a
+  # month's interest is the one constant `loanInterestRounding`.
+  - id: loan-schedule
+    what: 貸款攤還表（每月利息、本金、餘額與進位方式）
+    layer: ledger
+    owner:
+      - packages/ledger/loans/lib/calc/loan_plan.dart
+    target: packages/ledger/loans/lib/calc/
+    status: owned
   - id: installments-billing-cycle
     what: 分期排程與帳單週期
     layer: ledger
     owner:
       - packages/domain/lib/src/credit_cards/installments.dart
       - packages/domain/lib/src/credit_cards/card_billing.dart
-      - packages/ledger/loans/lib/calc/loan_plan.dart
       - apps/expense_tracker/lib/src/core/ledger/card_cycle.dart
     target: packages/ledger/installments/lib/calc/ + packages/ledger/card_cycles/lib/calc/
     status: scattered

@@ -324,7 +324,10 @@ class LoanEstimate extends StatelessWidget {
             },
             value: money(plan.first),
             sub: switch (repay) {
-              LoanRepay.even => '',
+              // The last month pays off what rounding left, so it
+              // differs by a few NT\$: said when it does.
+              LoanRepay.even =>
+                plan.last == plan.first ? '' : '最後 ${money(plan.last)}',
               LoanRepay.principal => '最後 ${money(plan.last)}',
               LoanRepay.interest => '到期還本金',
             },

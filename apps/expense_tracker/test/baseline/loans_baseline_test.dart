@@ -13,41 +13,51 @@ LoanPlan plan(int amount, int rate, int months, LoanRepay repay) =>
 
 void main() {
   group('1,000,000 at 2.00% a year over 240 months', () {
-    test('equal payments: 5,059 a month, 214,120 interest', () {
-      // r = 0.02/12 = 0.0016667; payment = P r / (1 - (1+r)^-240) = 5058.9.
-      // 5058.9 rounds to 5059; interest = 5058.9 x 240 - 1000000 = 214,120.
+    // Decision D4: an exact schedule, each month's interest (what is owed
+    // x 0.02 / 12) rounded half up to the NT\$ on its own.
+    test('equal payments: 5,059 a month, the last 5,010, 214,111 interest', () {
+      // r = 0.02/12; payment = P r / (1 - (1+r)^-240) = 5058.83 -> 5059.
+      // First month: interest 1000000 r = 1666.67 -> 1667, so 3392 off.
+      // After 239 payments 5,002 is still owed; the last month pays it
+      // with its interest 5002 r = 8.34 -> 8: 5,010.
+      // Interest = 5059 x 239 + 5010 - 1000000 = 214,111.
       final p = plan(1000000, 200, 240, LoanRepay.even);
       expect(p.first, 5059);
-      expect(p.last, 5059);
-      expect(p.interest, 214120);
+      expect(p.last, 5010);
+      expect(p.interest, 214111);
     });
-    test('equal principal: first 5,833, last 4,174, interest 200,833', () {
-      // Share = 1000000 / 240 = 4166.67. First = 4166.67 + 1000000 r = 5833.3.
-      // Last = 4166.67 + 4166.67 r = 4173.6 -> 4174.
-      // Interest = P r (n + 1) / 2 = 1666.67 x 241 / 2 = 200,833.3.
+    test('equal principal: first 5,833, last 4,333, interest 200,867', () {
+      // Share = 1000000 ~/ 240 = 4166; the 160 left over (1000000 -
+      // 4166 x 240) goes with the last month, which pays down 4326.
+      // First = 4166 + 1000000 r (1666.67 -> 1667) = 5833.
+      // Last = 4326 + 4326 r (7.21 -> 7) = 4333.
+      // Interest = the 240 months' rounded interest added up = 200,867.
       final p = plan(1000000, 200, 240, LoanRepay.principal);
       expect(p.first, 5833);
-      expect(p.last, 4174);
-      expect(p.interest, 200833);
+      expect(p.last, 4333);
+      expect(p.interest, 200867);
     });
     test('interest only: 1,667 a month, the principal with the last', () {
       // 1000000 x 0.02 / 12 = 1666.67 -> 1667 a month.
-      // The total interest is left out on purpose: the code gives 400,080
-      // (the rounded payment x 240) where the exact figure is 400,000.
-      // That is finding F72 / PKG-04, not behaviour to keep.
+      // The months add up to the exact interest, 1000000 x 0.02 x 20 =
+      // 400,000 (finding F72 / PKG-04: not the rounded payment x 240).
       final p = plan(1000000, 200, 240, LoanRepay.interest);
       expect(p.first, 1667);
       expect(p.last, 1001667);
+      expect(p.interest, 400000);
     });
   });
 
   group('smaller loans', () {
     test('12,000 at 12% over 12 months, equal payments', () {
       // r = 0.01; payment = 120 / (1 - 1.01^-12) = 1066.19 -> 1066.
-      // Interest = 1066.19 x 12 - 12000 = 794.3 -> 794.
+      // Each month's interest is 1% of what is owed, rounded: 120 + 111 +
+      // 101 + 91 + 82 + 72 + 62 + 52 + 42 + 31 + 21 + 11 = 796; the last
+      // month pays the 1,059 left with its interest 11: 1,070.
       final p = plan(12000, 1200, 12, LoanRepay.even);
       expect(p.first, 1066);
-      expect(p.interest, 794);
+      expect(p.last, 1070);
+      expect(p.interest, 796);
     });
     test('12,000 at 12% over 12 months, equal principal', () {
       // Share 1000. First = 1000 + 12000 x 0.01 = 1120.
@@ -62,8 +72,10 @@ void main() {
       // 120000 / 12 = 10000, no interest.
       final even = plan(120000, 0, 12, LoanRepay.even);
       expect((even.first, even.last, even.interest), (10000, 10000, 0));
-      // 100000 / 3 = 33333.3 -> 33333.
+      // 100000 / 3 = 33333.3 -> 33333; the last month takes the 33,334
+      // that is left.
       expect(plan(100000, 0, 3, LoanRepay.even).first, 33333);
+      expect(plan(100000, 0, 3, LoanRepay.even).last, 33334);
     });
     test('a missing rate is read as no interest', () {
       final p = loanPlan(

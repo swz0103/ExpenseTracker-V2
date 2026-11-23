@@ -68,6 +68,7 @@ Their tests run without `knownDefect` and must pass.
 - ENT-01 (p1_3_trade_costs_test.dart, 2 tests): a fee or tax still at its suggestion when the trade is opened is untouched and follows every change (1,026 after doubling the shares; 427 and 1,500 for half a sale); one the person typed stays
 - ENT-08 (p1_3_trade_costs_test.dart): the cost preview of a sale replays the book up to the sale's day without the sale being changed (100,000, not 200,000)
 - ACC-06 (no known-defect test; tests in test/core/ledger/services/balance_service_test.dart): `BalanceService.entriesOf` and `flowOf` replace the scans of the person, loan and account pages; ETFs are grouped by ledger_trade_costs `isEtf`
+- PKG-04 / F72 (no known-defect test; decision D4, approved by the owner 2026-11-23): every loan figure is read off one exact schedule, ledger_loans `loanSchedule`, each month's interest rounded half up on its own (`loanInterestRounding`); tests in `packages/ledger/loans/test/calc/loan_plan_test.dart`, `test/baseline/loans_baseline_test.dart` (1,000,000 at 2% over 240 months: last month 5,010, interest 214,111; interest only adds up to 400,000) and `test/features/accounts/forms/loan_cards_test.dart`
 
 ## fixed in 3.2
 
@@ -179,7 +180,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - TST-01 (S2, 0.1): no executed reproduction; not turned into a test
 - TST-03 (S2, 0.2): no executed reproduction; not turned into a test
 - TST-05 (S2, 0.2): no executed reproduction; not turned into a test
-- PKG-04 (S2, 1.3): partly fixed in 1.3: an interest-only plan adds up exactly (packages/ledger/loans/test/calc/loan_plan_test.dart); equal-payment and equal-principal plans wait on the owner, as an exact schedule changes figures that test/baseline/loans_baseline_test.dart pins
 - LOG-03 (S2, 1.4): no executed reproduction; not turned into a test
 - LOG-07 (S2, 1.4): no executed reproduction; not turned into a test
 - BUD-03 (S2, 2.2): no executed reproduction; not turned into a test
