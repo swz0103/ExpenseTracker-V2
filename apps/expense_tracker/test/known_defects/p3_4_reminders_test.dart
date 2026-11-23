@@ -6,7 +6,6 @@ import 'package:expense_tracker/src/features/reminders/ui/reminders_section.dart
 import 'package:flutter_test/flutter_test.dart';
 
 import '../baseline/baseline_ledger.dart';
-import 'known_defect.dart';
 
 void main() {
   test('REM-05: a day let go of is not reminded about', () {
@@ -31,5 +30,5 @@ void main() {
       for (final r in reminders)
         if (r.title.contains('健身房') && r.day == day(2026, 11, 25)) r,
     ], isEmpty);
-  }, skip: knownDefect('REM-05', '3.4'));
+  });
 }

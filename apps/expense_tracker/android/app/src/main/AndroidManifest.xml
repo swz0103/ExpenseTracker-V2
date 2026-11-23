@@ -70,6 +70,8 @@
                 <!-- A changed clock or time zone moves when alerts are due. -->
                 <action android:name="android.intent.action.TIMEZONE_CHANGED"/>
                 <action android:name="android.intent.action.TIME_SET"/>
+                <!-- Alarms on the minute allowed: armed again, on the minute. -->
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"/>
             </intent-filter>
         </receiver>
         <!-- The home-screen widget (QuickWidget.kt). -->

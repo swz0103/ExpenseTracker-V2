@@ -23,14 +23,10 @@ final class _Port implements NotifyPort {
   Future<bool> access() async => true;
 
   @override
-  Future<void> schedule(
-    List<Alert> alerts, {
-    bool exact = false,
-    Set<String>? wanted,
-  }) async {}
+  Future<void> schedule(ReminderPlan plan) async {}
 
   @override
-  Future<void> test({bool exact = false}) async {}
+  Future<void> test({required bool exact}) async {}
 
   @override
   Future<void> post(Alert alert, int id) async => posted.add(alert);
@@ -71,7 +67,7 @@ void main() {
 
   test('a budget warns once at its share and once when used up', () async {
     final ledger = book();
-    final preferences = Preferences();
+    final preferences = Preferences()..update(budgetAlerts: true);
     final port = _Port();
     final notifier = Notifier(port, preferences);
 

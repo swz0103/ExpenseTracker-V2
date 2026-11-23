@@ -120,7 +120,7 @@ final class Preferences extends ChangeNotifier {
       _phoneBackedUp = DateTime.tryParse(json.text('phoneBackedUp') ?? '');
       _phoneRevision = json.whole('phoneRevision');
       _overview = json.texts('overview');
-      _budgetAlerts = json.flag('budgetAlerts') ?? true;
+      _budgetAlerts = json.flag('budgetAlerts') ?? false;
       _budgetAlerted = {...?json.texts('budgetAlerted')};
       _updateChecks = json.flag('updateChecks') ?? true;
       _updateCheckedAt = DateTime.tryParse(json.text('updateCheckedAt') ?? '');
@@ -253,9 +253,10 @@ final class Preferences extends ChangeNotifier {
   static int _discountIn(int basisPoints) => basisPoints.clamp(1, 10000);
 
   /// A notification when a budget reaches its warning share, and again
-  /// when it is used up.
+  /// when it is used up. Off until the person turns it on, which asks the
+  /// phone to allow notifications, as every kind of reminder does.
   bool get budgetAlerts => _budgetAlerts;
-  var _budgetAlerts = true;
+  var _budgetAlerts = false;
 
   /// The budget notifications already posted this month, as
   /// `<month>|<budget>|<level>`, so each comes once.

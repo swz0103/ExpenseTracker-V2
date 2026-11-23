@@ -252,6 +252,18 @@ final class Ledger extends ChangeNotifier {
   /// Done once every change so far has reached the data source.
   Future<void> get settled => _writes?.settled ?? Future<void>.value();
 
+  /// Whether every change made so far is kept: waits for [settled], and
+  /// is false when the data source refused any change meanwhile (the book
+  /// is then read back, without it). A book with no data source keeps
+  /// nothing, and has nothing refused.
+  Future<bool> keptAll() async {
+    final writes = _writes;
+    if (writes == null) return true;
+    final before = writes.refused;
+    await writes.settled;
+    return writes.refused == before;
+  }
+
   void _keep(WriteBatch batch) => _writes?.enqueue(batch);
 
   // What is worked out from the records, and what writes them: built on

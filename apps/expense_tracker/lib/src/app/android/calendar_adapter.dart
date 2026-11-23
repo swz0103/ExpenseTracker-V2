@@ -1,12 +1,12 @@
 import '../../features/reminders/model/calendar_sync.dart';
-import '../../features/reminders/model/reminders.dart';
 import 'platform_channel.dart';
 import '../../core/formatting/json_fields.dart';
 
 typedef _Row = Map<Object?, Object?>;
 
-/// The phone's calendars through `CalendarBridge.kt`. Each reminder is an
-/// event at 9:00 on its day, reminding then and, when asked, days before.
+/// The phone's calendars through `CalendarBridge.kt`, which reads and
+/// writes the app's events as it is told; what they say and when is
+/// decided in [CalendarSync].
 final class AndroidCalendar implements CalendarPort {
   const AndroidCalendar();
 
@@ -29,31 +29,50 @@ final class AndroidCalendar implements CalendarPort {
     ];
   }
 
+  /// The start of [day] on the phone's clock, in milliseconds.
+  static int _startOf(DateTime day) =>
+      DateTime(day.year, day.month, day.day).millisecondsSinceEpoch;
+
+  /// [event] as the phone writes it.
+  static Map<String, Object?> eventFields(CalendarEvent event) => {
+    'id': ?event.id,
+    'key': event.key,
+    'title': event.title,
+    'note': event.note,
+    'start': event.start.millisecondsSinceEpoch,
+    'remind': event.remind,
+  };
+
   @override
-  Future<int> replace(
-    int calendar,
-    DateTime from,
-    List<Reminder> reminders,
-  ) async {
-    int at(DateTime day, int hour) =>
-        DateTime(day.year, day.month, day.day, hour).millisecondsSinceEpoch;
-    final written = await platformChannel.invokeMethod<int>(
-      'replaceCalendarEvents',
-      {
-        'calendar': calendar,
-        'from': at(from, 0),
-        'events': [
-          for (final r in reminders)
-            {
-              'key': r.key,
-              'title': r.title,
-              'note': r.note,
-              'start': at(r.day, 9),
-              'remind': [0, if (r.daysAhead > 0) r.daysAhead * 24 * 60],
-            },
-        ],
-      },
+  Future<List<CalendarEvent>> events(int calendar, DateTime from) async {
+    final rows = await platformChannel.invokeListMethod<_Row>(
+      'calendarEvents',
+      {'calendar': calendar, 'from': _startOf(from)},
     );
-    return written ?? 0;
+    return [
+      for (final row in [
+        for (final row in rows ?? const <_Row>[]) JsonFields.from(row),
+      ])
+        CalendarEvent(
+          id: row.need<num>('id').toInt(),
+          key: row.need<String>('key'),
+          title: row.need<String>('title'),
+          note: row.need<String>('note'),
+          start: DateTime.fromMillisecondsSinceEpoch(
+            row.need<num>('start').toInt(),
+          ),
+          remind: row.wholes('remind') ?? const [],
+        ),
+    ];
   }
+
+  @override
+  Future<int> apply(int calendar, CalendarChanges changes) async =>
+      await platformChannel.invokeMethod<int>('applyCalendarChanges', {
+        'calendar': calendar,
+        'insert': [for (final e in changes.insert) eventFields(e)],
+        'update': [for (final e in changes.update) eventFields(e)],
+        'delete': changes.delete,
+      }) ??
+      0;
 }

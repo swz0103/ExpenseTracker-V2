@@ -496,16 +496,19 @@ class _OpenedLedgerState extends State<OpenedLedger>
   void leave() => unawaited(_services.left());
 
   /// Back with the ledger still open (the gate decided first): once the
-  /// book is open, and only while it stays open, books what fell due
-  /// meanwhile and looks for prices and versions again.
+  /// book is open, and only while it stays open, applies what was
+  /// confirmed on a notification, books what fell due meanwhile and looks
+  /// for prices and versions again.
   @override
   void returned() {
-    _ledger.then((ledger) {
+    _ledger.then((ledger) async {
       if (!_writable) return;
       ledger.checkDay();
       _watchMidnight(ledger);
-      _tellBooked(_session.bookDue(ledger));
-      _services.resumed();
+      final back = await _session.resume(ledger);
+      if (back.inbox case final inbox? when mounted) _tellInbox(inbox);
+      if (mounted) _tellBooked(back.booked);
+      if (_writable) _services.resumed();
     }).ignore();
   }
 
