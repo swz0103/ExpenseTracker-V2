@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:expense_tracker/src/app/lifecycle_services.dart';
+import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
@@ -85,7 +86,7 @@ void main() {
     await pumpEventQueue();
     final first = offline.asked;
     expect(first, greaterThan(0), reason: 'rates are always asked for');
-    await s.paused();
+    await s.left();
     s.resumed();
     await pumpEventQueue();
     // Asked at most every 20 minutes (MarketFeed's gap).
@@ -98,7 +99,7 @@ void main() {
     () async {
       final s = services();
       await s.start(await s.dataSource.load());
-      await s.paused();
+      await s.left();
       s.resumed();
       await pumpEventQueue();
       expect(startup.state, isA<Ready>());
@@ -106,9 +107,57 @@ void main() {
     },
   );
 
+  test('the market\'s background job fetches only what the ledger needs '
+      '(AND-05)', () {
+    Ledger book({List<Holding> holdings = const [], String currency = 'TWD'}) =>
+        Ledger(
+          today: DateTime.utc(2026, 11, 23),
+          accounts: [
+            Account('a', '帳戶', AccountKind.bank, 0, currency: currency),
+          ],
+          categories: const [],
+          entries: const [],
+          holdings: holdings,
+          budgets: const [],
+          recurring: const [],
+        );
+    const held = Holding(
+      '2330',
+      '台積電',
+      shares: 1000,
+      price: 1000,
+      cost: 500000,
+      change: 0,
+    );
+    const soldOut = Holding(
+      '0050',
+      '元大台灣50',
+      shares: 0,
+      price: 150,
+      cost: 0,
+      change: 0,
+    );
+    expect(LifecycleServices.marketWanted(book()), (
+      stocks: false,
+      rates: false,
+    ));
+    expect(LifecycleServices.marketWanted(book(holdings: [soldOut])), (
+      stocks: false,
+      rates: false,
+    ));
+    expect(LifecycleServices.marketWanted(book(holdings: [held])), (
+      stocks: true,
+      rates: false,
+    ));
+    expect(LifecycleServices.marketWanted(book(currency: 'USD')), (
+      stocks: false,
+      rates: true,
+    ));
+  });
+
   test('leaving before the ledger is open does nothing', () async {
     final s = services();
-    await s.paused();
+    await s.left();
     s.resumed();
     expect(startup.state, isA<Ready>());
     s.dispose();

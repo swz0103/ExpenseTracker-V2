@@ -334,7 +334,11 @@ class _BackupSectionState extends State<BackupSection> {
           _CardRow(
             color: color,
             title: '收據照片',
-            detail: drive.photos ? '連 Wi-Fi 時一起備份' : null,
+            detail: drive.photos
+                ? drive.photosOnWifi
+                      ? '連 Wi-Fi 時一起備份'
+                      : BackupWords.photosAnyNetwork
+                : null,
             trailing: TickSwitch(
               value: drive.photos,
               color: color,
@@ -343,6 +347,22 @@ class _BackupSectionState extends State<BackupSection> {
             ),
             onTap: drive.busy ? null : () => _drivePhotos(drive, !drive.photos),
           ),
+          // Photos make a backup large: by default it waits for Wi-Fi
+          // (AND-05), the person's choice.
+          if (drive.photos)
+            _CardRow(
+              color: color,
+              title: BackupWords.photosOnWifi,
+              detail: BackupWords.photosOnWifiOff,
+              trailing: TickSwitch(
+                key: Keys.photosOnWifi,
+                value: drive.photosOnWifi,
+                color: color,
+                label: BackupWords.photosOnWifi,
+                onChanged: (v) => drive.setPhotosOnWifi(v),
+              ),
+              onTap: () => drive.setPhotosOnWifi(!drive.photosOnWifi),
+            ),
         ],
       ],
     );

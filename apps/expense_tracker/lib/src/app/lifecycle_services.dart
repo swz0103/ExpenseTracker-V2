@@ -14,10 +14,12 @@ import 'android/market_cache_adapter.dart';
 import 'android/update_adapter.dart';
 import 'platform.dart';
 import '../core/diagnostics/error_log.dart';
+import '../core/diagnostics/error_steps.dart';
 import '../core/ledger/ledger.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../core/time/app_clock.dart';
 import '../core/platform/distribution.dart';
+import '../core/platform/one_at_a_time.dart';
 import '../core/platform/preferences.dart';
 import '../core/platform/startup.dart';
 import '../core/messages/update_messages.dart';
@@ -201,7 +203,7 @@ final class LifecycleServices {
       historyDir: Directory('${_directory.path}/prices'),
     );
     unawaited(market.refresh());
-    unawaited(_marketCache?.writeList());
+    unawaited(_followMarket());
     unawaited(weeklyBackup());
     if (android && canSelfUpdate) {
       try {
@@ -220,8 +222,40 @@ final class LifecycleServices {
     _homeWidget?.follow(widgetBookOf(ledger));
   }
 
-  /// The app was left: the backup is left for the background job.
-  Future<void> paused() => prepareOutbox();
+  /// What the market's background job fetches while the app is closed:
+  /// the exchanges' lists while shares are held, the bank's rates while an
+  /// account is kept in another currency (AND-05).
+  static ({bool stocks, bool rates}) marketWanted(Ledger ledger) => (
+    stocks: ledger.holdings.all.any((h) => h.shares > 0),
+    rates: ledger.accounts.all.any((a) => a.foreign),
+  );
+
+  /// Tells the market's background job what the ledger needs now, and
+  /// stops it when it needs nothing. Done at start and on each leave.
+  Future<void> _followMarket() async {
+    final cache = _marketCache;
+    final ledger = _ledger;
+    if (cache == null || ledger == null) return;
+    final wanted = marketWanted(ledger);
+    try {
+      final any = await cache.writeList(
+        stocks: wanted.stocks,
+        rates: wanted.rates,
+      );
+      await androidMarketJob(on: any);
+    } on Object catch (error) {
+      ErrorLog.instance.record(ErrorSteps.marketCache, error);
+    }
+  }
+
+  /// The app was left (AppLifecycle calls this once a leave): the copy
+  /// for Android's own backup is kept and the backup left for the
+  /// background job. One at a time: a leave while these run starts them
+  /// once more after, not beside them, so two never write at once and
+  /// the change made in between is still kept. Done when the last is.
+  Future<void> left() => _leaving.run();
+
+  late final _leaving = OneAtATime(_prepareOutbox);
 
   /// The app came back and the ledger stays open: prices and versions are
   /// looked for again, and what the background job did is noted.
@@ -293,9 +327,10 @@ final class LifecycleServices {
   /// Android takes to the person's Google account by itself, and leaves
   /// the backup for the background job, so it reaches the phone's folder
   /// and Drive without the app being opened again.
-  Future<void> prepareOutbox() async {
+  Future<void> _prepareOutbox() async {
     final ledger = _ledger;
     if (ledger == null) return;
+    await _followMarket();
     try {
       await ledger.settled;
       // Android's own backup takes this copy, so a new phone can restore

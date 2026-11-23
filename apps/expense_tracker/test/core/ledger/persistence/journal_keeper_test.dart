@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:expense_tracker/src/app/ledger_session.dart';
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/diagnostics/error_steps.dart';
 import 'package:expense_tracker/src/core/ledger/journal/old_shapes.dart';
@@ -209,6 +213,105 @@ void main() {
       expect(source.journal.lastParity, isA<InParity>());
     },
   );
+
+  test('a 600-record merchant rename written apart reaches the journal, '
+      'in parity, its mark the records\' revision', () async {
+    final (ledger, source, store) = await openWithJournal(keptStore(scratch));
+    ledger.entryCommands.addAll([
+      for (var i = 0; i < 600; i++)
+        Entry(
+          id: 'shop$i',
+          date: day(9, 1 + i % 28),
+          type: EntryType.expense,
+          amount: 10 + i,
+          account: 'cash',
+          category: '飲食',
+          merchant: '舊店',
+        ),
+    ]);
+    await settle(ledger, source);
+    final revision = store.revision;
+    var apart = false;
+    final watch = Timer.periodic(
+      const Duration(microseconds: 200),
+      (_) => apart |= store.writingApart,
+    );
+    // The rename touches 600 entries: kept on a worker isolate, while the
+    // journal waits for it.
+    ledger.entryCommands.renameMerchant('舊店', '新店');
+    await settle(ledger, source);
+    watch.cancel();
+    expect(apart, isTrue);
+    expect(store.revision, revision + 1);
+    expect(store.journal.mark, (rules: journalRules, revision: store.revision));
+    expect(source.journal.lastParity, isA<InParity>());
+    expect(store.journal.intent(const IntentId('shop599')), isNotNull);
+  });
+
+  test(
+    'confirmations from the inbox, booked on return, reach the journal',
+    () async {
+      final (ledger, source, store) = await openWithJournal(keptStore(scratch));
+      ledger.recurringCommands.saveRecurring(
+        Recurring(
+          id: 'rent',
+          name: 'rent',
+          amount: 500,
+          day: 2,
+          account: 'bank',
+          category: '居家',
+          start: day(10, 2),
+        ),
+      );
+      await settle(ledger, source);
+      final items = [
+        (
+          name: 'rent-2026-10-02.json',
+          plain: Uint8List.fromList(
+            utf8.encode(
+              '{"kind":"confirm","recurring":"rent","day":"2026-10-02"}',
+            ),
+          ),
+        ),
+      ];
+      final back = await LedgerSession(
+        load: () async => ledger,
+        inbox: () async =>
+            (read: () async => items, remove: (String name) async {}),
+      ).resume(ledger);
+      expect(back.inbox?.booked, 1);
+      await settle(ledger, source);
+      final booked = ledger.entries.all.singleWhere(
+        (e) => e.recurring == 'rent',
+      );
+      expect(store.journal.intent(IntentId(booked.id)), isNotNull);
+      expect(store.journal.mark!.revision, store.revision);
+      expect(source.journal.lastParity, isA<InParity>());
+    },
+  );
+
+  test('a rebuild cut short by the book closing leaves no mark, and is '
+      'posted afresh at the next opening', () async {
+    final store = keptStore(scratch);
+    final source = SqlLedgerDataSource(
+      store,
+      clock: keptClock,
+      keepsJournal: true,
+    );
+    await source.load();
+    // Closed before the keeper's queued rebuild runs.
+    store.close();
+    await source.journal.settled;
+    final reopened = EncryptedDatabase.open(
+      File('${scratch.path}/kept.db'),
+      keptKey,
+    );
+    addTearDown(reopened.close);
+    expect(reopened.journal.mark, isNull);
+    final (_, again, _) = await openWithJournal(reopened);
+    expect(again.journal.lastReplay, isNotNull);
+    expect(again.journal.lastParity, isA<InParity>());
+  });
 
   test('a row set aside has no postings; the rest is in parity', () async {
     final store = keptStore(scratch);

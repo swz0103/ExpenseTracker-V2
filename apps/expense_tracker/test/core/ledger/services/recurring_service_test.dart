@@ -72,4 +72,103 @@ void main() {
       isNull,
     );
   });
+
+  // Today is Sunday 2026-10-04 (support/book.dart).
+  group('unpostedDates', () {
+    test('REM-05: the days still to book in a range skip a day let go, and '
+        'begin where pendingDate does', () {
+      final gym = Recurring(
+        id: 'gym',
+        name: '健身房',
+        amount: 1200,
+        day: 5,
+        account: 'bank',
+        category: '居家',
+        start: DateTime.utc(2026, 1, 5),
+        skipped: {DateTime.utc(2026, 11, 5)},
+      );
+      final book = Book(recurring: [gym]);
+      final days = book.recurringService.unpostedDates(
+        gym,
+        from: DateTime.utc(2026, 9, 1),
+        to: DateTime.utc(2026, 12, 31),
+      );
+      // September is before this month with nothing ever booked, so it is
+      // not asked for; November 5 was let go.
+      expect(days, [DateTime.utc(2026, 10, 5), DateTime.utc(2026, 12, 5)]);
+      expect(book.recurringService.pendingDate(gym), days.first);
+    });
+
+    test('a booked month moves the days still to book on', () {
+      final booked = entry(
+        'g1',
+        recurring: 'gym',
+        date: DateTime.utc(2026, 10, 3),
+        amount: 1200,
+      );
+      const gym = Recurring(
+        id: 'gym',
+        name: '健身房',
+        amount: 1200,
+        day: 5,
+        account: 'bank',
+        category: '居家',
+      );
+      final book = Book(recurring: [gym], entries: [booked]);
+      expect(
+        book.recurringService.unpostedDates(
+          gym,
+          from: DateTime.utc(2026, 10, 1),
+          to: DateTime.utc(2026, 11, 30),
+        ),
+        [DateTime.utc(2026, 11, 5)],
+      );
+    });
+
+    test('a day missed since the last booking stays, inside the range only; '
+        'a paused item has none', () {
+      final booked = entry(
+        'g1',
+        recurring: 'gym',
+        date: DateTime.utc(2026, 8, 5),
+        amount: 1200,
+      );
+      const gym = Recurring(
+        id: 'gym',
+        name: '健身房',
+        amount: 1200,
+        day: 5,
+        account: 'bank',
+        category: '居家',
+      );
+      final service = Book(
+        recurring: [gym],
+        entries: [booked],
+      ).recurringService;
+      expect(
+        service.unpostedDates(
+          gym,
+          from: DateTime.utc(2026, 9, 1),
+          to: DateTime.utc(2026, 10, 31),
+        ),
+        [DateTime.utc(2026, 9, 5), DateTime.utc(2026, 10, 5)],
+      );
+      expect(
+        service.unpostedDates(
+          gym,
+          from: DateTime.utc(2026, 9, 6),
+          to: DateTime.utc(2026, 10, 4),
+        ),
+        isEmpty,
+      );
+      expect(
+        service.unpostedDates(
+          gym.copyWith(active: false),
+          from: DateTime.utc(2026, 9, 1),
+          to: DateTime.utc(2026, 10, 31),
+        ),
+        isEmpty,
+      );
+    });
+  });
 }

@@ -438,6 +438,9 @@ final oldShapes = [
 const keptFile = 'test/fixtures/journal/awkward_book.json';
 final keptClock = FixedClock(UtcInstant(DateTime.utc(2026, 10, 4, 4)));
 
+/// The key the kept book is written under.
+final keptKey = StorageKey.random();
+
 /// The kept book written into a new store in [scratch], as it is.
 EncryptedDatabase keptStore(Directory scratch) {
   final rows =
@@ -447,7 +450,7 @@ EncryptedDatabase keptStore(Directory scratch) {
           );
   final store = EncryptedDatabase.open(
     File('${scratch.path}/kept.db'),
-    StorageKey.random(),
+    keptKey,
   );
   addTearDown(store.close);
   store.write((w) {

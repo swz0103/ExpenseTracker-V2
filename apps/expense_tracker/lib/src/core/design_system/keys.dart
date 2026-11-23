@@ -57,6 +57,9 @@ abstract final class Keys {
   /// 關於's card with the version: tapped, it looks for a newer one.
   static const checkUpdate = ValueKey('update:check');
 
+  /// The switch that keeps backups with photos to Wi-Fi.
+  static const photosOnWifi = ValueKey('backup:photos-on-wifi');
+
   /// The update panel's 更新, 晚一點再說 and 略過這一版.
   static const install = ValueKey('update:install');
   static const later = ValueKey('update:later');

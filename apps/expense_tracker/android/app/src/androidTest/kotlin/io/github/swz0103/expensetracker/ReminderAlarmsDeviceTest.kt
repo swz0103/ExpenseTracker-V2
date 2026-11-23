@@ -13,6 +13,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -43,6 +44,9 @@ class ReminderAlarmsDeviceTest {
         PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
     )
 
+    @Before
+    fun channels() = Reminders.ensureChannels(context, listOf(mapOf("id" to CHANNEL, "name" to "到期提醒")))
+
     @After
     fun clear() {
         Reminders.replace(context, emptyList())
@@ -68,17 +72,25 @@ class ReminderAlarmsDeviceTest {
 
     @Test
     fun anAlarmGoingOffShowsTheSealedWords() {
+        // Due a moment from now, within a day's grace: the alarm going off
+        // once its time has come posts it (one going off early is set
+        // again, ReminderGrace.step).
+        val due = System.currentTimeMillis() + 1_500L
         Reminders.replace(
             context,
             listOf(
                 mapOf(
-                    "at" to System.currentTimeMillis() + 86_400_000L,
+                    "at" to due,
+                    "id" to "due:card:test",
+                    "grace" to 86_400_000L,
+                    "channel" to CHANNEL,
                     "title" to "繳卡費 12,800",
                     "text" to "日常信用卡",
                     "tag" to "due:card",
                 ),
             ),
         )
+        while (System.currentTimeMillis() <= due) Thread.sleep(100)
         // As the alarm would: only the alert's number comes with it.
         ReminderReceiver().onReceive(
             context,
@@ -87,5 +99,10 @@ class ReminderAlarmsDeviceTest {
         val shown = manager.activeNotifications.single { it.tag == "due:card" }
         assertEquals("繳卡費 12,800", shown.notification.extras.getString("android.title"))
         assertEquals("日常信用卡", shown.notification.extras.getString("android.text"))
+    }
+
+    private companion object {
+        /** The channel of due reminders, as the app names it. */
+        const val CHANNEL = "due"
     }
 }

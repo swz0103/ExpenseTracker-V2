@@ -34,15 +34,7 @@ class UpdateHandler(private val activity: FragmentActivity) : ChannelHandler {
             result.error("bad-arguments", "path, sha256 and maxBytes are required", null)
             return true
         }
-        Thread {
-            val outcome = try {
-                install(File(path), expected, maxBytes)
-            } catch (e: Exception) {
-                activity.runOnUiThread { result.error("update", e.message, null) }
-                return@Thread
-            }
-            activity.runOnUiThread { result.success(outcome) }
-        }.start()
+        OffMain.of(activity).answer(result, "update") { install(File(path), expected, maxBytes) }
         return true
     }
 

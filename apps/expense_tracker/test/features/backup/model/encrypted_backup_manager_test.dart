@@ -7,6 +7,7 @@ import 'package:expense_tracker/src/features/backup/model/backup_manager.dart';
 import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
@@ -266,6 +267,65 @@ void main() {
       reason: 'no photos in the copy',
     );
     phone.lock();
+  });
+
+  group('two backups asked for at once (F65)', () {
+    // Every backup is taken at the same millisecond, as two asked for in
+    // one tick are.
+    setUp(() => AppClock.use(clock));
+    tearDown(AppClock.reset);
+
+    test('the copy for Android\'s backup asked for twice at once is '
+        'written once, and neither fails', () async {
+      final startup = startupIn('cloud-twice');
+      await startup.setUp(password);
+      final backupManager = EncryptedBackupManager(startup, vaultOf(startup));
+      final ledger = await SqlLedgerDataSource(
+        vaultOf(startup).store,
+        clock: clock,
+      ).load();
+      await ledger.settled;
+      // Before the fix the second rename found its file gone:
+      // PathNotFoundException (errno 2).
+      final written = await Future.wait([
+        backupManager.keepCloudCopy(),
+        backupManager.keepCloudCopy(),
+      ]);
+      expect(written, [true, false]);
+      expect(startup.cloudCopy.existsSync(), isTrue);
+      expect(startup.cloudCopy.parent.listSync(), hasLength(1));
+      expect(
+        Directory('${startup.directory.path}/exports').listSync(),
+        isEmpty,
+        reason: 'nothing half written is left behind',
+      );
+      startup.lock();
+    });
+
+    test('backups written in the same millisecond each keep a file of '
+        'their own', () async {
+      final startup = startupIn('same-ms');
+      await startup.setUp(password);
+      final backupManager = EncryptedBackupManager(startup, vaultOf(startup));
+      final paths = await Future.wait([
+        backupManager.backUp(),
+        backupManager.backUp(),
+        backupManager.backUp(),
+      ]);
+      // 2026-10-03 04:00 UTC is 記帳本-<day>-<hhmmss><ms>; the second and
+      // third of the same millisecond take -2 and -3.
+      final names = [for (final p in paths) File(p).uri.pathSegments.last];
+      expect(names.toSet(), hasLength(3));
+      expect(names[1], endsWith('-2.etbk'));
+      expect(names[2], endsWith('-3.etbk'));
+      expect(
+        Directory(backupManager.backupFolder)
+            .listSync()
+            .where((f) => f.path.endsWith('.part')),
+        isEmpty,
+      );
+      startup.lock();
+    });
   });
 
   group('the fingerprint switch (F39)', () {

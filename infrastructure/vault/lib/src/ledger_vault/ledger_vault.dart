@@ -310,11 +310,11 @@ final class LedgerVault {
     }
     await _replace(next, (staging) async {
       final rows = open.store.rows();
-      staging.write((w) {
-        for (final row in rows) {
-          w.put(row.shelf, row.id, row.body);
-        }
-      });
+      // Written on a worker isolate, so a large book does not hold the
+      // screen still while it is copied (DAT-03).
+      await staging.writeApart([
+        for (final row in rows) RowChange.put(row.shelf, row.id, row.body),
+      ]);
       await _sealAgain(old, next);
     }, beforeSwap: open.close);
     return _open(next);

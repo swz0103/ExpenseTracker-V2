@@ -23,8 +23,6 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | F22 | 2.5 | p2_5_market_test.dart | yes | only the silent-failure part: an unreadable board writes nothing to the diagnostics log; the live parse failure itself is not reproducible offline |
 | INV-02 | 2.5 | p2_5_market_test.dart | yes | a dividend due on Nov 28 (a week out) gives an outlook total of 0, expected 1,000 |
 | PKG-02 | 2.5 | p2_5_market_test.dart | yes | JPY missing from the second board is dropped from the stored rates |
-| ARC-05 | 3.3 | p3_3_lifecycle_test.dart | yes | two back-to-back prepare() calls write two backups |
-| REM-05 | 3.4 | p3_4_reminders_test.dart | yes | a reminder is still made for the skipped Nov 25 |
 | ENT-02 | 4.2 | p4_2_forms_test.dart | yes | form keeps the split but build() drops it after switching to a US$ account |
 | ENT-03 | 4.2 | p4_2_forms_test.dart | yes | 2 widget tests (back key, scrim tap); sheet closes with no dialog and no draft |
 | ENT-05 | 4.2 | p4_2_forms_test.dart | yes | picking a merchant replaces the chosen account (card) with cash |
@@ -43,7 +41,7 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | JRN-09 | 待決定 | p2_0_journal_test.dart | yes | old shape: a record naming an account the book does not keep (1) |
 | JRN-10 | 待決定 | p2_0_journal_test.dart | yes | old shape: instalments on an account that is not a card (1) |
 
-34 findings covered.
+32 findings covered.
 
 ## fixed in 2.0
 
@@ -166,6 +164,30 @@ Work package 3.5 (errors and diagnostics). These findings had no known-defect te
 - F66: `test/app/android/scanner_adapter_test.dart` (a failed download is kept in the log with the phone's reason), `test/features/entries/forms/composer_pickers_test.dart` (each failure says what to do; the wait for the download is said), `test/core/messages/scan_messages_test.dart`, `android/app/src/test/.../ScanFaultTest.kt`. The download itself failing on the owner's phone (GMS 26.45.31) is Google Play services' side and is not reproduced here; the log now says why.
 - F102: `test/app/about_section_test.dart` (group 檢查更新 always answers), `test/features/settings/model/app_update_test.dart` (group how the build stands), `test/core/messages/update_messages_test.dart`
 
+## fixed in 3.3
+
+Work package 3.3 (lifecycle and background work). ARC-05's test runs unskipped in `p3_3_lifecycle_test.dart`; the other findings had no known-defect test and are stated by the ordinary tests named.
+
+- ARC-05: `p3_3_lifecycle_test.dart` (two prepare() at once write one backup); `test/core/platform/app_lifecycle_test.dart` (hidden and paused are one leave, a trip the app started is none), `test/core/platform/one_at_a_time_test.dart` (the leave's backups never run twice at once, a leave meanwhile runs them once more after)
+- ARC-04: `test/app/bootstrap_test.dart` group "coming back with an item due (ARC-04)" (a lock done before resumed: nothing written to the closed ledger, it fails on the code before the fix with `寫入帳本: DataSourceException(Bad state: Store is closed.)`; back within the time the item is booked once), `test/core/platform/app_lifecycle_test.dart` (the gate decides first; a lock starting as the app comes back keeps the session from writing). Locking also waits for backups being written (the weekly backup had read a closed store).
+- F65: `test/features/backup/model/encrypted_backup_manager_test.dart` group "two backups asked for at once (F65)" (fails on the code before the fix with the device's `PathNotFoundException ... (errno = 2)`), `android/app/src/test/.../BackupRulesTest.kt` (the rules of every Android version take `cloud/` only; only a backup to the Google account is noted)
+- ARC-06: `test/features/lock/ui/lock_screen_test.dart` (a ledger without a password, and the fingerprint, open while the opening plays), `test/app/first_screen_test.dart` (each wait of `main()` made to fail)
+- DAT-03: `infrastructure/storage/test/encrypted_database_test.dart` group "a write apart (DAT-03)", `test/core/ledger/persistence/sql_ledger_data_source_test.dart` (a change written apart keeps the same rows), `test/perf/batch_write_gate_test.dart` (20,000 entries renamed: the longest hold under 4.5% of the rename written at once; thresholds.md). Not done: a backup still reads the book's rows on the screen's isolate (it then writes it on a worker, as before).
+- AND-05: `android/app/src/test/.../BackgroundWorkTest.kt`, `UploadSessionTest.kt`, `test/app/android/market_cache_adapter_test.dart`, `test/app/lifecycle_services_test.dart` (the market job fetches only what the ledger needs), `test/features/backup/ui/backup_section_test.dart` and `test/core/platform/preferences_test.dart` (photos wait for Wi-Fi, the person's switch). Not done: an upload started by hand in the app is not resumed (its file is written for that upload and deleted after it).
+- AND-07: `android/app/src/test/.../OffMainTest.kt`
+
+## fixed in 3.4
+
+Work package 3.4 (reminders and calendar). REM-05's test runs unskipped in `p3_4_reminders_test.dart`; the other findings had no known-defect test and are stated by the ordinary tests named (Kotlin tests run in both flavors).
+
+- AND-02, REM-03, F48: `test/features/reminders/model/reminder_alerts_test.dart` (group F48: a day 3 days overdue is handed over, 8 days is past its grace; an overdue card; the nudge not told late; ids that stay; at most 160), `test/scenarios/reminders/reminder_dates_test.dart` (today's 9:00 still told at 10; the nudge over the 62 days), `test/features/reminders/model/reminder_rules_test.dart` (the table), `test/app/android/notification_adapter_test.dart` (what the phone is handed), `android/app/src/test/.../ReminderGraceTest.kt` (armed, posted at once within its grace, dropped beyond it, posted once)
+- AND-03: `ReminderGraceTest.kt` (the broadcasts that re-arm, the exact-alarm permission among them, match the manifest)
+- REM-01, REM-02: `test/app/ledger_session_test.dart` (group the inbox while the ledger stays open: coming back books, an item is taken out only once kept, a refused booking leaves it, a stop between the two books nothing twice, two reads at once), `test/core/ledger/persistence/write_queue_test.dart` (refusals counted)
+- REM-05: `p3_4_reminders_test.dart`; `test/core/ledger/services/recurring_service_test.dart` (group unpostedDates), `test/features/reminders/model/calendar_sync_test.dart` and `test/features/reminders/ui/reminders_section_test.dart` (calendar access taken away still lets the link go)
+- REM-04, F95: `calendar_sync_test.dart` (group calendarChanges; nothing changed writes nothing, a change keeps its event's id; no amounts unless turned on), `reminder_alerts_test.dart` (a closing price plans nothing again), `android/app/src/test/.../CalendarBridgeTest.kt`; the expedited sync request itself is Android's (not unit-testable)
+- F81: `reminder_alerts_test.dart` (paying a card plans again at once), `test/features/reminders/model/coalesced_run_test.dart`
+- F53, F45, F101, AND-11: `reminders_section_test.dart` (最多晚 1 小時 until alarms on the minute are allowed; a kind shown off while notifications are not allowed, and ticking it asks; budget reminders start off; the battery's 去開 says what to choose), `test/core/messages/reminder_messages_test.dart`, `reminder_rules_test.dart` and `notification_adapter_test.dart` (a channel per kind). AND-11's scanner without Play services is not built: it needs a camera permission and a QR decoding library, a new dependency; 3.5 already words the failure.
+
 ## not covered
 
 One line per finding that has no test here. Findings with an executed reproduction come first with the specific reason; the rest were found by reading code (no executed reproduction), which the brief does not require.
@@ -173,9 +195,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 ### With an executed reproduction
 
 - DEB-02 (S1, 2.4): the fix adds a principal/interest repayment form and fields that do not exist yet, so nothing can be asserted on today's API
-- F65 (S1, 3.3): device-only: Google system backup copy rename race on Android
-- AND-02 (S1, 3.4): Android alarm receiver behaviour after reboot; needs a device or emulator (Kotlin side), reproduced on an API 34 emulator
-- REM-01 (S1, 3.4): the resume path is inline in a State (didChangeAppLifecycleState) and the inbox source exists only on Android; testable once LedgerSession gets a resume step
 - PKG-01 (S2, 1.3): partly fixed in 1.3: the discount is the preference 券商手續費折扣 (default 6折; tests in test/core/platform/preferences_test.dart and test/features/entries/model/compose_form_test.dart); the day-trade tax stays open, as an entry has no notion of a day trade, and the holiday table belongs to the dates package
 - F24 (S2, 1.4): the intended behaviour (warn or refuse a buy that overdraws) is not decided; 1.4 shows a non-blocking warning (`NegativeBalanceAfter`) for the owner to confirm
 - F77 (S2, 2.2): does not reproduce at ledger level: budgetCrossings already reports 本月總預算已超支 for the same data; the device case came from other state
@@ -184,10 +203,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - F30 (S2, 2.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
 - ENT-07 (S2, 2.5): needs rates with dates (new data model in 2.5)
 - F61 (S2, 2.5): the wrong input is the fetched previous close; the fix needs adjusted closes (new market data)
-- ARC-04 (S2, 3.3): needs LifecycleServices on a real vault with timing between microtasks; the audit repro only printed, a deterministic assertion was not found
-- F48 (S2, 3.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
-- F53 (S2, 3.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
-- F95 (S2, 3.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
 - F04 (S2, 4.2): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
 - F17 (S2, 4.2): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
 - F49 (S2, 4.2): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
@@ -221,11 +236,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - LOG-04 (S2, 2.4): no executed reproduction; not turned into a test
 - INV-07 (S2, 2.5): no executed reproduction; not turned into a test
 - LOG-05 (S2, 2.5): no executed reproduction; not turned into a test
-- AND-05 (S2, 3.3): no executed reproduction; not turned into a test
-- ARC-06 (S2, 3.3): no executed reproduction; not turned into a test
-- DAT-03 (S2, 3.3): no executed reproduction; not turned into a test
-- REM-03 (S2, 3.4): no executed reproduction; not turned into a test
-- REM-04 (S2, 3.4): no executed reproduction; not turned into a test
 - ARC-02 (S2, 4.1): no executed reproduction; not turned into a test
 - DAT-06 (S2, 4.1): no executed reproduction; not turned into a test
 - DSN-02 (S2, 4.1): no executed reproduction; not turned into a test
@@ -276,13 +286,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - F62 (S3, 2.5): no executed reproduction; not turned into a test
 - PKG-03 (S3, 2.5): no executed reproduction; not turned into a test
 - PKG-06 (S3, 2.5): no executed reproduction; not turned into a test
-- AND-07 (S3, 3.3): no executed reproduction; not turned into a test
-- AND-03 (S3, 3.4): no executed reproduction; not turned into a test
-- AND-11 (S3, 3.4): no executed reproduction; not turned into a test
-- F101 (S3, 3.4): no executed reproduction; not turned into a test
-- F45 (S3, 3.4): no executed reproduction; not turned into a test
-- F81 (S3, 3.4): no executed reproduction; not turned into a test
-- REM-02 (S3, 3.4): no executed reproduction; not turned into a test
 - DAT-07 (S3, 4.1): no executed reproduction; not turned into a test
 - DAT-10 (S3, 4.1): no executed reproduction; not turned into a test
 - OVR-01 (S3, 4.1): no executed reproduction; not turned into a test

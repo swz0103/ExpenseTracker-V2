@@ -201,6 +201,73 @@ void main() {
     expect(ledger.entries.all.single.category, '其他支出');
   });
 
+  test('a change written apart keeps the same rows as one written at once '
+      '(DAT-03)', () async {
+    // Two books on the same clock: one writes every change apart (from
+    // one record), the other every change at once.
+    final apart = EncryptedDatabase.open(file, key);
+    final other = EncryptedDatabase.open(
+      File('${directory.path}/other.db'),
+      key,
+    );
+    addTearDown(apart.close);
+    addTearDown(other.close);
+    final sources = [
+      SqlLedgerDataSource(apart, clock: clock(), writeApartFrom: 1),
+      SqlLedgerDataSource(other, clock: clock(), writeApartFrom: 1 << 30),
+    ];
+    for (final s in sources) {
+      await s.load();
+    }
+    // Ids of their own: the starting accounts and categories of each book
+    // are made with new ids, so only these rows are compared.
+    const account = Account('wallet', '零錢', AccountKind.cash, 0);
+    Entry lunch(int i) => Entry(
+      id: 'e$i',
+      date: DateTime.utc(2026, 10, 1 + i),
+      type: EntryType.expense,
+      amount: 100 + i,
+      account: account.id,
+      category: '午餐',
+      merchant: '全聯',
+    );
+    final batches = [
+      WriteBatch(
+        accounts: [account],
+        entries: [for (var i = 0; i < 3; i++) lunch(i)],
+        receipts: {'e0': 'e0.etr'},
+        drafts: {'expense': '{"amount":"12"}'},
+      ),
+      WriteBatch(
+        entries: [lunch(1).withLabels(merchant: '全聯福利中心')],
+        trash: [Trashed(lunch(2), DateTime.utc(2026, 10, 4))],
+        dropped: [(Collection.entry, 'e2')],
+        receipts: {'e0': null},
+        drafts: {'expense': null},
+      ),
+    ];
+    for (final batch in batches) {
+      for (final s in sources) {
+        await s.keep(batch);
+      }
+    }
+    List<(String, String, String)> rows(EncryptedDatabase db) => [
+      for (final r in db.rows())
+        if (r.shelf != 'category' && (r.shelf != 'account' || r.id == 'wallet'))
+          (r.shelf, r.id, r.body),
+    ];
+    expect(rows(apart), rows(other));
+    // The wallet, e0 and e1, e2 in the trash and the note of its going;
+    // the photo and the form put aside were taken away again.
+    expect(
+      [for (final (shelf, id, _) in rows(apart)) '$shelf/$id'],
+      ['account/wallet', 'entry/e0', 'entry/e1', 'trash/e2', 'gone/entry/e2'],
+    );
+    // A new book's first write, then the two changes.
+    expect((apart.revision, other.revision), (3, 3));
+    expect(apart.writingApart, isFalse);
+  });
+
   test('a deleted entry is kept 30 days', () async {
     var ledger = await reopen();
     final cash = ledger.accounts.all.first;

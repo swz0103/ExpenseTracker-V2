@@ -64,16 +64,10 @@ class FolderHandler(private val activity: FragmentActivity) : ChannelHandler {
     }
 
     /** Runs [work] off the main thread and answers [result] on it. */
-    private fun background(result: MethodChannel.Result, work: () -> Any?) {
-        Thread {
-            try {
-                val value = work()
-                activity.runOnUiThread { result.success(value) }
-            } catch (e: Exception) {
-                activity.runOnUiThread { result.error("folder", e.message, null) }
-            }
-        }.start()
-    }
+    private fun background(result: MethodChannel.Result, work: () -> Any?) =
+        offMain.answer(result, "folder", work)
+
+    private val offMain = OffMain.of(activity)
 
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         val tree = call.argument<String>("uri")?.let(Uri::parse)

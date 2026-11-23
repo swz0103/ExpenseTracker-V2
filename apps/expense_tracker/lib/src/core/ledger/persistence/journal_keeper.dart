@@ -43,6 +43,7 @@ final class JournalKeeper {
     required this._entrySeqs,
     required this._recordOf,
     required this._isOpen,
+    this._quiet = _now,
     this.compares = true,
   });
 
@@ -60,6 +61,13 @@ final class JournalKeeper {
   /// Whether the store can still be read and written: work left when the
   /// book is closed is let go.
   final bool Function() _isOpen;
+
+  /// Done once no write runs apart on another isolate (DAT-03): the
+  /// journal shares the records' connection, so it never posts, reads or
+  /// compares while one does.
+  final Future<void> Function() _quiet;
+
+  static Future<void> _now() async {}
 
   /// Whether the journal is compared with the figures the app shows
   /// after it changes: as the app keeps it; a bench timing the posting
@@ -123,11 +131,13 @@ final class JournalKeeper {
     _queued++;
     _chain = _chain.then((_) async {
       try {
-        if (!_isOpen()) return;
+        await _ready();
         await step();
         then();
       } on Object catch (error, stack) {
-        ErrorLog.instance.record(what, error, stack);
+        // The book closed (locked, left): what was left is let go, the
+        // mark not moved, so it is posted afresh at the next opening.
+        if (error is! _Closed) ErrorLog.instance.record(what, error, stack);
       } finally {
         _queued--;
       }
@@ -355,7 +365,10 @@ final class JournalKeeper {
       try {
         await _check();
       } on Object catch (error, stack) {
-        ErrorLog.instance.record(ErrorSteps.journalParity, error, stack);
+        // Closed under it: compared again after the next opening.
+        if (error is! _Closed) {
+          ErrorLog.instance.record(ErrorSteps.journalParity, error, stack);
+        }
       } finally {
         _queued--;
         _checking = false;
@@ -366,8 +379,9 @@ final class JournalKeeper {
   Future<void> _check() async {
     final ledger = _ledger;
     final scope = _wanted;
-    if (ledger == null || scope == null || !_isOpen()) return;
+    if (ledger == null || scope == null) return;
     await ledger.settled;
+    await _ready();
     if (_queued > 1) return; // more changes to take first; they ask again
     _wanted = null;
     final revision = ledger.revision;
@@ -404,12 +418,29 @@ final class JournalKeeper {
 
   /// A pause that lets the screen draw once [journalSlice] has passed
   /// since the last one, and otherwise none.
-  static Future<void> Function() _slicer() {
+  ///
+  /// After any pause the store is ready again ([_ready]) before the work
+  /// goes on: no write apart running, the book not closing.
+  Future<void> Function() _slicer() {
     final watch = Stopwatch()..start();
     return () async {
       if (watch.elapsed < journalSlice) return;
       await Future<void>.delayed(Duration.zero);
+      await _ready();
       watch.reset();
     };
   }
+
+  /// Waits until no write runs apart; throws [_Closed] once the book is
+  /// closing or closed. What follows up to the next await has the store
+  /// to itself: nothing else on this isolate runs in between.
+  Future<void> _ready() async {
+    await _quiet();
+    if (!_isOpen()) throw const _Closed();
+  }
+}
+
+/// The book closed under the journal's work in the background.
+final class _Closed implements Exception {
+  const _Closed();
 }

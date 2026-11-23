@@ -2,6 +2,7 @@
 @Timeout(Duration(minutes: 5))
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
@@ -324,6 +325,106 @@ void main() {
       store.close();
       opened.remove(store);
     }
+  });
+
+  group('a write apart (DAT-03)', () {
+    test('the library may be used from another thread', () {
+      // The connection is handed to a worker isolate, which runs on
+      // another thread; SQLite then keeps the connection's own lock.
+      expect(sqlite3.usedCompileOption('THREADSAFE=1'), isTrue);
+    });
+
+    test(
+      'puts and drops in one transaction on a worker, and counts once',
+      () async {
+        final store = open();
+        store.write(
+          (w) => w
+            ..put('entry', 'old', 'x')
+            ..put('entry', 'keep', 'k'),
+        );
+        expect(store.revision, 1);
+        await store.writeApart([
+          for (var i = 0; i < 3; i++) RowChange.put('entry', 'e$i', 'b$i'),
+          const RowChange.drop('entry', 'old'),
+        ]);
+        expect(
+          [for (final r in store.rows()) (r.id, r.body)],
+          [('keep', 'k'), ('e0', 'b0'), ('e1', 'b1'), ('e2', 'b2')],
+        );
+        // 1 before, one write apart that counts.
+        expect(store.revision, 2);
+        await store.writeApart([
+          const RowChange.put('price', '2330', '1000'),
+        ], counts: false);
+        expect(store.revision, 2);
+        // Still the only owner of the file, and still the same connection.
+        expect(
+          () => EncryptedDatabase.open(file, key),
+          throwsA(const StorageUnavailable(StorageProblem.inUse)),
+        );
+      },
+    );
+
+    test('while it runs nothing else uses the store: the revision is the '
+        'one before, a read or a write throws, close waits', () async {
+      final store = open();
+      store.write((w) => w.put('entry', 'a', '1'));
+      final running = store.writeApart([
+        for (var i = 0; i < 20000; i++) RowChange.put('entry', 'e$i', '{}'),
+      ]);
+      expect(store.writingApart, isTrue);
+      expect(store.revision, 1);
+      expect(() => store.rows(), throwsStateError);
+      expect(
+        () => store.write((w) => w.put('entry', 'b', '2')),
+        throwsStateError,
+      );
+      expect(
+        () => store.writeApart(const [RowChange.drop('entry', 'a')]),
+        throwsStateError,
+      );
+      // The journal beside the records waits as well.
+      expect(() => store.journal.postingCount, throwsStateError);
+      expect(() => store.journal.transaction(() => 1), throwsStateError);
+      await store.idle;
+      await running;
+      expect(store.writingApart, isFalse);
+      expect(store.revision, 2);
+      // 1 + 20,000.
+      expect(store.count, 20001);
+
+      final closing = store.writeApart([const RowChange.drop('entry', 'a')]);
+      store.close();
+      // To be closed: no longer open to anyone new.
+      expect(store.isOpen, isFalse);
+      await closing;
+      expect(() => store.journal.postingCount, throwsStateError);
+      expect(() => store.rows(), throwsStateError);
+      final again = open();
+      expect(again.count, 20000);
+      expect(again.revision, 3);
+    });
+
+    test('the caller\'s isolate is not held while it runs', () async {
+      final store = open();
+      const body =
+          '{"date":"2026-10-21T00:00:00.000Z","type":"expense","amount":120,'
+          '"account":"0190f3c2-7e4b-7c1a-9d2e-3f4a5b6c7d8e","note":"lunch"}';
+      var ticks = 0;
+      final timer = Timer.periodic(
+        const Duration(milliseconds: 1),
+        (_) => ticks++,
+      );
+      await store.writeApart([
+        for (var i = 0; i < 50000; i++) RowChange.put('entry', 'e$i', body),
+      ]);
+      timer.cancel();
+      // The timer kept firing while 50,000 rows were written: the
+      // isolate was free. Written here, it would not fire at all.
+      expect(ticks, greaterThan(1));
+      expect(store.count, 50000);
+    });
   });
 
   test('ten thousand records write and load quickly', () {

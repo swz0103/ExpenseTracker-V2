@@ -50,6 +50,15 @@ final class DriveSync extends ChangeNotifier {
   /// The backups carry the receipt photos too.
   bool get photos => _preferences.drivePhotos;
 
+  /// Backups with the photos wait for Wi-Fi ([Preferences.photosOnWifi]).
+  bool get photosOnWifi => _preferences.photosOnWifi;
+
+  /// Lets backups with the photos go up on any network, or only on Wi-Fi.
+  void setPhotosOnWifi(bool on) {
+    _preferences.update(photosOnWifi: on);
+    notifyListeners();
+  }
+
   /// Adds the photos to the backups, sending one with them now, or
   /// leaves them out from the next one.
   Future<void> setPhotos(bool on) async {
@@ -97,7 +106,12 @@ final class DriveSync extends ChangeNotifier {
       return false;
     }
     final unmetered = _unmetered;
-    if (photos && unmetered != null && !await unmetered()) return false;
+    if (photos &&
+        _preferences.photosOnWifi &&
+        unmetered != null &&
+        !await unmetered()) {
+      return false;
+    }
     await _send(interactive: false);
     return true;
   }

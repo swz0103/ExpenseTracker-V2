@@ -292,32 +292,78 @@ items:
       - apps/expense_tracker/lib/src/features/overview/model/home_widget.dart
     target: apps/expense_tracker/lib/app/coordinators/
     status: owned
+  # The order (lock decision first, one backup per leave) is AppLifecycle's;
+  # what runs on each is LifecycleServices' (work package 3.3).
   - id: lifecycle
     what: 進背景、回前景做什麼
     layer: app
     owner:
+      - apps/expense_tracker/lib/src/core/platform/app_lifecycle.dart
       - apps/expense_tracker/lib/src/app/lifecycle_services.dart
     target: apps/expense_tracker/lib/app/coordinators/lifecycle/
-    status: scattered
+    status: owned
+  # Dart writes the whole plan (reminder_alerts.dart: planFor), the
+  # adapter hands it over, and the phone only keeps it, re-arms it and
+  # applies each alert's grace (Reminders.kt, ReminderGrace.kt).
   - id: reminder-scheduling
     what: 向系統排程提醒
     layer: app
     owner:
-      - apps/expense_tracker/lib/src/app/android/notification_adapter.dart
       - apps/expense_tracker/lib/src/features/reminders/model/reminder_alerts.dart
+      - apps/expense_tracker/lib/src/app/android/notification_adapter.dart
       - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/Reminders.kt
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/ReminderGrace.kt
     target: apps/expense_tracker/lib/app/coordinators/reminders/
-    status: scattered
+    status: owned
+  # One table: each kind's channel and grace window, the plan's horizon,
+  # the hour a due date is told, how late an inexact alarm may come.
+  - id: reminder-timing
+    what: 提醒的頻道、寬限時間、排程天數與時刻
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/reminders/model/reminder_rules.dart
+    target: apps/expense_tracker/lib/app/coordinators/reminders/
+    status: owned
+  # The calendar's events are worked out and diffed by key in Dart; the
+  # phone reads them back and applies the changes it is given.
+  - id: calendar-sync
+    what: 日曆事件的增刪改與是否寫入金額
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/reminders/model/calendar_sync.dart
+    target: apps/expense_tracker/lib/app/coordinators/reminders/
+    status: owned
+  # Every backup file is written one after another by the backup manager;
+  # the backups of a leave run one at a time (OneAtATime); the outbox
+  # answers a second prepare with the first (work package 3.3, F65).
   - id: backup-write-mutex
     what: 備份的寫入與互斥
     layer: app
     owner:
-      - apps/expense_tracker/lib/src/features/backup/model/backup_manager.dart
       - apps/expense_tracker/lib/src/features/backup/model/encrypted_backup_manager.dart
+      - apps/expense_tracker/lib/src/core/platform/one_at_a_time.dart
       - apps/expense_tracker/lib/src/features/backup/model/outbox.dart
       - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/BackupPlan.kt
     target: apps/expense_tracker/lib/app/coordinators/backup/
-    status: scattered
+    status: owned
+  # The network, battery and back-off of both background jobs; whether a
+  # backup with photos waits for Wi-Fi is the person's (photosOnWifi).
+  - id: background-work-cost
+    what: 背景工作的網路、電量與重試
+    layer: app
+    owner:
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/BackgroundWork.kt
+      - apps/expense_tracker/lib/src/core/platform/preferences.dart
+    target: apps/expense_tracker/android/
+    status: owned
+  # Native work off the main thread, answered on it, every failure caught.
+  - id: native-off-main
+    what: Android 背景執行與回到主執行緒
+    layer: app
+    owner:
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/ChannelHandler.kt
+    target: apps/expense_tracker/android/
+    status: owned
   - id: market-refresh
     what: 行情與匯率的更新與失敗處理
     layer: app

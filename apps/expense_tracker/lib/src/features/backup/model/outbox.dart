@@ -55,13 +55,18 @@ final class Outbox {
   bool get wanted =>
       _preferences.phoneFolder != null || _preferences.driveLinked;
 
-  var _busy = false;
+  /// The [prepare] under way: asked for again meanwhile, it is the answer,
+  /// so two never write at once (ARC-05).
+  Future<bool>? _preparing;
 
   /// Writes the backup for the job to deliver when the ledger changed
   /// since the one waiting and a place to deliver to does not hold this
   /// revision yet; starts or stops the job. True when one was written.
-  Future<bool> prepare() async {
-    if (_busy) return false;
+  /// Asked for while one is under way, it answers with that one.
+  Future<bool> prepare() =>
+      _preparing ??= _prepare().whenComplete(() => _preparing = null);
+
+  Future<bool> _prepare() async {
     final on = wanted;
     await _schedule?.call(on: on);
     if (!on) return false;
@@ -78,40 +83,35 @@ final class Outbox {
     final driveHas =
         !_preferences.driveLinked || _preferences.driveRevision == revision;
     if (phoneHas && driveHas) return false;
-    _busy = true;
-    try {
-      // The phone's folder always takes the photos; Drive only when asked,
-      // and then it gets its own copy without them.
-      final phone = _preferences.phoneFolder != null;
-      final drive = _preferences.driveLinked;
-      final photos = _preferences.drivePhotos;
-      final file = await _write(_folder, withPhotos: phone || photos);
-      final driveFile = phone && drive && !photos
-          ? await _write(_folder, withPhotos: false)
-          : null;
-      await _save(_ready, {
-        'v': 1,
-        'file': file.uri.pathSegments.last,
-        'driveFile': ?driveFile?.uri.pathSegments.last,
-        'drivePhotos': photos,
-        'revision': revision,
-        'ledger': _ledger,
-        'mark': PhoneBackup.markOf(_ledger),
-        'at': _clock().toUtc().millisecondsSinceEpoch,
-      });
-      // The one waiting before is replaced: only the newest is delivered.
-      for (final old in _folder.listSync()) {
-        if (old is File &&
-            old.path.endsWith('.etbk') &&
-            old.path != file.path &&
-            old.path != driveFile?.path) {
-          await old.delete();
-        }
+    // The phone's folder always takes the photos; Drive only when asked,
+    // and then it gets its own copy without them.
+    final phone = _preferences.phoneFolder != null;
+    final drive = _preferences.driveLinked;
+    final photos = _preferences.drivePhotos;
+    final file = await _write(_folder, withPhotos: phone || photos);
+    final driveFile = phone && drive && !photos
+        ? await _write(_folder, withPhotos: false)
+        : null;
+    await _save(_ready, {
+      'v': 1,
+      'file': file.uri.pathSegments.last,
+      'driveFile': ?driveFile?.uri.pathSegments.last,
+      'drivePhotos': photos,
+      'revision': revision,
+      'ledger': _ledger,
+      'mark': PhoneBackup.markOf(_ledger),
+      'at': _clock().toUtc().millisecondsSinceEpoch,
+    });
+    // The one waiting before is replaced: only the newest is delivered.
+    for (final old in _folder.listSync()) {
+      if (old is File &&
+          old.path.endsWith('.etbk') &&
+          old.path != file.path &&
+          old.path != driveFile?.path) {
+        await old.delete();
       }
-      return true;
-    } finally {
-      _busy = false;
     }
+    return true;
   }
 
   /// Notes in [Preferences] what the job delivered while the app was

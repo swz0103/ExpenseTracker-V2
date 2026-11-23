@@ -49,6 +49,14 @@ const loadFailedRetry = '再試一次';
 const loadFailedRestore = '從備份還原';
 const loadFailedExport = '匯出診斷';
 
+/// The app could not start at all, `what` having failed (already
+/// cleaned of what the person wrote).
+const startFailedTitle = '記帳本無法啟動';
+String startFailedBody(String what) =>
+    '啟動時發生問題（$what），資料沒有被改動。可以再試一次；如果一直無法啟動，可以複製診斷資料回報問題。';
+const startFailedCopy = '複製診斷資料';
+const startFailedCopied = '已複製診斷資料';
+
 /// The name of the diagnostics file of an opening.
 const openingReportName = '記帳本-開啟診斷.txt';
 

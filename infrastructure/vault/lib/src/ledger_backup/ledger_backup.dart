@@ -371,11 +371,12 @@ abstract final class LedgerBackup {
                 throw BackupException(BackupProblem.invalidContent, shelf);
               }
             }
-            into.write((w) {
-              for (final (shelf, id, body) in items) {
-                w.put(shelf, id, body);
-              }
-            });
+            // On a worker isolate: a large backup restores without
+            // holding the screen still (DAT-03).
+            await into.writeApart([
+              for (final (shelf, id, body) in items)
+                RowChange.put(shelf, id, body),
+            ]);
             rows += items.length;
           case 'file':
             final name = chunk['name'];

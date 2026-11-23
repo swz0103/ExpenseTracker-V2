@@ -56,6 +56,22 @@ abstract final class ErrorSteps {
   /// The phone could not say whether notifications are allowed.
   static const notificationStatus = '通知狀態';
 
+  /// The plan of notifications could not be handed to the phone: handed
+  /// again at the next change or start.
+  static const notifications = '通知';
+
+  /// The inbox of confirmations from notifications could not be read, or
+  /// what it booked was not kept: its items stay for the next time.
+  static const inbox = '收件匣';
+
+  /// The chosen calendar could not be brought up to date: tried again at
+  /// the next change or start.
+  static const calendarSync = '日曆同步';
+
+  /// The app's events could not be taken off a calendar no longer
+  /// synced: they stay there for the person to delete.
+  static const calendarClear = '清除日曆的提醒';
+
   /// The phone could not say whether it hides the app in the recents
   /// list, or could not be told to: the app keeps covering itself.
   static const screenPrivacy = '螢幕隱私';
@@ -68,4 +84,15 @@ abstract final class ErrorSteps {
   /// The journal's sums differ from the figures the app shows: which
   /// figures, never an amount. Nothing the person sees reads it yet.
   static const journalParity = '分錄比對';
+
+  /// The app's own folder could not be found as it started: nothing can
+  /// open, the failure page says so.
+  static const startFolder = '啟動：帳本資料夾';
+
+  /// The phone could not say whether it unlocks with a fingerprint or
+  /// face as the app started: the app starts without it.
+  static const startDevice = '啟動：指紋解鎖';
+
+  /// The first screen could not be put together.
+  static const startScreen = '啟動：第一個畫面';
 }

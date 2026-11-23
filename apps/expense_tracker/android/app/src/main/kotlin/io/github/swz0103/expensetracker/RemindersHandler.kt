@@ -36,6 +36,10 @@ class RemindersHandler(private val activity: FragmentActivity) : ChannelHandler 
         }
     }
 
+    /** The notification channels the app sends with a call: id, name, about. */
+    private fun channels(call: MethodCall): List<Map<String, Any?>> =
+        call.argument<List<Map<String, Any?>>>("channels") ?: emptyList()
+
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         when (call.method) {
             "notificationAccess" -> {
@@ -64,6 +68,8 @@ class RemindersHandler(private val activity: FragmentActivity) : ChannelHandler 
                         alerts,
                         exact = call.argument<Boolean>("exact") == true,
                         wanted = call.argument<List<String>>("wanted")?.toSet(),
+                        channels = channels(call),
+                        retired = call.argument<List<String>>("retired") ?: emptyList(),
                     )
                     result.success(null)
                 }
@@ -74,6 +80,7 @@ class RemindersHandler(private val activity: FragmentActivity) : ChannelHandler 
                 if (title == null || text == null) {
                     result.error("bad-arguments", "title and text are required", null)
                 } else {
+                    Reminders.ensureChannels(activity, channels(call))
                     Reminders.show(
                         activity,
                         call.argument<Int>("id") ?: 700,
@@ -81,12 +88,20 @@ class RemindersHandler(private val activity: FragmentActivity) : ChannelHandler 
                         text,
                         call.argument<String>("quick") ?: "",
                         call.argument<String>("tag") ?: "",
+                        channel = call.argument<String>("channel") ?: "",
                     )
                     result.success(null)
                 }
             }
             "testNotification" -> {
-                Reminders.test(activity, call.argument<Boolean>("exact") == true)
+                Reminders.ensureChannels(activity, channels(call))
+                Reminders.test(
+                    activity,
+                    exact = call.argument<Boolean>("exact") == true,
+                    channel = call.argument<String>("channel") ?: "",
+                    title = call.argument<String>("title") ?: "",
+                    text = call.argument<String>("text") ?: "",
+                )
                 result.success(null)
             }
             "reminderStatus" -> {
@@ -113,10 +128,16 @@ class RemindersHandler(private val activity: FragmentActivity) : ChannelHandler 
                 result.success(null)
             }
             "openBatterySettings" -> {
-                if (Build.VERSION.SDK_INT >= 23) {
-                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                    openSettings(intent)
-                }
+                // The app's own page, where its battery use is chosen
+                // (「電池」 › 不受限制). Asking straight away to be left out
+                // of battery saving needs a permission Google Play allows
+                // only some kinds of app, so it is not asked for.
+                openSettings(
+                    Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:${activity.packageName}"),
+                    ),
+                )
                 result.success(null)
             }
             else -> return false

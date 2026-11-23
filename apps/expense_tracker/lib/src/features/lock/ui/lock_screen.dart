@@ -165,15 +165,14 @@ class _LockScreenState extends State<LockScreen> {
     // The opening plays once per start, with a password or without.
     final opening = widget.startup.takeOpening();
     if (_quiet) {
-      // Opened once the opening animation has played (see build).
+      // Opened at once, while the opening plays: it never holds it up.
       _busy = true;
+      unawaited(_openQuietly());
       return;
     }
-    if (opening) {
-      // The fingerprint is asked for once it has played (see _opened).
-      _splash = true;
-      return;
-    }
+    // The password form follows the opening (see _opened); the
+    // fingerprint is asked for at once, over the opening when it plays.
+    _splash = opening;
     if (_biometric && _askFirst) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_unlockWithDevice());
@@ -207,14 +206,13 @@ class _LockScreenState extends State<LockScreen> {
     }
   }
 
-  /// The opening has played: the password form, and the fingerprint
-  /// asked for when it is asked first.
+  /// The opening has played: the password form; the fingerprint was
+  /// asked for as it began.
   void _opened() {
     setState(() {
       _splash = false;
       _arrive = true;
     });
-    if (_biometric && _askFirst) unawaited(_unlockWithDevice());
   }
 
   Future<void> _openQuietly() async {
@@ -480,8 +478,9 @@ class _LockScreenState extends State<LockScreen> {
       _file.clear();
       _password.clear();
     });
-    // A ledger without a password opens after the opening animation.
+    // A ledger without a password opens by itself, the opening shown.
     if (_quiet) setState(() => _busy = true);
+    if (_quiet) unawaited(_openQuietly());
     await _countdown.refresh();
   }
 
@@ -517,7 +516,7 @@ class _LockScreenState extends State<LockScreen> {
       );
     }
     if (_quiet && _problem == null) {
-      return LockSplash(onDone: () => unawaited(_openQuietly()));
+      return const LockSplash();
     }
     if (_splash) return LockSplash(onDone: _opened);
     final Widget form;

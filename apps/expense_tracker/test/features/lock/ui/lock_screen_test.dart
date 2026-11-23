@@ -418,6 +418,21 @@ void main() {
     startup.lock();
   });
 
+  testWidgets('a ledger without a password opens while the opening plays, '
+      'not after it (ARC-06)', (tester) async {
+    final first = Startup(vault);
+    await tester.runAsync(first.setUpWithoutPassword);
+    first.lock();
+    final startup = Startup(vault);
+    await show(tester, startup);
+    // Frames drawn with no time passing: the opening (1.4 s) cannot have
+    // played, so only an unlock begun beside it opens the ledger.
+    await settle(tester, () => startup.state is Ready);
+    expect(startup.state, isA<Ready>());
+    expect(find.byType(LockSplash), findsOneWidget);
+    startup.lock();
+  });
+
   testWidgets('a ledger without a password whose key cannot open it says '
       'so and asks for the password', (tester) async {
     final first = Startup(vault);
@@ -513,16 +528,17 @@ void main() {
       expect(startup.state, isA<Locked>());
     });
 
-    testWidgets('once enrolled, the fingerprint asked for after the opening '
-        'opens the ledger', (tester) async {
+    testWidgets('once enrolled, the fingerprint asked for as the opening '
+        'begins opens the ledger while it plays (ARC-06)', (tester) async {
       final enrol = Startup(vault, device: DeviceUnlock('phone', key));
       await tester.runAsync(() => enrol.setUp(password));
       enrol.lock();
       final startup = Startup(vault, device: DeviceUnlock('phone', key));
       await show(tester, startup);
-      await settleIn(tester);
+      // No time passes: the opening is still playing when it opens.
       await settle(tester, () => startup.state is Ready);
       expect(startup.state, isA<Ready>());
+      expect(find.byType(LockSplash), findsOneWidget);
       startup.lock();
     });
 

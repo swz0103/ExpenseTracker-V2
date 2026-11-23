@@ -1,4 +1,7 @@
+import 'dart:async';
+import 'dart:ffi' show Pointer;
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -87,6 +90,23 @@ final class StoredRow {
   final String body;
 }
 
+/// One change of a write done off the caller's isolate
+/// ([EncryptedDatabase.writeApart]): a record put in place, or dropped.
+/// Plain text only, so it can be sent to another isolate.
+final class RowChange {
+  /// Keeps [body] as the record [id] on [shelf], in place of any before.
+  const RowChange.put(this.shelf, this.id, String this.body);
+
+  /// Forgets the record [id] on [shelf]; nothing when there is none.
+  const RowChange.drop(this.shelf, this.id) : body = null;
+
+  final String shelf;
+  final String id;
+
+  /// The record kept; null when it is dropped.
+  final String? body;
+}
+
 /// The changes of one write, applied together.
 final class RowWriter {
   RowWriter._(this._db);
@@ -172,8 +192,24 @@ final class EncryptedDatabase {
   bool _closed = false;
 
   /// The journal of postings kept beside the records, in this file and
-  /// derived from them ([createJournalTables]).
-  late final SqlPostingStore journal = SqlPostingStore(_db);
+  /// derived from them ([createJournalTables]). Used as the records are:
+  /// never while a write runs apart, never once closed.
+  late final SqlPostingStore journal = SqlPostingStore(_db, _requireOpen);
+
+  /// A write running on another isolate ([writeApart]); done when it is.
+  Completer<void>? _apart;
+
+  /// The [revision] as it stood when that write began.
+  int _revisionBefore = 0;
+
+  /// Closed while a write ran apart: closed once it is done.
+  bool _closeAfter = false;
+
+  /// Whether a write is running on another isolate ([writeApart]).
+  bool get writingApart => _apart != null;
+
+  /// Done once no write runs on another isolate.
+  Future<void> get idle => _apart?.future ?? Future<void>.value();
 
   String get journalMode =>
       '${_db.select('PRAGMA journal_mode').single.values.single}';
@@ -181,6 +217,7 @@ final class EncryptedDatabase {
   /// How many changes this file has had; a write that does not count
   /// (see [write]) leaves it.
   int get revision {
+    if (_apart != null && !_closed) return _revisionBefore;
     _requireOpen();
     final rows = _db.select("SELECT value FROM meta WHERE key = 'revision'");
     return rows.isEmpty ? 0 : rows.single['value'] as int;
@@ -258,27 +295,90 @@ final class EncryptedDatabase {
   /// such as fetched prices, leaves it, so a backup is not taken for it.
   void write(void Function(RowWriter writer) changes, {bool counts = true}) {
     _requireOpen();
-    final writer = RowWriter._(_db);
-    _db.execute('BEGIN IMMEDIATE');
+    _transaction(_db, changes, counts: counts);
+  }
+
+  static void _transaction(
+    Database db,
+    void Function(RowWriter writer) changes, {
+    required bool counts,
+  }) {
+    final writer = RowWriter._(db);
+    db.execute('BEGIN IMMEDIATE');
     try {
       changes(writer);
       if (counts) {
-        _db.execute("UPDATE meta SET value = value + 1 WHERE key = 'revision'");
+        db.execute("UPDATE meta SET value = value + 1 WHERE key = 'revision'");
       }
-      _db.execute('COMMIT');
+      db.execute('COMMIT');
     } catch (_) {
-      if (!_db.autocommit) _db.execute('ROLLBACK');
+      if (!db.autocommit) db.execute('ROLLBACK');
       rethrow;
     } finally {
       writer._open = false;
     }
   }
 
-  /// Whether the file can still be read and written: not [close]d.
-  bool get isOpen => !_closed;
+  /// Whether the file can still be read and written: not [close]d, nor
+  /// to be closed once a write apart is done.
+  bool get isOpen => !_closed && !_closeAfter;
 
+  /// Applies [changes] in one transaction, as [write] does, on a worker
+  /// isolate through this same connection, so a large batch (a merchant
+  /// renamed on every entry, an import, a restore) never holds the
+  /// caller's isolate, and with it the screen, still. Until it is done
+  /// ([idle]) nothing else may use the store: [revision] answers the
+  /// revision as it stood before, any other read or write throws a
+  /// [StateError], and [close] waits for it. All of [changes], or none
+  /// when it throws.
+  Future<void> writeApart(List<RowChange> changes, {bool counts = true}) async {
+    _requireOpen();
+    _revisionBefore = revision;
+    final done = _apart = Completer<void>();
+    try {
+      await _applyApart(_db.handle.address, changes, counts);
+    } finally {
+      _apart = null;
+      done.complete();
+      if (_closeAfter) close();
+    }
+  }
+
+  /// Kept apart from the instance, so the closure sent to the worker
+  /// carries the changes and the connection's address, never `this`.
+  static Future<void> _applyApart(
+    int address,
+    List<RowChange> changes,
+    bool counts,
+  ) => Isolate.run(() {
+    // A view of the connection this isolate opened: not closed here.
+    final db = sqlite3.fromPointer(
+      Pointer.fromAddress(address),
+      borrowed: true,
+    );
+    try {
+      _transaction(db, (w) {
+        for (final change in changes) {
+          final body = change.body;
+          if (body == null) {
+            w.drop(change.shelf, change.id);
+          } else {
+            w.put(change.shelf, change.id, body);
+          }
+        }
+      }, counts: counts);
+    } finally {
+      db.close();
+    }
+  });
+
+  /// Closes the store; while a write runs apart, once it is done.
   void close() {
     if (_closed) return;
+    if (_apart != null) {
+      _closeAfter = true;
+      return;
+    }
     _closed = true;
     journal.close();
     _db.close();
@@ -286,6 +386,9 @@ final class EncryptedDatabase {
 
   void _requireOpen() {
     if (_closed) throw StateError('Store is closed.');
+    if (_apart != null) {
+      throw StateError('Store is busy with a write apart.');
+    }
   }
 
   static void _create(Database db) {

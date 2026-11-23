@@ -78,6 +78,10 @@ final class LockGate<Place extends Object> extends ChangeNotifier {
   /// Whether that trip away was one the app started.
   var _errand = false;
 
+  /// Whether the app is away on a trip it started itself (see [Errands]),
+  /// as told at [left].
+  bool get onErrand => _away && _errand;
+
   /// The ledger is being closed: pending changes are kept first.
   var _closing = false;
 

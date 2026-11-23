@@ -49,6 +49,21 @@ final class RecurringService {
 
   DateTime? _pendingDate(Recurring item) {
     if (!item.active) return null;
+    final now = DateTime.utc(_today().year, _today().month);
+    var month = _firstOpenMonth(item);
+    // Bounded: ten years of months at most.
+    for (var k = 0; k < 120 && !month.isAfter(now); k++) {
+      final days = _unpostedIn(item, month.year, month.month);
+      if (days.isNotEmpty) return days.first;
+      month = DateTime.utc(month.year, month.month + 1);
+    }
+    return null;
+  }
+
+  /// The first month whose days [item] can still be due on: that of its
+  /// latest booking, or this month when it has none. A day before it is
+  /// never asked for again.
+  DateTime _firstOpenMonth(Recurring item) {
     DateTime? latest;
     for (final e in _entries.all) {
       if (e.recurring == item.id &&
@@ -56,23 +71,41 @@ final class RecurringService {
         latest = e.date;
       }
     }
-    final now = DateTime.utc(_today().year, _today().month);
-    var month = latest == null ? now : DateTime.utc(latest.year, latest.month);
-    // Bounded: ten years of months at most.
-    for (var k = 0; k < 120 && !month.isAfter(now); k++) {
-      final day = _unbooked(item, month.year, month.month);
-      if (day != null) return day;
-      month = DateTime.utc(month.year, month.month + 1);
-    }
-    return null;
+    final from = latest ?? _today();
+    return DateTime.utc(from.year, from.month);
   }
 
-  /// The first day of [year]/[month] [item] falls due that no booking of
-  /// that month settles.
-  DateTime? _unbooked(Recurring item, int year, int month) {
+  /// The days of [year]/[month] [item] falls due that no booking of that
+  /// month settles: bookings count against its days in order, and a day
+  /// let go is not among them.
+  List<DateTime> _unpostedIn(Recurring item, int year, int month) {
     final dates = item.dueIn(year, month);
     final booked = confirmationsIn(item, year, month).length;
-    return booked < dates.length ? dates[booked] : null;
+    return booked < dates.length ? dates.sublist(booked) : const [];
+  }
+
+  /// Every day from [from] to [to] (both counted) [item] falls due and is
+  /// not booked or let go, earliest first; none for a paused item. The
+  /// same days [pendingDate] counts, so what the reminders and the
+  /// calendar say is still to book is what the recurring page says.
+  List<DateTime> unpostedDates(
+    Recurring item, {
+    required DateTime from,
+    required DateTime to,
+  }) {
+    if (!item.active) return const [];
+    var month = DateTime.utc(from.year, from.month);
+    final open = _firstOpenMonth(item);
+    if (month.isBefore(open)) month = open;
+    final found = <DateTime>[];
+    // Bounded: ten years of months at most.
+    for (var k = 0; k < 120 && !month.isAfter(to); k++) {
+      for (final d in _unpostedIn(item, month.year, month.month)) {
+        if (!d.isBefore(from) && !d.isAfter(to)) found.add(d);
+      }
+      month = DateTime.utc(month.year, month.month + 1);
+    }
+    return found;
   }
 
   /// The next day [item] falls due, this month or later.

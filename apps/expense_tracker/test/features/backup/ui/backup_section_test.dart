@@ -250,6 +250,42 @@ void main() {
       expect(find.text('沒有自動備份'), findsOneWidget);
     });
 
+    testWidgets('with the photos, backups wait for Wi-Fi unless the person '
+        'turns that off (AND-05)', (tester) async {
+      preferences.update(driveLinked: true, drivePhotos: true);
+      var onWifi = false;
+      var sent = 0;
+      final sync = DriveSync(
+        DriveBackup(
+          FakeDrive(),
+          token: ({required interactive}) async => 'token',
+          forget: (_) async {},
+        ),
+        preferences,
+        withBackup: (use, {withPhotos = true}) async {
+          sent++;
+          await withBackup(use);
+        },
+        revision: () => 1,
+        ledger: 'L1',
+        unmetered: () async => onWifi,
+      );
+      addTearDown(sync.dispose);
+      await open(tester, drive: sync);
+      expect(find.text('連 Wi-Fi 時一起備份'), findsOneWidget);
+      // On mobile data: waits.
+      expect(await tester.runAsync(sync.backUpIfDue), isFalse);
+      expect(sent, 0);
+
+      await tester.tap(find.byKey(Keys.photosOnWifi));
+      await tester.pump();
+      expect(preferences.photosOnWifi, isFalse);
+      expect(find.text('任何網路都一起備份'), findsOneWidget);
+      // Now it goes on mobile data too.
+      expect(await tester.runAsync(sync.backUpIfDue), isTrue);
+      expect(sent, 1);
+    });
+
     testWidgets('a sign-in turned down links nothing', (tester) async {
       keys.hasPassword = true;
       final sync = drive(allowed: false);

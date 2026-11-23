@@ -107,6 +107,7 @@ final class Preferences extends ChangeNotifier {
       _widgetShown = json.flag('widgetShown') ?? false;
       _driveLinked = json.flag('driveLinked') ?? false;
       _drivePhotos = json.flag('drivePhotos') ?? false;
+      _photosOnWifi = json.flag(photosOnWifiKey) ?? true;
       _googleBackup = json.flag('googleBackup') ?? true;
       _driveBackedUp = DateTime.tryParse(json.text('driveBackedUp') ?? '');
       _driveRevision = json.whole('driveRevision');
@@ -119,7 +120,7 @@ final class Preferences extends ChangeNotifier {
       _phoneBackedUp = DateTime.tryParse(json.text('phoneBackedUp') ?? '');
       _phoneRevision = json.whole('phoneRevision');
       _overview = json.texts('overview');
-      _budgetAlerts = json.flag('budgetAlerts') ?? true;
+      _budgetAlerts = json.flag('budgetAlerts') ?? false;
       _budgetAlerted = {...?json.texts('budgetAlerted')};
       _updateChecks = json.flag('updateChecks') ?? true;
       _updateCheckedAt = DateTime.tryParse(json.text('updateCheckedAt') ?? '');
@@ -252,9 +253,10 @@ final class Preferences extends ChangeNotifier {
   static int _discountIn(int basisPoints) => basisPoints.clamp(1, 10000);
 
   /// A notification when a budget reaches its warning share, and again
-  /// when it is used up.
+  /// when it is used up. Off until the person turns it on, which asks the
+  /// phone to allow notifications, as every kind of reminder does.
   bool get budgetAlerts => _budgetAlerts;
-  var _budgetAlerts = true;
+  var _budgetAlerts = false;
 
   /// The budget notifications already posted this month, as
   /// `<month>|<budget>|<level>`, so each comes once.
@@ -319,6 +321,16 @@ final class Preferences extends ChangeNotifier {
   bool get drivePhotos => _drivePhotos;
   var _drivePhotos = false;
 
+  /// Backups that carry the receipt photos go up only on Wi-Fi or another
+  /// network that costs nothing per byte; off, on any network. On until
+  /// the person turns it off (AND-05). The background job reads it from
+  /// the file under [photosOnWifiKey] (`BackupWorker.kt`).
+  bool get photosOnWifi => _photosOnWifi;
+  var _photosOnWifi = true;
+
+  /// The name [photosOnWifi] is kept under in the file.
+  static const photosOnWifiKey = 'photosOnWifi';
+
   /// When the last backup reached Google Drive.
   DateTime? get driveBackedUp => _driveBackedUp;
   DateTime? _driveBackedUp;
@@ -360,6 +372,7 @@ final class Preferences extends ChangeNotifier {
     bool? widgetShown,
     bool? driveLinked,
     bool? drivePhotos,
+    bool? photosOnWifi,
     bool? googleBackup,
     WidgetFigures? widgetFigures,
     bool? updateChecks,
@@ -379,6 +392,7 @@ final class Preferences extends ChangeNotifier {
     _widgetShown = widgetShown ?? _widgetShown;
     _driveLinked = driveLinked ?? _driveLinked;
     _drivePhotos = drivePhotos ?? _drivePhotos;
+    _photosOnWifi = photosOnWifi ?? _photosOnWifi;
     _googleBackup = googleBackup ?? _googleBackup;
     _widgetFigures = widgetFigures ?? _widgetFigures;
     _updateChecks = updateChecks ?? _updateChecks;
@@ -408,6 +422,7 @@ final class Preferences extends ChangeNotifier {
           'widgetShown': _widgetShown,
           'driveLinked': _driveLinked,
           'drivePhotos': _drivePhotos,
+          photosOnWifiKey: _photosOnWifi,
           'googleBackup': _googleBackup,
           'driveBackedUp': _driveBackedUp?.toUtc().toIso8601String(),
           'driveRevision': _driveRevision,

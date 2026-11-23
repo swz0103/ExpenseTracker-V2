@@ -33,6 +33,11 @@ final class WriteQueue {
   /// Done once every change so far has reached the data source.
   Future<void> get settled => _chain;
 
+  /// How many changes the data source refused so far: unchanged across a
+  /// wait for [settled] means every change made before it was kept.
+  int get refused => _refused;
+  var _refused = 0;
+
   /// Keeps [batch] after every change before it. An empty one is not sent.
   void enqueue(WriteBatch batch) {
     if (batch.isEmpty) return;
@@ -45,6 +50,7 @@ final class WriteQueue {
       await _dataSource.keep(batch);
     } on Object catch (error) {
       ErrorLog.instance.record('寫入帳本', error);
+      _refused++;
       problem.value = KeepFailed(error);
       _stale = true;
     }

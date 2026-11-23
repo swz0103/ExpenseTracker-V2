@@ -81,7 +81,7 @@ void createJournalTables(Database db) {
 
 /// The journal's [PostingStore] on the ledger's own file.
 final class SqlPostingStore implements PostingStore {
-  SqlPostingStore(this._db);
+  SqlPostingStore(this._db, [this._check = _always]);
 
   final Database _db;
   var _inTransaction = false;
@@ -94,8 +94,16 @@ final class SqlPostingStore implements PostingStore {
   /// Past the last day any book holds.
   static const _end = 99991231;
 
-  PreparedStatement _sql(String sql) =>
-      _statements[sql] ??= _db.prepare(sql, persistent: true);
+  /// Throws when the file may not be used now: closed, or written on
+  /// another isolate (the store's own check).
+  final void Function() _check;
+
+  static void _always() {}
+
+  PreparedStatement _sql(String sql) {
+    _check();
+    return _statements[sql] ??= _db.prepare(sql, persistent: true);
+  }
 
   /// Lets the prepared statements go, before the file is closed.
   void close() {
@@ -132,6 +140,7 @@ final class SqlPostingStore implements PostingStore {
   @override
   T transaction<T>(T Function() body) {
     if (_inTransaction) throw StateError('nested transaction');
+    _check();
     _inTransaction = true;
     _db.execute('BEGIN IMMEDIATE');
     try {
@@ -413,6 +422,7 @@ final class SqlPostingStore implements PostingStore {
 
   @override
   void clear() {
+    _check();
     for (final table in [
       'posting',
       'intent_stream',

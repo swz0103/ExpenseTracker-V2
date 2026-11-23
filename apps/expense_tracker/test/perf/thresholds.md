@@ -67,3 +67,23 @@ CI on any machine. Posting the whole book afresh happens once (the first
 opening after this version, after a restore, or when the posting rules
 change) and in the background; about a quarter of its time is the months'
 sums, which could be built once at the end instead of with each posting.
+
+## Batch writes on the computer (`batch_write_block`, DAT-03)
+
+Not an emulator figure: `test/perf/batch_write_gate_test.dart` runs in the
+ordinary `flutter test`. It renames the merchant of 20,000 entries of a real
+encrypted book twice: once written at once, and once as the app writes a
+change of 500 records or more (`writeApartFrom`: the rows made 8 ms at a
+time with the screen drawn between, then kept on a worker isolate through
+the same connection, `EncryptedDatabase.writeApart`). It gates the longest
+time the main isolate was held, as a share of the rename written at once,
+so the gate holds on any machine.
+
+| measured (5 runs, Linux host, 2026-11-23) | limit |
+|---|---|
+| at once: held 772–945 ms; apart: held 14–19 ms, 1,023–1,238 ms in all; share 0.016–0.021 | 0.045 (about 2× the worst share) |
+
+What is left held includes the rename of the screens' own copy of the book
+in memory, which is not the store's. Written apart, the rename takes about
+a quarter longer in all; the screen keeps drawing meanwhile. Not yet in the
+emulator bench: a phone figure needs a run there.
