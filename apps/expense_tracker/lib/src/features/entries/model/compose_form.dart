@@ -478,19 +478,10 @@ final class ComposeForm {
     return found == null ? null : validationMessage(found);
   }
 
-  /// What the ledger says before keeping the entry, which may still be
-  /// kept, such as a cash account left below nothing by buying shares;
-  /// null when nothing, or while [problem] stands.
-  String? get warning {
-    if (problem != null) return null;
-    for (final e in buildAll()) {
-      final was = ledger.entries.byId(e.id);
-      for (final issue in ledger.entryValidator.issues(e, replacing: was)) {
-        if (!issue.isError) return validationMessage(issue);
-      }
-    }
-    return null;
-  }
+  /// The key of the entry [warning] was last worked out for, and what it
+  /// said (compose_form_trade.dart).
+  String? _warnedFor;
+  String? _warned;
 
   String? get _lendingProblem {
     if (amount <= 0) return '請輸入金額';

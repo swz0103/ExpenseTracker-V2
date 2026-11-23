@@ -99,3 +99,61 @@ extension TradeFields on ComposeForm {
     if (kind == ShareChange.none) shares = 0;
   }
 }
+
+/// What the ledger says before a trade is kept, such as a cash account
+/// left below nothing by buying shares (F24).
+extension SaveWarning on ComposeForm {
+  /// What the ledger says before keeping the entry, which may still be
+  /// kept, such as a cash account left below nothing by buying shares;
+  /// null when nothing, or while the entry would be refused. Worked out
+  /// once per change of the entry or the book, not on every frame that
+  /// shows it.
+  String? get warning {
+    final made = buildAll();
+    final key = '${ledger.revision}|${made.map(_fields).join('|')}';
+    if (key == _warnedFor) return _warned;
+    _warnedFor = key;
+    return _warned = _warningOf(made);
+  }
+
+  String? _warningOf(List<Entry> made) {
+    RecordIssue? said;
+    for (final e in made) {
+      final was = ledger.entries.byId(e.id);
+      // The shares a sale takes are the save's to check, by replaying the
+      // trades; no warning rests on them.
+      for (final issue in ledger.entryValidator.issues(
+        e,
+        replacing: was,
+        holdings: false,
+      )) {
+        if (issue.isError) return null;
+        said ??= issue;
+      }
+    }
+    return said == null ? null : validationMessage(said);
+  }
+
+  /// Every field of [e] but its id, which a new entry draws afresh each
+  /// time it is built.
+  static String _fields(Entry e) => (
+    e.date,
+    e.type,
+    e.amount,
+    e.account,
+    e.category,
+    e.to,
+    e.holding,
+    e.shares,
+    e.parts,
+    e.fee,
+    e.tax,
+    e.refundOf,
+    e.installments,
+    e.average,
+    e.split,
+    e.home,
+    e.received,
+    e.group,
+  ).toString();
+}

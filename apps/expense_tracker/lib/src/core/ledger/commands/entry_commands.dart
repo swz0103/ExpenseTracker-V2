@@ -143,27 +143,39 @@ final class EntryCommands {
   }) {
     final was = {...replacing};
     _check(entries, replacing: was);
-    final before = List.of(_entries.all);
     final ids = {for (final e in entries) e.id};
     final gone = {...was}..removeAll(ids);
-    final trades =
-        entries.any((e) => e.isInvestment) ||
-        before.any((e) => was.contains(e.id) && e.isInvestment);
-    _entries.removeWhere((e) => gone.contains(e.id));
+    // Each change made one entry at a time, which the entries' indexes
+    // follow (a change of the whole list would throw them away and every
+    // balance with them), noted so that a refusal undoes exactly it. A
+    // new entry is found absent by id, without a pass over the book.
+    final undo = <void Function()>[];
+    var trades = entries.any((e) => e.isInvestment);
+    for (final id in gone) {
+      final old = _entries.byId(id);
+      if (old == null) continue;
+      trades |= old.isInvestment;
+      final index = _entries.indexWhere((x) => identical(x, old));
+      _entries.removeAt(index);
+      undo.add(() => _entries.insert(index, old));
+    }
     for (final e in entries) {
-      final index = _entries.indexWhere((x) => x.id == e.id);
-      if (index < 0) {
+      final old = _entries.byId(e.id);
+      if (old == null) {
         _entries.add(e);
+        undo.add(() => _entries.remove(e));
       } else {
+        trades |= old.isInvestment;
+        final index = _entries.indexWhere((x) => identical(x, old));
         _entries[index] = e;
+        undo.add(() => _entries[index] = old);
       }
     }
-    _replayOrUndo(
-      () => _entries
-        ..clear()
-        ..addAll(before),
-      trades: trades,
-    );
+    _replayOrUndo(() {
+      for (final step in undo.reversed) {
+        step();
+      }
+    }, trades: trades);
     final photos = <String, String?>{};
     for (final id in {...was, ...ids}) {
       final now = id == receiptOn ? receipt : null;
