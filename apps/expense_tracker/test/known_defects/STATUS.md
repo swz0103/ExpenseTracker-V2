@@ -151,6 +151,18 @@ Work package 3.5 (errors and diagnostics). These findings had no known-defect te
 - F66: `test/app/android/scanner_adapter_test.dart` (a failed download is kept in the log with the phone's reason), `test/features/entries/forms/composer_pickers_test.dart` (each failure says what to do; the wait for the download is said), `test/core/messages/scan_messages_test.dart`, `android/app/src/test/.../ScanFaultTest.kt`. The download itself failing on the owner's phone (GMS 26.45.31) is Google Play services' side and is not reproduced here; the log now says why.
 - F102: `test/app/about_section_test.dart` (group 檢查更新 always answers), `test/features/settings/model/app_update_test.dart` (group how the build stands), `test/core/messages/update_messages_test.dart`
 
+## fixed in 3.3
+
+Work package 3.3 (lifecycle and background work). ARC-05's test runs unskipped in `p3_3_lifecycle_test.dart`; the other findings had no known-defect test and are stated by the ordinary tests named.
+
+- ARC-05: `p3_3_lifecycle_test.dart` (two prepare() at once write one backup); `test/core/platform/app_lifecycle_test.dart` (hidden and paused are one leave, a trip the app started is none), `test/core/platform/one_at_a_time_test.dart` (the leave's backups never run twice at once, a leave meanwhile runs them once more after)
+- ARC-04: `test/app/bootstrap_test.dart` group "coming back with an item due (ARC-04)" (a lock done before resumed: nothing written to the closed ledger, it fails on the code before the fix with `寫入帳本: DataSourceException(Bad state: Store is closed.)`; back within the time the item is booked once), `test/core/platform/app_lifecycle_test.dart` (the gate decides first; a lock starting as the app comes back keeps the session from writing). Locking also waits for backups being written (the weekly backup had read a closed store).
+- F65: `test/features/backup/model/encrypted_backup_manager_test.dart` group "two backups asked for at once (F65)" (fails on the code before the fix with the device's `PathNotFoundException ... (errno = 2)`), `android/app/src/test/.../BackupRulesTest.kt` (the rules of every Android version take `cloud/` only; only a backup to the Google account is noted)
+- ARC-06: `test/features/lock/ui/lock_screen_test.dart` (a ledger without a password, and the fingerprint, open while the opening plays), `test/app/first_screen_test.dart` (each wait of `main()` made to fail)
+- DAT-03: `infrastructure/storage/test/encrypted_database_test.dart` group "a write apart (DAT-03)", `test/core/ledger/persistence/sql_ledger_data_source_test.dart` (a change written apart keeps the same rows), `test/perf/batch_write_gate_test.dart` (20,000 entries renamed: the longest hold under 4.5% of the rename written at once; thresholds.md). Not done: a backup still reads the book's rows on the screen's isolate (it then writes it on a worker, as before).
+- AND-05: `android/app/src/test/.../BackgroundWorkTest.kt`, `UploadSessionTest.kt`, `test/app/android/market_cache_adapter_test.dart`, `test/app/lifecycle_services_test.dart` (the market job fetches only what the ledger needs), `test/features/backup/ui/backup_section_test.dart` and `test/core/platform/preferences_test.dart` (photos wait for Wi-Fi, the person's switch). Not done: an upload started by hand in the app is not resumed (its file is written for that upload and deleted after it).
+- AND-07: `android/app/src/test/.../OffMainTest.kt`
+
 ## not covered
 
 One line per finding that has no test here. Findings with an executed reproduction come first with the specific reason; the rest were found by reading code (no executed reproduction), which the brief does not require.
@@ -158,7 +170,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 ### With an executed reproduction
 
 - DEB-02 (S1, 2.4): the fix adds a principal/interest repayment form and fields that do not exist yet, so nothing can be asserted on today's API
-- F65 (S1, 3.3): device-only: Google system backup copy rename race on Android
 - AND-02 (S1, 3.4): Android alarm receiver behaviour after reboot; needs a device or emulator (Kotlin side), reproduced on an API 34 emulator
 - REM-01 (S1, 3.4): the resume path is inline in a State (didChangeAppLifecycleState) and the inbox source exists only on Android; testable once LedgerSession gets a resume step
 - PKG-01 (S2, 1.3): partly fixed in 1.3: the discount is the preference 券商手續費折扣 (default 6折; tests in test/core/platform/preferences_test.dart and test/features/entries/model/compose_form_test.dart); the day-trade tax stays open, as an entry has no notion of a day trade, and the holiday table belongs to the dates package
@@ -169,7 +180,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - F30 (S2, 2.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
 - ENT-07 (S2, 2.5): needs rates with dates (new data model in 2.5)
 - F61 (S2, 2.5): the wrong input is the fetched previous close; the fix needs adjusted closes (new market data)
-- ARC-04 (S2, 3.3): needs LifecycleServices on a real vault with timing between microtasks; the audit repro only printed, a deterministic assertion was not found
 - F48 (S2, 3.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
 - F53 (S2, 3.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
 - F95 (S2, 3.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
@@ -206,9 +216,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - LOG-04 (S2, 2.4): no executed reproduction; not turned into a test
 - INV-07 (S2, 2.5): no executed reproduction; not turned into a test
 - LOG-05 (S2, 2.5): no executed reproduction; not turned into a test
-- AND-05 (S2, 3.3): no executed reproduction; not turned into a test
-- ARC-06 (S2, 3.3): no executed reproduction; not turned into a test
-- DAT-03 (S2, 3.3): no executed reproduction; not turned into a test
 - REM-03 (S2, 3.4): no executed reproduction; not turned into a test
 - REM-04 (S2, 3.4): no executed reproduction; not turned into a test
 - ARC-02 (S2, 4.1): no executed reproduction; not turned into a test
@@ -261,7 +268,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - F62 (S3, 2.5): no executed reproduction; not turned into a test
 - PKG-03 (S3, 2.5): no executed reproduction; not turned into a test
 - PKG-06 (S3, 2.5): no executed reproduction; not turned into a test
-- AND-07 (S3, 3.3): no executed reproduction; not turned into a test
 - AND-03 (S3, 3.4): no executed reproduction; not turned into a test
 - AND-11 (S3, 3.4): no executed reproduction; not turned into a test
 - F101 (S3, 3.4): no executed reproduction; not turned into a test
