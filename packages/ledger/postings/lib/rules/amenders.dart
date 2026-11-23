@@ -26,7 +26,7 @@ final fxAmender = Amender(
       trading: Fixed.currencyTrading,
       slot: Slots.fx,
     ),
-    _ => Refused('fx.badValue', Slots.fx),
+    _ => Refused(Refusals.fxBadValue, Slots.fx),
   },
 );
 
@@ -56,7 +56,7 @@ Posted _instalments(Amendment a, ScheduleOf scheduleOf) {
   final value = a.value;
   if (value == null) return Lines(a.lines);
   if (value is! int || value < 2) {
-    return const Refused('instalments.count', Slots.instalments);
+    return const Refused(Refusals.instalmentsCount, Slots.instalments);
   }
   final credits = [
     for (final (i, line) in a.lines.indexed)
@@ -66,13 +66,13 @@ Posted _instalments(Amendment a, ScheduleOf scheduleOf) {
         i,
   ];
   if (credits.length != 1) {
-    return const Refused('instalments.notOneAccount', Slots.instalments);
+    return const Refused(Refusals.instalmentsNotOneAccount, Slots.instalments);
   }
   final at = credits.single;
   final line = a.lines[at];
   final schedule = scheduleOf(line.account);
   if (schedule == null) {
-    return const Refused('instalments.noSchedule', Slots.instalments);
+    return const Refused(Refusals.instalmentsNoSchedule, Slots.instalments);
   }
   final pending = pendingInstalments(line.account);
   final amount = -line.amount;

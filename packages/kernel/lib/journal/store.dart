@@ -29,10 +29,21 @@ typedef AccountSum = ({int amount, int quantity});
 /// A sum by account and currency.
 typedef AccountSums = Map<(AccountId, CurrencyCode), AccountSum>;
 
+/// What the postings kept were posted from: by which version of the
+/// rules, and up to which change of the records. A mark that is not the
+/// rules' and the records' own says the postings are to be posted again.
+typedef JournalMark = ({int rules, int revision});
+
 /// Where the journal keeps intents' places, their postings, the sum of
 /// each month and the account tree. All of it can be thrown away and
 /// posted again from the records ([clear]).
 abstract interface class PostingStore {
+  /// The mark kept with the postings; null before any were posted.
+  JournalMark? get mark;
+
+  /// Keeps [mark], in the transaction under way when there is one.
+  void keepMark(JournalMark mark);
+
   /// Runs [body]; whatever it wrote is undone when it throws.
   T transaction<T>(T Function() body);
 

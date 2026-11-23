@@ -105,6 +105,7 @@ void main() {
         store.remove(const IntentId('a'));
         store.put(row('b', day(1, 2), 2), [p('b', 0, bank, 9, day(1, 2), 2)]);
         store.keepAccounts(const []);
+        store.keepMark((rules: 1, revision: 2));
         throw StateError('no');
       }),
       throwsStateError,
@@ -115,10 +116,13 @@ void main() {
     });
     expect(store.intent(const IntentId('b')), isNull);
     expect(store.accounts().length, 6);
+    expect(store.mark, isNull);
     expect(
       () => store.transaction(() => store.transaction(() => 1)),
       throwsStateError,
     );
+    store.keepMark((rules: 3, revision: 9));
+    expect(store.mark, (rules: 3, revision: 9));
   });
 
   test('streams, postings in book order and before a place', () {

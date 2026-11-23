@@ -2,6 +2,8 @@ import 'package:core/foundation_values.dart' show Currency;
 import 'package:domain/investments.dart';
 import 'package:kernel/kernel.dart';
 
+import '../model/vocabulary.dart';
+
 // A holding's lots read from its postings, and what a trade does to
 // them by the app's own lot arithmetic (packages/domain): nothing about
 // lots is worked out here but the way to and from postings.
@@ -143,9 +145,9 @@ Posted lotLines(
           ),
         );
       case TooFine():
-        return const Refused('quantity.tooFine');
+        return const Refused(Refusals.quantityTooFine);
       case TooLarge():
-        return const Refused('quantity.tooLarge');
+        return const Refused(Refusals.quantityTooLarge);
     }
   }
   return Lines(lines);

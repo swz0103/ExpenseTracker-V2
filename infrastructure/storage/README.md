@@ -8,14 +8,15 @@
 - 一個檔案、WAL、`synchronous=FULL`（0.21.0 起）：存檔回來時資料已經寫進磁碟，App 當掉或存完瞬間斷電都不會少。模擬器實測（`apps/expense_tracker/integration_test/bench_test.dart` 的 `keep_one`，2026-11-21）：每存一筆 NORMAL 約 0.15 ms、FULL 約 0.45～1.1 ms；最慢的 5% NORMAL 約 1 ms、FULL 約 1.0～1.3 ms，都遠低於一格畫面的 16.7 ms，所以寫入留在畫面的執行緒上。
 - `write` 是一個交易：全部寫入，或丟例外時全部不寫；每次寫入 `revision` 加一，備份用它判斷有沒有變動。
 - 一筆資料改內容時保留原本的順序（`seq`）。
+- 版面第 2 版（`createJournalTables`）：在同一個檔案裡加上分錄的資料表 `account`、`intent_index`（id、種類、日期、順序；內容仍在 `rows`，不重複）、`intent_stream`、`posting`、`month_sum`（與分錄在同一個交易內維護）。這些表都是**衍生**的：可以整批丟掉重建（`clear`），備份不帶（備份只讀 `rows`），被隔離的紀錄沒有分錄。`journal` 是 kernel 的 `PostingStore`；它記下自己由哪一版規則、紀錄的哪一個 `revision` 算出（`mark`，存在 `meta`，不算一次變動）。
 
 ## 對外入口
 
 | 入口 | 內容 |
 | --- | --- |
-| `storage.dart` | `EncryptedDatabase`（`open`、`write`、`revision`、`schema`）、`RowWriter`（`put`、`drop`）、`StoredRow`、`StorageKey`、`StorageUnavailable` |
+| `storage.dart` | `EncryptedDatabase`（`open`、`write`、`revision`、`schema`、`journal`）、`RowWriter`（`put`、`drop`）、`StoredRow`、`StorageKey`、`StorageUnavailable`、`SqlPostingStore` |
 | `bin/crash_worker.dart` | 「寫到一半被強制結束」的測試用，CI 會先編譯它 |
 
 ## 不做什麼
 
-- 不懂資料內容（JSON 由 App 解讀）；不管金鑰（在 `vault`）；結構只有一版，沒有 migration。
+- 不懂資料內容（JSON 由 App 解讀）；不懂分錄的意思（規則在 `packages/ledger/postings`）；不管金鑰（在 `vault`）。

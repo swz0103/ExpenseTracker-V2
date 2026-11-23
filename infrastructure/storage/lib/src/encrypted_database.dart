@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:sqlite3/sqlite3.dart';
 
+import 'journal_store.dart';
 import 'layout.dart';
 
 /// Why a store could not be opened. Never carries key material.
@@ -152,20 +153,27 @@ final class EncryptedDatabase {
 
   /// The layout this build writes: the tables, not what their rows hold.
   /// It is the number of steps in [_layout].
-  static const schema = 1;
+  static const schema = 2;
 
   /// The steps that bring a file's layout up, one version at a time:
   /// `_layout[n]` takes a file at version n to n + 1. A file is brought
   /// up by every step it lacks, all in one transaction, as it opens; a
   /// new file is at version 0. A change of layout adds a step here and
   /// raises [schema].
-  static const List<void Function(Database db)> _layout = [_createTables];
+  static const List<void Function(Database db)> _layout = [
+    _createTables,
+    createJournalTables,
+  ];
 
   /// The [meta] key the store keeps its [revision] under.
   static const _revision = 'revision';
 
   final Database _db;
   bool _closed = false;
+
+  /// The journal of postings kept beside the records, in this file and
+  /// derived from them ([createJournalTables]).
+  late final SqlPostingStore journal = SqlPostingStore(_db);
 
   String get journalMode =>
       '${_db.select('PRAGMA journal_mode').single.values.single}';
@@ -269,6 +277,7 @@ final class EncryptedDatabase {
   void close() {
     if (_closed) return;
     _closed = true;
+    journal.close();
     _db.close();
   }
 

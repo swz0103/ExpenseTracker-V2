@@ -48,8 +48,8 @@ void main() {
     // 3201 × 30% = 960.3 and × 70% = 2240.7: 960 and 2241.
     expect(shown(restated), [
       ('acct:usd', -1000, 'USD'),
-      ('cat:food', 960, 'TWD'),
-      ('cat:fees', 2241, 'TWD'),
+      ('cat:spending:food', 960, 'TWD'),
+      ('cat:spending:fees', 2241, 'TWD'),
       ('equity:trading', 1000, 'USD'),
       ('equity:trading', -3201, 'TWD'),
     ]);
@@ -90,7 +90,7 @@ void main() {
           slot: 'fx',
         ),
       ),
-      [('acct:bank', -1, 'TWD'), ('cat:food', 1, 'TWD')],
+      [('acct:bank', -1, 'TWD'), ('cat:spending:food', 1, 'TWD')],
     );
   });
 }

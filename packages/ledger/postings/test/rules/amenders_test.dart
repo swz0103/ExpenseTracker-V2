@@ -36,7 +36,7 @@ void main() {
       );
       expect(linesOf(b, 'meal'), [
         ('acct:usd', -2000, 'USD', 20260914),
-        ('cat:food', 650, 'TWD', 20260914),
+        ('cat:spending:food', 650, 'TWD', 20260914),
         ('equity:trading', 2000, 'USD', 20260914),
         ('equity:trading', -650, 'TWD', 20260914),
       ]);
@@ -104,7 +104,7 @@ void main() {
       expect(linesOf(b, 't'), [
         ('acct:usd', -1005, 'USD', 20260901), // 1000 + 5
         ('acct:bank', 32000, 'TWD', 20260901),
-        ('cat:fees', 5, 'TWD', 20260901),
+        ('cat:spending:fees', 5, 'TWD', 20260901),
         ('equity:trading', 1000, 'USD', 20260901),
         ('equity:trading', -32000, 'TWD', 20260901),
         ('equity:trading', 5, 'USD', 20260901),
@@ -149,7 +149,7 @@ void main() {
       );
       // 10001 = 3335 + 3333 + 3333, billed on the 20ths.
       expect(linesOf(b, 'tv'), [
-        ('cat:food', 10001, 'TWD', 20260914),
+        ('cat:spending:food', 10001, 'TWD', 20260914),
         ('acct:card:instalments', -10001, 'TWD', 20260914),
         ('acct:card:instalments', 3335, 'TWD', 20260920),
         ('acct:card', -3335, 'TWD', 20260920),

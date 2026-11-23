@@ -10,9 +10,9 @@ const usdCode = CurrencyCode('USD');
 final bank = moneyAccount('bank');
 final usd = moneyAccount('usd');
 final card = moneyAccount('card');
-final food = categoryAccount('food');
-final salary = categoryAccount('salary');
-final fees = categoryAccount('fees');
+final food = categoryAccount('food', income: false);
+final salary = categoryAccount('salary', income: true);
+final fees = categoryAccount('fees', income: false);
 final stock = holdingAccount('2330');
 
 Day day(int m, int d, [int y = 2026]) => Day.of(BusinessDate(y, m, d));

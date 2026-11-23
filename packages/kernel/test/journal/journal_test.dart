@@ -45,6 +45,35 @@ void main() {
     );
   });
 
+  test('what goes with a write is kept in its transaction, or not at all', () {
+    final b = book();
+    final mark = (rules: 1, revision: 7);
+    written(
+      b.journal.putAll([
+        Move('m', day(3, 1), 1, from: bank, to: food, amount: 5),
+      ], also: () => b.store.keepMark(mark)),
+    );
+    expect(b.store.mark, mark);
+    final refused = b.journal.putAll([
+      Move('n', day(3, 1), 2, from: bank, to: food, amount: -5),
+    ], also: () => b.store.keepMark((rules: 1, revision: 8)));
+    expect(refused, isA<RuleRejected>());
+    expect(b.store.mark, mark);
+    written(
+      b.journal.delete(
+        const IntentId('m'),
+        also: () => b.store.keepMark((rules: 1, revision: 9)),
+      ),
+    );
+    written(
+      b.journal.rematerialise(
+        'jar',
+        also: () => b.store.keepMark((rules: 1, revision: 10)),
+      ),
+    );
+    expect(b.store.mark, (rules: 1, revision: 10));
+  });
+
   test('an edit replaces the lines it had', () {
     final b = book();
     written(

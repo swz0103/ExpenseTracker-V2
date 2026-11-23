@@ -34,7 +34,12 @@ final class Journal {
   JournalResult put(LedgerIntent intent) => putAll([intent]);
 
   /// Keeps every intent of [intents] in one transaction: all, or none.
-  JournalResult putAll(Iterable<LedgerIntent> intents) => _write(() {
+  /// [also] writes what goes with them (a mark, accounts) in the same
+  /// transaction, once they are posted.
+  JournalResult putAll(
+    Iterable<LedgerIntent> intents, {
+    void Function()? also,
+  }) => _write(also, () {
     var posted = 0;
     var postings = 0;
     final stale = <IntentId>[];
@@ -48,23 +53,24 @@ final class Journal {
   });
 
   /// Takes the intent [id] and its postings away, and posts the later
-  /// intents of its streams again.
-  JournalResult delete(IntentId id) {
+  /// intents of its streams again; [also] as in [putAll].
+  JournalResult delete(IntentId id, {void Function()? also}) {
     final old = _store.intent(id);
     if (old == null) return IntentNotFound(id);
     // An intent nobody here can post is read only: what taking it away
     // would do to those after it, nobody here knows.
     if (registry[old.type] == null) return UnknownIntentType(id, old.type);
-    return _write(() {
+    return _write(also, () {
       _store.remove(id);
       return _materialise(streams: {...old.streams}, from: old.position);
     });
   }
 
   /// Posts every intent of [stream] again: for when something the rules
-  /// read that is not an intent changed, such as a card's closing day.
-  JournalResult rematerialise(String stream) =>
-      _write(() => _materialise(streams: {stream}, from: _start));
+  /// read that is not an intent changed, such as a card's closing day;
+  /// [also] as in [putAll].
+  JournalResult rematerialise(String stream, {void Function()? also}) =>
+      _write(also, () => _materialise(streams: {stream}, from: _start));
 
   WriteReport _put(LedgerIntent intent) {
     final spec = registry[intent.type];
@@ -112,9 +118,15 @@ final class Journal {
     );
   }
 
-  JournalResult _write(WriteReport Function() body) {
+  JournalResult _write(void Function()? also, WriteReport Function() body) {
     try {
-      return Written(_store.transaction(body));
+      return Written(
+        _store.transaction(() {
+          final report = body();
+          also?.call();
+          return report;
+        }),
+      );
     } on _Abort catch (abort) {
       return abort.refusal;
     }

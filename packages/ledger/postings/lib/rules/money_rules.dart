@@ -11,7 +11,7 @@ import '../model/vocabulary.dart';
 (CurrencyCode?, Refused?) _currencyOf(RuleContext context, AccountId account) {
   final currency = context.accounts[account]?.currency;
   return currency == null
-      ? (null, Refused('notAMoneyAccount', account.value))
+      ? (null, Refused(Refusals.notAMoneyAccount, account.value))
       : (currency, null);
 }
 
@@ -43,7 +43,7 @@ final class SpendingRule implements PostingRule<Spending> {
     final (currency, refused) = _currencyOf(context, i.account);
     if (currency == null) return refused!;
     if (i.parts.isEmpty || i.parts.any((p) => p.$2 < 0)) {
-      return const Refused('badAmount');
+      return const Refused(Refusals.badAmount);
     }
     final total = i.parts.fold(0, (sum, p) => sum + p.$2);
     return Lines([
@@ -64,7 +64,7 @@ final class EarningRule implements PostingRule<Earning> {
   Posted post(Earning i, RuleContext context) {
     final (currency, refused) = _currencyOf(context, i.account);
     if (currency == null) return refused!;
-    if (i.amount < 0) return const Refused('badAmount');
+    if (i.amount < 0) return const Refused(Refusals.badAmount);
     return Lines([
       Line(i.account, i.amount, currency),
       Line(i.category, -i.amount, currency),
@@ -85,11 +85,13 @@ final class TransferRule implements PostingRule<Transfer> {
     final (currency, refused) = _currencyOf(context, i.from);
     if (currency == null) return refused!;
     if (context.accounts[i.to]?.currency == null) {
-      return Refused('notAMoneyAccount', i.to.value);
+      return Refused(Refusals.notAMoneyAccount, i.to.value);
     }
-    if (i.amount < 0 || i.fee < 0) return const Refused('badAmount');
+    if (i.amount < 0 || i.fee < 0) return const Refused(Refusals.badAmount);
     final feeCategory = i.feeCategory;
-    if (i.fee > 0 && feeCategory == null) return const Refused('noFeeCategory');
+    if (i.fee > 0 && feeCategory == null) {
+      return const Refused(Refusals.noFeeCategory);
+    }
     return Lines([
       Line(i.from, -(i.amount + i.fee), currency),
       Line(i.to, i.amount, currency),

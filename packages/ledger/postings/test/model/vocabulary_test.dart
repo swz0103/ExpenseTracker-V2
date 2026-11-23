@@ -21,17 +21,8 @@ void main() {
   test('the accounts and streams by name', () {
     expect(moneyAccount('b').value, 'acct:b');
     expect(pendingInstalments(moneyAccount('c')).value, 'acct:c:instalments');
-    expect(categoryAccount('x').value, 'cat:x');
-    expect(
-      namedCategoryAccount('早餐', income: false).value,
-      'catname:spending:早餐',
-    );
-    expect(namedCategoryAccount('早餐', income: true).value, 'catname:income:早餐');
-    expect(crossedCategoryAccount('x', income: true).value, 'cat:x:as-income');
-    expect(
-      crossedCategoryAccount('x', income: false).value,
-      'cat:x:as-spending',
-    );
+    expect(categoryAccount('早餐', income: false).value, 'cat:spending:早餐');
+    expect(categoryAccount('早餐', income: true).value, 'cat:income:早餐');
     expect(holdingAccount('2330').value, 'holding:2330');
     expect(Streams.holding('2330'), 'holding:2330');
     expect(Streams.instalments(moneyAccount('c')), 'instalments:acct:c');

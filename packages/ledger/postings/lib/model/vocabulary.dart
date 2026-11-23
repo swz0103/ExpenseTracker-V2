@@ -49,19 +49,13 @@ AccountId moneyAccount(String id) => AccountId('acct:$id');
 AccountId pendingInstalments(AccountId account) =>
     AccountId('${account.value}:instalments');
 
-/// The account of the category kept as [id].
-AccountId categoryAccount(String id) => AccountId('cat:$id');
-
-/// The account of a category [name] no category of the book has (one
-/// deleted since), on the income side or the spending side.
-AccountId namedCategoryAccount(String name, {required bool income}) =>
-    AccountId('catname:${income ? 'income' : 'spending'}:$name');
-
-/// The account of the category [id] taken on the other side than its
-/// own, as old books do (income under a spending category): kept apart,
-/// so that each side reads as today.
-AccountId crossedCategoryAccount(String id, {required bool income}) =>
-    AccountId('cat:$id:as-${income ? 'income' : 'spending'}');
+/// The account of the category [name] on the income side or the
+/// spending side. By name, as the records name categories and the
+/// reports count them: a category deleted since keeps its account, and
+/// a name used on both sides (income under a spending category) is two
+/// accounts, each counted as today.
+AccountId categoryAccount(String name, {required bool income}) =>
+    AccountId('cat:${income ? 'income' : 'spending'}:$name');
 
 /// The account of the stock [code]'s shares.
 AccountId holdingAccount(String code) => AccountId('holding:$code');
@@ -138,6 +132,27 @@ abstract final class Streams {
   /// change of the schedule posts them again.
   static String instalments(AccountId account) =>
       'instalments:${account.value}';
+}
+
+/// The rules' own words for why an intent is refused ([Refused.code]).
+abstract final class Refusals {
+  static const notAMoneyAccount = 'notAMoneyAccount';
+  static const badAmount = 'badAmount';
+  static const noFeeCategory = 'noFeeCategory';
+  static const noHoldingAccount = 'noHoldingAccount';
+
+  /// A sale or reduction of more shares than are held before it.
+  static const oversold = 'oversold';
+  static const quantityTooFine = 'quantity.tooFine';
+  static const quantityTooLarge = 'quantity.tooLarge';
+  static const fxNeeded = 'fx.needed';
+  static const fxUnused = 'fx.unused';
+  static const fxBadAmount = 'fx.badAmount';
+  static const fxAmbiguous = 'fx.ambiguous';
+  static const fxBadValue = 'fx.badValue';
+  static const instalmentsCount = 'instalments.count';
+  static const instalmentsNotOneAccount = 'instalments.notOneAccount';
+  static const instalmentsNoSchedule = 'instalments.noSchedule';
 }
 
 /// The slots amendments are kept under.

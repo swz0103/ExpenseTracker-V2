@@ -2,6 +2,7 @@ import 'package:core/foundation_values.dart' show Currency, Money;
 import 'package:kernel/kernel.dart';
 
 import '../model/intents.dart';
+import '../model/vocabulary.dart';
 
 /// A line that is not in the currency it must be in, and the one it
 /// must be in: a money account's line in another currency than the
@@ -40,9 +41,9 @@ Posted restate(
 }) {
   final todo = misplaced(lines, accounts, home);
   if (todo.isEmpty) {
-    return value == null ? Lines(lines) : Refused('fx.unused', slot);
+    return value == null ? Lines(lines) : Refused(Refusals.fxUnused, slot);
   }
-  if (value == null) return Refused('fx.needed', slot);
+  if (value == null) return Refused(Refusals.fxNeeded, slot);
   final out = [...lines];
   final extra = <Line>[];
   void convert(List<Misplaced> some, int worth) {
@@ -50,7 +51,7 @@ Posted restate(
     final target = {for (final m in some) m.target};
     final signs = {for (final m in some) lines[m.index].amount.sign};
     if (source.length != 1 || target.length != 1 || signs.length != 1) {
-      throw const _Refusal('fx.ambiguous');
+      throw const _Refusal(Refusals.fxAmbiguous);
     }
     final sign = signs.single;
     final to = target.single;
@@ -81,22 +82,22 @@ Posted restate(
   try {
     switch (value) {
       case Worth(:final amount):
-        if (amount <= 0) return Refused('fx.badAmount', slot);
+        if (amount <= 0) return Refused(Refusals.fxBadAmount, slot);
         // One value cannot say both what a transfer received and what
         // its fee was worth.
         if ({for (final m in todo) m.money}.length != 1) {
-          return Refused('fx.ambiguous', slot);
+          return Refused(Refusals.fxAmbiguous, slot);
         }
         convert(todo, amount);
       case SameNumber():
         todo.forEach(sameNumber);
       case ReceivedFeeSameNumber(:final received):
-        if (received <= 0) return Refused('fx.badAmount', slot);
+        if (received <= 0) return Refused(Refusals.fxBadAmount, slot);
         final money = [
           for (final m in todo)
             if (m.money) m,
         ];
-        if (money.isEmpty) return Refused('fx.unused', slot);
+        if (money.isEmpty) return Refused(Refusals.fxUnused, slot);
         convert(money, received);
         todo.where((m) => !m.money).forEach(sameNumber);
     }

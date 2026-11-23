@@ -16,7 +16,7 @@ import '../model/vocabulary.dart';
 (CurrencyCode?, Refused?) _holdingCurrency(RuleContext context, String code) {
   final currency = context.accounts[holdingAccount(code)]?.currency;
   return currency == null
-      ? (null, Refused('noHoldingAccount', code))
+      ? (null, Refused(Refusals.noHoldingAccount, code))
       : (currency, null);
 }
 
@@ -102,7 +102,7 @@ final class SellRule implements PostingRule<Sell> {
       i.shares,
       average: i.average,
     );
-    if (sold == null) return Refused('oversold', i.code);
+    if (sold == null) return Refused(Refusals.oversold, i.code);
     final got = settlementAmount(
       TradeKind.sell,
       gross: i.gross,
@@ -133,7 +133,9 @@ final class DividendRule implements PostingRule<Dividend> {
     final currency = context.accounts[i.cash]?.currency == null
         ? null
         : homeCurrency;
-    if (currency == null) return Refused('notAMoneyAccount', i.cash.value);
+    if (currency == null) {
+      return Refused(Refusals.notAMoneyAccount, i.cash.value);
+    }
     final cash = _cash(i, currency);
     if (i.shares == 0) return Lines(cash);
     final (held, refused) = _holdingCurrency(context, i.code);
@@ -183,7 +185,7 @@ final class DividendRule implements PostingRule<Dividend> {
     CurrencyCode currency,
     Line Function(int) realised,
   ) {
-    if (-i.shares > had) return Refused('oversold', i.code);
+    if (-i.shares > had) return Refused(Refusals.oversold, i.code);
     final holding = holdingAccount(i.code);
     final back = settlementAmount(TradeKind.capitalReturn, gross: i.gross);
     final left = had + i.shares;
@@ -240,7 +242,7 @@ final class OutOfHoldingsRule implements PostingRule<OutOfHoldings> {
   @override
   Posted post(OutOfHoldings i, RuleContext context) {
     if (context.accounts[i.cash]?.currency == null) {
-      return Refused('notAMoneyAccount', i.cash.value);
+      return Refused(Refusals.notAMoneyAccount, i.cash.value);
     }
     return Lines([
       Line(i.cash, i.settlement, homeCurrency),

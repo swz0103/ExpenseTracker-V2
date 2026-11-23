@@ -16,7 +16,18 @@ final class MemoryPostingStore implements PostingStore {
   final _months = <int, AccountSums>{};
   var _accounts = <LedgerAccount>[];
   var _count = 0;
+  JournalMark? _mark;
   List<void Function()>? _undo;
+
+  @override
+  JournalMark? get mark => _mark;
+
+  @override
+  void keepMark(JournalMark mark) {
+    final before = _mark;
+    _undo?.add(() => _mark = before);
+    _mark = mark;
+  }
 
   @override
   T transaction<T>(T Function() body) {

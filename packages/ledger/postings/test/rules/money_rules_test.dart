@@ -40,8 +40,8 @@ void main() {
     );
     expect(linesOf(b, 's'), [
       ('acct:bank', -900, 'TWD', 20260902), // 600 + 300
-      ('cat:food', 600, 'TWD', 20260902),
-      ('cat:fees', 300, 'TWD', 20260902),
+      ('cat:spending:food', 600, 'TWD', 20260902),
+      ('cat:spending:fees', 300, 'TWD', 20260902),
     ]);
   });
 
@@ -71,7 +71,7 @@ void main() {
     );
     expect(linesOf(b, 'pay'), [
       ('acct:bank', 52000, 'TWD', 20260901),
-      ('cat:salary', -52000, 'TWD', 20260901),
+      ('cat:income:salary', -52000, 'TWD', 20260901),
     ]);
     // A refund lowers the spending of its category.
     expect(b.reader.month(day(9, 1)).spending, {food: -1000});
@@ -96,7 +96,7 @@ void main() {
     expect(linesOf(b, 't'), [
       ('acct:bank', -1015, 'TWD', 20260903), // 1000 + 15
       ('acct:card', 1000, 'TWD', 20260903),
-      ('cat:fees', 15, 'TWD', 20260903),
+      ('cat:spending:fees', 15, 'TWD', 20260903),
     ]);
   });
 
@@ -114,7 +114,7 @@ void main() {
           parts: [(food, 1)],
         ),
       );
-      expect((r.code, r.detail), ('notAMoneyAccount', 'cat:food'));
+      expect((r.code, r.detail), ('notAMoneyAccount', 'cat:spending:food'));
       expect(
         refused(
           OpeningBalance(
@@ -163,7 +163,7 @@ void main() {
             amount: 1,
           ),
         ).detail,
-        'cat:food',
+        'cat:spending:food',
       );
     });
 
