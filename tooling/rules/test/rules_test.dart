@@ -100,8 +100,7 @@ void main() {
         run(rule, {
           'packages/core/lib/src/a.dart':
               "import 'dart:math';\nint f(DateTime d) => d.year;\n",
-          'packages/core/lib/time/clock.dart':
-              'final a = DateTime.now();\n',
+          'packages/core/lib/time/clock.dart': 'final a = DateTime.now();\n',
           'packages/core/test/a_test.dart': 'final a = DateTime.now();\n',
         }),
         isEmpty,
