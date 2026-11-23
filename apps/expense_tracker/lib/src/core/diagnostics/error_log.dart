@@ -1,55 +1,163 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show debugPrint, kReleaseMode;
+import 'package:flutter/foundation.dart'
+    show debugPrint, kReleaseMode, visibleForTesting;
 import 'package:flutter/services.dart' show PlatformException;
 
+import '../messages/diagnostics_messages.dart';
 import '../time/app_clock.dart';
 
+/// One fault kept: when it first happened, what did not work with the
+/// cleaned error, where in the code (cleaned stack frames), and how many
+/// times in a row it happened.
+final class _Problem {
+  _Problem(this.at, this.words, this.frames);
+
+  final DateTime at;
+  final String words;
+  final List<String> frames;
+
+  /// How many times in a row this same fault was recorded.
+  var times = 1;
+
+  /// The words shown: the fault, and how often when more than once.
+  String get shown => times > 1 ? '$words ×$times' : words;
+
+  bool same(String otherWords, List<String> otherFrames) {
+    if (words != otherWords || frames.length != otherFrames.length) {
+      return false;
+    }
+    for (var i = 0; i < frames.length; i++) {
+      if (frames[i] != otherFrames[i]) return false;
+    }
+    return true;
+  }
+}
+
 /// What did not work, kept for 設定 › 關於 › 診斷 so a fault can be seen and
-/// exported instead of passing unseen. Only an error's type and a short
-/// message cleaned of anything the person wrote are kept (names, notes,
-/// amounts, paths), and nothing is printed in a release build.
+/// exported instead of passing unseen. Of an error only its type, a short
+/// message cleaned of anything the person wrote (names, notes, amounts,
+/// paths) and the top of its stack (function names and source lines of
+/// the app's own code, nothing else) are kept, and nothing is printed in a
+/// release build.
+///
+/// Recording costs the caller no file work: a fault is kept in memory at
+/// once and written a little later ([flushDelay]) with the others of that
+/// moment, appended to the file by the I/O threads. A crash loses at most
+/// what was recorded in the last [flushDelay] before it; [flush] is asked
+/// for when the app is left and after a fault nobody caught, which
+/// narrows that further. The file is bounded: past [maxFileBytes] it is
+/// put aside as `<name>.1` (replacing the one before) and started again,
+/// so at most two files of that size exist.
 final class ErrorLog {
   ErrorLog._();
 
+  /// A log of its own, apart from the app's: for tests.
+  @visibleForTesting
+  ErrorLog.detached();
+
   static final instance = ErrorLog._();
 
-  /// Background work that did not finish, oldest first: what it was and
-  /// when.
-  final _problems = <(DateTime, String)>[];
+  /// The most problems kept in memory, shown and exported.
+  static const kept = 50;
+
+  /// The longest message kept of an error, in characters.
+  static const longestMessage = 120;
+
+  /// The most stack frames kept of one error.
+  static const maxFrames = 8;
+
+  /// The most characters kept of one error's stack, all frames together.
+  static const maxStackChars = 1000;
+
+  /// How long a problem may wait in memory before it is written: what a
+  /// crash can lose.
+  static const flushDelay = Duration(seconds: 2);
+
+  /// The size past which the file is put aside and started again.
+  static const maxFileBytes = 128 * 1024;
+
+  /// Background work that did not finish, oldest first.
+  final _problems = <_Problem>[];
 
   /// Where problems are kept across launches; none keeps them in memory.
   File? _log;
 
-  /// The most problems kept.
-  static const _kept = 50;
+  /// The lines not yet in the file, oldest first.
+  final _pending = <String>[];
+
+  /// The last problem's count changed since it was last written.
+  var _repeated = false;
+
+  /// The size of the file as last written; null until it is asked.
+  int? _size;
+
+  /// The wait before the next write; null when nothing waits.
+  Timer? _timer;
+
+  /// The writes asked for so far, one after another.
+  Future<void> _writing = Future.value();
+
+  /// A failed write is being noted: nothing new is scheduled for it.
+  var _noting = false;
+
+  /// The file the one before [log] is put aside as.
+  static File _aside(File log) => File('${log.path}.1');
+
+  /// Marks a line that says how often the problem before it happened.
+  static const _times = '×';
 
   /// Keeps problems in [file] from now on, and brings back those kept
   /// there before, so a fault before a crash can still be exported.
   void keepIn(File file) {
+    _timer?.cancel();
+    _timer = null;
+    _pending.clear();
+    _repeated = false;
+    _size = null;
     _log = file;
+    final before = <_Problem>[];
     try {
-      if (!file.existsSync()) return;
-      for (final line in file.readAsLinesSync()) {
-        final tab = line.indexOf('\t');
-        final at = tab < 0 ? null : DateTime.tryParse(line.substring(0, tab));
-        if (at == null) continue;
-        _problems.add((at, _cleanKept(line.substring(tab + 1))));
+      for (final part in [_aside(file), file]) {
+        if (!part.existsSync()) continue;
+        for (final line in part.readAsLinesSync()) {
+          final fields = line.split('\t');
+          final at = DateTime.tryParse(fields.first);
+          if (at == null || fields.length < 2) continue;
+          if (fields[1] == _times) {
+            final times = fields.length > 2 ? int.tryParse(fields[2]) : null;
+            if (times != null && before.isNotEmpty) before.last.times = times;
+            continue;
+          }
+          before.add(
+            _Problem(at, _cleanKept(fields[1]), [
+              for (final frame in fields.skip(2).take(maxFrames))
+                ?_frame(frame),
+            ]),
+          );
+        }
       }
-      _trim();
-    } on Object {
-      // An unreadable log starts again.
+    } on Object catch (error) {
+      // An unreadable log starts again, and says so.
+      record(DiagnosticsMessages.logFile, error);
     }
+    // Those of earlier runs are older than any of this one.
+    _problems.insertAll(0, before);
+    _trim();
   }
 
   void _trim() {
-    if (_problems.length > _kept) {
-      _problems.removeRange(0, _problems.length - _kept);
+    if (_problems.length > kept) {
+      _problems.removeRange(0, _problems.length - kept);
+    }
+    // Lines that left memory before they were written are not worth
+    // writing: the file never waits on more than memory holds.
+    if (_pending.length > kept) {
+      _pending.removeRange(0, _pending.length - kept);
     }
   }
-
-  /// The longest message kept of an error.
-  static const _longest = 120;
 
   /// What is kept of [error]: its type and a short message, cleaned of
   /// what could be the person's own words (names, notes, amounts) or file
@@ -80,7 +188,7 @@ final class ErrorLog {
   }
 
   /// One line of [text], without quoted words, paths, numbers or anything
-  /// outside plain ASCII, at most [_longest] characters.
+  /// outside plain ASCII, at most [longestMessage] characters.
   static String _clean(String text) {
     var line = text.split('\n').first;
     line = line
@@ -89,40 +197,158 @@ final class ErrorLog {
         .replaceAll(_foreign, '…')
         .replaceAll(_digits, '#')
         .trim();
-    if (line.length > _longest) line = '${line.substring(0, _longest)}…';
+    if (line.length > longestMessage) {
+      line = '${line.substring(0, longestMessage)}…';
+    }
     return line;
   }
 
+  // `#3      Ledger.save.<anonymous closure> (package:app/x.dart:12:5)`.
+  static final _symbolic = RegExp(
+    r'^#(\d+) (.+) \(([^()\s]+?)((?::\d+){0,2})\)$',
+  );
+  // A name in code: letters, digits and what marks closures and generics.
+  static final _member = RegExp(r'^[\w$.<>,\[\] ]+$');
+  static final _library = RegExp(r'^(?:package|dart):[\w./\-]+$');
+  static final _fileName = RegExp(r'^[\w.\-]+$');
+  // A release build has addresses for `flutter symbolize`, no names:
+  // `#00 abs 0000007b1c virt 00000000001a2b3c _kDartIsolateSnapshotInstructions+0x1f2c`.
+  static final _address = RegExp(
+    r'^#\d+ abs [0-9a-f]+(?: virt [0-9a-f]+)? [\w.]+\+0x[0-9a-f]+$',
+  );
+
+  /// One stack frame as it is kept, or null for a line that is not one.
+  /// Only what code is made of passes: a function's name, and its source
+  /// as `package:` or `dart:` with the line; a file elsewhere on a disk
+  /// (a test run) keeps its name only, never its folders. A release
+  /// build's frame is addresses, kept as they are.
+  static String? _frame(String raw) {
+    final line = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (_address.hasMatch(line)) return line;
+    final match = _symbolic.firstMatch(line);
+    if (match == null) return null;
+    final member = match[2]!;
+    if (!_member.hasMatch(member)) return null;
+    var source = match[3]!;
+    if (!_library.hasMatch(source)) {
+      source = source.split(RegExp(r'[/\\]')).last;
+      if (!_fileName.hasMatch(source)) return null;
+    }
+    return '#${match[1]} $member ($source${match[4]})';
+  }
+
+  /// The top of [stack] as it is kept: at most [maxFrames] frames and
+  /// [maxStackChars] characters, without the log's own frames.
+  static List<String> frames(StackTrace stack) {
+    final found = <String>[];
+    var length = 0;
+    for (final raw in '$stack'.split('\n')) {
+      final frame = _frame(raw);
+      if (frame == null || frame.contains('/diagnostics/error_log.dart')) {
+        continue;
+      }
+      if (found.length == maxFrames || length + frame.length > maxStackChars) {
+        break;
+      }
+      found.add(frame);
+      length += frame.length;
+    }
+    return found;
+  }
+
   /// Keeps that [what] did not work, for 設定 › 關於 › 診斷, rather than letting
-  /// it pass unseen. Only the error's type and a cleaned message are kept,
-  /// and nothing is printed in a release build.
-  void record(String what, Object error) {
+  /// it pass unseen: the error's type, a cleaned message and the top of
+  /// its [stack]. Without one, an [Error]'s own is used, and failing that
+  /// where this was called from, which is where it was caught. Nothing is
+  /// printed in a release build, and nothing is written before this
+  /// returns.
+  void record(String what, Object error, [StackTrace? stack]) {
     if (!kReleaseMode) debugPrint('$what: $error');
     final words = '$what：${describe(error)}';
-    final at = AppClock.now();
-    _problems.add((at, words));
-    _trim();
+    final where = frames(
+      stack ?? (error is Error ? error.stackTrace : null) ?? StackTrace.current,
+    );
+    final last = _problems.isEmpty ? null : _problems.last;
+    if (last != null && last.same(words, where)) {
+      // The same again, as from a screen that fails each time it is
+      // drawn: counted, not kept anew, so it does not push the others out.
+      last.times++;
+      _repeated = true;
+    } else {
+      _writeTimes();
+      final at = AppClock.now();
+      _problems.add(_Problem(at, words, where));
+      if (_log != null) {
+        _pending.add([at.toIso8601String(), words, ...where].join('\t'));
+      }
+      _trim();
+    }
+    if (_log == null || _noting) return;
+    _timer ??= Timer(flushDelay, () => unawaited(flush()));
+  }
+
+  /// Puts how often the last problem happened among the lines to write.
+  void _writeTimes() {
+    if (!_repeated || _problems.isEmpty) return;
+    _repeated = false;
+    if (_log == null) return;
+    final last = _problems.last;
+    _pending.add(
+      [AppClock.now().toIso8601String(), _times, '${last.times}'].join('\t'),
+    );
+  }
+
+  /// Writes what waits in memory to the file now, as when the app is
+  /// left. Done when it is written, or could not be.
+  Future<void> flush() {
+    _timer?.cancel();
+    _timer = null;
+    return _writing = _writing.then((_) => _write());
+  }
+
+  Future<void> _write() async {
     final log = _log;
     if (log == null) return;
+    _writeTimes();
+    if (_pending.isEmpty) return;
+    final lines = List.of(_pending);
+    _pending.clear();
     try {
-      log.writeAsStringSync(
-        [for (final (t, w) in _problems) '${t.toIso8601String()}\t$w']
-            .join('\n'),
-        flush: true,
-      );
-    } on Object {
-      // Kept in memory for this run.
+      final bytes = utf8.encode([for (final line in lines) '$line\n'].join());
+      var size = _size ?? (await log.exists() ? await log.length() : 0);
+      if (size > 0 && size + bytes.length > maxFileBytes) {
+        await log.rename(_aside(log).path);
+        size = 0;
+      }
+      await log.writeAsBytes(bytes, mode: FileMode.append, flush: true);
+      // Only when the file is still the one written to.
+      if (identical(log, _log)) _size = size + bytes.length;
+    } on Object catch (error) {
+      // Kept in memory; the next problem's write takes these with it.
+      if (!identical(log, _log)) return;
+      _pending.insertAll(0, lines);
+      _size = null;
+      _noting = true;
+      record(DiagnosticsMessages.logFile, error);
+      _noting = false;
     }
   }
 
-  /// The problems kept, newest first.
-  List<(DateTime, String)> get entries => _problems.reversed.toList();
+  /// The problems kept, newest first: when, and what with its error.
+  List<(DateTime, String)> get entries => [
+    for (final p in _problems.reversed) (p.at, p.shown),
+  ];
 
   /// How many problems are kept.
   int get count => _problems.length;
 
-  /// Each problem kept as one line of text, newest first, to export.
-  String get text =>
-      [for (final (at, what) in entries) '${at.toIso8601String()}  $what']
-          .join('\n');
+  /// Each problem kept, newest first, to export: one line of when and
+  /// what, then its stack frames, indented. Everything recorded so far is
+  /// here, written to the file yet or not.
+  String get text => [
+    for (final p in _problems.reversed) ...[
+      '${p.at.toIso8601String()}  ${p.shown}',
+      for (final frame in p.frames) '    $frame',
+    ],
+  ].join('\n');
 }

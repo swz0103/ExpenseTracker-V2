@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/widgets.dart';
 
 import 'src/features/backup/model/file_cleanup.dart';
@@ -11,6 +10,8 @@ import 'src/app/platform.dart';
 import 'src/core/platform/preferences.dart';
 import 'src/core/platform/screen_privacy.dart';
 import 'src/core/diagnostics/error_log.dart';
+import 'src/core/diagnostics/unhandled_errors.dart';
+import 'src/core/design_system/feedback.dart';
 import 'src/app/android/clipboard_adapter.dart';
 import 'src/app/android/haptics_adapter.dart';
 import 'src/core/design_system/haptics.dart';
@@ -25,17 +26,9 @@ Future<void> main() async {
   final directory = await applicationDirectory();
   // Faults are kept on the phone, so 設定 can export them after a crash.
   ErrorLog.instance.keepIn(File('${directory.path}/diagnostics.log'));
-  FlutterError.onError = (details) {
-    // A release build only keeps the cleaned record (perf.dart): the full
-    // report would go to the phone's system log, possibly with the
-    // person's own words in it.
-    if (!kReleaseMode) FlutterError.presentError(details);
-    ErrorLog.instance.record('畫面錯誤', details.exception);
-  };
-  WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
-    ErrorLog.instance.record('未預期的錯誤', error);
-    return true;
-  };
+  // A fault nothing catches is kept with its stack; a release build tells
+  // the person once, any other shows it to the developer.
+  UnhandledErrors(log: ErrorLog.instance, tell: showNoteAnywhere).install();
   final device = Platform.isAndroid
       ? await androidDeviceUnlock(directory)
       : null;

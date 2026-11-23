@@ -6,6 +6,11 @@ import 'theme.dart';
 import 'keys.dart';
 import 'shape.dart';
 
+/// The app's one place for notes at the bottom (`MaterialApp`'s
+/// `scaffoldMessengerKey`), so one can be shown from where there is no
+/// screen at hand: [showNoteAnywhere].
+final appMessenger = GlobalKey<ScaffoldMessengerState>();
+
 /// Short feedback at the bottom, with an optional action.
 void showNote(
   BuildContext context,
@@ -13,9 +18,33 @@ void showNote(
   String? action,
   VoidCallback? onAction,
   String? spoken,
+}) => _note(
+  ScaffoldMessenger.of(context),
+  message,
+  action: action,
+  onAction: onAction,
+  spoken: spoken,
+);
+
+/// [showNote] from code that has no screen of its own, such as what
+/// answers a fault nobody caught: said over whatever screen is open.
+/// False when the app has nowhere to say it yet.
+bool showNoteAnywhere(String message) {
+  final messenger = appMessenger.currentState;
+  if (messenger == null) return false;
+  _note(messenger, message);
+  return true;
+}
+
+void _note(
+  ScaffoldMessengerState messenger,
+  String message, {
+  String? action,
+  VoidCallback? onAction,
+  String? spoken,
 }) {
   final act = onAction;
-  ScaffoldMessenger.of(context)
+  messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
