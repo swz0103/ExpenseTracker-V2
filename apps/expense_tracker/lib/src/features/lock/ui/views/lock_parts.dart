@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/design_system/app_mark.dart';
 import '../../../../core/design_system/theme.dart';
 import '../../../../core/design_system/components/buttons.dart';
+import '../../../../core/design_system/keys.dart';
 import '../../../../core/design_system/shape.dart';
 import '../../../../core/design_system/spacing.dart';
 
@@ -21,9 +22,14 @@ class LockForm extends StatelessWidget {
     required this.busy,
     required this.onSubmit,
     this.problem,
+    this.waiting,
     this.extras = const [],
     this.actionKey,
   });
+
+  /// Said in place of [problem] while the form may not be sent: the wait
+  /// after too many wrong tries. The main button is off meanwhile.
+  final String? waiting;
 
   final String title;
   final String hint;
@@ -73,11 +79,14 @@ class LockForm extends StatelessWidget {
             ],
           ),
         ),
-        ProblemLine(problem),
+        if (waiting case final waiting?)
+          ProblemLine(waiting, key: Keys.unlockWait)
+        else
+          ProblemLine(problem),
         const SizedBox(height: Space.s4),
         FilledButton(
           key: actionKey,
-          onPressed: busy ? null : onSubmit,
+          onPressed: busy || waiting != null ? null : onSubmit,
           style: solidButton(
             AppColors.accent,
             minimumSize: Size.fromHeight(48),

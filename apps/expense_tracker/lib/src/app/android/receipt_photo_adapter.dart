@@ -7,6 +7,7 @@ import 'package:vault/backup_security.dart';
 
 import '../../features/entries/model/receipt_photos.dart';
 import 'platform_channel.dart';
+import '../../core/platform/errands.dart';
 import '../../core/time/app_clock.dart';
 
 /// Receipt photos in the app's private `receipts` folder, each sealed
@@ -23,7 +24,11 @@ final class AndroidReceipts implements ReceiptPhotos {
 
   @override
   Future<String?> take({required bool camera}) async => _seal(
-    await platformChannel.invokeMethod<String>('takePhoto', {'camera': camera}),
+    // The camera and the album are trips out of the app.
+    await Errands.run(
+      () =>
+          platformChannel.invokeMethod<String>('takePhoto', {'camera': camera}),
+    ),
   );
 
   @override

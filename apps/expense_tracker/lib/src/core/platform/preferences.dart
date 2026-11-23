@@ -43,6 +43,42 @@ enum WidgetFigures {
   final String label;
 }
 
+/// 自動上鎖: how long the app may be off the screen before a ledger with a
+/// password asks for it again. The one table of the choices; [standard]
+/// until the person picks another.
+enum AutoLock {
+  immediately('立即', Duration.zero),
+  oneMinute('1 分鐘', Duration(minutes: 1)),
+  fiveMinutes('5 分鐘', Duration(minutes: 5)),
+  fifteenMinutes('15 分鐘', Duration(minutes: 15)),
+  never('不自動上鎖', null);
+
+  const AutoLock(this.label, this.after);
+
+  final String label;
+
+  /// How long away locks the ledger; null for never while the app stays
+  /// open (a closed app always asks again).
+  final Duration? after;
+
+  /// The choice a ledger has until another is made.
+  static const standard = fiveMinutes;
+
+  /// The least time away that locks the ledger while the app itself sent
+  /// the person elsewhere for a moment (the camera for a receipt, a file
+  /// chooser, Google's sign-in), so a shorter choice does not close the
+  /// form being filled in.
+  static const errand = Duration(minutes: 5);
+
+  /// How long away locks the ledger under this choice; [onErrand] when
+  /// the app itself sent the person away. Null for never.
+  Duration? limit({required bool onErrand}) {
+    final after = this.after;
+    if (after == null) return null;
+    return onErrand && after < errand ? errand : after;
+  }
+}
+
 /// How this phone shows the app: colours, taps felt, notifications. Kept
 /// beside the ledger in a file of its own, so it holds from the lock
 /// screen on; the preview keeps it in memory.
@@ -97,6 +133,10 @@ final class Preferences extends ChangeNotifier {
       );
       _brokerDiscount = _discountIn(
         json.whole('brokerDiscount') ?? defaultBrokerDiscount,
+      );
+      _autoLock = AutoLock.values.firstWhere(
+        (a) => a.name == json.text('autoLock'),
+        orElse: () => AutoLock.standard,
       );
     } on Object catch (error, stack) {
       // An unreadable file leaves the defaults.
@@ -195,6 +235,11 @@ final class Preferences extends ChangeNotifier {
   /// home screen is seen by anyone holding the phone.
   WidgetFigures get widgetFigures => _widgetFigures;
   var _widgetFigures = WidgetFigures.off;
+
+  /// How long away locks a ledger with a password; read by the lock gate
+  /// each time the app comes back.
+  AutoLock get autoLock => _autoLock;
+  var _autoLock = AutoLock.standard;
 
   /// The broker's discount on the fee a trade suggests, in basis points of
   /// the full fee: 6000 for 6折, 2800 for 2.8折, 10000 for none. The one
@@ -320,6 +365,7 @@ final class Preferences extends ChangeNotifier {
     bool? updateChecks,
     bool? budgetAlerts,
     int? brokerDiscount,
+    AutoLock? autoLock,
   }) {
     _appearance = appearance ?? _appearance;
     _vibration = vibration ?? _vibration;
@@ -338,6 +384,7 @@ final class Preferences extends ChangeNotifier {
     _updateChecks = updateChecks ?? _updateChecks;
     _budgetAlerts = budgetAlerts ?? _budgetAlerts;
     _brokerDiscount = _discountIn(brokerDiscount ?? _brokerDiscount);
+    _autoLock = autoLock ?? _autoLock;
     notifyListeners();
     _save();
   }
@@ -381,6 +428,7 @@ final class Preferences extends ChangeNotifier {
           'updateLaterUntil': _updateLaterUntil?.toUtc().toIso8601String(),
           'updateSkipped': _updateSkipped,
           'brokerDiscount': _brokerDiscount,
+          'autoLock': _autoLock.name,
         }),
         flush: true,
       );

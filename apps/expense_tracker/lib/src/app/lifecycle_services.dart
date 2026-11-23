@@ -16,7 +16,6 @@ import 'platform.dart';
 import '../core/diagnostics/error_log.dart';
 import '../core/ledger/ledger.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
-import '../core/platform/away_clock.dart';
 import '../core/time/app_clock.dart';
 import '../core/platform/distribution.dart';
 import '../core/platform/preferences.dart';
@@ -40,8 +39,9 @@ import '../features/settings/model/app_update.dart';
 /// What runs beside an open ledger for as long as the app is: closing
 /// prices, the calendar, notifications and the home-screen widget follow
 /// it; backups are taken and left for the background job; newer versions
-/// are looked for; and the ledger locks after a while away. Most of it is
-/// Android's; elsewhere only the ledger's own backups and prices run.
+/// are looked for. Most of it is Android's; elsewhere only the ledger's
+/// own backups and prices run. Locking after a while away is not here:
+/// the lock gate decides it (core/platform/lock_gate.dart).
 ///
 /// The screens are reached only through [say] and [offerUpdate], so a
 /// test can run it without them.
@@ -54,9 +54,7 @@ final class LifecycleServices {
     required this.offerUpdate,
     this.android = false,
     MarketTransport? transport,
-    AwayClock? awayClock,
-  }) : _transport = transport ?? const IoMarketTransport(),
-       _awayClock = awayClock ?? AwayClock();
+  }) : _transport = transport ?? const IoMarketTransport();
 
   /// Where closing prices and rates are asked for: the network, or a fake
   /// in tests.
@@ -75,13 +73,7 @@ final class LifecycleServices {
   /// Offers a newer version found.
   final Future<void> Function(AppUpdate update) offerUpdate;
 
-  /// How long the app may sit in the background before the ledger locks.
-  static const away = Duration(minutes: 5);
-
   Directory get _directory => startup.directory;
-
-  /// How long the app was away, by a clock that cannot be set back.
-  final AwayClock _awayClock;
 
   /// On Android, the day lists the background job keeps (`MarketWorker`),
   /// read before the network.
@@ -227,28 +219,18 @@ final class LifecycleServices {
     _homeWidget?.follow(widgetBookOf(ledger));
   }
 
-  /// The app was left: the clock starts, and the backup is left for the
-  /// background job.
-  Future<void> paused() async {
-    _awayClock.leave();
-    await prepareOutbox();
-  }
+  /// The app was left: the backup is left for the background job.
+  Future<void> paused() => prepareOutbox();
 
-  /// The app came back: prices and versions are looked for again, what
-  /// the background job did is noted, and the ledger locks after [away]
-  /// or more (unless it has no password). True when it locked.
-  Future<bool> resumed() async {
+  /// The app came back and the ledger stays open: prices and versions are
+  /// looked for again, and what the background job did is noted.
+  void resumed() {
     _market?.refresh().ignore();
     unawaited(checkUpdate());
     if (_ledger != null) {
       collectOutbox();
       unawaited(phoneBackup());
     }
-    if (_awayClock.back(away) && !startup.passwordless) {
-      await backupManager.lock();
-      return true;
-    }
-    return false;
   }
 
   /// Takes the weekly backup, then sends one to Google Drive when linked;

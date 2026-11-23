@@ -58,9 +58,16 @@ Future<void> main() async {
   );
   runApp(
     VaultRoot(
-      startup: productionStartup(directory, device: device),
+      startup: productionStartup(
+        directory,
+        device: device,
+        uptime: Platform.isAndroid ? androidUptime : null,
+      ),
       privacy: privacy,
       preferences: preferences,
+      // Shortcuts, the widget and notifications go through the lock gate.
+      quick: Platform.isAndroid ? quickAction : null,
+      leave: Platform.isAndroid ? androidMoveToBack : null,
     ),
   );
   // After the first frame is asked for, so the opening is not kept

@@ -20,7 +20,12 @@ class PasswordField extends StatefulWidget {
     this.onSubmitted,
     this.boxed = false,
     this.plain = false,
+    this.enabled = true,
   });
+
+  /// Whether it can be typed into; not while the lock screen makes the
+  /// person wait.
+  final bool enabled;
 
   final TextEditingController controller;
   final String hint;
@@ -54,6 +59,7 @@ class _PasswordFieldState extends State<PasswordField> {
     final submit = widget.onSubmitted;
     final field = TextField(
       controller: widget.controller,
+      enabled: widget.enabled,
       obscureText: hidden && !_shown,
       autocorrect: false,
       enableSuggestions: false,

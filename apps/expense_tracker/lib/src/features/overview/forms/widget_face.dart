@@ -12,13 +12,10 @@ import '../../../core/design_system/spacing.dart';
 import '../../../../design_system/display/date.dart';
 import '../../../core/formatting/words.dart';
 import '../../../core/formatting/json_fields.dart';
+import '../../../core/messages/widget_messages.dart';
 
-/// What the widget shows with no figures chosen, as SummaryWidget.kt does.
-const _empty = <String, Object?>{
-  'title': '記帳本',
-  'figure': '本月概況',
-  'detail': '到 設定 › 外觀 選擇要顯示的數字',
-};
+/// What the widget shows with no figure to show: the one face of it.
+const _empty = hiddenWidgetFace;
 
 /// The widget's small grey words: the budget line and the week's days.
 final _note = _text(10.5, WidgetColors.muted);

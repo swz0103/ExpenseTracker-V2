@@ -1,12 +1,17 @@
 import 'dart:io';
 
+import 'package:core/app_core.dart' show FixedClock;
 import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:core/foundation_values.dart';
+import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
+import 'package:expense_tracker/src/core/time/app_clock.dart';
+import 'package:expense_tracker/src/features/lock/ui/views/lock_parts.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
 import 'package:expense_tracker/src/features/backup/model/restore_sources.dart';
 import 'package:expense_tracker/src/features/lock/ui/lock_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
@@ -53,18 +58,26 @@ void main() {
     }
   }
 
-  testWidgets('a wrong password says so and keeps the ledger locked', (
-    tester,
-  ) async {
+  /// Presses what a screen reader calls [label], then draws.
+  Future<void> press(WidgetTester tester, Pattern label) async {
+    await tester.tap(find.bySemanticsLabel(label).last);
+    await tester.pump();
+  }
+
+  testWidgets('a wrong password says so, keeps the ledger locked and '
+      'notes no fault', (tester) async {
     final startup = await opened(tester);
     startup.lock();
     await show(tester, startup);
     expect(find.text('忘記密碼？'), findsOneWidget);
+    final noted = ErrorLog.instance.entries.length;
     await tester.enterText(find.byType(TextField), 'not the password');
     await tester.testTextInput.receiveAction(TextInputAction.go);
     await settle(tester, () => find.text('密碼不正確').evaluate().isNotEmpty);
     expect(find.text('密碼不正確'), findsOneWidget);
     expect(startup.state, isA<Locked>());
+    // A wrong password is expected: nothing for the diagnostics log.
+    expect(ErrorLog.instance.entries.length, noted);
 
     await tester.enterText(find.byType(TextField), password);
     await tester.testTextInput.receiveAction(TextInputAction.go);
@@ -74,15 +87,205 @@ void main() {
   });
 
   testWidgets('restoring from settings opens on the backup form, and back '
-      'returns to this ledger', (tester) async {
+      'reopens this ledger without asking for the password (F92)', (
+    tester,
+  ) async {
     final startup = await opened(tester);
     startup.lockToRestore();
     await show(tester, startup);
     expect(find.text('從備份還原'), findsOneWidget);
     expect(startup.takeRestore(), isFalse, reason: 'asked once');
     await tester.tap(find.byKey(Keys.back));
+    await settle(tester, () => startup.state is Ready);
+    expect(startup.state, isA<Ready>());
+    expect(startup.takeResumed(), isTrue);
+    startup.lock();
+  });
+
+  testWidgets('the system back from that form reopens the ledger too', (
+    tester,
+  ) async {
+    final startup = await opened(tester);
+    startup.lockToRestore();
+    await show(tester, startup);
+    await tester.binding.handlePopRoute();
+    await settle(tester, () => startup.state is Ready);
+    expect(startup.state, isA<Ready>());
+    startup.lock();
+  });
+
+  testWidgets('once the app locked while the backup form was up, back asks '
+      'for the password', (tester) async {
+    final startup = await opened(tester);
+    startup.lockToRestore();
+    await show(tester, startup);
+    // As the lock gate does after too long away.
+    startup.lock();
     await tester.pump();
+    expect(find.text('從備份還原'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.back));
+    await tester.pump();
+    expect(startup.state, isA<Locked>());
     expect(find.text('忘記密碼？'), findsOneWidget);
+  });
+
+  group('too many wrong tries (SEC-03)', () {
+    late FixedClock clock;
+
+    setUp(() {
+      clock = FixedClock(UtcInstant(DateTime.utc(2026, 11, 23, 9)));
+      AppClock.use(clock);
+    });
+
+    tearDown(AppClock.reset);
+
+    /// A ledger locked after [wrong] wrong passwords in a row.
+    Future<Startup> lockedAfter(WidgetTester tester, int wrong) async {
+      final startup = await opened(tester);
+      startup.lock();
+      await tester.runAsync(() async {
+        for (var i = 0; i < wrong; i++) {
+          try {
+            await startup.unlockWithPassword('wrong password $i');
+          } on KeyringException {
+            // Refused, and counted.
+          }
+        }
+      });
+      return startup;
+    }
+
+    final wait = find.byKey(Keys.unlockWait);
+    String waitWords(WidgetTester tester) => switch (tester.widget(wait)) {
+      Text(:final data) => data!,
+      final other => (other as ProblemLine).problem!,
+    };
+    TextField field(WidgetTester tester) =>
+        tester.widget<TextField>(find.byType(TextField));
+
+    testWidgets('the screen says how long to wait, counts it down, takes no '
+        'password meanwhile, and opens up by itself', (tester) async {
+      final startup = await lockedAfter(tester, 5);
+      await show(tester, startup);
+      expect(waitWords(tester), '輸入錯誤太多次，請等 30 秒再試');
+      expect(field(tester).readOnly, isTrue);
+      // Sending what is typed does nothing while waiting.
+      await tester.testTextInput.receiveAction(TextInputAction.go);
+      await tester.pump();
+      expect(startup.state, isA<Locked>());
+
+      clock.advance(const Duration(seconds: 12));
+      await tester.pump(const Duration(seconds: 1));
+      // 30 s - 12 s
+      expect(waitWords(tester), '輸入錯誤太多次，請等 18 秒再試');
+
+      clock.advance(const Duration(seconds: 18));
+      await tester.pump(const Duration(seconds: 1));
+      expect(wait, findsNothing);
+      expect(field(tester).readOnly, isFalse);
+
+      await tester.enterText(find.byType(TextField), password);
+      await tester.testTextInput.receiveAction(TextInputAction.go);
+      await settle(tester, () => startup.state is Ready);
+      expect(startup.state, isA<Ready>());
+      startup.lock();
+    });
+
+    testWidgets('the fifth wrong password typed starts the wait on screen', (
+      tester,
+    ) async {
+      final startup = await lockedAfter(tester, 4);
+      await show(tester, startup);
+      expect(wait, findsNothing);
+      await tester.enterText(find.byType(TextField), 'not the password');
+      await tester.testTextInput.receiveAction(TextInputAction.go);
+      await settle(tester, () => wait.evaluate().isNotEmpty);
+      expect(waitWords(tester), '輸入錯誤太多次，請等 30 秒再試');
+      // The wait says why; 密碼不正確 is not left beside it or after it.
+      expect(find.text('密碼不正確'), findsNothing);
+      clock.advance(const Duration(seconds: 30));
+      await tester.pump(const Duration(seconds: 1));
+      expect(wait, findsNothing);
+      expect(find.text('密碼不正確'), findsNothing);
+    });
+
+    testWidgets('the recovery code waits the same wait: its field and '
+        'button are off', (tester) async {
+      final startup = await lockedAfter(tester, 5);
+      await show(tester, startup);
+      final semantics = tester.ensureSemantics();
+      await press(tester, '忘記密碼？');
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(waitWords(tester), '輸入錯誤太多次，請等 30 秒再試');
+      expect(field(tester).enabled, isFalse);
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '打開'))
+            .onPressed,
+        isNull,
+      );
+      clock.advance(const Duration(seconds: 30));
+      await tester.pump(const Duration(seconds: 1));
+      expect(wait, findsNothing);
+      expect(field(tester).enabled, isTrue);
+      semantics.dispose();
+    });
+
+    testWidgets('a backup being restored is not held up by it', (tester) async {
+      final startup = await lockedAfter(tester, 5);
+      startup.lockToRestore();
+      await show(tester, startup);
+      expect(find.text('從備份還原'), findsOneWidget);
+      expect(wait, findsNothing);
+    });
+  });
+
+  testWidgets('what was wrong is no longer said once the person types '
+      'again (F38)', (tester) async {
+    final startup = await opened(tester);
+    startup.lock();
+    await show(tester, startup);
+    await tester.enterText(find.byType(TextField), 'not the password');
+    await tester.testTextInput.receiveAction(TextInputAction.go);
+    await settle(tester, () => find.text('密碼不正確').evaluate().isNotEmpty);
+    expect(find.text('密碼不正確'), findsOneWidget);
+    // Still said while nothing is typed.
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('密碼不正確'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'c');
+    await tester.pump();
+    expect(find.text('密碼不正確'), findsNothing);
+  });
+
+  testWidgets('a wrong recovery code is said until the code is changed, '
+      'not when the field is only touched (F38)', (tester) async {
+    final startup = await opened(tester);
+    startup.lock();
+    await show(tester, startup);
+    final semantics = tester.ensureSemantics();
+    await press(tester, '忘記密碼？');
+    await tester.pump(const Duration(milliseconds: 500));
+    const typed = 'not the code';
+    await tester.enterText(find.byType(TextField), typed);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    String? said() =>
+        tester.widget<ProblemLine>(find.byType(ProblemLine)).problem;
+    await settle(tester, () => said() != null);
+    final words = said();
+    expect(words, isNotNull);
+    // The cursor moved, the code as it was.
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: typed,
+        selection: TextSelection.collapsed(offset: 3),
+      ),
+    );
+    await tester.pump();
+    expect(said(), words);
+    await tester.enterText(find.byType(TextField), 'another');
+    await tester.pump();
+    expect(said(), isNull);
+    semantics.dispose();
   });
 
   /// Draws the first frame, plays the opening and the choices coming in.
@@ -200,12 +403,6 @@ void main() {
           files: const {},
         );
       });
-
-  /// Presses what a screen reader calls [label], then draws.
-  Future<void> press(WidgetTester tester, Pattern label) async {
-    await tester.tap(find.bySemanticsLabel(label).last);
-    await tester.pump();
-  }
 
   testWidgets('a ledger without a password opens by itself after the '
       'opening', (tester) async {
@@ -347,6 +544,8 @@ void main() {
       );
       expect(find.text('指紋解鎖失敗，請改用密碼'), findsOneWidget);
       expect(startup.state, isA<Locked>());
+      // A key that does not open the ledger is a fault worth keeping.
+      expect(ErrorLog.instance.entries.first.$2, contains('指紋解鎖'));
 
       final semantics = tester.ensureSemantics();
       await press(tester, '用指紋或臉部解鎖');
@@ -356,6 +555,78 @@ void main() {
       );
       expect(startup.state, isA<Locked>());
       semantics.dispose();
+    });
+
+    testWidgets('choosing the password on the fingerprint prompt says '
+        'nothing is wrong and notes no fault (F52)', (tester) async {
+      final enrol = Startup(vault, device: DeviceUnlock('phone', key));
+      await tester.runAsync(() => enrol.setUp(password));
+      enrol.lock();
+      final startup = Startup(
+        vault,
+        device: DeviceUnlock('phone', _TurnedDown(key)),
+      );
+      startup.takeOpening();
+      final noted = ErrorLog.instance.entries.length;
+      await show(tester, startup);
+      // The prompt, asked as the screen opens, is turned down.
+      await settle(
+        tester,
+        () => find.byKey(Keys.fingerprint).evaluate().isNotEmpty,
+      );
+      expect(find.byKey(Keys.fingerprint), findsOneWidget, reason: 'not busy');
+      expect(find.text('指紋解鎖失敗，請改用密碼'), findsNothing);
+      expect(find.text('指紋解鎖已取消，可以改用密碼'), findsNothing);
+      expect(startup.state, isA<Locked>());
+      expect(ErrorLog.instance.entries.length, noted);
+      // And the password then opens the ledger.
+      await tester.enterText(find.byType(TextField), password);
+      await tester.testTextInput.receiveAction(TextInputAction.go);
+      await settle(tester, () => startup.state is Ready);
+      expect(startup.state, isA<Ready>());
+      startup.lock();
+    });
+
+    testWidgets('a fingerprint failure said is gone when the fingerprint is '
+        'tried again (F38)', (tester) async {
+      final enrol = Startup(vault, device: DeviceUnlock('phone', key));
+      await tester.runAsync(() => enrol.setUp(password));
+      enrol.lock();
+      final turned = _TurnedDown(_DeviceKey())..declines = false;
+      final startup = Startup(vault, device: DeviceUnlock('phone', turned));
+      startup.takeOpening();
+      await show(tester, startup);
+      await settle(
+        tester,
+        () => find.text('指紋解鎖失敗，請改用密碼').evaluate().isNotEmpty,
+      );
+      expect(find.text('指紋解鎖失敗，請改用密碼'), findsOneWidget);
+      // Tried again, and this time turned down: the old words are gone.
+      turned.declines = true;
+      await tester.tap(find.byKey(Keys.fingerprint));
+      await tester.pump();
+      expect(find.text('指紋解鎖失敗，請改用密碼'), findsNothing);
+      // The prompt is turned down: still nothing said, and not busy.
+      await settle(tester, () => turned.turnedDown > 0);
+      await settle(
+        tester,
+        () => find.byKey(Keys.fingerprint).evaluate().isNotEmpty,
+      );
+      expect(find.byKey(Keys.fingerprint), findsOneWidget);
+      expect(find.text('指紋解鎖失敗，請改用密碼'), findsNothing);
+    });
+
+    testWidgets('a fingerprint turned off in settings is not offered on the '
+        'lock screen (F39)', (tester) async {
+      final enrol = Startup(vault, device: DeviceUnlock('phone', key));
+      await tester.runAsync(() => enrol.setUp(password));
+      await tester.runAsync(enrol.removeDevice);
+      enrol.lock();
+      final startup = Startup(vault, device: DeviceUnlock('phone', key));
+      startup.takeOpening();
+      await show(tester, startup);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byKey(Keys.fingerprint), findsNothing);
     });
 
     testWidgets('a fingerprint prompt that is cancelled says so', (
@@ -549,6 +820,8 @@ void main() {
       );
       expect(find.text('這個檔案不是記帳本的備份'), findsOneWidget);
       expect(find.text('已選好備份檔'), findsOneWidget);
+      // Why it could not be read is kept for the diagnostics log.
+      expect(ErrorLog.instance.entries.first.$2, contains('讀取備份檔'));
 
       next = backup.path;
       await press(tester, '已選好備份檔');
@@ -759,6 +1032,31 @@ void main() {
       expect(find.text('建立新帳本'), findsOneWidget);
     });
   });
+}
+
+/// A fingerprint key whose prompt the person turns down while [declines]:
+/// 改用密碼, or back, as `DeviceKeyBlob.refusal` names it.
+final class _TurnedDown implements DeviceKeyWrapper {
+  _TurnedDown(this._key);
+
+  final DeviceKeyWrapper _key;
+  var declines = true;
+
+  /// How many prompts were turned down.
+  var turnedDown = 0;
+
+  @override
+  Future<List<int>> wrap(List<int> secret, List<int> context) =>
+      _key.wrap(secret, context);
+
+  @override
+  Future<List<int>> unwrap(List<int> wrapped, List<int> context) async {
+    if (declines) {
+      turnedDown++;
+      throw PlatformException(code: 'declined');
+    }
+    return _key.unwrap(wrapped, context);
+  }
 }
 
 /// Stands in for an Android Keystore key: a blob opens only with the key

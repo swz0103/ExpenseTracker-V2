@@ -62,6 +62,16 @@ final class DemoBackupManager implements BackupManager {
   @override
   Future<String> newRecoveryCode() async => 'ABCD-EFGH-JKLM-NPQR';
 
+  /// The preview has no phone to confirm a fingerprint.
+  @override
+  bool get canUseFingerprint => false;
+
+  @override
+  bool get fingerprintOn => false;
+
+  @override
+  Future<bool> turnFingerprint({required bool on}) async => false;
+
   @override
   bool get recoveryGiven => true;
 

@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import android.view.WindowManager
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -15,14 +14,17 @@ import io.flutter.plugin.common.MethodChannel
  * (lib/src/app/android/), one [ChannelHandler] per concern: the Keystore
  * key for fingerprint unlock, receipt photos, files and the save and open
  * dialogs, the calendar, notifications and Google Drive. This class keeps
- * only what belongs to the activity itself: hiding the screen (from
- * screenshots when asked, and always from the recent apps list), and the
- * shortcuts, widget and notifications that open the composer.
+ * only what belongs to the activity itself: keeping the screen out of the
+ * recent apps list, and out of screenshots until the app says otherwise
+ * ([LockHandler]), and the shortcuts, widget and notifications that open
+ * the composer. Those only hand the app what was asked for (`quick`): the
+ * app's lock gate decides when the composer may open.
  */
 class MainActivity : FlutterFragmentActivity() {
     // Made with the activity: each registers its activity results now.
     private val handlers: List<ChannelHandler> = listOf(
         KeystoreHandler(this),
+        LockHandler(this),
         PhotosHandler(this),
         FilesHandler(this),
         CalendarHandler(this),
@@ -69,6 +71,11 @@ class MainActivity : FlutterFragmentActivity() {
         // Set before the engine is configured (during super.onCreate).
         restored = savedInstanceState != null
         super.onCreate(savedInstanceState)
+        // Out of screenshots and recordings from the first frame: the app
+        // opens on its lock screen, and says so itself once it runs
+        // (`secureScreen`, LockHandler), lifting it over an open ledger
+        // unless 禁止截圖 is on.
+        LockWindow.secure(window, LockWindow.wanted(null))
         // Sideload build: looks for a newer version once a day while
         // 自動檢查新版本 is on. Play build: nothing.
         SelfUpdate.start(applicationContext)
@@ -117,14 +124,6 @@ class MainActivity : FlutterFragmentActivity() {
                 }
                 "hidesRecents" ->
                     result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-                "secureScreen" -> {
-                    if (call.argument<Boolean>("on") == true) {
-                        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                    } else {
-                        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                    }
-                    result.success(null)
-                }
                 else -> if (handlers.none { it.handle(call, result) }) result.notImplemented()
             }
         }

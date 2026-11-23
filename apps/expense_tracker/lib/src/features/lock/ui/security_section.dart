@@ -6,6 +6,8 @@ import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/messages/key_messages.dart';
+import '../../../core/messages/lock_messages.dart';
+import '../../../core/platform/preferences.dart';
 import '../../../core/messages/problem_messages.dart';
 import '../../../core/platform/screen_privacy.dart';
 import '../../../core/design_system/recovery_code.dart';
@@ -15,13 +17,22 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 
-/// 安全: the password, the recovery code, the backup passphrase, hiding
-/// the screens, resetting the keys, and locking the ledger now.
+/// 安全: the password, the fingerprint, the recovery code, the backup
+/// passphrase, how soon the ledger locks by itself, hiding the screens,
+/// resetting the keys, and locking the ledger now.
 class SecuritySection extends StatefulWidget {
-  const SecuritySection({super.key, this.backupManager, this.privacy});
+  const SecuritySection({
+    super.key,
+    this.backupManager,
+    this.privacy,
+    this.preferences,
+  });
 
   final BackupManager? backupManager;
   final ScreenPrivacy? privacy;
+
+  /// Where the auto-lock choice is kept.
+  final Preferences? preferences;
 
   @override
   State<SecuritySection> createState() => _SecuritySectionState();
@@ -167,16 +178,66 @@ class _SecuritySectionState extends State<SecuritySection> {
     try {
       await privacy.turn(on: on);
     } on Object catch (error) {
-      ErrorLog.instance.record('截圖設定', error);
-      if (mounted) showNote(context, '這支手機無法切換截圖設定');
+      ErrorLog.instance.record(LockWords.hideScreenHeading, error);
+      if (mounted) showNote(context, LockWords.hideScreenFailed);
     }
     if (mounted) setState(() {});
+  }
+
+  /// Turns opening with the fingerprint on (the phone asks for it once)
+  /// or off. Turning the phone's prompt down changes nothing and is not
+  /// a fault: nothing is said and nothing noted.
+  Future<void> _fingerprint(BackupManager backupManager, bool on) async {
+    try {
+      final done = await backupManager.turnFingerprint(on: on);
+      if (!mounted) return;
+      setState(() {});
+      if (done) {
+        showNote(
+          context,
+          on ? LockWords.fingerprintTurnedOn : LockWords.fingerprintTurnedOff,
+        );
+      }
+    } on Object catch (error) {
+      ErrorLog.instance.record(LockWords.fingerprintSettingHeading, error);
+      if (mounted) {
+        setState(() {});
+        showNote(context, LockWords.fingerprintNotTurned);
+      }
+    }
+  }
+
+  /// How long away locks the ledger, from the one table of choices.
+  void _pickAutoLock(Preferences preferences) {
+    showCenterPanel(
+      context,
+      glyph: Glyph.hourglass,
+      color: SettingsColors.security,
+      title: LockWords.autoLock,
+      detail: LockWords.autoLockWhy,
+      body: (context) => ListenableBuilder(
+        listenable: preferences,
+        builder: (context, _) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final choice in AutoLock.values)
+              _Choice(
+                key: Keys.autoLockChoice(choice.name),
+                label: choice.label,
+                chosen: choice == preferences.autoLock,
+                onTap: () => preferences.update(autoLock: choice),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final backupManager = widget.backupManager;
     final privacy = widget.privacy;
+    final preferences = widget.preferences;
     return CardGrid([
       if (backupManager != null) ...[
         SettingCard(
@@ -193,6 +254,35 @@ class _SecuritySectionState extends State<SecuritySection> {
               : '已設定 · 點了變更',
           onTap: () => _changePassword(backupManager),
         ),
+        // Only where the phone can confirm one and there is a password
+        // for it to stand in for.
+        if (backupManager.canUseFingerprint)
+          SettingCard(
+            key: Keys.fingerprintSwitch,
+            glyph: Glyph.shield,
+            color: SettingsColors.security,
+            title: LockWords.fingerprint,
+            detail: backupManager.fingerprintOn
+                ? LockWords.fingerprintOn
+                : LockWords.fingerprintOff,
+            value: backupManager.fingerprintOn,
+            onChanged: (on) => _fingerprint(backupManager, on),
+            onTap: () =>
+                _fingerprint(backupManager, !backupManager.fingerprintOn),
+          ),
+        // A ledger without a password never locks.
+        if (preferences != null && backupManager.hasPassword)
+          ListenableBuilder(
+            listenable: preferences,
+            builder: (context, _) => SettingCard(
+              key: Keys.autoLock,
+              glyph: Glyph.hourglass,
+              color: SettingsColors.security,
+              title: LockWords.autoLock,
+              detail: LockWords.autoLockDetail(preferences.autoLock),
+              onTap: () => _pickAutoLock(preferences),
+            ),
+          ),
         SettingCard(
           glyph: Glyph.lifebuoy,
           color: SettingsColors.recovery,
@@ -213,13 +303,14 @@ class _SecuritySectionState extends State<SecuritySection> {
       ],
       if (privacy != null)
         SettingCard(
+          key: Keys.hideScreen,
           glyph: Glyph.eyeOff,
           color: SettingsColors.appearance,
-          // The recent apps list never shows the ledger, switched on or
-          // not (Android 13 and later itself, before that PrivacyCover):
-          // this only stops screenshots and recordings.
-          title: '禁止截圖',
-          detail: privacy.on ? '截圖、錄影都擋下' : '最近使用畫面已自動遮住',
+          // The recent apps list never shows the ledger, and the lock
+          // screen is never in a screenshot, switched on or not: this
+          // stops screenshots and recordings of the open ledger too.
+          title: LockWords.hideScreen,
+          detail: privacy.on ? LockWords.hideScreenOn : LockWords.hideScreenOff,
           value: privacy.on,
           onChanged: (on) => _hideScreen(privacy, on),
           onTap: () => _hideScreen(privacy, !privacy.on),
@@ -244,6 +335,55 @@ class _SecuritySectionState extends State<SecuritySection> {
         ),
     ]);
   }
+}
+
+/// One of the auto-lock choices: its words, ticked when it is the one in
+/// force.
+class _Choice extends StatelessWidget {
+  const _Choice({
+    super.key,
+    required this.label,
+    required this.chosen,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool chosen;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: chosen,
+    inMutuallyExclusiveGroup: true,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(Radii.large),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.s4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: chosen ? FontWeight.w700 : FontWeight.w500,
+                    color: chosen
+                        ? deepOf(SettingsColors.security)
+                        : AppColors.ink,
+                  ),
+                ),
+              ),
+              if (chosen)
+                const GlyphIcon(Glyph.check, color: SettingsColors.security),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 /// Asks for a secret to set (twice), the current password first when

@@ -132,6 +132,17 @@ final class LedgerVault {
     return _openKept(await codec.unlockWithDevice(keyring, deviceId, wrapper));
   }
 
+  /// Opens the ledger again with [keys] it was open with a moment ago,
+  /// as when a restore from settings is given up: nothing is typed again.
+  /// The keys must be this ledger's as it is kept now.
+  Future<OpenVault> reopen(UnlockedKeyring keys) async {
+    final keyring = await _keyring();
+    if (keyring.id != keys.keyring.id) {
+      throw const VaultException(VaultProblem.otherLedger);
+    }
+    return _openKept(keys);
+  }
+
   /// Stores a changed keyring: a new password, recovery code, device or
   /// backup key. It must belong to this ledger.
   Future<void> save(UnlockedKeyring keys) async {

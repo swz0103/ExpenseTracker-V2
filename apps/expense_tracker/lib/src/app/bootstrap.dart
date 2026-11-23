@@ -25,7 +25,16 @@ import '../features/backup/model/restore_sources.dart';
 import '../features/lock/ui/lock_screen.dart';
 import '../features/lock/ui/views/new_password_view.dart';
 import '../core/messages/key_messages.dart';
+import '../core/diagnostics/error_steps.dart';
+import '../core/design_system/feedback.dart';
+import '../core/platform/away_clock.dart';
+import '../core/platform/errands.dart';
+import '../core/navigation/nav.dart' show AppRoute;
+import '../core/platform/lock_gate.dart';
 import '../core/platform/memory_keystore.dart';
+import '../core/platform/quick_action.dart';
+import '../core/platform/unlock_attempts.dart';
+import '../core/widgets/lock_cover.dart';
 import '../core/design_system/recovery_code.dart';
 import 'shell.dart';
 import 'platform.dart';
@@ -42,15 +51,22 @@ import '../core/time/app_clock.dart';
 /// Every password set is held to the vault's one policy
 /// (`PasswordPolicy.standard`); a ledger opened without a password keeps
 /// its key sealed by the Android Keystore, never in plain form.
-Startup productionStartup(Directory directory, {DeviceUnlock? device}) =>
-    Startup(
-      LedgerVault(directory, codec: KeyringCodec()),
-      device: device,
-      check: SqlLedgerDataSource.check,
-      quickKey: Platform.isAndroid
-          ? const KeystoreQuickKey()
-          : MemoryKeystore.instance,
-    );
+/// Wrong passwords are slowed down by the vault's one table
+/// (`AttemptPolicy.standard`), the wait measured by [uptime] where the
+/// phone has such a clock.
+Startup productionStartup(
+  Directory directory, {
+  DeviceUnlock? device,
+  UptimeSource? uptime,
+}) => Startup(
+  LedgerVault(directory, codec: KeyringCodec()),
+  device: device,
+  check: SqlLedgerDataSource.check,
+  quickKey: Platform.isAndroid
+      ? const KeystoreQuickKey()
+      : MemoryKeystore.instance,
+  uptime: uptime,
+);
 
 /// Where this device keeps the ledger: the app's private folder on
 /// Android, a folder in the home directory on desktop development builds.
@@ -65,14 +81,21 @@ Future<Directory> applicationDirectory() async {
   return Directory('$home/.expense_tracker_v2');
 }
 
-/// Follows [startup]: the lock screen until a ledger is open, then the
-/// app on that ledger.
-class VaultRoot extends StatelessWidget {
+/// Follows [startup] through the one lock gate ([LockGate]): the lock
+/// screen until a ledger is open, then the app on that ledger. Every
+/// route, sheet and dialog lives in a navigator that belongs to one
+/// opening of the ledger and is replaced when it ends, so nothing of a
+/// closed ledger stays on screen or in the widget tree; while the gate
+/// says the ledger may not be seen, a cover is drawn over everything.
+class VaultRoot extends StatefulWidget {
   const VaultRoot({
     super.key,
     required this.startup,
     required this.preferences,
     this.privacy,
+    this.quick,
+    this.leave,
+    this.awayClock,
   });
 
   final Startup startup;
@@ -81,35 +104,146 @@ class VaultRoot extends StatelessWidget {
   final ScreenPrivacy? privacy;
   final Preferences preferences;
 
+  /// What a shortcut, the widget or a notification asked for, as the
+  /// phone hands it over; the gate takes it from here.
+  final ValueNotifier<QuickAction?>? quick;
+
+  /// Puts the app in the background without closing it: Android's back
+  /// on the first screen.
+  final Future<void> Function()? leave;
+
+  /// How long the app was away; the phone's clocks unless given.
+  final AwayClock? awayClock;
+
   @override
-  Widget build(BuildContext context) => ExpenseApp(
-    preferences: preferences,
-    cover: Platform.isAndroid,
-    systemHides: Platform.isAndroid ? androidHidesRecents : null,
-    home: ListenableBuilder(
-      listenable: startup,
-      builder: (context, _) => switch (startup.state) {
-        Ready(:final vault) => OpenedLedger(
-          key: ObjectKey(vault),
-          startup: startup,
-          vault: vault,
-          privacy: privacy,
-          preferences: preferences,
-        ),
-        final state => LockScreen(
-          key: ValueKey(state.runtimeType),
-          startup: startup,
-          sources: Platform.isAndroid
-              ? const RestoreSources(
-                  pickFile: androidPickFile,
-                  drive: androidDrive,
-                  cacheDirectory: androidCacheDirectory,
-                )
-              : const RestoreSources(),
-        ),
-      },
-    ),
+  State<VaultRoot> createState() => _VaultRootState();
+}
+
+class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
+  late final _gate = LockGate<AppRoute>(
+    widget.startup,
+    autoLock: () => widget.preferences.autoLock,
+    clock: widget.awayClock,
   );
+
+  /// The navigator of the session now open; a new one for each.
+  var _navigator = GlobalKey<NavigatorState>();
+
+  /// The session that navigator belongs to.
+  var _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _generation = _gate.generation;
+    _gate.addListener(_follow);
+    widget.quick?.addListener(_asked);
+    _asked();
+    _hideScreen();
+  }
+
+  @override
+  void dispose() {
+    widget.quick?.removeListener(_asked);
+    WidgetsBinding.instance.removeObserver(this);
+    _gate
+      ..removeListener(_follow)
+      ..dispose();
+    super.dispose();
+  }
+
+  /// A session ended or began: every route of the one before goes.
+  void _follow() {
+    if (_gate.generation != _generation) {
+      _generation = _gate.generation;
+      _navigator = GlobalKey<NavigatorState>();
+      // A note of the session before (it may name an amount) lives above
+      // the navigator, in the app's one messenger: it goes too.
+      appMessenger.currentState?.clearSnackBars();
+      _hideScreen();
+    }
+    setState(() {});
+    // The cover is drawn even though the app has just left the screen
+    // and frames have stopped: so the last picture the phone holds of
+    // the app is the cover, not the ledger.
+    if (_gate.covered) WidgetsBinding.instance.scheduleForcedFrame();
+  }
+
+  /// Hands the gate what the phone asked for.
+  void _asked() {
+    final quick = widget.quick;
+    final action = quick?.value;
+    if (quick == null || action == null) return;
+    quick.value = null;
+    _gate.ask(action);
+  }
+
+  /// Screenshots are kept off whatever is shown while no ledger is open.
+  void _hideScreen() {
+    final privacy = widget.privacy;
+    if (privacy == null) return;
+    privacy.showing(locked: widget.startup.state is! Ready).catchError((
+      Object error,
+    ) {
+      ErrorLog.instance.record(ErrorSteps.screenPrivacy, error);
+    });
+  }
+
+  /// The gate hears of leaving and coming back before any screen does
+  /// (it was made first), so the ledger is covered or locked before a
+  /// frame of it is drawn.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.hidden || AppLifecycleState.paused:
+        _gate.left();
+      case AppLifecycleState.inactive || AppLifecycleState.resumed:
+        _gate.returned();
+      case AppLifecycleState.detached:
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final startup = widget.startup;
+    return ExpenseApp(
+      preferences: widget.preferences,
+      cover: Platform.isAndroid,
+      systemHides: Platform.isAndroid ? androidHidesRecents : null,
+      navigatorKey: _navigator,
+      frame: (context, child) => LockCover(
+        covered: _gate.covered,
+        child: child ?? const SizedBox.shrink(),
+      ),
+      home: ListenableBuilder(
+        listenable: startup,
+        builder: (context, _) => switch (startup.state) {
+          Ready(:final vault) => OpenedLedger(
+            key: ObjectKey(vault),
+            startup: startup,
+            vault: vault,
+            privacy: widget.privacy,
+            preferences: widget.preferences,
+            gate: _gate,
+            leave: widget.leave,
+          ),
+          final state => LockScreen(
+            key: ValueKey(state.runtimeType),
+            startup: startup,
+            sources: Platform.isAndroid
+                ? const RestoreSources(
+                    pickFile: androidPickFile,
+                    drive: androidDrive,
+                    cacheDirectory: androidCacheDirectory,
+                  )
+                : const RestoreSources(),
+          ),
+        },
+      ),
+    );
+  }
 }
 
 /// The app on an unlocked [vault]: it loads the book, then shows it. A
@@ -120,13 +254,21 @@ class OpenedLedger extends StatefulWidget {
     required this.startup,
     required this.vault,
     required this.preferences,
+    required this.gate,
     this.privacy,
+    this.leave,
   });
 
   final Startup startup;
   final OpenVault vault;
   final ScreenPrivacy? privacy;
   final Preferences preferences;
+
+  /// The lock gate this opening of the ledger sits behind.
+  final LockGate<AppRoute> gate;
+
+  /// Puts the app in the background without closing it.
+  final Future<void> Function()? leave;
 
   @override
   State<OpenedLedger> createState() => _OpenedLedgerState();
@@ -297,10 +439,15 @@ class _OpenedLedgerState extends State<OpenedLedger>
     ),
   );
 
+  /// How the gate locks this opening: what is being written is kept
+  /// first.
+  late final Future<void> Function() _lock = _services.backupManager.lock;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.gate.attach(_lock);
     _ledger.then((ledger) {
       if (mounted) _watchMidnight(ledger);
     }).ignore();
@@ -326,25 +473,29 @@ class _OpenedLedgerState extends State<OpenedLedger>
   @override
   void dispose() {
     _midnight?.cancel();
+    widget.gate.detach(_lock);
     _services.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  /// Locks the ledger when the app comes back after a while away; books
-  /// what fell due meanwhile.
+  /// Leaves the backup for the background on going away; back, books what
+  /// fell due meanwhile. Whether the ledger locks is the gate's, decided
+  /// before this hears of coming back: nothing new starts on a ledger
+  /// that is closing.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.paused || AppLifecycleState.hidden:
         unawaited(_services.paused());
       case AppLifecycleState.resumed:
+        if (widget.gate.closing) break;
         _ledger.then((ledger) {
           ledger.checkDay();
           if (mounted) _watchMidnight(ledger);
           if (mounted) _tellBooked(_session.bookDue(ledger));
         }).ignore();
-        unawaited(_services.resumed());
+        _services.resumed();
       default:
         break;
     }
@@ -387,13 +538,22 @@ class _OpenedLedgerState extends State<OpenedLedger>
           privacy: widget.privacy,
           preferences: widget.preferences,
           notifier: _services.notifier,
-          quick: Platform.isAndroid ? quickAction : null,
+          // Through the gate: an action reaches the screens only while
+          // the ledger is open and in front.
+          quick: widget.gate.quick,
           receipts: _services.receipts,
           drive: _services.drive,
           phone: _services.phone,
           market: _services.market,
           update: _services.update,
-          scanQr: Platform.isAndroid ? androidScanQr : null,
+          // The camera is a trip the app sends the person on.
+          scanQr: Platform.isAndroid
+              ? ({preparing}) =>
+                    Errands.run(() => androidScanQr(preparing: preparing))
+              : null,
+          onPlace: (page) => widget.gate.place = page,
+          takeReturn: widget.gate.takeReturn,
+          leave: widget.leave,
         ),
       );
     },

@@ -14,6 +14,16 @@ void main() {
       [SettingsDestination.security],
     );
     expect([for (final t in findSettings('深色')) t.name], ['外觀']);
+    // The lock's own settings, each on the page that has it (F39, SEC-07).
+    expect(
+      [for (final t in findSettings('指紋')) (t.name, t.page)],
+      [('指紋解鎖', SettingsDestination.security)],
+    );
+    expect(
+      [for (final t in findSettings('上鎖')) (t.name, t.page)],
+      [('自動上鎖', SettingsDestination.security)],
+    );
+    expect([for (final t in findSettings('離開')) t.name], ['自動上鎖']);
     expect([for (final t in findSettings('google')) t.name], ['雲端硬碟備份']);
     expect(findSettings('  '), isEmpty);
     expect(findSettings('不存在的設定'), isEmpty);

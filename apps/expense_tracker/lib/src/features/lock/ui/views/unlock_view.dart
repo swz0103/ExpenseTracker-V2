@@ -27,8 +27,14 @@ class UnlockView extends StatefulWidget {
     this.onDevice,
     this.onBack,
     this.problem,
+    this.waiting,
     this.arrive = false,
   });
+
+  /// Said in place of [problem] while the password may not be typed: the
+  /// wait after too many wrong ones, counting down. The fingerprint and
+  /// the recovery link stay as they are.
+  final String? waiting;
 
   final TextEditingController password;
   final bool busy;
@@ -94,6 +100,14 @@ class _UnlockViewState extends State<UnlockView>
       widget.password.clear();
       _type();
     }
+    // The wait began: what was typed goes. It ended: the keyboard is
+    // back for the next try.
+    if (widget.waiting != null && old.waiting == null) {
+      widget.password.clear();
+      _focus.unfocus();
+    } else if (widget.waiting == null && old.waiting != null) {
+      _type();
+    }
   }
 
   @override
@@ -105,11 +119,14 @@ class _UnlockViewState extends State<UnlockView>
 
   /// Brings the keyboard up for the password.
   void _type() {
-    if (mounted && !widget.busy) _focus.requestFocus();
+    if (mounted && !widget.busy && widget.waiting == null) {
+      _focus.requestFocus();
+    }
   }
 
   void _submit() {
-    if (widget.busy || widget.password.text.isEmpty) return;
+    if (widget.busy || widget.waiting != null) return;
+    if (widget.password.text.isEmpty) return;
     widget.onSubmit();
   }
 
@@ -323,7 +340,8 @@ class _UnlockViewState extends State<UnlockView>
   );
 
   Widget _problem() {
-    final text = widget.problem;
+    final waiting = widget.waiting;
+    final text = waiting ?? widget.problem;
     return SizedBox(
       height: 34,
       child: Center(
@@ -331,6 +349,7 @@ class _UnlockViewState extends State<UnlockView>
             ? null
             : Text(
                 text,
+                key: waiting == null ? null : Keys.unlockWait,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: TextSize.small,
@@ -362,6 +381,7 @@ class _UnlockViewState extends State<UnlockView>
                 shape: const CircleBorder(),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
+                  key: Keys.fingerprint,
                   onTap: device,
                   child: const SizedBox.square(
                     dimension: 58,
@@ -411,7 +431,7 @@ class _UnlockViewState extends State<UnlockView>
           textInputAction: TextInputAction.go,
           showCursor: false,
           enableInteractiveSelection: false,
-          readOnly: widget.busy,
+          readOnly: widget.busy || widget.waiting != null,
           onSubmitted: (_) => _submit(),
         ),
       ),

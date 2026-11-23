@@ -16,6 +16,7 @@ class RecoveryView extends StatelessWidget {
     required this.onPassword,
     this.onBack,
     this.problem,
+    this.waiting,
     this.hint = '輸入建立帳本時拿到的救援碼。',
     this.codeLabel = '救援碼',
   });
@@ -30,6 +31,10 @@ class RecoveryView extends StatelessWidget {
   /// Back to the first screen; none when there is nothing to go back to.
   final VoidCallback? onBack;
   final String? problem;
+
+  /// Said in place of [problem] while the code may not be typed: the wait
+  /// after too many wrong ones, counting down.
+  final String? waiting;
 
   /// What the form asks for, said under its title.
   final String hint;
@@ -49,6 +54,7 @@ class RecoveryView extends StatelessWidget {
           hint: codeLabel,
           hidden: false,
           boxed: true,
+          enabled: waiting == null,
           onSubmitted: onSubmit,
         ),
       ],
@@ -56,6 +62,7 @@ class RecoveryView extends StatelessWidget {
       busy: busy,
       onSubmit: onSubmit,
       problem: problem,
+      waiting: waiting,
       extras: [
         LockLink('改用密碼', onPassword, busy: busy),
         if (back != null)

@@ -23,8 +23,6 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | F22 | 2.5 | p2_5_market_test.dart | yes | only the silent-failure part: an unreadable board writes nothing to the diagnostics log; the live parse failure itself is not reproducible offline |
 | INV-02 | 2.5 | p2_5_market_test.dart | yes | a dividend due on Nov 28 (a week out) gives an outlook total of 0, expected 1,000 |
 | PKG-02 | 2.5 | p2_5_market_test.dart | yes | JPY missing from the second board is dropped from the stored rates |
-| SEC-03 | 3.1 | p3_1_lock_test.dart | yes | the right password opens the ledger straight after 10 wrong ones |
-| SEC-05 | 3.1 | p3_1_lock_test.dart | yes | full VaultRoot on a real encrypted store: a sheet opened over the book is still on screen after startup.lock() |
 | ARC-05 | 3.3 | p3_3_lifecycle_test.dart | yes | two back-to-back prepare() calls write two backups |
 | REM-05 | 3.4 | p3_4_reminders_test.dart | yes | a reminder is still made for the skipped Nov 25 |
 | ENT-02 | 4.2 | p4_2_forms_test.dart | yes | form keeps the split but build() drops it after switching to a US$ account |
@@ -35,7 +33,7 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | IMP-01 | 6.1 | p6_1_import_test.dart | yes | a positive amount with no type column is imported as income |
 | IMP-02 | 6.1 | p6_1_import_test.dart | yes | round trip loses the US$ currency (first of 10 differences) |
 
-26 findings covered.
+24 findings covered.
 
 ## fixed in 1.1
 
@@ -53,6 +51,22 @@ Work package 1.1 (one source for amounts). Each test below now runs in the ordin
 - F34: `test/features/reports/model/report_test.dart`
 - INV-03: `test/features/investments/ui/holding_page_test.dart`
 - F21: `test/features/accounts/ui/card_page_test.dart`
+
+## fixed in 3.1
+
+Work package 3.1 (one lock gate above every screen). The two tests that were skipped here run unskipped in `p3_1_lock_test.dart` (the loop of wrong passwords in SEC-03 also accepts `UnlockDelayed`, the refusal 3.1 added; its expectation is unchanged). The other findings had no known-defect test; each is stated by the ordinary tests named.
+
+- SEC-05: `p3_1_lock_test.dart`; `test/app/bootstrap_test.dart` (a sheet, a pushed page, a dialog and a note all go, widgets and semantics), `test/core/platform/lock_gate_test.dart` (sessions), `test/core/widgets/lock_cover_test.dart`
+- SEC-03: `p3_1_lock_test.dart`; `infrastructure/vault/test/backup_security/attempt_policy_test.dart` (the table), `test/core/platform/unlock_attempts_test.dart` (kept across restarts, clocks set back and forth), `test/core/platform/startup_gate.dart` (run by `startup_test.dart`; passwords and recovery codes), `test/features/lock/ui/lock_screen_test.dart` (the wait counted down, the field off)
+- F43: `test/app/bootstrap_test.dart` (a tap on a locked ledger shows only the lock screen, the form opens after unlocking; a tap arriving as the app comes back too late), `test/core/platform/lock_gate_test.dart` (ways in)
+- SEC-07: `test/core/platform/lock_gate_test.dart` (each choice, a clock the test moves), `test/core/platform/preferences_test.dart` (the table and its keeping), `test/app/bootstrap_test.dart` (the cover), `test/features/lock/ui/security_section_test.dart` (the picker)
+- SEC-08: `test/core/platform/screen_privacy_test.dart`, `test/app/bootstrap_test.dart`, `android/app/src/test/.../LockWindowTest.kt`
+- AND-06, F42: `test/features/overview/model/home_widget_test.dart` (nothing written while amounts are hidden), `test/features/overview/forms/widget_face_test.dart`, `test/scenarios/app/widget_words_test.dart`, `android/app/src/test/.../WidgetViewTest.kt`
+- F39: `test/features/lock/ui/security_section_test.dart` (the switch), `test/core/platform/startup_gate.dart` (on, off, not offered again), `test/features/backup/model/encrypted_backup_manager_test.dart`
+- F40, F52: `test/core/platform/startup_gate.dart` (turned down: nothing thrown, nothing noted), `test/features/lock/ui/lock_screen_test.dart`, `test/features/lock/ui/security_section_test.dart`
+- F38: `test/features/lock/ui/lock_screen_test.dart` (typing or trying again takes the old words away)
+- F67: `test/app/shell_test.dart`, `test/app/bootstrap_test.dart`, `test/app/android/lock_adapter_test.dart`
+- F92: `infrastructure/vault/test/ledger_vault/ledger_vault_test.dart` (reopen), `test/core/platform/startup_gate.dart`, `test/core/platform/lock_gate_test.dart`, `test/features/lock/ui/lock_screen_test.dart`, `test/app/shell_test.dart`, `test/app/bootstrap_test.dart`
 
 ## fixed in 6.3
 
@@ -145,7 +159,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 ### With an executed reproduction
 
 - DEB-02 (S1, 2.4): the fix adds a principal/interest repayment form and fields that do not exist yet, so nothing can be asserted on today's API
-- F43 (S1, 3.1): needs the Android quick-action/notification channel while locked; SEC-05 covers the shared cause (routes above the lock screen)
 - F65 (S1, 3.3): device-only: Google system backup copy rename race on Android
 - AND-02 (S1, 3.4): Android alarm receiver behaviour after reboot; needs a device or emulator (Kotlin side), reproduced on an API 34 emulator
 - REM-01 (S1, 3.4): the resume path is inline in a State (didChangeAppLifecycleState) and the inbox source exists only on Android; testable once LedgerSession gets a resume step
@@ -157,7 +170,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - F30 (S2, 2.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
 - ENT-07 (S2, 2.5): needs rates with dates (new data model in 2.5)
 - F61 (S2, 2.5): the wrong input is the fetched previous close; the fix needs adjusted closes (new market data)
-- F39 (S2, 3.1): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
 - ARC-04 (S2, 3.3): needs LifecycleServices on a real vault with timing between microtasks; the audit repro only printed, a deterministic assertion was not found
 - F48 (S2, 3.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
 - F53 (S2, 3.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
@@ -250,15 +262,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - F62 (S3, 2.5): no executed reproduction; not turned into a test
 - PKG-03 (S3, 2.5): no executed reproduction; not turned into a test
 - PKG-06 (S3, 2.5): no executed reproduction; not turned into a test
-- AND-06 (S3, 3.1): no executed reproduction; not turned into a test
-- F38 (S3, 3.1): no executed reproduction; not turned into a test
-- F40 (S3, 3.1): no executed reproduction; not turned into a test
-- F42 (S3, 3.1): no executed reproduction; not turned into a test
-- F52 (S3, 3.1): no executed reproduction; not turned into a test
-- F67 (S3, 3.1): no executed reproduction; not turned into a test
-- F92 (S3, 3.1): no executed reproduction; not turned into a test
-- SEC-07 (S3, 3.1): no executed reproduction; not turned into a test
-- SEC-08 (S3, 3.1): no executed reproduction; not turned into a test
 - AND-07 (S3, 3.3): no executed reproduction; not turned into a test
 - AND-03 (S3, 3.4): no executed reproduction; not turned into a test
 - AND-11 (S3, 3.4): no executed reproduction; not turned into a test

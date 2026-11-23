@@ -108,6 +108,72 @@ void main() {
     );
   });
 
+  test('with amounts hidden in the app, the widget keeps no amount '
+      'either: nothing is written (AND-06)', () {
+    final ledger = book(budgets: [total]);
+    final widgetBook = widgetBookOf(ledger);
+    expect(widgetBook.amountsHidden, isFalse);
+    ledger.amounts.toggle();
+    expect(widgetBook.amountsHidden, isTrue);
+    expect(widgetSnapshot(widgetBook, WidgetFigures.amounts), isNull);
+    ledger.amounts.toggle();
+    expect(
+      widgetSnapshot(widgetBook, WidgetFigures.amounts)?['figure'],
+      '12,345',
+    );
+  });
+
+  test('the percentage holds no amount, so hiding amounts leaves it', () {
+    final ledger = book(budgets: [total]);
+    ledger.amounts.toggle();
+    final snapshot = widgetSnapshot(
+      widgetBookOf(ledger),
+      WidgetFigures.percent,
+    );
+    expect(snapshot?['figure'], '已用 62%');
+    expect(jsonEncode(snapshot), isNot(contains('12')));
+  });
+
+  test('hiding amounts in the app takes the file with them off the phone, '
+      'and showing them writes it again', () async {
+    final directory = Directory.systemTemp.createTempSync('home-widget-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final file = File('${directory.path}/widget.json');
+    final preferences = Preferences()
+      ..update(widgetFigures: WidgetFigures.amounts);
+    var refreshed = 0;
+    final widget = HomeWidget(
+      file,
+      preferences,
+      refresh: () async => refreshed++,
+      wait: Duration.zero,
+    );
+    final ledger = book(budgets: [total]);
+    widget.follow(widgetBookOf(ledger));
+    await widget.update();
+    expect(file.readAsStringSync(), contains('12,345'));
+    expect(refreshed, 1);
+
+    // The eye is closed: the change alone is followed.
+    ledger.amounts.toggle();
+    await Future<void>.delayed(Duration.zero);
+    await widget.update();
+    expect(file.existsSync(), isFalse, reason: 'no amount left on disk');
+    expect(refreshed, 2);
+    expect(
+      [for (final f in directory.listSync()) f.path],
+      isEmpty,
+      reason: 'nor in a file left beside it',
+    );
+
+    ledger.amounts.toggle();
+    await Future<void>.delayed(Duration.zero);
+    await widget.update();
+    expect(file.readAsStringSync(), contains('12,345'));
+    expect(refreshed, 3);
+    widget.stop();
+  });
+
   test('the file follows the choice, and the widget is told', () async {
     final directory = Directory.systemTemp.createTempSync('home-widget-');
     addTearDown(() => directory.deleteSync(recursive: true));

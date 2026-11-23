@@ -41,6 +41,10 @@ abstract final class ErrorSteps {
   /// The newest backup's header could not be read: a new one is written.
   static const backupHeader = '讀取備份檔';
 
+  /// A backup chosen on Google Drive could not be downloaded to restore:
+  /// the person is told and may choose again.
+  static const backupDownload = '下載備份';
+
   /// Google was not told to revoke the app's access: it can be revoked
   /// from the Google account's settings.
   static const driveRevoke = '撤銷 Google 授權';

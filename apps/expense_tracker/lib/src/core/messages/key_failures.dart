@@ -6,6 +6,8 @@ import 'package:vault/ledger_vault.dart';
 
 import '../../../design_system/display/amount.dart';
 import '../../../design_system/display/date.dart';
+import '../platform/startup.dart' show UnlockDelayed;
+import 'lock_messages.dart';
 
 /// The words of the ledger's keys, in one place: passwords and their rule,
 /// the recovery code, the backup passphrase, resetting the keys, and what
@@ -59,6 +61,8 @@ String? describeUnlockFailure(Object error, {required bool recovery}) =>
         BackupProblem.targetNotEmpty => '這台手機上已經有帳本了',
         BackupProblem.invalidContent => '這個備份裡有 App 讀不懂的資料，沒有還原',
       },
+      // Not tried at all: too many wrong ones came before it.
+      UnlockDelayed(:final wait) => LockWords.waitFor(wait),
       FileSystemException() => '找不到這個備份檔',
       VaultException(:final problem) => switch (problem) {
         VaultProblem.missingDatabase => '這台裝置上的帳本資料不見了，請從備份還原',
