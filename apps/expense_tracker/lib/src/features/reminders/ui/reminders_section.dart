@@ -17,6 +17,7 @@ import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/formatting/words.dart';
+import '../../../../design_system/display/status_messages.dart';
 
 part 'reminders_phone.dart';
 
@@ -291,7 +292,7 @@ class _RemindersSectionState extends State<RemindersSection>
       glyph: Glyph.pie,
       color: SettingsColors.budget,
       title: '預算提醒',
-      detail: '用到警示比例、超支時',
+      detail: '用到警示比例、${StatusWords.over}時',
       value: () => preferences.budgetAlerts,
       onChanged: (on) => _notify(notifier, budget: on),
       body: (context) {

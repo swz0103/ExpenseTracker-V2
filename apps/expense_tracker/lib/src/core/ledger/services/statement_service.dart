@@ -1,3 +1,7 @@
+import 'package:core/foundation_values.dart'
+    show BusinessDate, BusinessDayAnswer, taiwanHolidays;
+import 'package:domain/credit_cards.dart' show CardBillStatus, cardBillStatus;
+
 import '../cache/query_cache.dart';
 import 'tracked_readers.dart';
 import '../card_cycle.dart';
@@ -54,6 +58,19 @@ final class StatementService {
         return (start, end, due);
       }, reads: _cardTopics);
 
+  /// Where the last statement of [card] stands today, as
+  /// [cardBillStatus] decides it: the one answer every screen shows.
+  CardBillStatus billStatus(Account card) {
+    final (_, _, due) = statement(card);
+    final today = _today();
+    return cardBillStatus(
+      owed: statementDue(card),
+      dueOn: BusinessDate.of(due),
+      payBy: payByOf(due).value,
+      today: BusinessDate.of(today),
+    );
+  }
+
   /// What is still to pay on the last statement of [card]: what it owed
   /// when the statement closed, less what was paid in since.
   int statementDue(Account card) => _cache.remember(
@@ -109,3 +126,9 @@ final class StatementService {
     ],
   );
 }
+
+/// When a statement due on [due] can be paid by: [due], or the next
+/// business day on Taiwan's calendar when it falls on a day off (banks
+/// take payment then without a late fee). Late is counted from here.
+BusinessDayAnswer<BusinessDate> payByOf(DateTime due) =>
+    taiwanHolidays.onOrAfter(BusinessDate.of(due));

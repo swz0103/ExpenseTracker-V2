@@ -10,6 +10,7 @@ const List<Rule> allRules = [
   PureCalc(),
   NumberFormat(),
   ClockAndPadding(),
+  StatusWordLiterals(),
   TextLiterals(),
   NoPart(),
   CatchHandled(),

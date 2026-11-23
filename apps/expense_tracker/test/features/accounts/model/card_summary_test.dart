@@ -1,5 +1,6 @@
 import 'package:core/foundation_values.dart'
     show BusinessDate, Verified, WeekendsOnly;
+import 'package:domain/credit_cards.dart' show BillDue;
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/features/accounts/model/card_summary.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -75,7 +76,8 @@ void main() {
       ),
     );
     expect(card.owed, 1200);
-    expect(card.daysLeft, 1);
+    // Due 10/5, looked at 10/4: one day left.
+    expect(card.billStatus, BillDue(BusinessDate(2026, 10, 5), 1));
     expect(card.unbilled.map((e) => e.id), ['b']);
     expect(card.spentSince, 300);
     expect((card.daysGone, card.cycleDays), (14, 30));

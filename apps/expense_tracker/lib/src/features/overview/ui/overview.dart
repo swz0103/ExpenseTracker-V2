@@ -6,6 +6,7 @@ import '../../../core/platform/preferences.dart';
 import '../model/overview_blocks.dart';
 import '../../../core/navigation/nav.dart';
 import 'sections/assets_section.dart';
+import 'sections/card_due_section.dart';
 import 'sections/daily_section.dart';
 import 'sections/flow_section.dart';
 import 'sections/market_section.dart';
@@ -123,6 +124,12 @@ class _OverviewPageState extends State<OverviewPage> {
         KeyedSubtree(
           key: widget.summaryKey,
           child: SummarySection(ledger: ledger, month: _month),
+        ),
+        CardDueSection(
+          changes: ledger.watch(const {Topic.entries, Topic.accounts}),
+          accounts: ledger.accounts,
+          statements: ledger.statementService,
+          nav: widget.nav,
         ),
         for (final (:block, :shown) in blocksFrom(preferences?.overview))
           if (shown) _block(block),

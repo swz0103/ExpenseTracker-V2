@@ -46,6 +46,9 @@ export 'package:ledger_entries/rules.dart';
 export 'services/integrity_service.dart'
     show IntegrityProblem, MissingAccount, MissingRefundOriginal, RecordKind;
 export 'models/models.dart';
+export 'rules/advance_rules.dart';
+export 'rules/budget_rules.dart';
+export 'rules/recurring_rules.dart';
 // The narrow parts a model takes in place of the whole ledger
 // (docs/adr/0013-models-take-what-they-use.md).
 export 'commands/attachment_commands.dart' show AttachmentCommands;
@@ -62,9 +65,10 @@ export 'services/budget_service.dart' show BudgetService;
 export 'services/entry_query_service.dart' show EntryQueryService;
 export 'services/entry_validator.dart' show EntryValidator;
 export 'services/recurring_service.dart' show RecurringService;
-export 'services/statement_service.dart' show StatementService;
+export 'services/statement_service.dart' show StatementService, payByOf;
 export 'repositories/entry_repository.dart' show EntryReader;
-export 'repositories/holding_repository.dart' show HoldingReader;
+export 'repositories/holding_repository.dart'
+    show HoldingReader, HoldingsByStatus;
 export 'repositories/market_data_repository.dart' show MarketDataReader;
 export 'services/report_service.dart' show ReportService;
 

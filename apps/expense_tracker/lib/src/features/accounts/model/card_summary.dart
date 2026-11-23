@@ -1,6 +1,7 @@
 import 'package:core/foundation_values.dart'
-    show BusinessDate, BusinessDayAnswer, taiwanHolidays;
+    show BusinessDate, BusinessDayAnswer;
 import 'package:core/percent/percent.dart' show percent;
+import 'package:domain/credit_cards.dart' show CardBillStatus;
 
 import '../../../core/ledger/ledger.dart';
 
@@ -38,6 +39,9 @@ final class CardSummary {
 
   /// What is still to pay on the last statement.
   late final int owed = _statements.statementDue(card);
+
+  /// Where the last statement stands today: paid, due or overdue.
+  late final CardBillStatus billStatus = _statements.billStatus(card);
 
   /// Purchases since the statement closed, and refunds against them.
   late final List<Entry> unbilled = _statements.unbilled(card);
@@ -115,9 +119,6 @@ final class CardSummary {
   /// day when it falls on a weekend or a holiday. The stored due day is
   /// left as it is.
   BusinessDayAnswer<BusinessDate> get payBy => payByOf(due);
-
-  /// Days left to pay the statement, to [payBy]; below zero when overdue.
-  int get daysLeft => payBy.value.asUtcMidnight.difference(today).inDays;
 
   /// The next close, as it may have been moved.
   late final DateTime nextClose = card.closingOn(
@@ -205,9 +206,3 @@ final class CardSummary {
     );
   }
 }
-
-/// When a statement due on [due] can be paid by: [due], or the next
-/// business day on Taiwan's calendar when it falls on a day off (banks
-/// take payment then without a late fee).
-BusinessDayAnswer<BusinessDate> payByOf(DateTime due) =>
-    taiwanHolidays.onOrAfter(BusinessDate.of(due));

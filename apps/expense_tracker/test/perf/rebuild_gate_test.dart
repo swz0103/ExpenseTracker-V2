@@ -13,7 +13,9 @@ import '../support/places.dart';
 /// and by `BENCH=1 flutter test test/perf/rebuild_bench_test.dart`.
 void main() {
   /// The most widgets built again after each change, as measured.
-  const most = {'nothing': 0, 'a budget': 153, 'an entry': 875, 'amounts': 875};
+  // An entry or the amounts shown build one more since 1.5: 總覽's notice
+  // of bills to pay follows the book, and is an empty box while none is due.
+  const most = {'nothing': 0, 'a budget': 153, 'an entry': 876, 'amounts': 876};
 
   testWidgets('a change builds no more of 總覽 than it did', (tester) async {
     final ledger = demoLedger();

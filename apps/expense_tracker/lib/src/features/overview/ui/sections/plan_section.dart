@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../design_system/display/amount.dart';
+import '../../../../../design_system/display/status.dart';
 import '../../../../core/design_system/glyphs.dart';
 import '../../../../core/design_system/theme.dart';
 import '../../../../core/design_system/design_system.dart';
@@ -57,7 +58,14 @@ class PlanSection extends StatelessWidget {
     final current = today.year == year && today.month == m;
     // 本月 only when the month shown is this month.
     final shown = monthWord(year, m, today: today);
-    final left = limit - spent;
+    final whole = ledger.budgets.forCategory(allSpending);
+    final status = limit == 0
+        ? null
+        : budgetStatus(
+            spent: spent,
+            limit: limit,
+            warningPercent: whole.warning,
+          );
     final used = limit <= 0 ? 0 : percent(spent, limit);
     return ColorCard(
       color: ToolColors.budgets,
@@ -69,29 +77,34 @@ class PlanSection extends StatelessWidget {
         Space.s3,
       ),
       onTap: () => nav.open(AppRoutes.budgets),
-      label: limit == 0
+      label: status == null
           ? '預算，$shown花了 ${ledger.money(spent)}'
-          : '預算，$shown剩 ${ledger.money(left)}',
+          : '預算，$shown${budgetLead(status)} ${ledger.money(budgetFigure(status))}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _budgetHead(limit == 0 ? '$shown花了' : '$shown剩'),
+          _budgetHead(
+            status == null ? '$shown花了' : '$shown${budgetLead(status)}',
+            status == null || status is BudgetWithin
+                ? null
+                : budgetLook(status),
+          ),
           const SizedBox(height: Space.s2),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              ledger.money(limit == 0 ? spent : left),
-              style: TextStyle(
+              ledger.money(status == null ? spent : budgetFigure(status)),
+              style: const TextStyle(
                 fontSize: TextSize.large,
                 fontWeight: FontWeight.w800,
                 height: 1.15,
-                color: limit == 0 ? AppColors.ink : AppColors.ofBalance(left),
+                color: AppColors.ink,
               ),
             ),
           ),
           const SizedBox(height: Space.s2),
-          if (limit == 0)
+          if (status == null)
             const OneLine('設定預算 ›', style: accentSmall)
           else
             _tenths(current ? (gone * 10 / days).ceil() : 10, current, used),
@@ -100,8 +113,9 @@ class PlanSection extends StatelessWidget {
     );
   }
 
-  /// The budget's icon and [title], such as 本月剩 or 9 月花了.
-  Widget _budgetHead(String title) => Row(
+  /// The budget's icon and [title], such as 本月剩, 本月超支 or 9 月花了,
+  /// with the badge of [alert] (快用完 or 超支) when there is one.
+  Widget _budgetHead(String title, StatusLook? alert) => Row(
     children: [
       const SquareIcon(Glyph.budget, ToolColors.budgets, size: 28),
       const SizedBox(width: Space.s2),
@@ -115,6 +129,7 @@ class PlanSection extends StatelessWidget {
           ),
         ),
       ),
+      if (alert != null) StatusBadge(alert),
     ],
   );
 

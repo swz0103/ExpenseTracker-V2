@@ -29,6 +29,13 @@ final class BudgetLine {
 
   /// The share used; 0 for a budget that allows nothing.
   double get share => allowance == 0 ? 0 : spent / allowance;
+
+  /// Within, near its warning share, or over.
+  BudgetStatus get status => budgetStatus(
+    spent: spent,
+    limit: allowance,
+    warningPercent: budget.warning,
+  );
 }
 
 /// What 預算管理 shows for one month: all spending against the whole
@@ -57,6 +64,11 @@ final class BudgetMonth {
 
   /// What the whole budget allows this month.
   late final int total = _service.allowance(whole, _year, _month);
+
+  /// Where all spending stands against [total]: within, near the whole
+  /// budget's warning share, or over.
+  BudgetStatus get status =>
+      budgetStatus(spent: spent, limit: total, warningPercent: whole.warning);
 
   /// What counts against [budget] this month.
   int spentOn(Budget budget) =>

@@ -7,6 +7,7 @@ import '../../../core/platform/preferences.dart';
 import '../../../core/platform/quick_action.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/time/app_clock.dart';
+import '../../../../design_system/display/status_messages.dart';
 
 /// One notification to show at [at].
 final class Alert {
@@ -109,7 +110,7 @@ List<BudgetCrossing> budgetCrossings(
       crossing = (
         key: '$month|${b.category}|over',
         tag: 'budget:${b.category}',
-        title: '$name已超支',
+        title: '$name已${StatusWords.over}',
         text: '已用 ${groupDigits(spent)}，超出 ${groupDigits(spent - allowed)}',
       );
     } else if (spent * 100 >= b.warning * allowed) {

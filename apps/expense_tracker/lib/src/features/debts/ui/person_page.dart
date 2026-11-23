@@ -116,7 +116,10 @@ class PersonPage extends StatelessWidget {
                 for (final (e, left) in owed) _owedRow(e, left),
               ]),
             ..._board('往來紀錄', [
-              for (final e in entries) _movementRow(e, person.id, color),
+              for (final e in entries)
+                _movementRow(e, person.id, color, {
+                  for (final (lent, left) in owed) lent.id: left,
+                }),
             ]),
           ],
         );
@@ -156,9 +159,13 @@ class PersonPage extends StatelessWidget {
     return QuoteRow(
       onTap: () => nav.showEntry(ledger.entryQueryService.groupLead(e)),
       title: _what(e),
-      detail:
-          '${formatMd(e.date)}'
-          '${left < e.amount ? ' · 共 ${ledger.orDots(groupDigits(e.amount))}' : ''}',
+      detail: switch (advanceStatus(amount: e.amount, left: left)) {
+        AdvanceStatus.partlySettled =>
+          '${formatMd(e.date)} · '
+              '${advanceLook(AdvanceStatus.partlySettled).words} · '
+              '共 ${ledger.orDots(groupDigits(e.amount))}',
+        _ => formatMd(e.date),
+      },
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -172,8 +179,20 @@ class PersonPage extends StatelessWidget {
 
   /// One movement with the person: paid back in green with a minus, paid
   /// for with a ＋.
-  Widget _movementRow(Entry e, String person, Color color) {
+  Widget _movementRow(
+    Entry e,
+    String person,
+    Color color,
+    Map<String, int> stillOwed,
+  ) {
     final back = e.account == person;
+    // A sum paid for them says where it stands: 未收回, 部分收回 or
+    // 已結清, as the advance rules decide.
+    final status = back
+        ? null
+        : advanceLook(
+            advanceStatus(amount: e.amount, left: stillOwed[e.id] ?? 0),
+          );
     return QuoteRow(
       onTap: () => nav.showEntry(ledger.entryQueryService.groupLead(e)),
       lead: SquareIcon(
@@ -182,7 +201,9 @@ class PersonPage extends StatelessWidget {
         size: 40,
       ),
       title: back ? '收回' : _what(e),
-      detail: formatMd(e.date),
+      detail: status == null
+          ? formatMd(e.date)
+          : '${formatMd(e.date)} · ${status.words}',
       trailing: RowFigure(
         back
             ? '−${ledger.orDots(groupDigits(e.amount))}'

@@ -5,6 +5,7 @@ import 'package:vault/backup_security.dart';
 import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../../design_system/display/date.dart';
+import '../../../../design_system/display/status_messages.dart';
 import '../../../core/messages/recurring_messages.dart';
 
 /// What the inbox brought when the ledger opened: how many items were
@@ -46,7 +47,7 @@ InboxOutcome applyInbox(
       continue;
     }
     if (!found.active) {
-      review.add('「${found.name}」已暫停，$label 的確認沒有入帳');
+      review.add('「${found.name}」${StatusWords.paused}，$label 的確認沒有入帳');
       continue;
     }
     final pending = service.pendingDate(found);
@@ -64,7 +65,7 @@ InboxOutcome applyInbox(
   }
   if (unreadable > 0) {
     review.add(
-      '有 ${countOf(unreadable, CountUnit.notes)}通知上的確認無法讀取（可能是換帳本前留下的），已略過',
+      '有 ${countOf(unreadable, CountUnit.notes)}通知上的確認無法讀取（可能是換帳本前留下的），${StatusWords.skipped}',
     );
   }
   return (booked: booked, review: review);

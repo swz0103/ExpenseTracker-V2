@@ -2,6 +2,7 @@
 // page's state, across accounts, categories, entries and commands
 // (ADR-0013).
 
+import '../../../../design_system/display/status_messages.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/recurring_messages.dart';
 import '../../../../design_system/display/date.dart';
@@ -89,7 +90,7 @@ final class RecurringForm {
     '${formatMd(start)} 起',
     auto ? '到期自動入帳' : '手動入帳',
     if (end case final end?) '到 ${formatMd(end)}',
-    if (!active) '已暫停',
+    if (!active) StatusWords.paused,
   ];
 
   /// Moves between spending and income, with that side's first category.

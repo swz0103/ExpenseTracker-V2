@@ -12,9 +12,9 @@ List<Violation> run(Rule rule, Map<String, String> sources) =>
     rule.check(Project(sources));
 
 void main() {
-  test('the registry has the nine rules with unique ids', () {
+  test('the registry has the ten rules with unique ids', () {
     final ids = [for (final r in allRules) r.id];
-    expect(ids.toSet(), hasLength(9));
+    expect(ids.toSet(), hasLength(10));
     expect(
       ids,
       containsAll([
@@ -23,6 +23,7 @@ void main() {
         'A4-pure-calc',
         'B2-number-format',
         'B3-clock',
+        'B7-status-words',
         'B9-text-literals',
         'D2-no-part',
         'E1-catch-handled',
@@ -193,6 +194,35 @@ void f(int m) {
               "String f(int m) => m.toString().padLeft(2, '0');\n",
           '$_app/src/features/a/x.dart':
               "String f(int m) => m.toString().padLeft(3, '0');\n",
+        }),
+        isEmpty,
+      );
+    });
+  });
+
+  group('B7-status-words', () {
+    const rule = StatusWordLiterals();
+    test('flags a status word in a plain, interpolated or nested literal', () {
+      final v = run(rule, {
+        '$_app/src/features/a/x.dart': r'''
+const a = '已逾期';
+String b(int n) => '超支 $n';
+String c(bool x) => '${x ? '已入帳' : 'plain'} items';
+const d = '剩下';
+''',
+      });
+      // a, b, and the nested '已入帳' inside c; d holds no status word.
+      expect(v, hasLength(3));
+      expect(v.map((x) => x.line), [1, 2, 3]);
+    });
+    test('leaves the presentation, its messages and comments alone', () {
+      expect(
+        run(rule, {
+          '$_app/design_system/display/status.dart': "const a = '已逾期';\n",
+          '$_app/design_system/display/status_messages.dart':
+              "const a = '已賣光';\n",
+          '$_app/src/features/a/x.dart': '// 已逾期 in a comment\nconst a = 1;\n',
+          'packages/domain/lib/x.dart': "const a = '超支';\n",
         }),
         isEmpty,
       );

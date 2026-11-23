@@ -48,6 +48,17 @@ void main() {
     expect(holdings.lotsOf('2330').fold(0, (n, l) => n + l.shares), 6);
   });
 
+  test('a stock sold to the last share is sold out, not held', () {
+    final holdings = HoldingRepository([_tsmc], moveOf: (_) => null)
+      // 10 bought, 4 then 6 sold: 0 left, with a realised gain.
+      ..replay([buy, sell, _trade('rest', EntryType.sell, 5, 6, 6600)]);
+    expect(holdings.all.map((h) => h.code), ['2330']);
+    expect(holdings.held, isEmpty);
+    expect(holdings.soldOut.map((h) => h.code), ['2330']);
+    expect(make().held.map((h) => h.code), ['2330']);
+    expect(make().soldOut, isEmpty);
+  });
+
   test("the day's change follows the shares held", () {
     final holdings = make(moves: {'2330': 2.5});
     expect(holdings.byCode('2330')?.change, 15);

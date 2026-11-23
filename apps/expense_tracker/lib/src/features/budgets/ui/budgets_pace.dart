@@ -166,17 +166,22 @@ class _Limit extends StatelessWidget {
     final shade = category?.color;
     final color = shownColor(shade == null ? AppColors.accent : Color(shade));
     final glyph = tag ? Glyph.tag : iconFor(category!.icon);
-    final left = limit - used;
-    final over = left < 0;
-    final near = !over && limit > 0 && used * 100 >= limit * budget.warning;
-    final tone = over ? AppColors.negative : (near ? _nearColor : color);
+    final status = budgetStatus(
+      spent: used,
+      limit: limit,
+      warningPercent: budget.warning,
+    );
+    final look = budgetLook(status);
+    final figure = budgetFigure(status);
     final share = limit == 0 ? 0.0 : (used / limit).clamp(0.0, 1.0);
     final ink = deepOf(color);
+    // The badge is the one mark of 快用完 and 超支: the square keeps its
+    // category's colour and the figure is written as it is.
     return ColorCard(
-      color: over ? AppColors.negative : (near ? _nearColor : color),
+      color: color,
       amount: 0.18,
       onTap: onTap,
-      label: '${budget.category}，${over ? '超支' : '剩'} ${left.abs()}',
+      label: '${budget.category}，${budgetLead(status)} $figure',
       padding: const EdgeInsets.fromLTRB(
         Space.s3,
         Space.s2,
@@ -188,9 +193,9 @@ class _Limit extends StatelessWidget {
         children: [
           _LimitHead(
             share: share,
-            tone: tone,
+            tone: color,
             glyph: glyph,
-            alert: over ? '超支' : (near ? '快用完' : null),
+            alert: status is BudgetWithin ? null : look,
           ),
           const SizedBox(height: Space.s2),
           Text(
@@ -200,18 +205,20 @@ class _Limit extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.body,
               fontWeight: FontWeight.w800,
-              color: over ? deepOf(AppColors.negative) : ink,
+              color: ink,
             ),
           ),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              '${over ? '超' : '剩'} ${ledger.orDots(groupDigits(left.abs()))}',
-              style: TextStyle(
+              status is BudgetOver
+                  ? ledger.orDots(groupDigits(figure))
+                  : '${StatusWords.left} ${ledger.orDots(groupDigits(figure))}',
+              style: const TextStyle(
                 fontSize: TextSize.heading,
                 fontWeight: FontWeight.w800,
-                color: over ? AppColors.negative : AppColors.ink,
+                color: AppColors.ink,
               ),
             ),
           ),
@@ -239,7 +246,7 @@ class _LimitHead extends StatelessWidget {
   final double share;
   final Color tone;
   final Glyph glyph;
-  final String? alert;
+  final StatusLook? alert;
 
   @override
   Widget build(BuildContext context) {
@@ -266,26 +273,7 @@ class _LimitHead extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        if (alert != null)
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Space.s2,
-              vertical: Space.half,
-            ),
-            decoration: BoxDecoration(
-              color: tone,
-              borderRadius: BorderRadius.circular(Radii.small),
-            ),
-            child: Text(
-              alert,
-              textScaler: TextScaler.noScaling,
-              style: const TextStyle(
-                fontSize: TextSize.caption,
-                fontWeight: FontWeight.w800,
-                color: AppColors.onAccent,
-              ),
-            ),
-          ),
+        if (alert != null) StatusBadge(alert),
       ],
     );
   }

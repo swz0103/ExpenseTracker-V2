@@ -117,6 +117,18 @@ The tests of these ids run in every test run now, no longer skipped.
 - DAT-09 (no known-defect test before): book version and migration steps (book_migrations_test.dart), unknown fields kept on rewrite (quarantine_test.dart), every kept book opens, is brought up and reads the same again (old_books_test.dart).
 - DAT-12 (no known-defect test before): a book that was opened before is never given the starting accounts again; quarantine_test.dart.
 
+## fixed in 1.5
+
+Work package 1.5 (one decision and one wording per status). These findings had no known-defect test; the tests below run in the ordinary suite.
+
+- F19: `test/features/overview/ui/sections/card_due_section_test.dart` (card page, account list and 總覽 say 已逾期 2 天); `packages/domain/test/credit_cards/card_rules_test.dart`
+- F29: `test/design_system/display/status_test.dart`; the budget square keeps its colour and shows the 快用完/超支 badge only
+- F07: `test/core/ledger/rules/budget_rules_test.dart` (over by amount, not rounded percent); the overview card says 本月超支 with the badge
+- F44: `test/features/overview/model/home_widget_test.dart` (`state` written for the widget); `android/app/src/test/.../WidgetViewTest.kt`
+- F84: `test/design_system/display/status_test.dart` (a let-go day says 已略過)
+- INV-06: `test/core/ledger/repositories/holding_repository_test.dart` (sold-out not held); `packages/domain/test/investments/holding_rules_test.dart` — the sold-out part only; the stale-price mark and the neutral flat colour are not done
+- REC-04: the total reads 本月合計 and a subscription row opens its item; the end-before-start check is 1.4's
+
 ## not covered
 
 One line per finding that has no test here. Findings with an executed reproduction come first with the specific reason; the rest were found by reading code (no executed reproduction), which the brief does not require.
@@ -130,7 +142,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - REM-01 (S1, 3.4): the resume path is inline in a State (didChangeAppLifecycleState) and the inbox source exists only on Android; testable once LedgerSession gets a resume step
 - PKG-01 (S2, 1.3): partly fixed in 1.3: the discount is the preference 券商手續費折扣 (default 6折; tests in test/core/platform/preferences_test.dart and test/features/entries/model/compose_form_test.dart); the day-trade tax stays open, as an entry has no notion of a day trade, and the holiday table belongs to the dates package
 - F24 (S2, 1.4): the intended behaviour (warn or refuse a buy that overdraws) is not decided; 1.4 shows a non-blocking warning (`NegativeBalanceAfter`) for the owner to confirm
-- F19 (S2, 1.5): wording and one shared overdue judgement across three screens; no single value to assert
 - F77 (S2, 2.2): does not reproduce at ledger level: budgetCrossings already reports 本月總預算已超支 for the same data; the device case came from other state
 - F80 (S2, 2.2): the fix is a design choice (start month of carry-over or retroactive leftover); no single correct value
 - F20 (S2, 2.4): design intent open: whether the first instalment belongs to the current statement
@@ -158,8 +169,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - LOG-10 (S2, 5.4): performance, not correctness; belongs to the benchmark gate (0.2)
 - RPT-02 (S2, 5.4): needs a new period-aware tag count API
 - IMP-03 (S2, 6.1): feature request (column mapping, other encodings)
-- F07 (S3, 1.5): wording on the budget card; UI text only
-- REC-04 (S3, 1.5): labels and an inert row in the recurring page; UI only
 - REC-03 (S3, 2.3): the division by zero is inside widget code (yearly share); no API returns it
 - ACC-04 (S3, 2.4): the fix is a prompt at archive time; the correct end state is not one assertion
 - F16 (S3, 2.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
@@ -223,11 +232,7 @@ One line per finding that has no test here. Findings with an executed reproducti
 - F56 (S3, 1.4): no executed reproduction; not turned into a test
 - F68 (S3, 1.4): no executed reproduction; not turned into a test
 - LOG-11 (S3, 1.4): no executed reproduction; not turned into a test
-- F29 (S3, 1.5): no executed reproduction; not turned into a test
-- F44 (S3, 1.5): no executed reproduction; not turned into a test
 - F70 (S3, 1.5): no executed reproduction; not turned into a test
-- F84 (S3, 1.5): no executed reproduction; not turned into a test
-- INV-06 (S3, 1.5): no executed reproduction; not turned into a test
 - F33 (S3, 2.3): no executed reproduction; not turned into a test
 - F94 (S3, 2.3): no executed reproduction; not turned into a test
 - F31 (S3, 2.4): no executed reproduction; not turned into a test

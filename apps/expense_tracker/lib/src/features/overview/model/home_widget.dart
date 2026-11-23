@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart' show Listenable, VoidCallback;
 
 import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
 
 import 'package:core/foundation_values.dart'
     show BusinessDate, YearMonth, startOfWeek, weekdayIndex;
@@ -61,8 +62,22 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
   final month = YearMonth(today.year, m).toString();
   final date = BusinessDate.of(today).toString();
   final spent = book.reportService.expense(today.year, m);
-  final allowance = _monthAllowance(book, today);
+  final whole = _wholeBudget(book);
+  final allowance = whole == null
+      ? null
+      : book.budgetService.allowance(whole, today.year, today.month);
   final hasBudget = allowance != null && allowance > 0;
+  // Decided by the budget rules, worded by the status presentation: the
+  // widget shows these words and colours by `state`.
+  final status = hasBudget
+      ? budgetStatus(
+          spent: spent,
+          limit: allowance,
+          warningPercent: whole!.warning,
+        )
+      : null;
+  final over = status is BudgetOver;
+  final state = status == null ? '' : budgetLook(status).id;
   final used = hasBudget ? percent(spent, allowance) : null;
   final days = DateTime.utc(today.year, m + 1, 0).day;
   final pace = hasBudget ? percent(today.day, days) : null;
@@ -83,24 +98,23 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
       'title': '$m 月支出',
       'figure': groupDigits(spent),
       'budget': hasBudget ? '預算 ${groupDigits(allowance)}' : '',
-      'detail': !hasBudget
+      'detail': status == null
           ? noBudget
-          : spent <= allowance
-          ? '剩 ${groupDigits(allowance - spent)}'
-          : '超支 ${groupDigits(spent - allowance)}',
+          : '${budgetLead(status)} ${groupDigits(budgetFigure(status))}',
+      'state': state,
       'progress': used?.clamp(0, 100),
       'pace': pace,
       'week': week,
       'weekTotal': groupDigits(daySpent.fold(0, (a, b) => a + b)),
       'today': weekday,
-      'shortLabel': !hasBudget
+      'shortLabel': status == null
           ? '$m 月支出'
-          : spent <= allowance
-          ? '$m 月預算剩'
-          : '$m 月超支',
-      'shortFigure': !hasBudget
+          : over
+          ? '$m 月${StatusWords.over}'
+          : '$m 月預算剩',
+      'shortFigure': status == null
           ? groupDigits(spent)
-          : groupDigits((allowance - spent).abs()),
+          : groupDigits(budgetFigure(status)),
     },
     WidgetFigures.percent => {
       'v': 2,
@@ -109,7 +123,12 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
       'title': '$m 月預算',
       'figure': used == null ? '—' : '已用 $used%',
       'budget': '',
-      'detail': used == null ? noBudget : '',
+      'detail': used == null
+          ? noBudget
+          : over
+          ? StatusWords.over
+          : '',
+      'state': state,
       'progress': used?.clamp(0, 100),
       'pace': pace,
       'week': week,
@@ -122,16 +141,13 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
   };
 }
 
-/// What the month's total budget allows by [today], or null when no
-/// total budget is set.
-int? _monthAllowance(WidgetBook book, DateTime today) {
+/// The budget for all spending, or null when no total budget is set.
+Budget? _wholeBudget(WidgetBook book) {
   Budget? total;
   for (final b in book.budgets.all) {
     if (b.category == allSpending && b.limit > 0) total = b;
   }
-  return total == null
-      ? null
-      : book.budgetService.allowance(total, today.year, today.month);
+  return total;
 }
 
 /// Each day of [daySpent] as a share of the week's largest day, -1 for

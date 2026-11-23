@@ -1,8 +1,10 @@
 import 'dart:math';
 
+import 'package:domain/investments.dart' show HoldingStatus, holdingStatus;
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
 import '../../../../design_system/display/amount_text.dart' show AmountText;
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/paint.dart';
@@ -42,7 +44,8 @@ class HoldingPage extends StatelessWidget {
       builder: (context, _) {
         final held = ledger.holding(code);
         final trades = ledger.entryQueryService.tradesOf(code);
-        if (held == null) {
+        if (held == null ||
+            holdingStatus(held.shares) == HoldingStatus.soldOut) {
           return HeadedList(
             padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
             header: CenterHeader(code, onBack: nav.back),
@@ -467,9 +470,9 @@ class _SoldOut extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '已賣光',
-            style: TextStyle(
+          Text(
+            holdingLook(HoldingStatus.soldOut).words,
+            style: const TextStyle(
               fontSize: TextSize.small,
               fontWeight: FontWeight.w800,
               color: AppColors.accent,
