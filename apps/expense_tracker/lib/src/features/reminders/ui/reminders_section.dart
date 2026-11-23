@@ -244,7 +244,7 @@ class _RemindersSectionState extends State<RemindersSection>
             : '已把 ${countOf(written, CountUnit.pieces)}到期提醒放進日曆',
       );
     } on Object catch (error) {
-      ErrorLog.instance.record('日曆同步', error);
+      ErrorLog.instance.record(ErrorSteps.calendarSync, error);
       if (mounted) showNote(context, '日曆沒有連上：${describeProblem(error)}');
     }
   }

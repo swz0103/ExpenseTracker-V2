@@ -1,6 +1,7 @@
 import 'package:vault/backup_security.dart' show InboxItem;
 
 import '../core/diagnostics/error_log.dart';
+import '../core/diagnostics/error_steps.dart';
 import '../core/ledger/ledger.dart';
 import '../core/ledger/persistence/quarantine.dart';
 import '../features/reminders/model/inbox_apply.dart';
@@ -121,7 +122,10 @@ final class LedgerSession {
       );
       if (!await ledger.keptAll()) {
         // The book is read back without the bookings; the items stay.
-        ErrorLog.instance.record('收件匣', StateError('bookings not kept'));
+        ErrorLog.instance.record(
+          ErrorSteps.inbox,
+          StateError('bookings not kept'),
+        );
         return null;
       }
       for (final item in items) {
@@ -129,7 +133,7 @@ final class LedgerSession {
       }
       return outcome;
     } on Object catch (error) {
-      ErrorLog.instance.record('收件匣', error);
+      ErrorLog.instance.record(ErrorSteps.inbox, error);
       return null;
     }
   }

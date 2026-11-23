@@ -56,6 +56,22 @@ abstract final class ErrorSteps {
   /// The phone could not say whether notifications are allowed.
   static const notificationStatus = '通知狀態';
 
+  /// The plan of notifications could not be handed to the phone: handed
+  /// again at the next change or start.
+  static const notifications = '通知';
+
+  /// The inbox of confirmations from notifications could not be read, or
+  /// what it booked was not kept: its items stay for the next time.
+  static const inbox = '收件匣';
+
+  /// The chosen calendar could not be brought up to date: tried again at
+  /// the next change or start.
+  static const calendarSync = '日曆同步';
+
+  /// The app's events could not be taken off a calendar no longer
+  /// synced: they stay there for the person to delete.
+  static const calendarClear = '清除日曆的提醒';
+
   /// The phone could not say whether it hides the app in the recents
   /// list, or could not be told to: the app keeps covering itself.
   static const screenPrivacy = '螢幕隱私';

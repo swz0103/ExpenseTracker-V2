@@ -11,6 +11,7 @@ import 'reminders.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/platform/quick_action.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/diagnostics/error_steps.dart';
 import '../../../core/time/app_clock.dart';
 import '../../../../design_system/display/status_messages.dart';
 
@@ -333,7 +334,7 @@ final class Notifier {
       }
       await postBudgets(book);
     } on Object catch (error) {
-      ErrorLog.instance.record('通知', error);
+      ErrorLog.instance.record(ErrorSteps.notifications, error);
     }
   }
 

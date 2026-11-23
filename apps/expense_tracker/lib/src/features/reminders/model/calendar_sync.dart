@@ -5,6 +5,7 @@ import 'coalesced_run.dart';
 import 'reminder_rules.dart';
 import 'reminders.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/diagnostics/error_steps.dart';
 
 /// A calendar on the phone, such as one synced with Google Calendar.
 final class CalendarChoice {
@@ -216,7 +217,7 @@ final class CalendarSync {
       try {
         await _clear(before.$1, book.today);
       } on Object catch (error) {
-        ErrorLog.instance.record('清除舊日曆的提醒', error);
+        ErrorLog.instance.record(ErrorSteps.calendarClear, error);
       }
     }
     await _write(calendar.id, calendar.name, amounts: amounts);
@@ -232,7 +233,7 @@ final class CalendarSync {
       await _clear(calendar.$1, book.today);
       return true;
     } on Object catch (error) {
-      ErrorLog.instance.record('清除日曆的提醒', error);
+      ErrorLog.instance.record(ErrorSteps.calendarClear, error);
       return false;
     } finally {
       if (_file.existsSync()) await _file.delete();
@@ -280,7 +281,7 @@ final class CalendarSync {
       final inserted = await port.apply(calendar.$1, changes);
       return wanted.length - (changes.insert.length - inserted);
     } on Object catch (error) {
-      ErrorLog.instance.record('日曆同步', error);
+      ErrorLog.instance.record(ErrorSteps.calendarSync, error);
       return null;
     }
   }

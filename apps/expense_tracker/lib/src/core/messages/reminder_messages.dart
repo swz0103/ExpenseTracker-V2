@@ -1,4 +1,5 @@
 import '../../../design_system/display/amount.dart';
+import '../../../design_system/display/status_messages.dart';
 
 /// The words of the reminders: the names the phone's settings show for
 /// each kind of notification, the test notification, and what the
@@ -10,7 +11,7 @@ abstract final class ReminderMessages {
   static const nudgeChannel = '每日記帳提醒';
   static const nudgeChannelAbout = '當天還沒記帳時提醒';
   static const budgetChannel = '預算提醒';
-  static const budgetChannelAbout = '預算用到警示比例或超支時';
+  static const budgetChannelAbout = '預算用到警示比例或${StatusWords.over}時';
 
   /// The test notification 試一則 sends.
   static const testTitle = '測試通知';

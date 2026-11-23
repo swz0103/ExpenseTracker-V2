@@ -249,15 +249,37 @@ items:
       - apps/expense_tracker/lib/src/app/lifecycle_services.dart
     target: apps/expense_tracker/lib/app/coordinators/lifecycle/
     status: scattered
+  # Dart writes the whole plan (reminder_alerts.dart: planFor), the
+  # adapter hands it over, and the phone only keeps it, re-arms it and
+  # applies each alert's grace (Reminders.kt, ReminderGrace.kt).
   - id: reminder-scheduling
     what: 向系統排程提醒
     layer: app
     owner:
-      - apps/expense_tracker/lib/src/app/android/notification_adapter.dart
       - apps/expense_tracker/lib/src/features/reminders/model/reminder_alerts.dart
+      - apps/expense_tracker/lib/src/app/android/notification_adapter.dart
       - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/Reminders.kt
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/ReminderGrace.kt
     target: apps/expense_tracker/lib/app/coordinators/reminders/
-    status: scattered
+    status: owned
+  # One table: each kind's channel and grace window, the plan's horizon,
+  # the hour a due date is told, how late an inexact alarm may come.
+  - id: reminder-timing
+    what: 提醒的頻道、寬限時間、排程天數與時刻
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/reminders/model/reminder_rules.dart
+    target: apps/expense_tracker/lib/app/coordinators/reminders/
+    status: owned
+  # The calendar's events are worked out and diffed by key in Dart; the
+  # phone reads them back and applies the changes it is given.
+  - id: calendar-sync
+    what: 日曆事件的增刪改與是否寫入金額
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/reminders/model/calendar_sync.dart
+    target: apps/expense_tracker/lib/app/coordinators/reminders/
+    status: owned
   - id: backup-write-mutex
     what: 備份的寫入與互斥
     layer: app
