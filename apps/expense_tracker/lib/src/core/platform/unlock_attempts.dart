@@ -73,6 +73,8 @@ final class UnlockAttempts {
       _notBefore = DateTime.tryParse(json.text('notBefore') ?? '');
       _boot = json.text('boot');
       final ready = json.whole('readyUpMs');
+      // Exception to the motion scale: a kept reading of the phone's
+      // clock, not a movement.
       _readyUp = ready == null ? null : Duration(milliseconds: ready);
     } on Object catch (error) {
       ErrorLog.instance.record('解鎖次數', error);

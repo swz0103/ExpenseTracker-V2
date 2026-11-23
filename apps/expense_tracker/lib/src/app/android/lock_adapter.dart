@@ -18,6 +18,8 @@ Uptime? uptimeOf(Map<String, Object?> found) {
   final boot = json.text('boot');
   final up = json.whole('upMs');
   if (boot == null || up == null) return null;
+  // Exception to the motion scale: a reading of the phone's clock, not a
+  // movement.
   return (boot: boot, up: Duration(milliseconds: up));
 }
 

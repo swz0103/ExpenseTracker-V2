@@ -52,6 +52,9 @@ abstract final class LockWords {
       '離開 App 多久之後，回來要重新解鎖。拍收據、選檔案這類由 App 帶出去的畫面，'
       '至少 ${AutoLock.errand.inMinutes} 分鐘內不會上鎖。';
 
+  /// What finds 自動上鎖 in the settings' search, beside its name.
+  static const autoLockSearch = ['上鎖', '鎖定', '離開'];
+
   /// Under the 自動上鎖 card: the choice in force.
   static String autoLockDetail(AutoLock choice) => switch (choice) {
     AutoLock.immediately => '一離開 App 就上鎖',

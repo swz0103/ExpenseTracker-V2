@@ -6,6 +6,7 @@ import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
 import '../core/design_system/theme.dart';
 import '../core/formatting/words.dart';
+import '../core/messages/lock_messages.dart';
 import '../core/messages/trade_messages.dart';
 import '../core/navigation/nav.dart';
 
@@ -53,6 +54,11 @@ const settingTopics = <SettingTopic>[
   (
     name: '指紋解鎖',
     words: ['指紋', '臉部', '生物辨識'],
+    page: SettingsDestination.security,
+  ),
+  (
+    name: LockWords.autoLock,
+    words: LockWords.autoLockSearch,
     page: SettingsDestination.security,
   ),
   (name: '禁止截圖', words: ['截圖', '錄影', '隱私'], page: SettingsDestination.security),
