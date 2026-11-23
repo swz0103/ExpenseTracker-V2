@@ -129,9 +129,15 @@ final class MissingShares extends RecordIssue {
   const MissingShares();
 }
 
-/// A sale of more shares than are held by then.
+/// A sale of more shares than are held by then. With [later], it is not
+/// the record written that is short but a sale or reduction after it,
+/// such as when a purchase it sold from is taken away: the one type every
+/// path that refuses an oversold sale gives (D12).
 final class SaleExceedsHolding extends RecordIssue {
-  const SaleExceedsHolding();
+  const SaleExceedsHolding({this.later = false});
+
+  /// A later sale or reduction, not the record itself, would be short.
+  final bool later;
 }
 
 /// A refund of card spending paid into another account.

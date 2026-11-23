@@ -104,7 +104,7 @@ The tests that were skipped here now run unskipped in `p3_2_keys_test.dart`; the
 The tests run unskipped in `p1_4_write_invariants_test.dart`.
 
 - LOG-02: 3 tests; every command that writes an entry checks it against the write rules of `packages/ledger/entries` and refuses a zero amount, a same-account transfer and foreign spending without NT$ amount (`RecordRefused`)
-- LOG-12: renaming a merchant renames it on the recurring items too; a refused write is one typed `LedgerProblem` (`RecordRefused`, `SharesShort`) told by `describeProblem` wherever it is caught
+- LOG-12: renaming a merchant renames it on the recurring items too; a refused write is one typed `LedgerProblem` (`RecordRefused`; an oversold sale too, as `SaleExceedsHolding`, since D12) told by `describeProblem` wherever it is caught
 
 ## fixed in 1.2
 

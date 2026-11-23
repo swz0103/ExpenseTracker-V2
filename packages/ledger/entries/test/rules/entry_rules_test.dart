@@ -366,6 +366,15 @@ void main() {
       ]);
       expect(_issues(sale), isEmpty);
     });
+    test('D12: the rules name the sale itself short, not a later one', () {
+      final sale = _entry(type: EntryType.sell, holding: '2330', shares: 1);
+      final found = entryIssues(
+        sale,
+        const EntryFacts(account: _bank, oversells: true),
+      ).whereType<SaleExceedsHolding>().single;
+      expect(found.later, false);
+      expect(const SaleExceedsHolding(later: true).later, true);
+    });
   });
 
   group('refunds', () {

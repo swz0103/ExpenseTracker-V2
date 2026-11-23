@@ -28,7 +28,10 @@ void main() {
   testWidgets('a sale that would leave too few shares is told so', (
     tester,
   ) async {
-    await refuse(tester, SharesShort());
+    await refuse(
+      tester,
+      RecordRefused([const SaleExceedsHolding(later: true)]),
+    );
     expect(find.text('這樣之後的賣出或減資會超過持股，請先改那一筆。'), findsOneWidget);
   });
 

@@ -179,7 +179,7 @@ void main() {
       );
     });
 
-    test('an oversold sale is refused as a SharesShort', () {
+    test('D12: an oversold sale is refused as the write rules refuse it', () {
       final ledger = _book();
       final sale = entryOf(
         's',
@@ -190,7 +190,16 @@ void main() {
         holding: '2330',
         shares: 1,
       );
-      expect(() => ledger.entryCommands.add(sale), throwsA(isA<SharesShort>()));
+      expect(
+        () => ledger.entryCommands.add(sale),
+        throwsA(
+          isA<RecordRefused>().having(
+            (r) => r.first,
+            'first',
+            isA<SaleExceedsHolding>().having((i) => i.later, 'later', false),
+          ),
+        ),
+      );
       expect(ledger.entries.all, isEmpty);
     });
 
