@@ -11,8 +11,9 @@ import java.net.SocketTimeoutException
 /** AND-05: what the background jobs cost and when a failed run is tried again. */
 class BackgroundWorkTest {
     @Test
-    fun theMarketsListsWaitForWiFi() {
-        assertEquals(NetworkType.UNMETERED, BackgroundWork.MARKET_NETWORK)
+    fun theMarketsListsGoOnAnyNetwork() {
+        // D40: any network, not Wi-Fi only.
+        assertEquals(NetworkType.CONNECTED, BackgroundWork.MARKET_NETWORK)
     }
 
     @Test
@@ -26,6 +27,16 @@ class BackgroundWorkTest {
         val constraints = BackgroundWork.constraints(NetworkType.UNMETERED)
         assertTrue(constraints.requiresBatteryNotLow())
         assertEquals(NetworkType.UNMETERED, constraints.requiredNetworkType)
+    }
+
+    @Test
+    fun theMarketJobKeepsTheBatteryRuleAndTheBackOff() {
+        val request = BackgroundWork.periodic(MarketWorker::class.java, 3, BackgroundWork.MARKET_NETWORK)
+        assertTrue(request.workSpec.constraints.requiresBatteryNotLow())
+        assertEquals(NetworkType.CONNECTED, request.workSpec.constraints.requiredNetworkType)
+        assertEquals(androidx.work.BackoffPolicy.EXPONENTIAL, request.workSpec.backoffPolicy)
+        // 15 minutes, in milliseconds: 15 * 60 * 1000.
+        assertEquals(900000L, request.workSpec.backoffDelayDuration)
     }
 
     @Test
