@@ -7,8 +7,10 @@ import 'package:core/money/amount_parser.dart';
 import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/amount_messages.dart';
+import '../../../core/messages/validation_messages.dart';
 
-import 'package:domain/loans.dart';
+import 'package:ledger_loans/calc/loan_plan.dart';
+import 'package:ledger_loans/model/rate.dart';
 
 /// What the account form holds while it is filled in, and what saving
 /// it does to the ledger: a new account, or the changes to [old] with
@@ -111,8 +113,19 @@ final class AccountForm {
 
   bool get loan => kind == AccountKind.loan;
 
-  /// Why the account cannot be saved yet; null when it can.
-  String? get problem => name.trim().isEmpty ? '請輸入帳戶名稱' : limitProblem;
+  /// Why the account cannot be saved yet; null when it can: the ledger's
+  /// write rules, which the save asks again, then the credit limit as
+  /// typed.
+  String? get problem {
+    final account = build();
+    final found = accountIssues(
+      name: account.name,
+      closingDay: account.closingDay,
+      dueDay: account.dueDay,
+      limit: account.limit,
+    );
+    return found.isEmpty ? limitProblem : validationMessage(found.first);
+  }
 
   /// What is wrong with the card's credit limit as typed: 80,000 and
   /// 80000.0 are 80,000, but 8萬 or 1.234,5 is not a limit, and is said

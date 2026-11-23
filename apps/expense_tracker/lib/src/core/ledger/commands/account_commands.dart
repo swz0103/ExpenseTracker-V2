@@ -1,7 +1,10 @@
 import 'package:core/foundation_values.dart';
 import 'package:domain/credit_cards.dart';
+import 'package:ledger_entries/rules.dart'
+    show CloseMoveRefused, RecordIssue, accountIssues;
 
 import '../cache/topic.dart';
+import '../card_cycle.dart';
 import '../models/models.dart';
 import '../persistence/write_batch.dart';
 import '../repositories/account_repository.dart';
@@ -10,11 +13,14 @@ import '../repositories/recurring_repository.dart';
 import '../repositories/trash_repository.dart';
 import '../services/balance_service.dart';
 import 'command_context.dart';
+import 'command_exceptions.dart';
 
 import 'dart:math';
 
 /// Writes the accounts: adding, changing, ordering and removing them, a
-/// balance set by hand and a card's statement close moved.
+/// balance set by hand and a card's statement close moved. An account or
+/// a moved close the ledger's write rules refuse throws a [RecordRefused]
+/// before anything changes.
 final class AccountCommands {
   AccountCommands({
     required this._context,
@@ -37,6 +43,7 @@ final class AccountCommands {
   final BalanceService _balances;
 
   void addAccount(Account account) {
+    _check(account);
     _accounts.add(account);
     _context.changed(const {Topic.accounts});
     _context.keep(WriteBatch(accounts: [account]));
@@ -46,6 +53,7 @@ final class AccountCommands {
   void updateAccount(Account account) {
     final before = _accounts.byId(account.id);
     if (before == null) return addAccount(account);
+    _check(account);
     // A form that does not show a card's moved closes and earlier billing
     // days keeps them.
     account = account.copyWith(
@@ -133,10 +141,25 @@ final class AccountCommands {
   void moveClose(String cardId, DateTime scheduled, DateTime closesOn) {
     final card = _accounts.byId(cardId);
     if (card == null) return;
+    if (!card.canMoveClose(scheduled, closesOn)) {
+      throw RecordRefused(const [CloseMoveRefused()]);
+    }
     final moved = card.copyWith(closes: {...card.closes, scheduled: closesOn});
     _accounts.replace(moved);
     _context.changed(Topic.all);
     _context.keep(WriteBatch(accounts: [moved]));
+  }
+
+  /// Refuses [account] with a [RecordRefused] when the write rules find
+  /// it wrong.
+  static void _check(Account account) {
+    final List<RecordIssue> issues = accountIssues(
+      name: account.name,
+      closingDay: account.closingDay,
+      dueDay: account.dueDay,
+      limit: account.limit,
+    );
+    if (issues.isNotEmpty) throw RecordRefused(issues);
   }
 
   /// Whether anything still names account [id]: an entry, one in the

@@ -21,7 +21,8 @@ void main() {
       p.join(root, '.github', 'workflows', 'integration-validation.yml'),
     ).readAsStringSync();
     final covered = RegExp(
-      r"(?:-Package |')((?:apps|packages|infrastructure|tooling)/[a-z_]+)'?",
+      r"(?:-Package |')((?:apps|packages|infrastructure|tooling)/[a-z_]+"
+      r"(?:/[a-z_]+)?)'?",
     ).allMatches(workflow).map((m) => m.group(1)!).toSet();
     expect(covered, registered);
   });
@@ -33,8 +34,15 @@ void main() {
       if (!location.existsSync()) continue;
       for (final entity in location.listSync()) {
         if (entity is! Directory) continue;
-        if (File(p.join(entity.path, 'pubspec.yaml')).existsSync()) {
-          final relative = p.relative(entity.path, from: root);
+        // A folder without a pubspec groups packages one level down, as
+        // packages/ledger/<subject> does.
+        final packages = File(p.join(entity.path, 'pubspec.yaml')).existsSync()
+            ? [entity]
+            : entity.listSync().whereType<Directory>().where(
+                (d) => File(p.join(d.path, 'pubspec.yaml')).existsSync(),
+              );
+        for (final package in packages) {
+          final relative = p.relative(package.path, from: root);
           onDisk.add(p.posix.joinAll(p.split(relative)));
         }
       }

@@ -3,7 +3,6 @@ import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../baseline/baseline_ledger.dart';
-import 'known_defect.dart';
 
 Ledger book() => ledgerOf(
   today: day(2026, 10, 4),
@@ -51,7 +50,7 @@ void main() {
         // Refusing by throwing is one way to say no.
       }
       expect(ledger.entries.all, isEmpty);
-    }, skip: knownDefect('LOG-02', '1.4'));
+    });
   }
 
   test('LOG-12: renaming a merchant renames it on the recurring items too', () {
@@ -82,5 +81,5 @@ void main() {
     ledger.entryCommands.renameMerchant('舊房東', '新房東');
     expect(ledger.entries.byId('a')!.merchant, '新房東');
     expect(ledger.recurring.byId('rent')!.merchant, '新房東');
-  }, skip: knownDefect('LOG-12', '1.4'));
+  });
 }

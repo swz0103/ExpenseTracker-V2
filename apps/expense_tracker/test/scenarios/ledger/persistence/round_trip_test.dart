@@ -148,7 +148,12 @@ void main() {
               r.nextInt(9000),
             );
           case 15:
-            live.accountCommands.removeAccount(pick(live.accounts.all).id);
+            // The three the entries are written to stay: an entry into an
+            // account the book does not have is refused (LOG-03).
+            final gone = pick(live.accounts.all).id;
+            if (!const {'bank', 'cash', 'card'}.contains(gone)) {
+              live.accountCommands.removeAccount(gone);
+            }
           case 16:
             live.accountCommands.placeAccounts([
               for (final a in live.accounts.all.reversed) a.id,
@@ -205,7 +210,7 @@ void main() {
             // A spending paid partly for someone, written as one group.
             final group = 'g${serial++}';
             final paid = spend('e${serial++}');
-            live.entryCommands.replaceGroup(
+            live.entryCommands.save(
               [
                 Entry(
                   id: paid.id,
@@ -227,7 +232,6 @@ void main() {
                   group: group,
                 ),
               ],
-              const [],
               receipt: r.nextBool() ? '$group.etr' : null,
               receiptOn: paid.id,
             );

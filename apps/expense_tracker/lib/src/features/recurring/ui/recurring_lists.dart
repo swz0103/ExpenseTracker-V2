@@ -254,8 +254,11 @@ class _Paused extends StatelessWidget {
                   grey: true,
                   onTap: () => onEdit(item: r),
                   trailing: FilledButton(
-                    onPressed: () => ledger.recurringCommands.saveRecurring(
-                      r.copyWith(active: true),
+                    onPressed: () => refusalShown(
+                      context,
+                      () => ledger.recurringCommands.saveRecurring(
+                        r.copyWith(active: true),
+                      ),
                     ),
                     style: solidButton(
                       AppColors.white,

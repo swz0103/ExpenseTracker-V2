@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:domain/investments.dart' show HoldingStatus;
 import 'package:flutter/material.dart';
+import 'package:ledger_trade_costs/rules/instruments.dart' show isEtf;
 
 import '../../../../design_system/display/amount.dart';
 import '../../../../design_system/display/status.dart';
@@ -105,14 +106,14 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
             '個股',
             [
               for (final h in holdings.held)
-                if (!h.code.startsWith('00')) h,
+                if (!isEtf(h.code)) h,
             ],
           ),
           (
             'ETF',
             [
               for (final h in holdings.held)
-                if (h.code.startsWith('00')) h,
+                if (isEtf(h.code)) h,
             ],
           ),
           (holdingLook(HoldingStatus.soldOut).words, holdings.soldOut),

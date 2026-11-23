@@ -6,6 +6,7 @@ import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/formatting/dates.dart';
 import '../../../../design_system/display/status_messages.dart';
+import '../../../core/messages/recurring_messages.dart';
 
 /// What the inbox brought when the ledger opened: how many items were
 /// booked, and what could not be, for the person to look at.
@@ -15,7 +16,9 @@ typedef InboxOutcome = ({int booked, List<String> review});
 /// 「確認入帳」 books its recurring item when that day is the one still
 /// due, the same as confirming it on the page; one booked since (by hand
 /// or by itself) is let go. Anything else is not guessed at but listed:
-/// an item deleted, paused or with an earlier day still unbooked, and
+/// an item deleted, paused or with an earlier day still unbooked, a
+/// booking the ledger refuses (such as one in another currency with no
+/// rate yet), and
 /// requests that cannot be read (sealed for a ledger restored over).
 InboxOutcome applyInbox(
   List<InboxItem> items, {
@@ -48,7 +51,11 @@ InboxOutcome applyInbox(
       continue;
     }
     final pending = service.pendingDate(found);
-    if (pending == day) {
+    final refusal = pending == day ? commands.refusalOf(found) : null;
+    if (refusal != null) {
+      // Booked as the ledger keeps it, or not at all: told, not guessed.
+      review.add(inboxRefused(found.name, label, refusal));
+    } else if (pending == day) {
       commands.confirm(found);
       booked++;
     } else if (pending != null && pending.isBefore(day)) {

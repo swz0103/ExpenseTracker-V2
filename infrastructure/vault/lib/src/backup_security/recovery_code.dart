@@ -33,6 +33,13 @@ Future<String> encodeRecoveryCode(List<int> key) async {
   return [_prefix, ...groups].join('-');
 }
 
+/// Whether [text] is meant as a recovery code rather than a password or
+/// passphrase: it starts with the code's `ETR1`, in any case and with any
+/// spaces or dashes. A wrong code is then reported as one, not tried as a
+/// password.
+bool looksLikeRecoveryCode(String text) =>
+    text.toUpperCase().replaceAll(RegExp(r'[\s-]'), '').startsWith(_prefix);
+
 /// Reads a code typed by a person: case, spaces and dashes are ignored and
 /// the look-alike letters O, I and L are read as digits.
 Future<Uint8List> decodeRecoveryCode(String code) async {

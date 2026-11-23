@@ -10,6 +10,7 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/calculator.dart';
+import '../../../core/widgets/problem_note.dart';
 import '../../../core/widgets/pickers.dart';
 
 import '../model/account_form.dart';

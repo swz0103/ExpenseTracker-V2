@@ -4,7 +4,13 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 /// The business rules run anywhere: no files, network, database or UI.
-const platformFree = ['packages/core', 'packages/domain'];
+const platformFree = [
+  'packages/core',
+  'packages/domain',
+  'packages/ledger/entries',
+  'packages/ledger/loans',
+  'packages/ledger/trade_costs',
+];
 
 /// The only SDK libraries the business packages may use.
 const allowedSdk = {
@@ -22,7 +28,7 @@ const forbiddenPackages = {'flutter', 'storage', 'vault', 'market', 'sqlite3'};
 final _directive = RegExp(r'''^\s*(?:import|export)\s+['"]([^'"]+)['"]''');
 
 void main() {
-  test('core and domain import no platform library', () {
+  test('the business packages import no platform library', () {
     final root = p.normalize(p.join(Directory.current.path, '..', '..'));
     final offenders = <String>[];
     var checked = 0;

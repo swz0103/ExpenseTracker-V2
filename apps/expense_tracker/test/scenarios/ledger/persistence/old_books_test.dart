@@ -274,7 +274,7 @@ void _fill(Ledger live) {
     ..add(e('sell', 10, EntryType.sell, 33000, holding: '2330', shares: 50))
     ..add(e('div', 8, EntryType.dividend, 450, holding: '2330'))
     ..add(e('gone', 4, EntryType.expense, 80, category: '飲食'));
-  c.replaceGroup([
+  c.save([
     Entry(
       id: 'meal',
       date: ago(6),
@@ -294,7 +294,7 @@ void _fill(Ledger live) {
       category: '',
       group: 'g1',
     ),
-  ], const []);
+  ]);
   c.remove('gone');
   live.budgetCommands
     ..setBudget(allSpending, 30000, warning: 90, carry: true)

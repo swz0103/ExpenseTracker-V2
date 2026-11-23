@@ -82,15 +82,14 @@ items:
     what: 資料是否合法
     layer: ledger
     owner:
-      - apps/expense_tracker/lib/src/core/ledger/services/entry_validator.dart
-      - apps/expense_tracker/lib/src/core/ledger/services/integrity_service.dart
+      - packages/ledger/entries/lib/rules
     target: packages/ledger/entries/lib/rules/
-    status: scattered
+    status: owned
   - id: income-expense-kinds
     what: 什麼算「支出」「收入」
     layer: ledger
     owner:
-      - apps/expense_tracker/lib/src/core/ledger/models/entry.dart
+      - packages/ledger/entries/lib/model/entry.dart
     target: packages/ledger/entries/lib/rules/
     status: scattered
   - id: balance-net-worth
@@ -105,17 +104,16 @@ items:
     what: 手續費、稅、交割金額
     layer: ledger
     owner:
-      - packages/domain/lib/src/investments/taiwan.dart
-      - apps/expense_tracker/lib/src/core/ledger/trading.dart
+      - packages/ledger/trade_costs/lib
     target: packages/ledger/trade_costs/lib/calc/
-    status: scattered
+    status: owned
   - id: installments-billing-cycle
     what: 分期排程與帳單週期
     layer: ledger
     owner:
       - packages/domain/lib/src/credit_cards/installments.dart
       - packages/domain/lib/src/credit_cards/card_billing.dart
-      - packages/domain/lib/src/loans/loan_plan.dart
+      - packages/ledger/loans/lib/calc/loan_plan.dart
       - apps/expense_tracker/lib/src/core/ledger/card_cycle.dart
     target: packages/ledger/installments/lib/calc/ + packages/ledger/card_cycles/lib/calc/
     status: scattered
@@ -377,10 +375,10 @@ items:
     what: 密碼政策與金鑰推導
     layer: data
     owner:
+      - infrastructure/vault/lib/src/backup_security/password_policy.dart
       - infrastructure/vault/lib/src/backup_security/keyring.dart
-      - infrastructure/vault/lib/src/ledger_vault/ledger_vault.dart
     target: infrastructure/vault/lib/
-    status: scattered
+    status: owned
   - id: backup-format-names
     what: 備份格式與檔名
     layer: data

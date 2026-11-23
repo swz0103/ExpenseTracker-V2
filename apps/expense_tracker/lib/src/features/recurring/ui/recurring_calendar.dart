@@ -490,7 +490,10 @@ class _DayItemsState extends State<_DayItems> {
               '恢復',
               AppColors.white,
               ink: AppColors.accent,
-              () => ledger.recurringCommands.unskip(item, x.day),
+              () => refusalShown(
+                context,
+                () => ledger.recurringCommands.unskip(item, x.day),
+              ),
             ),
           ] else if (booked != null) ...[
             const SizedBox(width: Space.s2),

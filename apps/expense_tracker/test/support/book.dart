@@ -126,5 +126,6 @@ final class Book {
     accounts: accounts,
     holdings: holdings,
     entryQueryService: queries,
+    balanceService: balances,
   );
 }

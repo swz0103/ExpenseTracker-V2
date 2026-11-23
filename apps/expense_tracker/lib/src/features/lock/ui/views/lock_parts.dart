@@ -22,6 +22,7 @@ class LockForm extends StatelessWidget {
     required this.onSubmit,
     this.problem,
     this.extras = const [],
+    this.actionKey,
   });
 
   final String title;
@@ -36,6 +37,9 @@ class LockForm extends StatelessWidget {
   final VoidCallback onSubmit;
   final String? problem;
   final List<Widget> extras;
+
+  /// The main button's key, for tests.
+  final Key? actionKey;
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +76,7 @@ class LockForm extends StatelessWidget {
         ProblemLine(problem),
         const SizedBox(height: Space.s4),
         FilledButton(
+          key: actionKey,
           onPressed: busy ? null : onSubmit,
           style: solidButton(
             AppColors.accent,

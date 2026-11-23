@@ -1,92 +1,104 @@
+import 'package:ledger_entries/rules.dart';
+
 import '../models/models.dart';
-import 'entry_validation_failure.dart';
 import '../repositories/account_repository.dart';
 import '../repositories/entry_repository.dart';
 import '../repositories/holding_repository.dart';
+import 'balance_service.dart';
 import 'entry_query_service.dart';
 
-/// What the ledger will not keep, said before it is asked: every form
-/// that writes an entry checks it here.
+/// Asks the ledger's write rules (package ledger_entries) about an entry,
+/// with the facts of this book they need: the accounts it names, the
+/// shares and refund it touches, the paying account's balance. The rules
+/// decide; this only looks the facts up. Every command that writes an
+/// entry asks here first, and so does every form, before it is asked.
 final class EntryValidator {
   EntryValidator({
     required this._entries,
     required this._accounts,
     required this._holdings,
     required EntryQueryService entryQueryService,
-  }) : _entryQueries = entryQueryService;
+    required BalanceService balanceService,
+  }) : _entryQueries = entryQueryService,
+       _balances = balanceService;
 
   final EntryReader _entries;
   final AccountReader _accounts;
   final HoldingReader _holdings;
   final EntryQueryService _entryQueries;
+  final BalanceService _balances;
 
-  /// Why [e] cannot be kept; null when it can. [replacing] is the entry
-  /// [e] edits, whose own shares and refund do not count against it. An
-  /// import checks the shares of its trades together ([holdings] false).
-  EntryValidationFailure? validate(
+  /// The first reason [e] cannot be kept; null when it can, warnings
+  /// aside. [replacing] is the entry [e] edits, whose own shares and
+  /// refund do not count against it. An import, and a command that replays
+  /// the trades after, checks the shares together ([holdings] false);
+  /// [opening] are accounts an import brings, not in the book yet.
+  RecordIssue? validate(
     Entry e, {
     Entry? replacing,
     bool holdings = true,
+    Iterable<Account> opening = const [],
   }) {
-    final currency = _accounts.resolve(e.account).currency;
-    final trade = e.type == EntryType.buy || e.type == EntryType.sell;
-    final stock = e.type == EntryType.dividend && e.shares != 0;
-    if (e.amount <= 0 && !stock) return MissingAmount(trade: trade);
-    final transfer = e.type == EntryType.transfer;
-    if (transfer && e.account == e.to) return const SameAccountTransfer();
-    final cash = e.type == EntryType.expense || e.type == EntryType.income;
-    if (cash && currency != homeCode && e.home == null) {
-      return const MissingHomeAmount();
-    }
-    if (transfer && _accounts.resolve(e.account).kind == AccountKind.card) {
-      return const CardTransferOut();
-    }
-    if (transfer && e.fee > 0 && currency != homeCode) {
-      return const ForeignTransferFee();
-    }
-    final to = transfer ? _accounts.resolve(e.to ?? '') : null;
-    if (to != null && to.kind == AccountKind.card && e.fee > 0) {
-      return const CardPaymentFee();
-    }
-    if (to != null && to.currency != currency && e.received == null) {
-      return const MissingReceivedAmount();
-    }
-    if (to != null && currency != homeCode && to.kind == AccountKind.card) {
-      return const ForeignCardPayment();
-    }
-    if (e.isInvestment && currency != homeCode) {
-      return const ForeignInvestment();
-    }
-    if (e.isInvestment && _accounts.resolve(e.account).kind.isDebt) {
-      return const InvestmentFromDebt();
-    }
-    if (e.isReduction) {
-      final held = _heldBefore(e.holding ?? '', replacing);
-      if (-e.shares > held) return ReductionExceedsHolding(held);
-    }
-    if (e.type == EntryType.dividend && !e.isReduction && e.tax > e.amount) {
-      return const TaxExceedsDividend();
-    }
-    if (e.isInvestment && e.holding == null) return const MissingHolding();
-    if (trade && e.shares <= 0) return const MissingShares();
-    if (holdings &&
-        (e.type == EntryType.sell || e.isReduction) &&
-        !holdsWith([e], replacing: replacing)) {
-      return const SaleExceedsHolding();
-    }
-    final original = e.refundOf == null ? null : _entries.byId(e.refundOf!);
-    if (original != null &&
-        _accounts.resolve(original.account).kind == AccountKind.card &&
-        e.account != original.account) {
-      return const RefundToOtherAccount();
-    }
-    if (original != null) {
-      final left = _entryQueries.refundable(original);
-      final own = replacing?.refundOf == e.refundOf ? replacing!.amount : 0;
-      if (e.amount > left + own) return RefundExceedsRemaining(left);
+    for (final issue in issues(
+      e,
+      replacing: replacing,
+      holdings: holdings,
+      opening: opening,
+    )) {
+      if (issue.isError) return issue;
     }
     return null;
   }
+
+  /// Everything the rules say about keeping [e], warnings included, as
+  /// [validate] asks.
+  List<RecordIssue> issues(
+    Entry e, {
+    Entry? replacing,
+    bool holdings = true,
+    Iterable<Account> opening = const [],
+  }) {
+    AccountFacts? facts(String? id) {
+      if (id == null) return null;
+      final a =
+          _accounts.byId(id) ?? opening.where((a) => a.id == id).firstOrNull;
+      return a == null ? null : AccountFacts(a.kind, currency: a.currency);
+    }
+
+    final original = e.refundOf == null ? null : _entries.byId(e.refundOf!);
+    return entryIssues(
+      e,
+      EntryFacts(
+        account: facts(e.account),
+        to: facts(e.to),
+        heldBefore: holdings && e.isReduction
+            ? _heldBefore(e.holding ?? '', replacing)
+            : null,
+        oversells:
+            holdings &&
+            (e.type == EntryType.sell || e.isReduction) &&
+            !holdsWith([e], replacing: replacing),
+        refunded: original == null
+            ? null
+            : RefundFacts(
+                account: original.account,
+                kind: _accounts.resolve(original.account).kind,
+                left: _entryQueries.refundable(original),
+                own: replacing?.refundOf == e.refundOf ? replacing!.amount : 0,
+              ),
+        balanceAfter: e.type == EntryType.buy && _accounts.contains(e.account)
+            ? _balanceAfter(e, replacing)
+            : null,
+      ),
+    );
+  }
+
+  /// The balance of [e]'s account today once [e] is kept in place of
+  /// [replacing].
+  int _balanceAfter(Entry e, Entry? replacing) =>
+      _balances.balance(e.account) -
+      (replacing == null ? 0 : _balances.effect(replacing, e.account)) +
+      _balances.effect(e, e.account);
 
   /// The shares of [code] held before [replacing], when that one is a
   /// reduction of them.

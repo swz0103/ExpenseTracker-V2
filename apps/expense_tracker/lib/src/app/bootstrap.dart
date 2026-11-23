@@ -16,6 +16,9 @@ import '../core/ledger/ledger.dart';
 import '../features/reminders/model/inbox_apply.dart';
 import '../features/backup/model/restore_sources.dart';
 import '../features/lock/ui/lock_screen.dart';
+import '../features/lock/ui/views/new_password_view.dart';
+import '../core/messages/key_messages.dart';
+import '../core/platform/memory_keystore.dart';
 import '../core/design_system/recovery_code.dart';
 import 'shell.dart';
 import 'platform.dart';
@@ -28,11 +31,17 @@ import '../core/platform/startup.dart';
 /// The only production composition (code audit C-01): the encrypted ledger
 /// in [directory], opened through [Startup]. The memory preview is not
 /// reachable from here; a test walks the imports to keep it that way.
+/// Every password set is held to the vault's one policy
+/// (`PasswordPolicy.standard`); a ledger opened without a password keeps
+/// its key sealed by the Android Keystore, never in plain form.
 Startup productionStartup(Directory directory, {DeviceUnlock? device}) =>
     Startup(
-      LedgerVault(directory, codec: KeyringCodec(minimumPassword: 6)),
+      LedgerVault(directory, codec: KeyringCodec()),
       device: device,
       check: SqlLedgerDataSource.check,
+      quickKey: Platform.isAndroid
+          ? const KeystoreQuickKey()
+          : MemoryKeystore.instance,
     );
 
 /// Where this device keeps the ledger: the app's private folder on
@@ -203,11 +212,13 @@ class _OpenedLedgerState extends State<OpenedLedger>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     final code = widget.startup.takeRecoveryCode();
-    final recovered = widget.startup.takeRecoveryNotice();
+    final reset = widget.startup.takeKeysReset();
     _afterFrame(() {
       if (code != null) {
         unawaited(
-          widget.startup.passwordless
+          reset
+              ? showRecoveryCode(context, code, why: KeyWords.resetDone)
+              : widget.startup.passwordless
               ? showRecoveryCode(
                   context,
                   code,
@@ -215,9 +226,6 @@ class _OpenedLedgerState extends State<OpenedLedger>
                 )
               : showRecoveryCode(context, code),
         );
-      }
-      if (recovered) {
-        unawaited(_notice('已用救援碼打開', '現在打開 App 不需要密碼。想要密碼的話，可以到「設定」重新設定。'));
       }
     });
   }
@@ -248,7 +256,19 @@ class _OpenedLedgerState extends State<OpenedLedger>
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder(
+  Widget build(BuildContext context) {
+    final startup = widget.startup;
+    // Opened by the recovery code: a new password before anything else.
+    if (startup.needsNewPassword) {
+      return NewPasswordView(
+        onSet: startup.setNewPassword,
+        onNoPassword: startup.openWithoutPassword,
+      );
+    }
+    return _book(context);
+  }
+
+  Widget _book(BuildContext context) => FutureBuilder(
     future: _ledger,
     builder: (context, snapshot) {
       final ledger = snapshot.data;

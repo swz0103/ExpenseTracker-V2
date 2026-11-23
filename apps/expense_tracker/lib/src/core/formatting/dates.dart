@@ -31,6 +31,14 @@ String formatMEd(DateTime d) => '${formatMd(d)} ${formatE(d)}';
 /// 「2026/10/4」.
 String formatYMd(DateTime d) => '${d.year}/${d.month}/${d.day}';
 
+/// 「09:05」.
+String formatHm(DateTime d) =>
+    '${d.hour.toString().padLeft(2, '0')}:'
+    '${d.minute.toString().padLeft(2, '0')}';
+
+/// 「2026/10/4 09:05」.
+String formatYMdHm(DateTime d) => '${formatYMd(d)} ${formatHm(d)}';
+
 /// 「2026/10」.
 String formatYM(DateTime d) => '${d.year}/${d.month}';
 

@@ -256,10 +256,67 @@ void main() {
     ]) {
       expect(
         () => SqlLedgerDataSource.check(collection, 'x', body),
-        throwsA(anyOf(isA<FormatException>(), isA<TypeError>())),
+        throwsA(isA<FormatException>()),
         reason: '$collection $body',
       );
     }
+  });
+
+  test('a malformed backup row is a FormatException naming it (DAT-13)', () {
+    final cases = {
+      // A version that is no number, or no finite one.
+      'entry': [
+        '{"_v":"2","id":"e","date":"2026-10-04","type":"expense","amount":1,"account":"a"}',
+        '{"_v":1e400,"id":"e","date":"2026-10-04","type":"expense","amount":1,"account":"a"}',
+        '{"id":"e","date":"2026-10-04","type":"expense","amount":-5,"account":"a"}',
+        '{"id":"e","date":"2026-10-04","type":"transfer","amount":5,"account":"a"}',
+        '{"id":"e","date":"2026-10-04","type":"expense","amount":"5","account":"a"}',
+      ],
+      'recurring': [
+        '{"id":"r","name":"r","amount":1,"day":1,"account":"a","category":"c","every":0}',
+        '{"id":"r","name":"r","amount":1,"day":40,"account":"a","category":"c"}',
+        '{"id":"r","name":"r","amount":-1,"day":1,"account":"a","category":"c"}',
+      ],
+      'account': [
+        '{"id":"k","name":"k","kind":"card","opening":0,"closingDay":0}',
+        '{"id":"k","name":"k","kind":"card","opening":0,"dueDay":32}',
+      ],
+      'budget': [
+        '{"category":"c","limit":-1}',
+        '{"category":"c","limit":1,"warning":0}',
+      ],
+    };
+    for (final MapEntry(key: collection, value: bodies) in cases.entries) {
+      for (final body in bodies) {
+        expect(
+          () => SqlLedgerDataSource.check(collection, 'row1', body),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              startsWith('$collection row1: '),
+            ),
+          ),
+          reason: body,
+        );
+      }
+    }
+  });
+
+  test('an old row the write rules would refuse still restores', () {
+    // An amount of nothing, a foreign spending without its NT$ worth, an
+    // end before the start: kept by older versions, read as they are.
+    SqlLedgerDataSource.check(
+      'entry',
+      'e',
+      '{"id":"e","date":"2026-10-04","type":"expense","amount":0,"account":"usd"}',
+    );
+    SqlLedgerDataSource.check(
+      'recurring',
+      'r',
+      '{"id":"r","name":"r","amount":0,"day":5,"account":"a","category":"c",'
+          '"start":"2026-05-01","end":"2026-04-01"}',
+    );
   });
 
   test('rows carry their version; deletions are noted and forgotten', () async {

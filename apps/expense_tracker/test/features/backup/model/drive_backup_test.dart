@@ -57,6 +57,61 @@ void main() {
     );
   });
 
+  test('a backup goes only to Google\'s own upload address (SEC-13)', () async {
+    final client = drive();
+    http.uploadAt = 'https://uploads.example.org';
+    await expectLater(
+      client.upload(backup('記帳本-1.etbk', 'one'), ledger: 'L1'),
+      throwsA(
+        isA<DriveException>().having(
+          (e) => e.problem,
+          'problem',
+          DriveProblem.refused,
+        ),
+      ),
+    );
+    expect(
+      http.sent.where((s) => s.url.host == 'uploads.example.org'),
+      isEmpty,
+    );
+    expect(http.kept, isEmpty);
+    expect(
+      DriveBackup.isGoogleUpload(
+        Uri.parse('https://www.googleapis.com/upload/drive/v3/files?x=1'),
+      ),
+      isTrue,
+    );
+    for (final other in [
+      'http://www.googleapis.com/upload',
+      'https://googleapis.com.example.org/upload',
+      'https://evilgoogleapis.com/upload',
+    ]) {
+      expect(
+        DriveBackup.isGoogleUpload(Uri.parse(other)),
+        isFalse,
+        reason: other,
+      );
+    }
+  });
+
+  test('linking learns which Google account it is (F90)', () async {
+    final preferences = Preferences();
+    final sync = DriveSync(
+      drive(),
+      preferences,
+      withBackup: (use, {withPhotos = true}) =>
+          use(backup('記帳本-1.etbk', 'one')),
+      revision: () => 1,
+      ledger: 'L1',
+    );
+    addTearDown(sync.dispose);
+    expect(sync.account, isNull);
+    await sync.link();
+    expect(sync.account, 'me@example.com');
+    await sync.unlink();
+    expect(sync.account, isNull);
+  });
+
   test("only the newest five of this ledger's backups are kept", () async {
     final client = drive();
     // Another ledger's backups, and ones from before backups were marked,

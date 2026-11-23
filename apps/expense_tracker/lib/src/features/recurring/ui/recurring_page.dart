@@ -9,6 +9,7 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/entry_tile.dart';
+import '../../../core/widgets/problem_note.dart';
 import '../../../core/navigation/nav.dart';
 import '../model/recurring_schedule.dart';
 import '../../../core/widgets/shown_amounts.dart';

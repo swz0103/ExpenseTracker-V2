@@ -1,3 +1,5 @@
+import 'package:ledger_entries/rules.dart' show RecordIssue;
+
 /// What went wrong with a change of the ledger, for the screens to tell:
 /// a change refused, or one the data source could not keep. Every case
 /// the ledger can report is one of these, so a screen that tells them all
@@ -8,11 +10,35 @@ sealed class LedgerProblem implements Exception {
 
 /// A change was refused because it would leave a later sale or reduction
 /// of a stock short of shares.
-final class SharesShort extends LedgerProblem {
-  const SharesShort();
+///
+/// Still a [StateError] as well, as the oversold write always threw (the
+/// baseline in test/baseline/lots_baseline_test.dart pins it); callers
+/// catch it as the [LedgerProblem] it is.
+final class SharesShort extends StateError implements LedgerProblem {
+  SharesShort() : super('A later sale or reduction would be short of shares.');
 
   @override
   String toString() => 'SharesShort';
+}
+
+/// A record the ledger's write rules refuse (package ledger_entries):
+/// [issues] say why, the errors of each record refused in turn. Every
+/// command that writes throws it before it changes anything, whoever
+/// calls it: a form, an import, a booking; undo and the trash, with no
+/// form to answer, tell it through the ledger's problem instead.
+final class RecordRefused extends LedgerProblem {
+  RecordRefused(Iterable<RecordIssue> issues)
+    : issues = List.unmodifiable(issues) {
+    if (this.issues.isEmpty) throw ArgumentError.value(issues, 'issues');
+  }
+
+  final List<RecordIssue> issues;
+
+  /// The reason to tell first.
+  RecordIssue get first => issues.first;
+
+  @override
+  String toString() => 'RecordRefused(${issues.join(', ')})';
 }
 
 /// A category was not added or renamed: its name is empty, taken, or one
