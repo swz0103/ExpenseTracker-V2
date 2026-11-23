@@ -59,4 +59,13 @@ abstract final class ErrorSteps {
   /// The phone could not say whether it hides the app in the recents
   /// list, or could not be told to: the app keeps covering itself.
   static const screenPrivacy = '螢幕隱私';
+
+  /// The journal of postings could not be brought up to date with a
+  /// change of the records: it is posted afresh when the book next opens.
+  /// Nothing the person sees reads it yet.
+  static const journalUpdate = '分錄更新';
+
+  /// The journal's sums differ from the figures the app shows: which
+  /// figures, never an amount. Nothing the person sees reads it yet.
+  static const journalParity = '分錄比對';
 }

@@ -123,7 +123,9 @@ void main() {
     expect(store.integrityCheck(), 'ok');
     expect(store.count, 0);
     expect(store.revision, 0);
+    expect(store.isOpen, isTrue);
     store.close();
+    expect(store.isOpen, isFalse);
     final header = file.readAsBytesSync().sublist(0, 15);
     expect(String.fromCharCodes(header), isNot('SQLite format 3'));
   });

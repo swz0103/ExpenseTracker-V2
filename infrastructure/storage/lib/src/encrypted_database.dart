@@ -274,6 +274,9 @@ final class EncryptedDatabase {
     }
   }
 
+  /// Whether the file can still be read and written: not [close]d.
+  bool get isOpen => !_closed;
+
   void close() {
     if (_closed) return;
     _closed = true;

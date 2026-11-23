@@ -18,7 +18,9 @@ import 'package:market/market_data.dart';
 import 'package:storage/storage.dart';
 
 import 'book_migrations.dart';
+import 'journal_keeper.dart';
 import 'ledger_data_source.dart';
+import '../journal/replay.dart' show KeptEntry;
 import '../ledger.dart';
 import 'codec/category_refs.dart';
 import 'codec/record_fields.dart';
@@ -29,6 +31,7 @@ import 'codec/record_json.dart';
 import 'codec/record_shape.dart';
 import '../../diagnostics/performance_monitor.dart';
 import '../../diagnostics/error_log.dart';
+import '../../diagnostics/error_steps.dart';
 
 /// The categories a new ledger starts with, with their marks and colours.
 const _starters = [
@@ -93,7 +96,52 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     MarketDataGateway? market,
     this._readPage = readPage,
     this.beforeUpgrade,
+    this.keepsJournal = false,
   }) : _gateway = market;
+
+  /// Whether the journal of postings is kept beside the records and
+  /// checked against them (journal_keeper.dart): as the app opens its
+  /// book; tests that do not look at it leave it out.
+  final bool keepsJournal;
+
+  /// The journal kept beside the records, when [keepsJournal].
+  late final journal = JournalKeeper(
+    store: _store.journal,
+    revision: () => _store.revision,
+    entrySeqs: _entrySeqs,
+    recordOf: _keptEntry,
+    isOpen: () => _store.isOpen,
+  );
+
+  /// Where each entry read as the book last opened stands, until the
+  /// journal has taken it; then read from the store again.
+  Map<String, int>? _seqsAtLoad;
+
+  Map<String, int> _entrySeqs() {
+    final kept = _seqsAtLoad;
+    _seqsAtLoad = null;
+    return kept ??
+        {
+          for (final row in _store.rows(shelf: Collection.entry.name))
+            row.id: row.seq,
+        };
+  }
+
+  /// The entry kept as [id] and its place; null when there is none or
+  /// it cannot be read (a row set aside has no postings).
+  KeptEntry? _keptEntry(String id) {
+    final row = _store.row(Collection.entry.name, id);
+    if (row == null || _aside.holds(row.shelf, row.id)) return null;
+    final json = readableRecord(row.body);
+    if (json == null) return null;
+    try {
+      final entry = entryFromJson(upgradeRecord(row.shelf, json), _refs);
+      return (entry: entry, seq: row.seq);
+    } on Object catch (error) {
+      ErrorLog.instance.record(ErrorSteps.journalUpdate, error);
+      return null;
+    }
+  }
 
   final EncryptedDatabase _store;
 
@@ -374,6 +422,14 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         StateError('${_aside.rows.length} rows set aside'),
       );
     }
+    if (keepsJournal) {
+      _seqsAtLoad = {
+        for (final row
+            in collections[Collection.entry.name] ?? const <StoredRow>[])
+          row.id: row.seq,
+      };
+      journal.open(ledger);
+    }
     return ledger;
   }
 
@@ -403,6 +459,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     } on Object catch (error) {
       throw DataSourceException(error);
     }
+    if (keepsJournal) journal.kept(batch);
   }
 
   /// The categories of [batch] whose name stands for them from now on,

@@ -95,6 +95,7 @@ final class LifecycleServices {
     ),
     // A book an earlier version kept is copied before it is brought up.
     beforeUpgrade: () => backupManager.keepBeforeUpgrade(),
+    keepsJournal: true,
   );
 
   Ledger? _ledger;
