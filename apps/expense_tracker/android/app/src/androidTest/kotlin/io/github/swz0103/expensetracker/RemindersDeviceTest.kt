@@ -10,13 +10,16 @@ import androidx.test.rule.GrantPermissionRule
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Notifications on the phone itself (Reminders.kt): posted on the app's
- * channel with its tag, and taken away once no longer wanted.
+ * Notifications on the phone itself (Reminders.kt): posted on the channel
+ * of their kind with their tag, and taken away once no longer wanted. The
+ * channels are the app's to hand over (reminder_rules.dart); the test
+ * hands over the one it posts in, as the app does before any alert.
  */
 @RunWith(AndroidJUnit4::class)
 class RemindersDeviceTest {
@@ -31,24 +34,27 @@ class RemindersDeviceTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+    @Before
+    fun channels() = Reminders.ensureChannels(context, listOf(mapOf("id" to CHANNEL, "name" to "到期提醒")))
+
     @After
     fun clear() = manager.cancelAll()
 
     @Test
     fun aDueItemIsShownOnTheRemindersChannelWithItsTag() {
         assertTrue(Reminders.allowed(context))
-        Reminders.show(context, 4242, "扣款：Netflix 390", "定期交易", "", tag = "due:test-netflix")
+        Reminders.show(context, 4242, "扣款：Netflix 390", "定期交易", "", tag = "due:test-netflix", channel = CHANNEL)
         val shown = manager.activeNotifications.single { it.id == 4242 }
         assertEquals("due:test-netflix", shown.tag)
         if (Build.VERSION.SDK_INT >= 26) {
-            assertEquals("reminders", shown.notification.channelId)
+            assertEquals(CHANNEL, shown.notification.channelId)
         }
     }
 
     @Test
     fun aNoticeNoLongerWantedIsTakenAway() {
-        Reminders.show(context, 4243, "繳卡費", "", "", tag = "due:test-card")
-        Reminders.show(context, 4244, "扣款", "", "", tag = "due:test-kept")
+        Reminders.show(context, 4243, "繳卡費", "", "", tag = "due:test-card", channel = CHANNEL)
+        Reminders.show(context, 4244, "扣款", "", "", tag = "due:test-kept", channel = CHANNEL)
         Reminders.replace(context, emptyList(), wanted = setOf("due:test-kept"))
         val tags = manager.activeNotifications.map { it.tag }.toSet()
         assertTrue("due:test-kept" in tags)
@@ -68,5 +74,10 @@ class RemindersDeviceTest {
         assertTrue(!prefs.contains("alerts"))
         assertEquals("繳卡費 12,800", ReminderStore.read(context).getJSONObject(0).getString("title"))
         Reminders.replace(context, emptyList())
+    }
+
+    private companion object {
+        /** The channel of due reminders, as the app names it. */
+        const val CHANNEL = "due"
     }
 }
