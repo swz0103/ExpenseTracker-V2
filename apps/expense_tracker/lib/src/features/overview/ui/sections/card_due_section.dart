@@ -10,21 +10,30 @@ import '../../../../core/navigation/nav.dart';
 /// each with the same words as its own page and the account list, and a
 /// tap to open it. Nothing when no bill does.
 class CardDueSection extends StatelessWidget {
-  const CardDueSection({super.key, required this.ledger, required this.nav});
+  const CardDueSection({
+    super.key,
+    required this.changes,
+    required this.accounts,
+    required this.statements,
+    required this.nav,
+  });
 
-  final Ledger ledger;
+  /// The book's changes to the entries and accounts, to follow.
+  final Listenable changes;
+  final AccountReader accounts;
+  final StatementService statements;
   final Nav nav;
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger.watch(const {Topic.entries, Topic.accounts}),
+      listenable: changes,
       builder: (context, _) {
         final rows = [
-          for (final card in ledger.accounts.all)
+          for (final card in accounts.all)
             if (card.kind == AccountKind.card && !card.archived)
-              if (cardBillLook(ledger.statementService.billStatus(card))
-                  case final look when look.alerts)
+              if (cardBillLook(statements.billStatus(card)) case final look
+                  when look.alerts)
                 QuoteRow(
                   lead: SquareIcon(look.glyph, look.color, size: 40),
                   title: card.name,

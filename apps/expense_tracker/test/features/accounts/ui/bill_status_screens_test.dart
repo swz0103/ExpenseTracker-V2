@@ -49,6 +49,14 @@ final _nav = Nav(
   showEntry: (_) {},
 );
 
+/// 總覽's notice of bills to pay, as 總覽 builds it.
+Widget _overview(Ledger ledger) => CardDueSection(
+  changes: ledger,
+  accounts: ledger.accounts,
+  statements: ledger.statementService,
+  nav: _nav,
+);
+
 Future<void> _show(WidgetTester tester, Widget child) async {
   tester.view.physicalSize = const Size(420, 2400);
   tester.view.devicePixelRatio = 1;
@@ -87,17 +95,14 @@ void main() {
   });
 
   testWidgets('總覽 says the same', (tester) async {
-    await _show(tester, CardDueSection(ledger: late, nav: _nav));
+    await _show(tester, _overview(late));
     expect(find.text('日常卡'), findsOneWidget);
     expect(find.text(overdue), findsOneWidget);
   });
 
   testWidgets('總覽 says nothing while the bill is not yet due', (tester) async {
     // 10/5 is five days before 10/10: due, not yet a reminder.
-    await _show(
-      tester,
-      CardDueSection(ledger: _book(DateTime.utc(2026, 10, 5)), nav: _nav),
-    );
+    await _show(tester, _overview(_book(DateTime.utc(2026, 10, 5))));
     expect(find.text('日常卡'), findsNothing);
   });
 }

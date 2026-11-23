@@ -125,7 +125,12 @@ class _OverviewPageState extends State<OverviewPage> {
           key: widget.summaryKey,
           child: SummarySection(ledger: ledger, month: _month),
         ),
-        CardDueSection(ledger: ledger, nav: widget.nav),
+        CardDueSection(
+          changes: ledger.watch(const {Topic.entries, Topic.accounts}),
+          accounts: ledger.accounts,
+          statements: ledger.statementService,
+          nav: widget.nav,
+        ),
         for (final (:block, :shown) in blocksFrom(preferences?.overview))
           if (shown) _block(block),
       ],
