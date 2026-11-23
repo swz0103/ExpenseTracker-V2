@@ -17,6 +17,7 @@ import '../core/diagnostics/error_log.dart';
 import '../core/ledger/ledger.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../core/platform/away_clock.dart';
+import '../core/time/app_clock.dart';
 import '../core/platform/distribution.dart';
 import '../core/platform/preferences.dart';
 import '../core/platform/startup.dart';
@@ -93,11 +94,14 @@ final class LifecycleServices {
   /// Where the book is kept, with the market's gateway.
   late final dataSource = SqlLedgerDataSource(
     vault.store,
+    clock: AppClock.clock,
     market: MarketDataGateway(
       transport: _marketCache ?? _transport,
       // The exchanges' snapshots are a few MiB of JSON.
       decodeJson: (body) => Isolate.run(() => jsonDecode(body)),
     ),
+    // A book an earlier version kept is copied before it is brought up.
+    beforeUpgrade: () => backupManager.keepBeforeUpgrade(),
   );
 
   Ledger? _ledger;

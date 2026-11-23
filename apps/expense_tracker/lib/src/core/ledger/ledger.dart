@@ -65,7 +65,7 @@ export 'services/budget_service.dart' show BudgetService;
 export 'services/entry_query_service.dart' show EntryQueryService;
 export 'services/entry_validator.dart' show EntryValidator;
 export 'services/recurring_service.dart' show RecurringService;
-export 'services/statement_service.dart' show StatementService;
+export 'services/statement_service.dart' show StatementService, payByOf;
 export 'repositories/entry_repository.dart' show EntryReader;
 export 'repositories/holding_repository.dart'
     show HoldingReader, HoldingsByStatus;
@@ -110,8 +110,11 @@ final class Ledger extends ChangeNotifier {
        _entries = EntryRepository(entries),
        _budgets = BudgetRepository(budgets),
        _recurring = RecurringRepository(recurring) {
-    _holdings = HoldingRepository(holdings, moveOf: _market.moveOf)
-      ..replay(_entries.all, lenient: true);
+    _holdings = HoldingRepository(
+      holdings,
+      moveOf: _market.moveOf,
+      quoteDayOf: (code) => _market.quoteDays[code] ?? _market.quotedOn,
+    )..replay(_entries.all, lenient: true);
     amounts.addListener(_signal);
     final source = dataSource;
     if (source != null) {

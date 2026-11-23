@@ -1,3 +1,5 @@
+import 'package:core/foundation_values.dart'
+    show BusinessDate, BusinessDayAnswer;
 import 'package:core/percent/percent.dart' show percent;
 import 'package:domain/credit_cards.dart' show CardBillStatus;
 
@@ -112,6 +114,11 @@ final class CardSummary {
   /// The days of the cycle under way, and how many have gone.
   int get cycleDays => following.difference(end).inDays;
   int get daysGone => today.difference(end).inDays;
+
+  /// When the statement can still be paid: [due], or the next business
+  /// day when it falls on a weekend or a holiday. The stored due day is
+  /// left as it is.
+  BusinessDayAnswer<BusinessDate> get payBy => payByOf(due);
 
   /// The next close, as it may have been moved.
   late final DateTime nextClose = card.closingOn(

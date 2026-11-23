@@ -12,6 +12,7 @@ import '../../../../core/widgets/shown_amounts.dart';
 import '../../../../core/design_system/spacing.dart';
 import '../../../../core/design_system/shape.dart';
 import '../../../../core/formatting/words.dart';
+import '../../../../../design_system/display/date.dart';
 
 /// 預算 and 即將扣款 side by side: what is left of the month's limit, and
 /// what falls due.
@@ -55,6 +56,8 @@ class PlanSection extends StatelessWidget {
     final (gone, days) = ledger.budgetService.daysGone(year, m);
     final today = ledger.today;
     final current = today.year == year && today.month == m;
+    // 本月 only when the month shown is this month.
+    final shown = monthWord(year, m, today: today);
     final whole = ledger.budgets.forCategory(allSpending);
     final status = limit == 0
         ? null
@@ -75,13 +78,13 @@ class PlanSection extends StatelessWidget {
       ),
       onTap: () => nav.open(AppRoutes.budgets),
       label: status == null
-          ? '預算，本月花了 ${ledger.money(spent)}'
-          : '預算，本月${budgetLead(status)} ${ledger.money(budgetFigure(status))}',
+          ? '預算，$shown花了 ${ledger.money(spent)}'
+          : '預算，$shown${budgetLead(status)} ${ledger.money(budgetFigure(status))}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _budgetHead(
-            status == null ? '本月花了' : '本月${budgetLead(status)}',
+            status == null ? '$shown花了' : '$shown${budgetLead(status)}',
             status == null || status is BudgetWithin
                 ? null
                 : budgetLook(status),
@@ -110,8 +113,8 @@ class PlanSection extends StatelessWidget {
     );
   }
 
-  /// The budget's icon and [title], 本月剩, 本月超支 or 本月花了, with the
-  /// badge of [alert] (快用完 or 超支) when there is one.
+  /// The budget's icon and [title], such as 本月剩, 本月超支 or 9 月花了,
+  /// with the badge of [alert] (快用完 or 超支) when there is one.
   Widget _budgetHead(String title, StatusLook? alert) => Row(
     children: [
       const SquareIcon(Glyph.budget, ToolColors.budgets, size: 28),

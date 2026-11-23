@@ -6,6 +6,7 @@ import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/shown_amounts.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
@@ -173,10 +174,14 @@ class AccountCard extends StatelessWidget {
     final balance = ledger.balanceService.balance(account.id);
     switch (account.kind) {
       case AccountKind.card:
+        final (_, _, due) = ledger.statementService.statement(account);
         return (
           '本期應繳',
           ledger.money(ledger.statementService.statementDue(account)),
-          cardBillLook(ledger.statementService.billStatus(account)).words,
+          cardBillWords(
+            ledger.statementService.billStatus(account),
+            postponed: postponedTo(due, payByOf(due)),
+          ),
         );
       case AccountKind.loan:
         return ('尚欠', ledger.money(-balance), '');

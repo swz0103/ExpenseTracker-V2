@@ -1,4 +1,5 @@
-import 'package:core/foundation_values.dart' show BusinessDate;
+import 'package:core/foundation_values.dart'
+    show BusinessDate, BusinessDayAnswer, taiwanHolidays;
 import 'package:domain/credit_cards.dart' show CardBillStatus, cardBillStatus;
 
 import '../cache/query_cache.dart';
@@ -64,8 +65,9 @@ final class StatementService {
     final today = _today();
     return cardBillStatus(
       owed: statementDue(card),
-      dueOn: BusinessDate(due.year, due.month, due.day),
-      today: BusinessDate(today.year, today.month, today.day),
+      dueOn: BusinessDate.of(due),
+      payBy: payByOf(due).value,
+      today: BusinessDate.of(today),
     );
   }
 
@@ -124,3 +126,9 @@ final class StatementService {
     ],
   );
 }
+
+/// When a statement due on [due] can be paid by: [due], or the next
+/// business day on Taiwan's calendar when it falls on a day off (banks
+/// take payment then without a late fee). Late is counted from here.
+BusinessDayAnswer<BusinessDate> payByOf(DateTime due) =>
+    taiwanHolidays.onOrAfter(BusinessDate.of(due));

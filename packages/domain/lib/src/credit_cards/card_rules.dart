@@ -65,18 +65,23 @@ final class BillPaid extends CardBillStatus {
 
 /// Where the last statement stands on [today]: [owed] is what is still to
 /// pay on it (zero or less when paid), [dueOn] its due day, null when no
-/// statement has closed yet.
+/// statement has closed yet. [payBy] is the day it can still be paid
+/// without being late, when [dueOn] falls on a day off and the payment
+/// moves to the next business day; the days left or late count to it,
+/// while the status keeps [dueOn] as the card states it.
 CardBillStatus cardBillStatus({
   required int owed,
   required BusinessDate? dueOn,
   required BusinessDate today,
+  BusinessDate? payBy,
 }) {
   if (dueOn == null) return const BillNotYetBilled();
   if (owed <= 0) return const BillPaid();
+  final last = payBy ?? dueOn;
   final left = DateTime.utc(
-    dueOn.year,
-    dueOn.month,
-    dueOn.day,
+    last.year,
+    last.month,
+    last.day,
   ).difference(DateTime.utc(today.year, today.month, today.day)).inDays;
   if (left > 0) return BillDue(dueOn, left);
   if (left == 0) return BillDueToday(dueOn);

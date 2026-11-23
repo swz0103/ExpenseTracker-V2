@@ -16,7 +16,7 @@ import 'package:ledger_loans/calc/loan_plan.dart';
 
 import '../../../core/widgets/icons.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';

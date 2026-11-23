@@ -17,7 +17,7 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/entry_tile.dart';
 import '../../../core/navigation/nav.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
@@ -126,7 +126,6 @@ class CardPage extends StatelessWidget {
   /// The last statement, what is owed on it and 繳卡款.
   Widget _statement(CardSummary card) {
     final owed = card.owed;
-    final status = cardBillLook(card.billStatus);
     final payment = card.payment;
     return HeroFigure(
       icon: Glyph.card,
@@ -134,7 +133,10 @@ class CardPage extends StatelessWidget {
       trailing: Pill(owed == 0 ? StatusWords.paid : StatusWords.billed),
       value: ledger.money(owed),
       valueColor: owed > 0 ? AppColors.negative : AppColors.positive,
-      sub: status.words,
+      sub: cardBillWords(
+        card.billStatus,
+        postponed: postponedTo(card.due, card.payBy),
+      ),
       child: payment == null
           ? null
           : Padding(

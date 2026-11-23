@@ -9,7 +9,7 @@ import '../../../core/design_system/theme.dart' show AppColors;
 import '../../../core/design_system/widget_colors.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/formatting/words.dart';
 import '../../../core/formatting/json_fields.dart';
 

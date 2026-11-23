@@ -71,9 +71,14 @@ int dividendPremium(int gross, DateTime paidOn) {
   }
 }
 
-/// When a trade on [day] settles: two weekdays later (T+2). Holidays are
-/// not known here, so a trade before one settles a day early.
-DateTime settlementDay(DateTime day) {
-  final settles = taiwanSettlementDate(_day(day), BankingCalendar());
+/// When a trade on [day] settles: two open days of [calendar] later
+/// (T+2). By default only weekends are skipped, so a trade before a
+/// holiday settles a day early; Taiwan's holidays are
+/// `taiwanHolidays.banking`, left out until the owner decides.
+DateTime settlementDay(DateTime day, {BankingCalendar? calendar}) {
+  final settles = taiwanSettlementDate(
+    _day(day),
+    calendar ?? BankingCalendar(),
+  );
   return DateTime.utc(settles.year, settles.month, settles.day);
 }

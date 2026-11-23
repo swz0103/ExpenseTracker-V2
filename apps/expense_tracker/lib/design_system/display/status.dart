@@ -15,11 +15,11 @@ import '../../src/core/design_system/glyphs.dart';
 import '../../src/core/design_system/shape.dart';
 import '../../src/core/design_system/spacing.dart';
 import '../../src/core/design_system/theme.dart';
-import '../../src/core/formatting/dates.dart';
 import '../../src/core/ledger/rules/advance_rules.dart';
 import '../../src/core/ledger/rules/budget_rules.dart';
 import '../../src/core/ledger/rules/recurring_rules.dart';
 import 'amount.dart';
+import 'date.dart';
 import 'status_messages.dart';
 
 export 'status_messages.dart';
@@ -91,7 +91,16 @@ StatusLook cardBillLook(CardBillStatus status) => switch (status) {
   ),
 };
 
-DateTime _day(BusinessDate d) => DateTime.utc(d.year, d.month, d.day);
+DateTime _day(BusinessDate d) => d.asUtcMidnight;
+
+/// A card bill's words with [postponed] (「順延至 11/23」, from
+/// `postponedTo`) after them while it is due on a day off and not yet
+/// late: 「11/21 繳款 · 順延至 11/23」. The card's page and the account
+/// list write it this way.
+String cardBillWords(CardBillStatus status, {String? postponed}) {
+  final words = cardBillLook(status).words;
+  return status is BillDue && postponed != null ? '$words · $postponed' : words;
+}
 
 /// A budget on screen: within, 快用完 or 超支. Its badge is the one
 /// treatment of an alert; the figure beside it is written after

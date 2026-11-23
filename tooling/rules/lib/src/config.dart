@@ -63,7 +63,7 @@ const impurePrefixes = ['package:flutter/', 'dart:io', 'dart:ui', 'dart:ffi'];
 
 /// The clock implementation: the one file of the pure packages that may
 /// call `DateTime.now()` (rule A4).
-const clockFiles = ['packages/core/lib/src/app_core/clock.dart'];
+const clockFiles = ['packages/core/lib/time/clock.dart'];
 
 /// Owners of number formatting and parsing (rule B2): the amount parser,
 /// figures and percentages of core, and how the app shows them.
@@ -79,8 +79,10 @@ const clockOwners = [
   '$appLib/main_preview.dart',
 ];
 
-/// Owner of padding numbers into text (rule B3).
-const paddingOwners = ['$appLib/src/core/formatting/'];
+/// Owner of padding numbers into dates and times shown to people
+/// (rule B3); machine forms (`2026-01-05`, file stamps) are core's
+/// `BusinessDate`, `YearMonth` and `twoDigits`.
+const paddingOwners = ['$appLib/design_system/display/'];
 
 /// Where user-facing text must not be written inline (rule B9).
 const textScopes = ['$appLib/src/features/', '$appLib/src/app/'];

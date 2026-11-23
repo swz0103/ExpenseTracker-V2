@@ -39,6 +39,23 @@ void main() {
     );
   });
 
+  test('a due day moved to the next business day counts to that day', () {
+    // Due Saturday 11/21, payable Monday 11/23.
+    final saturday = BusinessDate(2026, 11, 21);
+    final monday = BusinessDate(2026, 11, 23);
+    CardBillStatus at(int day) => cardBillStatus(
+      owed: 100,
+      dueOn: saturday,
+      payBy: monday,
+      today: BusinessDate(2026, 11, day),
+    );
+    // 11/22 is a day after the stated due day, yet one day before 11/23.
+    expect(at(22), BillDue(saturday, 1));
+    expect(at(23), BillDueToday(saturday));
+    // 11/24 - 11/23 = 1 day late.
+    expect(at(24), BillOverdue(saturday, 1));
+  });
+
   test('days are counted across a month end', () {
     // 12/2 is 12 days after 11/20 (10 days to 11/30, then 2).
     expect(

@@ -1,4 +1,5 @@
-import 'package:core/foundation_values.dart' show BusinessDate;
+import 'package:core/foundation_values.dart'
+    show BusinessDate, Verified, WeekendsOnly;
 import 'package:domain/credit_cards.dart' show BillDue;
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/features/accounts/model/card_summary.dart';
@@ -171,5 +172,18 @@ void main() {
     expect(fee.tags, ['年費']);
     expect(card.spending.account, 'card');
     expect((card.closingDay, card.dueDay), (20, 5));
+  });
+
+  test('a due day on a day off is paid by the next business day', () {
+    // 2026-10-05 is a Monday: it stays.
+    expect(payByOf(DateTime.utc(2026, 10, 5)).value, BusinessDate(2026, 10, 5));
+    // Fri 2026-10-09 is a make-up holiday, then the weekend: Mon 10-12.
+    final holiday = payByOf(DateTime.utc(2026, 10, 9));
+    expect(holiday, isA<Verified<BusinessDate>>());
+    expect(holiday.value, BusinessDate(2026, 10, 12));
+    // Sat 2028-01-01: 2028 is not in the table, weekends only: Mon 01-03.
+    final unknown = payByOf(DateTime.utc(2028, 1, 1));
+    expect(unknown, isA<WeekendsOnly<BusinessDate>>());
+    expect(unknown.value, BusinessDate(2028, 1, 3));
   });
 }

@@ -67,5 +67,14 @@ void main() {
         BusinessDate(2026, 10, 13),
       );
     });
+
+    test("Taiwan's official calendar can be handed over", () {
+      // Wed 2026-10-07: Thu 10-08 is day 1, Fri 10-09 is 補假, then the
+      // weekend, so Mon 10-12 is day 2.
+      expect(
+        taiwanSettlementDate(BusinessDate(2026, 10, 7), taiwanHolidays.banking),
+        BusinessDate(2026, 10, 12),
+      );
+    });
   });
 }

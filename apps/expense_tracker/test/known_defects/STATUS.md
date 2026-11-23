@@ -8,8 +8,6 @@ The expectations were written against today's APIs. A fix that changes an API (f
 
 | id | package | test file | fails-when-enabled | note |
 |---|---|---|---|---|
-| DAT-01 | 2.1 | p2_1_loading_test.dart | yes | 3 tests (not json / newer _v / wrong JSON type); load() throws, 0 of 100 good rows load |
-| DAT-05 | 2.1 | p2_1_loading_test.dart | yes | category rename is not written to entries on disk; reopened entry keeps the old name |
 | BUD-01 | 2.2 | p2_2_budgets_test.dart | yes | raising the limit on Dec 10 rewrites November allowance to 15,000 (expects 10,000) |
 | BUD-02 | 2.2 | p2_2_budgets_test.dart | yes | spentAgainst(parent) is 0, expected 3,000 from the child category |
 | F14 | 2.3 | p2_3_recurring_test.dart | yes | auto-booking adds a second entry on the day already entered by hand |
@@ -37,7 +35,7 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | IMP-01 | 6.1 | p6_1_import_test.dart | yes | a positive amount with no type column is imported as income |
 | IMP-02 | 6.1 | p6_1_import_test.dart | yes | round trip loses the US$ currency (first of 10 differences) |
 
-28 findings covered.
+26 findings covered.
 
 ## fixed in 1.1
 
@@ -94,6 +92,30 @@ The tests run unskipped in `p1_4_write_invariants_test.dart`.
 
 - LOG-02: 3 tests; every command that writes an entry checks it against the write rules of `packages/ledger/entries` and refuses a zero amount, a same-account transfer and foreign spending without NT$ amount (`RecordRefused`)
 - LOG-12: renaming a merchant renames it on the recurring items too; a refused write is one typed `LedgerProblem` (`RecordRefused`, `SharesShort`) told by `describeProblem` wherever it is caught
+
+## fixed in 1.2
+
+Work package 1.2 (one source for dates, the clock and holidays). None of these had a known-defect test; each is now stated by ordinary tests with literal expectations.
+
+- PKG-05: `packages/core/test/time/clock_test.dart`, `test/core/time/app_clock_test.dart` (today is the phone's own calendar day, not Taipei's)
+- ARC-09: `packages/core/test/time/clock_test.dart` (time to the next local midnight; the app's lifecycle sets a timer to it)
+- PKG-07 (partly): `packages/core/test/time/holidays/business_days_test.dart`, `test/features/accounts/model/card_summary_test.dart`, `test/design_system/display/date_test.dart` (card due date 順延至); stock settlement not wired, see the package report
+- ENT-16 (b, c): `test/features/entries/model/compose_draft_test.dart` (a draft left on today follows today); the trash retention is `packages/core/lib/constants/retention.dart`; (a) future dates left for a product decision
+- F25: `test/core/ledger/repositories/holding_repository_test.dart`, `test/design_system/display/date_test.dart`
+- F75: `test/design_system/display/date_test.dart` (本月 only for the current month)
+- F86: `test/design_system/display/date_test.dart` (ranges carry years)
+- RPT-06 (date part): rule B3 has no entries left; `test/design_system/display/date_test.dart`
+
+## fixed in 2.1
+
+The tests of these ids run in every test run now, no longer skipped.
+
+- DAT-01 (p2_1_loading_test.dart, 3 tests): a row that cannot be read (not JSON, a newer `_v`, the wrong JSON type) is set aside and kept on disk; the other 100 entries load. More cases in test/core/ledger/persistence/quarantine_test.dart.
+- DAT-05 (p2_1_loading_test.dart): a category made after an entry named it by name takes that entry over by id, so a rename reaches it on disk.
+- DAT-02 (no known-defect test before): test/core/ledger/persistence/write_queue_test.dart, "a change made while the book is being read back brings another read" (fails before the fix).
+- DAT-08 (no known-defect test before): notes of deletions older than the trash's 30 days are dropped when the book opens; test/core/ledger/persistence/quarantine_test.dart.
+- DAT-09 (no known-defect test before): book version and migration steps (book_migrations_test.dart), unknown fields kept on rewrite (quarantine_test.dart), every kept book opens, is brought up and reads the same again (old_books_test.dart).
+- DAT-12 (no known-defect test before): a book that was opened before is never given the starting accounts again; quarantine_test.dart.
 
 ## fixed in 1.5
 
@@ -157,12 +179,9 @@ One line per finding that has no test here. Findings with an executed reproducti
 - TST-01 (S2, 0.1): no executed reproduction; not turned into a test
 - TST-03 (S2, 0.2): no executed reproduction; not turned into a test
 - TST-05 (S2, 0.2): no executed reproduction; not turned into a test
-- PKG-05 (S2, 1.2): no executed reproduction; not turned into a test
-- PKG-07 (S2, 1.2): no executed reproduction; not turned into a test
 - PKG-04 (S2, 1.3): partly fixed in 1.3: an interest-only plan adds up exactly (packages/ledger/loans/test/calc/loan_plan_test.dart); equal-payment and equal-principal plans wait on the owner, as an exact schedule changes figures that test/baseline/loans_baseline_test.dart pins
 - LOG-03 (S2, 1.4): no executed reproduction; not turned into a test
 - LOG-07 (S2, 1.4): no executed reproduction; not turned into a test
-- DAT-02 (S2, 2.1): no executed reproduction; not turned into a test
 - BUD-03 (S2, 2.2): no executed reproduction; not turned into a test
 - BUD-04 (S2, 2.2): no executed reproduction; not turned into a test
 - REC-02 (S2, 2.3): no executed reproduction; not turned into a test
@@ -206,11 +225,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - TST-04 (S3, 0.1): no executed reproduction; not turned into a test
 - TST-06 (S3, 0.1): no executed reproduction; not turned into a test
 - TST-02 (S3, 0.2): no executed reproduction; not turned into a test
-- ARC-09 (S3, 1.2): no executed reproduction; not turned into a test
-- ENT-16 (S3, 1.2): no executed reproduction; not turned into a test
-- F25 (S3, 1.2): no executed reproduction; not turned into a test
-- F75 (S3, 1.2): no executed reproduction; not turned into a test
-- F86 (S3, 1.2): no executed reproduction; not turned into a test
 - PKG-08 (S3, 1.3): stopped in 1.3: the 2027 and 2028 rows of the rate table are the end dates the law in force sets (bond-ETF exemption, day-trade halving), not forecasts, and test/baseline/fees_and_tax_baseline_test.dart pins the 2027 bond-ETF tax
 - DAT-11 (S3, 1.4): no executed reproduction; not turned into a test
 - DAT-13 (S3, 1.4): no executed reproduction; not turned into a test
@@ -219,9 +233,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - F68 (S3, 1.4): no executed reproduction; not turned into a test
 - LOG-11 (S3, 1.4): no executed reproduction; not turned into a test
 - F70 (S3, 1.5): no executed reproduction; not turned into a test
-- DAT-08 (S3, 2.1): no executed reproduction; not turned into a test
-- DAT-09 (S3, 2.1): no executed reproduction; not turned into a test
-- DAT-12 (S3, 2.1): no executed reproduction; not turned into a test
 - F33 (S3, 2.3): no executed reproduction; not turned into a test
 - F94 (S3, 2.3): no executed reproduction; not turned into a test
 - F31 (S3, 2.4): no executed reproduction; not turned into a test

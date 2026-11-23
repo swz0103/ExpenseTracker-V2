@@ -37,32 +37,32 @@ items:
       - packages/core/lib/percent/
     target: packages/core/lib/percent/
     status: owned
+  # Reports and budgets keep their own periods (a quarter, a chosen run
+  # of months) but count months and days with core's YearMonth.
   - id: dates-periods
     what: 日期、年月、期間範圍
     layer: core
     owner:
-      - packages/core/lib/src/foundation_values/time.dart
-      - apps/expense_tracker/lib/src/core/formatting/dates.dart
-      - apps/expense_tracker/lib/src/features/reports/model/report_period.dart
-      - apps/expense_tracker/lib/src/features/budgets/model/budget_month.dart
+      - packages/core/lib/time/
     target: packages/core/lib/time/
-    status: scattered
+    status: owned
+  # The app holds the one clock at its composition level
+  # (core/time/app_clock.dart) and asks core's Clock for "today".
   - id: clock-now
     what: 「今天」與現在時間
     layer: core
     owner:
-      - packages/core/lib/src/app_core/clock.dart
+      - packages/core/lib/time/clock.dart
       - apps/expense_tracker/lib/src/core/time/app_clock.dart
     target: packages/core/lib/time/
-    status: scattered
+    status: owned
   - id: holidays-business-days
     what: 假日與營業日順延
     layer: core
     owner:
-      - packages/core/lib/src/foundation_values/time.dart
-      - packages/core/lib/src/app_core/clock.dart
+      - packages/core/lib/time/holidays/
     target: packages/core/lib/time/
-    status: scattered
+    status: owned
   - id: identifiers
     what: 識別碼
     layer: core
@@ -73,9 +73,10 @@ items:
   - id: shared-constants
     what: 共用常數（保留天數、上限）
     layer: core
-    owner: []
+    owner:
+      - packages/core/lib/constants/
     target: packages/core/lib/constants/
-    status: planned
+    status: owned
 
   # ---- ledger ----
   - id: data-validity
@@ -317,9 +318,9 @@ items:
     what: 日期怎麼顯示
     layer: design_system
     owner:
-      - apps/expense_tracker/lib/src/core/formatting/dates.dart
+      - apps/expense_tracker/lib/design_system/display/date.dart
     target: apps/expense_tracker/lib/design_system/display/
-    status: scattered
+    status: owned
   - id: status-badges
     what: 狀態徽章的用詞與顏色
     layer: design_system
@@ -366,11 +367,15 @@ items:
     what: 資料格式與版本遷移
     layer: data
     owner:
+      # the table layout and its ladder of steps
+      - infrastructure/storage/lib/src/layout.dart
+      # a row's version; the book's version and its ladder of steps
       - apps/expense_tracker/lib/src/core/ledger/persistence/record_version.dart
-      - apps/expense_tracker/lib/src/core/ledger/persistence/category_id_migration.dart
+      - apps/expense_tracker/lib/src/core/ledger/persistence/book_migrations.dart
+      # each record's JSON, its fields, how it names a category
       - apps/expense_tracker/lib/src/core/ledger/persistence/codec
     target: infrastructure/storage/lib/
-    status: scattered
+    status: owned
   - id: password-key-derivation
     what: 密碼政策與金鑰推導
     layer: data
