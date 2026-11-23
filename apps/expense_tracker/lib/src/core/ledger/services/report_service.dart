@@ -28,10 +28,13 @@ final class ReportService {
   int income(int year, int month) =>
       _entries.inMonth(year, month).fold(0, (total, e) => total + e.earning);
 
-  /// Spending of a month, less refunds, with transfer fees.
-  int expense(int year, int month, {int? untilDay}) => _entries
+  /// Spending of a month, less refunds, with transfer fees; with
+  /// [account], only what was spent from it, as its card says (D20):
+  /// transfers out, card payments and money lent are not spending.
+  int expense(int year, int month, {int? untilDay, String? account}) => _entries
       .inMonth(year, month)
       .where((e) => untilDay == null || e.date.day <= untilDay)
+      .where((e) => account == null || e.account == account)
       .fold(0, (total, e) => total + e.spending);
 
   int dividends(int year, int month) =>
