@@ -50,6 +50,32 @@ void main() {
   void keepOne(OpenVault open) =>
       open.store.write((w) => w.put('account', 'cash', '{"name":"現金"}'));
 
+  test('a closed ledger reopens with the keys it was open with', () async {
+    final (open, _) = await vault.create(password);
+    keepOne(open);
+    final keys = open.keys;
+    open.close();
+    final again = await vault.reopen(keys);
+    addTearDown(again.close);
+    expect(again.store.rows().single.id, 'cash');
+    expect(again.keys, same(keys));
+  });
+
+  test('keys of another ledger do not reopen this one', () async {
+    final (open, _) = await vault.create(password);
+    open.close();
+    final other = LedgerVault(
+      Directory('${directory.path}/other'),
+      codec: codec,
+    );
+    final (theirs, _) = await other.create(password);
+    theirs.close();
+    await expectLater(
+      vault.reopen(theirs.keys),
+      fails(VaultProblem.otherLedger),
+    );
+  });
+
   test('a new ledger reopens with the password or recovery code', () async {
     expect(vault.exists, isFalse);
     await expectLater(
