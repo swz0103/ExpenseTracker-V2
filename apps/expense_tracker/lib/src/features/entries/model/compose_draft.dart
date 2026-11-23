@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:core/foundation_values.dart' show BusinessDate;
+
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ledger/persistence/codec/record_json.dart';
 import 'compose_form.dart';
@@ -7,10 +9,24 @@ import 'compose_form.dart';
 /// A form put aside with 暫存: the entry as it stood and the receipt
 /// photo chosen for it, which is not part of the entry until it is saved.
 final class ComposeDraft {
-  const ComposeDraft(this.entry, this.receipt, [this.lent]);
+  const ComposeDraft(this.entry, this.receipt, [this.lent, this.savedOn]);
 
   final Entry entry;
   final String? receipt;
+
+  /// The day it was put aside; null for a draft kept before this was.
+  final DateTime? savedOn;
+
+  /// The day the form opens on [today]: a draft dated the day it was put
+  /// aside was left on 今天, so it follows today; a day picked otherwise
+  /// stays.
+  DateTime dateOn(DateTime today) {
+    final saved = savedOn;
+    if (saved == null) return entry.date;
+    return BusinessDate.of(entry.date) == BusinessDate.of(saved)
+        ? today
+        : entry.date;
+  }
 
   /// What was paid in the spending for others, by person.
   final List<(String, int)>? lent;
@@ -19,6 +35,7 @@ final class ComposeDraft {
   String toJson() => jsonEncode({
     'entry': entryToJson(entry),
     'receipt': ?receipt,
+    if (savedOn case final day?) 'savedOn': BusinessDate.of(day).toString(),
     if (lent case final shares?)
       'lent': [
         for (final (p, a) in shares) [p, a],
@@ -45,6 +62,10 @@ final class ComposeDraft {
                 if (p case [final String person, final int amount])
                   (person, amount),
             ],
+            _ => null,
+          },
+          switch (map['savedOn']) {
+            final String day => BusinessDate.parse(day).asUtcMidnight,
             _ => null,
           },
         );

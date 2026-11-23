@@ -10,6 +10,7 @@ import '../features/debts/ui/debts_page.dart';
 import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
 import '../core/formatting/words.dart';
+import '../../design_system/display/date.dart';
 import '../features/debts/model/debts.dart';
 
 /// 更多: the tools as big icon buttons, three to a row, in three groups,
@@ -103,7 +104,10 @@ class MorePage extends StatelessWidget {
             ? '${countOf(due.length, CountUnit.entries)}到期'
             : next == null
             ? '沒有待扣款'
-            : '下一筆 ${ledger.recurringService.nextLabel(next)}',
+            : '下一筆 ${switch (ledger.recurringService.nextDate(next)) {
+                final d? => formatMd(d),
+                null => '',
+              }}',
         onTap: () => nav.open(AppRoutes.recurring),
       ),
       ToolButton(

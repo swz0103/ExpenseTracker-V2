@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../design_system/display/amount.dart';
 import '../design_system/paint.dart';
 import '../design_system/theme.dart';
-import '../formatting/dates.dart';
+import '../../../design_system/display/date.dart';
 import '../design_system/shape.dart';
 import '../design_system/motion.dart';
 

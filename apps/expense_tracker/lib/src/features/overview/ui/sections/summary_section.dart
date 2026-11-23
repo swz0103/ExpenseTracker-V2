@@ -4,6 +4,7 @@ import '../../../../core/design_system/glyphs.dart';
 import '../../../../core/ledger/ledger.dart';
 import '../../../../core/widgets/balance_hero.dart';
 import '../../../../core/widgets/shown_amounts.dart';
+import '../../../../../design_system/display/date.dart';
 
 /// The month's balance as the page's main tile, with income, spending
 /// and dividends along its foot.
@@ -23,7 +24,7 @@ class SummarySection extends StatelessWidget {
         return BalanceHero(
           ledger: ledger,
           icon: Glyph.wallet,
-          label: '本月結餘',
+          label: '${monthWord(year, m, today: ledger.today)}結餘',
           hides: true,
           income: ledger.reportService.income(year, m),
           expense: ledger.reportService.expense(year, m),

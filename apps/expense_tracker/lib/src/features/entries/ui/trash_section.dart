@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:core/constants/retention.dart';
 
 import '../../../core/ledger/ledger.dart';
 import '../../../../design_system/display/amount.dart';
@@ -10,12 +11,9 @@ import '../../../core/widgets/entry_tile.dart';
 import '../../../core/design_system/settings_colors.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/shape.dart';
-
-/// How long a deleted entry is kept before it is gone for good.
-const _keptDays = 30;
 
 /// 最近刪除: how many there are and how long they are kept, then each
 /// deleted entry under the day it was for, with how many days it has
@@ -72,7 +70,7 @@ class TrashSection extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '保留 ${countOf(_keptDays, CountUnit.days)}',
+                    '保留 ${countOf(trashRetentionDays, CountUnit.days)}',
                     style: TextStyle(
                       fontSize: TextSize.body,
                       color: deepOf(SettingsColors.trash),
@@ -109,7 +107,7 @@ class TrashSection extends StatelessWidget {
   Widget _row(BuildContext context, Trashed t, DateTime today) {
     final e = t.entry;
     final (glyph, color) = entryMark(ledger, e);
-    final left = _keptDays - today.difference(t.on).inDays;
+    final left = trashRetentionDays - today.difference(t.on).inDays;
     final account = ledger.account(e.account).name;
     return QuoteRow(
       lead: SquareIcon(glyph, color, size: 44),
@@ -120,7 +118,7 @@ class TrashSection extends StatelessWidget {
       detail: [
         if (e.category.isNotEmpty) e.category,
         account,
-        '還剩 ${countOf(left.clamp(0, _keptDays), CountUnit.days)}',
+        '還剩 ${countOf(left.clamp(0, trashRetentionDays), CountUnit.days)}',
       ].join(' · '),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,

@@ -1,3 +1,4 @@
+import 'package:core/foundation_values.dart' show YearMonth;
 import 'package:flutter/material.dart';
 
 import '../../../core/messages/amount_messages.dart';
@@ -70,7 +71,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
   }
 
   Future<void> _pickMonth() async {
-    final picked = await showSheet<(int, int)>(
+    final picked = await showSheet<YearMonth>(
       context,
       (_) => _MonthPicker(
         ledger: ledger,
@@ -129,7 +130,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
         Topic.categories,
       }),
       builder: (context, _) {
-        final (year, month) = _month;
+        final YearMonth(:year, :month) = _month;
         final shown = budgetMonthOf(ledger, _month);
         final spent = shown.spent;
         final total = shown.total;

@@ -63,13 +63,20 @@ abstract interface class HoldingReader {
 /// and the holdings replayed from them and the trades. The screens see a
 /// [HoldingReader].
 final class HoldingRepository implements HoldingReader {
-  /// [_moveOf] gives a stock's change per share on its last trading day;
-  /// the holdings are replayed by [replay] before they are first read.
-  HoldingRepository(Iterable<Holding> start, {required this._moveOf})
-    : _start = [...start];
+  /// [_moveOf] gives a stock's change per share on its last trading day
+  /// and [_quoteDayOf] that day, so shares bought after it are not counted
+  /// in its change; the holdings are replayed by [replay] before they are
+  /// first read.
+  HoldingRepository(
+    Iterable<Holding> start, {
+    required this._moveOf,
+    DateTime? Function(String code)? quoteDayOf,
+  }) : _start = [...start],
+       _quoteDayOf = quoteDayOf ?? ((_) => null);
 
   final List<Holding> _start;
   final double? Function(String code) _moveOf;
+  final DateTime? Function(String code) _quoteDayOf;
   Portfolio? _portfolio;
   List<Holding>? _withChanges;
 
@@ -85,11 +92,18 @@ final class HoldingRepository implements HoldingReader {
     _withChanges ??= [
       for (final h in _replayed.holdings)
         if (_moveOf(h.code) case final move?)
-          h.withChange(timesPrice(h.shares, move))
+          h.withChange(timesPrice(_sharesOnQuoteDay(h), move))
         else
           h,
     ],
   );
+
+  /// The shares of [h] held at the end of its quote's trading day: those
+  /// bought later did not move with it.
+  int _sharesOnQuoteDay(Holding h) => switch (_quoteDayOf(h.code)) {
+    final day? => _replayed.sharesOn(h.code, day),
+    null => h.shares,
+  };
 
   @override
   Holding? byCode(String code) {

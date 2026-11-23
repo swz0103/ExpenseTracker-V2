@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'dart:isolate';
 
 import 'package:core/app_core.dart';
+import 'package:core/constants/retention.dart';
 import 'package:core/foundation_values.dart';
 import 'package:core/money/amount_parser.dart' show parseDecimal;
 import 'package:flutter/foundation.dart' show mapEquals;
@@ -42,18 +43,13 @@ const _starters = [
   ('其他收入', 'income', 0xFF4E8A9A, true),
 ];
 
-/// How long a deleted entry is kept to be restored, and how long the note
-/// of a deletion is kept in [_gone]. (The trash page says the same number
-/// of days with its own constant, `_keptDays` in trash_section.dart.)
-const keptInTrash = Duration(days: 30);
-
 /// The collection of the last closing prices and rate board, kept so holdings
 /// and foreign accounts are valued offline.
 const _market = 'market';
 
 /// When each record was deleted, by `collection/id`, so a deletion can be
 /// told from a record never kept (for a later sync); dropped when the id
-/// is kept again, and once [keptInTrash] has passed. Nothing reads them
+/// is kept again, and once [trashRetention] has passed. Nothing reads them
 /// but a backup's check.
 const _gone = 'gone';
 
@@ -100,6 +96,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   }) : _gateway = market;
 
   final EncryptedDatabase _store;
+
+  /// The app's one clock, handed over where the app is put together.
   final Clock _clock;
 
   /// How many rows are read at a time when the book opens.
@@ -166,10 +164,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   /// preview.
   MarketDataGateway? get gateway => _gateway;
 
-  DateTime _today() {
-    final day = _clock.today();
-    return DateTime.utc(day.year, day.month, day.day);
-  }
+  DateTime _today() => _clock.today().asUtcMidnight;
 
   @override
   Future<Ledger> load() => PerformanceMonitor.instance.timeLoad(() async {
@@ -343,7 +338,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final market = _marketFrom(_readableMarket(collections[_market]));
     final today = _today();
     final trash = read(Collection.trash, (j) => trashedFromJson(j, _refs));
-    final from = today.subtract(keptInTrash);
+    final from = today.subtract(trashRetention);
     _dropExpired(trash, collections[_gone] ?? const [], from);
     final ledger = Ledger(
       today: today,

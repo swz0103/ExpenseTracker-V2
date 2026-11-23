@@ -7,7 +7,7 @@ import '../design_system/theme.dart';
 import '../design_system/design_system.dart';
 import '../ledger/ledger.dart';
 import 'shown_amounts.dart';
-import '../formatting/dates.dart';
+import '../../../design_system/display/date.dart';
 import '../design_system/shape.dart';
 import '../design_system/spacing.dart';
 import '../formatting/words.dart';

@@ -11,7 +11,7 @@ import '../../../../core/ledger/ledger.dart';
 import '../../../../core/navigation/nav.dart';
 import '../../../../core/widgets/entry_tile.dart' show holdingLabel;
 import '../../../../core/widgets/shown_amounts.dart';
-import '../../../../core/formatting/dates.dart';
+import '../../../../../design_system/display/date.dart';
 import '../../../../core/design_system/shape.dart';
 import '../../../../core/design_system/spacing.dart';
 

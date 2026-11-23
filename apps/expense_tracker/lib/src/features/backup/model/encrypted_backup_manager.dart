@@ -176,9 +176,9 @@ final class EncryptedBackupManager implements BackupManager {
     String name = '記帳本',
   }) async {
     final now = AppClock.now();
-    String two(int n) => n.toString().padLeft(2, '0');
+    final two = twoDigits;
     final stamp =
-        '${now.year}${two(now.month)}${two(now.day)}'
+        '${BusinessDate.of(now).compact}'
         '-${two(now.hour)}${two(now.minute)}${two(now.second)}'
         '${now.millisecond.toString().padLeft(3, '0')}';
     await folder.create(recursive: true);

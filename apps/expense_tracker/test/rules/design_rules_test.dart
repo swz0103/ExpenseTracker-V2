@@ -2,14 +2,14 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// The date-format rule: dates are written by core/formatting/dates.dart.
+/// The date-format rule: dates are written by design_system/display/date.dart.
 /// It reads what strings are built of, so it stays a text match; the
 /// design system's other rules (colours, sizes, buttons, retired widgets,
 /// corners and gaps, motion, shared words) read the syntax tree, in
 /// tooling/architecture_checks (app_syntax_test, app_design_syntax_test).
 void main() {
   test(
-    'dates are written by core/formatting/dates.dart, not built by hand',
+    'dates are written by design_system/display/date.dart, not built by hand',
     () {
       final handBuilt = RegExp(
         r'\.(month|year)\}/\$\{|\.month\} 月 \$\{|\.year\} 年 \$\{|'
@@ -17,7 +17,7 @@ void main() {
       );
       for (final file in Directory('lib').listSync(recursive: true)) {
         if (file is! File || !file.path.endsWith('.dart')) continue;
-        if (file.path.endsWith('core/formatting/dates.dart')) continue;
+        if (file.path.endsWith('design_system/display/date.dart')) continue;
         final lines = file.readAsLinesSync();
         for (final (i, line) in lines.indexed) {
           expect(

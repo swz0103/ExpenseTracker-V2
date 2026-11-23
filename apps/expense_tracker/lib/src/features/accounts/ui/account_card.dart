@@ -5,10 +5,11 @@ import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
+import '../model/card_summary.dart' show payByOf;
 
 /// How tall a card of 我的帳戶 is when it lies in front, and how much of
 /// each card behind it shows.
@@ -177,7 +178,11 @@ class AccountCard extends StatelessWidget {
         return (
           '本期應繳',
           ledger.money(ledger.statementService.statementDue(account)),
-          '${formatMd(due)} 繳款',
+          '${formatMd(due)} 繳款'
+              '${switch (postponedTo(due, payByOf(due))) {
+                final moved? => ' · $moved',
+                null => '',
+              }}',
         );
       case AccountKind.loan:
         return ('尚欠', ledger.money(-balance), '');

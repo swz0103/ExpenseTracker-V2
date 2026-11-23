@@ -1,6 +1,6 @@
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/installment_messages.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../../design_system/display/amount.dart';
 import '../../../core/formatting/words.dart';
 

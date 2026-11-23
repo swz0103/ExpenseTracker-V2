@@ -12,7 +12,7 @@ import '../../../core/widgets/problem_note.dart';
 import '../../../core/navigation/nav.dart';
 import '../model/recurring_schedule.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/month_grid.dart';

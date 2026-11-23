@@ -5,7 +5,7 @@ import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
 import '../../../design_system/display/amount.dart';
-import '../formatting/dates.dart';
+import '../../../design_system/display/date.dart';
 
 /// The words of the ledger's keys, in one place: passwords and their rule,
 /// the recovery code, the backup passphrase, resetting the keys, and what

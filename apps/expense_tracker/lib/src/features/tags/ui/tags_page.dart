@@ -11,7 +11,7 @@ import '../../../core/navigation/nav.dart';
 import '../model/tag_summary.dart';
 import 'tag_summary_blocks.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
@@ -450,7 +450,12 @@ class TagSummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TagSummaryHeading(project: project, recent: recent, menu: menu),
+          TagSummaryHeading(
+            project: project,
+            recent: recent,
+            menu: menu,
+            today: ledger.today,
+          ),
           const SizedBox(height: Space.s2),
           Text(
             ledger.orDots(groupDigits(spent)),
