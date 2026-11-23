@@ -245,10 +245,14 @@ class _Figure extends StatelessWidget {
             ],
           ),
         ),
+        // A long note, such as a bill's moved due day and days left,
+        // wraps beside the figure rather than running off the card.
         if (note.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(left: Space.s2, bottom: Space.s1),
-            child: Text(note, style: mutedSmall),
+          Flexible(
+            child: Padding(
+              padding: const EdgeInsets.only(left: Space.s2, bottom: Space.s1),
+              child: Text(note, style: mutedSmall, textAlign: TextAlign.end),
+            ),
           ),
       ],
     );

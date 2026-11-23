@@ -126,6 +126,52 @@ void main() {
       tester,
       AccountCard(ledger: book, account: book.account('card')),
     );
-    expect(find.text('10/10 繳款 · 順延至 10/12'), findsOneWidget);
+    // 10/12 - 10/5 = 7 days to pay.
+    expect(find.text('10/10 繳款 · 順延至 10/12 · 還有 7 天'), findsOneWidget);
+  });
+
+  group('D22: the days left read the same on the card page and the list', () {
+    Widget page(Ledger book) => SizedBox(
+      height: 2400,
+      child: CardPage(ledger: book, accountId: 'card', nav: _nav),
+    );
+    Widget card(Ledger book) =>
+        AccountCard(ledger: book, account: book.account('card'));
+
+    testWidgets('due in ten days', (tester) async {
+      // 10/15 - 10/5 = 10 days.
+      final book = _book(DateTime.utc(2026, 10, 5));
+      for (final shown in [page(book), card(book)]) {
+        await _show(tester, shown);
+        expect(find.text('10/15 繳款 · 還有 10 天'), findsOneWidget);
+      }
+    });
+
+    testWidgets('due today', (tester) async {
+      final book = _book(DateTime.utc(2026, 10, 15));
+      for (final shown in [page(book), card(book), _overview(book)]) {
+        await _show(tester, shown);
+        expect(find.text('今天繳款'), findsOneWidget);
+        expect(find.textContaining('還有'), findsNothing);
+      }
+    });
+
+    testWidgets('postponed: counted to the day it can be paid', (tester) async {
+      // Due Saturday 10/10 (國慶日), payable Monday 10/12: on 10/9 that is
+      // 12 - 9 = 3 days, not the 1 day to 10/10.
+      final book = _book(DateTime.utc(2026, 10, 9), dueDay: 10);
+      for (final shown in [page(book), card(book)]) {
+        await _show(tester, shown);
+        expect(find.text('10/10 繳款 · 順延至 10/12 · 還有 3 天'), findsOneWidget);
+      }
+    });
+
+    testWidgets('late: no days left, the days late', (tester) async {
+      for (final shown in [page(late), card(late), _overview(late)]) {
+        await _show(tester, shown);
+        expect(find.text(overdue), findsOneWidget);
+        expect(find.textContaining('還有'), findsNothing);
+      }
+    });
   });
 }
