@@ -61,15 +61,17 @@ String recurringAmount(Ledger ledger, Recurring item) =>
     amountIn(item.amount, ledger.account(item.account).currency);
 
 /// How [e]'s amount reads: spending (−) for spending and buys, nothing
-/// for a transfer, income (+) for the rest.
+/// for a transfer, a refund (+, read 退款) for spending given back,
+/// income (+) for the rest.
 AmountSense entrySense(Entry e) => switch (e.type) {
   EntryType.expense || EntryType.buy => AmountSense.spending,
   EntryType.transfer => AmountSense.plain,
+  _ when e.isRefund => AmountSense.refund,
   _ => AmountSense.income,
 };
 
 /// What a screen reader says for [entryAmount]: 支出 200 元, 收入 52,000
-/// 元; 金額已隱藏 while [hidden].
+/// 元, 退款 300 元; 金額已隱藏 while [hidden].
 String entrySpoken(
   Entry e, {
   String currency = homeCode,
@@ -111,8 +113,8 @@ String entryDetail(Ledger ledger, Entry e) {
     EntryType.dividend when e.shares > 0 =>
       '${e.holding} · ${e.split ? '分割' : '配股'} ${countOf(e.shares, CountUnit.shares)}',
     _ when e.isRefund => switch (ledger.entries.byId(e.refundOf!)) {
-      final original? => '↩ 退款 · 原：${original.title}',
-      null => '↩ 退款 · $account',
+      final original? => '↩ ${Words.refund} · 原：${original.title}',
+      null => '↩ ${Words.refund} · $account',
     },
     _ => [
       if (e.merchant.isNotEmpty) e.merchant,

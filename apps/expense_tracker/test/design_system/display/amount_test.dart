@@ -86,6 +86,9 @@ void main() {
     test('spending and income', () {
       expect(spokenAmount(1844, sense: AmountSense.spending), '支出 1,844 元');
       expect(spokenAmount(25000, sense: AmountSense.income), '收入 25,000 元');
+      // D9: a refund gives spending back; it is not read as income.
+      expect(spokenAmount(300, sense: AmountSense.refund), '退款 300 元');
+      expect(shownAmount(300, sense: AmountSense.refund), '+300');
       // Only the size counts for a direction.
       expect(spokenAmount(-1844, sense: AmountSense.spending), '支出 1,844 元');
     });

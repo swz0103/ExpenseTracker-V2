@@ -190,6 +190,10 @@ enum AmountSense {
   /// Money in, written `+200`: read 收入.
   income,
 
+  /// Spending given back, written `+200` as income is: read 退款, as it
+  /// gives back what was spent rather than bringing income (D9).
+  refund,
+
   /// A rise or a fall, written `+200` or `−200`: read 正 or 負.
   signed,
 
@@ -200,9 +204,10 @@ enum AmountSense {
 
 /// What a screen reader says for an amount: the direction in words and
 /// the size with its currency, never a sign character. `支出 1,844 元`,
-/// `收入 25,000 元`, `美元 12.50`, `負 300 元`; `支出 金額已隱藏` while
-/// amounts are hidden. [minor] keeps its sign; for [AmountSense.spending]
-/// and [AmountSense.income] only its size counts.
+/// `收入 25,000 元`, `退款 300 元`, `美元 12.50`, `負 300 元`; `支出 金額已隱藏`
+/// while amounts are hidden. [minor] keeps its sign; for
+/// [AmountSense.spending], [AmountSense.income] and [AmountSense.refund]
+/// only its size counts.
 String spokenAmount(
   int minor, {
   String currency = _home,
@@ -212,6 +217,7 @@ String spokenAmount(
   final direction = switch (sense) {
     AmountSense.spending => Words.expense,
     AmountSense.income => Words.income,
+    AmountSense.refund => Words.refund,
     AmountSense.signed when minor > 0 => '正',
     AmountSense.signed || AmountSense.plain when minor < 0 => '負',
     _ => '',
@@ -259,7 +265,7 @@ String shownAmount(
   final size = amountIn(minor.abs(), currency);
   return switch (sense) {
     AmountSense.spending => '−$size',
-    AmountSense.income => '+$size',
+    AmountSense.income || AmountSense.refund => '+$size',
     AmountSense.signed when minor > 0 => '+$size',
     AmountSense.signed when minor < 0 => '−$size',
     AmountSense.plain when minor < 0 => amountIn(minor, currency),

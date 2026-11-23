@@ -6,6 +6,9 @@ abstract final class Words {
   // The kinds of money.
   static const income = '收入';
   static const expense = '支出';
+
+  /// Spending given back: an income entry that refunds an expense.
+  static const refund = '退款';
   static const transfer = '轉帳';
   static const dividend = '股息';
   static const investment = '投資';
