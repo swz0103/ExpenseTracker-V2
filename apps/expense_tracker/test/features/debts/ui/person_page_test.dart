@@ -108,7 +108,10 @@ void main() {
     );
     await open(tester, start: partly);
     // The oldest is paid back first: 300 of the ticket's 800.
-    expect(find.text('9/4 · 共 800'), findsOneWidget);
+    // 800 - 300 = 500 left: partly settled, in the list still owed and
+    // in the history alike.
+    expect(find.text('9/4 · 部分收回 · 共 800'), findsOneWidget);
+    expect(find.text('9/4 · 部分收回'), findsOneWidget);
     expect(find.text('500'), findsWidgets);
     expect(find.text('1,500'), findsOneWidget);
   });
