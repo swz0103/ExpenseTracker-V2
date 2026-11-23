@@ -69,6 +69,19 @@ These tests run (no `knownDefect` skip) and pass.
 
 - AND-01 (p6_3_release_test.dart): REQUEST_INSTALL_PACKAGES and the update code are in the sideload flavor only; the play flavor has neither.
 
+## fixed in 1.2
+
+Work package 1.2 (one source for dates, the clock and holidays). None of these had a known-defect test; each is now stated by ordinary tests with literal expectations.
+
+- PKG-05: `packages/core/test/time/clock_test.dart`, `test/core/time/app_clock_test.dart` (today is the phone's own calendar day, not Taipei's)
+- ARC-09: `packages/core/test/time/clock_test.dart` (time to the next local midnight; the app's lifecycle sets a timer to it)
+- PKG-07 (partly): `packages/core/test/time/holidays/business_days_test.dart`, `test/features/accounts/model/card_summary_test.dart`, `test/design_system/display/date_test.dart` (card due date 順延至); stock settlement not wired, see the package report
+- ENT-16 (b, c): `test/features/entries/model/compose_draft_test.dart` (a draft left on today follows today); the trash retention is `packages/core/lib/constants/retention.dart`; (a) future dates left for a product decision
+- F25: `test/core/ledger/repositories/holding_repository_test.dart`, `test/design_system/display/date_test.dart`
+- F75: `test/design_system/display/date_test.dart` (本月 only for the current month)
+- F86: `test/design_system/display/date_test.dart` (ranges carry years)
+- RPT-06 (date part): rule B3 has no entries left; `test/design_system/display/date_test.dart`
+
 ## not covered
 
 One line per finding that has no test here. Findings with an executed reproduction come first with the specific reason; the rest were found by reading code (no executed reproduction), which the brief does not require.
@@ -128,8 +141,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - TST-01 (S2, 0.1): no executed reproduction; not turned into a test
 - TST-03 (S2, 0.2): no executed reproduction; not turned into a test
 - TST-05 (S2, 0.2): no executed reproduction; not turned into a test
-- PKG-05 (S2, 1.2): no executed reproduction; not turned into a test
-- PKG-07 (S2, 1.2): no executed reproduction; not turned into a test
 - PKG-04 (S2, 1.3): no executed reproduction; not turned into a test
 - LOG-03 (S2, 1.4): no executed reproduction; not turned into a test
 - LOG-07 (S2, 1.4): no executed reproduction; not turned into a test
@@ -178,11 +189,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - TST-04 (S3, 0.1): no executed reproduction; not turned into a test
 - TST-06 (S3, 0.1): no executed reproduction; not turned into a test
 - TST-02 (S3, 0.2): no executed reproduction; not turned into a test
-- ARC-09 (S3, 1.2): no executed reproduction; not turned into a test
-- ENT-16 (S3, 1.2): no executed reproduction; not turned into a test
-- F25 (S3, 1.2): no executed reproduction; not turned into a test
-- F75 (S3, 1.2): no executed reproduction; not turned into a test
-- F86 (S3, 1.2): no executed reproduction; not turned into a test
 - ACC-06 (S3, 1.3): no executed reproduction; not turned into a test
 - PKG-08 (S3, 1.3): no executed reproduction; not turned into a test
 - DAT-11 (S3, 1.4): no executed reproduction; not turned into a test
