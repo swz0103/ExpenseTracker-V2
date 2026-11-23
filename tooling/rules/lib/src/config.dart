@@ -29,6 +29,8 @@ const scanRoots = [
   'packages/core/test',
   'packages/domain/lib',
   'packages/domain/test',
+  'packages/kernel/lib',
+  'packages/kernel/test',
   ledgerDir,
 ];
 
@@ -47,7 +49,7 @@ String? ledgerPackageOf(String path) {
 }
 
 /// Pure packages (rule A4) and the tests they must have (rule C1a).
-const purePackages = ['packages/core', 'packages/domain'];
+const purePackages = ['packages/core', 'packages/domain', 'packages/kernel'];
 
 /// Packages a feature must not import (rule A3).
 const dataPackages = ['storage', 'vault', 'market'];

@@ -91,6 +91,7 @@ jobs:
             'tooling/rules',
             'packages/core',
             'packages/domain',
+            'packages/kernel',
             'packages/ledger/entries',
             'packages/ledger/loans',
             'packages/ledger/trade_costs',
@@ -111,7 +112,8 @@ jobs:
         # package) must not fall below tooling/coverage_floors.json.
         run: |
           dart run tooling/architecture_checks/bin/check_coverage.dart \
-            packages/core packages/domain packages/ledger/entries \
+            packages/core packages/domain packages/kernel \
+            packages/ledger/entries \
             packages/ledger/loans packages/ledger/trade_costs \
             infrastructure/storage infrastructure/vault infrastructure/market
 

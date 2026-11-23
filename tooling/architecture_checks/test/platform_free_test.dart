@@ -7,6 +7,7 @@ import 'package:test/test.dart';
 const platformFree = [
   'packages/core',
   'packages/domain',
+  'packages/kernel',
   'packages/ledger/entries',
   'packages/ledger/loans',
   'packages/ledger/trade_costs',

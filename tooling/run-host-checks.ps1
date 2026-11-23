@@ -16,6 +16,7 @@ $checks = @(
     @{ Path = 'tooling/rules'; Dirs = @('bin', 'lib', 'test') },
     @{ Path = 'packages/core'; Dirs = @('lib', 'test'); Coverage = $true },
     @{ Path = 'packages/domain'; Dirs = @('lib', 'test'); Coverage = $true },
+    @{ Path = 'packages/kernel'; Dirs = @('lib', 'test'); Coverage = $true },
     @{ Path = 'packages/ledger/entries'; Dirs = @('lib', 'test'); Coverage = $true },
     @{ Path = 'packages/ledger/loans'; Dirs = @('lib', 'test'); Coverage = $true },
     @{ Path = 'packages/ledger/trade_costs'; Dirs = @('lib', 'test'); Coverage = $true },

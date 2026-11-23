@@ -1,6 +1,7 @@
 {
   "packages/core": 93,
   "packages/domain": 90,
+  "packages/kernel": 97,
   "packages/ledger/entries": 96,
   "packages/ledger/loans": 99,
   "packages/ledger/trade_costs": 99,
