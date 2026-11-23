@@ -188,7 +188,7 @@ class CardPage extends StatelessWidget {
       FigureCard(
         color: Palette.orange,
         icon: Glyph.calendar,
-        label: '本期未出帳',
+        label: '本期${StatusWords.notBilled}',
         value: ledger.money(card.spentSince),
         sub: '第 ${card.daysGone} / ${countOf(card.cycleDays, CountUnit.days)}',
         child: Padding(
@@ -303,7 +303,7 @@ class CardPage extends StatelessWidget {
   /// The entries since the close.
   List<Widget> _unbilled(CardSummary card) => [
     SectionTitle(
-      '本期未出帳',
+      '本期${StatusWords.notBilled}',
       trailing: Text(
         '${_day(card.end.add(const Duration(days: 1)))} 起',
         style: mutedSmall,

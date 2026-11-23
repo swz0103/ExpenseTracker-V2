@@ -73,6 +73,33 @@ const textScopes = ['$appLib/src/features/', '$appLib/src/app/'];
 /// Owner of the user-facing text (rule B9).
 const textOwners = ['$appLib/src/core/messages/'];
 
+/// The status words (rule B7): written as a string literal only by their
+/// owners; everywhere else they come from the status presentation.
+const statusWords = [
+  '已逾期',
+  '已繳清',
+  '已出帳',
+  '未出帳',
+  '超支',
+  '快用完',
+  '已賣光',
+  '已入帳',
+  '已略過',
+  '已暫停',
+  '已結清',
+  '部分收回',
+];
+
+/// Where rule B7 looks: the app's code.
+const statusWordScopes = ['$appLib/'];
+
+/// Owners of the status words (rule B7): the status presentation and its
+/// messages file.
+const statusWordOwners = [
+  '$appLib/design_system/display/status.dart',
+  '$appLib/design_system/display/status_messages.dart',
+];
+
 /// Where the registry of single sources lives.
 const ownersFile = 'tooling/rules/owners.yaml';
 

@@ -123,10 +123,11 @@ items:
     what: 逾期、超支、已清倉等狀態
     layer: ledger
     owner:
-      - apps/expense_tracker/lib/src/features/budgets/ui/budgets_pace.dart
-      - apps/expense_tracker/lib/src/features/accounts/model/card_summary.dart
+      - packages/domain/lib/src/credit_cards/card_rules.dart
+      - packages/domain/lib/src/investments/holding_rules.dart
+      - apps/expense_tracker/lib/src/core/ledger/rules/
     target: packages/ledger/*/lib/rules/
-    status: scattered
+    status: owned
   - id: budget-limits-rollover
     what: 預算額度與結轉
     layer: ledger
@@ -325,10 +326,10 @@ items:
     what: 狀態徽章的用詞與顏色
     layer: design_system
     owner:
-      - apps/expense_tracker/lib/src/core/design_system/components/marks.dart
-      - apps/expense_tracker/lib/src/core/widgets/problem_note.dart
+      - apps/expense_tracker/lib/design_system/display/status.dart
+      - apps/expense_tracker/lib/design_system/display/status_messages.dart
     target: apps/expense_tracker/lib/design_system/display/
-    status: scattered
+    status: owned
   - id: form-behaviour
     what: 表單的草稿、返回、錯誤、鍵盤
     layer: design_system

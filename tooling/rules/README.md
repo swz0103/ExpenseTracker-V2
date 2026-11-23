@@ -44,6 +44,7 @@ dart run tooling/rules/bin/check.dart --update
 | `A4-pure-calc` | `packages/core`、`packages/domain` 引用 Flutter、`dart:io`／`ui`／`ffi`，或讀時鐘、`Random` |
 | `B2-number-format` | 在格式化層之外自己 `toStringAsFixed`、`int.parse` 等處理數字 |
 | `B3-clock` | 在時間層與啟動點之外呼叫 `DateTime.now()`，或手寫 `padLeft(2, '0')` 補零 |
+| `B7-status-words` | 狀態用詞（已逾期、超支、已賣光、已入帳、已略過、已結清…，清單在 `config.dart` 的 `statusWords`）寫在狀態呈現檔 `design_system/display/status.dart`／`status_messages.dart` 以外 |
 | `B9-text-literals` | 在功能與 `app/` 裡直接寫中文字串，而不是放進 `core/messages` |
 | `D2-no-part` | 使用 `part`／`part of` 把一個函式庫拆成多個檔 |
 | `E1-catch-handled` | `catch` 之後既沒重拋、也沒記錄，把錯誤吞掉 |

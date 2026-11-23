@@ -201,7 +201,10 @@ class _LimitsHeading extends StatelessWidget {
             ),
           ),
         ),
-        Text(current ? '超支、快用完的排前面' : '$month 月', style: mutedSmall),
+        Text(
+          current ? '${StatusWords.over}、${StatusWords.near}的排前面' : '$month 月',
+          style: mutedSmall,
+        ),
       ],
     ),
   );
