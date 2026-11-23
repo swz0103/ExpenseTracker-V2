@@ -21,6 +21,7 @@ import '../core/time/app_clock.dart';
 import '../core/platform/distribution.dart';
 import '../core/platform/preferences.dart';
 import '../core/platform/startup.dart';
+import '../core/messages/update_messages.dart';
 import '../features/backup/model/drive_backup.dart';
 import '../features/backup/model/drive_sync.dart';
 import '../features/backup/model/encrypted_backup_manager.dart';
@@ -218,7 +219,7 @@ final class LifecycleServices {
         );
         unawaited(checkUpdate());
       } on Object catch (error) {
-        ErrorLog.instance.record('檢查更新', error);
+        ErrorLog.instance.record(UpdateMessages.checkStep, error);
       }
     }
     calendar?.follow(reminderBookOf(ledger));

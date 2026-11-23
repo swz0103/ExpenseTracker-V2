@@ -177,32 +177,46 @@ extension _Pickers on _ComposerState {
   /// items and number in the note, tagged 發票, and a category guessed from
   /// the items. One already in the book is said, not filled again.
   Future<void> _scanInvoice() async {
+    if (widget.scan == null) return;
+    final left = await _scanCode();
+    if (left == null || !mounted) return;
+    var invoice = InvoiceQr.parse(left);
+    if (invoice == null) {
+      _say('這不是電子發票左邊的 QR Code，請掃左邊那個');
+      return;
+    }
+    if (invoiceRecorded(_ledger.entries, invoice.date, invoice.number)) {
+      _say('發票 ${invoice.number} 已經記過了');
+      return;
+    }
+    if (invoice.wantsMore) {
+      _say('還有品項在右邊的 QR Code，請再掃一次');
+      final right = await _scanCode();
+      if (right != null) invoice = invoice.withRight(right);
+    }
+    if (!mounted) return;
+    final scanned = invoice;
+    _set(() => _f.fillInvoice(scanned));
+  }
+
+  /// One code from the scanner; null when there is none, the person
+  /// having closed it or the scanner having failed, which is said in the
+  /// form with what to do next (the fault itself is in the error log).
+  /// While the phone still has to fetch the scanner, the form says so.
+  Future<String?> _scanCode() async {
     final scan = widget.scan;
-    if (scan == null) return;
-    try {
-      final left = await scan();
-      if (left == null || !mounted) return;
-      var invoice = InvoiceQr.parse(left);
-      if (invoice == null) {
-        _say('這不是電子發票左邊的 QR Code，請掃左邊那個');
-        return;
-      }
-      if (invoiceRecorded(_ledger.entries, invoice.date, invoice.number)) {
-        _say('發票 ${invoice.number} 已經記過了');
-        return;
-      }
-      if (invoice.wantsMore) {
-        _say('還有品項在右邊的 QR Code，請再掃一次');
-        final right = await scan();
-        if (right != null) invoice = invoice.withRight(right);
-      }
-      if (!mounted) return;
-      final scanned = invoice;
-      _set(() => _f.fillInvoice(scanned));
-    } on Object catch (error) {
-      // Exception to error words: the scanner says what went wrong in
-      // words meant for the person (androidScanQr).
-      _say('$error');
+    if (scan == null) return null;
+    final outcome = await scan(preparing: () => _say(ScanMessages.preparing));
+    // The wait is over, however it ended.
+    if (_problem == ScanMessages.preparing) _set(() => _problem = null);
+    switch (outcome) {
+      case ScanRead(:final text):
+        return text;
+      case ScanClosed():
+        return null;
+      case ScanFailed(:final failure):
+        _say(ScanMessages.failure(failure));
+        return null;
     }
   }
 }

@@ -20,8 +20,11 @@ abstract final class Layout {
     'charts': ['design_system', 'formatting'],
     'ledger': ['formatting', 'diagnostics', 'time'],
     'platform': ['ledger', 'formatting', 'diagnostics', 'time'],
-    // What the person is told of the ledger's values, in one place.
-    'messages': ['ledger', 'formatting'],
+    // What the person is told, in one place: of the ledger's values, and
+    // of what the phone answered (a scan, the look for a newer version),
+    // whose outcomes platform names. Platform uses no words, so the two
+    // cannot come to need each other.
+    'messages': ['ledger', 'formatting', 'platform'],
     'widgets': [
       'messages',
       'design_system',

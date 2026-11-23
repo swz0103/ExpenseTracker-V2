@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
+import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/features/reminders/model/reminder_alerts.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/core/platform/quick_action.dart';
@@ -12,6 +13,34 @@ import 'package:expense_tracker/src/features/reminders/ui/reminders_section.dart
     show reminderBookOf;
 
 void main() {
+  test('a settings file that cannot be read or written is kept in the error '
+      'log; the defaults and this run go on', () {
+    final directory = Directory.systemTemp.createTempSync('preferences-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final file = File('${directory.path}/preferences.json')
+      ..writeAsStringSync('not json');
+    var before = ErrorLog.instance.count;
+    final read = Preferences(file: file);
+    expect(read.appearance, Appearance.system);
+    expect(ErrorLog.instance.count, before + 1);
+    expect(ErrorLog.instance.entries.first.$2, startsWith('讀取設定：'));
+
+    // Where its folder should be there is a file: nothing can be written.
+    // The change is kept for this run, and the fault for 診斷.
+    File('${directory.path}/blocked').writeAsStringSync('x');
+    final unwritable = Preferences(
+      file: File('${directory.path}/blocked/preferences.json'),
+    );
+    before = ErrorLog.instance.count;
+    unwritable.update(appearance: Appearance.dark);
+    expect(unwritable.appearance, Appearance.dark);
+    expect(ErrorLog.instance.count, before + 1);
+    expect(
+      ErrorLog.instance.entries.first.$2,
+      startsWith('儲存設定：FileSystemException: '),
+    );
+  });
+
   test('preferences are kept in their file and read back', () {
     final directory = Directory.systemTemp.createTempSync('preferences-');
     addTearDown(() => directory.deleteSync(recursive: true));

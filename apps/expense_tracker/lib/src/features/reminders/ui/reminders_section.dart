@@ -18,6 +18,7 @@ import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/formatting/words.dart';
 import '../../../../design_system/display/status_messages.dart';
+import '../../../core/diagnostics/error_steps.dart';
 
 part 'reminders_phone.dart';
 
@@ -75,8 +76,9 @@ class _RemindersSectionState extends State<RemindersSection>
     try {
       final status = await notifier.port.status();
       if (mounted) setState(() => _status = status);
-    } on Object {
+    } on Object catch (error, stack) {
       // A phone that cannot say shows no status.
+      ErrorLog.instance.record(ErrorSteps.notificationStatus, error, stack);
     }
   }
 

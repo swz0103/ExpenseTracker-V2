@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import '../../../core/time/app_clock.dart';
+import '../../../core/diagnostics/error_log.dart';
+import '../../../core/diagnostics/error_steps.dart';
 
 /// Deletes plain copies an earlier run may have left behind when it was
 /// stopped part way: files waiting in `exports` to be handed over (a
@@ -22,8 +24,9 @@ Future<void> clearLeftovers(
   bool older(FileSystemEntity entity, Duration than) {
     try {
       return at.difference(entity.statSync().modified) > than;
-    } on FileSystemException {
+    } on FileSystemException catch (error) {
       // A file that cannot be read is treated as old enough.
+      ErrorLog.instance.record(ErrorSteps.cleanup, error);
       return true;
     }
   }
@@ -60,8 +63,9 @@ Future<void> clearLeftovers(
   for (final leftover in leftovers) {
     try {
       if (await leftover.exists()) await leftover.delete(recursive: true);
-    } on FileSystemException {
+    } on FileSystemException catch (error) {
       // Tried again at the next start.
+      ErrorLog.instance.record(ErrorSteps.cleanup, error);
     }
   }
 }
@@ -79,8 +83,9 @@ Future<void> sweepReceipts(Directory files, Set<String> kept) async {
     if (kept.contains(name)) continue;
     try {
       await entity.delete();
-    } on FileSystemException {
+    } on FileSystemException catch (error) {
       // Tried again at the next start.
+      ErrorLog.instance.record(ErrorSteps.cleanup, error);
     }
   }
 }
