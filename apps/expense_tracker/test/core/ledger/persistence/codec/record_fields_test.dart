@@ -71,6 +71,7 @@ void main() {
             payFrom: 'b',
           ),
           closes: {day: day},
+          brokerDiscount: 2800,
           history: [
             CardScheduleChange(
               until: BusinessDate(2026, 11, 5),

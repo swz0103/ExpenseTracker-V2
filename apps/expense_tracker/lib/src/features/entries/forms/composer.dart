@@ -141,7 +141,8 @@ class Composer extends StatefulWidget {
   final ScanQr? scan;
 
   /// The broker's discount a trade's fee is suggested at, in basis points
-  /// of the full fee: the preference 券商手續費折扣.
+  /// of the full fee: the preference 券商手續費折扣, for an account
+  /// without its own.
   final int brokerDiscount;
 
   @override

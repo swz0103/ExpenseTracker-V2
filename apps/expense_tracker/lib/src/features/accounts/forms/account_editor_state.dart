@@ -31,6 +31,10 @@ class _AccountEditorState extends State<_AccountEditor> {
     text: _f.limit,
   )..addListener(() => setState(() => _f.limit = _limit.text));
 
+  late final TextEditingController _discount = TextEditingController(
+    text: _f.discount,
+  )..addListener(() => setState(() => _f.discount = _discount.text));
+
   late final TextEditingController _rate = TextEditingController(text: _f.rate)
     ..addListener(() => setState(() => _f.rate = _rate.text));
   late final TextEditingController _months = TextEditingController(
@@ -49,6 +53,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     _balance.dispose();
     _principal.dispose();
     _limit.dispose();
+    _discount.dispose();
     _rate.dispose();
     _months.dispose();
     super.dispose();
@@ -565,6 +570,17 @@ class _AccountEditorState extends State<_AccountEditor> {
             hint: '額度',
             number: true,
             error: _f.limitProblem,
+          ),
+        ),
+      if (_f.trades)
+        FormGroup(
+          title: BrokerDiscountText.title,
+          child: _Field(
+            key: Keys.accountDiscount,
+            controller: _discount,
+            hint: BrokerDiscountText.accountHint,
+            number: true,
+            error: _f.discountProblem,
           ),
         ),
       _counted,

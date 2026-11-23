@@ -62,6 +62,31 @@ void main() {
     expect(find.text('請輸入帳戶名稱'), findsNothing);
   });
 
+  testWidgets('D7: a bank account keeps its own broker discount', (
+    tester,
+  ) async {
+    final bank = ledger.accounts.all.firstWhere(
+      (a) => a.kind == AccountKind.bank && !a.foreign,
+    );
+    await open(tester, account: bank);
+    await tester.enterText(find.byKey(Keys.accountDiscount), '6');
+    await tester.pumpAndSettle();
+    // Six times the fee is no discount: said under the field, not kept.
+    expect(find.text('折扣要大於 0、最多 1（不打折），例如 0.6 或 6 折'), findsOneWidget);
+    await tester.enterText(find.byKey(Keys.accountDiscount), '2.8 折');
+    await tester.pumpAndSettle();
+    await go(tester, ['儲存']);
+    expect(ledger.account(bank.id).brokerDiscount, 2800);
+  });
+
+  testWidgets('a card has no broker discount to set', (tester) async {
+    final card = ledger.accounts.all.firstWhere(
+      (a) => a.kind == AccountKind.card,
+    );
+    await open(tester, account: card);
+    expect(find.byKey(Keys.accountDiscount), findsNothing);
+  });
+
   testWidgets('a card is kept with its days, limit, mark and colour', (
     tester,
   ) async {

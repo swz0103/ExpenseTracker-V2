@@ -1,6 +1,7 @@
 import 'package:core/foundation_values.dart';
 
 import '../model/trade_values.dart';
+import 'broker_discount.dart';
 import '../rules/taiwan_rates.dart';
 
 /// Suggested Taiwan brokerage fee and securities transaction tax for a
@@ -8,7 +9,7 @@ import '../rules/taiwan_rates.dart';
 /// Amounts are in whole New Taiwan dollars and rounded down, as brokers do.
 final class TaiwanTradeCharges {
   /// [discountBasisPoints] is the broker's discount: 10000 for none, 2800
-  /// for 2.8折. Board lots pay at least [minimumFee]; odd lots (fewer
+  /// for 2.8折, within [BrokerDiscountRange]. Board lots pay at least [minimumFee]; odd lots (fewer
   /// than 1000 shares) at least [oddLotMinimumFee].
   TaiwanTradeCharges({
     this.discountBasisPoints = 10000,
@@ -16,8 +17,7 @@ final class TaiwanTradeCharges {
     int oddLotMinimumFee = 1,
   }) : minimumFee = Money(_twd, BigInt.from(minimumFee)),
        oddLotMinimumFee = Money(_twd, BigInt.from(oddLotMinimumFee)) {
-    if (discountBasisPoints < 1 ||
-        discountBasisPoints > 10000 ||
+    if (!BrokerDiscountRange.holds(discountBasisPoints) ||
         minimumFee < 0 ||
         oddLotMinimumFee < 0) {
       throw const InvestmentException(InvestmentError.invalidInput);

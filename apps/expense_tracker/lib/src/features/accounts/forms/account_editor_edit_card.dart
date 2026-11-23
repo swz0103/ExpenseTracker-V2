@@ -128,6 +128,7 @@ const _plain = InputDecoration(
 
 class _Field extends StatelessWidget {
   const _Field({
+    super.key,
     required this.controller,
     required this.hint,
     this.number = false,

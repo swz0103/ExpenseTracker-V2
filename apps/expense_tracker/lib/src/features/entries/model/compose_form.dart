@@ -89,8 +89,8 @@ final class ComposeForm {
   /// The spending being refunded, for a refund.
   final Entry? refunded;
 
-  /// The broker's discount on the fee a trade suggests, in basis points of
-  /// the full fee: the preference 券商手續費折扣.
+  /// The phone-wide broker's discount, in basis points of the full fee:
+  /// the preference 券商手續費折扣, for a trade's account without its own.
   final int brokerDiscount;
 
   late ComposeMode mode;

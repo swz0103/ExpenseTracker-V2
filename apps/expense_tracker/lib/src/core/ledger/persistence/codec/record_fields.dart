@@ -27,6 +27,7 @@ const recordFields = <String, Set<String>>{
     'months',
     'repay',
     'payFrom',
+    'brokerDiscount',
     'closes',
     'history',
   },

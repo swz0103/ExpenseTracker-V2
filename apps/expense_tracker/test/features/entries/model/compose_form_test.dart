@@ -87,6 +87,25 @@ void main() {
     expect(usual.charges, (85, 0));
   });
 
+  test("D7: a trade's fee is suggested at its account's own discount", () {
+    final ledger = book();
+    ledger.accountCommands.updateAccount(
+      ledger.account('bank').copyWith(brokerDiscount: 2800),
+    );
+    final form = ComposeForm(ledger, type: EntryType.buy)..holding = '2330';
+    form
+      ..setShares(1000)
+      ..setPrice(100);
+    // 100,000 x 0.001425 = 142.5; x 0.28 = 39.9 -> 39, not the 6折 85.
+    expect(form.account, 'bank');
+    expect(form.tradeDiscount, 2800);
+    expect(form.charges, (39, 0));
+    // Paid from cash, which keeps none: the phone-wide 6折, 85.
+    form.account = 'cash';
+    expect(form.tradeDiscount, 6000);
+    expect(form.charges, (85, 0));
+  });
+
   test('a fee typed stays when the shares change; one untouched follows', () {
     // 1000 shares at 100 = 100,000; fee 85 as suggested at 6折, so the
     // saved entry reads as untouched.

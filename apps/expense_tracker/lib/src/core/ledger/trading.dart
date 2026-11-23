@@ -6,8 +6,9 @@ import 'package:ledger_trade_costs/rules/instruments.dart';
 import 'package:ledger_trade_costs/rules/taiwan_market_days.dart';
 
 /// The broker's discount on the fee before it is set, in basis points of
-/// the full fee: 6折. The one setting that changes it is the preference
-/// 券商手續費折扣; this is its default.
+/// the full fee: 6折. The preference 券商手續費折扣 changes it for the
+/// phone, and an account's own discount for that account (D7); this is
+/// the preference's default.
 const defaultBrokerDiscount = 6000;
 
 /// [code] as the exchanges write it: no spaces, upper case, without a

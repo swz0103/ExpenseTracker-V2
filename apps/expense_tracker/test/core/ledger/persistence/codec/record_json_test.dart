@@ -71,6 +71,42 @@ void main() {
     expect(accountToJson(usd).containsKey('repay'), isFalse);
   });
 
+  group('D7: an account keeps its own broker discount', () {
+    test('read back as written', () {
+      const broker = Account(
+        'b',
+        '券商交割',
+        AccountKind.bank,
+        0,
+        brokerDiscount: 2800,
+      );
+      expect(accountToJson(broker)['brokerDiscount'], 2800);
+      expect(accountFromJson(accountToJson(broker)).brokerDiscount, 2800);
+    });
+    test('an account of an older book, without it, takes the default', () {
+      final old = accountFromJson({
+        'id': 'b',
+        'name': '銀行',
+        'kind': 'bank',
+        'opening': 0,
+      });
+      expect(old.brokerDiscount, isNull);
+      expect(accountToJson(old).containsKey('brokerDiscount'), isFalse);
+    });
+    test('one outside the range is no discount, and takes the default', () {
+      Account read(int points) => accountFromJson({
+        'id': 'b',
+        'name': '銀行',
+        'kind': 'bank',
+        'opening': 0,
+        'brokerDiscount': points,
+      });
+      expect(read(0).brokerDiscount, isNull);
+      expect(read(10001).brokerDiscount, isNull);
+      expect(read(10000).brokerDiscount, 10000);
+    });
+  });
+
   test('categories, budgets and recurring items read back whole', () {
     final pet = Category(
       '寵物',

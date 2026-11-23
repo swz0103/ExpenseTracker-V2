@@ -13,8 +13,13 @@ extension TradeFields on ComposeForm {
   (int, int) get suggested =>
       _suggestedFor(type, holding ?? '', amount, shares, date);
 
+  /// The broker's discount a trade from or into [account] is charged at:
+  /// the account's own, else the phone-wide [brokerDiscount] (D7).
+  int get tradeDiscount =>
+      ledger.accounts.byId(account)?.brokerDiscount ?? brokerDiscount;
+
   /// The fee and tax the rules suggest for a [kind] of [shares] of [code]
-  /// for [amount] on [day], at the [brokerDiscount].
+  /// for [amount] on [day], at the [tradeDiscount].
   (int, int) _suggestedFor(
     EntryType kind,
     String code,
@@ -23,7 +28,7 @@ extension TradeFields on ComposeForm {
     DateTime day,
   ) {
     final tax = kind == EntryType.sell ? saleTax(code, amount, shares, day) : 0;
-    return (brokerFee(amount, shares, discount: brokerDiscount), tax);
+    return (brokerFee(amount, shares, discount: tradeDiscount), tax);
   }
 
   /// The trade's fee and tax: as typed, else as suggested.

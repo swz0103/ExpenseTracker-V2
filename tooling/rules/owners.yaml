@@ -120,6 +120,15 @@ items:
       - packages/ledger/trade_costs/lib/calc/settlement.dart
     target: packages/ledger/trade_costs/lib/
     status: owned
+  # Decision D7: a broker discount is checked against one range,
+  # BrokerDiscountRange; each account may keep its own.
+  - id: broker-discount-range
+    what: 券商手續費折扣的範圍與輸入
+    layer: ledger
+    owner:
+      - packages/ledger/trade_costs/lib/calc/broker_discount.dart
+    target: packages/ledger/trade_costs/lib/calc/
+    status: owned
   - id: fees-tax-settlement
     what: 手續費、稅、交割金額
     layer: ledger
