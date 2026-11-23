@@ -210,7 +210,8 @@ void main() {
       );
     });
 
-    test('nine o\'clock today is gone at ten, tomorrow\'s is not', () {
+    test('nine o\'clock today is still told at ten (the phone posts it at '
+        'once), and tomorrow\'s at its time', () {
       final ledger = book(
         DateTime.utc(2026, 1, 31),
         recurring: [monthly('rent', 31), monthly('phone', 1)],
@@ -229,7 +230,12 @@ void main() {
         DateTime(2026, 1, 31, 9),
         DateTime(2026, 2, 1, 9),
       ]);
-      expect(at10.first.at, DateTime(2026, 2, 1, 9));
+      // F48: today's 9:00 went by before the plan was written; within a
+      // due date's grace it is still handed over, to be posted at once.
+      expect([for (final a in at10) a.at].take(2), [
+        DateTime(2026, 1, 31, 9),
+        DateTime(2026, 2, 1, 9),
+      ]);
     });
 
     test('the nudge runs on into the next month', () {
@@ -241,11 +247,13 @@ void main() {
         preferences,
         DateTime(2026, 2, 26, 12),
       );
+      // 62 days of the plan: Feb 26 and the 61 days after it.
       expect(
         [for (final a in alerts) a.at],
-        [for (var d = 0; d < 7; d++) DateTime(2026, 2, 26 + d, 21, 30)],
+        [for (var d = 0; d < 62; d++) DateTime(2026, 2, 26 + d, 21, 30)],
       );
-      expect(alerts.last.at, DateTime(2026, 3, 4, 21, 30));
+      // Feb 26 + 61 days: 2 more in February, 31 in March, 28 in April.
+      expect(alerts.last.at, DateTime(2026, 4, 28, 21, 30));
     });
 
     test('no nudge today once something is recorded', () {
@@ -270,7 +278,8 @@ void main() {
         DateTime(2026, 4, 30, 8),
       );
       expect(alerts.first.at, DateTime(2026, 5, 1, 21));
-      expect(alerts, hasLength(6));
+      // The 62 days of the plan less today.
+      expect(alerts, hasLength(61));
     });
   });
 }

@@ -1,7 +1,12 @@
 import 'dart:async';
 
+import 'package:core/foundation_values.dart' show BusinessDate;
+
 import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/reminder_messages.dart';
+import 'coalesced_run.dart';
+import 'reminder_rules.dart';
 import 'reminders.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/platform/quick_action.dart';
@@ -9,12 +14,13 @@ import '../../../core/diagnostics/error_log.dart';
 import '../../../core/time/app_clock.dart';
 import '../../../../design_system/display/status_messages.dart';
 
-/// One notification to show at [at].
+/// One notification to show at [at], on the wall clock.
 final class Alert {
   const Alert(
     this.at,
     this.title,
     this.text, {
+    required this.kind,
     this.quick,
     this.tag = '',
     this.confirms,
@@ -23,6 +29,9 @@ final class Alert {
   final DateTime at;
   final String title;
   final String text;
+
+  /// Its kind: its channel, and how late it may still be posted.
+  final ReminderKind kind;
 
   /// What tapping it opens: the composer, or the app when null.
   final QuickAction? quick;
@@ -34,6 +43,48 @@ final class Alert {
   /// The recurring item and day 「確認入帳」 on it books, through the
   /// book's inbox; null when it offers none.
   final (String, DateTime)? confirms;
+
+  /// The same from one plan to the next, so the phone posts it once:
+  /// its kind, what it is about and its day.
+  String get id => '${kind.name}|$tag|${BusinessDate.of(at)}';
+
+  /// Whether [other] says the same, at the same time.
+  bool sameAs(Alert other) =>
+      at == other.at &&
+      title == other.title &&
+      text == other.text &&
+      kind == other.kind &&
+      quick == other.quick &&
+      tag == other.tag &&
+      confirms == other.confirms;
+}
+
+/// What the phone is given to keep: every notification to come within
+/// the horizon, and those just past still within their grace (posted at
+/// once); whether they ring on the minute; and the tags of those that
+/// still apply, so others showing are taken away.
+final class ReminderPlan {
+  const ReminderPlan(this.alerts, {required this.exact, required this.wanted});
+
+  final List<Alert> alerts;
+  final bool exact;
+  final Set<String> wanted;
+
+  /// Whether [other] asks the phone for the same, so it need not be told
+  /// again.
+  bool sameAs(ReminderPlan? other) {
+    if (other == null ||
+        exact != other.exact ||
+        alerts.length != other.alerts.length ||
+        wanted.length != other.wanted.length ||
+        !wanted.containsAll(other.wanted)) {
+      return false;
+    }
+    for (var i = 0; i < alerts.length; i++) {
+      if (!alerts[i].sameAs(other.alerts[i])) return false;
+    }
+    return true;
+  }
 }
 
 /// What the phone allows of reminders: posting them, alarms on the
@@ -45,24 +96,21 @@ abstract interface class NotifyPort {
   /// Asks once to post notifications; whether it may.
   Future<bool> access();
 
-  /// Replaces every notification still to come with [alerts], on the
-  /// minute when [exact]; those showing whose tag is not [wanted] are
-  /// taken away.
-  Future<void> schedule(
-    List<Alert> alerts, {
-    bool exact = false,
-    Set<String>? wanted,
-  });
+  /// Hands the phone [plan] in place of the one before: it keeps it and
+  /// posts each notification at its time, also after a restart, without
+  /// the app.
+  Future<void> schedule(ReminderPlan plan);
 
-  /// A test notification in a minute.
-  Future<void> test({bool exact = false});
+  /// A test notification in a minute, on the minute when [exact].
+  Future<void> test({required bool exact});
 
   /// Posts [alert] now, as notification [id].
   Future<void> post(Alert alert, int id);
 
   Future<ReminderStatus> status();
 
-  /// The system settings for alarms on the minute, and for the battery.
+  /// The system settings for alarms on the minute, and the app's own
+  /// page of the system settings, where its battery use is chosen.
   Future<void> openExactSettings();
   Future<void> openBatterySettings();
 }
@@ -70,13 +118,18 @@ abstract interface class NotifyPort {
 /// The tag of the daily nudge.
 const nudgeTag = 'nudge';
 
+/// What falls due that notifications are about: from as far back as a
+/// due date is still told (its grace) to the horizon.
+List<Reminder> _dueReminders(ReminderBook book) =>
+    book.reminders(since: book.today.subtract(ReminderKind.due.grace));
+
 /// The tags of notifications that still apply: what is still due, and the
 /// nudge while nothing was recorded today. Others showing are taken away,
 /// so recording something clears today's nudge and booking or paying an
 /// item clears its notice.
 Set<String> wantedTags(ReminderBook book, Preferences preferences) => {
   if (preferences.dueAlerts)
-    for (final r in book.reminders(days: 30)) 'due:${r.key}',
+    for (final r in _dueReminders(book)) 'due:${r.key}',
   if (preferences.dailyNudge && book.entries.onDay(book.today).isEmpty)
     nudgeTag,
   // A budget's notice stays while the budget is still past its mark.
@@ -128,13 +181,21 @@ List<BudgetCrossing> budgetCrossings(
   return found;
 }
 
-/// The most notifications kept waiting at once.
-const _most = 48;
+/// Whether [alert] goes to the phone when the plan is written at [now]:
+/// still to come, or (for a kind told late) past by no more than its
+/// grace, to be posted at once.
+bool _stillToTell(Alert alert, DateTime now) =>
+    alert.at.isAfter(now) ||
+    (alert.kind.lateWhenPlanned &&
+        !now.difference(alert.at).isNegative &&
+        now.difference(alert.at) <= alert.kind.grace);
 
-/// What the book has to say ahead: on each day a recurring item or a
-/// card payment falls due (card payments two days early as well), at
-/// 9:00; and, when asked, a nudge at the chosen time on days nothing was
-/// recorded. Only times after [now], soonest first.
+/// What the book has to say ahead, up to [ReminderTiming.horizonDays]: on
+/// each day a recurring item or a card payment falls due (card payments
+/// some days early as well), at [ReminderTiming.dueHour]; and, when asked,
+/// a nudge at the chosen time on days nothing was recorded. Times after
+/// [now], and due dates passed within their grace (today's 9:00 gone by,
+/// a payment overdue), which the phone posts at once; soonest first.
 List<Alert> alertsFor(
   ReminderBook book,
   Preferences preferences,
@@ -142,15 +203,20 @@ List<Alert> alertsFor(
 ) {
   final alerts = <Alert>[];
   if (preferences.dueAlerts) {
-    for (final r in book.reminders(days: 30)) {
-      DateTime nine(int daysBefore) =>
-          DateTime(r.day.year, r.day.month, r.day.day - daysBefore, 9);
+    for (final r in _dueReminders(book)) {
+      DateTime at(int daysBefore) => DateTime(
+        r.day.year,
+        r.day.month,
+        r.day.day - daysBefore,
+        ReminderTiming.dueHour,
+      );
       final tag = 'due:${r.key}';
       alerts.add(
         Alert(
-          nine(0),
+          at(0),
           r.title,
           r.note,
+          kind: ReminderKind.due,
           tag: tag,
           confirms: switch (r.recurring) {
             final id? => (id, r.day),
@@ -161,9 +227,10 @@ List<Alert> alertsFor(
       if (r.daysAhead > 0) {
         alerts.add(
           Alert(
-            nine(r.daysAhead),
+            at(r.daysAhead),
             '${countOf(r.daysAhead, CountUnit.days)}後 ${r.title}',
             r.note,
+            kind: ReminderKind.dueAhead,
             tag: tag,
           ),
         );
@@ -173,7 +240,7 @@ List<Alert> alertsFor(
   if (preferences.dailyNudge) {
     final today = book.today;
     final recorded = book.entries.onDay(today).isNotEmpty;
-    for (var d = 0; d < 7; d++) {
+    for (var d = 0; d < ReminderTiming.horizonDays; d++) {
       if (d == 0 && recorded) continue;
       final at = DateTime(
         today.year,
@@ -185,23 +252,38 @@ List<Alert> alertsFor(
       alerts.add(
         Alert(
           at,
-          '今天記帳了嗎？',
-          '點一下記一筆',
+          ReminderMessages.nudgeTitle,
+          ReminderMessages.nudgeText,
+          kind: ReminderKind.nudge,
           quick: QuickAction.expense,
           tag: nudgeTag,
         ),
       );
     }
   }
-  final ahead = [
+  final told = [
     for (final a in alerts)
-      if (a.at.isAfter(now)) a,
+      if (_stillToTell(a, now)) a,
   ]..sort((a, b) => a.at.compareTo(b.at));
-  return ahead.take(_most).toList();
+  return told.take(ReminderTiming.most).toList();
 }
 
+/// The whole plan for the phone at [now]: [alertsFor], on the minute when
+/// asked, with [wantedTags].
+ReminderPlan planFor(
+  ReminderBook book,
+  Preferences preferences,
+  DateTime now,
+) => ReminderPlan(
+  alertsFor(book, preferences, now),
+  exact: preferences.exactReminders,
+  wanted: wantedTags(book, preferences),
+);
+
 /// Keeps the phone's notifications matching the book and the person's
-/// choices: rescheduled a few seconds after either changes.
+/// choices: planned again as soon as what they rest on changes (not a new
+/// closing price), and handed to the phone only when the plan differs
+/// from the one it holds.
 final class Notifier {
   Notifier(this.port, this.preferences);
 
@@ -209,39 +291,46 @@ final class Notifier {
   final Preferences preferences;
 
   ReminderBook? _following;
-  Timer? _timer;
+  CoalescedRun? _run;
+
+  /// The plan the phone was last given while following this book.
+  ReminderPlan? _given;
 
   void follow(ReminderBook book) {
     stop();
     _following = book;
-    book.addListener(_changed);
-    preferences.addListener(_changed);
+    _given = null;
+    final run = _run = CoalescedRun(sync);
+    book.addListener(run.ask);
+    preferences.addListener(run.ask);
     unawaited(sync());
   }
 
   void stop() {
-    _timer?.cancel();
-    _following?.removeListener(_changed);
-    preferences.removeListener(_changed);
+    final run = _run;
+    if (run != null) {
+      run.stop();
+      _following?.removeListener(run.ask);
+      preferences.removeListener(run.ask);
+    }
+    _run = null;
     _following = null;
   }
 
-  void _changed() {
-    _timer?.cancel();
-    _timer = Timer(const Duration(seconds: 3), () => unawaited(sync()));
-  }
+  /// Done once the plans asked for so far are handed over.
+  Future<void> get idle => _run?.idle ?? Future<void>.value();
 
-  /// Schedules what [alertsFor] gives now, none when nothing is asked
-  /// for; and posts each budget notice not posted yet this month.
+  /// Hands the phone what [planFor] gives now, when it differs from what
+  /// it holds; and posts each budget notice not posted yet this month.
   Future<void> sync() async {
     final book = _following;
     if (book == null) return;
     try {
-      await port.schedule(
-        alertsFor(book, preferences, AppClock.now()),
-        exact: preferences.exactReminders,
-        wanted: wantedTags(book, preferences),
-      );
+      final plan = planFor(book, preferences, AppClock.now());
+      if (!plan.sameAs(_given)) {
+        await port.schedule(plan);
+        _given = plan;
+      }
       await postBudgets(book);
     } on Object catch (error) {
       ErrorLog.instance.record('通知', error);
@@ -267,7 +356,13 @@ final class Notifier {
     for (final c in fresh) {
       // Ids 700 to 763, apart from the alerts' and the test's (990).
       await port.post(
-        Alert(AppClock.now(), c.title, c.text, tag: c.tag),
+        Alert(
+          AppClock.now(),
+          c.title,
+          c.text,
+          kind: ReminderKind.budget,
+          tag: c.tag,
+        ),
         700 + (c.tag.hashCode & 0x3f),
       );
       posted.add(c.key);

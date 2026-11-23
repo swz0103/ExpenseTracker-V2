@@ -19,17 +19,25 @@ import java.util.Calendar
 import java.util.TimeZone
 
 /**
- * The app's notifications (lib/src/features/reminders/model/notifications.dart): each alert is an
- * alarm that posts it when due. The alerts are kept in preferences, so a
- * restart of the phone schedules them again.
+ * The app's notifications (lib/src/features/reminders/model/reminder_alerts.dart).
+ * This side decides nothing: the app hands over a plan, each alert with
+ * its time on the wall clock, its grace window, its channel and its
+ * words, and this keeps it and posts each alert when due.
  *
  * Each alert is due at a time on the wall clock (a date, hour and minute),
  * not at a fixed instant: after the time zone or the clock changes, the
  * alarms are worked out again from the clock, so 9:00 stays 9:00 where the
  * phone now is. The alarms are inexact (setAndAllowWhileIdle), so Android
- * may post one some minutes late while the phone sleeps (Doze), unless
+ * may post one up to an hour late while the phone sleeps (Doze), unless
  * the person asked for reminders on the minute and allowed the app's
  * alarms (setExactAndAllowWhileIdle).
+ *
+ * The plan is armed again from what is kept after a restart, an update of
+ * the app, a change of time zone or clock, and when alarms on the minute
+ * are allowed ([RestartReceiver]). An alert whose time went by meanwhile
+ * is posted at once when that was within its grace window, and dropped
+ * when longer ago ([ReminderGrace]); one posted is remembered by its id,
+ * so it is posted once however often the plan is armed or handed over.
  *
  * Each alert carries a tag (`nudge`, `due:<key>`). A notification already
  * showing whose tag the app no longer lists as wanted is taken away: the
@@ -45,15 +53,22 @@ import java.util.TimeZone
  * (res/xml/data_extraction_rules.xml).
  */
 object Reminders {
-    private const val CHANNEL = "reminders"
     private const val PREFS = "reminders"
     private const val EXACT = "exact"
+    private const val POSTED = "posted"
+    private const val CHANNELS = "channels"
+
+    /** The one channel of versions before each kind had its own; alerts
+     *  kept by them post there until the app hands over its plan. */
+    private const val LEGACY_CHANNEL = "reminders"
     const val EXTRA_TAG = "tag"
     const val EXTRA_RECURRING = "recurring"
     const val EXTRA_DAY = "day"
+    const val EXTRA_CHANNEL = "channel"
 
     /** The test notification's alarm, apart from the kept alerts'. */
     private const val TEST_ID = 990
+    private const val TEST_DELAY = 60_000L
     const val EXTRA_TITLE = "title"
     const val EXTRA_TEXT = "text"
     const val EXTRA_ID = "id"
@@ -61,27 +76,32 @@ object Reminders {
     /** An alert's wall-clock time: year, month (1-12), day, hour, minute. */
     private val CLOCK_FIELDS = listOf("y", "m", "d", "hour", "minute")
 
+    /** The words of an alert, as kept. */
+    private val TEXT_FIELDS = listOf("id", "channel", "title", "text", "quick", "tag", "recurring", "day")
+
+    private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
     /**
-     * Replaces every alert still to come with [alerts], on the minute when
-     * [exact]; and takes away those showing whose tag is not [wanted].
+     * Keeps [alerts] in place of every alert before, on the minute when
+     * [exact]; makes the [channels] they post in (and takes away those
+     * [retired]); arms the alerts, posting at once those just past within
+     * their grace; and takes away those showing whose tag is not [wanted].
      */
     fun replace(
         context: Context,
         alerts: List<Map<String, Any?>>,
         exact: Boolean = false,
         wanted: Set<String>? = null,
+        channels: List<Map<String, Any?>> = emptyList(),
+        retired: List<String> = emptyList(),
     ) {
+        ensureChannels(context, channels, retired)
         val kept = JSONArray()
         for (alert in alerts) {
             val at = (alert["at"] as? Number)?.toLong() ?: continue
-            val entry = JSONObject()
-                .put("at", at)
-                .put("title", alert["title"] as? String ?: "")
-                .put("text", alert["text"] as? String ?: "")
-                .put("quick", alert["quick"] as? String ?: "")
-                .put("tag", alert["tag"] as? String ?: "")
-                .put("recurring", alert["recurring"] as? String ?: "")
-                .put("day", alert["day"] as? String ?: "")
+            val entry = JSONObject().put("at", at)
+            for (name in TEXT_FIELDS) entry.put(name, alert[name] as? String ?: "")
+            entry.put("grace", (alert["grace"] as? Number)?.toLong() ?: 0L)
             // The wall-clock time, when the app sends it (it always does
             // now); without it the alert keeps its instant [at].
             val clock = CLOCK_FIELDS.mapNotNull { name ->
@@ -92,13 +112,95 @@ object Reminders {
             }
             kept.put(entry)
         }
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val before = ReminderStore.read(context)
         for (i in 0 until before.length()) cancel(context, i)
         ReminderStore.write(context, kept)
-        prefs.edit().putBoolean(EXACT, exact).apply()
+        val ids = (0 until kept.length()).map { idOf(kept.getJSONObject(it), it) }
+        val posted = ReminderGrace.keptPosted(posted(context), ids)
+        prefs(context).edit()
+            .putBoolean(EXACT, exact)
+            .putStringSet(POSTED, posted)
+            .apply()
         scheduleKept(context)
         if (wanted != null) clearShown(context, wanted)
+    }
+
+    /** The ids of the kept alerts already posted. */
+    private fun posted(context: Context): Set<String> =
+        prefs(context).getStringSet(POSTED, null)?.toSet() ?: emptySet()
+
+    private fun markPosted(context: Context, id: String) {
+        prefs(context).edit().putStringSet(POSTED, posted(context) + id).apply()
+    }
+
+    /** An alert's id; one kept by an earlier version has none, and goes by
+     *  its place. */
+    private fun idOf(alert: JSONObject, index: Int): String =
+        alert.optString("id").ifEmpty { "legacy:$index" }
+
+    /**
+     * Makes each of [channels] (`id`, `name`, `about`), or renames it, and
+     * takes away those [retired]; kept, so an alarm going off can make
+     * one the phone lost.
+     */
+    fun ensureChannels(
+        context: Context,
+        channels: List<Map<String, Any?>>,
+        retired: List<String> = emptyList(),
+    ) {
+        if (channels.isEmpty()) return
+        val table = JSONArray()
+        for (channel in channels) {
+            val id = channel["id"] as? String ?: continue
+            table.put(
+                JSONObject()
+                    .put("id", id)
+                    .put("name", channel["name"] as? String ?: id)
+                    .put("about", channel["about"] as? String ?: ""),
+            )
+        }
+        prefs(context).edit().putString(CHANNELS, table.toString()).apply()
+        if (Build.VERSION.SDK_INT < 26) return
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        for (i in 0 until table.length()) createChannel(manager, table.getJSONObject(i))
+        for (id in retired) manager.deleteNotificationChannel(id)
+    }
+
+    private fun createChannel(manager: NotificationManager, channel: JSONObject) {
+        if (Build.VERSION.SDK_INT < 26) return
+        // Making one that exists only renames it; what the person set stays.
+        manager.createNotificationChannel(
+            NotificationChannel(
+                channel.getString("id"),
+                channel.getString("name"),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply { description = channel.optString("about") },
+        )
+    }
+
+    /**
+     * The channel to post in for [wanted]: itself, made again from the
+     * kept names when the phone lost it; the channel of earlier versions
+     * for an alert kept by them; null when there is none to post in.
+     */
+    private fun channelFor(context: Context, wanted: String): String? {
+        if (Build.VERSION.SDK_INT < 26) return wanted.ifEmpty { LEGACY_CHANNEL }
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val id = wanted.ifEmpty { LEGACY_CHANNEL }
+        if (manager.getNotificationChannel(id) != null) return id
+        val table = try {
+            JSONArray(prefs(context).getString(CHANNELS, null) ?: "[]")
+        } catch (e: Exception) {
+            JSONArray()
+        }
+        for (i in 0 until table.length()) {
+            val channel = table.getJSONObject(i)
+            if (channel.optString("id") == id) {
+                createChannel(manager, channel)
+                return id
+            }
+        }
+        return null
     }
 
     /** Takes away the app's notifications showing whose tag is not [wanted]. */
@@ -129,12 +231,14 @@ object Reminders {
         }
     }
 
-    /** A test notification in a minute, as the reminders would come. */
-    fun test(context: Context, exact: Boolean) {
+    /** A test notification in a minute, as the reminders would come, with
+     *  the app's words in its [channel]. */
+    fun test(context: Context, exact: Boolean, channel: String, title: String, text: String) {
         val intent = Intent(context, ReminderReceiver::class.java)
             .putExtra(EXTRA_ID, TEST_ID)
-            .putExtra(EXTRA_TITLE, "測試通知")
-            .putExtra(EXTRA_TEXT, "提醒會像這樣出現。")
+            .putExtra(EXTRA_TITLE, title)
+            .putExtra(EXTRA_TEXT, text)
+            .putExtra(EXTRA_CHANNEL, channel)
             .putExtra(EXTRA_TAG, "test")
             .putExtra(MainActivity.EXTRA_QUICK, "")
         val pending = PendingIntent.getBroadcast(
@@ -143,7 +247,7 @@ object Reminders {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        setAlarm(context, System.currentTimeMillis() + 60_000, pending, exact)
+        setAlarm(context, System.currentTimeMillis() + TEST_DELAY, pending, exact)
     }
 
     /**
@@ -179,24 +283,59 @@ object Reminders {
     }.timeInMillis
 
     /**
-     * Sets an alarm for each kept alert still to come, at its time on the
-     * clock now; one whose time has passed (after the clock moved ahead)
-     * loses its alarm.
+     * Arms the kept plan at the clock now: an alarm for each alert still to
+     * come; each just past within its grace posted at once (once); each
+     * past longer ago dropped.
      */
     fun scheduleKept(context: Context) {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val kept = ReminderStore.read(context)
         val now = System.currentTimeMillis()
-        val exact = prefs.getBoolean(EXACT, false)
+        val exact = prefs(context).getBoolean(EXACT, false)
+        val posted = posted(context)
         for (i in 0 until kept.length()) {
             val alert = kept.getJSONObject(i)
             val at = dueAt(alert)
-            if (at <= now) {
-                cancel(context, i)
-                continue
+            val id = idOf(alert, i)
+            when (ReminderGrace.step(at, alert.optLong("grace"), now, id in posted)) {
+                // The same request code replaces an alarm set before.
+                ReminderGrace.Step.ARM -> setAlarm(context, at, pending(context, i), exact)
+                ReminderGrace.Step.POST_NOW -> {
+                    cancel(context, i)
+                    postKept(context, i, alert)
+                }
+                ReminderGrace.Step.DROP, ReminderGrace.Step.DONE -> cancel(context, i)
             }
-            // The same request code replaces an alarm set before.
-            setAlarm(context, at, pending(context, i), exact)
+        }
+    }
+
+    /** Posts the kept alert numbered [index], and remembers it was. */
+    fun postKept(context: Context, index: Int, alert: JSONObject) {
+        markPosted(context, idOf(alert, index))
+        show(
+            context,
+            index,
+            alert.optString("title"),
+            alert.optString("text"),
+            alert.optString("quick"),
+            alert.optString("tag"),
+            alert.optString("recurring"),
+            alert.optString("day"),
+            alert.optString("channel"),
+        )
+    }
+
+    /** The alarm of the kept alert numbered [index] going off at [now]:
+     *  posted when its time has come within its grace, set again when
+     *  the clock moved so it is not due yet, dropped otherwise. */
+    fun alarmWentOff(context: Context, index: Int, now: Long = System.currentTimeMillis()) {
+        val alert = ReminderStore.read(context).optJSONObject(index) ?: return
+        val at = dueAt(alert)
+        val id = idOf(alert, index)
+        when (ReminderGrace.step(at, alert.optLong("grace"), now, id in posted(context))) {
+            ReminderGrace.Step.ARM ->
+                setAlarm(context, at, pending(context, index), prefs(context).getBoolean(EXACT, false))
+            ReminderGrace.Step.POST_NOW -> postKept(context, index, alert)
+            ReminderGrace.Step.DROP, ReminderGrace.Step.DONE -> Unit
         }
     }
 
@@ -253,7 +392,8 @@ object Reminders {
         )
     }
 
-    /** Posts one alert; tapping it opens the app, or the composer. */
+    /** Posts one alert in [channel]; tapping it opens the app, or the
+     *  composer. */
     fun show(
         context: Context,
         id: Int,
@@ -263,19 +403,14 @@ object Reminders {
         tag: String = "",
         recurring: String = "",
         day: String = "",
+        channel: String = "",
     ) {
         if (!allowed(context)) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= 26 && manager.getNotificationChannel(CHANNEL) == null) {
-            manager.createNotificationChannel(
-                NotificationChannel(CHANNEL, "提醒", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                    description = "定期扣款、卡費與記帳提醒"
-                },
-            )
-        }
+        val postIn = channelFor(context, channel) ?: return
         // Request codes from 1000 on, apart from the widget's.
         val tap = MainActivity.opening(context, quick, 1000 + id)
-        val notification = NotificationCompat.Builder(context, CHANNEL)
+        val notification = NotificationCompat.Builder(context, postIn)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(text)
@@ -283,8 +418,8 @@ object Reminders {
             .setContentIntent(tap)
             .setAutoCancel(true)
             .apply {
-                // A recurring item due today can be confirmed from here:
-                // booked when the ledger is next opened.
+                // A recurring item due can be confirmed from here: booked
+                // when the ledger is next opened or comes back.
                 if (recurring.isNotEmpty() && day.isNotEmpty()) {
                     addAction(0, "確認入帳", confirming(context, id, tag, recurring, day))
                 }
@@ -292,7 +427,7 @@ object Reminders {
             // Amounts stay off the lock screen.
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(
-                NotificationCompat.Builder(context, CHANNEL)
+                NotificationCompat.Builder(context, postIn)
                     .setSmallIcon(R.drawable.ic_notification)
                     .setContentTitle("記帳本")
                     .setContentText("有一則提醒")
@@ -320,27 +455,19 @@ class ReminderReceiver : BroadcastReceiver() {
                 intent.getStringExtra(Reminders.EXTRA_TAG) ?: "",
                 "",
                 "",
+                intent.getStringExtra(Reminders.EXTRA_CHANNEL) ?: "",
             )
             return
         }
-        val alert = ReminderStore.read(context).optJSONObject(id) ?: return
-        Reminders.show(
-            context,
-            id,
-            alert.optString("title"),
-            alert.optString("text"),
-            alert.optString("quick"),
-            alert.optString("tag"),
-            alert.optString("recurring"),
-            alert.optString("day"),
-        )
+        Reminders.alarmWentOff(context, id)
     }
 }
 
 /**
  * 「確認入帳」 on a due notification: the item and its day go into the
- * ledger's inbox, sealed, to be booked when the ledger is next opened;
- * the notification goes. Nothing is booked here: the ledger stays locked.
+ * ledger's inbox, sealed, to be booked when the ledger is next opened or
+ * comes back to the front; the notification goes. Nothing is booked here:
+ * the ledger stays locked.
  */
 class ConfirmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -366,18 +493,28 @@ class ConfirmReceiver : BroadcastReceiver() {
 }
 
 /**
- * Sets the alarms again after the phone restarts or the app updates, and
- * when the clock or time zone changes: each alert's time is worked out
- * again from its wall-clock time, in the time zone the phone is in now.
+ * Arms the kept plan again after the phone restarts or the app updates,
+ * when the clock or time zone changes (each alert's time is worked out
+ * again from its wall-clock time, in the time zone the phone is in now),
+ * and when alarms on the minute are allowed (they ring on the minute from
+ * then on). Taking that permission away stops the app and cancels its
+ * alarms on the minute, and Android tells nothing of it: the plan is
+ * armed again, inexact, when the app is next opened or the phone restarts.
  */
 class RestartReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        when (intent.action) {
+        if (intent.action in ACTIONS) Reminders.scheduleKept(context)
+    }
+
+    companion object {
+        /** The broadcasts that arm the plan again; the manifest lists the same. */
+        val ACTIONS = setOf(
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_MY_PACKAGE_REPLACED,
             Intent.ACTION_TIMEZONE_CHANGED,
             Intent.ACTION_TIME_CHANGED,
-            -> Reminders.scheduleKept(context)
-        }
+            // Android 12 and later.
+            AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED,
+        )
     }
 }

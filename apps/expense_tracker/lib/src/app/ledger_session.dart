@@ -34,6 +34,17 @@ final class SessionStart {
   final int booked;
 }
 
+/// What coming back to an open ledger found to tell the person.
+final class SessionResume {
+  const SessionResume({this.inbox, this.booked = 0});
+
+  /// What the inbox brought; null when it was empty or could not be read.
+  final InboxOutcome? inbox;
+
+  /// Recurring items booked by themselves because their day had come.
+  final int booked;
+}
+
 /// The steps that change or check a ledger as it opens: load it, apply
 /// the inbox, check it is whole, and book what is due. Plain Dart, apart
 /// from the screens: they show what [open] returns. A step that fails is
@@ -64,9 +75,38 @@ final class LedgerSession {
     );
   }
 
-  /// Applies the inbox, then empties it. Opening the inbox also writes
-  /// its public key, which the notifications seal with.
+  /// The ledger came back to the front while open: what was confirmed on
+  /// notifications meanwhile is booked, and what fell due is booked, as
+  /// on opening it (the app may have stayed alive in the background, so
+  /// opening is not the only way back).
+  Future<SessionResume> resume(Ledger ledger) async {
+    final inbox = await readInbox(ledger);
+    return SessionResume(inbox: inbox, booked: bookDue(ledger));
+  }
+
+  /// The inbox read under way, so two (opening, then coming back at once)
+  /// do not read the same items.
+  Future<InboxOutcome?>? _reading;
+
+  /// Applies the inbox, then empties it once what it booked is kept: an
+  /// item stays until its booking is written to the book, so a write that
+  /// fails, or the app stopped before it was done, leaves it to be
+  /// applied again (applying one again books nothing twice: its day is
+  /// booked already). Opening the inbox also writes its public key, which
+  /// the notifications seal with.
   Future<InboxOutcome?> readInbox(Ledger ledger) async {
+    for (var under = _reading; under != null; under = _reading) {
+      await under;
+    }
+    final reading = _reading = _readInbox(ledger);
+    try {
+      return await reading;
+    } finally {
+      _reading = null;
+    }
+  }
+
+  Future<InboxOutcome?> _readInbox(Ledger ledger) async {
     final open = inbox;
     if (open == null) return null;
     try {
@@ -79,6 +119,11 @@ final class LedgerSession {
         service: ledger.recurringService,
         commands: ledger.recurringCommands,
       );
+      if (!await ledger.keptAll()) {
+        // The book is read back without the bookings; the items stay.
+        ErrorLog.instance.record('收件匣', StateError('bookings not kept'));
+        return null;
+      }
       for (final item in items) {
         await source.remove(item.name);
       }

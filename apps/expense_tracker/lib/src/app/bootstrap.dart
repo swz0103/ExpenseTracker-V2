@@ -490,10 +490,12 @@ class _OpenedLedgerState extends State<OpenedLedger>
         unawaited(_services.paused());
       case AppLifecycleState.resumed:
         if (widget.gate.closing) break;
-        _ledger.then((ledger) {
+        _ledger.then((ledger) async {
           ledger.checkDay();
           if (mounted) _watchMidnight(ledger);
-          if (mounted) _tellBooked(_session.bookDue(ledger));
+          final back = await _session.resume(ledger);
+          if (back.inbox case final inbox? when mounted) _tellInbox(inbox);
+          if (mounted) _tellBooked(back.booked);
         }).ignore();
         _services.resumed();
       default:

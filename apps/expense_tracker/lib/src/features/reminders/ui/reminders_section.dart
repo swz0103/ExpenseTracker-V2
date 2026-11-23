@@ -10,7 +10,10 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/messages/problem_messages.dart';
 import '../model/calendar_sync.dart';
 import '../model/reminder_alerts.dart';
+import '../model/reminder_rules.dart';
 import '../model/reminders.dart';
+import '../../../core/messages/reminder_messages.dart';
+import '../../../core/platform/preferences.dart';
 import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../../design_system/display/date.dart';
@@ -246,9 +249,39 @@ class _RemindersSectionState extends State<RemindersSection>
     }
   }
 
+  /// Whether a kind of notification the person turned on can come: shown
+  /// on only while the phone allows notifications as well, so a card
+  /// never says on while nothing would be posted.
+  bool _shownOn(bool asked) => asked && _status?.notifications != false;
+
+  /// 去開 for the battery: the app's own page of the system settings, and
+  /// what to choose there.
+  Future<void> _battery(Notifier notifier) async {
+    try {
+      await notifier.port.openBatterySettings();
+    } on Object catch (error) {
+      ErrorLog.instance.record(ErrorSteps.notificationStatus, error);
+    }
+    if (mounted) showNote(context, ReminderMessages.batteryHow);
+  }
+
+  /// What the daily nudge's time can be trusted to: on the minute when
+  /// asked for and allowed, else as late as the phone may post it.
+  String _nudgeTiming(Preferences preferences) =>
+      preferences.exactReminders && _status?.exact != false
+      ? ' · 準時'
+      : ' · ${ReminderMessages.lateBy(ReminderTiming.inexactLateness)}';
+
   Future<void> _forgetCalendar(CalendarSync calendar) async {
-    await calendar.forget(reminderBookOf(_ledger));
-    if (mounted) showNote(context, '已停止同步，之後的提醒已從日曆移除');
+    final cleared = await calendar.forget(reminderBookOf(_ledger));
+    if (mounted) {
+      showNote(
+        context,
+        cleared
+            ? ReminderMessages.calendarCleared
+            : ReminderMessages.calendarLeft,
+      );
+    }
     if (mounted) setState(() {});
   }
 
@@ -262,17 +295,17 @@ class _RemindersSectionState extends State<RemindersSection>
       color: SettingsColors.reminders,
       title: '到期提醒',
       detail: '定期扣款、卡費',
-      value: () => preferences.dueAlerts,
+      value: () => _shownOn(preferences.dueAlerts),
       onChanged: (on) => _notify(notifier, due: on),
       body: (context) {
-        final coming = reminderBookOf(_ledger)
-            .reminders(days: 30)
-            .take(4)
-            .toList();
+        final coming = reminderBookOf(_ledger).reminders().take(4).toList();
         return _Labelled(
           '接下來會提醒',
           coming.isEmpty
-              ? const Text('30 天內沒有到期的項目', style: mutedSmall)
+              ? Text(
+                  ReminderMessages.nothingDueWithin(ReminderTiming.horizonDays),
+                  style: mutedSmall,
+                )
               : CardGrid([
                   for (final r in coming)
                     _Chip(
@@ -295,7 +328,7 @@ class _RemindersSectionState extends State<RemindersSection>
       color: SettingsColors.budget,
       title: '預算提醒',
       detail: '用到警示比例、${StatusWords.over}時',
-      value: () => preferences.budgetAlerts,
+      value: () => _shownOn(preferences.budgetAlerts),
       onChanged: (on) => _notify(notifier, budget: on),
       body: (context) {
         final budgets = _ledger.budgets.all.where((b) => b.limit > 0).toList();
@@ -351,7 +384,7 @@ class _RemindersSectionState extends State<RemindersSection>
       color: color,
       title: '每日記帳',
       detail: '當天沒記帳才提醒',
-      value: () => preferences.dailyNudge,
+      value: () => _shownOn(preferences.dailyNudge),
       onChanged: (on) => _notify(notifier, nudge: on),
       body: (context) => ListenableBuilder(
         listenable: preferences,
@@ -385,7 +418,11 @@ class _RemindersSectionState extends State<RemindersSection>
             _ToggleRow(
               color: color,
               title: '準時提醒',
-              detail: '需要允許鬧鐘',
+              detail: preferences.exactReminders
+                  ? '需要允許鬧鐘'
+                  : ReminderMessages.lateWithout(
+                      ReminderTiming.inexactLateness,
+                    ),
               value: preferences.exactReminders,
               onChanged: (on) => _exact(notifier, on),
             ),
@@ -506,7 +543,7 @@ class _RemindersSectionState extends State<RemindersSection>
               color: SettingsColors.reminders,
               title: '到期提醒',
               detail: '信用卡、定期交易',
-              value: preferences.dueAlerts,
+              value: _shownOn(preferences.dueAlerts),
               onChanged: (on) => _notify(notifier, due: on),
               onTap: () => _dueDetails(notifier),
             ),
@@ -515,7 +552,7 @@ class _RemindersSectionState extends State<RemindersSection>
               color: SettingsColors.budget,
               title: '預算提醒',
               detail: '用到幾成時',
-              value: preferences.budgetAlerts,
+              value: _shownOn(preferences.budgetAlerts),
               onChanged: (on) => _notify(notifier, budget: on),
               onTap: () => _budgetDetails(notifier),
             ),
@@ -525,8 +562,8 @@ class _RemindersSectionState extends State<RemindersSection>
               title: '每日記帳',
               detail:
                   '每天 ${formatHm(preferences.nudgeHour, preferences.nudgeMinute)}'
-                  '${preferences.exactReminders ? ' · 準時' : ''}',
-              value: preferences.dailyNudge,
+                  '${_nudgeTiming(preferences)}',
+              value: _shownOn(preferences.dailyNudge),
               onChanged: (on) => _notify(notifier, nudge: on),
               onTap: () => _dailyDetails(notifier),
             ),
@@ -555,7 +592,7 @@ class _RemindersSectionState extends State<RemindersSection>
             onTest: () => _test(notifier),
             onNotifications: () => _askAccess(notifier),
             onExact: notifier.port.openExactSettings,
-            onBattery: notifier.port.openBatterySettings,
+            onBattery: () => _battery(notifier),
           ),
         ],
       ],
@@ -566,7 +603,7 @@ class _RemindersSectionState extends State<RemindersSection>
 /// What falls due in [ledger], as the calendar and the notifications
 /// follow it.
 ReminderBook reminderBookOf(Ledger ledger) => ReminderBook(
-  changes: ledger,
+  changes: ledger.watch(reminderTopics),
   clock: () => ledger.today,
   recurring: ledger.recurring,
   recurringService: ledger.recurringService,

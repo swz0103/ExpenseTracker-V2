@@ -125,7 +125,10 @@ enum CountUnit {
   people('人'),
 
   /// Notifications or messages: 1 則.
-  notes('則');
+  notes('則'),
+
+  /// Hours: 1 小時.
+  hours('小時');
 
   const CountUnit(this.word);
 

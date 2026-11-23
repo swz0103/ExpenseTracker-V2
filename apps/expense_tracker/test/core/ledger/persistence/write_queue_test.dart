@@ -204,4 +204,17 @@ void main() {
     await queue.settled;
     expect(source.kept, ['2']);
   });
+
+  test('the refusals are counted, so a wait can tell whether all was '
+      'kept', () async {
+    expect(queue.refused, 0);
+    queue.enqueue(one('1'));
+    await queue.settled;
+    expect(queue.refused, 0);
+    source.failNext = 1;
+    queue.enqueue(one('2'));
+    queue.enqueue(one('3'));
+    await queue.settled;
+    expect(queue.refused, 1);
+  });
 }

@@ -155,14 +155,10 @@ final class _NoNotifications implements NotifyPort {
   Future<bool> access() async => true;
 
   @override
-  Future<void> schedule(
-    List<Alert> alerts, {
-    bool exact = false,
-    Set<String>? wanted,
-  }) async {}
+  Future<void> schedule(ReminderPlan plan) async {}
 
   @override
-  Future<void> test({bool exact = false}) async {}
+  Future<void> test({required bool exact}) async {}
 
   @override
   Future<void> post(Alert alert, int id) async {}
