@@ -6,7 +6,7 @@ import '../../../../core/design_system/theme.dart';
 import 'lock_parts.dart';
 import '../../../../core/design_system/components/buttons.dart';
 import '../../../../core/design_system/keys.dart';
-import '../../../../core/formatting/dates.dart';
+import '../../../../../design_system/display/date.dart';
 import '../../../../core/design_system/spacing.dart';
 import '../../../../core/design_system/shape.dart';
 import '../../../../core/design_system/motion.dart';

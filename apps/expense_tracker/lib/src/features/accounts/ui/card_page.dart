@@ -16,7 +16,7 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/entry_tile.dart';
 import '../../../core/navigation/nav.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
@@ -135,7 +135,12 @@ class CardPage extends StatelessWidget {
       valueColor: owed > 0 ? AppColors.negative : AppColors.positive,
       sub: owed == 0
           ? '這期已繳清'
-          : '繳款截止 ${_day(card.due)}（${left < 0 ? '已逾期' : '還有 ${countOf(left, CountUnit.days)}'}）',
+          : '繳款截止 ${_day(card.due)}'
+                '${switch (postponedTo(card.due, card.payBy)) {
+                  final moved? => ' · $moved',
+                  null => '',
+                }}'
+                '（${left < 0 ? '已逾期' : '還有 ${countOf(left, CountUnit.days)}'}）',
       child: payment == null
           ? null
           : Padding(

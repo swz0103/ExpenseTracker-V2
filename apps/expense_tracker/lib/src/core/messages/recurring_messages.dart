@@ -1,5 +1,5 @@
 import '../ledger/ledger.dart';
-import '../formatting/dates.dart';
+import '../../../design_system/display/date.dart';
 import 'validation_messages.dart';
 
 /// The unit as it follows a count: 「天」「週」「個月」「年」.

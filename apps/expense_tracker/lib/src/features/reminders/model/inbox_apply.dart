@@ -4,7 +4,7 @@ import 'package:vault/backup_security.dart';
 
 import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/messages/recurring_messages.dart';
 
 /// What the inbox brought when the ledger opened: how many items were

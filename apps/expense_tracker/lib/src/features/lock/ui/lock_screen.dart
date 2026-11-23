@@ -16,7 +16,7 @@ import 'views/restore_view.dart';
 import 'views/unlock_view.dart';
 import 'views/welcome_view.dart';
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 
 /// The first screen of the phone app. A new ledger starts with one tap,
 /// without a password (one can be set later in settings), or from a
@@ -401,12 +401,10 @@ class _LockScreenState extends State<LockScreen> {
 
   static String _driveLabel(DriveFile file) {
     final at = file.modified.toLocal();
-    String two(int n) => n.toString().padLeft(2, '0');
     final size = file.size == 0
         ? ''
         : ' · ${(file.size / (1024 * 1024)).toStringAsFixed(1)} MB';
-    return '${formatYMd(at)} '
-        '${two(at.hour)}:${two(at.minute)}$size';
+    return '${formatYMdHm(at)}$size';
   }
 
   /// A failure not foreseen: noted for diagnostics, said without its own

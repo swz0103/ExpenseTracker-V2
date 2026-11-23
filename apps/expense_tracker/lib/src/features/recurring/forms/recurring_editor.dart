@@ -12,7 +12,7 @@ import '../../../core/widgets/pickers.dart';
 import '../model/recurring_schedule.dart';
 import '../model/recurring_form.dart';
 import 'recurring_form_widgets.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/messages/recurring_messages.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';

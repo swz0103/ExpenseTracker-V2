@@ -1,3 +1,5 @@
+import 'package:core/foundation_values.dart' show BusinessDate;
+
 import '../../features/reminders/model/reminder_alerts.dart';
 import 'platform_channel.dart';
 
@@ -35,9 +37,7 @@ final class AndroidNotifications implements NotifyPort {
           'tag': a.tag,
           if (a.confirms case (final id, final day)) ...{
             'recurring': id,
-            'day':
-                '${day.year}-${day.month.toString().padLeft(2, '0')}'
-                '-${day.day.toString().padLeft(2, '0')}',
+            'day': BusinessDate.of(day).toString(),
           },
         },
     ],

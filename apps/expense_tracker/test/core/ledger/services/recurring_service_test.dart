@@ -27,7 +27,7 @@ void main() {
     expect(book.recurringService.pendingDate(_rent), DateTime.utc(2026, 10, 1));
     expect(book.recurringService.due, [_rent]);
     expect(book.recurringService.upcoming, [_phone]);
-    expect(book.recurringService.nextLabel(_phone), '10/20');
+    expect(book.recurringService.nextDate(_phone), DateTime.utc(2026, 10, 20));
   });
 
   test('a booked day is no longer due; the next is next month', () {

@@ -99,7 +99,7 @@ void main() {
     await tester.pumpAndSettle();
     // Nothing happens until the question is answered.
     expect(withoutPassword, 0);
-    await tester.tap(find.text('不需要密碼').last);
+    await tester.tap(find.byKey(Keys.confirm));
     // The screen stays busy until the ledger opens and replaces it, so
     // its spinner never settles: pump the dialog away instead.
     await tester.pump();

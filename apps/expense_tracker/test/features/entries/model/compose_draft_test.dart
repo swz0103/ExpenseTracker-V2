@@ -27,6 +27,24 @@ void main() {
     expect((plain.receipt, plain.lent), (null, null));
   });
 
+  test('a draft left on 今天 follows today when reopened (ENT-16)', () {
+    // Put aside on 10/4 with the date it opened on, 10/4.
+    final left = ComposeDraft.read(
+      ComposeDraft(entry, null, null, DateTime.utc(2026, 10, 4)).toJson(),
+    )!;
+    expect(left.savedOn, DateTime.utc(2026, 10, 4));
+    // Reopened on 10/6: the date is 10/6.
+    expect(left.dateOn(DateTime.utc(2026, 10, 6)), DateTime.utc(2026, 10, 6));
+    // Put aside on 10/5 with 10/4 picked: it stays 10/4.
+    final picked = ComposeDraft(entry, null, null, DateTime.utc(2026, 10, 5));
+    expect(picked.dateOn(DateTime.utc(2026, 10, 6)), DateTime.utc(2026, 10, 4));
+    // A draft kept before the day was noted keeps its date.
+    expect(
+      ComposeDraft(entry, null).dateOn(DateTime.utc(2026, 10, 6)),
+      DateTime.utc(2026, 10, 4),
+    );
+  });
+
   test('a draft that cannot be read is left out, never thrown', () {
     expect(ComposeDraft.read(null), isNull);
     expect(ComposeDraft.read('not json'), isNull);

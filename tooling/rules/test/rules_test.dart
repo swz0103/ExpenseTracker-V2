@@ -115,8 +115,7 @@ void main() {
         run(rule, {
           'packages/core/lib/src/a.dart':
               "import 'dart:math';\nint f(DateTime d) => d.year;\n",
-          'packages/core/lib/src/app_core/clock.dart':
-              'final a = DateTime.now();\n',
+          'packages/core/lib/time/clock.dart': 'final a = DateTime.now();\n',
           'packages/core/test/a_test.dart': 'final a = DateTime.now();\n',
         }),
         isEmpty,
@@ -190,7 +189,7 @@ void f(int m) {
           '$_app/src/core/time/app_clock.dart': 'final a = DateTime.now();\n',
           '$_app/main.dart': 'final a = DateTime.now();\n',
           '$_app/main_preview.dart': 'final a = DateTime.now();\n',
-          '$_app/src/core/formatting/d.dart':
+          '$_app/design_system/display/d.dart':
               "String f(int m) => m.toString().padLeft(2, '0');\n",
           '$_app/src/features/a/x.dart':
               "String f(int m) => m.toString().padLeft(3, '0');\n",

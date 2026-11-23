@@ -15,7 +15,7 @@ import '../../../core/design_system/recovery_code.dart';
 import '../../../core/messages/backup_messages.dart';
 import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/time/app_clock.dart';
@@ -222,16 +222,7 @@ class _BackupSectionState extends State<BackupSection> {
 
   /// 今天 21:03, 昨天 08:14, or 11/2 08:14.
   static String _when(DateTime at) {
-    final local = at.toLocal();
-    final now = AppClock.now();
-    String two(int n) => n.toString().padLeft(2, '0');
-    final time = '${two(local.hour)}:${two(local.minute)}';
-    final day = DateTime(local.year, local.month, local.day);
-    final today = DateTime(now.year, now.month, now.day);
-    final days = today.difference(day).inDays;
-    if (days == 0) return '今天 $time';
-    if (days == 1) return '昨天 $time';
-    return '${formatMd(local)} $time';
+    return formatWhen(at.toLocal(), today: AppClock.today());
   }
 
   static DateTime? _latest(Iterable<DateTime?> times) {

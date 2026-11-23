@@ -52,13 +52,15 @@ class _ComposerState extends State<Composer>
   /// Fills the form from [draft], and what it paid for others.
   void _takeDraft(ComposeDraft draft) {
     _f.restore(draft.entry, draft.receipt);
+    _f.date = draft.dateOn(_ledger.today);
     if (draft.lent != null && _f.mode == ComposeMode.expense) {
       _f.lent = draft.lent;
     }
   }
 
   /// The form as it stands, to put aside.
-  ComposeDraft get _asDraft => ComposeDraft(_f.build(), _f.receipt, _f.lent);
+  ComposeDraft get _asDraft =>
+      ComposeDraft(_f.build(), _f.receipt, _f.lent, _ledger.today);
 
   /// Shows the form's note again after the form filled it afresh.
   void _showNote() {

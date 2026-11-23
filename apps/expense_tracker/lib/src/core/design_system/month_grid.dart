@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'spacing.dart';
 import 'theme.dart';
-import '../formatting/dates.dart';
+import '../../../design_system/display/date.dart';
 
 /// A month as the app's calendars draw it: the days of the week across,
 /// from Sunday, then a row a week. Every calendar of the app is one, so

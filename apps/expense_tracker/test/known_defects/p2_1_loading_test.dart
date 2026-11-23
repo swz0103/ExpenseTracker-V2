@@ -1,4 +1,5 @@
 // Work package 2.1: loading tolerates bad rows and keeps renames on disk.
+// Fixed in 2.1: these run in every test run (STATUS.md).
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,8 +10,6 @@ import 'package:expense_tracker/src/core/ledger/persistence/codec/record_json.da
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
-
-import 'known_defect.dart';
 
 void main() {
   late Directory directory;
@@ -55,7 +54,6 @@ void main() {
         // The bad row is kept on disk, not deleted.
         expect(store.rows(shelf: 'entry'), hasLength(101));
       },
-      skip: knownDefect('DAT-01', '2.1'),
     );
   }
 
@@ -80,5 +78,5 @@ void main() {
     await ledger.settled;
     ledger = await SqlLedgerDataSource(store, clock: clock).load();
     expect(ledger.entries.all.single.category, '毛孩');
-  }, skip: knownDefect('DAT-05', '2.1'));
+  });
 }

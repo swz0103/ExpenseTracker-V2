@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/book_migrations.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/record_version.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/features/entries/model/compose_draft.dart';
@@ -99,6 +100,10 @@ void main() {
       ).unlockWithPassword(_password);
       addTearDown(open.close);
       expect(canonicalRecords(bookRecords(await _load(open.store))), expected);
+      // Brought up to this version as it opened, and the same once read
+      // again from what the steps wrote.
+      expect(open.store.meta(bookVersionKey), bookVersion);
+      expect(canonicalRecords(bookRecords(await _load(open.store))), expected);
     });
 
     test('the backup kept by $version restores the same book', () async {
@@ -118,6 +123,8 @@ void main() {
         accept: SqlLedgerDataSource.check,
         onFile: (name, bytes) async => files[name] = bytes,
       );
+      expect(canonicalRecords(bookRecords(await _load(into))), expected);
+      expect(into.meta(bookVersionKey), bookVersion);
       expect(canonicalRecords(bookRecords(await _load(into))), expected);
       expect(files, {'r1.etr': _receipt});
     });

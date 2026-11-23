@@ -4,15 +4,18 @@ import 'dart:io';
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/book_migrations.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/record_version.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
 
-/// A book kept before categories had ids has each category under its name
-/// in every record that names one. Opening it must bring every record
-/// under the category's id, whole or not at all, and from then on a
-/// category renamed must be one row written.
+/// A book kept by an earlier version is brought up through the steps it
+/// lacks, once, in one transaction, after a copy of it is kept. The first
+/// steps: a book kept before categories had ids has each category under
+/// its name in every record that names one. Opening it must bring every
+/// record under the category's id, whole or not at all, and from then on
+/// a category renamed must be one row written.
 void main() {
   late Directory directory;
   late File file;
@@ -226,16 +229,130 @@ void main() {
   });
 
   test(
-    'a record that cannot be read leaves the whole book as it was',
+    'a record that cannot be read is left as it is, the rest brought up',
     () async {
       writeLegacy(open(), broken: true);
-      final before = [for (final r in store!.rows()) (r.shelf, r.id, r.body)];
-      await expectLater(load(), throwsFormatException);
-      expect([for (final r in open().rows()) (r.shelf, r.id, r.body)], before);
-      // Categories are still under their names: nothing was half done.
-      expect(rowsOf(store!, 'category').keys.toSet(), {'飲食', '早餐', '交通', '薪水'});
+      final ledger = await load();
+      // The unreadable entry is set aside, still kept exactly as it was.
+      expect(store!.row('entry', 'e5')!.body, '{not json');
+      expect(ledger.entries.byId('e5'), isNull);
+      expect(ledger.entries.all, hasLength(4));
+      expect(ledger.entries.byId('e1')!.category, '飲食');
+      expect(
+        (jsonDecode(store!.row('entry', 'e1')!.body) as Map)['categoryId'],
+        ledger.category('飲食').id,
+      );
     },
   );
+
+  test('a step that fails leaves the whole book as it was', () async {
+    writeLegacy(open());
+    final s = store!;
+    final before = [for (final r in s.rows()) (r.shelf, r.id, r.body)];
+    void fails(EncryptedDatabase store, RowWriter w) =>
+        throw StateError('a later step fails');
+    expect(
+      () => bringUpBook(s, steps: [...bookSteps, fails]),
+      throwsStateError,
+    );
+    expect([for (final r in s.rows()) (r.shelf, r.id, r.body)], before);
+    // Categories are still under their names: nothing was half done.
+    expect(rowsOf(s, 'category').keys.toSet(), {'飲食', '早餐', '交通', '薪水'});
+    expect(s.meta(bookVersionKey), isNull);
+  });
+
+  test('a book is brought up once, and a copy is kept first', () async {
+    writeLegacy(open());
+    var copies = 0;
+    var steps = 0;
+    Future<Ledger> loadCounting() => SqlLedgerDataSource(
+      open(),
+      clock: clock(),
+      beforeUpgrade: () async {
+        // The copy is of the book as it was: no step has run yet.
+        expect(store!.meta(bookVersionKey), isNull);
+        expect(rowsOf(store!, 'category').keys, contains('飲食'));
+        copies++;
+      },
+    ).load();
+    await loadCounting();
+    expect(store!.meta(bookVersionKey), bookVersion);
+    await loadCounting();
+    expect(copies, 1);
+    // A later step reaches a book already at this version, by itself.
+    bringUpBook(store!, steps: [...bookSteps, (s, w) => steps++]);
+    bringUpBook(store!, steps: [...bookSteps, (s, w) => steps++]);
+    expect(steps, 1);
+    expect(store!.meta(bookVersionKey), bookVersion + 1);
+  });
+
+  test('a copy that cannot be kept does not keep the book shut', () async {
+    writeLegacy(open());
+    final ledger = await SqlLedgerDataSource(
+      open(),
+      clock: clock(),
+      beforeUpgrade: () async => throw const FileSystemException('disk full'),
+    ).load();
+    expect(ledger.entries.all, hasLength(4));
+    expect(store!.meta(bookVersionKey), bookVersion);
+  });
+
+  test('a record naming a category by name is named by id once it is '
+      'brought up (DAT-05)', () async {
+    // As 0.22.0 kept it: categories by id, but an entry written before its
+    // category was made still names it by name.
+    final s = open();
+    s.write((w) {
+      w.put(
+        'account',
+        'a1',
+        jsonEncode({'id': 'a1', 'name': '現金', 'kind': 'cash', 'opening': 0}),
+      );
+      w.put(
+        'category',
+        'c-pet',
+        jsonEncode({
+          'id': 'c-pet',
+          'name': '寵物',
+          'icon': 'pet',
+          'color': 1,
+          '_v': 2,
+        }),
+      );
+      w.put(
+        'entry',
+        'e1',
+        jsonEncode({
+          'id': 'e1',
+          'date': '2026-10-01',
+          'type': 'expense',
+          'amount': 5,
+          'account': 'a1',
+          'category': '寵物',
+          '_v': 2,
+          '_at': 7,
+        }),
+      );
+    });
+    var ledger = await load();
+    expect(rowsOf(store!, 'entry')['e1'], {
+      'id': 'e1',
+      'date': '2026-10-01',
+      'type': 'expense',
+      'amount': 5,
+      'account': 'a1',
+      'categoryId': 'c-pet',
+      '_v': 2,
+      '_at': 7,
+    });
+    ledger.categoryCommands.updateCategory(
+      '寵物',
+      ledger.category('寵物').copyWith(name: '毛孩'),
+    );
+    await ledger.settled;
+    ledger = await load();
+    expect(ledger.entries.byId('e1')!.category, '毛孩');
+  });
 
   test('renaming a category writes its row and no entry', () async {
     writeLegacy(open());

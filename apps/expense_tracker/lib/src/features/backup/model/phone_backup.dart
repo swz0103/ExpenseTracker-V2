@@ -1,3 +1,5 @@
+import 'package:core/foundation_values.dart' show BusinessDate, twoDigits;
+
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -140,9 +142,8 @@ final class PhoneBackup extends ChangeNotifier {
 
   /// The name of this ledger's backup taken at [at]: sorts by time.
   String nameAt(DateTime at) {
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '$_prefix$_mark-${at.year}${two(at.month)}${two(at.day)}'
-        '-${two(at.hour)}${two(at.minute)}$_suffix';
+    return '$_prefix$_mark-${BusinessDate.of(at).compact}'
+        '-${twoDigits(at.hour)}${twoDigits(at.minute)}$_suffix';
   }
 
   Future<void> _write() async {

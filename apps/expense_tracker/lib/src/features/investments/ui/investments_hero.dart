@@ -71,9 +71,10 @@ class _InvestHero extends StatelessWidget {
                   height: 1.15,
                 ),
               ),
-              if (ledger.marketData.quotedOn != null)
+              if (ledger.marketData.quotedOn case final quoted?)
                 Pill(
-                  '今日 ${ledger.orDots(signed(day))}'
+                  '${tradingDayWord(quoted, today: ledger.today)} '
+                  '${ledger.orDots(signed(day))}'
                   '${before == 0 ? '' : ' · ${percentOf(day, before)}'}',
                   amount: day,
                   hidden: ledger.amounts.hidden,

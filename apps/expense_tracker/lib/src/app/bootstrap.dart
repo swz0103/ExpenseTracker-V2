@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:core/app_core.dart' show untilNextMidnight;
 import 'package:flutter/material.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
@@ -10,8 +11,14 @@ import 'android/scanner_adapter.dart';
 import 'app.dart';
 import 'ledger_session.dart';
 import 'lifecycle_services.dart';
+import 'load_failed_page.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
+import '../core/ledger/persistence/quarantine.dart';
 import '../core/design_system/design_system.dart';
+import '../core/diagnostics/error_log.dart';
+import '../core/messages/loading_messages.dart';
+import '../core/messages/problem_messages.dart';
+import '../features/backup/ui/backup_section.dart' show restoreFromBackup;
 import '../core/ledger/ledger.dart';
 import '../features/reminders/model/inbox_apply.dart';
 import '../features/backup/model/restore_sources.dart';
@@ -27,6 +34,7 @@ import '../core/platform/screen_privacy.dart';
 import '../features/settings/ui/update_panel.dart';
 import '../features/settings/model/platform_services.dart';
 import '../core/platform/startup.dart';
+import '../core/time/app_clock.dart';
 
 /// The only production composition (code audit C-01): the encrypted ledger
 /// in [directory], opened through [Startup]. The memory preview is not
@@ -147,6 +155,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
   /// Opening the book: load, inbox, health check, what is due.
   late final _session = LedgerSession(
     load: _services.dataSource.load,
+    quarantined: () => _services.dataSource.quarantined,
     inbox: Platform.isAndroid
         ? () async {
             final inbox = await LedgerInbox.open(
@@ -158,7 +167,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
         : null,
   );
 
-  late final Future<Ledger> _ledger = _open();
+  late Future<Ledger> _ledger = _open();
 
   Future<Ledger> _open() async {
     final start = await _session.open();
@@ -166,8 +175,89 @@ class _OpenedLedgerState extends State<OpenedLedger>
     _afterFrame(() {
       if (start.inbox case final inbox?) _tellInbox(inbox);
       _tellBooked(start.booked);
+      if (start.quarantined.isNotEmpty) {
+        unawaited(_tellQuarantined(start.quarantined));
+      }
     });
     return start.ledger;
+  }
+
+  /// Opens the book again, after it could not be opened.
+  void _retry() => setState(() => _ledger = _open());
+
+  /// Hands the person the diagnostics of this opening: the rows set
+  /// aside, or what kept the book shut, with no amount, note or name.
+  Future<void> _exportReport({
+    List<QuarantinedRow> rows = const [],
+    Object? failure,
+  }) async {
+    try {
+      final saved = await _services.backupManager.exportFile(
+        openingReportName,
+        openingReport(
+          rows: rows,
+          failure: failure == null ? null : ErrorLog.describe(failure),
+          log: ErrorLog.instance.text,
+        ),
+      );
+      if (mounted && saved) showNote(context, quarantineExported);
+    } on Object catch (error) {
+      ErrorLog.instance.record(loadFailedExport, error);
+      if (mounted) showNote(context, describeProblem(error));
+    }
+  }
+
+  /// Tells how many rows were set aside, with a way to report them, to
+  /// restore a backup, or to go on with the rest of the book.
+  Future<void> _tellQuarantined(List<QuarantinedRow> rows) async {
+    final restore = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(quarantineTitle(rows.length)),
+        content: Text(quarantineBody(rows)),
+        actions: [
+          TextButton(
+            onPressed: () => unawaited(_exportReport(rows: rows)),
+            child: const Text(quarantineExport),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(quarantineRestore),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(quarantineContinue),
+          ),
+        ],
+      ),
+    );
+    if (restore == true && mounted) {
+      await restoreFromBackup(context, _services.backupManager);
+    }
+  }
+
+  /// From a book that could not be opened, to the lock screen's restore:
+  /// a copy of this ledger is kept first when it can be, and the restore
+  /// is offered all the same when it cannot.
+  Future<void> _restoreAfterFailure() async {
+    try {
+      await _services.backupManager.restoreAnother();
+    } on Object catch (error) {
+      ErrorLog.instance.record(loadFailedRestore, error);
+      widget.startup.lockToRestore();
+    }
+  }
+
+  /// Fires at the next local midnight, so a screen left open moves on to
+  /// the new day; set again each time it fires and when the app returns.
+  Timer? _midnight;
+
+  void _watchMidnight(Ledger ledger) {
+    _midnight?.cancel();
+    _midnight = Timer(untilNextMidnight(AppClock.now()), () {
+      ledger.checkDay();
+      if (mounted) _watchMidnight(ledger);
+    });
   }
 
   void _afterFrame(VoidCallback then) =>
@@ -211,6 +301,9 @@ class _OpenedLedgerState extends State<OpenedLedger>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _ledger.then((ledger) {
+      if (mounted) _watchMidnight(ledger);
+    }).ignore();
     final code = widget.startup.takeRecoveryCode();
     final reset = widget.startup.takeKeysReset();
     _afterFrame(() {
@@ -232,6 +325,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
 
   @override
   void dispose() {
+    _midnight?.cancel();
     _services.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -247,6 +341,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       case AppLifecycleState.resumed:
         _ledger.then((ledger) {
           ledger.checkDay();
+          if (mounted) _watchMidnight(ledger);
           if (mounted) _tellBooked(_session.bookDue(ledger));
         }).ignore();
         unawaited(_services.resumed());
@@ -273,7 +368,12 @@ class _OpenedLedgerState extends State<OpenedLedger>
     builder: (context, snapshot) {
       final ledger = snapshot.data;
       if (snapshot.hasError) {
-        return Scaffold(body: Center(child: Text('無法讀取帳本：${snapshot.error}')));
+        final error = snapshot.error!;
+        return LoadFailedPage(
+          onRetry: _retry,
+          onRestore: _restoreAfterFailure,
+          onExport: () => _exportReport(failure: error),
+        );
       }
       if (ledger == null) {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));

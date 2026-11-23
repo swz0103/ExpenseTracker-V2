@@ -1,3 +1,4 @@
+import 'package:core/foundation_values.dart' show YearMonth;
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/features/budgets/model/budget_month.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,7 +31,7 @@ void main() {
       [Budget(allSpending, 1000)],
     );
     final month = BudgetMonth.of(
-      (2026, 10),
+      YearMonth(2026, 10),
       reports: ledger.reportService,
       budgets: ledger.budgets,
       service: ledger.budgetService,
@@ -45,7 +46,7 @@ void main() {
       [Budget('交通', 1000), Budget('飲食', 1000), Budget('居家', 0)],
     );
     final lines = BudgetMonth.of(
-      (2026, 10),
+      YearMonth(2026, 10),
       reports: ledger.reportService,
       budgets: ledger.budgets,
       service: ledger.budgetService,
@@ -67,13 +68,17 @@ void main() {
       ledger.reportService,
       today: () => ledger.today,
     );
-    expect((months.first, months.now), ((2026, 8), (2026, 10)));
-    expect(months.step((2026, 10), -1), (2026, 9));
-    expect(months.step((2026, 10), 1), isNull);
-    expect(months.step((2026, 8), -1), isNull);
-    expect(months.canGoBack((2026, 9)), isTrue);
-    expect(months.canGoBack((2026, 8)), isFalse);
-    expect(BudgetMonths.key((2026, 12)) + 1, BudgetMonths.key((2027, 1)));
+    expect(
+      (months.first, months.now),
+      (YearMonth(2026, 8), YearMonth(2026, 10)),
+    );
+    expect(months.step(YearMonth(2026, 10), -1), YearMonth(2026, 9));
+    expect(months.step(YearMonth(2026, 10), 1), isNull);
+    expect(months.step(YearMonth(2026, 8), -1), isNull);
+    expect(months.canGoBack(YearMonth(2026, 9)), isTrue);
+    expect(months.canGoBack(YearMonth(2026, 8)), isFalse);
+    expect(months.covers(YearMonth(2026, 9)), isTrue);
+    expect(months.covers(YearMonth(2026, 11)), isFalse);
   });
 
   test('a budget covers all spending, a tag or a category', () {
@@ -96,7 +101,7 @@ void main() {
       ),
     ], const []);
     final month = BudgetMonth.of(
-      (2026, 10),
+      YearMonth(2026, 10),
       reports: ledger.reportService,
       budgets: ledger.budgets,
       service: ledger.budgetService,
