@@ -18,6 +18,7 @@ import 'write_batch.dart';
 /// record posts.
 const journalRules = 1;
 
+// Exception to the motion scale: a slice of work, not a movement.
 /// How long the journal's work in the background runs before it lets the
 /// screen draw: half a frame at 60 Hz.
 const journalSlice = Duration(milliseconds: 8);
