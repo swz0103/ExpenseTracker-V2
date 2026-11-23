@@ -16,8 +16,8 @@ void main() {
     expect(say(const UpdateDownloading(0.624)), '下載中 62%');
     expect(say(const UpdateHandBuilt()), '自行建置的版本');
     expect(say(const UpdateFailed(UpdateFailure.offline)), '連不上 GitHub，請稍後再試');
-    // The play build is updated by Google Play: nothing to say here.
-    expect(say(const UpdateNotOffered()), isNull);
+    // D29: the play build is updated by Google Play, and says only that.
+    expect(say(const UpdateNotOffered()), '由 Google Play 更新');
   });
 
   test('a build without a version number says it is the newest plainly', () {
