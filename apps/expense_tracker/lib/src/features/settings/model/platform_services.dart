@@ -14,6 +14,7 @@ import '../../../core/ledger/ledger.dart';
 import '../../reminders/model/reminder_alerts.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/platform/quick_action.dart';
+import '../../../core/platform/scan.dart';
 import '../../../core/platform/screen_privacy.dart';
 
 /// What the phone and the open ledger offer the screens beyond the book:
@@ -68,5 +69,5 @@ final class PlatformServices {
 
   /// Reads a QR code, such as a paper e-invoice's, with the camera; none
   /// in the preview.
-  final Future<String?> Function()? scanQr;
+  final ScanQr? scanQr;
 }

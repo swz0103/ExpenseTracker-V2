@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/messages/update_messages.dart';
 import '../../../core/platform/distribution.dart';
 import '../../../core/platform/preferences.dart';
+import '../../../core/platform/update_status.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/time/app_clock.dart';
 import '../../../core/formatting/json_fields.dart';
@@ -178,35 +179,61 @@ final class AppUpdate extends ChangeNotifier {
   double? get progress => _progress;
   double? _progress;
 
-  /// What went wrong last; null when nothing did.
-  String? get problem => _problem;
-  String? _problem;
+  /// Why the last look or download did not work; null when it did.
+  UpdateFailure? get failure => _failure;
+  UpdateFailure? _failure;
+
+  /// [failure] in words; null when nothing went wrong.
+  String? get problem => switch (_failure) {
+    final failure? => UpdateMessages.failure(failure),
+    null => null,
+  };
 
   bool get busy => _checking || _progress != null;
 
+  /// How this build stands against the newest, for 關於 to say: always
+  /// one answer, whatever was or was not found.
+  UpdateStatus get status {
+    if (!canSelfUpdate) return const UpdateNotOffered();
+    if (_build <= 0) return const UpdateHandBuilt();
+    if (_progress case final share?) return UpdateDownloading(share);
+    if (_checking) return const UpdateChecking();
+    if (_newer case final newer?) return UpdateAvailable(newer.version);
+    if (_failure case final failure?) return UpdateFailed(failure);
+    if (_upToDate) return const UpdateCurrent();
+    return const UpdateNotLooked();
+  }
+
   /// Looks for a newer build. Returns it, or null when there is none or
-  /// it could not tell ([problem] says why).
+  /// it could not tell ([failure] says why). Whatever happens, [status]
+  /// has the answer afterwards.
   Future<UpdateInfo?> check() async {
     if (!possible || busy) return null;
     _checking = true;
-    _problem = null;
+    _failure = null;
     notifyListeners();
     try {
       final info = UpdateInfo.parse(await _port.fetch(infoUrl));
       _preferences.updateChecked(_clock());
       _lookedThisRun = true;
       if (info == null) {
-        _problem = '更新資訊看不懂';
+        ErrorLog.instance.record(
+          UpdateMessages.checkStep,
+          const FormatException('update.json is not an update feed'),
+        );
+        _failure = UpdateFailure.unreadableFeed;
         return null;
       }
       _newer = info.build > _build ? info : null;
       _upToDate = _newer == null;
       return _newer;
-    } on Object catch (error) {
-      ErrorLog.instance.record('檢查更新', error);
-      _problem = error is IOException || error is TimeoutException
-          ? '連不上 GitHub，請稍後再試'
-          : ErrorLog.describe(error);
+    } on Object catch (error, stack) {
+      ErrorLog.instance.record(UpdateMessages.checkStep, error, stack);
+      _failure = switch (error) {
+        HttpException() => UpdateFailure.refused,
+        IOException() || TimeoutException() => UpdateFailure.offline,
+        _ => UpdateFailure.checkUnforeseen,
+      };
       return null;
     } finally {
       _checking = false;
@@ -254,16 +281,16 @@ final class AppUpdate extends ChangeNotifier {
 
   /// Downloads the newer build, checks it and hands it to Android's
   /// installer. Null when there was nothing to install or it failed
-  /// ([problem] says why).
+  /// ([failure] says why).
   Future<UpdateInstall?> install() async {
     final info = _newer;
     if (info == null || busy) return null;
-    _problem = null;
+    _failure = null;
     _progress = 0;
     notifyListeners();
     if (info.size > maxApkBytes) {
       // Not even started: nothing this large is an update of this app.
-      _problem = UpdateMessages.absurdSize;
+      _failure = UpdateFailure.absurdSize;
       _progress = null;
       notifyListeners();
       return null;
@@ -284,9 +311,9 @@ final class AppUpdate extends ChangeNotifier {
       }
       final outcome = await _port.install(apk, info.sha256);
       if (outcome == UpdateInstall.damaged) {
-        _problem = '下載的檔案不完整，請再試一次';
+        _failure = UpdateFailure.damaged;
       } else if (outcome == UpdateInstall.rejected) {
-        _problem = UpdateMessages.notThisApp;
+        _failure = UpdateFailure.notThisApp;
       }
       return outcome;
     } on _OversizedDownload {
@@ -294,14 +321,14 @@ final class AppUpdate extends ChangeNotifier {
         UpdateMessages.downloadStep,
         UpdateMessages.grewPastSize,
       );
-      _problem = UpdateMessages.grewPastSize;
+      _failure = UpdateFailure.grewPastSize;
       if (apk.existsSync()) await apk.delete();
       return null;
-    } on Object catch (error) {
-      ErrorLog.instance.record('下載更新', error);
-      _problem = error is IOException || error is TimeoutException
-          ? '下載中斷，請稍後再試'
-          : ErrorLog.describe(error);
+    } on Object catch (error, stack) {
+      ErrorLog.instance.record(UpdateMessages.downloadStep, error, stack);
+      _failure = error is IOException || error is TimeoutException
+          ? UpdateFailure.downloadCut
+          : UpdateFailure.installUnforeseen;
       if (apk.existsSync()) await apk.delete();
       return null;
     } finally {
