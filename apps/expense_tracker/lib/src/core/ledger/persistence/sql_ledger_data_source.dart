@@ -11,6 +11,7 @@ import 'dart:isolate';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
+import 'package:core/money/amount_parser.dart' show parseDecimal;
 import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:market/market_data.dart';
 import 'package:storage/storage.dart';
@@ -24,6 +25,7 @@ import 'codec/row_decoding.dart';
 import 'quarantine.dart';
 import 'record_version.dart';
 import 'codec/record_json.dart';
+import 'codec/record_shape.dart';
 import '../../diagnostics/performance_monitor.dart';
 import '../../diagnostics/error_log.dart';
 
@@ -584,9 +586,19 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
   }
 
-  /// Throws a [FormatException] for a record this app cannot read, so a
-  /// backup with one is refused rather than restored.
+  /// Throws a [FormatException] naming the row, whatever its slip, for a
+  /// record this app cannot read or no version of it would write
+  /// ([shapeIssues]), so a backup with one is refused, not restored.
   static void check(String collection, String id, String body) {
+    try {
+      _check(collection, id, body);
+    } on Object catch (slip) {
+      final what = slip is FormatException ? slip.message : slip.runtimeType;
+      throw FormatException('$collection $id: $what');
+    }
+  }
+
+  static void _check(String collection, String id, String body) {
     if (collection == Collection.receipt.name) {
       if (!RegExp(r'^[\w.-]+$').hasMatch(body)) {
         throw const FormatException('receipt');
@@ -614,24 +626,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       _marketFrom([StoredRow(0, collection, id, body)]);
       return;
     }
-    // Out of context, a category's id is as good as its name.
-    final refs = CategoryRefs.lenient();
-    final reader = switch (Collection.values.asNameMap()[collection]) {
-      Collection.account => accountFromJson,
-      Collection.category => (Map<String, Object?> j) => categoryFromJson(
-        j,
-        refs,
-      ),
-      Collection.entry => (Map<String, Object?> j) => entryFromJson(j, refs),
-      Collection.budget => (Map<String, Object?> j) => budgetFromJson(j, refs),
-      Collection.recurring => (Map<String, Object?> j) => recurringFromJson(
-        j,
-        refs,
-      ),
-      Collection.trash => (Map<String, Object?> j) => trashedFromJson(j, refs),
-      _ => throw FormatException('Unknown collection $collection'),
-    };
-    reader(upgradeRecord(collection, json));
+    checkRecord(collection, upgradeRecord(collection, json));
   }
 
   /// The rows of [rows] of the [_market] collection that can be read: a
@@ -750,7 +745,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     ]);
     for (final (i, code) in asked.indexed) {
       final close = closes[i];
-      final price = close == null ? null : double.tryParse(close.decimalPrice);
+      final price = close == null ? null : parseDecimal(close.decimalPrice);
       if (close == null || price == null) {
         missed.add(code);
         continue;
@@ -768,7 +763,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         days[code] = day;
         changed = true;
       }
-      final move = double.tryParse(close.decimalChange ?? '');
+      final move = parseDecimal(close.decimalChange ?? '');
       final name = close.name;
       if (prices[code] == price &&
           moves[code] == move &&

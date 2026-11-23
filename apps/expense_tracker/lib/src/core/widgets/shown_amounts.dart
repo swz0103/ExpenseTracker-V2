@@ -1,5 +1,5 @@
 import '../ledger/ledger.dart' show Ledger;
-import '../formatting/figures.dart';
+import '../../../design_system/display/amount.dart';
 
 /// Amounts as a ledger shows them: dots in place of every figure while
 /// its 隱藏金額 switch is on. Each screen asks its own ledger, so two books
@@ -13,6 +13,35 @@ extension ShownAmounts on Ledger {
 
   /// [signed], or dots while amounts are hidden.
   String moneySigned(int value) => orDots(signed(value));
+
+  /// What a screen reader says for [value] on this ledger's screens, with
+  /// its direction in words ([spokenAmount]): 正 1,200 元 for a rise by
+  /// default, 金額已隱藏 while amounts are hidden.
+  String spoken(
+    int value, {
+    String currency = 'TWD',
+    AmountSense sense = AmountSense.signed,
+  }) => spokenAmount(
+    value,
+    currency: currency,
+    sense: sense,
+    hidden: amounts.hidden,
+  );
+
+  /// [readOut] on this ledger's screens: [shown] with [value] in it said
+  /// in words, 金額已隱藏 while amounts are hidden.
+  String readAloud(
+    String shown,
+    int value, {
+    String currency = 'TWD',
+    AmountSense sense = AmountSense.signed,
+  }) => readOut(
+    shown,
+    value,
+    currency: currency,
+    sense: sense,
+    hidden: amounts.hidden,
+  );
 
   /// [amountIn], or dots while amounts are hidden.
   String moneyIn(int minor, String currency) =>

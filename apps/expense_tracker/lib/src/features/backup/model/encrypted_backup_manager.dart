@@ -4,6 +4,7 @@ import 'package:core/foundation_values.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
+import '../../../core/messages/key_failures.dart' as words;
 import '../../../core/platform/startup.dart';
 import 'backup_manager.dart';
 import '../../../core/time/app_clock.dart';
@@ -64,10 +65,30 @@ final class EncryptedBackupManager implements BackupManager {
     // beside the weekly ones, so it never fills the cloud backup's quota.
     final file = await _write(_exports, withPhotos: true);
     try {
-      return await _export(file.path, file.path.split(RegExp(r'[/\\]')).last);
+      final saved = await _export(
+        file.path,
+        file.path.split(RegExp(r'[/\\]')).last,
+      );
+      if (saved) {
+        await _exported.writeAsString(
+          AppClock.now().toUtc().toIso8601String(),
+          flush: true,
+        );
+      }
+      return saved;
     } finally {
       if (file.existsSync()) await file.delete();
     }
+  }
+
+  /// Notes when a backup was last handed over by hand.
+  File get _exported => File('${_startup.directory.path}/exported-at');
+
+  @override
+  DateTime? get exportedAt {
+    final file = _exported;
+    if (!file.existsSync()) return null;
+    return DateTime.tryParse(file.readAsStringSync().trim())?.toLocal();
   }
 
   /// The ledger's revision: it changes with every change kept.
@@ -264,16 +285,57 @@ final class EncryptedBackupManager implements BackupManager {
   bool get hasPassword => !_startup.passwordless;
 
   @override
+  bool get passwordBelowRule => hasPassword && _startup.passwordBelowRule;
+
+  @override
+  String get passwordRule => words.passwordRule;
+
+  @override
+  String? refusePassword(String password) => words.passwordRefusal(password);
+
+  /// Runs [change], a refusal by the keys said in words ([KeyRefused]).
+  static Future<T> _said<T>(Future<T> Function() change) async {
+    try {
+      return await change();
+    } on Exception catch (error) {
+      final said = words.keyRefusal(error);
+      if (said == null) rethrow;
+      throw KeyRefused(said);
+    }
+  }
+
+  @override
+  bool get hasBackupPassphrase => _vault.keys.keyring.hasPassphrase;
+
+  @override
+  Future<void> setBackupPassphrase(String passphrase) => _said(
+    () async => _vault.updateKeys(await _vault.keys.setPassphrase(passphrase)),
+  );
+
+  @override
+  Future<void> removeBackupPassphrase() =>
+      _vault.updateKeys(_vault.keys.removePassphrase());
+
+  /// Keeps what the screens still have to write, then replaces every key;
+  /// the app opens the ledger afresh on the new ones and shows the new
+  /// recovery code.
+  @override
+  Future<void> resetKeys(String? currentPassword) async {
+    await _beforeLock?.call();
+    await _said(() => _startup.resetKeys(password: currentPassword));
+  }
+
+  @override
   Future<void> setPassword(String next) async {
     await changePassword(await _startup.quickSecret(), next);
     await _startup.forgetQuickKey();
   }
 
   @override
-  Future<void> changePassword(String current, String next) async {
+  Future<void> changePassword(String current, String next) => _said(() async {
     await _startup.codec.unlockWithPassword(_vault.keys.keyring, current);
     await _vault.updateKeys(await _vault.keys.changePassword(next));
-  }
+  });
 
   @override
   Future<String> newRecoveryCode() async {
@@ -297,36 +359,29 @@ final class EncryptedBackupManager implements BackupManager {
   }
 
   /// Keeps the ledger as it was before a restore from settings, with its
-  /// photos, apart from the weekly backups. The two written last stay, by
-  /// when they were written (their names do not sort by time: a copy
-  /// Android brought back is named `brought-back-…`), and that copy is
-  /// never one of those let go; the lock screen offers them to restore.
+  /// photos, apart from the weekly backups. The two taken last stay, by
+  /// when their backups say they were taken (their names do not sort by
+  /// time: a copy Android brought back is named `brought-back-…`), and
+  /// that copy is never one of those let go; the lock screen offers them
+  /// to restore, and compares the backup chosen with this one.
   @override
   Future<String> restoreAnother() async {
     await _beforeLock?.call();
     final folder = _startup.beforeRestore;
     final kept = await _write(folder, withPhotos: true);
-    DateTime written(File file) {
-      try {
-        return file.lastModifiedSync();
-      } on FileSystemException {
-        // A file that cannot be read counts as the oldest.
-        return DateTime.fromMillisecondsSinceEpoch(0);
-      }
-    }
-
+    final header = await LedgerBackup.readHeader(kept);
     final older = [
-      for (final entity in folder.listSync())
-        if (entity is File &&
-            entity.path.endsWith('.etbk') &&
-            !entity.uri.pathSegments.last.startsWith('brought-back') &&
-            !entity.uri.pathSegments.last.startsWith(_beforeUpgrade))
-          entity,
-    ]..sort((a, b) => written(b).compareTo(written(a)));
-    for (final old in older.skip(2)) {
+      for (final (file, header) in await _startup.keptLedgers())
+        if (!file.uri.pathSegments.last.startsWith('brought-back') &&
+            !file.uri.pathSegments.last.startsWith(_beforeUpgrade))
+          (file, header),
+    ];
+    // keptLedgers is newest first; one that cannot be read counts as the
+    // oldest.
+    for (final (old, _) in older.skip(2)) {
       await old.delete();
     }
-    _startup.lockToRestore();
+    _startup.lockToRestore(header);
     return kept.path;
   }
 
@@ -341,17 +396,15 @@ final class EncryptedBackupManager implements BackupManager {
   Future<File> keepBeforeUpgrade() async {
     final folder = _startup.beforeRestore;
     final kept = await _write(folder, withPhotos: true, name: _beforeUpgrade);
+    // keptLedgers is newest first, by the time in each header; the one
+    // just written stays whatever the times say.
     final copies = [
-      for (final entity in folder.listSync())
-        if (entity is File &&
-            entity.path.endsWith('.etbk') &&
-            entity.uri.pathSegments.last.startsWith(_beforeUpgrade))
-          entity,
-    ]..sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
-    // The one just written stays, whatever the file times say.
-    copies
-      ..remove(copies.firstWhere((f) => f.path == kept.path))
-      ..insert(0, kept);
+      kept,
+      for (final (file, _) in await _startup.keptLedgers())
+        if (file.uri.pathSegments.last.startsWith(_beforeUpgrade) &&
+            file.path != kept.path)
+          file,
+    ];
     for (final old in copies.skip(2)) {
       await old.delete();
     }

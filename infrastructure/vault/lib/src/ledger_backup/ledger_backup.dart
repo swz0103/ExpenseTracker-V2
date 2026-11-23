@@ -49,22 +49,31 @@ final class BackupHeader {
     required this.backupEpoch,
     required this.revision,
     required this.rows,
+    this.version = BackupHeader.current,
   });
 
   static const format = 'ExpenseTracker-backup';
-  static const version = 3;
+
+  /// The version this app writes. 4: the keyring is [Keyring.exported],
+  /// without the app password's slot, and a file larger than a chunk is
+  /// split over several.
+  static const current = 4;
 
   /// The versions this app reads: every one it has written since backups
   /// were kept for good (docs/adr/0010-data-that-lasts.md). A version is
   /// added when the format changes and never taken out; reading an older
-  /// one brings it up to [version].
-  static const readable = {3};
+  /// one brings it up to [current].
+  static const readable = {3, 4};
+
+  /// The version this backup was written in. A version 3 backup carries
+  /// the app password's slot, so it opens with that password too.
+  final int version;
 
   final String backupId;
   final DateTime createdAt;
 
-  /// Wrapped keys only; opening them needs the password, the recovery code
-  /// or a device key.
+  /// Wrapped keys only; opening them needs the recovery code or the
+  /// backup passphrase (and, in version 3, the app password).
   final Keyring keyring;
   final int backupEpoch;
 
@@ -96,7 +105,8 @@ final class BackupHeader {
     if (json is! Map<String, Object?> || json['format'] != format) {
       throw const BackupException(BackupProblem.invalidFormat, 'header');
     }
-    if (!readable.contains(json['version'])) {
+    final version = json['version'];
+    if (version is! int || !readable.contains(version)) {
       throw const BackupException(BackupProblem.unsupportedVersion);
     }
     const keys = {
@@ -112,22 +122,29 @@ final class BackupHeader {
     if (json.length != keys.length || !keys.containsAll(json.keys)) {
       throw const BackupException(BackupProblem.invalidFormat, 'header');
     }
+    final BackupHeader header;
     try {
-      return BackupHeader(
+      header = BackupHeader(
         backupId: json['backupId']! as String,
         createdAt: DateTime.parse(json['createdAt']! as String),
         keyring: Keyring.parse(json['keyring']! as String),
         backupEpoch: json['backupEpoch']! as int,
         revision: json['revision']! as int,
         rows: json['rows']! as int,
+        version: version,
       );
     } on Object {
       throw const BackupException(BackupProblem.invalidFormat, 'header');
     }
+    // From version 4 on the app password never leaves the phone.
+    if (version >= 4 && header.keyring.hasPassword) {
+      throw const BackupException(BackupProblem.invalidFormat, 'header');
+    }
+    return header;
   }
 }
 
-/// Backup format v3: every record of the ledger, then any files kept
+/// Backup format v4: every record of the ledger, then any files kept
 /// beside it, such as receipt photos.
 ///
 /// File: an 8-byte magic, then length-prefixed frames. Frame 0 is the
@@ -136,9 +153,26 @@ final class BackupHeader {
 /// the header digest and the chunk's position, so chunks cannot be swapped,
 /// dropped, reordered or moved to another backup. The last chunk states
 /// the totals, so a truncated file is detected.
+///
+/// No frame is larger than [maxFrame], on writing as on reading, so every
+/// backup written can be read: records go into chunks of at most
+/// [chunkBytes] of text, and a file into pieces of at most [pieceBytes],
+/// each piece but the last marked `more`.
 abstract final class LedgerBackup {
   static final _magic = ascii.encode('ETV2BK3\n');
-  static const _maxFrame = 64 * 1024 * 1024;
+
+  /// The largest frame a backup may hold.
+  static const maxFrame = 64 * 1024 * 1024;
+
+  /// The most bytes of a file one chunk carries: base64 makes it 4/3 as
+  /// large, and gzip of the worst (random) bytes adds little, so a piece's
+  /// frame stays far under [maxFrame].
+  static const pieceBytes = 16 * 1024 * 1024;
+
+  /// The most text (UTF-16 code units) of records one chunk carries: even
+  /// were every unit escaped by JSON as six bytes, a chunk stays under
+  /// [maxFrame]. A single record larger than that is refused on writing.
+  static const chunkBytes = 8 * 1024 * 1024;
   static final _cipher = AesGcm.with256bits();
 
   /// Writes a backup of [store] to [file]. The records are read at once,
@@ -151,13 +185,15 @@ abstract final class LedgerBackup {
     required DateTime createdAt,
     int chunkSize = 1000,
     Map<String, File> files = const {},
+    int pieceBytes = pieceBytes,
+    int chunkBytes = chunkBytes,
   }) async {
     final rows = store.rows();
     final epoch = keys.currentBackupEpoch;
     final header = BackupHeader(
       backupId: backupId,
       createdAt: createdAt,
-      keyring: keys.keyring,
+      keyring: keys.keyring.exported,
       backupEpoch: epoch,
       revision: store.revision,
       rows: rows.length,
@@ -176,8 +212,9 @@ abstract final class LedgerBackup {
     // of pure-Dart work for a book with many photos: done on a worker
     // isolate, so the screen keeps moving. The records were read above,
     // so the backup is still one consistent state.
+    final sizes = (count: chunkSize, piece: pieceBytes, text: chunkBytes);
     await Isolate.run(
-      () => _writeFrames(path, headerBytes, keyBytes, items, chunkSize, paths),
+      () => _writeFrames(path, headerBytes, keyBytes, items, sizes, paths),
     );
     return header;
   }
@@ -187,7 +224,7 @@ abstract final class LedgerBackup {
     List<int> headerBytes,
     List<int> keyBytes,
     List<List<String>> items,
-    int chunkSize,
+    ({int count, int piece, int text}) sizes,
     Map<String, String> files,
   ) async {
     final key = SecretKey(keyBytes);
@@ -208,18 +245,41 @@ abstract final class LedgerBackup {
         _frame(sink, [...box.nonce, ...box.cipherText, ...box.mac.bytes]);
       }
 
-      for (var at = 0; at < items.length; at += chunkSize) {
-        await seal({
-          'type': 'rows',
-          'items': items.skip(at).take(chunkSize).toList(),
-        });
+      // Records: at most sizes.count of them, and sizes.text of their
+      // text, a chunk.
+      var chunk = <List<String>>[];
+      var text = 0;
+      for (final item in items) {
+        final size = item[0].length + item[1].length + item[2].length;
+        if (chunk.isNotEmpty &&
+            (chunk.length >= sizes.count || text + size > sizes.text)) {
+          await seal({'type': 'rows', 'items': chunk});
+          chunk = [];
+          text = 0;
+        }
+        chunk.add(item);
+        text += size;
       }
+      if (chunk.isNotEmpty) await seal({'type': 'rows', 'items': chunk});
+      // Each file in pieces, read one piece at a time.
       for (final MapEntry(key: name, value: source) in files.entries) {
-        await seal({
-          'type': 'file',
-          'name': name,
-          'data': base64Encode(await File(source).readAsBytes()),
-        });
+        final handle = await File(source).open();
+        try {
+          final length = await handle.length();
+          var at = 0;
+          do {
+            final piece = await handle.read(sizes.piece);
+            at += piece.length;
+            await seal({
+              'type': 'file',
+              'name': name,
+              'data': base64Encode(piece),
+              if (at < length) 'more': true,
+            });
+          } while (at < length);
+        } finally {
+          await handle.close();
+        }
       }
       await seal({
         'type': 'end',
@@ -290,6 +350,9 @@ abstract final class LedgerBackup {
       var rows = 0;
       var files = 0;
       var ended = false;
+      // The file whose pieces are being read, until its last piece.
+      String? piecesOf;
+      final pieces = BytesBuilder(copy: false);
       while (true) {
         final frame = await reader.next();
         if (frame == null) break;
@@ -317,13 +380,30 @@ abstract final class LedgerBackup {
           case 'file':
             final name = chunk['name'];
             final data = chunk['data'];
-            if (name is! String || data is! String) {
+            final more = chunk['more'] ?? false;
+            if (name is! String ||
+                data is! String ||
+                more is! bool ||
+                (piecesOf != null && piecesOf != name)) {
               throw const BackupException(BackupProblem.invalidFormat, 'file');
             }
+            final List<int> bytes;
+            try {
+              bytes = base64Decode(data);
+            } on FormatException {
+              throw const BackupException(BackupProblem.invalidFormat, 'file');
+            }
+            pieces.add(bytes);
+            if (more) {
+              piecesOf = name;
+              break;
+            }
+            piecesOf = null;
             files++;
-            await onFile?.call(name, base64Decode(data));
+            await onFile?.call(name, pieces.takeBytes());
           case 'end':
-            if (chunk['chunks'] != index - 1 ||
+            if (piecesOf != null ||
+                chunk['chunks'] != index - 1 ||
                 chunk['rows'] != rows ||
                 (chunk['files'] ?? 0) != files) {
               throw const BackupException(BackupProblem.invalidFormat, 'end');
@@ -349,6 +429,10 @@ abstract final class LedgerBackup {
   ];
 
   static void _frame(IOSink sink, List<int> bytes) {
+    // Refused here rather than written: the reader would refuse it.
+    if (bytes.length > maxFrame) {
+      throw const BackupException(BackupProblem.invalidContent, 'too large');
+    }
     sink.add((ByteData(4)..setUint32(0, bytes.length)).buffer.asUint8List());
     sink.add(bytes);
   }
@@ -423,7 +507,7 @@ final class _FrameReader {
       throw const BackupException(BackupProblem.invalidFormat, 'length');
     }
     final length = ByteData.sublistView(prefix).getUint32(0);
-    if (length > LedgerBackup._maxFrame) {
+    if (length > LedgerBackup.maxFrame) {
       throw const BackupException(BackupProblem.invalidFormat, 'size');
     }
     final bytes = await _file.read(length);

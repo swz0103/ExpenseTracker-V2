@@ -63,6 +63,7 @@ final class Recurring {
     bool? active,
     bool? auto,
     Set<DateTime>? skipped,
+    String? merchant,
   }) => Recurring(
     id: id,
     name: name ?? this.name,
@@ -76,19 +77,22 @@ final class Recurring {
     start: start,
     end: end,
     income: income,
-    merchant: merchant,
+    merchant: merchant ?? this.merchant,
     auto: auto ?? this.auto,
     skipped: skipped ?? this.skipped,
   );
 
-  /// The days in [year]/[month] it falls due.
   /// The days of [year]/[month] it falls due and was not let go.
   List<DateTime> dueIn(int year, int month) => [
     for (final d in datesIn(year, month))
       if (!skipped.contains(d)) d,
   ];
 
+  /// The days in [year]/[month] it falls due; none for an item whose
+  /// interval would never move its dates on (every below 1), which the
+  /// ledger refuses to write but an older book may hold.
   List<DateTime> datesIn(int year, int month) {
+    if (every < 1) return const [];
     final last = DateTime.utc(year, month + 1, 0);
     final first = start ?? DateTime.utc(2025, 1, day);
     final stop = end;

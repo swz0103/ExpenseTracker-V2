@@ -212,6 +212,8 @@ void main() {
       'not json',
       [],
       {...json, 'extra': 1},
+      {...json, 'version': 3},
+      // The second layout needs its passphrase field.
       {...json, 'version': 2},
       {...json, 'id': 'ABC'},
       {...json, 'backupKeys': []},
@@ -225,7 +227,7 @@ void main() {
       final text = value is String ? value : jsonEncode(value);
       // Only another format version is unsupported; anything else is
       // malformed.
-      final newer = value is Map && value['version'] == 2;
+      final newer = value is Map && value['version'] == 3;
       expect(
         () => Keyring.parse(text),
         _fails(

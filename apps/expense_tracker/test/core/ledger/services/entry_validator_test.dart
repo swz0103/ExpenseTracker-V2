@@ -1,5 +1,5 @@
 import 'package:expense_tracker/src/core/ledger/models/models.dart';
-import 'package:expense_tracker/src/core/ledger/services/entry_validation_failure.dart';
+import 'package:ledger_entries/rules.dart';
 import 'package:expense_tracker/src/core/messages/validation_messages.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -210,5 +210,5 @@ void main() {
   });
 }
 
-String? _messageOf(EntryValidationFailure? failure) =>
+String? _messageOf(RecordIssue? failure) =>
     failure == null ? null : validationMessage(failure);

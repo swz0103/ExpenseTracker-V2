@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../../../../design_system/display/amount.dart';
 import '../../../../core/design_system/theme.dart';
 import '../../../../core/design_system/design_system.dart';
 import '../../../../core/ledger/ledger.dart';
@@ -208,7 +209,7 @@ class _DailySectionState extends State<DailySection> {
         ),
       ),
       const SizedBox(width: Space.s2),
-      Text('$count 筆', style: mutedSmall),
+      Text(countOf(count, CountUnit.entries), style: mutedSmall),
       const Spacer(),
       // Shrinks a little rather than overflows when the phone's text
       // is large; with its largest, on a line of its own.
@@ -400,7 +401,11 @@ class _DayCards extends StatelessWidget {
     final (icon, mark) = entryMark(ledger, e);
     final tone = entryTone(e);
     final currency = ledger.account(e.account).currency;
-    final amount = ledger.orDots(entryAmount(e, currency: currency));
+    final amount = entrySpoken(
+      e,
+      currency: currency,
+      hidden: ledger.amounts.hidden,
+    );
     return SizedBox(
       width: 84,
       child: ColorCard(

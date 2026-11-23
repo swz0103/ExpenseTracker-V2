@@ -95,7 +95,8 @@ void main() {
   }) async {
     final header = await LedgerBackup.readHeader(file);
     final unlocked =
-        using ?? await codec.unlockWithPassword(header.keyring, password);
+        using ??
+        await codec.unlockWithRecovery(header.keyring, keys.recoveryCode);
     final target = open();
     addTearDown(target.close);
     await LedgerBackup.restore(
@@ -120,7 +121,10 @@ void main() {
       files: {'lunch.etr': photo},
     );
     final header = await LedgerBackup.readHeader(file);
-    final unlocked = await codec.unlockWithPassword(header.keyring, password);
+    final unlocked = await codec.unlockWithRecovery(
+      header.keyring,
+      keys.recoveryCode,
+    );
     final target = open();
     addTearDown(target.close);
     final back = <String, List<int>>{};
@@ -245,10 +249,10 @@ void main() {
     final file = await backup();
     final original = frames(file);
     final header = String.fromCharCodes(original[1]);
-    expect(header, contains('"version":3'));
+    expect(header, contains('"version":4'));
     writeFrames(file, [
       original[0],
-      header.replaceFirst('"version":3', '"version":4').codeUnits,
+      header.replaceFirst('"version":4', '"version":5').codeUnits,
       ...original.skip(2),
     ]);
     await expectLater(

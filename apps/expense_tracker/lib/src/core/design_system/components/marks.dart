@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../controls.dart';
 import '../glyphs.dart';
 import '../haptics.dart';
@@ -242,10 +243,22 @@ class LegendKey extends StatelessWidget {
 
 /// A small rounded label, such as 「結餘率 66%」.
 class Pill extends StatelessWidget {
-  const Pill(this.text, {super.key, this.color = AppColors.accent});
+  const Pill(
+    this.text, {
+    super.key,
+    this.color = AppColors.accent,
+    this.amount,
+    this.hidden = false,
+  });
 
   final String text;
   final Color color;
+
+  /// An amount with a sign written in [text], read out with its
+  /// direction in words rather than the sign ([readOut]); dots, read as
+  /// hidden, while [hidden].
+  final int? amount;
+  final bool hidden;
 
   @override
   Widget build(BuildContext context) {
@@ -260,6 +273,10 @@ class Pill extends StatelessWidget {
       ),
       child: Text(
         text,
+        semanticsLabel: switch (amount) {
+          final amount? => readOut(text, amount, hidden: hidden),
+          null => null,
+        },
         maxLines: 1,
         softWrap: false,
         style: TextStyle(fontSize: TextSize.caption, color: color),

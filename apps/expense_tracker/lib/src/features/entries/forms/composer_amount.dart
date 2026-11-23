@@ -27,6 +27,17 @@ extension _Amount on _ComposerState {
       unit: unit ?? currencyLabel(_f.currency),
       value:
           '${_f.sign}${unit == null ? figuresIn(_f.amount, _f.currency) : amountIn(_f.amount, _f.currency)}',
+      spoken: spokenAmount(
+        _f.amount,
+        currency: _f.currency,
+        sense: _f.amount == 0
+            ? AmountSense.plain
+            : switch (_f.type) {
+                EntryType.expense || EntryType.buy => AmountSense.spending,
+                EntryType.transfer => AmountSense.plain,
+                _ => AmountSense.income,
+              },
+      ),
       color: _color,
       empty: _f.amount == 0,
       // Only while editing: an entry looked at shows no calculator.

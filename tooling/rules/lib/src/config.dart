@@ -29,7 +29,22 @@ const scanRoots = [
   'packages/core/test',
   'packages/domain/lib',
   'packages/domain/test',
+  ledgerDir,
 ];
+
+/// The subject packages of the ledger, `<ledgerDir>/<subject>/` each with
+/// `lib/{model,rules,calc}/` and `test/`. Pure (rule A4); every file of
+/// their `lib/` needs a test (rule C1a).
+const ledgerDir = 'packages/ledger';
+
+/// The ledger subject package [path] belongs to, as
+/// `packages/ledger/<subject>`, or null.
+String? ledgerPackageOf(String path) {
+  const prefix = '$ledgerDir/';
+  if (!path.startsWith(prefix)) return null;
+  final subject = path.substring(prefix.length).split('/').first;
+  return subject.isEmpty ? null : '$prefix$subject';
+}
 
 /// Pure packages (rule A4) and the tests they must have (rule C1a).
 const purePackages = ['packages/core', 'packages/domain'];
@@ -50,10 +65,11 @@ const impurePrefixes = ['package:flutter/', 'dart:io', 'dart:ui', 'dart:ffi'];
 /// call `DateTime.now()` (rule A4).
 const clockFiles = ['packages/core/lib/src/app_core/clock.dart'];
 
-/// Owners of number formatting and parsing (rule B2).
+/// Owners of number formatting and parsing (rule B2): the amount parser,
+/// figures and percentages of core, and how the app shows them.
 const numberFormatOwners = [
   'packages/core/lib',
-  '$appLib/src/core/formatting/',
+  '$appLib/design_system/display/',
 ];
 
 /// Owners of "now" (rule B3): the time folder and the composition roots.

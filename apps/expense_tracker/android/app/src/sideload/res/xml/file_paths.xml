@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Where the camera writes a receipt photo before it is made smaller,
+     and where a newer version waits for Android's installer. This file
+     replaces main's, which has the first path only (the play build). -->
+<paths>
+    <cache-path name="camera" path="camera/" />
+    <cache-path name="updates" path="updates/" />
+</paths>

@@ -7,7 +7,9 @@ import 'package:vault/backup_security.dart';
 import '../../backup/model/drive_backup.dart';
 import '../../backup/model/restore_sources.dart';
 import '../../../core/platform/startup.dart';
-import '../model/unlock_failure.dart';
+import '../../../core/design_system/dialogs.dart';
+import '../../../core/messages/key_failures.dart';
+import '../../../core/messages/key_messages.dart';
 import 'views/lock_parts.dart';
 import 'views/recovery_view.dart';
 import 'views/restore_view.dart';
@@ -90,6 +92,14 @@ class _LockScreenState extends State<LockScreen> {
 
   /// When the chosen backup was taken and what it holds.
   String? _about;
+
+  /// What the chosen backup says of itself, before any key; null until
+  /// one that can be read is chosen.
+  BackupFacts? _chosen;
+
+  /// A backup without the password's slot (all since version 4) opens
+  /// only with its recovery code or backup passphrase.
+  bool get _codeOnly => _restoring && _chosen?.keyring.hasPassword == false;
 
   /// The backup Android brought back, offered on the welcome.
   ({DateTime at, int rows})? _found;
@@ -219,27 +229,47 @@ class _LockScreenState extends State<LockScreen> {
 
   Future<void> _submit() async {
     final secret = _password.text;
+    final startup = widget.startup;
+    final recovery = _recovery || _codeOnly;
+    // Replacing this phone's ledger with less: both are shown, and the
+    // restore goes on only once confirmed.
+    final current = startup.replacedLedger;
+    final chosen = _chosen;
+    if (_restoring &&
+        current != null &&
+        chosen != null &&
+        backupIsOlder(chosen, current)) {
+      final ok = await confirm(
+        context,
+        KeyWords.olderBackup,
+        KeyWords.restoreAnyway,
+        danger: true,
+        body: olderBackupWarning(chosen, current),
+      );
+      if (!ok || !mounted) return;
+    }
     setState(() {
       _busy = true;
       _problem = null;
     });
-    final startup = widget.startup;
     try {
       if (_restoring) {
         await startup.restore(
           _file.text.trim(),
-          _recovery ? secret.trim() : secret,
-          recovery: _recovery,
+          recovery ? secret.trim() : secret,
+          recovery: recovery,
         );
         _forgetPicked();
         return;
       }
-      await (_recovery
+      await (recovery
           ? startup.unlockWithRecovery(secret.trim())
           : startup.unlockWithPassword(secret));
     } on Object catch (error) {
-      // Said to the person by its kind (unlockFailure).
-      _fail(unlockFailure(error, recovery: _recovery));
+      // Said to the person by its kind, in words.
+      _fail(
+        describeUnlockFailure(error, recovery: recovery) ?? _unforeseen(error),
+      );
     }
   }
 
@@ -256,22 +286,25 @@ class _LockScreenState extends State<LockScreen> {
     await _describe(path);
   }
 
-  /// Says when the backup at [path] was taken and how many records it
-  /// holds, before its password is asked for.
+  /// Says when the backup at [path] was taken, how many records it holds
+  /// and what opens it, before that is asked for.
   Future<void> _describe(String path) async {
     String about;
+    BackupFacts? chosen;
     try {
       final header = await widget.startup.peek(path);
-      final at = header.createdAt.toLocal();
-      String two(int n) => n.toString().padLeft(2, '0');
-      about =
-          '${formatYMd(at)} ${two(at.hour)}:${two(at.minute)}'
-          ' 的備份 · ${header.rows} 筆資料';
+      chosen = header;
+      about = describeBackup(header);
     } on Object {
       // A file that is not a backup is said so.
       about = '這個檔案不是記帳本的備份';
     }
-    if (mounted) setState(() => _about = about);
+    if (mounted) {
+      setState(() {
+        _about = about;
+        _chosen = chosen;
+      });
+    }
   }
 
   /// Lists the backups in 記帳本備份 on Google Drive, after Google's
@@ -331,10 +364,11 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   /// Chooses the ledger as it was before an earlier restore from
-  /// settings, kept on this phone: a way back from the wrong backup.
+  /// settings, kept on this phone: a way back from the wrong backup. Each
+  /// is named by when its backup was taken, as its header says.
   Future<void> _pickKept() async {
-    final kept = widget.startup.keptBeforeRestore();
-    if (kept.isEmpty) return;
+    final kept = await widget.startup.keptLedgers();
+    if (kept.isEmpty || !mounted) return;
     final chosen = await showModalBottomSheet<File>(
       context: context,
       builder: (context) => SafeArea(
@@ -342,9 +376,16 @@ class _LockScreenState extends State<LockScreen> {
           shrinkWrap: true,
           children: [
             const ListTile(title: Text('還原前自動留下的帳本')),
-            for (final file in kept)
+            for (final (file, header) in kept)
               ListTile(
-                title: Text(_fileLabel(file)),
+                title: Text(
+                  keptLabel(
+                    header,
+                    broughtBack: file.uri.pathSegments.last.startsWith(
+                      'brought-back',
+                    ),
+                  ),
+                ),
                 onTap: () => Navigator.of(context).pop(file),
               ),
           ],
@@ -358,12 +399,6 @@ class _LockScreenState extends State<LockScreen> {
     await _describe(chosen.path);
   }
 
-  static String _fileLabel(File file) {
-    final at = file.lastModifiedSync();
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${formatYMd(at)} ${two(at.hour)}:${two(at.minute)} 留下';
-  }
-
   static String _driveLabel(DriveFile file) {
     final at = file.modified.toLocal();
     String two(int n) => n.toString().padLeft(2, '0');
@@ -372,6 +407,13 @@ class _LockScreenState extends State<LockScreen> {
         : ' · ${(file.size / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${formatYMd(at)} '
         '${two(at.hour)}:${two(at.minute)}$size';
+  }
+
+  /// A failure not foreseen: noted for diagnostics, said without its own
+  /// words.
+  static String _unforeseen(Object error) {
+    ErrorLog.instance.record(KeyWords.unforeseenHeading, error);
+    return KeyWords.unforeseen(ErrorLog.describe(error));
   }
 
   void _fail(String problem) {
@@ -441,14 +483,19 @@ class _LockScreenState extends State<LockScreen> {
     if (_splash) return LockSplash(onDone: _opened);
     final Widget form;
     if (_restoring) {
+      final chosen = _chosen;
       form = RestoreView(
         file: _file,
         secret: _password,
-        recovery: _recovery,
+        recovery: _recovery || _codeOnly,
         busy: _busy,
         problem: _problem,
         onSubmit: _submit,
-        onToggleRecovery: _toggleRecovery,
+        onToggleRecovery: _codeOnly ? null : _toggleRecovery,
+        hint: chosen == null ? KeyWords.restoreHint : restoreNeeds(chosen),
+        codeLabel: chosen?.keyring.hasPassphrase ?? false
+            ? KeyWords.recoveryOrPassphrase
+            : KeyWords.recoveryCode,
         onPickFile: widget.sources.pickFile == null ? null : _pickBackup,
         onPickDrive: widget.sources.drive == null ? null : _pickDrive,
         onBack: _back,
@@ -460,6 +507,10 @@ class _LockScreenState extends State<LockScreen> {
             : null,
       );
     } else if (_recovery) {
+      final passphrase = switch (widget.startup.state) {
+        Locked(:final passphrase) => passphrase,
+        _ => false,
+      };
       form = RecoveryView(
         code: _password,
         busy: _busy,
@@ -467,6 +518,12 @@ class _LockScreenState extends State<LockScreen> {
         onSubmit: _submit,
         onPassword: _toggleRecovery,
         onBack: _back,
+        hint: passphrase
+            ? KeyWords.recoveryOrPassphraseHint
+            : KeyWords.recoveryHint,
+        codeLabel: passphrase
+            ? KeyWords.recoveryOrPassphrase
+            : KeyWords.recoveryCode,
       );
     } else {
       form = UnlockView(

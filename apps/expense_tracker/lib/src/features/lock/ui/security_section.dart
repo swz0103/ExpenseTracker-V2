@@ -5,6 +5,7 @@ import '../../../core/design_system/dialogs.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
+import '../../../core/messages/key_messages.dart';
 import '../../../core/messages/problem_messages.dart';
 import '../../../core/platform/screen_privacy.dart';
 import '../../../core/design_system/recovery_code.dart';
@@ -14,8 +15,8 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 
-/// 安全: four cards: the password, the recovery code, hiding the screens,
-/// and locking the ledger now.
+/// 安全: the password, the recovery code, the backup passphrase, hiding
+/// the screens, resetting the keys, and locking the ledger now.
 class SecuritySection extends StatefulWidget {
   const SecuritySection({super.key, this.backupManager, this.privacy});
 
@@ -27,52 +28,137 @@ class SecuritySection extends StatefulWidget {
 }
 
 class _SecuritySectionState extends State<SecuritySection> {
+  /// Sets or changes the password. Every problem (the two new ones differ,
+  /// the new one is against the rule, the current one is wrong) is said in
+  /// the panel, with what was typed kept.
   Future<void> _changePassword(BackupManager backupManager) async {
     final first = !backupManager.hasPassword;
-    final passwords = await showPanel<(String, String)>(
+    final done = await showPanel<bool>(
       context,
-      (_) => _PasswordPanel(first: first),
+      (_) => _SecretPanel(
+        glyph: Glyph.key,
+        color: SettingsColors.password,
+        title: first ? KeyWords.setPassword : KeyWords.changePassword,
+        detail: first
+            ? backupManager.passwordRule
+            : '${backupManager.passwordRule}。${KeyWords.passwordScope}',
+        askCurrent: !first,
+        action: first ? KeyWords.set : KeyWords.change,
+        actionKey: Keys.changePassword,
+        refuse: backupManager.refusePassword,
+        submit: (current, next) => first
+            ? backupManager.setPassword(next)
+            : backupManager.changePassword(current, next),
+      ),
     );
-    if (passwords == null) return;
-    final (current, next) = passwords;
-    try {
-      if (first) {
-        await backupManager.setPassword(next);
+    if (done != true || !mounted) return;
+    if (first) {
+      try {
         // A ledger started without a password has had no code to show yet.
         final code = await backupManager.newRecoveryCode();
         if (mounted) {
-          await showRecoveryCode(context, code, why: '密碼設好了。忘記密碼時，只有它能打開帳本');
+          await showRecoveryCode(context, code, why: KeyWords.passwordFirstWhy);
         }
-      } else {
-        await backupManager.changePassword(current, next);
+      } on Object catch (error) {
+        ErrorLog.instance.record('變更密碼', error);
+        if (mounted) {
+          showNote(context, '${KeyWords.notReplaced}${describeProblem(error)}');
+        }
       }
-      if (mounted) setState(() {});
-      if (mounted) showNote(context, first ? '已設定密碼' : '密碼已變更');
-    } on Object catch (error) {
-      // A wrong or weak password is said to the person, by its kind.
-      if (!mounted) return;
-      final wrong = '$error'.contains('wrongSecret');
-      final weak = '$error'.contains('weakPassword');
-      showNote(
-        context,
-        wrong
-            ? '目前的密碼不正確'
-            : weak
-            ? '新密碼至少要 6 個字'
-            : '無法變更密碼（${ErrorLog.describe(error)}）',
-      );
     }
+    if (!mounted) return;
+    setState(() {});
+    showNote(context, first ? KeyWords.passwordSet : KeyWords.passwordChanged);
   }
 
   Future<void> _newRecovery(BackupManager backupManager) async {
-    final ok = await confirm(context, '換一組新的？舊的會立刻失效', '更換');
+    final ok = await confirm(
+      context,
+      KeyWords.recoveryConfirm,
+      KeyWords.replace,
+    );
     if (!ok) return;
     try {
       final code = await backupManager.newRecoveryCode();
       if (mounted) await showRecoveryCode(context, code);
     } on Object catch (error) {
       ErrorLog.instance.record('變更密碼', error);
-      if (mounted) showNote(context, '沒有換成：${describeProblem(error)}');
+      if (mounted) {
+        showNote(context, '${KeyWords.notReplaced}${describeProblem(error)}');
+      }
+    }
+  }
+
+  /// Sets the backup passphrase, or, when one is set, sets another or
+  /// stops using it.
+  Future<void> _passphrase(BackupManager backupManager) async {
+    final has = backupManager.hasBackupPassphrase;
+    final done = await showPanel<bool>(
+      context,
+      (context) => _SecretPanel(
+        glyph: Glyph.safe,
+        color: SettingsColors.backup,
+        title: KeyWords.passphrase,
+        detail: '${KeyWords.passphraseWhy}${backupManager.passwordRule}。',
+        askCurrent: false,
+        action: KeyWords.set,
+        refuse: backupManager.refusePassword,
+        submit: (_, next) => backupManager.setBackupPassphrase(next),
+        extra: has
+            ? PanelButton(
+                KeyWords.remove,
+                onTap: () => Navigator.of(context).pop(false),
+              )
+            : null,
+      ),
+    );
+    if (!mounted || done == null) return;
+    if (done) {
+      setState(() {});
+      showNote(context, KeyWords.passphraseSet);
+      return;
+    }
+    final ok = await confirm(
+      context,
+      KeyWords.passphraseRemove,
+      KeyWords.remove,
+    );
+    if (!ok) return;
+    try {
+      await backupManager.removeBackupPassphrase();
+      if (!mounted) return;
+      setState(() {});
+      showNote(context, KeyWords.passphraseRemoved);
+    } on Object catch (error) {
+      ErrorLog.instance.record('備份密碼', error);
+      if (mounted) showNote(context, _said(error));
+    }
+  }
+
+  /// Says what resetting the keys does and does not, asks for the current
+  /// password when there is one, then resets: the app opens the ledger
+  /// afresh and shows the new recovery code.
+  Future<void> _resetKeys(BackupManager backupManager) async {
+    final done = await showPanel<bool>(
+      context,
+      (_) => _SecretPanel(
+        glyph: Glyph.shield,
+        color: SettingsColors.warning,
+        title: KeyWords.reset,
+        detail: KeyWords.resetWhy,
+        askCurrent: backupManager.hasPassword,
+        askNew: false,
+        action: KeyWords.resetGo,
+        actionKey: Keys.resetGo,
+        refuse: backupManager.refusePassword,
+        submit: (current, _) =>
+            backupManager.resetKeys(backupManager.hasPassword ? current : null),
+      ),
+    );
+    // The ledger opened afresh on its new keys: the pages over the old
+    // one go, so nothing is left working on the closed one.
+    if (done == true && mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
 
@@ -96,9 +182,15 @@ class _SecuritySectionState extends State<SecuritySection> {
         SettingCard(
           key: Keys.password,
           glyph: Glyph.key,
-          color: SettingsColors.password,
+          color: backupManager.passwordBelowRule
+              ? SettingsColors.warning
+              : SettingsColors.password,
           title: '密碼',
-          detail: backupManager.hasPassword ? '已設定 · 點了變更' : '還沒設定 · 點了設定',
+          detail: !backupManager.hasPassword
+              ? '還沒設定 · 點了設定'
+              : backupManager.passwordBelowRule
+              ? KeyWords.passwordBelowRule
+              : '已設定 · 點了變更',
           onTap: () => _changePassword(backupManager),
         ),
         SettingCard(
@@ -107,6 +199,16 @@ class _SecuritySectionState extends State<SecuritySection> {
           title: '救援碼',
           detail: '忘記密碼、換手機用',
           onTap: () => _newRecovery(backupManager),
+        ),
+        SettingCard(
+          key: Keys.passphrase,
+          glyph: Glyph.safe,
+          color: SettingsColors.backup,
+          title: KeyWords.passphrase,
+          detail: backupManager.hasBackupPassphrase
+              ? KeyWords.passphraseOn
+              : KeyWords.passphraseOff,
+          onTap: () => _passphrase(backupManager),
         ),
       ],
       if (privacy != null)
@@ -122,6 +224,15 @@ class _SecuritySectionState extends State<SecuritySection> {
           onChanged: (on) => _hideScreen(privacy, on),
           onTap: () => _hideScreen(privacy, !privacy.on),
         ),
+      if (backupManager != null)
+        SettingCard(
+          key: Keys.resetKeys,
+          glyph: Glyph.shield,
+          color: SettingsColors.warning,
+          title: KeyWords.reset,
+          detail: KeyWords.resetDetail,
+          onTap: () => _resetKeys(backupManager),
+        ),
       if (backupManager != null && backupManager.hasPassword)
         SettingCard(
           key: Keys.lockNow,
@@ -135,23 +246,56 @@ class _SecuritySectionState extends State<SecuritySection> {
   }
 }
 
-/// Asks for the current password and a new one twice; returns the
-/// current and the new one.
-class _PasswordPanel extends StatefulWidget {
-  const _PasswordPanel({required this.first});
+/// Asks for a secret to set (twice), the current password first when
+/// [askCurrent], or only the current password when not [askNew]. The
+/// panel itself calls [submit] and stays open with every field as typed
+/// when something is wrong, saying what under the fields: the new ones
+/// differ, a new one is against the password rule, the current one is
+/// wrong. Pops true once [submit] went through.
+class _SecretPanel extends StatefulWidget {
+  const _SecretPanel({
+    required this.glyph,
+    required this.color,
+    required this.title,
+    required this.detail,
+    required this.askCurrent,
+    required this.action,
+    required this.submit,
+    required this.refuse,
+    this.askNew = true,
+    this.actionKey,
+    this.extra,
+  });
 
-  /// Setting a password on a ledger that has none: nothing to confirm.
-  final bool first;
+  final Glyph glyph;
+  final Color color;
+  final String title;
+  final String detail;
+  final bool askCurrent;
+  final bool askNew;
+  final String action;
+  final Key? actionKey;
+
+  /// Does the change with the current and the new secret; throws when it
+  /// cannot ([KeyRefused] says why in words).
+  final Future<void> Function(String current, String next) submit;
+
+  /// Why a new secret cannot be set, or null (the password rule).
+  final String? Function(String secret) refuse;
+
+  /// Another button beside the main one, such as 停用.
+  final Widget? extra;
 
   @override
-  State<_PasswordPanel> createState() => _PasswordPanelState();
+  State<_SecretPanel> createState() => _SecretPanelState();
 }
 
-class _PasswordPanelState extends State<_PasswordPanel> {
+class _SecretPanelState extends State<_SecretPanel> {
   final _current = TextEditingController();
   final _next = TextEditingController();
   final _again = TextEditingController();
   String? _problem;
+  var _busy = false;
 
   @override
   void dispose() {
@@ -161,17 +305,39 @@ class _PasswordPanelState extends State<_PasswordPanel> {
     super.dispose();
   }
 
-  void _submit() {
-    if (_next.text != _again.text) {
-      setState(() => _problem = '兩次輸入的新密碼不一樣');
-      return;
+  Future<void> _submit() async {
+    if (_busy) return;
+    if (widget.askNew) {
+      if (_next.text != _again.text) {
+        setState(() => _problem = KeyWords.mismatch);
+        return;
+      }
+      if (widget.refuse(_next.text) case final refusal?) {
+        setState(() => _problem = refusal);
+        return;
+      }
     }
-    Navigator.of(context).pop((_current.text, _next.text));
+    setState(() {
+      _busy = true;
+      _problem = null;
+    });
+    try {
+      await widget.submit(_current.text, _next.text);
+      if (mounted) Navigator.of(context).pop(true);
+    } on Object catch (error) {
+      ErrorLog.instance.record(widget.title, error);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _problem = _said(error);
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    const color = SettingsColors.password;
+    final color = widget.color;
     Widget field(TextEditingController controller, String label) => Padding(
       padding: const EdgeInsets.only(bottom: Space.s2),
       child: Container(
@@ -201,30 +367,41 @@ class _PasswordPanelState extends State<_PasswordPanel> {
         ),
       ),
     );
-    final first = widget.first;
+    final extra = widget.extra;
     return CenterPanel(
-      glyph: Glyph.key,
+      glyph: widget.glyph,
       color: color,
-      title: first ? '設定密碼' : '變更密碼',
-      detail: '至少 6 個字',
+      title: widget.title,
+      detail: widget.detail,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!first) field(_current, '目前的密碼'),
-          field(_next, '新密碼'),
-          field(_again, '再輸入一次'),
+          if (widget.askCurrent) field(_current, KeyWords.currentPassword),
+          if (widget.askNew) ...[
+            field(_next, KeyWords.newPassword),
+            field(_again, KeyWords.again),
+          ],
           if (_problem case final problem?) Text(problem, style: dangerText),
         ],
       ),
       actions: [
-        PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
         PanelButton(
-          first ? '設定' : '變更',
-          key: Keys.changePassword,
+          Words.cancel,
+          onTap: _busy ? null : () => Navigator.of(context).pop(),
+        ),
+        ?extra,
+        PanelButton(
+          widget.action,
+          key: widget.actionKey,
           color: color,
-          onTap: _submit,
+          onTap: _busy ? null : _submit,
         ),
       ],
     );
   }
 }
+
+/// What the person is told of [error]: the keys' own words when they
+/// refused, general ones otherwise.
+String _said(Object error) =>
+    error is KeyRefused ? error.message : KeyWords.notDone;

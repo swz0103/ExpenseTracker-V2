@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:core/percent/percent.dart' show divideRounded;
+
 import '../../../core/ledger/ledger.dart';
 import 'report_period.dart';
 import '../../../core/formatting/dates.dart';
@@ -74,6 +76,12 @@ final class Report {
         if (!b.ahead) i,
     ];
     final peak = _peakOf(buckets, passed);
+    // The average counts whole stretches only: the month (or week) still
+    // running would pull it down as if it were a whole one.
+    final whole = [
+      for (final (i, (_, _, end)) in stretches.indexed)
+        if (end.isBefore(today)) buckets[i].expense,
+    ];
     // The ledger's own sum keeps the categories in the order it always
     // has, so equal amounts keep their places.
     final spending = reports.spendingBetween(from, to);
@@ -90,7 +98,11 @@ final class Report {
       lastExpense: lastExpense,
       buckets: buckets,
       peak: peak,
-      perStretch: passed.isEmpty ? 0 : expense ~/ passed.length,
+      perStretch: whole.isNotEmpty
+          ? divideRounded(whole.fold(0, (sum, x) => sum + x), whole.length)
+          : passed.isEmpty
+          ? 0
+          : expense,
       worthBefore: balances.netWorthAt(from.subtract(const Duration(days: 1))),
       worthNow: balances.netWorthAt(until),
       worth: [
@@ -127,6 +139,10 @@ final class Report {
 
   /// The stretch that spent the most, of those begun.
   final int? peak;
+
+  /// Spending per stretch over the stretches already over, rounded half
+  /// away from zero; while none is over, what the one under way has
+  /// spent so far.
   final int perStretch;
   final int worthBefore;
   final int worthNow;

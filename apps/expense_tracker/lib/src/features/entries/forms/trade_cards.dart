@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:ledger_trade_costs/rules/instruments.dart' show isEtf;
 
+import '../../../core/messages/amount_messages.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
@@ -277,8 +279,8 @@ String shortHoldingName(Holding h) {
   ];
   var short = name;
   // Only a fund is named for its house; a company such as 中信金 is not
-  // 金. Taiwan's exchange-traded funds are the codes that start with 00.
-  for (final house in h.code.startsWith('00') ? houses : const <String>[]) {
+  // 金.
+  for (final house in isEtf(h.code) ? houses : const <String>[]) {
     if (short.startsWith(house) && short.length > house.length) {
       short = short.substring(house.length);
       break;
@@ -395,11 +397,15 @@ class TradeOutcomeCard extends StatelessWidget {
     required this.sub,
     required this.color,
     this.value,
+    this.spokenValue,
   });
 
   final String title;
   final String sub;
   final String? value;
+
+  /// What a screen reader says for [value]: its direction in words.
+  final String? spokenValue;
   final Color color;
 
   @override
@@ -434,6 +440,7 @@ class TradeOutcomeCard extends StatelessWidget {
           if (figure != null)
             Text(
               figure,
+              semanticsLabel: spokenValue,
               style: TextStyle(
                 fontSize: TextSize.large,
                 fontWeight: FontWeight.w700,
@@ -478,6 +485,8 @@ class SettlementRow extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: Space.s1),
     child: Text(
       sign,
+      // Read as a word: a screen reader may skip the sign itself.
+      semanticsLabel: spokenSign(sign),
       style: const TextStyle(
         fontSize: TextSize.title,
         fontWeight: FontWeight.w700,

@@ -1,3 +1,5 @@
+import 'package:ledger_entries/rules.dart' show RecordIssue;
+
 import '../cache/topic.dart';
 import '../models/models.dart';
 import '../persistence/write_batch.dart';
@@ -18,7 +20,13 @@ import 'command_exceptions.dart';
 
 /// Writes the entries: adding, changing, removing and bringing them back,
 /// one at a time, as a group or many at once; each change is kept as one
-/// batch. A change that would sell shares not held is refused.
+/// batch. Nothing is written that the ledger's write rules refuse
+/// ([EntryValidator]), whoever writes it: [add], [save], [addAll],
+/// [replaceAll] and the rest throw a [RecordRefused] before anything
+/// changes, and a [SharesShort] when a later sale would be left short of
+/// shares. Taking entries away and bringing them back, which undo and the
+/// trash do with no form to answer, tell the same problems through
+/// [CommandContext.problem] instead.
 final class EntryCommands {
   EntryCommands({
     required this._context,
@@ -57,14 +65,9 @@ final class EntryCommands {
   final EntryQueryService _entryQueries;
   final EntryValidator _validator;
 
-  /// Adds [entry], with its receipt photo [receipt] when one is given; a
-  /// sale of more shares than are held is refused with a [StateError].
-  void add(Entry entry, {String? receipt}) {
-    _entries.add(entry);
-    _replayOrUndo(() => _entries.removeLast(), trades: entry.isInvestment);
-    if (receipt != null) _receipts.set(entry.id, receipt);
-    _context.keep(WriteBatch(entries: [entry], receipts: {entry.id: ?receipt}));
-  }
+  /// Adds [entry], with its receipt photo [receipt] when one is given.
+  void add(Entry entry, {String? receipt}) =>
+      save([entry], receipt: receipt, receiptOn: entry.id);
 
   /// Adds every one of [entries] at once, with the [accounts] and
   /// [categories] they bring, as an import does: all of it is kept
@@ -75,6 +78,7 @@ final class EntryCommands {
     List<Category> categories = const [],
   }) {
     if (entries.isEmpty && accounts.isEmpty && categories.isEmpty) return;
+    _check(entries, opening: accounts);
     final count = _entries.length;
     _entries.addAll(entries);
     _replayOrUndo(
@@ -97,24 +101,17 @@ final class EntryCommands {
 
   /// Puts [entry] in place of the entry with the same id, with the receipt
   /// photo [receipt] (null takes it away).
-  void replace(Entry entry, {String? receipt}) {
-    final index = _entries.indexWhere((e) => e.id == entry.id);
-    if (index < 0) return add(entry, receipt: receipt);
-    final before = _entries[index];
-    _entries[index] = entry;
-    _replayOrUndo(
-      () => _entries[index] = before,
-      trades: entry.isInvestment || before.isInvestment,
-    );
-    final photo = _receipts.set(entry.id, receipt);
-    _context.keep(
-      WriteBatch(entries: [entry], receipts: {if (photo) entry.id: receipt}),
-    );
-  }
+  void replace(Entry entry, {String? receipt}) => save(
+    [entry],
+    replacing: [entry.id],
+    receipt: receipt,
+    receiptOn: entry.id,
+  );
 
   /// Puts each of [entries] in place of the one with the same id, as one
   /// change; those the ledger does not hold are left out.
   void replaceAll(List<Entry> entries) {
+    _check(entries, replacing: entries.map((e) => e.id));
     final before = <int, Entry>{};
     for (final e in entries) {
       final index = _entries.indexWhere((x) => x.id == e.id);
@@ -133,19 +130,25 @@ final class EntryCommands {
     );
   }
 
-  /// Puts [entries], written as one, in place of the entries [was] held:
-  /// those kept are changed, new ones added and the rest taken away (not
-  /// to the trash: they are part of the same change), with the receipt
-  /// photo [receipt] on [receiptOn].
-  void replaceGroup(
-    List<Entry> entries,
-    Iterable<String> was, {
+  /// Keeps what a form wrote: [entries], written as one, in place of the
+  /// entries [replacing] held (none for a new entry). Those kept are
+  /// changed, new ones added and the rest taken away (not to the trash:
+  /// they are part of the same change), with the receipt photo [receipt]
+  /// on [receiptOn], all in one batch.
+  void save(
+    List<Entry> entries, {
+    Iterable<String> replacing = const [],
     String? receipt,
     String? receiptOn,
   }) {
+    final was = {...replacing};
+    _check(entries, replacing: was);
     final before = List.of(_entries.all);
     final ids = {for (final e in entries) e.id};
     final gone = {...was}..removeAll(ids);
+    final trades =
+        entries.any((e) => e.isInvestment) ||
+        before.any((e) => was.contains(e.id) && e.isInvestment);
     _entries.removeWhere((e) => gone.contains(e.id));
     for (final e in entries) {
       final index = _entries.indexWhere((x) => x.id == e.id);
@@ -159,7 +162,7 @@ final class EntryCommands {
       () => _entries
         ..clear()
         ..addAll(before),
-      trades: entries.any((e) => e.isInvestment),
+      trades: trades,
     );
     final photos = <String, String?>{};
     for (final id in {...was, ...ids}) {
@@ -243,6 +246,7 @@ final class EntryCommands {
     if (removed.isEmpty) return true;
     final ids = {for (final e in removed) e.id};
     if (_entries.any((e) => ids.contains(e.id))) return false;
+    if (!_tryCheck(removed)) return false;
     // Back as the latest written, which is where the data source keeps a
     // record written again: the order is the same after a restart.
     _entries.addAll(removed);
@@ -270,6 +274,7 @@ final class EntryCommands {
   /// [CommandContext.problem], when it no longer fits the trades kept since.
   bool restore(Entry entry) {
     if (_entries.byId(entry.id) != null) return false;
+    if (!_tryCheck([entry])) return false;
     // Back as the latest written, as in [restoreAll].
     _entries.add(entry);
     if (!_tryReplay(() => _entries.remove(entry), trades: entry.isInvestment)) {
@@ -310,6 +315,7 @@ final class EntryCommands {
                 _entries.byId(t.entry.id) == null))
           t,
     ];
+    if (!_tryCheck([for (final t in back) t.entry])) return false;
     final before = _trash.all;
     _trash.removeAll(back);
     final count = _entries.length;
@@ -334,7 +340,8 @@ final class EntryCommands {
   }
 
   /// Puts the spending or income among [entries] under [name]. Splits,
-  /// refunds and entries of the other kind keep their own.
+  /// refunds, entries of the other kind and those the ledger would refuse
+  /// (kept by an older version, before a rule) keep their own.
   int recategorize(Iterable<Entry> entries, String name) {
     final income = _categories.byName(name).income;
     final changed = [
@@ -342,7 +349,8 @@ final class EntryCommands {
         if (_plain(e) &&
             e.parts.isEmpty &&
             e.category != name &&
-            (e.type == EntryType.income) == income)
+            (e.type == EntryType.income) == income &&
+            _validator.validate(e.withCategory(name), replacing: e) == null)
           e.withCategory(name),
     ];
     replaceAll(changed);
@@ -350,28 +358,28 @@ final class EntryCommands {
   }
 
   /// Moves the spending and income among [entries] to [id], an account in
-  /// the same currency. Refunded spending, instalment purchases off a card
-  /// and entries the ledger would refuse stay where they are.
+  /// the same currency. Refunded spending and entries the ledger would
+  /// refuse there, such as instalment purchases off a card, stay where
+  /// they are.
   int moveToAccount(Iterable<Entry> entries, String id) {
     final into = _accounts.resolve(id);
     final moved = <Entry>[];
     for (final e in [...entries]) {
       if (!_plain(e) || e.account == id) continue;
       if (_accounts.resolve(e.account).currency != into.currency) continue;
-      if (e.installments > 1 && into.kind != AccountKind.card) continue;
       if (e.type == EntryType.expense &&
           _entryQueries.refundable(e) != e.amount) {
         continue;
       }
-      final next = e.withAccount(id);
-      if (_validator.validate(next, replacing: e) != null) continue;
-      moved.add(next);
-      // What was paid in it for others went from the same account.
-      for (final m in _entryQueries.groupOf(e)) {
-        if (m.type == EntryType.transfer && m.account == e.account) {
-          moved.add(m.withAccount(id));
-        }
-      }
+      // With what was paid in it for others, from the same account.
+      final group = [
+        (e, e.withAccount(id)),
+        for (final m in _entryQueries.groupOf(e))
+          if (m.type == EntryType.transfer && m.account == e.account)
+            (m, m.withAccount(id)),
+      ];
+      if (group.any((g) => _refusals(g.$2, replacing: g.$1) != null)) continue;
+      moved.addAll([for (final (_, next) in group) next]);
     }
     replaceAll(moved);
     return moved.length;
@@ -409,14 +417,21 @@ final class EntryCommands {
     _context.keep(unit.batch);
   }
 
-  /// Renames or merges a merchant across every entry; an empty [to]
-  /// clears it.
+  /// Renames or merges a merchant across every entry, and the recurring
+  /// items that book it, so the next booking writes the new name; an
+  /// empty [to] clears it.
   void renameMerchant(String from, String to) {
     final unit = UnitOfWork();
     Entry? renamed(Entry e) =>
         e.merchant == from ? e.withLabels(merchant: to) : null;
     unit.registerAllDirty(_entries.changeAll(renamed));
     unit.registerAllDirty(_trash.changeEntries(renamed));
+    final items = [
+      for (final r in _recurring.all)
+        if (r.merchant == from) r.copyWith(merchant: to),
+    ];
+    _recurring.replaceExisting(items);
+    unit.registerAllDirty(items);
     _context.changed(Topic.all);
     _context.keep(unit.batch);
   }
@@ -461,9 +476,61 @@ final class EntryCommands {
     return changed.values.toList();
   }
 
+  /// Refuses [entries] with a [RecordRefused] when the write rules find
+  /// any wrong: each checked in place of the entry of its id that the
+  /// ledger holds when [replacing] names it, with the accounts [opening]
+  /// brings. Shares are checked by replaying the trades afterwards.
+  void _check(
+    Iterable<Entry> entries, {
+    Iterable<String> replacing = const [],
+    Iterable<Account> opening = const [],
+  }) {
+    final replaced = {...replacing};
+    final errors = [
+      for (final e in entries)
+        ...?_refusals(
+          e,
+          replacing: replaced.contains(e.id) ? _entries.byId(e.id) : null,
+          opening: opening,
+        ),
+    ];
+    if (errors.isNotEmpty) throw RecordRefused(errors);
+  }
+
+  /// The errors the write rules find with [e]; null when none.
+  List<RecordIssue>? _refusals(
+    Entry e, {
+    Entry? replacing,
+    Iterable<Account> opening = const [],
+  }) {
+    final errors = [
+      for (final issue in _validator.issues(
+        e,
+        replacing: replacing,
+        holdings: false,
+        opening: opening,
+      ))
+        if (issue.isError) issue,
+    ];
+    return errors.isEmpty ? null : errors;
+  }
+
+  /// [_check] for [back], coming back from the trash or an undo, telling a
+  /// refusal through [CommandContext.report]; false when refused.
+  bool _tryCheck(List<Entry> back) {
+    try {
+      _check(back);
+      return true;
+    } on RecordRefused catch (refused) {
+      // Said to the person through problem.
+      _context.report(refused);
+      return false;
+    }
+  }
+
   /// Works the holdings out again when [trades] were touched, then tells
   /// the screens the entries changed; an oversold trade is undone and
-  /// rethrown.
+  /// refused with a [SharesShort].
   void _replayOrUndo(void Function() undo, {bool trades = true}) {
     if (trades) {
       try {
@@ -471,21 +538,21 @@ final class EntryCommands {
       } on StateError {
         undo();
         _holdings.replay(_entries.all);
-        rethrow;
+        throw SharesShort();
       }
     }
     _context.changed(const {Topic.entries});
   }
 
-  /// [_replayOrUndo], telling a refusal through [CommandContext.problem] rather than
-  /// throwing; false when refused.
+  /// [_replayOrUndo], telling a refusal through [CommandContext.report]
+  /// rather than throwing; false when refused.
   bool _tryReplay(void Function() undo, {required bool trades}) {
     try {
       _replayOrUndo(undo, trades: trades);
       return true;
-    } on StateError {
+    } on SharesShort catch (short) {
       // Said to the person through problem.
-      _context.problem.value = const SharesShort();
+      _context.report(short);
       _context.changed(Topic.all);
       return false;
     }

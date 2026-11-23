@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:core/money/amount_parser.dart' show parseDecimal;
 import 'package:flutter/foundation.dart' show Listenable;
 import 'package:market/market_data.dart';
 
@@ -130,10 +131,8 @@ final class MarketFeed extends SyncJob implements PriceHistory {
         if (otc) _otc.add(code);
         return [
           for (final c in value)
-            (
-              DateTime.utc(c.date.year, c.date.month, c.date.day),
-              double.parse(c.decimalPrice),
-            ),
+            if (parseDecimal(c.decimalPrice) case final price?)
+              (DateTime.utc(c.date.year, c.date.month, c.date.day), price),
         ];
       }
       if (result.state == MarketState.failed) return null;

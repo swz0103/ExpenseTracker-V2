@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/dialogs.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
@@ -165,7 +165,7 @@ class _TagsPageState extends State<TagsPage> {
   Widget _merchantCard(String name, int count) => ColorCard(
     color: nameColor(name),
     radius: Radii.large,
-    label: '$name，$count 次',
+    label: '$name，${countOf(count, CountUnit.times)}',
     onTap: () => widget.nav.open(AppRoutes.merchant(name)),
     padding: const EdgeInsets.symmetric(
       horizontal: Space.s4,
@@ -188,7 +188,7 @@ class _TagsPageState extends State<TagsPage> {
           ),
           const SizedBox(width: Space.s2),
           Text(
-            '$count 次',
+            countOf(count, CountUnit.times),
             style: TextStyle(
               fontSize: TextSize.caption,
               color: deepOf(nameColor(name)),
@@ -276,7 +276,7 @@ class _Half extends StatelessWidget {
     final ink = chosen ? chosenInk(color) : deepOf(color);
     return ReadAsButton(
       selected: chosen,
-      label: '$label $count 個',
+      label: '$label ${countOf(count, CountUnit.pieces)}',
       onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -344,7 +344,7 @@ class _Step extends StatelessWidget {
   Widget build(BuildContext context) {
     final ink = deepOf(color);
     return ReadAsButton(
-      label: '$name，去過 $count 次',
+      label: '$name，去過 ${countOf(count, CountUnit.times)}',
       onTap: onTap,
       child: GestureDetector(
         onTap: onTap,
@@ -461,7 +461,7 @@ class TagSummaryCard extends StatelessWidget {
           ),
           Text(
             '${project.days > 1 ? '每天約 ${ledger.orDots(groupDigits(project.perDay))} · ' : ''}'
-            '${project.entries.length} 筆',
+            '${countOf(project.entries.length, CountUnit.entries)}',
             style: TextStyle(
               fontSize: TextSize.body,
               fontWeight: FontWeight.w700,

@@ -27,6 +27,37 @@ void main() {
     dataSource: _Nowhere(),
   );
 
+  test('a blank name is said, in the words of the rule (F68)', () {
+    final form = AccountForm(book())..name = '   ';
+    expect(form.problem, '請輸入帳戶名稱');
+    expect(form.save(), isFalse);
+  });
+
+  group('ACC-05: a credit limit is read with the one parser', () {
+    AccountForm card(String limit) => AccountForm(book())
+      ..kind = AccountKind.card
+      ..name = '卡'
+      ..limit = limit;
+
+    test('80,000 and 80000.0 are 80,000', () {
+      expect(card('80,000').build().limit, 80000);
+      expect(card('80000.0').build().limit, 80000);
+      expect(card('80,000').limitProblem, isNull);
+    });
+    test('left empty, there is no limit and nothing is wrong', () {
+      expect(card('').build().limit, isNull);
+      expect(card('').limitProblem, isNull);
+      expect(card('').problem, isNull);
+    });
+    test('what is not a limit is said so, and is not saved as none', () {
+      final form = card('8萬');
+      expect(form.limitProblem, '不是有效的金額');
+      expect(form.problem, '不是有效的金額');
+      expect(form.save(), isFalse);
+      expect(card('80000.5').limitProblem, '小數位數比這個幣別多');
+    });
+  });
+
   test('a new account needs a name and opens at the balance typed', () {
     final ledger = book();
     final form = AccountForm(ledger);

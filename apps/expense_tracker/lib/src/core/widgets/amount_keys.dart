@@ -1,48 +1,13 @@
+import 'package:core/money/amount_parser.dart';
+import 'package:core/money/amount_sum.dart';
+
+export 'package:core/money/amount_parser.dart' show AmountResult;
+
 /// Works out `12+3×4−5÷2` with × and ÷ before + and −. Returns null for
-/// an expression that cannot be read, such as a trailing operator.
-double? evaluate(String expression) {
-  final tokens = <String>[];
-  final number = StringBuffer();
-  for (final char in expression.split('')) {
-    if ('+−×÷'.contains(char)) {
-      if (number.isEmpty) return null;
-      tokens
-        ..add(number.toString())
-        ..add(char);
-      number.clear();
-    } else {
-      number.write(char);
-    }
-  }
-  if (number.isEmpty) return tokens.isEmpty ? 0 : null;
-  tokens.add(number.toString());
-  final terms = <double>[];
-  final signs = <String>[];
-  final first = double.tryParse(tokens.first);
-  if (first == null) return null;
-  var current = first;
-  for (var i = 1; i < tokens.length; i += 2) {
-    final op = tokens[i];
-    final value = double.tryParse(tokens[i + 1]);
-    if (value == null) return null;
-    if (op == '×') {
-      current = current * value;
-    } else if (op == '÷') {
-      if (value == 0) return null;
-      current = current / value;
-    } else {
-      terms.add(current);
-      signs.add(op);
-      current = value;
-    }
-  }
-  terms.add(current);
-  var result = terms.first;
-  for (var i = 0; i < signs.length; i++) {
-    result = signs[i] == '+' ? result + terms[i + 1] : result - terms[i + 1];
-  }
-  return result;
-}
+/// an expression that cannot be read, such as a trailing operator, or
+/// one that divides by zero. Worked out exactly; the double is only the
+/// nearest to the exact value.
+double? evaluate(String expression) => evaluateSum(expression)?.toDouble();
 
 /// What the amount keys have typed so far: digits and the four
 /// operations, worked out as they are typed. Shared by the calculator
@@ -66,13 +31,28 @@ final class AmountKeys {
   /// What the expression comes to so far; null while it cannot be read.
   double? get value => evaluate(expression);
 
-  /// The amount to keep: a sum left open, such as 120+, counts what was
-  /// typed; whole units, or two decimals with [decimal].
+  /// The decimals the amount is kept to.
+  int get scale => decimal ? 2 : 0;
+
+  /// The amount to keep, in minor units of [scale] (whole NT$, or
+  /// cents with [decimal]), or why there is none: a sum left open, such
+  /// as 120+, counts what was typed; one that divides by zero, comes to
+  /// less than zero or more than 999,999,999 is refused, never changed
+  /// into another amount.
+  AmountResult get amount =>
+      evaluateAmount(expression.replaceAll(_trailing, ''), scale: scale);
+
+  /// [amount] for a caller that cannot refuse: whole units, or two
+  /// decimals with [decimal]; a refused amount becomes 0, or the limit
+  /// when it is too large. The calculator sheet uses [amount] instead,
+  /// so what it shows is what it keeps.
   num get result {
-    final worked = evaluate(expression.replaceAll(_trailing, '')) ?? 0;
-    return decimal
-        ? double.parse(worked.clamp(0, 99999999).toStringAsFixed(2))
-        : worked.round().clamp(0, 999999999);
+    final minor = switch (amount) {
+      AmountOk(:final minor) => minor,
+      AmountRefused(problem: AmountProblem.tooLarge) => maxMinorUnits(scale),
+      AmountRefused() => 0,
+    };
+    return decimal ? minor / 100 : minor;
   }
 
   /// Takes one key: a digit, `00`, `000`, `.`, an operation, `C` to clear

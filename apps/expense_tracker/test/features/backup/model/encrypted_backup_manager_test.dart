@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
+import 'package:expense_tracker/src/features/backup/model/backup_manager.dart';
 import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
@@ -64,7 +65,7 @@ void main() {
 
   test('a backup restores on another device', () async {
     final first = startupIn('first');
-    await first.setUp(password);
+    final code = await first.setUp(password);
     expect(first.takeRecoveryCode(), isNotNull);
     expect(first.takeRecoveryCode(), isNull);
     final dataSource = SqlLedgerDataSource(vaultOf(first).store, clock: clock);
@@ -116,7 +117,8 @@ void main() {
     final second = startupIn('second');
     expect(second.state, isA<NeedsSetup>());
     expect(File(path).existsSync(), isFalse);
-    await second.restore(weekly!, password);
+    // A backup opens with its recovery code, not the app password.
+    await second.restore(weekly!, code, recovery: true);
     final restored = await SqlLedgerDataSource(
       vaultOf(second).store,
       clock: clock,
@@ -136,7 +138,9 @@ void main() {
     final backupManager = EncryptedBackupManager(startup, vault);
     await expectLater(
       backupManager.changePassword('not the password at all', changed),
-      throwsA(isA<KeyringException>()),
+      throwsA(
+        isA<KeyRefused>().having((e) => e.message, 'message', '目前的密碼不正確'),
+      ),
     );
     await backupManager.changePassword(password, changed);
     final newCode = await backupManager.newRecoveryCode();
@@ -155,11 +159,11 @@ void main() {
       throwsA(isA<KeyringException>()),
     );
     await startup.unlockWithRecovery(newCode);
-    // The code opened it; from now on it opens by itself, as without a
-    // password, until one is set again.
-    expect(startup.passwordless, isTrue);
+    // The code opened it; the password stays until a new one is set.
+    expect(startup.passwordless, isFalse);
+    expect(startup.needsNewPassword, isTrue);
     startup.lock();
-    await startup.openQuietly();
+    await startup.unlockWithPassword(changed);
     expect(startup.state, isA<Ready>());
     startup.lock();
   });
@@ -219,7 +223,7 @@ void main() {
   test('the copy for Android\'s backup is written once per change, '
       'without the photos, and restores', () async {
     final startup = startupIn('cloud');
-    await startup.setUp(password);
+    final code = await startup.setUp(password);
     final vault = vaultOf(startup);
     final backupManager = EncryptedBackupManager(startup, vault);
     final dataSource = SqlLedgerDataSource(vault.store, clock: clock);
@@ -254,7 +258,7 @@ void main() {
     await backupManager.lock();
 
     final phone = startupIn('new-phone');
-    await phone.restore(copy, password);
+    await phone.restore(copy, code, recovery: true);
     expect(phone.state, isA<Ready>());
     expect(
       Directory('${phone.directory.path}/receipts').existsSync(),

@@ -73,6 +73,80 @@ void main() {
     expect(amount.style?.color, AppColors.muted);
   });
 
+  test('F06: shares are counted with thousands commas', () {
+    final split = Entry(
+      id: 'split',
+      date: day,
+      type: EntryType.dividend,
+      amount: 0,
+      account: 'bank',
+      category: '股息',
+      holding: '0050',
+      shares: 21000,
+      split: true,
+    );
+    final buy = Entry(
+      id: 'buy',
+      date: day,
+      type: EntryType.buy,
+      amount: 1000,
+      account: 'bank',
+      category: '投資',
+      holding: '0050',
+      shares: 1500,
+    );
+    final ledger = book();
+    expect(entryDetail(ledger, split), '0050 · 分割 21,000 股');
+    expect(entryDetail(ledger, buy), '0050 · 1,500 股 · 銀行');
+  });
+
+  testWidgets('F107: the amount is read out with its direction', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    final ledger = book();
+    await show(tester, ledger, lunch);
+    // 1,000 spent less 300 given back: read 支出 700 元, not −700.
+    expect(find.bySemanticsLabel(RegExp('支出 700 元')), findsWidgets);
+    expect(find.bySemanticsLabel(RegExp('−700')), findsNothing);
+    handle.dispose();
+  });
+
+  test('a trade shows what reached or left the account', () {
+    Entry trade(EntryType type, int amount, {int fee = 0, int tax = 0}) =>
+        Entry(
+          id: type.name,
+          date: day,
+          type: type,
+          amount: amount,
+          account: 'bank',
+          holding: '2330',
+          shares: type == EntryType.dividend ? 0 : 1000,
+          fee: fee,
+          tax: tax,
+        );
+    // A sale of 100,000 less 85 fee and 300 tax: 99,615 came in.
+    expect(
+      entryAmount(trade(EntryType.sell, 100000, fee: 85, tax: 300)),
+      '+99,615',
+    );
+    // A dividend of 25,000 less the 528 premium: 24,472 came in.
+    expect(entryAmount(trade(EntryType.dividend, 25000, tax: 528)), '+24,472');
+    // A buy of 100,000 with an 85 fee: 100,085 left.
+    expect(entryAmount(trade(EntryType.buy, 100000, fee: 85)), '−100,085');
+    // A capital reduction returns its 40,000 whole.
+    final reduction = Entry(
+      id: 'r',
+      date: day,
+      type: EntryType.dividend,
+      amount: 40000,
+      account: 'bank',
+      holding: '2330',
+      shares: -500,
+    );
+    expect(entryAmount(reduction), '+40,000');
+  });
+
   test('a holding without a name is shown by its code once', () {
     const named = Holding(
       '2330',

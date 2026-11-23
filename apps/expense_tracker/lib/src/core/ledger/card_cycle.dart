@@ -18,6 +18,12 @@ extension CardBilling on Account {
   /// keeps them.
   CardSchedule get schedule => _schedules[this] ??= _scheduleOf(this);
 
+  /// Whether the statement scheduled to close on [scheduled] may close on
+  /// [closesOn] instead: a close the schedule has, moved a week at most
+  /// and still before the payment.
+  bool canMoveClose(DateTime scheduled, DateTime closesOn) =>
+      _override(schedule, scheduled, closesOn) != null;
+
   /// The last statement closing on or before [day].
   DateTime closingOn(DateTime day) => _utc(schedule.lastCloseOn(_day(day)));
 
@@ -108,27 +114,11 @@ CardSchedule _scheduleOf(Account a) {
       if (keep == 0) rethrow;
     }
   }
-  final overrides = <CardCycleOverride>[];
-  for (final MapEntry(key: scheduled, value: closesOn) in a.closes.entries) {
-    try {
-      final close = _day(scheduled);
-      final override = CardCycleOverride(
-        scheduledClose: close,
-        closesOn: _day(closesOn),
-        dueOn: plain.datesOf(close).$2,
-      );
-      CardSchedule(
-        closingDay: plain.closingDay,
-        dueDay: plain.dueDay,
-        history: plain.history,
-        overrides: [override],
-      );
-      overrides.add(override);
-    } on CreditCardException {
-      // A change the card's schedule refuses is left out.
-      continue;
-    }
-  }
+  // A change the card's schedule refuses is left out.
+  final overrides = [
+    for (final MapEntry(key: scheduled, value: closesOn) in a.closes.entries)
+      ?_override(plain, scheduled, closesOn),
+  ];
   return overrides.isEmpty
       ? plain
       : CardSchedule(
@@ -137,6 +127,33 @@ CardSchedule _scheduleOf(Account a) {
           history: plain.history,
           overrides: overrides,
         );
+}
+
+/// The statement of [plain] scheduled to close on [scheduled] closing on
+/// [closesOn] instead; null when the schedule cannot hold it.
+CardCycleOverride? _override(
+  CardSchedule plain,
+  DateTime scheduled,
+  DateTime closesOn,
+) {
+  try {
+    final close = _day(scheduled);
+    final override = CardCycleOverride(
+      scheduledClose: close,
+      closesOn: _day(closesOn),
+      dueOn: plain.datesOf(close).$2,
+    );
+    CardSchedule(
+      closingDay: plain.closingDay,
+      dueDay: plain.dueDay,
+      history: plain.history,
+      overrides: [override],
+    );
+    return override;
+  } on CreditCardException {
+    // A close the schedule cannot hold: none.
+    return null;
+  }
 }
 
 BusinessDate _day(DateTime d) => BusinessDate(d.year, d.month, d.day);

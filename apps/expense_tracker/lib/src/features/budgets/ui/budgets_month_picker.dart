@@ -81,11 +81,14 @@ class _MonthPickerState extends State<_MonthPicker> {
         key((_year, m)) <= key(widget.last);
     final sums = budgetMonthOf(widget.ledger, (_year, m));
     final total = sums.total;
-    final share = total == 0 ? null : sums.spent * 100 ~/ total;
+    // Over is decided by the amounts: 50,174 of 50,000 is over, though
+    // its rounded share is 100%.
+    final over = total != 0 && isOver(sums.spent, total);
+    final share = total == 0 ? null : percent(sums.spent, total);
     final chosen = (_year, m) == widget.chosen;
     final tone = share == null
         ? AppColors.muted
-        : share > 100
+        : over
         ? AppColors.negative
         : share >= 90
         ? AppColors.goldText
@@ -122,7 +125,7 @@ class _MonthPickerState extends State<_MonthPicker> {
                 Text(
                   !on || share == null
                       ? ' '
-                      : share > 100
+                      : over
                       ? '超支'
                       : '$share%',
                   style: TextStyle(

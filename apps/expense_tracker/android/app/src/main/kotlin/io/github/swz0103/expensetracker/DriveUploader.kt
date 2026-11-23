@@ -63,6 +63,9 @@ internal class DriveUploader(private val context: Context) {
             try {
                 connection.connectTimeout = 20_000
                 connection.readTimeout = 300_000
+                // A redirect would carry the token and the backup on to
+                // wherever it points: none is followed.
+                connection.instanceFollowRedirects = false
                 // HttpURLConnection has no PATCH; Google takes the override.
                 if (method == "PATCH") {
                     connection.requestMethod = "POST"
@@ -157,6 +160,8 @@ internal class DriveUploader(private val context: Context) {
                 .toString(),
         )
         val location = start.location ?: throw Refused(0, "no upload address")
+        // The backup and the token go only to Google's own upload host.
+        if (!isGoogleUpload(location)) throw Refused(0, "upload address")
         send("PUT", location, mapOf("Content-Type" to "application/octet-stream"), file = file)
         try {
             prune(parent, ledger)
@@ -192,11 +197,23 @@ internal class DriveUploader(private val context: Context) {
         }
     }
 
-    private companion object {
-        const val DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file"
-        const val FOLDER = "記帳本備份"
-        const val FOLDER_TYPE = "application/vnd.google-apps.folder"
-        const val API = "https://www.googleapis.com/drive/v3/files"
-        const val UPLOAD = "https://www.googleapis.com/upload/drive/v3/files"
+    internal companion object {
+        /** Whether [location] is Google's own upload address, over HTTPS. */
+        fun isGoogleUpload(location: String): Boolean {
+            val uri = try {
+                java.net.URI(location)
+            } catch (e: Exception) {
+                return false
+            }
+            val host = uri.host?.lowercase() ?: return false
+            return uri.scheme == "https" &&
+                (host == "googleapis.com" || host.endsWith(".googleapis.com"))
+        }
+
+        private const val DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file"
+        private const val FOLDER = "記帳本備份"
+        private const val FOLDER_TYPE = "application/vnd.google-apps.folder"
+        private const val API = "https://www.googleapis.com/drive/v3/files"
+        private const val UPLOAD = "https://www.googleapis.com/upload/drive/v3/files"
     }
 }

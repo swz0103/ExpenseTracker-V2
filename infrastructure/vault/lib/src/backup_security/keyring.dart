@@ -7,10 +7,24 @@ import 'package:cryptography/cryptography.dart';
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
 import 'errors.dart';
+import 'password_policy.dart';
 import 'recovery_code.dart';
 
 const _format = 'ExpenseTracker-keyring';
+
+/// The layout without a backup passphrase and with a password slot, which
+/// every keyring had before backups stopped carrying the password.
 const _version = 1;
+
+/// The layout whose password slot may be empty (a keyring taken out in a
+/// backup) and which may hold a backup passphrase slot. Written only when
+/// the first layout cannot hold the keyring, so a keyring that fits it
+/// stays byte for byte what older versions read.
+const _versionWithPassphrase = 2;
+
+/// Bound into every box's associated data. It names the first layout and
+/// never changes, so boxes sealed then still open.
+const _aadVersion = 1;
 const _maxKeyringCharacters = 256 * 1024;
 const _maxDevices = 8;
 const _maxBackupEpochs = 1000;
@@ -77,6 +91,16 @@ final class _PasswordSlot {
   final _Box box;
 }
 
+/// A backup passphrase: its own Argon2id parameters, as it may be set at
+/// another time than the password.
+final class _PassphraseSlot {
+  const _PassphraseSlot(this.kdf, this.salt, this.box);
+
+  final String kdf;
+  final List<int> salt;
+  final _Box box;
+}
+
 final class _DeviceSlot {
   const _DeviceSlot(this.id, this.blob);
 
@@ -88,14 +112,16 @@ final class _DeviceSlot {
 /// next to the database or inside a backup.
 ///
 /// A random master key is wrapped by every unlock slot (password, recovery
-/// code, devices). The master key wraps the database key and each backup
-/// key epoch, so changing a password or recovery code rewrites one slot and
-/// never touches the data.
+/// code, backup passphrase, devices). The master key wraps the database key
+/// and each backup key epoch, so changing a password or recovery code
+/// rewrites one slot and never touches the data; [UnlockedKeyring.reset]
+/// replaces the keys themselves.
 final class Keyring {
   const Keyring._({
     required this.id,
     required this.kdf,
     required this._password,
+    required this._passphrase,
     required this._recovery,
     required this._devices,
     required this._database,
@@ -114,20 +140,29 @@ final class Keyring {
     } on FormatException {
       throw const KeyringException(KeyringError.invalidFormat);
     }
-    final root = _object(decoded, const {
+    if (decoded is! Map<String, Object?>) {
+      throw const KeyringException(KeyringError.invalidFormat);
+    }
+    if (decoded['format'] != _format) {
+      throw const KeyringException(KeyringError.invalidFormat);
+    }
+    final version = decoded['version'];
+    if (version != _version && version != _versionWithPassphrase) {
+      throw const KeyringException(KeyringError.unsupportedVersion);
+    }
+    final second = version == _versionWithPassphrase;
+    final root = _object(decoded, {
       'format',
       'version',
       'id',
       'kdf',
       'password',
+      if (second) 'passphrase',
       'recovery',
       'devices',
       'database',
       'backupKeys',
     });
-    if (root['format'] != _format || root['version'] != _version) {
-      throw const KeyringException(KeyringError.unsupportedVersion);
-    }
     final id = root['id'];
     final kdf = root['kdf'];
     if (id is! String || !RegExp(r'^[0-9a-f]{32}$').hasMatch(id)) {
@@ -136,7 +171,6 @@ final class Keyring {
     if (kdf is! String || kdf.length > 64) {
       throw const KeyringException(KeyringError.invalidFormat);
     }
-    final password = _object(root['password'], const {'salt', 'nonce', 'box'});
     final devices = root['devices'];
     final epochs = root['backupKeys'];
     if (devices is! List || devices.length > _maxDevices) {
@@ -150,13 +184,21 @@ final class Keyring {
         deviceSlots.length) {
       throw const KeyringException(KeyringError.invalidFormat);
     }
+    final password = second && root['password'] == null
+        ? null
+        : _readPassword(root['password']);
+    final passphrase = second && root['passphrase'] != null
+        ? _readPassphrase(root['passphrase'])
+        : null;
+    if (second && password != null && passphrase == null) {
+      // The first layout holds this keyring: it is never written so.
+      throw const KeyringException(KeyringError.invalidFormat);
+    }
     return Keyring._(
       id: id,
       kdf: kdf,
-      password: _PasswordSlot(
-        _bytes(password['salt'], 16),
-        _readBox(password, const {'salt', 'nonce', 'box'}),
-      ),
+      password: password,
+      passphrase: passphrase,
       recovery: _readBox(root['recovery']),
       devices: List.unmodifiable(deviceSlots),
       database: _readBox(root['database']),
@@ -167,8 +209,11 @@ final class Keyring {
   }
 
   final String id;
+
+  /// The parameters of the password slot.
   final String kdf;
-  final _PasswordSlot _password;
+  final _PasswordSlot? _password;
+  final _PassphraseSlot? _passphrase;
   final _Box _recovery;
   final List<_DeviceSlot> _devices;
   final _Box _database;
@@ -178,30 +223,66 @@ final class Keyring {
 
   int get currentBackupEpoch => _backupKeys.length;
 
-  String encode() => jsonEncode({
-    'format': _format,
-    'version': _version,
-    'id': id,
-    'kdf': kdf,
-    'password': {
-      'salt': base64.encode(_password.salt),
-      ..._password.box.toJson(),
-    },
-    'recovery': _recovery.toJson(),
-    'devices': [
-      for (final slot in _devices)
-        {'id': slot.id, 'blob': base64.encode(slot.blob)},
-    ],
-    'database': _database.toJson(),
-    'backupKeys': [
-      for (var i = 0; i < _backupKeys.length; i++)
-        {'epoch': i + 1, ..._backupKeys[i].toJson()},
-    ],
-  });
+  /// Whether the app password opens this keyring. A keyring taken out in
+  /// a backup has none ([exported]).
+  bool get hasPassword => _password != null;
+
+  /// Whether a backup passphrase opens this keyring.
+  bool get hasPassphrase => _passphrase != null;
+
+  /// This keyring as a backup carries it: without the password slot, which
+  /// a short password would let anyone holding the file guess offline, and
+  /// without the device slots, which open nothing elsewhere. The recovery
+  /// code (256 bits) and the backup passphrase, held to the full policy,
+  /// still open it.
+  Keyring get exported => Keyring._(
+    id: id,
+    kdf: kdf,
+    password: null,
+    passphrase: _passphrase,
+    recovery: _recovery,
+    devices: const [],
+    database: _database,
+    backupKeys: _backupKeys,
+  );
+
+  String encode() {
+    final password = _password;
+    final passphrase = _passphrase;
+    final first = password != null && passphrase == null;
+    return jsonEncode({
+      'format': _format,
+      'version': first ? _version : _versionWithPassphrase,
+      'id': id,
+      'kdf': kdf,
+      'password': password == null
+          ? null
+          : {'salt': base64.encode(password.salt), ...password.box.toJson()},
+      if (!first)
+        'passphrase': passphrase == null
+            ? null
+            : {
+                'kdf': passphrase.kdf,
+                'salt': base64.encode(passphrase.salt),
+                ...passphrase.box.toJson(),
+              },
+      'recovery': _recovery.toJson(),
+      'devices': [
+        for (final slot in _devices)
+          {'id': slot.id, 'blob': base64.encode(slot.blob)},
+      ],
+      'database': _database.toJson(),
+      'backupKeys': [
+        for (var i = 0; i < _backupKeys.length; i++)
+          {'epoch': i + 1, ..._backupKeys[i].toJson()},
+      ],
+    });
+  }
 
   Keyring _copyWith({
     String? kdf,
     _PasswordSlot? password,
+    _PassphraseSlot? Function()? passphrase,
     _Box? recovery,
     List<_DeviceSlot>? devices,
     List<_Box>? backupKeys,
@@ -209,11 +290,28 @@ final class Keyring {
     id: id,
     kdf: kdf ?? this.kdf,
     password: password ?? _password,
+    passphrase: passphrase == null ? _passphrase : passphrase(),
     recovery: recovery ?? _recovery,
     devices: List.unmodifiable(devices ?? _devices),
     database: _database,
     backupKeys: List.unmodifiable(backupKeys ?? _backupKeys),
   );
+
+  static _PasswordSlot _readPassword(Object? value) {
+    const keys = {'salt', 'nonce', 'box'};
+    final slot = _object(value, keys);
+    return _PasswordSlot(_bytes(slot['salt'], 16), _readBox(slot, keys));
+  }
+
+  static _PassphraseSlot _readPassphrase(Object? value) {
+    const keys = {'kdf', 'salt', 'nonce', 'box'};
+    final slot = _object(value, keys);
+    final kdf = slot['kdf'];
+    if (kdf is! String || kdf.length > 64) {
+      throw const KeyringException(KeyringError.invalidFormat);
+    }
+    return _PassphraseSlot(kdf, _bytes(slot['salt'], 16), _readBox(slot, keys));
+  }
 
   static _DeviceSlot _readDevice(Object? value) {
     final device = _object(value, const {'id', 'blob'});
@@ -286,6 +384,18 @@ final class CreatedKeyring {
   String toString() => 'CreatedKeyring(redacted)';
 }
 
+/// A keyring whose keys were all replaced ([UnlockedKeyring.reset]),
+/// with its new recovery code, to show once.
+final class ResetKeyring {
+  const ResetKeyring(this.unlocked, this.recoveryCode);
+
+  final UnlockedKeyring unlocked;
+  final String recoveryCode;
+
+  @override
+  String toString() => 'ResetKeyring(redacted)';
+}
+
 final class RotatedRecovery {
   const RotatedRecovery(this.unlocked, this.recoveryCode);
 
@@ -298,11 +408,20 @@ final class RotatedRecovery {
 
 /// Creates and opens keyrings.
 final class KeyringCodec {
+  /// [minimumPassword], when given, replaces the policy with the rule
+  /// before it (a length alone), for tools and tests that make the short
+  /// passwords older versions allowed; the app sets every password under
+  /// [PasswordPolicy.standard].
   KeyringCodec({
     this.kdf = PasswordKdf.standard,
-    this.minimumPassword = 12,
+    int? minimumPassword,
     this.retired = PasswordKdf.retired,
-  });
+  }) : policy = minimumPassword == null
+           ? PasswordPolicy.standard
+           : PasswordPolicy(
+               minimumLength: minimumPassword,
+               digitsOnlyAllowed: true,
+             );
 
   /// The parameters a password is set with.
   final PasswordKdf kdf;
@@ -318,8 +437,8 @@ final class KeyringCodec {
     return null;
   }
 
-  /// Minimum length in Unicode code points after NFC normalization.
-  final int minimumPassword;
+  /// What a password or backup passphrase must be to be set.
+  final PasswordPolicy policy;
 
   final _cipher = AesGcm.with256bits();
   final _random = Random.secure();
@@ -337,6 +456,7 @@ final class KeyringCodec {
         salt,
         await _seal(await _derive(normalized, salt), master, id, 'password'),
       ),
+      passphrase: null,
       recovery: await _seal(recoveryKey, master, id, 'recovery'),
       devices: const [],
       database: await _seal(master, _randomBytes(32), id, 'database'),
@@ -359,8 +479,25 @@ final class KeyringCodec {
       throw const KeyringException(KeyringError.unsupportedVersion);
     }
     final slot = keyring._password;
+    if (slot == null) throw const KeyringException(KeyringError.noSuchSlot);
     final key = await _derive(unorm.nfc(password), slot.salt, params);
     final master = await _open(key, slot.box, keyring.id, 'password');
+    return _unlocked(keyring, master);
+  }
+
+  /// Opens [keyring] with its backup passphrase.
+  Future<UnlockedKeyring> unlockWithPassphrase(
+    Keyring keyring,
+    String passphrase,
+  ) async {
+    final slot = keyring._passphrase;
+    if (slot == null) throw const KeyringException(KeyringError.noSuchSlot);
+    final params = _readable(slot.kdf);
+    if (params == null) {
+      throw const KeyringException(KeyringError.unsupportedVersion);
+    }
+    final key = await _derive(unorm.nfc(passphrase), slot.salt, params);
+    final master = await _open(key, slot.box, keyring.id, 'passphrase');
     return _unlocked(keyring, master);
   }
 
@@ -427,11 +564,24 @@ final class KeyringCodec {
   }
 
   String _checkedPassword(String password) {
-    final normalized = unorm.nfc(password);
-    if (normalized.runes.length < minimumPassword) {
-      throw const KeyringException(KeyringError.weakPassword);
+    final problem = policy.check(password);
+    if (problem != null) {
+      throw KeyringException(
+        KeyringError.weakPassword,
+        passwordProblem: problem,
+      );
     }
-    return normalized;
+    return PasswordPolicy.normalize(password);
+  }
+
+  Future<_PasswordSlot> _passwordSlot(
+    String normalized,
+    List<int> master,
+    String keyringId,
+  ) async {
+    final salt = _randomBytes(16);
+    final key = await _derive(normalized, salt);
+    return _PasswordSlot(salt, await _seal(key, master, keyringId, 'password'));
   }
 
   /// Stretches [normalized] with Argon2id on a worker isolate: tens of
@@ -535,14 +685,80 @@ final class UnlockedKeyring {
     return Uint8List.fromList(_backupKeys[epoch - 1]);
   }
 
+  /// Sets a new password, held to the codec's [PasswordPolicy]. It opens
+  /// this keyring from now on; a copy of the keyring kept before, such as
+  /// in an older backup, still opens with the old one ([reset] replaces
+  /// the keys themselves).
   Future<UnlockedKeyring> changePassword(String newPassword) async {
     final normalized = _codec._checkedPassword(newPassword);
+    final slot = await _codec._passwordSlot(normalized, _master, keyring.id);
+    // Set with the codec's parameters now, whatever the old slot used.
+    return _next(keyring._copyWith(kdf: _codec.kdf.id, password: slot));
+  }
+
+  /// Sets the backup passphrase, held to the codec's [PasswordPolicy]:
+  /// backups written from now on open with it as well as with the
+  /// recovery code.
+  Future<UnlockedKeyring> setPassphrase(String passphrase) async {
+    final normalized = _codec._checkedPassword(passphrase);
     final salt = _codec._randomBytes(16);
     final key = await _codec._derive(normalized, salt);
-    final box = await _codec._seal(key, _master, keyring.id, 'password');
-    // Set with the codec's parameters now, whatever the old slot used.
-    return _next(
-      keyring._copyWith(kdf: _codec.kdf.id, password: _PasswordSlot(salt, box)),
+    final box = await _codec._seal(key, _master, keyring.id, 'passphrase');
+    final slot = _PassphraseSlot(_codec.kdf.id, salt, box);
+    return _next(keyring._copyWith(passphrase: () => slot));
+  }
+
+  /// Drops the backup passphrase: backups written from now on open with
+  /// the recovery code alone.
+  UnlockedKeyring removePassphrase() =>
+      _next(keyring._copyWith(passphrase: () => null));
+
+  /// Replaces every key: a new master key and database key, the backup
+  /// keys of earlier epochs wrapped again under the new master key and a
+  /// new epoch for the backups to come, a new recovery code, and
+  /// [password] (the one in use, so it is not held to the policy) wrapped
+  /// afresh. Devices and the backup passphrase are dropped: they are set
+  /// up again. The keyring id stays, as the ledger is the same.
+  ///
+  /// A copy of the old keyring, as in an older backup, then opens only the
+  /// old keys: not this database once it is encrypted again with
+  /// [databaseKey], which the caller does (`LedgerVault.resetKeys`).
+  Future<ResetKeyring> reset({required String password}) async {
+    if (_backupKeys.length >= _maxBackupEpochs) {
+      throw const KeyringException(KeyringError.invalidFormat);
+    }
+    final codec = _codec;
+    final id = keyring.id;
+    final master = codec._randomBytes(32);
+    final database = codec._randomBytes(32);
+    final recoveryKey = codec._randomBytes(32);
+    final backupKeys = [..._backupKeys, codec._randomBytes(32)];
+    final next = Keyring._(
+      id: id,
+      kdf: codec.kdf.id,
+      password: await codec._passwordSlot(
+        PasswordPolicy.normalize(password),
+        master,
+        id,
+      ),
+      passphrase: null,
+      recovery: await codec._seal(recoveryKey, master, id, 'recovery'),
+      devices: const [],
+      database: await codec._seal(master, database, id, 'database'),
+      backupKeys: List.unmodifiable([
+        for (var i = 0; i < backupKeys.length; i++)
+          await codec._seal(master, backupKeys[i], id, 'backup:${i + 1}'),
+      ]),
+    );
+    return ResetKeyring(
+      UnlockedKeyring._(
+        codec,
+        next,
+        master,
+        database,
+        List.unmodifiable(backupKeys),
+      ),
+      await encodeRecoveryCode(recoveryKey),
     );
   }
 
@@ -610,7 +826,7 @@ final class UnlockedKeyring {
 }
 
 List<int> _aad(String keyringId, String purpose) =>
-    utf8.encode('$_format/$_version/$keyringId/$purpose');
+    utf8.encode('$_format/$_aadVersion/$keyringId/$purpose');
 
 String _hex(List<int> bytes) =>
     bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();

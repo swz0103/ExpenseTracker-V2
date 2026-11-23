@@ -1,7 +1,11 @@
 // Exception to models take what they use: the entry form is the page's
 // whole state and reads eleven parts of the ledger (ADR-0013).
 
-import '../../../core/formatting/amounts.dart';
+import 'package:core/money/price.dart' show timesPrice;
+import 'package:ledger_trade_costs/calc/settlement.dart';
+import 'package:ledger_trade_costs/model/trade_values.dart' show TradeKind;
+
+import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/validation_messages.dart';
 import 'invoices.dart';
@@ -50,6 +54,7 @@ final class ComposeForm {
     this.editing,
     this.draft,
     this.refunded,
+    this.brokerDiscount = defaultBrokerDiscount,
   }) {
     mode = ComposeMode.of(type);
     trade = type.index >= EntryType.buy.index ? type : EntryType.buy;
@@ -81,6 +86,10 @@ final class ComposeForm {
 
   /// The spending being refunded, for a refund.
   final Entry? refunded;
+
+  /// The broker's discount on the fee a trade suggests, in basis points of
+  /// the full fee: the preference 券商手續費折扣.
+  final int brokerDiscount;
 
   late ComposeMode mode;
   late EntryType trade;
@@ -150,8 +159,10 @@ final class ComposeForm {
   /// an entry that has them is opened, so a quick entry stays short.
   var more = false;
 
-  /// A trade's broker fee and tax as typed, or as it was saved; null
-  /// takes the suggestion.
+  /// A trade's broker fee and tax as the person typed them; null while
+  /// untouched, which takes the suggestion and so follows every change of
+  /// shares, price, stock or day. A saved value equal to what was
+  /// suggested for it is read as untouched.
   int? tradeFee;
   int? tradeTax;
 
@@ -184,8 +195,17 @@ final class ComposeForm {
     reduce = entry.isReduction;
     if (reduce) shares = -entry.shares;
     if (entry.type == EntryType.buy || entry.type == EntryType.sell) {
-      tradeFee = entry.fee;
-      tradeTax = entry.tax;
+      // Charges still at what the rules suggested were never typed: they
+      // follow the trade when it changes. Others were, and stay.
+      final (fee, tax) = _suggestedFor(
+        entry.type,
+        entry.holding ?? '',
+        entry.amount,
+        entry.shares,
+        entry.date,
+      );
+      tradeFee = entry.fee == fee ? null : entry.fee;
+      tradeTax = entry.tax == tax ? null : entry.tax;
     }
   }
 
@@ -445,39 +465,29 @@ final class ComposeForm {
   /// The premium withheld from the cash dividend being written.
   int get withheld => premium ?? dividendPremium(amount, date);
 
-  /// The broker's fee and tax the ledger's Taiwan rules suggest for the
-  /// trade being written.
-  (int, int) get suggested {
-    final tax = type == EntryType.sell
-        ? saleTax(holding ?? '', amount, shares, date)
-        : 0;
-    return (brokerFee(amount, shares), tax);
-  }
-
-  /// The trade's fee and tax: as typed, else as suggested.
-  (int, int) get charges {
-    if (type != EntryType.buy && type != EntryType.sell) return (0, 0);
-    final (fee, tax) = suggested;
-    return (tradeFee ?? fee, tradeTax ?? tax);
-  }
-
-  /// What a trade settles at: paid for a buy with its fee, received for a
-  /// sale less fee and tax.
-  int get settlement {
-    final (fee, tax) = charges;
-    return trade == EntryType.sell ? amount - fee - tax : amount + fee;
-  }
-
-  /// Why the entry cannot be kept yet; null when it can. The ledger's
-  /// own checks, and a split that must add up to the amount.
+  /// Why the entry cannot be kept yet; null when it can: the ledger's
+  /// write rules, which the save asks again, on the entry as it stands
+  /// (a split of one part included, though it is kept as no split).
   String? get problem {
     if (mode == ComposeMode.lend && to.isEmpty) return '請選擇代墊對象';
     if (lending) return _lendingProblem;
-    final found = ledger.entryValidator.validate(build(), replacing: editing);
-    if (found != null) return validationMessage(found);
-    final splitTotal = splitParts?.fold(0, (sum, p) => sum + p.$2);
-    if (splitTotal != null && splitTotal != amount) {
-      return '拆分的金額要等於總額（差 ${groupDigits(amount - splitTotal)}）';
+    final found = ledger.entryValidator.validate(
+      build(wholeSplit: true),
+      replacing: editing,
+    );
+    return found == null ? null : validationMessage(found);
+  }
+
+  /// What the ledger says before keeping the entry, which may still be
+  /// kept, such as a cash account left below nothing by buying shares;
+  /// null when nothing, or while [problem] stands.
+  String? get warning {
+    if (problem != null) return null;
+    for (final e in buildAll()) {
+      final was = ledger.entries.byId(e.id);
+      for (final issue in ledger.entryValidator.issues(e, replacing: was)) {
+        if (!issue.isError) return validationMessage(issue);
+      }
     }
     return null;
   }
@@ -534,8 +544,9 @@ final class ComposeForm {
     return [for (final e in made) e.inGroup(group)];
   }
 
-  /// The entry as the form now stands.
-  Entry build() {
+  /// The entry as the form now stands. A split of one part is kept as
+  /// none, unless [wholeSplit], for its part to be checked.
+  Entry build({bool wholeSplit = false}) {
     final kind = type;
     final split = splitParts;
     final (tradeFee, tradeTax) = charges;
@@ -567,7 +578,9 @@ final class ComposeForm {
       recurring: editing?.recurring ?? draft?.recurring,
       merchant: kind == EntryType.expense ? merchant : '',
       tags: kind == EntryType.expense || kind == EntryType.income ? tags : [],
-      parts: split != null && split.length > 1 ? split : const [],
+      parts: split != null && split.length > (wholeSplit ? 0 : 1)
+          ? split
+          : const [],
       fee: kind == EntryType.transfer ? (takesFee ? fee : 0) : tradeFee,
       tax: kind == EntryType.dividend ? (reducing ? 0 : withheld) : tradeTax,
       refundOf: refunded?.id ?? editing?.refundOf,

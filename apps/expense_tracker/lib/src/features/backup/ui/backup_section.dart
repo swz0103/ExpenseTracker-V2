@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../model/drive_backup.dart';
 import '../model/drive_sync.dart';
 import '../model/backup_manager.dart';
@@ -11,6 +12,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/messages/problem_messages.dart';
 import '../../../core/design_system/recovery_code.dart';
+import '../../../core/messages/backup_messages.dart';
 import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/formatting/dates.dart';
@@ -90,6 +92,8 @@ class _BackupSectionState extends State<BackupSection> {
           backupManager.hasPassword ? '已匯出備份檔' : '已匯出備份檔，還原時輸入你抄下的救援碼',
         );
       }
+      // The page says when the ledger was last backed up, this one too.
+      if (saved) setState(() {});
     } on Object catch (error) {
       ErrorLog.instance.record('匯出備份', error);
       if (mounted) showNote(context, '匯出失敗：${describeProblem(error)}');
@@ -298,6 +302,7 @@ class _BackupSectionState extends State<BackupSection> {
     final latest = _latest([
       if (linked) drive?.backedUp,
       if (folder) phone?.backedUp,
+      widget.backupManager.exportedAt,
     ]);
     return BackupHero(
       at: latest,
@@ -323,6 +328,8 @@ class _BackupSectionState extends State<BackupSection> {
                 : _unlinkDrive(drive),
       rows: [
         if (linked) ...[
+          if (drive.account case final account?)
+            _CardRow(color: color, title: BackupWords.account, detail: account),
           _CardRow(
             color: color,
             title: '上次備份',
@@ -428,7 +435,7 @@ class BackupHero extends StatelessWidget {
         (at == null
             ? '還沒有備份'
             : stale && days != null
-            ? '已經 $days 天沒備份'
+            ? '已經 ${countOf(days, CountUnit.days)}沒備份'
             : _BackupSectionState._when(at));
     return ColorCard(
       color: color,

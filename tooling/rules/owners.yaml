@@ -18,26 +18,25 @@ items:
     what: 金額的解析、進位、正負
     layer: core
     owner:
-      - packages/core/lib/src/foundation_values/money.dart
-      - apps/expense_tracker/lib/src/core/ledger/models/fixed_point.dart
-      - apps/expense_tracker/lib/src/core/formatting/amounts.dart
+      - packages/core/lib/money/
     target: packages/core/lib/money/
-    status: scattered
+    status: owned
   - id: currency-fx
     what: 幣別與匯率換算（含用哪一天的匯率）
     layer: core
     owner:
       - packages/core/lib/src/foundation_values/fx.dart
       - apps/expense_tracker/lib/src/core/ledger/repositories/market_data_repository.dart
+      - apps/expense_tracker/lib/src/core/ledger/models/fixed_point.dart
     target: packages/core/lib/fx/
     status: scattered
   - id: ratio-rounding
     what: 百分比與比例的進位
     layer: core
     owner:
-      - apps/expense_tracker/lib/src/core/formatting/figures.dart
+      - packages/core/lib/percent/
     target: packages/core/lib/percent/
-    status: scattered
+    status: owned
   - id: dates-periods
     what: 日期、年月、期間範圍
     layer: core
@@ -83,15 +82,14 @@ items:
     what: 資料是否合法
     layer: ledger
     owner:
-      - apps/expense_tracker/lib/src/core/ledger/services/entry_validator.dart
-      - apps/expense_tracker/lib/src/core/ledger/services/integrity_service.dart
+      - packages/ledger/entries/lib/rules
     target: packages/ledger/entries/lib/rules/
-    status: scattered
+    status: owned
   - id: income-expense-kinds
     what: 什麼算「支出」「收入」
     layer: ledger
     owner:
-      - apps/expense_tracker/lib/src/core/ledger/models/entry.dart
+      - packages/ledger/entries/lib/model/entry.dart
     target: packages/ledger/entries/lib/rules/
     status: scattered
   - id: balance-net-worth
@@ -106,17 +104,16 @@ items:
     what: 手續費、稅、交割金額
     layer: ledger
     owner:
-      - packages/domain/lib/src/investments/taiwan.dart
-      - apps/expense_tracker/lib/src/core/ledger/trading.dart
+      - packages/ledger/trade_costs/lib
     target: packages/ledger/trade_costs/lib/calc/
-    status: scattered
+    status: owned
   - id: installments-billing-cycle
     what: 分期排程與帳單週期
     layer: ledger
     owner:
       - packages/domain/lib/src/credit_cards/installments.dart
       - packages/domain/lib/src/credit_cards/card_billing.dart
-      - packages/domain/lib/src/loans/loan_plan.dart
+      - packages/ledger/loans/lib/calc/loan_plan.dart
       - apps/expense_tracker/lib/src/core/ledger/card_cycle.dart
     target: packages/ledger/installments/lib/calc/ + packages/ledger/card_cycles/lib/calc/
     status: scattered
@@ -306,15 +303,15 @@ items:
       - apps/expense_tracker/lib/src/core/widgets/entry_tile.dart
     target: apps/expense_tracker/lib/design_system/components/
     status: scattered
+  # core/widgets/shown_amounts.dart only passes a book's 隱藏金額 switch
+  # (core/ledger/amount_visibility.dart) on to display/.
   - id: amount-display
     what: 金額怎麼顯示、怎麼念
     layer: design_system
     owner:
-      - apps/expense_tracker/lib/src/core/formatting/amounts.dart
-      - apps/expense_tracker/lib/src/core/widgets/shown_amounts.dart
-      - apps/expense_tracker/lib/src/core/ledger/amount_visibility.dart
+      - apps/expense_tracker/lib/design_system/display/
     target: apps/expense_tracker/lib/design_system/display/
-    status: scattered
+    status: owned
   - id: date-display
     what: 日期怎麼顯示
     layer: design_system
@@ -381,10 +378,10 @@ items:
     what: 密碼政策與金鑰推導
     layer: data
     owner:
+      - infrastructure/vault/lib/src/backup_security/password_policy.dart
       - infrastructure/vault/lib/src/backup_security/keyring.dart
-      - infrastructure/vault/lib/src/ledger_vault/ledger_vault.dart
     target: infrastructure/vault/lib/
-    status: scattered
+    status: owned
   - id: backup-format-names
     what: 備份格式與檔名
     layer: data
@@ -402,3 +399,10 @@ items:
       - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/ChannelHandler.kt
     target: infrastructure/platform/lib/
     status: scattered
+  - id: build-flavor
+    what: 這個版本能不能自己更新（sideload 或 play）
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/distribution.dart
+    target: apps/expense_tracker/lib/app/coordinators/
+    status: owned

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../design_system/display/amount.dart';
 import '../core/design_system/glyphs.dart';
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
@@ -177,7 +178,7 @@ class SettingsPage extends StatelessWidget {
         title: '最近刪除',
         detail: ledger.trash.all.isEmpty
             ? '沒有'
-            : '${ledger.trash.all.length} 筆可放回',
+            : '${countOf(ledger.trash.all.length, CountUnit.entries)}可放回',
         onTap: () => _open(SettingsDestination.trash),
       ),
       _Row(

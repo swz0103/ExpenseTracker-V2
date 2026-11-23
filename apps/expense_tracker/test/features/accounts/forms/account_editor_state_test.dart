@@ -50,6 +50,18 @@ void main() {
 
   Account added(int before) => ledger.accounts.all.skip(before).single;
 
+  testWidgets('儲存 with no name says so above the button (F68)', (tester) async {
+    final count = ledger.accounts.all.length;
+    await open(tester);
+    await go(tester, ['儲存']);
+    expect(find.text('請輸入帳戶名稱'), findsOneWidget);
+    expect(ledger.accounts.all, hasLength(count));
+    // Typing a name takes the message away.
+    await tester.enterText(find.byType(TextField).first, '撲滿');
+    await tester.pumpAndSettle();
+    expect(find.text('請輸入帳戶名稱'), findsNothing);
+  });
+
   testWidgets('a card is kept with its days, limit, mark and colour', (
     tester,
   ) async {

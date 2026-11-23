@@ -19,6 +19,9 @@ abstract final class Keys {
   /// A key of the amount calculator: a digit, an operation or 完成.
   static Key calc(String name) => ValueKey('calc:$name');
 
+  /// Why the calculator's sum cannot be kept, under its figure.
+  static const calcProblem = ValueKey('calc-problem');
+
   /// The composer's main button: 記下支出, 記下代墊 and the like.
   static const save = ValueKey('compose:save');
 
@@ -66,4 +69,17 @@ abstract final class Keys {
   static const password = ValueKey('security:password');
   static const changePassword = ValueKey('security:change');
   static const lockNow = ValueKey('security:lock-now');
+
+  /// 安全: the backup passphrase card, and 重設金鑰 with its button.
+  static const passphrase = ValueKey('security:passphrase');
+  static const resetKeys = ValueKey('security:reset-keys');
+  static const resetGo = ValueKey('security:reset-go');
+
+  /// The restore form's 還原.
+  static const restoreGo = ValueKey('lock:restore-go');
+
+  /// The screen asking for a new password after the recovery code: its
+  /// button, and the way to choose no password.
+  static const newPassword = ValueKey('keys:new-password');
+  static const noPassword = ValueKey('keys:no-password');
 }

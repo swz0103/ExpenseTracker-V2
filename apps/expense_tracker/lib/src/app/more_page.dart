@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../core/formatting/figures.dart';
+import '../../design_system/display/amount.dart';
 import '../core/design_system/glyphs.dart';
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
@@ -44,13 +44,12 @@ class MorePage extends StatelessWidget {
     final today = ledger.today;
     final income = ledger.reportService.income(today.year, today.month);
     final expense = ledger.reportService.expense(today.year, today.month);
-    final rate = income == 0 ? 0 : (income - expense) * 100 ~/ income;
     return _ToolRow([
       ToolButton(
         glyph: Glyph.reports,
         color: ToolColors.reports,
         label: '財務報表',
-        detail: '結餘率 $rate%',
+        detail: '結餘率 ${wholePercent(income - expense, income)}',
         onTap: () => nav.open(AppRoutes.reports),
       ),
       ToolButton(
@@ -58,6 +57,10 @@ class MorePage extends StatelessWidget {
         color: ToolColors.investments,
         label: '投資與股息',
         detail: signed(ledger.holdings.marketValue - ledger.holdings.costBasis),
+        spokenDetail: spokenAmount(
+          ledger.holdings.marketValue - ledger.holdings.costBasis,
+          sense: AmountSense.signed,
+        ),
         onTap: () => nav.open(AppRoutes.investments),
       ),
     ]);
@@ -97,7 +100,7 @@ class MorePage extends StatelessWidget {
         label: '定期交易',
         // What is due shows here, not as a tile of its own.
         detail: due.isNotEmpty
-            ? '${due.length} 筆到期'
+            ? '${countOf(due.length, CountUnit.entries)}到期'
             : next == null
             ? '沒有待扣款'
             : '下一筆 ${ledger.recurringService.nextLabel(next)}',
@@ -119,14 +122,15 @@ class MorePage extends StatelessWidget {
       glyph: Glyph.grid,
       color: ToolColors.categories,
       label: Words.category,
-      detail: '${ledger.categories.all.length} 個',
+      detail: countOf(ledger.categories.all.length, CountUnit.pieces),
       onTap: () => nav.open(AppRoutes.categories),
     ),
     ToolButton(
       glyph: Glyph.tag,
       color: ToolColors.tags,
       label: '標籤與商家',
-      detail: '${ledger.reportService.tags.length} 個標籤',
+      detail:
+          '${countOf(ledger.reportService.tags.length, CountUnit.pieces)}標籤',
       onTap: () => nav.open(AppRoutes.tags),
     ),
     ToolButton(
@@ -167,18 +171,23 @@ class ToolButton extends StatelessWidget {
     required this.label,
     required this.detail,
     required this.onTap,
+    this.spokenDetail,
   });
 
   final Glyph glyph;
   final Color color;
   final String label;
   final String detail;
+
+  /// What a screen reader says for [detail] when it is an amount with a
+  /// sign: its direction in words.
+  final String? spokenDetail;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return ReadAsButton(
-      label: '$label，$detail',
+      label: '$label，${spokenDetail ?? detail}',
       onTap: onTap,
       child: Pressable(
         child: InkWell(

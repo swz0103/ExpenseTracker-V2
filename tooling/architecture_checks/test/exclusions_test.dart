@@ -27,7 +27,7 @@ void main() {
     ),
     'apps/expense_tracker/android/**': (
       'android.yml',
-      ':app:testDebugUnitTest',
+      ':app:testSideloadDebugUnitTest',
     ),
   };
 

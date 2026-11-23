@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/diagnostics/error_log.dart';
+import '../../../core/messages/backup_messages.dart';
 import '../../../core/platform/preferences.dart';
 import 'drive_backup.dart';
 import '../../../core/time/app_clock.dart';
@@ -40,6 +42,9 @@ final class DriveSync extends ChangeNotifier {
   final DateTime Function() _clock;
 
   bool get linked => _preferences.driveLinked;
+
+  /// The Google account the backups go to; null until Drive has said.
+  String? get account => _preferences.driveAccount;
   DateTime? get backedUp => _preferences.driveBackedUp;
 
   /// The backups carry the receipt photos too.
@@ -64,6 +69,7 @@ final class DriveSync extends ChangeNotifier {
   Future<bool> link() async {
     if (!await _drive.signIn()) return false;
     _preferences.update(driveLinked: true);
+    await _learnAccount(interactive: true);
     await backUpNow();
     return true;
   }
@@ -71,6 +77,7 @@ final class DriveSync extends ChangeNotifier {
   /// Stops sending backups; those on Drive stay there.
   Future<void> unlink() async {
     _preferences.update(driveLinked: false);
+    _preferences.driveAccountIs(null);
     await _drive.signOut();
     notifyListeners();
   }
@@ -95,6 +102,17 @@ final class DriveSync extends ChangeNotifier {
     return true;
   }
 
+  /// Asks Drive which account it is, so the card can say; best effort, a
+  /// failure leaves it unknown until the next backup.
+  Future<void> _learnAccount({required bool interactive}) async {
+    try {
+      final account = await _drive.account(interactive: interactive);
+      if (account != null) _preferences.driveAccountIs(account);
+    } on Object catch (error) {
+      ErrorLog.instance.record(BackupWords.accountLookup, error);
+    }
+  }
+
   /// What a backup going up is doing now; null when none is.
   DriveStage? get stage => _busy ? _stage : null;
   static var _stage = DriveStage.packing;
@@ -112,6 +130,8 @@ final class DriveSync extends ChangeNotifier {
         return _drive.upload(file, ledger: _ledger, interactive: interactive);
       }, withPhotos: photos);
       _preferences.driveBackup(_clock(), revision);
+      // Linked before the account was kept: learnt with the next backup.
+      if (account == null) await _learnAccount(interactive: interactive);
     } finally {
       // Also when Google never answers: DriveBackup gives up on its
       // sign-in after a while, so a backup is never held for good.

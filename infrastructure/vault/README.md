@@ -7,12 +7,15 @@
 金鑰階層（ADR-0001）：
 
 ```
-主密碼（NFC 正規化 → Argon2id）─┐
-救援碼 ETR1-XXXX-…（32 bytes）──┼─ 包裝 → 主金鑰（隨機 32 bytes）─┬─ 包裝 → 資料庫金鑰（SQLCipher，終身不變）
-裝置金鑰（Keystore＋生物辨識）──┘                                └─ 包裝 → 備份金鑰 epoch 1..n
+主密碼（NFC 正規化 → Argon2id）──┐
+備份密碼（選用，同上）───────────┤
+救援碼 ETR1-XXXX-…（32 bytes）───┼─ 包裝 → 主金鑰（隨機 32 bytes）─┬─ 包裝 → 資料庫金鑰（SQLCipher）
+裝置金鑰（Keystore＋生物辨識）───┘                                └─ 包裝 → 備份金鑰 epoch 1..n
 ```
 
-- 改密碼、換救援碼、加減裝置只重寫對應的 slot，不碰資料。
+- 密碼政策只有一處：`PasswordPolicy.standard`（暫定：至少 8 個字、不能全是數字；待擁有者決定）。設定密碼與備份密碼都經過它；以前設的較短密碼仍可解鎖。
+- 改密碼、換救援碼、設定備份密碼、加減裝置只重寫對應的 slot，不碰資料；舊的 keyring（例如舊備份裡的）配舊密碼仍能打開舊的金鑰。
+- `UnlockedKeyring.reset` 換掉全部金鑰：新的主金鑰與資料庫金鑰、舊 epoch 以新主金鑰重新包裝並新增一個 epoch、新的救援碼；裝置與備份密碼要重新設定。`LedgerVault.resetKeys` 把資料庫逐筆複製到以新金鑰加密的新檔、收據照片與 inbox 金鑰重新封裝，與還原相同的暫存 → 檢查 → 換入流程。
 - 備份金鑰輪替會新增 epoch；舊 epoch 仍可解開舊備份。
 - 每個密文的 AAD 綁定 keyring id 與用途，搬移或交換 slot 會解密失敗。
 - Argon2id 參數只由程式決定，檔案內的 policy id 必須完全相符；`PasswordKdf.insecureForTests` 寫出的 keyring 正式版不會接受。
@@ -24,12 +27,13 @@
 - 第一次設定時建立 keyring；救援碼只回傳一次，不寫入任何檔案。
 - 可用密碼、救援碼或裝置金鑰（Android Keystore）解鎖。裝置金鑰遺失時，密碼仍能打開。
 - keyring 一律先寫成 `.new` 再改名覆蓋，當機時留下的不是舊的就是新的。第一次設定時寫到一半的檔案不算帳本，可以重新設定。
-- `restore`：還原備份時先寫到暫存資料庫並通過 SQLite 完整性檢查，接著寫好新的 `keyring.json.new`，再換上資料庫，最後才把 keyring 改名就位。下次打開時（`_settle`）依留下的檔案收尾：暫存與資料庫都在就丟掉暫存，只剩暫存就換上，新 keyring 完整就採用；任何一步之間當機都開得回一本完整的帳本。
+- `restore`：還原備份時先寫到暫存資料庫並通過 SQLite 完整性檢查，備份帶的收據照片寫到 `files.restore/`；接著寫好新的 `keyring.json.new`，再換上資料庫、把暫存的檔案逐一換入（被換掉的先移到 `files.replaced/`），最後才把 keyring 改名就位。下次打開時（`_settle`）依留下的檔案收尾：暫存與資料庫都在就丟掉暫存（連同暫存的檔案），只剩暫存就換上，新 keyring 完整就把檔案換完並採用；任何一步之間當機都開得回一本完整、照片也屬於它的帳本。
 - `OpenVault.updateKeys`：換密碼、加裝置、輪替備份金鑰後存回。
 
-備份格式 v3：帳本的每一筆資料（`EncryptedDatabase` 的每一列）分塊、gzip、用 keyring 的備份金鑰以 AES-256-GCM 加密，之後可附帶收據照片等檔案。
+備份格式 v4：帳本的每一筆資料（`EncryptedDatabase` 的每一列）分塊、gzip、用 keyring 的備份金鑰以 AES-256-GCM 加密，之後可附帶收據照片等檔案。v3 仍可讀取。
 
-- 檔案開頭是明文標頭：備份 ID、時間、帳本的 `revision`、筆數、keyring（已包裝）、備份金鑰 epoch。每週備份用 `revision` 判斷帳本有沒有變動。
+- 檔案開頭是明文標頭：備份 ID、時間、帳本的 `revision`、筆數、keyring（`Keyring.exported`：不含 App 密碼與裝置的 slot，只能用救援碼或備份密碼打開；v3 還帶著密碼 slot）、備份金鑰 epoch。每週備份用 `revision` 判斷帳本有沒有變動。
+- 寫入與讀取用同一個區塊上限（`maxFrame`）：資料依大小分塊，大檔案切成多段（`more`），寫得出來的備份一定讀得回來。
 - 每一塊的 AAD 綁定標頭雜湊與塊的順序，換塊、刪塊、截斷、改標頭都會被拒絕。
 - 擷取時一次讀出全部資料，備份是同一個時間點的帳本。
 - 還原時 `accept` 先看每一筆，App 讀不懂的一筆會讓還原失敗（`invalidContent`），不會換上一本打不開的帳。

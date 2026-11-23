@@ -26,18 +26,10 @@ Future<DeviceUnlock?> androidDeviceUnlock(Directory directory) async {
   );
 }
 
-/// Wraps the ledger key with an Android Keystore key bound to biometric
-/// confirmation; `context` is bound in as AES-GCM associated data.
-final class KeystoreDeviceKey implements DeviceKeyWrapper {
-  const KeystoreDeviceKey();
-
-  @override
-  Future<List<int>> wrap(List<int> secret, List<int> context) =>
-      _call('wrap', secret, context);
-
-  @override
-  Future<List<int>> unwrap(List<int> wrapped, List<int> context) =>
-      _call('unwrap', wrapped, context);
+/// The Keystore's methods over the platform channel (`KeystoreHandler.kt`);
+/// `context` is bound in as AES-GCM associated data.
+abstract base class _KeystoreChannel implements DeviceKeyWrapper {
+  const _KeystoreChannel();
 
   Future<List<int>> _call(
     String method,
@@ -51,4 +43,34 @@ final class KeystoreDeviceKey implements DeviceKeyWrapper {
     if (result == null) throw StateError('The device key gave nothing.');
     return result;
   }
+}
+
+/// Wraps the ledger key with an Android Keystore key bound to biometric
+/// confirmation.
+final class KeystoreDeviceKey extends _KeystoreChannel {
+  const KeystoreDeviceKey();
+
+  @override
+  Future<List<int>> wrap(List<int> secret, List<int> context) =>
+      _call('wrap', secret, context);
+
+  @override
+  Future<List<int>> unwrap(List<int> wrapped, List<int> context) =>
+      _call('unwrap', wrapped, context);
+}
+
+/// Seals the key of a ledger opened without a password with an Android
+/// Keystore key that never leaves the phone's secure hardware and needs no
+/// fingerprint, so the ledger still opens by itself (`quickWrap` and
+/// `quickUnwrap`).
+final class KeystoreQuickKey extends _KeystoreChannel {
+  const KeystoreQuickKey();
+
+  @override
+  Future<List<int>> wrap(List<int> secret, List<int> context) =>
+      _call('quickWrap', secret, context);
+
+  @override
+  Future<List<int>> unwrap(List<int> wrapped, List<int> context) =>
+      _call('quickUnwrap', wrapped, context);
 }

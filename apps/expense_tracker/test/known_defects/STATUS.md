@@ -8,15 +8,6 @@ The expectations were written against today's APIs. A fix that changes an API (f
 
 | id | package | test file | fails-when-enabled | note |
 |---|---|---|---|---|
-| ACC-05 | 1.1 | p1_1_amounts_test.dart | yes | a credit limit typed as 80,000 becomes null |
-| F107 | 1.1 | p1_1_amounts_test.dart | yes | no semantics label carrying 支出 on the amount of an entry row |
-| F78 | 1.1 | p1_1_amounts_test.dart | yes | a month 100.35% used shows 100% in the picker, not 超支 |
-| IMP-04 | 1.1 | p1_1_amounts_test.dart | yes | importCsv throws FormatException on an amount of .5 (TWD) |
-| ENT-01 | 1.3 | p1_3_trade_costs_test.dart | yes | 2 tests; fee stays 513 after doubling shares (expects 1,026); sale fee stays 855 (expects 427) |
-| ENT-08 | 1.3 | p1_3_trade_costs_test.dart | yes | sale-cost preview of an old sale is 200,000, expected 100,000 |
-| INV-01 | 1.3 | p1_3_trade_costs_test.dart | yes | holding page row shows +999,145, the account got +996,145 |
-| LOG-02 | 1.4 | p1_4_write_invariants_test.dart | yes | 3 tests; add() stores a zero amount, a same-account transfer and foreign spending without NT$ amount |
-| LOG-12 | 1.4 | p1_4_write_invariants_test.dart | yes | renaming a merchant leaves the recurring item on the old name |
 | BUD-01 | 2.2 | p2_2_budgets_test.dart | yes | raising the limit on Dec 10 rewrites November allowance to 15,000 (expects 10,000) |
 | BUD-02 | 2.2 | p2_2_budgets_test.dart | yes | spentAgainst(parent) is 0, expected 3,000 from the child category |
 | F14 | 2.3 | p2_3_recurring_test.dart | yes | auto-booking adds a second entry on the day already entered by hand |
@@ -34,8 +25,6 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | PKG-02 | 2.5 | p2_5_market_test.dart | yes | JPY missing from the second board is dropped from the stored rates |
 | SEC-03 | 3.1 | p3_1_lock_test.dart | yes | the right password opens the ledger straight after 10 wrong ones |
 | SEC-05 | 3.1 | p3_1_lock_test.dart | yes | full VaultRoot on a real encrypted store: a sheet opened over the book is still on screen after startup.lock() |
-| SEC-01 | 3.2 | p3_2_keys_test.dart | yes | quick-open.key exists beside ledger.db after setUpWithoutPassword |
-| SEC-04 | 3.2 | p3_2_keys_test.dart | yes | after unlockWithRecovery the ledger is passwordless and quick-open.key is written |
 | ARC-05 | 3.3 | p3_3_lifecycle_test.dart | yes | two back-to-back prepare() calls write two backups |
 | REM-05 | 3.4 | p3_4_reminders_test.dart | yes | a reminder is still made for the skipped Nov 25 |
 | ENT-02 | 4.2 | p4_2_forms_test.dart | yes | form keeps the split but build() drops it after switching to a US$ account |
@@ -45,9 +34,64 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | DSN-01 | 5.1 | p5_1_design_test.dart | yes | 收入 tab text is 2.21:1 on white (expects 4.5:1) |
 | IMP-01 | 6.1 | p6_1_import_test.dart | yes | a positive amount with no type column is imported as income |
 | IMP-02 | 6.1 | p6_1_import_test.dart | yes | round trip loses the US$ currency (first of 10 differences) |
-| AND-01 | 6.3 | p6_3_release_test.dart | yes | main AndroidManifest.xml declares REQUEST_INSTALL_PACKAGES |
 
-38 findings still open here (40 were covered; 2 fixed, below).
+26 findings covered.
+
+## fixed in 1.1
+
+Work package 1.1 (one source for amounts). Each test below now runs in the ordinary suite and states the corrected behaviour; the four that were known-defect tests keep their place in `p1_1_amounts_test.dart` without the skip.
+
+- F107: `p1_1_amounts_test.dart` (entry row read as 支出 1,844); `test/design_system/display/amount_text_test.dart`, `test/core/widgets/entry_tile_test.dart`, `test/core/widgets/calculator_test.dart` (keys named)
+- IMP-04: `p1_1_amounts_test.dart` (.5 does not abort the import); `test/features/import_export/model/import_export_test.dart` (misreads refused per line)
+- F78: `p1_1_amounts_test.dart` (100.35% says 超支); `test/features/budgets/ui/budgets_month_picker_test.dart` (literal expectations)
+- ACC-05: `p1_1_amounts_test.dart` (80,000 is 80000; only the amount part); `test/features/accounts/model/account_form_test.dart`
+- ENT-04: `test/core/widgets/calculator_test.dart`, `test/core/widgets/amount_keys_test.dart`
+- ENT-09: `test/features/entries/ui/entries_filter_sheet_test.dart`
+- F06: `test/design_system/display/amount_test.dart`, `test/core/widgets/entry_tile_test.dart`
+- F03: `test/features/entries/forms/composer_state_test.dart`
+- RPT-06: `test/app/more_page_test.dart`, `test/design_system/display/amount_test.dart` (number part only; dates belong to the next package)
+- F34: `test/features/reports/model/report_test.dart`
+- INV-03: `test/features/investments/ui/holding_page_test.dart`
+- F21: `test/features/accounts/ui/card_page_test.dart`
+
+## fixed in 6.3
+
+These tests run (no `knownDefect` skip) and pass.
+
+- AND-01 (p6_3_release_test.dart): REQUEST_INSTALL_PACKAGES and the update code are in the sideload flavor only; the play flavor has neither.
+
+## fixed in 1.3
+
+Their tests run without `knownDefect` and must pass.
+
+- INV-01 (p1_3_trade_costs_test.dart): the holding page, the entry list, the balances and the composer all show a trade at `Entry.settlement` (ledger_trade_costs `settlementAmount`); the sale shows +996,145
+- ENT-01 (p1_3_trade_costs_test.dart, 2 tests): a fee or tax still at its suggestion when the trade is opened is untouched and follows every change (1,026 after doubling the shares; 427 and 1,500 for half a sale); one the person typed stays
+- ENT-08 (p1_3_trade_costs_test.dart): the cost preview of a sale replays the book up to the sale's day without the sale being changed (100,000, not 200,000)
+- ACC-06 (no known-defect test; tests in test/core/ledger/services/balance_service_test.dart): `BalanceService.entriesOf` and `flowOf` replace the scans of the person, loan and account pages; ETFs are grouped by ledger_trade_costs `isEtf`
+
+## fixed in 3.2
+
+The tests that were skipped here now run unskipped in `p3_2_keys_test.dart`; the other findings of the package are covered by the tests named.
+
+- SEC-01: `p3_2_keys_test.dart`; `test/core/platform/startup_keys.dart` (run by `startup_test.dart`) (sealed key, migration of a plain `quick-open.key`)
+- SEC-04: `p3_2_keys_test.dart`; `startup_keys.dart` (the password stays until a new one is set)
+- SEC-02, SEC-13: `infrastructure/vault/test/backup_security/password_policy_test.dart`, `infrastructure/vault/test/ledger_backup/backup_v4_test.dart`, `test/core/messages/key_failures_test.dart`, `test/features/backup/model/drive_backup_test.dart`
+- SEC-06: `infrastructure/vault/test/ledger_vault/reset_keys_test.dart`, `infrastructure/vault/test/backup_security/keyring_slots_test.dart`, `startup_keys.dart`
+- SEC-09: `reset_keys_test.dart` (restore with files), `startup_keys.dart`
+- SEC-10: `test/features/lock/ui/lock_screen_test.dart`
+- SEC-11: `backup_v4_test.dart`
+- SEC-12: `test/core/platform/sensitive_clipboard_test.dart`
+- F97: `test/features/lock/ui/security_section_test.dart`
+- F98: `key_failures_test.dart`
+- F91: `startup_keys.dart`, `lock_screen_test.dart`
+- F46, F90: `test/features/backup/ui/backup_section_test.dart`, `drive_backup_test.dart`
+
+## fixed in 1.4
+
+The tests run unskipped in `p1_4_write_invariants_test.dart`.
+
+- LOG-02: 3 tests; every command that writes an entry checks it against the write rules of `packages/ledger/entries` and refuses a zero amount, a same-account transfer and foreign spending without NT$ amount (`RecordRefused`)
+- LOG-12: renaming a merchant renames it on the recurring items too; a refused write is one typed `LedgerProblem` (`RecordRefused`, `SharesShort`) told by `describeProblem` wherever it is caught
 
 ## fixed in 2.1
 
@@ -68,12 +112,11 @@ One line per finding that has no test here. Findings with an executed reproducti
 
 - DEB-02 (S1, 2.4): the fix adds a principal/interest repayment form and fields that do not exist yet, so nothing can be asserted on today's API
 - F43 (S1, 3.1): needs the Android quick-action/notification channel while locked; SEC-05 covers the shared cause (routes above the lock screen)
-- SEC-06 (S1, 3.2): the fix adds a new "reset keys" operation, so there is no API to assert against today; an ordinary password change keeps the old master key by design
 - F65 (S1, 3.3): device-only: Google system backup copy rename race on Android
 - AND-02 (S1, 3.4): Android alarm receiver behaviour after reboot; needs a device or emulator (Kotlin side), reproduced on an API 34 emulator
 - REM-01 (S1, 3.4): the resume path is inline in a State (didChangeAppLifecycleState) and the inbox source exists only on Android; testable once LedgerSession gets a resume step
-- PKG-01 (S2, 1.3): the fix adds a configurable discount and a day-trade parameter (new API); today's fixed 6折 is what the baseline pins
-- F24 (S2, 1.4): the intended behaviour (warn or refuse a buy that overdraws) is not decided
+- PKG-01 (S2, 1.3): partly fixed in 1.3: the discount is the preference 券商手續費折扣 (default 6折; tests in test/core/platform/preferences_test.dart and test/features/entries/model/compose_form_test.dart); the day-trade tax stays open, as an entry has no notion of a day trade, and the holiday table belongs to the dates package
+- F24 (S2, 1.4): the intended behaviour (warn or refuse a buy that overdraws) is not decided; 1.4 shows a non-blocking warning (`NegativeBalanceAfter`) for the owner to confirm
 - F19 (S2, 1.5): wording and one shared overdue judgement across three screens; no single value to assert
 - F77 (S2, 2.2): does not reproduce at ledger level: budgetCrossings already reports 本月總預算已超支 for the same data; the device case came from other state
 - F80 (S2, 2.2): the fix is a design choice (start month of carry-over or retroactive leftover); no single correct value
@@ -82,8 +125,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - ENT-07 (S2, 2.5): needs rates with dates (new data model in 2.5)
 - F61 (S2, 2.5): the wrong input is the fetched previous close; the fix needs adjusted closes (new market data)
 - F39 (S2, 3.1): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
-- F90 (S2, 3.2): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
-- F97 (S2, 3.2): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
 - ARC-04 (S2, 3.3): needs LifecycleServices on a real vault with timing between microtasks; the audit repro only printed, a deterministic assertion was not found
 - F48 (S2, 3.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
 - F53 (S2, 3.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
@@ -104,29 +145,21 @@ One line per finding that has no test here. Findings with an executed reproducti
 - LOG-10 (S2, 5.4): performance, not correctness; belongs to the benchmark gate (0.2)
 - RPT-02 (S2, 5.4): needs a new period-aware tag count API
 - IMP-03 (S2, 6.1): feature request (column mapping, other encodings)
-- F06 (S3, 1.1): thousands separators: the amount type of 1.1 defines the correct strings
-- F34 (S3, 1.1): rounding of averages: defined by the amount rules of 1.1
 - F07 (S3, 1.5): wording on the budget card; UI text only
 - REC-04 (S3, 1.5): labels and an inert row in the recurring page; UI only
 - REC-03 (S3, 2.3): the division by zero is inside widget code (yearly share); no API returns it
 - ACC-04 (S3, 2.4): the fix is a prompt at archive time; the correct end state is not one assertion
 - F16 (S3, 2.4): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
-- F91 (S3, 3.2): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
-- SEC-11 (S3, 3.2): needs a >64 MiB incompressible file; too slow and heavy for the unit run
 - F66 (S3, 3.5): observed on a device; UI, visual or platform behaviour with no deterministic unit or widget assertion
 
 ### Found by reading code, no executed reproduction
 
-- SEC-02 (S1, 3.2): no executed reproduction; not turned into a test
 - TST-01 (S2, 0.1): no executed reproduction; not turned into a test
 - TST-03 (S2, 0.2): no executed reproduction; not turned into a test
 - TST-05 (S2, 0.2): no executed reproduction; not turned into a test
-- ENT-04 (S2, 1.1): no executed reproduction; not turned into a test
-- ENT-09 (S2, 1.1): no executed reproduction; not turned into a test
-- INV-03 (S2, 1.1): no executed reproduction; not turned into a test
 - PKG-05 (S2, 1.2): no executed reproduction; not turned into a test
 - PKG-07 (S2, 1.2): no executed reproduction; not turned into a test
-- PKG-04 (S2, 1.3): no executed reproduction; not turned into a test
+- PKG-04 (S2, 1.3): partly fixed in 1.3: an interest-only plan adds up exactly (packages/ledger/loans/test/calc/loan_plan_test.dart); equal-payment and equal-principal plans wait on the owner, as an exact schedule changes figures that test/baseline/loans_baseline_test.dart pins
 - LOG-03 (S2, 1.4): no executed reproduction; not turned into a test
 - LOG-07 (S2, 1.4): no executed reproduction; not turned into a test
 - BUD-03 (S2, 2.2): no executed reproduction; not turned into a test
@@ -135,7 +168,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - LOG-04 (S2, 2.4): no executed reproduction; not turned into a test
 - INV-07 (S2, 2.5): no executed reproduction; not turned into a test
 - LOG-05 (S2, 2.5): no executed reproduction; not turned into a test
-- SEC-12 (S2, 3.2): no executed reproduction; not turned into a test
 - AND-05 (S2, 3.3): no executed reproduction; not turned into a test
 - ARC-06 (S2, 3.3): no executed reproduction; not turned into a test
 - DAT-03 (S2, 3.3): no executed reproduction; not turned into a test
@@ -173,16 +205,12 @@ One line per finding that has no test here. Findings with an executed reproducti
 - TST-04 (S3, 0.1): no executed reproduction; not turned into a test
 - TST-06 (S3, 0.1): no executed reproduction; not turned into a test
 - TST-02 (S3, 0.2): no executed reproduction; not turned into a test
-- F03 (S3, 1.1): no executed reproduction; not turned into a test
-- F21 (S3, 1.1): no executed reproduction; not turned into a test
-- RPT-06 (S3, 1.1): no executed reproduction; not turned into a test
 - ARC-09 (S3, 1.2): no executed reproduction; not turned into a test
 - ENT-16 (S3, 1.2): no executed reproduction; not turned into a test
 - F25 (S3, 1.2): no executed reproduction; not turned into a test
 - F75 (S3, 1.2): no executed reproduction; not turned into a test
 - F86 (S3, 1.2): no executed reproduction; not turned into a test
-- ACC-06 (S3, 1.3): no executed reproduction; not turned into a test
-- PKG-08 (S3, 1.3): no executed reproduction; not turned into a test
+- PKG-08 (S3, 1.3): stopped in 1.3: the 2027 and 2028 rows of the rate table are the end dates the law in force sets (bond-ETF exemption, day-trade halving), not forecasts, and test/baseline/fees_and_tax_baseline_test.dart pins the 2027 bond-ETF tax
 - DAT-11 (S3, 1.4): no executed reproduction; not turned into a test
 - DAT-13 (S3, 1.4): no executed reproduction; not turned into a test
 - ENT-12 (S3, 1.4): no executed reproduction; not turned into a test
@@ -214,11 +242,6 @@ One line per finding that has no test here. Findings with an executed reproducti
 - F92 (S3, 3.1): no executed reproduction; not turned into a test
 - SEC-07 (S3, 3.1): no executed reproduction; not turned into a test
 - SEC-08 (S3, 3.1): no executed reproduction; not turned into a test
-- F46 (S3, 3.2): no executed reproduction; not turned into a test
-- F98 (S3, 3.2): no executed reproduction; not turned into a test
-- SEC-09 (S3, 3.2): no executed reproduction; not turned into a test
-- SEC-10 (S3, 3.2): no executed reproduction; not turned into a test
-- SEC-13 (S3, 3.2): no executed reproduction; not turned into a test
 - AND-07 (S3, 3.3): no executed reproduction; not turned into a test
 - AND-03 (S3, 3.4): no executed reproduction; not turned into a test
 - AND-11 (S3, 3.4): no executed reproduction; not turned into a test

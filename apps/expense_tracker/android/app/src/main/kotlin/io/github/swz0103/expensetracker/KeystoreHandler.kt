@@ -17,7 +17,9 @@ import javax.crypto.SecretKey
 
 /**
  * A Keystore AES key that only a fingerprint or face can use, which wraps
- * the ledger key for unlocking without the password
+ * the ledger key for unlocking without the password; and a second one that
+ * needs no confirmation, which seals the key of a ledger opened without a
+ * password, so that key never lies on disk in plain form
  * (lib/src/app/android/keystore_adapter.dart).
  */
 class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
@@ -35,6 +37,15 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
                     result.error("bad-arguments", "data and context are required", null)
                 } else {
                     crypt(call.method == "wrap", data, context, result)
+                }
+            }
+            "quickWrap", "quickUnwrap" -> {
+                val data = call.argument<ByteArray>("data")
+                val context = call.argument<ByteArray>("context")
+                if (data == null || context == null) {
+                    result.error("bad-arguments", "data and context are required", null)
+                } else {
+                    quick(call.method == "quickWrap", data, context, result)
                 }
             }
             else -> return false
@@ -115,10 +126,63 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
         prompt.authenticate(info, BiometricPrompt.CryptoObject(cipher))
     }
 
+    /**
+     * Seals [data], or opens a blob sealed so, with the key that needs no
+     * confirmation; [context] is bound in as AES-GCM associated data. The
+     * blob is the 12-byte IV followed by the ciphertext ([DeviceKeyBlob]).
+     */
+    private fun quick(
+        encrypt: Boolean,
+        data: ByteArray,
+        context: ByteArray,
+        result: MethodChannel.Result,
+    ) {
+        try {
+            val cipher = Cipher.getInstance(DeviceKeyBlob.TRANSFORMATION)
+            val output = if (encrypt) {
+                cipher.init(Cipher.ENCRYPT_MODE, quickKey())
+                DeviceKeyBlob.seal(cipher, data, context)
+            } else {
+                val iv = DeviceKeyBlob.ivOf(data)
+                val existing = existingKey(QUICK_ALIAS)
+                if (iv == null || existing == null) {
+                    result.error("key-invalidated", "The sealing key is gone.", null)
+                    return
+                }
+                cipher.init(Cipher.DECRYPT_MODE, existing, iv)
+                DeviceKeyBlob.open(cipher, data, context)
+            }
+            result.success(output)
+        } catch (e: Exception) {
+            result.error("keystore", e.message, null)
+        }
+    }
+
+    /**
+     * The key that seals a ledger's key without a password, made the first
+     * time. It never leaves the phone's secure hardware, where there is
+     * one, and needs no fingerprint: the ledger opens by itself.
+     */
+    private fun quickKey(): SecretKey {
+        existingKey(QUICK_ALIAS)?.let { return it }
+        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, KEYSTORE)
+        generator.init(
+            KeyGenParameterSpec.Builder(
+                QUICK_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(256)
+                .build(),
+        )
+        return generator.generateKey()
+    }
+
     /** The Keystore key, if there is one. */
-    private fun existingKey(): SecretKey? {
+    private fun existingKey(alias: String = ALIAS): SecretKey? {
         val store = KeyStore.getInstance(KEYSTORE).apply { load(null) }
-        return store.getKey(ALIAS, null) as? SecretKey
+        return store.getKey(alias, null) as? SecretKey
     }
 
     /** The Keystore key, made the first time; every use needs a confirmation. */
@@ -147,5 +211,6 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
     private companion object {
         const val KEYSTORE = "AndroidKeyStore"
         const val ALIAS = "ledger-device-key"
+        const val QUICK_ALIAS = "ledger-quick-key"
     }
 }

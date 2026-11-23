@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:core/money/amount_format.dart' show roundHalfAwayFromZero;
+
 import '../../core/platform/sync_job.dart';
 import '../../core/ledger/ledger.dart';
 import '../../core/platform/preferences.dart';
@@ -68,6 +70,34 @@ final class DemoBackupManager implements BackupManager {
 
   @override
   Future<String> restoreAnother() async => '';
+
+  @override
+  DateTime? get exportedAt => null;
+
+  @override
+  bool get passwordBelowRule => false;
+
+  /// The preview keeps no keys, so holds no password to any rule.
+  @override
+  String get passwordRule => '';
+
+  @override
+  String? refusePassword(String password) => null;
+
+  var _passphrase = false;
+
+  @override
+  bool get hasBackupPassphrase => _passphrase;
+
+  @override
+  Future<void> setBackupPassphrase(String passphrase) async =>
+      _passphrase = true;
+
+  @override
+  Future<void> removeBackupPassphrase() async => _passphrase = false;
+
+  @override
+  Future<void> resetKeys(String? currentPassword) async {}
 }
 
 /// Made-up daily closes for the demo's holdings: a walk of its own for
@@ -103,7 +133,7 @@ final class DemoPrices extends SyncJob implements PriceHistory {
     final scale = end / walk.last;
     return [
       for (final (i, day) in days.indexed)
-        (day, double.parse((walk[i] * scale).toStringAsFixed(2))),
+        (day, roundHalfAwayFromZero(walk[i] * scale, 2) / 100),
     ];
   }
 }

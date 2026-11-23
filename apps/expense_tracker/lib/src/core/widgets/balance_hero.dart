@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../../design_system/display/amount.dart';
 import '../ledger/ledger.dart' show Ledger;
 import '../design_system/glyphs.dart';
 import '../design_system/haptics.dart';
@@ -90,7 +91,7 @@ class BalanceHero extends StatelessWidget {
   /// What is left as the figure, with 結餘率 at the right on its line.
   Widget _figure() {
     final left = income - expense;
-    final kept = income == 0 ? 0 : (left * 100 / income).round();
+    final kept = percent(left, income);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [

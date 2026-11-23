@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/messages/amount_messages.dart';
 import '../forms/account_editor.dart';
 import '../forms/reconcile_sheet.dart';
 import '../model/card_summary.dart';
 import 'account_action.dart';
 import '../../../core/widgets/pickers.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../core/widgets/problem_note.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
@@ -46,12 +48,12 @@ class CardPage extends StatelessWidget {
       latest: scheduled.add(const Duration(days: 7)),
       marked: {scheduled},
     );
-    if (picked == null) return;
-    if (picked.difference(scheduled).inDays.abs() > 7) {
-      if (context.mounted) showNote(context, '結帳日最多只能前後移動 7 天');
-      return;
-    }
-    ledger.accountCommands.moveClose(card.card.id, scheduled, picked);
+    if (picked == null || !context.mounted) return;
+    // A day the card cannot close on is said as the ledger refuses it.
+    refusalShown(
+      context,
+      () => ledger.accountCommands.moveClose(card.card.id, scheduled, picked),
+    );
   }
 
   @override
@@ -133,7 +135,7 @@ class CardPage extends StatelessWidget {
       valueColor: owed > 0 ? AppColors.negative : AppColors.positive,
       sub: owed == 0
           ? '這期已繳清'
-          : '繳款截止 ${_day(card.due)}（${left < 0 ? '已逾期' : '還有 $left 天'}）',
+          : '繳款截止 ${_day(card.due)}（${left < 0 ? '已逾期' : '還有 ${countOf(left, CountUnit.days)}'}）',
       child: payment == null
           ? null
           : Padding(
@@ -190,11 +192,14 @@ class CardPage extends StatelessWidget {
         icon: Glyph.calendar,
         label: '本期未出帳',
         value: ledger.money(card.spentSince),
-        sub: '第 ${card.daysGone} / ${card.cycleDays} 天',
+        sub: '第 ${card.daysGone} / ${countOf(card.cycleDays, CountUnit.days)}',
         child: Padding(
           padding: const EdgeInsets.only(top: Space.s2),
           child: LinearProgressIndicator(
             value: card.cycleDays == 0 ? 0 : card.daysGone / card.cycleDays,
+            // Read as words and a percent, not a bare number first.
+            semanticsLabel: ProgressWords.cycleGone,
+            semanticsValue: wholePercent(card.daysGone, card.cycleDays),
             minHeight: 6,
             borderRadius: BorderRadius.circular(Radii.extraSmall),
             color: markOf(AppColors.accent),
@@ -223,6 +228,8 @@ class CardPage extends StatelessWidget {
                   children: [
                     LinearProgressIndicator(
                       value: used,
+                      semanticsLabel: ProgressWords.limitUsed,
+                      semanticsValue: ratioWholePercent(used),
                       minHeight: 6,
                       borderRadius: BorderRadius.circular(Radii.extraSmall),
                       color: markOf(
@@ -271,7 +278,10 @@ class CardPage extends StatelessWidget {
   List<Widget> _plans(CardSummary card) => [
     SectionTitle(
       '分期中',
-      trailing: Text('${card.plans.length} 筆', style: mutedSmall),
+      trailing: Text(
+        countOf(card.plans.length, CountUnit.entries),
+        style: mutedSmall,
+      ),
     ),
     GroupBox(
       padding: const EdgeInsets.symmetric(
@@ -381,6 +391,8 @@ class CardPage extends StatelessWidget {
                 const SizedBox(height: Space.s2),
                 LinearProgressIndicator(
                   value: periods / e.installments,
+                  semanticsLabel: ProgressWords.instalmentsPaid,
+                  semanticsValue: wholePercent(periods, e.installments),
                   minHeight: 5,
                   borderRadius: BorderRadius.circular(Radii.extraSmall),
                   color: markOf(shownColor(Color(category.color))),
@@ -388,7 +400,7 @@ class CardPage extends StatelessWidget {
                 ),
                 const SizedBox(height: Space.s1),
                 Text(
-                  '第 $periods / ${e.installments} 期 · '
+                  '第 $periods / ${countOf(e.installments, CountUnit.periods)} · '
                   '剩 ${ledger.money(left)}',
                   style: mutedSmall,
                 ),

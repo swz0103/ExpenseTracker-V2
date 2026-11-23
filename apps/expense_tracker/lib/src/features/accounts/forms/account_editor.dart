@@ -1,14 +1,16 @@
 import 'package:core/foundation_values.dart' show Currency;
+import 'package:core/money/amount_parser.dart' show parseAmount;
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/dialogs.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/calculator.dart';
+import '../../../core/widgets/problem_note.dart';
 import '../../../core/widgets/pickers.dart';
 
 import '../model/account_form.dart';

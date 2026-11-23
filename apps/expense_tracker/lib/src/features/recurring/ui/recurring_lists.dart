@@ -148,8 +148,8 @@ class _Subscriptions extends StatelessWidget {
               onTap: () {},
               lines: [
                 '一年 ${ledger.orDots(groupDigits(yearly))}',
-                '每月 ${ledger.orDots(groupDigits(yearly ~/ 12))} · '
-                    '佔 ${yearly * 100 ~/ total}%',
+                '每月 ${ledger.orDots(groupDigits(divideRounded(yearly, 12)))} · '
+                    '佔 ${wholePercent(yearly, total)}',
               ],
             ),
             const SizedBox(height: Space.s2),
@@ -241,8 +241,11 @@ class _Paused extends StatelessWidget {
                   grey: true,
                   onTap: () => onEdit(item: r),
                   trailing: FilledButton(
-                    onPressed: () => ledger.recurringCommands.saveRecurring(
-                      r.copyWith(active: true),
+                    onPressed: () => refusalShown(
+                      context,
+                      () => ledger.recurringCommands.saveRecurring(
+                        r.copyWith(active: true),
+                      ),
                     ),
                     style: solidButton(
                       AppColors.white,

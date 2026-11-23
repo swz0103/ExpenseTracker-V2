@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../design_system/display/amount.dart';
 import '../../../../core/design_system/glyphs.dart';
 import '../../../../core/design_system/theme.dart';
 import 'lock_parts.dart';
@@ -328,11 +329,6 @@ class _FoundBackupPill extends StatelessWidget {
   final VoidCallback? onTap;
 
   /// 1234 as 1,234.
-  static String _grouped(int n) => n.toString().replaceAllMapped(
-    RegExp(r'\B(?=(\d{3})+(?!\d))'),
-    (_) => ',',
-  );
-
   /// What the backup is: 還原 and its date, then how many records.
   Widget _summary() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -345,7 +341,7 @@ class _FoundBackupPill extends StatelessWidget {
           fontWeight: FontWeight.w700,
         ),
       ),
-      Text('${_grouped(rows)} 筆紀錄', style: mutedCaption),
+      Text('${countOf(rows, CountUnit.entries)}紀錄', style: mutedCaption),
     ],
   );
 

@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Handing a newer version of the app, downloaded from its release
+         page, to Android's installer (UpdateHandler.kt); the person allows
+         it once and confirms each update. Only the sideload build has it:
+         Google Play does not allow an app to update itself, so the play
+         build carries neither this nor the update code. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+</manifest>

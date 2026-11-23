@@ -49,6 +49,9 @@ final class RecordingContext implements CommandContext {
   }
 
   @override
+  void report(LedgerProblem refused) => problem.value = refused;
+
+  @override
   void signal() => signals++;
 
   @override
