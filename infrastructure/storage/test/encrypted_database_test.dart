@@ -8,6 +8,7 @@ import 'dart:isolate';
 import 'dart:math';
 
 import 'package:sqlite3/sqlite3.dart';
+import 'package:storage/src/layout.dart';
 import 'package:storage/storage.dart';
 import 'package:test/test.dart';
 
@@ -151,6 +152,75 @@ void main() {
       () => open(),
       throwsA(const StorageUnavailable(StorageProblem.newerSchema)),
     );
+  });
+
+  test('a file is brought up by each layout step it lacks, once', () {
+    open().close();
+    final database = raw();
+    addTearDown(database.close);
+    expect(database.userVersion, EncryptedDatabase.schema);
+    final ran = <int>[];
+    // A later layout: two more steps after this build's own.
+    final steps = [
+      for (var n = 0; n < EncryptedDatabase.schema; n++)
+        (Database db) => ran.add(n),
+      (Database db) {
+        ran.add(EncryptedDatabase.schema);
+        db.execute('ALTER TABLE rows ADD COLUMN note TEXT');
+      },
+      (Database db) => ran.add(EncryptedDatabase.schema + 1),
+    ];
+    bringUpLayout(database, steps);
+    // Only the steps the file lacked ran, and the file says so.
+    expect(ran, [EncryptedDatabase.schema, EncryptedDatabase.schema + 1]);
+    expect(database.userVersion, EncryptedDatabase.schema + 2);
+    bringUpLayout(database, steps);
+    expect(ran, hasLength(2));
+  });
+
+  test('a layout step that fails leaves the file as it was', () {
+    open().close();
+    final database = raw();
+    addTearDown(database.close);
+    expect(
+      () => bringUpLayout(database, [
+        for (var n = 0; n < EncryptedDatabase.schema; n++) (Database db) {},
+        (Database db) => db.execute('ALTER TABLE rows ADD COLUMN note TEXT'),
+        (Database db) => throw StateError('step 2 fails'),
+      ]),
+      throwsStateError,
+    );
+    expect(database.userVersion, EncryptedDatabase.schema);
+    expect(
+      database.select('PRAGMA table_info(rows)').map((r) => r['name']),
+      isNot(contains('note')),
+    );
+  });
+
+  test('numbers kept beside the records stay apart from the revision', () {
+    final store = open();
+    expect(store.meta('book'), isNull);
+    store.write((w) => w.setMeta('book', 2), counts: false);
+    expect(store.meta('book'), 2);
+    store.write((w) => w.setMeta('book', 3), counts: false);
+    expect(store.meta('book'), 3);
+    expect(store.revision, 0);
+    expect(
+      () => store.write((w) => w.setMeta('revision', 9)),
+      throwsArgumentError,
+    );
+    expect(store.revision, 0);
+  });
+
+  test('one record is found by its shelf and id', () {
+    final store = open();
+    store.write((w) {
+      w.put('entry', 'e1', '{"category":"飲食"}');
+      w.put('budget', 'e1', '{"limit":1}');
+    });
+    expect(store.row('entry', 'e1')!.body, '{"category":"飲食"}');
+    expect(store.row('budget', 'e1')!.body, '{"limit":1}');
+    expect(store.row('entry', 'nope'), isNull);
   });
 
   test('a ledger of the old event-journal format is told apart', () {

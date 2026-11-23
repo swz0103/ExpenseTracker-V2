@@ -98,6 +98,8 @@ final class LifecycleServices {
       // The exchanges' snapshots are a few MiB of JSON.
       decodeJson: (body) => Isolate.run(() => jsonDecode(body)),
     ),
+    // A book an earlier version kept is copied before it is brought up.
+    beforeUpgrade: () => backupManager.keepBeforeUpgrade(),
   );
 
   Ledger? _ledger;

@@ -47,7 +47,7 @@ void main() {
     // Read through JsonFields (core/formatting/json_fields.dart) instead:
     // a cast throws a TypeError for one field of the wrong kind and takes
     // the rest down with it. What is left is the ledger's own rows.
-    const most = 18;
+    const most = 12;
     final casts = found((_) => true, Casts());
     expect(casts.length, lessThanOrEqualTo(most), reason: casts.join('\n'));
     expect(casts.length, most, reason: 'fewer now: lower `most`');

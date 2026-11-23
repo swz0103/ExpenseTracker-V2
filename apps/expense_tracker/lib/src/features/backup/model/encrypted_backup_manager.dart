@@ -168,9 +168,13 @@ final class EncryptedBackupManager implements BackupManager {
     return file.path;
   }
 
-  /// Writes an encrypted backup into [folder], named by the time it was
-  /// taken.
-  Future<File> _write(Directory folder, {required bool withPhotos}) async {
+  /// Writes an encrypted backup into [folder], named [name] and the time
+  /// it was taken.
+  Future<File> _write(
+    Directory folder, {
+    required bool withPhotos,
+    String name = '記帳本',
+  }) async {
     final now = AppClock.now();
     String two(int n) => n.toString().padLeft(2, '0');
     final stamp =
@@ -178,10 +182,10 @@ final class EncryptedBackupManager implements BackupManager {
         '-${two(now.hour)}${two(now.minute)}${two(now.second)}'
         '${now.millisecond.toString().padLeft(3, '0')}';
     await folder.create(recursive: true);
-    var file = File('${folder.path}/記帳本-$stamp.etbk');
+    var file = File('${folder.path}/$name-$stamp.etbk');
     // Two written in the same millisecond, as the outbox may.
     for (var n = 2; file.existsSync(); n++) {
-      file = File('${folder.path}/記帳本-$stamp-$n.etbk');
+      file = File('${folder.path}/$name-$stamp-$n.etbk');
     }
     // Written beside and renamed once whole: a write cut short, as when
     // the phone stops the app, never looks like a backup, and so never
@@ -368,7 +372,8 @@ final class EncryptedBackupManager implements BackupManager {
     final header = await LedgerBackup.readHeader(kept);
     final older = [
       for (final (file, header) in await _startup.keptLedgers())
-        if (!file.uri.pathSegments.last.startsWith('brought-back'))
+        if (!file.uri.pathSegments.last.startsWith('brought-back') &&
+            !file.uri.pathSegments.last.startsWith(_beforeUpgrade))
           (file, header),
     ];
     // keptLedgers is newest first; one that cannot be read counts as the
@@ -378,5 +383,31 @@ final class EncryptedBackupManager implements BackupManager {
     }
     _startup.lockToRestore(header);
     return kept.path;
+  }
+
+  /// How the copies [keepBeforeUpgrade] keeps are named.
+  static const _beforeUpgrade = 'before-upgrade';
+
+  /// Keeps the ledger as it is, with its photos, where the ledgers kept
+  /// before a restore are, before an earlier version's book is brought up
+  /// to this one (book_migrations.dart): the lock screen offers it to
+  /// restore. The two written last stay; these are apart from the copies
+  /// kept before a restore and never let go for them.
+  Future<File> keepBeforeUpgrade() async {
+    final folder = _startup.beforeRestore;
+    final kept = await _write(folder, withPhotos: true, name: _beforeUpgrade);
+    // keptLedgers is newest first, by the time in each header; the one
+    // just written stays whatever the times say.
+    final copies = [
+      kept,
+      for (final (file, _) in await _startup.keptLedgers())
+        if (file.uri.pathSegments.last.startsWith(_beforeUpgrade) &&
+            file.path != kept.path)
+          file,
+    ];
+    for (final old in copies.skip(2)) {
+      await old.delete();
+    }
+    return kept;
   }
 }
