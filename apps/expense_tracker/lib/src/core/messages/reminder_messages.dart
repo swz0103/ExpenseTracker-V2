@@ -34,6 +34,25 @@ abstract final class ReminderMessages {
   static String nothingDueWithin(int days) =>
       '${countOf(days, CountUnit.days)}內沒有到期的項目';
 
+  /// The Google 日曆 card and its details.
+  static const calendarTitle = 'Google 日曆';
+  static const calendarAbout = '提醒定期扣款與卡費';
+  static String calendarSyncedTo(String name) => '同步到「$name」';
+  static const calendarPick = '同步到哪個日曆';
+  static const calendarAmounts = '寫入金額';
+  static const calendarAmountsOn = '例：繳卡費：玉山卡 12,345';
+  static const calendarAmountsOff = '例：繳卡費：玉山卡';
+  static const calendarChange = '換日曆';
+  static const calendarStop = '不再同步';
+
+  /// Linking a calendar: what came of it.
+  static const calendarNoAccess = '沒有取得日曆權限，可以到系統設定開啟';
+  static const calendarNone = '手機上沒有可寫入的日曆，請先在日曆 App 登入 Google 帳號';
+  static const calendarNotSynced = '日曆沒有同步成功';
+  static String calendarWritten(int count) =>
+      '已把 ${countOf(count, CountUnit.pieces)}到期提醒放進日曆';
+  static String calendarUnreachable(String problem) => '日曆沒有連上：$problem';
+
   /// 不再同步 when the app's events could be taken off the calendar.
   static const calendarCleared = '已停止同步，之後的提醒已從日曆移除';
 

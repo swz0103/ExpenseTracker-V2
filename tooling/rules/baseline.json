@@ -151,7 +151,7 @@
     "apps/expense_tracker/lib/src/features/reminders/model/reminder_alerts.dart": 7,
     "apps/expense_tracker/lib/src/features/reminders/model/reminders.dart": 8,
     "apps/expense_tracker/lib/src/features/reminders/ui/reminders_phone.dart": 6,
-    "apps/expense_tracker/lib/src/features/reminders/ui/reminders_section.dart": 49,
+    "apps/expense_tracker/lib/src/features/reminders/ui/reminders_section.dart": 33,
     "apps/expense_tracker/lib/src/features/reports/model/comparison.dart": 1,
     "apps/expense_tracker/lib/src/features/reports/model/report_period.dart": 5,
     "apps/expense_tracker/lib/src/features/reports/ui/compare_section.dart": 7,

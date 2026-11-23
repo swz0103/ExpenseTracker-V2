@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
@@ -49,10 +48,11 @@ class RemindersSection extends StatefulWidget {
 }
 
 class _RemindersSectionState extends State<RemindersSection>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, _CalendarActions {
   /// What the phone allows, read again when back from its settings.
   ReminderStatus? _status;
 
+  @override
   Ledger get _ledger => widget.ledger;
 
   @override
@@ -164,91 +164,6 @@ class _RemindersSectionState extends State<RemindersSection>
     }
   }
 
-  /// Links a calendar for the due dates, or changes it.
-  Future<void> _linkCalendar(CalendarSync calendar) async {
-    try {
-      if (!await calendar.port.access()) {
-        if (mounted) showNote(context, '沒有取得日曆權限，可以到系統設定開啟');
-        return;
-      }
-      final choices = await calendar.port.calendars();
-      if (!mounted) return;
-      if (choices.isEmpty) {
-        showNote(context, '手機上沒有可寫入的日曆，請先在日曆 App 登入 Google 帳號');
-        return;
-      }
-      final chosen = calendar.chosen?.$1;
-      final picked = await showPanel<int>(
-        context,
-        (context) => CenterPanel(
-          glyph: Glyph.calendar,
-          color: SettingsColors.calendar,
-          title: '同步到哪個日曆',
-          body: Column(
-            children: [
-              for (final c in choices)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: Space.s2),
-                  child: ColorCard(
-                    color: SettingsColors.calendar,
-                    amount: c.id == chosen ? 0.32 : 0.14,
-                    radius: Radii.large,
-                    label: c.name,
-                    onTap: () => Navigator.of(context).pop(c.id),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                c.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              if (c.account.isNotEmpty)
-                                Text(c.account, style: mutedSmall),
-                            ],
-                          ),
-                        ),
-                        if (c.id == chosen)
-                          const GlyphIcon(
-                            Glyph.check,
-                            size: 20,
-                            color: SettingsColors.calendar,
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          actions: [
-            PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
-          ],
-        ),
-      );
-      if (picked == null || !mounted) return;
-      await calendar.choose(
-        choices.firstWhere((c) => c.id == picked),
-        reminderBookOf(_ledger),
-      );
-      final written = await calendar.sync(reminderBookOf(_ledger));
-      if (!mounted) return;
-      setState(() {});
-      showNote(
-        context,
-        written == null
-            ? '日曆沒有同步成功'
-            : '已把 ${countOf(written, CountUnit.pieces)}到期提醒放進日曆',
-      );
-    } on Object catch (error) {
-      ErrorLog.instance.record(ErrorSteps.calendarSync, error);
-      if (mounted) showNote(context, '日曆沒有連上：${describeProblem(error)}');
-    }
-  }
-
   /// Whether a kind of notification the person turned on can come: shown
   /// on only while the phone allows notifications as well, so a card
   /// never says on while nothing would be posted.
@@ -271,19 +186,6 @@ class _RemindersSectionState extends State<RemindersSection>
       preferences.exactReminders && _status?.exact != false
       ? ' · 準時'
       : ' · ${ReminderMessages.lateBy(ReminderTiming.inexactLateness)}';
-
-  Future<void> _forgetCalendar(CalendarSync calendar) async {
-    final cleared = await calendar.forget(reminderBookOf(_ledger));
-    if (mounted) {
-      showNote(
-        context,
-        cleared
-            ? ReminderMessages.calendarCleared
-            : ReminderMessages.calendarLeft,
-      );
-    }
-    if (mounted) setState(() {});
-  }
 
   // The details of each card.
 
@@ -432,96 +334,6 @@ class _RemindersSectionState extends State<RemindersSection>
     );
   }
 
-  void _calendarDetails(CalendarSync calendar) {
-    const color = SettingsColors.calendar;
-    showCenterPanel(
-      context,
-      glyph: Glyph.calendar,
-      color: color,
-      title: 'Google 日曆',
-      detail: switch (calendar.chosen) {
-        (_, final name)? => '同步到「$name」',
-        null => '提醒定期扣款與卡費',
-      },
-      body: (context) => StatefulBuilder(
-        builder: (context, setState) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ColorCard(
-              color: color,
-              amount: 0.16,
-              radius: Radii.large,
-              padding: const EdgeInsets.symmetric(horizontal: Space.s4),
-              child: Column(
-                children: [
-                  _ToggleRow(
-                    color: color,
-                    flat: true,
-                    title: '寫入金額',
-                    detail: calendar.amounts ? '例：繳卡費：玉山卡 12,345' : '例：繳卡費：玉山卡',
-                    value: calendar.amounts,
-                    onChanged: (on) async {
-                      await calendar.setAmounts(on, reminderBookOf(_ledger));
-                      setState(() {});
-                    },
-                  ),
-                  const Divider(height: 1),
-                  _changeCalendar(context, calendar),
-                ],
-              ),
-            ),
-            const SizedBox(height: Space.s2),
-            _stopSync(context, calendar),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 換日曆 with the calendar now chosen: closes the [panel] and asks
-  /// for another.
-  Widget _changeCalendar(BuildContext panel, CalendarSync calendar) {
-    const color = SettingsColors.calendar;
-    return InkWell(
-      onTap: () async {
-        Navigator.of(panel).pop();
-        await _linkCalendar(calendar);
-      },
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 52),
-        child: Row(
-          children: [
-            Text(
-              '換日曆',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: deepOf(color),
-              ),
-            ),
-            const Spacer(),
-            Text(
-              '${calendar.chosen?.$2 ?? ''} ›',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: deepOf(color),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 不再同步: closes the [panel] and stops writing to the calendar.
-  Widget _stopSync(BuildContext panel, CalendarSync calendar) => TextButton(
-    style: wordButton(AppColors.danger, minimumSize: Size(0, 48)),
-    onPressed: () {
-      Navigator.of(panel).pop();
-      _forgetCalendar(calendar);
-    },
-    child: const Text('不再同步', style: TextStyle(fontWeight: FontWeight.w700)),
-  );
-
   @override
   Widget build(BuildContext context) {
     final notifier = widget.notifier;
@@ -572,9 +384,9 @@ class _RemindersSectionState extends State<RemindersSection>
             SettingCard(
               glyph: Glyph.calendar,
               color: SettingsColors.calendar,
-              title: 'Google 日曆',
+              title: ReminderMessages.calendarTitle,
               detail: calendar.chosen == null
-                  ? '提醒定期扣款與卡費'
+                  ? ReminderMessages.calendarAbout
                   : '已連結${calendar.amounts ? ' · 寫金額' : ''}',
               value: calendar.chosen != null,
               onChanged: (on) =>

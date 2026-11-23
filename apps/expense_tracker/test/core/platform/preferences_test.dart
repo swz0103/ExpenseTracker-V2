@@ -303,7 +303,8 @@ void main() {
       final alerts = alertsFor(reminderBookOf(ledger), preferences, morning);
       // The demo book has entries on its today, 10/4.
       expect(alerts.first.at, DateTime(2026, 10, 5, 21));
-      expect(alerts, hasLength(6));
+      // The 62 days of the plan less today.
+      expect(alerts, hasLength(61));
       expect(alerts.every((a) => a.quick == QuickAction.expense), isTrue);
       expect(alerts.every((a) => a.tag == nudgeTag), isTrue);
     });
