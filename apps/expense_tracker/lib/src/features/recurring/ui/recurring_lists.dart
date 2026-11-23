@@ -72,10 +72,15 @@ class _Manage extends StatelessWidget {
                     income ? Words.income : Words.expense,
                     style: _sectionTitle,
                   ),
-                  const Spacer(),
-                  Text(
-                    '${items.length} 項 · 本月合計 ${ledger.orDots(groupDigits(monthly))}',
-                    style: mutedSmall,
+                  const SizedBox(width: Space.s2),
+                  // Wraps under itself at large text rather than running
+                  // past the edge.
+                  Expanded(
+                    child: Text(
+                      '${items.length} 項 · 本月合計 ${ledger.orDots(groupDigits(monthly))}',
+                      textAlign: TextAlign.end,
+                      style: mutedSmall,
+                    ),
                   ),
                 ],
               ),
