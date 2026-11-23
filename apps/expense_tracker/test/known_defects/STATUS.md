@@ -32,8 +32,18 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | DSN-01 | 5.1 | p5_1_design_test.dart | yes | 收入 tab text is 2.21:1 on white (expects 4.5:1) |
 | IMP-01 | 6.1 | p6_1_import_test.dart | yes | a positive amount with no type column is imported as income |
 | IMP-02 | 6.1 | p6_1_import_test.dart | yes | round trip loses the US$ currency (first of 10 differences) |
+| JRN-01 | 待決定 | p2_0_journal_test.dart | yes | old shape: foreign spending/income with no worth at home, posted as the same number (1 in the kept awkward book) |
+| JRN-02 | 待決定 | p2_0_journal_test.dart | yes | old shape: transfer across currencies with no amount received, the same number arrives (1) |
+| JRN-03 | 待決定 | p2_0_journal_test.dart | yes | old shape: income under a spending category, counted as income (1) |
+| JRN-04 | 待決定 | p2_0_journal_test.dart | yes | old shape: spending under an income category, counted as spending (1) |
+| JRN-05 | 待決定 | p2_0_journal_test.dart | yes | old shape: a transfer fee paid in a foreign currency, its number counted as NT$ (1) |
+| JRN-06 | 待決定 | p2_0_journal_test.dart | yes | old shape: a sale taking more shares than held, left out of the holdings (1) |
+| JRN-07 | 待決定 | p2_0_journal_test.dart | yes | old shape: a trade naming no stock, left out of the holdings (1) |
+| JRN-08 | 待決定 | p2_0_journal_test.dart | yes | old shape: a trade paid from or into a foreign account, the same number (1) |
+| JRN-09 | 待決定 | p2_0_journal_test.dart | yes | old shape: a record naming an account the book does not keep (1) |
+| JRN-10 | 待決定 | p2_0_journal_test.dart | yes | old shape: instalments on an account that is not a card (1) |
 
-24 findings covered.
+34 findings covered.
 
 ## fixed in 1.1
 

@@ -158,6 +158,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.20.3"
+  kernel:
+    dependency: "direct main"
+    description:
+      path: "../../packages/kernel"
+      relative: true
+    source: path
+    version: "0.1.0"
   leak_tracker:
     dependency: transitive
     description:
@@ -193,6 +200,13 @@ packages:
     dependency: "direct main"
     description:
       path: "../../packages/ledger/loans"
+      relative: true
+    source: path
+    version: "0.1.0"
+  ledger_postings:
+    dependency: "direct main"
+    description:
+      path: "../../packages/ledger/postings"
       relative: true
     source: path
     version: "0.1.0"

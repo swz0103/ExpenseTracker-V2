@@ -17,10 +17,14 @@ dependencies:
     path: ../../packages/core
   domain:
     path: ../../packages/domain
+  kernel:
+    path: ../../packages/kernel
   ledger_entries:
     path: ../../packages/ledger/entries
   ledger_loans:
     path: ../../packages/ledger/loans
+  ledger_postings:
+    path: ../../packages/ledger/postings
   ledger_trade_costs:
     path: ../../packages/ledger/trade_costs
   market:

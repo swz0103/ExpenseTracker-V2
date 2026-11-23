@@ -69,6 +69,9 @@ abstract final class Layout {
     'cache/',
     'repositories/',
     'services/',
+    // The journal of postings beside the records: what the records are
+    // as intents, posted afresh, and checked against the services.
+    'journal/',
     'commands/',
   ];
   static const ledgerHelpers = [

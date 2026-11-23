@@ -65,6 +65,11 @@ final class BalanceService {
     ), () => _balanceOn(account, end));
   }
 
+  /// The balance of [account] at the end of [end], as [balance] works it
+  /// out, but not kept: for a pass over many days, such as the journal's
+  /// check, which would fill the cache with answers no screen asks.
+  int balanceThrough(String account, DateTime end) => _balanceOn(account, end);
+
   int _balanceOn(String account, DateTime end) {
     final running = _cache.remember((
       'running',
