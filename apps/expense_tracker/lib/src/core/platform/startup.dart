@@ -12,6 +12,7 @@ import '../diagnostics/error_log.dart';
 import '../time/app_clock.dart';
 import 'memory_keystore.dart';
 import 'quick_key.dart';
+import 'unlock_attempts.dart';
 
 /// What a backup says of itself before any key: when it was taken, its
 /// records, and what opens it. Named here for the screens, which do not
@@ -78,9 +79,42 @@ final class Startup extends ChangeNotifier {
   /// Android a Keystore key that needs no fingerprint, so the ledger opens
   /// by itself while the key never lies on disk in plain form; elsewhere
   /// [MemoryKeystore].
-  Startup(this._vault, {this.device, this.check, DeviceKeyWrapper? quickKey})
-    : _quick = QuickKey(_vault.directory, quickKey ?? MemoryKeystore.instance) {
+  ///
+  /// [uptime] is the phone's clock that no setting moves, for the wait
+  /// after wrong passwords ([UnlockAttempts]).
+  Startup(
+    this._vault, {
+    this.device,
+    this.check,
+    DeviceKeyWrapper? quickKey,
+    UptimeSource? uptime,
+  }) : _quick = QuickKey(_vault.directory, quickKey ?? MemoryKeystore.instance),
+       _attempts = UnlockAttempts(
+         File('${_vault.directory.path}/unlock-attempts.json'),
+         uptime: uptime,
+       ) {
     _state = _locked();
+  }
+
+  /// The wrong passwords and recovery codes typed in a row, and the wait
+  /// they cost.
+  final UnlockAttempts _attempts;
+
+  /// How long until a password or recovery code may be tried again; zero
+  /// when one may be now.
+  Future<Duration> unlockWait() => _attempts.wait();
+
+  /// Opens with a typed secret through the attempt limit: refused with
+  /// [UnlockDelayed] while a wait is on, and a wrong secret counted.
+  Future<OpenVault> _limited(Future<OpenVault> Function() open) async {
+    final wait = await _attempts.wait();
+    if (wait > Duration.zero) throw UnlockDelayed(wait);
+    try {
+      return await open();
+    } on KeyringException catch (error) {
+      if (error.error == KeyringError.wrongSecret) await _attempts.failed();
+      rethrow;
+    }
   }
 
   final LedgerVault _vault;
@@ -104,8 +138,10 @@ final class Startup extends ChangeNotifier {
   /// Opens and checks the ledger's keys.
   KeyringCodec get codec => _vault.codec;
 
-  /// Kept when the person turned the fingerprint down, so a password
-  /// unlock stops asking; asking for the fingerprint drops it.
+  /// Kept while the fingerprint is off: turned down when offered, or
+  /// turned off in settings ([removeDevice]). A password unlock then does
+  /// not offer it; only turning it on in settings ([enrolDevice]) drops
+  /// it.
   File get _noDevice => File('${directory.path}/no-fingerprint');
 
   /// The ledger opens without asking: no password has been set.
@@ -263,8 +299,10 @@ final class Startup extends ChangeNotifier {
     return reset;
   }
 
+  /// Opens the ledger with its password. Throws [UnlockDelayed] while the
+  /// wait after wrong tries is on, without trying [password].
   Future<void> unlockWithPassword(String password) async {
-    final open = await _vault.unlockWithPassword(password);
+    final open = await _limited(() => _vault.unlockWithPassword(password));
     _belowRule = codec.policy.isBelow(password);
     await _enrolDevice(open);
     _ready(open);
@@ -349,10 +387,14 @@ final class Startup extends ChangeNotifier {
   /// Opens the ledger with its recovery code, or its backup passphrase.
   /// The password stays as it was, and opens it still, until the person
   /// sets a new one, which the app asks for at once ([needsNewPassword]).
+  /// Wrong codes are counted and slowed down as wrong passwords are
+  /// ([UnlockDelayed]).
   Future<void> unlockWithRecovery(String secret) async {
-    final open = looksLikeRecoveryCode(secret) || !_lockedWithPassphrase
-        ? await _vault.unlockWithRecovery(secret)
-        : await _vault.unlockWithPassphrase(secret);
+    final open = await _limited(
+      () => looksLikeRecoveryCode(secret) || !_lockedWithPassphrase
+          ? _vault.unlockWithRecovery(secret)
+          : _vault.unlockWithPassphrase(secret),
+    );
     // The code was just typed: the person has it.
     await recoveryGiven.writeAsString('', flush: true);
     _newPassword = true;
@@ -430,18 +472,78 @@ final class Startup extends ChangeNotifier {
     _ready(next);
   }
 
-  Future<void> unlockWithDevice() async {
+  /// Asks for the fingerprint or face and opens the ledger with it. False
+  /// when the person turned the prompt down themselves (改用密碼, or
+  /// back): their choice, not a failure, so nothing is thrown or noted.
+  Future<bool> unlockWithDevice() async {
     final device = this.device;
     if (device == null) throw StateError('No device key.');
     final hasKey = device.hasKey;
-    if (await _noDevice.exists()) await _noDevice.delete();
     if (hasKey != null && !await hasKey()) {
       // The key is gone: the next password unlock enrols a new one.
       _reEnrol = true;
       throw const KeyringException(KeyringError.unknownDevice);
     }
-    _ready(await _vault.unlockWithDevice(device.id, device.wrapper));
+    final asked = _AskedKey(device.wrapper);
+    try {
+      _ready(await _vault.unlockWithDevice(device.id, asked));
+      return true;
+    } on KeyringException {
+      if (asked.declined) return false;
+      rethrow;
+    }
   }
+
+  /// Whether this phone's fingerprint opens the ledger now open.
+  bool get deviceEnrolled {
+    final device = this.device;
+    final state = _state;
+    return device != null &&
+        state is Ready &&
+        !_reEnrol &&
+        state.vault.keys.keyring.deviceIds.contains(device.id);
+  }
+
+  /// Turns the fingerprint on for the open ledger, asked for in settings:
+  /// the phone asks for it once to make its key. False when the person
+  /// turned that prompt down; any other failure is thrown.
+  Future<bool> enrolDevice() async {
+    final device = this.device;
+    if (device == null) throw StateError('No device key.');
+    final open = (_state as Ready).vault;
+    final known = open.keys.keyring.deviceIds.contains(device.id);
+    try {
+      final current = known ? open.keys.removeDevice(device.id) : open.keys;
+      await open.updateKeys(await current.addDevice(device.id, device.wrapper));
+    } on Object catch (error) {
+      if (_declined(error)) return false;
+      rethrow;
+    }
+    _reEnrol = false;
+    if (await _noDevice.exists()) await _noDevice.delete();
+    notifyListeners();
+    return true;
+  }
+
+  /// Turns the fingerprint off: its key no longer opens the ledger, and a
+  /// password unlock does not ask to enrol it again until it is turned on
+  /// in settings.
+  Future<void> removeDevice() async {
+    final device = this.device;
+    if (device == null) return;
+    final open = (_state as Ready).vault;
+    await _noDevice.writeAsString('', flush: true);
+    if (open.keys.keyring.deviceIds.contains(device.id)) {
+      await open.updateKeys(open.keys.removeDevice(device.id));
+    }
+    _reEnrol = false;
+    notifyListeners();
+  }
+
+  /// Whether [error] is the person turning the fingerprint prompt down
+  /// (`DeviceKeyBlob.refusal` on Android), rather than a failure.
+  static bool _declined(Object error) =>
+      error is PlatformException && error.code == 'declined';
 
   /// The device's key was lost and its old entry must be replaced.
   var _reEnrol = false;
@@ -449,10 +551,48 @@ final class Startup extends ChangeNotifier {
   /// Closes the database, and opens the lock screen on restoring a
   /// backup in place of this ledger: from settings, after a backup of
   /// this one was kept at [kept], so a restore can say what it replaces.
+  ///
+  /// The keys the ledger was open with are held in memory until the
+  /// restore is done, given up ([cancelRestore]) or the app locks
+  /// ([lock]), so giving it up needs no password again.
   void lockToRestore([BackupHeader? kept]) {
+    final state = _state;
     _restoreNext = true;
     _replacedLedger = kept;
-    lock();
+    _close(resume: state is Ready ? state.vault.keys : null);
+  }
+
+  /// The keys of the ledger closed for a restore from settings.
+  UnlockedKeyring? _resume;
+
+  /// Whether a restore from settings can be given up without unlocking
+  /// again: the ledger was closed for it and the app has not locked
+  /// since.
+  bool get canResume => _resume != null && _state is Locked;
+
+  /// The restore from settings is given up: the ledger opens again as it
+  /// was, with the keys it was open with. Without them ([canResume] is
+  /// false) nothing happens, and the lock screen asks as usual.
+  Future<void> cancelRestore() async {
+    final keys = _resume;
+    if (keys == null || _state is! Locked) return;
+    _resume = null;
+    _replacedLedger = null;
+    _restoreNext = false;
+    final open = await _vault.reopen(keys);
+    _resumed = true;
+    _ready(open);
+  }
+
+  var _resumed = false;
+
+  /// Whether the ledger now open is the one a restore was given up for
+  /// ([cancelRestore]), once: the app then goes back to where the person
+  /// was.
+  bool takeResumed() {
+    final resumed = _resumed;
+    _resumed = false;
+    return resumed;
   }
 
   /// Whether the lock screen should open on restoring a backup; asked
@@ -509,12 +649,16 @@ final class Startup extends ChangeNotifier {
   /// read without opening it.
   Future<BackupHeader> peek(String path) => LedgerBackup.readHeader(File(path));
 
-  /// Closes the database.
-  void lock() {
+  /// Closes the database, and lets go of keys held for a restore.
+  void lock() => _close();
+
+  void _close({UnlockedKeyring? resume}) {
     final state = _state;
     if (state is Ready) state.vault.close();
     _recovery = null;
     _newPassword = false;
+    _resume = resume;
+    _resumed = false;
     _state = _locked();
     notifyListeners();
   }
@@ -534,16 +678,22 @@ final class Startup extends ChangeNotifier {
       await open.updateKeys(keys);
       _reEnrol = false;
     } on Object catch (error) {
-      ErrorLog.instance.record('指紋登記', error);
-      // Only turning the prompt down stops it; a failure asks next time.
-      if (error is PlatformException && error.code == 'declined') {
+      // Only turning the prompt down stops it, and that is the person's
+      // choice, not a fault to note; a failure is noted and asks next
+      // time.
+      if (_declined(error)) {
         await _noDevice.writeAsString('', flush: true);
+      } else {
+        ErrorLog.instance.record('指紋登記', error);
       }
     }
   }
 
   void _ready(OpenVault open) {
     _opening = false;
+    _resume = null;
+    // The ledger opened: wrong tries before it are forgotten.
+    _attempts.clear();
     _state = Ready(open);
     notifyListeners();
   }
@@ -551,20 +701,65 @@ final class Startup extends ChangeNotifier {
   StartupState _locked() {
     _quick.settle(ledgerExists: _vault.exists);
     if (!_vault.exists) return const NeedsSetup();
+    final keyring = _keyring();
+    final device = this.device;
+    final turnedOff = _noDevice.existsSync();
+    final enrolled =
+        device != null && (keyring?.deviceIds.contains(device.id) ?? false);
     return Locked(
-      deviceUnlock: device != null,
-      askFirst: !_noDevice.existsSync(),
-      passphrase: _keyringHasPassphrase(),
+      // Turned off in settings (or turned down when offered), there is no
+      // fingerprint to ask for; before the first password unlock there is
+      // one to say so about.
+      deviceUnlock: device != null && (enrolled || !turnedOff),
+      askFirst: !turnedOff,
+      passphrase: keyring?.hasPassphrase ?? false,
     );
   }
 
-  bool _keyringHasPassphrase() {
+  /// The keyring as it is kept, to say what the lock screen offers; null
+  /// when it cannot be read.
+  Keyring? _keyring() {
     try {
-      return Keyring.parse(_vault.keyringFile.readAsStringSync()).hasPassphrase;
+      return Keyring.parse(_vault.keyringFile.readAsStringSync());
     } on Object catch (error) {
       // Read again by the unlock, which says what is wrong.
       ErrorLog.instance.record('讀取金鑰', error);
-      return false;
+      return null;
+    }
+  }
+}
+
+/// A password or recovery code was not tried: too many wrong ones came
+/// before it, and the next may be tried after [wait].
+final class UnlockDelayed implements Exception {
+  const UnlockDelayed(this.wait);
+
+  final Duration wait;
+
+  @override
+  String toString() => 'UnlockDelayed';
+}
+
+/// The fingerprint key while it is asked to open the ledger, noting
+/// whether the person turned the prompt down: the vault says only that
+/// the key did not open.
+final class _AskedKey implements DeviceKeyWrapper {
+  _AskedKey(this._key);
+
+  final DeviceKeyWrapper _key;
+  var declined = false;
+
+  @override
+  Future<List<int>> wrap(List<int> secret, List<int> context) =>
+      _key.wrap(secret, context);
+
+  @override
+  Future<List<int>> unwrap(List<int> wrapped, List<int> context) async {
+    try {
+      return await _key.unwrap(wrapped, context);
+    } on Object catch (error) {
+      declined = Startup._declined(error);
+      rethrow;
     }
   }
 }

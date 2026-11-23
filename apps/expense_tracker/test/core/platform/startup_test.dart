@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
+import 'startup_gate.dart';
 import 'startup_keys.dart';
 
 const password = 'correct horse battery';
@@ -34,6 +35,7 @@ final class FakeDeviceKey implements DeviceKeyWrapper {
 
 void main() {
   group('keys', startupKeyTests);
+  group('lock gate', startupGateTests);
 
   late Directory directory;
   late LedgerVault vault;

@@ -49,8 +49,25 @@ class WidgetViewTest {
     }
 
     @Test
-    fun withoutASnapshotItSaysWhereToTurnFiguresOn() {
-        assertEquals(null, WidgetView.of(null, "2026-10").progress)
+    fun withoutASnapshotItSaysAmountsAreHiddenAndATapOpensTheApp() {
+        assertEquals(
+            WidgetView.Shown(
+                "記帳本", "已隱藏金額", "點此開啟", null,
+                shortLabel = "已隱藏金額", shortFigure = "點此開啟",
+            ),
+            WidgetView.of(null, "2026-10", WidgetView.Day(2026, 10, 20)),
+        )
+    }
+
+    @Test
+    fun withoutASnapshotNoFigureBarOrWeekIsDrawn() {
+        val shown = WidgetView.of(null, "2026-10")
+        assertEquals(null, shown.progress)
+        assertEquals(null, shown.pace)
+        assertEquals(null, shown.week)
+        assertEquals("", shown.budget)
+        assertEquals("", shown.weekTotal)
+        assertEquals("", shown.state)
     }
 
     @Test

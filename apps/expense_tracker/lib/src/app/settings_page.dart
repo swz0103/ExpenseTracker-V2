@@ -238,6 +238,7 @@ class SettingsPage extends StatelessWidget {
         SecuritySection(
           backupManager: backupManager,
           privacy: services.privacy,
+          preferences: preferences,
         ),
       ],
       SettingsDestination.appearance => [

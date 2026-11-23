@@ -267,4 +267,89 @@ void main() {
     );
     phone.lock();
   });
+
+  group('the fingerprint switch (F39)', () {
+    /// A ledger with a password on a phone that has a fingerprint key.
+    Future<(Startup, EncryptedBackupManager)> onPhone(String name) async {
+      final plain = startupIn(name);
+      final startup = Startup(
+        LedgerVault(
+          plain.directory,
+          codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
+        ),
+        device: DeviceUnlock('phone', _Key()),
+      );
+      await startup.setUp(password);
+      return (startup, EncryptedBackupManager(startup, vaultOf(startup)));
+    }
+
+    test('it is there on a phone with a fingerprint, on once the password '
+        'set it up; off, the fingerprint no longer opens the ledger; on '
+        'again, it does', () async {
+      final (startup, backupManager) = await onPhone('finger');
+      expect(backupManager.canUseFingerprint, isTrue);
+      expect(backupManager.fingerprintOn, isTrue);
+
+      expect(await backupManager.turnFingerprint(on: false), isTrue);
+      expect(backupManager.fingerprintOn, isFalse);
+      startup.lock();
+      await expectLater(
+        startup.unlockWithDevice(),
+        throwsA(const KeyringException(KeyringError.unknownDevice)),
+      );
+      await startup.unlockWithPassword(password);
+      final again = EncryptedBackupManager(startup, vaultOf(startup));
+      expect(again.fingerprintOn, isFalse, reason: 'not brought back');
+
+      expect(await again.turnFingerprint(on: true), isTrue);
+      expect(again.fingerprintOn, isTrue);
+      startup.lock();
+      expect(await startup.unlockWithDevice(), isTrue);
+      startup.lock();
+    });
+
+    test('a phone without one, or a ledger without a password, has no '
+        'switch', () async {
+      final none = startupIn('no-finger');
+      await none.setUp(password);
+      final without = EncryptedBackupManager(none, vaultOf(none));
+      expect(without.canUseFingerprint, isFalse);
+      expect(without.fingerprintOn, isFalse);
+      none.lock();
+
+      final plain = startupIn('no-password');
+      final quiet = Startup(
+        LedgerVault(
+          plain.directory,
+          codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
+        ),
+        device: DeviceUnlock('phone', _Key()),
+      );
+      await quiet.setUpWithoutPassword();
+      expect(
+        EncryptedBackupManager(quiet, vaultOf(quiet)).canUseFingerprint,
+        isFalse,
+      );
+      quiet.lock();
+    });
+  });
+}
+
+/// Stands in for an Android Keystore key behind the fingerprint.
+final class _Key implements DeviceKeyWrapper {
+  final _secrets = <String, List<int>>{};
+
+  @override
+  Future<List<int>> wrap(List<int> secret, List<int> context) async {
+    final handle = 'blob-${_secrets.length}';
+    _secrets[handle] = List.of(secret);
+    return handle.codeUnits;
+  }
+
+  @override
+  Future<List<int>> unwrap(List<int> wrapped, List<int> context) async {
+    final secret = _secrets[String.fromCharCodes(wrapped)];
+    if (secret == null) throw StateError('not this device');
+    return secret;
+  }
 }

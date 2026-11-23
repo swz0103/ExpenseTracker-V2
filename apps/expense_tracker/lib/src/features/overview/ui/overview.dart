@@ -140,7 +140,9 @@ class _OverviewPageState extends State<OverviewPage> {
 
 /// What the home-screen widget is written from in [ledger].
 WidgetBook widgetBookOf(Ledger ledger) => WidgetBook(
-  changes: ledger,
+  // The 隱藏金額 switch too: the widget keeps no amount while it is on.
+  changes: Listenable.merge([ledger, ledger.amounts]),
+  amountsHidden: () => ledger.amounts.hidden,
   clock: () => ledger.today,
   reportService: ledger.reportService,
   budgets: ledger.budgets,

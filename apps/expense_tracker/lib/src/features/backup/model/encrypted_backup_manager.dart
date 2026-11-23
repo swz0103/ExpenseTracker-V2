@@ -285,6 +285,19 @@ final class EncryptedBackupManager implements BackupManager {
   bool get hasPassword => !_startup.passwordless;
 
   @override
+  bool get canUseFingerprint => hasPassword && _startup.device != null;
+
+  @override
+  bool get fingerprintOn => _startup.deviceEnrolled;
+
+  @override
+  Future<bool> turnFingerprint({required bool on}) async {
+    if (on) return _startup.enrolDevice();
+    await _startup.removeDevice();
+    return true;
+  }
+
+  @override
   bool get passwordBelowRule => hasPassword && _startup.passwordBelowRule;
 
   @override

@@ -77,7 +77,7 @@ class AppearanceSection extends StatelessWidget {
       glyph: Glyph.overview,
       color: SettingsColors.widget,
       title: '桌面小工具',
-      detail: '桌面上任何人都看得到',
+      detail: '桌面上任何人都看得到，帳本鎖定時也一樣',
       body: (context) => ListenableBuilder(
         listenable: preferences,
         builder: (context, _) => _WidgetChoices(

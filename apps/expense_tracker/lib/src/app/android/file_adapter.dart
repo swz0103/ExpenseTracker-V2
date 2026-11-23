@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../../core/platform/errands.dart';
 import 'platform_channel.dart';
 
 /// The app's private folder on Android, which no other app can read.
@@ -21,10 +22,13 @@ Future<Directory> androidCacheDirectory() async {
 /// wherever they choose (Downloads, Google Drive, ...). False when they
 /// cancel.
 Future<bool> androidExportFile(String path, String name) async {
-  final saved = await platformChannel.invokeMethod<bool>('exportFile', {
-    'path': path,
-    'name': name,
-  });
+  // The save dialog is a trip out of the app.
+  final saved = await Errands.run(
+    () => platformChannel.invokeMethod<bool>('exportFile', {
+      'path': path,
+      'name': name,
+    }),
+  );
   return saved ?? false;
 }
 
@@ -41,4 +45,5 @@ Future<bool> androidHidesRecents() async =>
 /// Lets the person choose a file and returns a copy the app can read, or
 /// null when they cancel.
 Future<String?> androidPickFile() =>
-    platformChannel.invokeMethod<String>('pickFile');
+    // The file chooser is a trip out of the app.
+    Errands.run(() => platformChannel.invokeMethod<String>('pickFile'));

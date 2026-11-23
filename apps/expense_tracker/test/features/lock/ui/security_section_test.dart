@@ -1,6 +1,9 @@
 import 'dart:io';
 
+import 'package:expense_tracker/src/core/design_system/components/cards.dart';
 import 'package:expense_tracker/src/core/design_system/keys.dart';
+import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
+import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/core/platform/screen_privacy.dart';
 import 'package:expense_tracker/src/features/backup/model/backup_manager.dart';
 import 'package:expense_tracker/src/features/lock/ui/security_section.dart';
@@ -108,6 +111,34 @@ final class _StubBackupManager implements BackupManager {
 
   @override
   Future<String> restoreAnother() async => '';
+
+  /// Whether the phone can confirm a fingerprint.
+  var phoneHasFingerprint = false;
+
+  @override
+  bool get canUseFingerprint => hasPassword && phoneHasFingerprint;
+
+  @override
+  var fingerprintOn = false;
+
+  /// What the phone's prompt ends with: confirmed, turned down, or a
+  /// failure thrown.
+  var promptConfirmed = true;
+  Object? promptFails;
+
+  /// Each turn asked of the keys.
+  final turns = <bool>[];
+
+  @override
+  Future<bool> turnFingerprint({required bool on}) async {
+    turns.add(on);
+    if (promptFails case final error?) {
+      Error.throwWithStackTrace(error, StackTrace.current);
+    }
+    if (on && !promptConfirmed) return false;
+    fingerprintOn = on;
+    return true;
+  }
 }
 
 /// A wrong current password, as EncryptedBackupManager says it.
@@ -123,6 +154,7 @@ void main() {
     WidgetTester tester,
     BackupManager? backupManager, {
     ScreenPrivacy? privacy,
+    Preferences? preferences,
   }) async {
     tester.view.physicalSize = const Size(400, 1400);
     tester.view.devicePixelRatio = 1;
@@ -132,7 +164,11 @@ void main() {
         home: Scaffold(
           body: ListView(
             children: [
-              SecuritySection(backupManager: backupManager, privacy: privacy),
+              SecuritySection(
+                backupManager: backupManager,
+                privacy: privacy,
+                preferences: preferences,
+              ),
             ],
           ),
         ),
@@ -360,12 +396,143 @@ void main() {
     final privacy = ScreenPrivacy.inMemory();
     await show(tester, null, privacy: privacy);
     expect(find.text('密碼'), findsNothing, reason: 'no keys to show');
-    expect(find.text('最近使用畫面已自動遮住'), findsOneWidget);
+    // Off, the lock screen is still kept out of screenshots (SEC-08).
+    expect(find.text('只有解鎖畫面擋下截圖'), findsOneWidget);
     await go(tester, ['禁止截圖']);
     expect(privacy.on, isTrue);
     expect(find.text('截圖、錄影都擋下'), findsOneWidget);
     await go(tester, ['截圖、錄影都擋下']);
     expect(privacy.on, isFalse);
+  });
+
+  group('指紋解鎖 (F39, F40)', () {
+    _StubBackupManager keys({bool on = false}) => _StubBackupManager()
+      ..password = 'a password'
+      ..phoneHasFingerprint = true
+      ..fingerprintOn = on;
+
+    bool switchOn(WidgetTester tester) =>
+        tester.widget<SettingCard>(find.byKey(Keys.fingerprintSwitch)).value!;
+
+    int noted() => ErrorLog.instance.entries.length;
+
+    testWidgets('a phone with a fingerprint and a ledger with a password '
+        'has the switch, off until turned on', (tester) async {
+      final backupManager = keys();
+      await show(tester, backupManager);
+      expect(find.byKey(Keys.fingerprintSwitch), findsOneWidget);
+      expect(switchOn(tester), isFalse);
+      expect(find.text('已關閉 · 只用密碼打開帳本'), findsOneWidget);
+    });
+
+    testWidgets('turning it on asks the phone once, and says it is on', (
+      tester,
+    ) async {
+      final backupManager = keys();
+      await show(tester, backupManager);
+      await tester.tap(find.byKey(Keys.fingerprintSwitch));
+      await tester.pumpAndSettle();
+      expect(backupManager.turns, [true]);
+      expect(switchOn(tester), isTrue);
+      expect(find.text('已開啟 · 可用指紋或臉部打開帳本'), findsOneWidget);
+      expect(find.text('已開啟指紋解鎖'), findsOneWidget);
+    });
+
+    testWidgets('turning it off needs no prompt, and says it is off', (
+      tester,
+    ) async {
+      final backupManager = keys(on: true);
+      await show(tester, backupManager);
+      expect(switchOn(tester), isTrue);
+      await tester.tap(find.byKey(Keys.fingerprintSwitch));
+      await tester.pumpAndSettle();
+      expect(backupManager.turns, [false]);
+      expect(switchOn(tester), isFalse);
+      expect(find.text('已關閉指紋解鎖'), findsOneWidget);
+    });
+
+    testWidgets('turning the phone\'s prompt down leaves it off with no '
+        'error said and none noted', (tester) async {
+      final backupManager = keys()..promptConfirmed = false;
+      final before = noted();
+      await show(tester, backupManager);
+      await tester.tap(find.byKey(Keys.fingerprintSwitch));
+      await tester.pumpAndSettle();
+      expect(backupManager.turns, [true]);
+      expect(switchOn(tester), isFalse);
+      expect(find.text('沒有完成，請再試一次'), findsNothing);
+      expect(find.text('已開啟指紋解鎖'), findsNothing);
+      expect(noted(), before);
+    });
+
+    testWidgets('a failure to turn it on is said and noted', (tester) async {
+      final backupManager = keys()..promptFails = StateError('keystore');
+      final before = noted();
+      await show(tester, backupManager);
+      await tester.tap(find.byKey(Keys.fingerprintSwitch));
+      await tester.pumpAndSettle();
+      expect(switchOn(tester), isFalse);
+      expect(find.text('沒有完成，請再試一次'), findsOneWidget);
+      expect(noted(), before + 1);
+    });
+
+    testWidgets('without a fingerprint on the phone, or without a password, '
+        'there is no switch', (tester) async {
+      await show(tester, _StubBackupManager()..password = 'a password');
+      expect(find.byKey(Keys.fingerprintSwitch), findsNothing);
+      await show(tester, _StubBackupManager()..phoneHasFingerprint = true);
+      await tester.pump();
+      expect(find.byKey(Keys.fingerprintSwitch), findsNothing);
+    });
+  });
+
+  group('自動上鎖 (SEC-07)', () {
+    testWidgets('a ledger with a password says the time in force, 5 分鐘 '
+        'until chosen', (tester) async {
+      final preferences = Preferences();
+      await show(
+        tester,
+        _StubBackupManager()..password = 'a password',
+        preferences: preferences,
+      );
+      expect(find.byKey(Keys.autoLock), findsOneWidget);
+      expect(find.text('離開 5 分鐘後上鎖'), findsOneWidget);
+    });
+
+    testWidgets('the card offers every choice; the one picked is kept and '
+        'said', (tester) async {
+      final preferences = Preferences();
+      await show(
+        tester,
+        _StubBackupManager()..password = 'a password',
+        preferences: preferences,
+      );
+      await tester.tap(find.byKey(Keys.autoLock));
+      await tester.pumpAndSettle();
+      for (final name in [
+        'immediately',
+        'oneMinute',
+        'fiveMinutes',
+        'fifteenMinutes',
+        'never',
+      ]) {
+        expect(find.byKey(Keys.autoLockChoice(name)), findsOneWidget);
+      }
+      await tester.tap(find.byKey(Keys.autoLockChoice('immediately')));
+      await tester.pumpAndSettle();
+      expect(preferences.autoLock, AutoLock.immediately);
+      expect(find.text('一離開 App 就上鎖'), findsOneWidget);
+      await tester.tap(find.byKey(Keys.autoLockChoice('never')));
+      await tester.pumpAndSettle();
+      expect(preferences.autoLock, AutoLock.never);
+      expect(find.text('只有關閉 App 後才需要解鎖'), findsOneWidget);
+    });
+
+    testWidgets('a ledger without a password, which never locks, has no '
+        'such card', (tester) async {
+      await show(tester, _StubBackupManager(), preferences: Preferences());
+      expect(find.byKey(Keys.autoLock), findsNothing);
+    });
   });
 
   testWidgets('a phone that cannot hide its screen says so', (tester) async {

@@ -57,6 +57,21 @@ void main() {
     },
   );
 
+  test('a connector let go while at work, as when the ledger locks, ends '
+      'quietly', () async {
+    final now = DateTime.utc(2026, 10, 27, 9);
+    final probe = _Probe(() => now);
+    var told = 0;
+    probe.addListener(() => told++);
+    final run = probe.refresh();
+    expect(told, 1, reason: 'at work');
+    probe.dispose();
+    // Throws in debug builds were it to tell a listener now.
+    await run;
+    expect(told, 1);
+    expect(probe.runs, 1);
+  });
+
   test('codes are tidied the way the exchanges write them', () {
     expect(tidyCode(' 2330.tw '), '2330');
     expect(tidyCode('00679b.TWO'), '00679B');

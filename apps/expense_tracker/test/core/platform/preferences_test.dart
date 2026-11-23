@@ -61,6 +61,70 @@ void main() {
     },
   );
 
+  test('自動上鎖 is 5 分鐘 until chosen, and the choice is kept (SEC-07)', () {
+    final directory = Directory.systemTemp.createTempSync('preferences-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final file = File('${directory.path}/preferences.json');
+    expect(Preferences(file: file).autoLock, AutoLock.fiveMinutes);
+    var told = 0;
+    final preferences = Preferences(file: file)..addListener(() => told++);
+    preferences.update(autoLock: AutoLock.immediately);
+    expect(told, 1);
+    expect(Preferences(file: file).autoLock, AutoLock.immediately);
+    // Another setting changed leaves it as chosen.
+    Preferences(file: file).update(dailyNudge: true);
+    expect(Preferences(file: file).autoLock, AutoLock.immediately);
+    // A file written before the setting existed, or naming a choice this
+    // version does not have, reads as 5 分鐘.
+    file.writeAsStringSync('{"appearance": "dark"}');
+    expect(Preferences(file: file).autoLock, AutoLock.fiveMinutes);
+    file.writeAsStringSync('{"autoLock": "tenSeconds"}');
+    expect(Preferences(file: file).autoLock, AutoLock.fiveMinutes);
+  });
+
+  test('the auto-lock choices: their words and how long away locks', () {
+    expect(
+      [for (final a in AutoLock.values) (a.label, a.after)],
+      const [
+        ('立即', Duration.zero),
+        ('1 分鐘', Duration(minutes: 1)),
+        ('5 分鐘', Duration(minutes: 5)),
+        ('15 分鐘', Duration(minutes: 15)),
+        ('不自動上鎖', null),
+      ],
+    );
+    expect(AutoLock.standard, AutoLock.fiveMinutes);
+  });
+
+  test('a trip the app itself started locks no sooner than five minutes, '
+      'and a longer choice or never is left as it is', () {
+    Duration? limit(AutoLock a, {required bool onErrand}) =>
+        a.limit(onErrand: onErrand);
+    expect(limit(AutoLock.immediately, onErrand: false), Duration.zero);
+    expect(
+      limit(AutoLock.immediately, onErrand: true),
+      const Duration(minutes: 5),
+    );
+    expect(
+      limit(AutoLock.oneMinute, onErrand: true),
+      const Duration(minutes: 5),
+    );
+    expect(
+      limit(AutoLock.oneMinute, onErrand: false),
+      const Duration(minutes: 1),
+    );
+    expect(
+      limit(AutoLock.fiveMinutes, onErrand: true),
+      const Duration(minutes: 5),
+    );
+    expect(
+      limit(AutoLock.fifteenMinutes, onErrand: true),
+      const Duration(minutes: 15),
+    );
+    expect(limit(AutoLock.never, onErrand: true), isNull);
+    expect(limit(AutoLock.never, onErrand: false), isNull);
+  });
+
   test('a save leaves one whole file behind', () {
     final directory = Directory.systemTemp.createTempSync('preferences-');
     addTearDown(() => directory.deleteSync(recursive: true));

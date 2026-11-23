@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:expense_tracker/src/core/messages/key_failures.dart';
+import 'package:expense_tracker/src/core/platform/startup.dart'
+    show UnlockDelayed;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
@@ -10,6 +12,18 @@ import 'package:vault/ledger_vault.dart';
 /// error as it is or an internal code; one not foreseen is left to the
 /// caller.
 void main() {
+  test('a try not made for the wait after wrong ones says how long', () {
+    for (final recovery in [true, false]) {
+      expect(
+        describeUnlockFailure(
+          const UnlockDelayed(Duration(minutes: 4, seconds: 30)),
+          recovery: recovery,
+        ),
+        '輸入錯誤太多次，請等 4 分 30 秒再試',
+      );
+    }
+  });
+
   String? say(Object error, {bool recovery = false}) =>
       describeUnlockFailure(error, recovery: recovery);
 

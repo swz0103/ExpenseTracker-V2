@@ -86,6 +86,18 @@ abstract interface class BackupManager {
   /// afresh and shows the new recovery code.
   Future<void> resetKeys(String? currentPassword);
 
+  /// Whether this phone can confirm a fingerprint or face, and the ledger
+  /// has a password for it to stand in for.
+  bool get canUseFingerprint;
+
+  /// Whether the fingerprint opens the ledger.
+  bool get fingerprintOn;
+
+  /// Turns opening with the fingerprint [on] (the phone asks for it once)
+  /// or off. False when the person turned the phone's prompt down:
+  /// nothing changed and nothing is wrong.
+  Future<bool> turnFingerprint({required bool on});
+
   /// Whether a recovery code has been shown on this phone, so exporting
   /// a backup need not replace it.
   bool get recoveryGiven;

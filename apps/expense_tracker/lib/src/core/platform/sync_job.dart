@@ -60,8 +60,18 @@ abstract class SyncJob extends ChangeNotifier {
       _problem = failure;
     } finally {
       _busy = false;
-      notifyListeners();
+      // Let go while at work (the ledger locked): no one is told.
+      if (!_gone) notifyListeners();
     }
+  }
+
+  /// Let go: a try under way ends without telling anyone.
+  var _gone = false;
+
+  @override
+  void dispose() {
+    _gone = true;
+    super.dispose();
   }
 }
 

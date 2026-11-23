@@ -11,6 +11,7 @@ import '../../backup/model/phone_backup.dart';
 import '../../reminders/model/calendar_sync.dart';
 import '../../entries/model/receipt_photos.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/navigation/nav.dart' show AppRoute;
 import '../../reminders/model/reminder_alerts.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/platform/quick_action.dart';
@@ -35,7 +36,22 @@ final class PlatformServices {
     this.market,
     this.update,
     this.scanQr,
+    this.onPlace,
+    this.takeReturn,
+    this.leave,
   });
+
+  /// Told the page shown over the tabs each time it changes, so the lock
+  /// gate knows where the person is.
+  final ValueChanged<AppRoute?>? onPlace;
+
+  /// The page to open on first, once: where the person was when they left
+  /// for a restore they then gave up. Null otherwise.
+  final AppRoute? Function()? takeReturn;
+
+  /// Puts the app in the background without closing it, for back on the
+  /// first screen; none where back closes the app (the preview).
+  final Future<void> Function()? leave;
 
   final BackupManager? backupManager;
   final CalendarSync? calendar;

@@ -18,8 +18,11 @@ import java.util.Calendar
  * it keeps only what is left of the budget and the two buttons, one row
  * high or square. It shows what the app left in widget.json
  * (lib/src/features/overview/model/home_widget.dart) and never reads the
- * ledger, so it shows it while the ledger is locked; with no figures
- * chosen in 設定 › 外觀 there is no file and it says where to turn them on.
+ * ledger. What may be shown on the home screen, locked or not, is the
+ * app's decision alone: it writes only that, and the widget draws what is
+ * written. With nothing written (no figures chosen in 設定 › 外觀, or
+ * amounts hidden in the app) it says amounts are hidden and that a tap
+ * opens the app; 支出 and 收入 open the app's composer, behind its lock.
  */
 class SummaryWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
@@ -163,6 +166,15 @@ class SummaryWidget : AppWidgetProvider() {
 
 /** What 本月概況 shows for a snapshot; kept apart from Android to be tested. */
 internal object WidgetView {
+    /**
+     * The widget's words with no figure to show, the same as the app's own
+     * pictures of it (lib/src/core/messages/widget_messages.dart; a test
+     * there holds the two together).
+     */
+    const val HIDDEN_TITLE = "記帳本"
+    const val HIDDEN = "已隱藏金額"
+    const val HIDDEN_OPEN = "點此開啟"
+
     /** A day of the calendar, counted on from 1970-01-01. */
     data class Day(val year: Int, val month: Int, val day: Int) {
         /** Days since 1970-01-01 (Howard Hinnant's days_from_civil). */
@@ -264,8 +276,14 @@ internal object WidgetView {
      * the gold mark of the month's pace moves to today.
      */
     fun of(snapshot: Snapshot?, month: String, today: Day? = null): Shown {
+        // No snapshot: the app keeps none while no figure may be shown
+        // (none chosen, or amounts hidden in the app). The widget says so,
+        // and that a tap opens the app, rather than look empty.
         if (snapshot == null) {
-            return Shown("記帳本", "本月概況", "到 設定 › 外觀 選擇要顯示的數字", null)
+            return Shown(
+                HIDDEN_TITLE, HIDDEN, HIDDEN_OPEN, null,
+                shortLabel = HIDDEN, shortFigure = HIDDEN_OPEN,
+            )
         }
         if (snapshot.month != month) return Shown("本月概況", "—", "打開 App 更新本月數字", null)
         val written = Day.parse(snapshot.date)

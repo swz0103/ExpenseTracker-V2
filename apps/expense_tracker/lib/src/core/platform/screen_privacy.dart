@@ -1,8 +1,10 @@
 import 'dart:io';
 
 /// Keeps the app out of screenshots, screen recordings and the
-/// recent-apps preview while on. The choice is kept beside the ledger, so
-/// it holds from the lock screen on.
+/// recent-apps preview: always while no ledger is open (the lock screen
+/// and what is typed on it, [showing]), and over the open ledger while
+/// the person's choice 禁止截圖 is on. The choice is kept beside the
+/// ledger, so it holds from the lock screen on.
 final class ScreenPrivacy {
   ScreenPrivacy(Directory this.directory, this._secure);
 
@@ -24,12 +26,26 @@ final class ScreenPrivacy {
 
   File get _file => File('${directory!.path}/private-screen');
 
+  /// The person's choice: the open ledger is hidden too.
   bool get on => _kept ?? _file.existsSync();
 
-  /// Applies the kept choice, as at launch.
-  Future<void> apply() => _secure(on);
+  /// No ledger is open, as far as this was told: so at launch, until
+  /// [showing] says one is.
+  var _locked = true;
 
-  /// Turns hiding on or off and keeps the choice.
+  /// Whether the phone hides the screens now.
+  bool get hiding => on || _locked;
+
+  /// Applies what holds now, as at launch.
+  Future<void> apply() => _secure(hiding);
+
+  /// The lock screen is up ([locked]) or a ledger is open.
+  Future<void> showing({required bool locked}) {
+    _locked = locked;
+    return apply();
+  }
+
+  /// Turns hiding the open ledger on or off and keeps the choice.
   Future<void> turn({required bool on}) async {
     if (_kept != null) {
       _kept = on;
@@ -39,6 +55,6 @@ final class ScreenPrivacy {
     } else if (_file.existsSync()) {
       await _file.delete();
     }
-    await _secure(on);
+    await apply();
   }
 }

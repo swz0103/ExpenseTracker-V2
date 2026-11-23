@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:expense_tracker/src/app/lifecycle_services.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
-import 'package:expense_tracker/src/core/platform/away_clock.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,14 +22,14 @@ final class _Offline implements MarketTransport {
 
 /// What runs beside an open ledger, on a real encrypted ledger in a
 /// folder of its own, off Android: prices, the weekly backup, leaving and
-/// coming back, and the lock after a while away.
+/// coming back. Locking after a while away is the lock gate's
+/// (test/core/platform/lock_gate_test.dart).
 void main() {
   late Directory directory;
   late Startup startup;
   late OpenVault vault;
   late List<String> said;
   late _Offline offline;
-  var running = Duration.zero;
 
   setUp(() async {
     directory = Directory.systemTemp.createTempSync('lifecycle-');
@@ -48,7 +47,6 @@ void main() {
     };
     said = [];
     offline = _Offline();
-    running = Duration.zero;
   });
 
   tearDown(() => directory.deleteSync(recursive: true));
@@ -60,7 +58,6 @@ void main() {
     say: said.add,
     offerUpdate: (_) async => fail('nothing to offer off Android'),
     transport: offline,
-    awayClock: AwayClock(running: () => running),
   );
 
   test('off Android only the ledger\'s own services run', () async {
@@ -89,37 +86,31 @@ void main() {
     final first = offline.asked;
     expect(first, greaterThan(0), reason: 'rates are always asked for');
     await s.paused();
-    await s.resumed();
+    s.resumed();
     await pumpEventQueue();
     // Asked at most every 20 minutes (MarketFeed's gap).
     expect(offline.asked, first);
     s.dispose();
   });
 
-  test('back within five minutes the ledger stays open', () async {
-    final s = services();
-    await s.start(await s.dataSource.load());
-    await s.paused();
-    running = const Duration(minutes: 4);
-    expect(await s.resumed(), isFalse);
-    expect(startup.state, isA<Ready>());
-    s.dispose();
-  });
-
-  test('back after five minutes or more the ledger locks', () async {
-    final s = services();
-    await s.start(await s.dataSource.load());
-    await s.paused();
-    running = LifecycleServices.away;
-    expect(await s.resumed(), isTrue);
-    expect(startup.state, isNot(isA<Ready>()));
-    s.dispose();
-  });
+  test(
+    'coming back never locks the ledger here: that is the gate\'s',
+    () async {
+      final s = services();
+      await s.start(await s.dataSource.load());
+      await s.paused();
+      s.resumed();
+      await pumpEventQueue();
+      expect(startup.state, isA<Ready>());
+      s.dispose();
+    },
+  );
 
   test('leaving before the ledger is open does nothing', () async {
     final s = services();
     await s.paused();
-    expect(await s.resumed(), isFalse);
+    s.resumed();
+    expect(startup.state, isA<Ready>());
     s.dispose();
   });
 }

@@ -78,6 +78,23 @@ abstract final class Keys {
   /// The restore form's 還原.
   static const restoreGo = ValueKey('lock:restore-go');
 
+  /// What is drawn over the whole app while the ledger may not be seen.
+  static const lockCover = ValueKey('lock:cover');
+
+  /// The lock screen's wait after wrong passwords, counting down.
+  static const unlockWait = ValueKey('lock:wait');
+
+  /// The lock screen's fingerprint button.
+  static const fingerprint = ValueKey('lock:fingerprint');
+
+  /// 安全: the fingerprint switch, 自動上鎖 and each of its choices, and
+  /// 禁止截圖.
+  static const fingerprintSwitch = ValueKey('security:fingerprint');
+  static const autoLock = ValueKey('security:auto-lock');
+  static Key autoLockChoice(String name) =>
+      ValueKey('security:auto-lock:$name');
+  static const hideScreen = ValueKey('security:hide-screen');
+
   /// The screen asking for a new password after the recovery code: its
   /// button, and the way to choose no password.
   static const newPassword = ValueKey('keys:new-password');

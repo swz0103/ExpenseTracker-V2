@@ -1,4 +1,5 @@
-// Work package 3.1: one lock gate above every screen.
+// Work package 3.1: one lock gate above every screen. Fixed in 3.1; kept as
+// regression tests of SEC-05 and SEC-03.
 import 'dart:async';
 import 'dart:io';
 
@@ -11,8 +12,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
-
-import 'known_defect.dart';
 
 void main() {
   late Directory dir;
@@ -51,7 +50,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('帳務內容'), findsNothing);
     },
-    skip: knownDefect('SEC-05', '3.1') != null,
   );
 
   LedgerVault vault() =>
@@ -70,6 +68,8 @@ void main() {
           await startup.unlockWithPassword('wrong password $i');
         } on KeyringException {
           // Each wrong one is refused.
+        } on UnlockDelayed {
+          // Or, after too many, not tried at all (the API 3.1 added).
         }
       }
       try {
@@ -79,6 +79,5 @@ void main() {
       }
       expect(startup.state, isNot(isA<Ready>()));
     },
-    skip: knownDefect('SEC-03', '3.1'),
   );
 }

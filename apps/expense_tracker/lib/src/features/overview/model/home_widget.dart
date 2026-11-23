@@ -25,10 +25,18 @@ final class WidgetBook implements Listenable {
     required this.reportService,
     required this.budgets,
     required this.budgetService,
+    this._amountsHidden,
   });
 
   final Listenable _changes;
   final DateTime Function() _clock;
+
+  /// The app's 隱藏金額 switch, read each time; never hidden when none.
+  final bool Function()? _amountsHidden;
+
+  /// Whether amounts are hidden in the app now: the widget then keeps
+  /// none either.
+  bool get amountsHidden => _amountsHidden?.call() ?? false;
   final ReportService reportService;
   final BudgetReader budgets;
   final BudgetService budgetService;
@@ -49,6 +57,14 @@ final class WidgetBook implements Listenable {
 /// [WidgetFigures.percent] no amount is kept at all: the share of the
 /// month's total budget used, and this week's days only as heights.
 ///
+/// This is the one place that decides what leaves the encrypted book for
+/// the home screen, which anyone holding the phone sees, locked or not:
+/// nothing until the person chose a level ([WidgetFigures]), amounts only
+/// under [WidgetFigures.amounts], and none of them while amounts are
+/// hidden in the app ([WidgetBook.amountsHidden]). Whatever is not
+/// allowed is never written, so it is not on disk in plain form; the
+/// widget draws what is written and decides nothing.
+///
 /// `budget` and `detail` sit under the budget bar, left and right;
 /// `pace` is how far through the month today is, a mark on that bar;
 /// `week` is each day from Sunday as a share of the week's largest day,
@@ -57,6 +73,7 @@ final class WidgetBook implements Listenable {
 /// widget can move the week on by itself when the app is not opened.
 Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
   if (figures == WidgetFigures.off) return null;
+  if (figures == WidgetFigures.amounts && book.amountsHidden) return null;
   final today = book.today;
   final m = today.month;
   final month = YearMonth(today.year, m).toString();
@@ -166,8 +183,10 @@ List<int> _weekHeights(List<int> daySpent, int weekday) {
 
 /// Keeps the widget's snapshot (`widget.json` beside the book) up to
 /// date while the book is open, and asks the widget to show it again;
-/// the widget reads only that file, so it shows the figures while the
-/// book is locked. With no figures chosen the file is removed.
+/// the widget reads only that file, so it shows the figures the person
+/// chose to show while the book is locked too. With no figures to show
+/// ([widgetSnapshot] gives none) the file is removed, and the widget says
+/// amounts are hidden.
 final class HomeWidget {
   HomeWidget(
     this._file,

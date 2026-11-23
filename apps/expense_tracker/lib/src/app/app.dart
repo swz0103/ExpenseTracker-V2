@@ -16,9 +16,15 @@ class ExpenseApp extends StatefulWidget {
     this.preferences,
     this.cover = false,
     this.systemHides,
+    this.navigatorKey,
   });
 
   final Widget? home;
+
+  /// The key of the navigator every route, sheet and dialog lives in. A
+  /// new key replaces the navigator and all of them at once, as the lock
+  /// gate does when a ledger closes.
+  final GlobalKey<NavigatorState>? navigatorKey;
 
   /// Wraps every route, as the web preview's phone frame does.
   final TransitionBuilder? frame;
@@ -89,6 +95,7 @@ class _ExpenseAppState extends State<ExpenseApp> with WidgetsBindingObserver {
       value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
       child: MaterialApp(
         title: '記帳本',
+        navigatorKey: widget.navigatorKey,
         debugShowCheckedModeBanner: false,
         // Every word the framework shows is Traditional Chinese, as the
         // app's own are.

@@ -10,6 +10,7 @@ import '../../../core/platform/startup.dart';
 import '../../../core/design_system/dialogs.dart';
 import '../../../core/messages/key_failures.dart';
 import '../../../core/messages/key_messages.dart';
+import '../../../core/messages/lock_messages.dart';
 import 'views/lock_parts.dart';
 import 'views/recovery_view.dart';
 import 'views/restore_view.dart';
@@ -123,12 +124,68 @@ class _LockScreenState extends State<LockScreen> {
     await _describe(path);
   }
 
+  /// How long until a password or recovery code may be tried again after
+  /// too many wrong ones; zero when one may be now.
+  var _wait = Duration.zero;
+
+  /// Counts [_wait] down while it is on.
+  Timer? _ticker;
+
+  /// Whether the password or the code of this phone's own ledger is asked
+  /// for: what the attempt limit slows down (a backup's secret is not).
+  bool get _limited => widget.startup.state is Locked && !_restoring && !_quiet;
+
+  /// Asks how long the wait still is, and keeps asking each second while
+  /// it lasts, so the screen counts it down and opens up by itself.
+  Future<void> _refreshWait() async {
+    if (!_limited) return;
+    final Duration wait;
+    try {
+      wait = await widget.startup.unlockWait();
+    } on Object catch (error) {
+      ErrorLog.instance.record(LockWords.lockHeading, error);
+      return;
+    }
+    if (!mounted) return;
+    final waiting = wait > Duration.zero && _limited;
+    if (waiting) {
+      _ticker ??= Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => unawaited(_refreshWait()),
+      );
+    } else {
+      _ticker?.cancel();
+      _ticker = null;
+    }
+    final next = waiting ? wait : Duration.zero;
+    if (next == _wait) return;
+    setState(() {
+      _wait = next;
+      // The wait says why nothing can be typed; what was wrong before it
+      // is not said again after.
+      if (waiting) _problem = null;
+    });
+  }
+
+  /// What was typed when [_problem] was said: typing something else
+  /// takes the words away.
+  String? _problemAt;
+
+  /// A problem said stays only until the person types again.
+  void _typed() {
+    final text = _password.text;
+    if (_problem == null || text.isEmpty || text == _problemAt) return;
+    setState(() => _problem = null);
+  }
+
   @override
   void initState() {
     super.initState();
+    _password.addListener(_typed);
     // Asked for in settings: restore a backup in place of this ledger.
     _restoring = widget.startup.takeRestore();
     if (_welcome) unawaited(_lookForBroughtBack());
+    unawaited(_refreshWait());
     if (_restoring || _welcome) return;
     // The opening plays once per start, with a password or without.
     final opening = widget.startup.takeOpening();
@@ -157,17 +214,20 @@ class _LockScreenState extends State<LockScreen> {
       _problem = null;
     });
     try {
-      await widget.startup.unlockWithDevice();
+      final opened = await widget.startup.unlockWithDevice();
+      // Turned down for the password: the person's choice, so nothing is
+      // said and nothing noted.
+      if (!opened && mounted) setState(() => _busy = false);
     } on KeyringException catch (error) {
       // Said to the person below, by its kind.
       _fail(
         error.error == KeyringError.unknownDevice
-            ? '先用密碼打開一次，之後就能用指紋解鎖'
-            : '指紋解鎖失敗，請改用密碼',
+            ? LockWords.fingerprintNotYet
+            : LockWords.fingerprintFailed,
       );
     } on Object catch (error) {
-      ErrorLog.instance.record('指紋解鎖', error);
-      _fail('指紋解鎖已取消，可以改用密碼');
+      ErrorLog.instance.record(LockWords.fingerprintHeading, error);
+      _fail(LockWords.fingerprintStopped);
     }
   }
 
@@ -206,6 +266,7 @@ class _LockScreenState extends State<LockScreen> {
 
   @override
   void dispose() {
+    _ticker?.cancel();
     _password.dispose();
     _file.dispose();
     _forgetPicked();
@@ -270,6 +331,9 @@ class _LockScreenState extends State<LockScreen> {
       _fail(
         describeUnlockFailure(error, recovery: recovery) ?? _unforeseen(error),
       );
+      // A wrong one may have started a wait, and one not tried for the
+      // wait says so: shown from here on, counting down.
+      await _refreshWait();
     }
   }
 
@@ -282,7 +346,12 @@ class _LockScreenState extends State<LockScreen> {
     if (path == null || !mounted) return;
     if (path != _picked) _forgetPicked();
     _picked = path;
-    setState(() => _file.text = path);
+    setState(() {
+      _file.text = path;
+      // Another backup: what was wrong with the one before is not said
+      // of this one.
+      _problem = null;
+    });
     await _describe(path);
   }
 
@@ -419,6 +488,7 @@ class _LockScreenState extends State<LockScreen> {
     setState(() {
       _busy = false;
       _problem = problem;
+      _problemAt = _password.text;
     });
   }
 
@@ -431,14 +501,33 @@ class _LockScreenState extends State<LockScreen> {
           _problem = null;
         })
       : _restoring
-      ? _keepLedger
+      ? () => unawaited(_keepLedger())
       : null;
 
-  /// Restoring from settings given up: back to this ledger, which opens
-  /// by itself when it has no password.
-  void _keepLedger() {
+  /// Restoring from settings given up: back to this ledger. It opens
+  /// again by itself, where the person left it, with the keys it was open
+  /// with a moment ago; only when the app locked meanwhile (they are let
+  /// go then) is the password asked for.
+  Future<void> _keepLedger() async {
     _forgetPicked();
+    final startup = widget.startup;
+    if (startup.canResume) {
+      setState(() {
+        _busy = true;
+        _problem = null;
+      });
+      try {
+        await startup.cancelRestore();
+        return;
+      } on Object catch (error) {
+        // Asked for as usual below.
+        ErrorLog.instance.record(LockWords.cancelRestoreHeading, error);
+        startup.lock();
+        if (!mounted) return;
+      }
+    }
     setState(() {
+      _busy = false;
       _restoring = false;
       _recovery = false;
       _problem = null;
@@ -448,7 +537,13 @@ class _LockScreenState extends State<LockScreen> {
     });
     // A ledger without a password opens after the opening animation.
     if (_quiet) setState(() => _busy = true);
+    await _refreshWait();
   }
+
+  /// What the form says while the wait after wrong tries is on, counting
+  /// down; null when the secret may be typed.
+  String? get _waiting =>
+      _wait > Duration.zero ? LockWords.waitFor(_wait) : null;
 
   /// Between the password and the recovery code.
   void _toggleRecovery() => setState(() {
@@ -513,6 +608,7 @@ class _LockScreenState extends State<LockScreen> {
         code: _password,
         busy: _busy,
         problem: _problem,
+        waiting: _waiting,
         onSubmit: _submit,
         onPassword: _toggleRecovery,
         onBack: _back,
@@ -528,6 +624,7 @@ class _LockScreenState extends State<LockScreen> {
         password: _password,
         busy: _busy,
         problem: _problem,
+        waiting: _waiting,
         onSubmit: _submit,
         onRecovery: _toggleRecovery,
         onDevice: _biometric ? _unlockWithDevice : null,
@@ -541,7 +638,7 @@ class _LockScreenState extends State<LockScreen> {
       onPopInvokedWithResult: (popped, _) {
         if (popped) return;
         if (widget.startup.state is Locked) {
-          _keepLedger();
+          unawaited(_keepLedger());
           return;
         }
         setState(() {

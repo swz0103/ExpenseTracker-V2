@@ -61,7 +61,10 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   var _tab = _Tab.overview;
-  AppRoute? _page;
+
+  /// The page over the tabs. A ledger reopened after a restore was given
+  /// up starts on the page the person left from.
+  late AppRoute? _page = widget.services.takeReturn?.call();
   late var _touring = widget.tour;
 
   /// The places the tour lights.
@@ -374,10 +377,21 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    widget.services.onPlace?.call(_page);
+    // Back on the first screen (總覽, no page open) leaves the app as the
+    // home button does, on a phone: it stays open behind, so coming back
+    // within the auto-lock time needs no unlocking. Where the app cannot
+    // be put behind, back closes it.
+    final first = _page == null && _tab == _Tab.overview;
+    final leave = widget.services.leave;
     return PopScope(
-      canPop: _page == null && _tab == _Tab.overview,
+      canPop: first && leave == null,
       onPopInvokedWithResult: (popped, _) {
         if (popped) return;
+        if (first) {
+          leave?.call().ignore();
+          return;
+        }
         setState(() {
           if (_page != null) {
             _page = _parent;
