@@ -7,6 +7,7 @@ import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/book_migrations.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/record_version.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/upgrade_backup.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
 
@@ -258,7 +259,7 @@ void main() {
     expect([for (final r in s.rows()) (r.shelf, r.id, r.body)], before);
     // Categories are still under their names: nothing was half done.
     expect(rowsOf(s, 'category').keys.toSet(), {'飲食', '早餐', '交通', '薪水'});
-    expect(s.meta(bookVersionKey), isNull);
+    expect(s.meta(EncryptedDatabase.bookVersionKey), isNull);
   });
 
   test('a book is brought up once, and a copy is kept first', () async {
@@ -270,31 +271,109 @@ void main() {
       clock: clock(),
       beforeUpgrade: () async {
         // The copy is of the book as it was: no step has run yet.
-        expect(store!.meta(bookVersionKey), isNull);
+        expect(store!.meta(EncryptedDatabase.bookVersionKey), isNull);
         expect(rowsOf(store!, 'category').keys, contains('飲食'));
         copies++;
+        return const UpgradeBackupKept();
       },
     ).load();
     await loadCounting();
-    expect(store!.meta(bookVersionKey), bookVersion);
+    expect(store!.meta(EncryptedDatabase.bookVersionKey), bookVersion);
     await loadCounting();
     expect(copies, 1);
     // A later step reaches a book already at this version, by itself.
     bringUpBook(store!, steps: [...bookSteps, (s, w) => steps++]);
     bringUpBook(store!, steps: [...bookSteps, (s, w) => steps++]);
     expect(steps, 1);
-    expect(store!.meta(bookVersionKey), bookVersion + 1);
+    expect(store!.meta(EncryptedDatabase.bookVersionKey), bookVersion + 1);
   });
 
-  test('a copy that cannot be kept does not keep the book shut', () async {
-    writeLegacy(open());
-    final ledger = await SqlLedgerDataSource(
-      open(),
-      clock: clock(),
-      beforeUpgrade: () async => throw const FileSystemException('disk full'),
-    ).load();
-    expect(ledger.entries.all, hasLength(4));
-    expect(store!.meta(bookVersionKey), bookVersion);
+  group('a copy that cannot be kept holds the upgrade back (D19)', () {
+    const full = FileSystemException(
+      'write failed',
+      'backups/before-upgrade.etbk',
+      OSError('No space left on device', 28),
+    );
+
+    test('the disk is full: nothing is brought up, and it says so', () async {
+      final s = open();
+      writeLegacy(s);
+      final before = [for (final r in s.rows()) (r.shelf, r.id, r.body)];
+      var copies = 0;
+      final source = SqlLedgerDataSource(
+        s,
+        clock: clock(),
+        beforeUpgrade: () => keepUpgradeBackup(() async {
+          copies++;
+          throw full;
+        }),
+      );
+      final held = await source.bringUp();
+      expect(held?.problem, UpgradeBackupProblem.noSpace);
+      expect(held?.error, same(full));
+      expect(copies, 1);
+      // The book as it was: no step ran.
+      expect([for (final r in s.rows()) (r.shelf, r.id, r.body)], before);
+      expect(s.meta(EncryptedDatabase.bookVersionKey), isNull);
+      // Loading it all the same is refused, never brought up unasked.
+      await expectLater(source.load(), throwsA(isA<UpgradeHeld>()));
+      expect(copies, 2);
+      expect(s.meta(EncryptedDatabase.bookVersionKey), isNull);
+    });
+
+    test('another failure is told as such', () async {
+      final s = open();
+      writeLegacy(s);
+      final held = await SqlLedgerDataSource(
+        s,
+        clock: clock(),
+        beforeUpgrade: () => keepUpgradeBackup(
+          () async => throw const FileSystemException('denied', 'backups'),
+        ),
+      ).bringUp();
+      expect(held?.problem, UpgradeBackupProblem.other);
+      expect(s.meta(EncryptedDatabase.bookVersionKey), isNull);
+    });
+
+    test('tried again once there is room: kept, then brought up', () async {
+      final s = open();
+      writeLegacy(s);
+      var room = false;
+      final source = SqlLedgerDataSource(
+        s,
+        clock: clock(),
+        beforeUpgrade: () => keepUpgradeBackup(() async {
+          if (!room) throw full;
+        }),
+      );
+      expect(await source.bringUp(), isNotNull);
+      room = true;
+      expect(await source.bringUp(), isNull);
+      expect(s.meta(EncryptedDatabase.bookVersionKey), bookVersion);
+      final ledger = await source.load();
+      expect(ledger.entries.all, hasLength(4));
+    });
+
+    test('without the copy, when the person chose it: brought up, no copy '
+        'asked for', () async {
+      final s = open();
+      writeLegacy(s);
+      var copies = 0;
+      final source = SqlLedgerDataSource(
+        s,
+        clock: clock(),
+        beforeUpgrade: () => keepUpgradeBackup(() async {
+          copies++;
+          throw full;
+        }),
+      );
+      expect(await source.bringUp(withoutBackup: true), isNull);
+      expect(copies, 0);
+      expect(s.meta(EncryptedDatabase.bookVersionKey), bookVersion);
+      final ledger = await source.load();
+      expect(ledger.entries.all, hasLength(4));
+      expect(copies, 0);
+    });
   });
 
   test('a record naming a category by name is named by id once it is '

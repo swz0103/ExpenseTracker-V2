@@ -371,7 +371,7 @@ void main() {
       final running = store.writeApart([
         for (var i = 0; i < 20000; i++) RowChange.put('entry', 'e$i', '{}'),
       ]);
-      expect(store.writingApart, isTrue);
+      expect(store.busyApart, isTrue);
       expect(store.revision, 1);
       expect(() => store.rows(), throwsStateError);
       expect(
@@ -384,7 +384,7 @@ void main() {
       );
       await store.idle;
       await running;
-      expect(store.writingApart, isFalse);
+      expect(store.busyApart, isFalse);
       expect(store.revision, 2);
       // 1 + 20,000.
       expect(store.count, 20001);
@@ -417,6 +417,133 @@ void main() {
       expect(ticks, greaterThan(1));
       expect(store.count, 50000);
     });
+  });
+
+  // What a read apart runs on its worker is sent there: top-level
+  // functions, so no closure carries the store along.
+  group('a read apart (D41)', () {
+    test('reads every record and the revision on a worker', () async {
+      final store = open();
+      store.write(
+        (w) => w
+          ..put('entry', 'a', '1')
+          ..put('price', 'p', '9'),
+      );
+      store.write((w) => w.put('entry', 'b', '2'));
+      // Two writes that count: revision 2.
+      expect(await store.readApart(_said), '2:a=1,p=9,b=2');
+      expect(store.busyApart, isFalse);
+    });
+
+    test('with the book\'s version and the file\'s layout', () async {
+      final store = open();
+      expect(await store.readApart(_versions), (book: null, layout: 1));
+      store.write(
+        (w) => w.setMeta(EncryptedDatabase.bookVersionKey, 2),
+        counts: false,
+      );
+      expect(await store.readApart(_versions), (book: 2, layout: 1));
+    });
+
+    test('a write while it reads waits, and lands after: the snapshot is '
+        'the book as it stood', () async {
+      final store = open();
+      store.write((w) {
+        for (var i = 0; i < 20000; i++) {
+          w.put('entry', 'e$i', '{}');
+        }
+      });
+      final reading = store.readApart(_counted);
+      // The read holds the store: a write now is refused, never mixed in.
+      expect(store.busyApart, isTrue);
+      expect(store.revision, 1);
+      expect(
+        () => store.write((w) => w.put('entry', 'late', '1')),
+        throwsStateError,
+      );
+      expect(
+        () => store.writeApart(const [RowChange.drop('entry', 'e0')]),
+        throwsStateError,
+      );
+      // Reading here meanwhile is fine: nothing writes.
+      expect(store.row('entry', 'e7')?.body, '{}');
+      expect(store.meta('revision'), 1);
+      // A write that waits for the read lands after it.
+      final writing = () async {
+        while (store.busyApart) {
+          await store.idle;
+        }
+        store.write((w) => w.put('entry', 'late', '1'));
+      }();
+      final snapshot = await reading;
+      await writing;
+      // 20,000 rows at revision 1: the write that waited is not in it.
+      expect(snapshot, (rows: 20000, revision: 1));
+      // On disk: 20,000 + 1 rows, revision 2.
+      expect(store.count, 20001);
+      expect(store.revision, 2);
+    });
+
+    test(
+      'the store is free once the rows are read, while the rest runs',
+      () async {
+        final store = open();
+        store.write((w) => w.put('entry', 'a', '1'));
+        final worker = ReceivePort();
+        final reading = store.readApart(_waitingOn(worker.sendPort));
+        final go = await worker.first as SendPort;
+        // The rows are read and the store is free, though [then] still runs.
+        await store.idle;
+        expect(store.busyApart, isFalse);
+        store.write((w) => w.put('entry', 'b', '2'));
+        go.send(null);
+        expect(await reading, 1);
+        expect(store.count, 2);
+      },
+    );
+
+    test('a read that fails frees the store', () async {
+      final store = open();
+      store.write((w) => w.put('entry', 'a', '1'));
+      await expectLater(store.readApart(_fails), throwsStateError);
+      expect(store.busyApart, isFalse);
+      expect(store.count, 1);
+    });
+
+    test('closed while it reads: closed once the read is done', () async {
+      final store = open();
+      store.write((w) => w.put('entry', 'a', '1'));
+      final reading = store.readApart(_rowCount);
+      store.close();
+      expect(await reading, 1);
+      expect(() => store.rows(), throwsStateError);
+    });
+
+    test(
+      'the caller\'s isolate is not held while 100,000 rows are read',
+      () async {
+        final store = open();
+        const body =
+            '{"date":"2026-10-21T00:00:00.000Z","type":"expense","amount":120,'
+            '"account":"0190f3c2-7e4b-7c1a-9d2e-3f4a5b6c7d8e","note":"lunch"}';
+        store.write((w) {
+          for (var i = 0; i < 100000; i++) {
+            w.put('entry', 'e$i', body);
+          }
+        });
+        var ticks = 0;
+        final timer = Timer.periodic(
+          const Duration(milliseconds: 1),
+          (_) => ticks++,
+        );
+        final read = await store.readApart(_rowCount);
+        timer.cancel();
+        // The timer kept firing while the rows were read: read here, it
+        // would not fire at all.
+        expect(ticks, greaterThan(1));
+        expect(read, 100000);
+      },
+    );
   });
 
   test('ten thousand records write and load quickly', () {
@@ -453,3 +580,29 @@ void _openElsewhere(List<Object> message) {
     reply.send(error.problem.name);
   }
 }
+
+/// The revision and the records a read apart found, as text.
+Future<String> _said(StoreSnapshot s) async =>
+    '${s.revision}:${[for (final r in s.rows) '${r.id}=${r.body}'].join(',')}';
+
+/// How many records a read apart found, and at which revision.
+Future<({int rows, int revision})> _counted(StoreSnapshot s) async =>
+    (rows: s.rows.length, revision: s.revision);
+
+/// How many records a read apart found.
+Future<int> _rowCount(StoreSnapshot s) async => s.rows.length;
+
+/// What a read apart runs fails, as sealing a backup could.
+Future<int> _fails(StoreSnapshot s) async => throw StateError('sealing failed');
+
+/// Hands [send] a port, then waits on the worker until it is told to go.
+Future<int> Function(StoreSnapshot) _waitingOn(SendPort send) => (s) async {
+  final go = ReceivePort();
+  send.send(go.sendPort);
+  await go.first;
+  return s.rows.length;
+};
+
+/// The book's version and the layout a read apart found.
+Future<({int? book, int layout})> _versions(StoreSnapshot s) async =>
+    (book: s.book, layout: s.layout);

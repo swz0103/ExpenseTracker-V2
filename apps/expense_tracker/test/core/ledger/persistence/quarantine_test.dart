@@ -157,11 +157,13 @@ void main() {
       'of a later version leaves the rest of the book open as usual',
       () async {
         await load();
-        store!.write((w) => w.setMeta(bookVersionKey, bookVersion + 5));
+        store!.write(
+          (w) => w.setMeta(EncryptedDatabase.bookVersionKey, bookVersion + 5),
+        );
         final ledger = await load();
         expect(ledger.accounts.all, hasLength(2));
         // Not taken back to this version's number.
-        expect(store!.meta(bookVersionKey), bookVersion + 5);
+        expect(store!.meta(EncryptedDatabase.bookVersionKey), bookVersion + 5);
       },
     );
   });
@@ -303,7 +305,7 @@ void main() {
     test('are given to a new book only, not again once removed', () async {
       final ledger = await load();
       expect(ledger.accounts.all, hasLength(2));
-      expect(store!.meta(bookVersionKey), bookVersion);
+      expect(store!.meta(EncryptedDatabase.bookVersionKey), bookVersion);
       store!.write((w) {
         for (final a in ledger.accounts.all) {
           w.drop('account', a.id);
@@ -329,7 +331,7 @@ void main() {
       final ledger = await load();
       expect(ledger.accounts.all, isEmpty);
       expect(ledger.categories.all.map((c) => c.name), ['飲食']);
-      expect(store!.meta(bookVersionKey), bookVersion);
+      expect(store!.meta(EncryptedDatabase.bookVersionKey), bookVersion);
       // Opening wrote no change of the book.
       expect(store!.revision, revision);
     });

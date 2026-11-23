@@ -249,10 +249,10 @@ void main() {
     final file = await backup();
     final original = frames(file);
     final header = String.fromCharCodes(original[1]);
-    expect(header, contains('"version":4'));
+    expect(header, contains('"version":5'));
     writeFrames(file, [
       original[0],
-      header.replaceFirst('"version":4', '"version":5').codeUnits,
+      header.replaceFirst('"version":5', '"version":6').codeUnits,
       ...original.skip(2),
     ]);
     await expectLater(

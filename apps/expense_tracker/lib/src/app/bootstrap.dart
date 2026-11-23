@@ -12,8 +12,10 @@ import 'app.dart';
 import 'ledger_session.dart';
 import 'lifecycle_services.dart';
 import 'load_failed_page.dart';
+import 'upgrade_held_page.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../core/ledger/persistence/quarantine.dart';
+import '../core/ledger/persistence/upgrade_backup.dart';
 import '../core/design_system/design_system.dart';
 import '../core/diagnostics/error_log.dart';
 import '../core/messages/loading_messages.dart';
@@ -299,6 +301,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
   /// Opening the book: load, inbox, health check, what is due.
   late final _session = LedgerSession(
     load: _services.dataSource.load,
+    bringUp: _services.dataSource.bringUp,
     quarantined: () => _services.dataSource.quarantined,
     inbox: Platform.isAndroid
         ? () async {
@@ -313,7 +316,33 @@ class _OpenedLedgerState extends State<OpenedLedger>
 
   late Future<Ledger> _ledger = _open();
 
+  /// The copy before an upgrade that could not be kept, while its page
+  /// shows (D19); and what the person chose there: true to go on without
+  /// it, false to try again.
+  UpgradeBackupFailed? _held;
+  Completer<bool>? _choice;
+
+  void _choose({required bool withoutBackup}) {
+    final choice = _choice;
+    if (choice == null || choice.isCompleted) return;
+    choice.complete(withoutBackup);
+  }
+
   Future<Ledger> _open() async {
+    // A book an earlier version kept is not opened until its copy is
+    // kept, or the person chose, twice, to go on without one.
+    var withoutBackup = false;
+    for (;;) {
+      final held = await _session.prepare(withoutBackup: withoutBackup);
+      if (held == null) break;
+      final choice = _choice = Completer<bool>();
+      if (mounted) setState(() => _held = held);
+      withoutBackup = await choice.future;
+      if (withoutBackup) {
+        ErrorLog.instance.record('升級前備份', StateError('skipped by choice'));
+      }
+      if (mounted) setState(() => _held = null);
+    }
     final start = await _session.open();
     await _services.start(start.ledger);
     _afterFrame(() {
@@ -529,6 +558,14 @@ class _OpenedLedgerState extends State<OpenedLedger>
     future: _ledger,
     builder: (context, snapshot) {
       final ledger = snapshot.data;
+      if (_held case final held? when ledger == null) {
+        return UpgradeHeldPage(
+          failure: held,
+          onRetry: () => _choose(withoutBackup: false),
+          onExport: () => _exportReport(failure: held.error),
+          onWithoutBackup: () => _choose(withoutBackup: true),
+        );
+      }
       if (snapshot.hasError) {
         final error = snapshot.error!;
         return LoadFailedPage(

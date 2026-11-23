@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
@@ -49,6 +48,8 @@ final class BackupHeader {
     required this.backupEpoch,
     required this.revision,
     required this.rows,
+    this.book,
+    this.layout,
     this.version = BackupHeader.current,
   });
 
@@ -56,14 +57,28 @@ final class BackupHeader {
 
   /// The version this app writes. 4: the keyring is [Keyring.exported],
   /// without the app password's slot, and a file larger than a chunk is
-  /// split over several.
-  static const current = 4;
+  /// split over several. 5: the header also carries the book's version
+  /// and the store's layout ([book], [layout]).
+  static const current = 5;
 
   /// The versions this app reads: every one it has written since backups
   /// were kept for good (docs/adr/0010-data-that-lasts.md). A version is
   /// added when the format changes and never taken out; reading an older
   /// one brings it up to [current].
-  static const readable = {3, 4};
+  static const readable = {3, 4, 5};
+
+  /// The keys of a header of each version: exactly these, no more.
+  static const _keys = {
+    'format',
+    'version',
+    'backupId',
+    'createdAt',
+    'keyring',
+    'backupEpoch',
+    'revision',
+    'rows',
+  };
+  static const _keysFrom5 = {..._keys, 'book', 'layout'};
 
   /// The version this backup was written in. A version 3 backup carries
   /// the app password's slot, so it opens with that password too.
@@ -84,6 +99,16 @@ final class BackupHeader {
   /// How many records the backup holds.
   final int rows;
 
+  /// The book's version when this backup was taken (what the store kept
+  /// under [EncryptedDatabase.bookVersionKey]); null in a backup before
+  /// version 5, and for a book that had none. A restore keeps it, so a
+  /// book already brought up is not brought up again.
+  final int? book;
+
+  /// The store's layout ([EncryptedDatabase.schema]) when this backup was
+  /// taken; null in a backup before version 5.
+  final int? layout;
+
   Map<String, Object?> toJson() => {
     'format': format,
     'version': version,
@@ -93,6 +118,7 @@ final class BackupHeader {
     'backupEpoch': backupEpoch,
     'revision': revision,
     'rows': rows,
+    if (version >= 5) ...{'book': book, 'layout': layout},
   };
 
   static BackupHeader parse(List<int> bytes) {
@@ -109,16 +135,7 @@ final class BackupHeader {
     if (version is! int || !readable.contains(version)) {
       throw const BackupException(BackupProblem.unsupportedVersion);
     }
-    const keys = {
-      'format',
-      'version',
-      'backupId',
-      'createdAt',
-      'keyring',
-      'backupEpoch',
-      'revision',
-      'rows',
-    };
+    final keys = version >= 5 ? _keysFrom5 : _keys;
     if (json.length != keys.length || !keys.containsAll(json.keys)) {
       throw const BackupException(BackupProblem.invalidFormat, 'header');
     }
@@ -131,6 +148,10 @@ final class BackupHeader {
         backupEpoch: json['backupEpoch']! as int,
         revision: json['revision']! as int,
         rows: json['rows']! as int,
+        // Version 5: the book's version, null for a book that had none;
+        // the layout, always.
+        book: json['book'] as int?,
+        layout: version >= 5 ? json['layout']! as int : null,
         version: version,
       );
     } on Object {
@@ -144,7 +165,7 @@ final class BackupHeader {
   }
 }
 
-/// Backup format v4: every record of the ledger, then any files kept
+/// Backup format v5: every record of the ledger, then any files kept
 /// beside it, such as receipt photos.
 ///
 /// File: an 8-byte magic, then length-prefixed frames. Frame 0 is the
@@ -175,8 +196,15 @@ abstract final class LedgerBackup {
   static const chunkBytes = 8 * 1024 * 1024;
   static final _cipher = AesGcm.with256bits();
 
-  /// Writes a backup of [store] to [file]. The records are read at once,
-  /// so the backup is one consistent state.
+  /// Writes a backup of [store] to [file]. The records are read in one
+  /// read of the store, so the backup is one consistent state.
+  ///
+  /// Reading every record, then hashing, compressing and sealing them and
+  /// the photos, is seconds of work for a large book: all of it runs on a
+  /// worker isolate ([EncryptedDatabase.readApart]), so the screen keeps
+  /// moving and the records never come back to the caller's isolate
+  /// (D41). The store is busy only while the records are read; a write
+  /// asked for meanwhile waits for [EncryptedDatabase.idle].
   static Future<BackupHeader> write({
     required EncryptedDatabase store,
     required UnlockedKeyring keys,
@@ -188,42 +216,65 @@ abstract final class LedgerBackup {
     int pieceBytes = pieceBytes,
     int chunkBytes = chunkBytes,
   }) async {
-    final rows = store.rows();
     final epoch = keys.currentBackupEpoch;
+    return store.readApart(
+      _framesOf(
+        path: file.path,
+        backupId: backupId,
+        createdAt: createdAt,
+        keyring: keys.keyring.exported,
+        epoch: epoch,
+        keyBytes: List<int>.of(keys.backupKey(epoch)),
+        sizes: (count: chunkSize, piece: pieceBytes, text: chunkBytes),
+        files: {
+          for (final MapEntry(key: name, value: source) in files.entries)
+            name: source.path,
+        },
+      ),
+    );
+  }
+
+  /// What the worker does with the records read ([write]): the header,
+  /// then every frame. Built from plain values only (no store, no
+  /// unlocked keys), so the closure sent to the worker carries nothing
+  /// else.
+  static Future<BackupHeader> Function(StoreSnapshot snapshot) _framesOf({
+    required String path,
+    required String backupId,
+    required DateTime createdAt,
+    required Keyring keyring,
+    required int epoch,
+    required List<int> keyBytes,
+    required ({int count, int piece, int text}) sizes,
+    required Map<String, String> files,
+  }) => (snapshot) async {
     final header = BackupHeader(
       backupId: backupId,
       createdAt: createdAt,
-      keyring: keys.keyring.exported,
+      keyring: keyring,
       backupEpoch: epoch,
-      revision: store.revision,
-      rows: rows.length,
+      revision: snapshot.revision,
+      rows: snapshot.rows.length,
+      book: snapshot.book,
+      layout: snapshot.layout,
     );
     final headerBytes = utf8.encode(jsonEncode(header.toJson()));
-    final keyBytes = List<int>.of(keys.backupKey(epoch));
-    final items = [
-      for (final row in rows) [row.shelf, row.id, row.body],
-    ];
-    final path = file.path;
-    final paths = {
-      for (final MapEntry(key: name, value: source) in files.entries)
-        name: source.path,
-    };
-    // Hashing, compressing and sealing every record and photo is seconds
-    // of pure-Dart work for a book with many photos: done on a worker
-    // isolate, so the screen keeps moving. The records were read above,
-    // so the backup is still one consistent state.
-    final sizes = (count: chunkSize, piece: pieceBytes, text: chunkBytes);
-    await Isolate.run(
-      () => _writeFrames(path, headerBytes, keyBytes, items, sizes, paths),
+    await _writeFrames(
+      path,
+      headerBytes,
+      keyBytes,
+      snapshot.rows,
+      sizes,
+      files,
     );
     return header;
-  }
+  };
 
   static Future<void> _writeFrames(
     String path,
     List<int> headerBytes,
     List<int> keyBytes,
-    List<List<String>> items,
+    List<StoredRow> rows,
     ({int count, int piece, int text}) sizes,
     Map<String, String> files,
   ) async {
@@ -242,15 +293,26 @@ abstract final class LedgerBackup {
           secretKey: key,
           aad: _aad(digest, index),
         );
-        _frame(sink, [...box.nonce, ...box.cipherText, ...box.mac.bytes]);
+        // One typed buffer: a frame of boxed ints would be eight times
+        // its size, and garbage the screen's isolate pays for too.
+        final nonce = box.nonce.length;
+        final sealed = box.cipherText.length;
+        _frame(
+          sink,
+          Uint8List(nonce + sealed + box.mac.bytes.length)
+            ..setAll(0, box.nonce)
+            ..setAll(nonce, box.cipherText)
+            ..setAll(nonce + sealed, box.mac.bytes),
+        );
       }
 
       // Records: at most sizes.count of them, and sizes.text of their
       // text, a chunk.
       var chunk = <List<String>>[];
       var text = 0;
-      for (final item in items) {
-        final size = item[0].length + item[1].length + item[2].length;
+      for (final row in rows) {
+        final item = [row.shelf, row.id, row.body];
+        final size = row.shelf.length + row.id.length + row.body.length;
         if (chunk.isNotEmpty &&
             (chunk.length >= sizes.count || text + size > sizes.text)) {
           await seal({'type': 'rows', 'items': chunk});
@@ -284,7 +346,7 @@ abstract final class LedgerBackup {
       await seal({
         'type': 'end',
         'chunks': index,
-        'rows': items.length,
+        'rows': rows.length,
         if (files.isNotEmpty) 'files': files.length,
       });
       await sink.flush();
@@ -335,6 +397,11 @@ abstract final class LedgerBackup {
         throw const BackupException(BackupProblem.invalidFormat, 'empty');
       }
       final header = BackupHeader.parse(headerBytes);
+      // Taken from a store of a later layout than this build keeps: what
+      // it held beyond the records could be lost here.
+      if ((header.layout ?? 0) > EncryptedDatabase.schema) {
+        throw const BackupException(BackupProblem.unsupportedVersion);
+      }
       if (header.keyring.id != keys.keyring.id) {
         throw const BackupException(BackupProblem.authenticationFailed);
       }
@@ -416,6 +483,16 @@ abstract final class LedgerBackup {
       }
       if (!ended || rows != header.rows) {
         throw const BackupException(BackupProblem.invalidFormat, 'truncated');
+      }
+      // The book's version goes with its records (version 5 on), so the
+      // book restored opens as it was kept: not brought up again, and no
+      // copy is kept before an upgrade that does nothing (D26). A backup
+      // without it leaves none, and the app brings the book up.
+      if (header.book case final book?) {
+        into.write(
+          (w) => w.setMeta(EncryptedDatabase.bookVersionKey, book),
+          counts: false,
+        );
       }
       return header;
     } finally {

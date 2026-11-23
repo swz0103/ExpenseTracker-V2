@@ -221,10 +221,10 @@ final class EncryptedBackupManager implements BackupManager {
       '.part',
     );
     // A large change being kept on a worker is waited for: the backup
-    // reads the whole book at once, as one state (DAT-03). Nothing waits
-    // between this and that read.
+    // reads the whole book in one read on a worker (readApart, D41), as
+    // one state (DAT-03). Nothing waits between this and that read.
     final store = _vault.store;
-    while (store.writingApart) {
+    while (store.busyApart) {
       await store.idle;
     }
     try {

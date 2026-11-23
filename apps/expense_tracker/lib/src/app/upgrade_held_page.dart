@@ -1,0 +1,90 @@
+import 'package:flutter/material.dart';
+
+import '../core/design_system/dialogs.dart';
+import '../core/design_system/keys.dart';
+import '../core/design_system/spacing.dart';
+import '../core/ledger/persistence/upgrade_backup.dart';
+import '../core/messages/loading_messages.dart';
+import '../core/messages/problem_messages.dart';
+
+/// A book kept by an earlier version, held back from its upgrade because
+/// the copy kept first could not be written (D19): why, in words, how to
+/// make room, and the ways on: try again, export the diagnostics, or go
+/// on without the copy, which asks a second time.
+class UpgradeHeldPage extends StatelessWidget {
+  const UpgradeHeldPage({
+    super.key,
+    required this.failure,
+    required this.onRetry,
+    required this.onExport,
+    required this.onWithoutBackup,
+  });
+
+  final UpgradeBackupFailed failure;
+  final VoidCallback onRetry;
+  final VoidCallback onExport;
+
+  /// Brings the book up without the copy; only once asked twice.
+  final VoidCallback onWithoutBackup;
+
+  Future<void> _skip(BuildContext context) async {
+    final sure = await confirm(
+      context,
+      upgradeHeldConfirm,
+      upgradeHeldConfirmAction,
+      danger: true,
+      body: upgradeHeldConfirmBody,
+    );
+    if (sure) onWithoutBackup();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(Space.s6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                upgradeHeldTitle,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: Space.s3),
+              Text(
+                upgradeHeldBody(
+                  failure.problem,
+                  describeProblem(failure.error),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: Space.s3),
+              Text(upgradeHeldSpace, textAlign: TextAlign.center),
+              const SizedBox(height: Space.s6),
+              FilledButton(
+                key: Keys.upgradeHeld('retry'),
+                onPressed: onRetry,
+                child: const Text(upgradeHeldRetry),
+              ),
+              const SizedBox(height: Space.s2),
+              OutlinedButton(
+                key: Keys.upgradeHeld('export'),
+                onPressed: onExport,
+                child: const Text(upgradeHeldExport),
+              ),
+              const SizedBox(height: Space.s2),
+              TextButton(
+                key: Keys.upgradeHeld('skip'),
+                onPressed: () => _skip(context),
+                child: const Text(upgradeHeldSkip),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}

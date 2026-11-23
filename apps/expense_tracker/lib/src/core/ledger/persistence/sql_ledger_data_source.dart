@@ -25,6 +25,7 @@ import 'codec/record_fields.dart';
 import 'codec/row_decoding.dart';
 import 'quarantine.dart';
 import 'record_version.dart';
+import 'upgrade_backup.dart';
 import 'codec/record_json.dart';
 import 'codec/record_shape.dart';
 import '../../diagnostics/performance_monitor.dart';
@@ -90,8 +91,8 @@ const writeApartFrom = 500;
 /// Opening reads row by row: a row this version cannot read is set aside
 /// ([quarantined]), kept on disk as it is and never written over, and
 /// the rest of the book opens. A book kept by an earlier version is first
-/// brought up (book_migrations.dart), after [beforeUpgrade] has kept a
-/// copy of it.
+/// brought up (book_migrations.dart), only once [beforeUpgrade] has kept a
+/// copy of it ([bringUp]).
 final class SqlLedgerDataSource implements LedgerDataSource {
   SqlLedgerDataSource(
     this._store, {
@@ -117,10 +118,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   final MarketDataGateway? _gateway;
 
   /// Keeps a copy of the book as it is, before a book kept by an earlier
-  /// version is brought up; none in tests. A copy that cannot be kept is
-  /// noted in the diagnostics log and the book is brought up all the same:
-  /// the steps run in one transaction, so a failing one changes nothing.
-  final Future<void> Function()? beforeUpgrade;
+  /// version is brought up; none in tests. A copy that cannot be kept
+  /// keeps the book from being brought up (D19): [bringUp] says why, and
+  /// [load] refuses the book until the person decides.
+  final Future<UpgradeBackup> Function()? beforeUpgrade;
 
   /// Which category each id stands for, as the records are read and kept.
   final _refs = CategoryRefs();
@@ -283,29 +284,40 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// Brings the book up to this version before it is read: a new one is
   /// given its first records, one kept by an earlier version goes through
-  /// the steps it lacks. A book that was opened before is never given
-  /// records again, even when the person removed every account.
-  Future<void> _bringUp() async {
+  /// the steps it lacks, once [beforeUpgrade] has kept a copy of it, or
+  /// without one when the person chose [withoutBackup]. A book that was
+  /// opened before is never given records again, even when the person
+  /// removed every account.
+  ///
+  /// The copy that could not be kept, the book left as it was; null once
+  /// the book is at this version (or later).
+  Future<UpgradeBackupFailed?> bringUp({bool withoutBackup = false}) async {
+    if (_store.busyApart) await _quiet();
     switch (standingOf(_store)) {
       case BookStanding.fresh:
         _start();
       case BookStanding.behind:
-        try {
-          await beforeUpgrade?.call();
-        } on Object catch (error) {
-          ErrorLog.instance.record('升級前備份', error);
+        if (!withoutBackup) {
+          if (await beforeUpgrade?.call() case final UpgradeBackupFailed no) {
+            ErrorLog.instance.record('升級前備份', no.error);
+            return no;
+          }
         }
+        if (_store.busyApart) await _quiet();
         bringUpBook(_store);
       case BookStanding.current || BookStanding.ahead:
         break;
     }
+    return null;
   }
 
   Future<Ledger> _load() async {
     _aside.clear();
     _named.clear();
     _namesOf.clear();
-    await _bringUp();
+    // Never read a book left behind: the copy before its upgrade was not
+    // kept, and the person has not chosen to go on without it.
+    if (await bringUp() case final no?) throw UpgradeHeld(no);
     final collections = await _shelves();
     final json = await _records(collections);
     List<T> read<T>(
@@ -349,6 +361,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final today = _today();
     final trash = read(Collection.trash, (j) => trashedFromJson(j, _refs));
     final from = today.subtract(trashRetention);
+    if (_store.busyApart) await _quiet();
     _dropExpired(trash, collections[_gone] ?? const [], from);
     final ledger = Ledger(
       today: today,
@@ -414,6 +427,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       if (_sizeOf(batch) >= _writeApartFrom && _claimed(batch).isEmpty) {
         await _writeApart(batch);
       } else {
+        // A backup reading the book on a worker holds the store for that
+        // read (D41): the change is written once it is done, never into
+        // the middle of it.
+        if (_store.busyApart) await _quiet();
         _write(batch);
       }
     } on Object catch (error) {
@@ -432,10 +449,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       batch.dropped.length +
       batch.drafts.length;
 
-  /// Waits until no write runs apart, so the store may be read and
-  /// written here again.
+  /// Waits until no other isolate uses the store (a write apart, or a
+  /// backup's read), so it may be read and written here again.
   Future<void> _quiet() async {
-    while (_store.writingApart) {
+    while (_store.busyApart) {
       await _store.idle;
     }
   }
@@ -972,3 +989,14 @@ List<Holding> _holdingsOf(_Market market) => [
       change: 0,
     ),
 ];
+
+/// A book kept by an earlier version was not opened: the copy kept before
+/// bringing it up could not be written ([SqlLedgerDataSource.bringUp]).
+final class UpgradeHeld implements Exception {
+  const UpgradeHeld(this.failure);
+
+  final UpgradeBackupFailed failure;
+
+  @override
+  String toString() => 'UpgradeHeld(${failure.problem.name})';
+}

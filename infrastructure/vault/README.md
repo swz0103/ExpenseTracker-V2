@@ -30,12 +30,13 @@
 - `restore`：還原備份時先寫到暫存資料庫並通過 SQLite 完整性檢查，備份帶的收據照片寫到 `files.restore/`；接著寫好新的 `keyring.json.new`，再換上資料庫、把暫存的檔案逐一換入（被換掉的先移到 `files.replaced/`），最後才把 keyring 改名就位。下次打開時（`_settle`）依留下的檔案收尾：暫存與資料庫都在就丟掉暫存（連同暫存的檔案），只剩暫存就換上，新 keyring 完整就把檔案換完並採用；任何一步之間當機都開得回一本完整、照片也屬於它的帳本。
 - `OpenVault.updateKeys`：換密碼、加裝置、輪替備份金鑰後存回。
 
-備份格式 v4：帳本的每一筆資料（`EncryptedDatabase` 的每一列）分塊、gzip、用 keyring 的備份金鑰以 AES-256-GCM 加密，之後可附帶收據照片等檔案。v3 仍可讀取。
+備份格式 v5：帳本的每一筆資料（`EncryptedDatabase` 的每一列）分塊、gzip、用 keyring 的備份金鑰以 AES-256-GCM 加密，之後可附帶收據照片等檔案。v3、v4 仍可讀取（`test/ledger_backup/fixtures/v4.etbk` 是 v4 寫的備份）。
 
-- 檔案開頭是明文標頭：備份 ID、時間、帳本的 `revision`、筆數、keyring（`Keyring.exported`：不含 App 密碼與裝置的 slot，只能用救援碼或備份密碼打開；v3 還帶著密碼 slot）、備份金鑰 epoch。每週備份用 `revision` 判斷帳本有沒有變動。
+- 檔案開頭是明文標頭：備份 ID、時間、帳本的 `revision`、筆數、keyring（`Keyring.exported`：不含 App 密碼與裝置的 slot，只能用救援碼或備份密碼打開；v3 還帶著密碼 slot）、備份金鑰 epoch；v5 起還有帳本版本（`book`）與 layout（`layout`）。每個版本的標頭欄位固定，多一個少一個都拒絕。每週備份用 `revision` 判斷帳本有沒有變動。
 - 寫入與讀取用同一個區塊上限（`maxFrame`）：資料依大小分塊，大檔案切成多段（`more`），寫得出來的備份一定讀得回來。
 - 每一塊的 AAD 綁定標頭雜湊與塊的順序，換塊、刪塊、截斷、改標頭都會被拒絕。
-- 擷取時一次讀出全部資料，備份是同一個時間點的帳本。
+- 擷取時用 `readApart` 在背景 isolate 一次讀出全部資料，接著在同一個 isolate 壓縮加密，備份是同一個時間點的帳本，畫面不停頓（D41）。
+- 還原時把標頭的帳本版本寫回，同版本的備份還原後不會再跑一次升級，也不會多存一份升級前備份（D26）；layout 比這版新的備份拒絕還原（`unsupportedVersion`）。
 - 還原時 `accept` 先看每一筆，App 讀不懂的一筆會讓還原失敗（`invalidContent`），不會換上一本打不開的帳。
 - 錯誤一律回報為 `BackupProblem`：格式錯、版本較新、驗證失敗、目標非空、內容無效。
 

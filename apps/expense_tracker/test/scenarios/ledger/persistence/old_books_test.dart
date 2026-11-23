@@ -102,7 +102,7 @@ void main() {
       expect(canonicalRecords(bookRecords(await _load(open.store))), expected);
       // Brought up to this version as it opened, and the same once read
       // again from what the steps wrote.
-      expect(open.store.meta(bookVersionKey), bookVersion);
+      expect(open.store.meta(EncryptedDatabase.bookVersionKey), bookVersion);
       expect(canonicalRecords(bookRecords(await _load(open.store))), expected);
     });
 
@@ -124,7 +124,7 @@ void main() {
         onFile: (name, bytes) async => files[name] = bytes,
       );
       expect(canonicalRecords(bookRecords(await _load(into))), expected);
-      expect(into.meta(bookVersionKey), bookVersion);
+      expect(into.meta(EncryptedDatabase.bookVersionKey), bookVersion);
       expect(canonicalRecords(bookRecords(await _load(into))), expected);
       expect(files, {'r1.etr': _receipt});
     });

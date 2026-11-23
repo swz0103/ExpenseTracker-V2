@@ -35,6 +35,10 @@ abstract final class Keys {
   /// export.
   static Key loadFailed(String what) => ValueKey('load-failed:$what');
 
+  /// A way out of a book held back from its upgrade because the copy
+  /// before it could not be kept: retry, export, or go on without it.
+  static Key upgradeHeld(String what) => ValueKey('upgrade-held:$what');
+
   /// 刪除 on the bar over entries picked by a long press.
   static const deletePicked = ValueKey('ledger:delete-picked');
 
