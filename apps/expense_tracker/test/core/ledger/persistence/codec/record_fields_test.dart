@@ -35,6 +35,7 @@ void main() {
     home: 1,
     received: 1,
     group: 'g',
+    dayTrade: true,
   );
   final refs = CategoryRefs([
     Category('飲食', 'food', 1, id: 'c1'),

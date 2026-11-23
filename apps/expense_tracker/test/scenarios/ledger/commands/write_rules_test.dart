@@ -46,6 +46,43 @@ Matcher _refused(Type issue) => isA<RecordRefused>().having(
 );
 
 void main() {
+  group('D6: a day trade, kept by the model and the commands', () {
+    // 1000 shares of 2330 bought and sold the same day.
+    Entry trade(String id, EntryType type, {bool dayTrade = false}) => Entry(
+      id: id,
+      date: day(2026, 10, 4),
+      type: type,
+      amount: 100000,
+      account: 'bank',
+      category: investmentCategory,
+      holding: '2330',
+      shares: 1000,
+      // 100,000 x 0.15% = 150 for the day-trade sale, 300 otherwise.
+      tax: type == EntryType.sell ? (dayTrade ? 150 : 300) : 0,
+      dayTrade: dayTrade,
+    );
+
+    test('a sale written as a day trade is kept as one', () {
+      final ledger = _book();
+      ledger.entryCommands.add(trade('b', EntryType.buy));
+      ledger.entryCommands.add(trade('s', EntryType.sell, dayTrade: true));
+      final kept = ledger.entries.byId('s')!;
+      expect(kept.dayTrade, isTrue);
+      // Settles at 100,000 less the 150 tax: 99,850.
+      expect(kept.settlement, 99850);
+    });
+
+    test('a purchase cannot be a day trade', () {
+      final ledger = _book();
+      expect(
+        () =>
+            ledger.entryCommands.add(trade('b', EntryType.buy, dayTrade: true)),
+        throwsA(_refused(DayTradeNotSale)),
+      );
+      expect(ledger.entries.all, isEmpty);
+    });
+  });
+
   group('entries', () {
     test('add refuses a transfer to nowhere', () {
       final ledger = _book();

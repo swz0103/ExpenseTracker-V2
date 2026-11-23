@@ -51,6 +51,7 @@ final class Entry {
     this.home,
     this.received,
     this.group,
+    this.dayTrade = false,
   });
 
   final String id;
@@ -107,6 +108,13 @@ final class Entry {
   /// A dividend entry whose [shares] come from a split rather than a stock
   /// dividend: the shares held multiply at the same cost.
   final bool split;
+
+  /// A sale closing a position opened the same day (當日沖銷), whose
+  /// securities transaction tax is the day-trade rate of the dated table
+  /// (`TaiwanRates.dayTradeTax`) while that rate lasts. Only a sale may
+  /// be one (D6); kept by the model and commands, with no field on screen
+  /// yet.
+  final bool dayTrade;
 
   /// For spending or income in a foreign-currency account: what it was
   /// worth in whole NT$ that day, which the reports and budgets count.
@@ -206,6 +214,7 @@ final class Entry {
     home: home,
     received: received,
     group: group,
+    dayTrade: dayTrade,
   );
 
   /// This entry as one of those written together as [group] (none when
@@ -234,6 +243,7 @@ final class Entry {
     home: home,
     received: received,
     group: group,
+    dayTrade: dayTrade,
   );
 
   /// This entry under another [id], as the store knows it after an edit.

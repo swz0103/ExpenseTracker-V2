@@ -64,6 +64,7 @@ const recordFields = <String, Set<String>>{
     'installments',
     'average',
     'split',
+    'dayTrade',
     'home',
     'received',
     'group',

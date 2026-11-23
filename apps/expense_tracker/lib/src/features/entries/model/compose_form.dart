@@ -142,6 +142,11 @@ final class ComposeForm {
   int? premium;
   var installments = 0;
   var average = false;
+
+  /// A sale that is a day trade (當日沖銷), as the entry being changed
+  /// was kept: no field shows it yet (D6), but it is kept, and its tax
+  /// suggested at the day-trade rate.
+  var dayTrade = false;
   var splitShares = false;
 
   /// A dividend that changes the shares held, opened from its link: most
@@ -192,6 +197,7 @@ final class ComposeForm {
     premium = entry.type == EntryType.dividend ? entry.tax : null;
     installments = entry.installments;
     average = entry.average;
+    dayTrade = entry.dayTrade;
     splitShares = entry.split;
     shareChange = entry.type == EntryType.dividend && entry.shares != 0;
     reduce = entry.isReduction;
@@ -205,6 +211,7 @@ final class ComposeForm {
         entry.amount,
         entry.shares,
         entry.date,
+        entry.dayTrade,
       );
       tradeFee = entry.fee == fee ? null : entry.fee;
       tradeTax = entry.tax == tax ? null : entry.tax;
@@ -245,6 +252,7 @@ final class ComposeForm {
     premium = null;
     installments = 0;
     average = false;
+    dayTrade = false;
     splitShares = false;
     shareChange = false;
     reduce = false;
@@ -579,6 +587,7 @@ final class ComposeForm {
       refundOf: refunded?.id ?? editing?.refundOf,
       installments: onCard ? installments : 0,
       average: kind == EntryType.sell && average,
+      dayTrade: kind == EntryType.sell && dayTrade,
       split: stock && splitShares && !reducing,
       home: foreign ? homeValue : null,
       received: crossing ? receivedValue : null,

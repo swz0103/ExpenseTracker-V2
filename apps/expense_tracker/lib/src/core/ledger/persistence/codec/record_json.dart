@@ -167,6 +167,7 @@ Map<String, Object?> entryToJson(Entry e, [CategoryRefs? refs]) => {
   if (e.installments != 0) 'installments': e.installments,
   if (e.average) 'average': true,
   if (e.split) 'split': true,
+  if (e.dayTrade) 'dayTrade': true,
   'home': ?e.home,
   'received': ?e.received,
   'group': ?e.group,
@@ -205,6 +206,9 @@ Entry entryFromJson(Map<String, Object?> json, [CategoryRefs? refs]) => _read(
     installments: _int(json['installments']),
     average: json['average'] == true,
     split: json['split'] == true,
+    // Only a sale is a day trade: an older version that kept the field
+    // of a sale it changed into something else left it behind.
+    dayTrade: json['dayTrade'] == true && json['type'] == EntryType.sell.name,
     home: _maybe(json['home']),
     received: _maybe(json['received']),
     group: _text(json, 'group'),

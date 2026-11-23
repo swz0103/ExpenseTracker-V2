@@ -71,6 +71,32 @@ void main() {
     expect(accountToJson(usd).containsKey('repay'), isFalse);
   });
 
+  group('D6: a day-trade sale', () {
+    Map<String, Object?> row(String type) => {
+      'id': 's',
+      'date': '2026-10-04',
+      'type': type,
+      'amount': 100000,
+      'account': 'bank',
+      'holding': '2330',
+      'shares': 1000,
+      'dayTrade': true,
+    };
+    test('is read back as one', () {
+      final sale = entryFromJson(row('sell'));
+      expect(sale.dayTrade, isTrue);
+      expect(entryToJson(sale)['dayTrade'], true);
+    });
+    test('an older book, without the field, has none', () {
+      final old = entryFromJson(row('sell')..remove('dayTrade'));
+      expect(old.dayTrade, isFalse);
+      expect(entryToJson(old).containsKey('dayTrade'), isFalse);
+    });
+    test('the field left on what is no longer a sale is not one', () {
+      expect(entryFromJson(row('buy')).dayTrade, isFalse);
+    });
+  });
+
   group('D7: an account keeps its own broker discount', () {
     test('read back as written', () {
       const broker = Account(

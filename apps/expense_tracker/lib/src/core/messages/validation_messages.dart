@@ -24,6 +24,7 @@ String validationMessage(RecordIssue issue) => switch (issue) {
   TaxExceedsDividend() => '補充保費不能超過股息',
   MissingHolding() => '請選擇投資標的',
   MissingShares() => '請輸入股數',
+  DayTradeNotSale() => '只有賣出可以是當日沖銷',
   SaleExceedsHolding(later: false) => '賣出股數超過持股',
   SaleExceedsHolding(later: true) => '這樣之後的賣出或減資會超過持股，請先改那一筆。',
   RefundToOtherAccount() => '信用卡消費的退款要退回同一張卡',

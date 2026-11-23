@@ -128,6 +128,9 @@ List<RecordIssue> entryIssues(Entry e, EntryFacts facts) {
   }
   if (e.isInvestment && e.holding == null) found.add(const MissingHolding());
   if (trade && e.shares <= 0) found.add(const MissingShares());
+  if (e.dayTrade && e.type != EntryType.sell) {
+    found.add(const DayTradeNotSale());
+  }
   if ((e.type == EntryType.sell || e.isReduction) && facts.oversells) {
     found.add(const SaleExceedsHolding());
   }

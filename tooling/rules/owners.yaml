@@ -129,6 +129,17 @@ items:
       - packages/ledger/trade_costs/lib/calc/broker_discount.dart
     target: packages/ledger/trade_costs/lib/calc/
     status: owned
+  # Decision D6: a sale may be a day trade (Entry.dayTrade, model and
+  # commands only, no field on screen yet); its tax is the dated table's
+  # one day-trade rate, TaiwanRates.dayTradeTax.
+  - id: day-trade-tax
+    what: 當日沖銷的標記與證交稅率
+    layer: ledger
+    owner:
+      - packages/ledger/trade_costs/lib/rules/taiwan_rates.dart
+      - packages/ledger/entries/lib/model/entry.dart
+    target: packages/ledger/trade_costs/lib/
+    status: owned
   - id: fees-tax-settlement
     what: 手續費、稅、交割金額
     layer: ledger

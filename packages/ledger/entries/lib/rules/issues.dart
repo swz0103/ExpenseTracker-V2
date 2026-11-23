@@ -129,6 +129,12 @@ final class MissingShares extends RecordIssue {
   const MissingShares();
 }
 
+/// A day trade (當日沖銷) that is not a sale: only a sale closes a
+/// position opened the same day (D6).
+final class DayTradeNotSale extends RecordIssue {
+  const DayTradeNotSale();
+}
+
 /// A sale of more shares than are held by then. With [later], it is not
 /// the record written that is short but a sale or reduction after it,
 /// such as when a purchase it sold from is taken away: the one type every

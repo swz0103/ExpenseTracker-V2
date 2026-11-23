@@ -40,8 +40,15 @@ int brokerFee(int amount, int shares, {int discount = defaultBrokerDiscount}) {
 
 /// The securities transaction tax on selling [shares] of [code] for
 /// [amount] on [tradedOn], at that day's rate; codes starting with 00 are
-/// ETFs, and those ending in B bond ETFs.
-int saleTax(String code, int amount, int shares, DateTime tradedOn) {
+/// ETFs, and those ending in B bond ETFs. A [dayTrade] of a stock pays
+/// the day-trade rate of the dated table while it lasts (D6).
+int saleTax(
+  String code,
+  int amount,
+  int shares,
+  DateTime tradedOn, {
+  bool dayTrade = false,
+}) {
   if (amount <= 0 || shares <= 0) return 0;
   final kind = instrumentKindOf(code);
   try {
@@ -51,6 +58,7 @@ int saleTax(String code, int amount, int shares, DateTime tradedOn) {
           ShareQuantity.parse('$shares'),
           kind: kind,
           tradedOn: _day(tradedOn),
+          dayTrade: dayTrade,
         )
         .minorUnits
         .toInt();

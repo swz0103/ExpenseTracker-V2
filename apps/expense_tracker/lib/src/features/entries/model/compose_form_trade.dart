@@ -11,7 +11,7 @@ extension TradeFields on ComposeForm {
   /// The broker's fee and tax the ledger's Taiwan rules suggest for the
   /// trade being written.
   (int, int) get suggested =>
-      _suggestedFor(type, holding ?? '', amount, shares, date);
+      _suggestedFor(type, holding ?? '', amount, shares, date, dayTrade);
 
   /// The broker's discount a trade from or into [account] is charged at:
   /// the account's own, else the phone-wide [brokerDiscount] (D7).
@@ -19,15 +19,19 @@ extension TradeFields on ComposeForm {
       ledger.accounts.byId(account)?.brokerDiscount ?? brokerDiscount;
 
   /// The fee and tax the rules suggest for a [kind] of [shares] of [code]
-  /// for [amount] on [day], at the [tradeDiscount].
+  /// for [amount] on [day], at the [tradeDiscount]; a [dayTrade] sale at
+  /// the day-trade tax rate.
   (int, int) _suggestedFor(
     EntryType kind,
     String code,
     int amount,
     int shares,
     DateTime day,
+    bool dayTrade,
   ) {
-    final tax = kind == EntryType.sell ? saleTax(code, amount, shares, day) : 0;
+    final tax = kind == EntryType.sell
+        ? saleTax(code, amount, shares, day, dayTrade: dayTrade)
+        : 0;
     return (brokerFee(amount, shares, discount: tradeDiscount), tax);
   }
 
@@ -157,6 +161,7 @@ extension SaveWarning on ComposeForm {
     e.refundOf,
     e.installments,
     e.average,
+    e.dayTrade,
     e.split,
     e.home,
     e.received,
