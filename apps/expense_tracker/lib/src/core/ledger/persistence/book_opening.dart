@@ -433,10 +433,7 @@ Market marketFrom(List<StoredRow> rows) {
       if (value is! num) throw FormatException(field);
       if (days[key] case final String on) {
         if (DateTime.tryParse(on) case final d?) {
-          to[key] = (
-            figure: value.toDouble(),
-            day: DateTime.utc(d.year, d.month, d.day),
-          );
+          to[key] = (figure: value.toDouble(), day: dayOf(d));
         }
       }
     }
