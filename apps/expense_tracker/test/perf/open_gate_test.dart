@@ -1,3 +1,6 @@
+@Tags(['timing'])
+library;
+
 import 'dart:io';
 
 import 'package:core/app_core.dart';

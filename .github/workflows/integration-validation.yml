@@ -143,7 +143,12 @@ jobs:
           flutter config --no-analytics
           flutter pub get --enforce-lockfile
           flutter test test/baseline test/known_defects
-      - shell: pwsh
+      - name: Host checks, then the timing gates on their own
+        # The suite without the timing gates at the default concurrency
+        # (with coverage), then `flutter test --tags timing
+        # --concurrency=1` without coverage: mandatory, and a host too busy
+        # to judge them fails it here (CI is set), saying so.
+        shell: pwsh
         run: |
           flutter config --no-analytics
           ./tooling/run-host-checks.ps1 -Package apps/expense_tracker
