@@ -13,6 +13,7 @@ import 'android/home_widget_adapter.dart';
 import 'android/market_cache_adapter.dart';
 import 'android/update_adapter.dart';
 import 'platform.dart';
+import 'quiet_failures.dart';
 import '../core/diagnostics/error_log.dart';
 import '../core/diagnostics/error_steps.dart';
 import '../core/ledger/ledger.dart';
@@ -23,6 +24,7 @@ import '../core/platform/distribution.dart';
 import '../core/platform/one_at_a_time.dart';
 import '../core/platform/preferences.dart';
 import '../core/platform/startup.dart';
+import '../core/messages/problem_messages.dart' show QuietStep;
 import '../core/messages/update_messages.dart';
 import '../features/backup/model/drive_backup.dart';
 import '../features/backup/model/drive_sync.dart';
@@ -77,6 +79,9 @@ final class LifecycleServices {
   /// Offers a newer version found.
   final Future<void> Function(AppUpdate update) offerUpdate;
 
+  /// What runs by itself and failed, told once a run (D84).
+  late final quiet = QuietFailures(say);
+
   Directory get _directory => startup.directory;
 
   /// On Android, the day lists the background job keeps (`MarketWorker`),
@@ -115,7 +120,11 @@ final class LifecycleServices {
 
   /// The phone's calendar for due dates.
   late final calendar = android
-      ? CalendarSync(const AndroidCalendar(), _directory)
+      ? CalendarSync(
+          const AndroidCalendar(),
+          _directory,
+          failed: () => quiet.failed(QuietStep.calendarSync),
+        )
       : null;
 
   /// The phone's notifications.
@@ -203,7 +212,7 @@ final class LifecycleServices {
     final box = await FileBox.derive(vault.keys, FileBox.prices);
     final prices = PriceMonths(_directory, seal: box.seal, open: box.open);
     unawaited(prices.settle());
-    final market = _market = MarketFeed(
+    _market = MarketFeed(
       dataSource,
       changes: ledger,
       holdings: ledger.holdings,
@@ -211,7 +220,7 @@ final class LifecycleServices {
       today: () => ledger.today,
       kept: prices,
     );
-    _beside(market.refresh());
+    _beside(refreshMarket());
     _beside(_followMarket());
     _beside(weeklyBackup());
     if (android && canSelfUpdate) {
@@ -256,6 +265,20 @@ final class LifecycleServices {
     unawaited(work.whenComplete(() => _running.remove(work)));
   }
 
+  /// Fetches closing prices and rates; a run that brought nothing back is
+  /// told once, when the ledger needs them (shares held, or an account in
+  /// another currency).
+  Future<void> refreshMarket() async {
+    final market = _market;
+    final ledger = _ledger;
+    if (market == null || ledger == null) return;
+    await market.refresh();
+    final wanted = marketWanted(ledger);
+    if (market.failed && (wanted.stocks || wanted.rates)) {
+      quiet.failed(QuietStep.marketRefresh);
+    }
+  }
+
   /// What the market's background job fetches while the app is closed:
   /// the exchanges' lists while shares are held, the bank's rates while an
   /// account is kept in another currency (AND-05).
@@ -294,7 +317,7 @@ final class LifecycleServices {
   /// The app came back and the ledger stays open: prices and versions are
   /// looked for again, and what the background job did is noted.
   void resumed() {
-    _market?.refresh().ignore();
+    refreshMarket().ignore();
     _beside(checkUpdate());
     if (_ledger != null) {
       collectOutbox();
@@ -372,6 +395,7 @@ final class LifecycleServices {
       if (android) await backupManager.keepCloudCopy();
     } on Object catch (error) {
       ErrorLog.instance.record('Google 備份', error);
+      _backupFailed = true;
     }
     final outbox = _outbox;
     if (outbox == null) return;
@@ -379,8 +403,13 @@ final class LifecycleServices {
       await outbox.prepare();
     } on Object catch (error) {
       ErrorLog.instance.record('背景備份', error);
+      _backupFailed = true;
     }
   }
+
+  /// A backup left on leaving failed: told when the app is back
+  /// ([collectOutbox]), not while it is away.
+  var _backupFailed = false;
 
   /// After a reset of the keys: the backup waiting for the background
   /// job was sealed with the old ones, and goes ([Outbox.empty]).
@@ -394,13 +423,18 @@ final class LifecycleServices {
 
   /// Notes what the background job delivered while the app was closed.
   void collectOutbox() {
+    var failed = _backupFailed;
+    _backupFailed = false;
     try {
       for (final problem in _outbox?.collect() ?? const <String>[]) {
         ErrorLog.instance.record('背景備份', problem);
+        failed = true;
       }
     } on Object catch (error) {
       ErrorLog.instance.record('背景備份', error);
+      failed = true;
     }
+    if (failed) quiet.failed(QuietStep.backgroundBackup);
   }
 
   void dispose() {

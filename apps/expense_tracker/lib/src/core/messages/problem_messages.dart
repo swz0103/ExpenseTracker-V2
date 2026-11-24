@@ -52,3 +52,29 @@ String problemNote(String what, Object error) =>
       final said? => '$what：$said',
       null => failureNote(what),
     };
+
+/// A step that runs by itself, out of sight, whose failure would go
+/// unheard without a note (D84): told once a run, in the note at the
+/// foot of the screen, with where its details are.
+enum QuietStep {
+  /// The recurring items marked to book themselves, and what was
+  /// confirmed on a notification.
+  autoBooking('到期的定期交易沒有自動入帳'),
+
+  /// The backup left for the background job, or what it delivered.
+  backgroundBackup('背景備份沒有完成'),
+
+  /// Closing prices and exchange rates.
+  marketRefresh('收盤價與匯率沒有更新'),
+
+  /// The due dates on the phone's calendar.
+  calendarSync('提醒沒有同步到日曆');
+
+  const QuietStep(this.what);
+
+  /// What did not happen.
+  final String what;
+
+  /// The note the person reads.
+  String get note => failureNote(what);
+}

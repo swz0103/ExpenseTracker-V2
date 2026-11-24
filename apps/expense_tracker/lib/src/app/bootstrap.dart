@@ -276,6 +276,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     load: _services.dataSource.load,
     bringUp: _services.dataSource.bringUp,
     quarantined: () => _services.dataSource.quarantined,
+    failed: (step) => _services.quiet.failed(step),
     inbox: Platform.isAndroid
         ? () async {
             final inbox = await LedgerInbox.open(
