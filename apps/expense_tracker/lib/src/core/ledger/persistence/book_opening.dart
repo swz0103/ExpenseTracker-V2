@@ -200,7 +200,7 @@ DecodedBook decodeBook(
   };
   final trash = [
     for (final t in read(Collection.trash, (j) => trashedFromJson(j, refs)))
-      Trashed(t.entry, t.on, order: trashPlaces[t.entry.id]),
+      Trashed(t.entry, t.on, order: trashPlaces[t.entry.id], letGo: t.letGo),
   ];
   final expiredIds = [
     if (trashFrom != null)

@@ -47,8 +47,16 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final preferences = services.preferences;
     return ListenableBuilder(
+      // The sections count entries, accounts, categories and the trash, so
+      // every topic of the records; the prices (market) change nothing here.
       listenable: Listenable.merge([
-        ledger,
+        ledger.watch(const {
+          Topic.entries,
+          Topic.accounts,
+          Topic.categories,
+          Topic.budgets,
+          Topic.recurring,
+        }),
         ?preferences,
         ?services.drive,
         ?services.phone,

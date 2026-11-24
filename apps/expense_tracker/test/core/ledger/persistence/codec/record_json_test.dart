@@ -7,6 +7,24 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Every record the data source keeps reads back as it was written.
 void main() {
+  test('a deleted booking keeps the day it let go, and none when not', () {
+    final entry = Entry(
+      id: 'e',
+      date: DateTime.utc(2026, 3, 1),
+      type: EntryType.expense,
+      amount: 100,
+      account: 'bank',
+    );
+    final on = DateTime.utc(2026, 4, 2);
+    final with_ = trashedFromJson(
+      trashedToJson(Trashed(entry, on, letGo: DateTime.utc(2026, 3, 1))),
+    );
+    expect(with_.letGo, DateTime.utc(2026, 3, 1));
+    final without = trashedToJson(Trashed(entry, on));
+    expect(without.containsKey('letGo'), isFalse);
+    expect(trashedFromJson(without).letGo, isNull);
+  });
+
   test('an account keeps its card terms and its looks', () {
     final card = Account(
       'card',

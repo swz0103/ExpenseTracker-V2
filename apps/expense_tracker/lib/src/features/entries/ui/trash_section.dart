@@ -30,16 +30,17 @@ class TrashSection extends StatelessWidget {
   /// Puts [trashed] back, first asking what stands in its way (D78): an
   /// account closed since, or a refund's purchase deleted too.
   Future<void> _restore(BuildContext context, Trashed trashed) async {
-    final hold = ledger.entryCommands.holdOf(trashed);
-    final question = restoreQuestion(hold);
+    // Every question is worked out first and asked in turn; nothing is
+    // changed until all are agreed.
+    final holds = ledger.entryCommands.holdsOf(trashed);
     var reopen = false;
     var withOriginal = false;
-    if (question != null) {
-      final (title, action, body) = question;
+    for (final hold in holds) {
+      final (title, action, body) = restoreQuestion(hold);
       final ok = await confirm(context, title, action, body: body);
       if (!ok || !context.mounted) return;
-      reopen = hold is ClosedAccounts;
-      withOriginal = hold is OriginalInTrash;
+      reopen = reopen || hold is ClosedAccounts;
+      withOriginal = withOriginal || hold is OriginalInTrash;
     }
     try {
       if (ledger.entryCommands.restoreTrashed(

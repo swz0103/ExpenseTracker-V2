@@ -1,7 +1,11 @@
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/fuzz/ledger_fuzz.dart';
+
 void main() {
+  ledgerFuzz();
+
   test('foreign balances count at the board rate', () {
     final ledger = Ledger(
       today: DateTime.utc(2026, 10, 4),
