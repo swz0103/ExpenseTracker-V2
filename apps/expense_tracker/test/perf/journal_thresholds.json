@@ -7,5 +7,6 @@
   "every_balance_us": 2000,
   "month_report_us": 130,
   "repost_100k_ms": 6000,
-  "parity_held_share": 0.6
+  "parity_held_share": 0.6,
+  "parity_held_ms": 220
 }
