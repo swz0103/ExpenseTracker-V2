@@ -106,7 +106,6 @@ class RestoreView extends StatelessWidget {
         PasswordField(
           controller: secret,
           hint: recovery ? codeLabel : '密碼',
-          hidden: !recovery,
           boxed: true,
           onSubmitted: onSubmit,
         ),

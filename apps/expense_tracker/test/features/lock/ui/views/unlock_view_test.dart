@@ -54,6 +54,17 @@ void main() {
     handle.dispose();
   });
 
+  testWidgets('the keyboard learns nothing typed (review 22 finding 4)', (
+    tester,
+  ) async {
+    await show(tester, view());
+    final typed = tester.widget<TextField>(find.byType(TextField));
+    expect(typed.enableIMEPersonalizedLearning, isFalse);
+    expect(typed.keyboardType, TextInputType.visiblePassword);
+    expect(typed.enableSuggestions, isFalse);
+    expect(typed.autocorrect, isFalse);
+  });
+
   testWidgets('the name is read once', (tester) async {
     final handle = tester.ensureSemantics();
     await show(tester, view());

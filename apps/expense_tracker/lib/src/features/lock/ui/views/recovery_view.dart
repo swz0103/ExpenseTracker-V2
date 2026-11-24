@@ -52,7 +52,6 @@ class RecoveryView extends StatelessWidget {
         PasswordField(
           controller: code,
           hint: codeLabel,
-          hidden: false,
           boxed: true,
           enabled: waiting == null,
           onSubmitted: onSubmit,
