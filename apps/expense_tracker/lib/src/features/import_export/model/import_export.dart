@@ -360,6 +360,8 @@ Future<Import> importCsvApart(
 /// worker isolate: a shorter one is read in a few milliseconds.
 const readApartFrom = 100000;
 
+// Exception to the motion scale: a share of a frame's time, not a
+// movement.
 /// How long [importCsvApart] reads lines before the screen is drawn:
 /// half a frame at 60 Hz.
 const importSlice = Duration(milliseconds: 8);
