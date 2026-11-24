@@ -9,7 +9,7 @@ import 'models/models.dart';
 /// each stock's lots and what they cost, and how many shares were held
 /// after each trade. The same inputs always give the same portfolio.
 final class Portfolio {
-  Portfolio._(this.holdings, this._lots, this._steps);
+  Portfolio._(this.holdings, this._lots, this._steps, this.leftOut);
 
   /// Replays the trades of [entries] over the [start] positions, in date
   /// order and in the order written within a day. An oversold trade
@@ -31,6 +31,7 @@ final class Portfolio {
     final steps = <String, List<(DateTime, int)>>{
       for (final h in start) h.code: [(opening, h.shares)],
     };
+    final leftOut = <String>[];
     for (final e in _inOrder(entries)) {
       final code = e.holding!;
       final held = byCode[code] ?? _firstBought(code, e);
@@ -39,6 +40,7 @@ final class Portfolio {
         traded = _traded(e, held, lots);
       } on StateError {
         if (!lenient) rethrow;
+        leftOut.add(e.id);
         continue;
       }
       if (traded != null) byCode[code] = traded;
@@ -48,7 +50,12 @@ final class Portfolio {
       for (final h in byCode.values)
         if (h.shares > 0 || h.realized != 0) h,
     ]..sort((a, b) => b.value.compareTo(a.value));
-    return Portfolio._(List.unmodifiable(holdings), lots, steps);
+    return Portfolio._(
+      List.unmodifiable(holdings),
+      lots,
+      steps,
+      List.unmodifiable(leftOut),
+    );
   }
 
   /// The investment entries of [entries] that name a stock, in date order
@@ -219,6 +226,10 @@ final class Portfolio {
   /// Each stock's shares after each trade, in date order; counts before a
   /// split or reduction are scaled to today's shares.
   final Map<String, List<(DateTime, int)>> _steps;
+
+  /// The trades left out, by id: those an older version let take more
+  /// shares than were held, read leniently.
+  final List<String> leftOut;
 
   /// The lots of [code] still held, oldest first.
   List<Lot> lotsOf(String code) => List.unmodifiable(_lots[code] ?? const []);

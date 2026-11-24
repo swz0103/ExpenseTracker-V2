@@ -151,6 +151,10 @@ final class HoldingRepository implements HoldingReader {
   @override
   List<Lot> lotsOf(String code) => _replayed.lotsOf(code);
 
+  /// The trades the holdings leave out, by id: sales and reductions an
+  /// older version let take more shares than were held.
+  List<String> get leftOut => _replayed.leftOut;
+
   @override
   int saleCost(String code, int shares, {bool average = false}) =>
       _replayed.saleCost(code, shares, average: average);

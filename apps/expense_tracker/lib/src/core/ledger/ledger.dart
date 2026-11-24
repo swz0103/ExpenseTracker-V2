@@ -15,6 +15,7 @@ import 'commands/command_exceptions.dart';
 import 'commands/entry_commands.dart';
 import 'commands/holding_commands.dart';
 import 'commands/recurring_commands.dart';
+import 'journal/review.dart' as review;
 import 'persistence/ledger_data_source.dart';
 import 'persistence/write_queue.dart';
 import 'repositories/account_repository.dart';
@@ -38,6 +39,7 @@ import 'services/report_service.dart';
 import 'services/statement_service.dart';
 
 export 'card_cycle.dart';
+export 'journal/review.dart' show NeedsReview;
 export 'cache/topic.dart';
 export 'commands/command_exceptions.dart';
 
@@ -380,6 +382,17 @@ final class Ledger extends ChangeNotifier {
     receiptRepository: _receipts,
     draftRepository: _drafts,
   );
+
+  /// The records in an old shape the person should look at (decision
+  /// D47): each kept with today's figures, none changed; for a screen to
+  /// list, so they can be put right by hand.
+  List<review.NeedsReview> recordsNeedingReview() =>
+      review.recordsNeedingReview(
+        entries: _entries.all,
+        accounts: _accounts.all,
+        categories: _categories.all,
+        leftOut: _holdings.leftOut,
+      );
 
   /// Replaces everything with the contents of [fresh], for a demo reset.
   void resetTo(Ledger fresh) {
