@@ -18,6 +18,7 @@ import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
+import '../../../core/messages/flow_messages.dart';
 
 import 'package:core/time/utc_days.dart';
 import 'package:core/time/month_arithmetic.dart';
@@ -366,12 +367,34 @@ class _EntriesPageState extends State<EntriesPage> {
           accountName: account == null ? null : ledger.account(account).name,
           onChange: (change) => setState(() => _filter = change(_filter)),
         ),
-      if (shown.lines.isEmpty)
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: Space.s10),
-          child: Center(child: Text('沒有符合的紀錄', style: mutedText)),
-        ),
+      if (shown.lines.isEmpty) _empty(searching || filter.count > 0),
     ];
+  }
+
+  /// Nothing to list: none written yet, with 記一筆; or none the search
+  /// and filters let through, with 清除篩選 (D85).
+  Widget _empty(bool narrowed) => narrowed
+      ? EmptyState(
+          glyph: Glyph.search,
+          color: AppColors.accent,
+          message: FlowWords.noMatches,
+          action: FlowWords.clearFilters,
+          actionKey: Keys.emptyAction('entries'),
+          onAction: _clearAll,
+        )
+      : EmptyState(
+          glyph: Glyph.records,
+          color: AppColors.accent,
+          message: FlowWords.noEntriesYet,
+          action: FlowWords.addEntry,
+          actionKey: Keys.emptyAction('entries'),
+          onAction: () => unawaited(widget.nav.compose()),
+        );
+
+  /// Takes the search and every filter away.
+  void _clearAll() {
+    _clearSearch();
+    setState(() => _filter = const EntryFilter());
   }
 
   /// A line of the list: a day's heading with what was spent, or one of

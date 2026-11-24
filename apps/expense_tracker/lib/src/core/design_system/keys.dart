@@ -128,4 +128,13 @@ abstract final class Keys {
 
   /// The account form's own broker discount (D7).
   static const accountDiscount = ValueKey('account:broker-discount');
+
+  /// The button of a page with nothing on it (EmptyState), by page.
+  static Key emptyAction(String page) => ValueKey('empty:$page');
+
+  /// The tour's 略過.
+  static const skipTour = ValueKey('tour:skip');
+
+  /// 取消下載 of an update under way.
+  static const cancelDownload = ValueKey('update:cancel-download');
 }

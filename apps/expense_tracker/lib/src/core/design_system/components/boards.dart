@@ -269,7 +269,11 @@ class EmptyState extends StatelessWidget {
     required this.message,
     this.action,
     this.onAction,
+    this.actionKey,
   });
+
+  /// The button's key, for the page's tests.
+  final Key? actionKey;
 
   final Glyph glyph;
   final Color color;
@@ -307,6 +311,7 @@ class EmptyState extends StatelessWidget {
           if (action != null && act != null) ...[
             const SizedBox(height: Space.s4),
             FilledButton(
+              key: actionKey,
               onPressed: act,
               style: FilledButton.styleFrom(
                 backgroundColor: color,
