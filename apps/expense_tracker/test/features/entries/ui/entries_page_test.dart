@@ -33,4 +33,12 @@ void main() {
     expect(find.text('搜尋「午」'), findsNothing);
     expect(tester.widget<TextField>(field).controller!.text, isEmpty);
   });
+
+  testWidgets('the balance above the list is headed with its month '
+      '(review 16: N 月結餘)', (tester) async {
+    // The demo book's today is 2026-10-04.
+    await show(tester, 360, 1, height: 800, book: demoLedger());
+    await go(tester, ['紀錄']);
+    expect(find.text('10 月結餘'), findsOneWidget);
+  });
 }
