@@ -455,17 +455,39 @@ final class ComposeForm {
   /// A transfer between accounts kept in different currencies.
   bool get crossing => type == EntryType.transfer && currency != toCurrency;
 
-  /// [home], else the refunded share of the purchase's worth, else the
-  /// amount at today's rate; null without a rate.
+  /// [home], else the refunded share of the purchase's worth (the rest of
+  /// it for the refund that gives back the rest, D62), else the amount at
+  /// today's rate; null without a rate.
   int? get homeValue {
     final typed = home;
     if (typed != null) return typed;
-    final original = refunded;
-    final worth = original?.home;
-    if (original != null && worth != null && original.amount > 0) {
-      return (worth * amount / original.amount).round();
-    }
+    if (_refundShare?.home case final share?) return share;
     return ledger.marketData.toHome(amount, currency);
+  }
+
+  /// The spending the entry gives back: [refunded], or the one a refund
+  /// being changed gives back; null for any other entry.
+  Entry? get _original {
+    final opened = refunded;
+    if (opened != null) return opened;
+    final of = editing?.refundOf;
+    return of == null ? null : ledger.entries.byId(of);
+  }
+
+  /// What the refund being written gives back of its purchase, as the
+  /// ledger's one rule shares it (`refundShare`: its worth, split and
+  /// tags, D62, D65); null when it is no refund.
+  RefundShare? get _refundShare {
+    final original = _original;
+    if (original == null || type != EntryType.income) return null;
+    return refundShare(
+      original,
+      amount,
+      earlier: [
+        for (final e in ledger.entries.refundsOf(original.id))
+          if (e.id != editing?.id) e,
+      ],
+    );
   }
 
   /// [received], else the amount at today's rates.
@@ -549,7 +571,8 @@ final class ComposeForm {
   /// none, unless [wholeSplit], for its part to be checked.
   Entry build({bool wholeSplit = false}) {
     final kind = type;
-    final split = splitParts;
+    final refund = _refundShare;
+    final split = refund == null ? splitParts : refund.parts;
     final (tradeFee, tradeTax) = charges;
     return Entry(
       id: editing?.id ?? ledger.newId(),
@@ -562,6 +585,7 @@ final class ComposeForm {
         EntryType.transfer => transferCategory,
         EntryType.dividend => dividendCategory,
         EntryType.buy || EntryType.sell => investmentCategory,
+        _ when refund != null => refund.category,
         _ => split == null || split.isEmpty ? category : split.first.$1,
       },
       note: note.trim(),
@@ -578,7 +602,11 @@ final class ComposeForm {
           : shares,
       recurring: editing?.recurring ?? draft?.recurring,
       merchant: kind == EntryType.expense ? merchant : '',
-      tags: kind == EntryType.expense || kind == EntryType.income ? tags : [],
+      tags: refund != null
+          ? refund.tags
+          : kind == EntryType.expense || kind == EntryType.income
+          ? tags
+          : [],
       parts: split != null && split.length > (wholeSplit ? 0 : 1)
           ? split
           : const [],

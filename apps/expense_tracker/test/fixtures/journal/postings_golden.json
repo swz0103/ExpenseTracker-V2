@@ -1,5 +1,5 @@
 {
-  "journalRules": 2,
+  "journalRules": 3,
   "books": {
     "0.17.0": "a4af9827d9f403cc",
     "0.18.0": "df3d4ccfcf229b71",

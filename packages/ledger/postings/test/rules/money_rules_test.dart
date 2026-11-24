@@ -78,6 +78,28 @@ void main() {
     expect(b.reader.month(day(9, 1)).income, {salary: 52000});
   });
 
+  test('a refund of a split gives back by its parts (D65)', () {
+    final b = book();
+    keep(
+      b,
+      Earning(
+        id: const IntentId('back'),
+        date: day(9, 9),
+        seq: 1,
+        account: bank,
+        category: food,
+        amount: 100,
+        parts: [(food, 60), (fees, 40)],
+      ),
+    );
+    expect(linesOf(b, 'back'), [
+      ('acct:bank', 100, 'TWD', 20260909),
+      ('cat:spending:food', -60, 'TWD', 20260909),
+      ('cat:spending:fees', -40, 'TWD', 20260909),
+    ]);
+    expect(b.reader.month(day(9, 1)).spending, {food: -60, fees: -40});
+  });
+
   test('a transfer with the fee spent under the category kept with it', () {
     final b = book();
     keep(
@@ -205,6 +227,26 @@ void main() {
         ).code,
         'badAmount',
       );
+      // Parts that are not the amount, or below nothing.
+      for (final parts in [
+        [(food, 60), (fees, 30)],
+        [(food, 110), (fees, -10)],
+      ]) {
+        expect(
+          refused(
+            Earning(
+              id: const IntentId('e'),
+              date: day(1, 1),
+              seq: 1,
+              account: bank,
+              category: food,
+              amount: 100,
+              parts: parts,
+            ),
+          ).code,
+          'badAmount',
+        );
+      }
       expect(
         refused(
           Transfer(

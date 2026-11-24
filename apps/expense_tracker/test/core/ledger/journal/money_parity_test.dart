@@ -74,4 +74,43 @@ void main() {
     expect(ledger.balanceService.netWorthAt(ledger.today), 950);
     await expectParity(ledger);
   });
+
+  test('a refund that gives back by its purchase\'s split: the journal\'s '
+      'category spending is the app\'s', () async {
+    final ledger = book(
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 1000)],
+      categories: [
+        Category('飲食', 'food', 0xFF111111),
+        Category('交通', 'car', 0xFF222222),
+      ],
+      entries: [
+        entryOf(
+          'a',
+          day(2026, 9, 1),
+          EntryType.expense,
+          100,
+          'bank',
+          category: '飲食',
+          parts: const [('飲食', 60), ('交通', 40)],
+          tags: const ['旅遊'],
+        ),
+        entryOf(
+          'b',
+          day(2026, 10, 2),
+          EntryType.income,
+          50,
+          'bank',
+          category: '飲食',
+          parts: const [('飲食', 30), ('交通', 20)],
+          tags: const ['旅遊'],
+          refundOf: 'a',
+        ),
+      ],
+    );
+    expect(
+      ledger.reportService.spendingBetween(day(2026, 10, 1), day(2026, 10, 31)),
+      {'飲食': -30, '交通': -20},
+    );
+    await expectParity(ledger);
+  });
 }

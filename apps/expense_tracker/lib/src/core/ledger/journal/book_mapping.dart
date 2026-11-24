@@ -154,6 +154,7 @@ final class BookMapping {
           },
         );
       case EntryType.income:
+        final split = e.isRefund ? e.amountParts : const <(String, int)>[];
         intent = Earning(
           id: id,
           date: date,
@@ -161,6 +162,13 @@ final class BookMapping {
           account: account,
           category: category(e.category, income: !e.isRefund),
           amount: e.amount,
+          // A refund gives back by its purchase's split (D65).
+          parts: split.length < 2
+              ? const []
+              : [
+                  for (final (name, amount) in split)
+                    (category(name, income: false), amount),
+                ],
           amendments: fx(worth()),
         );
       case EntryType.transfer:

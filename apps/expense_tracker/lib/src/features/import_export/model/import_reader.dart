@@ -221,14 +221,26 @@ final class _Reader {
       (e) => shop.isNotEmpty && e.merchant == shop,
       orElse: () => candidates.first,
     );
+    // As the composer writes it: the purchase's split and tags (D65).
+    final share = refundShare(
+      original,
+      amount,
+      earlier: [
+        ...book.entries.refundsOf(original.id),
+        for (final (_, f) in _found)
+          if (f.refundOf == original.id) f,
+      ],
+    );
     return Entry(
       id: book.newId(),
       date: day,
       type: EntryType.income,
       amount: amount,
       account: account,
-      category: original.category,
+      category: share.category,
       note: note,
+      tags: share.tags,
+      parts: share.parts,
       refundOf: original.id,
     );
   }

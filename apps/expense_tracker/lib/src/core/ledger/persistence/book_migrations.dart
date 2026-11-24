@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:math' show max;
 
 import 'package:core/foundation_values.dart' show PublicId;
+import 'package:ledger_entries/model.dart' show Entry, EntryType;
+import 'package:ledger_entries/rules.dart' show refundShare;
 import 'package:storage/storage.dart';
 
 import 'codec/category_refs.dart';
@@ -30,7 +32,11 @@ typedef BookStep = void Function(EncryptedDatabase store, RowWriter writer);
 /// `bookSteps[n]` brings a book at version n to n + 1. A change across
 /// the records of a book adds a step at the end; a step is never changed
 /// once released, since books already through it will not run it again.
-const List<BookStep> bookSteps = [_categoryIds, _namesToIds];
+const List<BookStep> bookSteps = [
+  _categoryIds,
+  _namesToIds,
+  _refundsMirrorPurchases,
+];
 
 /// The version this app brings every book it opens up to.
 final bookVersion = bookSteps.length;
@@ -140,6 +146,109 @@ void _namesToIds(EncryptedDatabase store, RowWriter w) {
     }
   }
 }
+
+/// Version 2 to 3: a refund of a split purchase kept without a split is
+/// given its share of each part, and a refund kept without tags the
+/// purchase's tags, as every refund is written since D65 (the ledger's
+/// one rule, `refundShare`): a purchase refunded in full then leaves no
+/// category and no tag total behind. The refunds of a purchase are
+/// shared in the order the book keeps them; a tag the refund was given
+/// itself is left as it is. A refund whose purchase is not kept, or
+/// cannot be read, stays as it was.
+void _refundsMirrorPurchases(EncryptedDatabase store, RowWriter w) {
+  final shelf = Collection.entry.name;
+  final rows = store.rows(shelf: shelf);
+  final byId = <String, Map<String, Object?>>{};
+  for (final row in rows) {
+    final json = readableRecord(row.body);
+    if (json case {'id': final String id}) byId[id] = json;
+  }
+  // What each purchase's refunds gave back so far, as the rule reads them.
+  final earlier = <String, List<Entry>>{};
+  for (final row in rows) {
+    final json = readableRecord(row.body);
+    if (json == null || json['type'] != EntryType.income.name) continue;
+    final of = json['refundOf'];
+    final original = of is String ? byId[of] : null;
+    final amount = json['amount'];
+    if (original == null || amount is! int) continue;
+    if (original['type'] != EntryType.expense.name) continue;
+    final purchase = _keyed(original);
+    if (purchase == null) continue;
+    final kept = earlier.putIfAbsent(of! as String, () => []);
+    final share = refundShare(purchase, amount, earlier: kept);
+    final ownParts = json['parts'];
+    final ownTags = json['tags'];
+    final next = {...json};
+    var changed = false;
+    if ((ownParts is! List || ownParts.isEmpty) && share.parts.isNotEmpty) {
+      for (final key in _categoryKeys) {
+        next.remove(key);
+      }
+      next.addAll(_unkey(share.category, entry: true));
+      next['parts'] = [
+        for (final (key, value) in share.parts)
+          {..._unkey(key, entry: false), 'amount': value},
+      ];
+      changed = true;
+    }
+    if ((ownTags is! List || ownTags.isEmpty) && share.tags.isNotEmpty) {
+      next['tags'] = share.tags;
+      changed = true;
+    }
+    // The refund as it now stands, for the next refund of the purchase.
+    if (_keyed(next) case final mine?) kept.add(mine);
+    if (changed) w.put(shelf, row.id, jsonEncode(next));
+  }
+}
+
+/// The keys an entry names its category under: by id, or by name.
+const _categoryKeys = ['categoryId', 'category'];
+
+/// [json], an entry row, as an [Entry] of its amount, split and tags
+/// whose categories are opaque keys (`id:` and an id, `name:` and a
+/// name), for [refundShare]. Null when not readable.
+Entry? _keyed(Map<String, Object?> json) {
+  final amount = json['amount'];
+  if (amount is! int) return null;
+  String? key(Map<String, Object?> m, String nameKey) => switch (m) {
+    {'categoryId': final String id} => 'id:$id',
+    _ when m[nameKey] is String => 'name:${m[nameKey]}',
+    _ => null,
+  };
+  final parts = <(String, int)>[];
+  for (final p in json['parts'] is List ? json['parts']! as List : const []) {
+    if (p is! Map<String, Object?>) return null;
+    final k = key(p, 'name');
+    final value = p['amount'];
+    if (k == null || value is! int) return null;
+    parts.add((k, value));
+  }
+  final home = json['home'];
+  return Entry(
+    id: json['id'] is String ? json['id']! as String : '',
+    date: DateTime.utc(2000),
+    type: json['type'] == EntryType.expense.name
+        ? EntryType.expense
+        : EntryType.income,
+    amount: amount,
+    account: '',
+    category: key(json, 'category') ?? '',
+    parts: parts,
+    tags: [
+      for (final t in json['tags'] is List ? json['tags']! as List : const [])
+        if (t is String) t,
+    ],
+    home: home is int ? home : null,
+  );
+}
+
+/// The JSON naming the category of an opaque [key] of [_keyed]: an
+/// entry's (`category`) or a part's (`name`), by id or by name.
+Map<String, Object?> _unkey(String key, {required bool entry}) =>
+    key.startsWith('id:')
+    ? {'categoryId': key.substring(3)}
+    : {(entry ? 'category' : 'name'): key.substring(5)};
 
 /// The key the budget [row] is kept under once it holds [json]: its
 /// category's id when it names one by id and no other budget is kept

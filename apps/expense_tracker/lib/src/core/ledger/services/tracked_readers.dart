@@ -83,6 +83,12 @@ final class TrackedEntryReader implements EntryReader {
     _cache.noteReads(_topics);
     return _inner.refundedTotal(id);
   }
+
+  @override
+  List<Entry> refundsOf(String id) {
+    _cache.noteReads(_topics);
+    return _inner.refundsOf(id);
+  }
 }
 
 /// A [AccountReader] that tells [QueryCache] it was read.

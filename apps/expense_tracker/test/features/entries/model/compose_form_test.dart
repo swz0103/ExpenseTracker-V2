@@ -693,4 +693,112 @@ void main() {
     expect((bo.name, bo.kind), ('小博', AccountKind.receivable));
     expect(ledger.accounts.contains(bo.id), isTrue);
   });
+
+  group('a refund mirrors its purchase (D62, D65)', () {
+    Ledger refunding(Entry purchase, {List<Account> accounts = const []}) =>
+        Ledger(
+          today: day,
+          accounts: [
+            const Account('bank', '銀行', AccountKind.bank, 100000),
+            ...accounts,
+          ],
+          categories: [
+            Category('飲食', 'food', 0xFF5C9A83),
+            Category('交通', 'car', 0xFF5B8DB0),
+          ],
+          entries: [purchase],
+          holdings: const [],
+          budgets: const [],
+          recurring: const [],
+        );
+
+    test('1,001 NT\$ of a US\$ purchase refunded in three equal parts sums '
+        'to 1,001, and the month nets to nothing', () {
+      final l = refunding(
+        Entry(
+          id: 'x',
+          date: DateTime.utc(2026, 10, 1),
+          type: EntryType.expense,
+          amount: 300,
+          account: 'usd',
+          category: '飲食',
+          home: 1001,
+        ),
+        accounts: const [
+          Account('usd', '美元', AccountKind.bank, 100000, currency: 'USD'),
+        ],
+      );
+      final homes = <int?>[];
+      for (var i = 0; i < 3; i++) {
+        final form = ComposeForm(
+          l,
+          type: EntryType.income,
+          refunded: l.entries.byId('x'),
+        )..setAmount(100);
+        final refund = form.build();
+        homes.add(refund.home);
+        l.entryCommands.add(refund);
+      }
+      // 1001 x 100/300 = 333.67 -> 334; 667 x 100/200 = 333.5 -> 334;
+      // the last takes the rest, 1001 - 668 = 333.
+      expect(homes, [334, 334, 333]);
+      expect(l.reportService.expense(2026, 10), 0);
+    });
+
+    test('a split purchase tagged 旅遊 refunded in full leaves no category '
+        'and no tag total behind', () {
+      final l = refunding(
+        Entry(
+          id: 'a',
+          date: DateTime.utc(2026, 9, 1),
+          type: EntryType.expense,
+          amount: 100,
+          account: 'bank',
+          category: '飲食',
+          parts: const [('飲食', 60), ('交通', 40)],
+          tags: const ['旅遊'],
+        ),
+      );
+      final refund = ComposeForm(
+        l,
+        type: EntryType.income,
+        refunded: l.entries.byId('a'),
+      ).build();
+      expect(refund.parts, [('飲食', 60), ('交通', 40)]);
+      expect(refund.tags, ['旅遊']);
+      l.entryCommands.add(refund);
+      final from = DateTime.utc(2026, 9, 1);
+      final to = DateTime.utc(2026, 10, 31);
+      expect(l.reportService.spendingBetween(from, to), {'飲食': 0, '交通': 0});
+      expect(l.reportService.tagsBetween(from, to), [('旅遊', 0)]);
+    });
+
+    test('editing a refund shares again from what the others left', () {
+      final l = refunding(
+        Entry(
+          id: 'a',
+          date: DateTime.utc(2026, 9, 1),
+          type: EntryType.expense,
+          amount: 100,
+          account: 'bank',
+          category: '飲食',
+          parts: const [('飲食', 60), ('交通', 40)],
+        ),
+      );
+      final first = (ComposeForm(
+        l,
+        type: EntryType.income,
+        refunded: l.entries.byId('a'),
+      )..setAmount(50)).build();
+      l.entryCommands.add(first);
+      final edited = (ComposeForm(
+        l,
+        type: EntryType.income,
+        editing: l.entries.byId(first.id),
+      )..setAmount(100)).build();
+      // Changed to the whole: all of each part, the refund itself left
+      // out of what was given back before.
+      expect(edited.parts, [('飲食', 60), ('交通', 40)]);
+    });
+  });
 }

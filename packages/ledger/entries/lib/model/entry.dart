@@ -174,11 +174,15 @@ final class Entry {
   };
 
   /// [spending] by category: the parts of a split, a transfer's fee under
-  /// [feeCategory].
+  /// [feeCategory]; a refund's parts give back (D65).
   List<(String, int)> get spendingParts {
     if (spending == 0) return const [];
     if (type == EntryType.transfer) return [(feeCategory, fee)];
-    if (_splitCounts) return parts;
+    if (_splitCounts) {
+      return isRefund
+          ? [for (final (name, value) in parts) (name, -value)]
+          : parts;
+    }
     return [(category, spending)];
   }
 

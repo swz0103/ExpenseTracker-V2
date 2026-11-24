@@ -589,4 +589,94 @@ void main() {
       returnsNormally,
     );
   });
+
+  test('a refund kept without its purchase\'s split and tags is given '
+      'them (D65)', () async {
+    // As 0.22.0 kept them: a split purchase 飲食 60 + 交通 40 tagged 旅遊,
+    // refunded in two halves the way the composer wrote a refund then
+    // (the purchase's category, no split, no tags); and a refund that
+    // was given a tag of its own.
+    final s = open();
+    Map<String, Object?> row(Map<String, Object?> json) => {
+      ...json,
+      'date': '2026-10-01',
+      'account': 'a1',
+      '_v': 2,
+    };
+    s.write((w) {
+      w.put(
+        'account',
+        'a1',
+        jsonEncode({'id': 'a1', 'name': '現金', 'kind': 'cash', 'opening': 0}),
+      );
+      for (final (id, name) in [('c-food', '飲食'), ('c-car', '交通')]) {
+        w.put(
+          'category',
+          id,
+          jsonEncode({'id': id, 'name': name, 'icon': 'food', 'color': 1}),
+        );
+      }
+      w.put(
+        'entry',
+        'p',
+        jsonEncode(
+          row({
+            'id': 'p',
+            'type': 'expense',
+            'amount': 100,
+            'categoryId': 'c-food',
+            'tags': ['旅遊'],
+            'parts': [
+              {'categoryId': 'c-food', 'amount': 60},
+              {'categoryId': 'c-car', 'amount': 40},
+            ],
+          }),
+        ),
+      );
+      for (final (id, tags) in [
+        ('r1', null),
+        ('r2', ['自己的']),
+      ]) {
+        w.put(
+          'entry',
+          id,
+          jsonEncode(
+            row({
+              'id': id,
+              'type': 'income',
+              'amount': 50,
+              'categoryId': 'c-food',
+              'refundOf': 'p',
+              'tags': ?tags,
+            }),
+          ),
+        );
+      }
+    });
+    final ledger = await load();
+    // Each half gives back 30 of 飲食 and 20 of 交通.
+    expect(rowsOf(store!, 'entry')['r1'], {
+      'id': 'r1',
+      'type': 'income',
+      'amount': 50,
+      'categoryId': 'c-food',
+      'refundOf': 'p',
+      'date': '2026-10-01',
+      'account': 'a1',
+      '_v': 2,
+      'parts': [
+        {'categoryId': 'c-food', 'amount': 30},
+        {'categoryId': 'c-car', 'amount': 20},
+      ],
+      'tags': ['旅遊'],
+    });
+    expect(ledger.entries.byId('r2')!.parts, [('飲食', 30), ('交通', 20)]);
+    expect(ledger.entries.byId('r2')!.tags, ['自己的']);
+    final october = ledger.reportService.spendingBetween(
+      DateTime.utc(2026, 10, 1),
+      DateTime.utc(2026, 10, 31),
+    );
+    expect(october, {'飲食': 0, '交通': 0});
+    expect(store!.meta(EncryptedDatabase.bookVersionKey), bookVersion);
+  });
 }
