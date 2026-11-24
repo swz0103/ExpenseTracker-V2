@@ -63,3 +63,19 @@ bool takesFetched({
   }
   return (fetched - doubtedBefore).abs() <= doubtedBefore * agreeingFetchesBand;
 }
+
+/// A close or rate fetched and doubted (D95), with the day it was of:
+/// kept to weigh the next fetch by (D101).
+typedef DoubtedFigure = ({double figure, DateTime day});
+
+/// The doubts of [doubts] that still weigh a fetch of [day]: one more
+/// than [doubtfulMoveKeptDays] older is let go of, as a kept figure that
+/// old gives way (review 25), so a doubt from months ago, kept while its
+/// code was off the board, never vouches for a fetch that agrees with it.
+Map<String, DoubtedFigure> doubtsStanding(
+  Map<String, DoubtedFigure> doubts,
+  DateTime day,
+) => {
+  for (final MapEntry(:key, :value) in doubts.entries)
+    if (day.difference(value.day).inDays <= doubtfulMoveKeptDays) key: value,
+};

@@ -409,9 +409,10 @@ final class EntryCommands {
 
   /// Everything that stands in the way of putting [trashed] back as it
   /// is, for the person to decide (D78), all worked out before anything
-  /// is asked: for a refund, its purchase deleted (still in the trash, or
-  /// gone for good); then the accounts the entries that would come back
-  /// name, since closed. Empty when nothing does.
+  /// is asked: for each refund that would come back, [trashed] or one of
+  /// its group (review 25), its purchase deleted (each still in the
+  /// trash, then gone for good, said once); then the accounts the entries
+  /// that would come back name, since closed. Empty when nothing does.
   List<RestoreHold> holdsOf(Trashed trashed) {
     final holds = <RestoreHold>[];
     // Every entry that would come back: each root with its group.
@@ -419,18 +420,22 @@ final class EntryCommands {
       trashed.entry.id: trashed.entry,
       for (final t in _withGroup(trashed)) t.entry.id: t.entry,
     };
-    final of = trashed.entry.refundOf;
-    if (of != null && _entries.byId(of) == null) {
+    var gone = false;
+    for (final e in entries.values.toList()) {
+      final of = e.refundOf;
+      if (of == null || entries.containsKey(of)) continue;
+      if (_entries.byId(of) != null) continue;
       final original = _trash.all.where((t) => t.entry.id == of).firstOrNull;
       if (original == null) {
-        holds.add(const OriginalGone());
-      } else {
-        holds.add(OriginalInTrash(original));
-        for (final t in _withGroup(original)) {
-          entries[t.entry.id] = t.entry;
-        }
+        gone = true;
+        continue;
+      }
+      holds.add(OriginalInTrash(original));
+      for (final t in _withGroup(original)) {
+        entries[t.entry.id] = t.entry;
       }
     }
+    if (gone) holds.add(const OriginalGone());
     final closed = <String, Account>{
       for (final e in entries.values)
         for (final id in {e.account, ?e.to})
@@ -444,8 +449,8 @@ final class EntryCommands {
   /// told through [CommandContext.problem] when it no longer fits the
   /// trades kept since, and false with nothing changed when a hold of
   /// [holdsOf] is not agreed: [reopen] opens the closed accounts again,
-  /// [withOriginal] puts a refund's purchase in the trash back first. A
-  /// refund whose purchase is gone for good needs no answer here. When
+  /// [withOriginal] puts the refunds' purchases in the trash back first.
+  /// A refund whose purchase is gone for good needs no answer here. When
   /// the putting back cannot be done, an account opened for it is closed
   /// again. The screens are told once, when it is done or undone, never
   /// of a state between.
@@ -463,7 +468,7 @@ final class EntryCommands {
     required bool withOriginal,
   }) {
     final closed = <Account>[];
-    Trashed? original;
+    final originals = <Trashed>[];
     for (final hold in holdsOf(trashed)) {
       switch (hold) {
         case ClosedAccounts(:final accounts):
@@ -471,7 +476,7 @@ final class EntryCommands {
           closed.addAll(accounts);
         case OriginalInTrash(original: final purchase):
           if (!withOriginal) return false;
-          original = purchase;
+          originals.add(purchase);
         case OriginalGone():
           break;
       }
@@ -488,8 +493,8 @@ final class EntryCommands {
     opened.forEach(_accounts.replace);
     final before = _trash.all;
     final placed = <Trashed>[];
-    // The purchase first, then the refund that names it.
-    for (final root in [?original, trashed]) {
+    // The purchases first, then the refunds that name them.
+    for (final root in [...originals, trashed]) {
       final back = _withGroup(root);
       if (!_place(back)) {
         _undoPlaced(placed, before, closed);

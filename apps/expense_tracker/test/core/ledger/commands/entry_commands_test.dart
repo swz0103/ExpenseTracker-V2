@@ -7,7 +7,12 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   // R20: a purchase of 300 and its refund on 銀行; g1 on 銀行 and g2 on 舊
   // written as one (group G); a on 銀行 alone.
-  Ledger book20({int refund = 100, String refundOn = 'bank'}) => Ledger(
+  // With [refundIn], the refund is written in that group too.
+  Ledger book20({
+    int refund = 100,
+    String refundOn = 'bank',
+    String? refundIn,
+  }) => Ledger(
     today: DateTime.utc(2026, 10, 1),
     accounts: const [
       Account('bank', '銀行', AccountKind.bank, 1000),
@@ -29,6 +34,7 @@ void main() {
         amount: refund,
         account: refundOn,
         refundOf: 'buy',
+        group: refundIn,
       ),
       Entry(
         id: 'g1',
@@ -138,6 +144,37 @@ void main() {
       expect(ledger.entryCommands.restoreTrashed(g1, reopen: true), isTrue);
       expect(ledger.account('old').archived, isFalse);
       expect(trashed(ledger), isEmpty);
+    });
+
+    test('a refund among the group, its purchase in the trash, holds the '
+        'group until the purchase comes back with it (review 25)', () {
+      final ledger = book20(refundIn: 'G');
+      ledger.entryCommands.remove('buy');
+      ledger.entryCommands.removeAll(['g1', 'g2', 'ref']);
+      final g1 = ledger.trash.all.firstWhere((t) => t.entry.id == 'g1');
+      final holds = ledger.entryCommands.holdsOf(g1);
+      expect(holds, [isA<OriginalInTrash>()]);
+      expect((holds.single as OriginalInTrash).original.entry.id, 'buy');
+      expect(ledger.entryCommands.restoreTrashed(g1), isFalse);
+      expect(trashed(ledger), ['buy', 'g1', 'g2', 'ref']);
+      expect(
+        ledger.entryCommands.restoreTrashed(g1, withOriginal: true),
+        isTrue,
+      );
+      expect(live(ledger), ['buy', 'ref', 'g1', 'g2', 'a']);
+      expect(trashed(ledger), isEmpty);
+    });
+
+    test('a refund among the group whose purchase is gone for good is said '
+        'once (review 25)', () {
+      final ledger = book20(refundIn: 'G');
+      ledger.entryCommands.remove('buy');
+      ledger.entryCommands.removeAll(['g1', 'g2', 'ref']);
+      ledger.entryCommands.discardTrashed(
+        ledger.trash.all.where((t) => t.entry.id == 'buy').toList(),
+      );
+      final g1 = ledger.trash.all.firstWhere((t) => t.entry.id == 'g1');
+      expect(ledger.entryCommands.holdsOf(g1), [isA<OriginalGone>()]);
     });
   });
 

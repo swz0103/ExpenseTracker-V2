@@ -7,7 +7,9 @@ import '../../diagnostics/error_steps.dart';
 /// (review 18): one telling at a time, and none after one was acted on.
 /// A telling not acted on (no book open just then, as while it locks)
 /// leaves the next damage found to be told again, so it is not missed
-/// until the next launch.
+/// until the next launch. A telling that throws counts as acted on, its
+/// error logged: the handling already ran and showed what it could, and
+/// running it again at every fault would only fail again (review 25).
 final class DamageReport {
   /// Told of the damage; answers whether it was acted on.
   Future<bool> Function(Object error)? tell;
@@ -34,6 +36,7 @@ final class DamageReport {
     try {
       _told = await tell(error);
     } on Object catch (failed, stack) {
+      _told = true;
       ErrorLog.instance.record(ErrorSteps.bookDamaged, failed, stack);
     } finally {
       _telling = false;

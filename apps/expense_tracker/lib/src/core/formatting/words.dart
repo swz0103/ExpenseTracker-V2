@@ -29,6 +29,11 @@ abstract final class Words {
   static const amount = '金額';
   static const note = '備註';
 
+  /// What an amount in a foreign currency is worth at home, in NT$: the
+  /// form's row, an entry's details and what asks for it. Not the column
+  /// of an imported file, which is `homeAmountColumn` (台幣金額).
+  static const homeWorth = '折合新台幣';
+
   // Actions.
   static const cancel = '取消';
   static const delete = '刪除';
