@@ -1,3 +1,6 @@
+@Tags(['timing'])
+library;
+
 import 'dart:math';
 
 import 'package:expense_tracker/src/core/ledger/ledger.dart';

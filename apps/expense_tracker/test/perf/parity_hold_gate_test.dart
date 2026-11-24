@@ -1,3 +1,16 @@
+/// The journal's check runs on the screen's isolate, in slices (r13 F8):
+/// at 100,000 entries the longest it holds the isolate, as a share of
+/// the whole check run at once, stays under `parity_held_share`
+/// (journal_thresholds.json), so it holds on any machine; and the hold
+/// itself under `parity_held_ms`, so a slice that grows with the book is
+/// caught though its share does not (review 18). Both judged on
+/// interleaved pairs the host did not stall (held.dart, `shareOf`): the
+/// hold in ms is a figure of this machine, which a busy host inflates
+/// most (review 25). That the check offers its pauses at all is counted,
+/// not timed, in parity_test.dart.
+@Tags(['timing'])
+library;
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -11,12 +24,6 @@ import '../baseline/baseline_ledger.dart';
 import '../core/ledger/journal/posted_book.dart';
 import '../support/held.dart';
 
-/// The journal's check runs on the screen's isolate, in slices (r13 F8):
-/// at 100,000 entries the longest it holds the isolate, as a share of
-/// the whole check run at once, stays under `parity_held_share`
-/// (journal_thresholds.json), so it holds on any machine; and the hold
-/// itself under `parity_held_ms`, so a slice that grows with the book is
-/// caught though its share does not (review 18).
 void main() {
   final today = day(2026, 10, 4);
 
@@ -49,10 +56,13 @@ void main() {
     ) as Map<String, Object?>;
     final limit = (limits['parity_held_share']! as num).toDouble();
     final heldMs = limits['parity_held_ms']! as int;
-    Future<int> run({required bool sliced}) async {
+    var pausesTaken = 0;
+    Future<Held<void>> run({required bool sliced}) async {
+      // A fresh book each run: the first balance of an account is worked
+      // out cold, as on opening.
       final ledger = book();
       final posted = await post(ledger);
-      return (await timeHeld(() async {
+      return timeHeld(() async {
         final watch = Stopwatch()..start();
         await checkParity(
           today: figuresOf(ledger),
@@ -60,23 +70,27 @@ void main() {
           pause: sliced
               ? () async {
                   if (watch.elapsed < journalSlice) return;
+                  pausesTaken++;
                   await Future<void>.delayed(Duration.zero);
                   watch.reset();
                 }
               : null,
         );
-      })).heldUs;
+      });
     }
 
-    final whole = await leastOf(gateTries, () => run(sliced: false));
-    final sliced = await leastOf(gateTries, () => run(sliced: true));
-    final share = sliced / whole;
+    final result = await shareOf(
+      apart: () => run(sliced: true),
+      whole: () => run(sliced: false),
+      limit: limit,
+      apartMostUs: heldMs * 1000,
+    );
     // ignore: avoid_print
     print(
-      'parity_held: at once ${whole ~/ 1000} ms; sliced ${sliced ~/ 1000} '
-      'ms; share ${share.toStringAsFixed(3)}',
+      'parity_held: $pausesTaken pauses taken in ${result.pairs.length} '
+      'sliced checks',
     );
-    expect(share, lessThanOrEqualTo(limit));
-    expect(sliced ~/ 1000, lessThanOrEqualTo(heldMs));
-  }, timeout: const Timeout(Duration(minutes: 10)));
+    expect(pausesTaken, greaterThan(result.pairs.length));
+    expectShare(result, 'parity_held');
+  }, timeout: const Timeout(Duration(minutes: 15)));
 }

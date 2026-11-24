@@ -50,16 +50,31 @@ void main() {
     offline = _Offline();
   });
 
-  tearDown(() => directory.deleteSync(recursive: true));
+  /// The services each test made: what they left running (the weekly
+  /// backup above all, which writes into the folder) is waited for before
+  /// the folder goes.
+  final made = <LifecycleServices>[];
 
-  LifecycleServices services() => LifecycleServices(
-    startup: startup,
-    vault: vault,
-    preferences: Preferences(),
-    say: said.add,
-    offerUpdate: (_) async => fail('nothing to offer off Android'),
-    transport: offline,
-  );
+  tearDown(() async {
+    for (final s in made) {
+      await s.settled;
+    }
+    made.clear();
+    directory.deleteSync(recursive: true);
+  });
+
+  LifecycleServices services() {
+    final s = LifecycleServices(
+      startup: startup,
+      vault: vault,
+      preferences: Preferences(),
+      say: said.add,
+      offerUpdate: (_) async => fail('nothing to offer off Android'),
+      transport: offline,
+    );
+    made.add(s);
+    return s;
+  }
 
   test('off Android only the ledger\'s own services run', () async {
     final s = services();
@@ -76,6 +91,18 @@ void main() {
     ], everyElement(isNull));
     await s.weeklyBackup();
     expect(said, isEmpty, reason: 'the weekly backup went through');
+    s.dispose();
+  });
+
+  test('settled waits for the weekly backup start left running', () async {
+    final s = services();
+    await s.start(await s.dataSource.load());
+    await s.settled;
+    // The first backup of a new ledger is due at once: written by now.
+    expect(await s.backupManager.keptBackups(), hasLength(1));
+    expect(said, isEmpty);
+    // Nothing left: a second wait returns at once.
+    await s.settled;
     s.dispose();
   });
 

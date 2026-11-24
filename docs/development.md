@@ -14,7 +14,9 @@
 
 | 做什麼 | 指令 |
 | --- | --- |
-| 全部測試 | `flutter test` |
+| 全部測試 | `flutter test`（計時關卡也一起跑；電腦忙時它們會標成略過並印出「INCONCLUSIVE」，不會算通過） |
+| 計時以外的測試（CI 的跑法） | `flutter test --exclude-tags timing` |
+| 只跑計時關卡（CI 的跑法：一次一個檔案、不收集覆蓋率） | `flutter test --tags timing --concurrency=1` |
 | 只看規則 | `flutter test test/rules`，以及 `tooling/architecture_checks` 裡的 `dart test` |
 | 只看版面 | `flutter test test/rules/layout_common_test.dart` |
 | 分析與排版 | `flutter analyze`、`dart format lib test` |
