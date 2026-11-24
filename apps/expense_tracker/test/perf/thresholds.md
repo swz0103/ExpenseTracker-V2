@@ -152,6 +152,15 @@ test JIT, not pinned; each figure the least of three openings:
 | second worker lost (`split: false` in `_openApart`) | 1,394 / 1,664 ms | 0.035 / 0.037 | fails: "half the entries on a second worker" |
 | `SameValues` lost (`entryFromJson(j, refs)` in `decodeBook`) | 1,541 / 1,706 ms | 0.048 / 0.051 | fails: "accounts shared" (100,000 for 2) |
 
+After review 23's merge, with the host at load 0.6 for a moment (one-
+minute 3.3–6 while the gate ran): worker least 1,290 / 1,758 / 1,563 ms,
+outside share 0.026–0.029. The worker's time is not judged on the
+clean samples of `HostWitness` (held.dart) as the share gates are: the
+opening's own threads (its worker, the second one, the collector) make
+the host's PSI 17–37% of the opening even at load 0.6, so every opening
+read as contended and the limit was never judged. It stays the least of
+three, against a limit about twice the least measured.
+
 At this load the worker's time with and without the second worker
 overlaps (as review 24 found), so the split is gated by what it leaves,
 not by its time; the time limit catches a gross slowing only.
