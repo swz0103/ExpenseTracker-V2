@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../design_system/glyphs.dart';
+import '../design_system/components/buttons.dart';
 import '../design_system/keys.dart';
 import '../messages/flow_messages.dart';
 import '../design_system/shape.dart';
@@ -235,13 +236,9 @@ class _TourState extends State<Tour> with TickerProviderStateMixin {
               child: TextButton(
                 key: Keys.skipTour,
                 onPressed: () => unawaited(_finish()),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.tourPaper,
+                style: wordButton(
+                  AppColors.tourPaper,
                   minimumSize: const Size(64, 48),
-                  textStyle: const TextStyle(
-                    fontSize: TextSize.title,
-                    fontWeight: FontWeight.w700,
-                  ),
                 ),
                 child: const Text(FlowWords.skipTour),
               ),
