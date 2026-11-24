@@ -17,6 +17,6 @@
   "memory_mb": 470,
   "10k_memory_mb": 580,
   "100k_memory_mb": 950,
-  "100k_journal_rebuild_ms": 15000,
-  "100k_journal_rebuild_held_ms": 250
+  "100k_journal_rebuild_ms": 7500,
+  "100k_journal_rebuild_held_ms": 60
 }
