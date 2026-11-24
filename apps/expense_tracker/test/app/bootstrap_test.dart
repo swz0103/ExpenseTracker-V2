@@ -261,6 +261,33 @@ void main() {
     });
   });
 
+  group('a screen left open over midnight (review 16)', () {
+    // 2026-10-31 23:59 UTC (this clock stands in UTC): two minutes on is
+    // 11-01, another month.
+    late FixedClock clock;
+    setUp(() {
+      clock = FixedClock(UtcInstant(DateTime.utc(2026, 10, 31, 23, 59)));
+      AppClock.use(clock);
+    });
+    tearDown(AppClock.reset);
+
+    testWidgets('moves on to the new day by itself: the month it shows is '
+        'then named, no longer 本月', (tester) async {
+      await setUpLedger(tester);
+      await root(tester);
+      await untilBook(tester);
+      final ledger = tester.widget<AppShell>(find.byType(AppShell)).ledger;
+      expect(ledger.today, DateTime.utc(2026, 10, 31));
+      expect(find.text('本月結餘'), findsOneWidget);
+      clock.advance(const Duration(minutes: 2));
+      await tester.pump(const Duration(minutes: 2));
+      await tester.pump();
+      expect(ledger.today, DateTime.utc(2026, 11, 1));
+      expect(find.text('10 月結餘'), findsOneWidget);
+      expect(find.text('本月結餘'), findsNothing);
+    });
+  });
+
   group('coming back with an item due (ARC-04)', () {
     // 2026-11-04 23:58 UTC (this clock stands in UTC); three minutes away
     // makes it 11-05 00:01, the day the item falls due.
