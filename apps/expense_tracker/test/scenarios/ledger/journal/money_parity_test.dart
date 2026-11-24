@@ -6,7 +6,7 @@ import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../baseline/baseline_ledger.dart' show day, entryOf;
-import 'posted_book.dart';
+import '../../../core/ledger/journal/posted_book.dart';
 
 Future<void> expectParity(Ledger ledger) async {
   final parity = await parityOf(ledger);

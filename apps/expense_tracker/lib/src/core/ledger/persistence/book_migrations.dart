@@ -1,3 +1,5 @@
+// Exception to ledger words: the tags earlier versions identified
+// cashback, an annual fee and an e-invoice by, read once by book step 4.
 import 'dart:convert';
 import 'dart:math' show max;
 
@@ -241,8 +243,8 @@ void _marksFromTags(EncryptedDatabase store, RowWriter w) {
   }
 }
 
-// Exception to shared words: the tags earlier versions identified these
-// entries by, read once to give them their mark.
+/// The tags earlier versions identified these entries by, read once to
+/// give them their mark.
 const _rewardTag = '回饋';
 const _annualFeeTag = '年費';
 const _invoiceTag = '發票';

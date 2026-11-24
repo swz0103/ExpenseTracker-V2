@@ -48,7 +48,7 @@ Work package CORR-1 (money correctness, decisions D52-D54, D59, D60, D62-D65, D6
 
 - BUD-02: `p2_2_budgets_test.dart` (a parent category's budget counts its sub-categories) runs in the ordinary suite; `test/core/ledger/services/budget_service_test.dart`, `packages/ledger/entries/test/rules/category_rules_test.dart` (the one rule, `isUnder`/`spendingUnder`)
 
-The findings of reviews 3-5 it fixes have no id in this table; their tests: `test/core/ledger/services/balance_service_test.dart` (one net worth, D59 by side, instalment refunds, flows), `test/features/accounts/model/card_summary_test.dart` (D67), `test/features/entries/model/compose_form_test.dart` (D62, D65), `test/core/ledger/services/budget_service_test.dart` (D64, D54), `test/features/reports/model/report_test.dart` (D53, D54), `test/core/ledger/journal/money_parity_test.dart` and `test/scenarios/ledger/journal/journal_incremental_test.dart` (the journal agrees).
+The findings of reviews 3-5 it fixes have no id in this table; their tests: `test/core/ledger/services/balance_service_test.dart` (one net worth, D59 by side, instalment refunds, flows), `test/features/accounts/model/card_summary_test.dart` (D67), `test/features/entries/model/compose_form_test.dart` (D62, D65), `test/core/ledger/services/budget_service_test.dart` (D64, D54), `test/features/reports/model/report_test.dart` (D53, D54), `test/scenarios/ledger/journal/money_parity_test.dart` and `test/scenarios/ledger/journal/journal_incremental_test.dart` (the journal agrees), `test/scenarios/ledger/money_properties_test.dart` (review 5's invariants on seeded books).
 
 ## fixed in 2.0
 

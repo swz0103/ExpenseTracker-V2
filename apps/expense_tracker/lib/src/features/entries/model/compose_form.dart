@@ -17,6 +17,7 @@ import '../../../core/formatting/words.dart';
 
 part 'compose_form_extras.dart';
 part 'compose_form_lending.dart';
+part 'compose_form_refund.dart';
 part 'compose_form_split.dart';
 part 'compose_form_trade.dart';
 part 'compose_form_transfer.dart';
@@ -462,41 +463,6 @@ final class ComposeForm {
 
   /// A transfer between accounts kept in different currencies.
   bool get crossing => type == EntryType.transfer && currency != toCurrency;
-
-  /// [home], else the refunded share of the purchase's worth (the rest of
-  /// it for the refund that gives back the rest, D62), else the amount at
-  /// today's rate; null without a rate.
-  int? get homeValue {
-    final typed = home;
-    if (typed != null) return typed;
-    if (_refundShare?.home case final share?) return share;
-    return ledger.marketData.toHome(amount, currency);
-  }
-
-  /// The spending the entry gives back: [refunded], or the one a refund
-  /// being changed gives back; null for any other entry.
-  Entry? get _original {
-    final opened = refunded;
-    if (opened != null) return opened;
-    final of = editing?.refundOf;
-    return of == null ? null : ledger.entries.byId(of);
-  }
-
-  /// What the refund being written gives back of its purchase, as the
-  /// ledger's one rule shares it (`refundShare`: its worth, split and
-  /// tags, D62, D65); null when it is no refund.
-  RefundShare? get _refundShare {
-    final original = _original;
-    if (original == null || type != EntryType.income) return null;
-    return refundShare(
-      original,
-      amount,
-      earlier: [
-        for (final e in ledger.entries.refundsOf(original.id))
-          if (e.id != editing?.id) e,
-      ],
-    );
-  }
 
   /// [received], else the amount at today's rates.
   int? get receivedValue =>
