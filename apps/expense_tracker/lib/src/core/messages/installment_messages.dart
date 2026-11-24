@@ -1,6 +1,11 @@
 import '../ledger/ledger.dart';
 import '../../../design_system/display/amount.dart';
 
+/// The instalment counts the entry form offers, 0 for 不分期: up to the
+/// write rules' [maxInstallments], so the form never offers a count the
+/// ledger would refuse, nor stops short of one it keeps (D11).
+const installmentChoices = [0, 3, 6, 12, 24, 30, 36, 48, maxInstallments];
+
 /// How [total] paid in [count] instalments is written, each amount as
 /// [money] writes it: 「3 期 · 每期 3,000」, or when it does not divide
 /// evenly, with the remainder where the bank puts it, 「3 期 · 首期 3,335，

@@ -31,6 +31,10 @@ class _AccountEditorState extends State<_AccountEditor> {
     text: _f.limit,
   )..addListener(() => setState(() => _f.limit = _limit.text));
 
+  late final TextEditingController _discount = TextEditingController(
+    text: _f.discount,
+  )..addListener(() => setState(() => _f.discount = _discount.text));
+
   late final TextEditingController _rate = TextEditingController(text: _f.rate)
     ..addListener(() => setState(() => _f.rate = _rate.text));
   late final TextEditingController _months = TextEditingController(
@@ -49,6 +53,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     _balance.dispose();
     _principal.dispose();
     _limit.dispose();
+    _discount.dispose();
     _rate.dispose();
     _months.dispose();
     super.dispose();
@@ -171,18 +176,6 @@ class _AccountEditorState extends State<_AccountEditor> {
     if (own == null || usual.contains(own)) return usual;
     return [...usual.take(usual.length - 1), own];
   }
-
-  /// The account as the form stands, for its colour and label.
-  Account get _preview => Account(
-    _old?.id ?? '',
-    _f.name.trim(),
-    _f.kind,
-    0,
-    icon: _f.icon,
-    dueDay: _f.card ? _f.due : null,
-    currency: _f.foreignAllowed ? _f.currency : homeCode,
-    color: _f.color,
-  );
 
   /// A centre panel of colours: the kind's own first, then the others.
   Future<void> _pickColor() async {
@@ -567,6 +560,7 @@ class _AccountEditorState extends State<_AccountEditor> {
             error: _f.limitProblem,
           ),
         ),
+      if (_f.trades) _discountGroup(),
       _counted,
       _buttons(old),
       if (old != null)

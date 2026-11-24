@@ -47,7 +47,12 @@ void main() {
     final name = inSeptember
         .firstWhere((e) => e.type == EntryType.expense)
         .category;
-    final (under, total) = Report.spentUnder(name, ledger.entries, period);
+    final (under, total) = Report.spentUnder(
+      name,
+      ledger.entries,
+      period,
+      ledger.today,
+    );
     final expected = [
       for (final e in inSeptember)
         for (final (category, amount) in e.spendingParts)
@@ -116,7 +121,12 @@ void main() {
   });
 
   test('a category nothing was spent under has nothing', () {
-    final (under, total) = Report.spentUnder('沒有這類', ledger.entries, period);
+    final (under, total) = Report.spentUnder(
+      '沒有這類',
+      ledger.entries,
+      period,
+      ledger.today,
+    );
     expect(under, isEmpty);
     expect(total, 0);
   });

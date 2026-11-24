@@ -153,13 +153,13 @@ class _ComposerState extends State<Composer>
   /// someone or paid back, a refund. Shown as small tags under the top
   /// row; a new plain entry needs none.
   List<(String, Color)> get _marks => [
-    if (_f.refunded != null) ('退款', AppColors.positive),
+    if (_f.refunded != null) (Words.refund, AppColors.positive),
     if (widget.entry != null && !_viewing) ('編輯中', AppColors.accent),
   ];
 
   String get _action {
     if (widget.entry != null) return '儲存修改';
-    if (_f.refunded != null) return '記下退款';
+    if (_f.refunded != null) return '記下${Words.refund}';
     if (_f.lending && _f.own <= 0) return '記下代墊';
     return switch (_f.type) {
       EntryType.expense => '記下支出',

@@ -113,4 +113,7 @@ abstract final class Keys {
   /// button, and the way to choose no password.
   static const newPassword = ValueKey('keys:new-password');
   static const noPassword = ValueKey('keys:no-password');
+
+  /// The account form's own broker discount (D7).
+  static const accountDiscount = ValueKey('account:broker-discount');
 }

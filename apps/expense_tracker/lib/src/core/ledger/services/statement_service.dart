@@ -72,9 +72,10 @@ final class StatementService {
   }
 
   /// What is still to pay on the last statement of [card]: what it owed
-  /// when the statement closed, less what was paid in since.
+  /// when the statement closed, less what was paid in since and by
+  /// today: a 預定 payment pays the bill only once its day comes (D25).
   int statementDue(Account card) => _cache.remember(
-    ('due', card.id, closedBy),
+    ('due', card.id, closedBy, _today()),
     () => _statementDue(card),
     reads: _cardTopics,
   );
@@ -82,7 +83,7 @@ final class StatementService {
   int _statementDue(Account card) {
     final (_, end, _) = statement(card);
     var paid = 0;
-    for (final e in _entries.all) {
+    for (final e in countedOn(_entries.all, _today())) {
       if (e.type == EntryType.transfer &&
           e.to == card.id &&
           e.date.isAfter(end)) {

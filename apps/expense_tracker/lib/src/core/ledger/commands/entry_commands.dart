@@ -1,8 +1,9 @@
-import 'package:ledger_entries/rules.dart' show RecordIssue;
+import 'package:ledger_entries/rules.dart' show RecordIssue, SaleExceedsHolding;
 
 import '../cache/topic.dart';
 import '../models/models.dart';
 import '../persistence/write_batch.dart';
+import '../portfolio.dart' show OversoldTrade;
 import '../persistence/unit_of_work.dart';
 import '../repositories/account_repository.dart';
 import '../repositories/budget_repository.dart';
@@ -23,8 +24,7 @@ import 'command_exceptions.dart';
 /// batch. Nothing is written that the ledger's write rules refuse
 /// ([EntryValidator]), whoever writes it: [add], [save], [addAll],
 /// [replaceAll] and the rest throw a [RecordRefused] before anything
-/// changes, and a [SharesShort] when a later sale would be left short of
-/// shares. Taking entries away and bringing them back, which undo and the
+/// changes, a sale left short of shares included ([SaleExceedsHolding]). Taking entries away and bringing them back, which undo and the
 /// trash do with no form to answer, tell the same problems through
 /// [CommandContext.problem] instead.
 final class EntryCommands {
@@ -542,15 +542,18 @@ final class EntryCommands {
 
   /// Works the holdings out again when [trades] were touched, then tells
   /// the screens the entries changed; an oversold trade is undone and
-  /// refused with a [SharesShort].
+  /// refused with a [RecordRefused] of [SaleExceedsHolding], as the write
+  /// rules refuse it: [SaleExceedsHolding.later] when the trade short is
+  /// one the change left as it was.
   void _replayOrUndo(void Function() undo, {bool trades = true}) {
     if (trades) {
       try {
         _holdings.replay(_entries.all);
-      } on StateError {
+      } on OversoldTrade catch (short) {
         undo();
         _holdings.replay(_entries.all);
-        throw SharesShort();
+        final untouched = identical(_entries.byId(short.entry.id), short.entry);
+        throw RecordRefused([SaleExceedsHolding(later: untouched)]);
       }
     }
     _context.changed(const {Topic.entries});
@@ -562,7 +565,7 @@ final class EntryCommands {
     try {
       _replayOrUndo(undo, trades: trades);
       return true;
-    } on SharesShort catch (short) {
+    } on RecordRefused catch (short) {
       // Said to the person through problem.
       _context.report(short);
       _context.changed(Topic.all);

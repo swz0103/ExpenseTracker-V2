@@ -10,7 +10,6 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final cause = Exception('disk full');
   final problems = <LedgerProblem>[
-    SharesShort(),
     const NameTaken(),
     KeepFailed(cause),
     ReloadFailed(cause),
@@ -19,7 +18,6 @@ void main() {
 
   test('each problem names itself in the log, with its cause', () {
     expect(problems.map((p) => '$p'), [
-      'SharesShort',
       'NameTaken',
       'KeepFailed(Exception: disk full)',
       'ReloadFailed(Exception: disk full)',

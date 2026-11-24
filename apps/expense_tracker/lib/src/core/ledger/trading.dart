@@ -6,8 +6,9 @@ import 'package:ledger_trade_costs/rules/instruments.dart';
 import 'package:ledger_trade_costs/rules/taiwan_market_days.dart';
 
 /// The broker's discount on the fee before it is set, in basis points of
-/// the full fee: 6折. The one setting that changes it is the preference
-/// 券商手續費折扣; this is its default.
+/// the full fee: 6折. The preference 券商手續費折扣 changes it for the
+/// phone, and an account's own discount for that account (D7); this is
+/// the preference's default.
 const defaultBrokerDiscount = 6000;
 
 /// [code] as the exchanges write it: no spaces, upper case, without a
@@ -39,8 +40,15 @@ int brokerFee(int amount, int shares, {int discount = defaultBrokerDiscount}) {
 
 /// The securities transaction tax on selling [shares] of [code] for
 /// [amount] on [tradedOn], at that day's rate; codes starting with 00 are
-/// ETFs, and those ending in B bond ETFs.
-int saleTax(String code, int amount, int shares, DateTime tradedOn) {
+/// ETFs, and those ending in B bond ETFs. A [dayTrade] of a stock pays
+/// the day-trade rate of the dated table while it lasts (D6).
+int saleTax(
+  String code,
+  int amount,
+  int shares,
+  DateTime tradedOn, {
+  bool dayTrade = false,
+}) {
   if (amount <= 0 || shares <= 0) return 0;
   final kind = instrumentKindOf(code);
   try {
@@ -50,6 +58,7 @@ int saleTax(String code, int amount, int shares, DateTime tradedOn) {
           ShareQuantity.parse('$shares'),
           kind: kind,
           tradedOn: _day(tradedOn),
+          dayTrade: dayTrade,
         )
         .minorUnits
         .toInt();

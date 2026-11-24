@@ -104,7 +104,7 @@ The tests that were skipped here now run unskipped in `p3_2_keys_test.dart`; the
 The tests run unskipped in `p1_4_write_invariants_test.dart`.
 
 - LOG-02: 3 tests; every command that writes an entry checks it against the write rules of `packages/ledger/entries` and refuses a zero amount, a same-account transfer and foreign spending without NT$ amount (`RecordRefused`)
-- LOG-12: renaming a merchant renames it on the recurring items too; a refused write is one typed `LedgerProblem` (`RecordRefused`, `SharesShort`) told by `describeProblem` wherever it is caught
+- LOG-12: renaming a merchant renames it on the recurring items too; a refused write is one typed `LedgerProblem` (`RecordRefused`; an oversold sale too, as `SaleExceedsHolding`, since D12) told by `describeProblem` wherever it is caught
 
 ## fixed in 1.2
 
@@ -195,7 +195,7 @@ One line per finding that has no test here. Findings with an executed reproducti
 ### With an executed reproduction
 
 - DEB-02 (S1, 2.4): the fix adds a principal/interest repayment form and fields that do not exist yet, so nothing can be asserted on today's API
-- PKG-01 (S2, 1.3): partly fixed in 1.3: the discount is the preference 券商手續費折扣 (default 6折; tests in test/core/platform/preferences_test.dart and test/features/entries/model/compose_form_test.dart); the day-trade tax stays open, as an entry has no notion of a day trade, and the holiday table belongs to the dates package
+- PKG-01 (S2, 1.3): partly fixed in 1.3: the discount is the preference 券商手續費折扣 (default 6折; since D7 each account may keep its own, test/features/accounts/model/account_form_test.dart; tests in test/core/platform/preferences_test.dart and test/features/entries/model/compose_form_test.dart); the day-trade tax stays open, as an entry has no notion of a day trade, and the holiday table belongs to the dates package
 - F24 (S2, 1.4): the intended behaviour (warn or refuse a buy that overdraws) is not decided; 1.4 shows a non-blocking warning (`NegativeBalanceAfter`) for the owner to confirm
 - F77 (S2, 2.2): does not reproduce at ledger level: budgetCrossings already reports 本月總預算已超支 for the same data; the device case came from other state
 - F80 (S2, 2.2): the fix is a design choice (start month of carry-over or retroactive leftover); no single correct value

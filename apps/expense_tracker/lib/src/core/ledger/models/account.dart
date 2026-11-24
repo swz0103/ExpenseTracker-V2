@@ -23,6 +23,7 @@ final class Account {
     this.place,
     this.color,
     this.loan,
+    this.brokerDiscount,
   });
 
   final String id;
@@ -32,6 +33,12 @@ final class Account {
 
   /// A loan's terms; null for any other account, or a loan without them.
   final LoanTerms? loan;
+
+  /// The broker's discount on the fee of a trade paid from or into this
+  /// account, in basis points of the full fee (6000 for 6折), within
+  /// `BrokerDiscountRange`; null takes the phone-wide preference 券商手續費
+  /// 折扣 (D7).
+  final int? brokerDiscount;
   final String name;
   final AccountKind kind;
 
@@ -93,6 +100,7 @@ final class Account {
     int? principal,
     int? place,
     int? color,
+    int? brokerDiscount,
   }) => Account(
     id,
     name ?? this.name,
@@ -111,6 +119,7 @@ final class Account {
     place: place ?? this.place,
     color: color ?? this.color,
     loan: loan,
+    brokerDiscount: brokerDiscount ?? this.brokerDiscount,
   );
 }
 

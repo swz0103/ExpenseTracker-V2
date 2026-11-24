@@ -9,6 +9,12 @@ abstract final class StatusWords {
   static const billed = '已出帳';
   static const dueTodayCard = '今天繳款';
   static const overdue = '已逾期';
+
+  /// An entry dated after today, not counted until its day (D25).
+  static const planned = '預定';
+
+  /// Before the days left to pay a card bill: 還有 3 天.
+  static const daysLeft = '還有';
   static const paid = '已繳清';
   static const left = '剩';
   static const near = '快用完';

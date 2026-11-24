@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../../design_system/display/amount.dart';
+import '../../../core/messages/invoice_messages.dart';
 
 /// One item on a paper e-invoice: its name, how many, and the unit price.
 typedef InvoiceItem = ({String name, double count, double price});
@@ -128,11 +129,17 @@ final class InvoiceQr {
   }
 
   /// 「乾電池 等 3 項 發票 AB12345678」, as an imported invoice's note.
+  /// While items are still on the right code, which could not be read
+  /// ([wantsMore]), it names the seller and says the items are missing:
+  /// 「乾電池 發票 AB12345678 · 統編 12345678 · 品項未讀到」 (D30).
   String get note {
     final what = items.isEmpty ? '' : items.first.name;
     final more = items.length > 1
         ? ' 等 ${countOf(items.length, CountUnit.items)}'
         : '';
-    return '$what$more 發票 $number'.trim();
+    final unread = wantsMore
+        ? ' · ${InvoiceMessages.seller} $seller · ${InvoiceMessages.itemsUnread}'
+        : '';
+    return '$what$more 發票 $number$unread'.trim();
   }
 }

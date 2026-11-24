@@ -19,6 +19,7 @@ final class EntryValidator {
     required this._holdings,
     required EntryQueryService entryQueryService,
     required BalanceService balanceService,
+    this._today,
   }) : _entryQueries = entryQueryService,
        _balances = balanceService;
 
@@ -27,6 +28,10 @@ final class EntryValidator {
   final HoldingReader _holdings;
   final EntryQueryService _entryQueries;
   final BalanceService _balances;
+
+  /// Today, for how far ahead an entry may be dated (D25); null leaves
+  /// its day unchecked.
+  final DateTime Function()? _today;
 
   /// The first reason [e] cannot be kept; null when it can, warnings
   /// aside. [replacing] is the entry [e] edits, whose own shares and
@@ -89,6 +94,7 @@ final class EntryValidator {
         balanceAfter: e.type == EntryType.buy && _accounts.contains(e.account)
             ? _balanceAfter(e, replacing)
             : null,
+        today: _today?.call(),
       ),
     );
   }

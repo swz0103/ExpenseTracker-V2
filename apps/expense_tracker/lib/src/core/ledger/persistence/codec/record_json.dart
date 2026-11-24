@@ -1,5 +1,7 @@
 import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
+import 'package:ledger_trade_costs/calc/broker_discount.dart'
+    show BrokerDiscountRange;
 
 import '../../models/models.dart';
 import 'category_refs.dart';
@@ -27,6 +29,7 @@ Map<String, Object?> accountToJson(Account a) => {
   'months': ?a.loan?.months,
   'repay': ?a.loan?.repay?.name,
   'payFrom': ?a.loan?.payFrom,
+  'brokerDiscount': ?a.brokerDiscount,
   if (a.closes.isNotEmpty)
     'closes': {
       for (final MapEntry(:key, :value) in a.closes.entries)
@@ -58,6 +61,14 @@ LoanTerms? _loanTerms(Map<String, Object?> json) {
   return terms.isEmpty ? null : terms;
 }
 
+/// An account's own broker discount; null when none is kept, or when
+/// what is kept is no discount a fee is charged at, which then takes the
+/// phone-wide one (a book of a later version, or a damaged one).
+int? _discount(Object? value) => switch (_maybe(value)) {
+  final int points when BrokerDiscountRange.holds(points) => points,
+  _ => null,
+};
+
 Account accountFromJson(Map<String, Object?> json) => _read(
   () => Account(
     _need(json, 'id'),
@@ -75,6 +86,7 @@ Account accountFromJson(Map<String, Object?> json) => _read(
     place: _maybe(json['place']),
     color: _maybe(json['color']),
     loan: _loanTerms(json),
+    brokerDiscount: _discount(json['brokerDiscount']),
     closes: {
       for (final MapEntry(:key, :value)
           in (_object(json, 'closes') ?? const {}).entries)
@@ -155,6 +167,7 @@ Map<String, Object?> entryToJson(Entry e, [CategoryRefs? refs]) => {
   if (e.installments != 0) 'installments': e.installments,
   if (e.average) 'average': true,
   if (e.split) 'split': true,
+  if (e.dayTrade) 'dayTrade': true,
   'home': ?e.home,
   'received': ?e.received,
   'group': ?e.group,
@@ -193,6 +206,9 @@ Entry entryFromJson(Map<String, Object?> json, [CategoryRefs? refs]) => _read(
     installments: _int(json['installments']),
     average: json['average'] == true,
     split: json['split'] == true,
+    // Only a sale is a day trade: an older version that kept the field
+    // of a sale it changed into something else left it behind.
+    dayTrade: json['dayTrade'] == true && json['type'] == EntryType.sell.name,
     home: _maybe(json['home']),
     received: _maybe(json['received']),
     group: _text(json, 'group'),

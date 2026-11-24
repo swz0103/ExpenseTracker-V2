@@ -3,3 +3,4 @@ library;
 
 export 'model/account_kind.dart';
 export 'model/entry.dart';
+export 'model/planned.dart';
