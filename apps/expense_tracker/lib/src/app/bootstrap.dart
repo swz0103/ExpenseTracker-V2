@@ -170,6 +170,11 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) =>
       _lifecycle.changed(state);
 
+  /// What a restore goes on from above: every revision a backup of
+  /// this phone's ledger is known delivered or waiting at (review 28).
+  int _deliveredRevision() =>
+      Outbox.deliveredRevision(widget.startup.directory, widget.preferences);
+
   @override
   Widget build(BuildContext context) {
     final startup = widget.startup;
@@ -199,15 +204,14 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
           final state => LockScreen(
             key: ValueKey(state.runtimeType),
             startup: startup,
-            deliveredRevision: () =>
-                Outbox.deliveredRevision(startup.directory, widget.preferences),
             sources: Platform.isAndroid
-                ? const RestoreSources(
+                ? RestoreSources(
                     pickFile: androidPickFile,
                     drive: androidDrive,
                     cacheDirectory: androidCacheDirectory,
+                    deliveredRevision: _deliveredRevision,
                   )
-                : const RestoreSources(),
+                : RestoreSources(deliveredRevision: _deliveredRevision),
           ),
         },
       ),

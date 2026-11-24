@@ -757,10 +757,12 @@ void main() {
         MaterialApp(
           home: LockScreen(
             startup: startup,
-            deliveredRevision: () {
-              asked++;
-              return 57;
-            },
+            sources: RestoreSources(
+              deliveredRevision: () {
+                asked++;
+                return 57;
+              },
+            ),
           ),
         ),
       );

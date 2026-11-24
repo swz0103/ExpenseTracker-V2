@@ -32,17 +32,9 @@ class LockScreen extends StatefulWidget {
     super.key,
     required this.startup,
     this.sources = const RestoreSources(),
-    this.deliveredRevision = _noneDelivered,
   });
 
   final Startup startup;
-
-  /// The most a backup of this phone's ledger is known to have been
-  /// delivered or to wait at, read when a backup is restored: the book
-  /// restored goes on from above it (review 28).
-  final int Function() deliveredRevision;
-
-  static int _noneDelivered() => 0;
 
   /// The file picker and Google Drive, on a phone.
   final RestoreSources sources;
@@ -302,7 +294,7 @@ class _LockScreenState extends State<LockScreen> {
           _file.text.trim(),
           recovery ? secret.trim() : secret,
           recovery: recovery,
-          revisionAtLeast: widget.deliveredRevision(),
+          revisionAtLeast: widget.sources.deliveredRevision?.call() ?? 0,
         );
         _forgetPicked();
         return;
