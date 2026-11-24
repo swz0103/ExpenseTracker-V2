@@ -72,6 +72,7 @@ final class LedgerVault {
     required this.codec,
     this.now = DateTime.now,
     this.noteFailed,
+    this.stagingPageLimit,
   });
 
   final Directory directory;
@@ -90,6 +91,11 @@ final class LedgerVault {
   /// review 29).
   final void Function(KeptNote note, Object error, StackTrace stack)?
   noteFailed;
+
+  /// The most pages a staging database ([_replace]) may grow to: a write
+  /// past it is refused as on a full device (SQLITE_FULL). Tests use it to
+  /// fill the staging database; the app leaves it null (review 30).
+  final int? stagingPageLimit;
 
   File get keyringFile => File('${directory.path}/keyring.json');
   File get databaseFile => File('${directory.path}/ledger.db');
@@ -727,6 +733,7 @@ final class LedgerVault {
         StorageKey(keys.databaseKey),
         keyVouched: true,
         written: file.path == databaseFile.path ? _noteRecordsKeptNow : null,
+        pageLimit: file.path == _staging.path ? stagingPageLimit : null,
         writtenFailed: switch (noteFailed) {
           final told? => (error, stack) => told(
             KeptNote.recordsKept,
