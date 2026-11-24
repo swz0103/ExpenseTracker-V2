@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'dart:io';
 
+import '../../core/platform/bounded_https.dart';
 import '../../features/settings/model/app_update.dart';
 import 'platform_channel.dart';
 
@@ -17,19 +17,34 @@ final class AndroidUpdatePort implements UpdatePort {
     ..idleTimeout = const Duration(seconds: 20)
     ..userAgent = 'ExpenseTracker';
 
+  /// Where GitHub may send the update's two files on: its own hosts,
+  /// over `https` ([BoundedHttps.open] refuses any other redirect).
+  static bool _github(Uri to) =>
+      to.host == 'github.com' ||
+      to.host.endsWith('.github.com') ||
+      to.host.endsWith('.githubusercontent.com');
+
   @override
   Future<String> fetch(Uri url) async {
     final client = _client();
     try {
-      final request = await client.getUrl(url);
-      final response = await request.close().timeout(
-        const Duration(seconds: 30),
+      final response = await BoundedHttps.open(
+        client,
+        'GET',
+        url,
+        allowed: _github,
+        wait: const Duration(seconds: 30),
       );
-      final body = await response.transform(utf8.decoder).join();
+      // The status first: a failure's body is not read at all.
       if (response.statusCode != 200) {
         throw HttpException('GitHub answered ${response.statusCode}');
       }
-      return body;
+      return await BoundedHttps.text(
+        response,
+        maxUpdateInfoBytes,
+        uri: url,
+        stall: const Duration(seconds: 30),
+      );
     } finally {
       client.close(force: true);
     }
@@ -44,28 +59,25 @@ final class AndroidUpdatePort implements UpdatePort {
     final client = _client();
     final part = File('${into.path}.part');
     try {
-      final request = await client.getUrl(url);
-      final response = await request.close().timeout(
-        const Duration(seconds: 30),
+      final response = await BoundedHttps.open(
+        client,
+        'GET',
+        url,
+        allowed: _github,
+        wait: const Duration(seconds: 30),
       );
       if (response.statusCode != 200) {
         throw HttpException('GitHub answered ${response.statusCode}');
       }
-      final sink = part.openWrite();
-      var received = 0;
-      try {
-        // A download that stops arriving for a minute is given up on.
-        await for (final chunk in response.timeout(
-          const Duration(minutes: 1),
-        )) {
-          sink.add(chunk);
-          received += chunk.length;
-          progress(received);
-        }
-        await sink.flush();
-      } finally {
-        await sink.close();
-      }
+      // A download that stops arriving for a minute is given up on.
+      await BoundedHttps.save(
+        response,
+        part,
+        maxApkBytes,
+        uri: url,
+        stall: const Duration(minutes: 1),
+        progress: progress,
+      );
       await part.rename(into.path);
     } finally {
       client.close(force: true);

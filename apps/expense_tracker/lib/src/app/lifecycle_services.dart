@@ -200,10 +200,8 @@ final class LifecycleServices {
     }
     // The chart's months, sealed with the ledger's key; one another key
     // sealed (a restore, a reset) or plain from an older version goes.
-    final prices = PriceMonths(
-      _directory,
-      await FileBox.derive(vault.keys, FileBox.prices),
-    );
+    final box = await FileBox.derive(vault.keys, FileBox.prices);
+    final prices = PriceMonths(_directory, seal: box.seal, open: box.open);
     unawaited(prices.settle());
     final market = _market = MarketFeed(
       dataSource,
@@ -365,7 +363,7 @@ final class LifecycleServices {
     try {
       await _outbox?.empty();
     } on Object catch (error) {
-      ErrorLog.instance.record('背景備份', error);
+      ErrorLog.instance.record(ErrorSteps.outboxEmpty, error);
     }
   }
 

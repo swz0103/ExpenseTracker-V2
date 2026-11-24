@@ -43,9 +43,13 @@ void main() {
   };
 
   test('written sealed, read back as written', () async {
-    await PriceMonths(directory, box).write(august);
+    await PriceMonths(directory, seal: box.seal, open: box.open).write(august);
     expect(latin1.decode(sealed().readAsBytesSync()), isNot(contains('2330')));
-    final read = await PriceMonths(directory, box).read();
+    final read = await PriceMonths(
+      directory,
+      seal: box.seal,
+      open: box.open,
+    ).read();
     expect(read.keys, ['2330', '6488']);
     expect(read['2330']!.otc, isFalse);
     expect(read['2330']!.months, {
@@ -57,9 +61,13 @@ void main() {
   });
 
   test('a file another key sealed goes as the ledger opens', () async {
-    await PriceMonths(directory, otherBox).write(august);
+    await PriceMonths(
+      directory,
+      seal: otherBox.seal,
+      open: otherBox.open,
+    ).write(august);
     expect(sealed().existsSync(), isTrue);
-    final months = PriceMonths(directory, box);
+    final months = PriceMonths(directory, seal: box.seal, open: box.open);
     await months.settle();
     expect(sealed().existsSync(), isFalse);
     expect(await months.read(), isEmpty);
@@ -69,17 +77,24 @@ void main() {
       'file this key sealed stays', () async {
     final plain = Directory('${directory.path}/prices')..createSync();
     File('${plain.path}/2330.json').writeAsStringSync('{"months":{}}');
-    await PriceMonths(directory, box).write(august);
-    await PriceMonths(directory, box).settle();
+    await PriceMonths(directory, seal: box.seal, open: box.open).write(august);
+    await PriceMonths(directory, seal: box.seal, open: box.open).settle();
     expect(plain.existsSync(), isFalse);
     expect(sealed().existsSync(), isTrue);
   });
 
   test('writes go one after another, the last kept', () async {
-    final months = PriceMonths(directory, box);
+    final months = PriceMonths(directory, seal: box.seal, open: box.open);
     final only2330 = {'2330': august['2330']!};
     await Future.wait([months.write(only2330), months.write(august)]);
-    expect((await PriceMonths(directory, box).read()).keys, ['2330', '6488']);
+    expect(
+      (await PriceMonths(
+        directory,
+        seal: box.seal,
+        open: box.open,
+      ).read()).keys,
+      ['2330', '6488'],
+    );
   });
 
   test('a close that is not a day and a price makes the file unreadable, '
@@ -103,12 +118,15 @@ void main() {
         ),
       ),
     );
-    expect(await PriceMonths(directory, box).read(), isEmpty);
+    expect(
+      await PriceMonths(directory, seal: box.seal, open: box.open).read(),
+      isEmpty,
+    );
     expect(sealed().existsSync(), isFalse);
   });
 
   test('with nothing kept there is nothing to read', () async {
-    final months = PriceMonths(directory, box);
+    final months = PriceMonths(directory, seal: box.seal, open: box.open);
     await months.settle();
     expect(await months.read(), isEmpty);
   });

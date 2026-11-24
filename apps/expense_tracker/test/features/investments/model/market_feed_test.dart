@@ -112,7 +112,7 @@ void main() {
 
   /// The months kept, sealed with the test's key, read afresh.
   Future<Map<String, CodeMonths>> keptMonths() =>
-      PriceMonths(ledgerDir(), box).read();
+      PriceMonths(ledgerDir(), seal: box.seal, open: box.open).read();
 
   /// A ledger of its own on [exchanges], with a brokerage account that
   /// bought [held], and the feed for it keeping months in [kept].
@@ -150,7 +150,9 @@ void main() {
       commands: ledger.holdingCommands,
       today: () => ledger.today,
       clock: () => _now,
-      kept: kept ? PriceMonths(ledgerDir(), box) : null,
+      kept: kept
+          ? PriceMonths(ledgerDir(), seal: box.seal, open: box.open)
+          : null,
     );
     if (letGo) addTearDown(feed.dispose);
     return (ledger, feed);

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:core/time/utc_days.dart';
-import 'package:vault/backup_security.dart' show FileBox;
 
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
@@ -14,7 +13,8 @@ import '../../../core/formatting/json_fields.dart';
 typedef CodeMonths = ({bool otc, Map<String, List<(DateTime, double)>> months});
 
 /// The finished months of daily closes kept on the phone for the charts,
-/// in one file sealed with the ledger's key ([FileBox.prices]): which
+/// in one file sealed with the ledger's key (the vault's `FileBox` of
+/// purpose `prices`, whose [seal] and [open] the app hands in): which
 /// stocks a chart was opened for, and since when, says what the ledger
 /// holds, so neither the codes nor the months are left in the clear.
 ///
@@ -23,11 +23,17 @@ typedef CodeMonths = ({bool otc, Map<String, List<(DateTime, double)>> months});
 /// away when first read ([settle] as the ledger opens); its months are
 /// fetched again.
 final class PriceMonths {
-  PriceMonths(this.directory, this._box);
+  PriceMonths(this.directory, {required this.seal, required this.open});
 
   /// The ledger's directory.
   final Directory directory;
-  final FileBox _box;
+
+  /// Seals bytes under a name, which is bound into the sealing.
+  final Future<List<int>> Function(String name, List<int> plain) seal;
+
+  /// Opens what [seal] sealed under the same name; throws for anything
+  /// else, such as a file another key sealed.
+  final Future<List<int>> Function(String name, List<int> sealed) open;
 
   /// The sealed file's name, also bound into its sealing.
   static const name = 'prices.sealed';
@@ -63,7 +69,7 @@ final class PriceMonths {
     final file = _file;
     if (!file.existsSync()) return {};
     try {
-      final plain = await _box.open(name, await file.readAsBytes());
+      final plain = await open(name, await file.readAsBytes());
       final json = JsonFields.decode(utf8.decode(plain));
       final codes = json.need<Map<String, Object?>>('codes');
       return {
@@ -130,7 +136,7 @@ final class PriceMonths {
         }),
       );
       await directory.create(recursive: true);
-      await next.writeAsBytes(await _box.seal(name, plain), flush: true);
+      await next.writeAsBytes(await seal(name, plain), flush: true);
       await next.rename(file.path);
     } on Object catch (error, stack) {
       ErrorLog.instance.record(ErrorSteps.priceHistory, error, stack);
