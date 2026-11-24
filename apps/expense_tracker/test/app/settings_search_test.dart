@@ -29,6 +29,17 @@ void main() {
     expect(findSettings('不存在的設定'), isEmpty);
   });
 
+  test('券商手續費折扣 is found by 手續費, 折扣, 券商 and 股票, on 外觀與操作 '
+      '(review 16: settings search keywords)', () {
+    for (final word in ['手續費', '折扣', '券商', '股票']) {
+      expect(
+        [for (final t in findSettings(word)) (t.name, t.page)],
+        contains(('券商手續費折扣', SettingsDestination.appearance)),
+        reason: word,
+      );
+    }
+  });
+
   test('every page of the settings has something to find', () {
     expect({
       for (final t in settingTopics) t.page,
