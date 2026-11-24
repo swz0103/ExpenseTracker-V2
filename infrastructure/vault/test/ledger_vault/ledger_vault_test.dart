@@ -297,13 +297,35 @@ void main() {
         'are all kept (D102)', () async {
       await withJournal();
       await spoil('posting');
+      final spoiled = vault.databaseFile.readAsBytesSync();
       await vault.noteJournalDamaged();
       final opened = await vault.unlockWithPassword(password);
       addTearDown(opened.close);
       expect(opened.store.rows().single.id, 'cash');
       expect(opened.store.journal.postingCount, 0, reason: 'posted afresh');
       expect(opened.store.integrityCheck(), 'ok');
-      expect(vault.damagedCopies(), isEmpty);
+      // The old file kept as it was, to send for a look (review 18).
+      expect(vault.damagedCopies().single.readAsBytesSync(), spoiled);
+    });
+
+    test('books made again keep the newest two old files once the last '
+        'has opened (review 18)', () async {
+      await withJournal();
+      for (var i = 0; i < 3; i++) {
+        expect(await vault.salvage(await keysNow()), isTrue);
+      }
+      // Not one let go before the book made again has opened.
+      expect(vault.damagedCopies(), hasLength(3));
+      final opened = await vault.unlockWithPassword(password);
+      addTearDown(opened.close);
+      expect(opened.store.rows().single.id, 'cash');
+      expect(
+        [for (final f in vault.damagedCopies()) f.uri.pathSegments.last],
+        [
+          'ledger-damaged-2026-11-24T09-58-50.000Z~002.db',
+          'ledger-damaged-2026-11-24T09-58-50.000Z~003.db',
+        ],
+      );
     });
 
     test('records that cannot be read are not made again: damage', () async {
@@ -398,6 +420,38 @@ void main() {
     expect(adopted.keys.databaseKey, open.keys.databaseKey);
     adopted.close();
     await expectLater(vault.adopt(header), fails(VaultProblem.alreadyExists));
+  });
+
+  test('a ledger adopted leaves no note of a journal found damaged before '
+      'it (review 18)', () async {
+    final source = LedgerVault(
+      Directory('${directory.path}/source'),
+      codec: codec,
+    );
+    final (open, _) = await source.create(password);
+    open.close();
+    await vault.noteJournalDamaged();
+    final marker = File('${vault.directory.path}/journal.damaged');
+    expect(marker.existsSync(), isTrue);
+    (await vault.adopt(open.keys)).close();
+    expect(marker.existsSync(), isFalse);
+  });
+
+  test('a write is kept when its note cannot be written; the failure is '
+      'told (review 18)', () async {
+    final failed = <Object>[];
+    final noting = LedgerVault(
+      Directory('${directory.path}/noting'),
+      codec: codec,
+      noteFailed: (error, _) => failed.add(error),
+    );
+    final (open, _) = await noting.create(password);
+    addTearDown(open.close);
+    // A folder where the note goes: it cannot be written.
+    Directory('${noting.directory.path}/ledger.db.kept').createSync();
+    keepOne(open);
+    expect(open.store.rows().single.id, 'cash');
+    expect(failed, [isA<FileSystemException>()]);
   });
 
   test('a ledger of the old format is set aside for a new one', () async {

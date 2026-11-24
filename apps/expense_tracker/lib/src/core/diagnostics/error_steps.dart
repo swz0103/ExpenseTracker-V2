@@ -120,6 +120,11 @@ abstract final class ErrorSteps {
   /// found damaged (D102).
   static const journalRebuilt = '分錄重建';
 
+  /// The note that records were kept in the ledger's file (D102) could
+  /// not be written as a write was kept: the write stands, and the note
+  /// is tried again at the next write and the next opening.
+  static const recordsKeptNote = '帳本寫入標記';
+
   /// A close or rate fetched that was doubted and set aside (D95).
   static const doubtfulQuote = '可疑的行情';
 

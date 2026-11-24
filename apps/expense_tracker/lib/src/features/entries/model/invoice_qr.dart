@@ -74,7 +74,7 @@ final class InvoiceQr {
   static InvoiceQr? parse(String code) {
     if (code.length < 77) return null;
     final number = code.substring(0, 10);
-    if (!RegExp(r'^[A-Z]{2}\d{8}$').hasMatch(number)) return null;
+    if (!RegExp('^$invoiceNumberShape\$').hasMatch(number)) return null;
     final rocYear = int.tryParse(code.substring(10, 13));
     final month = int.tryParse(code.substring(13, 15));
     final day = int.tryParse(code.substring(15, 17));

@@ -133,8 +133,7 @@ const _header = [
   '稅',
   '分期',
   '轉入金額',
-  // Exception to glossary: a column of the file format, kept so files written before read back.
-  '台幣金額',
+  homeAmountColumn,
   '成本算法',
 ];
 

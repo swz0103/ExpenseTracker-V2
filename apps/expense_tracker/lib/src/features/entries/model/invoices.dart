@@ -48,6 +48,12 @@ String invoiceNote(List<String> items, String number, {String tail = ''}) {
   return '$what$more ${Words.invoice} $number$tail'.trim();
 }
 
+/// The shape of an e-invoice's number: two capital letters, then eight
+/// digits (`AB12345678`), as its QR code and the ministry's file carry
+/// it. The one owner of the shape (review 18); a book migration keeps its
+/// own frozen copy (book_migrations.dart's `_invoiceNote`).
+const invoiceNumberShape = r'[A-Z]{2}\d{8}';
+
 /// The invoice number [note] names, as [invoiceNote] writes it; null for
 /// a note that names none (one edited since, or never an invoice's).
 String? invoiceNumberIn(String note) =>
