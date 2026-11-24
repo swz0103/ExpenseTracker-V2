@@ -15,7 +15,7 @@ import 'package:core/constants/retention.dart';
 import 'package:core/foundation_values.dart';
 import 'package:core/money/amount_parser.dart' show parseDecimal;
 import 'package:flutter/foundation.dart' show mapEquals;
-import 'package:domain/investments.dart' show doubtfulMove;
+import 'package:domain/investments.dart' show takesFetched;
 import 'package:market/market_data.dart';
 import 'package:storage/storage.dart';
 
@@ -858,30 +858,49 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         quotedSelling[code] = rate.numerator / rate.denominator;
       }
     }
+    final boardDay = board.asOf.asUtcMidnight;
     return _whenQuiet(() {
       final kept = marketFrom(_readableMarket(_store.rows(shelf: _market)));
-      // A rate too far from the one kept is doubted (D95): the one kept
-      // stays, and the doubt is noted; buying and selling alike (D59).
+      // A rate too far from the one kept is doubted (D95) unless there is
+      // reason to take it (D101: found again, or the one kept old): the
+      // one kept stays, the doubted one is kept to weigh the next fetch
+      // by, and the doubt is noted; buying and selling alike (D59).
       final doubted = <String>{};
-      Map<String, double> sane(
+      final keptDays = switch (kept.ratesOn) {
+        final on? => boardDay.difference(on).inDays,
+        null => null,
+      };
+      (Map<String, double>, Map<String, double>) sane(
         Map<String, double> quotes,
         Map<String, double> before,
+        Map<String, double> doubtedBefore,
       ) {
         final taken = <String, double>{};
+        final held = <String, double>{};
         for (final MapEntry(key: code, value: rate) in quotes.entries) {
           final was = before[code];
-          if (doubtfulMove(kept: was, fetched: rate)) {
-            doubted.add(code);
-            if (was != null) taken[code] = was;
-          } else {
+          if (takesFetched(
+            kept: was,
+            fetched: rate,
+            keptDaysAgo: keptDays,
+            doubtedBefore: doubtedBefore[code],
+          )) {
             taken[code] = rate;
+          } else {
+            doubted.add(code);
+            if (rate.isFinite && rate > 0) held[code] = rate;
+            if (was != null) taken[code] = was;
           }
         }
-        return taken;
+        return (taken, held);
       }
 
-      final fetched = sane(quoted, kept.rates);
-      final selling = sane(quotedSelling, kept.sellRates);
+      final (fetched, heldBuying) = sane(quoted, kept.rates, kept.doubtedRates);
+      final (selling, heldSelling) = sane(
+        quotedSelling,
+        kept.sellRates,
+        kept.doubtedSellRates,
+      );
       doubtfulRates = List.unmodifiable(doubted);
       if (doubted.isNotEmpty) {
         ErrorLog.instance.record(
@@ -889,31 +908,43 @@ final class SqlLedgerDataSource implements LedgerDataSource {
           StateError('rates of ${doubted.join(', ')} set aside'),
         );
       }
+      final ratesMoved =
+          !mapEquals(fetched, kept.rates) ||
+          !mapEquals(selling, kept.sellRates);
       if (fetched.isEmpty ||
-          (mapEquals(fetched, kept.rates) &&
-              mapEquals(selling, kept.sellRates))) {
+          (!ratesMoved &&
+              mapEquals(heldBuying, kept.doubtedRates) &&
+              mapEquals(heldSelling, kept.doubtedSellRates))) {
         return false;
       }
       // Fetched, not changed by the person: no new backup is due for it.
+      // The board's day moves only with a rate taken: the day the rates
+      // kept are of.
       _store.write(
         (w) => w.put(
           _market,
           'rates',
           jsonEncode({
-            'asOf': '${board.asOf}',
+            'asOf': ratesMoved || kept.ratesOn == null
+                ? '${board.asOf}'
+                : '${BusinessDate.of(kept.ratesOn!)}',
             'rates': fetched,
             'sell': selling,
+            if (heldBuying.isNotEmpty) 'doubted': heldBuying,
+            if (heldSelling.isNotEmpty) 'doubtedSell': heldSelling,
           }),
         ),
         counts: false,
       );
-      return true;
+      return ratesMoved;
     });
   }
 
   /// The codes the last [refreshQuotes] found no close for: not quoted
   /// by either exchange, or out of reach.
   List<String> unquoted = const [];
+
+  static bool _neverReshaped(String code, DateTime? day) => false;
 
   /// The codes whose close the last [refreshQuotes] doubted (D95): more
   /// than `doubtfulMoveFactor` times away from the one kept. The one kept
@@ -951,8 +982,12 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// Fetches the latest close of each of [codes], for the holdings' value;
   /// one not found on TWSE is tried on TPEx. Returns whether any price
-  /// changed.
-  Future<bool> refreshQuotes(Iterable<String> codes) async {
+  /// changed. [reshapedAfter] tells whether the book holds a split, stock
+  /// dividend or reduction of a stock after a day (D101).
+  Future<bool> refreshQuotes(
+    Iterable<String> codes, {
+    bool Function(String code, DateTime? day) reshapedAfter = _neverReshaped,
+  }) async {
     final gateway = _gateway;
     if (gateway == null) return false;
     final kept = await _whenQuiet(
@@ -962,6 +997,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final moves = {...kept.moves};
     final names = {...kept.names};
     final days = {...kept.days};
+    final doubtedBefore = {...kept.doubtedCloses};
     var quotedOn = kept.quotedOn;
     var changed = false;
     final missed = <String>[];
@@ -993,10 +1029,23 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         missed.add(code);
         continue;
       }
-      if (doubtfulMove(kept: prices[code], fetched: price)) {
+      final keptOn = days[code];
+      if (!takesFetched(
+        kept: prices[code],
+        fetched: price,
+        keptDaysAgo: keptOn == null ? null : day.difference(keptOn).inDays,
+        doubtedBefore: doubtedBefore[code],
+        reshapedSince: reshapedAfter(code, keptOn),
+      )) {
         doubted.add(code);
+        // Kept to weigh the next fetch by (D101).
+        if (doubtedBefore[code] != price && price.isFinite && price > 0) {
+          doubtedBefore[code] = price;
+          changed = true;
+        }
         continue;
       }
+      if (doubtedBefore.remove(code) != null) changed = true;
       if (quotedOn == null || day.isAfter(quotedOn)) {
         quotedOn = day;
         changed = true;
@@ -1056,6 +1105,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
                   key: value.toIso8601String(),
               },
               'on': ?quotedOn?.toIso8601String(),
+              if (doubtedBefore.isNotEmpty) 'doubted': doubtedBefore,
             }),
           ),
           counts: false,

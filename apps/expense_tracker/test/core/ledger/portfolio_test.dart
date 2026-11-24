@@ -56,5 +56,10 @@ void main() {
     // On the split's own day the count is already today's.
     expect(p.inTodaysShares('2330', DateTime.utc(2026, 9, 10), 20000), 20000);
     expect(p.sharesOn('2330', DateTime.utc(2026, 9, 5)), 20000);
+    // D101: a close kept before the split may be far from the next.
+    expect(p.reshapedAfter('2330', DateTime.utc(2026, 9, 9)), isTrue);
+    expect(p.reshapedAfter('2330', DateTime.utc(2026, 9, 10)), isFalse);
+    expect(p.reshapedAfter('2330', null), isTrue);
+    expect(p.reshapedAfter('0050', null), isFalse);
   });
 }

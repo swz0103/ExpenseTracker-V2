@@ -55,6 +55,10 @@ abstract interface class HoldingReader {
   /// scaled by the splits and reductions since, as [sharesOn] is.
   int inTodaysShares(String code, DateTime day, int shares);
 
+  /// Whether the book holds a split, stock dividend or capital reduction
+  /// of [code] after [day] (any, with no day) (D101).
+  bool reshapedAfter(String code, DateTime? day);
+
   /// The stock [code] as the trades leave it, sold out or not: what a
   /// day it was held is valued by (D105); null when never held.
   Holding? everByCode(String code);
@@ -181,6 +185,10 @@ final class HoldingRepository implements HoldingReader {
   @override
   int inTodaysShares(String code, DateTime day, int shares) =>
       _replayed.inTodaysShares(code, day, shares);
+
+  @override
+  bool reshapedAfter(String code, DateTime? day) =>
+      _replayed.reshapedAfter(code, day);
 
   @override
   Holding? everByCode(String code) {

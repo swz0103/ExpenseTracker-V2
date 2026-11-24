@@ -15,6 +15,7 @@ final class Portfolio {
     this._lots,
     this._steps,
     this._rescales,
+    this._reshapes,
     this.leftOut,
     this.faulty,
   );
@@ -42,11 +43,15 @@ final class Portfolio {
       for (final h in start) h.code: [(opening, h.shares)],
     };
     final rescales = <String, List<_Rescale>>{};
+    final reshapes = <String, List<DateTime>>{};
     final leftOut = <String>[];
     final faulty = <String, Object>{};
     for (final e in _inOrder(entries)) {
       final code = e.holding!;
       final held = byCode[code] ?? _firstBought(code, e);
+      if (e.type == EntryType.dividend && e.shares != 0) {
+        (reshapes[code] ??= []).add(e.date);
+      }
       final Holding? traded;
       try {
         traded = _traded(e, held, lots);
@@ -77,6 +82,7 @@ final class Portfolio {
       lots,
       steps,
       rescales,
+      reshapes,
       List.unmodifiable(leftOut),
       Map.unmodifiable(faulty),
     );
@@ -260,6 +266,17 @@ final class Portfolio {
   /// Each stock's splits and reductions, in date order: the day, and the
   /// shares held before and after.
   final Map<String, List<_Rescale>> _rescales;
+
+  /// The days of each stock's splits, stock dividends and reductions.
+  final Map<String, List<DateTime>> _reshapes;
+
+  /// Whether the book holds a split, stock dividend or capital reduction
+  /// of [code] after [day] (any, with no day): a reason a close far from
+  /// the one kept on [day] is the market's (D101).
+  bool reshapedAfter(String code, DateTime? day) =>
+      (_reshapes[code] ?? const <DateTime>[]).any(
+        (d) => day == null || d.isAfter(day),
+      );
 
   /// The trades left out, by id: those an older version let take more
   /// shares than were held, read leniently.

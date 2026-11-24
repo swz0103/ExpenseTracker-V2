@@ -235,6 +235,12 @@ final class TrackedHoldingReader implements HoldingReader {
   }
 
   @override
+  bool reshapedAfter(String code, DateTime? day) {
+    _cache.noteReads(_topics);
+    return _inner.reshapedAfter(code, day);
+  }
+
+  @override
   Holding? everByCode(String code) {
     _cache.noteReads(_topics);
     return _inner.everByCode(code);

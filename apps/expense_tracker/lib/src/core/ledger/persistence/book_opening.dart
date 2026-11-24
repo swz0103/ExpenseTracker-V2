@@ -316,6 +316,10 @@ typedef Market = ({
   DateTime? quotedOn,
   Map<String, double> rates,
   Map<String, double> sellRates,
+  Map<String, double> doubtedCloses,
+  Map<String, double> doubtedRates,
+  Map<String, double> doubtedSellRates,
+  DateTime? ratesOn,
 });
 
 /// The closes and board last fetched, from [rows] of [marketShelf].
@@ -326,9 +330,26 @@ Market marketFrom(List<StoredRow> rows) {
   final days = <String, DateTime>{};
   final rates = <String, double>{};
   final sellRates = <String, double>{};
+  final doubtedCloses = <String, double>{};
+  final doubtedRates = <String, double>{};
+  final doubtedSellRates = <String, double>{};
   DateTime? quotedOn;
+  DateTime? ratesOn;
   Map<String, Object?> part(Map<String, Object?> json, String key) =>
       json[key] as Map<String, Object?>? ?? const {};
+  // What the last fetch doubted (D101), kept beside the figures; a row
+  // kept before has none.
+  void doubted(
+    Map<String, Object?> json,
+    String field,
+    Map<String, double> to,
+  ) {
+    for (final MapEntry(:key, :value) in part(json, field).entries) {
+      if (value is! num) throw FormatException(field);
+      to[key] = value.toDouble();
+    }
+  }
+
   for (final row in rows) {
     final json = jsonDecode(row.body) as Map<String, Object?>;
     switch (row.id) {
@@ -346,6 +367,7 @@ Market marketFrom(List<StoredRow> rows) {
           days[key] = DateTime.parse(value! as String);
         }
         if (json['on'] case final String on) quotedOn = DateTime.parse(on);
+        doubted(json, 'doubted', doubtedCloses);
       case 'rates':
         for (final MapEntry(:key, :value) in part(json, 'rates').entries) {
           rates[key] = (value! as num).toDouble();
@@ -354,6 +376,15 @@ Market marketFrom(List<StoredRow> rows) {
         for (final MapEntry(:key, :value) in part(json, 'sell').entries) {
           if (value is! num) throw const FormatException('sell');
           sellRates[key] = value.toDouble();
+        }
+        doubted(json, 'doubted', doubtedRates);
+        doubted(json, 'doubtedSell', doubtedSellRates);
+        // The board's day: what a rate doubted is weighed by (D101); a
+        // day that cannot be read only leaves it unknown.
+        if (json['asOf'] case final String on) {
+          if (DateTime.tryParse(on) case final d?) {
+            ratesOn = DateTime.utc(d.year, d.month, d.day);
+          }
         }
     }
   }
@@ -365,6 +396,10 @@ Market marketFrom(List<StoredRow> rows) {
     quotedOn: quotedOn,
     rates: rates,
     sellRates: sellRates,
+    doubtedCloses: doubtedCloses,
+    doubtedRates: doubtedRates,
+    doubtedSellRates: doubtedSellRates,
+    ratesOn: ratesOn,
   );
 }
 
