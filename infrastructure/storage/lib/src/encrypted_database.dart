@@ -214,7 +214,7 @@ final class RowWriter {
 /// SQLite owns crash recovery: an interrupted write is rolled back by
 /// SQLite itself on the next open. Each [write] is one transaction.
 final class EncryptedDatabase {
-  EncryptedDatabase._(this._db, this._written);
+  EncryptedDatabase._(this._db, this._written, this._writtenFailed);
 
   /// Opens or creates [file], in SQLite's serialized threading mode
   /// (SQLITE_OPEN_FULLMUTEX): [writeApart] and [readApart] use this one
@@ -238,12 +238,16 @@ final class EncryptedDatabase {
   ///
   /// [written] is told once, after the first write of records through
   /// this connection is kept ([write], [writeApart]): what notes outside
-  /// the file that records were ever kept in it (D102).
+  /// the file that records were ever kept in it (D102). The write is kept
+  /// whatever [written] does: should it throw (a disk full), the write
+  /// still stands, the error goes to [writtenFailed], and [written] is
+  /// told again after the next write.
   factory EncryptedDatabase.open(
     File file,
     StorageKey key, {
     bool keyVouched = false,
     void Function()? written,
+    void Function(Object error, StackTrace stack)? writtenFailed,
   }) {
     assert(_layout.length == schema, 'schema is the number of layout steps');
     assert(serialized, 'SQLite is built without threads: no work apart');
@@ -252,7 +256,7 @@ final class EncryptedDatabase {
     try {
       _configure(db, key, keyVouched: keyVouched);
       _guarded(() => _create(db));
-      return EncryptedDatabase._(db, written);
+      return EncryptedDatabase._(db, written, writtenFailed);
     } catch (_) {
       db.close();
       rethrow;
@@ -412,8 +416,13 @@ final class EncryptedDatabase {
   /// `ok` when SQLite and SQLCipher find no damage.
   String integrityCheck() {
     _requireReadable();
-    final rows = _guarded(() => _db.select('PRAGMA integrity_check'));
-    final cipher = _guarded(() => _db.select('PRAGMA cipher_integrity_check'));
+    return _guarded(() => _integrity(_db));
+  }
+
+  /// [integrityCheck] of [db], wherever it runs.
+  static String _integrity(Database db) {
+    final rows = db.select('PRAGMA integrity_check');
+    final cipher = db.select('PRAGMA cipher_integrity_check');
     final result = rows.map((row) => '${row.values.single}').join('\n');
     return cipher.isEmpty ? result : 'cipher integrity failure';
   }
@@ -481,10 +490,23 @@ final class EncryptedDatabase {
   /// `written`).
   void Function()? _written;
 
+  /// Told what [_written] threw, the write it followed kept all the same.
+  final void Function(Object error, StackTrace stack)? _writtenFailed;
+
   void _noteWritten() {
     final written = _written;
-    _written = null;
-    written?.call();
+    if (written == null) return;
+    try {
+      written();
+      _written = null;
+    } on Object catch (error, stack) {
+      // The write is kept: never told as failed. Told again at the next.
+      try {
+        _writtenFailed?.call(error, stack);
+      } on Object {
+        // Nothing more to tell it to.
+      }
+    }
   }
 
   static void _transaction(
@@ -846,6 +868,10 @@ final class ApartStore {
         body: r['body'] as String,
       ),
   ];
+
+  /// `ok` when SQLite and SQLCipher find no damage, as
+  /// [EncryptedDatabase.integrityCheck], read on the worker.
+  String integrityCheck() => EncryptedDatabase._integrity(_db);
 
   /// The revision now.
   int get revision {

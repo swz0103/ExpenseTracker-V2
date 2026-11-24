@@ -22,6 +22,7 @@ import 'package:storage/storage.dart';
 
 import 'book_migrations.dart';
 import 'book_opening.dart';
+import 'damage_report.dart';
 import 'journal_keeper.dart';
 import 'journal_rebuild.dart';
 import 'ledger_data_source.dart';
@@ -114,15 +115,17 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// Told when a page of the journal's tables is found damaged (D102):
   /// the connection is of no more use, and the database is to be made
-  /// again from its records. Once a session.
-  void Function(Object error)? onJournalDamaged;
+  /// again from its records. Answers whether the report was acted on;
+  /// once it was, it is not told again this session ([DamageReport]).
+  Future<bool> Function(Object error)? get onJournalDamaged =>
+      _journalDamage.tell;
+  set onJournalDamaged(Future<bool> Function(Object error)? tell) =>
+      _journalDamage.tell = tell;
 
-  var _journalDamageTold = false;
+  final _journalDamage = DamageReport();
 
   void _journalFault(Object error) {
-    if (_journalDamageTold || !EncryptedDatabase.damageIn(error)) return;
-    _journalDamageTold = true;
-    onJournalDamaged?.call(error);
+    if (EncryptedDatabase.damageIn(error)) _journalDamage(error);
   }
 
   /// The whole journal posted afresh on a worker isolate (D51): from the
@@ -906,7 +909,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         Map<String, double> doubtedBefore,
       ) {
         final taken = <String, double>{};
-        final held = <String, double>{};
+        // As for closes: a doubt of a code not on this board is kept to
+        // weigh its next fetch by (review 18).
+        final held = {...doubtedBefore};
         for (final MapEntry(key: code, value: rate) in quotes.entries) {
           final was = before[code];
           if (takesFetched(
@@ -916,6 +921,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
             doubtedBefore: doubtedBefore[code],
           )) {
             taken[code] = rate;
+            held.remove(code);
           } else {
             doubted.add(code);
             if (rate.isFinite && rate > 0) held[code] = rate;
@@ -974,7 +980,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   /// by either exchange, or out of reach.
   List<String> unquoted = const [];
 
-  static bool _neverReshaped(String code, DateTime? day) => false;
+  static double? _neverReshaped(String code, DateTime? day) => null;
 
   /// The codes whose close the last [refreshQuotes] doubted (D95): more
   /// than `doubtfulMoveFactor` times away from the one kept. The one kept
@@ -1012,11 +1018,12 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// Fetches the latest close of each of [codes], for the holdings' value;
   /// one not found on TWSE is tried on TPEx. Returns whether any price
-  /// changed. [reshapedAfter] tells whether the book holds a split, stock
-  /// dividend or reduction of a stock after a day (D101).
+  /// changed. [reshapedBy] tells how many times the splits, stock
+  /// dividends and reductions the book holds of a stock after a day
+  /// multiplied its shares, null for none (D101).
   Future<bool> refreshQuotes(
     Iterable<String> codes, {
-    bool Function(String code, DateTime? day) reshapedAfter = _neverReshaped,
+    double? Function(String code, DateTime? day) reshapedBy = _neverReshaped,
   }) async {
     final gateway = _gateway;
     if (gateway == null) return false;
@@ -1061,7 +1068,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         fetched: price,
         keptDaysAgo: keptOn == null ? null : day.difference(keptOn).inDays,
         doubtedBefore: doubtedBefore[code],
-        reshapedSince: reshapedAfter(code, keptOn),
+        reshapedBy: reshapedBy(code, keptOn),
       )) {
         doubted.add(code);
         // Kept to weigh the next fetch by (D101).

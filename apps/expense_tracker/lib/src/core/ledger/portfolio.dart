@@ -43,15 +43,16 @@ final class Portfolio {
       for (final h in start) h.code: [(opening, h.shares)],
     };
     final rescales = <String, List<_Rescale>>{};
-    final reshapes = <String, List<DateTime>>{};
+    final reshapes = <String, List<_Rescale>>{};
     final leftOut = <String>[];
     final faulty = <String, Object>{};
     for (final e in _inOrder(entries)) {
       final code = e.holding!;
       final held = byCode[code] ?? _firstBought(code, e);
-      if (e.type == EntryType.dividend && e.shares != 0) {
-        (reshapes[code] ??= []).add(e.date);
-      }
+      // Its ratio unknown (none) until it is worked in below.
+      final reshaped = e.type == EntryType.dividend && e.shares != 0
+          ? ((reshapes[code] ??= [])..add((e.date, 0, 0)))
+          : null;
       final Holding? traded;
       try {
         traded = _traded(e, held, lots);
@@ -68,6 +69,7 @@ final class Portfolio {
       }
       if (traded != null) byCode[code] = traded;
       final after = traded?.shares ?? held.shares;
+      reshaped?.last = (e.date, held.shares, after);
       if (_step(steps[code] ??= [], e, held.shares, after)) {
         (rescales[code] ??= []).add((e.date, held.shares, after));
       }
@@ -267,16 +269,25 @@ final class Portfolio {
   /// shares held before and after.
   final Map<String, List<_Rescale>> _rescales;
 
-  /// The days of each stock's splits, stock dividends and reductions.
-  final Map<String, List<DateTime>> _reshapes;
+  /// Each stock's splits, stock dividends and reductions, in date order:
+  /// the day, and the shares held before and after (none, 0 and 0, for
+  /// one that was not worked in).
+  final Map<String, List<_Rescale>> _reshapes;
 
-  /// Whether the book holds a split, stock dividend or capital reduction
-  /// of [code] after [day] (any, with no day): a reason a close far from
-  /// the one kept on [day] is the market's (D101).
-  bool reshapedAfter(String code, DateTime? day) =>
-      (_reshapes[code] ?? const <DateTime>[]).any(
-        (d) => day == null || d.isAfter(day),
-      );
+  /// How many times the shares of [code] were multiplied by the splits,
+  /// stock dividends and capital reductions the book holds after [day]
+  /// (all, with no day): a close kept on [day] divided by it is what a
+  /// close fetched now is expected near (D101, review 18). Null when the
+  /// book holds none; one held before which no share was held counts as
+  /// once.
+  double? reshapedBy(String code, DateTime? day) {
+    double? by;
+    for (final (date, before, after) in _reshapes[code] ?? const <_Rescale>[]) {
+      if (day != null && !date.isAfter(day)) continue;
+      by = (by ?? 1) * (before > 0 ? after / before : 1);
+    }
+    return by;
+  }
 
   /// The trades left out, by id: those an older version let take more
   /// shares than were held, read leniently.

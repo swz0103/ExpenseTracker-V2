@@ -187,8 +187,7 @@ final class _Reader {
       // ledger's to refuse, as a split typed in.
       if (parts.length == 1) parts = [];
     }
-    // Exception to glossary: the file format's column, kept so files written before read back.
-    final (home, homeProblem) = _cellAmount(cell, '台幣金額');
+    final (home, homeProblem) = _cellAmount(cell, homeAmountColumn);
     if (homeProblem != null) return homeProblem;
     final card = from.kind == AccountKind.card;
     return Entry(
@@ -251,8 +250,7 @@ final class _Reader {
         if (f.refundOf == original.id) f,
     ];
     final share = refundShare(original, amount, earlier: earlier);
-    // Exception to glossary: the file format's column, kept so files written before read back.
-    final (typed, homeProblem) = _cellAmount(cell, '台幣金額');
+    final (typed, homeProblem) = _cellAmount(cell, homeAmountColumn);
     if (homeProblem != null) return homeProblem;
     int? home;
     if (from.foreign) {

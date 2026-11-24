@@ -14,7 +14,9 @@ import '../support/held.dart';
 /// The journal's check runs on the screen's isolate, in slices (r13 F8):
 /// at 100,000 entries the longest it holds the isolate, as a share of
 /// the whole check run at once, stays under `parity_held_share`
-/// (journal_thresholds.json), so it holds on any machine.
+/// (journal_thresholds.json), so it holds on any machine; and the hold
+/// itself under `parity_held_ms`, so a slice that grows with the book is
+/// caught though its share does not (review 18).
 void main() {
   final today = day(2026, 10, 4);
 
@@ -46,6 +48,7 @@ void main() {
       File('test/perf/journal_thresholds.json').readAsStringSync(),
     ) as Map<String, Object?>;
     final limit = (limits['parity_held_share']! as num).toDouble();
+    final heldMs = limits['parity_held_ms']! as int;
     Future<int> run({required bool sliced}) async {
       final ledger = book();
       final posted = await post(ledger);
@@ -74,5 +77,6 @@ void main() {
       'ms; share ${share.toStringAsFixed(3)}',
     );
     expect(share, lessThanOrEqualTo(limit));
+    expect(sliced ~/ 1000, lessThanOrEqualTo(heldMs));
   }, timeout: const Timeout(Duration(minutes: 10)));
 }

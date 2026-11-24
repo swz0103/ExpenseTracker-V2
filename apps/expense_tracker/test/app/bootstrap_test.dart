@@ -534,10 +534,12 @@ void main() {
       expect(find.byType(DamagedBookPage), findsNothing);
       final again = (startup.state as Ready).vault;
       expect(again.store.isOpen, isTrue);
-      // Nothing set aside as damaged.
+      // The old file set aside once, to send for a look (review 18).
       expect(
-        directory.listSync().where((f) => f.path.contains('ledger-damaged')),
-        isEmpty,
+        directory.listSync().where(
+          (f) => f.path.endsWith('.db') && f.path.contains('ledger-damaged'),
+        ),
+        hasLength(1),
       );
       expect(file.existsSync(), isTrue);
     });
