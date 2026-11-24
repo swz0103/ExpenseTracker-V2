@@ -1,3 +1,5 @@
+// Exception to ledger words: the starter categories' names are data a
+// new book keeps (and renames as it likes), not words the screens say.
 import 'package:core/foundation_values.dart' show PublicId;
 import 'package:ledger_entries/model.dart' show dividendCategory, feeCategory;
 

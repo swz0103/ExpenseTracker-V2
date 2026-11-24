@@ -99,6 +99,7 @@ extension TradeFields on ComposeForm {
     // entry, to find where it stands.
     final source = changed == null || changed.holding == code
         ? ledger.entryQueryService.tradesInBookOrder(code)
+        // Exception to as-of-today: taken through countedOn just below.
         : ledger.entries.all;
     // A trade is dated today at the latest (D70): one an old book dated
     // later is not before it, as the holdings do not count it yet.

@@ -485,13 +485,10 @@ final class ComposeForm {
     return found == null ? null : validationMessage(found);
   }
 
-  /// The key of the entry [warning] was last worked out for, and what it
-  /// said (compose_form_trade.dart).
+  /// What [warning] and [saleCost] were last worked out for, and what
+  /// they came to (compose_form_trade.dart).
   String? _warnedFor;
   String? _warned;
-
-  /// What [saleCost] was last worked out for, and what it came to
-  /// (compose_form_trade.dart).
   Object? _saleCostKey;
   int? _saleCost;
 
