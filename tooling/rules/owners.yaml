@@ -273,6 +273,8 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/rules/
     target: packages/ledger/*/lib/rules/
     status: owned
+  # Decision D64: the month-end forecast and the pace 預算 shows are
+  # BudgetService.forecast and .pace; the page only shows them.
   - id: budget-limits-rollover
     what: 預算額度與結轉
     layer: ledger

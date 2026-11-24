@@ -63,7 +63,8 @@ export 'repositories/category_repository.dart' show CategoryReader;
 export 'repositories/draft_repository.dart' show DraftReader;
 export 'repositories/recurring_repository.dart' show RecurringReader;
 export 'services/balance_service.dart' show BalanceService, NetWorth;
-export 'services/budget_service.dart' show BudgetService;
+export 'services/budget_service.dart'
+    show BudgetService, BudgetPace, CurrentPace, PastPace;
 export 'services/entry_query_service.dart' show EntryQueryService;
 export 'services/entry_validator.dart' show EntryValidator;
 export 'services/recurring_service.dart' show RecurringService;
