@@ -56,7 +56,8 @@ export 'rules/recurring_rules.dart';
 export 'commands/attachment_commands.dart' show AttachmentCommands;
 export 'commands/entry_commands.dart' show EntryCommands;
 export 'commands/holding_commands.dart' show HoldingCommands;
-export 'commands/recurring_commands.dart' show RecurringCommands;
+export 'commands/recurring_commands.dart'
+    show AutoBooking, HeldBooking, RecurringCommands;
 export 'repositories/account_repository.dart' show AccountReader;
 export 'repositories/budget_repository.dart' show BudgetReader;
 export 'repositories/category_repository.dart' show CategoryReader;
@@ -375,7 +376,6 @@ final class Ledger extends ChangeNotifier {
   late final recurringCommands = RecurringCommands(
     context: _context,
     recurringRepository: _recurring,
-    entryRepository: _entries,
     accounts: _accounts,
     recurringService: recurringService,
     entryCommands: entryCommands,

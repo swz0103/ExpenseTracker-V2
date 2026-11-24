@@ -26,8 +26,8 @@ final class Due {
 }
 
 /// Each day of [year]/[month] with what falls due on it, the dearest
-/// first: every active item's dates that month, each matched to that
-/// month's bookings in order, as `RecurringService.pendingDate` counts them.
+/// first: every active item's dates that month, each with the booking
+/// that settles it, as `RecurringService.settled` matches them.
 Map<int, List<Due>> monthPlan(
   RecurringReader recurring,
   RecurringService service,
@@ -37,19 +37,12 @@ Map<int, List<Due>> monthPlan(
   final days = <int, List<Due>>{};
   for (final item in recurring.all) {
     if (!item.active) continue;
-    final booked = service.confirmationsIn(item, year, month);
-    var next = 0;
+    final booked = service.bookedDays(item);
     for (final day in item.datesIn(year, month)) {
       final skipped = item.skipped.contains(day);
       (days[day.day] ??= []).add(
-        Due(
-          item,
-          day,
-          skipped || next >= booked.length ? null : booked[next],
-          skipped: skipped,
-        ),
+        Due(item, day, skipped ? null : booked[day], skipped: skipped),
       );
-      if (!skipped) next++;
     }
   }
   for (final list in days.values) {
@@ -96,17 +89,7 @@ List<Category> usualCategories(
   return sorted.take(count).toList();
 }
 
-/// The next [count] days [item] falls due from [from] on.
-List<DateTime> nextTimes(Recurring item, DateTime from, {int count = 3}) {
-  final times = <DateTime>[];
-  for (var k = 0; k < 60 && times.length < count; k++) {
-    final month = DateTime.utc(from.year, from.month + k);
-    for (final d in item.datesIn(month.year, month.month)) {
-      if (!d.isBefore(DateTime.utc(from.year, from.month, from.day))) {
-        times.add(d);
-        if (times.length == count) break;
-      }
-    }
-  }
-  return times;
-}
+/// The next [count] days [item] falls due from [from] on, however far
+/// apart (R3).
+List<DateTime> nextTimes(Recurring item, DateTime from, {int count = 3}) =>
+    item.datesFrom(from, count: count);

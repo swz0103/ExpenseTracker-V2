@@ -273,9 +273,12 @@ final class CalendarSync {
     if (calendar == null) return null;
     try {
       final wanted = [
-        for (final r in book.reminders()) CalendarEvent.of(r, amounts: amounts),
+        for (final r in book.dueReminders())
+          CalendarEvent.of(r, amounts: amounts),
       ];
-      final held = await port.events(calendar.$1, book.today);
+      // The same window as the notifications (D68): an overdue day still
+      // unbooked stays on the calendar, and leaves it once booked.
+      final held = await port.events(calendar.$1, book.windowStart);
       final changes = calendarChanges(held, wanted);
       if (changes.isEmpty) return wanted.length;
       final inserted = await port.apply(calendar.$1, changes);

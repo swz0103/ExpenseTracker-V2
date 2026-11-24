@@ -138,4 +138,40 @@ void main() {
       ..active = false;
     expect(form.notes, ['10/5 起', '到期自動入帳', '到 3/5', '已暫停']);
   });
+
+  group('CORR-2', () {
+    test('R1: an item from before starts, saved unchanged, keeps no start '
+        'and so its days', () {
+      final ledger = book();
+      const old = Recurring(
+        id: 'old',
+        name: '房租',
+        amount: 9000,
+        day: 25,
+        account: 'bank',
+        category: '居家',
+      );
+      ledger.recurringCommands.saveRecurring(old);
+      expect(RecurringForm(ledger, old: old).save(), isTrue);
+      final kept = ledger.recurring.all.single;
+      expect((kept.start, kept.day), (null, 25));
+      // Changing its rhythm gives it the start shown.
+      final form = RecurringForm(ledger, old: kept)..step(1);
+      expect(form.save(), isTrue);
+      expect(ledger.recurring.all.single.start, DateTime.utc(2026, 10, 25));
+    });
+
+    test("F82: moving a new item's start moves its day until a day is "
+        'chosen', () {
+      final form = RecurringForm(book());
+      form.start = DateTime.utc(2026, 10, 20);
+      expect(form.day, 20);
+      form.setDayOfMonth(10);
+      // The 10th after the 20th: November 10.
+      expect((form.day, form.start), (10, DateTime.utc(2026, 11, 10)));
+      form.start = DateTime.utc(2026, 12, 1);
+      expect(form.day, 10);
+      expect(form.rhythm, '每月 10 日');
+    });
+  });
 }

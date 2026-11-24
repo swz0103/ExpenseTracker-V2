@@ -19,6 +19,7 @@ import '../features/backup/ui/old_key_backups_offer.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../core/ledger/persistence/quarantine.dart';
 import '../core/design_system/design_system.dart';
+import '../core/design_system/dialogs.dart' show confirm;
 import '../core/diagnostics/error_log.dart';
 import '../core/messages/loading_messages.dart';
 import '../core/messages/problem_messages.dart';
@@ -29,6 +30,7 @@ import '../features/backup/model/restore_sources.dart';
 import '../features/lock/ui/lock_screen.dart';
 import '../features/lock/ui/views/new_password_view.dart';
 import '../core/messages/key_messages.dart';
+import '../core/messages/recurring_messages.dart';
 import '../core/diagnostics/error_steps.dart';
 import '../core/design_system/feedback.dart';
 import '../core/platform/app_lifecycle.dart';
@@ -335,7 +337,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
         .toTell(start.quarantined);
     _afterFrame(() {
       if (start.inbox case final inbox?) _tellInbox(inbox);
-      _tellBooked(start.booked);
+      _tellBooked(start.ledger, start.booked, start.held);
       if (tell.isNotEmpty) {
         unawaited(_tellQuarantined(tell, all: start.quarantined));
       }
@@ -426,9 +428,51 @@ class _OpenedLedgerState extends State<OpenedLedger>
     unawaited(_notice('通知上的確認', outcome.review.join('\n')));
   }
 
-  void _tellBooked(int booked) {
+  void _tellBooked(Ledger ledger, int booked, List<HeldBooking> held) {
     if (booked > 0) {
       showNote(context, '已自動記下 ${countOf(booked, CountUnit.entries)}定期交易');
+    }
+    unawaited(_tellHeld(ledger, held));
+  }
+
+  /// What was left from the automatic bookings already told, so coming
+  /// back does not ask again about the same days.
+  final _heldTold = <String>{};
+
+  /// Asks before booking the items that had more than one day waiting
+  /// (D61), and tells once what could not be booked by itself (R5).
+  Future<void> _tellHeld(Ledger ledger, List<HeldBooking> held) async {
+    final fresh = [
+      for (final h in held)
+        if (_heldTold.add('${h.item.id}:${h.days.length}:${h.days.first}')) h,
+    ];
+    final asked = [
+      for (final h in fresh)
+        if (h.confirmable) h,
+    ];
+    final refused = [
+      for (final h in fresh)
+        if (!h.confirmable) h,
+    ];
+    if (asked.isNotEmpty && mounted) {
+      final ok = await confirm(
+        context,
+        heldTitle,
+        '全部入帳',
+        body: heldBody(asked),
+      );
+      if (ok) {
+        var count = 0;
+        for (final h in asked) {
+          count += ledger.recurringCommands.bookDays(h.item, h.days);
+        }
+        if (mounted && count > 0) {
+          showNote(context, '已記下 ${countOf(count, CountUnit.entries)}定期交易');
+        }
+      }
+    }
+    if (refused.isNotEmpty && mounted) {
+      await _notice(heldRefusedTitle, refused.map(heldLine).join('\n'));
     }
   }
 
@@ -526,7 +570,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       _watchMidnight(ledger);
       final back = await _session.resume(ledger);
       if (back.inbox case final inbox? when mounted) _tellInbox(inbox);
-      if (mounted) _tellBooked(back.booked);
+      if (mounted) _tellBooked(ledger, back.booked, back.held);
       if (_writable) _services.resumed();
     }).ignore();
   }

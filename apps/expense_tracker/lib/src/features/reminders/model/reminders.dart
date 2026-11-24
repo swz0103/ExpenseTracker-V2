@@ -100,6 +100,16 @@ final class ReminderBook implements Listenable {
 
   Account account(String id) => accounts.resolve(id);
 
+  /// The first day of the one window what falls due is read in, for the
+  /// notifications and the calendar alike (D68): as far back as a day
+  /// still unbooked is told ([ReminderKind.due]'s grace), so an overdue
+  /// day is in both, or in neither.
+  DateTime get windowStart => today.subtract(ReminderKind.due.grace);
+
+  /// What falls due in the window from [windowStart] to the horizon: what
+  /// the notifications are about and what the calendar holds.
+  List<Reminder> dueReminders() => reminders(since: windowStart);
+
   /// What falls due from [since] (today unless given) to [days] days
   /// from today, soonest first: each day of an active recurring item the
   /// recurring service counts as not yet booked (a day let go is not),

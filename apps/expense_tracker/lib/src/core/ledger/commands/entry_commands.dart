@@ -464,7 +464,8 @@ final class EntryCommands {
   }
 
   /// The recurring items [back] booked with the day each had let go
-  /// taken out again: the one nearest the entry in its month.
+  /// taken out again: the one the entry stands for, as a booking settles
+  /// its day ([RecurringService.nearestDay]).
   List<Recurring> _unskipping(List<Entry> back) {
     final changed = <String, Recurring>{};
     for (final e in back) {
@@ -472,19 +473,9 @@ final class EntryCommands {
       if (id == null) continue;
       final item = changed[id] ?? _recurring.byId(id);
       if (item == null) continue;
-      final days =
-          [
-            for (final d in item.skipped)
-              if (d.year == e.date.year && d.month == e.date.month) d,
-          ]..sort(
-            (a, b) => (a.difference(e.date).abs()).compareTo(
-              b.difference(e.date).abs(),
-            ),
-          );
-      if (days.isEmpty) continue;
-      changed[id] = item.copyWith(
-        skipped: {...item.skipped}..remove(days.first),
-      );
+      final day = RecurringService.nearestDay(e.date, item.skipped);
+      if (day == null) continue;
+      changed[id] = item.copyWith(skipped: {...item.skipped}..remove(day));
     }
     return changed.values.toList();
   }

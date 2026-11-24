@@ -101,7 +101,13 @@ final class CurrencyFields {
         value: value == null ? '請輸入' : groupDigits(value),
         valueColor: value == null ? AppColors.hint : AppColors.ink,
         size: TextSize.body,
-        sub: _f.home != null || rate == null ? null : '臺銀即期買入 $rate',
+        // A day gone by is valued at today's rate only as an estimate:
+        // no earlier day's rate is kept (R5).
+        sub: _f.home != null || rate == null
+            ? null
+            : _f.date.isBefore(_f.ledger.today)
+            ? '以今日臺銀即期買入 $rate 估算，請改成當日金額'
+            : '臺銀即期買入 $rate',
         onTap: () async {
           final typed = await _a.ask('折合新台幣', value ?? 0);
           if (typed != null) _a.update(() => _f.home = typed);

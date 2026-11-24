@@ -108,8 +108,11 @@ class _RecurringPageState extends State<RecurringPage> {
     _day = null;
   });
 
-  void _book(Recurring item) =>
-      widget.nav.compose(draft: ledger.recurringService.booking(item));
+  /// Opens the composer on [item]'s booking of [day], the day pressed
+  /// (D66).
+  void _book(Recurring item, DateTime day) => widget.nav.compose(
+    draft: ledger.recurringService.booking(item, day: day),
+  );
 
   Future<void> _edit({Recurring? item, DateTime? on}) =>
       _editItem(context, ledger, item: item, on: on);

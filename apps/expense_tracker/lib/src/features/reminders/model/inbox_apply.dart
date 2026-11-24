@@ -50,18 +50,21 @@ InboxOutcome applyInbox(
       review.add('「${found.name}」${StatusWords.paused}，$label 的確認沒有入帳');
       continue;
     }
-    final pending = service.pendingDate(found);
-    final refusal = pending == day ? commands.refusalOf(found) : null;
+    // The day confirmed is booked on that day (D66), if it is still open.
+    final open = service.unpostedDates(found, from: day, to: day).isNotEmpty;
+    final refusal = open ? commands.refusalOf(found, day: day) : null;
     if (refusal != null) {
       // Booked as the ledger keeps it, or not at all: told, not guessed.
       review.add(inboxRefused(found.name, label, refusal));
-    } else if (pending == day) {
-      commands.confirm(found);
+    } else if (open) {
+      commands.confirm(found, day: day);
       booked++;
-    } else if (pending != null && pending.isBefore(day)) {
+    }
+    // Otherwise that day is booked already, or let go.
+    final pending = service.pendingDate(found);
+    if (pending != null && pending.isBefore(day)) {
       review.add('「${found.name}」還有 ${formatMd(pending)} 那期沒入帳，請到定期交易確認');
     }
-    // Otherwise that day is booked already.
   }
   if (unreadable > 0) {
     review.add(

@@ -276,7 +276,9 @@ class _DayItems extends StatefulWidget {
   final Ledger ledger;
   final DateTime day;
   final List<Due> items;
-  final ValueChanged<Recurring> onBook;
+
+  /// 入帳 pressed on an item's period: the item and the day it falls on.
+  final void Function(Recurring item, DateTime day) onBook;
   final ValueChanged<Recurring> onEdit;
   final ValueChanged<Entry> onOpen;
   final VoidCallback onAdd;
@@ -483,7 +485,7 @@ class _DayItemsState extends State<_DayItems> {
           amount,
           if (due) ...[
             const SizedBox(width: Space.s2),
-            _rowButton('入帳', markColor, () => widget.onBook(item)),
+            _rowButton('入帳', markColor, () => widget.onBook(item, x.day)),
           ] else if (skipped) ...[
             const SizedBox(width: Space.s2),
             _rowButton(

@@ -31,7 +31,7 @@ class _RepeatSheetState extends State<_RepeatSheet> {
 
   Widget _days() => CardGrid(columns: 7, gap: 6, [
     for (var d = 1; d <= 31; d++)
-      _cell('$d', _f.start.day == d, () => _f.setDayOfMonth(d)),
+      _cell('$d', _f.day == d, () => _f.setDayOfMonth(d)),
   ]);
 
   /// The days of the week, from Sunday, to choose which a weekly item
