@@ -55,8 +55,10 @@ final class Report {
     required EntryReader entries,
     required ReportService reports,
     required BalanceService balances,
+    required CategoryReader categories,
     required DateTime today,
   }) {
+    String? parentOf(String name) => categories.byName(name).parent;
     final from = period.from;
     final to = period.to;
     final until = to.isAfter(today) ? today : to;
@@ -92,9 +94,11 @@ final class Report {
         if (end.isBefore(today)) buckets[i].expense,
     ];
     // The ledger's own sum keeps the categories in the order it always
-    // has, so equal amounts keep their places.
-    final spending = reports.spendingBetween(from, to);
-    final lastSpending = _spendingOf(before);
+    // has, so equal amounts keep their places. Each category counts with
+    // its subcategories (D54), as the budgets and the filter count it,
+    // so a block opens on the entries it sums.
+    final spending = byTopCategory(reports.spendingBetween(from, to), parentOf);
+    final lastSpending = byTopCategory(_spendingOf(before), parentOf);
     final names = spending.keys.toList()
       ..sort((a, b) => spending[b]!.compareTo(spending[a]!));
 
@@ -196,6 +200,19 @@ final class Report {
     min(day.day, DateTime.utc(day.year - 1, day.month + 1, 0).day),
   );
 
+  /// The [count] largest categories, each with what it spent a year
+  /// before, and the rest together in one [RestShare]: a block with its
+  /// own identity, never one of the categories (D53).
+  List<ReportShare> blocks(int count) {
+    final rest = names.skip(count).toList();
+    final restAmount = rest.fold(0, (sum, n) => sum + (spending[n] ?? 0));
+    return [
+      for (final n in names.take(count))
+        CategoryShare(n, spending[n] ?? 0, lastSpending[n]),
+      if (restAmount > 0) RestShare(restAmount, rest),
+    ];
+  }
+
   /// The entries from [from] to [to], read from those months only.
   static List<Entry> entriesBetween(
     EntryReader entries,
@@ -214,25 +231,26 @@ final class Report {
   ];
 
   /// The entries of [period] spent (in whole or in part) under the
-  /// category [name], latest first, and how much of them was.
+  /// category [name], its subcategories included (D54), latest first,
+  /// and how much of them was.
   static (List<Entry>, int) spentUnder(
     String name,
     EntryReader entries,
     ReportPeriod period,
     DateTime today,
+    CategoryReader categories,
   ) {
+    String? parentOf(String n) => categories.byName(n).parent;
     final under = [
       for (final e in countedOn(
         entriesBetween(entries, period.from, period.to),
         today,
       ))
-        if (e.spendingParts.any((p) => p.$1 == name)) e,
+        if (e.spendingParts.any((p) => isUnder(p.$1, name, parentOf))) e,
     ]..sort((a, b) => b.date.compareTo(a.date));
     var total = 0;
     for (final e in under) {
-      for (final (category, amount) in e.spendingParts) {
-        if (category == name) total += amount;
-      }
+      total += spendingUnder(e, name, parentOf);
     }
     return (under, total);
   }
@@ -316,3 +334,27 @@ typedef _Tally = ({
   int days,
   List<int> weekdays,
 });
+
+/// One block of the report's categories ([Report.blocks]).
+sealed class ReportShare {
+  const ReportShare(this.amount);
+
+  /// What it spent.
+  final int amount;
+}
+
+/// A category's block, with what it spent a year before ([last], null
+/// when nothing).
+final class CategoryShare extends ReportShare {
+  const CategoryShare(this.name, super.amount, this.last);
+
+  final String name;
+  final int? last;
+}
+
+/// The smallest categories together, [names].
+final class RestShare extends ReportShare {
+  const RestShare(super.amount, this.names);
+
+  final List<String> names;
+}

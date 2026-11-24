@@ -1,6 +1,9 @@
 import 'dart:math' show max;
 
+import 'package:ledger_entries/rules.dart' show spendingUnder;
+
 import '../models/models.dart';
+import '../repositories/category_repository.dart';
 import '../repositories/entry_repository.dart';
 import 'report_service.dart';
 
@@ -8,11 +11,13 @@ import 'report_service.dart';
 final class BudgetService {
   BudgetService({
     required this._entries,
+    required this._categories,
     required ReportService reportService,
     required this._today,
   }) : _reports = reportService;
 
   final EntryReader _entries;
+  final CategoryReader _categories;
   final ReportService _reports;
   final DateTime Function() _today;
 
@@ -97,19 +102,20 @@ final class BudgetService {
   }
 
   /// What counts against [budget] in [year]/[month]: all spending, the
-  /// spending carrying its tag, or its category's share of spending; a
-  /// 預定 entry only once its day comes ([countsOn], D25).
+  /// spending carrying its tag, or the share of spending under its
+  /// category, its subcategories included (`spendingUnder`, D54); a 預定
+  /// entry only once its day comes ([countsOn], D25).
   int spentAgainst(Budget budget, int year, int month) {
     if (budget.category == allSpending) return _reports.expense(year, month);
     if (budget.tag case final tag?) return spentOnTag(tag, year, month);
     var total = 0;
     for (final e in countedOn(_entries.inMonth(year, month), _today())) {
-      for (final (name, value) in e.spendingParts) {
-        if (name == budget.category) total += value;
-      }
+      total += spendingUnder(e, budget.category, _parentOf);
     }
     return total;
   }
+
+  String? _parentOf(String name) => _categories.byName(name).parent;
 
   /// [budget]'s limit for [year]/[month]: with [Budget.carry], plus what
   /// was left of it the month before, when it counted then. Only the

@@ -9,7 +9,6 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | id | package | test file | fails-when-enabled | note |
 |---|---|---|---|---|
 | BUD-01 | 2.2 | p2_2_budgets_test.dart | yes | raising the limit on Dec 10 rewrites November allowance to 15,000 (expects 10,000) |
-| BUD-02 | 2.2 | p2_2_budgets_test.dart | yes | spentAgainst(parent) is 0, expected 3,000 from the child category |
 | F14 | 2.3 | p2_3_recurring_test.dart | yes | auto-booking adds a second entry on the day already entered by hand |
 | F82 | 2.3 | p2_3_recurring_test.dart | yes | moving the start to the 1st turns the day 10 into 1 |
 | LOG-01 | 2.3 | p2_3_recurring_test.dart | yes | bookDue books 1 entry for a US$ item with no rate |
@@ -41,7 +40,15 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | JRN-09 | 待決定 | p2_0_journal_test.dart | yes | old shape: a record naming an account the book does not keep (1) |
 | JRN-10 | 待決定 | p2_0_journal_test.dart | yes | old shape: instalments on an account that is not a card (1) |
 
-32 findings covered.
+31 findings covered.
+
+## fixed in CORR-1
+
+Work package CORR-1 (money correctness, decisions D52-D54, D59, D60, D62-D65, D67). Its one audit id:
+
+- BUD-02: `p2_2_budgets_test.dart` (a parent category's budget counts its sub-categories) runs in the ordinary suite; `test/core/ledger/services/budget_service_test.dart`, `packages/ledger/entries/test/rules/category_rules_test.dart` (the one rule, `isUnder`/`spendingUnder`)
+
+The findings of reviews 3-5 it fixes have no id in this table; their tests: `test/core/ledger/services/balance_service_test.dart` (one net worth, D59 by side, instalment refunds, flows), `test/features/accounts/model/card_summary_test.dart` (D67), `test/features/entries/model/compose_form_test.dart` (D62, D65), `test/core/ledger/services/budget_service_test.dart` (D64, D54), `test/features/reports/model/report_test.dart` (D53, D54), `test/core/ledger/journal/money_parity_test.dart` and `test/scenarios/ledger/journal/journal_incremental_test.dart` (the journal agrees).
 
 ## fixed in 2.0
 

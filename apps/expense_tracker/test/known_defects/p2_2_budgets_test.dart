@@ -60,5 +60,5 @@ void main() {
     final budget = ledger.budgets.forCategory('餐飲');
     // Lunch is food: 3,000 of the 8,000.
     expect(ledger.budgetService.spentAgainst(budget, 2026, 11), 3000);
-  }, skip: knownDefect('BUD-02', '2.2'));
+  });
 }

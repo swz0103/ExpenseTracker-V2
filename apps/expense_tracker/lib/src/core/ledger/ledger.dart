@@ -313,6 +313,7 @@ final class Ledger extends ChangeNotifier {
   );
   late final budgetService = BudgetService(
     entries: _entries,
+    categories: _categories,
     reportService: reportService,
     today: _clock,
   );

@@ -111,6 +111,7 @@ final class Book {
   );
   late final budgets = BudgetService(
     entries: entries,
+    categories: categories,
     reportService: reports,
     today: _today,
   );

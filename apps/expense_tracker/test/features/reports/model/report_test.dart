@@ -22,6 +22,7 @@ void main() {
     entries: ledger.entries,
     reports: ledger.reportService,
     balances: ledger.balanceService,
+    categories: ledger.categories,
     today: ledger.today,
   );
 
@@ -52,6 +53,7 @@ void main() {
       ledger.entries,
       period,
       ledger.today,
+      ledger.categories,
     );
     final expected = [
       for (final e in inSeptember)
@@ -92,6 +94,7 @@ void main() {
       entries: book.entries,
       reports: book.reportService,
       balances: book.balanceService,
+      categories: book.categories,
       today: book.today,
     );
 
@@ -126,8 +129,105 @@ void main() {
       ledger.entries,
       period,
       ledger.today,
+      ledger.categories,
     );
     expect(under, isEmpty);
     expect(total, 0);
+  });
+
+  group('under a category, its subcategories included (D54)', () {
+    Ledger family() => ledgerOf(
+      today: DateTime.utc(2026, 9, 30),
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 100000)],
+      categories: [
+        Category('飲食', 'food', 0xFF111111),
+        Category('早餐', 'food', 0xFF111111, parent: '飲食'),
+        Category('交通', 'car', 0xFF222222),
+        Category('其他', 'other', 0xFF333333),
+      ],
+      entries: [
+        entryOf(
+          'a',
+          DateTime.utc(2026, 9, 1),
+          EntryType.expense,
+          100,
+          'bank',
+          category: '飲食',
+        ),
+        entryOf(
+          'b',
+          DateTime.utc(2026, 9, 2),
+          EntryType.expense,
+          50,
+          'bank',
+          category: '早餐',
+        ),
+        entryOf(
+          'c',
+          DateTime.utc(2026, 9, 3),
+          EntryType.expense,
+          80,
+          'bank',
+          category: '交通',
+          parts: const [('交通', 60), ('早餐', 20)],
+        ),
+        entryOf(
+          'd',
+          DateTime.utc(2026, 9, 4),
+          EntryType.expense,
+          30,
+          'bank',
+          category: '其他',
+        ),
+      ],
+    );
+    final september = ReportPeriod.range(
+      DateTime.utc(2026, 9, 1),
+      DateTime.utc(2026, 9, 30),
+    );
+
+    test('the report counts a category with its subcategories', () {
+      final l = family();
+      final r = Report.of(
+        september,
+        entries: l.entries,
+        reports: l.reportService,
+        balances: l.balanceService,
+        categories: l.categories,
+        today: l.today,
+      );
+      // 飲食 100 + 早餐 50 + 20 = 170; 交通 60; 其他 30.
+      expect(r.spending, {'飲食': 170, '交通': 60, '其他': 30});
+      expect(r.names, ['飲食', '交通', '其他']);
+      final (under, total) = Report.spentUnder(
+        '飲食',
+        l.entries,
+        september,
+        l.today,
+        l.categories,
+      );
+      expect([for (final e in under) e.id], ['c', 'b', 'a']);
+      expect(total, 170);
+    });
+
+    test('the smallest together are a block of their own, never the '
+        'category called 其他 (D53)', () {
+      final l = family();
+      final r = Report.of(
+        september,
+        entries: l.entries,
+        reports: l.reportService,
+        balances: l.balanceService,
+        categories: l.categories,
+        today: l.today,
+      );
+      final blocks = r.blocks(1);
+      expect(blocks.first, isA<CategoryShare>());
+      final rest = blocks.last as RestShare;
+      // 交通 60 + 其他 30 = 90, 其他 one of them, not the block.
+      expect(rest.amount, 90);
+      expect(rest.names, ['交通', '其他']);
+      expect(r.blocks(3).whereType<RestShare>(), isEmpty);
+    });
   });
 }

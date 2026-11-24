@@ -138,4 +138,30 @@ void main() {
       expect((pace.days, pace.perDay, pace.saved), (30, 200, 4000));
     });
   });
+
+  test('a parent category\'s budget counts its subcategories and their '
+      'split parts (D54)', () {
+    final book = Book(
+      categories: [
+        Category('飲食', 'food', 0xFF111111),
+        Category('早餐', 'food', 0xFF111111, parent: '飲食'),
+      ],
+      entries: [
+        entry('a', amount: 100),
+        entry('b', amount: 50, category: '早餐'),
+        Entry(
+          id: 'c',
+          date: day,
+          type: EntryType.expense,
+          amount: 80,
+          account: 'bank',
+          category: '交通',
+          parts: const [('交通', 60), ('早餐', 20)],
+        ),
+      ],
+    );
+    // 100 + 50 + 20 = 170; 早餐's own budget 50 + 20 = 70.
+    expect(book.budgets.spentAgainst(Budget('飲食', 1000), 2026, 10), 170);
+    expect(book.budgets.spentAgainst(Budget('早餐', 1000), 2026, 10), 70);
+  });
 }

@@ -82,6 +82,7 @@ void main() {
     entries: ledger.entries,
     reports: ledger.reportService,
     balances: ledger.balanceService,
+    categories: ledger.categories,
     today: ledger.today,
   );
 
