@@ -114,7 +114,7 @@ class _RepeatSheetState extends State<_RepeatSheet> {
     var day = DateTime.utc(start.year, month, start.day);
     if (day.month != month) day = monthEnd(start.year, month);
     if (day.isBefore(dayOf(start))) {
-      day = DateTime.utc(day.year + 1, day.month, day.day);
+      day = monthsAfter(day, 12);
     }
     _f.start = day;
   }

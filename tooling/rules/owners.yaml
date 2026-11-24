@@ -101,7 +101,8 @@ items:
     target: packages/core/lib/time/
     status: owned
   # Month ends, steps and counts (monthEnd, monthStart, monthStarts,
-  # monthIndex, shiftMonth); rule B4.
+  # monthIndex, shiftMonth; a day moved by months held to the month's
+  # last day: addMonthsClamped, monthsAfter); rule B4.
   - id: month-arithmetic
     what: 月底、前後幾個月、逐月、相差幾個月
     layer: core

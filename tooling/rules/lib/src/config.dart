@@ -29,7 +29,12 @@ const scanRoots = [
   'packages/kernel/lib',
   'packages/kernel/test',
   ledgerDir,
+  infrastructureDir,
 ];
+
+/// The data packages, `<infrastructureDir>/<name>/` each with `lib/` and
+/// `test/`: storage, vault and market.
+const infrastructureDir = 'infrastructure';
 
 /// The subject packages of the ledger, `<ledgerDir>/<subject>/` each with
 /// `lib/{model,rules,calc}/` and `test/`. Pure (rule A4); every file of

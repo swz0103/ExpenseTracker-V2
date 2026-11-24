@@ -34,19 +34,21 @@ CardSummary _summary({
   List<Entry> entries = const [],
   int? limit = 50000,
   Map<DateTime, DateTime> closes = const {},
+  int closingDay = 20,
+  DateTime? today,
 }) {
   final card = Account(
     'card',
     '日常卡',
     AccountKind.card,
     0,
-    closingDay: 20,
+    closingDay: closingDay,
     dueDay: 5,
     limit: limit,
     closes: closes,
   );
   final ledger = Ledger(
-    today: _today,
+    today: today ?? _today,
     accounts: [const Account('bank', '銀行', AccountKind.bank, 100000), card],
     categories: const [],
     entries: entries,
@@ -139,6 +141,38 @@ void main() {
     final card = _summary(entries: [_spend('a', 10, 40000)]);
     expect(card.usedPercent, 80);
     expect(card.nearLimit, isTrue);
+  });
+
+  group('R26: a cycle that starts on a close held to the month end', () {
+    // Looked at 3 days after each close [end]; the cycle runs to the
+    // next close, which falls on the closing day itself again.
+    for (final (closingDay, end, next, days) in [
+      // Closing 31: Feb 28 -> Mar 31 is 31 days (28 Feb + 31 = 31 Mar).
+      (31, DateTime.utc(2026, 2, 28), DateTime.utc(2026, 3, 31), 31),
+      // Leap year: Feb 29 -> Mar 31, 31 days.
+      (31, DateTime.utc(2028, 2, 29), DateTime.utc(2028, 3, 31), 31),
+      // Apr 30 -> May 31, Jun 30 -> Jul 31, Sep 30 -> Oct 31,
+      // Nov 30 -> Dec 31: 31 days each.
+      (31, DateTime.utc(2026, 4, 30), DateTime.utc(2026, 5, 31), 31),
+      (31, DateTime.utc(2026, 6, 30), DateTime.utc(2026, 7, 31), 31),
+      (31, DateTime.utc(2026, 9, 30), DateTime.utc(2026, 10, 31), 31),
+      (31, DateTime.utc(2026, 11, 30), DateTime.utc(2026, 12, 31), 31),
+      // Closing 30: Feb 28 -> Mar 30 is 30 days; Feb 29 -> Mar 30, 30.
+      (30, DateTime.utc(2026, 2, 28), DateTime.utc(2026, 3, 30), 30),
+      (30, DateTime.utc(2028, 2, 29), DateTime.utc(2028, 3, 30), 30),
+      // Closing 29: Feb 28 -> Mar 29 is 29 days.
+      (29, DateTime.utc(2026, 2, 28), DateTime.utc(2026, 3, 29), 29),
+    ]) {
+      test('closing day $closingDay, closed $end', () {
+        final card = _summary(
+          closingDay: closingDay,
+          today: end.add(const Duration(days: 3)),
+        );
+        expect(card.end, end);
+        expect(card.nextClose, next);
+        expect((card.daysGone, card.cycleDays), (3, days));
+      });
+    }
   });
 
   test('a moved close is told with the day it was due', () {

@@ -204,11 +204,11 @@ final class CardCycle {
 }
 
 (int, int) _month(int year, int month, int offset) {
-  final result = DateTime.utc(year, month + offset, 1);
-  if (result.year < minYear || result.year > maxYear) {
+  final result = shiftMonth(year, month, offset);
+  if (result.$1 < minYear || result.$1 > maxYear) {
     throw const CreditCardException(CreditCardError.invalidInput);
   }
-  return (result.year, result.month);
+  return result;
 }
 
 BusinessDate _day(int year, int month, int requested) {

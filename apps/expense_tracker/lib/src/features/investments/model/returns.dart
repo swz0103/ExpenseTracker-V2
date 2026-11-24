@@ -1,4 +1,5 @@
 import 'package:core/percent/percent.dart' show divideRounded;
+import 'package:core/time/utc_days.dart' show monthsAfter, yearBefore;
 
 import 'dart:math';
 
@@ -117,7 +118,7 @@ final class Returns {
   /// the last twelve, per share then, times the shares held now, a year on.
   /// A guess from the book alone, not from what the companies announced.
   List<DividendGuess> expectedDividends() {
-    final since = DateTime.utc(today.year - 1, today.month, today.day);
+    final since = yearBefore(today);
     final found = <DividendGuess>[];
     for (final h in holdings.all) {
       if (h.shares <= 0) continue;
@@ -145,7 +146,7 @@ final class Returns {
   /// The months [code] paid cash dividends in over the last two years, in
   /// order: 「1、4、7、10 月」; empty when none.
   List<int> payingMonths(String code) {
-    final since = DateTime.utc(today.year - 2, today.month, today.day);
+    final since = monthsAfter(today, -24);
     return {
       for (final e in trades.tradesOf(code))
         if (e.type == EntryType.dividend &&

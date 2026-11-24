@@ -168,9 +168,9 @@ class _PriceChartState extends State<_PriceChart> {
               .map((e) => e.date)
               .reduce((a, b) => a.isBefore(b) ? a : b);
     return switch (_range) {
-      0 => DateTime.utc(today.year, today.month - 1, today.day),
-      1 => DateTime.utc(today.year, today.month - 3, today.day),
-      2 => DateTime.utc(today.year - 1, today.month, today.day),
+      0 => monthsAfter(today, -1),
+      1 => monthsAfter(today, -3),
+      2 => yearBefore(today),
       _ => first,
     };
   }

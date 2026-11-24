@@ -108,13 +108,9 @@ final class CardSummary {
     return l != null && l > 0 && (debt + pending) * 100 >= l * 80;
   }
 
-  /// The close after the last one, which ends the cycle under way.
-  late final DateTime following = card.closingOn(
-    DateTime.utc(end.year, end.month + 1, end.day),
-  );
-
-  /// The days of the cycle under way, and how many have gone.
-  int get cycleDays => following.difference(end).inDays;
+  /// The days of the cycle under way, from the last close to [nextClose],
+  /// and how many have gone.
+  int get cycleDays => nextClose.difference(end).inDays;
   int get daysGone => today.difference(end).inDays;
 
   /// When the statement can still be paid: [due], or the next business
@@ -122,7 +118,10 @@ final class CardSummary {
   /// left as it is.
   BusinessDayAnswer<BusinessDate> get payBy => payByOf(due);
 
-  /// The next close, as it may have been moved.
+  /// The next close, as it may have been moved: the one that ends the
+  /// cycle under way. Found from a day well inside the next cycle, never
+  /// by stepping [end]'s day a month on (a close held to 28 February
+  /// would step to a day before the real next close).
   late final DateTime nextClose = card.closingOn(
     end.add(const Duration(days: 40)),
   );
