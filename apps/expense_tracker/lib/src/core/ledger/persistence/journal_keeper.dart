@@ -95,6 +95,10 @@ final class JournalKeeper {
   final _accounts = <String, Account>{};
   final _categories = <String, Category>{};
   List<Holding> _start = const [];
+
+  /// The purchase each refund kept gives back, by the refund's id: what a
+  /// refund changed or taken away was of, its new version not saying.
+  final _refundTo = <String, String>{};
   ParityScope? _wanted;
   var _checking = false;
 
@@ -130,8 +134,27 @@ final class JournalKeeper {
   /// [posted] is the posting afresh already under way as the book was
   /// read (decision D51: the book decoded once), what it found when done;
   /// null when it posted nothing.
-  void open(Ledger ledger, {Future<ReplayReport?>? posted}) =>
-      _then(() => _open(ledger, posted), _wantAll, ErrorSteps.journalUpdate);
+  ///
+  /// The accounts, categories and starting stocks are taken here, as the
+  /// book was read, not once [posted] is done: a change kept meanwhile is
+  /// then told apart from what the journal holds (r14 F1).
+  void open(Ledger ledger, {Future<ReplayReport?>? posted}) {
+    _ledger = ledger;
+    _accounts
+      ..clear()
+      ..addEntries(ledger.accounts.all.map((a) => MapEntry(a.id, a)));
+    _categories
+      ..clear()
+      ..addEntries(ledger.categories.all.map((c) => MapEntry(c.id, c)));
+    _start = (ledger.holdings as HoldingRepository).start;
+    _refundTo
+      ..clear()
+      ..addEntries([
+        for (final e in ledger.entries.all)
+          if (e.refundOf case final of?) MapEntry(e.id, of),
+      ]);
+    _then(() => _open(posted), _wantAll, ErrorSteps.journalUpdate);
+  }
 
   /// Brings the journal up to date with [batch], just kept.
   void kept(WriteBatch batch) {
@@ -167,7 +190,7 @@ final class JournalKeeper {
     });
   }
 
-  Future<void> _open(Ledger ledger, Future<ReplayReport?>? posted) async {
+  Future<void> _open(Future<ReplayReport?>? posted) async {
     if (posted != null) {
       try {
         if (await posted case final report?) {
@@ -181,14 +204,6 @@ final class JournalKeeper {
         await _quiet();
       }
     }
-    _ledger = ledger;
-    _accounts
-      ..clear()
-      ..addEntries(ledger.accounts.all.map((a) => MapEntry(a.id, a)));
-    _categories
-      ..clear()
-      ..addEntries(ledger.categories.all.map((c) => MapEntry(c.id, c)));
-    _start = (ledger.holdings as HoldingRepository).start;
     _remap();
     final tree = AccountTree([..._store.accounts(), ..._mapping.tree]);
     _journal = Journal(
@@ -310,13 +325,20 @@ final class JournalKeeper {
       _remap();
       _mapping.tree.forEach(journal.accounts.put);
     }
-    for (final e in batch.entries) {
-      final seq = _recordOf(e.id)?.seq;
-      if (seq == null) continue; // taken away by a later change, kept since
+    void post(Entry e, int seq) {
       final mapped = _mapping.map(e, seq);
       mapped.accounts.forEach(journal.accounts.put);
       intents.add(mapped.intent);
       records[mapped.intent.id] = e;
+    }
+
+    for (final e in batch.entries) {
+      final seq = _recordOf(e.id)?.seq;
+      if (seq == null) continue; // taken away by a later change, kept since
+      post(e, seq);
+    }
+    for (final id in _refundsToRepost(batch)) {
+      if (_recordOf(id) case final kept?) post(kept.entry, kept.seq);
     }
     void mark() {
       _store.keepAccounts(journal.accounts.all);
@@ -361,6 +383,37 @@ final class JournalKeeper {
     // stock refused, a follower the records no longer hold, an account's
     // currency or kind changed): the whole book is posted afresh.
     if (!sound) await _rebuild(revision);
+  }
+
+  /// The refunds [batch] did not change whose postings it changes: what a
+  /// refund of a purchase in instalments cancels rests on the purchase and
+  /// on its other refunds (r14 F2). So every refund of a purchase changed
+  /// or taken away, and every other refund of the purchase a refund
+  /// changed or taken away gave back, before and after.
+  List<String> _refundsToRepost(WriteBatch batch) {
+    final changed = <String>{
+      for (final e in batch.entries) e.id,
+      for (final (collection, key) in batch.dropped)
+        if (collection == Collection.entry) key,
+    };
+    final purchases = <String>{};
+    for (final id in changed) {
+      purchases.add(id);
+      if (_refundTo.remove(id) case final was?) purchases.add(was);
+    }
+    for (final e in batch.entries) {
+      if (e.refundOf case final of?) {
+        _refundTo[e.id] = of;
+        purchases.add(of);
+      }
+    }
+    final ledger = _ledger;
+    if (ledger == null) return const [];
+    return [
+      for (final p in purchases)
+        for (final r in ledger.entries.refundsOf(p))
+          if (!changed.contains(r.id)) r.id,
+    ];
   }
 
   static bool _sameSchedule(Account a, Account b) =>
