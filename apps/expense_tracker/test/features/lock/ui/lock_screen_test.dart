@@ -465,7 +465,7 @@ void main() {
       tester,
       () => find.textContaining('無法打開帳本').evaluate().isNotEmpty,
     );
-    expect(find.textContaining('無法打開帳本（'), findsOneWidget);
+    expect(find.text('無法打開帳本，可在診斷匯出詳細資料'), findsOneWidget);
     expect(find.text('忘記密碼？'), findsOneWidget);
     expect(startup.state, isA<Locked>());
   });
@@ -1032,9 +1032,10 @@ void main() {
       await press(tester, RegExp('記帳本 2026-11-03.etbk'));
       await settle(
         tester,
-        () => find.textContaining('無法下載備份（').evaluate().isNotEmpty,
+        () => find.textContaining('無法下載備份').evaluate().isNotEmpty,
       );
-      expect(find.textContaining('No space left'), findsOneWidget);
+      expect(find.text('無法下載備份，可在診斷匯出詳細資料'), findsOneWidget);
+      expect(find.textContaining('No space left'), findsNothing);
       semantics.dispose();
     });
 

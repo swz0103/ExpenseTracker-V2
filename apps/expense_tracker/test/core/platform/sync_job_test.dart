@@ -45,12 +45,14 @@ void main() {
       probe.fails = true;
       await probe.refresh(force: true);
       expect(probe.problem, isNotNull);
+      expect(probe.failed, isTrue);
       expect(probe.lastSuccess, isNull);
       probe
         ..fails = false
         ..says = '0050X 抓不到收盤價';
       await probe.refresh(force: true);
       expect(probe.problem, '0050X 抓不到收盤價');
+      expect(probe.failed, isFalse, reason: 'it answered, with a problem');
       probe.says = null;
       await probe.refresh(force: true);
       expect(probe.problem, isNull);

@@ -199,7 +199,7 @@ void main() {
         ..exportFails = const FileSystemException('disk full');
       await open(tester);
       await tap(tester, '匯出一份');
-      expect(find.textContaining('匯出失敗：'), findsOneWidget);
+      expect(find.text('匯出失敗，可在診斷匯出詳細資料'), findsOneWidget);
     });
   });
 
@@ -220,7 +220,7 @@ void main() {
       await open(tester);
       await tap(tester, '還原');
       await tap(tester, '選擇備份');
-      expect(find.textContaining('沒有開始還原：'), findsOneWidget);
+      expect(find.text('沒有開始還原，可在診斷匯出詳細資料'), findsOneWidget);
     });
   });
 

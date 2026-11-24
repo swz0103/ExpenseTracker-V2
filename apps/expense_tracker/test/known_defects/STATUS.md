@@ -21,7 +21,6 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | INV-02 | 2.5 | p2_5_market_test.dart | yes | a dividend due on Nov 28 (a week out) gives an outlook total of 0, expected 1,000 |
 | PKG-02 | 2.5 | p2_5_market_test.dart | yes | JPY missing from the second board is dropped from the stored rates |
 | ENT-02 | 4.2 | p4_2_forms_test.dart | yes | form keeps the split but build() drops it after switching to a US$ account |
-| ENT-03 | 4.2 | p4_2_forms_test.dart | yes | 2 widget tests (back key, scrim tap); sheet closes with no dialog and no draft |
 | ENT-05 | 4.2 | p4_2_forms_test.dart | yes | picking a merchant replaces the chosen account (card) with cash |
 | ENT-06 | 4.2 | p4_2_forms_test.dart | yes | editing a transfer previews fromAfter 98,000, expected 99,000 |
 | DSN-01 | 5.1 | p5_1_design_test.dart | yes | 收入 tab text is 2.21:1 on white (expects 4.5:1) |
@@ -39,7 +38,11 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | JRN-10 | 待決定 | p2_0_journal_test.dart | yes | old shape: instalments on an account that is not a card (1) |
 | DAY-01 | 待決定 | r15_day_targets_test.dart | yes | 2 tests; the week strip and the recurring calendar have day cells 37-47 dp wide at 320 and 360 dp (seven across), under Android's 48 dp |
 
-30 findings covered.
+29 findings covered.
+
+## fixed in FLOW-1
+
+- ENT-03: `p4_2_forms_test.dart` (back and a tap beside the sheet on 記一筆 with something typed ask 要捨棄修改嗎？); the one guard of every edit form (D83), `test/core/design_system/edit_guard_test.dart` (取消, back, the scrim and a swipe ask; 繼續編輯 brings the sheet back up; saving does not ask), `test/features/entries/forms/composer_state_test.dart`, `test/rules/edit_forms_rules_test.dart` (every form listed and guarded)
 
 ## fixed in CORR-1
 

@@ -159,7 +159,10 @@ abstract interface class CalendarPort {
 /// amounts: they do not unless the person turns that on, as a calendar
 /// is often shared or shown on the lock screen.
 final class CalendarSync {
-  CalendarSync(this.port, this.directory);
+  CalendarSync(this.port, this.directory, {this.failed});
+
+  /// Told when a sync fails, so the person hears of it (D84).
+  final void Function()? failed;
 
   final CalendarPort port;
   final Directory directory;
@@ -285,6 +288,7 @@ final class CalendarSync {
       return wanted.length - (changes.insert.length - inserted);
     } on Object catch (error) {
       ErrorLog.instance.record(ErrorSteps.calendarSync, error);
+      failed?.call();
       return null;
     }
   }

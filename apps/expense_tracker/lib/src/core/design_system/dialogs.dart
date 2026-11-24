@@ -62,13 +62,14 @@ class _TextDialogState extends State<_TextDialog> {
 
 /// Asks to go ahead with something that cannot be taken back easily: a
 /// panel in the middle of the screen with [title], [body] under it when
-/// given, and 取消 beside [action], red when [danger].
+/// given, and [cancel] (取消) beside [action], red when [danger].
 Future<bool> confirm(
   BuildContext context,
   String title,
   String action, {
   bool danger = false,
   String? body,
+  String cancel = Words.cancel,
 }) async {
   final ok = await showDialog<bool>(
     context: context,
@@ -124,7 +125,8 @@ Future<bool> confirm(
               children: [
                 Expanded(
                   child: _Choice(
-                    Words.cancel,
+                    cancel,
+                    key: Keys.confirmCancel,
                     color: AppColors.surface,
                     ink: AppColors.ink,
                     onTap: () => Navigator.of(context).pop(false),

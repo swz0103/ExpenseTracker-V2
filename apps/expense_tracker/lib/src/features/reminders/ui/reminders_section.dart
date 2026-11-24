@@ -163,7 +163,7 @@ class _RemindersSectionState extends State<RemindersSection>
       if (mounted) showNote(context, '一分鐘後會跳出一則測試通知');
     } on Object catch (error) {
       ErrorLog.instance.record('測試通知', error);
-      if (mounted) showNote(context, '無法傳送測試通知：${ErrorLog.describe(error)}');
+      if (mounted) showNote(context, problemNote('無法傳送測試通知', error));
     }
   }
 

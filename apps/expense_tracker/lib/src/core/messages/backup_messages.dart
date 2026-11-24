@@ -1,5 +1,18 @@
 /// The words of the backup settings, in one place.
 abstract final class BackupWords {
+  /// Google Drive: the person did not allow access.
+  static const driveNotAllowed = '沒有取得 Google 雲端硬碟的權限';
+
+  /// Google Drive could not be reached.
+  static const driveOffline = '連不上 Google，請稍後再試';
+
+  /// Google's sign-in gave no answer.
+  static const driveNoAnswer = 'Google 沒有回應，請再試一次';
+
+  /// Drive refused or failed a request: its answer is in the
+  /// diagnostics, never said (D84).
+  static const driveRefused = 'Google 雲端硬碟沒有接受這次的要求';
+
   /// The Google account a Drive card's backups go to.
   static const account = '帳號';
 

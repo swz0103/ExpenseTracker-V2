@@ -73,7 +73,7 @@ class _SecuritySectionState extends State<SecuritySection> {
       } on Object catch (error) {
         ErrorLog.instance.record('變更密碼', error);
         if (mounted) {
-          showNote(context, '${KeyWords.notReplaced}${describeProblem(error)}');
+          showNote(context, problemNote(KeyWords.notReplaced, error));
         }
       }
     }
@@ -95,7 +95,7 @@ class _SecuritySectionState extends State<SecuritySection> {
     } on Object catch (error) {
       ErrorLog.instance.record('變更密碼', error);
       if (mounted) {
-        showNote(context, '${KeyWords.notReplaced}${describeProblem(error)}');
+        showNote(context, problemNote(KeyWords.notReplaced, error));
       }
     }
   }
@@ -544,4 +544,6 @@ class _SecretPanelState extends State<_SecretPanel> {
 /// What the person is told of [error]: the keys' own words when they
 /// refused, general ones otherwise.
 String _said(Object error) =>
+    // Exception to error words: a KeyRefused's message is the app's own
+    // sentence (backup_manager.dart).
     error is KeyRefused ? error.message : KeyWords.notDone;

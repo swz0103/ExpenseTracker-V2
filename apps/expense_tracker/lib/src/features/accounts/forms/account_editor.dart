@@ -1,6 +1,7 @@
 import 'package:core/foundation_values.dart' show Currency;
 import 'package:core/money/amount_parser.dart' show parseAmount;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 
 import '../../../core/design_system/dialogs.dart';
 import '../../../../design_system/display/amount.dart';

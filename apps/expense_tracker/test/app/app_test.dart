@@ -22,7 +22,7 @@ void main() {
       describeProblem(DataSourceException(StateError('closed'))),
       '帳本無法寫入，請重新打開 App 再試。',
     );
-    expect(describeProblem(StateError('x')), '發生未預期的錯誤。');
+    expect(describeProblem(StateError('x')), '沒有完成這個動作，可在診斷匯出詳細資料');
   });
 
   testWidgets('the shell starts', (tester) async {

@@ -51,7 +51,7 @@ abstract final class ReminderMessages {
   static const calendarNotSynced = '日曆沒有同步成功';
   static String calendarWritten(int count) =>
       '已把 ${countOf(count, CountUnit.pieces)}到期提醒放進日曆';
-  static String calendarUnreachable(String problem) => '日曆沒有連上：$problem';
+  static const calendarUnreachable = '日曆沒有連上';
 
   /// 不再同步 when the app's events could be taken off the calendar.
   static const calendarCleared = '已停止同步，之後的提醒已從日曆刪除';

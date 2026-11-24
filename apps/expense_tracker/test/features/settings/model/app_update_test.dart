@@ -26,6 +26,9 @@ final class _Port implements UpdatePort {
 
   /// The size the fake download reports as received.
   var reports = 3;
+
+  /// Holds the download after its first piece until completed.
+  Completer<void>? hold;
   final installed = <(String, String)>[];
 
   @override
@@ -51,6 +54,10 @@ final class _Port implements UpdatePort {
     if (downloadFails case final error?) throw error;
     downloadedFrom = url;
     into.writeAsStringSync('abc');
+    if (hold case final held?) {
+      progress(1);
+      await held.future;
+    }
     progress(reports);
   }
 
@@ -344,5 +351,28 @@ void main() {
       File('${cache.path}/updates/ExpenseTracker-190.apk').existsSync(),
       isFalse,
     );
+  });
+
+  test('D85: a download under way can be cancelled: nothing is installed '
+      'and nothing is said to have gone wrong', () async {
+    final app = update();
+    await app.check();
+    final held = port.hold = Completer<void>();
+    final installing = app.install();
+    await pumpEventQueue();
+    // 1 of 3 bytes arrived.
+    expect(app.progress, closeTo(0.333, 0.001));
+    app.cancelDownload();
+    expect(await installing, isNull);
+    expect(app.problem, isNull);
+    expect(app.progress, isNull);
+    expect(port.installed, isEmpty);
+    // The transfer stops at its next piece.
+    held.complete();
+    await pumpEventQueue();
+    expect(port.installed, isEmpty);
+    // And it can be started again.
+    port.hold = null;
+    expect(await app.install(), UpdateInstall.started);
   });
 }

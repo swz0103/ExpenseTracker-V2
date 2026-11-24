@@ -489,7 +489,7 @@ class _DayItemsState extends State<_DayItems> {
           ] else if (skipped) ...[
             const SizedBox(width: Space.s2),
             _rowButton(
-              '恢復',
+              Words.unarchive,
               AppColors.white,
               ink: AppColors.accent,
               () => refusalShown(

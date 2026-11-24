@@ -97,3 +97,18 @@ final class ComposeDrafts {
 
   void remove(ComposeMode tab) => _commands.setDraft(tab.name, null);
 }
+
+/// What [form] holds, as text to tell whether it changed since it opened
+/// (D83): the entry without the ids each building gives anew, its photo
+/// and what it paid for others.
+String formPrint(ComposeForm form) {
+  final entry = entryToJson(form.build())..remove('id');
+  return jsonEncode([
+    entry,
+    form.receipt,
+    [
+      for (final (person, share) in form.lent ?? const <(String, int)>[])
+        [person, share],
+    ],
+  ]);
+}

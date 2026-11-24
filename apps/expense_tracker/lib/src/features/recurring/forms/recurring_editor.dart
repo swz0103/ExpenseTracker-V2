@@ -59,6 +59,25 @@ class _RecurringEditorState extends State<_RecurringEditor> {
     ..addListener(() => _f.name = _name.text);
   String? _problem;
 
+  /// Something was chosen or typed since the form opened (D83): leaving
+  /// then asks first. Every choice the form takes rebuilds it.
+  var _touched = false;
+
+  /// The name as the form opened.
+  late final String _openedName;
+
+  @override
+  void initState() {
+    super.initState();
+    _openedName = _f.name;
+  }
+
+  @override
+  void setState(VoidCallback change) {
+    _touched = true;
+    super.setState(change);
+  }
+
   Ledger get _ledger => widget.ledger;
 
   @override
@@ -69,7 +88,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
 
   void _save() {
     if (_f.save()) {
-      Navigator.of(context).pop();
+      EditGuard.close(context);
     } else {
       setState(() => _problem = _f.problem);
     }
@@ -87,7 +106,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
     );
     if (!ok || !mounted) return;
     _ledger.recurringCommands.removeRecurring(item.id);
-    Navigator.of(context).pop();
+    EditGuard.close(context);
   }
 
   Future<void> _amount() async {
@@ -136,6 +155,17 @@ class _RecurringEditorState extends State<_RecurringEditor> {
   @override
   Widget build(BuildContext context) {
     final editing = widget.item != null;
+    return ListenableBuilder(
+      listenable: _name,
+      builder: (context, form) => EditGuard(
+        changed: _touched || _name.text != _openedName,
+        child: form!,
+      ),
+      child: _form(editing),
+    );
+  }
+
+  Widget _form(bool editing) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
       child: Column(
@@ -163,16 +193,25 @@ class _RecurringEditorState extends State<_RecurringEditor> {
           const SizedBox(height: Space.s2),
           OtherSettingsStrip(notes: _f.notes, onTap: _others),
           const SizedBox(height: Space.s4),
-          PanelButton(
-            editing
-                ? '儲存'
-                : _f.income
-                ? '儲存固定收入'
-                : '儲存固定支出',
-            color: editing
-                ? AppColors.accent
-                : (_f.income ? AppColors.positive : AppColors.negative),
-            onTap: _save,
+          Row(
+            children: [
+              const Expanded(child: CancelButton()),
+              const SizedBox(width: Space.s2),
+              Expanded(
+                flex: 2,
+                child: PanelButton(
+                  editing
+                      ? Words.save
+                      : _f.income
+                      ? '儲存固定收入'
+                      : '儲存固定支出',
+                  color: editing
+                      ? AppColors.accent
+                      : (_f.income ? AppColors.positive : AppColors.negative),
+                  onTap: _save,
+                ),
+              ),
+            ],
           ),
         ],
       ),

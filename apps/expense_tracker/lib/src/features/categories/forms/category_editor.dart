@@ -4,13 +4,13 @@ import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
+import '../../../core/formatting/words.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/pickers.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../model/category_form.dart';
 import 'category_form_widgets.dart';
-import '../../../core/formatting/words.dart';
 
 /// 編輯分類: a big card in the category's tint with its icon (tapped to
 /// choose another) and name, a row of colours, the ones under it four to
@@ -79,7 +79,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
       setState(() => _problem = problem);
       return;
     }
-    Navigator.of(context).pop(made);
+    EditGuard.close(context, made);
   }
 
   void _archive(Ledger ledger) {
@@ -88,7 +88,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
       c.name,
       c.copyWith(archived: !c.archived),
     );
-    Navigator.of(context).pop();
+    EditGuard.close(context);
   }
 
   Future<void> _merge(Ledger ledger) async {
@@ -107,7 +107,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
     );
     if (into == null || !mounted) return;
     ledger.categoryCommands.mergeCategory(c.name, into);
-    Navigator.of(context).pop();
+    EditGuard.close(context);
   }
 
   Future<void> _addChild(Ledger ledger) async {
@@ -158,6 +158,15 @@ class _CategoryEditorState extends State<_CategoryEditor> {
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
     final book = _f.book;
+    return ListenableBuilder(
+      listenable: _name,
+      builder: (context, form) =>
+          EditGuard(changed: _f.changedFrom(_name.text), child: form!),
+      child: _form(ledger, book),
+    );
+  }
+
+  Widget _form(Ledger? ledger, Ledger? book) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
       child: Column(
@@ -338,33 +347,36 @@ class _CategoryEditorState extends State<_CategoryEditor> {
     ]),
   ];
 
-  /// 合併 and 封存 for a kept category, 取消 for a new one, and 儲存.
+  /// 合併 and 封存 for a kept category, over 取消 and 儲存 (D83).
   Widget _actions(Ledger? book) {
-    return Row(
+    final save = Row(
       children: [
-        if (book != null) ...[
-          Expanded(child: PanelButton('合併', onTap: () => _merge(book))),
-          const SizedBox(width: Space.s2),
-          Expanded(
-            child: PanelButton(
-              widget.initial.archived ? '恢復' : '封存',
-              onTap: () => _archive(book),
-            ),
-          ),
-          const SizedBox(width: Space.s2),
-        ] else ...[
-          Expanded(
-            child: PanelButton(
-              Words.cancel,
-              onTap: () => Navigator.of(context).pop(),
-            ),
-          ),
-          const SizedBox(width: Space.s2),
-        ],
+        const Expanded(child: CancelButton()),
+        const SizedBox(width: Space.s2),
         Expanded(
           flex: 2,
-          child: PanelButton('儲存', color: AppColors.accent, onTap: _save),
+          child: PanelButton(Words.save, color: AppColors.accent, onTap: _save),
         ),
+      ],
+    );
+    if (book == null) return save;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: PanelButton('合併', onTap: () => _merge(book))),
+            const SizedBox(width: Space.s2),
+            Expanded(
+              child: PanelButton(
+                widget.initial.archived ? Words.unarchive : Words.archive,
+                onTap: () => _archive(book),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: Space.s2),
+        save,
       ],
     );
   }

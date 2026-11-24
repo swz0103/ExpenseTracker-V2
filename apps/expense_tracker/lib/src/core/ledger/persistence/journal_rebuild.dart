@@ -122,6 +122,7 @@ Future<({DecodedRecords records, bool apart, String? fault})> _decodedInHalves(
   String? fault;
   // Told as text: what was thrown need not be sendable to the screen's
   // isolate, which records it (`SqlLedgerDataSource`).
+  // Exception to error words: recorded in the ErrorLog, never shown.
   void report(Object error) => fault = ErrorLog.describe(error);
   DecodedRecords rest;
   try {
