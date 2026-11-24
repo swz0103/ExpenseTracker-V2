@@ -187,14 +187,23 @@ final class HoldingRepository implements HoldingReader {
   }
 
   @override
-  bool holdsWith(List<Entry> entries) {
-    try {
-      Portfolio.replay(_start, entries);
-      return true;
-    } on StateError {
-      // A book that would leave a sale short of shares is refused.
-      return false;
+  bool holdsWith(List<Entry> entries) => _newlyShort(entries) == null;
+
+  /// The trades an old book let take more shares than were held, left out
+  /// as it was read ([replay] with `lenient`): kept as they are, never
+  /// held against a later change (D47). Any other short trade is.
+  final _tolerated = <String>{};
+
+  /// The first trade of [entries], in date order, short of shares that
+  /// the book did not already hold short as it was read; null when none.
+  Entry? _newlyShort(List<Entry> entries) {
+    final short = Portfolio.replay(_start, entries, lenient: true).leftOut;
+    for (final id in short) {
+      if (!_tolerated.contains(id)) {
+        return entries.firstWhere((e) => e.id == id);
+      }
     }
+    return null;
   }
 
   /// Works the holdings out again from the starting positions and the
@@ -203,18 +212,25 @@ final class HoldingRepository implements HoldingReader {
   /// joins on its day, when the ledger's day check replays again. An oversold
   /// trade throws a [StateError] and leaves the holdings as they were,
   /// one dated later included, so no change leaves a later sale short;
-  /// with [lenient], as for a book just read, it is left out instead.
+  /// with [lenient], as for a book just read, it is left out instead, and
+  /// stays left out by every later replay ([_tolerated]): a change beside
+  /// it is held only to the trades it makes short itself.
   void replay(
     List<Entry> entries, {
     required DateTime today,
     bool lenient = false,
   }) {
     final counted = countedOn(entries, today).toList();
-    if (!lenient && counted.length != entries.length) {
-      // Every trade, the later ones too, must hold together.
-      Portfolio.replay(_start, entries);
+    if (lenient) {
+      _tolerated
+        ..clear()
+        ..addAll(Portfolio.replay(_start, entries, lenient: true).leftOut);
+    } else if (_newlyShort(entries) case final short?) {
+      // Every trade, the later ones too, must hold together; an old
+      // book's short trade, left out as it was read, stays left out.
+      throw OversoldTrade(short);
     }
-    _portfolio = Portfolio.replay(_start, counted, lenient: lenient);
+    _portfolio = Portfolio.replay(_start, counted, lenient: true);
     _withChanges = null;
   }
 
