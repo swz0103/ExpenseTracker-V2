@@ -164,4 +164,56 @@ void main() {
     expect(book.budgets.spentAgainst(Budget('飲食', 1000), 2026, 10), 170);
     expect(book.budgets.spentAgainst(Budget('早餐', 1000), 2026, 10), 70);
   });
+
+  group('edges review 11 found untested', () {
+    test('a forecast rounds half away from zero', () {
+      // 10 spent in 4 of 31 days: 10 x 31 / 4 = 77.5 -> 78.
+      expect(Book().budgets.forecast(10, 2026, 10), 78);
+    });
+
+    test('on the month\'s last day the forecast is what was spent', () {
+      final book = Book()..today = DateTime.utc(2026, 10, 31);
+      expect(book.budgets.forecast(400, 2026, 10), 400);
+      // Refunds past the spending: what was spent, not floored at 0.
+      expect(book.budgets.forecast(-100, 2026, 10), -100);
+    });
+
+    test('an overspent last month carries nothing, a refund-only one '
+        'nothing to a budget of 0', () {
+      final book = Book(
+        entries: [
+          entry('a', amount: 1300, date: DateTime.utc(2026, 9, 3)),
+          entry(
+            'r',
+            type: EntryType.income,
+            amount: 200,
+            category: '交通',
+            refundOf: 'gone',
+            date: DateTime.utc(2026, 9, 4),
+          ),
+        ],
+      );
+      // 1,000 - 1,300 left: below nothing, so 1,000 only.
+      expect(
+        book.budgets.allowance(Budget('飲食', 1000, carry: true), 2026, 10),
+        1000,
+      );
+      // 交通 spent -200 in September: a budget of 0 stays 0.
+      expect(book.budgets.allowance(Budget('交通', 0, carry: true), 2026, 10), 0);
+    });
+
+    test('a budget set from last month carries its leftover', () {
+      final book = Book(
+        entries: [entry('a', amount: 300, date: DateTime.utc(2026, 9, 3))],
+      );
+      final since = Budget(
+        '飲食',
+        1000,
+        carry: true,
+        since: DateTime.utc(2026, 9),
+      );
+      // 1,000 + (1,000 - 300).
+      expect(book.budgets.allowance(since, 2026, 10), 1700);
+    });
+  });
 }

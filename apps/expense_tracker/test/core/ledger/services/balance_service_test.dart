@@ -363,4 +363,114 @@ void main() {
       expect(sum, -100);
     });
   });
+
+  group('edges review 11 found untested', () {
+    test('a transfer takes its fee from where it left and brings what '
+        'arrived where it went', () {
+      final book = Book(
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 10000),
+          Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
+        ],
+        entries: [
+          Entry(
+            id: 't',
+            date: day,
+            type: EntryType.transfer,
+            amount: 3200,
+            fee: 15,
+            account: 'bank',
+            to: 'usd',
+            received: 10000,
+          ),
+        ],
+      );
+      // 10,000 - 3,200 - 15; US\$100.00 arrived.
+      expect(book.balances.balance('bank'), 6785);
+      expect(book.balances.balance('usd'), 10000);
+    });
+
+    test('an account left out of the net worth counts in none of it', () {
+      final book = Book(
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 1000),
+          Account('side', '私房', AccountKind.bank, 500, inNetWorth: false),
+          Account('card', '卡', AccountKind.card, -300),
+          Account('old', '舊卡', AccountKind.card, -700, inNetWorth: false),
+        ],
+      );
+      final worth = book.balances.netWorth(day);
+      expect((worth.saved, worth.owed), (1000, 300));
+      expect(book.balances.cardDebt, 300);
+    });
+
+    test('the worth of a day gone by counts what was then', () {
+      final book = Book(
+        entries: [entry('a', amount: 300, date: DateTime.utc(2026, 9, 15))],
+      );
+      // bank 1000 and cash 50 on 9/1; 300 less once spent.
+      expect(book.balances.netWorth(DateTime.utc(2026, 9, 1)).saved, 1050);
+      expect(book.balances.netWorth(day).saved, 750);
+    });
+
+    test('a week runs from its Sunday to its Saturday, both counted', () {
+      final book = Book(
+        entries: [
+          entry('a', amount: 10, date: DateTime.utc(2026, 9, 20)),
+          entry('b', amount: 20, date: DateTime.utc(2026, 9, 26)),
+          entry('c', amount: 40, date: DateTime.utc(2026, 9, 27)),
+        ],
+      );
+      expect(book.balances.weeklyChanges('bank'), [
+        (DateTime.utc(2026, 9, 13), 0),
+        // Sunday 9/20 to Saturday 9/26: 10 + 20.
+        (DateTime.utc(2026, 9, 20), -30),
+        // Sunday 9/27 to Saturday 10/3: 40.
+        (DateTime.utc(2026, 9, 27), -40),
+        (DateTime.utc(2026, 10, 4), 0),
+      ]);
+    });
+
+    test('a new day is asked again: the flow and the weeks take in a 預定 '
+        'entry once its day comes', () {
+      final book = Book(
+        entries: [entry('p', amount: 500, date: DateTime.utc(2026, 10, 6))],
+      );
+      expect(book.balances.flowOf('bank', day).outflow, 0);
+      expect(book.balances.weeklyChanges('bank').last.$2, 0);
+      book.today = DateTime.utc(2026, 10, 6);
+      expect(book.balances.flowOf('bank', day).outflow, 500);
+      expect(book.balances.weeklyChanges('bank').last.$2, -500);
+    });
+
+    test('a card given new billing days bills its instalments again by '
+        'them', () {
+      Account card(int closingDay) => Account(
+        'card',
+        '卡',
+        AccountKind.card,
+        0,
+        closingDay: closingDay,
+        dueDay: 20,
+      );
+      final book = Book(
+        accounts: [card(25)],
+        entries: [
+          entry(
+            'plan',
+            account: 'card',
+            amount: 3000,
+            installments: 3,
+            date: DateTime.utc(2026, 9, 1),
+          ),
+        ],
+      );
+      // Closing on the 25th: one share billed by 10/4 (on 9/25).
+      expect(book.balances.balance('card'), -1000);
+      book.accounts.replaceWith([card(2)]);
+      book.cache.forget(const {Topic.accounts});
+      // Closing on the 2nd: billed on 9/2 and 10/2.
+      expect(book.balances.balance('card'), -2000);
+    });
+  });
 }

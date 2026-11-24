@@ -3,19 +3,21 @@ APP = 'apps/expense_tracker/'
 SVC = APP + 'lib/src/core/ledger/services/'
 T = APP + 'test/'
 def flt(*files): return ('apps/expense_tracker', 'flutter test ' + ' '.join(files))
+# Every read method asked with an entry dated tomorrow (D25).
+ASOF = 'test/core/ledger/services/as_of_today_test.dart'
 AREAS = {
  'core':    ('packages/core', 'dart test'),
  'trade':   ('packages/ledger/trade_costs', 'dart test'),
  'loans':   ('packages/ledger/loans', 'dart test'),
  'entries': ('packages/ledger/entries', 'dart test'),
  'domain':  ('packages/domain', 'dart test'),
- 'balance': flt('test/core/ledger/services/balance_service_test.dart'),
- 'report':  flt('test/core/ledger/services/report_service_test.dart'),
- 'budget':  flt('test/core/ledger/services/budget_service_test.dart'),
- 'statement': flt('test/core/ledger/services/statement_service_test.dart'),
+ 'balance': flt('test/core/ledger/services/balance_service_test.dart', ASOF),
+ 'report':  flt('test/core/ledger/services/report_service_test.dart', ASOF),
+ 'budget':  flt('test/core/ledger/services/budget_service_test.dart', ASOF),
+ 'statement': flt('test/core/ledger/services/statement_service_test.dart', ASOF),
  'recurring': flt('test/core/ledger/services/recurring_service_test.dart'),
  'cardcycle': flt('test/core/ledger/services/statement_service_test.dart','test/core/ledger/services/balance_service_test.dart','test/baseline/installments_baseline_test.dart'),
- 'cardsummary': flt('test/features/accounts/model/card_summary_test.dart'),
+ 'cardsummary': flt('test/features/accounts/model/card_summary_test.dart', ASOF),
  'amount':  flt('test/design_system/display'),
 }
 # wide pass: for survivors, run a much broader app test set
@@ -586,4 +588,11 @@ EQUIVALENT = {
                  'day past the month end clamps to it), so the cycle of a '
                  'date is always found within a month either side; the '
                  'third month out is never reached',
+    'balance-06': 'flowOf: a change of 0 adds 0 to the inflow or the '
+                  'outflow alike',
+    'balance-09': '_buildRunning: a change and an instalment step on the '
+                  'same day are merged in either order; balances count a '
+                  'whole day, and flows sum each side apart',
+    'budget-04': 'forecast: no day of a month leaves 0 days gone (daysGone '
+                 'is at least 1), so the guard is never reached',
 }
