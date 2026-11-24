@@ -76,7 +76,13 @@ class _AccountsPageState extends State<AccountsPage> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // Balances and net worth, foreign accounts and holdings valued at the
+      // market.
+      listenable: ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.market,
+      }),
       builder: (context, _) {
         final accounts = walletAccounts(ledger);
         final archived = [

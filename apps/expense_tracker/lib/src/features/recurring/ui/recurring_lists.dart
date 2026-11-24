@@ -40,7 +40,15 @@ class _Manage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // The items, what they booked, their accounts and categories, and the
+      // rates their yearly cost is valued at.
+      listenable: ledger.watch(const {
+        Topic.recurring,
+        Topic.entries,
+        Topic.accounts,
+        Topic.categories,
+        Topic.market,
+      }),
       builder: (context, _) {
         final today = ledger.today;
         List<Widget> side(bool income) {
@@ -226,7 +234,14 @@ class _Paused extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // As the active items above.
+      listenable: ledger.watch(const {
+        Topic.recurring,
+        Topic.entries,
+        Topic.accounts,
+        Topic.categories,
+        Topic.market,
+      }),
       builder: (context, _) {
         final paused = [
           for (final r in ledger.recurring.all)

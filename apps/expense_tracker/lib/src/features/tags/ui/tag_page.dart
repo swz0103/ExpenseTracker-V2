@@ -143,7 +143,8 @@ class TagPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // The entries of the tag or merchant, their categories' icons.
+      listenable: ledger.watch(const {Topic.entries, Topic.categories}),
       builder: (context, _) {
         // Worked out once a build: each is a pass over the book.
         final project = merchant

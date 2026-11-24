@@ -104,6 +104,7 @@ final class BalanceService {
   /// index the entries keep by account, rather than a pass over every
   /// entry.
   List<Entry> entriesOf(String account) =>
+      // Exception to as-of-today: the account's list shows 預定 entries marked.
       List.unmodifiable(_entries.ofAccount(account).reversed);
 
   /// What came into [account] and what left it in [month] (the month of
@@ -162,6 +163,8 @@ final class BalanceService {
     // Instalments, each billed when its statement closes: few, and out of
     // the entries' order, so sorted apart and merged in.
     final steps = <(int, int)>[];
+    // Exception to as-of-today: every change is kept on its day; a balance
+    // counts those that count on its own ([_Running.until]).
     for (final e in _entries.ofAccount(id)) {
       final from = e.account == id;
       final into = e.type == EntryType.transfer && e.to == id;

@@ -67,7 +67,12 @@ class DebtsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // Balances of people and loans, foreign ones valued at the rates.
+      listenable: ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.market,
+      }),
       builder: (context, _) {
         final people = peopleOwing(ledger);
         final loans = openLoans(ledger);

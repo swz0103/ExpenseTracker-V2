@@ -53,7 +53,8 @@ class _TagsPageState extends State<TagsPage> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // Tags and merchants of the entries, categories' colours.
+      listenable: ledger.watch(const {Topic.entries, Topic.categories}),
       builder: (context, _) {
         final tags = ledger.reportService.tagStats;
         final merchants = ledger.reportService.merchantStats;

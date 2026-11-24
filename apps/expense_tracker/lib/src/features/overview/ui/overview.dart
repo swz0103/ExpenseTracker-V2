@@ -110,7 +110,9 @@ class _OverviewPageState extends State<OverviewPage> {
     return HeadedList(
       padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
       header: ListenableBuilder(
-        listenable: ledger,
+        // The month switch reads only the day, told with every change of the
+        // book, as with one of the entries.
+        listenable: ledger.watch(const {Topic.entries}),
         builder: (context, _) => PageHeader(
           '總覽',
           trailing: MonthSwitch(

@@ -60,7 +60,12 @@ class CardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // The card, its statements and charges, their categories' icons.
+      listenable: ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.categories,
+      }),
       builder: (context, _) {
         // Gone by another way, such as a restore: nothing to show.
         if (!ledger.accounts.contains(accountId)) {

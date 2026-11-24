@@ -39,7 +39,12 @@ class _AccountPageState extends State<AccountPage> {
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
     return ListenableBuilder(
-      listenable: ledger,
+      // The account, its balance and entries, their categories' icons.
+      listenable: ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.categories,
+      }),
       builder: (context, _) {
         // Gone by another way, such as a restore: nothing to show.
         if (!ledger.accounts.contains(widget.accountId)) {

@@ -25,7 +25,9 @@ class MorePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // Every part of the book: each block sums one (reports, holdings,
+      // budgets, recurring, tags).
+      listenable: ledger.watch(Topic.all),
       builder: (context, _) => HeadedList(
         padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s6),
         header: const PageHeader('更多'),

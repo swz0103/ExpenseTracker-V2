@@ -107,7 +107,8 @@ class _CategoriesPageState extends State<CategoriesPage> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // The categories alone.
+      listenable: ledger.watch(const {Topic.categories}),
       builder: (context, _) {
         final archived = [
           for (final c in ledger.categories.all)

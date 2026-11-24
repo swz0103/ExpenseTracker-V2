@@ -40,7 +40,12 @@ class HoldingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // The holding's trades and lots, and its quotes.
+      listenable: ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.market,
+      }),
       builder: (context, _) {
         final held = ledger.holding(code);
         final trades = ledger.entryQueryService.tradesOf(code);

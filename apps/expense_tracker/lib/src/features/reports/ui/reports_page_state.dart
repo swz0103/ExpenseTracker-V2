@@ -96,7 +96,14 @@ class _ReportsPageState extends State<ReportsPage> {
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
     return ListenableBuilder(
-      listenable: ledger,
+      // Sums of the entries, by account and category, with holdings valued at
+      // market prices.
+      listenable: ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.categories,
+        Topic.market,
+      }),
       builder: (context, _) {
         final report = _current;
         final period = _period;

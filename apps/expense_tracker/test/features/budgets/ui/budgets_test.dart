@@ -25,8 +25,7 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('回到本月'), findsOneWidget);
       // Back to this month: the button goes, the month row is one line.
-      await tester.tap(find.text('回到本月'));
-      await tester.pumpAndSettle();
+      await go(tester, ['回到本月']);
       expect(tester.takeException(), isNull);
       expect(find.text('回到本月'), findsNothing);
     });

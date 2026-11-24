@@ -72,7 +72,12 @@ class PersonPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // The person's balance and dealings, their categories' icons.
+      listenable: ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.categories,
+      }),
       builder: (context, _) {
         if (!ledger.accounts.contains(personId)) {
           WidgetsBinding.instance.addPostFrameCallback((_) => nav.back());
@@ -273,7 +278,8 @@ class LoanPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // The loan's terms, balance and payments.
+      listenable: ledger.watch(const {Topic.entries, Topic.accounts}),
       builder: (context, _) {
         if (!ledger.accounts.contains(loanId)) {
           WidgetsBinding.instance.addPostFrameCallback((_) => nav.back());

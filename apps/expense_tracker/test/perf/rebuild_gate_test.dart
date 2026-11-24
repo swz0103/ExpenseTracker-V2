@@ -15,7 +15,9 @@ void main() {
   /// The most widgets built again after each change, as measured.
   // An entry or the amounts shown build one more since 1.5: 總覽's notice
   // of bills to pay follows the book, and is an empty box while none is due.
-  const most = {'nothing': 0, 'a budget': 153, 'an entry': 876, 'amounts': 876};
+  // A budget builds 79 since PERF (was 153): the page's title and month
+  // follow the entries, not the whole ledger.
+  const most = {'nothing': 0, 'a budget': 79, 'an entry': 876, 'amounts': 876};
 
   testWidgets('a change builds no more of 總覽 than it did', (tester) async {
     final ledger = demoLedger();

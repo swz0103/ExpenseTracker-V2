@@ -120,6 +120,7 @@ final class StatementService {
   /// The entries paid from or into [card] after [end]: from the index
   /// the entries keep by account, the days before found by a search.
   List<Entry> _after(Account card, DateTime end) {
+    // Exception to as-of-today: each caller takes them through countedOn.
     final entries = _entries.ofAccount(card.id);
     var low = 0;
     var high = entries.length;
