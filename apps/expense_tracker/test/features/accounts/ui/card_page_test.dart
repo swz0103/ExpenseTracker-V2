@@ -113,6 +113,47 @@ void main() {
     handle.dispose();
   });
 
+  testWidgets('an instalment plan\'s bar is read as 分期已繳 and a percent '
+      '(review 16: progress semantics, instalments)', (tester) async {
+    tester.view.physicalSize = const Size(420, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 10, 10),
+      accounts: const [
+        Account(
+          'card',
+          '卡',
+          AccountKind.card,
+          0,
+          closingDay: 25,
+          dueDay: 10,
+          limit: 100000,
+        ),
+      ],
+      categories: [],
+      entries: [
+        Entry(
+          id: 'tv',
+          date: DateTime.utc(2026, 7, 1),
+          type: EntryType.expense,
+          amount: 12000,
+          account: 'card',
+          category: '購物',
+          installments: 12,
+        ),
+      ],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+    await _show(tester, ledger);
+    // Bought Jul 1 on a card closing on the 25th: billed on the Jul, Aug
+    // and Sep statements, 3 of 12 periods, 25%.
+    expect(find.textContaining('第 3 / 12 期'), findsOneWidget);
+    expect(_bars(tester), contains(('分期已繳', '25%')));
+  });
+
   testWidgets('R28: two closes moved apart count the cycle to the later '
       'one, and moving the close starts from it', (tester) async {
     tester.view.physicalSize = const Size(420, 2400);
