@@ -1,3 +1,5 @@
+import 'package:ledger_trade_costs/model/trade_values.dart'
+    show InvestmentError, InvestmentException;
 import 'package:ledger_trade_costs/calc/broker_discount.dart';
 import 'package:ledger_trade_costs/calc/charges.dart';
 import 'package:test/test.dart';
@@ -63,7 +65,13 @@ void main() {
     );
     expect(
       () => TaiwanTradeCharges(discountBasisPoints: 10001),
-      throwsA(anything),
+      throwsA(
+        isA<InvestmentException>().having(
+          (e) => e.code,
+          'code',
+          InvestmentError.invalidInput,
+        ),
+      ),
     );
   });
 }
