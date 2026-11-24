@@ -367,6 +367,52 @@ bool f(DateTime d, DateTime from, int y, int m) {
         isEmpty,
       );
     });
+    test('passes a name held in one function and a parameter, loop '
+        'variable or later value of that name elsewhere (review 30)', () {
+      expect(
+        run(rule, {
+          '$_feat/a/x.dart': '''
+DateTime f(int y, int m, int d) {
+  final day = DateTime(y, m, d);
+  return day;
+}
+bool g(DateTime day, DateTime other) => day.isAfter(other);
+bool h(DateTime other, List<DateTime> days) {
+  {
+    final start = DateTime(other.year, other.month);
+    print(start);
+  }
+  var today = DateTime(2026, 1, 1);
+  today = DateTime.utc(2026, 1, 1);
+  for (final day in days) {
+    if (day.isBefore(other)) return true;
+  }
+  final check = (DateTime start) => start.isAfter(other);
+  return check(other) && today.isAfter(other);
+}
+''',
+        }),
+        isEmpty,
+      );
+    });
+    test('still flags a name held in the same function, in a closure '
+        'within it, or assigned a local midnight later (review 30)', () {
+      final v = run(rule, {
+        '$_feat/a/x.dart': '''
+bool f(DateTime other, int y, int m) {
+  final day = DateTime(y, m, 1);
+  var end = DateTime.utc(y, m, 1);
+  end = DateTime(y, m, 2);
+  bool later() => day.isAfter(other);
+  return later() && end.isBefore(other);
+}
+''',
+      });
+      expect(
+        [for (final e in v) (e.line, e.message)],
+        [(5, message), (6, message)],
+      );
+    });
   });
 
   group('B5-owned-values', () {
