@@ -94,15 +94,6 @@ void main() {
             .having((e) => e.detail, 'detail', 'no size'),
       ),
     );
-    // One byte past the largest backup, 4 GiB (4294967296 + 1).
-    http.sizeSaid[id] = '4294967297';
-    await expectLater(
-      client.download(id, into),
-      throwsA(
-        isA<DriveException>().having((e) => e.detail, 'detail', 'too large'),
-      ),
-    );
-    expect(into.existsSync(), isFalse);
     http.sizeSaid[id] = '3';
     await client.download(id, into);
     expect(into.readAsStringSync(), 'one');

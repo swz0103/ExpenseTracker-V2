@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:vault/ledger_backup.dart' show LedgerBackup;
-
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/platform/bounded_https.dart';
 import '../../../core/formatting/json_fields.dart';
@@ -39,9 +37,18 @@ abstract interface class DriveHttp {
 
 /// [DriveHttp] over dart:io, through [BoundedHttps]: a redirect is
 /// followed only to `https`, an answer's words are read up to
-/// [answerLimit] and a saved body up to the limit its request gives.
+/// [answerLimit] and a saved body up to the limit its request gives,
+/// which may not pass [saveLimit].
 final class IoDriveHttp implements DriveHttp {
-  const IoDriveHttp({this.answerLimit = maxAnswerBytes});
+  const IoDriveHttp({
+    required this.saveLimit,
+    this.answerLimit = maxAnswerBytes,
+  });
+
+  /// The most any body saved to a file may weigh: no backup is larger
+  /// (`LedgerBackup.maxBackupBytes`, given by the app). A request that
+  /// allows more is refused before it is sent.
+  final int saveLimit;
 
   /// The most a JSON answer from Drive may weigh: a page of
   /// [DriveBackup.pageSize] backups is some tens of kilobytes.
@@ -64,8 +71,9 @@ final class IoDriveHttp implements DriveHttp {
     File? saveTo,
     int? saveLimit,
   }) async {
-    if (saveTo != null && saveLimit == null) {
-      throw ArgumentError.notNull('saveLimit');
+    if (saveTo != null) {
+      final allowed = saveLimit ?? (throw ArgumentError.notNull('saveLimit'));
+      if (allowed > this.saveLimit) throw AnswerTooLarge(this.saveLimit, url);
     }
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 20)
@@ -407,12 +415,16 @@ final class DriveBackup {
             _need<String>(row, 'name'),
             DateTime.tryParse(row.text('modifiedTime') ?? '') ??
                 DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-            // Drive writes sizes as words.
-            int.tryParse(row.text('size') ?? '') ?? row.whole('size') ?? 0,
+            _size(row) ?? 0,
             epoch: row.object('appProperties')?.text(epochProperty),
           ),
     ]..sort((a, b) => b.modified.compareTo(a.modified));
   }
+
+  /// The size in bytes [json] gives; null when it gives none. Drive
+  /// writes sizes as words.
+  static int? _size(JsonFields json) =>
+      int.tryParse(json.text('size') ?? '') ?? json.whole('size');
 
   /// The property a backup goes up marked with: the backup key epoch it
   /// was sealed with, so those of keys since replaced can be found (D15).
@@ -522,9 +534,9 @@ final class DriveBackup {
   }
 
   /// Saves the backup [id] into [into]: no more than the size Drive
-  /// gives for it, and never past [LedgerBackup.maxBackupBytes], so a
-  /// broken or hostile answer cannot fill the phone. A file whose size
-  /// Drive does not give, or one larger than any backup, is refused.
+  /// gives for it, so a broken or hostile answer cannot fill the phone. A
+  /// file whose size Drive does not give is refused, and one larger than
+  /// any backup is refused by [DriveHttp] before it is asked for.
   Future<void> download(String id, File into, {bool interactive = true}) async {
     final address = Uri.parse('$_api/${Uri.encodeComponent(id)}');
     final about = await _send(
@@ -532,14 +544,9 @@ final class DriveBackup {
       address.replace(queryParameters: {'fields': 'size'}),
       interactive: interactive,
     );
-    final said = _answer(about);
-    // Drive writes sizes as words.
-    final size = int.tryParse(said.text('size') ?? '') ?? said.whole('size');
+    final size = _size(_answer(about));
     if (size == null || size < 0) {
       throw const DriveException(DriveProblem.refused, 'no size');
-    }
-    if (size > LedgerBackup.maxBackupBytes) {
-      throw const DriveException(DriveProblem.refused, 'too large');
     }
     await into.parent.create(recursive: true);
     try {

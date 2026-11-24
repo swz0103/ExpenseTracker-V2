@@ -167,8 +167,11 @@ void main() {
     final old = OldKeyBackups(
       epoch: after.backupEpoch,
       localBackups: after.keptBackups,
-      folderBackups: () =>
-          phone.writtenBefore(resetAt, epoch: after.backupEpoch),
+      folderBackups: () => phone.writtenBefore(
+        resetAt,
+        epoch: after.backupEpoch,
+        head: EncryptedBackupManager.head,
+      ),
       deleteInFolder: phone.remove,
       keptDatabases: after.keptDatabases,
       deleteDatabase: after.deleteKeptDatabase,
@@ -236,10 +239,21 @@ void main() {
     // its header cannot be read and its written time is unknown, so it
     // is kept out of the list too.
     folder.files['記帳本-ledger-20261124-1000x.etbk'] = 'not a backup';
-    final listed = await phone.writtenBefore(resetAt, epoch: 2);
+    final listed = await phone.writtenBefore(
+      resetAt,
+      epoch: 2,
+      head: EncryptedBackupManager.head,
+    );
     expect([for (final f in listed) f.name], [oldName]);
     // Seen from epoch 1, neither backup is sealed before it.
-    expect(await phone.writtenBefore(resetAt, epoch: 1), isEmpty);
+    expect(
+      await phone.writtenBefore(
+        resetAt,
+        epoch: 1,
+        head: EncryptedBackupManager.head,
+      ),
+      isEmpty,
+    );
     vaultOf(startup).close();
   });
 
@@ -265,11 +279,25 @@ void main() {
     final name = phone.nameAt(now);
     final resetAt = DateTime(2026, 11, 24, 10, 0, 30);
     folder.modifiedAt[name] = DateTime.fromMillisecondsSinceEpoch(0);
-    expect(await phone.writtenBefore(resetAt, epoch: 2), isEmpty);
+    expect(
+      await phone.writtenBefore(
+        resetAt,
+        epoch: 2,
+        head: EncryptedBackupManager.head,
+      ),
+      isEmpty,
+    );
     // With a known time before the reset it is listed.
     folder.modifiedAt[name] = DateTime(2026, 11, 24, 10, 0, 10);
     expect(
-      [for (final f in await phone.writtenBefore(resetAt, epoch: 2)) f.name],
+      [
+        for (final f in await phone.writtenBefore(
+          resetAt,
+          epoch: 2,
+          head: EncryptedBackupManager.head,
+        ))
+          f.name,
+      ],
       [name],
     );
   });

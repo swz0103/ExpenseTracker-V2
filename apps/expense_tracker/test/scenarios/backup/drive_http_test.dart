@@ -75,7 +75,8 @@ final class _Offline implements DriveHttp {
 void main() {
   late Directory directory;
   late _Server server;
-  const http = IoDriveHttp();
+  // 4 GiB, as the app gives it (LedgerBackup.maxBackupBytes).
+  const http = IoDriveHttp(saveLimit: 4 * 1024 * 1024 * 1024);
 
   setUp(() async {
     directory = Directory.systemTemp.createTempSync('drive-http-');
@@ -117,7 +118,10 @@ void main() {
       server.reply = (status: 200, body: 'x' * 100, headers: const {});
       // 100 bytes against a 64-byte limit.
       await expectLater(
-        const IoDriveHttp(answerLimit: 64).send('GET', server.url('/files')),
+        const IoDriveHttp(
+          saveLimit: 64,
+          answerLimit: 64,
+        ).send('GET', server.url('/files')),
         throwsA(isA<AnswerTooLarge>()),
       );
       final into = File('${directory.path}/download.etbk');
@@ -125,6 +129,19 @@ void main() {
         http.send('GET', server.url('/files/f1'), saveTo: into, saveLimit: 64),
         throwsA(isA<AnswerTooLarge>()),
       );
+      // A request allowing more than any backup (4 GiB + 1) is refused
+      // before it is sent.
+      final asked = server.asked.length;
+      await expectLater(
+        http.send(
+          'GET',
+          server.url('/files/f1'),
+          saveTo: into,
+          saveLimit: 4 * 1024 * 1024 * 1024 + 1,
+        ),
+        throwsA(isA<AnswerTooLarge>()),
+      );
+      expect(server.asked, hasLength(asked));
       // A body saved with no limit given is a mistake of the caller.
       await expectLater(
         http.send('GET', server.url('/files/f1'), saveTo: into),

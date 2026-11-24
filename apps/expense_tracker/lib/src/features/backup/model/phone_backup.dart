@@ -3,7 +3,6 @@ import 'package:core/foundation_values.dart' show BusinessDate, twoDigits;
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:vault/ledger_backup.dart' show LedgerBackup;
 
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
@@ -21,6 +20,11 @@ final class FolderRejected implements Exception {
 
 /// A file in the chosen folder.
 typedef FolderFile = ({String id, String name, DateTime modified});
+
+/// How a backup's key epoch is read from its first bytes: how many to
+/// read (`reach`), and the epoch they name (`epochIn`, which throws when
+/// they are not a backup's start). `EncryptedBackupManager.head`.
+typedef BackupHead = ({int reach, int Function(List<int> leading) epochIn});
 
 /// A folder on the phone chosen once, which the app keeps writing into:
 /// Android's folder chooser and its documents API; a fake in tests.
@@ -174,21 +178,23 @@ final class PhoneBackup extends ChangeNotifier {
   }
 
   /// This ledger's backups in the folder sealed before a reset of the
-  /// keys at [at], newest first: those whose header names a key epoch
-  /// before [epoch]. One whose header cannot be read is judged by the
+  /// keys at [at], newest first: those whose header, read by [head],
+  /// names a key epoch before [epoch]. One whose header cannot be read is
+  /// judged by the
   /// time in its name, and in the minute of [at] by when the file was
   /// written; a folder that gives no such time (0) keeps it out of the
   /// list. None when no folder is chosen.
   Future<List<FolderFile>> writtenBefore(
     DateTime at, {
     required int epoch,
+    required BackupHead head,
   }) async {
     final uri = _preferences.phoneFolder;
     if (uri == null) return const [];
     final then = nameAt(at);
     return [
       for (final file in await _ours(uri))
-        if (switch (await _epochOf(uri, file)) {
+        if (switch (await _epochOf(uri, file, head)) {
           final sealed? => sealed < epoch,
           null =>
             file.name.compareTo(then) < 0 ||
@@ -201,10 +207,9 @@ final class PhoneBackup extends ChangeNotifier {
   }
 
   /// The key epoch [file]'s header names; null when it cannot be read.
-  Future<int?> _epochOf(String uri, FolderFile file) async {
+  Future<int?> _epochOf(String uri, FolderFile file, BackupHead head) async {
     try {
-      final head = await _folder.head(uri, file.id, LedgerBackup.headerReach);
-      return LedgerBackup.headerOf(head).backupEpoch;
+      return head.epochIn(await _folder.head(uri, file.id, head.reach));
     } on Object catch (error) {
       ErrorLog.instance.record(ErrorSteps.oldKeyBackups, error);
       return null;

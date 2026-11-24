@@ -14,6 +14,7 @@ import 'lifecycle_services.dart';
 import 'load_failed_page.dart';
 import 'quarantine_notices.dart';
 import 'upgrade_held_page.dart';
+import '../features/backup/model/encrypted_backup_manager.dart';
 import '../features/backup/model/old_key_backups.dart';
 import '../features/backup/ui/old_key_backups_offer.dart';
 import '../core/ledger/persistence/quarantine.dart';
@@ -468,7 +469,11 @@ class _OpenedLedgerState extends State<OpenedLedger>
       driveFiles: drive != null && drive.linked ? drive.backups : null,
       trashOnDrive: drive?.trash,
       folderBackups: phone != null && phone.on && resetAt != null
-          ? () => phone.writtenBefore(resetAt, epoch: backups.backupEpoch)
+          ? () => phone.writtenBefore(
+              resetAt,
+              epoch: backups.backupEpoch,
+              head: EncryptedBackupManager.head,
+            )
           : null,
       deleteInFolder: phone?.remove,
       keptDatabases: backups.keptDatabases,
