@@ -9,14 +9,23 @@ import 'models/models.dart';
 /// each stock's lots and what they cost, and how many shares were held
 /// after each trade. The same inputs always give the same portfolio.
 final class Portfolio {
-  Portfolio._(this.holdings, this.every, this._lots, this._steps, this.leftOut);
+  Portfolio._(
+    this.holdings,
+    this.every,
+    this._lots,
+    this._steps,
+    this.leftOut,
+    this.faulty,
+  );
 
   /// Replays the trades of [entries] over the [start] positions, in date
   /// order and in the order written within a day. An oversold trade
   /// throws an [OversoldTrade].
   ///
   /// With [lenient], a trade that would oversell is left out instead, so a
-  /// book kept before a rule was added still opens.
+  /// book kept before a rule was added still opens; and so is a trade the
+  /// replay cannot work with at all, whatever it throws ([faulty]): a book
+  /// just read never fails to open over one trade.
   factory Portfolio.replay(
     List<Holding> start,
     List<Entry> entries, {
@@ -32,6 +41,7 @@ final class Portfolio {
       for (final h in start) h.code: [(opening, h.shares)],
     };
     final leftOut = <String>[];
+    final faulty = <String, Object>{};
     for (final e in _inOrder(entries)) {
       final code = e.holding!;
       final held = byCode[code] ?? _firstBought(code, e);
@@ -41,6 +51,12 @@ final class Portfolio {
       } on StateError {
         if (!lenient) throw OversoldTrade(e);
         leftOut.add(e.id);
+        continue;
+      } on Object catch (error) {
+        // A trade no rule lets be written (a shape check missed it): read
+        // leniently it is left out and named, never thrown.
+        if (!lenient) rethrow;
+        faulty[e.id] = error;
         continue;
       }
       if (traded != null) byCode[code] = traded;
@@ -56,6 +72,7 @@ final class Portfolio {
       lots,
       steps,
       List.unmodifiable(leftOut),
+      Map.unmodifiable(faulty),
     );
   }
 
@@ -236,6 +253,12 @@ final class Portfolio {
   /// The trades left out, by id: those an older version let take more
   /// shares than were held, read leniently.
   final List<String> leftOut;
+
+  /// The trades left out, read leniently, because working them in threw
+  /// something other than a short sale, by id, with what it threw: a
+  /// trade of a shape no rule lets be written. A book just read sets each
+  /// aside (holding_repository.dart's `readHoldings`).
+  final Map<String, Object> faulty;
 
   /// The lots of [code] still held, oldest first.
   List<Lot> lotsOf(String code) => List.unmodifiable(_lots[code] ?? const []);

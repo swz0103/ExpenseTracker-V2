@@ -2,11 +2,14 @@
 // format; they keep their spelling whatever the screens come to say.
 import 'package:core/foundation_values.dart' show BusinessDate, Currency;
 import 'package:core/money/amount_parser.dart';
+import 'package:core/money/typed_text.dart' show plainText;
 import 'package:domain/data_exchange.dart';
+import 'package:flutter/foundation.dart' show compute;
 
 import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/amount_messages.dart';
+import '../../../core/messages/import_messages.dart';
 import '../../../core/messages/validation_messages.dart';
 import '../../entries/model/invoices.dart';
 
@@ -203,8 +206,10 @@ bool _isSplit(String cell) {
 String _day(DateTime d) => BusinessDate.of(d).toString();
 
 /// The rows of [text] read as CSV, a leading byte order mark and blank
-/// lines left out. A quote left open runs to the end, as a spreadsheet
-/// reads it; words after a closing quote throw [CsvFormatException].
+/// lines left out, a quote left open read to the end, as a spreadsheet
+/// reads it; words after a closing quote throw [CsvFormatException]. Not
+/// what an import reads: [importCsv] refuses a quote left open, the whole
+/// file, rather than run the rest of it into one cell.
 List<List<String>> parseCsv(String text) {
   try {
     return readCsv(text);
@@ -215,33 +220,16 @@ List<List<String>> parseCsv(String text) {
   }
 }
 
-/// A day written as 2026-03-05, 2026/3/5, 20260305 or, in the Republic
-/// of China calendar, 1150305; null when unreadable.
-DateTime? readDay(String text) {
-  final value = text.trim();
-  final digits = RegExp(r'^\d{7,8}$');
-  if (digits.hasMatch(value)) {
-    final cut = value.length - 4;
-    var year = int.parse(value.substring(0, cut));
-    if (value.length == 7) year += 1911;
-    final month = int.parse(value.substring(cut, cut + 2));
-    final day = int.parse(value.substring(cut + 2));
-    return _valid(year, month, day);
-  }
-  final parts = value.split(RegExp(r'[-/.]'));
-  if (parts.length != 3) return null;
-  final numbers = parts.map(int.tryParse).toList();
-  if (numbers.contains(null)) return null;
-  var year = numbers[0]!;
-  if (year < 1000) year += 1911;
-  return _valid(year, numbers[1]!, numbers[2]!);
-}
+/// The day [text] writes ([readImportDay], decision D93), as a UTC
+/// midnight; null when it is not taken, [readImportDay] saying why.
+DateTime? readDay(String text) => _utcDay(readImportDay(text));
 
-DateTime? _valid(int year, int month, int day) {
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  final date = DateTime.utc(year, month, day);
-  return date.month == month ? date : null;
-}
+/// The day [read], as a UTC midnight; null when it was refused.
+DateTime? _utcDay(ImportDay read) => switch (read) {
+  DayRead(date: BusinessDate(:final year, :final month, :final day)) =>
+    DateTime.utc(year, month, day),
+  DayRefused() => null,
+};
 
 /// [text] in the smallest unit of [currency]: `1,200` and `NT$ 120` read
 /// as written, more decimals than the currency has are rounded. What
@@ -328,28 +316,97 @@ const _shades = [
 /// 錢包…); a line without an account goes to [fallback]. A line matching
 /// an entry already in the book is left out, and so is one the book
 /// would refuse, such as a sale of more shares than are held then.
-Import importCsv(ImportBook book, String text, {required String fallback}) {
-  final List<List<String>> rows;
+///
+/// A quote left open, or words after a closing one, leave the whole file
+/// out, naming the line: the rest of it is never run into one cell. Each
+/// line left out is named by the line of the file it is on, blank lines
+/// and line breaks inside quoted words counted.
+Import importCsv(ImportBook book, String text, {required String fallback}) =>
+    switch (_readCsv(text)) {
+      (rows: final rows?, unreadable: _) => _importing(
+        book,
+        rows,
+        fallback,
+      ).last!,
+      (rows: _, :final unreadable) => _unreadableFile(unreadable!),
+    };
+
+/// [importCsv] without holding the screen still: a long [text] is read
+/// as CSV on a worker isolate, and its lines are read a slice of time at
+/// a time ([importSlice]), the screen drawn between slices.
+Future<Import> importCsvApart(
+  ImportBook book,
+  String text, {
+  required String fallback,
+}) async {
+  final read = text.length < readApartFrom
+      ? _readCsv(text)
+      : await compute(_readCsv, text);
+  final rows = read.rows;
+  if (rows == null) return _unreadableFile(read.unreadable!);
+  final slice = Stopwatch()..start();
+  Import? found;
+  for (final step in _importing(book, rows, fallback)) {
+    found = step;
+    if (slice.elapsed > importSlice) {
+      await Future<void>.delayed(Duration.zero);
+      slice.reset();
+    }
+  }
+  return found!;
+}
+
+/// From how many characters [importCsvApart] reads a file as CSV on a
+/// worker isolate: a shorter one is read in a few milliseconds.
+const readApartFrom = 100000;
+
+// Exception to the motion scale: a share of a frame's time, not a
+// movement.
+/// How long [importCsvApart] reads lines before the screen is drawn:
+/// half a frame at 60 Hz.
+const importSlice = Duration(milliseconds: 8);
+
+/// [text] read as CSV: its records, or the line of a quote that cannot be
+/// read.
+({List<CsvRecord>? rows, int? unreadable}) _readCsv(String text) {
   try {
-    rows = parseCsv(text);
+    return (rows: readCsvRecords(text), unreadable: null);
   } on CsvFormatException catch (error) {
     // Said to the person: the file is left as it is rather than guessed at.
-    return Import(const [], 1, problems: ['第 ${error.line} 行的引號看不懂，整個檔案沒有匯入']);
+    return (rows: null, unreadable: error.line);
   }
-  if (rows.isEmpty) return const Import([], 0);
-  final head = [for (final h in rows.first) h.trim()];
+}
+
+/// The whole file left out for a quote that cannot be read on [line].
+Import _unreadableFile(int line) =>
+    Import(const [], 1, problems: ['第 $line 行的引號看不懂，整個檔案沒有匯入']);
+
+/// The steps of importing [rows]: null after each line read, then what
+/// was found, last.
+Iterable<Import?> _importing(
+  ImportBook book,
+  List<CsvRecord> rows,
+  String fallback,
+) sync* {
+  if (rows.isEmpty) {
+    yield const Import([], 0);
+    return;
+  }
+  final head = [for (final h in rows.first.cells) plainText(h).trim()];
   if (!head.contains('日期') || !head.contains('金額')) {
-    return Import(const [], rows.length, problems: const ['第一行要有「日期」和「金額」欄位']);
+    yield Import(const [], rows.length, problems: const ['第一行要有「日期」和「金額」欄位']);
+    return;
   }
   final reader = _Reader(book, fallback);
-  for (final (i, row) in rows.skip(1).indexed) {
+  for (final (:line, cells: row) in rows.skip(1)) {
     String cell(String name) {
       final at = head.indexOf(name);
-      return at < 0 || at >= row.length ? '' : row[at].trim();
+      return at < 0 || at >= row.length ? '' : plainText(row[at]).trim();
     }
 
-    final problem = reader.read(cell);
-    if (problem != null) reader.skip(i + 2, problem);
+    final problem = reader.read(cell, line: line);
+    if (problem != null) reader.skip(line, problem);
+    yield null;
   }
-  return reader.result();
+  yield* reader.result();
 }

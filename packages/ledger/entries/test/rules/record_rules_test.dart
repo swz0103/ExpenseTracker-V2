@@ -46,6 +46,20 @@ void main() {
       ]);
       expect(recurring(start: start, end: start), isEmpty);
     });
+    test('an amount above the most kept is refused (R12 F3)', () {
+      // 99,999,999,999 is the most in any currency (US cents).
+      expect(
+        _types(recurringShapeIssues(amount: 100000000000, every: 1, day: 5)),
+        [AmountTooLarge],
+      );
+      expect(
+        recurringShapeIssues(amount: 99999999999, every: 1, day: 5),
+        isEmpty,
+      );
+      expect(_types(recurringIssues(amount: 100000000000, every: 1, day: 5)), [
+        AmountTooLarge,
+      ]);
+    });
     test('read back, an amount of nothing still reads; below it does not', () {
       expect(recurringShapeIssues(every: 1, day: 5), isEmpty);
       expect(_types(recurringShapeIssues(amount: -1, every: 0, day: 40)), [
@@ -78,6 +92,15 @@ void main() {
       expect(_types(accountIssues(limit: -1)), [NegativeCreditLimit]);
       expect(accountIssues(limit: 0), isEmpty);
     });
+    test('a credit limit above the most kept is refused (R12 F3)', () {
+      // 99,999,999,999 is the most in any currency (US cents).
+      expect(_types(accountShapeIssues(limit: 100000000000)), [AmountTooLarge]);
+      expect(accountShapeIssues(limit: 99999999999), isEmpty);
+      expect(_types(accountShapeIssues(opening: -100000000000)), [
+        AmountTooLarge,
+      ]);
+      expect(accountShapeIssues(opening: -99999999999), isEmpty);
+    });
     test('read back, the name is not asked for', () {
       expect(accountShapeIssues(), isEmpty);
       expect(_types(accountShapeIssues(closingDay: 0)), [ClosingDayOutOfRange]);
@@ -91,6 +114,11 @@ void main() {
     test('a limit below nothing is refused', () {
       expect(_types(budgetIssues(limit: -1, warning: 80)), [
         NegativeBudgetLimit,
+      ]);
+    });
+    test('a limit above the most kept is refused (R12 F3)', () {
+      expect(_types(budgetIssues(limit: 100000000000, warning: 80)), [
+        AmountTooLarge,
       ]);
     });
     test('a warning share outside 1% to 100% is refused', () {

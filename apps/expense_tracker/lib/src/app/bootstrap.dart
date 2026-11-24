@@ -64,7 +64,7 @@ Startup productionStartup(
   DeviceUnlock? device,
   UptimeSource? uptime,
 }) => Startup(
-  LedgerVault(directory, codec: KeyringCodec()),
+  LedgerVault(directory, codec: KeyringCodec(), now: AppClock.now),
   device: device,
   check: SqlLedgerDataSource.check,
   quickKey: Platform.isAndroid
@@ -231,6 +231,7 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
             lifecycle: _lifecycle,
             leave: widget.leave,
           ),
+          Damaged() => DamagedBookPage.of(startup),
           final state => LockScreen(
             key: ValueKey(state.runtimeType),
             startup: startup,
@@ -326,11 +327,11 @@ class _OpenedLedgerState extends State<OpenedLedger>
     });
 
   Future<Ledger> _open() async {
-    await _hold.prepare(_session.prepare);
-    final start = await _session.open();
+    final start = await widget.startup.readingBook(
+      _hold.prepare(_session.prepare).then((_) => _session.open()),
+    );
     await _services.start(start.ledger);
-    // Rows a newer version wrote are told once a set (D18); rows that
-    // cannot be read, every opening.
+    // Rows set aside are told (D18): newer ones once a set, others always.
     final tell = await QuarantineNotices(widget.startup.quarantineTold)
         .toTell(start.quarantined);
     _afterFrame(() {

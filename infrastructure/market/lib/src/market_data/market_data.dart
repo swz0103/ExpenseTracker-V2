@@ -184,7 +184,8 @@ final class MarketDataGateway {
   final _failedAt = <Uri, DateTime>{};
   final _pending = <Uri, Future<_Fetch>>{};
 
-  /// The latest close of a TWSE or TPEx stock or ETF traded in NT$.
+  /// The latest close of a TWSE or TPEx stock or ETF traded in NT$; one
+  /// dated after today is refused as failed (D95).
   Future<MarketResult<StockClose>> stockClose(Listing instrument) async {
     final (uri, codeKey, priceKey, nameKey) = switch (instrument.market) {
       'TWSE' => (twseUri, 'Code', 'ClosingPrice', 'Name'),
@@ -212,6 +213,11 @@ final class MarketDataGateway {
         return const MarketResult(MarketState.missing, reason: 'No trade');
       }
       final asOf = _rocDate(row['Date']);
+      // A close dated after today is no close (D95): never taken, so it
+      // cannot move the day the holdings are quoted on.
+      if (_ahead(asOf)) {
+        return const MarketResult(MarketState.failed, reason: 'Future date');
+      }
       final name = row[nameKey];
       final close = StockClose(
         symbol: instrument.symbol,
@@ -275,8 +281,9 @@ final class MarketDataGateway {
   }
 
   /// Every trading day's close of [symbol] in [year]/[month], oldest
-  /// first: from TWSE's month report, or TPEx's when [otc]. Missing when
-  /// the exchange has no such stock or no trade that month.
+  /// first, none dated after today: from TWSE's month report, or TPEx's
+  /// when [otc]. Missing when the exchange has no such stock or no trade
+  /// that month.
   Future<MarketResult<List<DayClose>>> monthCloses(
     String symbol,
     int year,
@@ -299,7 +306,11 @@ final class MarketDataGateway {
       return MarketResult(fetched.state, reason: fetched.reason);
     }
     try {
-      final closes = monthReportCloses(snapshot.decoded);
+      final closes = [
+        // A day after today is no trading day yet (D95).
+        for (final close in monthReportCloses(snapshot.decoded))
+          if (!_ahead(close.date)) close,
+      ];
       return MarketResult(
         closes.isEmpty ? MarketState.missing : MarketState.available,
         value: closes,
@@ -335,10 +346,13 @@ final class MarketDataGateway {
       }
       final price = _positiveDecimal(row[closeAt]);
       if (price == null) continue;
+      final asOf = _rocSlashDate(row[dayAt]);
+      // A day after today is no trading day yet (D95).
+      if (_ahead(asOf)) continue;
       return StockClose(
         symbol: symbol,
         decimalPrice: price,
-        asOf: _rocSlashDate(row[dayAt]),
+        asOf: asOf,
         fetchedAt: snapshot.fetchedAt,
         decimalChange: changeAt < 0 ? null : _signedDecimal(row[changeAt]),
       );
@@ -362,6 +376,9 @@ final class MarketDataGateway {
       return const MarketResult(MarketState.failed, reason: 'Bad rate');
     }
   }
+
+  /// Whether [day] is after today in Taipei.
+  bool _ahead(BusinessDate day) => day.compareTo(_taipeiDate(_clock())) > 0;
 
   bool _old(BusinessDate asOf) {
     final today = _taipeiDate(_clock());

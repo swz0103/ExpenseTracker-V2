@@ -4,7 +4,10 @@ part of 'import_export.dart';
 
 final class _Reader {
   _Reader(this.book, this.fallback)
-    : _names = {for (final a in book.accounts.all) a.name: a.id};
+    : _names = {for (final a in book.accounts.all) plainText(a.name): a.id},
+      _categoryByName = {
+        for (final c in book.categories.all.reversed) plainText(c.name): c,
+      };
 
   final ImportBook book;
   final String fallback;
@@ -12,12 +15,19 @@ final class _Reader {
   final _accounts = <Account>[];
   final _categories = <Category>[];
 
+  /// Every category of the book and of this file, by name, the book's
+  /// first where two share one: found at once, not looked for line by
+  /// line through them all.
+  final Map<String, Category> _categoryByName;
+
   /// The lines read, with the line each came from.
   final _found = <(int, Entry)>[];
 
   /// Refunds already given against spending in this file, by its id.
   final _refunded = <String, int>{};
   final _problems = <String>[];
+
+  /// The line of the file being read.
   var _line = 1;
   var _skipped = 0;
 
@@ -69,28 +79,30 @@ final class _Reader {
   String _categoryNamed(String name, {required bool income}) {
     final other = income ? '其他收入' : feeCategory;
     if (name.isEmpty) return other;
-    for (final c in [...book.categories.all, ..._categories]) {
-      if (c.name == name) return c.income == income ? name : other;
+    if (_categoryByName[name] case final c?) {
+      return c.income == income ? c.name : other;
     }
     // A name the book keeps for itself is not made a category.
     if (!book.categories.isNameFree(name)) return other;
     final count = book.categories.all.length + _categories.length;
-    _categories.add(
-      Category(
-        name,
-        income ? 'income' : 'other',
-        _shades[count % _shades.length],
-        income: income,
-      ),
+    final made = Category(
+      name,
+      income ? 'income' : 'other',
+      _shades[count % _shades.length],
+      income: income,
     );
+    _categories.add(made);
+    _categoryByName[name] = made;
     return name;
   }
 
-  /// Reads one line; why it cannot be kept, or null when it was.
-  String? read(String Function(String) cell) {
-    _line++;
-    final day = readDay(cell('日期'));
-    if (day == null) return '日期看不懂';
+  /// Reads the [line] of the file; why it cannot be kept, or null when
+  /// it was.
+  String? read(String Function(String) cell, {required int line}) {
+    _line = line;
+    final read = readImportDay(cell('日期'));
+    if (read case DayRefused(:final problem)) return dayProblemWords(problem);
+    final day = _utcDay(read)!;
     final typed = cell('類型');
     final named = _kinds[typed] ?? _kinds[typed.toLowerCase()];
     if (typed.isNotEmpty && named == null) return '不認得的類型「$typed」';
@@ -334,16 +346,27 @@ final class _Reader {
   }
 
   /// What was read, oldest first, less trades that sell or take away more
-  /// shares than are held by then.
-  Import result() {
-    final sorted = [..._found]
-      ..sort((a, b) {
-        final byDay = a.$2.date.compareTo(b.$2.date);
-        return byDay != 0 ? byDay : a.$1.compareTo(b.$1);
-      });
+  /// shares than are held by then: null after each step of the work, so
+  /// a long file can be read a slice at a time, then the import, last.
+  Iterable<Import?> result() sync* {
+    // By day, then in the order read: each day's places gathered a step
+    // at a time, then only the days sorted.
+    final byDay = <int, List<int>>{};
+    for (final (i, (_, e)) in _found.indexed) {
+      (byDay[e.date.millisecondsSinceEpoch ~/ Duration.millisecondsPerDay] ??=
+              [])
+          .add(i);
+      yield null;
+    }
+    final days = byDay.keys.toList()..sort();
+    yield null;
     final kept = <Entry>[];
     final trades = <Entry>[];
-    for (final (line, e) in sorted) {
+    final used = <String>{};
+    final cats = <String>{};
+    for (final i in days.expand((day) => byDay[day]!)) {
+      final (line, e) = _found[i];
+      yield null;
       if (e.isInvestment) {
         // Only a sale or a reduction can leave a stock short of shares.
         final takes = e.type == EntryType.sell || e.isReduction;
@@ -354,14 +377,14 @@ final class _Reader {
         trades.add(e);
       }
       kept.add(e);
+      used.add(e.account);
+      if (e.to case final to?) used.add(to);
+      cats.add(e.category);
+      for (final (name, _) in e.parts) {
+        cats.add(name);
+      }
     }
-    final used = {
-      for (final e in kept) ...[e.account, ?e.to],
-    };
-    final cats = {
-      for (final e in kept) ...[e.category, for (final (c, _) in e.parts) c],
-    };
-    return Import(
+    yield Import(
       kept,
       _skipped,
       accounts: [
@@ -434,7 +457,7 @@ Import _invoiceLines(ImportBook book, String text, {required String account}) {
   final heads = <List<String>>[];
   for (final raw in text.split('\n')) {
     final line = raw.trim();
-    final cells = line.split('|').map((c) => c.trim()).toList();
+    final cells = line.split('|').map((c) => plainText(c).trim()).toList();
     if (cells.first == 'M' && cells.length >= 8) heads.add(cells);
     if (cells.first == 'D' && cells.length >= 4) {
       (items[cells[1]] ??= []).add(cells[3]);
@@ -442,19 +465,21 @@ Import _invoiceLines(ImportBook book, String text, {required String account}) {
   }
   final entries = <Entry>[];
   final problems = <String>[];
+  final numbers = <String>{};
   var skipped = 0;
   for (final cells in heads) {
-    final day = readDay(cells[3]);
+    final read = readImportDay(cells[3]);
+    final day = _utcDay(read);
     final shop = cells[5];
     final number = cells[6];
     final value = _amount(cells[7]).minorOrNull;
     final voided = cells.length > 8 && cells[8].contains('作廢');
     final seen =
         number.isNotEmpty &&
-        (entries.any((e) => e.note.contains(number)) ||
+        (numbers.contains(number) ||
             hasInvoice(book.entries, day, number, shop: shop, amount: value));
-    final why = day == null
-        ? '日期看不懂'
+    final why = read is DayRefused
+        ? dayProblemWords(read.problem)
         : value == null || value <= 0
         ? '金額看不懂'
         : voided
@@ -468,31 +493,36 @@ Import _invoiceLines(ImportBook book, String text, {required String account}) {
       continue;
     }
     final bought = items[number] ?? const [];
+    numbers.add(number);
     entries.add(_invoice(book, account, day!, shop, number, bought, value!));
   }
   return Import(entries, skipped, problems: problems);
 }
 
 /// The ministry's 消費明細 CSV, one row per item, added up per invoice by
-/// `data_exchange`. A row it cannot read leaves the whole file out.
+/// `data_exchange`. A row it cannot read leaves the whole file out; an
+/// invoice whose rows disagree, or dated too early, is left out, named.
 Import _invoiceCsv(ImportBook book, String text, {required String account}) {
-  final List<EInvoice> invoices;
+  final EInvoiceFile file;
   try {
-    invoices = parseEInvoices(text);
+    file = readEInvoices(text);
   } on FormatException {
     // Said to the person as a problem of the file.
     return const Import([], 1, problems: ['檔案格式看不懂']);
   }
   final entries = <Entry>[];
-  final problems = <String>[];
-  var skipped = 0;
-  for (final invoice in invoices) {
+  final problems = [
+    for (final (:number, line: _, :why) in file.refused)
+      '$number：${invoiceRefusalWords(why)}',
+  ];
+  var skipped = file.refused.length;
+  for (final invoice in file.invoices) {
     final BusinessDate(:year, :month, :day) = invoice.date;
     final date = DateTime.utc(year, month, day);
     final number = invoice.number;
     final value = invoice.amount.minorUnits.toInt();
+    // The file holds each number once (readEInvoices).
     if (value <= 0 ||
-        entries.any((e) => e.note.contains(number)) ||
         hasInvoice(
           book.entries,
           date,

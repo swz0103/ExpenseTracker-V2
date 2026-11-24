@@ -252,8 +252,13 @@ final class HoldingRepository implements HoldingReader {
   }
 }
 
-/// The holdings of a book just read, and the trades it held short.
-typedef ReadHoldings = ({Portfolio portfolio, Set<String> tolerated});
+/// The holdings of a book just read, the trades it held short, and those
+/// it could not work in at all ([Portfolio.faulty]), with what they threw.
+typedef ReadHoldings = ({
+  Portfolio portfolio,
+  Set<String> tolerated,
+  Map<String, Object> faulty,
+});
 
 /// The holdings of a book just read: replayed from [start] and the trades
 /// of [entries] that count on [today], every short trade left out; and
@@ -271,5 +276,6 @@ ReadHoldings readHoldings(
         ? all
         : Portfolio.replay(start, counted, lenient: true),
     tolerated: {...all.leftOut},
+    faulty: all.faulty,
   );
 }

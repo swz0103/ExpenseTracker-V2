@@ -55,4 +55,18 @@ void main() {
       ),
     );
   });
+
+  test('each record keeps the line of the file it starts on', () {
+    expect(
+      [
+        for (final r in readCsvRecords('\u{FEFF}a,b\r\n\r\n"x\ny",1\n\nz,2\n'))
+          [r.line, ...r.cells],
+      ],
+      [
+        [1, 'a', 'b'],
+        [3, 'x\ny', '1'],
+        [6, 'z', '2'],
+      ],
+    );
+  });
 }

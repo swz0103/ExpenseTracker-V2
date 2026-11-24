@@ -323,6 +323,25 @@ void main() {
         MissingShares,
       ]);
     });
+    test('a fee beyond what any currency keeps is refused (R12 F3)', () {
+      // 99,999,999,999 is the most in any currency (US cents).
+      expect(_issues(_entry(fee: 100000000000)), [AmountTooLarge]);
+    });
+    test('more than 999,999,999 shares is refused (R12 F3)', () {
+      // maxShares is core's maxAmountUnits, 999,999,999.
+      expect(
+        _issues(
+          _entry(type: EntryType.buy, holding: '2330', shares: 999999999),
+        ),
+        isEmpty,
+      );
+      expect(
+        _issues(
+          _entry(type: EntryType.buy, holding: '2330', shares: 1000000000),
+        ),
+        [SharesTooLarge],
+      );
+    });
     test('a premium larger than the dividend is refused', () {
       expect(
         _issues(
@@ -502,6 +521,63 @@ void main() {
     });
     test('an amount of nothing still reads: older books kept some', () {
       expect(entryShapeIssues(_entry(amount: 0)), isEmpty);
+    });
+    test('the most in any currency reads; one more does not (R12 F3)', () {
+      // US$ has 2 decimals: (999,999,999 + 1) * 100 - 1 = 99,999,999,999.
+      expect(maxAmountAnyCurrency, 99999999999);
+      expect(entryShapeIssues(_entry(amount: 99999999999)), isEmpty);
+      for (final huge in [
+        _entry(amount: 100000000000),
+        _entry(fee: 9223372036854775807),
+        _entry(tax: 100000000000),
+        _entry(home: 100000000000),
+        _entry(received: 100000000000),
+        _entry(amount: 50, parts: const [('a', 100000000000)]),
+      ]) {
+        expect([
+          for (final i in entryShapeIssues(huge)) i.runtimeType,
+        ], contains(AmountTooLarge));
+      }
+    });
+    test('a trade of fewer than no shares is refused (R12 F2)', () {
+      for (final type in [EntryType.buy, EntryType.sell]) {
+        expect(
+          [
+            for (final i in entryShapeIssues(
+              _entry(type: type, holding: '2330', shares: -5),
+            ))
+              i.runtimeType,
+          ],
+          [MissingShares],
+        );
+      }
+      // A reduction takes shares away: fewer than none is its shape.
+      expect(
+        entryShapeIssues(
+          _entry(type: EntryType.dividend, holding: '2330', shares: -5),
+        ),
+        isEmpty,
+      );
+      // A sale of none still reads: an older book may keep one.
+      expect(
+        entryShapeIssues(_entry(type: EntryType.sell, holding: '2330')),
+        isEmpty,
+      );
+    });
+    test('more shares than kept are refused (R12 F3)', () {
+      expect(
+        [
+          for (final i in entryShapeIssues(
+            _entry(
+              type: EntryType.buy,
+              holding: '2330',
+              shares: 9223372036854775807,
+            ),
+          ))
+            i.runtimeType,
+        ],
+        [SharesTooLarge],
+      );
     });
     test(
       'a negative amount, a transfer to nowhere and the rest are refused',

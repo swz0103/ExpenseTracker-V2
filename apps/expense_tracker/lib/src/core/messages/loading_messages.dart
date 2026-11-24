@@ -50,6 +50,14 @@ const loadFailedRetry = '再試一次';
 const loadFailedRestore = '從備份還原';
 const loadFailedExport = '匯出診斷';
 
+/// The ledger's file is damaged (D94): told apart from a wrong password,
+/// with what was done to it and what is safe to do.
+const damagedTitle = '帳本檔案損毀';
+const damagedBody =
+    '帳本檔案已損毀或不完整（不是密碼錯誤），無法打開。'
+    '損毀的檔案已原封不動另外儲存在手機上，不會被覆蓋，也沒有建立新的空帳本。'
+    '請從備份還原；也可以複製診斷資料回報問題。';
+
 /// A book kept by an earlier version is not brought up to this one while
 /// the copy kept first cannot be written (D19).
 const upgradeHeldTitle = '升級前的備份沒有完成';

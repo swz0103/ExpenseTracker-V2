@@ -25,6 +25,8 @@ String validationMessage(RecordIssue issue) => switch (issue) {
   TaxExceedsDividend() => '補充保費不能超過股息',
   MissingHolding() => '請選擇投資標的',
   MissingShares() => '請輸入股數',
+  // Exception to glossary: 記錄 is the verb here.
+  SharesTooLarge() => '股數超過可記錄的上限',
   DayTradeNotSale() => '只有賣出可以是當日沖銷',
   DateTooFarAhead(:final days) => '日期最多只能排到 $days 天後',
   InvestmentPlanned() => '股票買賣與股息要在當天或之前記，不能預定',

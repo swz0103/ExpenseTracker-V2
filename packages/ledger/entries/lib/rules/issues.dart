@@ -39,6 +39,13 @@ final class AmountTooLarge extends RecordIssue {
   final int max;
 }
 
+/// More shares than the app keeps in one entry: [max].
+final class SharesTooLarge extends RecordIssue {
+  const SharesTooLarge(this.max);
+
+  final int max;
+}
+
 /// A fee or tax below nothing.
 final class NegativeCharge extends RecordIssue {
   const NegativeCharge();

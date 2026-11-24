@@ -29,6 +29,12 @@ enum StorageProblem {
   /// Another connection, isolate or process already has the file open;
   /// only one may own a ledger at a time.
   inUse,
+
+  /// The file is not a whole ledger: empty, cut short, or a page of it
+  /// damaged (decision D94). Told apart from [wrongKey] as far as the file
+  /// and the key's origin allow ([EncryptedDatabase.open]); never thrown
+  /// over by writing a new, empty ledger in its place.
+  damaged,
 }
 
 final class StorageUnavailable implements Exception {
@@ -181,16 +187,81 @@ final class EncryptedDatabase {
   /// SQLite built without threads ([serialized] false) fails here in a
   /// debug build and in tests; a release build goes on, and the app
   /// keeps a note of it.
-  factory EncryptedDatabase.open(File file, StorageKey key) {
+  ///
+  /// A file that is not a whole ledger is [StorageProblem.damaged]
+  /// (D94), never opened as a new, empty one: one of no bytes with no
+  /// write-ahead log beside it, or one whose length is not whole pages
+  /// (cut short), or one SQLite finds corrupt as it is read. SQLCipher
+  /// refuses the first page alike for a wrong key and for a damaged one
+  /// (its HMAC fails either way: SQLITE_NOTADB), so that alone cannot be
+  /// told apart from the file. With [keyVouched], the key comes from a
+  /// keyring whose authenticated unwrap succeeded, so it is the ledger's
+  /// own and a refused first page is damage; without it, as for a key
+  /// typed or taken from elsewhere, it stays [StorageProblem.wrongKey].
+  /// The one case this misnames: a ledger.db of another ledger put beside
+  /// a keyring by hand reads as damaged, which only sets it aside.
+  factory EncryptedDatabase.open(
+    File file,
+    StorageKey key, {
+    bool keyVouched = false,
+  }) {
     assert(_layout.length == schema, 'schema is the number of layout steps');
     assert(serialized, 'SQLite is built without threads: no work apart');
+    if (cutShort(file)) throw const StorageUnavailable(StorageProblem.damaged);
     final db = sqlite3.open(file.path, mutex: true);
     try {
-      _configure(db, key);
-      _create(db);
+      _configure(db, key, keyVouched: keyVouched);
+      _guarded(() => _create(db));
       return EncryptedDatabase._(db);
     } catch (_) {
       db.close();
+      rethrow;
+    }
+  }
+
+  /// The size of a page of the file, SQLCipher's (cipher_page_size): a
+  /// whole file is whole pages.
+  static const pageSize = 4096;
+
+  /// Whether [file] is there but cannot be a whole ledger: no bytes with
+  /// no write-ahead log to hold its pages (a new file's pages may wait
+  /// there before they reach it), or a length that is not whole pages.
+  static bool cutShort(File file) {
+    if (!file.existsSync()) return false;
+    final length = file.lengthSync();
+    if (length == 0) {
+      final log = File('${file.path}-wal');
+      return !log.existsSync() || log.lengthSync() == 0;
+    }
+    return length % pageSize != 0;
+  }
+
+  /// Whether [error] says the file is damaged: SQLITE_CORRUPT ("database
+  /// disk image is malformed") or SQLITE_NOTADB past the first page.
+  static bool isDamage(SqliteException error) =>
+      error.resultCode == _corrupt || error.resultCode == _notADatabase;
+
+  /// Runs [read], a read or write of the file, with a page found damaged
+  /// told as [StorageProblem.damaged] rather than SQLite's own error.
+  static T _guarded<T>(T Function() read) {
+    try {
+      return read();
+    } on SqliteException catch (error) {
+      if (isDamage(error)) {
+        throw const StorageUnavailable(StorageProblem.damaged);
+      }
+      rethrow;
+    }
+  }
+
+  /// As [_guarded], for work done apart on a worker isolate.
+  static Future<T> _guardedApart<T>(Future<T> Function() work) async {
+    try {
+      return await work();
+    } on SqliteException catch (error) {
+      if (isDamage(error)) {
+        throw const StorageUnavailable(StorageProblem.damaged);
+      }
       rethrow;
     }
   }
@@ -264,7 +335,9 @@ final class EncryptedDatabase {
   int get revision {
     if (_apart != null && !_closed) return _revisionBefore;
     _requireOpen();
-    final rows = _db.select("SELECT value FROM meta WHERE key = 'revision'");
+    final rows = _guarded(
+      () => _db.select("SELECT value FROM meta WHERE key = 'revision'"),
+    );
     return rows.isEmpty ? 0 : rows.single['value'] as int;
   }
 
@@ -272,21 +345,25 @@ final class EncryptedDatabase {
   /// is ([RowWriter.setMeta]).
   int? meta(String key) {
     _requireReadable();
-    final rows = _db.select('SELECT value FROM meta WHERE key = ?', [key]);
+    final rows = _guarded(
+      () => _db.select('SELECT value FROM meta WHERE key = ?', [key]),
+    );
     return rows.isEmpty ? null : rows.single['value'] as int;
   }
 
   /// How many records are kept.
   int get count {
     _requireReadable();
-    return _db.select('SELECT count(*) AS n FROM rows').single['n'] as int;
+    return _guarded(() => _db.select('SELECT count(*) AS n FROM rows'))
+            .single['n']
+        as int;
   }
 
   /// `ok` when SQLite and SQLCipher find no damage.
   String integrityCheck() {
     _requireReadable();
-    final rows = _db.select('PRAGMA integrity_check');
-    final cipher = _db.select('PRAGMA cipher_integrity_check');
+    final rows = _guarded(() => _db.select('PRAGMA integrity_check'));
+    final cipher = _guarded(() => _db.select('PRAGMA cipher_integrity_check'));
     final result = rows.map((row) => '${row.values.single}').join('\n');
     return cipher.isEmpty ? result : 'cipher integrity failure';
   }
@@ -295,21 +372,25 @@ final class EncryptedDatabase {
   /// shelf's.
   List<StoredRow> rows({String? shelf}) {
     _requireReadable();
-    final found = shelf == null
-        ? _db.select('SELECT * FROM rows ORDER BY seq')
-        : _db.select('SELECT * FROM rows WHERE shelf = ? ORDER BY seq', [
-            shelf,
-          ]);
+    final found = _guarded(
+      () => shelf == null
+          ? _db.select('SELECT * FROM rows ORDER BY seq')
+          : _db.select('SELECT * FROM rows WHERE shelf = ? ORDER BY seq', [
+              shelf,
+            ]),
+    );
     return [for (final row in found) _stored(row)];
   }
 
   /// The record [id] on [shelf], or null when there is none.
   StoredRow? row(String shelf, String id) {
     _requireReadable();
-    final found = _db.select('SELECT * FROM rows WHERE shelf = ? AND id = ?', [
-      shelf,
-      id,
-    ]);
+    final found = _guarded(
+      () => _db.select('SELECT * FROM rows WHERE shelf = ? AND id = ?', [
+        shelf,
+        id,
+      ]),
+    );
     return found.isEmpty ? null : _stored(found.single);
   }
 
@@ -327,9 +408,11 @@ final class EncryptedDatabase {
   List<StoredRow> rowsAfter(int after, {int limit = 5000}) {
     _requireReadable();
     return [
-      for (final row in _db.select(
-        'SELECT * FROM rows WHERE seq > ? ORDER BY seq LIMIT ?',
-        [after, limit],
+      for (final row in _guarded(
+        () => _db.select(
+          'SELECT * FROM rows WHERE seq > ? ORDER BY seq LIMIT ?',
+          [after, limit],
+        ),
       ))
         _stored(row),
     ];
@@ -340,7 +423,7 @@ final class EncryptedDatabase {
   /// such as fetched prices, leaves it, so a backup is not taken for it.
   void write(void Function(RowWriter writer) changes, {bool counts = true}) {
     _requireOpen();
-    _transaction(_db, changes, counts: counts);
+    _guarded(() => _transaction(_db, changes, counts: counts));
   }
 
   static void _transaction(
@@ -436,7 +519,7 @@ final class EncryptedDatabase {
     _revisionBefore = revision;
     final done = _apart = Completer<void>();
     try {
-      return await _workApart(_db.handle.address, work);
+      return await _guardedApart(() => _workApart(_db.handle.address, work));
     } finally {
       _apart = null;
       done.complete();
@@ -494,7 +577,9 @@ final class EncryptedDatabase {
     // The worker says when the read is done, before it runs [then].
     final read = RawReceivePort((_) => release());
     try {
-      return await _readApart(_db.handle.address, read.sendPort, then);
+      return await _guardedApart(
+        () => _readApart(_db.handle.address, read.sendPort, then),
+      );
     } finally {
       // Also when the read threw before it could say so.
       read.close();
@@ -605,7 +690,11 @@ final class EncryptedDatabase {
     db.execute("INSERT INTO meta VALUES ('$_revision', 0)");
   }
 
-  static void _configure(Database db, StorageKey key) {
+  static void _configure(
+    Database db,
+    StorageKey key, {
+    required bool keyVouched,
+  }) {
     // A plain SQLite build reports no cipher_version and would silently
     // write plaintext, so this is a runtime check, not an assert.
     final version = db.select('PRAGMA cipher_version');
@@ -621,11 +710,18 @@ final class EncryptedDatabase {
       if (error.resultCode == _busy) {
         throw const StorageUnavailable(StorageProblem.inUse);
       }
+      // A key the keyring vouches for is the ledger's own: a first page
+      // it does not open is damaged. SQLITE_CORRUPT is damage whatever
+      // the key.
+      if (error.resultCode == _corrupt ||
+          (keyVouched && error.resultCode == _notADatabase)) {
+        throw const StorageUnavailable(StorageProblem.damaged);
+      }
       throw const StorageUnavailable(StorageProblem.wrongKey);
     } catch (_) {
       throw const StorageUnavailable(StorageProblem.wrongKey);
     }
-    db.select('PRAGMA journal_mode = WAL');
+    _guarded(() => db.select('PRAGMA journal_mode = WAL'));
     // FULL: a save has reached the disk once it returns, so not even a
     // power cut in the moment after it loses it (NORMAL could lose that
     // last save). Measured on the emulator (bench_test.dart): a save takes
@@ -649,6 +745,12 @@ final class EncryptedDatabase {
 
   /// SQLITE_BUSY.
   static const _busy = 5;
+
+  /// SQLITE_CORRUPT: "database disk image is malformed".
+  static const _corrupt = 11;
+
+  /// SQLITE_NOTADB: "file is not a database".
+  static const _notADatabase = 26;
 }
 
 /// The store as work apart ([EncryptedDatabase.workApart]) has it, on its

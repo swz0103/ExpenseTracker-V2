@@ -131,6 +131,22 @@ in memory, which is not the store's. Written apart, the rename takes about
 a quarter longer in all; the screen keeps drawing meanwhile. Not yet in the
 emulator bench: a phone figure needs a run there.
 
+## A CSV import on the computer (`import_block`, review 12)
+
+Not an emulator figure: `test/perf/import_gate_test.dart` runs in the
+ordinary `flutter test`. It imports a CSV of 100,000 lines into the demo
+book twice: once at once (`importCsv`), and once as the import page does
+(`importCsvApart`: a long file read as CSV on a worker isolate, its lines
+and what is found 8 ms at a time with the screen drawn between). It gates
+the longest time the main isolate was held, the least of three runs, as a
+share of the import at once, with the batch writes' limit.
+
+| measured (4 runs, Linux host, 2026-11-24) | limit |
+|---|---|
+| at once: held 2,101–2,768 ms; apart: held 17–26 ms; share 0.008–0.011 | 0.045 (the batch writes') |
+
+What is left held is the garbage collection of the 100,000 entries made.
+
 ## A backup's read on the computer (`backup_read_block`, D41)
 
 Not an emulator figure: `test/perf/backup_read_gate_test.dart` runs in the

@@ -13,6 +13,7 @@ import '../../../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../../../core/formatting/json_fields.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
+import '../../../core/messages/market_messages.dart';
 
 /// Closing prices and exchange rates for a ledger, fetched at most every
 /// 20 minutes: when the ledger opens, when the app comes back, and at
@@ -85,9 +86,10 @@ final class MarketFeed extends SyncJob implements PriceHistory {
         quoteDays: market.days,
       );
     }
-    final missed = _journal.unquoted;
-    if (missed.isEmpty) return null;
-    return '${missed.join('、')} 抓不到收盤價';
+    return marketProblem(
+      missed: _journal.unquoted,
+      doubted: [..._journal.doubtfulCloses, ..._journal.doubtfulRates],
+    );
   });
 
   /// [code]'s daily closes from [from] to today, oldest first: each month

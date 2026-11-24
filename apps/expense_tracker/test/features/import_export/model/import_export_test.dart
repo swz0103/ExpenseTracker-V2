@@ -287,4 +287,82 @@ void main() {
       expect(found[i].date.isAfter(found[i - 1].date), isFalse);
     }
   });
+
+  group('R12: outside files read strictly', () {
+    Import csv(String text) =>
+        importCsv(importBookOf(demoLedger()), text, fallback: 'cash');
+
+    test('a quote never closed leaves the whole file out (F5)', () {
+      final found = csv('日期,金額,備註\n2026-10-01,5,"沒有收尾\n2026-10-02,6,午餐\n');
+      expect(found.entries, isEmpty);
+      expect(found.problems, ['第 2 行的引號看不懂，整個檔案沒有匯入']);
+    });
+
+    test('a two-digit year is refused with why; three digits are ROC (F4)', () {
+      final found = csv('日期,類型,金額\n26/10/01,支出,5\n115/10/1,支出,6\n');
+      expect(found.problems, ['第 2 行：年份只有兩位數，請寫成西元四位數（例如 2026）或民國三位數（例如 115）']);
+      // 115 + 1911 = 2026.
+      expect(found.entries.single.date, DateTime.utc(2026, 10, 1));
+    });
+
+    test('a day before 1950 is refused (D93)', () {
+      final found = csv('日期,類型,金額\n1949/12/31,支出,5\n');
+      expect(found.entries, isEmpty);
+      expect(found.problems, ['第 2 行：日期早於 1950 年']);
+    });
+
+    test('a line is named by the line of the file (blank lines and line '
+        'breaks in notes counted)', () {
+      final found = csv(
+        '日期,類型,金額,備註\n'
+        '\n'
+        '2026-10-01,支出,5,"兩\n行"\n'
+        '\n'
+        'abc,支出,6,x\n',
+      );
+      expect(found.entries, hasLength(1));
+      // Line 1 the header, 2 blank, 3 and 4 the note of two lines, 5
+      // blank, 6 the unreadable day.
+      expect(found.problems, ['第 6 行：日期看不懂']);
+    });
+
+    test('an M line dated 0261003 (ROC 26, 1937) is refused (F4)', () {
+      final found = importInvoices(
+        importBookOf(demoLedger()),
+        'M|x|y|0261003|1|甲店|AB00000009|10|開立\n',
+        account: 'cash',
+      );
+      expect(found.entries, isEmpty);
+      expect(found.problems, ['AB00000009：日期早於 1950 年']);
+    });
+
+    test('invoice AB1 is not taken for AB12 already read', () {
+      final found = importInvoices(
+        importBookOf(demoLedger()),
+        'M|x|y|20261003|1|乙|AB12|20|開立\n'
+        'M|x|y|20261003|1|甲|AB1|10|開立\n'
+        'M|x|y|20261003|1|甲|AB1|10|開立\n',
+        account: 'cash',
+      );
+      expect(found.entries.map((e) => e.note), ['發票 AB12', '發票 AB1']);
+      expect(found.problems, ['AB1：已經記過']);
+    });
+
+    test('the ministry file: a void row voids, rows that disagree are '
+        'left out, named (F6)', () {
+      final found = importInvoices(
+        importBookOf(demoLedger()),
+        '發票日期,發票號碼,賣方名稱,發票狀態,消費明細_品名,消費明細_金額\n'
+        '20261003,AB00000001,甲店,開立,鮮奶,10\n'
+        '20261003,AB00000001,甲店,作廢,吐司,20\n'
+        '20261003,AB00000002,甲店,開立,鮮奶,10\n'
+        '20261004,AB00000002,乙店,開立,吐司,20\n'
+        '20261005,AB00000003,丙店,開立,茶,30\n',
+        account: 'cash',
+      );
+      expect(found.entries.map((e) => e.amount), [30]);
+      expect(found.skipped, 1);
+      expect(found.problems, ['AB00000002：同一張發票的日期或商家前後不一致']);
+    });
+  });
 }

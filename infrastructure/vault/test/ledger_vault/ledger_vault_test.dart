@@ -125,6 +125,85 @@ void main() {
     },
   );
 
+  group('a damaged database (D94)', () {
+    const damaged = StorageUnavailable(StorageProblem.damaged);
+
+    setUp(() {
+      vault = LedgerVault(
+        Directory('${directory.path}/ledger'),
+        codec: codec,
+        now: () => DateTime.utc(2026, 11, 24, 9, 58, 50),
+      );
+    });
+
+    Future<String> made() async {
+      final (open, recovery) = await vault.create(password);
+      keepOne(open);
+      open.close();
+      return recovery;
+    }
+
+    test('of no bytes is set aside, told, never opened empty', () async {
+      await made();
+      vault.databaseFile.writeAsBytesSync(const []);
+      await expectLater(vault.unlockWithPassword(password), throwsA(damaged));
+      expect(vault.databaseFile.existsSync(), isFalse);
+      final aside = vault.damagedCopies().single;
+      expect(
+        aside.uri.pathSegments.last,
+        'ledger-damaged-2026-11-24T09-58-50.000Z.db',
+      );
+      expect(aside.lengthSync(), 0, reason: 'kept as it was');
+      // Asked again, it is still damaged: no empty book in its place.
+      await expectLater(vault.unlockWithPassword(password), throwsA(damaged));
+      expect(vault.databaseFile.existsSync(), isFalse);
+      expect(vault.keyringFile.existsSync(), isTrue, reason: 'keys kept');
+    });
+
+    test('a first page damaged is damage, not a wrong key', () async {
+      final recovery = await made();
+      final bytes = vault.databaseFile.readAsBytesSync();
+      bytes[100] ^= 0x01;
+      vault.databaseFile.writeAsBytesSync(bytes);
+      await expectLater(vault.unlockWithRecovery(recovery), throwsA(damaged));
+      expect(vault.damagedCopies().single.readAsBytesSync(), bytes);
+    });
+
+    test('a wrong password is still a wrong password', () async {
+      await made();
+      await expectLater(
+        vault.unlockWithPassword('wrong password here'),
+        throwsA(wrongSecret),
+      );
+      expect(vault.damagedCopies(), isEmpty);
+    });
+
+    test('a restore puts a backup where the damaged one was', () async {
+      await made();
+      vault.databaseFile.writeAsBytesSync(const []);
+      await expectLater(vault.unlockWithPassword(password), throwsA(damaged));
+      final keys = await codec.unlockWithPassword(
+        Keyring.parse(vault.keyringFile.readAsStringSync()),
+        password,
+      );
+      final restored = await vault.restore(
+        keys,
+        (staging) async =>
+            staging.write((w) => w.put('account', 'bank', '{"name":"銀行"}')),
+        replacing: true,
+      );
+      addTearDown(restored.close);
+      expect(restored.store.rows().single.id, 'bank');
+      // The damaged one is still kept aside.
+      expect(vault.damagedCopies(), hasLength(1));
+    });
+
+    test('nothing to set aside when there is no database', () async {
+      expect(await vault.setAsideDamaged(), isNull);
+      expect(vault.damagedCopies(), isEmpty);
+    });
+  });
+
   test('a changed password is saved; another ledger is refused', () async {
     final (open, _) = await vault.create(password);
     open.close();

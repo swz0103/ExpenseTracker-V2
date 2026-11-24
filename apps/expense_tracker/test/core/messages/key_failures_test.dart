@@ -4,6 +4,7 @@ import 'package:expense_tracker/src/core/messages/key_failures.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart'
     show UnlockDelayed;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:storage/storage.dart' show StorageProblem, StorageUnavailable;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
@@ -26,6 +27,20 @@ void main() {
 
   String? say(Object error, {bool recovery = false}) =>
       describeUnlockFailure(error, recovery: recovery);
+
+  test('a file too large to be a backup says so (R12)', () {
+    expect(
+      say(const BackupException(BackupProblem.tooLarge)),
+      '這個檔案超過 4 GB，不是記帳本的備份',
+    );
+  });
+
+  test('a damaged ledger file is not a wrong password (D94)', () {
+    const damaged = StorageUnavailable(StorageProblem.damaged);
+    expect(say(damaged), '帳本檔案已損毀，請從備份還原');
+    expect(say(damaged, recovery: true), '帳本檔案已損毀，請從備份還原');
+    expect(say(const StorageUnavailable(StorageProblem.wrongKey)), isNull);
+  });
 
   test('a wrong secret names which one', () {
     const wrong = KeyringException(KeyringError.wrongSecret);

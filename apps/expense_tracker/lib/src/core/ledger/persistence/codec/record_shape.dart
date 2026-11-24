@@ -21,21 +21,32 @@ void checkRecord(String collection, Map<String, Object?> row) {
     Collection.trash => trashedFromJson(row, refs),
     _ => throw FormatException('Unknown collection $collection'),
   });
-  if (issues.isNotEmpty) throw FormatException(issues.join(', '));
+  if (shapeProblem(issues) case final problem?) {
+    throw FormatException(problem);
+  }
 }
 
+/// What [issues] found wrong with a record's shape, in the program's
+/// words, as restoring a backup refuses it and opening the book sets it
+/// aside: one wording for both. Null when nothing is.
+String? shapeProblem(List<RecordIssue> issues) =>
+    issues.isEmpty ? null : issues.join(', ');
+
 /// What is wrong with [record], read back from elsewhere such as a
-/// backup, that no version of the app would have written and the ledger
-/// could not work with: a recurring item every 0 months or on day 40, a
-/// card closing on day 0, a negative amount or limit, a transfer to
-/// nowhere. The shape rules of package ledger_entries; an old record a
-/// newer write rule would refuse, such as an amount of nothing, still
-/// reads. None for a record of another kind.
+/// backup, or as the book opens, that no version of the app would have
+/// written and the ledger could not work with: a recurring item every 0
+/// months or on day 40, a card closing on day 0, a negative amount or
+/// limit, an amount or shares beyond the most kept, a sale of fewer than
+/// no shares, a transfer to nowhere. The shape rules of package
+/// ledger_entries; an old record a newer write rule would refuse, such as
+/// an amount of nothing, still reads. None for a record of another kind.
 List<RecordIssue> shapeIssues(Object record) => switch (record) {
+  // The schedule a card kept before is checked as it is read.
   Account a => accountShapeIssues(
     closingDay: a.closingDay,
     dueDay: a.dueDay,
     limit: a.limit,
+    opening: a.opening,
   ),
   Entry e => entryShapeIssues(e),
   Trashed t => entryShapeIssues(t.entry),
