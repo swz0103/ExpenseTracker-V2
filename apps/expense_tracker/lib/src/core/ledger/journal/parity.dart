@@ -400,4 +400,5 @@ String _why(JournalRefusal refused) => switch (refused) {
   IntentNotFound() => 'intentNotFound',
   RuleRejected(:final code) => code,
   UnknownAmendment() => 'unknownAmendment',
+  UnkeepableQuantity() => 'unkeepableQuantity',
 };
