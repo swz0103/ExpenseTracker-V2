@@ -619,4 +619,6 @@ EQUIVALENT = {
     'cardsummary-12': 'nextClose: the cycle starting the day after the end, '
                       'and the one containing the day after that, are the '
                       'same cycle (a cycle is longer than one day)',
+    'amount-12': "keyedAmount: at scale 0 the zeros are '.', which no "
+                 'figure without decimals ends with',
 }

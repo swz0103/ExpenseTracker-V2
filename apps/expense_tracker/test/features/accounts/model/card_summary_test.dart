@@ -508,4 +508,39 @@ void main() {
       DateTime.utc(2026, 10, 15),
     ));
   });
+
+  test('a card without billing days shows the 1st and the 15th, and counts '
+      'only its own marked entries', () {
+    final ledger = Ledger(
+      today: _today,
+      accounts: const [
+        Account('bank', '銀行', AccountKind.bank, 1000),
+        Account('card', '卡', AccountKind.card, 0),
+      ],
+      categories: const [],
+      entries: [
+        Entry(
+          id: 'elsewhere',
+          date: DateTime.utc(2026, 10, 2),
+          type: EntryType.income,
+          amount: 50,
+          account: 'bank',
+          mark: EntryMark.reward,
+        ),
+      ],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+    final card = CardSummary.of(
+      ledger.account('card'),
+      statements: ledger.statementService,
+      balances: ledger.balanceService,
+      entries: ledger.entries,
+      accounts: ledger.accounts,
+      today: ledger.today,
+    );
+    expect((card.closingDay, card.dueDay), (1, 15));
+    expect(card.markedThisYear(EntryMark.reward), 0);
+  });
 }

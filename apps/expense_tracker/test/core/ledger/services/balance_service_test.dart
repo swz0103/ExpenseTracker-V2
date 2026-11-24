@@ -1,5 +1,5 @@
 import 'package:expense_tracker/src/core/ledger/cache/topic.dart';
-import 'package:expense_tracker/src/core/ledger/models/models.dart';
+import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../support/book.dart';
@@ -472,5 +472,37 @@ void main() {
       // Closing on the 2nd: billed on 9/2 and 10/2.
       expect(book.balances.balance('card'), -2000);
     });
+  });
+
+  test('the shares of a day gone by are those then held (mutation review '
+      '11)', () {
+    final ledger = Ledger(
+      today: day,
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 100000)],
+      categories: [],
+      entries: [
+        Entry(
+          id: 'b',
+          date: DateTime.utc(2026, 10, 2),
+          type: EntryType.buy,
+          amount: 1000,
+          account: 'bank',
+          category: investmentCategory,
+          holding: '2330',
+          shares: 10,
+        ),
+      ],
+      holdings: const [
+        Holding('2330', '台積電', shares: 0, price: 100, cost: 0, change: 0),
+      ],
+      budgets: const [],
+      recurring: const [],
+    );
+    // None held on 10/1; 10 x 100 today.
+    expect(
+      ledger.balanceService.netWorth(DateTime.utc(2026, 10, 1)).invested,
+      0,
+    );
+    expect(ledger.balanceService.netWorth(day).invested, 1000);
   });
 }

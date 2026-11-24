@@ -129,4 +129,26 @@ void main() {
       expect(shownAmount(1, hidden: true), '••••');
     });
   });
+
+  group('edges review 11 found untested', () {
+    test('the amount keys write decimals only when there are some', () {
+      // 1,200 US cents: 12; 1,250: 12.50; never grouped, to go on typing.
+      expect(keyedAmount(1200, 2), '12');
+      expect(keyedAmount(1250, 2), '12.50');
+      expect(keyedAmount(123456, 2), '1234.56');
+      expect(keyedAmount(1200, 0), '1200');
+    });
+
+    test('a sum on the keys: whole units grouped, decimals as typed', () {
+      expect(keyedResult(123456, 0), '123,456');
+      expect(keyedResult(1250, 2), '12.50');
+    });
+
+    test('萬 round half up at their one decimal, from 100,000 on', () {
+      // 52,500 is 5.25萬: 5.3.
+      expect(tenThousands(52500), '5.3');
+      expect(shortAmount(99999), '99,999');
+      expect(shortAmount(100000), '10萬');
+    });
+  });
 }
