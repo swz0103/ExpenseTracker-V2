@@ -170,6 +170,26 @@ void main() {
     final target = await restore(file);
     expect(rowsOf(target), rowsOf(source));
     expect(target.integrityCheck(), 'ok');
+    // At the backup's revision (two counted writes in setUp: 2), not the
+    // count of chunks written into it (D115).
+    expect(header.revision, 2);
+    expect(target.revision, 2);
+  });
+
+  test('a header with a revision below 0 is refused (D115)', () async {
+    final file = await backup();
+    final original = frames(file);
+    final header = String.fromCharCodes(original[1]);
+    expect(header, contains('"revision":2'));
+    writeFrames(file, [
+      original[0],
+      header.replaceFirst('"revision":2', '"revision":-1').codeUnits,
+      ...original.skip(2),
+    ]);
+    await expectLater(
+      LedgerBackup.readHeader(file),
+      fails(BackupProblem.invalidFormat),
+    );
   });
 
   test('the recovery code opens a backup too', () async {
@@ -190,6 +210,34 @@ void main() {
     expect((await LedgerBackup.readHeader(fresh)).backupEpoch, 2);
     expect((await restore(old, using: rotated)).count, source.count);
     expect((await restore(fresh)).count, source.count);
+  });
+
+  test('the header is read from the start of a backup alone, within its '
+      'reach, and a start too short or not a backup is refused', () async {
+    final old = await backup();
+    final rotated = await keys.unlocked.rotateBackupKey();
+    final fresh = await backup(using: rotated);
+    final bytes = fresh.readAsBytesSync();
+    // A keyring with two epochs still fits well inside the reach.
+    final headerEnd = 8 + 4 + frames(fresh)[1].length;
+    expect(headerEnd, lessThan(LedgerBackup.headerReach));
+    final header = LedgerBackup.headerOf(bytes.sublist(0, headerEnd));
+    expect(header.backupEpoch, 2);
+    expect(header.keyring.id, keys.keyring.id);
+    // More than the header, the whole file here, reads the same.
+    expect(LedgerBackup.headerOf(old.readAsBytesSync()).backupEpoch, 1);
+    expect(
+      () => LedgerBackup.headerOf(bytes.sublist(0, headerEnd - 1)),
+      fails(BackupProblem.invalidFormat),
+    );
+    expect(
+      () => LedgerBackup.headerOf(bytes.sublist(0, 10)),
+      fails(BackupProblem.invalidFormat),
+    );
+    expect(
+      () => LedgerBackup.headerOf('hello, this is not a backup'.codeUnits),
+      fails(BackupProblem.invalidFormat),
+    );
   });
 
   test('altered, reordered or truncated backups are refused', () async {

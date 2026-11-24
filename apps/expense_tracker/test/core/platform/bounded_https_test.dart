@@ -135,6 +135,45 @@ void main() {
     expect(asked, ['GET /start']);
   });
 
+  test('to another origin only what to answer with goes on: Authorization, '
+      'Cookie, Proxy-Authorization and any other stay (review 27 '
+      'finding 3)', () {
+    const headers = {
+      'Authorization': 'Bearer t',
+      'cookie': 'a=1',
+      'Proxy-Authorization': 'Basic x',
+      'x-goog-api-key': 'k',
+      'content-type': 'application/json',
+      'Accept': 'application/json',
+      'accept-encoding': 'gzip',
+      'User-Agent': 'ExpenseTracker',
+      'Range': 'bytes=0-',
+    };
+    expect(BoundedHttps.headersFor(headers, sameOrigin: false), {
+      'Accept': 'application/json',
+      'accept-encoding': 'gzip',
+      'User-Agent': 'ExpenseTracker',
+      'Range': 'bytes=0-',
+    });
+    expect(BoundedHttps.headersFor(headers, sameOrigin: true), headers);
+  });
+
+  test('the first origin is sent every header, Proxy-Authorization among '
+      'them', () async {
+    final seen = <String?>[];
+    answer = (request) =>
+        seen.add(request.headers.value('proxy-authorization'));
+    final response = await BoundedHttps.open(
+      client,
+      'GET',
+      url('/files'),
+      allowed: (_) => true,
+      headers: const {'Proxy-Authorization': 'Basic x'},
+    );
+    await response.drain<void>();
+    expect(seen, ['Basic x']);
+  });
+
   test('a redirect answering another method is handed back, not followed '
       '(Drive\'s 308 to a resumable upload)', () async {
     answer = (request) => redirectTo(request, url('/next').toString(), 308);

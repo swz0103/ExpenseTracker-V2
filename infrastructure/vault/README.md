@@ -33,7 +33,7 @@
 
 備份格式 v5：帳本的每一筆資料（`EncryptedDatabase` 的每一列）分塊、gzip、用 keyring 的備份金鑰以 AES-256-GCM 加密，之後可附帶收據照片等檔案。v3、v4 仍可讀取（`test/ledger_backup/fixtures/v4.etbk` 是 v4 寫的備份）。
 
-- 檔案開頭是明文標頭：備份 ID、時間、帳本的 `revision`、筆數、keyring（`Keyring.exported`：不含 App 密碼與裝置的 slot，只能用救援碼或備份密碼打開；v3 還帶著密碼 slot）、備份金鑰 epoch；v5 起還有帳本版本（`book`）與 layout（`layout`）。每個版本的標頭欄位固定，多一個少一個都拒絕。每週備份用 `revision` 判斷帳本有沒有變動。
+- 檔案開頭是明文標頭：備份 ID、時間、帳本的 `revision`、筆數、keyring（`Keyring.exported`：不含 App 密碼與裝置的 slot，只能用救援碼或備份密碼打開；v3 還帶著密碼 slot）、備份金鑰 epoch；v5 起還有帳本版本（`book`）與 layout（`layout`）。每個版本的標頭欄位固定，多一個少一個都拒絕。每週備份用 `revision` 判斷帳本有沒有變動；`revision` 小於 0 的標頭拒絕。只讀檔案開頭的位元組時用 `LedgerBackup.headerOf`（`headerReach` 以內必含標頭），例如手機資料夾裡的備份。
 - 寫入與讀取用同一個區塊上限（`maxFrame`）：資料依大小分塊，大檔案切成多段（`more`），寫得出來的備份一定讀得回來。
 - 每一塊的 AAD 綁定標頭雜湊與塊的順序，換塊、刪塊、截斷、改標頭都會被拒絕。
 - 擷取時用 `readApart` 在背景 isolate 一次讀出全部資料，接著在同一個 isolate 壓縮加密，備份是同一個時間點的帳本，畫面不停頓（D41）。

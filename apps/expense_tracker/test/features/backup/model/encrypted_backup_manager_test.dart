@@ -97,6 +97,42 @@ void main() {
     vaultOf(startup).close();
   });
 
+  test('a restored book stands one past the higher of the ledger it '
+      'replaces and the backup, so a new backup is due (D115)', () async {
+    final startup = startupIn('restore-revision');
+    final code = await startup.setUp(password);
+    final before = EncryptedBackupManager(startup, vaultOf(startup));
+    for (var i = 0; i < 2; i++) {
+      vaultOf(startup).store.write((w) => w.setMeta('note', i));
+    }
+    // Two counted writes: revision 2.
+    final path = await before.backUp();
+    final taken = await LedgerBackup.readHeader(File(path));
+    expect(taken.revision, 2);
+    for (var i = 0; i < 5; i++) {
+      vaultOf(startup).store.write((w) => w.setMeta('note', i));
+    }
+    // Five more: 7, kept before the restore from settings.
+    expect(before.revision, 7);
+    await before.restoreAnother();
+    expect(startup.replacedLedger!.revision, 7);
+    await startup.restore(path, code, recovery: true);
+    final after = EncryptedBackupManager(startup, vaultOf(startup));
+    // max(7, 2) + 1 = 8: neither the ledger replaced (7) nor the backup
+    // restored (2) passes for the book now.
+    expect(after.revision, 8);
+    final now = await LedgerBackup.readHeader(File(await after.backUp()));
+    expect(now.revision, 8);
+    expect(backupIsOlder(taken, now), isTrue);
+    vaultOf(startup).close();
+
+    // On a phone with no ledger and nothing kept: the backup's 2, plus 1.
+    final other = startupIn('restore-revision-new');
+    await other.restore(path, code, recovery: true);
+    expect(EncryptedBackupManager(other, vaultOf(other)).revision, 3);
+    vaultOf(other).close();
+  });
+
   test('a copy kept before an upgrade is offered to restore, the last two '
       'kept', () async {
     final startup = startupIn('upgrade');

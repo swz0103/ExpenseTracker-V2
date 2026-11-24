@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:expense_tracker/src/core/platform/preferences.dart';
+import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
 import 'package:expense_tracker/src/features/backup/model/phone_backup.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -135,9 +136,23 @@ void main() {
     // Reset at 10:30:40, in the minute of the second backup.
     final reset = DateTime(2026, 10, 28, 10, 30, 40);
     folder.modifiedAt[second] = DateTime(2026, 10, 28, 10, 30, 50);
-    expect([for (final f in await phone.writtenBefore(reset)) f.name], [first]);
+    expect(
+      [
+        for (final f in await phone.writtenBefore(
+          reset,
+          epoch: 2,
+          head: EncryptedBackupManager.head,
+        ))
+          f.name,
+      ],
+      [first],
+    );
     folder.modifiedAt[second] = DateTime(2026, 10, 28, 10, 30, 20);
-    final old = await phone.writtenBefore(reset);
+    final old = await phone.writtenBefore(
+      reset,
+      epoch: 2,
+      head: EncryptedBackupManager.head,
+    );
     expect([for (final f in old) f.name], [second, first]);
     // Nothing went until asked.
     expect(folder.files, hasLength(4));
@@ -150,6 +165,13 @@ void main() {
     });
     // With no folder chosen there is nothing to list.
     await phone.stop();
-    expect(await phone.writtenBefore(reset), isEmpty);
+    expect(
+      await phone.writtenBefore(
+        reset,
+        epoch: 2,
+        head: EncryptedBackupManager.head,
+      ),
+      isEmpty,
+    );
   });
 }

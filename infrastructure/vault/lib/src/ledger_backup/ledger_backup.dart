@@ -161,6 +161,10 @@ final class BackupHeader {
     } on Object {
       throw const BackupException(BackupProblem.invalidFormat, 'header');
     }
+    // A store's revision only counts up from 0.
+    if (header.revision < 0) {
+      throw const BackupException(BackupProblem.invalidFormat, 'header');
+    }
     // From version 4 on the app password never leaves the phone.
     if (version >= 4 && header.keyring.hasPassword) {
       throw const BackupException(BackupProblem.invalidFormat, 'header');
@@ -384,6 +388,32 @@ abstract final class LedgerBackup {
     }
   }
 
+  /// How many leading bytes of a backup always hold its header: the
+  /// magic, the length and the header itself, whose keyring carries a
+  /// wrapped key per epoch (a few KiB). Enough for [headerOf] when only
+  /// the start of a file can be read, such as one in a folder on the
+  /// phone.
+  static const headerReach = 256 * 1024;
+
+  /// Reads the header from [leading], the first bytes of a backup (at
+  /// most [headerReach] are needed), without any key. Throws
+  /// [BackupException] when they are not a backup's start or stop before
+  /// the header ends.
+  static BackupHeader headerOf(List<int> leading) {
+    final start = _magic.length;
+    if (leading.length < start + 4 ||
+        !_FrameReader._same(leading.sublist(0, start), _magic)) {
+      throw const BackupException(BackupProblem.invalidFormat, 'magic');
+    }
+    final length = ByteData.sublistView(
+      Uint8List.fromList(leading.sublist(start, start + 4)),
+    ).getUint32(0);
+    if (leading.length < start + 4 + length) {
+      throw const BackupException(BackupProblem.invalidFormat, 'truncated');
+    }
+    return BackupHeader.parse(leading.sublist(start + 4, start + 4 + length));
+  }
+
   /// Restores [file] into the empty store [into]. [keys] must be the
   /// backup's own keyring, unlocked; see [readHeader].
   ///
@@ -508,6 +538,9 @@ abstract final class LedgerBackup {
           counts: false,
         );
       }
+      // The store stands at the revision the backup was taken at, not at
+      // the count of the chunks written here (review 27, D115).
+      into.write((w) => w.continueRevision(header.revision), counts: false);
       return header;
     } finally {
       await reader.close();

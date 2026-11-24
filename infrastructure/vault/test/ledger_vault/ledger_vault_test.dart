@@ -704,6 +704,39 @@ void main() {
       );
     });
 
+    test('a restored book goes on, one further, from the higher of the '
+        'revision it was filled to and the one before it (D115)', () async {
+      // Filled with one counted write: 1; nothing known before: 1 + 1.
+      final fresh = await target.restore(
+        source.keys,
+        (staging) async => staging.write((w) => w.put('entry', 'e', '{}')),
+      );
+      expect(fresh.store.revision, 2);
+      fresh.close();
+      // Filled to 9 (the backup's), the ledger before at 4: 9 + 1.
+      final behind = await target.restore(
+        source.keys,
+        (staging) async =>
+            staging.write((w) => w.continueRevision(9), counts: false),
+        replacing: true,
+        revisionBefore: 4,
+      );
+      expect(behind.store.revision, 10);
+      behind.close();
+      // Filled to 9, the ledger before at 30: 30 + 1.
+      final ahead = await target.restore(
+        source.keys,
+        (staging) async =>
+            staging.write((w) => w.continueRevision(9), counts: false),
+        replacing: true,
+        revisionBefore: 30,
+      );
+      addTearDown(ahead.close);
+      expect(ahead.store.revision, 31);
+      ahead.store.write((w) => w.put('entry', 'after', '{}'));
+      expect(ahead.store.revision, 32);
+    });
+
     test('a failure part way leaves no ledger and can be retried', () async {
       await expectLater(
         target.restore(source.keys, (staging) async {

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:expense_tracker/src/core/platform/bounded_https.dart';
 import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -43,6 +44,10 @@ final class FakeDrive implements DriveHttp {
   /// Where Drive says to send a backup's bytes.
   var uploadAt = 'https://www.googleapis.com';
 
+  /// The size Drive says for a file, by id, in place of its real one;
+  /// null for none said.
+  final sizeSaid = <String, String?>{};
+
   /// Files that are not in the trash.
   Iterable<DriveRow> get kept => files.values.where((f) => !f.trashed);
 
@@ -66,6 +71,7 @@ final class FakeDrive implements DriveHttp {
     String? text,
     File? file,
     File? saveTo,
+    int? saveLimit,
   }) async {
     sent.add((method: method, url: url, headers: headers));
     if (url.host == 'oauth2.googleapis.com') {
@@ -160,9 +166,22 @@ final class FakeDrive implements DriveHttp {
     if (method == 'DELETE') {
       fail('Backups go to the trash; nothing is deleted for good.');
     }
+    if (method == 'GET' && url.queryParameters['fields'] == 'size') {
+      final id = path.split('/').last;
+      final found = files[id];
+      if (found == null) return const DriveResponse(404);
+      final size = sizeSaid.containsKey(id)
+          ? sizeSaid[id]
+          : '${found.bytes.length}';
+      return _json({'size': ?size});
+    }
     if (method == 'GET' && url.queryParameters['alt'] == 'media') {
       final found = files[path.split('/').last];
       if (found == null) return const DriveResponse(404);
+      // As IoDriveHttp: past the limit, refused.
+      if (found.bytes.length > saveLimit!) {
+        throw AnswerTooLarge(saveLimit, url);
+      }
       await saveTo!.writeAsBytes(found.bytes);
       return const DriveResponse(200);
     }

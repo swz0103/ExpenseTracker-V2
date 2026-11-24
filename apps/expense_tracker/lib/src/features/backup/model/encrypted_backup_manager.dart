@@ -8,6 +8,7 @@ import 'package:vault/ledger_vault.dart';
 import '../../../core/messages/key_failures.dart' as words;
 import '../../../core/platform/startup.dart';
 import 'backup_manager.dart';
+import 'phone_backup.dart' show BackupHead;
 import '../../../core/time/app_clock.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
@@ -104,6 +105,16 @@ final class EncryptedBackupManager implements BackupManager {
   /// The backup key epoch backups are sealed with now: raised by a reset
   /// of the keys (or a new backup key), so older ones can be told apart.
   int get backupEpoch => _vault.keys.currentBackupEpoch;
+
+  /// How a backup's key epoch is read from its first bytes alone, for one
+  /// in the folder chosen on the phone (`PhoneBackup.writtenBefore`).
+  static const BackupHead head = (
+    reach: LedgerBackup.headerReach,
+    epochIn: _epochIn,
+  );
+
+  static int _epochIn(List<int> leading) =>
+      LedgerBackup.headerOf(leading).backupEpoch;
 
   /// Writes a backup with the receipt photos where files wait to be handed
   /// over, gives it to [use], then deletes it.

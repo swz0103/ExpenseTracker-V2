@@ -22,7 +22,8 @@ final class DriveResponse {
 /// Sends requests to Google; [IoDriveHttp] on the phone, a fake in tests.
 abstract interface class DriveHttp {
   /// Sends [method] to [url]. The body is [text], or the bytes of [file];
-  /// with [saveTo] a successful body is written there instead of returned.
+  /// with [saveTo] a successful body is written there instead of returned,
+  /// refused past [saveLimit] bytes (required with [saveTo]).
   Future<DriveResponse> send(
     String method,
     Uri url, {
@@ -30,17 +31,24 @@ abstract interface class DriveHttp {
     String? text,
     File? file,
     File? saveTo,
+    int? saveLimit,
   });
 }
 
 /// [DriveHttp] over dart:io, through [BoundedHttps]: a redirect is
 /// followed only to `https`, an answer's words are read up to
-/// [answerLimit] and a saved body up to [saveLimit].
+/// [answerLimit] and a saved body up to the limit its request gives,
+/// which may not pass [saveLimit].
 final class IoDriveHttp implements DriveHttp {
   const IoDriveHttp({
     required this.saveLimit,
     this.answerLimit = maxAnswerBytes,
   });
+
+  /// The most any body saved to a file may weigh: no backup is larger
+  /// (`LedgerBackup.maxBackupBytes`, given by the app). A request that
+  /// allows more is refused before it is sent.
+  final int saveLimit;
 
   /// The most a JSON answer from Drive may weigh: a page of
   /// [DriveBackup.pageSize] backups is some tens of kilobytes.
@@ -48,10 +56,6 @@ final class IoDriveHttp implements DriveHttp {
 
   /// The most an answer read as words may weigh, in bytes.
   final int answerLimit;
-
-  /// The most a body saved to a file may weigh: no backup is larger
-  /// (`LedgerBackup.maxBackupBytes`, given by the app).
-  final int saveLimit;
 
   /// Any `https` address: Drive's own hosts move; the token goes only to
   /// the origin first asked ([BoundedHttps.open]).
@@ -65,7 +69,12 @@ final class IoDriveHttp implements DriveHttp {
     String? text,
     File? file,
     File? saveTo,
+    int? saveLimit,
   }) async {
+    if (saveTo != null) {
+      final allowed = saveLimit ?? (throw ArgumentError.notNull('saveLimit'));
+      if (allowed > this.saveLimit) throw AnswerTooLarge(this.saveLimit, url);
+    }
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 20)
       ..idleTimeout = const Duration(seconds: 20);
@@ -100,7 +109,7 @@ final class IoDriveHttp implements DriveHttp {
         await BoundedHttps.save(
           response,
           saveTo,
-          saveLimit,
+          saveLimit!,
           uri: url,
           stall: const Duration(minutes: 1),
         );
@@ -253,6 +262,7 @@ final class DriveBackup {
     String? text,
     File? file,
     File? saveTo,
+    int? saveLimit,
   }) async {
     for (var attempt = 0; ; attempt++) {
       final token = await _access(interactive: interactive);
@@ -266,7 +276,13 @@ final class DriveBackup {
           text: text,
           file: file,
           saveTo: saveTo,
+          saveLimit: saveLimit,
         );
+      } on AnswerTooLarge catch (error) {
+        // Not the network: what came was larger than it may be.
+        throw DriveException(DriveProblem.refused, ErrorLog.describe(error));
+      } on RedirectRefused catch (error) {
+        throw DriveException(DriveProblem.refused, ErrorLog.describe(error));
       } on IOException catch (error) {
         throw DriveException(DriveProblem.offline, ErrorLog.describe(error));
       } on TimeoutException catch (error) {
@@ -399,12 +415,16 @@ final class DriveBackup {
             _need<String>(row, 'name'),
             DateTime.tryParse(row.text('modifiedTime') ?? '') ??
                 DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-            // Drive writes sizes as words.
-            int.tryParse(row.text('size') ?? '') ?? row.whole('size') ?? 0,
+            _size(row) ?? 0,
             epoch: row.object('appProperties')?.text(epochProperty),
           ),
     ]..sort((a, b) => b.modified.compareTo(a.modified));
   }
+
+  /// The size in bytes [json] gives; null when it gives none. Drive
+  /// writes sizes as words.
+  static int? _size(JsonFields json) =>
+      int.tryParse(json.text('size') ?? '') ?? json.whole('size');
 
   /// The property a backup goes up marked with: the backup key epoch it
   /// was sealed with, so those of keys since replaced can be found (D15).
@@ -513,16 +533,29 @@ final class DriveBackup {
         (host == 'googleapis.com' || host.endsWith('.googleapis.com'));
   }
 
-  /// Saves the backup [id] into [into].
+  /// Saves the backup [id] into [into]: no more than the size Drive
+  /// gives for it, so a broken or hostile answer cannot fill the phone. A
+  /// file whose size Drive does not give is refused, and one larger than
+  /// any backup is refused by [DriveHttp] before it is asked for.
   Future<void> download(String id, File into, {bool interactive = true}) async {
+    final address = Uri.parse('$_api/${Uri.encodeComponent(id)}');
+    final about = await _send(
+      'GET',
+      address.replace(queryParameters: {'fields': 'size'}),
+      interactive: interactive,
+    );
+    final size = _size(_answer(about));
+    if (size == null || size < 0) {
+      throw const DriveException(DriveProblem.refused, 'no size');
+    }
     await into.parent.create(recursive: true);
     try {
       await _send(
         'GET',
-        Uri.parse('$_api/${Uri.encodeComponent(id)}')
-            .replace(queryParameters: {'alt': 'media'}),
+        address.replace(queryParameters: {'alt': 'media'}),
         interactive: interactive,
         saveTo: into,
+        saveLimit: size,
       );
     } on Object {
       if (into.existsSync()) await into.delete();

@@ -67,6 +67,15 @@ final class AndroidFolder implements FolderPort {
       });
 
   @override
+  Future<List<int>> head(String uri, String id, int bytes) async =>
+      await platformChannel.invokeMethod<Uint8List>('readFolderHead', {
+        'uri': uri,
+        'id': id,
+        'bytes': bytes,
+      }) ??
+      const [];
+
+  @override
   Future<void> delete(String uri, String id) => platformChannel
       .invokeMethod<void>('deleteInFolder', {'uri': uri, 'id': id});
 }

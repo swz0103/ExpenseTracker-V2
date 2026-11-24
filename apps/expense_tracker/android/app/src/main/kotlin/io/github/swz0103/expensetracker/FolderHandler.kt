@@ -111,6 +111,15 @@ class FolderHandler(private val activity: FragmentActivity) : ChannelHandler {
                     }
                 }
             }
+            "readFolderHead" -> {
+                val id = call.argument<String>("id")
+                val bytes = call.argument<Int>("bytes")
+                if (tree == null || id == null || bytes == null) {
+                    result.error("bad-arguments", "uri, id and bytes are required", null)
+                } else {
+                    background(result) { FolderFiles.head(activity.contentResolver, tree, id, bytes) }
+                }
+            }
             "deleteInFolder" -> {
                 val id = call.argument<String>("id")
                 if (tree == null || id == null) {
