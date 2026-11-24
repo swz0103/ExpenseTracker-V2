@@ -8,6 +8,9 @@ import '../../../core/messages/recurring_messages.dart';
 import '../../../../design_system/display/date.dart';
 import '../../../core/messages/validation_messages.dart';
 
+import 'dart:math' show min;
+
+import 'package:core/time/month_arithmetic.dart' show daysInMonth;
 import 'package:core/time/utc_days.dart';
 
 /// What the form of a recurring item holds while it is filled in: a new
@@ -148,6 +151,19 @@ final class RecurringForm {
         return;
       }
     }
+  }
+
+  /// Paid each year in [month]: on the start's day, held to the month's
+  /// last day, the first such on or after the start. The start's day
+  /// stays what each year is held from (review 28): from 31 March 2027,
+  /// February is 28 February 2027, before the start, so 29 February
+  /// 2028, never the 28th carried on.
+  void setMonthOfYear(int month) {
+    final anchor = start.day;
+    DateTime inYear(int year) =>
+        DateTime.utc(year, month, min(anchor, daysInMonth(year, month)));
+    final first = inYear(start.year);
+    start = first.isBefore(dayOf(start)) ? inYear(start.year + 1) : first;
   }
 
   /// Paid on [weekday] (1 Monday … 7 Sunday): the start moves to the

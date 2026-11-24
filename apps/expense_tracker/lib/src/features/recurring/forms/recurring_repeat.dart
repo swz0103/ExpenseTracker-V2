@@ -59,7 +59,7 @@ class _RepeatSheetState extends State<_RepeatSheet> {
       const SizedBox(height: Space.s2),
       CardGrid(columns: 6, gap: 6, [
         for (var m = 1; m <= 12; m++)
-          _cell('$m', _f.start.month == m, () => _setMonth(m)),
+          _cell('$m', _f.start.month == m, () => _f.setMonthOfYear(m)),
       ]),
       const SizedBox(height: Space.s3),
       const Text('哪一天', style: mutedSmall),
@@ -108,16 +108,6 @@ class _RepeatSheetState extends State<_RepeatSheet> {
       ),
     ],
   );
-
-  void _setMonth(int month) {
-    final start = _f.start;
-    var day = DateTime.utc(start.year, month, start.day);
-    if (day.month != month) day = monthEnd(start.year, month);
-    if (day.isBefore(dayOf(start))) {
-      day = monthsAfter(day, 12);
-    }
-    _f.start = day;
-  }
 
   @override
   Widget build(BuildContext context) {

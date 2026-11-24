@@ -38,6 +38,16 @@ void main() {
     expect(shiftMonth(2026, 1, -13), (2024, 12));
   });
 
+  test('R28: a month before year 0 is in year -1, not year 0', () {
+    // Index of 1/1 is 1 * 12 + 0 = 12; one back is 11: year 0, December.
+    expect(shiftMonth(1, 1, -1), (0, 12));
+    // Index of 0/1 is 0; one back is -1: floor(-1 / 12) = -1, December.
+    expect(shiftMonth(0, 1, -1), (-1, 12));
+    // -12 is exactly year -1, January; -13 is year -2, December.
+    expect(shiftMonth(0, 1, -12), (-1, 1));
+    expect(shiftMonth(0, 1, -13), (-2, 12));
+  });
+
   test('adding months keeps the day inside the month', () {
     // 31 Jan + 1 month: February 2026 has 28 days.
     expect(addMonthsClamped(2026, 1, 31, 1), (2026, 2, 28));

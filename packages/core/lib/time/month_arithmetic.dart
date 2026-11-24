@@ -24,10 +24,13 @@ int daysInMonth(int year, int month) => switch (month) {
 int monthIndex(int year, int month) => year * 12 + (month - 1);
 
 /// The year and month [months] after [year]/[month] (before when
-/// negative).
+/// negative). The year is the index divided by 12 rounded down, never
+/// towards zero, so a month before year 0 is in year -1 (review 28).
 (int, int) shiftMonth(int year, int month, int months) {
   final index = monthIndex(year, month) + months;
-  return (index ~/ 12, index % 12 + 1);
+  // Dart's % is never negative for 12; ~/ rounds towards zero.
+  final inYear = index % 12;
+  return ((index - inYear) ~/ 12, inYear + 1);
 }
 
 /// [day] of the month [months] after [year]/[month], held to that month's
