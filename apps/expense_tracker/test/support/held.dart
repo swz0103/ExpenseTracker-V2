@@ -27,13 +27,25 @@ final class Held<T> {
 /// (in microseconds): a timer ticks every millisecond, and the widest gap
 /// between two ticks is how long nothing else could run, a frame
 /// included. Settled before and after, so the first and the last hold
-/// are counted. [witness] reads how busy the host is before and after.
+/// are counted.
+///
+/// [witness] reads how busy the host is. Its PSI is judged in two quiet
+/// windows of [window] beside the sample, this isolate idle, not across
+/// the sample: the work measured runs its own workers and collector
+/// threads, which make tasks wait for a core even on an idle host (17–37%
+/// PSI while a book of 100,000 opens on four cores, FIX-R24), while what
+/// another program does goes on across the windows too. The PSI across
+/// the sample is printed, not judged. Steal, which the work itself
+/// cannot cause, is judged across the whole span.
 Future<Held<T>> timeHeld<T>(
   Future<T> Function() run, {
   HostWitness? witness,
+  Duration window = quietWindow,
 }) async {
   final host = witness ?? HostWitness.ofThisHost;
-  final before = host.read();
+  final r0 = host.read();
+  await Future<void>.delayed(window);
+  final r1 = host.read();
   final tick = Stopwatch()..start();
   var last = 0;
   var held = 0;
@@ -48,13 +60,29 @@ Future<Held<T>> timeHeld<T>(
   final result = await run();
   await Future<void>.delayed(const Duration(milliseconds: 20));
   timer.cancel();
+  final rssBytes = ProcessInfo.currentRss;
+  // The work's own threads wind down (workers exit, a collection ends)
+  // before the window after begins.
+  await Future<void>.delayed(const Duration(milliseconds: 50));
+  final r2 = host.read();
+  await Future<void>.delayed(window);
+  final r3 = host.read();
   return Held(
     result,
     held,
-    host.between(before, host.read()),
-    rssBytes: ProcessInfo.currentRss,
+    Contention.around(
+      before: host.between(r0, r1),
+      during: host.between(r1, r2),
+      after: host.between(r2, r3),
+      whole: host.between(r0, r3),
+    ),
+    rssBytes: rssBytes,
   );
 }
+
+/// The quiet windows [timeHeld] reads the host's PSI in, before and after
+/// each sample.
+const quietWindow = Duration(milliseconds: 150);
 
 /// How busy the host was during one sample, from two [HostReading]s.
 /// Each figure is null where the host gives no such reading.
@@ -65,7 +93,29 @@ final class Contention {
     this.stealShare,
     this.probeSlowdown,
     this.loadPerCore,
+    this.psiDuring,
   });
+
+  /// One sample's contention from the readings around it: PSI and the
+  /// probe from the quiet windows [before] and [after] (the higher),
+  /// steal across the [whole] span; the PSI [during] the sample printed.
+  factory Contention.around({
+    required Contention before,
+    required Contention during,
+    required Contention after,
+    required Contention whole,
+  }) {
+    double? higher(double? a, double? b) =>
+        a == null ? b : (b == null || a > b ? a : b);
+    return Contention(
+      wallUs: whole.wallUs,
+      psiShare: higher(before.psiShare, after.psiShare),
+      stealShare: whole.stealShare,
+      probeSlowdown: higher(before.probeSlowdown, after.probeSlowdown),
+      loadPerCore: whole.loadPerCore,
+      psiDuring: during.psiShare,
+    );
+  }
 
   /// A sample on a host that gives no reading at all.
   static const unknown = Contention(wallUs: 0);
@@ -88,6 +138,10 @@ final class Contention {
   /// judge one sample by.
   final double? loadPerCore;
 
+  /// The PSI across the sample itself, printed only: the work's own
+  /// threads add to it.
+  final double? psiDuring;
+
   /// A sample counts as contended past any of these.
   static const psiLimit = 0.05;
   static const stealLimit = 0.01;
@@ -101,6 +155,7 @@ final class Contention {
   @override
   String toString() => [
     if (psiShare case final s?) 'psi ${_percent(s)}',
+    if (psiDuring case final s?) 'psi during ${_percent(s)}',
     if (stealShare case final s?) 'steal ${_percent(s)}',
     if (probeSlowdown case final s?) 'probe x${s.toStringAsFixed(2)}',
     if (loadPerCore case final l?) 'load/core ${l.toStringAsFixed(2)}',
@@ -289,11 +344,28 @@ typedef SharePair = ({Held<Object?> apart, Held<Object?> whole});
 /// How a share gate came out.
 enum ShareVerdict { pass, fail, inconclusive }
 
+/// A timing gate's verdict on its clean samples, with every figure.
+abstract interface class Judged {
+  ShareVerdict get verdict;
+
+  /// How many samples counted, of how many taken.
+  int get cleanCount;
+  int get taken;
+
+  String describe(String name);
+}
+
 /// Judged on the pairs whose samples were not contended: the median of
 /// their ratios (apart held / whole held) against [limit], and, when
 /// [apartMostUs] is given, the median of their apart holds against it.
-final class ShareResult {
+final class ShareResult implements Judged {
   ShareResult(this.pairs, {required this.limit, this.apartMostUs});
+
+  @override
+  int get cleanCount => clean.length;
+
+  @override
+  int get taken => pairs.length;
 
   final List<SharePair> pairs;
   final double limit;
@@ -324,6 +396,7 @@ final class ShareResult {
 
   int get contended => pairs.length - clean.length;
 
+  @override
   ShareVerdict get verdict {
     if (clean.length < leastClean) return ShareVerdict.inconclusive;
     final overLimit = median! > limit;
@@ -337,6 +410,7 @@ final class ShareResult {
   }
 
   /// Every pair's figures, the witness's with them, and the verdict.
+  @override
   String describe(String name) {
     final lines = [
       '$name: ${verdict.name.toUpperCase()}; ${clean.length} of '
@@ -405,11 +479,82 @@ Future<ShareResult> shareOf({
   return result;
 }
 
+/// A gate of figures of one run each, not of a pair (the opening's
+/// shares and its worker's time): each figure's median over the runs the
+/// host did not stall, against its limit, which it must stay under.
+final class MedianResult implements Judged {
+  MedianResult(this.samples, {required this.limits});
+
+  final List<Held<Map<String, double>>> samples;
+  final Map<String, double> limits;
+
+  late final List<Held<Map<String, double>>> clean = [
+    for (final s in samples)
+      if (!s.contended) s,
+  ];
+
+  @override
+  int get cleanCount => clean.length;
+
+  @override
+  int get taken => samples.length;
+
+  /// The median of [figure] over the clean runs, or null with none.
+  double? median(String figure) => clean.isEmpty
+      ? null
+      : ShareResult._median([for (final s in clean) s.result[figure]!]..sort());
+
+  @override
+  ShareVerdict get verdict {
+    if (clean.length < ShareResult.leastClean) {
+      return ShareVerdict.inconclusive;
+    }
+    final over = limits.entries.any((l) => median(l.key)! >= l.value);
+    return over ? ShareVerdict.fail : ShareVerdict.pass;
+  }
+
+  @override
+  String describe(String name) => [
+    '$name: ${verdict.name.toUpperCase()}; ${clean.length} of '
+        '${samples.length} runs clean (${Platform.numberOfProcessors} '
+        'cores); '
+        '${[for (final MapEntry(key: f, value: limit) in limits.entries) '$f median ${median(f)?.toStringAsFixed(3) ?? '-'} under $limit'].join(', ')}',
+    for (final (i, s) in samples.indexed)
+      '  run ${i + 1}: '
+          '${[for (final f in limits.keys) '$f ${s.result[f]!.toStringAsFixed(3)}'].join(', ')} '
+          '(${s.load}${_rss(s)})${s.contended ? ' CONTENDED' : ''}',
+  ].join('\n');
+}
+
+/// A gate's runs of [run], each giving its figures: [first] runs, then up
+/// to [most] when the verdict is not a pass and the witness marked at
+/// least half of them contended (as [shareOf]).
+Future<MedianResult> mediansOf({
+  required Future<Held<Map<String, double>>> Function() run,
+  required Map<String, double> limits,
+  int first = sharePairs,
+  int most = shareMostPairs,
+}) async {
+  final taken = <Held<Map<String, double>>>[];
+  for (var i = 0; i < first; i++) {
+    taken.add(await run());
+  }
+  var result = MedianResult(List.of(taken), limits: limits);
+  if (result.verdict != ShareVerdict.pass &&
+      (taken.length - result.cleanCount) * 2 >= taken.length) {
+    while (taken.length < most) {
+      taken.add(await run());
+    }
+    result = MedianResult(List.of(taken), limits: limits);
+  }
+  return result;
+}
+
 /// Passes, fails with every figure, or, when too few pairs were clean,
 /// says so: a failure under `CI` (a red build that says why), a loud skip
 /// elsewhere. Never a quiet pass.
 void expectShare(
-  ShareResult result,
+  Judged result,
   String name, {
   Map<String, String>? environment,
 }) {
@@ -423,8 +568,8 @@ void expectShare(
       fail(report);
     case ShareVerdict.inconclusive:
       final why =
-          'INCONCLUSIVE: host contended (${result.clean.length} of '
-          '${result.pairs.length} samples clean)\n$report';
+          'INCONCLUSIVE: host contended (${result.cleanCount} of '
+          '${result.taken} samples clean)\n$report';
       if ((environment ?? Platform.environment).containsKey('CI')) fail(why);
       markTestSkipped(why);
   }

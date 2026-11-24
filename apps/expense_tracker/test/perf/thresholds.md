@@ -154,12 +154,17 @@ test JIT, not pinned; each figure the least of three openings:
 
 After review 23's merge, with the host at load 0.6 for a moment (one-
 minute 3.3–6 while the gate ran): worker least 1,290 / 1,758 / 1,563 ms,
-outside share 0.026–0.029. The worker's time is not judged on the
-clean samples of `HostWitness` (held.dart) as the share gates are: the
-opening's own threads (its worker, the second one, the collector) make
-the host's PSI 17–37% of the opening even at load 0.6, so every opening
-read as contended and the limit was never judged. It stays the least of
-three, against a limit about twice the least measured.
+outside share 0.026–0.029. The opening's own threads (its worker, the
+second one, the collector) make the host's PSI 17–37% of the opening
+even at load 0.6, so a witness reading PSI across the opening marked
+every one contended. Since review 28 the witness reads PSI in two quiet
+windows of 150 ms beside each sample instead (held.dart, `timeHeld`), so
+the work's own threads are not counted and another program's load
+still is; the PSI across the sample is printed as `psi during`. The
+gate's three figures (held share, outside share, the worker's time) are
+then each the median of the clean openings (`mediansOf`, five, up to
+nine when half were contended), INCONCLUSIVE when fewer than three are
+clean, like the share gates. The limits are unchanged.
 
 At this load the worker's time with and without the second worker
 overlaps (as review 24 found), so the split is gated by what it leaves,
@@ -267,11 +272,14 @@ A share gate (`journal_rebuild_block`, `batch_write_block`,
   in µs, settled 20 ms before and after.
 - **A witness of the host around each sample.** On Linux the PSI `some`
   total of `/proc/pressure/cpu` (time some runnable task waited for a
-  core) and the steal ticks of `/proc/stat`; elsewhere a fixed loop of
-  about 3 ms timed before and after, against the fastest seen. A sample
-  is contended past 5% PSI of its wall time, 1% steal, or a loop 1.5
-  times its fastest. The one-minute load per core is printed, not
-  judged.
+  core), read in two quiet windows of 150 ms just before and just after
+  the sample with this isolate idle (the work's own workers and
+  collector make tasks wait even on an idle host, review 28), and the
+  steal ticks of `/proc/stat` across the whole span; elsewhere a fixed
+  loop of about 3 ms timed in the same windows, against the fastest
+  seen. A sample is contended past 5% PSI of a window, 1% steal, or a
+  loop 1.5 times its fastest. The PSI across the sample (`psi during`)
+  and the one-minute load per core are printed, not judged.
 - **Interleaved pairs**: apart, then at once, five times; each ratio from
   two runs a moment apart, so a slow drift of the host's load falls on
   both. A pair either of whose samples is contended is dropped.
@@ -345,6 +353,15 @@ judged"), with the shared timer in µs (the gate's own ms timer is gone).
 | measured (5 runs, Linux host, 2026-11-23) | limit |
 |---|---|
 | at once: held 772–945 ms; apart: held 14–19 ms, 1,023–1,238 ms in all; share 0.016–0.021 | 0.045 (about 2× the worst share) |
+
+On CI (quiet runners, five clean pairs each): 0.016–0.036, median 0.020
+(at once 646–683 ms, apart 10–23 ms); at 2dbf821 0.032–0.043, median 0.040
+(at once 419–439 ms, apart 14–18 ms). The pairs are flat (no growth
+from pair to pair, unlike the import's before review 28): what moved is
+the denominator, the write at once being quicker on that runner, while
+the apart hold, most of it the in-memory rename below, stays about 15 ms.
+Not a measurement artifact; the room under 0.045 is thin on a fast
+runner (an open decision, see the report of FIX-R23).
 
 What is left held includes the rename of the screens' own copy of the book
 in memory, which is not the store's. Written apart, the rename takes about
