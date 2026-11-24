@@ -5,6 +5,7 @@ import 'package:storage/storage.dart';
 import '../models/models.dart';
 import 'codec/category_refs.dart';
 import 'codec/record_json.dart';
+import 'codec/record_shape.dart';
 import 'codec/row_decoding.dart';
 import 'quarantine.dart';
 import 'record_version.dart';
@@ -126,13 +127,26 @@ DecodedBook decodeBook(
     for (final row in shelves[collection.name] ?? const <StoredRow>[]) {
       final record = json[row];
       if (record == null) continue;
+      final T value;
       try {
-        read.add(from(record));
+        value = from(record);
       } on Object catch (error) {
         // Not logged per row: the row is set aside and told on opening.
         aside.record(row.shelf, row.id, QuarantineReason.invalid, error: error);
         continue;
       }
+      // The shape rules a backup is restored by ([checkRecord]): a record
+      // no version of the app would write is set aside, never worked with.
+      if (shapeProblem(shapeIssues(value!)) case final problem?) {
+        aside.record(
+          row.shelf,
+          row.id,
+          QuarantineReason.invalid,
+          detail: problem,
+        );
+        continue;
+      }
+      read.add(value);
       namesToIds(row.shelf, record, collect);
       if (collected.isNotEmpty) {
         namesOf['${row.shelf}/${row.id}'] = {...collected};
@@ -171,8 +185,33 @@ DecodedBook decodeBook(
         // A note that cannot be read is left as it is.
         if (notes[i] case {'at': final num at} when at < cutoff) row.id,
   ];
-  final entries = read(Collection.entry, (j) => entryFromJson(j, refs));
+  var entries = read(Collection.entry, (j) => entryFromJson(j, refs));
   final market = shelves[marketShelf] ?? const <StoredRow>[];
+  final holdings = today == null
+      ? null
+      : readHoldings(
+          holdingsOf(marketFrom(readableMarket(market))),
+          entries,
+          today,
+        );
+  if (holdings != null && holdings.faulty.isNotEmpty) {
+    // A trade the holdings could not work in, whatever it threw, is set
+    // aside like any record that cannot be read; the holdings already
+    // leave it out.
+    holdings.faulty.forEach((id, error) {
+      aside.record(
+        Collection.entry.name,
+        id,
+        QuarantineReason.invalid,
+        error: error,
+      );
+      namesOf.remove('${Collection.entry.name}/$id');
+    });
+    entries = [
+      for (final e in entries)
+        if (!holdings.faulty.containsKey(e.id)) e,
+    ];
+  }
   return DecodedBook._(
     accounts: read(Collection.account, accountFromJson),
     categories: categories,
@@ -208,13 +247,7 @@ DecodedBook decodeBook(
     ],
     // Only an entry gone for good is a change of the book.
     expiredCounts: expiredIds.isNotEmpty,
-    holdings: today == null
-        ? null
-        : readHoldings(
-            holdingsOf(marketFrom(readableMarket(market))),
-            entries,
-            today,
-          ),
+    holdings: holdings,
   );
 }
 
@@ -250,7 +283,7 @@ Map<StoredRow, Map<String, Object?>> _records(
           row.shelf,
           row.id,
           QuarantineReason.invalid,
-          detail: '_v is not a number',
+          detail: '_v is not a version',
         );
       case final version when version > recordVersion:
         aside.record(

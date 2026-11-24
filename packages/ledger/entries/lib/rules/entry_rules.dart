@@ -1,5 +1,8 @@
+import 'dart:math' show max;
+
 import 'package:core/foundation_values.dart' show Currency;
-import 'package:core/money/amount_parser.dart' show maxMinorUnits;
+import 'package:core/money/amount_parser.dart'
+    show maxAmountUnits, maxMinorUnits;
 
 import '../model/account_kind.dart';
 import '../model/entry.dart';
@@ -12,6 +15,18 @@ const maxInstallments = 60;
 /// The largest amount kept in [currency], in its smallest unit: the
 /// app's one limit (core's `maxMinorUnits`), cents for US$.
 int maxAmountOf(String currency) => maxMinorUnits(Currency.scaleOf(currency));
+
+/// The largest amount kept in any currency the app offers, in its
+/// smallest unit: what a record read back, whose account's currency is
+/// not at hand, may hold at most ([maxAmountOf] of the currency with the
+/// most decimals).
+final int maxAmountAnyCurrency = Currency.supported
+    .map(maxAmountOf)
+    .reduce(max);
+
+/// The most shares one entry may trade or change: shares are typed on
+/// the keypad of whole amounts, so core's [maxAmountUnits].
+const maxShares = maxAmountUnits;
 
 /// What the rules need to know of the book around an entry, gathered by
 /// whoever asks: the accounts it names, the shares and refund it touches,
@@ -99,6 +114,10 @@ List<RecordIssue> entryIssues(Entry e, EntryFacts facts) {
   if (e.amount <= 0 && !stock) found.add(MissingAmount(trade: trade));
   if (e.amount > maxAmountOf(currency)) {
     found.add(AmountTooLarge(maxAmountOf(currency)));
+  } else if (_amountsOf(e).any((amount) => amount > maxAmountAnyCurrency)) {
+    // A charge, a worth at home or an amount received beyond what any
+    // currency keeps, as a record read back is refused for.
+    found.add(AmountTooLarge(maxAmountAnyCurrency));
   }
   if (e.fee < 0 || e.tax < 0) found.add(const NegativeCharge());
   if (from == null) found.add(const UnknownAccount());
@@ -140,6 +159,7 @@ List<RecordIssue> entryIssues(Entry e, EntryFacts facts) {
   }
   if (e.isInvestment && e.holding == null) found.add(const MissingHolding());
   if (trade && e.shares <= 0) found.add(const MissingShares());
+  if (e.shares.abs() > maxShares) found.add(const SharesTooLarge(maxShares));
   if (e.dayTrade && e.type != EntryType.sell) {
     found.add(const DayTradeNotSale());
   }
@@ -181,11 +201,29 @@ List<RecordIssue> entryIssues(Entry e, EntryFacts facts) {
 List<RecordIssue> entryShapeIssues(Entry e) => [
   if (!_isMidnight(e.date)) const DateNotMidnight(),
   if (e.amount < 0) const MissingAmount(trade: false),
+  if (_amountsOf(e).any((amount) => amount > maxAmountAnyCurrency))
+    AmountTooLarge(maxAmountAnyCurrency),
   if (e.fee < 0 || e.tax < 0) const NegativeCharge(),
   if (e.type == EntryType.transfer && (e.to ?? '').isEmpty)
     const MissingDestination(),
+  // A sale of fewer than no shares would put shares back; a purchase of
+  // fewer, take them away. Neither was ever written.
+  if ((e.type == EntryType.buy || e.type == EntryType.sell) && e.shares < 0)
+    const MissingShares(),
+  if (e.shares.abs() > maxShares) const SharesTooLarge(maxShares),
   if (e.installments < 0 || e.installments > maxInstallments)
     const InstallmentsOutOfRange(maxInstallments),
+];
+
+/// Every amount [e] holds: its own, its charges, what it is worth at home
+/// and what arrived, and each part of its split.
+Iterable<int> _amountsOf(Entry e) => [
+  e.amount,
+  e.fee,
+  e.tax,
+  ?e.home,
+  ?e.received,
+  for (final (_, amount) in e.parts) amount,
 ];
 
 /// A split's parts: each more than nothing, together the amount.

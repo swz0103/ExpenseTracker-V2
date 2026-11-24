@@ -1,3 +1,4 @@
+import 'entry_rules.dart' show maxAmountAnyCurrency;
 import 'issues.dart';
 
 /// Why a recurring item of these fields cannot be kept: an amount of
@@ -12,6 +13,7 @@ List<RecordIssue> recurringIssues({
   DateTime? end,
 }) => [
   if (amount <= 0) const MissingAmount(trade: false),
+  if (amount > maxAmountAnyCurrency) AmountTooLarge(maxAmountAnyCurrency),
   ...recurringShapeIssues(every: every, day: day),
   if (start != null && end != null && end.isBefore(start))
     const EndsBeforeStart(),
@@ -19,7 +21,7 @@ List<RecordIssue> recurringIssues({
 
 /// What a recurring item read back from elsewhere, such as a backup, must
 /// be for its dates to be worked out at all: an interval of at least one
-/// and a day of the month, and no amount below nothing. An amount of
+/// and a day of the month, and an amount from nothing to the most kept. An amount of
 /// nothing, which only stops it being booked, and an end before its
 /// start, which only ends it, still read.
 List<RecordIssue> recurringShapeIssues({
@@ -28,6 +30,7 @@ List<RecordIssue> recurringShapeIssues({
   required int day,
 }) => [
   if (amount < 0) const MissingAmount(trade: false),
+  if (amount > maxAmountAnyCurrency) AmountTooLarge(maxAmountAnyCurrency),
   if (every < 1) const IntervalTooSmall(),
   if (day < 1 || day > 31) const DayOutOfRange(),
 ];
@@ -46,20 +49,26 @@ List<RecordIssue> accountIssues({
 ];
 
 /// [accountIssues] less the name: what an account read back from
-/// elsewhere must be.
+/// elsewhere must be. Its [opening] balance, when given, may be below
+/// nothing (a debt), but no further from it than the most kept.
 List<RecordIssue> accountShapeIssues({
   int? closingDay,
   int? dueDay,
   int? limit,
+  int? opening,
 }) => [
   if (closingDay != null && (closingDay < 1 || closingDay > 31))
     const ClosingDayOutOfRange(),
   if (dueDay != null && (dueDay < 1 || dueDay > 31)) const DueDayOutOfRange(),
   if (limit != null && limit < 0) const NegativeCreditLimit(),
+  if ((limit != null && limit > maxAmountAnyCurrency) ||
+      (opening != null && opening.abs() > maxAmountAnyCurrency))
+    AmountTooLarge(maxAmountAnyCurrency),
 ];
 
 /// Why a budget of [limit] warning at [warning] percent cannot be kept.
 List<RecordIssue> budgetIssues({required int limit, required int warning}) => [
   if (limit < 0) const NegativeBudgetLimit(),
+  if (limit > maxAmountAnyCurrency) AmountTooLarge(maxAmountAnyCurrency),
   if (warning < 1 || warning > 100) const WarningOutOfRange(),
 ];

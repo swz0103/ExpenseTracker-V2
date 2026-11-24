@@ -337,6 +337,87 @@ void main() {
     });
   });
 
+  group('R12: a row no app would write still lets the book open', () {
+    // The minimal rows of review 12, each beside a sound entry: F1 (a _v
+    // that is no version), F2 (a sale of fewer than no shares), F3 (what
+    // restore's shape rules refuse).
+    final rows = <String, String>{
+      'vInf':
+          '{"_v":1e999,"id":"vInf","date":"2026-09-04",'
+          '"type":"expense","amount":5,"account":"a1"}',
+      'vMinusInf': '{"_v":-1e999,"id":"vMinusInf"}',
+      'vHuge': '{"_v":1.0e400,"id":"vHuge"}',
+      'vFraction': jsonEncode({...entry('vFraction'), '_v': 2.9}),
+      'vMinus': jsonEncode({...entry('vMinus'), '_v': -5}),
+      'sellMinus': jsonEncode({
+        ...entry('sellMinus'),
+        'type': 'sell',
+        'holding': '2330',
+        'shares': -5,
+      }),
+      'sharesMax': jsonEncode({
+        ...entry('sharesMax'),
+        'type': 'buy',
+        'holding': '2330',
+        'shares': 9223372036854775807,
+      }),
+      'amountMax': jsonEncode(entry('amountMax', amount: 9223372036854775807)),
+      'instalments': jsonEncode({
+        ...entry('instalments'),
+        'installments': 99999999999,
+      }),
+      'nowhere': jsonEncode({...entry('nowhere'), 'type': 'transfer'}),
+    };
+
+    for (final (how, journal, pad) in [
+      ('on the screen\'s isolate', false, 0),
+      ('with the journal kept', true, 0),
+      ('on a worker, past 2,000 rows', false, 2001),
+    ]) {
+      test(how, () async {
+        await load();
+        store!.write((w) {
+          w.put('entry', 'ok', jsonEncode(entry('ok')));
+          rows.forEach((id, body) => w.put('entry', id, body));
+          for (var i = 0; i < pad; i++) {
+            w.put('entry', 'pad$i', jsonEncode(entry('pad$i')));
+          }
+        });
+        source = SqlLedgerDataSource(
+          open(),
+          keepsJournal: journal,
+          clock: FixedClock(UtcInstant(now)),
+        );
+        final ledger = await source.load();
+        expect(ledger.entries.all, hasLength(1 + pad));
+        expect(ledger.entries.all.map((e) => e.id), contains('ok'));
+        expect(
+          {for (final q in source.quarantined) q.key},
+          {for (final id in rows.keys) 'entry/$id'},
+        );
+        expect(source.quarantined.map((q) => q.reason).toSet(), {
+          QuarantineReason.invalid,
+        });
+        // Each is still kept exactly as it was, once the journal is posted.
+        await source.journal.settled;
+        for (final MapEntry(key: id, value: body) in rows.entries) {
+          expect(store!.row('entry', id)!.body, body);
+        }
+      });
+    }
+
+    test('restoring a backup refuses the same rows', () {
+      for (final MapEntry(key: id, value: body) in rows.entries) {
+        expect(
+          () => SqlLedgerDataSource.check('entry', id, body),
+          throwsA(isA<FormatException>()),
+          reason: id,
+        );
+      }
+      SqlLedgerDataSource.check('entry', 'ok', jsonEncode(entry('ok')));
+    });
+  });
+
   test('notes of deletions are let go once the trash would be', () async {
     await load();
     // 2026-10-04 less 30 days is 2026-09-04: one note before, one after.
