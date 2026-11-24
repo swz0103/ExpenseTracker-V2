@@ -129,12 +129,12 @@ void main() {
       );
       // The book on the screen: how long, and the longest hold.
       opening.start();
-      final (result: ledger, heldUs: openHeldUs) = await timeHeld(
+      final Held<Ledger>(result: ledger, heldUs: openHeldUs) = await timeHeld(
         firstOpen.load,
       );
       openMs = opening.elapsedMilliseconds;
       // Then the journal posted and written: the longest hold meanwhile.
-      final (result: _, heldUs: heldUs) = await timeHeld(() async {
+      final Held(heldUs: heldUs) = await timeHeld(() async {
         while (store.busyApart) {
           await store.idle;
         }

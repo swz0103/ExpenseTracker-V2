@@ -4,6 +4,7 @@ import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/ledger/journal/parity.dart';
+import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
@@ -11,6 +12,7 @@ import 'package:kernel/kernel.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
+import '../../../baseline/baseline_ledger.dart';
 import 'posted_book.dart';
 
 /// The books each version of the app kept (test/fixtures/books), opened
@@ -97,6 +99,54 @@ void main() {
       out.differences.map((d) => (d.figure, d.subject)),
       contains((Figure.balance, lunch.account)),
     );
+  });
+
+  test('the check offers a pause between each piece of its work, counted, '
+      'not timed (review 23)', () async {
+    // 30 entries, entry i on account i % 3 and i % 10 days before today:
+    // as 3 and 10 share no factor, each account has an entry on each of
+    // the 10 days, 2026-09-25 to 2026-10-04.
+    final today = day(2026, 10, 4);
+    final ledger = ledgerOf(
+      today: today,
+      accounts: const [
+        Account('bank', '銀行', AccountKind.bank, 1000),
+        Account('cash', '現金', AccountKind.cash, 500),
+        Account('card', '卡', AccountKind.card, 0, closingDay: 5, dueDay: 20),
+      ],
+      categories: [Category('飲食', 'food', 0xFF111111)],
+      entries: [
+        for (var i = 0; i < 30; i++)
+          entryOf(
+            'e$i',
+            today.subtract(Duration(days: i % 10)),
+            EntryType.expense,
+            10 + i,
+            ['bank', 'cash', 'card'][i % 3],
+            category: '飲食',
+          ),
+      ],
+    );
+    final posted = await post(ledger);
+    var offered = 0;
+    final parity = await checkParity(
+      today: figuresOf(ledger),
+      reader: posted.reader,
+      pause: () async {
+        offered++;
+        await Future<void>.delayed(Duration.zero);
+      },
+    );
+    expect(parity, isA<InParity>(), reason: _said(parity));
+    // 30 (one per entry, the days each account changes on)
+    // + 3 accounts x (1 before its sums + 10 days + 1 after) = 36
+    // + 2 the opening balances of the bank and the cash, posted before
+    //   every day (the card opens at 0)
+    // + 2 months (September, October) + 0 stocks + 1 card's statement
+    // + 1 the book's worth + 1 the currencies' sum = 73.
+    expect(offered, 73);
+    // A regression that stops offering pauses (or offers one per account
+    // only) falls far below the count.
   });
 }
 

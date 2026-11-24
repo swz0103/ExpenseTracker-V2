@@ -1,0 +1,9 @@
+tags:
+  # Gates that judge wall-clock time (test/perf/*_gate_test.dart and the
+  # scale scenario): run on their own, one file at a time and without
+  # coverage, which slows code and distorts the hold ratios:
+  #   flutter test --tags timing --concurrency=1
+  # The rest of the suite runs without them, at the default concurrency:
+  #   flutter test --exclude-tags timing
+  # A plain `flutter test` still runs both.
+  timing:

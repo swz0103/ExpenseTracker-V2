@@ -1,3 +1,13 @@
+/// Posting the whole journal afresh does not hold the screen still
+/// (decision D51): it is read, posted and written on worker isolates.
+/// Measured as the longest the isolate is held, against the same book
+/// posted afresh on it at once, so it holds on any machine; judged on
+/// interleaved pairs the host did not stall (held.dart, `shareOf`). The
+/// limit and how it was measured are in thresholds.md
+/// (`journal_rebuild_block`).
+@Tags(['timing'])
+library;
+
 import 'dart:io';
 
 import 'package:core/app_core.dart';
@@ -15,25 +25,24 @@ import 'package:storage/storage.dart';
 
 import '../support/held.dart';
 
-/// Posting the whole journal afresh does not hold the screen still
-/// (decision D51): it is read, posted and written on worker isolates.
-/// Measured as the longest the isolate is held, against the same book
-/// posted afresh on it at once, so it holds on any machine; the limit is
-/// the one the batch writes keep (batch_write_gate_test.dart, 0.045).
 void main() {
   /// The longest the isolate may be held, as a share of the book posted
-  /// at once.
+  /// at once (thresholds.md, `journal_rebuild_block`).
   const limit = 0.045;
 
-  final today = DateTime.utc(2026, 10, 4);
+  /// Entries in the book: posting at once grows with them, the hold
+  /// apart (a slice of the work) does not, so the share has room.
+  const count = 50000;
 
-  /// A book of 20,000 entries, spending, transfers and trades.
-  Future<(EncryptedDatabase, Ledger, Directory)> book() async {
-    final dir = Directory.systemTemp.createTempSync('journal-gate-');
-    final store = EncryptedDatabase.open(
-      File('${dir.path}/l.db'),
-      StorageKey.random(),
-    );
+  final today = DateTime.utc(2026, 10, 4);
+  final key = StorageKey.random();
+  final template = Directory.systemTemp.createTempSync('journal-gate-');
+  tearDownAll(() => template.deleteSync(recursive: true));
+
+  /// The book of [count] entries, spending, transfers and trades, kept
+  /// once in [template]; each run opens a copy of its file.
+  Future<void> keepTemplate() async {
+    final store = EncryptedDatabase.open(File('${template.path}/l.db'), key);
     final source = SqlLedgerDataSource(
       store,
       clock: FixedClock(UtcInstant(today)),
@@ -44,7 +53,7 @@ void main() {
     await source.keep(
       WriteBatch(
         entries: [
-          for (var i = 0; i < 20000; i++)
+          for (var i = 0; i < count; i++)
             Entry(
               id: 'e$i',
               date: today.subtract(Duration(days: i % 1800)),
@@ -63,14 +72,24 @@ void main() {
         ],
       ),
     );
+    store.close();
+  }
+
+  /// A copy of the template's book, open.
+  Future<(EncryptedDatabase, Ledger, Directory)> book() async {
+    final dir = Directory.systemTemp.createTempSync('journal-gate-');
+    for (final f in template.listSync().whereType<File>()) {
+      f.copySync('${dir.path}/${f.uri.pathSegments.last}');
+    }
+    final store = EncryptedDatabase.open(File('${dir.path}/l.db'), key);
+    final source = SqlLedgerDataSource(
+      store,
+      clock: FixedClock(UtcInstant(today)),
+    );
     return (store, await source.load(), dir);
   }
 
-  /// The longest the isolate was held while [run] ran, in microseconds.
-  Future<int> held(Future<void> Function() run) async =>
-      (await timeHeld(run)).heldUs;
-
-  Future<int> atOnce() async {
+  Future<Held<void>> atOnce() async {
     final (store, ledger, dir) = await book();
     try {
       final mapping = BookMapping(
@@ -80,7 +99,7 @@ void main() {
       final seqs = {
         for (final r in store.rows(shelf: Collection.entry.name)) r.id: r.seq,
       };
-      return await held(() async {
+      return await timeHeld(() async {
         await replayBook(
           mapping: mapping,
           journal: Journal(
@@ -102,10 +121,10 @@ void main() {
     }
   }
 
-  Future<int> apart() async {
+  Future<Held<void>> apart() async {
     final (store, ledger, dir) = await book();
     try {
-      final block = await held(
+      final block = await timeHeld(
         () => store.postApart(
           postingWork(aside: const {}, start: const []),
           mark: (rules: journalRules, revision: store.revision),
@@ -126,24 +145,16 @@ void main() {
 
   test('posting the whole journal afresh holds the screen for a small '
       'share of posting it at once', () async {
+    await keepTemplate();
     // Warm up both paths first, so neither is charged for compiling.
     await atOnce();
     await apart();
-    // The least of three each: what the code holds is held every time; a
-    // machine busy elsewhere (the other tests of a full run, four cores
-    // shared) stalls a run now and then, and whole collections of the
-    // workers' garbage stop this isolate too, at their own times. The
-    // worker first: posting at once here leaves a heap of this isolate's
-    // own to be collected, which the app never has before its rebuild.
-    final worker = await leastOf(gateTries, apart);
-    final whole = await leastOf(gateTries, atOnce);
-    final share = worker / whole;
-    // ignore: avoid_print
-    print(
-      'journal_rebuild_block: at once ${whole ~/ 1000} ms held; apart '
-      '${worker ~/ 1000} ms held; '
-      'share ${share.toStringAsFixed(3)}',
-    );
-    expect(share, lessThanOrEqualTo(limit));
-  }, timeout: const Timeout(Duration(minutes: 5)));
+    // Interleaved pairs, the worker first in each: posting at once here
+    // leaves a heap of this isolate's own to be collected, which the app
+    // never has before its rebuild. Whole collections of the workers'
+    // garbage stop this isolate too, at their own times: the median of
+    // the clean pairs' ratios is judged, not one sample.
+    final result = await shareOf(apart: apart, whole: atOnce, limit: limit);
+    expectShare(result, 'journal_rebuild_block');
+  }, timeout: const Timeout(Duration(minutes: 15)));
 }
