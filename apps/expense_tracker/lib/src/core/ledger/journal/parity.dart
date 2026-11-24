@@ -160,6 +160,9 @@ Future<Parity> checkParity({
   final days = await _changeDays(today, pause);
   for (final a in today.accounts.all) {
     if (!inScope(scope.accounts, a.id)) continue;
+    // Each figure's work its own slice (r13 F8): the account's sums read
+    // here, its running balance worked out cold by the first day below.
+    if (pause != null) await pause();
     final steps = reader.daySums(moneyAccount(a.id));
     final running = <int, int>{};
     var total = 0;
@@ -286,6 +289,7 @@ Future<Parity> checkParity({
   // 4. Each card's last statement.
   for (final a in today.accounts.all) {
     if (a.kind != AccountKind.card || !inScope(scope.accounts, a.id)) continue;
+    if (pause != null) await pause();
     final (_, closed, _) = today.statements.statement(a);
     check(
       Figure.statementDue,
@@ -304,6 +308,7 @@ Future<Parity> checkParity({
   // 5. What the book is worth today, as the app counts it (the reader
   // values stocks and currencies as the app does: valuedAsTheApp).
   if (scope == everything) {
+    if (pause != null) await pause();
     check(
       Figure.netWorth,
       'book',
@@ -314,6 +319,7 @@ Future<Parity> checkParity({
   }
 
   // 6. Every currency comes to zero.
+  if (pause != null) await pause();
   for (final MapEntry(key: currency, value: sum)
       in reader.trialBalance().entries) {
     check(Figure.trialBalance, currency.value, 'all', 0, sum);
