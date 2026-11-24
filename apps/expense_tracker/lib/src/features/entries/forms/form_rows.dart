@@ -98,7 +98,7 @@ final class CurrencyFields {
       child: FigureCard(
         color: _a.color,
         icon: Glyph.coins,
-        label: '折合新台幣',
+        label: Words.homeWorth,
         value: value == null ? '請輸入' : groupDigits(value),
         valueColor: value == null ? AppColors.hint : AppColors.ink,
         size: TextSize.body,
@@ -110,7 +110,7 @@ final class CurrencyFields {
             ? estimatedAtTodaysRate(rate)
             : '臺銀即期買入 $rate',
         onTap: () async {
-          final typed = await _a.ask('折合新台幣', value ?? 0);
+          final typed = await _a.ask(Words.homeWorth, value ?? 0);
           if (typed != null) _a.update(() => _f.home = typed);
         },
       ),

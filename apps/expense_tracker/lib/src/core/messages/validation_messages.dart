@@ -1,5 +1,6 @@
 import '../ledger/ledger.dart';
 import '../../../design_system/display/amount.dart';
+import '../formatting/words.dart';
 
 /// What the person is told when the ledger will not keep a record, or
 /// warns before keeping it: every reason's words, in one place.
@@ -13,7 +14,7 @@ String validationMessage(RecordIssue issue) => switch (issue) {
   UnknownAccount() => '找不到這個帳戶，請重新選擇',
   MissingDestination() => '請選擇轉入帳戶',
   SameAccountTransfer() => '轉出與轉入不能是同一個帳戶',
-  MissingHomeAmount() => '還沒有匯率，請輸入折合新台幣的金額',
+  MissingHomeAmount() => '還沒有匯率，請輸入${Words.homeWorth}的金額',
   CardTransferOut() => '信用卡不能轉出，請記成支出',
   ForeignTransferFee() => '外幣帳戶轉出時不能記手續費',
   CardPaymentFee() => '繳卡費不記手續費，請另記一筆支出',
