@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' show max;
 
 import 'package:storage/storage.dart';
 import 'package:vault/backup_security.dart';
@@ -509,7 +510,8 @@ final class LedgerVault {
   /// ([restore]). The old file is set aside as damaged
   /// ([setAsideDamaged]), so it can still be sent for a look; once the
   /// book made again has opened, the copies are let go of but the newest
-  /// [keptDamagedCopies]. Whether it was made again: false when the
+  /// [keptDamagedCopies] and those set aside since the book last opened
+  /// ([pruneDamagedCopies]). Whether it was made again: false when the
   /// records themselves cannot be read whole, the database then left
   /// exactly as it was.
   Future<bool> salvage(UnlockedKeyring keys) async {
@@ -579,6 +581,8 @@ final class LedgerVault {
           // Let go of at the next opening, or the next restore.
         }
       }
+      // The book opened: copies set aside before now may be let go of.
+      _asideSinceOpen.clear();
       return OpenVault._(this, keys, store);
     } on StorageUnavailable catch (error) {
       if (error.problem == StorageProblem.damaged) {
@@ -626,49 +630,76 @@ final class LedgerVault {
     }
   }
 
-  /// How a database set aside as damaged is named, before its time.
+  /// How a database set aside as damaged is named, before its number
+  /// and time.
   static const _damagedPrefix = 'ledger-damaged-';
+
+  /// A copy's number, after [_damagedPrefix]: one more than any copy
+  /// here, so the order copies were set aside in never hangs on the
+  /// phone's clock, which can be set back (review 25).
+  static final _numbered = RegExp(r'^ledger-damaged-n(\d+)-');
+
+  /// How many digits a copy's number is written with, so names sort as
+  /// numbers do in a file list.
+  static const _numberDigits = 6;
 
   /// How many copies set aside as damaged a restore leaves, the newest
   /// ([pruneDamagedCopies]).
   static const keptDamagedCopies = 2;
 
+  /// The copies set aside since the book here last opened: never let go
+  /// of, the newest damage being the one to send for a look whatever
+  /// the clock said (review 25). Held in memory: a restart before the
+  /// next opening leaves the next prune to keep the newest few only.
+  final _asideSinceOpen = <String>{};
+
   /// Lets go of the copies set aside as damaged but the newest
   /// [keptDamagedCopies], each with its log: once a backup is restored,
   /// older ones are of no more use than the newest to send for a look.
+  /// One set aside since the book last opened is kept all the same.
   Future<void> pruneDamagedCopies() async {
     final copies = damagedCopies();
     if (copies.length <= keptDamagedCopies) return;
     for (final copy in copies.take(copies.length - keptDamagedCopies)) {
+      if (_asideSinceOpen.contains(copy.path)) continue;
       await _deleteDatabase(copy);
     }
   }
 
   /// Sets the database here aside as damaged (D94), with its log, under
-  /// a name of the time it was ([damagedCopies]): never erased, so it can
-  /// still be sent for a look; the ledger then has no database until a
-  /// backup is restored. Its path; null when there was none to set aside.
+  /// a name of the next number and the time it was ([damagedCopies]):
+  /// never erased, so it can still be sent for a look; the ledger then
+  /// has no database until a backup is restored. Its path; null when
+  /// there was none to set aside.
   Future<File?> setAsideDamaged() async {
     if (!await databaseFile.exists()) return null;
     // 2026-11-24T09:58:50.578Z, with no colon, which some file systems
     // refuse.
     final at = now().toUtc().toIso8601String().replaceAll(':', '-');
-    // Never over another set aside at the same moment: a second one is
-    // named after it (`~2` sorts after `.db`, so the oldest stays first).
-    var aside = File('${directory.path}/$_damagedPrefix$at.db');
-    for (var n = 2; await aside.exists(); n++) {
-      final count = '$n'.padLeft(3, '0');
-      aside = File('${directory.path}/$_damagedPrefix$at~$count.db');
-    }
+    var number = damagedCopies().fold(0, (high, f) => max(high, _numberOf(f)));
+    File aside;
+    do {
+      number++;
+      final digits = '$number'.padLeft(_numberDigits, '0');
+      aside = File('${directory.path}/${_damagedPrefix}n$digits-$at.db');
+    } while (await aside.exists());
     for (final suffix in ['', '-wal', '-shm']) {
       final part = File('${databaseFile.path}$suffix');
       if (await part.exists()) await part.rename('${aside.path}$suffix');
     }
+    _asideSinceOpen.add(aside.path);
     return aside;
   }
 
+  /// The number [copy] was set aside under; 0 for one named by a version
+  /// before copies were numbered, which came before every numbered one.
+  static int _numberOf(File copy) {
+    final match = _numbered.firstMatch(copy.uri.pathSegments.last);
+    return match == null ? 0 : int.parse(match.group(1)!);
+  }
+
   /// The databases set aside as damaged here ([setAsideDamaged]), oldest
-  /// first.
+  /// first: by their number, then (those named before numbers) by name.
   List<File> damagedCopies() {
     if (!directory.existsSync()) return const [];
     return [
@@ -677,7 +708,10 @@ final class LedgerVault {
             entity.uri.pathSegments.last.startsWith(_damagedPrefix) &&
             entity.path.endsWith('.db'))
           entity,
-    ]..sort((a, b) => a.path.compareTo(b.path));
+    ]..sort((a, b) {
+      final byNumber = _numberOf(a).compareTo(_numberOf(b));
+      return byNumber != 0 ? byNumber : a.path.compareTo(b.path);
+    });
   }
 
   static Future<void> _deleteDatabase(File file) async {
