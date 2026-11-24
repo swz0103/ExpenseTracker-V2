@@ -184,8 +184,9 @@ void main() {
           } else if (k < 90) {
             final id = ['p', 'r1', 'r2'][r.nextInt(3)];
             what = 'remove $id';
-            if (ledger.entries.byId(id) != null)
+            if (ledger.entries.byId(id) != null) {
               ledger.entryCommands.remove(id);
+            }
           } else {
             what = 'card closing';
             final c = ledger.accounts.all.firstWhere((a) => a.id == 'card');

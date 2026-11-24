@@ -6,7 +6,6 @@ import 'dart:io';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
-import 'package:expense_tracker/src/core/ledger/card_cycle.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/journal_keeper.dart'
     show journalRules;

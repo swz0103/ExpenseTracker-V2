@@ -3,7 +3,6 @@
 // the journal the next opening trusts (its mark) is the records' own.
 import 'dart:io';
 
-import 'package:expense_tracker/src/core/ledger/journal/parity.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,8 +34,9 @@ void main() {
       final b = [
         for (final p in store.journal.postingsOfIntent(IntentId(id))) line(p),
       ];
-      if (a.join('|') != b.join('|'))
+      if (a.join('|') != b.join('|')) {
         return 'intent $id\n fresh: $a\n kept:  $b';
+      }
     }
     if (fresh.store.intentCount != store.journal.intentCount) {
       return 'intent count ${fresh.store.intentCount} vs ${store.journal.intentCount}';
@@ -44,8 +44,9 @@ void main() {
     final fs = fresh.store.sums(), ks = store.journal.sums();
     String show(AccountSums m) =>
         '${m.entries.map((e) => '${e.key.$1.value}/${e.key.$2.value}=${e.value.amount}/${e.value.quantity}').toList()..sort()}';
-    if (show(fs) != show(ks))
+    if (show(fs) != show(ks)) {
       return 'sums differ\n fresh ${show(fs)}\n kept  ${show(ks)}';
+    }
     return null;
   }
 

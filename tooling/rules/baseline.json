@@ -47,7 +47,7 @@
     "apps/expense_tracker/lib/src/app/lifecycle_services.dart": 12,
     "apps/expense_tracker/lib/src/app/more_page.dart": 20,
     "apps/expense_tracker/lib/src/app/settings_page.dart": 21,
-    "apps/expense_tracker/lib/src/app/settings_search.dart": 68,
+    "apps/expense_tracker/lib/src/app/settings_search.dart": 67,
     "apps/expense_tracker/lib/src/app/shell.dart": 18,
     "apps/expense_tracker/lib/src/features/accounts/forms/account_editor.dart": 2,
     "apps/expense_tracker/lib/src/features/accounts/forms/account_editor_edit_card.dart": 3,
