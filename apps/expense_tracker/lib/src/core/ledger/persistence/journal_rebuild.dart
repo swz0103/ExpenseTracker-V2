@@ -1,5 +1,3 @@
-import 'dart:isolate';
-
 import 'package:kernel/kernel.dart';
 
 import '../journal/book_mapping.dart';
@@ -12,15 +10,12 @@ import 'codec/row_decoding.dart';
 import 'ledger_data_source.dart' show Collection;
 import 'record_version.dart';
 
-/// How many isolates read and post the entries that stand alone (in no
-/// stream) when the whole book is posted afresh, while the isolate that
-/// owns the file writes each slice as it comes: one core each on a
-/// four-core phone, the screen's own isolate never one of them.
-const journalSlices = 3;
-
-/// How many intents in a stream (trades, instalments) are posted at a
-/// time, one after the other, when the whole book is posted afresh.
-const journalStreamChunk = 1000;
+/// How many records are read, posted and written at a time when the
+/// whole book is posted afresh. Each part is let go once written, so
+/// the worker keeps little alive: the screen's isolate shares its
+/// collections of garbage (one isolate group), and what survives each is
+/// what holds the screen (D51).
+const journalApartChunk = 1000;
 
 /// A record as the store keeps it (the storage package's `KeptRow`).
 typedef StoredRecord = ({String shelf, String id, int seq, String body});
@@ -38,9 +33,9 @@ typedef AddPart = void Function(FreshPostingStore part);
 /// package): it reads the accounts, categories and entries from the rows
 /// as the book opens them, leaves out those set aside as it opened
 /// ([aside], `shelf/id`), and posts them with [start], the stocks held
-/// from the start. Entries in no stream are read and posted in
-/// [journalSlices] isolates at once; those in a stream, whose postings
-/// read the ones before, after them, in book order. Made here, at the top
+/// from the start. Entries in no stream are read, posted and written
+/// [journalApartChunk] at a time; those in a stream, whose postings read
+/// the ones before, after them, in book order. Made here, at the top
 /// level, so the closure carries only what it is given.
 Future<PostedBook> Function(List<StoredRecord>, AddPart) postingWork({
   required Set<String> aside,
@@ -85,24 +80,6 @@ Future<PostedBook> _postBook(
     for (final row in rows)
       if (row.shelf == Collection.entry.name) row,
   ];
-  final size = (entries.length / journalSlices).ceil();
-  final slices = await Future.wait([
-    for (var k = 0; k * size < entries.length; k++)
-      _runSlice(
-        entries.sublist(k * size, _min((k + 1) * size, entries.length)),
-        aside,
-        names,
-        accounts,
-        categories,
-        start,
-      ).then((slice) {
-        // Written while the other slices are still being posted.
-        add(slice.fresh);
-        return slice;
-      }),
-  ]);
-
-  // What stands in a stream, from every slice, posted here in book order.
   final mapping = BookMapping(
     accounts: accounts,
     categories: categories,
@@ -110,11 +87,38 @@ Future<PostedBook> _postBook(
   );
   final tree = AccountTree(mapping.tree);
   final report = ReplayReport();
+  // What stands alone (in no stream) is posted and written a part at a
+  // time; what stands in a stream is kept, to be posted in book order
+  // after.
   final streamed = <(LedgerIntent, Entry, Set<OldShape>)>[];
-  for (final slice in slices) {
-    slice.accounts.forEach(tree.put);
-    report.add(slice.report);
-    streamed.addAll(slice.streamed);
+  for (var at = 0; at < entries.length; at += journalApartChunk) {
+    final part = FreshPostingStore();
+    final journal = Journal(
+      registry: registryFor(() => mapping),
+      accounts: tree,
+      store: part,
+      source: (_) => null,
+    );
+    final alone = <LedgerIntent>[];
+    final records = <IntentId, (Entry, Set<OldShape>)>{};
+    for (final row in entries.sublist(
+      at,
+      _min(at + journalApartChunk, entries.length),
+    )) {
+      final json = _readable(row, aside);
+      if (json == null) continue;
+      final entry = entryFromJson(json, refs);
+      final mapped = mapping.map(entry, row.seq);
+      mapped.accounts.forEach(tree.put);
+      if (journal.streamsOf(mapped.intent).isEmpty) {
+        alone.add(mapped.intent);
+        records[mapped.intent.id] = (entry, mapped.shapes);
+      } else {
+        streamed.add((mapped.intent, entry, mapped.shapes));
+      }
+    }
+    postIntents(journal, alone, report, records, mapping: mapping);
+    add(part);
   }
   streamed.sort((a, b) {
     final byPlace = comparePositions(a.$1.position, b.$1.position);
@@ -128,10 +132,10 @@ Future<PostedBook> _postBook(
     source: (_) => null,
   );
   postIntents(journal, mapping.openings, report, const {});
-  for (var at = 0; at < streamed.length; at += journalStreamChunk) {
+  for (var at = 0; at < streamed.length; at += journalApartChunk) {
     final chunk = streamed.sublist(
       at,
-      _min(at + journalStreamChunk, streamed.length),
+      _min(at + journalApartChunk, streamed.length),
     );
     postIntents(
       journal,
@@ -146,73 +150,3 @@ Future<PostedBook> _postBook(
 }
 
 int _min(int a, int b) => a < b ? a : b;
-
-/// [_postSlice] on an isolate of its own. At the top level, so the
-/// closure sent carries these values alone.
-Future<_Slice> _runSlice(
-  List<StoredRecord> rows,
-  Set<String> aside,
-  List<(String, String)> names,
-  List<Account> accounts,
-  List<Category> categories,
-  List<Holding> start,
-) => Isolate.run(
-  () => _postSlice(rows, aside, names, accounts, categories, start),
-);
-
-/// One slice of the entries read, mapped, and those in no stream posted:
-/// what it posted, the accounts its records named that the tree lacked,
-/// and the intents in a stream, left to be posted in book order.
-typedef _Slice = ({
-  FreshPostingStore fresh,
-  ReplayReport report,
-  List<LedgerAccount> accounts,
-  List<(LedgerIntent, Entry, Set<OldShape>)> streamed,
-});
-
-_Slice _postSlice(
-  List<StoredRecord> rows,
-  Set<String> aside,
-  List<(String, String)> names,
-  List<Account> accounts,
-  List<Category> categories,
-  List<Holding> start,
-) {
-  final refs = CategoryRefs()..fill(names);
-  final mapping = BookMapping(
-    accounts: accounts,
-    categories: categories,
-    start: start,
-  );
-  final tree = AccountTree(mapping.tree);
-  final fresh = FreshPostingStore();
-  final journal = Journal(
-    registry: registryFor(() => mapping),
-    accounts: tree,
-    store: fresh,
-    source: (_) => null,
-  );
-  final added = <LedgerAccount>[];
-  final alone = <LedgerIntent>[];
-  final records = <IntentId, (Entry, Set<OldShape>)>{};
-  final streamed = <(LedgerIntent, Entry, Set<OldShape>)>[];
-  for (final row in rows) {
-    final json = _readable(row, aside);
-    if (json == null) continue;
-    final entry = entryFromJson(json, refs);
-    final mapped = mapping.map(entry, row.seq);
-    for (final account in mapped.accounts) {
-      tree.put(account);
-      added.add(account);
-    }
-    if (journal.streamsOf(mapped.intent).isEmpty) {
-      alone.add(mapped.intent);
-      records[mapped.intent.id] = (entry, mapped.shapes);
-    } else {
-      streamed.add((mapped.intent, entry, mapped.shapes));
-    }
-  }
-  final report = ReplayReport();
-  postIntents(journal, alone, report, records, mapping: mapping);
-  return (fresh: fresh, report: report, accounts: added, streamed: streamed);
-}

@@ -45,7 +45,7 @@ The expectations were written against today's APIs. A fix that changes an API (f
 
 ## fixed in 2.0
 
-Work package 2.0 (the journal of postings) was assigned no finding of the audit, and fixes none. It adds the ten JRN rows above: the old shapes of records the journal makes visible, each posted today in a recorded form that keeps every figure as the app shows it and counted in the kept book of awkward shapes (`test/fixtures/journal/awkward_book.json`), each waiting for the owner's decision. The package's own tests: `packages/kernel/test`, `packages/ledger/postings/test`, `infrastructure/storage/test/journal_store_test.dart`, `test/core/ledger/journal/parity_test.dart`, `test/scenarios/ledger/journal/awkward_book_test.dart`, `test/core/ledger/persistence/journal_keeper_test.dart`.
+Work package 2.0 (the journal of postings) was assigned no finding of the audit, and fixes none. It adds the ten JRN rows above: the old shapes of records the journal makes visible, each posted today in a recorded form that keeps every figure as the app shows it and counted in the kept book of awkward shapes (`test/fixtures/journal/awkward_book.json`), decided by D47: none is changed by the app; `Ledger.recordsNeedingReview()` lists each with its reason (one per shape, `journal/review.dart`) for the person to put right by hand. The rows stay until a screen shows that list; which work package builds it is still open (`待決定`). The package's own tests: `packages/kernel/test`, `packages/ledger/postings/test`, `infrastructure/storage/test/journal_store_test.dart`, `test/core/ledger/journal/parity_test.dart`, `test/scenarios/ledger/journal/awkward_book_test.dart`, `test/core/ledger/persistence/journal_keeper_test.dart`.
 
 ## fixed in 1.1
 

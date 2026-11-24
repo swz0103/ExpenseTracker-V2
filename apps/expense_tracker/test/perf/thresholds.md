@@ -72,8 +72,8 @@ expect about two times these there (the emulator section above).
 
 | key | what | measured | limit |
 |---|---|---|---|
-| `rebuild_100k_ms` | every posting thrown away and posted afresh from the records, as the app does it on first opening: decoding, mapping and posting on worker isolates (`journalSlices` at once), written in one transaction with the indexes made after and the mark last (`EncryptedDatabase.postApart`) | 2,610 / 2,875 / 2,669 ms (quiet), up to 3,792 under load | 6,000 ms |
-| `rebuild_held_ms` | the longest the screen's isolate was held meanwhile (`test/support/held.dart`) | 27 / 35 / 43 ms, up to 122 under load | 250 ms |
+| `rebuild_100k_ms` | every posting thrown away and posted afresh from the records, as the app does it on first opening: decoding, mapping and posting on worker isolates (`journalApartChunk` records at a time, each part let go once written), written in one transaction with the indexes made after and the mark last (`EncryptedDatabase.postApart`) | 3,726 / 3,678 / 3,798 ms (load 11 on four cores; three isolates in parallel, quiet: 2,610–2,875) | 6,000 ms |
+| `rebuild_held_ms` | the longest the screen's isolate was held meanwhile (`test/support/held.dart`) | 160 / 39 / 45 ms (the bench's own book just made in this isolate) | 250 ms |
 | `save_posting_us` | one entry's posting and the journal's mark, one transaction, `synchronous=FULL` | 536 / 574 / 882 µs, one run 2,279 under load | 3,000 µs |
 | `every_balance_us` | every account's balance today, from the months' sums and this month's postings | 955 / 538 / 520 µs | 2,000 µs |
 | `month_report_us` | a month's income and spending by category | 89 / 44 / 52 µs | 130 µs |
@@ -84,8 +84,11 @@ Measured 2026-11-24 after D51 (before it: the rebuild 11,788 / 12,698 /
 the rebuild's time goes at 100k (one isolate, JIT): decoding the records
 350–500 ms, making entries 170–330, mapping 160–300, posting 450–900; in
 SQL intents and streams 190–280, postings 290–550, the indexes made after
-420–720, the months' sums 54–120, the commit 400–600. The workers
-overlap the first four; the SQL write is the floor that is left.
+420–720, the months' sums 54–120, the commit 400–600. Posting in three isolates at
+once saved a few hundred ms but held the screen up to 200 ms: isolates
+of one group share their collections of garbage, and what survives each
+is copied while every isolate waits. So one worker posts and writes
+1,000 records at a time and lets each part go.
 
 The save gate (`save_scale_gate_test.dart`) counts the journal's update in
 the save it times, so a journal update that grows with the book fails it in

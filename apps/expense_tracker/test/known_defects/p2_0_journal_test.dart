@@ -1,8 +1,10 @@
 // The old shapes the journal of postings makes visible (work package
 // 2.0): each is posted today in a recorded form that keeps every figure
-// as the app shows it, and waits for the owner's decision (open
-// decisions of 2.0). Each test states what is true once it is decided:
-// the kept book of awkward shapes posts with none of that shape left.
+// as the app shows it. Decision D47: the app changes none of them; it
+// lists them (Ledger.recordsNeedingReview) for the person to put right
+// by hand, on a screen not yet built. Each test states what is true
+// once that is done: the kept book of awkward shapes posts with none of
+// that shape left.
 import 'dart:io';
 
 import 'package:expense_tracker/src/core/ledger/journal/old_shapes.dart';

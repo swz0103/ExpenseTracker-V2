@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
@@ -24,6 +25,9 @@ void main() {
   /// The longest the isolate may be held, as a share of the book posted
   /// at once.
   const limit = 0.045;
+
+  /// How often each is measured.
+  const tries = 3;
   final today = DateTime.utc(2026, 10, 4);
 
   /// A book of 20,000 entries, spending, transfers and trades.
@@ -128,13 +132,22 @@ void main() {
     // Warm up both paths first, so neither is charged for compiling.
     await atOnce();
     await apart();
-    final whole = await atOnce();
-    final worker = await apart();
+    // The least of three each: what the code holds is held every time; a
+    // machine busy elsewhere (the other tests of a full run, four cores
+    // shared) stalls a run now and then, and whole collections of the
+    // workers' garbage stop this isolate too, at their own times. The
+    // worker first: posting at once here leaves a heap of this isolate's
+    // own to be collected, which the app never has before its rebuild.
+    final workers = [for (var i = 0; i < tries; i++) await apart()];
+    final wholes = [for (var i = 0; i < tries; i++) await atOnce()];
+    final whole = wholes.reduce(min);
+    final worker = workers.reduce(min);
     final share = worker / whole;
     // ignore: avoid_print
     print(
       'journal_rebuild_block: at once ${whole ~/ 1000} ms held; apart '
-      '${worker ~/ 1000} ms held; share ${share.toStringAsFixed(3)}',
+      '${worker ~/ 1000} ms held (of ${[for (final w in workers) w ~/ 1000]}); '
+      'share ${share.toStringAsFixed(3)}',
     );
     expect(share, lessThanOrEqualTo(limit));
   }, timeout: const Timeout(Duration(minutes: 5)));
