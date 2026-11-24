@@ -361,12 +361,67 @@ final class EncryptedDatabase {
   /// revision as it stood before, any other read or write throws a
   /// [StateError], and [close] waits for it. All of [changes], or none
   /// when it throws.
-  Future<void> writeApart(List<RowChange> changes, {bool counts = true}) async {
+  Future<void> writeApart(List<RowChange> changes, {bool counts = true}) =>
+      workApart(_writing(changes, counts));
+
+  /// Kept apart from the instance, so the closure sent to the worker
+  /// carries the changes, never `this`.
+  static Future<void> Function(ApartStore) _writing(
+    List<RowChange> changes,
+    bool counts,
+  ) =>
+      (store) async => store.write(changes, counts: counts);
+
+  /// Posts the whole journal afresh on a worker isolate through this same
+  /// connection, as [writeApart] writes records. [work] is given every
+  /// account, category and entry kept (shelf, id, place, body, in the
+  /// order kept) and posts them in memory, in parts it hands to `add` as
+  /// each is done, written there and then while the rest is posted; it
+  /// answers the account tree with its result. All of it is one
+  /// transaction, [mark] last in it ([SqlPostingStore.begin]), so a
+  /// journal posted only in part is never taken for the records' own.
+  /// Until it is done nothing else uses the store, as with [writeApart].
+  /// [work] must be sendable to an isolate: it carries what it needs,
+  /// never this store.
+  Future<T> postApart<T>(
+    Future<PostedApart<T>> Function(
+      List<KeptRow> rows,
+      void Function(FreshPostingStore part) add,
+    )
+    work, {
+    required JournalMark mark,
+  }) => workApart(_posting(work, mark));
+
+  /// Kept apart from the instance, so the closure sent to the worker
+  /// carries [work] and [mark], never `this`.
+  static Future<T> Function(ApartStore) _posting<T>(
+    Future<PostedApart<T>> Function(
+      List<KeptRow> rows,
+      void Function(FreshPostingStore part) add,
+    )
+    work,
+    JournalMark mark,
+  ) =>
+      (store) => store.post(
+        (add) => work(store.kept(const ['account', 'category', 'entry']), add),
+        mark: mark,
+      );
+
+  /// Runs [work] on a worker isolate with this same connection
+  /// ([ApartStore]): what it reads, writes and posts there, in as many
+  /// transactions as it makes, never holds the caller's isolate, and with
+  /// it the screen, still. Until it is done ([idle]) nothing else may use
+  /// the store, as with [writeApart]: one worker at a time, whichever of
+  /// [writeApart], [readApart], [postApart] or this asks (the others
+  /// throw a [StateError] meanwhile). [work] is sent to the worker, so it
+  /// must carry only what can be sent: plain values, ports, never this
+  /// store.
+  Future<T> workApart<T>(Future<T> Function(ApartStore store) work) async {
     _requireOpen();
     _revisionBefore = revision;
     final done = _apart = Completer<void>();
     try {
-      await _applyApart(_db.handle.address, changes, counts);
+      return await _workApart(_db.handle.address, work);
     } finally {
       _apart = null;
       done.complete();
@@ -375,102 +430,21 @@ final class EncryptedDatabase {
   }
 
   /// Kept apart from the instance, so the closure sent to the worker
-  /// carries the changes and the connection's address, never `this`.
-  static Future<void> _applyApart(
+  /// carries the connection's address and [work], never `this`.
+  static Future<T> _workApart<T>(
     int address,
-    List<RowChange> changes,
-    bool counts,
-  ) => Isolate.run(() {
-    // A view of the connection this isolate opened: not closed here.
-    final db = sqlite3.fromPointer(
-      Pointer.fromAddress(address),
-      borrowed: true,
-    );
-    try {
-      _transaction(db, (w) {
-        for (final change in changes) {
-          final body = change.body;
-          if (body == null) {
-            w.drop(change.shelf, change.id);
-          } else {
-            w.put(change.shelf, change.id, body);
-          }
-        }
-      }, counts: counts);
-    } finally {
-      db.close();
-    }
-  });
-
-  /// Posts the whole journal afresh on a worker isolate through this same
-  /// connection, as [writeApart] writes records. [work] is given every
-  /// account, category and entry kept (shelf, id, place, body, in the
-  /// order kept) and posts them in memory, in parts it hands to `add` as
-  /// each is done, written there and then while the rest is posted (it
-  /// may share the posting out to isolates of its own); it answers the
-  /// account tree with its result. All of it is one transaction, [mark]
-  /// last in it ([SqlPostingStore.begin]), so a journal posted only in
-  /// part is never taken for the records' own. Until it is done nothing
-  /// else uses the store, as with [writeApart]. [work] must be sendable
-  /// to an isolate: it carries what it needs, never this store.
-  Future<T> postApart<T>(
-    Future<PostedApart<T>> Function(
-      List<KeptRow> rows,
-      void Function(FreshPostingStore part) add,
-    )
-    work, {
-    required JournalMark mark,
-  }) async {
-    _requireOpen();
-    _revisionBefore = revision;
-    final done = _apart = Completer<void>();
-    try {
-      return await _postApart(_db.handle.address, work, mark);
-    } finally {
-      _apart = null;
-      done.complete();
-      if (_closeAfter) close();
-    }
-  }
-
-  static Future<T> _postApart<T>(
-    int address,
-    Future<PostedApart<T>> Function(
-      List<KeptRow> rows,
-      void Function(FreshPostingStore part) add,
-    )
-    work,
-    JournalMark mark,
+    Future<T> Function(ApartStore store) work,
   ) => Isolate.run(() async {
     // A view of the connection this isolate opened: not closed here.
     final db = sqlite3.fromPointer(
       Pointer.fromAddress(address),
       borrowed: true,
     );
-    final journal = SqlPostingStore(db);
+    final store = ApartStore._(db);
     try {
-      final rows = [
-        for (final r in db.select(
-          "SELECT shelf, id, seq, body FROM rows WHERE shelf IN "
-          "('account', 'category', 'entry') ORDER BY seq",
-        ))
-          (
-            shelf: r['shelf'] as String,
-            id: r['id'] as String,
-            seq: r['seq'] as int,
-            body: r['body'] as String,
-          ),
-      ];
-      final fill = journal.begin();
-      try {
-        final posted = await work(rows, fill.add);
-        fill.finish(accounts: posted.accounts, mark: mark);
-        return posted.result;
-      } finally {
-        fill.abandon();
-      }
+      return await work(store);
     } finally {
-      journal.close();
+      store.journal.close();
       db.close();
     }
   });
@@ -484,8 +458,9 @@ final class EncryptedDatabase {
   /// What [then] sees is one state of the book: from the call until the
   /// read is done ([idle]) the store may be read here but not written (a
   /// write waits for [idle], or throws a [StateError]); it is free again
-  /// as soon as the records are read, while [then] still runs. [then] is sent to the worker, so it must carry
-  /// only what can be sent: plain values, never this store.
+  /// as soon as the records are read, while [then] still runs. [then] is
+  /// sent to the worker, so it must carry only what can be sent: plain
+  /// values, never this store.
   Future<T> readApart<T>(
     Future<T> Function(StoreSnapshot snapshot) then,
   ) async {
@@ -525,33 +500,37 @@ final class EncryptedDatabase {
     );
     final StoreSnapshot snapshot;
     try {
-      db.execute('BEGIN');
-      try {
-        int? kept(String key) {
-          final found = db.select('SELECT value FROM meta WHERE key = ?', [
-            key,
-          ]);
-          return found.isEmpty ? null : found.single['value'] as int;
-        }
-
-        snapshot = StoreSnapshot._(
-          [
-            for (final row in db.select('SELECT * FROM rows ORDER BY seq'))
-              _stored(row),
-          ],
-          kept(_revision) ?? 0,
-          kept(bookVersionKey),
-          db.userVersion,
-        );
-      } finally {
-        db.execute('COMMIT');
-      }
+      snapshot = _snapshot(db);
     } finally {
       db.close();
     }
     read.send(null);
     return then(snapshot);
   });
+
+  /// Every record, the revision, the book's version and the layout, in
+  /// one read transaction.
+  static StoreSnapshot _snapshot(Database db) {
+    db.execute('BEGIN');
+    try {
+      int? kept(String key) {
+        final found = db.select('SELECT value FROM meta WHERE key = ?', [key]);
+        return found.isEmpty ? null : found.single['value'] as int;
+      }
+
+      return StoreSnapshot._(
+        [
+          for (final row in db.select('SELECT * FROM rows ORDER BY seq'))
+            _stored(row),
+        ],
+        kept(_revision) ?? 0,
+        kept(bookVersionKey),
+        db.userVersion,
+      );
+    } finally {
+      db.execute('COMMIT');
+    }
+  }
 
   /// Closes the store; while a write runs apart, once it is done.
   void close() {
@@ -655,4 +634,74 @@ final class EncryptedDatabase {
 
   /// SQLITE_BUSY.
   static const _busy = 5;
+}
+
+/// The store as work apart ([EncryptedDatabase.workApart]) has it, on its
+/// worker: the same connection, and nothing else using it meanwhile.
+final class ApartStore {
+  ApartStore._(this._db);
+
+  final Database _db;
+
+  /// The journal of postings, through this connection.
+  late final SqlPostingStore journal = SqlPostingStore(_db);
+
+  /// Every record, the revision, the book's version and the layout, as
+  /// one read finds them.
+  StoreSnapshot read() => EncryptedDatabase._snapshot(_db);
+
+  /// The records on [shelves], in the order kept.
+  List<KeptRow> kept(List<String> shelves) => [
+    for (final r in _db.select(
+      'SELECT shelf, id, seq, body FROM rows WHERE shelf IN '
+      '(${List.filled(shelves.length, '?').join(', ')}) ORDER BY seq',
+      shelves,
+    ))
+      (
+        shelf: r['shelf'] as String,
+        id: r['id'] as String,
+        seq: r['seq'] as int,
+        body: r['body'] as String,
+      ),
+  ];
+
+  /// The revision now.
+  int get revision {
+    final rows = _db.select('SELECT value FROM meta WHERE key = ?', [
+      EncryptedDatabase._revision,
+    ]);
+    return rows.isEmpty ? 0 : rows.single['value'] as int;
+  }
+
+  /// Applies [changes] in one transaction, as [EncryptedDatabase.write].
+  void write(List<RowChange> changes, {bool counts = true}) =>
+      EncryptedDatabase._transaction(_db, (w) {
+        for (final change in changes) {
+          final body = change.body;
+          if (body == null) {
+            w.drop(change.shelf, change.id);
+          } else {
+            w.put(change.shelf, change.id, body);
+          }
+        }
+      }, counts: counts);
+
+  /// Posts the whole journal afresh in one transaction
+  /// ([SqlPostingStore.begin]): [work] posts, handing each part to `add`
+  /// as it is done, and answers the account tree with its result; [mark]
+  /// is kept last. Nothing is changed when it throws.
+  Future<T> post<T>(
+    Future<PostedApart<T>> Function(void Function(FreshPostingStore) add)
+    work, {
+    required JournalMark mark,
+  }) async {
+    final fill = journal.begin();
+    try {
+      final posted = await work(fill.add);
+      fill.finish(accounts: posted.accounts, mark: mark);
+      return posted.result;
+    } finally {
+      fill.abandon();
+    }
+  }
 }

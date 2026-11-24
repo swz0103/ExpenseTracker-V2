@@ -58,6 +58,9 @@ final class Quarantine {
 
   void clear() => _rows.clear();
 
+  /// Takes [row] as set aside, as a book read elsewhere found it.
+  void adopt(QuarantinedRow row) => _rows[row.key] = row;
+
   /// Sets the row [id] on [shelf] aside for [reason]. What reading it
   /// threw, [error], is told by its type and message alone
   /// ([quarantineDetail]); or [detail] says what did not fit.

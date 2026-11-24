@@ -122,6 +122,9 @@ final class FreshPostingStore implements PostingStore {
   }
 
   @override
+  List<(Day, int)> daySums(AccountId account) => sumByDay(postingsOf(account));
+
+  @override
   AccountSums sums({Day? from, Day? until}) {
     final total = <(AccountId, CurrencyCode), AccountSum>{};
     for (final p in _postings) {

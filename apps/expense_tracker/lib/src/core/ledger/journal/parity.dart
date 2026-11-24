@@ -116,8 +116,8 @@ const ParityScope everything = (accounts: null, months: null, codes: null);
 /// spending by category, each stock's shares, cost, gain and dividends,
 /// each card's statement due, and that every currency comes to zero.
 /// [unposted] are records the journal refused; [shapes] the old shapes
-/// met. [pause] runs between accounts, so a large book's check does not
-/// hold the screen still. With [everyDay], balances are compared at the
+/// met. [pause] runs between each figure's work, so a large book's check
+/// does not hold the screen still. With [everyDay], balances are compared at the
 /// end of every day from the day before the first change to the day
 /// after the last, not only on the days they change.
 Future<Parity> checkParity({
@@ -154,22 +154,23 @@ Future<Parity> checkParity({
   final now = Day.of(BusinessDate.of(today.day));
 
   // 1. Balances, at the end of each day either side changes them.
-  final days = _changeDays(today);
+  final days = await _changeDays(today, pause);
   for (final a in today.accounts.all) {
     if (!inScope(scope.accounts, a.id)) continue;
-    final postings = reader.postings(moneyAccount(a.id));
+    final steps = reader.daySums(moneyAccount(a.id));
     final running = <int, int>{};
     var total = 0;
-    for (final p in postings) {
-      total += p.amount;
-      running[p.date.ymd] = total;
+    for (final (day, amount) in steps) {
+      total += amount;
+      running[day.ymd] = total;
     }
-    final changes = {...?days[a.id], for (final p in postings) p.date.ymd};
+    final changes = {...?days[a.id], for (final (day, _) in steps) day.ymd};
     final when = (everyDay ? _everyDay(changes) : changes.toList())..sort();
     var kept = 0;
     var k = 0;
     final sortedDays = running.keys.toList()..sort();
     for (final ymd in when) {
+      if (pause != null) await pause();
       while (k < sortedDays.length && sortedDays[k] <= ymd) {
         kept = running[sortedDays[k++]]!;
       }
@@ -187,6 +188,7 @@ Future<Parity> checkParity({
 
   // 2. Each month's income, spending and spending by category.
   for (final month in _months(today.entries)) {
+    if (pause != null) await pause();
     if (scope.months != null && !scope.months!.contains(month)) continue;
     final first = Day.stored(month * 100 + 1);
     final last = first.lastOfMonth;
@@ -240,6 +242,7 @@ Future<Parity> checkParity({
     for (final a in reader.accounts.where(tag: Tags.holding)) a.commodity!,
   };
   for (final code in held) {
+    if (pause != null) await pause();
     if (!inScope(scope.codes, code)) continue;
     final account = holdingAccount(code);
     final shares = wholeUnits(reader.quantity(account, until: now));
@@ -298,11 +301,15 @@ Future<Parity> checkParity({
 
 /// The days each account changes on today, by account: the day of each
 /// entry paid from or into it, and each day an instalment is billed.
-Map<String, Set<int>> _changeDays(TodaysFigures today) {
+Future<Map<String, Set<int>>> _changeDays(
+  TodaysFigures today,
+  Future<void> Function()? pause,
+) async {
   final days = <String, Set<int>>{};
   void add(String account, DateTime day) =>
       (days[account] ??= {}).add(Day.of(BusinessDate.of(day)).ymd);
   for (final e in today.entries.all) {
+    if (pause != null) await pause();
     if (e.type == EntryType.expense && e.installments > 1) {
       for (final (day, _)
           in today.accounts.resolve(e.account).billingSteps(e)) {

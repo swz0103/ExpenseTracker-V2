@@ -18,6 +18,7 @@ import 'package:market/market_data.dart';
 import 'package:storage/storage.dart';
 
 import 'book_migrations.dart';
+import 'book_opening.dart';
 import 'journal_keeper.dart';
 import 'journal_rebuild.dart';
 import 'ledger_data_source.dart';
@@ -50,16 +51,16 @@ const _starters = [
 
 /// The collection of the last closing prices and rate board, kept so holdings
 /// and foreign accounts are valued offline.
-const _market = 'market';
+const _market = marketShelf;
 
 /// When each record was deleted, by `collection/id`, so a deletion can be
 /// told from a record never kept (for a later sync); dropped when the id
 /// is kept again, and once [trashRetention] has passed. Nothing reads them
 /// but a backup's check.
-const _gone = 'gone';
+const _gone = goneShelf;
 
 /// Forms put aside in the composer, by tab ([WriteBatch.drafts]).
-const _draft = 'draft';
+const _draft = draftShelf;
 
 /// The collections whose deletions are noted in [_gone].
 const _noted = {
@@ -70,14 +71,9 @@ const _noted = {
   Collection.recurring,
 };
 
-/// [decodeBodies] on a worker isolate. Kept out of the methods of the data
-/// source: a closure made beside one that uses `this` carries it along,
-/// and the database cannot be sent to another isolate.
-Future<DecodedRows> _decodeApartFrom(List<String> bodies) =>
-    Isolate.run(() => decodeBodies(bodies));
-
-/// Above this many rows the JSON is decoded on a worker isolate, so the
-/// screen does not freeze while a large book opens.
+/// Up to this many rows a book is read and decoded here, on the screen's
+/// isolate, as a small book takes less than a frame; above it, or when
+/// the journal is kept, on a worker ([EncryptedDatabase.workApart]).
 const _decodeApart = 2000;
 
 /// How many rows a book is read at a time when it opens.
@@ -273,85 +269,6 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     return collections;
   }
 
-  /// The record of each row of [collections] but the receipts, decoded
-  /// and brought up to the current version; a row that is not a JSON
-  /// object, or that a later version wrote, is set aside instead.
-  Future<Map<StoredRow, Map<String, Object?>>> _records(
-    Map<String, List<StoredRow>> collections,
-  ) async {
-    final records = [
-      for (final collection in Collection.values)
-        if (collection != Collection.receipt) ...?collections[collection.name],
-    ];
-    final bodies = [for (final row in records) row.body];
-    final decoded = bodies.length > _decodeApart
-        ? await _decodeApartFrom(bodies)
-        : decodeBodies(bodies);
-    final json = <StoredRow, Map<String, Object?>>{};
-    for (final (i, row) in records.indexed) {
-      final record = decoded.values[i];
-      if (record is! Map<String, Object?>) {
-        _aside.record(
-          row.shelf,
-          row.id,
-          QuarantineReason.unreadable,
-          detail: decoded.failures.containsKey(i)
-              ? 'not JSON'
-              : 'not a JSON object',
-        );
-        continue;
-      }
-      switch (versionOf(record)) {
-        case null:
-          _aside.record(
-            row.shelf,
-            row.id,
-            QuarantineReason.invalid,
-            detail: '_v is not a number',
-          );
-        case final version when version > recordVersion:
-          _aside.record(
-            row.shelf,
-            row.id,
-            QuarantineReason.newer,
-            version: version,
-          );
-        case _:
-          json[row] = upgradeRecord(row.shelf, record);
-      }
-    }
-    return json;
-  }
-
-  /// Drops the entries of [trash] put there before [from], and their
-  /// receipts, and the notes in [_gone] of deletions made before [from].
-  /// A row set aside is never dropped.
-  void _dropExpired(List<Trashed> trash, List<StoredRow> gone, DateTime from) {
-    final expired = [
-      for (final t in trash)
-        if (t.on.isBefore(from)) t.entry.id,
-    ];
-    final cutoff = from.millisecondsSinceEpoch;
-    final notes = decodeBodies([for (final row in gone) row.body]).values;
-    final forgotten = [
-      for (final (i, row) in gone.indexed)
-        // A note that cannot be read is left as it is.
-        if (notes[i] case {'at': final num at} when at < cutoff) row.id,
-    ];
-    if (expired.isEmpty && forgotten.isEmpty) return;
-    _store.write((w) {
-      for (final id in expired) {
-        w
-          ..drop(Collection.trash.name, id)
-          ..drop(Collection.receipt.name, id);
-      }
-      for (final id in forgotten) {
-        w.drop(_gone, id);
-      }
-      // Only an entry gone for good is a change of the book.
-    }, counts: expired.isNotEmpty);
-  }
-
   /// Brings the book up to this version before it is read: a new one is
   /// given its first records, one kept by an earlier version goes through
   /// the steps it lacks, once [beforeUpgrade] has kept a copy of it, or
@@ -391,79 +308,47 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     // Never read a book left behind: the copy before its upgrade was not
     // kept, and the person has not chosen to go on without it.
     if (await bringUp() case final no?) throw UpgradeHeld(no);
-    final collections = await _shelves();
-    final json = await _records(collections);
-    List<T> read<T>(
-      Collection collection,
-      T Function(Map<String, Object?>) from,
-    ) {
-      final read = <T>[];
-      for (final row in collections[collection.name] ?? const <StoredRow>[]) {
-        final record = json[row];
-        if (record == null) continue;
-        try {
-          read.add(from(record));
-        } on Object catch (error) {
-          // Not logged per row: the row is set aside and told on opening.
-          _aside.record(
-            row.shelf,
-            row.id,
-            QuarantineReason.invalid,
-            error: error,
-          );
-          continue;
-        }
-        _indexNames(row.shelf, row.id, record);
-      }
-      return read;
-    }
-
-    // What each category id stands for first: a category's parent and every
-    // other record name theirs through it.
-    _refs.fill([
-      for (final row
-          in collections[Collection.category.name] ?? const <StoredRow>[])
-        if (json[row] case {'id': final String id, 'name': final String name})
-          (id, name),
-    ]);
-    final categories = read(
-      Collection.category,
-      (j) => categoryFromJson(j, _refs),
-    );
-    final market = _marketFrom(_readableMarket(collections[_market]));
     final today = _today();
-    final trash = read(Collection.trash, (j) => trashedFromJson(j, _refs));
-    final from = today.subtract(trashRetention);
-    while (_store.busyApart) {
-      await _store.idle;
+    final trashFrom = today.subtract(trashRetention);
+    final Future<ReplayReport?>? posting;
+    final DecodedBook book;
+    if (keepsJournal || _store.count > _decodeApart) {
+      (book, posting) = await _openApart(trashFrom);
+    } else {
+      posting = null;
+      book = decodeBook(await _shelves(), trashFrom: trashFrom);
+      if (book.expired.isNotEmpty) {
+        while (_store.busyApart) {
+          await _store.idle;
+        }
+        _store.write(
+          (w) => _apply(w, book.expired),
+          counts: book.expiredCounts,
+        );
+      }
     }
-    _dropExpired(trash, collections[_gone] ?? const [], from);
+    for (final row in book.aside) {
+      _aside.adopt(row);
+    }
+    book.namesOf.forEach(_indexFound);
+    _refs.fill(book.categoryNames);
+    final market = marketFrom(_readableMarket(book.market));
     final ledger = Ledger(
       today: today,
       clock: _today,
-      accounts: read(Collection.account, accountFromJson),
-      categories: categories,
-      entries: read(Collection.entry, (j) => entryFromJson(j, _refs)),
-      holdings: _holdingsOf(market),
-      budgets: read(Collection.budget, (j) => budgetFromJson(j, _refs)),
-      recurring: read(Collection.recurring, (j) => recurringFromJson(j, _refs)),
+      accounts: book.accounts,
+      categories: book.categories,
+      entries: book.entries,
+      holdings: holdingsOf(market),
+      budgets: book.budgets,
+      recurring: book.recurring,
       rates: market.rates,
       moves: market.moves,
       quotedOn: market.quotedOn,
       quoteDays: market.days,
-      trash: [
-        for (final t in trash.reversed)
-          if (!t.on.isBefore(from)) t,
-      ],
-      receipts: {
-        for (final row
-            in collections[Collection.receipt.name] ?? const <StoredRow>[])
-          row.id: row.body,
-      },
-      drafts: {
-        for (final row in collections[_draft] ?? const <StoredRow>[])
-          row.id: row.body,
-      },
+      trash: book.trash,
+      receipts: book.receipts,
+      drafts: book.drafts,
       dataSource: this,
     );
     if (!_aside.isEmpty) {
@@ -473,14 +358,62 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       );
     }
     if (keepsJournal) {
-      _seqsAtLoad = {
-        for (final row
-            in collections[Collection.entry.name] ?? const <StoredRow>[])
-          row.id: row.seq,
-      };
-      journal.open(ledger);
+      _seqsAtLoad = book.entrySeqs;
+      journal.open(ledger, posted: posting);
     }
     return ledger;
+  }
+
+  /// Reads and decodes the book on a worker isolate, which drops what has
+  /// expired ([DecodedBook.expired]) and hands the book here as soon as it
+  /// is read; when the journal is kept, it then posts the whole book
+  /// afresh there unless the journal is the records' own (decision D51:
+  /// the book decoded once, for the screens and the journal). The book,
+  /// and what posting it found (null when nothing was posted).
+  Future<(DecodedBook, Future<ReplayReport?>?)> _openApart(
+    DateTime trashFrom,
+  ) async {
+    while (_store.busyApart) {
+      await _store.idle;
+    }
+    final books = ReceivePort();
+    try {
+      final work = _store.workApart(
+        openingWork(
+          books: books.sendPort,
+          trashFrom: trashFrom,
+          rules: keepsJournal ? journalRules : null,
+        ),
+      );
+      // The worker sends the book before it posts; it ends at once when
+      // it posts nothing. A fault before the book is sent is the opening's.
+      final first = await Future.any<Object?>([
+        books.first,
+        work.then((_) => null),
+      ]);
+      if (first is! DecodedBook) {
+        throw StateError('the book was not read');
+      }
+      if (!keepsJournal) {
+        await work;
+        return (first, null);
+      }
+      return (first, work);
+    } finally {
+      books.close();
+    }
+  }
+
+  /// Applies [changes] through [w].
+  static void _apply(RowWriter w, List<RowChange> changes) {
+    for (final change in changes) {
+      final body = change.body;
+      if (body == null) {
+        w.drop(change.shelf, change.id);
+      } else {
+        w.put(change.shelf, change.id, body);
+      }
+    }
   }
 
   /// Gives a ledger just made its first categories, and a cash and a bank
@@ -585,9 +518,13 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     if (_collected.isEmpty) return;
     final found = {..._collected};
     _collected.clear();
-    final key = '$shelf/$id';
-    _namesOf[key] = found;
-    for (final name in found) {
+    _indexFound('$shelf/$id', found);
+  }
+
+  /// Notes that the record [key] (`shelf/id`) names [names] by name.
+  void _indexFound(String key, Set<String> names) {
+    _namesOf[key] = names;
+    for (final name in names) {
       (_named[name] ??= {}).add(key);
     }
   }
@@ -832,7 +769,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
     if (collection == _market) {
       if (id != 'quotes' && id != 'rates') throw FormatException(id);
-      _marketFrom([StoredRow(0, collection, id, body)]);
+      marketFrom([StoredRow(0, collection, id, body)]);
       return;
     }
     checkRecord(collection, upgradeRecord(collection, json));
@@ -840,20 +777,11 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// The rows of [rows] of the [_market] collection that can be read: a
   /// close or rate kept that cannot is fetched again, and noted.
-  static List<StoredRow> _readableMarket(List<StoredRow>? rows) => [
-    for (final row in rows ?? const <StoredRow>[])
-      if (_marketReadable(row)) row,
-  ];
-
-  static bool _marketReadable(StoredRow row) {
-    try {
-      _marketFrom([row]);
-      return true;
-    } on Object catch (error) {
-      ErrorLog.instance.record('讀取行情', error);
-      return false;
-    }
-  }
+  static List<StoredRow> _readableMarket(List<StoredRow>? rows) =>
+      readableMarket(
+        rows,
+        report: (error) => ErrorLog.instance.record('讀取行情', error),
+      );
 
   // Market data.
 
@@ -866,9 +794,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     Map<String, DateTime> days,
   })
   market() {
-    final kept = _marketFrom(_readableMarket(_store.rows(shelf: _market)));
+    final kept = marketFrom(_readableMarket(_store.rows(shelf: _market)));
     return (
-      holdings: _holdingsOf(kept),
+      holdings: holdingsOf(kept),
       moves: kept.moves,
       rates: kept.rates,
       quotedOn: kept.quotedOn,
@@ -891,7 +819,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       final rate = row.valuation;
       if (rate != null) fetched[code] = rate.numerator / rate.denominator;
     }
-    final kept = _marketFrom(_readableMarket(_store.rows(shelf: _market)));
+    final kept = marketFrom(_readableMarket(_store.rows(shelf: _market)));
     if (fetched.isEmpty || mapEquals(fetched, kept.rates)) return false;
     // Fetched, not changed by the person: no new backup is due for it.
     _store.write(
@@ -943,7 +871,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     while (_store.busyApart) {
       await _store.idle;
     }
-    final kept = _marketFrom(_readableMarket(_store.rows(shelf: _market)));
+    final kept = marketFrom(_readableMarket(_store.rows(shelf: _market)));
     final prices = {...kept.prices};
     final moves = {...kept.moves};
     final names = {...kept.names};
@@ -1020,71 +948,6 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     return changed;
   }
 }
-
-typedef _Market = ({
-  Map<String, double> prices,
-  Map<String, double> moves,
-  Map<String, String> names,
-  Map<String, DateTime> days,
-  DateTime? quotedOn,
-  Map<String, double> rates,
-});
-
-/// The closes and board last fetched, from the [_market] collection.
-_Market _marketFrom(List<StoredRow> rows) {
-  final prices = <String, double>{};
-  final moves = <String, double>{};
-  final names = <String, String>{};
-  final days = <String, DateTime>{};
-  final rates = <String, double>{};
-  DateTime? quotedOn;
-  Map<String, Object?> part(Map<String, Object?> json, String key) =>
-      json[key] as Map<String, Object?>? ?? const {};
-  for (final row in rows) {
-    final json = jsonDecode(row.body) as Map<String, Object?>;
-    switch (row.id) {
-      case 'quotes':
-        for (final MapEntry(:key, :value) in part(json, 'prices').entries) {
-          prices[key] = (value! as num).toDouble();
-        }
-        for (final MapEntry(:key, :value) in part(json, 'moves').entries) {
-          moves[key] = (value! as num).toDouble();
-        }
-        for (final MapEntry(:key, :value) in part(json, 'names').entries) {
-          names[key] = value! as String;
-        }
-        for (final MapEntry(:key, :value) in part(json, 'days').entries) {
-          days[key] = DateTime.parse(value! as String);
-        }
-        if (json['on'] case final String on) quotedOn = DateTime.parse(on);
-      case 'rates':
-        for (final MapEntry(:key, :value) in part(json, 'rates').entries) {
-          rates[key] = (value! as num).toDouble();
-        }
-    }
-  }
-  return (
-    prices: prices,
-    moves: moves,
-    names: names,
-    days: days,
-    quotedOn: quotedOn,
-    rates: rates,
-  );
-}
-
-/// A reference price and name for each stock with a kept close.
-List<Holding> _holdingsOf(_Market market) => [
-  for (final MapEntry(key: code, value: price) in market.prices.entries)
-    Holding(
-      code,
-      market.names[code] ?? code,
-      shares: 0,
-      price: price,
-      cost: 0,
-      change: 0,
-    ),
-];
 
 /// A book kept by an earlier version was not opened: the copy kept before
 /// bringing it up could not be written ([SqlLedgerDataSource.bringUp]).

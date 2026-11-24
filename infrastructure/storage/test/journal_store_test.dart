@@ -347,10 +347,11 @@ void main() {
             r['name'],
         },
         containsAll([
-          'posting_line',
+          'intent_id',
+          'intent_stream_intent',
+          'month_sum_month',
           'posting_date',
           'posting_account',
-          'intent_stream_intent',
         ]),
       );
       raw.close();

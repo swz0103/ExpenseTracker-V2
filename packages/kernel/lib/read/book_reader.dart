@@ -74,6 +74,9 @@ final class BookReader {
   /// The postings on [account] in book order.
   List<Posting> postings(AccountId account) => _store.postingsOf(account);
 
+  /// What the postings on [account] add up to on each day, in day order.
+  List<(Day, int)> daySums(AccountId account) => _store.daySums(account);
+
   /// Every posting of [intent]: its other legs tell where money came
   /// from or went.
   List<Posting> legs(IntentId intent) => _store.postingsOfIntent(intent);

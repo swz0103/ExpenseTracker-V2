@@ -66,6 +66,11 @@ abstract interface class PostingStore {
   /// before it.
   List<Posting> postingsOf(AccountId account, {Position? before});
 
+  /// What the postings on [account] add up to on each day they are dated,
+  /// in day order: the steps of its running balance, without reading each
+  /// posting.
+  List<(Day, int)> daySums(AccountId account);
+
   /// What the postings dated from [from] to [until] add up to, each end
   /// counted, by account and currency: one aggregate behind every
   /// balance and report.
@@ -96,3 +101,16 @@ abstract interface class PostingStore {
 /// [a] and [b] added.
 AccountSum addSums(AccountSum a, AccountSum b) =>
     (amount: a.amount + b.amount, quantity: a.quantity + b.quantity);
+
+/// What [postings], in book order, add up to on each day, in day order.
+List<(Day, int)> sumByDay(List<Posting> postings) {
+  final days = <(Day, int)>[];
+  for (final p in postings) {
+    if (days.isNotEmpty && days.last.$1 == p.date) {
+      days.last = (p.date, days.last.$2 + p.amount);
+    } else {
+      days.add((p.date, p.amount));
+    }
+  }
+  return days;
+}

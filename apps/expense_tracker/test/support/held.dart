@@ -12,6 +12,7 @@ Future<({T result, int heldUs})> timeHeld<T>(Future<T> Function() run) async {
   final timer = Timer.periodic(const Duration(milliseconds: 1), (_) {
     final now = tick.elapsedMicroseconds;
     if (now - last > held) held = now - last;
+    if (now - last > 50000) {}
     last = now;
   });
   await Future<void>.delayed(const Duration(milliseconds: 20));

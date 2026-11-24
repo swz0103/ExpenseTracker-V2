@@ -1,24 +1,20 @@
+import 'dart:isolate';
+
 import 'package:kernel/kernel.dart';
+import 'package:storage/storage.dart';
 
 import '../journal/book_mapping.dart';
 import '../journal/old_shapes.dart';
 import '../journal/replay.dart';
 import '../models/models.dart';
-import 'codec/category_refs.dart';
-import 'codec/record_json.dart';
-import 'codec/row_decoding.dart';
-import 'ledger_data_source.dart' show Collection;
-import 'record_version.dart';
+import 'book_opening.dart';
 
-/// How many records are read, posted and written at a time when the
-/// whole book is posted afresh. Each part is let go once written, so
-/// the worker keeps little alive: the screen's isolate shares its
-/// collections of garbage (one isolate group), and what survives each is
-/// what holds the screen (D51).
+/// How many records are posted and written at a time when the whole book
+/// is posted afresh. Each part is let go once written, so the worker
+/// keeps little alive: the screen's isolate shares its collections of
+/// garbage (one isolate group), and what survives each is what holds the
+/// screen (D51).
 const journalApartChunk = 1000;
-
-/// A record as the store keeps it (the storage package's `KeptRow`).
-typedef StoredRecord = ({String shelf, String id, int seq, String body});
 
 /// What posting the whole book afresh answers (the storage package's
 /// `PostedApart`): the report, and the account tree.
@@ -28,68 +24,69 @@ typedef PostedBook = ({ReplayReport result, List<LedgerAccount> accounts});
 /// while the rest is still posted).
 typedef AddPart = void Function(FreshPostingStore part);
 
-/// The work of posting the whole book afresh, to run on a worker isolate
-/// beside the records (`EncryptedDatabase.postApart` in the storage
-/// package): it reads the accounts, categories and entries from the rows
-/// as the book opens them, leaves out those set aside as it opened
-/// ([aside], `shelf/id`), and posts them with [start], the stocks held
-/// from the start. Entries in no stream are read, posted and written
-/// [journalApartChunk] at a time; those in a stream, whose postings read
-/// the ones before, after them, in book order. Made here, at the top
+/// The work of opening the book on a worker isolate beside the records
+/// (`EncryptedDatabase.workApart`), decision D51: every row read in one
+/// read and decoded once ([decodeBook]); what has expired dropped
+/// ([DecodedBook.expired], [trashFrom]); the book sent to [books] for the
+/// screens; then, when the journal is kept by [rules] and is not the
+/// records' own, the whole book posted afresh from the same entries
+/// ([postBook]), the mark of the records' revision kept last. What
+/// posting found; null when nothing was posted. Made here, at the top
 /// level, so the closure carries only what it is given.
-Future<PostedBook> Function(List<StoredRecord>, AddPart) postingWork({
+Future<ReplayReport?> Function(ApartStore) openingWork({
+  required SendPort books,
+  required DateTime trashFrom,
+  required int? rules,
+}) => (store) async {
+  final book = decodeBook(shelvesOf(store.read().rows), trashFrom: trashFrom);
+  if (book.expired.isNotEmpty) {
+    store.write(book.expired, counts: book.expiredCounts);
+  }
+  books.send(book);
+  if (rules == null) return null;
+  final mark = (rules: rules, revision: store.revision);
+  if (store.journal.mark == mark) return null;
+  final start = holdingsOf(marketFrom(readableMarket(book.market)));
+  return store.post((add) async => postBook(book, add, start), mark: mark);
+};
+
+/// The work of posting the whole book afresh, to run on a worker isolate
+/// beside the records (`EncryptedDatabase.postApart`): it reads the
+/// accounts, categories and entries from the rows as the book opens them
+/// ([decodeBook]), leaves out those set aside as it opened ([aside],
+/// `shelf/id`), and posts them with [start], the stocks held from the
+/// start ([postBook]). Made here, at the top level, so the closure
+/// carries only what it is given.
+Future<PostedBook> Function(List<KeptRow>, AddPart) postingWork({
   required Set<String> aside,
   required List<Holding> start,
 }) =>
-    (rows, add) => _postBook(rows, add, aside, start);
+    (rows, add) async => postBook(
+      decodeBook(
+        shelvesOf([
+          for (final r in rows)
+            if (!aside.contains('${r.shelf}/${r.id}'))
+              StoredRow(r.seq, r.shelf, r.id, r.body),
+        ]),
+      ),
+      add,
+      start,
+    );
 
-/// A record's JSON as this version reads it, or null for one set aside.
-/// Every record the book set aside as it opened is left out by [aside],
-/// so any other is read as the book read it; one that cannot be read
-/// now fails the posting, which leaves the journal as it was (its mark
-/// not moved) and is kept in the diagnostics log by the keeper.
-Map<String, Object?>? _readable(StoredRecord row, Set<String> aside) {
-  if (aside.contains('${row.shelf}/${row.id}')) return null;
-  final json = readableRecord(row.body);
-  if (json == null) return null;
-  final version = versionOf(json);
-  if (version == null || version > recordVersion) return null;
-  return upgradeRecord(row.shelf, json);
-}
-
-Future<PostedBook> _postBook(
-  List<StoredRecord> rows,
-  AddPart add,
-  Set<String> aside,
-  List<Holding> start,
-) async {
-  List<Map<String, Object?>> of(Collection c) => [
-    for (final row in rows)
-      if (row.shelf == c.name) ?_readable(row, aside),
-  ];
-  final categoryJson = of(Collection.category);
-  final names = [
-    for (final json in categoryJson)
-      if (json case {'id': final String id, 'name': final String name})
-        (id, name),
-  ];
-  final refs = CategoryRefs()..fill(names);
-  final accounts = of(Collection.account).map(accountFromJson).toList();
-  final categories = [for (final j in categoryJson) categoryFromJson(j, refs)];
-  final entries = [
-    for (final row in rows)
-      if (row.shelf == Collection.entry.name) row,
-  ];
+/// Posts the entries of [book] with [start], the stocks held from the
+/// start, into parts handed to [add] as each is done: those in no stream
+/// [journalApartChunk] at a time, as they come; those in a stream, whose
+/// postings read the ones before, after them, in book order. The report
+/// and the account tree.
+PostedBook postBook(DecodedBook book, AddPart add, List<Holding> start) {
   final mapping = BookMapping(
-    accounts: accounts,
-    categories: categories,
+    accounts: book.accounts,
+    categories: book.categories,
     start: start,
   );
   final tree = AccountTree(mapping.tree);
   final report = ReplayReport();
-  // What stands alone (in no stream) is posted and written a part at a
-  // time; what stands in a stream is kept, to be posted in book order
-  // after.
+  final entries = book.entries;
   final streamed = <(LedgerIntent, Entry, Set<OldShape>)>[];
   for (var at = 0; at < entries.length; at += journalApartChunk) {
     final part = FreshPostingStore();
@@ -101,14 +98,11 @@ Future<PostedBook> _postBook(
     );
     final alone = <LedgerIntent>[];
     final records = <IntentId, (Entry, Set<OldShape>)>{};
-    for (final row in entries.sublist(
+    for (final entry in entries.sublist(
       at,
       _min(at + journalApartChunk, entries.length),
     )) {
-      final json = _readable(row, aside);
-      if (json == null) continue;
-      final entry = entryFromJson(json, refs);
-      final mapped = mapping.map(entry, row.seq);
+      final mapped = mapping.map(entry, book.entrySeqs[entry.id]!);
       mapped.accounts.forEach(tree.put);
       if (journal.streamsOf(mapped.intent).isEmpty) {
         alone.add(mapped.intent);

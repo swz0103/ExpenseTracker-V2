@@ -551,8 +551,8 @@ void main() {
     },
   );
 
-  test('a rebuild cut short by the book closing leaves no mark, and is '
-      'posted afresh at the next opening', () async {
+  test('a book closed while it is posted afresh closes once the posting is '
+      'whole, its mark kept: reopened, nothing is posted again', () async {
     final store = keptStore(scratch);
     final source = SqlLedgerDataSource(
       store,
@@ -560,7 +560,44 @@ void main() {
       keepsJournal: true,
     );
     await source.load();
-    // Closed before the keeper's queued rebuild runs.
+    // The worker that read the book posts it now; closing waits for it.
+    expect(store.busyApart, isTrue);
+    store.close();
+    expect(store.isOpen, isFalse);
+    await store.idle;
+    await source.journal.settled;
+    final reopened = EncryptedDatabase.open(
+      File('${scratch.path}/kept.db'),
+      keptKey,
+    );
+    addTearDown(reopened.close);
+    expect(reopened.journal.mark, (
+      rules: journalRules,
+      revision: reopened.revision,
+    ));
+    final (_, again, _) = await openWithJournal(reopened);
+    expect(again.journal.lastReplay, isNull);
+    expect(again.journal.lastParity, isA<InParity>());
+  });
+
+  test('a posting afresh after the book opened (an old version wrote '
+      'records meanwhile) is let go when the book closes: no mark, posted '
+      'afresh at the next opening', () async {
+    final store = keptStore(scratch);
+    final (ledger, source, _) = await openWithJournal(store);
+    // As an older version would: a record written without the journal.
+    store.write((w) => w.put('entry', 'old-app', '{}'));
+    ledger.entryCommands.add(
+      Entry(
+        id: 'next',
+        date: day(10, 2),
+        type: EntryType.expense,
+        amount: 5,
+        account: 'cash',
+        category: '飲食',
+      ),
+    );
+    // Closed before the keeper's queued work runs.
     store.close();
     await source.journal.settled;
     final reopened = EncryptedDatabase.open(
@@ -568,7 +605,10 @@ void main() {
       keptKey,
     );
     addTearDown(reopened.close);
-    expect(reopened.journal.mark, isNull);
+    expect(
+      reopened.journal.mark,
+      isNot((rules: journalRules, revision: reopened.revision)),
+    );
     final (_, again, _) = await openWithJournal(reopened);
     expect(again.journal.lastReplay, isNotNull);
     expect(again.journal.lastParity, isA<InParity>());

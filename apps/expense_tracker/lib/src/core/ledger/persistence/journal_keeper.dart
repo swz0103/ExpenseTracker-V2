@@ -122,8 +122,11 @@ final class JournalKeeper {
 
   /// Takes up [ledger], just opened: posts the book afresh when its
   /// postings are not the records' own, then compares everything.
-  void open(Ledger ledger) =>
-      _then(() => _open(ledger), _wantAll, ErrorSteps.journalUpdate);
+  /// [posted] is the posting afresh already under way as the book was
+  /// read (decision D51: the book decoded once), what it found when done;
+  /// null when it posted nothing.
+  void open(Ledger ledger, {Future<ReplayReport?>? posted}) =>
+      _then(() => _open(ledger, posted), _wantAll, ErrorSteps.journalUpdate);
 
   /// Brings the journal up to date with [batch], just kept.
   void kept(WriteBatch batch) {
@@ -159,7 +162,21 @@ final class JournalKeeper {
     });
   }
 
-  Future<void> _open(Ledger ledger) async {
+  Future<void> _open(Ledger ledger, Future<ReplayReport?>? posted) async {
+    if (posted != null) {
+      try {
+        if (await posted case final report?) {
+          _replay = report;
+          _noteRounded();
+        }
+      } on Object catch (error, stack) {
+        // The mark is not moved: the book is posted afresh below.
+        ErrorLog.instance.record(ErrorSteps.journalUpdate, error, stack);
+      }
+      while (_blocked) {
+        await _quiet();
+      }
+    }
     _ledger = ledger;
     _accounts
       ..clear()

@@ -115,7 +115,36 @@ void main() {
           ),
         );
       }
-      final ledger = await source.load();
+      await source.load();
+      // The book opened as the app first opens it after this version: read
+      // and decoded once on a worker, the book handed to the screens
+      // (open), then posted afresh there and written (rebuild); the
+      // longest the screen's isolate was held over both.
+      final opening = Stopwatch();
+      var openMs = 0;
+      final firstOpen = SqlLedgerDataSource(
+        store,
+        clock: clock,
+        keepsJournal: true,
+      );
+      final (result: ledger, heldUs: heldUs) = await timeHeld(() async {
+        opening.start();
+        final opened = await firstOpen.load();
+        openMs = opening.elapsedMilliseconds;
+        while (store.busyApart) {
+          await store.idle;
+        }
+        opening.stop();
+        return opened;
+      });
+      final rebuildMs = opening.elapsedMilliseconds;
+      final held = heldUs ~/ 1000;
+      expect(store.journal.mark, (
+        rules: journalRules,
+        revision: store.revision,
+      ));
+      await firstOpen.journal.settled;
+      expect(firstOpen.journal.lastReplay!.unposted, isEmpty);
 
       // Posting the whole book afresh, into the file.
       final mapping = BookMapping(
@@ -130,20 +159,14 @@ void main() {
         store: store.journal,
         source: (_) => null,
       );
-      // As the app posts it: on worker isolates, the screen's isolate
-      // only waiting; the longest it was held is measured beside.
-      final rebuild = Stopwatch();
-      final (result: report, heldUs: heldUs) = await timeHeld(() async {
-        rebuild.start();
-        final posted = await store.postApart(
-          postingWork(aside: const {}, start: const []),
-          mark: (rules: journalRules, revision: store.revision),
-        );
-        rebuild.stop();
-        return posted;
-      });
-      final rebuildMs = rebuild.elapsedMilliseconds;
-      final held = heldUs ~/ 1000;
+      // As the keeper posts it afresh later (the posting rules changed,
+      // a change it could not follow): from the records alone.
+      final repost = Stopwatch()..start();
+      final report = await store.postApart(
+        postingWork(aside: const {}, start: const []),
+        mark: (rules: journalRules, revision: store.revision),
+      );
+      final repostMs = repost.elapsedMilliseconds;
       expect(report.unposted, isEmpty);
       store.journal.accounts().forEach(tree.put);
 
@@ -191,8 +214,10 @@ void main() {
       final balancesUs = median(() => reader.balances(until: today_));
       final monthUs = median(() => reader.month(today_.previous.firstOfMonth));
       final found = {
+        'open_100k_ms': openMs,
         'rebuild_100k_ms': rebuildMs,
         'rebuild_held_ms': held,
+        'repost_100k_ms': repostMs,
         'save_posting_us': saveUs,
         'every_balance_us': balancesUs,
         'month_report_us': monthUs,

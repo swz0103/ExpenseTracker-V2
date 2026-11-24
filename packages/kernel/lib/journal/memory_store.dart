@@ -142,6 +142,9 @@ final class MemoryPostingStore implements PostingStore {
   ]..sort(_bookOrder);
 
   @override
+  List<(Day, int)> daySums(AccountId account) => sumByDay(postingsOf(account));
+
+  @override
   AccountSums sums({Day? from, Day? until}) {
     final lo = from?.ymd ?? 0;
     final hi = until?.ymd ?? _end;

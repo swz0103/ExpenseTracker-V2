@@ -9,7 +9,23 @@ import 'package:sqlite3/sqlite3.dart';
 /// derived from the records (`rows`): they can be dropped and posted
 /// again, a backup does not carry them, and a record set aside has no
 /// postings. The body of an intent stays in its row.
+///
+/// Intents and accounts are named in the postings, the months' sums and
+/// the streams by a number of their own ([SqlPostingStore] keeps which
+/// stands for which): a posting row a third of the size, written and
+/// sorted in half the time (D51). Tables of an earlier shape, which
+/// named them by their text, are dropped and made again, the journal
+/// then posted afresh.
 void createJournalTables(Database db) {
+  if (_columns(db, 'posting').contains('intent_id')) {
+    for (final table in _journalTables) {
+      db.execute('DROP TABLE IF EXISTS $table');
+    }
+    db.execute(
+      "DELETE FROM meta WHERE key IN ('${SqlPostingStore._rulesKey}', "
+      "'${SqlPostingStore._revisionKey}')",
+    );
+  }
   db.execute('''
     CREATE TABLE IF NOT EXISTS account (
       id TEXT PRIMARY KEY,
@@ -24,41 +40,52 @@ void createJournalTables(Database db) {
       in_flow_reports INTEGER NOT NULL
     ) STRICT, WITHOUT ROWID
   ''');
+  // The number each account is named by, once given never taken back.
+  db.execute('''
+    CREATE TABLE IF NOT EXISTS account_key (
+      key INTEGER PRIMARY KEY,
+      id TEXT NOT NULL UNIQUE
+    ) STRICT
+  ''');
   db.execute('''
     CREATE TABLE IF NOT EXISTS intent_index (
-      id TEXT PRIMARY KEY,
+      key INTEGER PRIMARY KEY,
+      id TEXT NOT NULL,
       type TEXT NOT NULL,
       date INTEGER NOT NULL,
       seq INTEGER NOT NULL
-    ) STRICT, WITHOUT ROWID
+    ) STRICT
   ''');
   db.execute('''
     CREATE TABLE IF NOT EXISTS intent_stream (
       stream TEXT NOT NULL,
       date INTEGER NOT NULL,
       seq INTEGER NOT NULL,
-      intent_id TEXT NOT NULL,
-      PRIMARY KEY (stream, date, seq, intent_id)
+      intent INTEGER NOT NULL,
+      PRIMARY KEY (stream, date, seq, intent)
     ) STRICT, WITHOUT ROWID
   ''');
+  // In the order of its key, as a whole book is written: each row lands
+  // at the end of the tree.
   db.execute('''
     CREATE TABLE IF NOT EXISTS posting (
-      intent_id TEXT NOT NULL,
+      intent INTEGER NOT NULL,
       line INTEGER NOT NULL,
-      account TEXT NOT NULL,
+      account INTEGER NOT NULL,
       currency TEXT NOT NULL,
       amount INTEGER NOT NULL,
       quantity INTEGER NOT NULL,
       sub TEXT NOT NULL,
       date INTEGER NOT NULL,
-      seq INTEGER NOT NULL
-    ) STRICT
+      seq INTEGER NOT NULL,
+      PRIMARY KEY (intent, line)
+    ) STRICT, WITHOUT ROWID
   ''');
   // Each month's sum by account, kept in the same transaction as the
   // postings: every balance is the months before plus this month's.
   db.execute('''
     CREATE TABLE IF NOT EXISTS month_sum (
-      account TEXT NOT NULL,
+      account INTEGER NOT NULL,
       currency TEXT NOT NULL,
       month INTEGER NOT NULL,
       amount INTEGER NOT NULL,
@@ -69,25 +96,40 @@ void createJournalTables(Database db) {
   _journalIndexes.values.forEach(db.execute);
 }
 
-/// The journal's indexes, by name. Posting a whole book afresh drops
-/// them and makes them again once every row is in ([SqlPostingStore.fill]):
-/// one sort each, in place of one insertion per row.
+/// The journal's tables, the account tree's and the accounts' numbers
+/// last.
+const _journalTables = [
+  'posting',
+  'intent_stream',
+  'intent_index',
+  'month_sum',
+  'account',
+  'account_key',
+];
+
+Set<String> _columns(Database db, String table) => {
+  for (final r in db.select('PRAGMA table_info($table)')) r['name'] as String,
+};
+
+/// The journal's indexes, by name, each one a query reads through (see
+/// the query beside each). Posting a whole book afresh drops them and
+/// makes them again once every row is in ([SqlPostingStore.begin]): one
+/// sort each, in place of one insertion per row.
 const _journalIndexes = {
-  // A period's whole months are read by month.
+  // An intent by its id: intent, put, remove, postingsOfIntent.
+  'intent_id':
+      'CREATE UNIQUE INDEX IF NOT EXISTS intent_id ON intent_index (id)',
+  // An intent's streams: intent, inStream.
+  'intent_stream_intent':
+      'CREATE INDEX IF NOT EXISTS intent_stream_intent '
+      'ON intent_stream (intent)',
+  // A period's whole months by month: sums from a day after the start.
   'month_sum_month':
       'CREATE INDEX IF NOT EXISTS month_sum_month '
       'ON month_sum (month, account, currency, amount, quantity)',
-  // The posting table is kept in the order written (rowid); an intent's
-  // lines are found by this index.
-  'posting_line':
-      'CREATE UNIQUE INDEX IF NOT EXISTS posting_line '
-      'ON posting (intent_id, line)',
-  'intent_stream_intent':
-      'CREATE INDEX IF NOT EXISTS intent_stream_intent '
-      'ON intent_stream (intent_id)',
-  // The days of a month cut by a period's end are read through this.
+  // The days of a month cut by a period's end: sums.
   'posting_date': 'CREATE INDEX IF NOT EXISTS posting_date ON posting (date)',
-  // One account's history in book order.
+  // One account's history in book order: postingsOf, daySums, subSums.
   'posting_account':
       'CREATE INDEX IF NOT EXISTS posting_account '
       'ON posting (account, date, seq)',
@@ -99,6 +141,9 @@ typedef _Pragmas = ({Object? cache, Object? synchronous});
 /// A record as kept: its shelf, its id there, its place, its body.
 typedef KeptRow = ({String shelf, String id, int seq, String body});
 
+/// A month's sums being added up: by account number, currency and month.
+typedef _MonthKey = (int, String, int);
+
 /// Posting a whole book afresh, under way in one transaction
 /// ([SqlPostingStore.begin]): parts added as they are posted, then
 /// finished, or abandoned with nothing changed.
@@ -107,13 +152,14 @@ final class JournalFill {
 
   final SqlPostingStore _store;
   final _Pragmas _was;
-  final _months = <(String, String, int), (int, int)>{};
+  final _months = <_MonthKey, (int, int)>{};
+  var _next = 1;
   var _done = false;
 
   /// Writes the intents and postings of [part].
   void add(FreshPostingStore part) {
     if (_done) throw StateError('fill done');
-    _store._add(part, _months);
+    _next = _store._add(part, _months, _next);
   }
 
   /// Makes the indexes and the months' sums, keeps [accounts] as the tree
@@ -155,6 +201,11 @@ final class SqlPostingStore implements PostingStore {
   var _inTransaction = false;
   final _statements = <String, PreparedStatement>{};
 
+  /// Each account's number, and back ([_accountKey]); read from the file
+  /// as they are asked for, forgotten when a transaction is let go.
+  final _keyOf = <AccountId, int>{};
+  final _accountOf = <int, AccountId>{};
+
   /// The meta keys the mark is kept under.
   static const _rulesKey = 'journal.rules';
   static const _revisionKey = 'journal.revision';
@@ -175,6 +226,9 @@ final class SqlPostingStore implements PostingStore {
 
   void _rollBack() {
     if (!_db.autocommit) _db.execute('ROLLBACK');
+    // Account numbers given in a transaction let go are not in the file.
+    _keyOf.clear();
+    _accountOf.clear();
   }
 
   /// Lets the prepared statements go, before the file is closed.
@@ -183,6 +237,48 @@ final class SqlPostingStore implements PostingStore {
       s.close();
     }
     _statements.clear();
+  }
+
+  /// The number [account] is named by in the tables; one is given the
+  /// first time it is asked for.
+  int _accountKey(AccountId account) =>
+      _keyIfAny(account) ??
+      _known(account, () {
+        _sql('INSERT INTO account_key (id) VALUES (?)')
+            .execute([account.value]);
+        return _db.lastInsertRowId;
+      });
+
+  /// The number [account] is named by, or null when nothing has named it
+  /// (so nothing is posted on it); none is given.
+  int? _keyIfAny(AccountId account) {
+    final known = _keyOf[account];
+    if (known != null) return known;
+    final found = _sql('SELECT key FROM account_key WHERE id = ?')
+        .select([account.value]);
+    if (found.isEmpty) return null;
+    return _known(account, () => found.single['key'] as int);
+  }
+
+  int _known(AccountId account, int Function() key) {
+    final k = key();
+    _keyOf[account] = k;
+    _accountOf[k] = account;
+    return k;
+  }
+
+  /// The account named by [key] in the tables.
+  AccountId _account(int key) {
+    final known = _accountOf[key];
+    if (known != null) return known;
+    final account = AccountId(
+      _sql('SELECT id FROM account_key WHERE key = ?')
+              .select([key])
+              .single['id']
+          as String,
+    );
+    _known(account, () => key);
+    return account;
   }
 
   @override
@@ -220,7 +316,7 @@ final class SqlPostingStore implements PostingStore {
       _db.execute('COMMIT');
       return result;
     } catch (_) {
-      if (!_db.autocommit) _db.execute('ROLLBACK');
+      _rollBack();
       rethrow;
     } finally {
       _inTransaction = false;
@@ -234,16 +330,17 @@ final class SqlPostingStore implements PostingStore {
     seq: r['seq'] as int,
     streams: [
       for (final s in _sql(
-        'SELECT stream FROM intent_stream WHERE intent_id = ? ORDER BY stream',
-      ).select([r['id']]))
+        'SELECT stream FROM intent_stream WHERE intent = ? ORDER BY stream',
+      ).select([r['key']]))
         s['stream'] as String,
     ],
   );
 
-  static Posting _posting(Row r) => Posting(
+  /// A posting row, its intent's id read beside it (`intent_id`).
+  Posting _posting(Row r) => Posting(
     intent: IntentId(r['intent_id'] as String),
     line: r['line'] as int,
-    account: AccountId(r['account'] as String),
+    account: _account(r['account'] as int),
     amount: r['amount'] as int,
     currency: CurrencyCode(r['currency'] as String),
     date: Day.stored(r['date'] as int),
@@ -261,35 +358,29 @@ final class SqlPostingStore implements PostingStore {
 
   @override
   void put(IntentRow row, List<Posting> postings) {
-    final index = [row.id.value, row.type.value, row.date.ymd, row.seq];
-    _sql(
-      'INSERT OR IGNORE INTO intent_index (id, type, date, seq) '
-      'VALUES (?, ?, ?, ?)',
-    ).execute(index);
-    if (_db.updatedRows == 0) {
-      // Kept before: what it had goes first. A new one, as when the whole
-      // book is posted afresh, has nothing to take away.
-      remove(row.id);
-      _sql('INSERT INTO intent_index (id, type, date, seq) VALUES (?, ?, ?, ?)')
-          .execute(index);
-    }
+    // Kept before: what it had goes first.
+    remove(row.id);
+    _sql('INSERT INTO intent_index (id, type, date, seq) VALUES (?, ?, ?, ?)')
+        .execute([row.id.value, row.type.value, row.date.ymd, row.seq]);
+    final key = _db.lastInsertRowId;
     final stream = _sql(
-      'INSERT OR IGNORE INTO intent_stream (stream, date, seq, intent_id) '
+      'INSERT OR IGNORE INTO intent_stream (stream, date, seq, intent) '
       'VALUES (?, ?, ?, ?)',
     );
     for (final s in row.streams) {
-      stream.execute([s, row.date.ymd, row.seq, row.id.value]);
+      stream.execute([s, row.date.ymd, row.seq, key]);
     }
     final insert = _sql(
-      'INSERT INTO posting (intent_id, line, account, currency, amount, '
+      'INSERT INTO posting (intent, line, account, currency, amount, '
       'quantity, sub, date, seq) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     );
-    final months = <(String, String, int), (int, int)>{};
+    final months = <_MonthKey, (int, int)>{};
     for (final p in postings) {
+      final account = _accountKey(p.account);
       insert.execute([
-        row.id.value,
+        key,
         p.line,
-        p.account.value,
+        account,
         p.currency.value,
         p.amount,
         p.quantity,
@@ -297,9 +388,9 @@ final class SqlPostingStore implements PostingStore {
         p.date.ymd,
         row.seq,
       ]);
-      final key = (p.account.value, p.currency.value, p.date.monthKey);
-      final (amount, quantity) = months[key] ?? (0, 0);
-      months[key] = (amount + p.amount, quantity + p.quantity);
+      final month = (account, p.currency.value, p.date.monthKey);
+      final (amount, quantity) = months[month] ?? (0, 0);
+      months[month] = (amount + p.amount, quantity + p.quantity);
     }
     for (final MapEntry(key: (account, currency, month), value: (a, q))
         in months.entries) {
@@ -309,26 +400,30 @@ final class SqlPostingStore implements PostingStore {
 
   @override
   void remove(IntentId id) {
+    final found = _sql('SELECT key FROM intent_index WHERE id = ?')
+        .select([id.value]);
+    if (found.isEmpty) return;
+    final key = found.single['key'] as int;
     for (final r in _sql(
       'SELECT account, currency, date / 100 AS month, SUM(amount) AS amount, '
-      'SUM(quantity) AS quantity FROM posting WHERE intent_id = ? '
+      'SUM(quantity) AS quantity FROM posting WHERE intent = ? '
       'GROUP BY account, currency, month',
-    ).select([id.value])) {
+    ).select([key])) {
       _addToMonth(
-        r['account'] as String,
+        r['account'] as int,
         r['currency'] as String,
         r['month'] as int,
         -(r['amount'] as int),
         -(r['quantity'] as int),
       );
     }
-    _sql('DELETE FROM posting WHERE intent_id = ?').execute([id.value]);
-    _sql('DELETE FROM intent_stream WHERE intent_id = ?').execute([id.value]);
-    _sql('DELETE FROM intent_index WHERE id = ?').execute([id.value]);
+    _sql('DELETE FROM posting WHERE intent = ?').execute([key]);
+    _sql('DELETE FROM intent_stream WHERE intent = ?').execute([key]);
+    _sql('DELETE FROM intent_index WHERE key = ?').execute([key]);
   }
 
   void _addToMonth(
-    String account,
+    int account,
     String currency,
     int month,
     int amount,
@@ -345,10 +440,10 @@ final class SqlPostingStore implements PostingStore {
   @override
   List<IntentRow> inStream(String stream, {required Position from}) => [
     for (final r in _sql(
-      'SELECT i.* FROM intent_stream s JOIN intent_index i ON i.id = s.intent_id '
-      // A range on the index's day, so a stream is not read whole.
+      'SELECT i.* FROM intent_stream s JOIN intent_index i ON i.key = s.intent '
+      // A range on the stream's day, so a stream is not read whole.
       'WHERE s.stream = ? AND s.date >= ? AND (s.date > ? OR s.seq >= ?) '
-      'ORDER BY s.date, s.seq, s.intent_id',
+      'ORDER BY s.date, s.seq, i.id',
     ).select([stream, from.date.ymd, from.date.ymd, from.seq]))
       _row(r),
   ];
@@ -356,25 +451,46 @@ final class SqlPostingStore implements PostingStore {
   @override
   List<Posting> postingsOfIntent(IntentId id) => [
     for (final r in _sql(
-      'SELECT * FROM posting WHERE intent_id = ? ORDER BY line',
+      'SELECT i.id AS intent_id, p.* FROM intent_index i '
+      'JOIN posting p ON p.intent = i.key WHERE i.id = ? ORDER BY p.line',
     ).select([id.value]))
       _posting(r),
   ];
 
   @override
-  List<Posting> postingsOf(AccountId account, {Position? before}) => [
-    for (final r
-        in _sql(
-          'SELECT * FROM posting WHERE account = ? AND date <= ? '
-          'AND (date < ? OR seq < ?) ORDER BY date, seq, intent_id, line',
-        ).select([
-          account.value,
-          before?.date.ymd ?? _end,
-          before?.date.ymd ?? _end + 1,
-          before?.seq ?? 0,
-        ]))
-      _posting(r),
-  ];
+  List<Posting> postingsOf(AccountId account, {Position? before}) {
+    final key = _keyIfAny(account);
+    if (key == null) return const [];
+    return [
+      for (final r
+          in _sql(
+            'SELECT i.id AS intent_id, p.* FROM posting p '
+            'JOIN intent_index i ON i.key = p.intent '
+            'WHERE p.account = ? AND p.date <= ? '
+            'AND (p.date < ? OR p.seq < ?) '
+            'ORDER BY p.date, p.seq, i.id, p.line',
+          ).select([
+            key,
+            before?.date.ymd ?? _end,
+            before?.date.ymd ?? _end + 1,
+            before?.seq ?? 0,
+          ]))
+        _posting(r),
+    ];
+  }
+
+  @override
+  List<(Day, int)> daySums(AccountId account) {
+    final key = _keyIfAny(account);
+    if (key == null) return const [];
+    return [
+      for (final r in _sql(
+        'SELECT date, SUM(amount) AS amount FROM posting WHERE account = ? '
+        'GROUP BY date ORDER BY date',
+      ).select([key]))
+        (Day.stored(r['date'] as int), r['amount'] as int),
+    ];
+  }
 
   @override
   AccountSums sums({Day? from, Day? until}) {
@@ -384,7 +500,7 @@ final class SqlPostingStore implements PostingStore {
     void add(ResultSet rows) {
       for (final r in rows) {
         final key = (
-          AccountId(r['account'] as String),
+          _account(r['account'] as int),
           CurrencyCode(r['currency'] as String),
         );
         total[key] = addSums(total[key] ?? (amount: 0, quantity: 0), (
@@ -437,17 +553,22 @@ final class SqlPostingStore implements PostingStore {
   Map<(String, CurrencyCode), AccountSum> subSums(
     AccountId account, {
     Day? until,
-  }) => {
-    for (final r in _sql(
-      'SELECT sub, currency, SUM(amount) AS amount, SUM(quantity) AS quantity '
-      'FROM posting WHERE account = ? AND date <= ? GROUP BY sub, currency '
-      'ORDER BY MIN(date), MIN(seq), sub',
-    ).select([account.value, until?.ymd ?? _end]))
-      (r['sub'] as String, CurrencyCode(r['currency'] as String)): (
-        amount: r['amount'] as int,
-        quantity: r['quantity'] as int,
-      ),
-  };
+  }) {
+    final key = _keyIfAny(account);
+    if (key == null) return const {};
+    return {
+      for (final r in _sql(
+        'SELECT sub, currency, SUM(amount) AS amount, '
+        'SUM(quantity) AS quantity FROM posting WHERE account = ? '
+        'AND date <= ? GROUP BY sub, currency ORDER BY MIN(date), MIN(seq), '
+        'sub',
+      ).select([key, until?.ymd ?? _end]))
+        (r['sub'] as String, CurrencyCode(r['currency'] as String)): (
+          amount: r['amount'] as int,
+          quantity: r['quantity'] as int,
+        ),
+    };
+  }
 
   @override
   List<LedgerAccount> accounts() => [
@@ -542,7 +663,7 @@ final class SqlPostingStore implements PostingStore {
       }
       clear();
     } catch (_) {
-      _db.execute('ROLLBACK');
+      _rollBack();
       _restore(was);
       rethrow;
     }
@@ -560,19 +681,25 @@ final class SqlPostingStore implements PostingStore {
     _db.execute('PRAGMA cache_size = ${was.cache}');
   }
 
-  void _add(
+  /// Writes [part], its intents numbered from [next] in the order they
+  /// came, so every row lands at the end of its table; adds its postings
+  /// to [months]. The next number free.
+  int _add(
     FreshPostingStore part,
-    Map<(String, String, int), (int, int)> months,
+    Map<_MonthKey, (int, int)> months,
+    int next,
   ) {
-    // In the order of the key, so each row lands at the end of its tree.
-    final intents = [...part.intents]
-      ..sort((a, b) => a.id.value.compareTo(b.id.value));
-    _insertMany('intent_index (id, type, date, seq)', 4, intents.length, (
+    final intents = part.intents;
+    final keys = <IntentId, int>{
+      for (final (i, r) in intents.indexed) r.id: next + i,
+    };
+    _insertMany('intent_index (key, id, type, date, seq)', 5, intents.length, (
       i,
       into,
     ) {
       final r = intents[i];
       into
+        ..add(next + i)
         ..add(r.id.value)
         ..add(r.type.value)
         ..add(r.date.ymd)
@@ -583,7 +710,7 @@ final class SqlPostingStore implements PostingStore {
         for (final s in r.streams) (s, r),
     ];
     _insertMany(
-      'intent_stream (stream, date, seq, intent_id)',
+      'intent_stream (stream, date, seq, intent)',
       4,
       streams.length,
       (i, into) {
@@ -592,21 +719,22 @@ final class SqlPostingStore implements PostingStore {
           ..add(s)
           ..add(r.date.ymd)
           ..add(r.seq)
-          ..add(r.id.value);
+          ..add(keys[r.id]);
       },
     );
     final postings = part.postings;
+    final accounts = [for (final p in postings) _accountKey(p.account)];
     _insertMany(
-      'posting (intent_id, line, account, currency, amount, quantity, sub, '
+      'posting (intent, line, account, currency, amount, quantity, sub, '
       'date, seq)',
       9,
       postings.length,
       (i, into) {
         final p = postings[i];
         into
-          ..add(p.intent.value)
+          ..add(keys[p.intent])
           ..add(p.line)
-          ..add(p.account.value)
+          ..add(accounts[i])
           ..add(p.currency.value)
           ..add(p.amount)
           ..add(p.quantity)
@@ -615,15 +743,16 @@ final class SqlPostingStore implements PostingStore {
           ..add(p.seq);
       },
     );
-    for (final p in postings) {
-      final key = (p.account.value, p.currency.value, p.date.monthKey);
+    for (final (i, p) in postings.indexed) {
+      final key = (accounts[i], p.currency.value, p.date.monthKey);
       final (amount, quantity) = months[key] ?? (0, 0);
       months[key] = (amount + p.amount, quantity + p.quantity);
     }
+    return next + intents.length;
   }
 
   void _finish(
-    Map<(String, String, int), (int, int)> months,
+    Map<_MonthKey, (int, int)> months,
     List<LedgerAccount> accounts,
     JournalMark mark,
   ) {
@@ -670,31 +799,27 @@ final class SqlPostingStore implements PostingStore {
     final one = '(${List.filled(width, '?').join(', ')})';
     String sql(int rows) =>
         'INSERT INTO $into VALUES ${List.filled(rows, one).join(', ')}';
-    final full = _db.prepare(sql(_rowsPerInsert));
-    try {
-      final values = <Object?>[];
-      var i = 0;
-      for (; i + _rowsPerInsert <= count; i += _rowsPerInsert) {
-        values.clear();
-        for (var k = i; k < i + _rowsPerInsert; k++) {
-          row(k, values);
-        }
-        full.execute(values);
+    final full = _sql(sql(_rowsPerInsert));
+    final values = <Object?>[];
+    var i = 0;
+    for (; i + _rowsPerInsert <= count; i += _rowsPerInsert) {
+      values.clear();
+      for (var k = i; k < i + _rowsPerInsert; k++) {
+        row(k, values);
       }
-      if (i < count) {
-        values.clear();
-        for (var k = i; k < count; k++) {
-          row(k, values);
-        }
-        final last = _db.prepare(sql(count - i));
-        try {
-          last.execute(values);
-        } finally {
-          last.close();
-        }
+      full.execute(values);
+    }
+    if (i < count) {
+      values.clear();
+      for (var k = i; k < count; k++) {
+        row(k, values);
       }
-    } finally {
-      full.close();
+      final last = _db.prepare(sql(count - i));
+      try {
+        last.execute(values);
+      } finally {
+        last.close();
+      }
     }
   }
 
