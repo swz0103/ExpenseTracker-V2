@@ -282,6 +282,8 @@ void _marksFromTags(EncryptedDatabase store, RowWriter w) {
 /// give them their mark.
 const _rewardTag = '回饋';
 const _annualFeeTag = '年費';
+// Exception to shared words: the tag as earlier versions wrote it, read
+// as it was whatever the screens say now.
 const _invoiceTag = '發票';
 
 /// An invoice's number in a note as the scanner and the import wrote it

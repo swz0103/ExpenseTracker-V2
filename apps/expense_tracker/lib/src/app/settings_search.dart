@@ -36,7 +36,11 @@ const settingTopics = <SettingTopic>[
     words: ['匯出', 'Excel'],
     page: SettingsDestination.importExport,
   ),
-  (name: '電子發票', words: ['發票', '載具'], page: SettingsDestination.importExport),
+  (
+    name: '電子發票',
+    words: [Words.invoice, '載具'],
+    page: SettingsDestination.importExport,
+  ),
   (
     name: '到期提醒',
     words: ['信用卡', '定期', '通知'],
