@@ -1,4 +1,6 @@
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
+import 'package:expense_tracker/src/features/reports/ui/report_blocks.dart'
+    show CategoryBlock;
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../support/places.dart';
@@ -45,5 +47,39 @@ void main() {
     await go(tester, ['更多', '財務報表', '習慣']);
     // 50,000 − 4,000 = 46,000 kept; 46,000 / 50,000 = 92%.
     expect(find.textContaining('（收入的 92%）'), findsOneWidget);
+  });
+
+  testWidgets('the block gathering the smallest categories, 其他, does not '
+      'open; a category\'s block does (review 16)', (tester) async {
+    final ledger = emptyBook();
+    for (final (id, amount, category) in [
+      ('food', 900000, '飲食'),
+      ('bus', 10, '交通'),
+      ('shop', 10, '購物'),
+      ('fun', 10, '娛樂'),
+    ]) {
+      ledger.entryCommands.add(
+        Entry(
+          id: id,
+          date: DateTime.utc(2026, 10, 3),
+          type: EntryType.expense,
+          amount: amount,
+          account: 'card',
+          category: category,
+        ),
+      );
+    }
+    await show(tester, 360, 1, height: 1200, book: ledger);
+    await go(tester, ['更多', '財務報表', '分類']);
+    // 10 of 900,030 is too small a block to name: the three together.
+    final rest = find.byWidgetPredicate(
+      (w) => w is CategoryBlock && w.category.name == '其他',
+    );
+    expect(rest, findsOneWidget);
+    expect(tester.widget<CategoryBlock>(rest).onTap, isNull);
+    final food = find.byWidgetPredicate(
+      (w) => w is CategoryBlock && w.category.name == '飲食',
+    );
+    expect(tester.widget<CategoryBlock>(food).onTap, isNotNull);
   });
 }
