@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../core/design_system/keys.dart';
 import '../core/diagnostics/error_log.dart';
+import '../core/platform/startup.dart';
 import '../core/design_system/spacing.dart';
 import '../core/messages/loading_messages.dart';
 
@@ -88,6 +89,15 @@ class DamagedBookPage extends StatelessWidget {
     required this.onRetry,
     required this.onRestore,
   });
+
+  /// The page of [startup] in [Damaged]: try again from the lock screen,
+  /// or restore a backup there.
+  DamagedBookPage.of(Startup startup, {Key? key})
+    : this(
+        key: key,
+        onRetry: startup.retryAfterDamage,
+        onRestore: startup.lockToRestore,
+      );
 
   final VoidCallback onRetry;
   final VoidCallback onRestore;

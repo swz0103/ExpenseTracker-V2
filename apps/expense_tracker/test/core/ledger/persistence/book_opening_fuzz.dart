@@ -8,11 +8,11 @@ import 'package:expense_tracker/src/core/ledger/persistence/codec/record_shape.d
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
 
-/// R12: the books kept by every released version, their rows mutated at
-/// random (seeded), opened. Reading never throws, every row is read or
+/// R12, run by book_opening_test.dart: the books kept by every released
+/// version, their rows mutated at random (seeded), opened. Reading never throws, every row is read or
 /// set aside, and nothing read breaks restore's shape rules. A few
 /// hundred cases here; `FUZZ_CASES=3000` for a nightly run.
-void main() {
+void bookOpeningFuzz() {
   final cases = int.tryParse(Platform.environment['FUZZ_CASES'] ?? '') ?? 300;
   const shelfOf = {
     'accounts': 'account',

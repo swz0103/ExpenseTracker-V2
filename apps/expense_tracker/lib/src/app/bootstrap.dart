@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:core/app_core.dart' show untilNextMidnight;
 import 'package:flutter/material.dart';
-import 'package:storage/storage.dart' show StorageProblem, StorageUnavailable;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
@@ -232,10 +231,7 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
             lifecycle: _lifecycle,
             leave: widget.leave,
           ),
-          Damaged() => DamagedBookPage(
-            onRetry: startup.retryAfterDamage,
-            onRestore: startup.lockToRestore,
-          ),
+          Damaged() => DamagedBookPage.of(startup),
           final state => LockScreen(
             key: ValueKey(state.runtimeType),
             startup: startup,
@@ -331,21 +327,11 @@ class _OpenedLedgerState extends State<OpenedLedger>
     });
 
   Future<Ledger> _open() async {
-    final SessionStart start;
-    try {
-      await _hold.prepare(_session.prepare);
-      start = await _session.open();
-    } on StorageUnavailable catch (error) {
-      // A page found damaged as the book is read (D94): the file is set
-      // aside and the damaged state shows in place of this page.
-      if (error.problem == StorageProblem.damaged) {
-        await widget.startup.bookDamaged(error);
-      }
-      rethrow;
-    }
+    final start = await widget.startup.readingBook(
+      _hold.prepare(_session.prepare).then((_) => _session.open()),
+    );
     await _services.start(start.ledger);
-    // Rows a newer version wrote are told once a set (D18); rows that
-    // cannot be read, every opening.
+    // Rows set aside are told (D18): newer ones once a set, others always.
     final tell = await QuarantineNotices(widget.startup.quarantineTold)
         .toTell(start.quarantined);
     _afterFrame(() {

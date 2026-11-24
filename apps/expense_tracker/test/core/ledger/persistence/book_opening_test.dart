@@ -5,10 +5,14 @@ import 'package:expense_tracker/src/core/ledger/persistence/quarantine.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
 
+import 'book_opening_fuzz.dart';
+
 /// R12 F1–F3: every row a book can hold is read or set aside with why;
 /// reading the book never throws, and never keeps a record the restore of
 /// a backup would refuse.
 void main() {
+  group('mutated books', bookOpeningFuzz);
+
   final today = DateTime.utc(2026, 10, 4);
 
   String entry(String id, [Map<String, Object?> extra = const {}]) =>

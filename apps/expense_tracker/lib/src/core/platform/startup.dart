@@ -161,6 +161,18 @@ final class Startup extends ChangeNotifier {
     _damaged(error);
   }
 
+  /// What [read], the open book being read, gives; a page of it found
+  /// damaged ([StorageProblem.damaged]) sets the file aside first
+  /// ([bookDamaged]), and the app shows [Damaged].
+  Future<T> readingBook<T>(Future<T> read) async {
+    try {
+      return await read;
+    } on StorageUnavailable catch (error) {
+      if (error.problem == StorageProblem.damaged) await bookDamaged(error);
+      rethrow;
+    }
+  }
+
   /// From [Damaged], back to the lock screen to try again.
   void retryAfterDamage() {
     _state = _locked();

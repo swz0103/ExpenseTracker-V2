@@ -133,6 +133,32 @@ void main() {
       expect(vault.damagedCopies(), isEmpty);
     });
 
+    test('reading the book passes on what it gives, and any other '
+        'failure as it is', () async {
+      final startup = Startup(vault);
+      await startup.setUp(password);
+      expect(await startup.readingBook(Future.value(7)), 7);
+      await expectLater(
+        startup.readingBook<int>(Future.error(StateError('other'))),
+        throwsStateError,
+      );
+      await expectLater(
+        startup.readingBook<int>(
+          Future.error(const StorageUnavailable(StorageProblem.inUse)),
+        ),
+        throwsA(const StorageUnavailable(StorageProblem.inUse)),
+      );
+      expect(startup.state, isA<Ready>());
+      await expectLater(
+        startup.readingBook<int>(
+          Future.error(const StorageUnavailable(StorageProblem.damaged)),
+        ),
+        throwsA(const StorageUnavailable(StorageProblem.damaged)),
+      );
+      expect(startup.state, isA<Damaged>());
+      expect(vault.damagedCopies(), hasLength(1));
+    });
+
     test('found as the book is read, it is closed and set aside', () async {
       final startup = Startup(vault);
       await startup.setUp(password);
