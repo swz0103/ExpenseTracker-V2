@@ -428,9 +428,9 @@ class _OpenedLedgerState extends State<OpenedLedger>
   }
 
   /// What the automatic booking did and left, told once (D61).
-  final _held = HeldBookings();
-  void _tellBooked(Ledger ledger, int booked, List<HeldBooking> held) =>
-      unawaited(_held.tell(context, ledger, booked, held, notice: _notice));
+  late final _held = HeldBookings(notice: _notice);
+  void _tellBooked(Ledger l, int booked, List<HeldBooking> held) =>
+      unawaited(_held.tell(context, l.recurringCommands, booked, held));
 
   Future<void> _notice(String title, String text) => showDialog<void>(
     context: context,

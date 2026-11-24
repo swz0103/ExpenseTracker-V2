@@ -60,16 +60,16 @@ void main() {
     final ledger = book();
     final due = ledger.recurringCommands.bookDue();
     final context = await host(tester);
-    final told = HeldBookings();
+
     final notices = <String>[];
     Future<void> notice(String title, String text) async => notices.add(title);
+    final told = HeldBookings(notice: notice);
 
     final asking = told.tell(
       context,
-      ledger,
+      ledger.recurringCommands,
       due.booked,
       due.held,
-      notice: notice,
     );
     await tester.pumpAndSettle();
     expect(find.text('有定期交易多期尚未入帳'), findsOneWidget);
@@ -83,7 +83,7 @@ void main() {
     expect(notices, isEmpty);
 
     // The same days are not asked about twice.
-    await told.tell(context, ledger, 0, due.held, notice: notice);
+    await told.tell(context, ledger.recurringCommands, 0, due.held);
     await tester.pumpAndSettle();
     expect(find.text('有定期交易多期尚未入帳'), findsNothing);
   });
@@ -92,11 +92,13 @@ void main() {
     final ledger = book();
     final context = await host(tester);
     final notices = <String>[];
-    await HeldBookings().tell(context, ledger, 1, [
+    await HeldBookings(
+      notice: (title, text) async => notices.add('$title|$text'),
+    ).tell(context, ledger.recurringCommands, 1, [
       HeldBooking(ledger.recurring.all.single, [
         DateTime.utc(2026, 11, 1),
       ], closed: true),
-    ], notice: (title, text) async => notices.add('$title|$text'));
+    ]);
     await tester.pump();
     expect(find.text('已自動記下 1 筆定期交易'), findsOneWidget);
     expect(notices, ['定期交易未自動入帳|「房租」的帳戶已封存，11/1 起沒有自動入帳']);

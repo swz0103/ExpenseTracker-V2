@@ -9,20 +9,24 @@ import '../../../core/messages/recurring_messages.dart';
 /// and comes back: asked once before booking the items with more than
 /// one day waiting, and said once what could not be booked by itself.
 final class HeldBookings {
+  HeldBookings({required this.notice});
+
+  /// Tells what could not be booked by itself: a title and the words.
+  final Future<void> Function(String title, String text) notice;
+
   /// What was told already, so coming back does not ask again about the
   /// same days.
   final _told = <String>{};
 
   /// Tells in [context] how many days were [booked] by themselves, then
-  /// [held]: the question first, then [notice] with what could not be
-  /// booked by itself.
+  /// [held]: the question first, booked through [commands] once confirmed,
+  /// then [notice] with what could not be booked by itself.
   Future<void> tell(
     BuildContext context,
-    Ledger ledger,
+    RecurringCommands commands,
     int booked,
-    List<HeldBooking> held, {
-    required Future<void> Function(String title, String text) notice,
-  }) async {
+    List<HeldBooking> held,
+  ) async {
     if (booked > 0) showNote(context, autoBooked(booked));
     final fresh = [
       for (final h in held)
@@ -46,7 +50,7 @@ final class HeldBookings {
       if (ok) {
         var count = 0;
         for (final h in asked) {
-          count += ledger.recurringCommands.bookDays(h.item, h.days);
+          count += commands.bookDays(h.item, h.days);
         }
         if (context.mounted && count > 0) {
           showNote(context, heldBooked(count));
