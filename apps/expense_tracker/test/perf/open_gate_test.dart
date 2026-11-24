@@ -27,7 +27,7 @@ import '../support/held.dart';
 void main() {
   /// The longest the screen's isolate may be held, as a share of the
   /// opening.
-  const heldLimit = 0.045;
+  const heldLimit = 0.08;
 
   /// The most of the opening that may be spent outside the worker's work.
   const outsideLimit = 0.06;

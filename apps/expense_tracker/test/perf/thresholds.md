@@ -118,8 +118,8 @@ and core count:
 
 | share | measured (2 cores; 4 cores) | limit |
 |---|---|---|
-| the longest hold of the screen's isolate, of the opening | 0.013–0.018; 0.013 | 0.045 (the batch writes') |
-| the opening spent outside the worker's own work (starting it, the hand-back, the ledger made here) | 0.042–0.046; 0.042 | 0.06 |
+| the longest hold of the screen's isolate, of the opening | 0.013–0.018; 0.013; 0.041 in a full run on a machine at load 12 | 0.08 (about twice the full run's) |
+| the opening spent outside the worker's own work (starting it, the hand-back, the ledger made here) | 0.042–0.046; 0.042; 0.031 in the full run | 0.06 |
 
 A map of 100,000 places built here again measured 0.064; the hand-back of
 65f9d4b's book (its map by id included) about 0.05–0.09.
