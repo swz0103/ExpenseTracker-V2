@@ -7,6 +7,7 @@ import 'package:domain/data_exchange.dart';
 import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/amount_messages.dart';
+import '../../../core/messages/import_messages.dart';
 import '../../../core/messages/validation_messages.dart';
 import '../../entries/model/invoices.dart';
 
@@ -203,8 +204,10 @@ bool _isSplit(String cell) {
 String _day(DateTime d) => BusinessDate.of(d).toString();
 
 /// The rows of [text] read as CSV, a leading byte order mark and blank
-/// lines left out. A quote left open runs to the end, as a spreadsheet
-/// reads it; words after a closing quote throw [CsvFormatException].
+/// lines left out, a quote left open read to the end, as a spreadsheet
+/// reads it; words after a closing quote throw [CsvFormatException]. Not
+/// what an import reads: [importCsv] refuses a quote left open, the whole
+/// file, rather than run the rest of it into one cell.
 List<List<String>> parseCsv(String text) {
   try {
     return readCsv(text);
@@ -215,33 +218,16 @@ List<List<String>> parseCsv(String text) {
   }
 }
 
-/// A day written as 2026-03-05, 2026/3/5, 20260305 or, in the Republic
-/// of China calendar, 1150305; null when unreadable.
-DateTime? readDay(String text) {
-  final value = text.trim();
-  final digits = RegExp(r'^\d{7,8}$');
-  if (digits.hasMatch(value)) {
-    final cut = value.length - 4;
-    var year = int.parse(value.substring(0, cut));
-    if (value.length == 7) year += 1911;
-    final month = int.parse(value.substring(cut, cut + 2));
-    final day = int.parse(value.substring(cut + 2));
-    return _valid(year, month, day);
-  }
-  final parts = value.split(RegExp(r'[-/.]'));
-  if (parts.length != 3) return null;
-  final numbers = parts.map(int.tryParse).toList();
-  if (numbers.contains(null)) return null;
-  var year = numbers[0]!;
-  if (year < 1000) year += 1911;
-  return _valid(year, numbers[1]!, numbers[2]!);
-}
+/// The day [text] writes ([readImportDay], decision D93), as a UTC
+/// midnight; null when it is not taken, [readImportDay] saying why.
+DateTime? readDay(String text) => _utcDay(readImportDay(text));
 
-DateTime? _valid(int year, int month, int day) {
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  final date = DateTime.utc(year, month, day);
-  return date.month == month ? date : null;
-}
+/// The day [read], as a UTC midnight; null when it was refused.
+DateTime? _utcDay(ImportDay read) => switch (read) {
+  DayRead(date: BusinessDate(:final year, :final month, :final day)) =>
+    DateTime.utc(year, month, day),
+  DayRefused() => null,
+};
 
 /// [text] in the smallest unit of [currency]: `1,200` and `NT$ 120` read
 /// as written, more decimals than the currency has are rounded. What
@@ -328,28 +314,33 @@ const _shades = [
 /// 錢包…); a line without an account goes to [fallback]. A line matching
 /// an entry already in the book is left out, and so is one the book
 /// would refuse, such as a sale of more shares than are held then.
+///
+/// A quote left open, or words after a closing one, leave the whole file
+/// out, naming the line: the rest of it is never run into one cell. Each
+/// line left out is named by the line of the file it is on, blank lines
+/// and line breaks inside quoted words counted.
 Import importCsv(ImportBook book, String text, {required String fallback}) {
-  final List<List<String>> rows;
+  final List<CsvRecord> rows;
   try {
-    rows = parseCsv(text);
+    rows = readCsvRecords(text);
   } on CsvFormatException catch (error) {
     // Said to the person: the file is left as it is rather than guessed at.
     return Import(const [], 1, problems: ['第 ${error.line} 行的引號看不懂，整個檔案沒有匯入']);
   }
   if (rows.isEmpty) return const Import([], 0);
-  final head = [for (final h in rows.first) h.trim()];
+  final head = [for (final h in rows.first.cells) h.trim()];
   if (!head.contains('日期') || !head.contains('金額')) {
     return Import(const [], rows.length, problems: const ['第一行要有「日期」和「金額」欄位']);
   }
   final reader = _Reader(book, fallback);
-  for (final (i, row) in rows.skip(1).indexed) {
+  for (final (:line, cells: row) in rows.skip(1)) {
     String cell(String name) {
       final at = head.indexOf(name);
       return at < 0 || at >= row.length ? '' : row[at].trim();
     }
 
-    final problem = reader.read(cell);
-    if (problem != null) reader.skip(i + 2, problem);
+    final problem = reader.read(cell, line: line);
+    if (problem != null) reader.skip(line, problem);
   }
   return reader.result();
 }

@@ -39,9 +39,16 @@ String guessCategory(
 bool invoiceRecorded(EntryReader entries, DateTime day, String number) =>
     hasInvoice(entries, day, number);
 
+/// Whether [note] names the invoice [number] itself: as a word of its
+/// own, never as the start of a longer number (AB1 is not in AB12).
+bool notesInvoice(String note, String number) =>
+    number.isNotEmpty &&
+    RegExp('(?<![A-Za-z0-9])${RegExp.escape(number)}(?![A-Za-z0-9])')
+        .hasMatch(note);
+
 /// Whether the invoice [number] of [day] was imported before: its number
-/// is in a note, or an invoice entry of that day, shop and [amount] is
-/// there, as when its note was edited since.
+/// is in a note ([notesInvoice]), or an invoice entry of that day, shop
+/// and [amount] is there, as when its note was edited since.
 bool hasInvoice(
   EntryReader entries,
   DateTime? day,
@@ -55,7 +62,7 @@ bool hasInvoice(
       .inMonth(day.year, day.month)
       .any(
         (e) =>
-            e.note.contains(number) ||
+            notesInvoice(e.note, number) ||
             (e.tags.contains('發票') &&
                 // An entry still noting its own number is another invoice.
                 !e.note.contains(RegExp(r'發票 \S')) &&

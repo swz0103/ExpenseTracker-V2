@@ -76,4 +76,61 @@ void main() {
     expect(readCsv(text), rows);
     expect(() => readCsv('"open'), throwsFormatException);
   });
+
+  group('the rows of one invoice (R12 F6)', () {
+    test('a void row voids the invoice, whichever row says so', () {
+      final file = readEInvoices(
+        download(['x,AB1,20261001,店,開立,a,10', 'x,AB1,20261001,店,作廢,b,20']),
+      );
+      expect(file.invoices, isEmpty);
+      expect(file.refused, isEmpty);
+    });
+
+    test('rows that disagree on the date or seller leave it out', () {
+      final file = readEInvoices(
+        download([
+          'x,AB1,20261001,店甲,開立,a,10',
+          'x,AB1,20271231,店乙,開立,b,20',
+          'x,AB2,20261001,店,開立,a,10',
+          'x,AB2,20261001,別家,開立,b,20',
+          'x,AB3,20261002,店,開立,c,30',
+        ]),
+      );
+      expect([for (final i in file.invoices) i.number], ['AB3']);
+      expect(file.refused, [
+        (number: 'AB1', line: 2, why: InvoiceRefusal.rowsDisagree),
+        (number: 'AB2', line: 4, why: InvoiceRefusal.rowsDisagree),
+      ]);
+      expect(
+        parseEInvoices(download(['x,AB3,20261002,店,開立,c,30'])),
+        hasLength(1),
+      );
+    });
+
+    test('an invoice dated before 1950 is left out (D93)', () {
+      final file = readEInvoices(download(['x,AB1,19491231,店,開立,a,10']));
+      expect(file.invoices, isEmpty);
+      expect(file.refused, [
+        (number: 'AB1', line: 2, why: InvoiceRefusal.tooEarly),
+      ]);
+    });
+
+    test('the line named is the line of the file', () {
+      // Line 1 the header, 2 and 3 blank, 4 and 5 one record with a line
+      // break in its words, 6 the unreadable row.
+      expect(
+        () => parseEInvoices(
+          '$header\n\n\n"a\nb",AB1,20261001,店,開立,a,10\n'
+          'x,AB2,bad,店,開立,a,1\n',
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            startsWith('Line 6:'),
+          ),
+        ),
+      );
+    });
+  });
 }

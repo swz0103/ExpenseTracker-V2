@@ -44,4 +44,12 @@ void main() {
       isFalse,
     );
   });
+
+  test('R12: an invoice number is found as a word of its own', () {
+    expect(notesInvoice('鮮奶 發票 AB12', 'AB12'), isTrue);
+    expect(notesInvoice('鮮奶 發票 AB12', 'AB1'), isFalse);
+    expect(notesInvoice('發票 XAB1', 'AB1'), isFalse);
+    expect(notesInvoice('AB1，已付', 'AB1'), isTrue);
+    expect(notesInvoice('發票 AB1', ''), isFalse);
+  });
 }

@@ -18,6 +18,8 @@ final class _Reader {
   /// Refunds already given against spending in this file, by its id.
   final _refunded = <String, int>{};
   final _problems = <String>[];
+
+  /// The line of the file being read.
   var _line = 1;
   var _skipped = 0;
 
@@ -86,11 +88,13 @@ final class _Reader {
     return name;
   }
 
-  /// Reads one line; why it cannot be kept, or null when it was.
-  String? read(String Function(String) cell) {
-    _line++;
-    final day = readDay(cell('日期'));
-    if (day == null) return '日期看不懂';
+  /// Reads the [line] of the file; why it cannot be kept, or null when
+  /// it was.
+  String? read(String Function(String) cell, {required int line}) {
+    _line = line;
+    final read = readImportDay(cell('日期'));
+    if (read case DayRefused(:final problem)) return dayProblemWords(problem);
+    final day = _utcDay(read)!;
     final typed = cell('類型');
     final named = _kinds[typed] ?? _kinds[typed.toLowerCase()];
     if (typed.isNotEmpty && named == null) return '不認得的類型「$typed」';
@@ -430,19 +434,21 @@ Import _invoiceLines(ImportBook book, String text, {required String account}) {
   }
   final entries = <Entry>[];
   final problems = <String>[];
+  final numbers = <String>{};
   var skipped = 0;
   for (final cells in heads) {
-    final day = readDay(cells[3]);
+    final read = readImportDay(cells[3]);
+    final day = _utcDay(read);
     final shop = cells[5];
     final number = cells[6];
     final value = _amount(cells[7]).minorOrNull;
     final voided = cells.length > 8 && cells[8].contains('作廢');
     final seen =
         number.isNotEmpty &&
-        (entries.any((e) => e.note.contains(number)) ||
+        (numbers.contains(number) ||
             hasInvoice(book.entries, day, number, shop: shop, amount: value));
-    final why = day == null
-        ? '日期看不懂'
+    final why = read is DayRefused
+        ? dayProblemWords(read.problem)
         : value == null || value <= 0
         ? '金額看不懂'
         : voided
@@ -456,31 +462,36 @@ Import _invoiceLines(ImportBook book, String text, {required String account}) {
       continue;
     }
     final bought = items[number] ?? const [];
+    numbers.add(number);
     entries.add(_invoice(book, account, day!, shop, number, bought, value!));
   }
   return Import(entries, skipped, problems: problems);
 }
 
 /// The ministry's 消費明細 CSV, one row per item, added up per invoice by
-/// `data_exchange`. A row it cannot read leaves the whole file out.
+/// `data_exchange`. A row it cannot read leaves the whole file out; an
+/// invoice whose rows disagree, or dated too early, is left out, named.
 Import _invoiceCsv(ImportBook book, String text, {required String account}) {
-  final List<EInvoice> invoices;
+  final EInvoiceFile file;
   try {
-    invoices = parseEInvoices(text);
+    file = readEInvoices(text);
   } on FormatException {
     // Said to the person as a problem of the file.
     return const Import([], 1, problems: ['檔案格式看不懂']);
   }
   final entries = <Entry>[];
-  final problems = <String>[];
-  var skipped = 0;
-  for (final invoice in invoices) {
+  final problems = [
+    for (final (:number, line: _, :why) in file.refused)
+      '$number：${invoiceRefusalWords(why)}',
+  ];
+  var skipped = file.refused.length;
+  for (final invoice in file.invoices) {
     final BusinessDate(:year, :month, :day) = invoice.date;
     final date = DateTime.utc(year, month, day);
     final number = invoice.number;
     final value = invoice.amount.minorUnits.toInt();
+    // The file holds each number once (readEInvoices).
     if (value <= 0 ||
-        entries.any((e) => e.note.contains(number)) ||
         hasInvoice(
           book.entries,
           date,
