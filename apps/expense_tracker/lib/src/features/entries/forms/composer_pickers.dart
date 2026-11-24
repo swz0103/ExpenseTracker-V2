@@ -32,7 +32,11 @@ extension _Pickers on _ComposerState {
       Words.date,
       (done) => DayChoices(
         selected: _f.date,
-        latest: _ledger.today,
+        // Spending, income and transfers may be 預定, up to the write
+        // rules' limit; shares change hands on the day they do (D25).
+        latest: _f.mode == ComposeMode.investment
+            ? _ledger.today
+            : latestEntryDay(_ledger.today),
         today: _ledger.today,
         marked: marked,
         color: _color,

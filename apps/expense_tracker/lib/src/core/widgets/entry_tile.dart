@@ -12,6 +12,7 @@ import 'shown_amounts.dart';
 import '../../../design_system/display/date.dart';
 import '../design_system/spacing.dart';
 import '../formatting/words.dart';
+import '../../../design_system/display/status_messages.dart';
 import '../../../design_system/display/amount_text.dart';
 
 /// The icon of an entry: its category's, or transfer and trade marks.
@@ -100,6 +101,14 @@ String entryAmount(Entry e, {String currency = homeCode}) {
 
 /// 「飲食日常 · 隨身現金」, or the two accounts of a transfer.
 String entryDetail(Ledger ledger, Entry e) {
+  final detail = _detailOf(ledger, e);
+  // A 預定 entry says so first: it counts nowhere until its day (D25).
+  return isPlanned(e, ledger.today)
+      ? '${StatusWords.planned} · $detail'
+      : detail;
+}
+
+String _detailOf(Ledger ledger, Entry e) {
   final account = ledger.account(e.account).name;
   final shares = '${e.holding} · ${countOf(e.shares, CountUnit.shares)}';
   final category = e.parts.length > 1

@@ -515,28 +515,6 @@ class _AccountEditorState extends State<_AccountEditor> {
     );
   }
 
-  /// 結帳日 and 繳款日 of a credit card, side by side.
-  Widget _cardDays() {
-    return CardRow([
-      FigureCard(
-        color: AppColors.card,
-        icon: Glyph.calendar,
-        label: '結帳日',
-        value: '每月 ${_f.closing} 日',
-        size: TextSize.body,
-        onTap: () => _pickDay(true),
-      ),
-      FigureCard(
-        color: AppColors.card,
-        icon: Glyph.calendar,
-        label: '繳款日',
-        value: '每月 ${_f.due} 日',
-        size: TextSize.body,
-        onTap: () => _pickDay(false),
-      ),
-    ]);
-  }
-
   /// The fields of an account other than a loan, top to bottom.
   List<Widget> _accountFields(Account? old, Color color) {
     return [
@@ -572,17 +550,7 @@ class _AccountEditorState extends State<_AccountEditor> {
             error: _f.limitProblem,
           ),
         ),
-      if (_f.trades)
-        FormGroup(
-          title: BrokerDiscountText.title,
-          child: _Field(
-            key: Keys.accountDiscount,
-            controller: _discount,
-            hint: BrokerDiscountText.accountHint,
-            number: true,
-            error: _f.discountProblem,
-          ),
-        ),
+      if (_f.trades) _discountGroup(),
       _counted,
       _buttons(old),
       if (old != null)

@@ -3,6 +3,7 @@ import 'package:core/money/amount_parser.dart' show maxMinorUnits;
 
 import '../model/account_kind.dart';
 import '../model/entry.dart';
+import '../model/planned.dart';
 import 'issues.dart';
 
 /// The most monthly instalments a card purchase may be paid in.
@@ -23,6 +24,7 @@ final class EntryFacts {
     this.oversells = false,
     this.refunded,
     this.balanceAfter,
+    this.today,
   });
 
   /// The account the entry is paid from or into; null when the book has
@@ -47,6 +49,10 @@ final class EntryFacts {
   /// The paying account's balance once the entry is kept, today; null
   /// when not worked out.
   final int? balanceAfter;
+
+  /// The day the entry is written on, for how far ahead it may be dated
+  /// (D25); null leaves its day unchecked, as for a record read back.
+  final DateTime? today;
 }
 
 /// What a refund needs of the spending it gives back.
@@ -84,6 +90,12 @@ List<RecordIssue> entryIssues(Entry e, EntryFacts facts) {
   final to = transfer ? facts.to : null;
 
   if (!_isMidnight(e.date)) found.add(const DateNotMidnight());
+  final today = facts.today;
+  if (today != null && e.date.isAfter(latestEntryDay(today))) {
+    found.add(const DateTooFarAhead(maxDaysAhead));
+  } else if (today != null && e.isInvestment && isPlanned(e, today)) {
+    found.add(const InvestmentPlanned());
+  }
   if (e.amount <= 0 && !stock) found.add(MissingAmount(trade: trade));
   if (e.amount > maxAmountOf(currency)) {
     found.add(AmountTooLarge(maxAmountOf(currency)));

@@ -26,6 +26,7 @@ import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
+import '../../../core/messages/planned_messages.dart';
 
 part 'reports_page_state.dart';
 
@@ -55,3 +56,22 @@ Report _reportOf(Ledger ledger, ReportPeriod period) => Report.of(
   balances: ledger.balanceService,
   today: ledger.today,
 );
+
+/// The period's 預定 entries, apart from its sums: how many and what they
+/// will spend once their days come (D25); null when it has none.
+Widget? _plannedRow(Ledger ledger, Report report) => report.planned.isEmpty
+    ? null
+    : TitleRow(
+        PlannedText.report(
+          report.planned.length,
+          ledger.money(report.plannedSpending),
+        ),
+      );
+
+/// The entries of [period] spent under [name] by today, and how much of
+/// them was ([Report.spentUnder]).
+(List<Entry>, int) _spentUnder(
+  Ledger ledger,
+  String name,
+  ReportPeriod period,
+) => Report.spentUnder(name, ledger.entries, period, ledger.today);

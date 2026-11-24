@@ -129,6 +129,20 @@ final class MissingShares extends RecordIssue {
   const MissingShares();
 }
 
+/// An entry dated further ahead than [days] after today (D25).
+final class DateTooFarAhead extends RecordIssue {
+  const DateTooFarAhead(this.days);
+
+  /// How far ahead an entry may be dated.
+  final int days;
+}
+
+/// A trade or dividend dated after today: shares change hands on the day
+/// they do, so only spending, income and transfers may be 預定 (D25).
+final class InvestmentPlanned extends RecordIssue {
+  const InvestmentPlanned();
+}
+
 /// A day trade (當日沖銷) that is not a sale: only a sale closes a
 /// position opened the same day (D6).
 final class DayTradeNotSale extends RecordIssue {

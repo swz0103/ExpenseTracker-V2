@@ -62,13 +62,14 @@ void main() {
 
   test('only what was written shows, in order', () {
     final l = _book();
-    final plain = entryDetails(l.accounts, _entry(), '餐飲');
+    final plain = entryDetails(l.accounts, _entry(), '餐飲', today: l.today);
     expect([for (final (k, _) in plain) k], ['帳戶', '日期']);
     final full = entryDetails(
       l.accounts,
       _entry(merchant: '便當店', tags: ['家用'], installments: 3, note: '同事'),
       // The note shows apart only where something else is the title.
       '銀行 → 美元',
+      today: l.today,
     );
     expect(
       [for (final (k, _) in full) k],
@@ -79,7 +80,12 @@ void main() {
 
   test('a note that only repeats the title is left out', () {
     final l = _book();
-    final details = entryDetails(l.accounts, _entry(note: '午餐'), '午餐');
+    final details = entryDetails(
+      l.accounts,
+      _entry(note: '午餐'),
+      '午餐',
+      today: l.today,
+    );
     expect(details.any((d) => d.$1 == '備註'), isFalse);
   });
 
@@ -89,6 +95,7 @@ void main() {
       l.accounts,
       _entry(type: EntryType.transfer, to: 'usd', received: 3150, home: 1000),
       '銀行 → 美元',
+      today: l.today,
     );
     expect(details.where((d) => d.$1 == '帳戶'), isEmpty);
     expect(details, contains(('轉入金額', 'USD 31.50')));

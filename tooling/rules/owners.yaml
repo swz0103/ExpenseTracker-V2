@@ -95,6 +95,16 @@ items:
       - packages/ledger/entries/lib/rules
     target: packages/ledger/entries/lib/rules/
     status: owned
+  # Decision D25: an entry dated after today is 預定; every "as of today"
+  # sum (balances, net worth, budgets, overview, reports, card bills) asks
+  # countsOn, and maxDaysAhead is the one limit for dating ahead.
+  - id: as-of-today
+    what: 「截至今天」是否計入（預定紀錄）與可預定的天數上限
+    layer: ledger
+    owner:
+      - packages/ledger/entries/lib/model/planned.dart
+    target: packages/ledger/entries/lib/model/
+    status: owned
   - id: income-expense-kinds
     what: 什麼算「支出」「收入」
     layer: ledger
