@@ -68,6 +68,7 @@ Startup productionStartup(
   LedgerVault(directory, codec: KeyringCodec(), now: AppClock.now),
   device: device,
   check: SqlLedgerDataSource.check,
+  checkRestored: SqlLedgerDataSource.checkRestored,
   quickKey: Platform.isAndroid
       ? const KeystoreQuickKey()
       : MemoryKeystore.instance,

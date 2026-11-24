@@ -8,7 +8,8 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show PlatformException;
-import 'package:storage/storage.dart' show StorageProblem, StorageUnavailable;
+import 'package:storage/storage.dart'
+    show EncryptedDatabase, StorageProblem, StorageUnavailable;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
@@ -99,6 +100,7 @@ final class Startup extends ChangeNotifier {
     this._vault, {
     this.device,
     this.check,
+    this.checkRestored,
     DeviceKeyWrapper? quickKey,
     UptimeSource? uptime,
   }) : _quick = QuickKey(_vault.directory, quickKey ?? MemoryKeystore.instance),
@@ -221,6 +223,11 @@ final class Startup extends ChangeNotifier {
   /// Throws for a record the app cannot read, so a backup holding one is
   /// refused rather than restored.
   final void Function(String collection, String id, String body)? check;
+
+  /// Throws for a book restored, read whole, that the app cannot keep
+  /// though each record reads (D103: categories on a loop of parents),
+  /// so it is refused rather than put in place.
+  final void Function(EncryptedDatabase restored)? checkRestored;
   late StartupState _state;
   String? _recovery;
 
@@ -458,6 +465,7 @@ final class Startup extends ChangeNotifier {
           await File('${staged.path}/$name').writeAsBytes(bytes, flush: true);
         },
       );
+      checkRestored?.call(staging);
     });
     if (skipped > 0) {
       ErrorLog.instance.record(

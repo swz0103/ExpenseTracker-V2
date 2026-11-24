@@ -24,7 +24,41 @@ bool isUnder(String name, String under, ParentOf parentOf) =>
 
 /// The category at the top of [name]'s line: what [name]'s spending is
 /// counted under when categories are counted with their subcategories.
-String topOf(String name, ParentOf parentOf) => lineOf(name, parentOf).last;
+/// On a loop of parents (D103: a book holding one sets it aside as it
+/// opens), every category of the loop has the same top: the first of
+/// its names in code-unit order, whichever is asked about.
+String topOf(String name, ParentOf parentOf) {
+  final line = lineOf(name, parentOf);
+  final back = parentOf(line.last);
+  if (back == null) return line.last;
+  final at = line.indexOf(back);
+  if (at < 0) return line.last;
+  return line.skip(at).reduce((a, b) => a.compareTo(b) <= 0 ? a : b);
+}
+
+/// The categories, of [parents] (each name's parent, null at the top),
+/// that are on a loop of parents: each is, at some depth, its own
+/// parent. No form lets one through (D103); a backup or another app's
+/// file may bring one.
+Set<String> namesOnLoops(Map<String, String?> parents) {
+  final looped = <String>{};
+  final cleared = <String>{};
+  for (final start in parents.keys) {
+    final path = <String>[];
+    final onPath = <String>{};
+    String? at = start;
+    while (at != null && !cleared.contains(at) && !looped.contains(at)) {
+      if (!onPath.add(at)) {
+        looped.addAll(path.skip(path.indexOf(at)));
+        break;
+      }
+      path.add(at);
+      at = parents[at];
+    }
+    cleared.addAll(path.where((n) => !looped.contains(n)));
+  }
+  return looped;
+}
 
 /// What of [e]'s spending is under [category] ([isUnder]): its parts in
 /// [category] or one of its subcategories; negative for a refund.

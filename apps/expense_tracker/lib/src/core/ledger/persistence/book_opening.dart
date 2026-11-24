@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:ledger_entries/rules.dart' show namesOnLoops;
 import 'package:storage/storage.dart';
 
 import '../models/models.dart';
@@ -164,10 +165,26 @@ DecodedBook decodeBook(
         (id, name),
   ];
   final refs = CategoryRefs()..fill(categoryNames);
-  final categories = read(
-    Collection.category,
-    (j) => categoryFromJson(j, refs),
-  );
+  var categories = read(Collection.category, (j) => categoryFromJson(j, refs));
+  // Categories each other's parents (D103): no form writes them, and no
+  // total could say what they sit under; set aside like any record of a
+  // shape the app never writes.
+  final looped = categoriesOnLoops(categories);
+  if (looped.isNotEmpty) {
+    for (final c in looped) {
+      aside.record(
+        Collection.category.name,
+        c.id,
+        QuarantineReason.invalid,
+        detail: parentLoopProblem,
+      );
+      namesOf.remove('${Collection.category.name}/${c.id}');
+    }
+    categories = [
+      for (final c in categories)
+        if (!looped.contains(c)) c,
+    ];
+  }
   // Each with its row's place: an entry moved to the trash keeps it (D75).
   final trashPlaces = {
     for (final row in shelves[Collection.trash.name] ?? const <StoredRow>[])
@@ -441,3 +458,16 @@ List<Holding> holdingsOf(Market market) => [
       change: 0,
     ),
 ];
+
+/// How a category on a loop of parents is told, set aside as the book
+/// opens and refused in a backup (D103).
+const parentLoopProblem = 'parent loop';
+
+/// The categories of [categories] on a loop of parents (`namesOnLoops`).
+List<Category> categoriesOnLoops(List<Category> categories) {
+  final looped = namesOnLoops({for (final c in categories) c.name: c.parent});
+  return [
+    for (final c in categories)
+      if (looped.contains(c.name)) c,
+  ];
+}

@@ -780,6 +780,30 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
   }
 
+  /// Throws a [FormatException] for a book restored into [staging] whose
+  /// categories are on a loop of parents (D103): records that each read
+  /// alone ([check]) but no book could be made of.
+  static void checkRestored(EncryptedDatabase staging) {
+    final rows = staging.rows(shelf: Collection.category.name);
+    final json = decodeBodies([for (final r in rows) r.body]).values;
+    final refs = CategoryRefs()
+      ..fill([
+        for (final j in json)
+          if (j case {'id': final String id, 'name': final String name})
+            (id, name),
+      ]);
+    final categories = <Category>[];
+    for (final j in json) {
+      if (j is! Map<String, Object?>) continue;
+      categories.add(
+        categoryFromJson(upgradeRecord(Collection.category.name, j), refs),
+      );
+    }
+    if (categoriesOnLoops(categories).isNotEmpty) {
+      throw const FormatException(parentLoopProblem);
+    }
+  }
+
   /// Throws a [FormatException] naming the row, whatever its slip, for a
   /// record this app cannot read or no version of it would write
   /// ([shapeIssues]), so a backup with one is refused, not restored.

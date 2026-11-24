@@ -100,6 +100,46 @@ void main() {
       expect(store!.row('category', 'c9')!.body, '{"id":"c9","name":');
     });
 
+    test('categories each other\'s parents are set aside (D103), and a '
+        'backup holding them is refused', () async {
+      await load();
+      String category(String id, String name, String? parent) => jsonEncode({
+        'id': id,
+        'name': name,
+        'icon': 'food',
+        'color': 1,
+        'parentId': ?parent,
+      });
+      store!.write((w) {
+        w.put('category', 'ca', category('ca', '甲', 'cb'));
+        w.put('category', 'cb', category('cb', '乙', 'ca'));
+        w.put('category', 'cc', category('cc', '丙', 'ca'));
+      });
+      expect(
+        () => SqlLedgerDataSource.checkRestored(store!),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            'parent loop',
+          ),
+        ),
+      );
+      final ledger = await load();
+      final names = ledger.categories.all.map((c) => c.name);
+      expect(names, isNot(contains('甲')));
+      expect(names, isNot(contains('乙')));
+      // Under one set aside: at the top now, kept.
+      expect(names, contains('丙'));
+      final aside = {for (final q in source.quarantined) q.key: q};
+      expect(aside.keys, containsAll(['category/ca', 'category/cb']));
+      expect(aside['category/ca']!.reason, QuarantineReason.invalid);
+      expect(aside.containsKey('category/cc'), isFalse);
+      // Without the loop, the backup is a book.
+      store!.write((w) => w.put('category', 'cb', category('cb', '乙', null)));
+      SqlLedgerDataSource.checkRestored(store!);
+    });
+
     test('is told without anything the person wrote in it', () async {
       await load();
       store!.write((w) {
