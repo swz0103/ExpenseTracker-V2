@@ -297,6 +297,35 @@ void main() {
     expect(s.row('account', 'wallet'), isNotNull);
   });
 
+  test('a backup starting the moment the last one ends does not come '
+      'between the wait and the write (D41)', () async {
+    final s = EncryptedDatabase.open(file, key);
+    store = s;
+    final source = SqlLedgerDataSource(s, clock: clock());
+    final ledger = await source.load();
+    final before = s.revision;
+    final first = s.readApart(_rowsRead);
+    // The change waits for the first read to end.
+    final keeping = source.keep(
+      WriteBatch(accounts: [Account('wallet', '零錢', AccountKind.cash, 0)]),
+    );
+    // A second backup starts as soon as the first is done, in the turn
+    // after the change's own wait saw the store free: where it once
+    // found the store taken as it went to write, and the change was lost.
+    Future<({int revision, Set<String> ids})>? second;
+    unawaited(s.idle.then((_) => second = s.readApart(_rowsRead)));
+    await first;
+    await keeping;
+    expect(ledger.problem.value, isNull);
+    // The change was written as the store was seen free, so the second
+    // read is one state of the book: the one with the change.
+    final read = await second!;
+    expect(read.ids, contains('wallet'));
+    expect(read.revision, before + 1);
+    expect(s.revision, before + 1);
+    expect(s.row('account', 'wallet'), isNotNull);
+  });
+
   test('a deleted entry is kept 30 days', () async {
     var ledger = await reopen();
     final cash = ledger.accounts.all.first;

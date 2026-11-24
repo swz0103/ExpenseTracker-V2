@@ -219,8 +219,8 @@ class _LockScreenState extends State<LockScreen> {
     try {
       await widget.startup.openQuietly();
     } on Object catch (error) {
-      ErrorLog.instance.record('開啟帳本', error);
-      _fail('無法開啟帳本（${ErrorLog.describe(error)}）');
+      ErrorLog.instance.record('打開帳本', error);
+      _fail('無法打開帳本（${ErrorLog.describe(error)}）');
     }
   }
 

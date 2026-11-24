@@ -10,7 +10,7 @@
 abstract final class WidgetWords {
   static const hiddenTitle = '記帳本';
   static const hidden = '已隱藏金額';
-  static const hiddenOpen = '點此開啟';
+  static const hiddenOpen = '點此打開';
 }
 
 /// The widget's face with no figure, in the snapshot's own fields, for

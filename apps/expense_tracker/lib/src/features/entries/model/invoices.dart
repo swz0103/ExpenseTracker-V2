@@ -50,6 +50,7 @@ bool hasInvoice(
   int? amount,
 }) {
   if (day == null) return false;
+  // Exception to as-of-today: a duplicate check looks at every entry written.
   return entries
       .inMonth(day.year, day.month)
       .any(

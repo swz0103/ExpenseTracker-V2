@@ -99,6 +99,6 @@ void main() {
     );
     expect(details.where((d) => d.$1 == '帳戶'), isEmpty);
     expect(details, contains(('轉入金額', 'USD 31.50')));
-    expect(details, contains(('折合台幣', '1,000')));
+    expect(details, contains(('折合新台幣', '1,000')));
   });
 }

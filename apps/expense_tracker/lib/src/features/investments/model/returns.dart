@@ -70,10 +70,12 @@ final class Returns {
   /// when null: every trade and dividend, and what is still held as if sold
   /// at today's close. Null when it cannot be worked out, as for shares
   /// held from before the book began (their buying day is not known).
+  /// Only what counts [today] ([countsOn]): a trade an old book dated
+  /// later joins on its day, as the holdings take it.
   double? rate({String? code}) {
     final codes = code == null
         ? {
-            for (final e in entries.all)
+            for (final e in countedOn(entries.all, today))
               if (e.isInvestment) e.holding,
           }
         : {code};
@@ -82,7 +84,7 @@ final class Returns {
       if (holdings.lotsOf(c).any((l) => l.isOpening)) return null;
     }
     final flows = <(DateTime, int)>[
-      for (final e in entries.all)
+      for (final e in countedOn(entries.all, today))
         if (e.isInvestment && codes.contains(e.holding))
           if (e.settlement case final cash when cash != 0) (e.date, cash),
     ];
@@ -95,10 +97,11 @@ final class Returns {
   }
 
   /// The shares of [code] held on the eve of [day]: those held now, less
-  /// every change from [day] on.
+  /// every change from [day] on that counts [today], as the holdings take
+  /// them.
   int sharesBefore(String code, DateTime day) {
     var shares = holdings.byCode(code)?.shares ?? 0;
-    for (final e in trades.tradesOf(code)) {
+    for (final e in countedOn(trades.tradesOf(code), today)) {
       if (e.date.isBefore(day)) continue;
       shares -= switch (e.type) {
         EntryType.buy => e.shares,

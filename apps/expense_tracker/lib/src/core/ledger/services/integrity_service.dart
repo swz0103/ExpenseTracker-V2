@@ -65,6 +65,7 @@ final class IntegrityService {
   /// Every problem found, entries first, then the trash, then recurring
   /// items.
   List<IntegrityProblem> problems() => [
+    // Exception to as-of-today: the integrity check reads every entry written.
     for (final e in _entries.all) ..._ofEntry(e, RecordKind.entry),
     for (final t in _trash.all) ..._ofEntry(t.entry, RecordKind.trash),
     for (final r in _recurring.all)

@@ -41,7 +41,7 @@ void main() {
   });
 
   test('a foreign spending needs its worth in NT\$ until there is a rate', () {
-    expect(problem(entry('a', account: 'usd')), '還沒有匯率，請輸入折合台幣的金額');
+    expect(problem(entry('a', account: 'usd')), '還沒有匯率，請輸入折合新台幣的金額');
   });
 
   test('a refund cannot be more than is left to refund', () {

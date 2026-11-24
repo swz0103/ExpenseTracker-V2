@@ -173,7 +173,7 @@ internal object WidgetView {
      */
     const val HIDDEN_TITLE = "記帳本"
     const val HIDDEN = "已隱藏金額"
-    const val HIDDEN_OPEN = "點此開啟"
+    const val HIDDEN_OPEN = "點此打開"
 
     /** A day of the calendar, counted on from 1970-01-01. */
     data class Day(val year: Int, val month: Int, val day: Int) {

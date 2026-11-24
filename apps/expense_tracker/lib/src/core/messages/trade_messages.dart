@@ -1,3 +1,6 @@
+import 'package:ledger_trade_costs/calc/charges.dart' show fullFeePerMillion;
+
+import '../../../design_system/display/amount.dart' show perMillionPercent;
 import '../formatting/words.dart';
 
 /// The words of the setting 券商手續費折扣: the broker's discount a trade's
@@ -5,17 +8,21 @@ import '../formatting/words.dart';
 abstract final class BrokerDiscountText {
   static const title = '券商手續費折扣';
 
-  /// What it changes, under the choices.
-  static const detail = '記買進、賣出時試算的手續費：成交金額 × 0.1425% × 折扣；帳戶可另設自己的折扣';
+  /// What it changes, under the choices: the full fee's rate as the fee
+  /// is worked out at.
+  static final detail =
+      '記買進、賣出時試算的手續費：成交金額 × ${perMillionPercent(fullFeePerMillion)} × 折扣；帳戶可另設自己的折扣';
 
-  /// The field of an account's own discount, and what it says empty.
-  static const accountHint = '例如 0.6 或 2.8 折；空白沿用設定的預設折扣';
+  /// The field of an account's own discount, and what it says empty: the
+  /// two ways of writing one, as the same discount (D86).
+  static const accountHint = '例如 6 折或 0.6；空白沿用設定的預設折扣';
 
   /// A discount typed that is a number, but none a fee is charged at.
-  static const outOfRange = '折扣要大於 0、最多 1（不打折），例如 0.6 或 6 折';
+  static const outOfRange = '折扣要大於 0、最多 1（不打折），例如 6 折或 0.6';
 
-  /// A discount typed that is not a number.
-  static const unreadable = '請輸入折扣，例如 0.6 或 2.8 折';
+  /// A discount typed that is not read as one, such as 0.6 折, which
+  /// mixes the two ways of writing it (D86).
+  static const unreadable = '看不懂這個折扣，請寫成 6 折或 0.6';
 
   /// Other words it is found by in the settings' search.
   static const searchWords = [Words.fee, '折扣', '券商', '股票'];

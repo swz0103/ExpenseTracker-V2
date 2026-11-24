@@ -72,7 +72,7 @@ void main() {
     await tester.enterText(find.byKey(Keys.accountDiscount), '6');
     await tester.pumpAndSettle();
     // Six times the fee is no discount: said under the field, not kept.
-    expect(find.text('折扣要大於 0、最多 1（不打折），例如 0.6 或 6 折'), findsOneWidget);
+    expect(find.text('折扣要大於 0、最多 1（不打折），例如 6 折或 0.6'), findsOneWidget);
     await tester.enterText(find.byKey(Keys.accountDiscount), '2.8 折');
     await tester.pumpAndSettle();
     await go(tester, ['儲存']);

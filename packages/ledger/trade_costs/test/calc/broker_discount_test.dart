@@ -58,6 +58,27 @@ void main() {
     expect(readBrokerDiscount('2.8005折'), isA<DiscountUnreadable>());
   });
 
+  test('a share written in 折 is neither form (D86)', () {
+    // 0.6折 would be 600 basis points, a tenth of the 6折 meant.
+    expect(readBrokerDiscount('0.6折'), isA<DiscountUnreadable>());
+    expect(readBrokerDiscount('.28 折'), isA<DiscountUnreadable>());
+    expect(readBrokerDiscount('0.999折'), isA<DiscountUnreadable>());
+    // One 折 is 1000; nothing at all stays out of range.
+    expect(_read('1折'), 1000);
+    expect(readBrokerDiscount('0折'), isA<DiscountOutOfRange>());
+  });
+
+  test('full-width digits and point read as typed (D86)', () {
+    // ６折 is 6折, 6000; ０．２８ is 0.28, 2800; the ideographic space
+    // is ignored.
+    expect(_read('６折'), 6000);
+    expect(_read('２．８　折'), 2800);
+    expect(_read('０．２８'), 2800);
+    expect(readBrokerDiscount('０．６折'), isA<DiscountUnreadable>());
+    // An Arabic-Indic three is not a digit the app reads.
+    expect(readBrokerDiscount('٣折'), isA<DiscountUnreadable>());
+  });
+
   test('the charges are checked against the same range', () {
     expect(
       TaiwanTradeCharges(discountBasisPoints: 10000).discountBasisPoints,

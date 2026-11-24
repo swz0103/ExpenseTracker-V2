@@ -192,6 +192,8 @@ class _AccountBodyState extends State<AccountBody> {
     final today = ledger.today;
     final (year, month) = _month;
     final entries = [
+      // Exception to as-of-today: the month's list shows 預定 entries marked;
+      // nothing is summed.
       for (final e in ledger.entries.inMonth(year, month))
         if (e.account == account.id || e.to == account.id) e,
     ]..sort((a, b) => b.date.compareTo(a.date));

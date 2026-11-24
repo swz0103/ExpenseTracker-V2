@@ -32,7 +32,7 @@ void main() {
       tester,
       RecordRefused([const SaleExceedsHolding(later: true)]),
     );
-    expect(find.text('這樣之後的賣出或減資會超過持股，請先改那一筆。'), findsOneWidget);
+    expect(find.text('這樣之後的賣出或減資會超過持股，請先改那一筆'), findsOneWidget);
   });
 
   testWidgets('a change that could not be kept asks to open the app again', (

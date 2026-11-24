@@ -10,6 +10,7 @@ import 'src/core/diagnostics/performance_monitor.dart';
 import 'src/app/platform.dart';
 import 'src/core/platform/preferences.dart';
 import 'src/core/platform/screen_privacy.dart';
+import 'src/core/platform/store_threading.dart';
 import 'src/core/diagnostics/error_log.dart';
 import 'src/core/diagnostics/error_steps.dart';
 import 'src/core/diagnostics/unhandled_errors.dart';
@@ -75,6 +76,7 @@ final _steps = StartSteps(
   // nothing writes where the leftovers are cleared before the ledger is
   // open.
   started: (folder) {
+    noteStoreThreading();
     if (Platform.isAndroid) unawaited(_listenForQuickActions());
     unawaited(_clearLeftovers(folder));
   },

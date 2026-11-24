@@ -12,6 +12,7 @@ import 'package:expense_tracker/src/core/widgets/entry_tile.dart';
 import 'package:expense_tracker/src/features/entries/model/entry_details.dart';
 import 'package:expense_tracker/src/features/reports/model/report.dart';
 import 'package:expense_tracker/src/features/reports/model/report_period.dart';
+import 'package:expense_tracker/src/features/tags/model/tag_summary.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../baseline/baseline_ledger.dart';
@@ -192,5 +193,129 @@ void main() {
         ),
       ),
     );
+  });
+
+  group('tags and a card leave 預定 out too (D71)', () {
+    late Ledger book;
+    setUp(() {
+      book = ledgerOf(
+        today: today,
+        clock: () => today,
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 10000),
+          Account(
+            'card',
+            '信用卡',
+            AccountKind.card,
+            0,
+            closingDay: 10,
+            dueDay: 30,
+          ),
+        ],
+        categories: [Category('飲食', 'food', 0xFF5C9A83)],
+        entries: [
+          entryOf(
+            'a',
+            DateTime.utc(2026, 11, 20),
+            EntryType.expense,
+            1000,
+            'bank',
+            category: '飲食',
+            tags: const ['旅行'],
+          ),
+          entryOf(
+            'c',
+            DateTime.utc(2026, 11, 15),
+            EntryType.expense,
+            400,
+            'card',
+            category: '飲食',
+          ),
+        ],
+      );
+      book.entryCommands.add(
+        entryOf(
+          'p',
+          DateTime.utc(2026, 11, 28),
+          EntryType.expense,
+          300,
+          'bank',
+          category: '飲食',
+          tags: const ['旅行'],
+        ),
+      );
+      book.entryCommands.add(
+        entryOf(
+          'pc',
+          DateTime.utc(2026, 11, 29),
+          EntryType.expense,
+          700,
+          'card',
+          category: '飲食',
+        ),
+      );
+    });
+
+    test('tag stats count 1,000 in one entry, not 1,300 in two', () {
+      expect(book.reportService.tagStats, [('旅行', 1, 1000)]);
+      expect(
+        book.reportService.tagsBetween(
+          DateTime.utc(2026, 11),
+          DateTime.utc(2026, 11, 30),
+        ),
+        [('旅行', 1000)],
+      );
+      // At midnight of 11/28 the 300 joins: 1,000 + 300 = 1,300.
+      today = DateTime.utc(2026, 11, 28);
+      book.checkDay();
+      expect(book.reportService.tagStats, [('旅行', 2, 1300)]);
+    });
+
+    test('a tag as a project sums what counts and lists every entry', () {
+      final trip = tagSummaryOf(book.entries, '旅行', today)!;
+      expect(trip.spent, 1000);
+      expect(
+        (trip.from, trip.to),
+        (DateTime.utc(2026, 11, 20), DateTime.utc(2026, 11, 20)),
+      );
+      expect([for (final e in trip.entries) e.id], ['p', 'a']);
+      expect(latestTag(book.entries, today), '旅行');
+    });
+
+    test("the card's unbilled purchases leave the 預定 one out", () {
+      final card = book.accounts.byId('card')!;
+      expect(book.statementService.unbilled(card).map((e) => e.id), ['c']);
+      today = DateTime.utc(2026, 11, 29);
+      book.checkDay();
+      expect(book.statementService.unbilled(card).map((e) => e.id), [
+        'pc',
+        'c',
+      ]);
+    });
+  });
+
+  test("an old book's trade dated later joins the holdings on its day", () {
+    // Written before D70 refused it: 10 shares bought 11/1, 5 more dated
+    // 11/30.
+    Entry buy(String id, int date, int shares) => entryOf(
+      id,
+      DateTime.utc(2026, 11, date),
+      EntryType.buy,
+      shares * 100,
+      'bank',
+      holding: '2330',
+      shares: shares,
+    );
+    final old = ledgerOf(
+      today: today,
+      clock: () => today,
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 10000)],
+      entries: [buy('b1', 1, 10), buy('b2', 30, 5)],
+    );
+    expect(old.holdings.byCode('2330')?.shares, 10);
+    today = DateTime.utc(2026, 11, 30);
+    old.checkDay();
+    // 10 + 5 = 15.
+    expect(old.holdings.byCode('2330')?.shares, 15);
   });
 }

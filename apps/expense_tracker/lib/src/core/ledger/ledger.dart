@@ -116,7 +116,7 @@ final class Ledger extends ChangeNotifier {
       holdings,
       moveOf: _market.moveOf,
       quoteDayOf: (code) => _market.quoteDays[code] ?? _market.quotedOn,
-    )..replay(_entries.all, lenient: true);
+    )..replay(_entries.all, today: today, lenient: true);
     amounts.addListener(_signal);
     final source = dataSource;
     if (source != null) {
@@ -144,6 +144,8 @@ final class Ledger extends ChangeNotifier {
     final now = today;
     if (now == _day) return;
     _day = now;
+    // A trade an old book dated later joins the holdings on its day.
+    _holdings.replay(_entries.all, today: now, lenient: true);
     // What was worked out for yesterday, such as the last statement,
     // is worked out again.
     notifyListeners();
@@ -389,6 +391,8 @@ final class Ledger extends ChangeNotifier {
   /// list, so they can be put right by hand.
   List<review.NeedsReview> recordsNeedingReview() =>
       review.recordsNeedingReview(
+        // Exception to as-of-today: a record to put right is one whatever
+        // its day.
         entries: _entries.all,
         accounts: _accounts.all,
         categories: _categories.all,
@@ -408,6 +412,7 @@ final class Ledger extends ChangeNotifier {
     _categories.replaceWith(fresh._categories.all);
     _entries
       ..clear()
+      // Exception to as-of-today: a reload copies every entry.
       ..addAll(fresh._entries.all);
     _holdings.replaceStart(fresh._holdings.start);
     _budgets.replaceWith(fresh._budgets.all);
@@ -417,7 +422,7 @@ final class Ledger extends ChangeNotifier {
     _drafts.replaceWith(fresh._drafts);
     _market.replaceWith(fresh._market);
     _day = fresh.today;
-    _holdings.replay(_entries.all, lenient: true);
+    _holdings.replay(_entries.all, today: today, lenient: true);
     notifyListeners();
   }
 }

@@ -1,3 +1,5 @@
+import 'package:core/money/typed_text.dart' show halfWidth;
+
 /// The broker's discount on the fee, in basis points of the full fee:
 /// 10000 for none, 6000 for 6折 (0.6), 2800 for 2.8折 (0.28). The one
 /// range every discount is checked against (D7): more than nothing, at
@@ -30,7 +32,9 @@ final class DiscountRead extends DiscountReading {
   final int basisPoints;
 }
 
-/// Not a discount: no number, or finer than a basis point.
+/// Not a discount: no number, finer than a basis point, or a share of
+/// the fee written in 折 (0.6折), which mixes the two ways of writing it
+/// (D86): 6折 and 0.6 are the same discount, 0.6折 is neither.
 final class DiscountUnreadable extends DiscountReading {
   const DiscountUnreadable();
 }
@@ -44,10 +48,16 @@ final class DiscountOutOfRange extends DiscountReading {
 /// The unit a broker writes a discount in: 6折 is 0.6 of the fee.
 const discountUnit = '折';
 
+/// Basis points of the full fee in one [discountUnit]: a tenth of it.
+const _perUnit = BrokerDiscountRange.highest ~/ 10;
+
 /// Reads a discount as a person types it: a share of the full fee (0.6,
-/// .28, 1) or in 折 (6折, 2.8 折, 10折). Spaces around are ignored.
+/// .28, 1) or in 折 (6折, 2.8 折, 10折). Spaces are ignored, and
+/// full-width digits read as their ASCII forms ([halfWidth]). Less than
+/// one 折 but more than none (0.6折) is [DiscountUnreadable]: it would
+/// be a tenth of what was meant.
 DiscountReading readBrokerDiscount(String text) {
-  var number = text.replaceAll(' ', '').replaceAll('　', '');
+  var number = halfWidth(text).replaceAll(' ', '');
   final inUnit = number.endsWith(discountUnit);
   if (inUnit) number = number.substring(0, number.length - 1);
   final match = RegExp(r'^(\d*)(?:\.(\d*))?$').firstMatch(number);
@@ -64,8 +74,13 @@ DiscountReading readBrokerDiscount(String text) {
     return const DiscountOutOfRange();
   }
   final basisPoints =
-      int.parse(whole.isEmpty ? '0' : whole) * (inUnit ? 1000 : 10000) +
+      int.parse(whole.isEmpty ? '0' : whole) *
+          (inUnit ? _perUnit : BrokerDiscountRange.highest) +
       int.parse(fraction.padRight(places, '0'));
+  // 0.6折 is a share written in 折: neither form, read as neither.
+  if (inUnit && basisPoints > 0 && basisPoints < _perUnit) {
+    return const DiscountUnreadable();
+  }
   return BrokerDiscountRange.holds(basisPoints)
       ? DiscountRead(basisPoints)
       : const DiscountOutOfRange();

@@ -74,7 +74,9 @@ extension TradeFields on ComposeForm {
     final changed = editing;
     final before = <Entry>[];
     var past = false;
-    for (final e in ledger.entries.all) {
+    // A trade is dated today at the latest (D70): one an old book dated
+    // later is not before it, as the holdings do not count it yet.
+    for (final e in countedOn(ledger.entries.all, ledger.today)) {
       if (changed != null && e.id == changed.id) {
         past = true;
         continue;

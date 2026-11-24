@@ -484,7 +484,7 @@ class _AccountEditorState extends State<_AccountEditor> {
               if (!_common.contains(_f.currency)) _f.currency,
             ]) ...[
               ChoicePill(
-                label: code == homeCode ? '台幣' : code,
+                label: code == homeCode ? '新台幣' : code,
                 selected: code == _f.currency,
                 background: AppColors.white,
                 onTap: () => setState(() => _f.currency = code),

@@ -168,6 +168,7 @@ final class _Reader {
       // ledger's to refuse, as a split typed in.
       if (parts.length == 1) parts = [];
     }
+    // Exception to glossary: the file format's column, kept so files written before read back.
     final (home, homeProblem) = _cellAmount(cell, '台幣金額');
     if (homeProblem != null) return homeProblem;
     final card = from.kind == AccountKind.card;
@@ -205,6 +206,8 @@ final class _Reader {
   ) {
     final shop = cell('商家');
     final candidates = [
+      // Exception to as-of-today: a duplicate check looks at every entry
+      // written.
       for (final e in [...book.entries.all, for (final (_, f) in _found) f])
         if (e.type == EntryType.expense &&
             !e.isRefund &&
@@ -362,6 +365,7 @@ final class _Reader {
   }
 }
 
+// Exception to as-of-today: a duplicate check looks at every entry written.
 bool _already(ImportBook book, Entry entry) => book.entries
     .inMonth(entry.date.year, entry.date.month)
     .any(

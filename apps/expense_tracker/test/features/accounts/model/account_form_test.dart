@@ -210,10 +210,16 @@ void main() {
       expect(bank('').problem, isNull);
     });
     test('outside the range or not a number, it is said and not saved', () {
-      expect(bank('6').discountProblem, '折扣要大於 0、最多 1（不打折），例如 0.6 或 6 折');
-      expect(bank('0').problem, '折扣要大於 0、最多 1（不打折），例如 0.6 或 6 折');
-      expect(bank('六折').problem, '請輸入折扣，例如 0.6 或 2.8 折');
+      expect(bank('6').discountProblem, '折扣要大於 0、最多 1（不打折），例如 6 折或 0.6');
+      expect(bank('0').problem, '折扣要大於 0、最多 1（不打折），例如 6 折或 0.6');
+      expect(bank('六折').problem, '看不懂這個折扣，請寫成 6 折或 0.6');
       expect(bank('6').save(), isFalse);
+    });
+    test('0.6 折 is refused with the two ways; ６折 is 6 折 (D86)', () {
+      expect(bank('0.6折').problem, '看不懂這個折扣，請寫成 6 折或 0.6');
+      expect(bank('0.6折').save(), isFalse);
+      expect(bank('６折').build().brokerDiscount, 6000);
+      expect(bank('０．６').problem, isNull);
     });
     test('saved, and shown again as typed', () {
       final ledger = book();

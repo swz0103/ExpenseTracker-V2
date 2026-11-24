@@ -1,7 +1,7 @@
 part of 'tags_page.dart';
 
 /// A tag's page or a merchant's: the big card with ⋯ (改名, 合併到…,
-/// 移除), then its entries on a white board, each opening that entry.
+/// 刪除), then its entries on a white board, each opening that entry.
 class TagPage extends StatelessWidget {
   const TagPage({
     super.key,
@@ -54,7 +54,7 @@ class TagPage extends StatelessWidget {
   Future<bool> _askMerge(BuildContext context, String into) {
     final count = merchant
         ? visitsTo(ledger.entries, name).length
-        : tagSummaryOf(ledger.entries, name)?.entries.length ?? 0;
+        : tagSummaryOf(ledger.entries, name, ledger.today)?.entries.length ?? 0;
     final target = merchant ? into : '#$into';
     return confirm(
       context,
@@ -125,11 +125,11 @@ class TagPage extends StatelessWidget {
   Future<void> _remove(BuildContext context) async {
     final count = merchant
         ? visitsTo(ledger.entries, name).length
-        : tagSummaryOf(ledger.entries, name)?.entries.length ?? 0;
+        : tagSummaryOf(ledger.entries, name, ledger.today)?.entries.length ?? 0;
     final ok = await confirm(
       context,
-      '移除 $_shown？',
-      '移除',
+      '刪除 $_shown？',
+      Words.delete,
       danger: true,
       body: merchant
           ? '${countOf(count, CountUnit.entries)}紀錄會拿掉這個商家，紀錄本身保留。'
@@ -147,14 +147,15 @@ class TagPage extends StatelessWidget {
       builder: (context, _) {
         final entries = merchant
             ? visitsTo(ledger.entries, name)
-            : tagSummaryOf(ledger.entries, name)?.entries ?? const <Entry>[];
+            : tagSummaryOf(ledger.entries, name, ledger.today)?.entries ??
+                  const <Entry>[];
         final menu = DotsMenu([
           DotsItem(Glyph.edit, '改名', () => _rename(context)),
           if (_others().isNotEmpty)
             DotsItem(Glyph.merge, '合併到…', () => _merge(context)),
           DotsItem(
             Glyph.trash,
-            merchant ? '移除商家' : '移除標籤',
+            merchant ? '刪除商家' : '刪除標籤',
             () => _remove(context),
             danger: true,
           ),
@@ -175,7 +176,7 @@ class TagPage extends StatelessWidget {
               else
                 TagSummaryCard(
                   ledger: ledger,
-                  project: tagSummaryOf(ledger.entries, name)!,
+                  project: tagSummaryOf(ledger.entries, name, ledger.today)!,
                   menu: menu,
                 ),
               Padding(

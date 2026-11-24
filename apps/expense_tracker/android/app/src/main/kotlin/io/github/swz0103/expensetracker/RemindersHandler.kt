@@ -63,15 +63,16 @@ class RemindersHandler(private val activity: FragmentActivity) : ChannelHandler 
                 if (alerts == null) {
                     result.error("bad-arguments", "alerts are required", null)
                 } else {
-                    Reminders.replace(
+                    val left = Reminders.replace(
                         activity,
                         alerts,
                         exact = call.argument<Boolean>("exact") == true,
                         wanted = call.argument<List<String>>("wanted")?.toSet(),
                         channels = channels(call),
                         retired = call.argument<List<String>>("retired") ?: emptyList(),
+                        most = call.argument<Int>("most") ?: ReminderAlarms.MOST_ALERTS,
                     )
-                    result.success(null)
+                    result.success(left)
                 }
             }
             "showNotification" -> {

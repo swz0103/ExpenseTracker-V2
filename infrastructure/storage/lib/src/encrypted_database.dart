@@ -175,10 +175,16 @@ final class RowWriter {
 final class EncryptedDatabase {
   EncryptedDatabase._(this._db);
 
-  /// Opens or creates [file].
+  /// Opens or creates [file], in SQLite's serialized threading mode
+  /// (SQLITE_OPEN_FULLMUTEX): [writeApart] and [readApart] use this one
+  /// connection from a worker isolate while this one may still read. A
+  /// SQLite built without threads ([serialized] false) fails here in a
+  /// debug build and in tests; a release build goes on, and the app
+  /// keeps a note of it.
   factory EncryptedDatabase.open(File file, StorageKey key) {
     assert(_layout.length == schema, 'schema is the number of layout steps');
-    final db = sqlite3.open(file.path);
+    assert(serialized, 'SQLite is built without threads: no work apart');
+    final db = sqlite3.open(file.path, mutex: true);
     try {
       _configure(db, key);
       _create(db);
@@ -188,6 +194,15 @@ final class EncryptedDatabase {
       rethrow;
     }
   }
+
+  /// Whether the SQLite (SQLCipher) library lets a connection opened in
+  /// serialized mode be used from two isolates at once: built with
+  /// threads (`THREADSAFE` 1 or 2; 0 has no mutexes at all).
+  static bool get serialized => threadSafe(sqlite3.compileOptions);
+
+  /// Whether the compile [options] of a SQLite library include threads.
+  static bool threadSafe(Iterable<String> options) =>
+      options.any((o) => o == 'THREADSAFE=1' || o == 'THREADSAFE=2');
 
   /// The layout this build writes: the tables, not what their rows hold.
   /// It is the number of steps in [_layout].

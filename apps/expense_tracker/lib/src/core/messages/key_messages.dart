@@ -27,7 +27,7 @@ abstract final class KeyWords {
   static const unforeseenHeading = '還原備份';
 
   /// What such a failure says, with [detail] (`ErrorLog.describe`).
-  static String unforeseen(String detail) => '無法開啟帳本（$detail）';
+  static String unforeseen(String detail) => '無法打開帳本（$detail）';
 
   static const passphrase = '備份密碼';
   static const passphraseOn = '已設定 · 備份可用它或救援碼打開';
@@ -45,7 +45,7 @@ abstract final class KeyWords {
       '換掉帳本的全部金鑰：資料庫與收據照片重新加密，產生新的救援碼，之後的備份改用新的金鑰。'
       '完成後，舊的密碼檔與舊救援碼再也打不開這台手機上的帳本。\n\n'
       '但已經存在的舊備份（雲端硬碟、資料夾、Google 系統備份、匯出的檔案）仍可用當時的密碼或救援碼打開。'
-      '完成後會列出這支手機與雲端硬碟上的舊備份，確認後可刪除；其他地方的請自行刪除。指紋解鎖與備份密碼需要重新設定。';
+      '完成後會列出這支手機與雲端硬碟上的舊備份，確認後可刪除；其他地方的請自行刪除。生物辨識解鎖與備份密碼需要重新設定。';
   static const resetGo = '重設';
   static const resetDone = '金鑰已重設。舊的救援碼不再適用，請抄下新的';
 
@@ -70,7 +70,7 @@ abstract final class KeyWords {
   /// What becomes of the old backups on Drive (decided: the Drive trash,
   /// recoverable until Drive empties it).
   static const oldBackupsToTrash = '移到雲端硬碟的垃圾桶，30 天後自動刪除';
-  static const oldBackupsUnreached = '連不上 Google 雲端硬碟，那裡的舊備份沒有列出，可以之後自行刪除。';
+  static const oldBackupsUnreached = '連不上 Google 雲端硬碟，那裡的舊備份沒有列出，可以之後自行刪除';
   static String oldBackupsGone(int count) => '已刪除 $count 份舊金鑰的備份';
 
   static const newPasswordTitle = '設定新的密碼';

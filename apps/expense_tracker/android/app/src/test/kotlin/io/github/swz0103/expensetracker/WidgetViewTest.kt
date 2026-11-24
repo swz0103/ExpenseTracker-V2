@@ -52,8 +52,8 @@ class WidgetViewTest {
     fun withoutASnapshotItSaysAmountsAreHiddenAndATapOpensTheApp() {
         assertEquals(
             WidgetView.Shown(
-                "記帳本", "已隱藏金額", "點此開啟", null,
-                shortLabel = "已隱藏金額", shortFigure = "點此開啟",
+                "記帳本", "已隱藏金額", "點此打開", null,
+                shortLabel = "已隱藏金額", shortFigure = "點此打開",
             ),
             WidgetView.of(null, "2026-10", WidgetView.Day(2026, 10, 20)),
         )

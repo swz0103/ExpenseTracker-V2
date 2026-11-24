@@ -92,7 +92,8 @@ void main() {
   test('the holdings rest on the trades and the market data', () {
     final cache = QueryCache();
     final holdings = TrackedHoldingReader(
-      HoldingRepository(const [], moveOf: (_) => null)..replay(const []),
+      HoldingRepository(const [], moveOf: (_) => null)
+        ..replay(const [], today: DateTime.utc(2026, 10, 4)),
       cache,
     );
     cache.remember('value', () => holdings.marketValue);

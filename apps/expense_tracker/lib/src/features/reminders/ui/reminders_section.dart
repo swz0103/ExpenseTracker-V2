@@ -126,6 +126,7 @@ class _RemindersSectionState extends State<RemindersSection>
       ErrorLog.instance.record('通知權限', error);
       allowed = false;
     }
+    // Exception to glossary: a switch in the system settings, which is turned on (開啟).
     if (!allowed && mounted) showNote(context, '請到系統設定開啟記帳本的通知');
     await _readStatus();
   }

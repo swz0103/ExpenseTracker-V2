@@ -24,7 +24,7 @@ void main() {
   test('the words are the ones a person reads on the home screen', () {
     expect(WidgetWords.hiddenTitle, '記帳本');
     expect(WidgetWords.hidden, '已隱藏金額');
-    expect(WidgetWords.hiddenOpen, '點此開啟');
+    expect(WidgetWords.hiddenOpen, '點此打開');
   });
 
   test('Android draws the widget with the app\'s words', () {
@@ -37,9 +37,9 @@ void main() {
     expect(hiddenWidgetFace, {
       'title': '記帳本',
       'figure': '已隱藏金額',
-      'detail': '點此開啟',
+      'detail': '點此打開',
       'shortLabel': '已隱藏金額',
-      'shortFigure': '點此開啟',
+      'shortFigure': '點此打開',
     });
     // Shown(title, figure, detail, progress, shortLabel, shortFigure).
     expect(

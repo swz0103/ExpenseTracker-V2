@@ -169,7 +169,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
             color: AppColors.white,
             borderRadius: BorderRadius.circular(Radii.large),
             child: IconButton(
-              tooltip: '移除額度',
+              tooltip: '刪除額度',
               onPressed: () {
                 widget.ledger.budgetCommands.removeBudget(name);
                 Navigator.of(context).pop();

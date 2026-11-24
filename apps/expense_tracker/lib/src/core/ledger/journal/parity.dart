@@ -336,6 +336,8 @@ Future<Map<String, Set<int>>> _changeDays(
   final days = <String, Set<int>>{};
   void add(String account, DateTime day) =>
       (days[account] ??= {}).add(Day.of(BusinessDate.of(day)).ymd);
+  // Exception to as-of-today: a balance is compared on every day it
+  // changes, a 預定 entry's day included (the app counts it from then).
   for (final e in today.entries.all) {
     if (pause != null) await pause();
     if (e.type == EntryType.expense && e.installments > 1) {

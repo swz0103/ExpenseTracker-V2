@@ -139,14 +139,19 @@ class _ExportSheetState extends State<_ExportSheet> {
       return !day.isBefore(from) && !day.isAfter(to);
     }
 
+    // An export takes every entry written, 預定 ones too.
     return switch (span) {
+      // Exception to as-of-today: an export.
       _Span.month => _ledger.entries.inMonth(t.year, t.month),
       _Span.year => [
+        // Exception to as-of-today: an export.
         for (final e in _ledger.entries.all)
           if (e.date.year == t.year) e,
       ],
+      // Exception to as-of-today: an export.
       _Span.all => _ledger.entries.all.toList(),
       _Span.custom => [
+        // Exception to as-of-today: an export.
         for (final e in _ledger.entries.all)
           if (within(e.date, _from, _to)) e,
       ],

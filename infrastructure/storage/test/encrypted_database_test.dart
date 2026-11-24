@@ -131,6 +131,18 @@ void main() {
     expect(String.fromCharCodes(header), isNot('SQLite format 3'));
   });
 
+  test('the library is built with threads, for work apart (D41)', () {
+    // SQLCipher as the app ships it: one connection, two isolates.
+    expect(EncryptedDatabase.serialized, isTrue);
+    expect(EncryptedDatabase.threadSafe(['THREADSAFE=1']), isTrue);
+    expect(
+      EncryptedDatabase.threadSafe(['OMIT_LOAD_EXTENSION', 'THREADSAFE=2']),
+      isTrue,
+    );
+    expect(EncryptedDatabase.threadSafe(['THREADSAFE=0']), isFalse);
+    expect(EncryptedDatabase.threadSafe(const []), isFalse);
+  });
+
   test('the storage key never appears in its description', () {
     expect('$key', isNot(contains(key.hex)));
     expect(StorageKey.fromHex(key.hex).hex, key.hex);

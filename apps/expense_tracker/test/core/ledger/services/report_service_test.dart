@@ -58,6 +58,31 @@ void main() {
     expect(book.reports.tags, ['家用', '旅行']);
   });
 
+  test('a 預定 entry joins the tags on its day, at midnight (D71)', () {
+    // Today is 10/4: 1,000 on 10/1 counts; 300 on 10/6 is 預定, and so
+    // is 50 tagged 露營 on 10/9.
+    final book = Book(
+      entries: [
+        entry('a', amount: 1000, tags: ['旅行'], date: DateTime.utc(2026, 10)),
+        entry('p', amount: 300, tags: ['旅行'], date: DateTime.utc(2026, 10, 6)),
+        entry('q', amount: 50, tags: ['露營'], date: DateTime.utc(2026, 10, 9)),
+      ],
+    );
+    expect(book.reports.tagStats, [('旅行', 1, 1000)]);
+    expect(
+      book.reports.tagsBetween(
+        DateTime.utc(2026, 10),
+        DateTime.utc(2026, 10, 31),
+      ),
+      [('旅行', 1000)],
+    );
+    // 露營 is offered to pick, after the tags in use.
+    expect(book.reports.tags, ['旅行', '露營']);
+    // The day rolls over to 10/6: 1,000 + 300 = 1,300 in two.
+    book.today = DateTime.utc(2026, 10, 6);
+    expect(book.reports.tagStats, [('旅行', 2, 1300)]);
+  });
+
   test('what a person owes is what was lent less what came back', () {
     final book = Book(
       accounts: const [

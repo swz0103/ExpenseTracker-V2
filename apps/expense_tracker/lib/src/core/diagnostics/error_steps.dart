@@ -91,10 +91,14 @@ abstract final class ErrorSteps {
 
   /// The phone could not say whether it unlocks with a fingerprint or
   /// face as the app started: the app starts without it.
-  static const startDevice = '啟動：指紋解鎖';
+  static const startDevice = '啟動：生物辨識解鎖';
 
   /// The first screen could not be put together.
   static const startScreen = '啟動：第一個畫面';
+
+  /// The phone's SQLite is built without threads, so a backup's read on
+  /// a worker is not kept apart from the app's own (D41).
+  static const storeThreading = '啟動：資料庫執行緒模式';
 
   /// The copy of a book kept before its upgrade could not be written, or
   /// the person went on without it (D19).
@@ -107,4 +111,7 @@ abstract final class ErrorSteps {
   /// A backup of keys a reset replaced could not be listed or taken away
   /// (D15).
   static const oldKeyBackups = '舊金鑰的備份';
+
+  /// Rows of the book set aside as it opened, how many (no contents).
+  static const bookOpen = '打開帳本';
 }

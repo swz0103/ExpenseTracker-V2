@@ -444,9 +444,9 @@ void main() {
     await settleIn(tester);
     await settle(
       tester,
-      () => find.textContaining('無法開啟帳本').evaluate().isNotEmpty,
+      () => find.textContaining('無法打開帳本').evaluate().isNotEmpty,
     );
-    expect(find.textContaining('無法開啟帳本（'), findsOneWidget);
+    expect(find.textContaining('無法打開帳本（'), findsOneWidget);
     expect(find.text('忘記密碼？'), findsOneWidget);
     expect(startup.state, isA<Locked>());
   });
@@ -522,9 +522,9 @@ void main() {
       await show(tester, startup);
       await settle(
         tester,
-        () => find.text('先用密碼打開一次，之後就能用指紋解鎖').evaluate().isNotEmpty,
+        () => find.text('先用密碼打開一次，之後就能用生物辨識解鎖').evaluate().isNotEmpty,
       );
-      expect(find.text('先用密碼打開一次，之後就能用指紋解鎖'), findsOneWidget);
+      expect(find.text('先用密碼打開一次，之後就能用生物辨識解鎖'), findsOneWidget);
       expect(startup.state, isA<Locked>());
     });
 
@@ -558,13 +558,13 @@ void main() {
         tester,
         () => find.textContaining('改用密碼').evaluate().isNotEmpty,
       );
-      expect(find.text('指紋解鎖失敗，請改用密碼'), findsOneWidget);
+      expect(find.text('生物辨識解鎖失敗，請改用密碼'), findsOneWidget);
       expect(startup.state, isA<Locked>());
       // A key that does not open the ledger is a fault worth keeping.
-      expect(ErrorLog.instance.entries.first.$2, contains('指紋解鎖'));
+      expect(ErrorLog.instance.entries.first.$2, contains('生物辨識解鎖'));
 
       final semantics = tester.ensureSemantics();
-      await press(tester, '用指紋或臉部解鎖');
+      await press(tester, '用生物辨識解鎖');
       await settle(
         tester,
         () => find.textContaining('改用密碼').evaluate().isNotEmpty,
@@ -591,8 +591,8 @@ void main() {
         () => find.byKey(Keys.fingerprint).evaluate().isNotEmpty,
       );
       expect(find.byKey(Keys.fingerprint), findsOneWidget, reason: 'not busy');
-      expect(find.text('指紋解鎖失敗，請改用密碼'), findsNothing);
-      expect(find.text('指紋解鎖已取消，可以改用密碼'), findsNothing);
+      expect(find.text('生物辨識解鎖失敗，請改用密碼'), findsNothing);
+      expect(find.text('生物辨識解鎖已取消，可以改用密碼'), findsNothing);
       expect(startup.state, isA<Locked>());
       expect(ErrorLog.instance.entries.length, noted);
       // And the password then opens the ledger.
@@ -614,14 +614,14 @@ void main() {
       await show(tester, startup);
       await settle(
         tester,
-        () => find.text('指紋解鎖失敗，請改用密碼').evaluate().isNotEmpty,
+        () => find.text('生物辨識解鎖失敗，請改用密碼').evaluate().isNotEmpty,
       );
-      expect(find.text('指紋解鎖失敗，請改用密碼'), findsOneWidget);
+      expect(find.text('生物辨識解鎖失敗，請改用密碼'), findsOneWidget);
       // Tried again, and this time turned down: the old words are gone.
       turned.declines = true;
       await tester.tap(find.byKey(Keys.fingerprint));
       await tester.pump();
-      expect(find.text('指紋解鎖失敗，請改用密碼'), findsNothing);
+      expect(find.text('生物辨識解鎖失敗，請改用密碼'), findsNothing);
       // The prompt is turned down: still nothing said, and not busy.
       await settle(tester, () => turned.turnedDown > 0);
       await settle(
@@ -629,7 +629,7 @@ void main() {
         () => find.byKey(Keys.fingerprint).evaluate().isNotEmpty,
       );
       expect(find.byKey(Keys.fingerprint), findsOneWidget);
-      expect(find.text('指紋解鎖失敗，請改用密碼'), findsNothing);
+      expect(find.text('生物辨識解鎖失敗，請改用密碼'), findsNothing);
     });
 
     testWidgets('a fingerprint turned off in settings is not offered on the '
@@ -663,9 +663,9 @@ void main() {
       await show(tester, startup);
       await settle(
         tester,
-        () => find.text('指紋解鎖已取消，可以改用密碼').evaluate().isNotEmpty,
+        () => find.text('生物辨識解鎖已取消，可以改用密碼').evaluate().isNotEmpty,
       );
-      expect(find.text('指紋解鎖已取消，可以改用密碼'), findsOneWidget);
+      expect(find.text('生物辨識解鎖已取消，可以改用密碼'), findsOneWidget);
       expect(startup.state, isA<Locked>());
     });
 
@@ -682,9 +682,9 @@ void main() {
       await show(tester, startup);
       await settle(
         tester,
-        () => find.text('先用密碼打開一次，之後就能用指紋解鎖').evaluate().isNotEmpty,
+        () => find.text('先用密碼打開一次，之後就能用生物辨識解鎖').evaluate().isNotEmpty,
       );
-      expect(find.text('先用密碼打開一次，之後就能用指紋解鎖'), findsOneWidget);
+      expect(find.text('先用密碼打開一次，之後就能用生物辨識解鎖'), findsOneWidget);
     });
   });
 

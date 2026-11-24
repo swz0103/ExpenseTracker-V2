@@ -235,6 +235,8 @@ final class JournalKeeper {
       journal: _journal!,
       store: _store,
       entries: [
+        // Exception to as-of-today: the journal posts every record, a
+        // 預定 one at its own day; what counts today is read up to today.
         for (final e in ledger.entries.all)
           if (seqs[e.id] case final seq?) (entry: e, seq: seq),
       ],

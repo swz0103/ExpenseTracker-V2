@@ -52,7 +52,8 @@ const settingTopics = <SettingTopic>[
   (name: '密碼', words: ['變更密碼', '設定密碼'], page: SettingsDestination.security),
   (name: '救援碼', words: ['忘記密碼'], page: SettingsDestination.security),
   (
-    name: '指紋解鎖',
+    name: '生物辨識解鎖',
+    // Exception to glossary: search words: 指紋 finds the setting too.
     words: ['指紋', '臉部', '生物辨識'],
     page: SettingsDestination.security,
   ),

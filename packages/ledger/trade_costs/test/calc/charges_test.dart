@@ -12,6 +12,8 @@ void main() {
   );
 
   test('the fee is 0.1425% after discount, rounded down, with minimums', () {
+    // 0.1425% is 1425 millionths.
+    expect(fullFeePerMillion, 1425);
     final full = TaiwanTradeCharges();
     expect(full.fee(ntd(100000), shares('1000')), ntd(142));
     expect(full.fee(ntd(5000), shares('1000')), ntd(20));

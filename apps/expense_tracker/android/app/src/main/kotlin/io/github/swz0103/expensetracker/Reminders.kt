@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -55,6 +56,7 @@ import java.util.TimeZone
  * (res/xml/data_extraction_rules.xml).
  */
 object Reminders {
+    private const val TAG = "Reminders"
     private const val PREFS = "reminders"
     private const val EXACT = "exact"
     private const val POSTED = "posted"
@@ -88,6 +90,9 @@ object Reminders {
      * [exact]; makes the [channels] they post in (and takes away those
      * [retired]); arms the alerts, posting at once those just past within
      * their grace; and takes away those showing whose tag is not [wanted].
+     * The app asks for at most [most] alerts; past them, or past Android's
+     * limit ([ReminderAlarms.armable]), the rest are left out, logged, and
+     * their number returned for the app to record.
      */
     fun replace(
         context: Context,
@@ -96,11 +101,16 @@ object Reminders {
         wanted: Set<String>? = null,
         channels: List<Map<String, Any?>> = emptyList(),
         retired: List<String> = emptyList(),
-    ) {
+        most: Int = ReminderAlarms.MOST_ALERTS,
+    ): Int {
         ensureChannels(context, channels, retired)
         val kept = JSONArray()
-        // Never past Android's limit on alarms (the app asks for fewer).
-        for (alert in alerts.take(ReminderAlarms.MOST_ALERTS)) {
+        val armed = ReminderAlarms.armable(most)
+        val left = ReminderAlarms.leftOut(alerts.size, most)
+        if (left > 0) {
+            Log.w(TAG, "$left of ${alerts.size} alerts left out: at most $armed are armed")
+        }
+        for (alert in alerts.take(armed)) {
             val at = (alert["at"] as? Number)?.toLong() ?: continue
             val entry = JSONObject().put("at", at)
             for (name in TEXT_FIELDS) entry.put(name, alert[name] as? String ?: "")
@@ -126,6 +136,7 @@ object Reminders {
             .apply()
         scheduleKept(context)
         if (wanted != null) clearShown(context, wanted)
+        return left
     }
 
     /** The ids of the kept alerts already posted. */

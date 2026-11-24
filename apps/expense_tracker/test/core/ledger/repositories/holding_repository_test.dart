@@ -22,18 +22,52 @@ Entry _trade(String id, EntryType type, int day, int shares, int amount) =>
       shares: shares,
     );
 
+/// The day the holdings are read on: after every trade below but those
+/// an old book dated later.
+final _today = DateTime.utc(2026, 9, 10);
+
 void main() {
   final buy = _trade('buy', EntryType.buy, 1, 10, 9000);
   final sell = _trade('sell', EntryType.sell, 3, 4, 4400);
 
+  group('trades an old book dated after today (D70)', () {
+    final later = _trade('later', EntryType.buy, 20, 5, 5000);
+
+    test('one joins the holdings on its day, not before', () {
+      final holdings = HoldingRepository([_tsmc], moveOf: (_) => null)
+        ..replay([buy, sell, later], today: _today);
+      // On 9/10: 10 − 4 = 6; the purchase of 9/20 is 預定.
+      expect(holdings.byCode('2330')?.shares, 6);
+      holdings.replay([buy, sell, later], today: DateTime.utc(2026, 9, 20));
+      // On 9/20: 6 + 5 = 11.
+      expect(holdings.byCode('2330')?.shares, 11);
+    });
+
+    test('a book whose later sale would be short is still refused', () {
+      final holdings = HoldingRepository([_tsmc], moveOf: (_) => null)
+        ..replay([buy, sell], today: _today);
+      // A sale of 7 on 9/25: 10 − 4 − 7 = −1, short though not yet due.
+      final short = _trade('short', EntryType.sell, 25, 7, 7700);
+      expect(
+        () => holdings.replay([buy, sell, short], today: _today),
+        throwsStateError,
+      );
+      expect(holdings.byCode('2330')?.shares, 6);
+      // Lenient, as for a book just read, it is left out and nothing
+      // throws.
+      holdings.replay([buy, sell, short], today: _today, lenient: true);
+      expect(holdings.byCode('2330')?.shares, 6);
+    });
+  });
+
   HoldingRepository make({Map<String, double> moves = const {}}) =>
       HoldingRepository([_tsmc], moveOf: (code) => moves[code])
-        ..replay([buy, sell]);
+        ..replay([buy, sell], today: _today);
 
   test('holdings are read only after a replay', () {
     final holdings = HoldingRepository([_tsmc], moveOf: (_) => null);
     expect(() => holdings.all, throwsStateError);
-    holdings.replay(const []);
+    holdings.replay(const [], today: _today);
     // A stock quoted but not held is not one of the holdings.
     expect(holdings.all, isEmpty);
     expect(holdings.hasQuote('2330'), isTrue);
@@ -51,7 +85,11 @@ void main() {
   test('a stock sold to the last share is sold out, not held', () {
     final holdings = HoldingRepository([_tsmc], moveOf: (_) => null)
       // 10 bought, 4 then 6 sold: 0 left, with a realised gain.
-      ..replay([buy, sell, _trade('rest', EntryType.sell, 5, 6, 6600)]);
+      ..replay([
+        buy,
+        sell,
+        _trade('rest', EntryType.sell, 5, 6, 6600),
+      ], today: _today);
     expect(holdings.all.map((h) => h.code), ['2330']);
     expect(holdings.held, isEmpty);
     expect(holdings.soldOut.map((h) => h.code), ['2330']);
@@ -71,7 +109,7 @@ void main() {
       [_tsmc],
       moveOf: (_) => 2.5,
       quoteDayOf: (_) => DateTime.utc(2026, 9, 4),
-    )..replay([buy, sell, monday]);
+    )..replay([buy, sell, monday], today: _today);
     expect(holdings.byCode('2330')?.shares, 16);
     // 6 shares held at the end of 9/4 × 2.5 = 15, not 16 × 2.5 = 40.
     expect(holdings.byCode('2330')?.change, 15);
@@ -87,14 +125,17 @@ void main() {
   test('an oversold replay throws and leaves the holdings as they were', () {
     final holdings = make();
     final oversold = _trade('more', EntryType.sell, 4, 7, 7700);
-    expect(() => holdings.replay([buy, sell, oversold]), throwsStateError);
+    expect(
+      () => holdings.replay([buy, sell, oversold], today: _today),
+      throwsStateError,
+    );
     expect(holdings.byCode('2330')?.shares, 6);
   });
 
   test('a lenient replay leaves the oversold trade out', () {
     final holdings = make();
     final oversold = _trade('more', EntryType.sell, 4, 7, 7700);
-    holdings.replay([buy, sell, oversold], lenient: true);
+    holdings.replay([buy, sell, oversold], today: _today, lenient: true);
     expect(holdings.byCode('2330')?.shares, 6);
   });
 
@@ -108,7 +149,7 @@ void main() {
   test('a list handed out stays as it was after another replay', () {
     final holdings = make();
     final before = holdings.all;
-    holdings.replay([buy]);
+    holdings.replay([buy], today: _today);
     expect(before.single.shares, 6);
     expect(holdings.all.single.shares, 10);
     expect(() => holdings.all.add(_tsmc), throwsUnsupportedError);
@@ -118,7 +159,7 @@ void main() {
     final holdings = make();
     holdings.replaceStart([_tsmc.copyWith(shares: 5, cost: 4000)]);
     expect(holdings.start.single.shares, 5);
-    holdings.replay([buy, sell]);
+    holdings.replay([buy, sell], today: _today);
     expect(holdings.byCode('2330')?.shares, 11);
   });
 }

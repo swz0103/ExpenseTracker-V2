@@ -34,17 +34,25 @@ final class TagSummary {
   int get perDay => spent ~/ days;
 }
 
-/// [tag] as a project; null when no entry carries it.
-TagSummary? tagSummaryOf(EntryReader book, String tag) {
+/// [tag] as a project on [today]; null when no entry carries it. Its
+/// days and sums are of the entries that count today ([countsOn]): a 預定
+/// one joins them on its day (D71), and stands in [TagSummary.entries]
+/// from the start. With only 預定 entries, it runs over their days and
+/// nothing is spent yet.
+TagSummary? tagSummaryOf(EntryReader book, String tag, DateTime today) {
   final entries = [
+    // Exception to as-of-today: the list holds every entry carrying the
+    // tag, 預定 ones marked; the sums below take only those that count.
     for (final e in book.all)
       if (e.tags.contains(tag)) e,
   ]..sort((a, b) => b.date.compareTo(a.date));
   if (entries.isEmpty) return null;
+  final counted = countedOn(entries, today).toList();
+  final span = counted.isEmpty ? entries : counted;
   var spent = 0;
   var income = 0;
   final byCategory = <String, int>{};
-  for (final e in entries) {
+  for (final e in counted) {
     spent += e.spending;
     income += e.earning;
     for (final (name, value) in e.spendingParts) {
@@ -53,8 +61,8 @@ TagSummary? tagSummaryOf(EntryReader book, String tag) {
   }
   return TagSummary(
     tag: tag,
-    from: entries.last.date,
-    to: entries.first.date,
+    from: span.last.date,
+    to: span.first.date,
     spent: spent,
     income: income,
     byCategory: [
@@ -64,10 +72,11 @@ TagSummary? tagSummaryOf(EntryReader book, String tag) {
   );
 }
 
-/// The tag of the latest entry that has one: 標籤與商家's cover.
-String? latestTag(EntryReader book) {
+/// The tag of the latest entry that has one and counts on [today]
+/// ([countsOn]): 標籤與商家's cover. A 預定 entry is not the latest.
+String? latestTag(EntryReader book, DateTime today) {
   Entry? latest;
-  for (final e in book.all) {
+  for (final e in countedOn(book.all, today)) {
     if (e.tags.isEmpty) continue;
     if (latest == null || e.date.isAfter(latest.date)) latest = e;
   }
@@ -78,6 +87,8 @@ String? latestTag(EntryReader book) {
 /// and, in a year, latest tags first.
 List<(int, List<String>)> tagsByYear(EntryReader book) {
   final last = <String, DateTime>{};
+  // Exception to as-of-today: an index of every tag, to open each; a tag
+  // only on 預定 entries sits under their year. Nothing is summed.
   for (final e in book.all) {
     for (final tag in e.tags) {
       final seen = last[tag];
@@ -94,6 +105,7 @@ List<(int, List<String>)> tagsByYear(EntryReader book) {
 
 /// A merchant's visits, newest first; empty when none.
 List<Entry> visitsTo(EntryReader book, String merchant) => [
+  // Exception to as-of-today: a list of every visit, 預定 ones marked.
   for (final e in book.all)
     if (e.merchant == merchant) e,
 ]..sort((a, b) => b.date.compareTo(a.date));

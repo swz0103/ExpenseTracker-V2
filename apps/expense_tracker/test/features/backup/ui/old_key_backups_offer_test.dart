@@ -76,6 +76,6 @@ void main() {
     expect(find.text('刪除舊金鑰的備份？'), findsNothing);
     await offer(tester, old(const [], unreached: true));
     expect(find.text('刪除舊金鑰的備份？'), findsNothing);
-    expect(find.text('連不上 Google 雲端硬碟，那裡的舊備份沒有列出，可以之後自行刪除。'), findsOneWidget);
+    expect(find.text('連不上 Google 雲端硬碟，那裡的舊備份沒有列出，可以之後自行刪除'), findsOneWidget);
   });
 }
