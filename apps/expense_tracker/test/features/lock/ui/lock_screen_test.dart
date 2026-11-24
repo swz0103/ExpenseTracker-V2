@@ -4,6 +4,7 @@ import 'package:core/app_core.dart' show FixedClock;
 import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
+import 'package:expense_tracker/src/core/diagnostics/error_steps.dart';
 import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:expense_tracker/src/features/lock/ui/views/lock_parts.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
@@ -651,6 +652,44 @@ void main() {
       expect(find.text('生物辨識解鎖失敗，請改用密碼'), findsNothing);
     });
 
+    testWidgets('a phone found full stays said while the fingerprint is '
+        'asked for, and the fingerprint finding it full says so, noted as '
+        'an opening (review 30)', (tester) async {
+      final startup = Startup(vault, device: DeviceUnlock('phone', key));
+      await tester.runAsync(() => startup.setUp(password));
+      await tester.runAsync(
+        () => IOOverrides.runWithIOOverrides(
+          () => startup.journalDamaged(
+            const StorageUnavailable(StorageProblem.damaged),
+          ),
+          NoRoom(),
+        ),
+      );
+      expect(
+        startup.state,
+        isA<Locked>()
+            .having((l) => l.noSpace, 'noSpace', isTrue)
+            .having((l) => l.deviceUnlock, 'deviceUnlock', isTrue)
+            .having((l) => l.askFirst, 'askFirst', isTrue),
+      );
+      // Still full as the fingerprint opens the keys.
+      IOOverrides.global = NoRoom();
+      addTearDown(() => IOOverrides.global = null);
+      final noted = ErrorLog.instance.count;
+      startup.takeOpening();
+      await show(tester, startup);
+      // The fingerprint is being asked for: the opening's words stay.
+      expect(find.text(LockWords.noSpace), findsOneWidget);
+      await settle(tester, () => ErrorLog.instance.count > noted);
+      await tester.pump();
+      expect(find.text(LockWords.noSpace), findsOneWidget);
+      expect(find.text(LockWords.fingerprintStopped), findsNothing);
+      expect(startup.state, isA<Locked>());
+      final entry = ErrorLog.instance.entries.first.$2;
+      expect(entry, startsWith(ErrorSteps.bookOpen));
+      expect(entry, isNot(contains(LockWords.fingerprintHeading)));
+    });
+
     testWidgets('a fingerprint turned off in settings is not offered on the '
         'lock screen (F39)', (tester) async {
       final enrol = Startup(vault, device: DeviceUnlock('phone', key));
@@ -764,6 +803,31 @@ void main() {
       await settle(tester, () => startup.state is Ready);
       expect(startup.state, isA<Ready>());
       expect(startup.needsNewPassword, isTrue);
+      startup.lock();
+    });
+
+    testWidgets('a backup not restored for want of room says so in its own '
+        'words, and the book is as it was (review 30)', (tester) async {
+      final startup = await backedUp(tester);
+      startup.lockToRestore();
+      await show(tester, startup);
+      // The new keys cannot be written: the phone is full.
+      IOOverrides.global = NoRoom();
+      addTearDown(() => IOOverrides.global = null);
+      await tester.enterText(find.byType(TextField).first, backup.path);
+      await tester.enterText(find.byType(TextField).last, code);
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await settle(
+        tester,
+        () => find.text(LockWords.restoreNoSpace).evaluate().isNotEmpty,
+      );
+      expect(find.text('手機空間不足，備份沒有還原，帳本維持原狀。請先清出一些空間，再試一次'), findsOneWidget);
+      expect(find.text(LockWords.noSpace), findsNothing);
+      expect(startup.state, isA<Locked>());
+      // Room again: the book here opens with its password, as it was.
+      IOOverrides.global = null;
+      await tester.runAsync(() => startup.unlockWithPassword(password));
+      expect(startup.state, isA<Ready>());
       startup.lock();
     });
 

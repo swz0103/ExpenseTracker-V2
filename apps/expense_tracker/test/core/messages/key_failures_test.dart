@@ -4,6 +4,7 @@ import 'package:expense_tracker/src/core/messages/key_failures.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart'
     show UnlockDelayed;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqlite3/sqlite3.dart' show SqliteException;
 import 'package:storage/storage.dart' show StorageProblem, StorageUnavailable;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
@@ -162,5 +163,30 @@ void main() {
       expect(passphraseRefusal('123456789012'), '不能全是數字，請加上文字或符號');
       expect(passphraseRefusal('apple pie 12'), isNull);
     });
+  });
+
+  test('a full phone is said as such for a database refused too, and a '
+      'restore says the backup was not restored (review 30)', () {
+    const file = FileSystemException(
+      'write',
+      'keyring.json.new',
+      OSError('No space left on device', 28),
+    );
+    // 13 is SQLITE_FULL.
+    final database = SqliteException(extendedResultCode: 13, message: 'full');
+    for (final full in <Object>[file, database]) {
+      expect(say(full), '手機空間不足，帳本還沒整理好。請先清出一些空間，再打開帳本');
+      expect(
+        describeRestoreFailure(full, recovery: true),
+        '手機空間不足，備份沒有還原，帳本維持原狀。請先清出一些空間，再試一次',
+      );
+    }
+    // Anything else in a restore is said as for an opening.
+    const wrong = KeyringException(KeyringError.wrongSecret);
+    expect(describeRestoreFailure(wrong, recovery: true), '救援碼不正確');
+    expect(
+      describeRestoreFailure(const FileSystemException('open'), recovery: true),
+      '找不到這個備份檔',
+    );
   });
 }

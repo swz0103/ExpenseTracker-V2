@@ -185,7 +185,9 @@ class _LockScreenState extends State<LockScreen> {
   Future<void> _unlockWithDevice() async {
     setState(() {
       _busy = true;
-      _problem = null;
+      // The opening's own words (a phone found full) stay said while the
+      // fingerprint is asked for (review 30).
+      if (_problem != describeLocked(widget.startup.state)) _problem = null;
     });
     try {
       final opened = await widget.startup.unlockWithDevice();
@@ -201,8 +203,14 @@ class _LockScreenState extends State<LockScreen> {
       }
       _fail(notYet ? LockWords.fingerprintNotYet : LockWords.fingerprintFailed);
     } on Object catch (error) {
-      ErrorLog.instance.record(LockWords.fingerprintHeading, error);
-      _fail(LockWords.fingerprintStopped);
+      // The fingerprint opened the keys, and making the book again found
+      // the phone full: an opening's failure, not the fingerprint's.
+      final full = describeNoSpace(error);
+      ErrorLog.instance.record(
+        full == null ? LockWords.fingerprintHeading : ErrorSteps.bookOpen,
+        error,
+      );
+      _fail(full ?? LockWords.fingerprintStopped);
     }
   }
 
@@ -305,7 +313,9 @@ class _LockScreenState extends State<LockScreen> {
     } on Object catch (error) {
       // Said to the person by its kind, in words; a wrong secret is
       // expected and not kept, anything unforeseen is.
-      final said = describeUnlockFailure(error, recovery: recovery);
+      final said = _restoring
+          ? describeRestoreFailure(error, recovery: recovery)
+          : describeUnlockFailure(error, recovery: recovery);
       if (said == null) {
         ErrorLog.instance.record(KeyWords.unforeseenHeading, error);
       }

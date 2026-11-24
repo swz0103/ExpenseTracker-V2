@@ -7,6 +7,7 @@ import 'package:expense_tracker/src/core/messages/lock_messages.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqlite3/sqlite3.dart' show SqliteException;
 import 'package:storage/storage.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
@@ -425,6 +426,49 @@ void main() {
         startup.state,
         isA<Locked>().having((l) => l.noSpace, 'noSpace', isFalse),
       );
+    });
+
+    test('a staging database the phone fills (SQLITE_FULL) is a full '
+        'phone too: never counted, and the lock screen says so '
+        '(review 30)', () async {
+      // At most 16 pages of 4096 bytes for the book made again; it holds
+      // 200 records of 1000 characters, about 50.
+      vault = LedgerVault(
+        directory,
+        codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
+        stagingPageLimit: 16,
+      );
+      final startup = Startup(vault);
+      await startup.setUp(password);
+      final store = (startup.state as Ready).vault.store;
+      for (var i = 0; i < 200; i++) {
+        store.write((w) => w.put('note', '$i', 'x' * 1000));
+      }
+      expect(await startup.journalDamaged(damagedError), isTrue);
+      expect(
+        startup.state,
+        isA<Locked>().having((l) => l.noSpace, 'noSpace', isTrue),
+      );
+      // Three openings more, each said as a phone full, never given up
+      // although salvageTries is 3.
+      for (var i = 0; i < 3; i++) {
+        Object? failed;
+        try {
+          await startup.unlockWithPassword(password);
+        } on Object catch (error) {
+          failed = error;
+        }
+        expect(failed, isA<SqliteException>());
+        expect(
+          describeUnlockFailure(failed!, recovery: false),
+          LockWords.noSpace,
+        );
+        expect(
+          startup.state,
+          isA<Locked>().having((l) => l.noSpace, 'noSpace', isTrue),
+        );
+      }
+      expect(vault.damagedCopies(), isEmpty, reason: 'nothing set aside');
     });
 
     test('a book made again whose note cannot be let go of opens, never set '

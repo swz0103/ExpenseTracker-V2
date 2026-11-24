@@ -26,6 +26,10 @@ abstract final class LockWords {
   /// the book is as it was, and opens once there is room.
   static const noSpace = '手機空間不足，帳本還沒整理好。請先清出一些空間，再打開帳本';
 
+  /// A backup not restored for want of room on the phone: the book here is
+  /// as it was (review 30).
+  static const restoreNoSpace = '手機空間不足，備份沒有還原，帳本維持原狀。請先清出一些空間，再試一次';
+
   /// The fingerprint could not open the ledger (not the person's own
   /// choice of the password, which says nothing).
   static const fingerprintFailed = '生物辨識解鎖失敗，請改用密碼';

@@ -90,8 +90,9 @@ String? describeUnlockFailure(Object error, {required bool recovery}) =>
       },
       // Not tried at all: too many wrong ones came before it.
       UnlockDelayed(:final wait) => LockWords.waitFor(wait),
-      // Making the book again on opening, for want of room (review 29).
-      FileSystemException() when isNoSpace(error) => LockWords.noSpace,
+      // Making the book again on opening, for want of room (review 29),
+      // a file refused or the database (review 30).
+      _ when isNoSpace(error) => LockWords.noSpace,
       FileSystemException() => '找不到這個備份檔',
       StorageUnavailable(problem: StorageProblem.damaged) => '帳本檔案已損毀，請從備份還原',
       VaultException(:final problem) => switch (problem) {
@@ -117,6 +118,14 @@ String? describeUnlockFailure(Object error, {required bool recovery}) =>
       ),
       _ => null,
     };
+
+/// What to tell the person when restoring a backup failed with [error],
+/// as [describeUnlockFailure] says, but for want of room: the backup was
+/// not restored and the book here is as it was (review 30).
+String? describeRestoreFailure(Object error, {required bool recovery}) =>
+    isNoSpace(error)
+    ? LockWords.restoreNoSpace
+    : describeUnlockFailure(error, recovery: recovery);
 
 /// [LockWords.noSpace] when [error] is a write refused for want of room
 /// on the phone; null for any other failure.
