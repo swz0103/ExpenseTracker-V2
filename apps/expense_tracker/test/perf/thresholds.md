@@ -173,3 +173,36 @@ and then stop every isolate of the group for a scavenge, which is why one
 run in five can be held far longer than the others. It was so before as
 well, when only the sealing ran on the worker. Not yet in the emulator
 bench: a phone figure needs a run there.
+
+## Pages and services that grow with the book (work package PERF)
+
+Not emulator figures: both run in the ordinary `flutter test`.
+
+`index_follow_gate_test.dart` deletes an entry, puts it back where it was
+(as undo does) and moves one to another day on a book of 100,000 entries,
+each with what a screen reads right after (the month, an entry by id, an
+untouched account's entries), and gates each as a share of working the
+entries' indexes out afresh, the least of three runs after a warm-up.
+Before, each of these threw every index away (120–150 ms at 100k).
+
+| measured (3 runs, Linux host, load 3–4.5, 2026-11-24) | limit |
+|---|---|
+| afresh 165–245 ms; entries written lately: delete 30–48 µs, undo 13–23 µs, move 20–34 µs; worst share 0.00023 | 0.0005 (about 2× the worst share) |
+
+An entry written long ago also moves every later one along the list, a
+copy that grows with the book: 1.5–2.7 ms at 100k on the host (`BENCH=1`
+prints it), not gated.
+
+`records_page_gate_test.dart` opens 紀錄 at 360 dp on the demo book and on
+it with 100,000 entries more over three years (about 2,800 a month, as
+the page bench of review 10), and compares the widgets built again on
+隱藏金額 and on a save (counted, the same on every machine), and the
+first letter searched for after a save (the least of three, as a ratio).
+
+| measured (Linux host, 2026-11-24) | limit |
+|---|---|
+| 隱藏金額 686 → 723 widgets (×1.05); a save 692 → 723 (×1.04); first letter after a save 88 → 82 ms (×0.93). Before: 577 → 3,572 and 610 → 3,605 widgets | ×1.5 widgets, ×2 time (set by the work package) |
+
+`rebuild_gate_test.dart`: 總覽 builds 79 widgets after a budget changes
+(was 153), its title row following the entries rather than the whole
+ledger.
