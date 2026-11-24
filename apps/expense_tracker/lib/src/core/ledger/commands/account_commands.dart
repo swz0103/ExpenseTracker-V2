@@ -170,6 +170,16 @@ final class AccountCommands {
       _trash.mentionsAccount(id) ||
       _recurring.mentionsAccount(id);
 
+  /// Whether an entry in the book or a recurring item names [id]: what
+  /// keeps it from being removed, whatever the trash holds.
+  bool usedOutsideTrash(String id) =>
+      _entries.any((e) => e.account == id || e.to == id) ||
+      _recurring.mentionsAccount(id);
+
+  /// The deleted entries, still in the trash, that name [id]: they keep
+  /// it from being removed until they are emptied (D78).
+  List<Trashed> trashedNaming(String id) => _trash.mentioning(id);
+
   void removeAccount(String id) {
     if (isUsed(id)) return;
     final removed = _accounts.remove(id);

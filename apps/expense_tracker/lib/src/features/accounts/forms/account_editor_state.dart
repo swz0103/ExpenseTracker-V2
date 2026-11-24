@@ -102,14 +102,19 @@ class _AccountEditorState extends State<_AccountEditor> {
   Future<void> _remove() async {
     final old = _old;
     if (old == null) return;
+    final commands = widget.ledger.accountCommands;
+    // Entries in the trash still naming it go with it, once said (D78).
+    final trashed = commands.trashedNaming(old.id);
     final ok = await confirm(
       context,
       '刪除「${old.name}」？',
       Words.delete,
       danger: true,
+      body: trashedNamingNote(trashed.length),
     );
     if (!ok || !mounted) return;
-    widget.ledger.accountCommands.removeAccount(old.id);
+    widget.ledger.entryCommands.discardTrashed(trashed);
+    commands.removeAccount(old.id);
     Navigator.of(context).pop(true);
   }
 
@@ -311,7 +316,7 @@ class _AccountEditorState extends State<_AccountEditor> {
   /// 刪除, 封存 or 恢復 when changing, and 儲存; what is left under it.
   Widget _buttons(Account? old) {
     final removable =
-        old != null && !widget.ledger.accountCommands.isUsed(old.id);
+        old != null && !widget.ledger.accountCommands.usedOutsideTrash(old.id);
     final problem = _problem;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

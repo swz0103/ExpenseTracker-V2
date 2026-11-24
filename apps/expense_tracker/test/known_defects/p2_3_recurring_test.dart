@@ -144,7 +144,7 @@ void main() {
     expect(form.save(), isTrue);
     // It still repeats on the 10th.
     expect(ledger.recurring.all.single.day, 10);
-  }, skip: knownDefect('F82', '2.3'));
+  });
 
   test(
     'LOG-09: moving a booked entry to another date does not book it again',
@@ -190,7 +190,6 @@ void main() {
       // October's rent is still booked, only dated Sep 30: nothing is due.
       expect(ledger.recurringService.pendingDate(item), isNull);
     },
-    skip: knownDefect('LOG-09', '2.3'),
   );
 }
 

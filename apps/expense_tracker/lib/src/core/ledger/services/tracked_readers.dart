@@ -67,6 +67,12 @@ final class TrackedEntryReader implements EntryReader {
   }
 
   @override
+  int orderOf(String id) {
+    _cache.noteReads(_topics);
+    return _inner.orderOf(id);
+  }
+
+  @override
   Iterable<Entry> get byDate {
     _cache.noteReads(_topics);
     return _inner.byDate;

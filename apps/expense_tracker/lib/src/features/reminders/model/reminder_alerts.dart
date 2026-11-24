@@ -121,8 +121,7 @@ const nudgeTag = 'nudge';
 
 /// What falls due that notifications are about: from as far back as a
 /// due date is still told (its grace) to the horizon.
-List<Reminder> _dueReminders(ReminderBook book) =>
-    book.reminders(since: book.today.subtract(ReminderKind.due.grace));
+List<Reminder> _dueReminders(ReminderBook book) => book.dueReminders();
 
 /// The tags of notifications that still apply: what is still due, and the
 /// nudge while nothing was recorded today. Others showing are taken away,

@@ -502,4 +502,65 @@ void main() {
       expect(entries.versionOf(key), isNot(value), reason: key);
     }
   });
+
+  group('order written', () {
+    test('D75: each entry keeps its place, read as kept or in turn', () {
+      final kept = EntryRepository(
+        [_entry('a', _day(10, 1)), _entry('b', _day(10, 1))],
+        {'a': 10, 'b': 20},
+      );
+      expect((kept.orderOf('a'), kept.orderOf('b')), (10, 20));
+      kept.add(_entry('c', _day(10, 1)));
+      // After the last kept: 20 + 1.
+      expect(kept.orderOf('c'), 21);
+      final plain = EntryRepository([_entry('x', _day(10, 1))]);
+      expect(plain.orderOf('x'), 0);
+    });
+
+    test('D75: an entry taken away comes back to its own place', () {
+      final entries = EntryRepository([
+        for (final id in ['a', 'b', 'c', 'd']) _entry(id, _day(10, 1)),
+      ]);
+      final b = entries.removeAt(1);
+      entries.add(_entry('e', _day(10, 1)));
+      entries.restoreAt(b, entries.orderOf('b'));
+      expect(_ids(entries.all), ['a', 'b', 'c', 'd', 'e']);
+      expect(_ids(entries.onDay(_day(10, 1))), ['e', 'd', 'c', 'b', 'a']);
+      // The place after every other: last, the newest of its day.
+      final e = entries.removeAt(4);
+      entries.restoreAt(e, 4);
+      expect(_ids(entries.onDay(_day(10, 1))).first, 'e');
+      // No place known: last.
+      entries.restoreAt(_entry('f', _day(10, 1)), null);
+      expect(entries.all.last.id, 'f');
+    });
+
+    test('D75: a place held in the trash is never given to a new entry', () {
+      final entries = EntryRepository([_entry('a', _day(10, 1))]);
+      entries.reserve(7, id: 'trashed');
+      expect(entries.orderOf('trashed'), 7);
+      entries.add(_entry('b', _day(10, 1)));
+      expect(entries.orderOf('b'), 8);
+      final copy = EntryRepository()..replaceWith(entries);
+      expect(_ids(copy.all), ['a', 'b']);
+      expect(copy.orderOf('b'), 8);
+    });
+
+    test('D76: newest first by day, then the later written first', () {
+      final entries = EntryRepository(
+        [
+          _entry('early', _day(10, 2)),
+          _entry('late', _day(10, 2)),
+          _entry('old', _day(10, 1)),
+        ],
+        {'early': 1, 'late': 2, 'old': 3},
+      );
+      final shuffled = [entries.all[0], entries.all[2], entries.all[1]];
+      expect(_ids(shuffled..sort(newestFirst(entries))), [
+        'late',
+        'early',
+        'old',
+      ]);
+    });
+  });
 }

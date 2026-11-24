@@ -10,6 +10,15 @@ import 'package:ledger_trade_costs/model/trade_values.dart';
 // follow what the screens say.
 const transferCategory = '轉帳';
 
+/// The category an entry of [type] is kept under, given [category]: a
+/// transfer with none carries [transferCategory]. The one rule for it,
+/// as the book is read and as a form saves (D80), so opening a transfer
+/// and saving it unchanged changes nothing.
+String keptCategory(EntryType type, String category) =>
+    type == EntryType.transfer && category.trim().isEmpty
+    ? transferCategory
+    : category;
+
 /// The category every buy and sell of shares carries.
 // Exception to shared words: kept in every book, as above.
 const investmentCategory = '投資';

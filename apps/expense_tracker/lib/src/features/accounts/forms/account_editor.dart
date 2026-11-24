@@ -21,6 +21,7 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 import '../../../core/messages/trade_messages.dart';
+import '../../../core/messages/trash_messages.dart';
 
 import 'loan_cards.dart';
 

@@ -24,6 +24,7 @@ import '../core/messages/loading_messages.dart';
 import '../core/messages/problem_messages.dart';
 import '../features/backup/ui/backup_section.dart' show restoreFromBackup;
 import '../core/ledger/ledger.dart';
+import '../features/recurring/ui/held_bookings.dart';
 import '../features/reminders/model/inbox_apply.dart';
 import '../features/backup/model/restore_sources.dart';
 import '../features/lock/ui/lock_screen.dart';
@@ -336,7 +337,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
         .toTell(start.quarantined);
     _afterFrame(() {
       if (start.inbox case final inbox?) _tellInbox(inbox);
-      _tellBooked(start.booked);
+      _tellBooked(start.ledger, start.booked, start.held);
       if (tell.isNotEmpty) {
         unawaited(_tellQuarantined(tell, all: start.quarantined));
       }
@@ -427,11 +428,10 @@ class _OpenedLedgerState extends State<OpenedLedger>
     unawaited(_notice('通知上的確認', outcome.review.join('\n')));
   }
 
-  void _tellBooked(int booked) {
-    if (booked > 0) {
-      showNote(context, '已自動記下 ${countOf(booked, CountUnit.entries)}定期交易');
-    }
-  }
+  /// What the automatic booking did and left, told once (D61).
+  late final _held = HeldBookings(notice: _notice);
+  void _tellBooked(Ledger l, int booked, List<HeldBooking> held) =>
+      unawaited(_held.tell(context, l.recurringCommands, booked, held));
 
   Future<void> _notice(String title, String text) => showDialog<void>(
     context: context,
@@ -527,7 +527,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       _watchMidnight(ledger);
       final back = await _session.resume(ledger);
       if (back.inbox case final inbox? when mounted) _tellInbox(inbox);
-      if (mounted) _tellBooked(back.booked);
+      if (mounted) _tellBooked(ledger, back.booked, back.held);
       if (_writable) _services.resumed();
     }).ignore();
   }

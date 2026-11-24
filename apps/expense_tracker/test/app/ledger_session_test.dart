@@ -152,9 +152,9 @@ void main() {
       recurring: [item('rent', 5, auto: true), item('gym', 20, auto: true)],
     );
     final session = LedgerSession(load: () async => ledger);
-    expect(session.bookDue(ledger), 1);
+    expect(session.bookDue(ledger).booked, 1);
     // Booked once: coming back the same day books nothing more.
-    expect(session.bookDue(ledger), 0);
+    expect(session.bookDue(ledger).booked, 0);
   });
 
   test('a record naming an account the book lacks is logged once a kind', () {

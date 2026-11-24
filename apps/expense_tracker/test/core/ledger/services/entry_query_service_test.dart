@@ -32,6 +32,11 @@ void main() {
     );
     expect(book.queries.refunded(bought), 120);
     expect(book.queries.refundable(bought), 380);
+    // D79: the purchase a refund (or its draft) gives back.
+    final back = book.entries.byId('back');
+    expect(book.queries.originalOf(back), same(bought));
+    expect(book.queries.originalOf(bought), isNull);
+    expect(book.queries.originalOf(null), isNull);
   });
 
   test('a search finds words in any field, and an amount, newest first', () {

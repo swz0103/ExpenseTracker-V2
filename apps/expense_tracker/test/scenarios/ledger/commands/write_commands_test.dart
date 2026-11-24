@@ -59,7 +59,6 @@ final class _Writes {
   late final recurring = RecurringCommands(
     context: context,
     recurringRepository: book.recurring,
-    entryRepository: book.entries,
     accounts: book.accounts,
     recurringService: book.recurringService,
     entryCommands: entries,
@@ -247,8 +246,8 @@ void main() {
   group('RecurringCommands', () {
     test('an automatic item books each day that came, once', () {
       final w = _Writes(Book(recurring: [_rent]));
-      expect(w.recurring.bookDue(), 1);
-      expect(w.recurring.bookDue(), 0);
+      expect(w.recurring.bookDue().booked, 1);
+      expect(w.recurring.bookDue().booked, 0);
       final booked = w.book.entries.all.single;
       expect(
         (booked.recurring, booked.date),
@@ -258,7 +257,7 @@ void main() {
 
     test('an item whose account is gone books nothing', () {
       final gone = _rent.copyWith(account: 'closed');
-      expect(_Writes(Book(recurring: [gone])).recurring.bookDue(), 0);
+      expect(_Writes(Book(recurring: [gone])).recurring.bookDue().booked, 0);
     });
   });
 }

@@ -33,6 +33,7 @@ String validationMessage(RecordIssue issue) => switch (issue) {
   SaleExceedsHolding(later: false) => '賣出股數超過持股',
   SaleExceedsHolding(later: true) => '這樣之後的賣出或減資會超過持股，請先改那一筆',
   RefundToOtherAccount() => '信用卡消費的退款要退回同一張卡',
+  EntryDeleted() => '這筆已刪除，可到「最近刪除」救回',
   RefundExceedsRemaining(:final left) => '超過可退金額 ${groupDigits(left)}',
   SplitPartNotPositive() => '拆分的每一項金額都要大於 0',
   SplitTotalMismatch(:final difference) =>

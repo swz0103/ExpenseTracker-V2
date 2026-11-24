@@ -38,7 +38,7 @@
     "apps/expense_tracker/lib/src/app/about_section.dart": 23,
     "apps/expense_tracker/lib/src/app/android/network_adapter.dart": 1,
     "apps/expense_tracker/lib/src/app/app.dart": 2,
-    "apps/expense_tracker/lib/src/app/bootstrap.dart": 5,
+    "apps/expense_tracker/lib/src/app/bootstrap.dart": 4,
     "apps/expense_tracker/lib/src/app/demo/launch.dart": 11,
     "apps/expense_tracker/lib/src/app/demo/preview_services.dart": 1,
     "apps/expense_tracker/lib/src/app/demo/seed.dart": 103,

@@ -256,6 +256,7 @@ Map<String, Object?> recurringToJson(Recurring r, [CategoryRefs? refs]) => {
   if (r.auto) 'auto': true,
   if (r.skipped.isNotEmpty)
     'skipped': [for (final d in r.skipped.toList()..sort()) _day(d)],
+  if (r.openFrom case final from?) 'openFrom': _day(from),
 };
 
 Recurring recurringFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
@@ -284,6 +285,10 @@ Recurring recurringFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
         skipped: {
           for (final day in _list(json, 'skipped') ?? const [])
             _date(_words(day)),
+        },
+        openFrom: switch (json['openFrom']) {
+          final String day => _date(day),
+          _ => null,
         },
       ),
     );

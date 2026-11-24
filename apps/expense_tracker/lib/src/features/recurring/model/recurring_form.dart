@@ -23,7 +23,8 @@ final class RecurringForm {
       active = old?.active ?? true,
       auto = old?.auto ?? false {
     category = old?.category ?? _firstCategory(false);
-    start = on ?? _firstDay();
+    _from = _opened = on ?? _firstDay();
+    day = old?.day ?? _from.day;
   }
 
   final Ledger ledger;
@@ -38,7 +39,27 @@ final class RecurringForm {
   String account;
   RepeatUnit unit;
   int every;
-  late DateTime start;
+
+  /// From when it falls due; a new item from the day it is made (R1).
+  DateTime get start => _from;
+  late DateTime _from;
+
+  /// Moving the start of an item whose day of the month is chosen keeps
+  /// that day (F82); a new item's follows the start until one is chosen.
+  set start(DateTime value) {
+    _from = value;
+    if (old == null && !_dayChosen) day = value.day;
+  }
+
+  /// The day of the month a monthly item falls due, set by
+  /// [setDayOfMonth].
+  late int day;
+
+  /// Whether [setDayOfMonth] chose [day].
+  var _dayChosen = false;
+
+  /// The start the form opened with.
+  late final DateTime _opened;
   DateTime? end;
   bool active;
 
@@ -115,12 +136,14 @@ final class RecurringForm {
   /// Paid on day [day] of the month: the start moves to the first such
   /// day on or after it (a 31st waits for a month that has one).
   void setDayOfMonth(int day) {
+    this.day = day;
+    _dayChosen = true;
     for (var k = 0; k < 12; k++) {
       final month = DateTime.utc(start.year, start.month + k);
       final candidate = DateTime.utc(month.year, month.month, day);
       if (candidate.month != month.month) continue;
       if (!candidate.isBefore(start) || k > 0) {
-        start = candidate;
+        _from = candidate;
         return;
       }
     }
@@ -139,11 +162,30 @@ final class RecurringForm {
     final found = recurringIssues(
       amount: amount,
       every: every,
-      day: start.day,
+      day: _day,
       start: start,
       end: end,
     );
     return found.isEmpty ? null : validationMessage(found.first);
+  }
+
+  /// The day of the month it is kept falling due on: [day] for a monthly
+  /// item, the start's for the rest.
+  int get _day => unit == RepeatUnit.month ? day : start.day;
+
+  /// The start it is kept with: none for an item from before items had
+  /// one whose rhythm was left as it was, so saving it unchanged does not
+  /// move its days (R1).
+  DateTime? get _keptStart {
+    final item = old;
+    final untouched =
+        item != null &&
+        item.start == null &&
+        start == _opened &&
+        unit == item.unit &&
+        every == item.every &&
+        day == item.day;
+    return untouched ? null : start;
   }
 
   /// The item as the form now stands.
@@ -152,18 +194,19 @@ final class RecurringForm {
     // Left without a name, it is called by its category.
     name: name.trim().isEmpty ? category : name.trim(),
     amount: amount,
-    day: start.day,
+    day: _day,
     account: account,
     category: category,
     active: active,
     unit: unit,
     every: every,
-    start: start,
+    start: _keptStart,
     end: end,
     income: income,
     merchant: old?.merchant ?? '',
     auto: auto,
     skipped: old?.skipped ?? const {},
+    openFrom: old?.openFrom,
   );
 
   /// How often it comes, such as 每月 5 日.
@@ -172,7 +215,7 @@ final class RecurringForm {
       id: '',
       name: '',
       amount: 0,
-      day: start.day,
+      day: _day,
       account: '',
       category: '',
       unit: unit,

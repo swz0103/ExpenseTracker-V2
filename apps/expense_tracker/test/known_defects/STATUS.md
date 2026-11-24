@@ -10,9 +10,7 @@ The expectations were written against today's APIs. A fix that changes an API (f
 |---|---|---|---|---|
 | BUD-01 | 2.2 | p2_2_budgets_test.dart | yes | raising the limit on Dec 10 rewrites November allowance to 15,000 (expects 10,000) |
 | F14 | 2.3 | p2_3_recurring_test.dart | yes | auto-booking adds a second entry on the day already entered by hand |
-| F82 | 2.3 | p2_3_recurring_test.dart | yes | moving the start to the 1st turns the day 10 into 1 |
 | LOG-01 | 2.3 | p2_3_recurring_test.dart | yes | bookDue books 1 entry for a US$ item with no rate |
-| LOG-09 | 2.3 | p2_3_recurring_test.dart | yes | after moving a booked entry to Sep 30, pendingDate is Oct 1 (expects null) |
 | REC-01 | 2.3 | p2_3_recurring_test.dart | yes | resuming books April-November entries at once |
 | ACC-01 | 2.4 | p2_4_accounts_test.dart | yes | a reconciliation adjustment of 2,000 counts as 2,000 of spending |
 | ACC-02 | 2.4 | p2_4_accounts_test.dart | yes | 2 tests; bank to card flips +5,000 to -5,000; a US$ account can become a card |
@@ -40,7 +38,7 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | JRN-09 | 待決定 | p2_0_journal_test.dart | yes | old shape: a record naming an account the book does not keep (1) |
 | JRN-10 | 待決定 | p2_0_journal_test.dart | yes | old shape: instalments on an account that is not a card (1) |
 
-31 findings covered.
+29 findings covered.
 
 ## fixed in CORR-1
 
@@ -218,6 +216,19 @@ Findings of review round 8, no known-defect tests; the tests named cover them.
 - Hard-coded rate and alert cap: `packages/ledger/trade_costs/test/calc/charges_test.dart`, `test/design_system/display/amount_test.dart`, `test/app/android/notification_adapter_test.dart`, `android/app/src/test/.../ReminderAlarmsTest.kt`, device test in `ReminderAlarmsDeviceTest.kt`
 - D56/D81 (wording): rule `test/rules/glossary_rules_test.dart`
 - D41 (concurrency): `infrastructure/storage/test/encrypted_database_test.dart` (built with threads), `test/core/platform/store_threading_test.dart`, `test/core/ledger/persistence/sql_ledger_data_source_test.dart` (a backup starting the moment the last one ends), `test/features/backup/model/drive_backup_test.dart` (every page listed); the quarantine fingerprint was already cleared with its set, `test/app/quarantine_notices_test.dart`
+
+## fixed in CORR-2
+
+Work package CORR-2 (recurring items and state transitions). The two known-defect tests run unskipped in `p2_3_recurring_test.dart`; the other findings are stated by the ordinary tests named, among them the invariant tests of reviews 5 and 6 now in the suite.
+
+- F82, R4: `p2_3_recurring_test.dart`; `test/features/recurring/model/recurring_form_test.dart` (CORR-2 group), `test/core/ledger/models/recurring_test.dart`, `test/core/ledger/commands/recurring_commands_test.dart` (days let go no longer fallen on are forgotten)
+- LOG-09: `p2_3_recurring_test.dart`; `test/core/ledger/services/recurring_service_test.dart` (group "matching bookings to days")
+- R1, R3, R5: `test/core/ledger/models/recurring_test.dart`, `test/features/recurring/model/recurring_form_test.dart`, `test/core/ledger/services/recurring_service_test.dart` (R3 yearly every three years; R5 a foreign day gone by), `test/core/ledger/commands/recurring_commands_test.dart`
+- D66, D61, D68: `test/scenarios/recurring/recurring_invariants_test.dart` (review 5's Q1–Q6b, Q4 and Q6b now hold), `test/core/ledger/commands/recurring_commands_test.dart`, `test/scenarios/ledger/recurring_booking_test.dart`, `test/features/reminders/model/reminders_test.dart`, `test/core/messages/recurring_messages_test.dart`
+- D75, D76: `test/scenarios/ledger/state/inverse_test.dart` (D1, D1o, D2, D3), `form_test.dart` (K1, K2), `persist_test.dart` (P1, P4: memory equals the book reopened), `test/core/ledger/repositories/entry_repository_test.dart`, `trash_repository_test.dart`, `infrastructure/storage/test/encrypted_database_test.dart` (a record moved and back keeps its place), `test/scenarios/ledger/trash_test.dart`
+- D77: `test/scenarios/ledger/state/persist_test.dart` (T1), `test/scenarios/ledger/trash_test.dart`
+- D78: `test/scenarios/ledger/state/persist_test.dart` (T2), `inverse_test.dart` (I2), `test/features/entries/ui/trash_section_test.dart`, `test/core/messages/trash_messages_test.dart`
+- D79, D80: `test/scenarios/ledger/state/form_test.dart` (DR2, DR3), `packages/ledger/entries/test/model_test.dart`, `test/core/ledger/persistence/codec/record_json_test.dart`
 
 ## not covered
 

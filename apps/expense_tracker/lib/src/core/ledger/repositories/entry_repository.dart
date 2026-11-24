@@ -5,8 +5,16 @@ import '../models/models.dart';
 /// What the screens and queries may ask of the entries: no way to change
 /// them.
 abstract interface class EntryReader {
-  /// Every entry in the order written; the list cannot be changed.
+  /// Every entry in the order written; the list cannot be changed. An
+  /// entry brought back from the trash or by an undo is back in its own
+  /// place (D75), so this order is the entries' history, whatever was
+  /// done since.
   List<Entry> get all;
+
+  /// Where the entry [id] stands in the order written: its place, kept
+  /// while it is in the trash. Every tie between entries of a day is
+  /// broken by it (D76), never by where an entry happens to be held.
+  int orderOf(String id);
 
   int get length;
 
@@ -43,6 +51,14 @@ abstract interface class EntryReader {
   int versionOf(String account);
 }
 
+/// The order every list of entries is shown in, newest first: by day,
+/// then the later written first (D76), as [EntryReader.orderOf] keeps it.
+/// The one tie-break, whatever the entries' place in memory.
+Comparator<Entry> newestFirst(EntryReader book) => (a, b) {
+  final byDay = b.date.compareTo(a.date);
+  return byDay != 0 ? byDay : book.orderOf(b.id).compareTo(book.orderOf(a.id));
+};
+
 /// Every entry of the book, in the order written, with what is asked of
 /// them again and again (by month, by day, by id, refunds) worked out
 /// once, on the first ask, and then kept up to date as entries are added,
@@ -53,9 +69,76 @@ abstract interface class EntryReader {
 ///
 /// A list for the commands that write; the screens see an [EntryReader].
 final class EntryRepository implements EntryReader {
-  EntryRepository([Iterable<Entry> entries = const []]) : _items = [...entries];
+  /// [entries] in the order written; [order] gives each its place, as
+  /// the book kept it (each in turn when not given).
+  EntryRepository([
+    Iterable<Entry> entries = const [],
+    Map<String, int> order = const {},
+  ]) : _items = [...entries] {
+    for (final (i, e) in _items.indexed) {
+      _order[e.id] = order[e.id] ?? i;
+    }
+    for (final key in _order.values) {
+      if (key >= _next) _next = key + 1;
+    }
+  }
 
   final List<Entry> _items;
+
+  /// Each entry's place in the order written, by id: kept after it is
+  /// taken away, for it to come back to.
+  final _order = <String, int>{};
+
+  /// The place of the next entry written.
+  var _next = 0;
+
+  @override
+  int orderOf(String id) => _order[id] ?? _next;
+
+  /// Notes that [place] is taken, as by an entry in the trash, so no entry
+  /// written later is put before it; with [id], that it is that entry's,
+  /// for it to come back to.
+  void reserve(int place, {String? id}) {
+    if (place >= _next) _next = place + 1;
+    if (id != null) _order.putIfAbsent(id, () => place);
+  }
+
+  /// Puts [entry] back in its place [place] in the order written (D75):
+  /// after every entry before it, before every entry after; last when
+  /// [place] is null.
+  void restoreAt(Entry entry, int? place) {
+    if (place == null) return add(entry);
+    reserve(place);
+    var low = 0;
+    var high = _items.length;
+    while (low < high) {
+      final middle = (low + high) >> 1;
+      if (orderOf(_items[middle].id) < place) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    _order[entry.id] = place;
+    if (low >= _items.length) {
+      _items.add(entry);
+      _noteAdded(entry);
+    } else {
+      _discard();
+      _items.insert(low, entry);
+    }
+  }
+
+  /// Takes the entries of [other] and where each stands, as when the book
+  /// is read again.
+  void replaceWith(EntryRepository other) {
+    clear();
+    _order
+      ..clear()
+      ..addAll(other._order);
+    _next = other._next;
+    _items.addAll(other._items);
+  }
 
   /// More entries added at once than this are not followed one by one.
   static const _followed = 64;
@@ -224,6 +307,7 @@ final class EntryRepository implements EntryReader {
   void operator []=(int index, Entry entry) {
     final old = _items[index];
     _items[index] = entry;
+    _order.putIfAbsent(entry.id, () => orderOf(old.id));
     _touch(old);
     _touch(entry);
     if (old.id == entry.id && old.date == entry.date) {
@@ -260,12 +344,16 @@ final class EntryRepository implements EntryReader {
   }
 
   void add(Entry element) {
+    _order[element.id] = _next++;
     _items.add(element);
     _noteAdded(element);
   }
 
   void addAll(Iterable<Entry> iterable) {
     final added = iterable.toList();
+    for (final e in added) {
+      _order[e.id] = _next++;
+    }
     _items.addAll(added);
     if (added.length > _followed) {
       _discard();
@@ -275,7 +363,12 @@ final class EntryRepository implements EntryReader {
   }
 
   void insert(int index, Entry element) {
-    if (index >= _items.length) return add(element);
+    if (index >= _items.length) {
+      _items.add(element);
+      _order.putIfAbsent(element.id, () => _next++);
+      return _noteAdded(element);
+    }
+    _order.putIfAbsent(element.id, () => _next++);
     _discard();
     _items.insert(index, element);
   }
