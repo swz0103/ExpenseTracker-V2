@@ -1,4 +1,5 @@
 import '../ledger/ledger.dart';
+import '../../../design_system/display/amount.dart';
 import '../../../design_system/display/date.dart';
 import 'validation_messages.dart';
 
@@ -54,6 +55,12 @@ String heldBody(List<HeldBooking> held) => [
   for (final h in held) heldLine(h),
   '確認後各期記在自己的日期；不確認的話，可到「定期交易」逐期入帳',
 ].join('\n');
+
+/// The yes of [heldTitle].
+const heldConfirm = '全部入帳';
+
+/// What was booked once the person confirmed: 已記下 3 筆定期交易.
+String heldBooked(int count) => '已記下 ${countOf(count, CountUnit.entries)}定期交易';
 
 /// What could not be booked by itself, told once.
 const heldRefusedTitle = '定期交易未自動入帳';

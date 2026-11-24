@@ -458,7 +458,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       final ok = await confirm(
         context,
         heldTitle,
-        '全部入帳',
+        heldConfirm,
         body: heldBody(asked),
       );
       if (ok) {
@@ -467,7 +467,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
           count += ledger.recurringCommands.bookDays(h.item, h.days);
         }
         if (mounted && count > 0) {
-          showNote(context, '已記下 ${countOf(count, CountUnit.entries)}定期交易');
+          showNote(context, heldBooked(count));
         }
       }
     }

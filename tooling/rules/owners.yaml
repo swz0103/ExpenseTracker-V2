@@ -451,6 +451,23 @@ items:
       - apps/expense_tracker/lib/src/features/entries/ui/trash_section.dart
     target: apps/expense_tracker/lib/app/commands/
     status: scattered
+  # D75/D76: each entry's place in the order written, kept while it is in
+  # the trash, and the one tie-break of every list (newestFirst).
+  - id: entry-order
+    what: 紀錄的先後順序（同日排序、救回原位）
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/repositories/entry_repository.dart
+    target: packages/ledger/entries/lib/rules/
+    status: owned
+  # D80: a transfer's category as read and as saved.
+  - id: transfer-category
+    what: 轉帳的分類
+    layer: ledger
+    owner:
+      - packages/ledger/entries/lib/model/entry.dart
+    target: packages/ledger/entries/lib/model/
+    status: owned
   - id: navigation-entrypoints
     what: 導覽與快速動作的入口
     layer: app

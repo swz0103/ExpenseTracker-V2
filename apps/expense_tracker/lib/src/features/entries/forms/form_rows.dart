@@ -7,6 +7,7 @@ import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../../design_system/display/amount.dart';
 import '../../../core/widgets/icons.dart';
+import '../../../core/messages/amount_messages.dart';
 import '../model/compose_form.dart';
 import 'choice_strip.dart';
 import 'compose_actions.dart';
@@ -106,7 +107,7 @@ final class CurrencyFields {
         sub: _f.home != null || rate == null
             ? null
             : _f.date.isBefore(_f.ledger.today)
-            ? '以今日臺銀即期買入 $rate 估算，請改成當日金額'
+            ? estimatedAtTodaysRate(rate)
             : '臺銀即期買入 $rate',
         onTap: () async {
           final typed = await _a.ask('折合新台幣', value ?? 0);

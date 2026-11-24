@@ -76,6 +76,8 @@ void main() {
       ]);
       expect(heldTitle, '有定期交易多期尚未入帳');
       expect(heldRefusedTitle, '定期交易未自動入帳');
+      expect(heldConfirm, '全部入帳');
+      expect(heldBooked(3), '已記下 3 筆定期交易');
     });
   });
 }
