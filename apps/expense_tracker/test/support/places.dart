@@ -6,11 +6,20 @@ import 'package:expense_tracker/src/app/shell.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
+import 'package:expense_tracker/src/features/backup/model/backup_manager.dart';
+import 'package:expense_tracker/src/features/reminders/model/calendar_sync.dart';
 import 'package:expense_tracker/src/features/settings/model/platform_services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'built_places.dart';
+import 'fake_calendar.dart';
+import 'place.dart';
+import 'review_book.dart';
+
+export 'place.dart';
 
 /// Every page of the app and how to reach it, for the layout check
 /// (layout_*_test.dart) and the screenshots (tool/screenshots).
@@ -105,6 +114,62 @@ const places = <(String, List<String>)>[
   ('記一筆 計算機', ['~記一筆', '~金額']),
 ];
 
+/// More places, reached on [reviewLedger] with a password, a fingerprint,
+/// a phone with a calendar to link: what the demo ledger has none of.
+const reviewPaths = <(String, List<String>)>[
+  ('紀錄 預定與退款', ['紀錄']),
+  ('檢視預定', ['紀錄', '朋友聚餐訂位']),
+  ('檢視退款', ['紀錄', '退款']),
+  ('預算 預估', ['更多', '預算管理']),
+  ('信用卡 順延', ['帳戶', '國慶信用卡']),
+  ('券商帳戶', ['帳戶', '永豐證券']),
+  ('編輯券商帳戶', ['帳戶', '永豐證券', '編輯']),
+  ('記一筆 買進', ['~記一筆', '^投資']),
+  ('設定 通知與提醒', ['更多', '設定', '通知與提醒']),
+  ('設定 安全', ['更多', '設定', '安全']),
+];
+
+/// [reviewPaths] on [reviewLedger], with its keys and calendar.
+final reviewPlaces = <Place>[
+  for (final (name, taps) in reviewPaths)
+    Place('review: $name', (tester, look) async {
+      final dir = Directory.systemTemp.createTempSync('places-');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      await show(
+        tester,
+        look.width,
+        look.text,
+        height: look.height,
+        still: look.still,
+        scaler: look.scaler,
+        book: reviewLedger(),
+        keys: ReviewKeys(),
+        calendar: CalendarSync(FakeCalendars(), dir),
+      );
+      await go(tester, taps);
+    }),
+];
+
+/// Every place, to check: the paths of [places] on the demo ledger, the
+/// paths of [reviewPaths] on [reviewLedger], and what is built where it
+/// stands ([builtPlaces]).
+final allPlaces = <Place>[
+  for (final (name, taps) in places)
+    Place(name, (tester, look) async {
+      await show(
+        tester,
+        look.width,
+        look.text,
+        height: look.height,
+        still: look.still,
+        scaler: look.scaler,
+      );
+      await go(tester, taps);
+    }),
+  ...reviewPlaces,
+  ...builtPlaces,
+];
+
 /// The demo ledger's app, [width] wide and [height] high, with the text
 /// at [text], and motion turned off when [still]; [key] wraps it, such as
 /// to take a picture of it.
@@ -117,6 +182,8 @@ Future<void> show(
   Ledger? book,
   bool still = false,
   TextScaler? scaler,
+  BackupManager? keys,
+  CalendarSync? calendar,
 }) async {
   final preferences = Preferences();
   final ledger = book ?? demoLedger();
@@ -148,7 +215,8 @@ Future<void> show(
             notifier: stand.notifier,
             privacy: stand.privacy,
             market: stand.market,
-            backupManager: stand.backupManager,
+            backupManager: keys ?? stand.backupManager,
+            calendar: calendar,
           ),
         ),
       ),

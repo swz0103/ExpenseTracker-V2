@@ -442,6 +442,7 @@ class _UnlockViewState extends State<UnlockView>
     constraints: const BoxConstraints(minHeight: Space.target),
     child: Center(
       child: TextButton(
+        key: Keys.forgot,
         onPressed: widget.busy ? null : widget.onRecovery,
         style: wordButton(
           AppColors.muted,

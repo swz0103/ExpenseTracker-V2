@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../core/design_system/components/buttons.dart';
 import '../core/design_system/keys.dart';
+import '../core/design_system/theme.dart';
 import '../core/diagnostics/error_log.dart';
 import '../core/diagnostics/error_steps.dart';
 import '../core/ledger/persistence/quarantine.dart';
@@ -52,16 +54,19 @@ Future<bool> showQuarantineNotice(
     await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: AppColors.panel,
         title: Text(quarantineTitle(rows.length)),
         content: Text(quarantineBody(rows)),
         actions: [
           TextButton(
             key: Keys.quarantine('export'),
+            style: wordButton(AppColors.accent),
             onPressed: onExport,
             child: const Text(quarantineExport),
           ),
           TextButton(
             key: Keys.quarantine('restore'),
+            style: wordButton(AppColors.accent),
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text(quarantineRestore),
           ),

@@ -37,8 +37,9 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | JRN-08 | 待決定 | p2_0_journal_test.dart | yes | old shape: a trade paid from or into a foreign account, the same number (1) |
 | JRN-09 | 待決定 | p2_0_journal_test.dart | yes | old shape: a record naming an account the book does not keep (1) |
 | JRN-10 | 待決定 | p2_0_journal_test.dart | yes | old shape: instalments on an account that is not a card (1) |
+| DAY-01 | 待決定 | r15_day_targets_test.dart | yes | 2 tests; the week strip and the recurring calendar have day cells 37-47 dp wide at 320 and 360 dp (seven across), under Android's 48 dp |
 
-29 findings covered.
+30 findings covered.
 
 ## fixed in CORR-1
 

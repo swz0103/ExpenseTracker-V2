@@ -84,6 +84,17 @@ void main() {
     handle.dispose();
   });
 
+  testWidgets('a refund row reads 退款，原：午餐, without its ↩ glyph', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    final ledger = book();
+    await show(tester, ledger, back);
+    expect(find.bySemanticsLabel(RegExp('退款，原：午餐')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('↩')), findsNothing);
+    handle.dispose();
+  });
+
   test('D9: a refund reads 退款, income still reads 收入', () {
     expect(entrySpoken(back), '退款 300 元');
     final pay = Entry(
