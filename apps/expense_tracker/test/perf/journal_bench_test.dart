@@ -127,16 +127,19 @@ void main() {
         clock: clock,
         keepsJournal: true,
       );
-      final (result: ledger, heldUs: heldUs) = await timeHeld(() async {
-        opening.start();
-        final opened = await firstOpen.load();
-        openMs = opening.elapsedMilliseconds;
+      // The book on the screen: how long, and the longest hold.
+      opening.start();
+      final (result: ledger, heldUs: openHeldUs) = await timeHeld(
+        firstOpen.load,
+      );
+      openMs = opening.elapsedMilliseconds;
+      // Then the journal posted and written: the longest hold meanwhile.
+      final (result: _, heldUs: heldUs) = await timeHeld(() async {
         while (store.busyApart) {
           await store.idle;
         }
-        opening.stop();
-        return opened;
       });
+      opening.stop();
       final rebuildMs = opening.elapsedMilliseconds;
       final held = heldUs ~/ 1000;
       expect(store.journal.mark, (
@@ -215,6 +218,7 @@ void main() {
       final monthUs = median(() => reader.month(today_.previous.firstOfMonth));
       final found = {
         'open_100k_ms': openMs,
+        'open_held_ms': openHeldUs ~/ 1000,
         'rebuild_100k_ms': rebuildMs,
         'rebuild_held_ms': held,
         'repost_100k_ms': repostMs,

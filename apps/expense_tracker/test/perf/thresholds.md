@@ -70,25 +70,33 @@ the limit before it (a figure whose doubled run would be, `save_posting_us`
 and `month_report_us`, keeps its earlier limit). Not measured on a phone:
 expect about two times these there (the emulator section above).
 
-| key | what | measured | limit |
-|---|---|---|---|
-| `rebuild_100k_ms` | every posting thrown away and posted afresh from the records, as the app does it on first opening: decoding, mapping and posting on worker isolates (`journalApartChunk` records at a time, each part let go once written), written in one transaction with the indexes made after and the mark last (`EncryptedDatabase.postApart`) | 3,726 / 3,678 / 3,798 ms (load 11 on four cores; three isolates in parallel, quiet: 2,610–2,875) | 6,000 ms |
-| `rebuild_held_ms` | the longest the screen's isolate was held meanwhile (`test/support/held.dart`) | 160 / 39 / 45 ms (the bench's own book just made in this isolate) | 250 ms |
-| `save_posting_us` | one entry's posting and the journal's mark, one transaction, `synchronous=FULL` | 536 / 574 / 882 µs, one run 2,279 under load | 3,000 µs |
-| `every_balance_us` | every account's balance today, from the months' sums and this month's postings | 955 / 538 / 520 µs | 2,000 µs |
-| `month_report_us` | a month's income and spending by category | 89 / 44 / 52 µs | 130 µs |
+| key | what | measured, load 1.6–2.6 (2026-11-24, round 2, before D87) | measured, load 15–17 (after D87 and the holdings read on the worker) | limit |
+|---|---|---|---|---|
+| `open_100k_ms` | the first opening after this version until the book is on the screen: every row read, decoded and brought up once on a worker (`book_opening.dart`, `EncryptedDatabase.workApart`), the holdings replayed there too | 1,131–1,258 ms | 1,706–2,367 ms | 2,700 ms |
+| `open_held_ms` | the longest the screen's isolate was held meanwhile: only adopting what the worker made (target < 100 ms) | 90–159 ms (the `Ledger` replayed the holdings here then) | 66 ms | 100 ms |
+| `rebuild_100k_ms` | from the start of that opening until every posting is written: the same worker posts the decoded entries (`postBook`, `journalApartChunk` at a time) into one transaction, indexes after, the mark last | 2,839–3,307 ms | 4,710–5,378 ms | 6,000 ms |
+| `rebuild_held_ms` | the longest the screen's isolate was held while the journal was posted (the book sent to it as a copy, then collected) | 90–113 ms | 266–315 ms (over its limit at this load) | 250 ms |
+| `repost_100k_ms` | posting the whole book afresh later, from the records alone (`postApart`: the posting rules changed, a change the keeper could not follow) | 2,662–2,794 ms | 3,429–6,197 ms | 6,000 ms |
+| `save_posting_us` | one entry's posting and the journal's mark, one transaction, `synchronous=FULL` | 777–804 µs | 1,055–2,852 µs | 3,000 µs |
+| `every_balance_us` | every account's balance today, from the months' sums and this month's postings | 557–908 µs | 582–1,144 µs | 2,000 µs |
+| `month_report_us` | a month's income and spending by category | 38–55 µs | 44–63 µs | 130 µs |
 
-Measured 2026-11-24 after D51 (before it: the rebuild 11,788 / 12,698 /
-12,157 ms in the screen's isolate, 1,000 intents a transaction, limit
-26,000 ms; every balance 1,611 / 1,048 / 1,454 µs, limit 3,500 µs). Where
-the rebuild's time goes at 100k (one isolate, JIT): decoding the records
-350–500 ms, making entries 170–330, mapping 160–300, posting 450–900; in
-SQL intents and streams 190–280, postings 290–550, the indexes made after
-420–720, the months' sums 54–120, the commit 400–600. Posting in three isolates at
-once saved a few hundred ms but held the screen up to 200 ms: isolates
-of one group share their collections of garbage, and what survives each
-is copied while every isolate waits. So one worker posts and writes
-1,000 records at a time and lets each part go.
+Before D51 the rebuild took 11,788–12,698 ms in the screen's isolate
+(limit then 26,000 ms). Where the time went at 100k before round 2
+(round 1's single worker, load 1.2): reading the rows 258–308 ms, decoding
+158–207, making entries 128–173, mapping 54–62, posting 248–308; in SQL the
+inserts 785–930, the indexes made after 330, the commit 235–269. Round 2:
+the book is decoded once, for the screens and the journal (the read,
+decode and entries leave the rebuild); intents and accounts are named by
+integer keys in the journal tables (a 100k posting write on 22-character
+ids 834–1,013 → 471–506 ms, 30 → 13 MB); every journal query reads through
+one of the five indexes (EXPLAIN QUERY PLAN), so none is dropped. The
+figures under load 15–17 (four cores) are about twice the quiet ones and
+are not a basis for a limit; the emulator bench decides what is next.
+Isolates of one group share their collections of garbage: what the
+opening's worker leaves is collected while every isolate waits, which is
+why the book comes back whole (handed over, not copied) when nothing is
+to be posted.
 
 The save gate (`save_scale_gate_test.dart`) counts the journal's update in
 the save it times, so a journal update that grows with the book fails it in
@@ -97,7 +105,11 @@ opening after this version, after a restore, after an older version wrote
 records, or when the posting rules change). `journal_rebuild_gate_test.dart`
 gates, in the ordinary `flutter test`, the longest hold of the screen's
 isolate while a 20,000-entry book is posted afresh, as a share of posting
-it at once there (at most 0.045, as the batch-write gate below).
+it at once there (at most 0.045, as the batch-write gate below). Both
+share gates take the least of `gateTries` (3) runs of each side
+(`leastOf`, `test/support/held.dart`): what the code holds is held every
+time, while a machine busy elsewhere or another isolate's garbage
+collection stalls a run now and then.
 
 ## Batch writes on the computer (`batch_write_block`, DAT-03)
 

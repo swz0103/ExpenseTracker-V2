@@ -1,5 +1,6 @@
 {
   "open_100k_ms": 2700,
+  "open_held_ms": 100,
   "rebuild_100k_ms": 6000,
   "rebuild_held_ms": 250,
   "save_posting_us": 3000,

@@ -27,28 +27,47 @@ typedef AddPart = void Function(FreshPostingStore part);
 /// The work of opening the book on a worker isolate beside the records
 /// (`EncryptedDatabase.workApart`), decision D51: every row read in one
 /// read and decoded once ([decodeBook]); what has expired dropped
-/// ([DecodedBook.expired], [trashFrom]); the book sent to [books] for the
-/// screens; then, when the journal is kept by [rules] and is not the
-/// records' own, the whole book posted afresh from the same entries
-/// ([postBook]), the mark of the records' revision kept last. What
-/// posting found; null when nothing was posted. Made here, at the top
+/// ([DecodedBook.expired], [trashFrom]); the holdings replayed as of
+/// [today]. When the journal is kept by [rules] and is not the records'
+/// own, the book is sent to [books] for the screens and posted afresh
+/// from the same entries ([postBook]), the mark of the records' revision
+/// kept last; otherwise it is answered. Made here, at the top
 /// level, so the closure carries only what it is given.
-Future<ReplayReport?> Function(ApartStore) openingWork({
+Future<OpenedBook> Function(ApartStore) openingWork({
   required SendPort books,
+  required DateTime today,
   required DateTime trashFrom,
   required int? rules,
 }) => (store) async {
-  final book = decodeBook(shelvesOf(store.read().rows), trashFrom: trashFrom);
+  final book = decodeBook(
+    shelvesOf(store.read().rows),
+    trashFrom: trashFrom,
+    today: today,
+  );
   if (book.expired.isNotEmpty) {
     store.write(book.expired, counts: book.expiredCounts);
   }
+  final mark = rules == null ? null : (rules: rules, revision: store.revision);
+  if (mark == null || store.journal.mark == mark) {
+    // Nothing to post: the book goes back whole as the worker ends,
+    // handed over, never copied (a copy left for the screen's isolate to
+    // collect held it at the next large change).
+    return (book: book, posted: null);
+  }
+  // Sent now, a copy, so the screens open while the book is posted.
   books.send(book);
-  if (rules == null) return null;
-  final mark = (rules: rules, revision: store.revision);
-  if (store.journal.mark == mark) return null;
   final start = holdingsOf(marketFrom(readableMarket(book.market)));
-  return store.post((add) async => postBook(book, add, start), mark: mark);
+  final posted = await store.post(
+    (add) async => postBook(book, add, start),
+    mark: mark,
+  );
+  return (book: null, posted: posted);
 };
+
+/// What opening the book on its worker answers: the book itself when
+/// nothing was posted (else it was sent as soon as it was read), and what
+/// posting afresh found.
+typedef OpenedBook = ({DecodedBook? book, ReplayReport? posted});
 
 /// The work of posting the whole book afresh, to run on a worker isolate
 /// beside the records (`EncryptedDatabase.postApart`): it reads the

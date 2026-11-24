@@ -7,6 +7,8 @@ import 'package:expense_tracker/src/core/ledger/persistence/write_batch.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
 
+import '../support/held.dart';
+
 /// A merchant renamed on 20,000 entries does not hold the screen still
 /// (DAT-03): the rows are made a slice at a time and kept on a worker
 /// isolate. Measured as the longest the isolate is held, against the
@@ -89,8 +91,9 @@ void main() {
     // Warm up both paths first, so neither is charged for compiling.
     await rename(1 << 30);
     await rename(writeApartFrom);
-    final atOnce = await rename(1 << 30);
-    final apart = await rename(writeApartFrom);
+    // The least of a few runs each, the one apart first (held.dart).
+    final apart = await _least(() => rename(writeApartFrom));
+    final atOnce = await _least(() => rename(1 << 30));
     final share = apart.block / atOnce.block;
     // ignore: avoid_print
     print(
@@ -99,5 +102,18 @@ void main() {
       '(${apart.total} ms in all); share ${share.toStringAsFixed(3)}',
     );
     expect(share, lessThanOrEqualTo(limit));
-  }, timeout: const Timeout(Duration(minutes: 3)));
+  }, timeout: const Timeout(Duration(minutes: 6)));
+}
+
+/// The run of [rename] that held the isolate least, of [gateTries].
+Future<({int block, int total})> _least(
+  Future<({int block, int total})> Function() rename,
+) async {
+  final blocks = <int, ({int block, int total})>{};
+  final least = await leastOf(gateTries, () async {
+    final r = await rename();
+    blocks[r.block] = r;
+    return r.block;
+  });
+  return blocks[least]!;
 }

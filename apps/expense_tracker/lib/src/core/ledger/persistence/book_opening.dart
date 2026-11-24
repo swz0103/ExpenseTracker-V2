@@ -8,6 +8,8 @@ import 'codec/record_json.dart';
 import 'codec/row_decoding.dart';
 import 'quarantine.dart';
 import 'record_version.dart';
+import '../repositories/holding_repository.dart'
+    show ReadHoldings, readHoldings;
 import 'write_batch.dart' show Collection;
 
 /// The shelf of the closes and board last fetched.
@@ -43,6 +45,7 @@ final class DecodedBook {
     required this.entrySeqs,
     required this.expired,
     required this.expiredCounts,
+    required this.holdings,
   });
 
   final List<Account> accounts;
@@ -79,6 +82,11 @@ final class DecodedBook {
   /// entry goes for good.
   final List<RowChange> expired;
   final bool expiredCounts;
+
+  /// The holdings replayed as of the day it was read for, worked out
+  /// with the book (on its worker as it opens, D51): what the ledger
+  /// adopts in place of replaying them itself. None without a day.
+  final ReadHoldings? holdings;
 }
 
 /// [rows] by shelf, in the order given.
@@ -99,6 +107,7 @@ Map<String, List<StoredRow>> shelvesOf(Iterable<StoredRow> rows) {
 DecodedBook decodeBook(
   Map<String, List<StoredRow>> shelves, {
   DateTime? trashFrom,
+  DateTime? today,
 }) {
   final aside = Quarantine();
   final json = _records(shelves, aside);
@@ -162,17 +171,19 @@ DecodedBook decodeBook(
         // A note that cannot be read is left as it is.
         if (notes[i] case {'at': final num at} when at < cutoff) row.id,
   ];
+  final entries = read(Collection.entry, (j) => entryFromJson(j, refs));
+  final market = shelves[marketShelf] ?? const <StoredRow>[];
   return DecodedBook._(
     accounts: read(Collection.account, accountFromJson),
     categories: categories,
-    entries: read(Collection.entry, (j) => entryFromJson(j, refs)),
+    entries: entries,
     budgets: read(Collection.budget, (j) => budgetFromJson(j, refs)),
     recurring: read(Collection.recurring, (j) => recurringFromJson(j, refs)),
     trash: [
       for (final t in trash.reversed)
         if (trashFrom == null || !t.on.isBefore(trashFrom)) t,
     ],
-    market: shelves[marketShelf] ?? const [],
+    market: market,
     receipts: {
       for (final row in shelves[Collection.receipt.name] ?? const <StoredRow>[])
         row.id: row.body,
@@ -197,6 +208,13 @@ DecodedBook decodeBook(
     ],
     // Only an entry gone for good is a change of the book.
     expiredCounts: expiredIds.isNotEmpty,
+    holdings: today == null
+        ? null
+        : readHoldings(
+            holdingsOf(marketFrom(readableMarket(market))),
+            entries,
+            today,
+          ),
   );
 }
 

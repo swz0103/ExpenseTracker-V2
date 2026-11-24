@@ -220,17 +220,24 @@ final class HoldingRepository implements HoldingReader {
     required DateTime today,
     bool lenient = false,
   }) {
-    final counted = countedOn(entries, today).toList();
-    if (lenient) {
-      _tolerated
-        ..clear()
-        ..addAll(Portfolio.replay(_start, entries, lenient: true).leftOut);
-    } else if (_newlyShort(entries) case final short?) {
+    if (lenient) return adopt(readHoldings(_start, entries, today));
+    if (_newlyShort(entries) case final short?) {
       // Every trade, the later ones too, must hold together; an old
       // book's short trade, left out as it was read, stays left out.
       throw OversoldTrade(short);
     }
+    final counted = countedOn(entries, today).toList();
     _portfolio = Portfolio.replay(_start, counted, lenient: true);
+    _withChanges = null;
+  }
+
+  /// Takes [read] as the holdings: a book read elsewhere ([readHoldings],
+  /// on the book's worker as it opens, D51), as [replay] with `lenient`.
+  void adopt(ReadHoldings read) {
+    _tolerated
+      ..clear()
+      ..addAll(read.tolerated);
+    _portfolio = read.portfolio;
     _withChanges = null;
   }
 
@@ -243,4 +250,26 @@ final class HoldingRepository implements HoldingReader {
       ..addAll(copy);
     _withChanges = null;
   }
+}
+
+/// The holdings of a book just read, and the trades it held short.
+typedef ReadHoldings = ({Portfolio portfolio, Set<String> tolerated});
+
+/// The holdings of a book just read: replayed from [start] and the trades
+/// of [entries] that count on [today], every short trade left out; and
+/// those, kept as they are from then on ([HoldingRepository.adopt]). Pure
+/// values, so the book's worker works them out as it opens (D51).
+ReadHoldings readHoldings(
+  List<Holding> start,
+  List<Entry> entries,
+  DateTime today,
+) {
+  final all = Portfolio.replay(start, entries, lenient: true);
+  final counted = countedOn(entries, today).toList();
+  return (
+    portfolio: counted.length == entries.length
+        ? all
+        : Portfolio.replay(start, counted, lenient: true),
+    tolerated: {...all.leftOut},
+  );
 }

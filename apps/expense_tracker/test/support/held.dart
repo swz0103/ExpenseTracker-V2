@@ -23,3 +23,22 @@ Future<({T result, int heldUs})> timeHeld<T>(Future<T> Function() run) async {
   timer.cancel();
   return (result: result, heldUs: held);
 }
+
+/// The least of [tries] runs of [run]: what the code itself holds is held
+/// every time, while a machine busy elsewhere (the other tests of a full
+/// run sharing its cores) or a collection of another isolate's garbage
+/// stalls a run now and then. The share gates measure with it.
+Future<T> leastOf<T extends Comparable<Object>>(
+  int tries,
+  Future<T> Function() run,
+) async {
+  T? least;
+  for (var i = 0; i < tries; i++) {
+    final one = await run();
+    if (least == null || one.compareTo(least) < 0) least = one;
+  }
+  return least!;
+}
+
+/// How many runs a share gate takes the least of.
+const gateTries = 3;

@@ -96,6 +96,7 @@ final class Ledger extends ChangeNotifier {
     Map<String, DateTime> quoteDays = const {},
     Map<String, String> receipts = const {},
     Map<String, String> drafts = const {},
+    ReadHoldings? readHoldings,
   }) : _clock = clock ?? (() => today),
        _drafts = DraftRepository(drafts),
        _day = today,
@@ -116,7 +117,13 @@ final class Ledger extends ChangeNotifier {
       holdings,
       moveOf: _market.moveOf,
       quoteDayOf: (code) => _market.quoteDays[code] ?? _market.quotedOn,
-    )..replay(_entries.all, today: today, lenient: true);
+    );
+    // Worked out on the book's worker as it opened, else here.
+    if (readHoldings != null) {
+      _holdings.adopt(readHoldings);
+    } else {
+      _holdings.replay(_entries.all, today: today, lenient: true);
+    }
     amounts.addListener(_signal);
     final source = dataSource;
     if (source != null) {

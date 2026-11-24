@@ -305,10 +305,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final Future<ReplayReport?>? posting;
     final DecodedBook book;
     if (keepsJournal || _store.count > _decodeApart) {
-      (book, posting) = await _openApart(trashFrom);
+      (book, posting) = await _openApart(today, trashFrom);
     } else {
       posting = null;
-      book = decodeBook(await _shelves(), trashFrom: trashFrom);
+      book = decodeBook(await _shelves(), trashFrom: trashFrom, today: today);
       if (book.expired.isNotEmpty) {
         await _whenQuiet(
           () => _store.write(
@@ -340,6 +340,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       trash: book.trash,
       receipts: book.receipts,
       drafts: book.drafts,
+      readHoldings: book.holdings,
       dataSource: this,
     );
     if (!_aside.isEmpty) {
@@ -362,35 +363,35 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   /// the book decoded once, for the screens and the journal). The book,
   /// and what posting it found (null when nothing was posted).
   Future<(DecodedBook, Future<ReplayReport?>?)> _openApart(
+    DateTime today,
     DateTime trashFrom,
   ) async {
     final books = ReceivePort();
     try {
       // Taken in the turn the store is found free; the work itself runs on.
-      late final Future<ReplayReport?> work;
+      late final Future<OpenedBook> work;
       await _whenQuiet(() {
         work = _store.workApart(
           openingWork(
             books: books.sendPort,
+            today: today,
             trashFrom: trashFrom,
             rules: keepsJournal ? journalRules : null,
           ),
         );
       });
-      // The worker sends the book before it posts; it ends at once when
-      // it posts nothing. A fault before the book is sent is the opening's.
-      final first = await Future.any<Object?>([
-        books.first,
-        work.then((_) => null),
-      ]);
-      if (first is! DecodedBook) {
-        throw StateError('the book was not read');
-      }
-      if (!keepsJournal) {
-        await work;
-        return (first, null);
-      }
-      return (first, work);
+      // The book comes back whole when nothing is posted; else it is sent
+      // as soon as it is read, and posted on. A fault before either is the
+      // opening's.
+      final first = await Future.any<Object?>([books.first, work]);
+      return switch (first) {
+        DecodedBook() => (first, work.then((opened) => opened.posted)),
+        (book: final DecodedBook book, posted: _) => (
+          book,
+          keepsJournal ? Future<ReplayReport?>.value() : null,
+        ),
+        _ => throw StateError('the book was not read'),
+      };
     } finally {
       books.close();
     }
