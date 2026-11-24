@@ -49,13 +49,20 @@ AccountId moneyAccount(String id) => AccountId('acct:$id');
 AccountId pendingInstalments(AccountId account) =>
     AccountId('${account.value}:instalments');
 
-/// The account of the category [name] on the income side or the
-/// spending side. By name, as the records name categories and the
-/// reports count them: a category deleted since keeps its account, and
-/// a name used on both sides (income under a spending category) is two
-/// accounts, each counted as today.
-AccountId categoryAccount(String name, {required bool income}) =>
-    AccountId('cat:${income ? 'income' : 'spending'}:$name');
+/// The account of the category [id] on the income side or the spending
+/// side. By the category's id (decision D88), so a category renamed keeps
+/// its postings: the account's name is the category's, and follows it.
+AccountId categoryAccount(String id, {required bool income}) =>
+    AccountId('cat:${_side(income)}:$id');
+
+/// The account of a category the book does not keep under [name] on that
+/// side (deleted since, or a name used on the other side, as income under
+/// a spending category): by the name the records give, as the reports
+/// count it.
+AccountId namedCategoryAccount(String name, {required bool income}) =>
+    AccountId('catname:${_side(income)}:$name');
+
+String _side(bool income) => income ? 'income' : 'spending';
 
 /// The account of the stock [code]'s shares.
 AccountId holdingAccount(String code) => AccountId('holding:$code');
@@ -161,4 +168,13 @@ abstract final class Slots {
 
   /// How many instalments a purchase is billed in: an int, 2 or more.
   static const instalments = 'instalments';
+}
+
+/// The order the amenders run in, lowest first: instalments spread a
+/// purchase's money line over its statements, then the foreign value
+/// restates every line not in its account's currency, the spread ones
+/// included.
+abstract final class AmenderOrder {
+  static const instalments = 10;
+  static const fx = 20;
 }

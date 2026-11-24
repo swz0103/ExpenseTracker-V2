@@ -131,12 +131,12 @@ final class FreshPostingStore implements PostingStore {
       if (from != null && p.date < from) continue;
       if (until != null && p.date > until) continue;
       final key = (p.account, p.currency);
-      total[key] = addSums(total[key] ?? (amount: 0, quantity: 0), (
+      total[key] = addSums(total[key] ?? noSum, (
         amount: p.amount,
         quantity: p.quantity,
       ));
     }
-    return total..removeWhere((_, s) => s.amount == 0 && s.quantity == 0);
+    return total..removeWhere((_, s) => isNoSum(s));
   }
 
   @override
@@ -148,7 +148,7 @@ final class FreshPostingStore implements PostingStore {
     for (final p in _byAccount[account] ?? const <Posting>[]) {
       if (until != null && p.date > until) continue;
       final key = (p.sub, p.currency);
-      total[key] = addSums(total[key] ?? (amount: 0, quantity: 0), (
+      total[key] = addSums(total[key] ?? noSum, (
         amount: p.amount,
         quantity: p.quantity,
       ));

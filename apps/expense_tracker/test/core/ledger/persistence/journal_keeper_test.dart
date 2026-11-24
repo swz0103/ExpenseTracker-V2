@@ -15,10 +15,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kernel/kernel.dart';
 import 'package:ledger_postings/model/vocabulary.dart';
 import 'package:storage/storage.dart';
+
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
+import '../../../baseline/baseline_ledger.dart' show entryOf;
 import '../../../scenarios/ledger/journal/awkward_book.dart';
 
 void main() {
@@ -101,8 +103,8 @@ void main() {
     expect(source.journal.lastParity, isA<InParity>());
   });
 
-  test('D48: a lot finer than a millionth of a share is rounded, counted '
-      'and told once, never an amount', () async {
+  test('D87: a lot of a fraction of a share is kept exactly, as the '
+      'holdings count it, kept and posted afresh alike', () async {
     // A new book: the kept one has an old oversold sale, which today's
     // write rules refuse any trade beside.
     final store = EncryptedDatabase.open(
@@ -143,22 +145,23 @@ void main() {
       ),
     ]);
     await settle(ledger, source);
-    // Posted afresh at the next opening: the rounding is counted there.
+    expect(source.journal.lastParity, isA<InParity>());
+    final exact = [BigInt.from(1007812500000), BigInt.from(127992187500000)];
+    expect([
+      for (final l in source.journal.reader.bySub(holdingAccount('9999')))
+        l.quantity,
+    ], exact);
+    // Posted afresh at the next opening: the same, nothing logged.
     store.write((w) => w.put('meta-free', 'x', '{}'));
     final before = ErrorLog.instance.count;
     final (_, again, _) = await openWithJournal(store);
-    expect(again.journal.lastReplay!.rounded, 2);
-    expect(ErrorLog.instance.count, before + 1);
-    final logged = ErrorLog.instance.entries.first.$2;
-    expect(logged, contains(ErrorSteps.journalUpdate));
-    expect(logged, contains('rounded'));
-    expect(
-      [
-        for (final l in again.journal.reader.bySub(holdingAccount('9999')))
-          l.quantity,
-      ],
-      [1007812, 127992188],
-    );
+    expect(again.journal.lastReplay, isNotNull);
+    expect(ErrorLog.instance.count, before);
+    expect(again.journal.lastParity, isA<InParity>());
+    expect([
+      for (final l in again.journal.reader.bySub(holdingAccount('9999')))
+        l.quantity,
+    ], exact);
   });
 
   test('each change kept is posted: an entry added, edited and taken '
@@ -217,7 +220,8 @@ void main() {
         for (final p in store.journal.postingsOfIntent(const IntentId('lunch')))
           (p.account.value, p.amount),
       ],
-      [('acct:cash', -90), ('cat:spending:飲食', 90)],
+      // The category's account by its id (D88).
+      [('acct:cash', -90), ('cat:spending:c-food', 90)],
     );
     expect(ledger.entryCommands.remove('lunch'), isNotNull);
     await settle(ledger, source);
@@ -473,6 +477,127 @@ void main() {
     expect(store.journal.postingCount, postings);
     expect(store.revision, revision);
     expect(source.journal.lastParity, isA<InParity>());
+  });
+
+  group('changes the journal must follow whole (review 9)', () {
+    Future<(Ledger, SqlLedgerDataSource, EncryptedDatabase)> fresh(
+      String name,
+    ) async {
+      final store = EncryptedDatabase.open(
+        File('${scratch.path}/$name.db'),
+        StorageKey.random(),
+      );
+      addTearDown(store.close);
+      final opened = await openWithJournal(store);
+      opened.$1.accountCommands.addAccount(
+        const Account('bank', '銀行', AccountKind.bank, 100000),
+      );
+      await settle(opened.$1, opened.$2);
+      return opened;
+    }
+
+    test('break 2: an import with a sale listed before its purchase is '
+        'posted in book order', () async {
+      final (ledger, source, store) = await fresh('order');
+      ledger.entryCommands.addAll([
+        entryOf(
+          'sell',
+          day(9, 2),
+          EntryType.sell,
+          2000,
+          'bank',
+          holding: 'A',
+          shares: 1,
+          category: 'x',
+        ),
+        entryOf(
+          'buy',
+          day(9, 1),
+          EntryType.buy,
+          1000,
+          'bank',
+          holding: 'A',
+          shares: 1,
+          category: 'x',
+        ),
+      ]);
+      await settle(ledger, source);
+      expect(ledger.holdings.byCode('A')?.shares ?? 0, 0);
+      expect(source.journal.reader.quantity(holdingAccount('A')), BigInt.zero);
+      expect(source.journal.lastParity, isA<InParity>());
+    });
+
+    test('break 9: an account whose currency changed posts its records '
+        'again', () async {
+      final (ledger, source, store) = await fresh('currency');
+      ledger.accountCommands.addAccount(
+        const Account('cash', '現金', AccountKind.cash, 0),
+      );
+      ledger.entryCommands
+        ..add(
+          entryOf(
+            'x',
+            day(9, 1),
+            EntryType.expense,
+            500,
+            'bank',
+            category: '飲食',
+          ),
+        )
+        ..add(
+          entryOf('t', day(9, 2), EntryType.transfer, 300, 'bank', to: 'cash'),
+        );
+      await settle(ledger, source);
+      ledger.accountCommands.updateAccount(
+        const Account('bank', '銀行', AccountKind.bank, 100000, currency: 'USD'),
+      );
+      await settle(ledger, source);
+      expect(source.journal.lastReplay, isNotNull);
+      expect(
+        {
+          for (final p in store.journal.postingsOfIntent(const IntentId('x')))
+            if (p.account == moneyAccount('bank')) p.currency.value,
+        },
+        {'USD'},
+      );
+      expect(source.journal.lastParity, isA<InParity>());
+    });
+
+    test('break 1: a category renamed keeps its postings, under its new '
+        'name (D88)', () async {
+      final (ledger, source, store) = await fresh('rename');
+      ledger.categoryCommands.addCategory(Category('飲食', 'food', 0xFF111111));
+      ledger.entryCommands.add(
+        entryOf('x', day(9, 1), EntryType.expense, 500, 'bank', category: '飲食'),
+      );
+      await settle(ledger, source);
+      final c = ledger.categories.all.firstWhere((c) => c.name == '飲食');
+      ledger.categoryCommands.updateCategory(
+        '飲食',
+        Category('美食', c.icon, c.color),
+      );
+      await settle(ledger, source);
+      expect(source.journal.lastParity, isA<InParity>());
+      final account = categoryAccount(c.id, income: false);
+      expect([
+        for (final p in store.journal.postingsOfIntent(const IntentId('x')))
+          p.account,
+      ], contains(account));
+      expect(
+        store.journal.accounts().firstWhere((a) => a.id == account).name,
+        '美食',
+      );
+      // Opened again: nothing to post afresh, still in parity.
+      final again = SqlLedgerDataSource(
+        store,
+        clock: keptClock,
+        keepsJournal: true,
+      );
+      await again.load();
+      await again.journal.settled;
+      expect(again.journal.lastReplay, isNull);
+      expect(again.journal.lastParity, isA<InParity>());
+    });
   });
 
   test('a 600-record merchant rename written apart reaches the journal, '

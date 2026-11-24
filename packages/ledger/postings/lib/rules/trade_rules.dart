@@ -20,13 +20,9 @@ import '../model/vocabulary.dart';
       : (currency, null);
 }
 
-/// [lines] and the lot lines [lots], with how many of those were
-/// rounded; or the lots' refusal.
+/// [lines] and the lot lines [lots]; or the lots' refusal.
 Posted _join(List<Line> lines, Posted lots) => switch (lots) {
-  Lines(lines: final more, :final rounded) => Lines([
-    ...lines,
-    ...more,
-  ], rounded: rounded),
+  Lines(lines: final more) => Lines([...lines, ...more]),
   Refused() => lots,
 };
 
@@ -45,7 +41,7 @@ final class OpeningPositionRule implements PostingRule<OpeningPosition> {
         holdingAccount(i.code),
         i.cost,
         currency,
-        quantity: quantityOfShares(i.shares),
+        quantity: quantityOfUnits(i.shares),
         sub: i.id.value,
       ),
       Line(Fixed.realisedGains, -i.realised, currency, sub: i.code),
@@ -73,7 +69,7 @@ final class BuyRule implements PostingRule<Buy> {
         holdingAccount(i.code),
         -paid,
         currency,
-        quantity: quantityOfShares(i.shares),
+        quantity: quantityOfUnits(i.shares),
         sub: i.id.value,
       ),
     ]);
@@ -147,7 +143,7 @@ final class DividendRule implements PostingRule<Dividend> {
           holding,
           0,
           held,
-          quantity: quantityOfShares(i.shares),
+          quantity: quantityOfUnits(i.shares),
           sub: i.id.value,
         ),
       ]);

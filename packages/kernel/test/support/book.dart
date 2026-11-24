@@ -122,10 +122,14 @@ final class BeansRule implements PostingRule<Beans> {
 
   @override
   Posted post(Beans i, RuleContext context) {
-    final held = context.before(jar).fold(0, (n, p) => n + p.quantity);
-    if (held + i.count < 0) return const Refused('tooFew', 'jar');
+    final held = context
+        .before(jar)
+        .fold(BigInt.zero, (n, p) => n + p.quantity);
+    if (held + BigInt.from(i.count) < BigInt.zero) {
+      return const Refused('tooFew', 'jar');
+    }
     return Lines([
-      Line(jar, i.amount, twd, quantity: i.count, sub: i.id.value),
+      Line(jar, i.amount, twd, quantity: BigInt.from(i.count), sub: i.id.value),
       Line(cash, -i.amount, twd),
     ]);
   }

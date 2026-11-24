@@ -1,27 +1,29 @@
 import 'day.dart';
 import 'ids.dart';
+import 'quantity.dart';
 
 /// One line a posting rule gives: [amount] in the smallest unit of
 /// [currency] on [account], positive a debit (an asset or a spending
 /// grows), negative a credit. Dated [date], or the intent's day when
 /// null (an instalment billed later is not). [quantity] counts units of
-/// what the account holds (shares, in [quantityScale] parts), 0 for
-/// money; [sub] is a key within the account (a lot of a holding).
+/// what the account holds (shares, in [quantityScale] parts, exactly),
+/// none for money; [sub] is a key within the account (a lot of a
+/// holding).
 final class Line {
-  const Line(
+  Line(
     this.account,
     this.amount,
     this.currency, {
     this.date,
-    this.quantity = 0,
+    BigInt? quantity,
     this.sub = '',
-  });
+  }) : quantity = quantity ?? noQuantity;
 
   final AccountId account;
   final int amount;
   final CurrencyCode currency;
   final Day? date;
-  final int quantity;
+  final BigInt quantity;
   final String sub;
 
   /// This line for [amount] of [currency] instead, all else kept.
@@ -32,7 +34,7 @@ final class Line {
 /// A kept posting: line [line] of intent [intent], which stands at
 /// [seq] among the intents of its day.
 final class Posting {
-  const Posting({
+  Posting({
     required this.intent,
     required this.line,
     required this.account,
@@ -40,9 +42,9 @@ final class Posting {
     required this.currency,
     required this.date,
     required this.seq,
-    this.quantity = 0,
+    BigInt? quantity,
     this.sub = '',
-  });
+  }) : quantity = quantity ?? noQuantity;
 
   final IntentId intent;
   final int line;
@@ -51,7 +53,7 @@ final class Posting {
   final CurrencyCode currency;
   final Day date;
   final int seq;
-  final int quantity;
+  final BigInt quantity;
   final String sub;
 
   @override

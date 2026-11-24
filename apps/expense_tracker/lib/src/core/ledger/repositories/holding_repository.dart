@@ -32,6 +32,11 @@ abstract interface class HoldingReader {
   /// The holding of [code]; null when none is held or quoted.
   Holding? byCode(String code);
 
+  /// Every stock held from the start or traded, as the trades leave it,
+  /// those [all] does not list included: what the journal's postings are
+  /// compared with.
+  List<Holding> get every;
+
   /// Whether [code] has a fetched close, rather than the price it was last
   /// bought at standing in for one.
   bool hasQuote(String code);
@@ -102,6 +107,9 @@ final class HoldingRepository implements HoldingReader {
 
   /// The starting positions, as fetched and kept.
   List<Holding> get start => List.unmodifiable(_start);
+
+  @override
+  List<Holding> get every => _replayed.every;
 
   @override
   List<Holding> get all => UnmodifiableListView(

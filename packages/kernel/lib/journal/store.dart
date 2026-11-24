@@ -24,7 +24,17 @@ final class IntentRow {
 }
 
 /// What postings add up to: money in minor units, and quantity.
-typedef AccountSum = ({int amount, int quantity});
+typedef AccountSum = ({int amount, BigInt quantity});
+
+/// Before every intent of a book, its openings included: where a whole
+/// stream is read from.
+const Position startOfBook = (date: Day.beforeAll, seq: 0);
+
+/// Nothing posted.
+final AccountSum noSum = (amount: 0, quantity: BigInt.zero);
+
+/// Whether [sum] is nothing.
+bool isNoSum(AccountSum sum) => sum.amount == 0 && sum.quantity == BigInt.zero;
 
 /// A sum by account and currency.
 typedef AccountSums = Map<(AccountId, CurrencyCode), AccountSum>;

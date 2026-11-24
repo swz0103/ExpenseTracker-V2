@@ -22,7 +22,7 @@ Posting p(
   currency: twd,
   date: d,
   seq: seq,
-  quantity: quantity,
+  quantity: BigInt.from(quantity),
   sub: sub,
 );
 
@@ -41,12 +41,9 @@ AccountSums scan(List<Posting> postings, int lo, int hi) {
   for (final x in postings) {
     if (x.date.ymd < lo || x.date.ymd > hi) continue;
     final k = (x.account, x.currency);
-    out[k] = addSums(out[k] ?? (amount: 0, quantity: 0), (
-      amount: x.amount,
-      quantity: x.quantity,
-    ));
+    out[k] = addSums(out[k] ?? noSum, (amount: x.amount, quantity: x.quantity));
   }
-  return out..removeWhere((_, s) => s.amount == 0 && s.quantity == 0);
+  return out..removeWhere((_, s) => isNoSum(s));
 }
 
 void main() {
@@ -111,8 +108,8 @@ void main() {
       throwsStateError,
     );
     expect(store.sums(), {
-      (bank, twd): (amount: 5, quantity: 0),
-      (food, twd): (amount: -5, quantity: 0),
+      (bank, twd): (amount: 5, quantity: BigInt.zero),
+      (food, twd): (amount: -5, quantity: BigInt.zero),
     });
     expect(store.intent(const IntentId('b')), isNull);
     expect(store.accounts().length, 6);
@@ -170,11 +167,11 @@ void main() {
       p('s', 0, jar, -30, day(3, 1), 3, quantity: -3, sub: 'b1'),
     ]);
     expect(store.subSums(jar), {
-      ('b1', twd): (amount: 70, quantity: 7), // 100 - 30, 10 - 3
-      ('b2', twd): (amount: 50, quantity: 4),
+      ('b1', twd): (amount: 70, quantity: BigInt.from(7)), // 100 - 30, 10 - 3
+      ('b2', twd): (amount: 50, quantity: BigInt.from(4)),
     });
     expect(store.subSums(jar, until: day(1, 31)), {
-      ('b1', twd): (amount: 100, quantity: 10),
+      ('b1', twd): (amount: 100, quantity: BigInt.from(10)),
     });
     store.keepMark((rules: 1, revision: 4));
     store.clear();

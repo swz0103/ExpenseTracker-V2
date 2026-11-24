@@ -189,11 +189,11 @@ items:
       - packages/kernel/lib/journal/
     target: packages/kernel/lib/journal/
     status: owned
-  # Account classes, the report flags (inNetWorth, inFlowReports), the
-  # quantity scale (a millionth of a unit, checked on the way in) and the
-  # one rounding to it (half-even, decision D48: roundedQuantity).
+  # Account classes, the report flags (inNetWorth, inFlowReports) and the
+  # quantity scale: 10^-12 of a unit, the app's own lot precision, exact
+  # (decision D87, in place of D48's rounding).
   - id: journal-accounts-scale
-    what: 帳戶類別、是否計入淨值／收支、數量刻度與其唯一的進位方式
+    what: 帳戶類別、是否計入淨值／收支、數量刻度（與 App 相同精度，不進位）
     layer: ledger
     owner:
       - packages/kernel/lib/model/accounts.dart

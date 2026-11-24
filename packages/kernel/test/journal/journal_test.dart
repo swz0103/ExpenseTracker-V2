@@ -35,8 +35,8 @@ void main() {
     expect((report.posted, report.postings), (1, 2));
     expect(report.stale, isEmpty);
     expect(b.store.sums(), {
-      (bank, twd): (amount: -120, quantity: 0),
-      (food, twd): (amount: 120, quantity: 0),
+      (bank, twd): (amount: -120, quantity: BigInt.zero),
+      (food, twd): (amount: 120, quantity: BigInt.zero),
     });
     final p = b.store.postingsOfIntent(const IntentId('m'));
     expect(
@@ -83,8 +83,8 @@ void main() {
       b.journal.put(Move('m', day(3, 2), 1, from: cash, to: food, amount: 50)),
     );
     expect(b.store.sums(), {
-      (cash, twd): (amount: -50, quantity: 0),
-      (food, twd): (amount: 50, quantity: 0),
+      (cash, twd): (amount: -50, quantity: BigInt.zero),
+      (food, twd): (amount: 50, quantity: BigInt.zero),
     });
     expect(b.store.intentCount, 1);
   });
@@ -206,11 +206,11 @@ void main() {
       ),
     );
     expect(b.store.sums(), {
-      (bank, twd): (amount: -3210, quantity: 0),
-      (dollars, usd): (amount: 10000, quantity: 0),
+      (bank, twd): (amount: -3210, quantity: BigInt.zero),
+      (dollars, usd): (amount: 10000, quantity: BigInt.zero),
       // The trading account takes the far side of each currency.
-      (trading, twd): (amount: 3210, quantity: 0),
-      (trading, usd): (amount: -10000, quantity: 0),
+      (trading, twd): (amount: 3210, quantity: BigInt.zero),
+      (trading, usd): (amount: -10000, quantity: BigInt.zero),
     });
   });
 
@@ -247,10 +247,16 @@ void main() {
       final r = keep(Beans('in', Day.stored(20260301), 1, 5, 50));
       // 5 held, 6 taken by 'out', which is named.
       expect((r as RuleRejected).intent, const IntentId('out'));
-      expect(b.store.sums()[(jar, twd)], (amount: 40, quantity: 4));
+      expect(b.store.sums()[(jar, twd)], (
+        amount: 40,
+        quantity: BigInt.from(4),
+      ));
       final ok = written(keep(Beans('in', Day.stored(20260301), 1, 8, 80)));
       expect(ok.posted, 2);
-      expect(b.store.sums()[(jar, twd)], (amount: 20, quantity: 2));
+      expect(b.store.sums()[(jar, twd)], (
+        amount: 20,
+        quantity: BigInt.from(2),
+      ));
     });
 
     test('moved past a later intent, the later one no longer sees it', () {
@@ -277,7 +283,10 @@ void main() {
       final r = written(b.journal.rematerialise('jar'));
       expect(r.posted, 2);
       // 70 in, 60 out.
-      expect(b.store.sums()[(jar, twd)], (amount: 10, quantity: 4));
+      expect(b.store.sums()[(jar, twd)], (
+        amount: 10,
+        quantity: BigInt.from(4),
+      ));
     });
 
     test('a follower nobody can post stays as written', () {
@@ -295,7 +304,10 @@ void main() {
       final r = written(j.rematerialise('jar'));
       expect(r.posted, 0);
       expect(r.stale, [const IntentId('in'), const IntentId('out')]);
-      expect(b.store.sums()[(jar, twd)], (amount: 40, quantity: 4));
+      expect(b.store.sums()[(jar, twd)], (
+        amount: 40,
+        quantity: BigInt.from(4),
+      ));
       final gone = j.delete(const IntentId('in'));
       expect((gone as UnknownIntentType).type, Beans.kind);
       final over = j.put(
@@ -308,6 +320,35 @@ void main() {
       b.kept.remove(const IntentId('out'));
       final r = written(b.journal.rematerialise('jar'));
       expect(r.stale, [const IntentId('out')]);
+    });
+
+    test('a batch is posted in book order, whatever order it is given in: '
+        'a later intent listed first reads the earlier one', () {
+      final r = written(
+        b.journal.putAll([
+          Beans('late', Day.stored(20260306), 4, -7, -70),
+          Beans('early', Day.stored(20260305), 3, 5, 50),
+        ]),
+      );
+      expect(r.posted, 2);
+      // 10 - 6 + 5 = 9 held, 7 taken.
+      expect(b.store.sums()[(jar, twd)], (
+        amount: 20,
+        quantity: BigInt.from(2),
+      ));
+    });
+
+    test('a stale follower leaves what goes with the write unwritten: no '
+        'mark past it', () {
+      b.kept.remove(const IntentId('out'));
+      var marked = false;
+      final r = written(
+        b.journal.putAll([
+          Beans('in', Day.stored(20260301), 1, 12, 120),
+        ], also: () => marked = true),
+      );
+      expect(r.stale, [const IntentId('out')]);
+      expect(marked, isFalse);
     });
   });
 }

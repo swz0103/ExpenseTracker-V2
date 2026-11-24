@@ -78,11 +78,11 @@ void main() {
       Money(Currency.of('USD'), BigInt.from(9500)),
     );
     expect(reader.balances(until: day(1, 5)), {
-      (salary, twd): (amount: -50000, quantity: 0),
-      (bank, twd): (amount: 50000, quantity: 0),
+      (salary, twd): (amount: -50000, quantity: BigInt.zero),
+      (bank, twd): (amount: 50000, quantity: BigInt.zero),
     });
-    expect(reader.quantity(jar), 2000000);
-    expect(reader.quantity(jar, until: day(1, 8)), 0);
+    expect(reader.quantity(jar), BigInt.from(2000000));
+    expect(reader.quantity(jar, until: day(1, 8)), BigInt.zero);
   });
 
   test('postings, legs and lots', () {
@@ -91,7 +91,9 @@ void main() {
       [for (final p in reader.legs(const IntentId('lunch'))) p.account],
       [bank, food],
     );
-    expect(reader.bySub(jar), [(sub: 'beans', quantity: 2000000, amount: 800)]);
+    expect(reader.bySub(jar), [
+      (sub: 'beans', quantity: BigInt.from(2000000), amount: 800),
+    ]);
     expect(reader.bySub(jar, currency: usd), isEmpty);
   });
 
@@ -119,19 +121,22 @@ void main() {
     contributions.on(valuers)
       ..add(
         owner,
-        (unit, amount, asOf) => unit == 'USD' ? amount * 32 ~/ 100 : null,
+        (unit, amount, asOf) => unit == 'USD'
+            ? (amount * BigInt.from(32) ~/ BigInt.from(100)).toInt()
+            : null,
       )
       ..add(
         owner,
-        (unit, amount, asOf) => unit == 'beans' ? amount ~/ 1000 : null,
+        (unit, amount, asOf) =>
+            unit == 'beans' ? (amount ~/ BigInt.from(1000)).toInt() : null,
       );
     final valued = reader.netWorth(day(12, 31));
     // dollars 9500 × 32 / 100 = 3040; the jar 2,000,000 / 1000 = 2000;
     // 46970 + 3040 + 2000 - 800 = 51210.
     expect(valued.values, {bank: 46970, dollars: 3040, jar: 2000, cash: -800});
     expect(valued.net, 51210);
-    expect(reader.toHome('TWD', 5, day(1, 1)), 5);
-    expect(reader.toHome('JPY', 5, day(1, 1)), isNull);
+    expect(reader.toHome('TWD', BigInt.from(5), day(1, 1)), 5);
+    expect(reader.toHome('JPY', BigInt.from(5), day(1, 1)), isNull);
   });
 
   test('a liability counts against net worth; uncounted accounts do not', () {

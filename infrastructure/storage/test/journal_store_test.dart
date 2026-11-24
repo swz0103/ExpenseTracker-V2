@@ -31,7 +31,7 @@ Posting p(
   currency: currency,
   date: Day.stored(ymd),
   seq: seq,
-  quantity: quantity,
+  quantity: BigInt.from(quantity),
   sub: sub,
 );
 
@@ -96,6 +96,36 @@ void main() {
     expect(again.userVersion, 1);
     again.close();
     store = EncryptedDatabase.open(file, key);
+  });
+
+  test('journal tables of an earlier shape are dropped as the file opens, '
+      'the mark with them: posted afresh', () {
+    store.journal.keepMark((rules: 1, revision: store.revision));
+    store.close();
+    sqlite3.open(file.path)
+      ..execute('PRAGMA key = "x\'${key.hex}\'"')
+      ..execute('DROP TABLE posting')
+      // Round one's shape: intents named by their text.
+      ..execute(
+        'CREATE TABLE posting (intent_id TEXT, line INTEGER, account TEXT, '
+        'currency TEXT, amount INTEGER, quantity INTEGER, sub TEXT, '
+        'date INTEGER, seq INTEGER)',
+      )
+      ..execute(
+        "INSERT INTO posting VALUES ('a', 0, 'b', 'TWD', 1, 0, '', 1, 1)",
+      )
+      ..close();
+    store = EncryptedDatabase.open(file, key);
+    expect(store.journal.mark, isNull);
+    expect(store.journal.postingCount, 0);
+    store.journal.put(row('a', 20260101, 1), [
+      p('a', 0, bank, -5, 20260101, 1, quantity: 3),
+      p('a', 1, food, 5, 20260101, 1),
+    ]);
+    expect(
+      store.journal.postingsOfIntent(const IntentId('a')).first.quantity,
+      BigInt.from(3),
+    );
   });
 
   test('sums by month agree with the memory store, over any range', () {
@@ -184,11 +214,11 @@ void main() {
       p('mid', 1, bank, -2, 20260103, 0),
     ]);
     expect(sql.subSums(jar), {
-      ('a', twd): (amount: 4, quantity: 13), // 1 + 3, 10 + 3
-      ('b', twd): (amount: 2, quantity: 5),
+      ('a', twd): (amount: 4, quantity: BigInt.from(13)), // 1 + 3, 10 + 3
+      ('b', twd): (amount: 2, quantity: BigInt.from(5)),
     });
     expect(sql.subSums(jar, until: Day.stored(20260102)), {
-      ('a', twd): (amount: 1, quantity: 10),
+      ('a', twd): (amount: 1, quantity: BigInt.from(10)),
     });
     expect(sql.intent(const IntentId('mid'))!.position, (
       date: Day.stored(20260103),
@@ -208,7 +238,7 @@ void main() {
       }),
       throwsStateError,
     );
-    expect(sql.sums(), {(bank, twd): (amount: 5, quantity: 0)});
+    expect(sql.sums(), {(bank, twd): (amount: 5, quantity: BigInt.zero)});
     expect(sql.mark, isNull);
     expect(
       () => sql.transaction(() => sql.transaction(() => 1)),
@@ -320,14 +350,14 @@ void main() {
       expect(store.journal.mark, (rules: 1, revision: revision));
       expect(store.journal.intent(const IntentId('old')), isNull);
       expect(store.journal.sums(), {
-        (bank, twd): (amount: -12, quantity: 0), // -5 - 7
-        (food, twd): (amount: 12, quantity: 0),
+        (bank, twd): (amount: -12, quantity: BigInt.zero), // -5 - 7
+        (food, twd): (amount: 12, quantity: BigInt.zero),
       });
       // January's sum from the months' table, February's half from the
       // postings: as the store keeps them for a single save.
       expect(store.journal.sums(until: Day.stored(20260131)), {
-        (bank, twd): (amount: -5, quantity: 0),
-        (food, twd): (amount: 5, quantity: 0),
+        (bank, twd): (amount: -5, quantity: BigInt.zero),
+        (food, twd): (amount: 5, quantity: BigInt.zero),
       });
       expect(store.journal.postingsOfIntent(const IntentId('b')), hasLength(2));
       expect(
@@ -461,8 +491,8 @@ void main() {
     expect(journal.put(_Move('m', 20260105, 120)), isA<Written>());
     expect(journal.put(_Move('n', 20260106, -1)), isA<RuleRejected>());
     expect(store.journal.sums(), {
-      (bank, twd): (amount: -120, quantity: 0),
-      (food, twd): (amount: 120, quantity: 0),
+      (bank, twd): (amount: -120, quantity: BigInt.zero),
+      (food, twd): (amount: 120, quantity: BigInt.zero),
     });
     expect(journal.delete(const IntentId('m')), isA<Written>());
     expect(store.journal.sums(), isEmpty);

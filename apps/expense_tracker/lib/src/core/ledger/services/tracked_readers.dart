@@ -187,6 +187,12 @@ final class TrackedHoldingReader implements HoldingReader {
   }
 
   @override
+  List<Holding> get every {
+    _cache.noteReads(_topics);
+    return _inner.every;
+  }
+
+  @override
   bool hasQuote(String code) {
     _cache.noteReads(_topics);
     return _inner.hasQuote(code);

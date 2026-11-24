@@ -72,9 +72,16 @@ void main() {
         'fx.unused',
       );
       expect(
-        refused(spend('c', usd, 1, amendments: const {Slots.fx: Worth(0)}))
+        refused(spend('c', usd, 1, amendments: const {Slots.fx: Worth(-1)}))
             .code,
         'fx.badAmount',
+      );
+      // Worth nothing at home is a worth.
+      expect(
+        book().journal.put(
+          spend('z', usd, 1, amendments: const {Slots.fx: Worth(0)}),
+        ),
+        isA<Written>(),
       );
       final bad = refused(
         spend('d', usd, 1, amendments: const {Slots.fx: 'x'}),

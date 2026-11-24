@@ -16,7 +16,7 @@ import '../model/vocabulary.dart';
 final fxAmender = Amender(
   slot: Slots.fx,
   owner: Owners.fx,
-  order: 20,
+  order: AmenderOrder.fx,
   amend: (a) => switch (a.value) {
     final ForeignValue? value => restate(
       a.lines,
@@ -43,7 +43,7 @@ typedef ScheduleOf = CardSchedule? Function(AccountId account);
 Amender instalmentsAmender(ScheduleOf scheduleOf) => Amender(
   slot: Slots.instalments,
   owner: Owners.cards,
-  order: 10,
+  order: AmenderOrder.instalments,
   amend: (a) => _instalments(a, scheduleOf),
   streams: (touched, value, accounts) => [
     if (value != null)

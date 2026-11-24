@@ -5,12 +5,22 @@ import '../support/book.dart';
 
 void main() {
   test('a line restated keeps its account, day, quantity and sub', () {
-    final line = Line(bank, 100, twd, date: day(3, 1), quantity: 5, sub: 'a');
+    final line = Line(
+      bank,
+      100,
+      twd,
+      date: day(3, 1),
+      quantity: BigInt.from(5),
+      sub: 'a',
+    );
     final moved = line.restated(-3, usd);
     expect((moved.account, moved.amount, moved.currency), (bank, -3, usd));
-    expect((moved.date, moved.quantity, moved.sub), (day(3, 1), 5, 'a'));
-    const plain = Line(food, 1, twd);
-    expect((plain.date, plain.quantity, plain.sub), (null, 0, ''));
+    expect(
+      (moved.date, moved.quantity, moved.sub),
+      (day(3, 1), BigInt.from(5), 'a'),
+    );
+    final plain = Line(food, 1, twd);
+    expect((plain.date, plain.quantity, plain.sub), (null, BigInt.zero, ''));
   });
 
   test('two postings of the same values are equal', () {
@@ -22,7 +32,7 @@ void main() {
       currency: twd,
       date: day(1, 2),
       seq: 3,
-      quantity: 4,
+      quantity: BigInt.from(4),
       sub: 's',
     );
     expect(p(), p());

@@ -31,15 +31,18 @@ final class BookMapping {
        _categories = [...categories],
        _start = [...start] {
     for (final c in _categories) {
-      (c.income ? _incomeNames : _spendingNames).add(c.name);
+      // The first of a name on its side, as the reports read it.
+      (c.income ? _incomeIds : _spendingIds).putIfAbsent(c.name, () => c.id);
     }
   }
 
   final Map<String, Account> _accounts;
   final List<Category> _categories;
   final List<Holding> _start;
-  final _incomeNames = <String>{};
-  final _spendingNames = <String>{};
+
+  /// Each category's id by its name, on each side.
+  final _incomeIds = <String, String>{};
+  final _spendingIds = <String, String>{};
 
   /// The accounts every intent of the book needs from the start: the
   /// fixed ones, each money account with its pending instalments, each
@@ -47,7 +50,7 @@ final class BookMapping {
   List<LedgerAccount> get tree => [
     ...Fixed.all,
     for (final a in _accounts.values) ..._moneyAccounts(a, missing: false),
-    for (final c in _categories) _categoryAccount(c.name, income: c.income),
+    for (final c in _categories) _categoryAccount(c),
     for (final h in _start) _holding(h.code),
   ];
 
@@ -101,19 +104,18 @@ final class BookMapping {
     }
 
     AccountId category(String name, {required bool income}) {
-      final own = income ? _incomeNames : _spendingNames;
-      final other = income ? _spendingNames : _incomeNames;
-      if (!own.contains(name)) {
-        if (other.contains(name)) {
-          shapes.add(
-            income
-                ? OldShape.incomeUnderSpendingCategory
-                : OldShape.spendingUnderIncomeCategory,
-          );
-        }
-        accounts.add(_categoryAccount(name, income: income));
+      final own = income ? _incomeIds : _spendingIds;
+      final other = income ? _spendingIds : _incomeIds;
+      if (own[name] case final id?) return categoryAccount(id, income: income);
+      if (other.containsKey(name)) {
+        shapes.add(
+          income
+              ? OldShape.incomeUnderSpendingCategory
+              : OldShape.spendingUnderIncomeCategory,
+        );
       }
-      return categoryAccount(name, income: income);
+      accounts.add(_namedCategoryAccount(name, income: income));
+      return namedCategoryAccount(name, income: income);
     }
 
     final id = IntentId(e.id);
@@ -170,8 +172,8 @@ final class BookMapping {
           account,
           money(e.to ?? ''),
           shapes,
+          fee: e.fee > 0 ? category(feeCategory, income: false) : null,
         );
-        if (e.fee > 0) category(feeCategory, income: false);
       case EntryType.buy || EntryType.sell || EntryType.dividend:
         if (foreign) shapes.add(OldShape.foreignTrade);
         final amendments = fx(foreign ? const SameNumber() : null);
@@ -202,8 +204,9 @@ final class BookMapping {
     int seq,
     AccountId from,
     AccountId to,
-    Set<OldShape> shapes,
-  ) {
+    Set<OldShape> shapes, {
+    required AccountId? fee,
+  }) {
     final sender = _account(e.account);
     final receiver = _account(e.to ?? '');
     final across = sender.currency != receiver.currency;
@@ -228,9 +231,7 @@ final class BookMapping {
       to: to,
       amount: e.amount,
       fee: e.fee,
-      feeCategory: e.fee > 0
-          ? categoryAccount(feeCategory, income: false)
-          : null,
+      feeCategory: fee,
       amendments: value == null ? const {} : {Slots.fx: value},
     );
   }
@@ -345,9 +346,17 @@ final class BookMapping {
     ];
   }
 
-  LedgerAccount _categoryAccount(String name, {required bool income}) =>
+  LedgerAccount _categoryAccount(Category c) => LedgerAccount(
+    id: categoryAccount(c.id, income: c.income),
+    cls: c.income ? AccountClass.income : AccountClass.expense,
+    name: c.name,
+    owner: Owners.entries,
+    tag: Tags.category,
+  );
+
+  LedgerAccount _namedCategoryAccount(String name, {required bool income}) =>
       LedgerAccount(
-        id: categoryAccount(name, income: income),
+        id: namedCategoryAccount(name, income: income),
         cls: income ? AccountClass.income : AccountClass.expense,
         name: name,
         owner: Owners.entries,

@@ -50,6 +50,9 @@ enum Figure {
   /// What is still to pay on a card's last statement.
   statementDue,
 
+  /// What the book is worth today, holdings at their price.
+  netWorth,
+
   /// What one currency's postings come to: zero in a sound book.
   trialBalance,
 
@@ -193,29 +196,33 @@ Future<Parity> checkParity({
     final first = Day.stored(month * 100 + 1);
     final last = first.lastOfMonth;
     // Up to today: what a month after it holds is 預定 (an entry's
-    // income and spending are posted at its own day).
-    final report = reader.period(first, last.ymd > now.ymd ? now : last);
+    // income and spending are posted at its own day); a month that has
+    // not begun is read as nothing, never as a range ending before it
+    // starts.
+    final upTo = last.ymd > now.ymd ? now : last;
+    final report = upTo.ymd < first.ymd ? null : reader.period(first, upTo);
     final label = '${first.year}-${first.month}';
     check(
       Figure.income,
       'book',
       label,
       today.reports.income(first.year, first.month),
-      report.incomeTotal,
+      report?.incomeTotal ?? 0,
     );
     check(
       Figure.spending,
       'book',
       label,
       today.reports.expense(first.year, first.month),
-      report.spendingTotal,
+      report?.spendingTotal ?? 0,
     );
     final app = today.reports.spendingBetween(
       first.date.asUtcMidnight,
       last.date.asUtcMidnight,
     )..removeWhere((_, v) => v == 0);
     final posted = <String, int>{};
-    for (final MapEntry(key: id, value: amount) in report.spending.entries) {
+    for (final MapEntry(key: id, value: amount)
+        in report?.spending.entries ?? const <MapEntry<AccountId, int>>[]) {
       final name = reader.accounts[id]!.name;
       posted[name] = (posted[name] ?? 0) + amount;
     }
@@ -237,8 +244,10 @@ Future<Parity> checkParity({
       .where((l) => l.sub == code)
       .fold(0, (sum, l) => sum + l.amount);
   final listed = {for (final h in today.holdings.all) h.code: h};
+  // What the trades leave of a stock not listed: compared all the same.
+  final every = {for (final h in today.holdings.every) h.code: h};
   final held = {
-    ...listed.keys,
+    ...every.keys,
     for (final a in reader.accounts.where(tag: Tags.holding)) a.commodity!,
   };
   for (final code in held) {
@@ -248,26 +257,28 @@ Future<Parity> checkParity({
     final shares = wholeUnits(reader.quantity(account, until: now));
     final h = listed[code];
     check(Figure.shares, code, 'now', h?.shares ?? 0, shares);
-    if (h == null) continue; // sold out with nothing gained: not listed
+    // A stock the holdings do not list (sold out with nothing gained) is
+    // compared as the trades left it.
+    final kept = h ?? every[code];
     check(
       Figure.cost,
       code,
       'now',
-      h.cost,
+      kept?.cost ?? 0,
       reader.balance(account, until: now),
     );
     check(
       Figure.realised,
       code,
       'now',
-      h.realized,
+      kept?.realized ?? 0,
       bySub(Fixed.realisedGains, code),
     );
     check(
       Figure.dividends,
       code,
       'now',
-      h.dividends,
+      kept?.dividends ?? 0,
       bySub(Fixed.dividends, code),
     );
   }
@@ -281,11 +292,28 @@ Future<Parity> checkParity({
       a.id,
       '${BusinessDate.of(closed)}',
       today.statements.statementDue(a),
-      statementDue(moneyAccount(a.id), Day.of(BusinessDate.of(closed)), reader),
+      statementDue(
+        moneyAccount(a.id),
+        Day.of(BusinessDate.of(closed)),
+        reader,
+        asOf: now,
+      ),
     );
   }
 
-  // 5. Every currency comes to zero.
+  // 5. What the book is worth today, as the app counts it (the reader
+  // values stocks and currencies as the app does: valuedAsTheApp).
+  if (scope == everything) {
+    check(
+      Figure.netWorth,
+      'book',
+      '$now',
+      today.balances.netWorthAt(today.day),
+      reader.netWorth(now).net,
+    );
+  }
+
+  // 6. Every currency comes to zero.
   for (final MapEntry(key: currency, value: sum)
       in reader.trialBalance().entries) {
     check(Figure.trialBalance, currency.value, 'all', 0, sum);

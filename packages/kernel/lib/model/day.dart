@@ -16,6 +16,9 @@ extension type const Day._(int ymd) implements Object {
   /// for it.
   static const beforeAll = Day._(10101);
 
+  /// After every day of every book: the end of a range with none.
+  static const afterAll = Day._(99991231);
+
   int get year => ymd ~/ 10000;
   int get month => ymd ~/ 100 % 100;
   int get day => ymd % 100;

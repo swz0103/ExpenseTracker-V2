@@ -13,11 +13,14 @@ import 'package:sqlite3/sqlite3.dart';
 /// Intents and accounts are named in the postings, the months' sums and
 /// the streams by a number of their own ([SqlPostingStore] keeps which
 /// stands for which): a posting row a third of the size, written and
-/// sorted in half the time (D51). Tables of an earlier shape, which
-/// named them by their text, are dropped and made again, the journal
-/// then posted afresh.
+/// sorted in half the time (D51). A quantity is kept exactly (D87) as
+/// its whole units and its parts ([quantityScale] to a unit, the same
+/// sign), each summed by SQL on its own and put together after. Tables
+/// of an earlier shape are dropped and made again, the journal then
+/// posted afresh.
 void createJournalTables(Database db) {
-  if (_columns(db, 'posting').contains('intent_id')) {
+  final posting = _columns(db, 'posting');
+  if (posting.isNotEmpty && !posting.contains('parts')) {
     for (final table in _journalTables) {
       db.execute('DROP TABLE IF EXISTS $table');
     }
@@ -74,7 +77,8 @@ void createJournalTables(Database db) {
       account INTEGER NOT NULL,
       currency TEXT NOT NULL,
       amount INTEGER NOT NULL,
-      quantity INTEGER NOT NULL,
+      units INTEGER NOT NULL,
+      parts INTEGER NOT NULL,
       sub TEXT NOT NULL,
       date INTEGER NOT NULL,
       seq INTEGER NOT NULL,
@@ -89,7 +93,8 @@ void createJournalTables(Database db) {
       currency TEXT NOT NULL,
       month INTEGER NOT NULL,
       amount INTEGER NOT NULL,
-      quantity INTEGER NOT NULL,
+      units INTEGER NOT NULL,
+      parts INTEGER NOT NULL,
       PRIMARY KEY (account, currency, month)
     ) STRICT, WITHOUT ROWID
   ''');
@@ -126,7 +131,7 @@ const _journalIndexes = {
   // A period's whole months by month: sums from a day after the start.
   'month_sum_month':
       'CREATE INDEX IF NOT EXISTS month_sum_month '
-      'ON month_sum (month, account, currency, amount, quantity)',
+      'ON month_sum (month, account, currency, amount, units, parts)',
   // The days of a month cut by a period's end: sums.
   'posting_date': 'CREATE INDEX IF NOT EXISTS posting_date ON posting (date)',
   // One account's history in book order: postingsOf, daySums, subSums.
@@ -152,7 +157,7 @@ final class JournalFill {
 
   final SqlPostingStore _store;
   final _Pragmas _was;
-  final _months = <_MonthKey, (int, int)>{};
+  final _months = <_MonthKey, (int, BigInt)>{};
   var _next = 1;
   var _done = false;
 
@@ -211,7 +216,7 @@ final class SqlPostingStore implements PostingStore {
   static const _revisionKey = 'journal.revision';
 
   /// Past the last day any book holds.
-  static const _end = 99991231;
+  static final _end = Day.afterAll.ymd;
 
   /// Throws when the file may not be used now: closed, or written on
   /// another isolate (the store's own check).
@@ -345,7 +350,7 @@ final class SqlPostingStore implements PostingStore {
     currency: CurrencyCode(r['currency'] as String),
     date: Day.stored(r['date'] as int),
     seq: r['seq'] as int,
-    quantity: r['quantity'] as int,
+    quantity: _quantity(r),
     sub: r['sub'] as String,
   );
 
@@ -372,24 +377,26 @@ final class SqlPostingStore implements PostingStore {
     }
     final insert = _sql(
       'INSERT INTO posting (intent, line, account, currency, amount, '
-      'quantity, sub, date, seq) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'units, parts, sub, date, seq) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     );
-    final months = <_MonthKey, (int, int)>{};
+    final months = <_MonthKey, (int, BigInt)>{};
     for (final p in postings) {
       final account = _accountKey(p.account);
+      final (units, parts) = _split(p.quantity);
       insert.execute([
         key,
         p.line,
         account,
         p.currency.value,
         p.amount,
-        p.quantity,
+        units,
+        parts,
         p.sub,
         p.date.ymd,
         row.seq,
       ]);
       final month = (account, p.currency.value, p.date.monthKey);
-      final (amount, quantity) = months[month] ?? (0, 0);
+      final (amount, quantity) = months[month] ?? (0, BigInt.zero);
       months[month] = (amount + p.amount, quantity + p.quantity);
     }
     for (final MapEntry(key: (account, currency, month), value: (a, q))
@@ -406,15 +413,15 @@ final class SqlPostingStore implements PostingStore {
     final key = found.single['key'] as int;
     for (final r in _sql(
       'SELECT account, currency, date / 100 AS month, SUM(amount) AS amount, '
-      'SUM(quantity) AS quantity FROM posting WHERE intent = ? '
-      'GROUP BY account, currency, month',
+      'SUM(units) AS units, SUM(parts) AS parts FROM posting '
+      'WHERE intent = ? GROUP BY account, currency, month',
     ).select([key])) {
       _addToMonth(
         r['account'] as int,
         r['currency'] as String,
         r['month'] as int,
         -(r['amount'] as int),
-        -(r['quantity'] as int),
+        -_quantity(r),
       );
     }
     _sql('DELETE FROM posting WHERE intent = ?').execute([key]);
@@ -427,14 +434,15 @@ final class SqlPostingStore implements PostingStore {
     String currency,
     int month,
     int amount,
-    int quantity,
+    BigInt quantity,
   ) {
+    final (units, parts) = _split(quantity);
     _sql(
-      'INSERT INTO month_sum (account, currency, month, amount, quantity) '
-      'VALUES (?, ?, ?, ?, ?) ON CONFLICT (account, currency, month) '
+      'INSERT INTO month_sum (account, currency, month, amount, units, parts) '
+      'VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (account, currency, month) '
       'DO UPDATE SET amount = amount + excluded.amount, '
-      'quantity = quantity + excluded.quantity',
-    ).execute([account, currency, month, amount, quantity]);
+      'units = units + excluded.units, parts = parts + excluded.parts',
+    ).execute([account, currency, month, amount, units, parts]);
   }
 
   @override
@@ -497,15 +505,17 @@ final class SqlPostingStore implements PostingStore {
     final lo = from?.ymd ?? 0;
     final hi = until?.ymd ?? _end;
     final total = <(AccountId, CurrencyCode), AccountSum>{};
+    // A range that ends before it starts holds nothing.
+    if (lo > hi) return total;
     void add(ResultSet rows) {
       for (final r in rows) {
         final key = (
           _account(r['account'] as int),
           CurrencyCode(r['currency'] as String),
         );
-        total[key] = addSums(total[key] ?? (amount: 0, quantity: 0), (
+        total[key] = addSums(total[key] ?? noSum, (
           amount: r['amount'] as int,
-          quantity: r['quantity'] as int,
+          quantity: _quantity(r),
         ));
       }
     }
@@ -513,8 +523,8 @@ final class SqlPostingStore implements PostingStore {
     void postingsBetween(int a, int b) => add(
       _sql(
         'SELECT account, currency, SUM(amount) AS amount, '
-        'SUM(quantity) AS quantity FROM posting WHERE date BETWEEN ? AND ? '
-        'GROUP BY account, currency',
+        'SUM(units) AS units, SUM(parts) AS parts FROM posting '
+        'WHERE date BETWEEN ? AND ? GROUP BY account, currency',
       ).select([a, b]),
     );
 
@@ -537,7 +547,7 @@ final class SqlPostingStore implements PostingStore {
         add(
           _sql(
             'SELECT account, currency, SUM(amount) AS amount, '
-            'SUM(quantity) AS quantity FROM month_sum '
+            'SUM(units) AS units, SUM(parts) AS parts FROM month_sum '
             'WHERE $month BETWEEN ? AND ? GROUP BY account, currency',
           ).select([firstWhole, lastWhole]),
         );
@@ -545,7 +555,7 @@ final class SqlPostingStore implements PostingStore {
       if (loCut) postingsBetween(lo, loMonth * 100 + 99);
       if (hiCut) postingsBetween(hiMonth * 100, hi);
     }
-    total.removeWhere((_, s) => s.amount == 0 && s.quantity == 0);
+    total.removeWhere((_, s) => isNoSum(s));
     return total;
   }
 
@@ -559,13 +569,13 @@ final class SqlPostingStore implements PostingStore {
     return {
       for (final r in _sql(
         'SELECT sub, currency, SUM(amount) AS amount, '
-        'SUM(quantity) AS quantity FROM posting WHERE account = ? '
+        'SUM(units) AS units, SUM(parts) AS parts FROM posting WHERE account = ? '
         'AND date <= ? GROUP BY sub, currency ORDER BY MIN(date), MIN(seq), '
         'sub',
       ).select([key, until?.ymd ?? _end]))
         (r['sub'] as String, CurrencyCode(r['currency'] as String)): (
           amount: r['amount'] as int,
-          quantity: r['quantity'] as int,
+          quantity: _quantity(r),
         ),
     };
   }
@@ -686,7 +696,7 @@ final class SqlPostingStore implements PostingStore {
   /// to [months]. The next number free.
   int _add(
     FreshPostingStore part,
-    Map<_MonthKey, (int, int)> months,
+    Map<_MonthKey, (int, BigInt)> months,
     int next,
   ) {
     final intents = part.intents;
@@ -724,10 +734,11 @@ final class SqlPostingStore implements PostingStore {
     );
     final postings = part.postings;
     final accounts = [for (final p in postings) _accountKey(p.account)];
+    final quantities = [for (final p in postings) _split(p.quantity)];
     _insertMany(
-      'posting (intent, line, account, currency, amount, quantity, sub, '
-      'date, seq)',
-      9,
+      'posting (intent, line, account, currency, amount, units, parts, '
+      'sub, date, seq)',
+      10,
       postings.length,
       (i, into) {
         final p = postings[i];
@@ -737,7 +748,8 @@ final class SqlPostingStore implements PostingStore {
           ..add(accounts[i])
           ..add(p.currency.value)
           ..add(p.amount)
-          ..add(p.quantity)
+          ..add(quantities[i].$1)
+          ..add(quantities[i].$2)
           ..add(p.sub)
           ..add(p.date.ymd)
           ..add(p.seq);
@@ -745,14 +757,14 @@ final class SqlPostingStore implements PostingStore {
     );
     for (final (i, p) in postings.indexed) {
       final key = (accounts[i], p.currency.value, p.date.monthKey);
-      final (amount, quantity) = months[key] ?? (0, 0);
+      final (amount, quantity) = months[key] ?? (0, BigInt.zero);
       months[key] = (amount + p.amount, quantity + p.quantity);
     }
     return next + intents.length;
   }
 
   void _finish(
-    Map<_MonthKey, (int, int)> months,
+    Map<_MonthKey, (int, BigInt)> months,
     List<LedgerAccount> accounts,
     JournalMark mark,
   ) {
@@ -765,8 +777,8 @@ final class SqlPostingStore implements PostingStore {
         return byCurrency != 0 ? byCurrency : a.key.$3.compareTo(b.key.$3);
       });
     _insertMany(
-      'month_sum (account, currency, month, amount, quantity)',
-      5,
+      'month_sum (account, currency, month, amount, units, parts)',
+      6,
       sums.length,
       (i, into) {
         final MapEntry(key: (account, currency, month), value: (a, q)) =
@@ -776,7 +788,8 @@ final class SqlPostingStore implements PostingStore {
           ..add(currency)
           ..add(month)
           ..add(a)
-          ..add(q);
+          ..add(_split(q).$1)
+          ..add(_split(q).$2);
       },
     );
     keepAccounts(accounts);
@@ -822,6 +835,23 @@ final class SqlPostingStore implements PostingStore {
       }
     }
   }
+
+  /// A quantity as its whole units and its parts, each of the same sign:
+  /// what a row keeps.
+  static (int, int) _split(BigInt quantity) {
+    if (!keepable(quantity)) {
+      throw ArgumentError.value(quantity, 'quantity', 'more than is kept');
+    }
+    return (
+      (quantity ~/ quantityScale).toInt(),
+      quantity.remainder(quantityScale).toInt(),
+    );
+  }
+
+  /// The quantity a row (or a sum of rows) keeps in `units` and `parts`.
+  static BigInt _quantity(Row r) =>
+      BigInt.from(r['units'] as int) * quantityScale +
+      BigInt.from(r['parts'] as int);
 
   @override
   int get intentCount =>

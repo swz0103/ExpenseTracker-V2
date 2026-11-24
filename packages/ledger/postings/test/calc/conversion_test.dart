@@ -21,7 +21,7 @@ void main() {
         Line(food, 100, usdCode), // a category not at home
         Line(food, 0, usdCode), // nothing: dropped anyway
         Line(bank, 5, homeCurrency), // right
-        const Line(Fixed.openingBalances, 1, usdCode), // equity takes any
+        Line(Fixed.openingBalances, 1, usdCode), // equity takes any
       ],
       tree(),
       homeCurrency,

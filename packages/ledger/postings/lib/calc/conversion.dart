@@ -82,7 +82,9 @@ Posted restate(
   try {
     switch (value) {
       case Worth(:final amount):
-        if (amount <= 0) return Refused(Refusals.fxBadAmount, slot);
+        // Worth nothing at home is a worth (a refund of nothing); only
+        // less than nothing is not.
+        if (amount < 0) return Refused(Refusals.fxBadAmount, slot);
         // One value cannot say both what a transfer received and what
         // its fee was worth.
         if ({for (final m in todo) m.money}.length != 1) {

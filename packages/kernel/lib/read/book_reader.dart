@@ -30,7 +30,7 @@ typedef NetWorth = ({
 });
 
 /// One lot of a holding: its [sub] key, quantity and what it cost.
-typedef LotSum = ({String sub, int quantity, int amount});
+typedef LotSum = ({String sub, BigInt quantity, int amount});
 
 /// Every figure, read from postings alone: it never sees an intent.
 final class BookReader {
@@ -63,8 +63,8 @@ final class BookReader {
   AccountSums balances({Day? until}) => _store.sums(until: until);
 
   /// The quantity [account] holds at the end of [until].
-  int quantity(AccountId account, {Day? until}) {
-    var total = 0;
+  BigInt quantity(AccountId account, {Day? until}) {
+    var total = BigInt.zero;
     for (final MapEntry(:key, :value) in _store.sums(until: until).entries) {
       if (key.$1 == account) total += value.quantity;
     }
@@ -89,7 +89,7 @@ final class BookReader {
     return [
       for (final MapEntry(:key, :value)
           in _store.subSums(account, until: until).entries)
-        if (key.$2 == c && (value.quantity != 0 || value.amount != 0))
+        if (key.$2 == c && !isNoSum(value))
           (sub: key.$1, quantity: value.quantity, amount: value.amount),
     ];
   }
@@ -138,8 +138,8 @@ final class BookReader {
 
   /// [amount] of [unit] in the book's currency, by the first valuer that
   /// knows it.
-  int? toHome(String unit, int amount, Day asOf) {
-    if (unit == home.value) return amount;
+  int? toHome(String unit, BigInt amount, Day asOf) {
+    if (unit == home.value) return amount.toInt();
     for (final valuer in _contributions.of(valuers)) {
       final value = valuer(unit, amount, asOf);
       if (value != null) return value;
@@ -161,7 +161,8 @@ final class BookReader {
       final market = commodity == null
           ? null
           : toHome(commodity, value.quantity, asOf);
-      final worth = market ?? toHome(currency.value, value.amount, asOf);
+      final worth =
+          market ?? toHome(currency.value, BigInt.from(value.amount), asOf);
       if (worth == null) {
         if (value.amount != 0) unvalued.add(id);
         continue;

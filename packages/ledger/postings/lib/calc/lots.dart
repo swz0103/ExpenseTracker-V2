@@ -17,19 +17,30 @@ typedef LotChange = ({String sub, BigInt units, int cost});
 
 /// The lots [postings] (a holding's, in book order) leave: each lot's
 /// units and cost are the sums of the postings naming it, oldest lot
-/// first; a lot with no shares left is not held.
+/// first. A lot with no shares left and nothing of its cost left is gone;
+/// one with no shares but cost left (a capital reduction that took every
+/// share and returned less than they cost) stays, as the holdings keep
+/// that cost: a later reduction of every share lowers it.
 List<Lot> lotsOf(List<Posting> postings) {
-  final quantity = <String, int>{};
+  final units = <String, BigInt>{};
   final cost = <String, int>{};
   for (final p in postings) {
-    quantity[p.sub] = (quantity[p.sub] ?? 0) + p.quantity;
+    units[p.sub] = (units[p.sub] ?? BigInt.zero) + p.quantity;
     cost[p.sub] = (cost[p.sub] ?? 0) + p.amount;
   }
   return [
-    for (final MapEntry(key: sub, value: q) in quantity.entries)
-      if (q > 0) (sub: sub, units: countOf(q, unitsPerShare), cost: cost[sub]!),
+    for (final MapEntry(key: sub, value: u) in units.entries)
+      if (u > BigInt.zero || (u == BigInt.zero && cost[sub] != 0))
+        (sub: sub, units: u, cost: cost[sub]!),
   ];
 }
+
+/// The lots of [lots] with shares in them: what a sale or a re-ratio
+/// works on, as the holdings' own lots are.
+List<Lot> _held(List<Lot> lots) => [
+  for (final l in lots)
+    if (l.units > BigInt.zero) l,
+];
 
 /// The whole shares [lots] hold, rounded half up, as a holding's shares
 /// are counted.
@@ -61,15 +72,16 @@ List<LotChange> _changes(List<Lot> before, List<LotPosition> after) => [
   int shares, {
   required bool average,
 }) {
-  final held = lots.fold(BigInt.zero, (sum, l) => sum + l.units);
+  final from = _held(lots);
+  final held = from.fold(BigInt.zero, (sum, l) => sum + l.units);
   final selling = BigInt.from(shares) * unitsPerShare;
   if (selling > held) return null;
   final sold = sellFromLots(
-    _positions(lots),
+    _positions(from),
     selling,
     average ? InvestmentCostMethod.averageCost : InvestmentCostMethod.fifo,
   );
-  return (changes: _changes(lots, sold.remaining), cost: sold.cost.toInt());
+  return (changes: _changes(from, sold.remaining), cost: sold.cost.toInt());
 }
 
 /// What [newShares] for every [oldShares] does to [lots] ([reratioLots]),
@@ -77,7 +89,7 @@ List<LotChange> _changes(List<Lot> before, List<LotPosition> after) => [
 /// into the newest first. [dropped] is the cost of a fraction of a share
 /// dropped, [lowered] the capital returned off the cost.
 ({List<LotChange> changes, int dropped, int lowered}) reratio(
-  List<Lot> lots, {
+  List<Lot> all, {
   required int newShares,
   required int oldShares,
   required CurrencyCode currency,
@@ -92,6 +104,7 @@ List<LotChange> _changes(List<Lot> before, List<LotPosition> after) => [
     wholeSharesOnly: wholeShares,
     capitalReturned: BigInt.from(capitalReturned),
   );
+  final lots = _held(all);
   final direct = change(lots);
   if (direct != null) {
     return (
@@ -123,34 +136,28 @@ List<LotChange> _changes(List<Lot> before, List<LotPosition> after) => [
   );
 }
 
-/// [changes] as lines on [holding]. A lot finer than a millionth of a
-/// share is rounded half to even (`roundedQuantity`, decision D48) and
-/// counted in [Lines.rounded], never silently; one of more than
-/// [maxQuantity] is refused.
+/// [changes] as lines on [holding], each lot's units exactly as the lot
+/// arithmetic counts them (decision D87); a change of more than a file
+/// keeps ([maxQuantity]) is refused.
 Posted lotLines(
   AccountId holding,
   List<LotChange> changes,
   CurrencyCode currency,
 ) {
   final lines = <Line>[];
-  var rounded = 0;
   for (final change in changes) {
-    final int quantity;
-    switch (quantityOf(change.units, unitsPerShare)) {
-      case ExactQuantity(:final value):
-        quantity = value;
-      case TooFine():
-        rounded++;
-        quantity = roundedQuantity(change.units, unitsPerShare);
-      case TooLarge():
-        return const Refused(Refusals.quantityTooLarge);
+    if (!keepable(change.units)) {
+      return const Refused(Refusals.quantityTooLarge);
     }
     lines.add(
-      Line(holding, change.cost, currency, quantity: quantity, sub: change.sub),
+      Line(
+        holding,
+        change.cost,
+        currency,
+        quantity: change.units,
+        sub: change.sub,
+      ),
     );
   }
-  return Lines(lines, rounded: rounded);
+  return Lines(lines);
 }
-
-/// [shares] whole shares as a quantity.
-int quantityOfShares(int shares) => shares * quantityScale;

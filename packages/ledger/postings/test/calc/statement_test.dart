@@ -50,7 +50,7 @@ void main() {
     }
     // Owed at the 9/20 close: 1200 + 3000 = 4200; paid since 2000; the
     // refund and the later spending are the next statement's.
-    expect(statementDue(card, day(9, 20), b.reader), 2200);
+    expect(statementDue(card, day(9, 20), b.reader, asOf: day(9, 30)), 2200);
     // Paid more than owed: nothing due.
     keep(
       b,
@@ -63,6 +63,8 @@ void main() {
         amount: 9000,
       ),
     );
-    expect(statementDue(card, day(9, 20), b.reader), 0);
+    expect(statementDue(card, day(9, 20), b.reader, asOf: day(9, 30)), 0);
+    // As of the day before that payment it is 預定 (D25): not paid yet.
+    expect(statementDue(card, day(9, 20), b.reader, asOf: day(9, 26)), 2200);
   });
 }

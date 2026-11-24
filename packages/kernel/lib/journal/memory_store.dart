@@ -98,12 +98,14 @@ final class MemoryPostingStore implements PostingStore {
   void _addToMonth(Posting p, int sign) {
     final month = _months[p.date.monthKey] ??= {};
     final key = (p.account, p.currency);
-    final was = month[key] ?? (amount: 0, quantity: 0);
+    final was = month[key] ?? noSum;
     final now = (
       amount: was.amount + sign * p.amount,
-      quantity: was.quantity + sign * p.quantity,
+      quantity: sign < 0
+          ? was.quantity - p.quantity
+          : was.quantity + p.quantity,
     );
-    if (now.amount == 0 && now.quantity == 0) {
+    if (isNoSum(now)) {
       month.remove(key);
     } else {
       month[key] = now;
@@ -150,7 +152,7 @@ final class MemoryPostingStore implements PostingStore {
     final hi = until?.ymd ?? _end;
     final total = <(AccountId, CurrencyCode), AccountSum>{};
     void add((AccountId, CurrencyCode) key, AccountSum sum) =>
-        total[key] = addSums(total[key] ?? (amount: 0, quantity: 0), sum);
+        total[key] = addSums(total[key] ?? noSum, sum);
     for (final MapEntry(key: month, value: sums) in _months.entries) {
       final first = month * 100 + 1;
       final last = Day.stored(first).lastOfMonth.ymd;
@@ -172,7 +174,7 @@ final class MemoryPostingStore implements PostingStore {
         }
       }
     }
-    total.removeWhere((_, s) => s.amount == 0 && s.quantity == 0);
+    total.removeWhere((_, s) => isNoSum(s));
     return total;
   }
 
@@ -185,7 +187,7 @@ final class MemoryPostingStore implements PostingStore {
     for (final p in postingsOf(account)) {
       if (until != null && p.date > until) continue;
       final key = (p.sub, p.currency);
-      total[key] = addSums(total[key] ?? (amount: 0, quantity: 0), (
+      total[key] = addSums(total[key] ?? noSum, (
         amount: p.amount,
         quantity: p.quantity,
       ));
@@ -220,5 +222,5 @@ final class MemoryPostingStore implements PostingStore {
   int get postingCount => _count;
 
   /// Past the last day any book holds.
-  static const _end = 99991231;
+  static final _end = Day.afterAll.ymd;
 }

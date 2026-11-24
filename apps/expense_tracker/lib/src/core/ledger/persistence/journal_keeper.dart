@@ -9,6 +9,7 @@ import '../../diagnostics/error_steps.dart';
 import '../journal/book_mapping.dart';
 import '../journal/parity.dart';
 import '../journal/replay.dart';
+import '../journal/valuation.dart';
 import '../ledger.dart';
 import '../repositories/holding_repository.dart';
 import 'write_batch.dart';
@@ -16,7 +17,7 @@ import 'write_batch.dart';
 /// The version of the posting rules. Postings an older version posted are
 /// posted afresh when the book opens: raise it when a rule changes what a
 /// record posts.
-const journalRules = 1;
+const journalRules = 2;
 
 // Exception to the motion scale: a slice of work, not a movement.
 /// How long the journal's work in the background runs before it lets the
@@ -117,8 +118,12 @@ final class JournalKeeper {
   }
 
   /// The journal's sums, as the comparison reads them.
-  BookReader get reader =>
-      BookReader(_store, _journal!.accounts, Contributions(), homeCurrency);
+  BookReader get reader => BookReader(
+    _store,
+    _journal!.accounts,
+    valuedAsTheApp(holdings: _ledger!.holdings, market: _ledger!.marketData),
+    homeCurrency,
+  );
 
   /// Takes up [ledger], just opened: posts the book afresh when its
   /// postings are not the records' own, then compares everything.
@@ -167,7 +172,6 @@ final class JournalKeeper {
       try {
         if (await posted case final report?) {
           _replay = report;
-          _noteRounded();
         }
       } on Object catch (error, stack) {
         // The mark is not moved: the book is posted afresh below.
@@ -222,7 +226,6 @@ final class JournalKeeper {
         await _quiet();
       }
       _store.accounts().forEach(_journal!.accounts.put);
-      _noteRounded();
       return;
     }
     final ledger = _ledger!;
@@ -241,18 +244,6 @@ final class JournalKeeper {
     _store.transaction(
       () => _store.keepMark((rules: journalRules, revision: revision)),
     );
-    _noteRounded();
-  }
-
-  /// Tells the diagnostics log, once per posting afresh, that quantities
-  /// finer than a millionth of a share were rounded (decision D48): how
-  /// often is kept in the report, never an amount.
-  void _noteRounded() {
-    if ((_replay?.rounded ?? 0) == 0) return;
-    ErrorLog.instance.record(
-      ErrorSteps.journalUpdate,
-      StateError('lot quantities rounded to a millionth of a share'),
-    );
   }
 
   /// Brings the journal up to date with [batch], kept as of [revision].
@@ -264,10 +255,17 @@ final class JournalKeeper {
     final intents = <LedgerIntent>[];
     final records = <IntentId, Entry>{};
     var remap = batch.categories.isNotEmpty;
+    // An account whose currency or kind changed changes how every record
+    // on it posts (its money, a card's bills): the whole book is posted
+    // afresh (r9 break 9).
+    var restate = false;
     for (final a in batch.accounts) {
       final was = _accounts[a.id];
       _accounts[a.id] = a;
       remap = true;
+      if (was != null && (was.currency != a.currency || was.kind != a.kind)) {
+        restate = true;
+      }
       if (was != null && !_sameSchedule(was, a)) {
         streams.add(Streams.instalments(moneyAccount(a.id)));
       }
@@ -321,17 +319,25 @@ final class JournalKeeper {
       _store.keepMark((rules: journalRules, revision: revision));
     }
 
-    var sound = true;
+    // Written whole: no follower left as it was (stale), which would
+    // leave postings the records no longer say.
+    bool whole(JournalResult r) => r is Written && r.report.stale.isEmpty;
+    var sound = !restate;
     for (final id in gone) {
       final r = journal.delete(id);
-      sound &= r is Written || r is IntentNotFound;
+      sound &= whole(r) || r is IntentNotFound;
     }
     for (final stream in streams) {
-      sound &= journal.rematerialise(stream) is Written;
+      sound &= whole(journal.rematerialise(stream));
     }
     while (sound) {
       final r = journal.putAll(intents, also: mark);
-      if (r is Written) break;
+      if (whole(r)) break;
+      if (r is Written) {
+        // The mark was not moved past the stale followers.
+        sound = false;
+        break;
+      }
       final refused = r as JournalRefusal;
       final at = intents.indexWhere((i) => i.id == refused.intent);
       final entry = records[refused.intent];
@@ -348,7 +354,8 @@ final class JournalKeeper {
       sound = false;
     }
     // A change the journal could not take as it is (a later trade of its
-    // stock refused): the whole book is posted afresh.
+    // stock refused, a follower the records no longer hold, an account's
+    // currency or kind changed): the whole book is posted afresh.
     if (!sound) await _rebuild(revision);
   }
 

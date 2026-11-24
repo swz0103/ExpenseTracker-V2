@@ -27,31 +27,67 @@ final class Journal {
   final PostingStore _store;
   final IntentSource _source;
 
-  /// Before every intent: where a stream is posted again from.
-  static const Position _start = (date: Day.stored(0), seq: 0);
-
   /// Keeps [intent], new or in place of the one with its id.
   JournalResult put(LedgerIntent intent) => putAll([intent]);
 
   /// Keeps every intent of [intents] in one transaction: all, or none.
-  /// [also] writes what goes with them (a mark, accounts) in the same
-  /// transaction, once they are posted.
+  /// They are posted together, with every later intent of their streams,
+  /// in book order (by place, then id), whatever order they are given in:
+  /// a sale listed before its purchase reads the purchase. [also] writes
+  /// what goes with them (a mark, accounts) in the same transaction, once
+  /// they are posted, and only when every follower could be posted again
+  /// ([WriteReport.stale] empty): a journal left with stale postings is
+  /// never marked as up to date.
+  ///
+  /// The followers come from the [IntentSource]; the intents of the batch
+  /// from the batch itself, so the source need not hold them yet.
   JournalResult putAll(
     Iterable<LedgerIntent> intents, {
     void Function()? also,
   }) => _write(also, () {
-    var posted = 0;
-    var postings = 0;
-    var rounded = 0;
-    final stale = <IntentId>[];
-    for (final intent in intents) {
-      final r = _put(intent);
-      posted += r.posted;
-      postings += r.postings;
-      rounded += r.rounded;
-      stale.addAll(r.stale);
+    final seeds = <IntentId, (IntentRow, LedgerIntent)>{};
+    final streams = <String>{};
+    Position? from;
+    void earliest(Position p) {
+      if (from == null || comparePositions(p, from!) < 0) from = p;
     }
-    return (posted: posted, postings: postings, rounded: rounded, stale: stale);
+
+    for (final intent in intents) {
+      final spec = registry[intent.type];
+      if (spec == null) {
+        throw _Abort(UnknownIntentType(intent.id, intent.type));
+      }
+      final old = _store.intent(intent.id);
+      if (old != null && registry[old.type] == null) {
+        throw _Abort(UnknownIntentType(intent.id, old.type));
+      }
+      for (final slot in intent.amendments.keys) {
+        if (!spec.amendable || registry.amenderOf(slot) == null) {
+          throw _Abort(UnknownAmendment(intent.id, slot));
+        }
+      }
+      final row = IntentRow(
+        id: intent.id,
+        type: intent.type,
+        date: intent.date,
+        seq: intent.seq,
+        streams: _streamsOf(spec, intent),
+      );
+      seeds[intent.id] = (row, intent);
+      streams.addAll(row.streams);
+      earliest(row.position);
+      if (old != null) {
+        streams.addAll(old.streams);
+        earliest(old.position);
+        // Its old lines go first, so no intent posted before it reads
+        // them.
+        _store.put(old, const []);
+      }
+    }
+    if (seeds.isEmpty) {
+      return (posted: 0, postings: 0, stale: const <IntentId>[]);
+    }
+    return _materialise(seeds: seeds, streams: streams, from: from!);
   });
 
   /// Takes the intent [id] and its postings away, and posts the later
@@ -64,52 +100,21 @@ final class Journal {
     if (registry[old.type] == null) return UnknownIntentType(id, old.type);
     return _write(also, () {
       _store.remove(id);
-      return _materialise(streams: {...old.streams}, from: old.position);
+      return _materialise(
+        seeds: const {},
+        streams: {...old.streams},
+        from: old.position,
+      );
     });
   }
 
   /// Posts every intent of [stream] again: for when something the rules
   /// read that is not an intent changed, such as a card's closing day;
   /// [also] as in [putAll].
-  JournalResult rematerialise(String stream, {void Function()? also}) =>
-      _write(also, () => _materialise(streams: {stream}, from: _start));
-
-  WriteReport _put(LedgerIntent intent) {
-    final spec = registry[intent.type];
-    if (spec == null) {
-      throw _Abort(UnknownIntentType(intent.id, intent.type));
-    }
-    final old = _store.intent(intent.id);
-    if (old != null && registry[old.type] == null) {
-      throw _Abort(UnknownIntentType(intent.id, old.type));
-    }
-    for (final slot in intent.amendments.keys) {
-      if (!spec.amendable || registry.amenderOf(slot) == null) {
-        throw _Abort(UnknownAmendment(intent.id, slot));
-      }
-    }
-    final streams = _streamsOf(spec, intent);
-    final row = IntentRow(
-      id: intent.id,
-      type: intent.type,
-      date: intent.date,
-      seq: intent.seq,
-      streams: streams,
-    );
-    var from = row.position;
-    if (old != null) {
-      if (comparePositions(old.position, from) < 0) from = old.position;
-      // Its old lines go first, so an intent of its streams posted before
-      // it does not read them.
-      _store.put(old, const []);
-    }
-    return _materialise(
-      seed: row,
-      seedIntent: intent,
-      streams: {...streams, ...?old?.streams},
-      from: from,
-    );
-  }
+  JournalResult rematerialise(String stream, {void Function()? also}) => _write(
+    also,
+    () => _materialise(seeds: const {}, streams: {stream}, from: startOfBook),
+  );
 
   /// The streams [intent] is in: its rule's, and those its amendments
   /// add. An intent in none is posted from itself alone, whatever was
@@ -137,7 +142,7 @@ final class Journal {
       return Written(
         _store.transaction(() {
           final report = body();
-          also?.call();
+          if (report.stale.isEmpty) also?.call();
           return report;
         }),
       );
@@ -146,16 +151,17 @@ final class Journal {
     }
   }
 
-  /// Posts [seed] and every intent standing at or after [from] in one of
+  /// Posts [seeds] and every intent standing at or after [from] in one of
   /// [streams] (and in the streams of those, and so on), in book order:
   /// each rule sees the postings before it as they now are.
   WriteReport _materialise({
-    IntentRow? seed,
-    LedgerIntent? seedIntent,
+    required Map<IntentId, (IntentRow, LedgerIntent)> seeds,
     required Set<String> streams,
     required Position from,
   }) {
-    final todo = <IntentId, IntentRow>{?seed?.id: ?seed};
+    final todo = <IntentId, IntentRow>{
+      for (final MapEntry(:key, value: (row, _)) in seeds.entries) key: row,
+    };
     final seen = <String>{};
     final queue = [...streams];
     while (queue.isNotEmpty) {
@@ -175,19 +181,17 @@ final class Journal {
             return byPlace != 0 ? byPlace : a.id.value.compareTo(b.id.value);
           }));
     var written = 0;
-    var rounded = 0;
     final stale = <IntentId>[];
     for (final row in order) {
       final spec = registry[row.type];
-      final intent = identical(row, seed) ? seedIntent : _source(row.id);
+      final intent = seeds[row.id]?.$2 ?? _source(row.id);
       if (spec == null || intent == null) {
         // A follower nobody here can post: its postings stay as written.
         stale.add(row.id);
         continue;
       }
       final context = RuleContext(accounts, _store, row.position);
-      final (posted, roundedHere) = _posted(spec, intent, context);
-      rounded += roundedHere;
+      final posted = _posted(spec, intent, context);
       final postings = switch (posted) {
         Refused(:final code, :final detail) => throw _Abort(
           RuleRejected(row.id, code, detail),
@@ -200,21 +204,14 @@ final class Journal {
     return (
       posted: order.length - stale.length,
       postings: written,
-      rounded: rounded,
       stale: stale,
     );
   }
 
-  /// The rule's lines, then each amender's rewrite, in order; with how
-  /// many lines the rule rounded a quantity on.
-  (Posted, int) _posted(
-    IntentSpec spec,
-    LedgerIntent intent,
-    RuleContext context,
-  ) {
+  /// The rule's lines, then each amender's rewrite, in order.
+  Posted _posted(IntentSpec spec, LedgerIntent intent, RuleContext context) {
     var posted = spec.linesOf(intent, context);
-    final rounded = posted is Lines ? posted.rounded : 0;
-    if (!spec.amendable) return (posted, rounded);
+    if (!spec.amendable) return posted;
     for (final amender in registry.amenders) {
       if (posted is! Lines) break;
       posted = amender.amend((
@@ -224,7 +221,7 @@ final class Journal {
         context: context,
       ));
     }
-    return (posted, rounded);
+    return posted;
   }
 
   /// [lines] as postings of [row]; or an abort: every account known, in
@@ -233,7 +230,7 @@ final class Journal {
     final residual = <CurrencyCode, int>{};
     final postings = <Posting>[];
     for (final line in lines) {
-      if (line.amount == 0 && line.quantity == 0) continue;
+      if (line.amount == 0 && line.quantity == BigInt.zero) continue;
       final account = accounts[line.account];
       if (account == null) {
         throw _Abort(UnknownAccount(row.id, line.account));
@@ -242,7 +239,13 @@ final class Journal {
       if (own != null && own != line.currency) {
         throw _Abort(CurrencyMismatch(row.id, account.id, own, line.currency));
       }
-      residual[line.currency] = (residual[line.currency] ?? 0) + line.amount;
+      final was = residual[line.currency] ?? 0;
+      final sum = was + line.amount;
+      // A sum past what 64 bits hold wraps: such lines never balance.
+      if ((was ^ sum) & (line.amount ^ sum) < 0) {
+        throw _Abort(Unbalanced(row.id, line.currency, sum));
+      }
+      residual[line.currency] = sum;
       postings.add(
         Posting(
           intent: row.id,

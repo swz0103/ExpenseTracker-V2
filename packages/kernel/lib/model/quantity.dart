@@ -1,76 +1,29 @@
-/// How many parts of one unit (a share) a posting's quantity counts: a
-/// millionth. A finer scale (the lot arithmetic counts 10^-12) would
-/// leave a 64-bit column room for only about nine million shares; this
-/// one leaves room for nine billion, and every quantity is checked on
-/// the way in ([quantityOf]).
-const quantityScale = 1000000;
+/// How many parts of one unit (a share) a posting's quantity counts:
+/// 10^12, the app's own lot arithmetic's (packages/domain `unitsPerShare`;
+/// the postings package's tests hold the two the same). Exact, never
+/// rounded (decision D87, in place of D48's millionth): a quantity is a
+/// [BigInt], so no count of shares the app can hold overflows it.
+final BigInt quantityScale = BigInt.from(10).pow(12);
 
-/// The largest quantity kept: the largest whole number every platform
-/// the app runs on holds exactly (2^53 - 1), about nine billion units.
-const maxQuantity = 9007199254740991;
+/// The largest quantity kept: whole units as many as a 64-bit integer
+/// holds, which is as many as the app's own counts of shares (an `int`)
+/// can be. A file keeps a quantity as its whole units and its parts.
+final BigInt maxQuantity = BigInt.from(_maxInt) * quantityScale;
 
-/// What became of a count on its way to a posting's quantity.
-sealed class QuantityConversion {
-  const QuantityConversion();
-}
+const _maxInt = 9223372036854775807;
 
-/// The count as a quantity, exactly.
-final class ExactQuantity extends QuantityConversion {
-  const ExactQuantity(this.value);
-  final int value;
-}
+/// No quantity: a line of money.
+final BigInt noQuantity = BigInt.zero;
 
-/// The count has a part smaller than a millionth of a unit, which a
-/// quantity cannot hold; nothing is rounded silently.
-final class TooFine extends QuantityConversion {
-  const TooFine();
-}
+/// [units] whole units (shares) as a quantity, exactly.
+BigInt quantityOfUnits(int units) => BigInt.from(units) * quantityScale;
 
-/// The count is more than [maxQuantity] can hold.
-final class TooLarge extends QuantityConversion {
-  const TooLarge();
-}
-
-/// [count] parts, [perUnit] of them to one unit, as a posting's quantity:
-/// checked, never rounded. [perUnit] is a multiple of [quantityScale]
-/// (the lot arithmetic's 10^12 is).
-QuantityConversion quantityOf(BigInt count, BigInt perUnit) {
-  final step = perUnit ~/ _scale;
-  if (step * _scale != perUnit) {
-    throw ArgumentError.value(perUnit, 'perUnit', 'not a multiple of scale');
-  }
-  if (count.remainder(step) != BigInt.zero) return const TooFine();
-  final quantity = count ~/ step;
-  if (quantity.abs() > _max) return const TooLarge();
-  return ExactQuantity(quantity.toInt());
-}
-
-/// [count] parts, [perUnit] of them to one unit, as a posting's quantity
-/// rounded half to even when it has a part finer than [quantityScale]
-/// allows: the one rounding of quantities (decision D48). Throws an
-/// [ArgumentError] past [maxQuantity], which no book reaches.
-int roundedQuantity(BigInt count, BigInt perUnit) {
-  final step = perUnit ~/ _scale;
-  if (step * _scale != perUnit) {
-    throw ArgumentError.value(perUnit, 'perUnit', 'not a multiple of scale');
-  }
-  var quantity = count ~/ step;
-  final rest = (count - quantity * step).abs() * BigInt.two;
-  final away = count.isNegative ? -BigInt.one : BigInt.one;
-  if (rest > step || (rest == step && quantity.isOdd)) quantity += away;
-  if (quantity.abs() > _max) throw ArgumentError.value(count, 'count');
-  return quantity.toInt();
-}
-
-/// A posting's [quantity] back as parts, [perUnit] of them to one unit.
-BigInt countOf(int quantity, BigInt perUnit) =>
-    BigInt.from(quantity) * (perUnit ~/ _scale);
+/// Whether [quantity] can be kept ([maxQuantity] either way).
+bool keepable(BigInt quantity) => quantity.abs() <= maxQuantity;
 
 /// A [quantity] in whole units, rounded half away from zero.
-int wholeUnits(int quantity) {
-  final whole = (quantity.abs() + quantityScale ~/ 2) ~/ quantityScale;
-  return quantity < 0 ? -whole : whole;
+int wholeUnits(BigInt quantity) {
+  final twice = quantity.abs() * BigInt.two + quantityScale;
+  final whole = (twice ~/ (quantityScale * BigInt.two)).toInt();
+  return quantity.isNegative ? -whole : whole;
 }
-
-final _scale = BigInt.from(quantityScale);
-final _max = BigInt.from(maxQuantity);

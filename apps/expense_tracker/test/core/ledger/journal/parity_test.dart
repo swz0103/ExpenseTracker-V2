@@ -6,6 +6,7 @@ import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/ledger/journal/parity.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:storage/storage.dart';
 import 'package:kernel/kernel.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
@@ -51,10 +52,17 @@ void main() {
         open.store,
         clock: _clock,
       ).load();
+      expectGoldenPostings(version, await post(ledger));
       final parity = await parityOf(ledger);
       printParity(version, parity);
       expect(parity, isA<InParity>(), reason: _said(parity));
       expect(parity.figures, greaterThan(100));
+      // The same from the file's own tables (D51's store), not only from
+      // memory.
+      open.store.journal.transaction(open.store.journal.clear);
+      final kept = await parityOf(ledger, into: open.store.journal);
+      expect(kept, isA<InParity>(), reason: _said(kept));
+      expect(kept.figures, parity.figures);
     });
   }
 
@@ -63,6 +71,14 @@ void main() {
     printParity('demo', parity);
     expect(parity, isA<InParity>(), reason: _said(parity));
     expect(parity.figures, greaterThan(1000));
+    final file = EncryptedDatabase.open(
+      File('${scratch.path}/demo.db'),
+      StorageKey.random(),
+    );
+    addTearDown(file.close);
+    final kept = await parityOf(demoLedger(), into: file.journal);
+    expect(kept, isA<InParity>(), reason: _said(kept));
+    expect(kept.figures, parity.figures);
   });
 
   test('the check can fail: one intent taken away and it says where', () async {

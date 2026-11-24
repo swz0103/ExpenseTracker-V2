@@ -19,9 +19,6 @@ final class ReplayReport {
 
   var intents = 0;
 
-  /// How many lot lines had a quantity rounded to a millionth of a share
-  /// (decision D48).
-  var rounded = 0;
   final shapes = <OldShape, int>{};
   final unposted = <JournalRefusal>[];
 
@@ -33,7 +30,6 @@ final class ReplayReport {
   /// Adds what [other] found, of another part of the same book.
   void add(ReplayReport other) {
     intents += other.intents;
-    rounded += other.rounded;
     other.shapes.forEach(
       (shape, n) => shapes[shape] = (shapes[shape] ?? 0) + n,
     );
@@ -68,7 +64,7 @@ Future<ReplayReport> replayBook({
   required Journal journal,
   required PostingStore store,
   required Iterable<KeptEntry> entries,
-  int chunk = 1000,
+  required int chunk,
   Future<void> Function()? pause,
 }) async {
   final report = ReplayReport();
@@ -121,7 +117,6 @@ void postIntents(
     final result = journal.putAll(todo);
     if (result is Written) {
       report.intents += todo.length;
-      report.rounded += result.report.rounded;
       for (final intent in todo) {
         report.count(records[intent.id]?.$2 ?? const {});
       }

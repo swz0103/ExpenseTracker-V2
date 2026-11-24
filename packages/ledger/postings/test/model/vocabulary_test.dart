@@ -23,6 +23,11 @@ void main() {
     expect(pendingInstalments(moneyAccount('c')).value, 'acct:c:instalments');
     expect(categoryAccount('早餐', income: false).value, 'cat:spending:早餐');
     expect(categoryAccount('早餐', income: true).value, 'cat:income:早餐');
+    expect(
+      namedCategoryAccount('早餐', income: false).value,
+      'catname:spending:早餐',
+    );
+    expect(namedCategoryAccount('早餐', income: true).value, 'catname:income:早餐');
     expect(holdingAccount('2330').value, 'holding:2330');
     expect(Streams.holding('2330'), 'holding:2330');
     expect(Streams.instalments(moneyAccount('c')), 'instalments:acct:c');

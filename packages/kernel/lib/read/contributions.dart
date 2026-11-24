@@ -44,7 +44,7 @@ final class ContributionSlot<T> {
 /// What [amount] of [unit] (a currency's minor units, or a quantity of a
 /// commodity) is worth in the book's own currency at the end of [asOf];
 /// null when this valuer does not know the unit.
-typedef Valuer = int? Function(String unit, int amount, Day asOf);
+typedef Valuer = int? Function(String unit, BigInt amount, Day asOf);
 
 /// Where prices and rates come in, for net worth.
 const valuers = ContributionPoint<Valuer>('valuers');

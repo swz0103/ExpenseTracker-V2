@@ -37,6 +37,7 @@ void main() {
       'each old shape counted', () async {
     final ledger = await openKept(scratch);
     expect(ledger.entries.all.length, fitting.length + oldShapes.length);
+    expectGoldenPostings('awkward', await post(ledger));
     final parity = await parityOf(ledger);
     // ignore: avoid_print
     print('awkward: ${parity.figures} figures; shapes ${parity.shapes}');

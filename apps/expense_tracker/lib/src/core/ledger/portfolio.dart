@@ -9,7 +9,7 @@ import 'models/models.dart';
 /// each stock's lots and what they cost, and how many shares were held
 /// after each trade. The same inputs always give the same portfolio.
 final class Portfolio {
-  Portfolio._(this.holdings, this._lots, this._steps, this.leftOut);
+  Portfolio._(this.holdings, this.every, this._lots, this._steps, this.leftOut);
 
   /// Replays the trades of [entries] over the [start] positions, in date
   /// order and in the order written within a day. An oversold trade
@@ -52,6 +52,7 @@ final class Portfolio {
     ]..sort((a, b) => b.value.compareTo(a.value));
     return Portfolio._(
       List.unmodifiable(holdings),
+      List.unmodifiable(byCode.values),
       lots,
       steps,
       List.unmodifiable(leftOut),
@@ -220,6 +221,11 @@ final class Portfolio {
 
   /// Held stocks, and sold ones with a realised result, largest first.
   final List<Holding> holdings;
+
+  /// Every stock held from the start or traded, as the trades leave it,
+  /// those [holdings] does not list included (sold out with nothing
+  /// gained, dividends and cost left aside).
+  final List<Holding> every;
 
   final Map<String, List<Lot>> _lots;
 

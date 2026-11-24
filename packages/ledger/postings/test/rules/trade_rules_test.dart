@@ -5,7 +5,9 @@ import 'package:test/test.dart';
 
 import '../support/book.dart';
 
-const m = quantityScale;
+final m = quantityScale;
+
+BigInt q(int shares) => quantityOfUnits(shares);
 
 Buy buy(String id, int d, int seq, int shares, int gross, int fee) => Buy(
   id: IntentId(id),
@@ -43,7 +45,7 @@ void main() {
   late Book b;
   void ok(LedgerIntent i) =>
       expect(keep(b, i), isA<Written>(), reason: i.id.value);
-  ({int amount, int quantity})? held() => b.store.sums()[(stock, homeCurrency)];
+  AccountSum? held() => b.store.sums()[(stock, homeCurrency)];
   int realised() => -(b.reader
       .bySub(Fixed.realisedGains)
       .where((l) => l.sub == '2330')
@@ -61,8 +63,8 @@ void main() {
       ('holding:2330', 60085, 'TWD', 20260904),
     ]);
     expect(b.reader.bySub(stock), [
-      (sub: 'b1', quantity: 100 * m, amount: 60085),
-      (sub: 'b2', quantity: 100 * m, amount: 65092),
+      (sub: 'b1', quantity: q(100), amount: 60085),
+      (sub: 'b2', quantity: q(100), amount: 65092),
     ]);
   });
 
@@ -84,7 +86,7 @@ void main() {
     // = 60085 + 32546 = 92631; gain 104536 - 92631 = 11905.
     expect(b.reader.balance(bank), -125177 + 104536);
     expect(realised(), 11905);
-    expect(held(), (amount: 32546, quantity: 50 * m));
+    expect(held(), (amount: 32546, quantity: q(50)));
     // At the average cost: 25 of the 50 left, 32546 × 25/50 = 16273;
     // got 20000 - 28 - 60 = 19912; gain 3639.
     ok(
@@ -102,7 +104,7 @@ void main() {
       ),
     );
     expect(realised(), 11905 + 3639);
-    expect(held(), (amount: 16273, quantity: 25 * m));
+    expect(held(), (amount: 16273, quantity: q(25)));
   });
 
   test('selling more than is held is refused, naming the stock', () {
@@ -152,15 +154,15 @@ void main() {
     // 10 more for the 200 held: every lot × 210/200, cost kept.
     ok(dividend('stock', 9, 4, shares: 10));
     expect(b.reader.bySub(stock), [
-      (sub: 'b1', quantity: 105 * m, amount: 60085),
-      (sub: 'b2', quantity: 105 * m, amount: 65092),
+      (sub: 'b1', quantity: q(105), amount: 60085),
+      (sub: 'b2', quantity: q(105), amount: 65092),
     ]);
     // A split, 2 for 1.
     ok(dividend('split', 10, 5, shares: 210, split: true));
-    expect(held(), (amount: 125177, quantity: 420 * m));
+    expect(held(), (amount: 125177, quantity: q(420)));
     // A reduction: 420 → 210, 5000 back off the cost, in proportion.
     ok(dividend('cut', 11, 6, gross: 5000, shares: -210));
-    expect(held(), (amount: 120177, quantity: 210 * m)); // 125177 - 5000
+    expect(held(), (amount: 120177, quantity: q(210))); // 125177 - 5000
     expect(realised(), 0);
     expect(b.reader.balance(bank), -125177 + 4405 + 5000);
   });
@@ -169,7 +171,7 @@ void main() {
       'capital did not cover', () {
     // 5000 back on 125177 of cost.
     ok(dividend('wipe', 9, 3, gross: 5000, shares: -200));
-    expect(held(), (amount: 120177, quantity: 0));
+    expect(held(), (amount: 120177, quantity: BigInt.zero));
     expect(realised(), 0);
     // More back than the cost: the rest is a gain.
     final c = book();
@@ -196,13 +198,13 @@ void main() {
       ),
     );
     ok(dividend('free', 9, 4, shares: 7));
-    expect(b.reader.bySub(stock), [(sub: 'free', quantity: 7 * m, amount: 0)]);
+    expect(b.reader.bySub(stock), [(sub: 'free', quantity: q(7), amount: 0)]);
   });
 
   test('a dividend naming no stock is income all the same', () {
     ok(dividend('d', 8, 3, gross: 1000, tax: 20, code: ''));
     expect(b.reader.bySub(Fixed.dividends), [
-      (sub: '', quantity: 0, amount: -980),
+      (sub: '', quantity: BigInt.zero, amount: -980),
     ]);
     final r =
         keep(b, dividend('s', 8, 4, shares: 1, code: 'none')) as RuleRejected;
@@ -221,21 +223,20 @@ void main() {
     expect(cash.code, 'notAMoneyAccount');
   });
 
-  test('a lot finer than a millionth of a share is rounded half to even, '
-      'and counted', () {
+  test('a lot of a fraction of a share is kept exactly, as the lot '
+      'arithmetic counts it (D87)', () {
     b = book();
     ok(buy('one', 1, 1, 1, 100, 0));
     ok(buy('more', 2, 2, 127, 12700, 0));
     // 1 more for the 128 held: the first lot becomes 129/128 =
-    // 1.0078125 shares, 1,007,812.5 millionths, to even 1,007,812; the
-    // second 127 × 129/128 = 127.9921875, to 127,992,188 (…187.5, even
-    // 188). Together 129,000,000: the whole shares still add up.
-    final r = keep(b, dividend('odd', 3, 3, shares: 1)) as Written;
-    expect(r.report.rounded, 2);
+    // 1.0078125 shares, the second 127 × 129/128 = 127.9921875: exact at
+    // 10^-12 of a share, adding up to the 129 shares held.
+    ok(dividend('odd', 3, 3, shares: 1));
     expect(b.reader.bySub(stock), [
-      (sub: 'one', quantity: 1007812, amount: 100),
-      (sub: 'more', quantity: 127992188, amount: 12700),
+      (sub: 'one', quantity: BigInt.from(1007812500000), amount: 100),
+      (sub: 'more', quantity: BigInt.from(127992187500000), amount: 12700),
     ]);
+    expect(held()!.quantity, q(129));
   });
 
   test('what a stock held from the start', () {
