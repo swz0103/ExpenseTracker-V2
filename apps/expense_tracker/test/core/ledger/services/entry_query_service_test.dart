@@ -2,8 +2,11 @@ import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../support/book.dart';
+import '../../../support/fuzz/search_fuzz.dart';
 
 void main() {
+  searchFuzz();
+
   test('a group is led by its spending, the rest stand behind it', () {
     final paid = entry('paid', amount: 600, group: 'g');
     final forAmy = entry(

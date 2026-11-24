@@ -6,10 +6,8 @@ String? trashedNamingNote(int count) =>
     count == 0 ? null : '「最近刪除」裡還有 $count 筆用到它的紀錄，會一併永久清除，無法再放回。';
 
 /// What to ask before putting an entry back that [hold] stands in the way
-/// of (D78): the title, the yes and the words under it; null when nothing
-/// does.
-(String, String, String)? restoreQuestion(RestoreHold? hold) => switch (hold) {
-  null => null,
+/// of (D78): the title, the yes and the words under it.
+(String, String, String) restoreQuestion(RestoreHold hold) => switch (hold) {
   ClosedAccounts(:final accounts) => (
     '「${accounts.map((a) => a.name).join('」「')}」已封存',
     '解除封存並放回',

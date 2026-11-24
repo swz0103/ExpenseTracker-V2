@@ -231,6 +231,10 @@ Work package CORR-2 (recurring items and state transitions). The two known-defec
 - D78: `test/scenarios/ledger/state/persist_test.dart` (T2), `inverse_test.dart` (I2), `test/features/entries/ui/trash_section_test.dart`, `test/core/messages/trash_messages_test.dart`
 - D79, D80: `test/scenarios/ledger/state/form_test.dart` (DR2, DR3), `packages/ledger/entries/test/model_test.dart`, `test/core/ledger/persistence/codec/record_json_test.dart`
 
+## fixed in FIX-R17
+
+Review round 17. No known-defect id: the findings are stated by ordinary tests. D78 (restore holds, all or nothing) and the let-go day a restored booking takes back: `test/core/ledger/commands/entry_commands_test.dart`; the listener scan over whole files: `test/rules/ledger_listeners_test.dart`; the seeded fuzzers of the review, run from `ledger_test.dart`, `recurring_service_test.dart`, `entry_query_service_test.dart` and `entry_repository_test.dart` (sources in `test/support/fuzz/`; `--dart-define=FUZZ_SEEDS=60` for more seeds).
+
 ## not covered
 
 One line per finding that has no test here. Findings with an executed reproduction come first with the specific reason; the rest were found by reading code (no executed reproduction), which the brief does not require.

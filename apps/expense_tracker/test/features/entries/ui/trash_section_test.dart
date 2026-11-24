@@ -73,7 +73,6 @@ void main() {
   });
 
   test('D78: what is asked before putting back what stands in the way', () {
-    expect(restoreQuestion(null), isNull);
     final spend = Trashed(
       Entry(
         id: 'o',
@@ -85,8 +84,8 @@ void main() {
       ),
       DateTime.utc(2026, 10, 2),
     );
-    expect(restoreQuestion(OriginalInTrash(spend))!.$3, contains('「鞋子」'));
-    expect(restoreQuestion(const OriginalGone())!.$1, '原消費已永久刪除');
+    expect(restoreQuestion(OriginalInTrash(spend)).$3, contains('「鞋子」'));
+    expect(restoreQuestion(const OriginalGone()).$1, '原消費已永久刪除');
   });
 
   testWidgets('the days left count down and never go below zero', (

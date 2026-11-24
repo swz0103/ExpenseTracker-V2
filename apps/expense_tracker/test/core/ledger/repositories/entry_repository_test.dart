@@ -4,6 +4,8 @@ import 'package:expense_tracker/src/core/ledger/models/models.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/entry_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../../support/fuzz/repository_fuzz.dart';
+
 Entry _entry(
   String id,
   DateTime date, {
@@ -24,6 +26,8 @@ DateTime _day(int month, int day) => DateTime.utc(2026, month, day);
 List<String> _ids(Iterable<Entry> entries) => [for (final e in entries) e.id];
 
 void main() {
+  repositoryFuzz();
+
   test('an empty repository answers with nothing', () {
     final entries = EntryRepository();
     expect(entries.isEmpty, isTrue);

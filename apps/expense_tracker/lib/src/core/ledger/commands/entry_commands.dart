@@ -215,7 +215,7 @@ final class EntryCommands {
     final index = _entries.indexWhere((e) => e.id == id);
     if (index < 0) return null;
     // Its period, worked out while it still counts.
-    final skipping = _skipping([_entries[index]]);
+    final (skipping, letGo) = _skipping([_entries[index]]);
     final removed = _entries.removeAt(index);
     if (!_tryReplay(
       () => _entries.insert(index, removed),
@@ -228,6 +228,7 @@ final class EntryCommands {
       removed,
       _context.today,
       order: _entries.orderOf(removed.id),
+      letGo: letGo[removed.id],
     );
     _trash.put(trashed);
     _context.keep(
@@ -251,7 +252,7 @@ final class EntryCommands {
       for (final id in {...ids}) ?_entries.byId(id),
     ];
     if (found.isEmpty) return const [];
-    final skipping = _skipping(_entries.written(found));
+    final (skipping, letGo) = _skipping(_entries.written(found));
     final removed = _entries.removeEach(found);
     if (!_tryReplay(() {
       for (final (i, e) in removed) {
@@ -263,7 +264,12 @@ final class EntryCommands {
     _recurring.replaceExisting(skipping);
     final trashed = [
       for (final (_, e) in removed)
-        Trashed(e, _context.today, order: _entries.orderOf(e.id)),
+        Trashed(
+          e,
+          _context.today,
+          order: _entries.orderOf(e.id),
+          letGo: letGo[e.id],
+        ),
     ];
     _trash.putAll(trashed);
     _context.keep(
@@ -293,8 +299,8 @@ final class EntryCommands {
     )) {
       return false;
     }
+    final back = _unskipping(removed, _letGoOf(ids));
     _trash.removeEntries(ids);
-    final back = _unskipping(removed);
     _recurring.replaceExisting(back);
     _context.keep(
       WriteBatch(
@@ -317,8 +323,8 @@ final class EntryCommands {
     if (!_tryReplay(() => _entries.remove(entry), trades: entry.isInvestment)) {
       return false;
     }
+    final back = _unskipping([entry], _letGoOf({entry.id}));
     _trash.removeEntries({entry.id});
-    final back = _unskipping([entry]);
     _recurring.replaceExisting(back);
     _context.keep(
       WriteBatch(
@@ -331,50 +337,59 @@ final class EntryCommands {
     return true;
   }
 
-  /// What stands in the way of putting [trashed] back as it is, for the
-  /// person to decide (D78): an account it names since closed, or, for a
-  /// refund, its purchase deleted (still in the trash, or gone for good);
-  /// null when nothing does.
-  RestoreHold? holdOf(Trashed trashed) {
-    final entry = trashed.entry;
-    final closed = <Account>[
-      for (final id in {entry.account, ?entry.to})
-        if (_accounts.byId(id) case final a? when a.archived) a,
-    ];
-    if (closed.isNotEmpty) return ClosedAccounts(closed);
-    final of = entry.refundOf;
-    if (of == null || _entries.byId(of) != null) return null;
-    for (final t in _trash.all) {
-      if (t.entry.id == of) return OriginalInTrash(t);
+  /// Everything that stands in the way of putting [trashed] back as it
+  /// is, for the person to decide (D78), all worked out before anything
+  /// is asked: for a refund, its purchase deleted (still in the trash, or
+  /// gone for good); then the accounts the entries that would come back
+  /// name, since closed. Empty when nothing does.
+  List<RestoreHold> holdsOf(Trashed trashed) {
+    final holds = <RestoreHold>[];
+    final entries = [trashed.entry];
+    final of = trashed.entry.refundOf;
+    if (of != null && _entries.byId(of) == null) {
+      final original = _trash.all.where((t) => t.entry.id == of).firstOrNull;
+      if (original == null) {
+        holds.add(const OriginalGone());
+      } else {
+        holds.add(OriginalInTrash(original));
+        entries.add(original.entry);
+      }
     }
-    return const OriginalGone();
+    final closed = <String, Account>{
+      for (final e in entries)
+        for (final id in {e.account, ?e.to})
+          if (_accounts.byId(id) case final a? when a.archived) id: a,
+    };
+    if (closed.isNotEmpty) holds.add(ClosedAccounts(closed.values.toList()));
+    return holds;
   }
 
-  /// Puts [trashed] back in the book. False, told through [CommandContext.problem], when
-  /// it no longer fits the trades kept since. What [holdOf] finds is
-  /// settled as the person chose: a closed account opened again when
-  /// [reopen], a refund's purchase in the trash put back with it when
-  /// [withOriginal]; else it is not put back.
+  /// Puts [trashed] back in the book as one change, all or nothing. False,
+  /// told through [CommandContext.problem] when it no longer fits the
+  /// trades kept since, and false with nothing changed when a hold of
+  /// [holdsOf] is not agreed: [reopen] opens the closed accounts again,
+  /// [withOriginal] puts a refund's purchase in the trash back first. A
+  /// refund whose purchase is gone for good needs no answer here. When
+  /// the putting back cannot be done, an account opened for it is closed
+  /// again.
   bool restoreTrashed(
     Trashed trashed, {
     bool reopen = false,
     bool withOriginal = false,
   }) {
-    switch (holdOf(trashed)) {
-      case ClosedAccounts(:final accounts) when reopen:
-        final opened = [for (final a in accounts) a.copyWith(archived: false)];
-        opened.forEach(_accounts.replace);
-        _context.changed(const {Topic.accounts});
-        _context.keep(WriteBatch(accounts: opened));
-        return restoreTrashed(trashed, withOriginal: withOriginal);
-      case OriginalInTrash(:final original) when withOriginal:
-        // The purchase first, then the refund that names it.
-        if (!restoreTrashed(original, reopen: reopen)) return false;
-        return restoreTrashed(trashed);
-      case OriginalGone() || null:
-        break;
-      case ClosedAccounts() || OriginalInTrash():
-        return false;
+    final closed = <Account>[];
+    Trashed? original;
+    for (final hold in holdsOf(trashed)) {
+      switch (hold) {
+        case ClosedAccounts(:final accounts):
+          if (!reopen) return false;
+          closed.addAll(accounts);
+        case OriginalInTrash(original: final purchase):
+          if (!withOriginal) return false;
+          original = purchase;
+        case OriginalGone():
+          break;
+      }
     }
     final entry = trashed.entry;
     if (_entries.byId(entry.id) != null) {
@@ -384,41 +399,79 @@ final class EntryCommands {
       _context.keep(WriteBatch(dropped: [(Collection.trash, entry.id)]));
       return true;
     }
-    // An entry written as one with others comes back with them.
-    final group = entry.group;
-    final back = [
-      for (final t in _trash.all)
-        if (identical(t, trashed) ||
-            (group != null &&
-                t.entry.group == group &&
-                _entries.byId(t.entry.id) == null))
-          t,
-    ];
-    if (!_tryCheck([for (final t in back) t.entry])) return false;
+    final opened = [for (final a in closed) a.copyWith(archived: false)];
+    opened.forEach(_accounts.replace);
     final before = _trash.all;
-    _trash.removeAll(back);
-    // Each back in its own place (D75).
-    for (final t in back) {
-      _entries.restoreAt(t.entry, t.order ?? _entries.orderOf(t.entry.id));
+    final placed = <Trashed>[];
+    // The purchase first, then the refund that names it.
+    for (final root in [?original, trashed]) {
+      final back = [
+        for (final t in _trash.all)
+          if (identical(t, root) ||
+              (root.entry.group != null &&
+                  t.entry.group == root.entry.group &&
+                  _entries.byId(t.entry.id) == null))
+            t,
+      ];
+      if (!_place(back)) {
+        _undoPlaced(placed, before, closed);
+        return false;
+      }
+      placed.addAll(back);
     }
-    final ids = {for (final t in back) t.entry.id};
-    if (!_tryReplay(() {
-      _entries.removeWhere((e) => ids.contains(e.id));
-      _trash.replaceWith(before);
-    }, trades: back.any((t) => t.entry.isInvestment))) {
-      return false;
-    }
-    final unskipped = _unskipping([for (final t in back) t.entry]);
+    final entries = [for (final t in placed) t.entry];
+    final unskipped = _unskipping(entries, {
+      for (final t in placed) t.entry.id: ?t.letGo,
+    });
     _recurring.replaceExisting(unskipped);
+    if (opened.isNotEmpty) _context.changed(const {Topic.accounts});
     _context.keep(
       WriteBatch(
-        entries: [for (final t in back) t.entry],
+        accounts: opened,
+        entries: entries,
         recurring: unskipped,
-        dropped: [for (final t in back) (Collection.trash, t.entry.id)],
+        dropped: [for (final t in placed) (Collection.trash, t.entry.id)],
       ),
     );
     if (unskipped.isNotEmpty) _context.changed(const {Topic.recurring});
     return true;
+  }
+
+  /// Puts [back] out of the trash into the entries, each in its own place
+  /// (D75), when the write rules and the trades allow; false, told
+  /// through [CommandContext.problem], with nothing changed when not.
+  bool _place(List<Trashed> back) {
+    if (!_tryCheck([for (final t in back) t.entry])) return false;
+    final before = _trash.all;
+    _trash.removeAll(back);
+    for (final t in back) {
+      _entries.restoreAt(t.entry, t.order ?? _entries.orderOf(t.entry.id));
+    }
+    final ids = {for (final t in back) t.entry.id};
+    return _tryReplay(() {
+      _entries.removeWhere((e) => ids.contains(e.id));
+      _trash.replaceWith(before);
+    }, trades: back.any((t) => t.entry.isInvestment));
+  }
+
+  /// Takes [placed] out of the entries again into the trash as it was
+  /// [before], and closes the accounts [closed] again: what [_place] did
+  /// for them, undone when a later one is refused.
+  void _undoPlaced(
+    List<Trashed> placed,
+    List<Trashed> before,
+    List<Account> closed,
+  ) {
+    if (placed.isNotEmpty) {
+      final ids = {for (final t in placed) t.entry.id};
+      _entries.removeWhere((e) => ids.contains(e.id));
+      _trash.replaceWith(before);
+      if (placed.any((t) => t.entry.isInvestment)) {
+        _holdings.replay(_entries.all, today: _context.today);
+      }
+    }
+    closed.forEach(_accounts.replace);
+    _context.changed(Topic.all);
   }
 
   /// Takes out of the trash, for good, the entries deleted longer ago
@@ -564,31 +617,47 @@ final class EntryCommands {
   }
 
   /// The recurring items [removed] booked, each with the day it lets go:
-  /// a booking deleted is a period skipped, not one to book again.
-  List<Recurring> _skipping(List<Entry> removed) {
+  /// a booking deleted is a period skipped, not one to book again; and
+  /// the day each entry of [removed] stood for, by its id.
+  (List<Recurring>, Map<String, DateTime>) _skipping(List<Entry> removed) {
     final changed = <String, Recurring>{};
+    final days = <String, DateTime>{};
     for (final e in removed) {
       final day = _recurringService.dueDayOf(e);
       if (day == null) continue;
       // dueDayOf found the item, so it is held.
       final item = changed[e.recurring] ?? _recurring.byId(e.recurring!)!;
       changed[item.id] = item.copyWith(skipped: {...item.skipped, day});
+      days[e.id] = day;
     }
-    return changed.values.toList();
+    return (changed.values.toList(), days);
   }
 
-  /// The recurring items [back] booked with the day each had let go
-  /// taken out again: the one the entry stands for, as a booking settles
-  /// its day ([RecurringService.nearestDay]).
-  List<Recurring> _unskipping(List<Entry> back) {
+  /// The day each trashed entry of [ids] let go when it was deleted.
+  Map<String, DateTime> _letGoOf(Set<String> ids) => {
+    for (final t in _trash.all)
+      if (ids.contains(t.entry.id)) t.entry.id: ?t.letGo,
+  };
+
+  /// The recurring items [back] booked with the one day each let go
+  /// taken out again: the day it stood for when it was deleted ([letGo],
+  /// by entry id), and only if it is still let go. An entry deleted before
+  /// that was kept stands for a let-go day of its own month, if any
+  /// ([RecurringService.nearestDay]): never another month's.
+  List<Recurring> _unskipping(List<Entry> back, Map<String, DateTime> letGo) {
     final changed = <String, Recurring>{};
     for (final e in back) {
       final id = e.recurring;
       if (id == null) continue;
       final item = changed[id] ?? _recurring.byId(id);
       if (item == null) continue;
-      final day = RecurringService.nearestDay(e.date, item.skipped);
-      if (day == null) continue;
+      final day =
+          letGo[e.id] ??
+          RecurringService.nearestDay(e.date, [
+            for (final d in item.skipped)
+              if (d.year == e.date.year && d.month == e.date.month) d,
+          ]);
+      if (day == null || !item.skipped.contains(day)) continue;
       changed[id] = item.copyWith(skipped: {...item.skipped}..remove(day));
     }
     return changed.values.toList();
