@@ -1,8 +1,12 @@
 import 'dart:io';
 
+import 'package:flutter/material.dart';
+
+import '../core/design_system/keys.dart';
 import '../core/diagnostics/error_log.dart';
 import '../core/diagnostics/error_steps.dart';
 import '../core/ledger/persistence/quarantine.dart';
+import '../core/messages/loading_messages.dart';
 
 /// Which rows set aside as the book opened the person is told of (D18):
 /// those that cannot be read, every opening; those a newer version wrote,
@@ -36,3 +40,37 @@ final class QuarantineNotices {
     return tell;
   }
 }
+
+/// Tells how many of [rows] were set aside as the book opened, with a way
+/// to report them ([onExport]), to restore a backup (true), or to go on
+/// with the rest of the book (false).
+Future<bool> showQuarantineNotice(
+  BuildContext context,
+  List<QuarantinedRow> rows, {
+  required VoidCallback onExport,
+}) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(quarantineTitle(rows.length)),
+        content: Text(quarantineBody(rows)),
+        actions: [
+          TextButton(
+            key: Keys.quarantine('export'),
+            onPressed: onExport,
+            child: const Text(quarantineExport),
+          ),
+          TextButton(
+            key: Keys.quarantine('restore'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(quarantineRestore),
+          ),
+          FilledButton(
+            key: Keys.quarantine('continue'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(quarantineContinue),
+          ),
+        ],
+      ),
+    ) ??
+    false;

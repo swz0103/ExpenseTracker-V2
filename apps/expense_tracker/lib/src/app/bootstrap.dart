@@ -14,12 +14,10 @@ import 'lifecycle_services.dart';
 import 'load_failed_page.dart';
 import 'quarantine_notices.dart';
 import 'upgrade_held_page.dart';
-import '../../design_system/display/date.dart';
-import '../core/design_system/dialogs.dart';
 import '../features/backup/model/old_key_backups.dart';
+import '../features/backup/ui/old_key_backups_offer.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../core/ledger/persistence/quarantine.dart';
-import '../core/ledger/persistence/upgrade_backup.dart';
 import '../core/design_system/design_system.dart';
 import '../core/diagnostics/error_log.dart';
 import '../core/messages/loading_messages.dart';
@@ -320,36 +318,15 @@ class _OpenedLedgerState extends State<OpenedLedger>
 
   late Future<Ledger> _ledger = _open();
 
-  /// The copy before an upgrade that could not be kept, while its page
-  /// shows (D19); and what the person chose there: true to go on without
-  /// it, false to try again.
-  UpgradeBackupFailed? _held;
-  Completer<bool>? _choice;
-
-  void _choose({required bool withoutBackup}) {
-    final choice = _choice;
-    if (choice == null || choice.isCompleted) return;
-    choice.complete(withoutBackup);
-  }
+  /// Holds the opening while the copy before an upgrade cannot be kept
+  /// (D19); its page shows meanwhile.
+  late final _hold = UpgradeHold()
+    ..addListener(() {
+      if (mounted) setState(() {});
+    });
 
   Future<Ledger> _open() async {
-    // A book an earlier version kept is not opened until its copy is
-    // kept, or the person chose, twice, to go on without one.
-    var withoutBackup = false;
-    for (;;) {
-      final held = await _session.prepare(withoutBackup: withoutBackup);
-      if (held == null) break;
-      final choice = _choice = Completer<bool>();
-      if (mounted) setState(() => _held = held);
-      withoutBackup = await choice.future;
-      if (withoutBackup) {
-        ErrorLog.instance.record(
-          ErrorSteps.upgradeBackup,
-          StateError('skipped by choice'),
-        );
-      }
-      if (mounted) setState(() => _held = null);
-    }
+    await _hold.prepare(_session.prepare);
     final start = await _session.open();
     await _services.start(start.ledger);
     // Rows a newer version wrote are told once a set (D18); rows that
@@ -398,28 +375,12 @@ class _OpenedLedgerState extends State<OpenedLedger>
     List<QuarantinedRow> rows, {
     required List<QuarantinedRow> all,
   }) async {
-    final restore = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(quarantineTitle(rows.length)),
-        content: Text(quarantineBody(rows)),
-        actions: [
-          TextButton(
-            onPressed: () => unawaited(_exportReport(rows: all)),
-            child: const Text(quarantineExport),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(quarantineRestore),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(quarantineContinue),
-          ),
-        ],
-      ),
+    final restore = await showQuarantineNotice(
+      context,
+      rows,
+      onExport: () => unawaited(_exportReport(rows: all)),
     );
-    if (restore == true && mounted) {
+    if (restore && mounted) {
       await restoreFromBackup(context, _services.backupManager);
     }
   }
@@ -536,26 +497,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       driveFiles: drive != null && drive.linked ? drive.backups : null,
       trashOnDrive: drive?.trash,
     );
-    final found = await old.find();
-    if (!mounted) return;
-    if (found.isEmpty) {
-      if (found.driveUnreached) showNote(context, KeyWords.oldBackupsUnreached);
-      return;
-    }
-    final sure = await confirm(
-      context,
-      KeyWords.oldBackupsTitle,
-      KeyWords.oldBackupsGo,
-      danger: true,
-      body: KeyWords.oldBackupsBody(
-        drive: [for (final f in found.drive) formatYMd(f.modified.toLocal())],
-        phone: [for (final (_, at) in found.local) formatYMd(at.toLocal())],
-        driveUnreached: found.driveUnreached,
-      ),
-    );
-    if (!sure) return;
-    final gone = await old.remove(found);
-    if (mounted) showNote(context, KeyWords.oldBackupsGone(gone));
+    if (mounted) await offerToRemoveOldKeyBackups(context, old);
   }
 
   /// Whether this opening of the ledger is still the open one and not
@@ -606,12 +548,12 @@ class _OpenedLedgerState extends State<OpenedLedger>
     future: _ledger,
     builder: (context, snapshot) {
       final ledger = snapshot.data;
-      if (_held case final held? when ledger == null) {
+      if (_hold.held case final held? when ledger == null) {
         return UpgradeHeldPage(
           failure: held,
-          onRetry: () => _choose(withoutBackup: false),
+          onRetry: () => _hold.choose(withoutBackup: false),
           onExport: () => _exportReport(failure: held.error),
-          onWithoutBackup: () => _choose(withoutBackup: true),
+          onWithoutBackup: () => _hold.choose(withoutBackup: true),
         );
       }
       if (snapshot.hasError) {

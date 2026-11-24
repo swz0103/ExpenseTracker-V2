@@ -84,4 +84,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(pressed, ['without']);
   });
+
+  test('the hold stays until the copy is kept, or the person goes on '
+      'without it', () async {
+    final hold = UpgradeHold();
+    final asked = <bool>[];
+    var told = 0;
+    hold.addListener(() => told++);
+    final preparing = hold.prepare(({withoutBackup = false}) async {
+      asked.add(withoutBackup);
+      return withoutBackup ? null : full;
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(hold.held, same(full));
+    // Tried again: still no copy, still held.
+    hold.choose(withoutBackup: false);
+    await Future<void>.delayed(Duration.zero);
+    expect(hold.held, same(full));
+    // On without it.
+    hold.choose(withoutBackup: true);
+    await preparing;
+    expect(hold.held, isNull);
+    expect(asked, [false, false, true]);
+    // Held, freed, held, freed.
+    expect(told, 4);
+    // Nothing held: a choice does nothing.
+    hold.choose(withoutBackup: true);
+  });
 }

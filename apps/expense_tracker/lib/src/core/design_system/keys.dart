@@ -39,6 +39,10 @@ abstract final class Keys {
   /// before it could not be kept: retry, export, or go on without it.
   static Key upgradeHeld(String what) => ValueKey('upgrade-held:$what');
 
+  /// A way on from the notice of rows set aside: export, restore or
+  /// continue.
+  static Key quarantine(String what) => ValueKey('quarantine:$what');
+
   /// 刪除 on the bar over entries picked by a long press.
   static const deletePicked = ValueKey('ledger:delete-picked');
 
