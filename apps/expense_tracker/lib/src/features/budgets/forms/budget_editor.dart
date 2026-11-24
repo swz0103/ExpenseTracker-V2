@@ -7,6 +7,7 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
+import '../../../core/formatting/words.dart';
 import '../../../../design_system/display/amount.dart';
 import '../../../core/widgets/calculator.dart';
 import '../../../core/widgets/icons.dart';
@@ -124,7 +125,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                 Expanded(
                   flex: 2,
                   child: PanelButton(
-                    '儲存',
+                    Words.save,
                     color: AppColors.accent,
                     onTap: () {
                       ledger.budgetCommands.setBudget(

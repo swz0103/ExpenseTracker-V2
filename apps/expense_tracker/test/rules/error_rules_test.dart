@@ -155,7 +155,7 @@ void main() {
 
 /// Files another work package is changing now (FIX-R29), left to it:
 /// DriveException keeps Drive's answer in its detail, which the screens
-/// no longer say (backup/model/drive_note.dart); 下載失敗 still puts
+/// no longer say (backup/model/restore_sources.dart, driveNote); 下載失敗 still puts
 /// describeProblem after words.
 const _elsewhere = <String>{
   'features/backup/model/drive_backup.dart',

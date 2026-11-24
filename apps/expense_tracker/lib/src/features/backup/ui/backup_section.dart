@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../design_system/display/amount.dart';
 import '../model/drive_backup.dart';
-import '../model/drive_note.dart';
+import '../model/restore_sources.dart' show driveNote;
 import '../model/drive_sync.dart';
 import '../model/backup_manager.dart';
 import '../model/phone_backup.dart';
@@ -16,6 +16,7 @@ import '../../../core/design_system/recovery_code.dart';
 import '../../../core/messages/backup_messages.dart';
 import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/diagnostics/error_steps.dart';
 import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/shape.dart';
@@ -118,7 +119,7 @@ class _BackupSectionState extends State<BackupSection> {
           ? '已把帳本備份到 Google 雲端硬碟，之後有變動就每天一次'
           : '沒有連結 Google 雲端硬碟';
     } on DriveException catch (error) {
-      ErrorLog.instance.record('備份', error);
+      ErrorLog.instance.record(ErrorSteps.driveBackup, error);
       note = driveNote(error);
     } on Object catch (error) {
       ErrorLog.instance.record('備份', error);
@@ -138,7 +139,7 @@ class _BackupSectionState extends State<BackupSection> {
       await drive.setPhotos(on);
       if (mounted && on) showNote(context, '已連同收據照片備份到雲端硬碟');
     } on DriveException catch (error) {
-      ErrorLog.instance.record('備份', error);
+      ErrorLog.instance.record(ErrorSteps.driveBackup, error);
       if (mounted) showNote(context, driveNote(error));
     } on Object catch (error) {
       ErrorLog.instance.record('備份', error);

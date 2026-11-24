@@ -12,7 +12,6 @@ import '../../../core/messages/key_failures.dart';
 import '../../../core/messages/key_messages.dart';
 import '../../../core/messages/lock_messages.dart';
 import '../../../core/messages/problem_messages.dart';
-import '../../backup/model/drive_note.dart';
 import '../model/unlock_countdown.dart';
 import 'views/backup_choosers.dart';
 import 'views/lock_parts.dart';

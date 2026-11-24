@@ -4,6 +4,7 @@ import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
+import '../../../core/formatting/words.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/pickers.dart';
 import '../../../core/design_system/shape.dart';
@@ -354,7 +355,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
         const SizedBox(width: Space.s2),
         Expanded(
           flex: 2,
-          child: PanelButton('儲存', color: AppColors.accent, onTap: _save),
+          child: PanelButton(Words.save, color: AppColors.accent, onTap: _save),
         ),
       ],
     );
@@ -368,7 +369,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
             const SizedBox(width: Space.s2),
             Expanded(
               child: PanelButton(
-                widget.initial.archived ? '恢復' : '封存',
+                widget.initial.archived ? Words.unarchive : Words.archive,
                 onTap: () => _archive(book),
               ),
             ),

@@ -319,19 +319,30 @@ final class AppUpdate extends ChangeNotifier {
       if (!apk.existsSync() || apk.lengthSync() != info.size) {
         final stop = _stop = Completer<void>();
         // Cancelled: the transfer stops at its next piece, and this does
-        // not wait for it.
+        // not wait for it; what it fails with then is the stop's.
         await Future.any([
-          _port.download(apkUrl(info.version), apk, (received) {
-            if (stop.isCompleted) throw const _DownloadCancelled();
-            // More than update.json says it weighs: stopped, not saved.
-            if (received > info.size) throw const _OversizedDownload();
-            _progress = info.size == 0
-                ? 0
-                : (received / info.size).clamp(0, 1).toDouble();
-            notifyListeners();
-          }),
-          stop.future.then<void>((_) => throw const _DownloadCancelled()),
+          _port
+              .download(apkUrl(info.version), apk, (received) {
+                if (stop.isCompleted) throw const _DownloadCancelled();
+                // More than update.json says it weighs: stopped, not saved.
+                if (received > info.size) throw const _OversizedDownload();
+                _progress = info.size == 0
+                    ? 0
+                    : (received / info.size).clamp(0, 1).toDouble();
+                notifyListeners();
+              })
+              .catchError((Object error, StackTrace stack) {
+                if (!stop.isCompleted) {
+                  Error.throwWithStackTrace(error, stack);
+                }
+              }),
+          stop.future,
         ]);
+        if (stop.isCompleted) {
+          // The person stopped it: nothing went wrong, nothing to say.
+          if (apk.existsSync()) await apk.delete();
+          return null;
+        }
       }
       final outcome = await _port.install(apk, info.sha256);
       if (outcome == UpdateInstall.damaged) {
@@ -340,10 +351,6 @@ final class AppUpdate extends ChangeNotifier {
         _failure = UpdateFailure.notThisApp;
       }
       return outcome;
-    } on _DownloadCancelled {
-      // The person stopped it: nothing went wrong, nothing to say.
-      if (apk.existsSync()) await apk.delete();
-      return null;
     } on _OversizedDownload {
       ErrorLog.instance.record(
         UpdateMessages.downloadStep,

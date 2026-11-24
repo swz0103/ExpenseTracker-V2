@@ -266,10 +266,10 @@ extension on _AccountEditorState {
                   removable
                       ? Words.delete
                       : old.archived
-                      ? '恢復'
+                      ? Words.unarchive
                       : widget.ledger.balanceService.balance(old.id) == 0
-                      ? '封存'
-                      : '結清封存',
+                      ? Words.archive
+                      : Words.settleArchive,
                 ),
               ),
             const CancelButton(word: true),
@@ -282,7 +282,7 @@ extension on _AccountEditorState {
                   minimumSize: Size.fromHeight(46),
                   radius: Radii.medium,
                 ),
-                child: const Text('儲存'),
+                child: const Text(Words.save),
               ),
             ),
           ],

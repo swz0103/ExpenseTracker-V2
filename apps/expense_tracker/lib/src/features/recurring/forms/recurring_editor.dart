@@ -201,7 +201,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                 flex: 2,
                 child: PanelButton(
                   editing
-                      ? '儲存'
+                      ? Words.save
                       : _f.income
                       ? '儲存固定收入'
                       : '儲存固定支出',
