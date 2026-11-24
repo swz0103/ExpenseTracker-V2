@@ -8,6 +8,7 @@
 
 import 'dart:async' show FutureOr;
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:isolate';
 
 import 'package:core/app_core.dart';
@@ -302,6 +303,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   }
 
   Future<Ledger> _load() async {
+    final watch = Stopwatch()..start();
     _aside.clear();
     _named.clear();
     _namesOf.clear();
@@ -312,8 +314,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final trashFrom = today.subtract(trashRetention);
     final Future<ReplayReport?>? posting;
     final DecodedBook book;
+    int? workedUs;
     if (keepsJournal || _store.count > _decodeApart) {
-      (book, posting) = await _openApart(today, trashFrom);
+      (:book, :workedUs, posting: posting) = await _openApart(today, trashFrom);
     } else {
       posting = null;
       book = decodeBook(await _shelves(), trashFrom: trashFrom, today: today);
@@ -360,19 +363,26 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       );
     }
     if (keepsJournal) journal.open(ledger, posted: posting);
+    lastOpening = (us: watch.elapsedMicroseconds, workerUs: workedUs);
     return ledger;
   }
+
+  /// How long the last [load] took, and how much of it the book's worker
+  /// spent reading it (null when it was read here, a small book), in
+  /// microseconds: what is left is starting the worker, handing the book
+  /// back and making the ledger of it, the part the screen's isolate
+  /// waits on or does (open_gate_test.dart). Null before a load.
+  ({int us, int? workerUs})? lastOpening;
 
   /// Reads and decodes the book on a worker isolate, which drops what has
   /// expired ([DecodedBook.expired]) and hands the book here as soon as it
   /// is read; when the journal is kept, it then posts the whole book
   /// afresh there unless the journal is the records' own (decision D51:
   /// the book decoded once, for the screens and the journal). The book,
-  /// and what posting it found (null when nothing was posted).
-  Future<(DecodedBook, Future<ReplayReport?>?)> _openApart(
-    DateTime today,
-    DateTime trashFrom,
-  ) async {
+  /// how long the worker took to read it, and what posting it found (null
+  /// when nothing was posted).
+  Future<({DecodedBook book, int workedUs, Future<ReplayReport?>? posting})>
+  _openApart(DateTime today, DateTime trashFrom) async {
     final books = ReceivePort();
     try {
       // Taken in the turn the store is found free; the work itself runs on.
@@ -384,6 +394,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
             today: today,
             trashFrom: trashFrom,
             rules: keepsJournal ? journalRules : null,
+            // The cores beside the worker's: the screen's isolate only
+            // waits for the book meanwhile.
+            helpers: Platform.numberOfProcessors - 1,
           ),
         );
       });
@@ -392,10 +405,15 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       // opening's.
       final first = await Future.any<Object?>([books.first, work]);
       return switch (first) {
-        DecodedBook() => (first, work.then((opened) => opened.posted)),
-        (book: final DecodedBook book, posted: _) => (
-          book,
-          keepsJournal ? Future<ReplayReport?>.value() : null,
+        (book: final DecodedBook book, :final int workedUs) => (
+          book: book,
+          workedUs: workedUs,
+          posting: work.then((opened) => opened.posted),
+        ),
+        (book: final DecodedBook book, posted: _, :final int workedUs) => (
+          book: book,
+          workedUs: workedUs,
+          posting: keepsJournal ? Future<ReplayReport?>.value() : null,
         ),
         _ => throw StateError('the book was not read'),
       };

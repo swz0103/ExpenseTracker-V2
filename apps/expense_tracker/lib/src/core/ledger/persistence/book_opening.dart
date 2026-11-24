@@ -111,14 +111,17 @@ Map<String, List<StoredRow>> shelvesOf(Iterable<StoredRow> rows) {
 /// a JSON object, that a later version wrote, or that cannot be read is
 /// set aside instead ([DecodedBook.aside]), and the rest of the book
 /// opens. [trashFrom] is the oldest day the trash keeps an entry put
-/// there; none drops nothing.
+/// there; none drops nothing. [entryTail], the last of the entry rows
+/// already decoded elsewhere ([decodeRows], on a second worker as a large
+/// book opens), is taken as it is.
 DecodedBook decodeBook(
   Map<String, List<StoredRow>> shelves, {
   DateTime? trashFrom,
   DateTime? today,
+  DecodedRecords? entryTail,
 }) {
   final aside = Quarantine();
-  final json = _records(shelves, aside);
+  final json = _records(shelves, aside, entryTail);
   // One copy of what entries repeat, for the whole book.
   final same = SameValues();
   final namesOf = <String, Set<String>>{};
@@ -300,18 +303,46 @@ DecodedBook decodeBook(
 /// the order of its rows, decoded and brought up to the current version;
 /// null for a row that is not a JSON object, or that a later version
 /// wrote, which is set [aside] instead. Every collection has its list,
-/// empty when it has no rows.
+/// empty when it has no rows. The last entry rows, as many as
+/// [entryTail] holds, are taken from it, their rows set aside after
+/// those of the entries before them, as when all are decoded here.
 Map<String, List<Map<String, Object?>?>> _records(
   Map<String, List<StoredRow>> shelves,
   Quarantine aside,
-) => {
-  for (final collection in Collection.values)
-    if (collection != Collection.receipt)
-      collection.name: _shelfRecords(
-        shelves[collection.name] ?? const <StoredRow>[],
-        aside,
-      ),
-};
+  DecodedRecords? entryTail,
+) {
+  final records = <String, List<Map<String, Object?>?>>{};
+  for (final collection in Collection.values) {
+    if (collection == Collection.receipt) continue;
+    final rows = shelves[collection.name] ?? const <StoredRow>[];
+    if (collection == Collection.entry && entryTail != null) {
+      final head = rows.length - entryTail.records.length;
+      records[collection.name] = [
+        ..._shelfRecords(rows.sublist(0, head), aside),
+        ...entryTail.records,
+      ];
+      entryTail.aside.forEach(aside.adopt);
+    } else {
+      records[collection.name] = _shelfRecords(rows, aside);
+    }
+  }
+  return records;
+}
+
+/// [rows], all of one shelf, decoded and brought up to this version as
+/// the book opens them ([decodeBook]), with the rows set aside: done on a
+/// worker of its own for the last half of a large book's entries.
+DecodedRecords decodeRows(List<StoredRow> rows) {
+  final aside = Quarantine();
+  return (records: _shelfRecords(rows, aside), aside: aside.rows);
+}
+
+/// What [decodeRows] made: each row's record, null for one set aside,
+/// and those set aside, in order.
+typedef DecodedRecords = ({
+  List<Map<String, Object?>?> records,
+  List<QuarantinedRow> aside,
+});
 
 List<Map<String, Object?>?> _shelfRecords(
   List<StoredRow> rows,

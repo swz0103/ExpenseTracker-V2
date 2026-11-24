@@ -39,6 +39,46 @@ void main() {
     for (final row in book.aside) row.key: row.detail,
   };
 
+  test('entries decoded apart read as those decoded with the book', () {
+    var seq = 0;
+    final rows = [
+      StoredRow(++seq, 'entry', 'a', entry('a')),
+      StoredRow(++seq, 'entry', 'bad', 'not json'),
+      StoredRow(++seq, 'entry', 'b', entry('b', {'note': '午餐'})),
+      StoredRow(++seq, 'entry', 'new', '{"_v":99,${entry('new').substring(1)}'),
+      StoredRow(++seq, 'entry', 'c', entry('c')),
+      StoredRow(++seq, 'budget', 'x', 'not json'),
+    ];
+    final shelves = shelvesOf(rows);
+    final whole = decodeBook(shelves, today: today);
+    // The entries decoded in two parts, as a large book opens: the head
+    // on the opening's worker, the tail on another.
+    final entryRows = shelves['entry']!;
+    final head = decodeRows(entryRows.sublist(0, 2));
+    final tail = decodeRows(entryRows.sublist(2));
+    final apart = decodeBook(
+      shelves,
+      today: today,
+      entryTail: (
+        records: [...head.records, ...tail.records],
+        aside: [...head.aside, ...tail.aside],
+      ),
+    );
+    expect(apart.entries.map((e) => e.id), ['a', 'b', 'c']);
+    expect(whole.entries.map((e) => e.id), ['a', 'b', 'c']);
+    // Each entry beside its row's place: rows 1, 3 and 5.
+    expect(apart.entryPlaces, [1, 3, 5]);
+    expect(whole.entryPlaces, [1, 3, 5]);
+    // Set aside in the same order: the entries' rows, then the budget's.
+    const order = ['entry/bad', 'entry/new', 'budget/x'];
+    expect(apart.aside.map((r) => r.key), order);
+    expect(whole.aside.map((r) => r.key), order);
+    // A tail of only the last rows leaves the rest to the book.
+    final onlyTail = decodeBook(shelves, today: today, entryTail: tail);
+    expect(onlyTail.entries.map((e) => e.id), ['a', 'b', 'c']);
+    expect(onlyTail.aside.map((r) => r.key), order);
+  });
+
   test('a _v that is no version sets its row aside (F1)', () {
     final book = decode([
       for (final (i, v) in [

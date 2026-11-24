@@ -8,6 +8,7 @@ import '../journal/old_shapes.dart';
 import '../journal/replay.dart';
 import '../models/models.dart';
 import 'book_opening.dart';
+import 'write_batch.dart' show Collection;
 
 /// How many records are posted and written at a time when the whole book
 /// is posted afresh. Each part is let go once written, so the worker
@@ -31,43 +32,80 @@ typedef AddPart = void Function(FreshPostingStore part);
 /// [today]. When the journal is kept by [rules] and is not the records'
 /// own, the book is sent to [books] for the screens and posted afresh
 /// from the same entries ([postBook]), the mark of the records' revision
-/// kept last; otherwise it is answered. Made here, at the top
+/// kept last; otherwise it is answered. With [helpers], the cores free
+/// beside it, a large book's entries are decoded half here and half on a
+/// second worker at once ([splitOpeningFrom]). Made here, at the top
 /// level, so the closure carries only what it is given.
 Future<OpenedBook> Function(ApartStore) openingWork({
   required SendPort books,
   required DateTime today,
   required DateTime trashFrom,
   required int? rules,
+  int helpers = 0,
 }) => (store) async {
+  final watch = Stopwatch()..start();
+  final shelves = shelvesOf(store.read().rows);
+  // The last half of a large book's entries decoded on a second worker
+  // meanwhile, when there is a core for it: on a phone of two cores the
+  // screen's isolate only waits, and decoding is most of opening.
+  final entries = shelves[Collection.entry.name] ?? const <StoredRow>[];
+  DecodedRecords? decoded;
+  if (helpers > 0 && entries.length >= splitOpeningFrom) {
+    final half = entries.length ~/ 2;
+    final tail = _decodedApart(entries.sublist(half));
+    final head = decodeRows(entries.sublist(0, half));
+    final (:records, :aside) = await tail;
+    decoded = (
+      records: [...head.records, ...records],
+      aside: [...head.aside, ...aside],
+    );
+  }
   final book = decodeBook(
-    shelvesOf(store.read().rows),
+    shelves,
     trashFrom: trashFrom,
     today: today,
+    entryTail: decoded,
   );
   if (book.expired.isNotEmpty) {
     store.write(book.expired, counts: book.expiredCounts);
   }
+  final worked = watch.elapsedMicroseconds;
   final mark = rules == null ? null : (rules: rules, revision: store.revision);
   if (mark == null || store.journal.mark == mark) {
     // Nothing to post: the book goes back whole as the worker ends,
     // handed over, never copied (a copy left for the screen's isolate to
     // collect held it at the next large change).
-    return (book: book, posted: null);
+    return (book: book, posted: null, workedUs: worked);
   }
   // Sent now, a copy, so the screens open while the book is posted.
-  books.send(book);
+  books.send((book: book, workedUs: worked));
   final start = holdingsOf(marketFrom(readableMarket(book.market)));
   final posted = await store.post(
     (add) async => postBook(book, add, start),
     mark: mark,
   );
-  return (book: null, posted: posted);
+  return (book: null, posted: posted, workedUs: worked);
 };
 
+/// How many entries a book has from which [openingWork] decodes half of
+/// them on a second worker: below it, starting one costs about what it
+/// saves.
+const splitOpeningFrom = 20000;
+
+/// [rows] decoded on a worker of their own ([decodeRows]), handed back
+/// whole. At the top level, so the closure carries [rows] alone.
+Future<DecodedRecords> _decodedApart(List<StoredRow> rows) =>
+    Isolate.run(() => decodeRows(rows));
+
 /// What opening the book on its worker answers: the book itself when
-/// nothing was posted (else it was sent as soon as it was read), and what
-/// posting afresh found.
-typedef OpenedBook = ({DecodedBook? book, ReplayReport? posted});
+/// nothing was posted (else it was sent as soon as it was read, as a
+/// [ReadBook]), what posting afresh found, and how long reading the book
+/// took there (`workedUs`).
+typedef OpenedBook = ({DecodedBook? book, ReplayReport? posted, int workedUs});
+
+/// The book read on its worker, and how long reading it took there, in
+/// microseconds: from the first row read until it was ready to hand over.
+typedef ReadBook = ({DecodedBook book, int workedUs});
 
 /// The work of posting the whole book afresh, to run on a worker isolate
 /// beside the records (`EncryptedDatabase.postApart`): it reads the
