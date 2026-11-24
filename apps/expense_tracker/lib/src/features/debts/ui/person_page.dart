@@ -52,18 +52,21 @@ class PersonPage extends StatelessWidget {
   }
 
   Future<void> _delete(BuildContext context, Account person) async {
-    final used = ledger.accountCommands.isUsed(person.id);
+    final used = ledger.accountCommands.usedOutsideTrash(person.id);
+    final trashed = ledger.accountCommands.trashedNaming(person.id);
     final ok = await confirm(
       context,
       '刪除「${person.name}」？',
       Words.delete,
       danger: true,
-      body: used ? '已記的紀錄會保留，這個人收起來不再出現。' : null,
+      body: used ? '已記的紀錄會保留，這個人收起來不再出現。' : trashedNamingNote(trashed.length),
     );
     if (!ok) return;
     if (used) {
       ledger.accountCommands.updateAccount(person.copyWith(archived: true));
     } else {
+      // Entries in the trash still naming them go too, once said (D78).
+      ledger.entryCommands.discardTrashed(trashed);
       ledger.accountCommands.removeAccount(person.id);
     }
     nav.back();

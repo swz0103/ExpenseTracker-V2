@@ -1,5 +1,6 @@
 import 'package:core/constants/retention.dart';
-import 'package:ledger_entries/rules.dart' show RecordIssue, SaleExceedsHolding;
+import 'package:ledger_entries/rules.dart'
+    show EntryDeleted, RecordIssue, SaleExceedsHolding;
 
 import '../cache/topic.dart';
 import '../models/models.dart';
@@ -143,6 +144,11 @@ final class EntryCommands {
     String? receiptOn,
   }) {
     final was = {...replacing};
+    // An entry deleted while its form was open is not brought back as a
+    // second copy beside the one in the trash (D78).
+    if (was.any((id) => _entries.byId(id) == null && _trash.holds(id))) {
+      throw RecordRefused(const [EntryDeleted()]);
+    }
     _check(entries, replacing: was);
     final ids = {for (final e in entries) e.id};
     final gone = {...was}..removeAll(ids);
@@ -316,9 +322,51 @@ final class EntryCommands {
     return true;
   }
 
+  /// What stands in the way of putting [trashed] back as it is, for the
+  /// person to decide (D78): an account it names since closed, or, for a
+  /// refund, its purchase deleted (still in the trash, or gone for good);
+  /// null when nothing does.
+  RestoreHold? holdOf(Trashed trashed) {
+    final entry = trashed.entry;
+    final closed = <Account>[
+      for (final id in {entry.account, ?entry.to})
+        if (_accounts.byId(id) case final a? when a.archived) a,
+    ];
+    if (closed.isNotEmpty) return ClosedAccounts(closed);
+    final of = entry.refundOf;
+    if (of == null || _entries.byId(of) != null) return null;
+    for (final t in _trash.all) {
+      if (t.entry.id == of) return OriginalInTrash(t);
+    }
+    return const OriginalGone();
+  }
+
   /// Puts [trashed] back in the book. False, told through [CommandContext.problem], when
-  /// it no longer fits the trades kept since.
-  bool restoreTrashed(Trashed trashed) {
+  /// it no longer fits the trades kept since. What [holdOf] finds is
+  /// settled as the person chose: a closed account opened again when
+  /// [reopen], a refund's purchase in the trash put back with it when
+  /// [withOriginal]; else it is not put back.
+  bool restoreTrashed(
+    Trashed trashed, {
+    bool reopen = false,
+    bool withOriginal = false,
+  }) {
+    switch (holdOf(trashed)) {
+      case ClosedAccounts(:final accounts) when reopen:
+        final opened = [for (final a in accounts) a.copyWith(archived: false)];
+        opened.forEach(_accounts.replace);
+        _context.changed(const {Topic.accounts});
+        _context.keep(WriteBatch(accounts: opened));
+        return restoreTrashed(trashed, withOriginal: withOriginal);
+      case OriginalInTrash(:final original) when withOriginal:
+        // The purchase first, then the refund that names it.
+        if (!restoreTrashed(original, reopen: reopen)) return false;
+        return restoreTrashed(trashed);
+      case OriginalGone() || null:
+        break;
+      case ClosedAccounts() || OriginalInTrash():
+        return false;
+    }
     final entry = trashed.entry;
     if (_entries.byId(entry.id) != null) {
       // Already back in the book, as by an undo: only the trash keeps it.
@@ -370,10 +418,17 @@ final class EntryCommands {
   /// (D77), so nothing past its time is shown or restored. How many.
   int expireTrash() {
     final from = _context.today.subtract(trashRetention);
-    final gone = [
+    return discardTrashed([
       for (final t in _trash.all)
-        if (t.on.isBefore(from)) t.entry.id,
-    ];
+        if (t.on.isBefore(from)) t,
+    ]);
+  }
+
+  /// Takes [trashed] out of the trash for good, with their receipt
+  /// photos, as one change: such as the deleted entries still naming an
+  /// account about to be removed (D78). How many.
+  int discardTrashed(Iterable<Trashed> trashed) {
+    final gone = [for (final t in trashed) t.entry.id];
     if (gone.isEmpty) return 0;
     _trash.removeEntries({...gone});
     for (final id in gone) {
@@ -602,4 +657,31 @@ final class EntryCommands {
       return false;
     }
   }
+}
+
+/// What stands in the way of putting an entry back from the trash as it
+/// is (D78), for the person to decide.
+sealed class RestoreHold {
+  const RestoreHold();
+}
+
+/// It names accounts closed (archived) since it was deleted.
+final class ClosedAccounts extends RestoreHold {
+  const ClosedAccounts(this.accounts);
+
+  final List<Account> accounts;
+}
+
+/// A refund whose purchase is in the trash too: they may come back
+/// together.
+final class OriginalInTrash extends RestoreHold {
+  const OriginalInTrash(this.original);
+
+  final Trashed original;
+}
+
+/// A refund whose purchase is gone for good: it would come back refunding
+/// nothing the book has.
+final class OriginalGone extends RestoreHold {
+  const OriginalGone();
 }

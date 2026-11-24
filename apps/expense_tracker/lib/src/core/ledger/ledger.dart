@@ -54,7 +54,13 @@ export 'rules/recurring_rules.dart';
 // The narrow parts a model takes in place of the whole ledger
 // (docs/adr/0013-models-take-what-they-use.md).
 export 'commands/attachment_commands.dart' show AttachmentCommands;
-export 'commands/entry_commands.dart' show EntryCommands;
+export 'commands/entry_commands.dart'
+    show
+        ClosedAccounts,
+        EntryCommands,
+        OriginalGone,
+        OriginalInTrash,
+        RestoreHold;
 export 'commands/holding_commands.dart' show HoldingCommands;
 export 'commands/recurring_commands.dart'
     show AutoBooking, HeldBooking, RecurringCommands;

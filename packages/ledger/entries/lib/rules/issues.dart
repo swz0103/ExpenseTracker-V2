@@ -165,6 +165,13 @@ final class RefundToOtherAccount extends RecordIssue {
   const RefundToOtherAccount();
 }
 
+/// An entry changed in a form that was opened on it, after it was
+/// deleted meanwhile: kept, it would stand both in the book and in the
+/// trash (D78).
+final class EntryDeleted extends RecordIssue {
+  const EntryDeleted();
+}
+
 /// A refund of more than is left to refund.
 final class RefundExceedsRemaining extends RecordIssue {
   const RefundExceedsRemaining(this.left);

@@ -61,6 +61,15 @@ final class TrashRepository implements TrashReader {
     return changed;
   }
 
+  /// Whether the entry [id] is in the trash.
+  bool holds(String id) => _items.any((t) => t.entry.id == id);
+
+  /// The deleted entries that name the account [id].
+  List<Trashed> mentioning(String id) => [
+    for (final t in _items)
+      if (t.entry.account == id || t.entry.to == id) t,
+  ];
+
   /// Whether a deleted entry still names the account [id], so the account
   /// is not removed from under it.
   bool mentionsAccount(String id) =>

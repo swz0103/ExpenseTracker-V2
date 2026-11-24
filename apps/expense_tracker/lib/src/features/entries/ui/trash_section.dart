@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:core/constants/retention.dart';
 
@@ -6,6 +8,7 @@ import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
+import '../../../core/design_system/dialogs.dart' show confirm;
 import '../../../core/messages/problem_messages.dart';
 import '../../../core/widgets/entry_tile.dart';
 import '../../../core/design_system/settings_colors.dart';
@@ -23,9 +26,26 @@ class TrashSection extends StatelessWidget {
 
   final Ledger ledger;
 
-  void _restore(BuildContext context, Trashed trashed) {
+  /// Puts [trashed] back, first asking what stands in its way (D78): an
+  /// account closed since, or a refund's purchase deleted too.
+  Future<void> _restore(BuildContext context, Trashed trashed) async {
+    final hold = ledger.entryCommands.holdOf(trashed);
+    final question = restoreQuestion(hold);
+    var reopen = false;
+    var withOriginal = false;
+    if (question != null) {
+      final (title, action, body) = question;
+      final ok = await confirm(context, title, action, body: body);
+      if (!ok || !context.mounted) return;
+      reopen = hold is ClosedAccounts;
+      withOriginal = hold is OriginalInTrash;
+    }
     try {
-      if (ledger.entryCommands.restoreTrashed(trashed)) {
+      if (ledger.entryCommands.restoreTrashed(
+        trashed,
+        reopen: reopen,
+        withOriginal: withOriginal,
+      )) {
         showNote(context, '已放回「${trashed.entry.title}」');
       }
     } on Object catch (error) {
@@ -130,7 +150,7 @@ class TrashSection extends StatelessWidget {
           RowFigure(ledger.orDots(groupDigits(e.amount))),
           const SizedBox(width: Space.s2),
           FilledButton(
-            onPressed: () => _restore(context, t),
+            onPressed: () => unawaited(_restore(context, t)),
             style: solidButton(
               AppColors.selected,
               ink: AppColors.accent,
@@ -148,3 +168,21 @@ class TrashSection extends StatelessWidget {
     );
   }
 }
+
+/// What to ask before putting an entry back that [hold] stands in the way
+/// of (D78): the title, the yes and the words under it; null when nothing
+/// does.
+(String, String, String)? restoreQuestion(RestoreHold? hold) => switch (hold) {
+  null => null,
+  ClosedAccounts(:final accounts) => (
+    '「${accounts.map((a) => a.name).join('」「')}」已封存',
+    '解除封存並放回',
+    '這筆用到已封存的帳戶，要解除封存再放回嗎？',
+  ),
+  OriginalInTrash(:final original) => (
+    '原消費也在最近刪除',
+    '一起放回',
+    '這筆退款的原消費「${original.entry.title}」也已刪除，要一起放回嗎？',
+  ),
+  OriginalGone() => ('原消費已永久刪除', '仍要放回', '這筆退款的原消費已不在帳本，放回後不會沖回任何消費。'),
+};
