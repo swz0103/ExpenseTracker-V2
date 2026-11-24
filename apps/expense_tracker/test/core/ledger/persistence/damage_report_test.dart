@@ -30,21 +30,20 @@ void main() {
     expect(answers, hasLength(2));
   });
 
-  test('a telling that fails is logged and told again later', () async {
+  test('a telling that fails is logged and not told again: no handling '
+      'at every fault (review 25)', () async {
     var tries = 0;
     final report = DamageReport()
       ..tell = (_) async {
         tries++;
-        if (tries == 1) throw StateError('closing');
-        return true;
+        throw StateError('read-only disk');
       };
     report('first');
     await pumpEventQueue();
-    expect(report.told, isFalse);
+    expect(report.told, isTrue);
     report('second');
     await pumpEventQueue();
-    expect(tries, 2);
-    expect(report.told, isTrue);
+    expect(tries, 1);
   });
 
   test('nobody to tell: nothing is told, and it is told once someone is', () {

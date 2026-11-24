@@ -259,6 +259,106 @@ void main() {
       expect(startup.state, isA<Locked>());
       expect(File('${directory.path}/journal.damaged').existsSync(), isFalse);
     });
+
+    const damagedError = StorageUnavailable(StorageProblem.damaged);
+
+    /// The vault here, its clock [at] asked as a file is set aside: the
+    /// moment, in a book made again, between its check and its keys
+    /// named in place.
+    LedgerVault vaultWithClock(DateTime Function() at) => vault = LedgerVault(
+      directory,
+      codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
+      now: at,
+    );
+
+    /// Set up with one record, open.
+    Future<Startup> withRecord() async {
+      final startup = Startup(vault);
+      await startup.setUp(password);
+      (startup.state as Ready).vault.store.write(
+        (w) => w.put('account', 'cash', '{}'),
+      );
+      return startup;
+    }
+
+    test('a book made again that does not open just then is kept, never '
+        'set aside, and the lock screen opens it (review 25)', () async {
+      var spoilKeys = false;
+      vaultWithClock(() {
+        // The keys about to be named in place, spoiled: the opening
+        // after fails, as a full disk would make it.
+        if (spoilKeys) {
+          File('${directory.path}/keyring.json.new').writeAsStringSync('x');
+        }
+        return DateTime.utc(2026, 11, 24);
+      });
+      final startup = await withRecord();
+      final keyring = vault.keyringFile.readAsStringSync();
+      spoilKeys = true;
+      expect(await startup.journalDamaged(damagedError), isTrue);
+      spoilKeys = false;
+      expect(startup.state, isA<Locked>());
+      expect(vault.databaseFile.existsSync(), isTrue);
+      expect(vault.damagedCopies(), hasLength(1), reason: 'the old file only');
+      // Tried again from the lock screen: the book made again opens.
+      vault.keyringFile.writeAsStringSync(keyring);
+      await startup.unlockWithPassword(password);
+      expect((startup.state as Ready).vault.store.rows().single.id, 'cash');
+      startup.lock();
+    });
+
+    test('a book made again found damaged as it opens is Damaged, its old '
+        'file still kept (review 25)', () async {
+      var spoilBook = false;
+      vaultWithClock(() {
+        // The book made again, checked, cut to no bytes before it is put
+        // in place.
+        if (spoilBook) {
+          File('${directory.path}/ledger.db.restore').writeAsBytesSync([]);
+        }
+        return DateTime.utc(2026, 11, 24);
+      });
+      final startup = await withRecord();
+      spoilBook = true;
+      expect(await startup.journalDamaged(damagedError), isTrue);
+      expect(startup.state, isA<Damaged>());
+      expect(vault.databaseFile.existsSync(), isFalse);
+      expect(vault.damagedCopies(), hasLength(2));
+    });
+
+    test('damage found again in the same launch is set aside, not made '
+        'again, the first old file kept (review 25)', () async {
+      final startup = await withRecord();
+      expect(await startup.journalDamaged(damagedError), isTrue);
+      expect(startup.state, isA<Ready>());
+      final first = vault.damagedCopies().single.path;
+      expect(await startup.journalDamaged(damagedError), isTrue);
+      expect(startup.state, isA<Damaged>());
+      expect(vault.databaseFile.existsSync(), isFalse);
+      expect(
+        [for (final f in vault.damagedCopies()) f.path],
+        [first, isNot(first)],
+      );
+    });
+
+    test('a set-aside that fails still shows Damaged, is not handled '
+        'again, and reading passes on the damage (review 25)', () async {
+      var readOnly = false;
+      vaultWithClock(() {
+        if (readOnly) throw const FileSystemException('read-only');
+        return DateTime.utc(2026, 11, 24);
+      });
+      final startup = await spoiledRecords();
+      readOnly = true;
+      await expectLater(
+        startup.readingBook<int>(Future.error(damagedError)),
+        throwsA(damagedError),
+      );
+      expect(startup.state, isA<Damaged>());
+      expect(vault.databaseFile.existsSync(), isTrue, reason: 'not moved');
+      // No book open: a fault after it is not handled again.
+      expect(await startup.journalDamaged(damagedError), isFalse);
+    });
   });
 
   test('a cancelled fingerprint does not stop the password unlock', () async {

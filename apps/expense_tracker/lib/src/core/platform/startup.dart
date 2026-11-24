@@ -164,11 +164,17 @@ final class Startup extends ChangeNotifier {
   /// (D94): it is closed. Where its records can still be read whole, the
   /// damage was in the journal's tables, derived from them: the database
   /// is made again from the records and opens again at once, the journal
-  /// posted afresh (D102). Else it is set aside as it is, never written
-  /// over, and the app shows [Damaged]. A report while one is handled
-  /// waits for that one.
+  /// posted afresh (D102); once a launch, so a book found damaged again
+  /// is not made again and again (review 25). Else the app shows
+  /// [Damaged], then the file is set aside as it is, never written over;
+  /// a set-aside that fails is thrown, the app already showing
+  /// [Damaged]. A report while one is handled waits for that one.
   Future<void> bookDamaged(Object error) =>
       _oneDamage(() => _handleDamage(error));
+
+  /// Whether a book was made again from its records this launch
+  /// ([_salvage]): a second damage found is set aside, not made again.
+  var _salvageSpent = false;
 
   Future<void> _handleDamage(Object error) async {
     final state = _state;
@@ -177,9 +183,14 @@ final class Startup extends ChangeNotifier {
     _recovery = null;
     _newPassword = false;
     _resume = null;
-    if (keys != null && await _salvaged(keys, error)) return;
-    await _vault.setAsideDamaged();
+    if (keys != null && !_salvageSpent && await _salvage(keys, error)) {
+      return;
+    }
+    // Shown first: a set-aside that fails leaves no open book behind a
+    // state that says there is one, so the next fault is not handled
+    // again (review 25).
     _damaged(error);
+    await _vault.setAsideDamaged();
   }
 
   /// The journal's tables of the open ledger were found damaged (D102):
@@ -193,35 +204,58 @@ final class Startup extends ChangeNotifier {
       try {
         await _vault.noteJournalDamaged();
       } on Object catch (noted) {
-        ErrorLog.instance.record(ErrorSteps.bookDamaged, noted);
+        ErrorLog.instance.record(ErrorSteps.journalDamagedNote, noted);
       }
       await _handleDamage(error);
     });
     return true;
   }
 
-  /// Whether the ledger, closed, was made again from its records with
-  /// [keys] and opened ([LedgerVault.salvage]).
-  Future<bool> _salvaged(UnlockedKeyring keys, Object error) async {
+  /// Makes the ledger, closed, again from its records with [keys]
+  /// ([LedgerVault.salvage]) and opens it. Whether it was made again:
+  /// false when it was not, which leaves it to be set aside. Once made
+  /// again, the book is never set aside for an opening that fails
+  /// (review 25): one that finds it damaged has set it aside already and
+  /// shows [Damaged]; any other failure goes back to the lock screen,
+  /// where opening is tried again as any opening is.
+  Future<bool> _salvage(UnlockedKeyring keys, Object error) async {
+    _salvageSpent = true;
     try {
       if (!await _vault.salvage(keys)) return false;
-      ErrorLog.instance.record(ErrorSteps.journalRebuilt, error);
-      _ready(await _vault.reopen(keys));
-      return true;
     } on Object catch (failed) {
       ErrorLog.instance.record(ErrorSteps.bookDamaged, failed);
       return false;
     }
+    ErrorLog.instance.record(ErrorSteps.journalRebuilt, error);
+    try {
+      _ready(await _vault.reopen(keys));
+    } on Object catch (failed) {
+      if (failed case StorageUnavailable(problem: StorageProblem.damaged)) {
+        _damaged(failed);
+      } else {
+        ErrorLog.instance.record(ErrorSteps.rebuiltNotOpened, failed);
+        _state = _locked();
+        notifyListeners();
+      }
+    }
+    return true;
   }
 
   /// What [read], the open book being read, gives; a page of it found
-  /// damaged ([StorageProblem.damaged]) sets the file aside first
-  /// ([bookDamaged]), and the app shows [Damaged].
+  /// damaged ([StorageProblem.damaged]) is handled first ([bookDamaged])
+  /// and thrown on as it was: a handling that fails is noted, never put
+  /// in its place (review 25).
   Future<T> readingBook<T>(Future<T> read) async {
     try {
       return await read;
     } on StorageUnavailable catch (error) {
-      if (error.problem == StorageProblem.damaged) await bookDamaged(error);
+      if (error.problem == StorageProblem.damaged) {
+        try {
+          await bookDamaged(error);
+        } on Object catch (failed, stack) {
+          ErrorLog.instance.record(ErrorSteps.bookDamaged, failed, stack);
+        }
+      }
       rethrow;
     }
   }
