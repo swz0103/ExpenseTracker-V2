@@ -21,7 +21,7 @@ const cardStripHeight = 60.0;
 (double, double) cardHeights(BuildContext context) {
   final grow = textGrowth(context) - 1;
   final more = grow > 0 ? grow : 0.0;
-  return (cardStripHeight + 26 * more, frontCardHeight + 80 * more);
+  return (cardStripHeight + 26 * more, frontCardHeight + 100 * more);
 }
 
 /// The kind of an account as its card writes it.

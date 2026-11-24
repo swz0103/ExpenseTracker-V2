@@ -38,14 +38,16 @@ void layoutTests(
       Shade.dark = dark;
       addTearDown(() => Shade.dark = false);
       final faults = <String>[];
-      for (final (name, taps) in places) {
-        await show(
+      for (final place in allPlaces) {
+        final name = place.name;
+        await place.open(
           tester,
-          width,
-          text,
-          scaler: text == 2.0 ? const AndroidTextScaler200() : null,
+          Look(
+            width,
+            text,
+            scaler: text == 2.0 ? const AndroidTextScaler200() : null,
+          ),
         );
-        await go(tester, taps);
         final error = tester.takeException();
         if (error != null) faults.add('$name: $error');
         final shrunk = <String>[];

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:expense_tracker/src/app/first_screen.dart';
 import 'package:expense_tracker/src/core/design_system/keys.dart';
+import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter/material.dart';
@@ -118,5 +119,21 @@ void main() {
     expect(screen, isA<StartFailedApp>());
     expect(newest(), '啟動：第一個畫面：StateError: Bad state: compose broke');
     expect(did, isNot(contains(startsWith('started'))));
+  });
+
+  group('the page for a start that failed', () {
+    testWidgets('has the app\'s own theme', (tester) async {
+      await tester.pumpWidget(StartFailedApp(what: 'x', retry: () {}));
+      final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+      expect(app.theme?.textTheme.bodyMedium?.fontFamily, appFont.fontFamily);
+    });
+
+    testWidgets('is dark when the phone is, as the app is', (tester) async {
+      tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+      addTearDown(() => Shade.dark = false);
+      await tester.pumpWidget(StartFailedApp(what: 'x', retry: () {}));
+      expect(Shade.dark, isTrue);
+    });
   });
 }

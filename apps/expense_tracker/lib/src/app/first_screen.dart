@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../core/platform/startup.dart' show DeviceUnlock;
 
 import 'load_failed_page.dart';
+import '../core/design_system/theme.dart';
 import '../core/diagnostics/error_log.dart';
 import '../core/diagnostics/error_steps.dart';
 import '../core/messages/loading_messages.dart';
@@ -110,6 +111,16 @@ class StartFailedApp extends StatefulWidget {
 class _StartFailedAppState extends State<StartFailedApp> {
   final _messenger = GlobalKey<ScaffoldMessengerState>();
 
+  @override
+  void initState() {
+    super.initState();
+    // No preferences are read yet: the phone's own light or dark, as the
+    // app itself starts with.
+    Shade.dark =
+        WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+        Brightness.dark;
+  }
+
   Future<void> _copy() async {
     await Clipboard.setData(ClipboardData(text: ErrorLog.instance.text));
     _messenger.currentState?.showSnackBar(
@@ -120,6 +131,8 @@ class _StartFailedAppState extends State<StartFailedApp> {
   @override
   Widget build(BuildContext context) => MaterialApp(
     scaffoldMessengerKey: _messenger,
+    debugShowCheckedModeBanner: false,
+    theme: appTheme(),
     home: LoadFailedPage(
       title: startFailedTitle,
       body: startFailedBody(widget.what),

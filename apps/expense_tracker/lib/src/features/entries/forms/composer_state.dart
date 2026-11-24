@@ -461,7 +461,7 @@ class _ComposerState extends State<Composer>
                 spacing: 6,
                 children: [
                   for (final (label, color) in _marks)
-                    Pill(label, color: color),
+                    Pill(label, color: color, tinted: true),
                 ],
               ),
             ),

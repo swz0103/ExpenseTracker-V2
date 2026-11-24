@@ -27,8 +27,8 @@ shared CI runner does not fail the build but a real regression does.
 
 | key | unit | estimate 100k | limit 100k |
 |---|---|---|---|
-| `100k_journal_rebuild_ms` (every posting made afresh from the records, on worker isolates) | ms | 4,000–7,500 | 15,000 |
-| `100k_journal_rebuild_held_ms` (the longest the screen's isolate was held meanwhile) | ms | 30–125 | 250 |
+| `100k_journal_rebuild_ms` (every posting made afresh from the records, on worker isolates) | ms | 3,709 (CI emulator, 2026-11-24) | 7,500 |
+| `100k_journal_rebuild_held_ms` (the longest the screen's isolate was held meanwhile) | ms | 28 (CI emulator, 2026-11-24) | 60 |
 
 Not yet measured on the emulator: these two limits are twice an estimate
 from the host bench below (2,600–3,800 ms and 27–122 ms on the development
@@ -98,6 +98,10 @@ Isolates of one group share their collections of garbage: what the
 opening's worker leaves is collected while every isolate waits, which is
 why the book comes back whole (handed over, not copied) when nothing is
 to be posted.
+
+The two journal limits were provisional until the first CI emulator run
+(2026-11-24, commit c172444): 3,709 ms to post 100,000 entries afresh,
+the screen held at most 28 ms. They are now about twice those figures.
 
 The save gate (`save_scale_gate_test.dart`) counts the journal's update in
 the save it times, so a journal update that grows with the book fails it in

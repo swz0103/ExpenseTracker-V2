@@ -21,14 +21,16 @@ extension _Fields on _ComposerState {
       icon: accountIcon(account),
       label: label,
       value: account.name,
-      onTap: () async {
-        final picked = await _pickAccount(label, _f.account);
-        if (picked == null) return;
-        _set(() {
-          _f.account = picked;
-          _f.home = null;
-        });
-      },
+      onTap: _viewing
+          ? null
+          : () async {
+              final picked = await _pickAccount(label, _f.account);
+              if (picked == null) return;
+              _set(() {
+                _f.account = picked;
+                _f.home = null;
+              });
+            },
     );
   }
 
@@ -38,7 +40,7 @@ extension _Fields on _ComposerState {
       icon: Glyph.calendar,
       label: Words.date,
       value: _f.date == _ledger.today ? '今天 $day' : '$day ${formatE(_f.date)}',
-      onTap: _pickDate,
+      onTap: _viewing ? null : _pickDate,
     );
   }
 
