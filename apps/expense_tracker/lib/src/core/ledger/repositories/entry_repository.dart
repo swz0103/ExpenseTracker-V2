@@ -5,8 +5,16 @@ import '../models/models.dart';
 /// What the screens and queries may ask of the entries: no way to change
 /// them.
 abstract interface class EntryReader {
-  /// Every entry in the order written; the list cannot be changed.
+  /// Every entry in the order written; the list cannot be changed. An
+  /// entry brought back from the trash or by an undo is back in its own
+  /// place (D75), so this order is the entries' history, whatever was
+  /// done since.
   List<Entry> get all;
+
+  /// Where the entry [id] stands in the order written: its place, kept
+  /// while it is in the trash. Every tie between entries of a day is
+  /// broken by it (D76), never by where an entry happens to be held.
+  int orderOf(String id);
 
   int get length;
 
@@ -58,6 +66,14 @@ abstract interface class EntryReader {
   int versionOf(String account);
 }
 
+/// The order every list of entries is shown in, newest first: by day,
+/// then the later written first (D76), as [EntryReader.orderOf] keeps it.
+/// The one tie-break, whatever the entries' place in memory.
+Comparator<Entry> newestFirst(EntryReader book) => (a, b) {
+  final byDay = b.date.compareTo(a.date);
+  return byDay != 0 ? byDay : book.orderOf(b.id).compareTo(book.orderOf(a.id));
+};
+
 /// Every entry of the book, in the order written, with what is asked of
 /// them again and again (by month, by account, by id, refunds, groups)
 /// worked out once, on the first ask, and then kept up to date as entries
@@ -67,28 +83,134 @@ abstract interface class EntryReader {
 /// added at once, the whole list cleared, an entry put in two places)
 /// throws the indexes away to be worked out again.
 ///
-/// Where an entry stands among those of its day is where it is in the
-/// list: each is given a place number ([_seqs]) growing along the list,
-/// with room between two for one put in between, so an entry can find its
-/// place in a month or an account without a pass over the list.
+/// Each entry has its place in the order written ([orderOf], D75): the
+/// list is kept in that order, an entry put back from the trash or by an
+/// undo going back to its own place, and where an entry stands among
+/// those of its day follows it. The places are held beside the list, one
+/// number each ([_orders]), as the book reads them, already in order:
+/// nothing is looked up by id to open the book. Entries taken away keep
+/// theirs ([_kept]) to come back to.
 ///
 /// A list for the commands that write; the screens see an [EntryReader].
 final class EntryRepository implements EntryReader {
-  EntryRepository([Iterable<Entry> entries = const []]) : _items = [...entries];
+  /// [entries] in the order written; [order] gives each its place, as
+  /// the book kept it (each in turn when not given).
+  EntryRepository([
+    Iterable<Entry> entries = const [],
+    Map<String, int> order = const {},
+  ]) : this._(entries.toList(), null, order);
+
+  /// [entries] with their [places] in the order written, one for each,
+  /// as the book reads them: in that order already.
+  EntryRepository.placed(List<Entry> entries, List<int> places)
+    : this._(entries, places, const {});
+
+  EntryRepository._(
+    List<Entry> entries,
+    List<int>? places,
+    Map<String, int> order,
+  ) : _items = [...entries],
+      _orders = places == null
+          ? [for (final (i, e) in entries.indexed) order[e.id] ?? i]
+          : [...places] {
+    if (_orders.length != _items.length) {
+      throw ArgumentError('${_orders.length} places for ${_items.length}');
+    }
+    // Kept in the order written: given out of it (a test's book), put in
+    // it, those of one place as given.
+    var sorted = true;
+    for (var i = 1; i < _orders.length && sorted; i++) {
+      sorted = _orders[i - 1] <= _orders[i];
+    }
+    if (!sorted) {
+      final at = [for (var i = 0; i < _items.length; i++) i]
+        ..sort((a, b) {
+          final byPlace = _orders[a].compareTo(_orders[b]);
+          return byPlace != 0 ? byPlace : a.compareTo(b);
+        });
+      final items = [for (final i in at) _items[i]];
+      final orders = [for (final i in at) _orders[i]];
+      _items
+        ..clear()
+        ..addAll(items);
+      _orders
+        ..clear()
+        ..addAll(orders);
+    }
+    _next = _orders.isEmpty ? 0 : _orders.last + 1;
+  }
 
   final List<Entry> _items;
+
+  /// Each entry's place in the order written, beside it in [_items]:
+  /// growing along the list.
+  final List<int> _orders;
+
+  /// The places of entries taken away, by id, for them to come back to;
+  /// and of those the trash holds, as the book opened.
+  final _kept = <String, int>{};
+
+  /// The place of the next entry written.
+  var _next = 0;
+
+  @override
+  int orderOf(String id) {
+    final e = byId(id);
+    if (e == null) return _kept[id] ?? _next;
+    final seqs = _order();
+    return seqs != null ? seqs[e]! : _orders[_items.lastIndexOf(e)];
+  }
+
+  /// Notes that [place] is taken, as by an entry in the trash, so no entry
+  /// written later is put before it; with [id], that it is that entry's,
+  /// for it to come back to.
+  void reserve(int place, {String? id}) {
+    if (place >= _next) _next = place + 1;
+    if (id != null) _kept.putIfAbsent(id, () => place);
+  }
+
+  /// Puts [entry] back in its place [place] in the order written (D75):
+  /// after every entry before it, before every entry after; last when
+  /// [place] is null.
+  void restoreAt(Entry entry, int? place) {
+    if (place == null) return add(entry);
+    reserve(place);
+    var low = 0;
+    var high = _orders.length;
+    while (low < high) {
+      final middle = (low + high) >> 1;
+      if (_orders[middle] < place) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    _kept[entry.id] = place;
+    insert(low, entry);
+  }
+
+  /// Takes the entries of [other] and where each stands, as when the book
+  /// is read again.
+  void replaceWith(EntryRepository other) {
+    _discard();
+    _items
+      ..clear()
+      ..addAll(other._items);
+    _orders
+      ..clear()
+      ..addAll(other._orders);
+    _kept
+      ..clear()
+      ..addAll(other._kept);
+    _next = other._next;
+  }
 
   /// More entries added at once than this are not followed one by one.
   static const _followed = 64;
 
-  /// The room between the place numbers of two entries next to each
-  /// other when they are first given: so many can be put in between
-  /// before the numbers are given again.
-  static const _gap = 1 << 10;
-
-  /// Each entry's place number, growing along the list; null until an
-  /// ordered index is first worked out, and when the list holds an entry
-  /// twice (as while a sort moves them), which no number can follow.
+  /// Each entry's place in the order written, to look it up: worked out
+  /// from [_orders] when first needed; null until then, and when the list
+  /// holds an entry twice (as while a sort moves them).
   Map<Entry, int>? _seqs;
 
   /// Each month's entries in [inMonth] order.
@@ -153,14 +275,14 @@ final class EntryRepository implements EntryReader {
     if (to != null && to != e.account) yield to;
   }
 
-  /// [_seqs], given from the list when not yet; null when the list holds
-  /// an entry twice.
+  /// [_seqs], worked out from [_orders] when not yet; null when the list
+  /// holds an entry twice.
   Map<Entry, int>? _order() {
     final kept = _seqs;
     if (kept != null) return kept;
     final seqs = Map<Entry, int>.identity();
     for (var i = 0; i < _items.length; i++) {
-      seqs[_items[i]] = i * _gap;
+      seqs[_items[i]] = _orders[i];
     }
     if (seqs.length != _items.length) return null;
     return _seqs = seqs;
@@ -195,14 +317,14 @@ final class EntryRepository implements EntryReader {
     if (e.group case final group?) _groups?.add(group, e);
   }
 
-  /// Notes that [e], now last in the list, has been added.
+  /// Notes that [e], now last in the list with its place last in
+  /// [_orders], has been added.
   void _noteAdded(Entry e) {
     _touch(e);
     if (_ordered) {
       final seqs = _seqs;
       if (seqs == null || seqs.containsKey(e)) return _discard();
-      final before = _items.length > 1 ? seqs[_items[_items.length - 2]]! : 0;
-      seqs[e] = before + _gap;
+      seqs[e] = _orders.last;
       _place(e);
     }
     _ids?[e.id] = e;
@@ -289,6 +411,10 @@ final class EntryRepository implements EntryReader {
   void operator []=(int index, Entry entry) {
     final old = _items[index];
     _items[index] = entry;
+    // [entry] takes [old]'s place; another entry's id keeps it to come
+    // back to.
+    _kept.remove(entry.id);
+    if (old.id != entry.id) _kept[old.id] = _orders[index];
     _touch(old);
     _touch(entry);
     if (identical(old, entry)) return;
@@ -353,39 +479,67 @@ final class EntryRepository implements EntryReader {
     written(_groups, old.group, entry.group);
   }
 
+  /// Adds [element] as the latest written.
   void add(Entry element) {
+    _kept.remove(element.id);
     _items.add(element);
+    _orders.add(_next++);
     _noteAdded(element);
   }
 
   void addAll(Iterable<Entry> iterable) {
     final added = iterable.toList();
     if (added.length > _followed) {
+      for (final e in added) {
+        _kept.remove(e.id);
+        _orders.add(_next++);
+      }
       _items.addAll(added);
       _discard();
     } else {
       // Each in turn is the last in the list.
-      for (final e in added) {
-        _items.add(e);
-        _noteAdded(e);
-      }
+      added.forEach(add);
     }
   }
 
-  /// Puts [element] at [index], before the entry there: given a place
-  /// number between its neighbours'.
+  /// Puts [element] at [index], before the entry there, as an undo puts
+  /// back what it took: at the place it kept, or one between its
+  /// neighbours'.
   void insert(int index, Entry element) {
-    if (index >= _items.length) return add(element);
+    final upper = index < _orders.length ? _orders[index] : null;
+    final lower = index > 0 ? _orders[index - 1] : null;
+    var place = _kept.remove(element.id);
+    var ordered = true;
+    if (place == null) {
+      if (upper == null) {
+        place = _next++;
+      } else if ((lower ?? upper - 2) + 1 < upper) {
+        place = ((lower ?? upper - 2) + upper) ~/ 2;
+      } else {
+        // No place left between the two (a new entry put among others, as
+        // only a test does): the one after the lower, those after moved
+        // on as far as they must be, the indexes worked out again.
+        place = lower! + 1;
+        ordered = false;
+      }
+    } else if (place >= _next) {
+      _next = place + 1;
+    }
     _items.insert(index, element);
+    _orders.insert(index, place);
+    if (!ordered) {
+      for (var j = index + 1; j < _orders.length; j++) {
+        if (_orders[j] > _orders[j - 1]) break;
+        _orders[j] = _orders[j - 1] + 1;
+      }
+      if (_orders.last >= _next) _next = _orders.last + 1;
+      return _discard();
+    }
     _touch(element);
     if (_ordered) {
       final seqs = _seqs;
       if (seqs == null || seqs.containsKey(element)) return _discard();
-      final upper = seqs[_items[index + 1]]!;
-      final lower = index > 0 ? seqs[_items[index - 1]]! : upper - 2 * _gap;
-      // No room left between the two: numbered afresh when next asked.
-      if (upper - lower < 2) return _discard();
-      seqs[element] = lower + (upper - lower) ~/ 2;
+      seqs[element] = place;
       _place(element);
     }
     _ids?[element.id] = element;
@@ -402,29 +556,43 @@ final class EntryRepository implements EntryReader {
 
   Entry removeAt(int index) {
     final removed = _items.removeAt(index);
+    _kept[removed.id] = _orders.removeAt(index);
     _noteRemoved([removed]);
     return removed;
   }
 
   Entry removeLast() {
     final removed = _items.removeLast();
+    _kept[removed.id] = _orders.removeLast();
     _noteRemoved([removed]);
     return removed;
   }
 
   void removeRange(int start, int end) {
     final gone = _items.sublist(start, end);
+    for (var i = start; i < end; i++) {
+      _kept[_items[i].id] = _orders[i];
+    }
     _items.removeRange(start, end);
+    _orders.removeRange(start, end);
     _noteRemoved(gone);
   }
 
   void removeWhere(bool Function(Entry) test) {
     final gone = <Entry>[];
-    _items.removeWhere((e) {
-      if (!test(e)) return false;
-      gone.add(e);
-      return true;
-    });
+    var kept = 0;
+    for (var i = 0; i < _items.length; i++) {
+      final e = _items[i];
+      if (test(e)) {
+        gone.add(e);
+        _kept[e.id] = _orders[i];
+      } else {
+        _items[kept] = e;
+        _orders[kept++] = _orders[i];
+      }
+    }
+    _items.length = kept;
+    _orders.length = kept;
     _noteRemoved(gone);
   }
 
@@ -443,9 +611,11 @@ final class EntryRepository implements EntryReader {
       ]..sort();
       for (final i in at) {
         found.add((i, _items[i]));
+        _kept[_items[i].id] = _orders[i];
       }
       for (final i in at.reversed) {
         _items.removeAt(i);
+        _orders.removeAt(i);
       }
     } else {
       var kept = 0;
@@ -453,11 +623,14 @@ final class EntryRepository implements EntryReader {
         final e = _items[i];
         if (wanted.contains(e)) {
           found.add((i, e));
+          _kept[e.id] = _orders[i];
         } else {
-          _items[kept++] = e;
+          _items[kept] = e;
+          _orders[kept++] = _orders[i];
         }
       }
       _items.length = kept;
+      _orders.length = kept;
     }
     _noteRemoved([for (final (_, e) in found) e]);
     return found;
@@ -470,6 +643,7 @@ final class EntryRepository implements EntryReader {
   void clear() {
     _discard();
     _items.clear();
+    _orders.clear();
   }
 
   // What is asked of them.

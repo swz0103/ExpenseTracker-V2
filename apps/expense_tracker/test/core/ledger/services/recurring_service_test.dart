@@ -1,4 +1,5 @@
 import 'package:expense_tracker/src/core/ledger/models/models.dart';
+import 'package:expense_tracker/src/core/ledger/services/recurring_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../support/book.dart';
@@ -170,5 +171,152 @@ void main() {
         isEmpty,
       );
     });
+  });
+
+  // CORR-2: recurring items. Today is Sunday 2026-10-04.
+  group('matching bookings to days', () {
+    Entry booking(String id, DateTime date) =>
+        entry(id, recurring: 'rent', amount: 12000, date: date);
+
+    test('LOG-09: a booking moved to the day before still settles its '
+        'own period', () {
+      final book = Book(
+        recurring: [_rent],
+        entries: [
+          booking('a', DateTime.utc(2026, 9, 1)),
+          // October's, moved to September 30.
+          booking('b', DateTime.utc(2026, 9, 30)),
+        ],
+      );
+      final service = book.recurringService;
+      expect(service.settled(_rent), {
+        'a': DateTime.utc(2026, 9, 1),
+        'b': DateTime.utc(2026, 10, 1),
+      });
+      expect(service.pendingDate(_rent), isNull);
+      expect(
+        service.dueDayOf(book.entries.byId('b')!),
+        DateTime.utc(2026, 10, 1),
+      );
+      expect(service.bookedDays(_rent).keys, [
+        DateTime.utc(2026, 9, 1),
+        DateTime.utc(2026, 10, 1),
+      ]);
+    });
+
+    test('a booking on its day takes it first; the rest take the earliest '
+        'left in their month', () {
+      final book = Book(
+        recurring: [_rent],
+        entries: [
+          booking('early', DateTime.utc(2026, 8, 31)),
+          booking('oct', DateTime.utc(2026, 10, 1)),
+        ],
+      );
+      expect(book.recurringService.settled(_rent), {
+        'oct': DateTime.utc(2026, 10, 1),
+        // The days open from August, the month of the earliest booking.
+        'early': DateTime.utc(2026, 8, 1),
+      });
+      // September was neither booked nor let go.
+      expect(
+        book.recurringService.pendingDate(_rent),
+        DateTime.utc(2026, 9, 1),
+      );
+    });
+
+    test('the nearest day: the date itself, else the earliest in its '
+        'month, else the nearest, the earlier of two as near', () {
+      final days = [
+        DateTime.utc(2026, 9, 28),
+        DateTime.utc(2026, 10, 2),
+        DateTime.utc(2026, 10, 20),
+      ];
+      DateTime? near(DateTime d, [List<DateTime>? among]) =>
+          RecurringService.nearestDay(d, among ?? days);
+      expect(near(DateTime.utc(2026, 10, 20)), DateTime.utc(2026, 10, 20));
+      expect(near(DateTime.utc(2026, 10, 25)), DateTime.utc(2026, 10, 2));
+      // Nov 1: none in November; Oct 20 is 12 days off, the nearest.
+      expect(near(DateTime.utc(2026, 11, 1)), DateTime.utc(2026, 10, 20));
+      // Sep 30 among Oct 2 and Sep 28 only: both 2 days off, the earlier.
+      expect(
+        near(DateTime.utc(2026, 9, 30), [
+          DateTime.utc(2026, 10, 2),
+          DateTime.utc(2026, 9, 28),
+        ]),
+        DateTime.utc(2026, 9, 28),
+      );
+      expect(near(DateTime.utc(2026, 11, 1), const []), isNull);
+    });
+
+    test('D66: a day 恢復 brought back before every booking is due again', () {
+      final back = _rent.copyWith(openFrom: DateTime.utc(2026, 7, 1));
+      final book = Book(
+        recurring: [back],
+        entries: [booking('s', DateTime.utc(2026, 9, 1))],
+      );
+      expect(book.recurringService.pendingDate(back), DateTime.utc(2026, 7, 1));
+      // July and August, then October: September is booked.
+      expect(
+        book.recurringService.unpostedDates(
+          back,
+          from: DateTime.utc(2000),
+          to: DateTime.utc(2026, 10, 31),
+        ),
+        [
+          DateTime.utc(2026, 7, 1),
+          DateTime.utc(2026, 8, 1),
+          DateTime.utc(2026, 10, 1),
+        ],
+      );
+    });
+  });
+
+  group('booking', () {
+    test('D66: on the day asked for, not the pending one', () {
+      final book = Book(recurring: [_rent]);
+      final e = book.recurringService.booking(
+        _rent,
+        day: DateTime.utc(2026, 9, 1),
+      );
+      expect(e.date, DateTime.utc(2026, 9, 1));
+    });
+
+    test("R5: a foreign day gone by takes no worth at today's rate", () {
+      final usd = _rent.copyWith(account: 'usd');
+      final book = Book(
+        accounts: const [
+          Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
+        ],
+        rates: {'USD': 30},
+      );
+      // October 1 was three days ago: no rate of that day is kept.
+      final late = book.recurringService.booking(usd);
+      expect((late.date, late.home), (DateTime.utc(2026, 10, 1), null));
+      // Today: today's rate. 12000 cents is 120 dollars; × 30 = 3600.
+      final now = book.recurringService.booking(
+        usd,
+        day: DateTime.utc(2026, 10, 4),
+      );
+      expect(now.home, 3600);
+    });
+  });
+
+  test('R3: the next day of a yearly item every three years is found', () {
+    final rare = Recurring(
+      id: 'rare',
+      name: '換照',
+      amount: 450,
+      day: 3,
+      account: 'bank',
+      category: '居家',
+      unit: RepeatUnit.year,
+      every: 3,
+      start: DateTime.utc(2026, 3, 3),
+    );
+    final service = Book(recurring: [rare]).recurringService;
+    // 2026-03-03, then three years on.
+    expect(service.nextDate(rare), DateTime.utc(2029, 3, 3));
+    expect(service.nextDate(rare.copyWith(active: false)), isNull);
   });
 }

@@ -56,9 +56,16 @@ export 'rules/recurring_rules.dart';
 export 'commands/category_commands.dart'
     show CategoryMerge, Merged, MergeRefused, MergeRefusal;
 export 'commands/attachment_commands.dart' show AttachmentCommands;
-export 'commands/entry_commands.dart' show EntryCommands;
+export 'commands/entry_commands.dart'
+    show
+        ClosedAccounts,
+        EntryCommands,
+        OriginalGone,
+        OriginalInTrash,
+        RestoreHold;
 export 'commands/holding_commands.dart' show HoldingCommands;
-export 'commands/recurring_commands.dart' show RecurringCommands;
+export 'commands/recurring_commands.dart'
+    show AutoBooking, HeldBooking, RecurringCommands;
 export 'repositories/account_repository.dart' show AccountReader;
 export 'repositories/budget_repository.dart' show BudgetReader;
 export 'repositories/category_repository.dart' show CategoryReader;
@@ -71,7 +78,7 @@ export 'services/entry_query_service.dart' show EntryQueryService;
 export 'services/entry_validator.dart' show EntryValidator;
 export 'services/recurring_service.dart' show RecurringService;
 export 'services/statement_service.dart' show StatementService, payByOf;
-export 'repositories/entry_repository.dart' show EntryReader;
+export 'repositories/entry_repository.dart' show EntryReader, newestFirst;
 export 'repositories/holding_repository.dart'
     show HoldingReader, HoldingsByStatus;
 export 'repositories/market_data_repository.dart' show MarketDataReader;
@@ -88,6 +95,7 @@ final class Ledger extends ChangeNotifier {
     required List<Account> accounts,
     required List<Category> categories,
     required List<Entry> entries,
+    Map<String, int> entryOrder = const {},
     required List<Holding> holdings,
     required List<Budget> budgets,
     required List<Recurring> recurring,
@@ -115,7 +123,7 @@ final class Ledger extends ChangeNotifier {
        _trash = TrashRepository(trash),
        _accounts = AccountRepository(accounts),
        _categories = CategoryRepository(categories),
-       _entries = EntryRepository(entries),
+       _entries = EntryRepository(entries, entryOrder),
        _budgets = BudgetRepository(budgets),
        _recurring = RecurringRepository(recurring) {
     _holdings = HoldingRepository(
@@ -128,6 +136,11 @@ final class Ledger extends ChangeNotifier {
       _holdings.adopt(readHoldings);
     } else {
       _holdings.replay(_entries.all, today: today, lenient: true);
+    }
+    for (final t in trash) {
+      if (t.order case final order?) {
+        _entries.reserve(order, id: t.entry.id);
+      }
     }
     amounts.addListener(_signal);
     final source = dataSource;
@@ -158,6 +171,8 @@ final class Ledger extends ChangeNotifier {
     _day = now;
     // A trade an old book dated later joins the holdings on its day.
     _holdings.replay(_entries.all, today: now, lenient: true);
+    // What the trash keeps no longer goes, as on opening (D77).
+    entryCommands.expireTrash();
     // What was worked out for yesterday, such as the last statement,
     // is worked out again.
     notifyListeners();
@@ -382,7 +397,6 @@ final class Ledger extends ChangeNotifier {
   late final recurringCommands = RecurringCommands(
     context: _context,
     recurringRepository: _recurring,
-    entryRepository: _entries,
     accounts: _accounts,
     recurringService: recurringService,
     entryCommands: entryCommands,
@@ -424,10 +438,7 @@ final class Ledger extends ChangeNotifier {
   void _adopt(Ledger fresh) {
     _accounts.replaceWith(fresh._accounts.all);
     _categories.replaceWith(fresh._categories.all);
-    _entries
-      ..clear()
-      // Exception to as-of-today: a reload copies every entry.
-      ..addAll(fresh._entries.all);
+    _entries.replaceWith(fresh._entries);
     _holdings.replaceStart(fresh._holdings.start);
     _budgets.replaceWith(fresh._budgets.all);
     _recurring.replaceWith(fresh._recurring.all);

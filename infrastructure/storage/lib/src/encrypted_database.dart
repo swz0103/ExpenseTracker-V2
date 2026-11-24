@@ -115,20 +115,28 @@ final class StoreSnapshot {
 }
 
 /// One change of a write done off the caller's isolate
-/// ([EncryptedDatabase.writeApart]): a record put in place, or dropped.
-/// Plain text only, so it can be sent to another isolate.
+/// ([EncryptedDatabase.writeApart]): a record put in place, moved from
+/// another shelf, or dropped. Plain text only, so it can be sent to
+/// another isolate.
 final class RowChange {
   /// Keeps [body] as the record [id] on [shelf], in place of any before.
-  const RowChange.put(this.shelf, this.id, String this.body);
+  const RowChange.put(this.shelf, this.id, String this.body) : from = null;
+
+  /// Keeps [body] as the record [id] on [shelf], moved there from [from]
+  /// so it keeps its place ([RowWriter.move]).
+  const RowChange.move(String this.from, this.shelf, this.id, String this.body);
 
   /// Forgets the record [id] on [shelf]; nothing when there is none.
-  const RowChange.drop(this.shelf, this.id) : body = null;
+  const RowChange.drop(this.shelf, this.id) : body = null, from = null;
 
   final String shelf;
   final String id;
 
   /// The record kept; null when it is dropped.
   final String? body;
+
+  /// The shelf the record is moved from; null when it is not moved.
+  final String? from;
 }
 
 /// The changes of one write, applied together.
@@ -146,6 +154,33 @@ final class RowWriter {
       'ON CONFLICT (shelf, id) DO UPDATE SET body = excluded.body',
       [shelf, id, body],
     );
+  }
+
+  /// Keeps [body] as the record [id] on [to], taken off [from] where it
+  /// stood: the same place in the order kept ([StoredRow.seq]), as when an
+  /// entry goes to the trash and comes back. Put in place as new when
+  /// [from] holds no such record.
+  void move(String from, String to, String id, String body) {
+    _requireOpen();
+    _db.execute('DELETE FROM rows WHERE shelf = ? AND id = ?', [to, id]);
+    _db.execute(
+      'UPDATE rows SET shelf = ?, body = ? WHERE shelf = ? AND id = ?',
+      [to, body, from, id],
+    );
+    if (_db.updatedRows == 0) put(to, id, body);
+  }
+
+  /// Makes [change].
+  void apply(RowChange change) {
+    final body = change.body;
+    final from = change.from;
+    if (body == null) {
+      drop(change.shelf, change.id);
+    } else if (from != null) {
+      move(from, change.shelf, change.id, body);
+    } else {
+      put(change.shelf, change.id, body);
+    }
   }
 
   /// Forgets the record [id] on [shelf]; nothing when there is none.
@@ -793,14 +828,7 @@ final class ApartStore {
   /// Applies [changes] in one transaction, as [EncryptedDatabase.write].
   void write(List<RowChange> changes, {bool counts = true}) =>
       EncryptedDatabase._transaction(_db, (w) {
-        for (final change in changes) {
-          final body = change.body;
-          if (body == null) {
-            w.drop(change.shelf, change.id);
-          } else {
-            w.put(change.shelf, change.id, body);
-          }
-        }
+        changes.forEach(w.apply);
       }, counts: counts);
 
   /// Posts the whole journal afresh in one transaction

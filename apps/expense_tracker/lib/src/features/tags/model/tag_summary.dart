@@ -45,7 +45,7 @@ TagSummary? tagSummaryOf(EntryReader book, String tag, DateTime today) {
     // tag, 預定 ones marked; the sums below take only those that count.
     for (final e in book.all)
       if (e.tags.contains(tag)) e,
-  ]..sort((a, b) => b.date.compareTo(a.date));
+  ]..sort(newestFirst(book));
   if (entries.isEmpty) return null;
   final counted = countedOn(entries, today).toList();
   final span = counted.isEmpty ? entries : counted;
@@ -108,4 +108,4 @@ List<Entry> visitsTo(EntryReader book, String merchant) => [
   // Exception to as-of-today: a list of every visit, 預定 ones marked.
   for (final e in book.all)
     if (e.merchant == merchant) e,
-]..sort((a, b) => b.date.compareTo(a.date));
+]..sort(newestFirst(book));

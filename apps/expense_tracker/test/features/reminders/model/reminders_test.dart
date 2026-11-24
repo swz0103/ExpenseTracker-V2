@@ -57,4 +57,40 @@ void main() {
     expect(found.last.day, DateTime.utc(2026, 5, 5));
     expect({for (final r in found) r.key}, hasLength(3));
   });
+
+  test('D68: the notifications and the calendar read one window, an '
+      'overdue day still unbooked in it', () {
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 4, 3),
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 50000)],
+      categories: [],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: [
+        Recurring(
+          id: 'netflix',
+          name: 'Netflix',
+          amount: 390,
+          day: 1,
+          account: 'bank',
+          category: '訂閱服務',
+          start: DateTime.utc(2026, 1, 1),
+        ),
+      ],
+    );
+    final book = reminderBookOf(ledger);
+    // 7 days back from April 3: March 27.
+    expect(book.windowStart, DateTime.utc(2026, 3, 27));
+    final due = book.dueReminders();
+    // April 1 is two days overdue and in it; May 1 and June 1 ahead.
+    expect(
+      [for (final r in due) r.day],
+      [
+        DateTime.utc(2026, 4, 1),
+        DateTime.utc(2026, 5, 1),
+        DateTime.utc(2026, 6, 1),
+      ],
+    );
+  });
 }

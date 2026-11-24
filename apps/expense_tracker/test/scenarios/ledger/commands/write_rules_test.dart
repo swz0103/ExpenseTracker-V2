@@ -347,7 +347,7 @@ void main() {
       final ledger = _book(
         recurring: [rent.copyWith(account: 'gone', auto: true)],
       );
-      expect(ledger.recurringCommands.bookDue(), 0);
+      expect(ledger.recurringCommands.bookDue().booked, 0);
       expect(ledger.entries.all, isEmpty);
     });
 

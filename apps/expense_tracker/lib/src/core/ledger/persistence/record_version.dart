@@ -1,3 +1,5 @@
+import 'package:ledger_entries/model.dart' show EntryType, keptCategory;
+
 /// The version of the record rows this app writes; each row carries it as
 /// `_v`, with `_at`, when it was written. A row without `_v` is version 1.
 /// A newer version's row is refused rather than misread: opening the book
@@ -54,5 +56,26 @@ Map<String, Object?> upgradeRecord(
   final version = rowVersion(json);
   if (version > recordVersion) throw NewerRecord(collection, version);
   // A version 1 row reads as it is: its category is a name.
-  return json;
+  return switch (collection) {
+    'entry' => _withKeptCategory(json),
+    'trash' => switch (json['entry']) {
+      final Map<String, Object?> entry
+          when !identical(_withKeptCategory(entry), entry) =>
+        {...json, 'entry': _withKeptCategory(entry)},
+      _ => json,
+    },
+    _ => json,
+  };
+}
+
+/// [entry], an entry's row, under the category the book keeps it under
+/// ([keptCategory], D80): a transfer kept with none reads under 轉帳, at
+/// any version, as a form saving it would write it. [entry] itself when
+/// it already is.
+Map<String, Object?> _withKeptCategory(Map<String, Object?> entry) {
+  if (entry['category'] != null || entry['categoryId'] != null) return entry;
+  final type = EntryType.values.asNameMap()[entry['type']];
+  if (type == null) return entry;
+  final kept = keptCategory(type, '');
+  return kept.isEmpty ? entry : {...entry, 'category': kept};
 }

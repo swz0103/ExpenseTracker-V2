@@ -88,6 +88,7 @@ const recordFields = <String, Set<String>>{
     'merchant',
     'auto',
     'skipped',
+    'openFrom',
   },
   'trash': {'on', 'entry'},
 };

@@ -10,6 +10,7 @@ void main() {
       (e) => e.type == EntryType.expense && e.recurring == null,
     );
     final count = ledger.entries.length;
+    final place = ledger.entries.all.indexOf(entry);
     final removed = ledger.entryCommands.remove(entry.id)!;
     expect(ledger.trash.all.single.entry, same(removed));
     expect(ledger.trash.all.single.on, ledger.today);
@@ -17,12 +18,50 @@ void main() {
     ledger.entryCommands.restoreTrashed(ledger.trash.all.single);
     expect(ledger.trash.all, isEmpty);
     expect(ledger.entries.all, hasLength(count));
-    final back = ledger.entries.all.last;
+    // Back in its own place, not last (D75).
+    final back = ledger.entries.all[place];
     expect(back.id, entry.id);
     expect(
       (back.amount, back.account, back.date),
       (entry.amount, entry.account, entry.date),
     );
+  });
+
+  test('D77: the day turning with the app open takes out what the trash '
+      'no longer keeps, with its photo', () {
+    var now = DateTime.utc(2026, 10, 1);
+    Entry spend(String id) => Entry(
+      id: id,
+      date: DateTime.utc(2026, 9, 30),
+      type: EntryType.expense,
+      amount: 100,
+      account: 'bank',
+    );
+    final ledger = Ledger(
+      today: now,
+      clock: () => now,
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 0)],
+      categories: const [],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      trash: [
+        Trashed(spend('old'), DateTime.utc(2026, 10, 1)),
+        Trashed(spend('new'), DateTime.utc(2026, 10, 2)),
+      ],
+      receipts: const {'old': 'old.jpg'},
+    );
+    // 30 days after Oct 1 is Oct 31: both still kept.
+    now = DateTime.utc(2026, 10, 31);
+    ledger.checkDay();
+    expect(ledger.trash.all, hasLength(2));
+    // Nov 1: 31 days after Oct 1.
+    now = DateTime.utc(2026, 11, 1);
+    ledger.checkDay();
+    expect([for (final t in ledger.trash.all) t.entry.id], ['new']);
+    expect(ledger.receipts.of('old'), isNull);
+    expect(ledger.entryCommands.expireTrash(), 0);
   });
 
   test('an undone delete leaves the trash', () {

@@ -1,4 +1,10 @@
-import 'package:ledger_entries/rules.dart' show RecordIssue, SaleExceedsHolding;
+// Exception to file length: every write of the entries and every way back
+// (undo, the trash) share one bookkeeping of what a refusal undoes and of
+// the recurring days a deletion lets go; split, each half would need the
+// other's.
+import 'package:core/constants/retention.dart';
+import 'package:ledger_entries/rules.dart'
+    show EntryDeleted, RecordIssue, SaleExceedsHolding;
 
 import '../cache/topic.dart';
 import '../models/models.dart';
@@ -18,6 +24,9 @@ import '../services/entry_validator.dart';
 import '../services/recurring_service.dart';
 import 'command_context.dart';
 import 'command_exceptions.dart';
+import 'restore_hold.dart';
+
+export 'restore_hold.dart';
 
 /// Writes the entries: adding, changing, removing and bringing them back,
 /// one at a time, as a group or many at once; each change is kept as one
@@ -78,6 +87,7 @@ final class EntryCommands {
     List<Category> categories = const [],
   }) {
     if (entries.isEmpty && accounts.isEmpty && categories.isEmpty) return;
+    entries = _kept(entries);
     _check(entries, opening: accounts);
     final count = _entries.length;
     _entries.addAll(entries);
@@ -111,6 +121,7 @@ final class EntryCommands {
   /// Puts each of [entries] in place of the one with the same id, as one
   /// change; those the ledger does not hold are left out.
   void replaceAll(List<Entry> entries) {
+    entries = _kept(entries);
     _check(entries, replacing: entries.map((e) => e.id));
     final before = <int, Entry>{};
     for (final e in entries) {
@@ -142,6 +153,12 @@ final class EntryCommands {
     String? receiptOn,
   }) {
     final was = {...replacing};
+    // An entry deleted while its form was open is not brought back as a
+    // second copy beside the one in the trash (D78).
+    if (was.any((id) => _entries.byId(id) == null && _trash.holds(id))) {
+      throw RecordRefused(const [EntryDeleted()]);
+    }
+    entries = _kept(entries);
     _check(entries, replacing: was);
     final ids = {for (final e in entries) e.id};
     final gone = {...was}..removeAll(ids);
@@ -207,7 +224,11 @@ final class EntryCommands {
       return null;
     }
     _recurring.replaceExisting(skipping);
-    final trashed = Trashed(removed, _context.today);
+    final trashed = Trashed(
+      removed,
+      _context.today,
+      order: _entries.orderOf(removed.id),
+    );
     _trash.put(trashed);
     _context.keep(
       WriteBatch(
@@ -240,7 +261,10 @@ final class EntryCommands {
       return const [];
     }
     _recurring.replaceExisting(skipping);
-    final trashed = [for (final (_, e) in removed) Trashed(e, _context.today)];
+    final trashed = [
+      for (final (_, e) in removed)
+        Trashed(e, _context.today, order: _entries.orderOf(e.id)),
+    ];
     _trash.putAll(trashed);
     _context.keep(
       WriteBatch(
@@ -259,9 +283,10 @@ final class EntryCommands {
     final ids = {for (final e in removed) e.id};
     if (_entries.any((e) => ids.contains(e.id))) return false;
     if (!_tryCheck(removed)) return false;
-    // Back as the latest written, which is where the data source keeps a
-    // record written again: the order is the same after a restart.
-    _entries.addAll(removed);
+    // Back in its own place (D75), where the data source keeps it too.
+    for (final e in removed) {
+      _entries.restoreAt(e, _entries.orderOf(e.id));
+    }
     if (!_tryReplay(
       () => _entries.removeWhere((e) => ids.contains(e.id)),
       trades: removed.any((e) => e.isInvestment),
@@ -287,8 +312,8 @@ final class EntryCommands {
   bool restore(Entry entry) {
     if (_entries.byId(entry.id) != null) return false;
     if (!_tryCheck([entry])) return false;
-    // Back as the latest written, as in [restoreAll].
-    _entries.add(entry);
+    // Back in its own place, as in [restoreAll].
+    _entries.restoreAt(entry, _entries.orderOf(entry.id));
     if (!_tryReplay(() => _entries.remove(entry), trades: entry.isInvestment)) {
       return false;
     }
@@ -306,9 +331,51 @@ final class EntryCommands {
     return true;
   }
 
+  /// What stands in the way of putting [trashed] back as it is, for the
+  /// person to decide (D78): an account it names since closed, or, for a
+  /// refund, its purchase deleted (still in the trash, or gone for good);
+  /// null when nothing does.
+  RestoreHold? holdOf(Trashed trashed) {
+    final entry = trashed.entry;
+    final closed = <Account>[
+      for (final id in {entry.account, ?entry.to})
+        if (_accounts.byId(id) case final a? when a.archived) a,
+    ];
+    if (closed.isNotEmpty) return ClosedAccounts(closed);
+    final of = entry.refundOf;
+    if (of == null || _entries.byId(of) != null) return null;
+    for (final t in _trash.all) {
+      if (t.entry.id == of) return OriginalInTrash(t);
+    }
+    return const OriginalGone();
+  }
+
   /// Puts [trashed] back in the book. False, told through [CommandContext.problem], when
-  /// it no longer fits the trades kept since.
-  bool restoreTrashed(Trashed trashed) {
+  /// it no longer fits the trades kept since. What [holdOf] finds is
+  /// settled as the person chose: a closed account opened again when
+  /// [reopen], a refund's purchase in the trash put back with it when
+  /// [withOriginal]; else it is not put back.
+  bool restoreTrashed(
+    Trashed trashed, {
+    bool reopen = false,
+    bool withOriginal = false,
+  }) {
+    switch (holdOf(trashed)) {
+      case ClosedAccounts(:final accounts) when reopen:
+        final opened = [for (final a in accounts) a.copyWith(archived: false)];
+        opened.forEach(_accounts.replace);
+        _context.changed(const {Topic.accounts});
+        _context.keep(WriteBatch(accounts: opened));
+        return restoreTrashed(trashed, withOriginal: withOriginal);
+      case OriginalInTrash(:final original) when withOriginal:
+        // The purchase first, then the refund that names it.
+        if (!restoreTrashed(original, reopen: reopen)) return false;
+        return restoreTrashed(trashed);
+      case OriginalGone() || null:
+        break;
+      case ClosedAccounts() || OriginalInTrash():
+        return false;
+    }
     final entry = trashed.entry;
     if (_entries.byId(entry.id) != null) {
       // Already back in the book, as by an undo: only the trash keeps it.
@@ -330,10 +397,13 @@ final class EntryCommands {
     if (!_tryCheck([for (final t in back) t.entry])) return false;
     final before = _trash.all;
     _trash.removeAll(back);
-    final count = _entries.length;
-    _entries.addAll([for (final t in back) t.entry]);
+    // Each back in its own place (D75).
+    for (final t in back) {
+      _entries.restoreAt(t.entry, t.order ?? _entries.orderOf(t.entry.id));
+    }
+    final ids = {for (final t in back) t.entry.id};
     if (!_tryReplay(() {
-      _entries.removeRange(count, _entries.length);
+      _entries.removeWhere((e) => ids.contains(e.id));
       _trash.replaceWith(before);
     }, trades: back.any((t) => t.entry.isInvestment))) {
       return false;
@@ -349,6 +419,39 @@ final class EntryCommands {
     );
     if (unskipped.isNotEmpty) _context.changed(const {Topic.recurring});
     return true;
+  }
+
+  /// Takes out of the trash, for good, the entries deleted longer ago
+  /// than it keeps them ([trashRetention]), with their receipt photos, as
+  /// opening the book does: also when the day turns with the app open
+  /// (D77), so nothing past its time is shown or restored. How many.
+  int expireTrash() {
+    final from = _context.today.subtract(trashRetention);
+    return discardTrashed([
+      for (final t in _trash.all)
+        if (t.on.isBefore(from)) t,
+    ]);
+  }
+
+  /// Takes [trashed] out of the trash for good, with their receipt
+  /// photos, as one change: such as the deleted entries still naming an
+  /// account about to be removed (D78). How many.
+  int discardTrashed(Iterable<Trashed> trashed) {
+    final gone = [for (final t in trashed) t.entry.id];
+    if (gone.isEmpty) return 0;
+    _trash.removeEntries({...gone});
+    for (final id in gone) {
+      _receipts.set(id, null);
+    }
+    // No sum rests on the trash.
+    _context.signal();
+    _context.keep(
+      WriteBatch(
+        receipts: {for (final id in gone) id: null},
+        dropped: [for (final id in gone) (Collection.trash, id)],
+      ),
+    );
+    return gone.length;
   }
 
   /// Puts the spending or income among [entries] under [name]. Splits,
@@ -396,6 +499,18 @@ final class EntryCommands {
     replaceAll(moved);
     return moved.length;
   }
+
+  /// [entries] as the book keeps them: a transfer with no category under
+  /// [transferCategory], by the one rule the book is read with
+  /// ([keptCategory], D80).
+  static List<Entry> _kept(List<Entry> entries) => [
+    for (final e in entries)
+      if (keptCategory(e.type, e.category) case final name
+          when name != e.category)
+        e.withCategory(name)
+      else
+        e,
+  ];
 
   /// Spending or income that is not a refund: what a batch may change.
   static bool _plain(Entry e) =>
@@ -463,7 +578,8 @@ final class EntryCommands {
   }
 
   /// The recurring items [back] booked with the day each had let go
-  /// taken out again: the one nearest the entry in its month.
+  /// taken out again: the one the entry stands for, as a booking settles
+  /// its day ([RecurringService.nearestDay]).
   List<Recurring> _unskipping(List<Entry> back) {
     final changed = <String, Recurring>{};
     for (final e in back) {
@@ -471,19 +587,9 @@ final class EntryCommands {
       if (id == null) continue;
       final item = changed[id] ?? _recurring.byId(id);
       if (item == null) continue;
-      final days =
-          [
-            for (final d in item.skipped)
-              if (d.year == e.date.year && d.month == e.date.month) d,
-          ]..sort(
-            (a, b) => (a.difference(e.date).abs()).compareTo(
-              b.difference(e.date).abs(),
-            ),
-          );
-      if (days.isEmpty) continue;
-      changed[id] = item.copyWith(
-        skipped: {...item.skipped}..remove(days.first),
-      );
+      final day = RecurringService.nearestDay(e.date, item.skipped);
+      if (day == null) continue;
+      changed[id] = item.copyWith(skipped: {...item.skipped}..remove(day));
     }
     return changed.values.toList();
   }

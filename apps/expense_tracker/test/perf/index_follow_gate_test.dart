@@ -102,6 +102,9 @@ void main() {
     // Entries written lately, as are most of those deleted or edited: the
     // indexes alone. One written long ago also moves every later entry
     // along the list, a copy that grows with the book (printed only).
+    // Warm up the code paths first, so the steps are not charged for
+    // compiling them.
+    await steps(count - 3000);
     final recent = await steps(count - 1000);
     if (bench) {
       final early = await steps(1000);
@@ -145,4 +148,4 @@ void main() {
 
 /// The largest share of working the indexes out afresh a change may
 /// take: about twice the largest measured (thresholds.md).
-const _most = 0.0012;
+const _most = 0.0005;

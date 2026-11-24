@@ -377,6 +377,35 @@ void main() {
     expect(again.count, 2);
   });
 
+  test('a record moved to another shelf and back keeps its place (D75)', () {
+    final store = open();
+    store.write((w) {
+      w.put('entry', 'a', '1');
+      w.put('entry', 'b', '2');
+      w.put('entry', 'c', '3');
+    });
+    store.write((w) => w.move('entry', 'trash', 'b', 'deleted'));
+    expect(
+      [for (final r in store.rows()) (r.shelf, r.id, r.body)],
+      [('entry', 'a', '1'), ('trash', 'b', 'deleted'), ('entry', 'c', '3')],
+    );
+    store.write((w) => w.put('entry', 'd', '4'));
+    store.write(
+      (w) => w.apply(const RowChange.move('trash', 'entry', 'b', '2')),
+    );
+    expect(
+      [for (final r in store.rows(shelf: 'entry')) r.id],
+      ['a', 'b', 'c', 'd'],
+    );
+    // Nothing to move: kept as new, last; a stale record in the way goes.
+    store.write((w) {
+      w.put('trash', 'e', 'old');
+      w.move('entry', 'trash', 'e', '5');
+    });
+    expect(store.rows(shelf: 'trash').single.body, '5');
+    expect(store.rows().last.id, 'e');
+  });
+
   test('a write that throws keeps nothing', () {
     final store = open();
     expect(

@@ -20,6 +20,7 @@ final class SessionStart {
     this.ledger, {
     this.inbox,
     this.booked = 0,
+    this.held = const [],
     this.quarantined = const [],
   });
 
@@ -34,17 +35,25 @@ final class SessionStart {
 
   /// Recurring items booked by themselves because their day had come.
   final int booked;
+
+  /// Items marked to book themselves left for the person to confirm
+  /// first (D61), or that cannot be booked by themselves.
+  final List<HeldBooking> held;
 }
 
 /// What coming back to an open ledger found to tell the person.
 final class SessionResume {
-  const SessionResume({this.inbox, this.booked = 0});
+  const SessionResume({this.inbox, this.booked = 0, this.held = const []});
 
   /// What the inbox brought; null when it was empty or could not be read.
   final InboxOutcome? inbox;
 
   /// Recurring items booked by themselves because their day had come.
   final int booked;
+
+  /// Items marked to book themselves left for the person to confirm
+  /// first (D61), or that cannot be booked by themselves.
+  final List<HeldBooking> held;
 }
 
 /// The steps that change or check a ledger as it opens: bring it up to
@@ -87,11 +96,12 @@ final class LedgerSession {
     final aside = quarantined?.call() ?? const <QuarantinedRow>[];
     final inbox = await readInbox(ledger);
     checkIntegrity(ledger);
-    final booked = bookDue(ledger);
+    final due = bookDue(ledger);
     return SessionStart(
       ledger,
       inbox: inbox,
-      booked: booked,
+      booked: due.booked,
+      held: due.held,
       quarantined: aside,
     );
   }
@@ -102,7 +112,8 @@ final class LedgerSession {
   /// opening is not the only way back).
   Future<SessionResume> resume(Ledger ledger) async {
     final inbox = await readInbox(ledger);
-    return SessionResume(inbox: inbox, booked: bookDue(ledger));
+    final due = bookDue(ledger);
+    return SessionResume(inbox: inbox, booked: due.booked, held: due.held);
   }
 
   /// The inbox read under way, so two (opening, then coming back at once)
@@ -177,13 +188,14 @@ final class LedgerSession {
   }
 
   /// Books the recurring items marked to book themselves whose day has
-  /// come; how many. Also when the app comes back, as days pass.
-  int bookDue(Ledger ledger) {
+  /// come, and lists those left to confirm. Also when the app comes back,
+  /// as days pass.
+  AutoBooking bookDue(Ledger ledger) {
     try {
       return ledger.recurringCommands.bookDue();
     } on Object catch (error) {
       ErrorLog.instance.record('定期自動入帳', error);
-      return 0;
+      return AutoBooking.none;
     }
   }
 }

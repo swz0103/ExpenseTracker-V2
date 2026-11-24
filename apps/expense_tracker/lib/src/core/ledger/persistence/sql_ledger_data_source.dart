@@ -331,6 +331,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       accounts: book.accounts,
       categories: book.categories,
       entries: book.entries,
+      entryOrder: book.entrySeqs,
       holdings: holdingsOf(market),
       budgets: book.budgets,
       recurring: book.recurring,
@@ -400,16 +401,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   }
 
   /// Applies [changes] through [w].
-  static void _apply(RowWriter w, List<RowChange> changes) {
-    for (final change in changes) {
-      final body = change.body;
-      if (body == null) {
-        w.drop(change.shelf, change.id);
-      } else {
-        w.put(change.shelf, change.id, body);
-      }
-    }
-  }
+  static void _apply(RowWriter w, List<RowChange> changes) =>
+      changes.forEach(w.apply);
 
   /// Gives a ledger just made its first categories, and a cash and a bank
   /// account, so the first entry can be written at once; and notes that
@@ -571,6 +564,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       for (final _ in _fill(
         batch,
         put: w.put,
+        move: w.move,
         drop: w.drop,
         after: after,
         claim: w,
@@ -599,6 +593,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     for (final _ in _fill(
       batch,
       put: (shelf, id, body) => changes.add(RowChange.put(shelf, id, body)),
+      move: (from, shelf, id, body) =>
+          changes.add(RowChange.move(from, shelf, id, body)),
       drop: (shelf, id) => changes.add(RowChange.drop(shelf, id)),
       after: after,
     )) {
@@ -619,8 +615,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   // movement.
   static const _slice = Duration(milliseconds: 8);
 
-  /// The rows [batch] puts in place and drops, handed to [put] and
-  /// [drop] in the order they are written, a record at a time: it yields
+  /// The rows [batch] puts in place, moves and drops, handed to [put],
+  /// [move] and [drop] in the order they are written, a record at a time:
+  /// an entry going to the trash, or coming back from it, is moved, so it
+  /// keeps its place among the entries (D75). It yields
   /// after each, so a caller may let the screen draw. What to note once
   /// they are kept is added to [after]. [claim] is the writer of a
   /// transaction under way, for the records that named a category by
@@ -628,6 +626,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   Iterable<void> _fill(
     WriteBatch batch, {
     required void Function(String shelf, String id, String body) put,
+    required void Function(String from, String shelf, String id, String body)
+    move,
     required void Function(String shelf, String id) drop,
     required List<void Function()> after,
     RowWriter? claim,
@@ -660,11 +660,37 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       }
     }
 
+    // An entry dropped and kept in the trash in the same change goes
+    // there, and one kept again and dropped from the trash comes back.
+    final droppedFrom = <Collection, Set<String>>{};
+    for (final (collection, key) in batch.dropped) {
+      (droppedFrom[collection] ??= {}).add(key);
+    }
+    final toTrash = {
+      for (final t in batch.trash)
+        if (droppedFrom[Collection.entry]?.contains(t.entry.id) ?? false)
+          t.entry.id,
+    };
+    final fromTrash = {
+      for (final e in batch.entries)
+        if (droppedFrom[Collection.trash]?.contains(e.id) ?? false) e.id,
+    };
+
     // What the data source notes of the rows written, once they are kept:
     // nothing of a write that throws.
     void keep(Collection collection, String id, Map<String, Object?> json) {
       mayChange(collection.name, id);
-      put(collection.name, id, text(collection, id, json));
+      final from = switch (collection) {
+        Collection.trash when toTrash.contains(id) => Collection.entry,
+        Collection.entry when fromTrash.contains(id) => Collection.trash,
+        _ => null,
+      };
+      if (from == null) {
+        put(collection.name, id, text(collection, id, json));
+      } else {
+        mayChange(from.name, id);
+        move(from.name, collection.name, id, text(collection, id, json));
+      }
       if (_noted.contains(collection)) {
         drop(_gone, '${collection.name}/$id');
       }
@@ -710,7 +736,12 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     for (final (collection, name) in batch.dropped) {
       final id = collection == Collection.budget ? budgetKeys[name]! : name;
       mayChange(collection.name, id);
-      drop(collection.name, id);
+      final moved = switch (collection) {
+        Collection.entry => toTrash.contains(id),
+        Collection.trash => fromTrash.contains(id),
+        _ => false,
+      };
+      if (!moved) drop(collection.name, id);
       if (_noted.contains(collection)) {
         put(_gone, '${collection.name}/$id', jsonEncode({'at': at}));
       }

@@ -57,9 +57,9 @@ final class ComposeForm {
     required EntryType type,
     this.editing,
     this.draft,
-    this.refunded,
+    Entry? refunded,
     this.brokerDiscount = defaultBrokerDiscount,
-  }) {
+  }) : refunded = refunded ?? ledger.entryQueryService.originalOf(draft) {
     mode = ComposeMode.of(type);
     trade = type.index >= EntryType.buy.index ? type : EntryType.buy;
     fresh();
@@ -88,8 +88,8 @@ final class ComposeForm {
   /// A new entry's starting values, such as a card payment.
   final Entry? draft;
 
-  /// The spending being refunded, for a refund.
-  final Entry? refunded;
+  /// The spending refunded: given, or named by the draft taken up (D79).
+  Entry? refunded;
 
   /// The phone-wide broker's discount, in basis points of the full fee:
   /// the preference 券商手續費折扣, for a trade's account without its own.
@@ -367,9 +367,9 @@ final class ComposeForm {
   List<String> categoryChoices() =>
       ledger.reportService.categoriesByUse(income: tab == ComposeMode.income);
 
-  /// Brings back a form put aside: [entry] with its receipt photo, on
-  /// accounts still open; when none is open, its own accounts stay.
+  /// Brings back a form put aside ([entry], its photo), on open accounts.
   void restore(Entry entry, String? photo) {
+    refunded = ledger.entryQueryService.originalOf(entry) ?? refunded;
     load(entry);
     findLending(entry);
     if (entry.isInvestment) trade = entry.type;
@@ -557,7 +557,7 @@ final class ComposeForm {
       // Paid back: from the person's account into the chosen one.
       account: lendingBack ? to : account,
       category: switch (kind) {
-        EntryType.transfer => transferCategory,
+        EntryType.transfer => keptCategory(kind, editing?.category ?? ''),
         EntryType.dividend => dividendCategory,
         EntryType.buy || EntryType.sell => investmentCategory,
         _ when refund != null => refund.category,

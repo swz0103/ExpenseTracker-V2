@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:core/constants/retention.dart';
 
@@ -6,7 +8,9 @@ import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
+import '../../../core/design_system/dialogs.dart' show confirm;
 import '../../../core/messages/problem_messages.dart';
+import '../../../core/messages/trash_messages.dart';
 import '../../../core/widgets/entry_tile.dart';
 import '../../../core/design_system/settings_colors.dart';
 import '../../../core/widgets/shown_amounts.dart';
@@ -23,9 +27,26 @@ class TrashSection extends StatelessWidget {
 
   final Ledger ledger;
 
-  void _restore(BuildContext context, Trashed trashed) {
+  /// Puts [trashed] back, first asking what stands in its way (D78): an
+  /// account closed since, or a refund's purchase deleted too.
+  Future<void> _restore(BuildContext context, Trashed trashed) async {
+    final hold = ledger.entryCommands.holdOf(trashed);
+    final question = restoreQuestion(hold);
+    var reopen = false;
+    var withOriginal = false;
+    if (question != null) {
+      final (title, action, body) = question;
+      final ok = await confirm(context, title, action, body: body);
+      if (!ok || !context.mounted) return;
+      reopen = hold is ClosedAccounts;
+      withOriginal = hold is OriginalInTrash;
+    }
     try {
-      if (ledger.entryCommands.restoreTrashed(trashed)) {
+      if (ledger.entryCommands.restoreTrashed(
+        trashed,
+        reopen: reopen,
+        withOriginal: withOriginal,
+      )) {
         showNote(context, '已放回「${trashed.entry.title}」');
       }
     } on Object catch (error) {
@@ -47,7 +68,11 @@ class TrashSection extends StatelessWidget {
     final today = ledger.today;
     // Grouped by the day each entry was for, latest day first.
     final days = groupByDay(
-      [...trash.all]..sort((a, b) => b.entry.date.compareTo(a.entry.date)),
+      [...trash.all]..sort((a, b) {
+        final byDay = b.entry.date.compareTo(a.entry.date);
+        // Within a day, the later written first (D76).
+        return byDay != 0 ? byDay : (b.order ?? 0).compareTo(a.order ?? 0);
+      }),
       (t) => t.entry.date,
     );
     return Column(
@@ -126,7 +151,7 @@ class TrashSection extends StatelessWidget {
           RowFigure(ledger.orDots(groupDigits(e.amount))),
           const SizedBox(width: Space.s2),
           FilledButton(
-            onPressed: () => _restore(context, t),
+            onPressed: () => unawaited(_restore(context, t)),
             style: solidButton(
               AppColors.selected,
               ink: AppColors.accent,

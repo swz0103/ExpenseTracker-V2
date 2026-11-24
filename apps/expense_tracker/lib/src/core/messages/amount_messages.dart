@@ -38,3 +38,8 @@ abstract final class ProgressWords {
 
 /// A sign between figures read as a word: 減 for −, 加 for + or ＋.
 String spokenSign(String sign) => sign == '−' ? '減' : '加';
+
+/// Under a foreign amount's worth in NT$ on a day gone by, worked out at
+/// today's [rate] until typed: an estimate, as no earlier day's rate is
+/// kept (R5).
+String estimatedAtTodaysRate(double rate) => '以今日臺銀即期買入 $rate 估算，請改成當日金額';

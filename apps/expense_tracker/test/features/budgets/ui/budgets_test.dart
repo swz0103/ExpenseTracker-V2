@@ -1,5 +1,4 @@
 import 'package:expense_tracker/src/app/demo/seed.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../support/places.dart';
