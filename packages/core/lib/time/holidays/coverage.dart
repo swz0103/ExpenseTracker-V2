@@ -44,6 +44,10 @@ BusinessDate? coveredUntil(HolidayCalendar calendar, BusinessDate today) {
 
 /// Whether [calendar] still covers more than [holidayTableLeadDays] past
 /// [today]. [today] is given: the guard on CI passes the real day.
+///
+/// A release check, not app code: its only callers are the coverage
+/// guard tests of each holiday table (D33), which fail on CI before a
+/// table runs out. Keep it although nothing in lib/ calls it.
 HolidayCoverage holidayCoverage(HolidayCalendar calendar, BusinessDate today) {
   final until = coveredUntil(calendar, today);
   if (until == null) return const CoverageEnding(null, 0);

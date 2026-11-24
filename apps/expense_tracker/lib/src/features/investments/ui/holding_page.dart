@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:domain/investments.dart' show HoldingStatus, holdingStatus;
+import 'package:core/time/utc_days.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/display/amount.dart';

@@ -1,3 +1,4 @@
+import 'package:core/time/utc_days.dart';
 import 'package:flutter/material.dart';
 
 import '../../accounts/forms/account_editor.dart';
@@ -21,6 +22,8 @@ import '../../../core/design_system/motion.dart';
 import '../../../core/formatting/words.dart';
 import 'recurring_rows.dart';
 import '../model/subscriptions.dart';
+
+import 'package:core/time/month_arithmetic.dart';
 
 part 'recurring_calendar.dart';
 part 'recurring_lists.dart';
@@ -103,8 +106,7 @@ class _RecurringPageState extends State<RecurringPage> {
   (int, int) get _now => (ledger.today.year, ledger.today.month);
 
   void _step(int by) => setState(() {
-    final next = DateTime.utc(_month.$1, _month.$2 + by);
-    _month = (next.year, next.month);
+    _month = shiftMonth(_month.$1, _month.$2, by);
     _day = null;
   });
 

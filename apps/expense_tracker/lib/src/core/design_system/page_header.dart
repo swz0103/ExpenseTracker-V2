@@ -7,6 +7,8 @@ import 'shape.dart';
 import 'spacing.dart';
 import '../formatting/words.dart';
 
+import 'package:core/time/month_arithmetic.dart';
+
 /// A tab page's title row (總覽, 紀錄, 帳戶, 更多): the title on the left
 /// in 22 px and whatever sits on the right. A page opened from another
 /// has `CenterHeader` instead: back, the title in the middle.
@@ -60,15 +62,15 @@ class MonthSwitch extends StatelessWidget {
   final (int, int)? latest;
 
   (int, int) _step(int by) {
-    final date = DateTime.utc(month.$1, month.$2 + by);
-    return (date.year, date.month);
+    return shiftMonth(month.$1, month.$2, by);
   }
 
   @override
   Widget build(BuildContext context) {
     final (year, m) = month;
     final last = latest;
-    final atEnd = last != null && year * 12 + m >= last.$1 * 12 + last.$2;
+    final atEnd =
+        last != null && monthIndex(year, m) >= monthIndex(last.$1, last.$2);
     return StepSwitch(
       label: '$year / $m',
       previousLabel: Words.previousMonth,

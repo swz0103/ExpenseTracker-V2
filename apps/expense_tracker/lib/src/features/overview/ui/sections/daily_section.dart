@@ -15,6 +15,8 @@ import '../../../../core/design_system/spacing.dart';
 import '../../../../core/design_system/motion.dart';
 import '../../../../core/formatting/words.dart';
 
+import 'package:core/time/utc_days.dart';
+
 /// 每日紀錄: a week of days with marks for what each holds, and the chosen
 /// day's entries three to a row, six at a time.
 class DailySection extends StatefulWidget {
@@ -53,7 +55,7 @@ class _DailySectionState extends State<DailySection> {
     }
     // Another month was chosen above: the same day of that month, or its
     // last, and never a day still to come.
-    final last = DateTime.utc(year, month + 1, 0).day;
+    final last = monthEnd(year, month).day;
     var day = DateTime.utc(year, month, min(_day.day, last));
     final today = widget.ledger.today;
     if (day.isAfter(today)) day = today;

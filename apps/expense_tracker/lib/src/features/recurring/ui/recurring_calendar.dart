@@ -84,7 +84,7 @@ class _Calendar extends StatelessWidget {
 
   Widget _dayCell(BuildContext context, int d, DateTime today) {
     final day = DateTime.utc(year, month, d);
-    final todayDay = DateTime.utc(today.year, today.month, today.day);
+    final todayDay = dayOf(today);
     final isToday = day == todayDay;
     final past = day.isBefore(todayDay);
     final items = plan[d] ?? const <Due>[];
@@ -292,7 +292,7 @@ class _DayItemsState extends State<_DayItems> {
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
     final today = ledger.today;
-    final todayDay = DateTime.utc(today.year, today.month, today.day);
+    final todayDay = dayOf(today);
     final day = widget.day;
     final items = widget.items;
     final away = day.difference(todayDay).inDays;

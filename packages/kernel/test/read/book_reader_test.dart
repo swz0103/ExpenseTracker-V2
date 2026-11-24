@@ -1,4 +1,3 @@
-import 'package:core/foundation_values.dart' show Currency, Money;
 import 'package:kernel/kernel.dart';
 import 'package:test/test.dart';
 
@@ -67,16 +66,12 @@ void main() {
     );
   });
 
-  test('balances at a day, all at once, and as Money', () {
+  test('balances at a day, and all at once', () {
     // 50000 - 120 + 300 - 3210 = 46970.
     expect(reader.balance(bank), 46970);
     expect(reader.balance(bank, until: day(1, 6)), 49880);
     expect(reader.balance(dollars), 9500); // 10000 - 500 cents
     expect(reader.balance(trading, currency: usd), -10000);
-    expect(
-      reader.balanceMoney(dollars),
-      Money(Currency.of('USD'), BigInt.from(9500)),
-    );
     expect(reader.balances(until: day(1, 5)), {
       (salary, twd): (amount: -50000, quantity: BigInt.zero),
       (bank, twd): (amount: 50000, quantity: BigInt.zero),

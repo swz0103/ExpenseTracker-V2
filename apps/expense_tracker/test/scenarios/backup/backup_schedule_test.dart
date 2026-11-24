@@ -58,7 +58,7 @@ void main() {
   }
 
   List<String> kept() => [
-    for (final f in Directory(backups.backupFolder).listSync())
+    for (final f in Directory('${startup.directory.path}/backups').listSync())
       f.uri.pathSegments.last,
   ]..sort();
 
@@ -104,7 +104,7 @@ void main() {
       await backups.backUpIfDue();
     }
     // As the phone stopping the app part way leaves it: newest by name.
-    File('${backups.backupFolder}/記帳本-20991231-000000000.etbk.part')
+    File('${startup.directory.path}/backups/記帳本-20991231-000000000.etbk.part')
         .writeAsStringSync('cut short');
     await change();
     clock.advance(const Duration(days: 8));
@@ -116,7 +116,9 @@ void main() {
     expect(whole, hasLength(5));
     for (final name in whole) {
       // Every one kept opens.
-      await LedgerBackup.readHeader(File('${backups.backupFolder}/$name'));
+      await LedgerBackup.readHeader(
+        File('${startup.directory.path}/backups/$name'),
+      );
     }
   });
 

@@ -8,7 +8,8 @@ class _DayChoicesState extends State<DayChoices> {
     final first = _month;
     final latest = widget.latest;
     final atEnd =
-        first.year * 12 + first.month >= latest.year * 12 + latest.month;
+        monthIndex(first.year, first.month) >=
+        monthIndex(latest.year, latest.month);
     // The days written down most: picked at once, without the calendar.
     final today = widget.today;
     final quick = [
@@ -46,12 +47,12 @@ class _DayChoicesState extends State<DayChoices> {
           iconSize: 20,
           expand: true,
           onPrevious: () => setState(() {
-            _month = DateTime.utc(first.year, first.month - 1);
+            _month = monthStart(first, -1);
           }),
           onNext: atEnd
               ? null
               : () => setState(() {
-                  _month = DateTime.utc(first.year, first.month + 1);
+                  _month = monthStart(first, 1);
                 }),
         ),
         const SizedBox(height: Space.s1),

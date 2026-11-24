@@ -23,7 +23,7 @@ List<BusinessDate> installmentCloses(
   for (var index = 0; index < count; index++)
     () {
       final month = DateTime.utc(first.year, first.month + index, 1);
-      final lastDay = DateTime.utc(month.year, month.month + 1, 0).day;
+      final lastDay = monthEnd(month.year, month.month).day;
       return BusinessDate(
         month.year,
         month.month,

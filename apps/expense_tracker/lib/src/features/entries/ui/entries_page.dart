@@ -19,6 +19,9 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 
+import 'package:core/time/utc_days.dart';
+import 'package:core/time/month_arithmetic.dart';
+
 /// 收支紀錄: the month's income against spending, then every entry by
 /// day, with search and filters; 設定 exports it.
 class EntriesPage extends StatefulWidget {
@@ -85,10 +88,9 @@ class _EntriesPageState extends State<EntriesPage> {
     });
   }
 
+  /// The picked entries still in the ledger, each looked up by its id.
   List<Entry> get _pickedEntries => [
-    // Exception to as-of-today: picked entries are looked up by id.
-    for (final e in widget.ledger.entries.all)
-      if (_picked.contains(e.id)) e,
+    for (final id in _picked) ?widget.ledger.entries.byId(id),
   ];
 
   /// Says how many of the picked entries a change reached, and ends the
@@ -180,7 +182,7 @@ class _EntriesPageState extends State<EntriesPage> {
     final kept = _kept;
     if (kept != null && kept.key == key) return kept;
     final shown = _shown();
-    return _kept = _Shown(key, shown, countedOn(shown, ledger.today));
+    return _kept = _Shown(key, shown, ledger.reportService.totalsOf(shown));
   }
 
   /// The month's entries, the chosen days', or every month's that match
@@ -197,11 +199,10 @@ class _EntriesPageState extends State<EntriesPage> {
       source = ledger.entryQueryService.search(words);
     } else if (range != null) {
       source = [
-        for (
-          var m = DateTime.utc(range.end.year, range.end.month);
-          !m.isBefore(DateTime.utc(range.start.year, range.start.month));
-          m = DateTime.utc(m.year, m.month - 1)
-        )
+        for (final m in monthStarts(
+          range.start,
+          monthStart(range.end),
+        ).toList().reversed)
           // Exception to as-of-today: the list shows 預定 entries marked; its
           // totals go through countedOn.
           ...ledger.entries.inMonth(m.year, m.month),
@@ -274,10 +275,10 @@ class _EntriesPageState extends State<EntriesPage> {
   /// Moves [by] months, never past this one.
   void _stepMonth(int by) {
     final today = widget.ledger.today;
-    final date = DateTime.utc(_month.$1, _month.$2 + by);
-    if (date.year * 12 + date.month > today.year * 12 + today.month) return;
+    final (year, month) = shiftMonth(_month.$1, _month.$2, by);
+    if (monthIndex(year, month) > monthIndex(today.year, today.month)) return;
     Haptics.selection();
-    setState(() => _month = (date.year, date.month));
+    setState(() => _month = (year, month));
   }
 
   /// The search box's look: a white pill with a magnifier, and a clear
@@ -425,12 +426,10 @@ class _EntriesPageState extends State<EntriesPage> {
 /// What the record list shows for one month, filter, search and day,
 /// with the [key] they make: the entries, as lines, and their sums.
 final class _Shown {
-  _Shown(this.key, List<Entry> shown, Iterable<Entry> counted)
+  _Shown(this.key, List<Entry> shown, ({int income, int expense}) totals)
     : lines = _linesOf(shown),
-      // The sums count what counts today; a 預定 entry is listed, marked,
-      // and counted once its day comes (D25).
-      income = counted.fold(0, (sum, e) => sum + e.earning),
-      expense = counted.fold(0, (sum, e) => sum + e.spending);
+      income = totals.income,
+      expense = totals.expense;
 
   final Record key;
   final List<_Line> lines;

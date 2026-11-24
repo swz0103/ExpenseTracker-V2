@@ -171,8 +171,7 @@ void _checkDays(int closingDay, int dueDay) {
   }
 }
 
-DateTime _utc(BusinessDate date) =>
-    DateTime.utc(date.year, date.month, date.day);
+DateTime _utc(BusinessDate date) => date.asUtcMidnight;
 
 /// One statement period. The scheduled dates are the nominal ones the
 /// card's billing days give; installments are billed by them.
@@ -206,13 +205,13 @@ final class CardCycle {
 
 (int, int) _month(int year, int month, int offset) {
   final result = DateTime.utc(year, month + offset, 1);
-  if (result.year < 1 || result.year > 9999) {
+  if (result.year < minYear || result.year > maxYear) {
     throw const CreditCardException(CreditCardError.invalidInput);
   }
   return (result.year, result.month);
 }
 
 BusinessDate _day(int year, int month, int requested) {
-  final last = DateTime.utc(year, month + 1, 0).day;
+  final last = monthEnd(year, month).day;
   return BusinessDate(year, month, requested > last ? last : requested);
 }

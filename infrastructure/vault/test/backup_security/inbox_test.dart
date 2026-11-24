@@ -45,6 +45,13 @@ void main() {
     expect(utf8.decode(await InboxSeal.open(inbox, item)), _plain);
   });
 
+  test('the names the inbox key and the photos are kept under', () {
+    // Stored on the phone: a change here strands every kept key and photo.
+    expect(LedgerInbox.keyName, 'inbox.key');
+    expect(FileBox.inbox, 'inbox');
+    expect(FileBox.receipts, 'receipts');
+  });
+
   test('an item opens only with its inbox key, and unchanged', () async {
     final inbox = await pair(_inboxPrivate);
     final other = await X25519().newKeyPair();

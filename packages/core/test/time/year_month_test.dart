@@ -17,8 +17,6 @@ void main() {
     expect(YearMonth(2026, 2).lastDay, BusinessDate(2026, 2, 28));
     expect(YearMonth(2026, 4).days, 30);
     expect(YearMonth(2026, 4).firstDay, BusinessDate(2026, 4, 1));
-    expect(YearMonth(2026, 2).dayClamped(31), BusinessDate(2026, 2, 28));
-    expect(YearMonth(2026, 2).dayClamped(5), BusinessDate(2026, 2, 5));
   });
 
   test('order, containment, text and parsing guards', () {

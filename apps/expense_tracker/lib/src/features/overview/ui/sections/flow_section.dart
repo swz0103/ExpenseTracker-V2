@@ -8,6 +8,8 @@ import '../../../../core/widgets/shown_amounts.dart';
 import '../../../../core/design_system/spacing.dart';
 import '../../../../core/formatting/words.dart';
 
+import 'package:core/time/utc_days.dart';
+
 /// 收支對照: six months of income and spending up to the page's month,
 /// with net worth as a line; a tap on a month reads it out.
 class FlowSection extends StatefulWidget {
@@ -39,8 +41,8 @@ class _FlowSectionState extends State<FlowSection> {
     final (year, month) = widget.month;
     final months = <FlowMonth>[];
     for (var back = 5; back >= 0; back--) {
-      final first = DateTime.utc(year, month - back);
-      final end = DateTime.utc(first.year, first.month + 1, 0);
+      final first = monthStart(DateTime.utc(year, month), -back);
+      final end = monthEnd(first.year, first.month);
       final until = end.isAfter(today) ? today : end;
       months.add(
         FlowMonth(
@@ -85,7 +87,7 @@ class _FlowSectionState extends State<FlowSection> {
     final months = _sixMonths(ledger, today);
     final picked = (_flowMonth ?? months.length - 1).clamp(0, 5);
     final shown = months[picked];
-    final shownMonth = DateTime.utc(year, month - 5 + picked);
+    final shownMonth = monthStart(DateTime.utc(year, month), picked - 5);
     final current =
         shownMonth.year == today.year && shownMonth.month == today.month;
     final scope = current

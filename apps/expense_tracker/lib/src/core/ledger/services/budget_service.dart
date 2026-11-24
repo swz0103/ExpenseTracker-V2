@@ -7,6 +7,8 @@ import '../repositories/category_repository.dart';
 import '../repositories/entry_repository.dart';
 import 'report_service.dart';
 
+import 'package:core/time/utc_days.dart';
+
 /// What has been spent against a budget, and where a month is heading.
 final class BudgetService {
   BudgetService({
@@ -24,7 +26,7 @@ final class BudgetService {
   /// The days of [year]/[month] gone by, today included, and all its
   /// days; every day of a month other than this one.
   (int, int) daysGone(int year, int month) {
-    final days = DateTime.utc(year, month + 1, 0).day;
+    final days = monthEnd(year, month).day;
     final current = year == _today().year && month == _today().month;
     return (current ? _today().day : days, days);
   }
@@ -122,7 +124,7 @@ final class BudgetService {
   /// month before: a leftover does not pile up.
   int allowance(Budget budget, int year, int month) {
     if (!budget.carry || budget.limit == 0) return budget.limit;
-    final last = DateTime.utc(year, month - 1);
+    final last = monthStart(DateTime.utc(year, month), -1);
     final since = budget.since;
     if (since != null && last.isBefore(since)) return budget.limit;
     final left = budget.limit - spentAgainst(budget, last.year, last.month);

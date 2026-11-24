@@ -40,19 +40,6 @@ import '../../diagnostics/performance_monitor.dart';
 import '../../diagnostics/error_log.dart';
 import '../../diagnostics/error_steps.dart';
 
-/// The categories a new ledger starts with, with their marks and colours.
-const _starters = [
-  ('居家生活', 'home', 0xFF5C9A83, false),
-  ('飲食日常', 'food', 0xFFD08B5B, false),
-  ('交通通勤', 'travel', 0xFF5B8DB0, false),
-  ('購物休閒', 'bag', 0xFF8E7CC0, false),
-  ('訂閱服務', 'subscription', 0xFFC9A34A, false),
-  ('其他支出', 'other', 0xFFB07A8C, false),
-  ('薪資收入', 'salary', 0xFF2F7A65, true),
-  (dividendCategory, 'dividend', 0xFF5A6FA8, true),
-  ('其他收入', 'income', 0xFF4E8A9A, true),
-];
-
 /// The collection of the last closing prices and rate board, kept so holdings
 /// and foreign accounts are valued offline.
 const _market = marketShelf;
@@ -435,10 +422,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   void _start() {
     _write(
       WriteBatch(
-        categories: [
-          for (final (name, icon, color, income) in _starters)
-            Category(name, icon, color, income: income),
-        ],
+        categories: starterCategories(),
         accounts: [
           Account(PublicId.generate().value, '現金', AccountKind.cash, 0),
           Account(PublicId.generate().value, '銀行帳戶', AccountKind.bank, 0),
@@ -1070,11 +1054,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         missed.add(code);
         continue;
       }
-      final day = DateTime.utc(
-        close.asOf.year,
-        close.asOf.month,
-        close.asOf.day,
-      );
+      final day = close.asOf.asUtcMidnight;
       // A close dated after today is no close; one too far from the one
       // kept is doubted (D95). Either way the one kept stays, with its
       // day, and the day the holdings are quoted on does not move for it.

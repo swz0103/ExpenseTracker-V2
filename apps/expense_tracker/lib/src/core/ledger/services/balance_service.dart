@@ -10,6 +10,7 @@ import '../repositories/holding_repository.dart';
 import '../repositories/market_data_repository.dart';
 
 import 'package:core/foundation_values.dart' show BusinessDate, startOfWeek;
+import 'package:core/time/utc_days.dart';
 
 /// Balances and worth: each account's on any day, what is owned and owed
 /// in all, and how an account moved week by week.
@@ -119,7 +120,7 @@ final class BalanceService {
         var inflow = 0;
         var outflow = 0;
         final first = DateTime.utc(month.year, month.month);
-        final last = DateTime.utc(month.year, month.month + 1, 0);
+        final last = monthEnd(month.year, month.month);
         for (final (day, change) in _runningOf(
           account,
         ).changesIn(first, last)) {

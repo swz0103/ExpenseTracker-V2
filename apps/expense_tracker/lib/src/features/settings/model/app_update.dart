@@ -172,7 +172,7 @@ final class AppUpdate extends ChangeNotifier {
   bool get upToDate => _upToDate;
   var _upToDate = false;
 
-  bool get checking => _checking;
+  /// Looking for a newer build now.
   var _checking = false;
 
   /// The share downloaded, 0 to 1, while downloading; null otherwise.

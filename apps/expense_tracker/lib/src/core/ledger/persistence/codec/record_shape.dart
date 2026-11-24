@@ -10,7 +10,7 @@ import 'record_json.dart';
 /// when [shapeIssues] finds it wrong.
 void checkRecord(String collection, Map<String, Object?> row) {
   // Out of context, a category's id is as good as its name.
-  final refs = CategoryRefs.lenient();
+  final refs = CategoryRefs();
   final issues = shapeIssues(switch (Collection.values
       .asNameMap()[collection]) {
     Collection.account => accountFromJson(row),

@@ -1,15 +1,7 @@
 enum MoneyError { invalidInput, precision, overflow, currencyMismatch }
 
 /// Strict decimal minor units as persisted: an optional '-', no leading
-/// zeros, no '+', whitespace, '-0' or hex. Throws [FormatException], as
-/// [BigInt.parse] does, so decoders keep their error handling.
-BigInt parseMinorUnits(String text) {
-  if (text.length > 20 || !_minorUnitsPattern.hasMatch(text)) {
-    throw FormatException('Invalid minor units', text);
-  }
-  return BigInt.parse(text);
-}
-
+/// zeros, no '+', whitespace, '-0' or hex.
 final _minorUnitsPattern = RegExp(r'^(0|-?[1-9][0-9]*)$');
 
 final class MoneyException implements Exception {
@@ -35,10 +27,6 @@ final class Currency {
   /// The denomination for [code] with the decimals people use day to day.
   /// Never guess a scale; only this table decides it.
   factory Currency.of(String code) => Currency(code, scaleOf(code));
-
-  /// Bumped whenever a scale in the table changes. Stored money carries
-  /// its own scale, so a change needs a migration of stored amounts.
-  static const tableVersion = 2;
 
   /// The currencies the app offers, most used first.
   static const supported = [
@@ -85,7 +73,6 @@ final class Money {
   static final minMinorUnits = -(BigInt.one << 63);
   static final maxMinorUnits = (BigInt.one << 63) - BigInt.one;
   static const roundingPolicy = 'half-away-from-zero-v1';
-  static const allocationPolicy = 'largest-remainder-v1';
   final Currency currency;
   final BigInt minorUnits;
 

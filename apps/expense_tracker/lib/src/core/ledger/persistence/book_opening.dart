@@ -15,6 +15,8 @@ import '../repositories/holding_repository.dart'
     show ReadHoldings, readHoldings;
 import 'write_batch.dart' show Collection;
 
+import 'package:core/time/utc_days.dart';
+
 /// The shelf of the closes and board last fetched.
 const marketShelf = 'market';
 
@@ -463,7 +465,7 @@ Market marketFrom(List<StoredRow> rows) {
         // day that cannot be read only leaves it unknown.
         if (json['asOf'] case final String on) {
           if (DateTime.tryParse(on) case final d?) {
-            ratesOn = DateTime.utc(d.year, d.month, d.day);
+            ratesOn = dayOf(d);
           }
         }
     }

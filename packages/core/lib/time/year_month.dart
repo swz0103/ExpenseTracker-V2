@@ -5,7 +5,7 @@ import 'month_arithmetic.dart';
 /// statements are kept by.
 final class YearMonth implements Comparable<YearMonth> {
   YearMonth(this.year, this.month) {
-    if (year < 1 || year > 9999 || month < 1 || month > 12) {
+    if (year < minYear || year > maxYear || month < 1 || month > 12) {
       throw const FormatException('Invalid year and month.');
     }
   }
@@ -28,10 +28,6 @@ final class YearMonth implements Comparable<YearMonth> {
   int get days => daysInMonth(year, month);
   BusinessDate get firstDay => BusinessDate(year, month, 1);
   BusinessDate get lastDay => BusinessDate(year, month, days);
-
-  /// [day] of this month, held to its last day.
-  BusinessDate dayClamped(int day) =>
-      BusinessDate(year, month, day > days ? days : day);
 
   /// How many months from this one to [other] (negative when earlier).
   int monthsUntil(YearMonth other) =>

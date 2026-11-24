@@ -128,8 +128,12 @@ final class LedgerInbox {
   final Directory directory;
   final SimpleKeyPair _keys;
 
+  /// The file the private key is kept in, sealed by the [FileBox.inbox]
+  /// box under this same name.
+  static const keyName = 'inbox.key';
+
   static File _public(Directory d) => File('${d.path}/inbox.pub');
-  static File _private(Directory d) => File('${d.path}/inbox.key');
+  static File _private(Directory d) => File('${d.path}/$keyName');
   static Directory folder(Directory d) => Directory('${d.path}/inbox');
 
   /// The inbox of the open ledger [keys]: its key pair, made the first
@@ -140,12 +144,12 @@ final class LedgerInbox {
     Directory directory,
     UnlockedKeyring keys,
   ) async {
-    final box = await FileBox.derive(keys, 'inbox');
+    final box = await FileBox.derive(keys, FileBox.inbox);
     final privateFile = _private(directory);
     SimpleKeyPair? kept;
     if (privateFile.existsSync()) {
       try {
-        final seed = await box.open('inbox.key', privateFile.readAsBytesSync());
+        final seed = await box.open(keyName, privateFile.readAsBytesSync());
         kept = await X25519().newKeyPairFromSeed(seed);
       } on Object {
         // Sealed by another ledger: a new pair below.
@@ -154,7 +158,7 @@ final class LedgerInbox {
     final pair = kept ?? await X25519().newKeyPair();
     if (kept == null) {
       final seed = await pair.extractPrivateKeyBytes();
-      await _write(privateFile, await box.seal('inbox.key', seed));
+      await _write(privateFile, await box.seal(keyName, seed));
     }
     final public = (await pair.extractPublicKey()).bytes;
     await _write(_public(directory), utf8.encode(base64.encode(public)));

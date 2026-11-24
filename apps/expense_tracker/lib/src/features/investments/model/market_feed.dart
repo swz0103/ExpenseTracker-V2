@@ -15,6 +15,8 @@ import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
 import '../../../core/messages/market_messages.dart';
 
+import 'package:core/time/utc_days.dart';
+
 /// Closing prices and exchange rates for a ledger, fetched at most every
 /// 20 minutes: when the ledger opens, when the app comes back, and at
 /// once when a stock without a close is bought. A stock the exchanges do
@@ -104,10 +106,9 @@ final class MarketFeed extends SyncJob implements PriceHistory {
     final kept = _months[code] ??= _read(code);
     final today = _today();
     final closes = <(DateTime, double)>[];
-    var month = DateTime.utc(from.year, from.month);
-    final last = DateTime.utc(today.year, today.month);
+    final last = monthStart(today);
     var changed = false;
-    while (!month.isAfter(last)) {
+    for (final month in monthStarts(from, last)) {
       final key = YearMonth.of(month).toString();
       final current = month == last;
       var days = current ? null : kept[key];
@@ -119,7 +120,6 @@ final class MarketFeed extends SyncJob implements PriceHistory {
         }
       }
       closes.addAll(days ?? const []);
-      month = DateTime.utc(month.year, month.month + 1);
     }
     if (changed) _write(code, kept);
     return closes;
@@ -139,7 +139,7 @@ final class MarketFeed extends SyncJob implements PriceHistory {
         return [
           for (final c in value)
             if (parseDecimal(c.decimalPrice) case final price?)
-              (DateTime.utc(c.date.year, c.date.month, c.date.day), price),
+              (c.date.asUtcMidnight, price),
         ];
       }
       if (result.state == MarketState.failed) return null;
@@ -156,7 +156,6 @@ final class MarketFeed extends SyncJob implements PriceHistory {
   /// A day kept on the phone as UTC midnight, as fetched closes are: a
   /// day read back otherwise is local, and neither a buy's day nor the
   /// span's first day would match it.
-  static DateTime _utcDay(DateTime d) => DateTime.utc(d.year, d.month, d.day);
 
   Map<String, List<(DateTime, double)>> _read(String code) {
     final file = _file(code);
@@ -170,7 +169,7 @@ final class MarketFeed extends SyncJob implements PriceHistory {
           key: [
             for (final row in value is List ? value : const [])
               if (row case [final String day, final num close])
-                (_utcDay(DateTime.parse(day)), close.toDouble())
+                (dayOf(DateTime.parse(day)), close.toDouble())
               else
                 throw const FormatException('A close is a day and a price'),
           ],

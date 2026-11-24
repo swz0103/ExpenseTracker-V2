@@ -164,12 +164,11 @@ final class EncryptedBackupManager implements BackupManager {
     }
   }
 
+  /// Where the weekly backups are kept.
   Directory get _folder => Directory('${_startup.directory.path}/backups');
 
-  /// Where the weekly backups are kept.
-  String get backupFolder => _folder.path;
-
-  /// Writes an encrypted backup into [backupFolder] and returns its path.
+  /// Writes an encrypted backup into the backups folder and returns its
+  /// path.
   Future<String> backUp({bool withPhotos = false}) async {
     final file = await _write(_folder, withPhotos: withPhotos);
     return file.path;
@@ -264,7 +263,7 @@ final class EncryptedBackupManager implements BackupManager {
     return kept;
   }
 
-  /// The backups in [backupFolder], newest first; their names carry the
+  /// The backups in the backups folder, newest first; their names carry the
   /// time they were taken.
   List<File> _backups() {
     if (!_folder.existsSync()) return const [];

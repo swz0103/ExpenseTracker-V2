@@ -6,6 +6,7 @@ import '../../../core/ledger/ledger.dart';
 import 'report_period.dart';
 
 import 'package:core/foundation_values.dart' show BusinessDate, weekdayIndex;
+import 'package:core/time/utc_days.dart';
 
 // The figures of one period, worked out once for every tab.
 
@@ -193,13 +194,6 @@ final class Report {
   /// What the [planned] entries will spend, as the sums count it.
   int get plannedSpending => planned.fold(0, (sum, e) => sum + e.spending);
 
-  /// The same day a year earlier, the 29th of February becoming the 28th.
-  static DateTime _yearBefore(DateTime day) => DateTime.utc(
-    day.year - 1,
-    day.month,
-    min(day.day, DateTime.utc(day.year - 1, day.month + 1, 0).day),
-  );
-
   /// The [count] largest categories, each with what it spent a year
   /// before, and the rest together in one [RestShare]: a block with its
   /// own identity, never one of the categories (D53).
@@ -219,11 +213,7 @@ final class Report {
     DateTime from,
     DateTime to,
   ) => [
-    for (
-      var m = DateTime.utc(from.year, from.month);
-      !m.isAfter(to);
-      m = DateTime.utc(m.year, m.month + 1)
-    )
+    for (final m in monthStarts(from, to))
       // Exception to as-of-today: the one reader of a stretch; each caller
       // takes it through countedOn.
       for (final e in entries.inMonth(m.year, m.month))
@@ -301,7 +291,7 @@ final class Report {
     DateTime from,
     DateTime to,
     // Exception to as-of-today: a year before days up to today: none is 預定.
-  ) => entriesBetween(entries, _yearBefore(from), _yearBefore(to));
+  ) => entriesBetween(entries, yearBefore(from), yearBefore(to));
 
   static StretchSum _bucket(String label, Iterable<Entry> entries) {
     var income = 0;

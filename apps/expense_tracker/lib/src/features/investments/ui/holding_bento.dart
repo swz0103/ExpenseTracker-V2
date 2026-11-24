@@ -199,8 +199,6 @@ class _PriceChartState extends State<_PriceChart> {
     });
   }
 
-  static DateTime _day(DateTime d) => DateTime.utc(d.year, d.month, d.day);
-
   String _price(double p) => stockPrice(p);
 
   /// The line itself, at least two closes: a touch reads the close under
@@ -214,7 +212,7 @@ class _PriceChartState extends State<_PriceChart> {
     builder: (context, box) {
       final plot = box.maxWidth - _gutter;
       final scale = _Scale.of(closes, widget.average, _height);
-      final buys = {for (final e in widget.buys) _day(e.date): e};
+      final buys = {for (final e in widget.buys) dayOf(e.date): e};
       // Red when the span closed higher than it began, green when lower.
       final tone = AppColors.ofMarket(closes.last.$2 - closes.first.$2);
       void touch(Offset at) {
@@ -256,7 +254,7 @@ class _PriceChartState extends State<_PriceChart> {
               average: widget.average,
               price: price,
               buys: buys.keys.toSet(),
-              chosen: buy == null ? null : _day(buy.date),
+              chosen: buy == null ? null : dayOf(buy.date),
               touched: touched,
               line: markOf(tone),
               fill: tintOf(markOf(tone), 0.25),

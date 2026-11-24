@@ -388,9 +388,8 @@ class _VersionCardState extends State<_VersionCard> {
 }
 
 /// Which build this is, set by the APK build (android.yml); empty in a
-/// build made by hand and in the preview.
+/// build made by hand and in the preview. Its number is [currentBuild].
 const appVersion = String.fromEnvironment('APP_VERSION');
-const appBuild = String.fromEnvironment('APP_BUILD');
 const appCommit = String.fromEnvironment('APP_COMMIT');
 
 /// This build as 關於 says it.
@@ -398,6 +397,6 @@ String get buildLabel => appVersion.isEmpty
     ? '開發版'
     : [
         appVersion,
-        if (appBuild.isNotEmpty) '第 $appBuild 版',
+        if (currentBuild > 0) '第 $currentBuild 版',
         if (appCommit.isNotEmpty) appCommit,
       ].join(' · ');

@@ -440,5 +440,5 @@ String _day(DateTime d) => BusinessDate(d.year, d.month, d.day).toString();
 
 DateTime _date(String text) {
   final day = BusinessDate.parse(text);
-  return DateTime.utc(day.year, day.month, day.day);
+  return day.asUtcMidnight;
 }
