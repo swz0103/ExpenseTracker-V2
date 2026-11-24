@@ -56,6 +56,28 @@ void main() {
     'recurring': [for (final r in l.recurring.all) recurringToJson(r)],
   };
 
+  test('an opening is timed, the worker part when one reads it', () async {
+    final opened = EncryptedDatabase.open(file, key);
+    store = opened;
+    final here = SqlLedgerDataSource(opened, clock: clock());
+    expect(here.lastOpening, isNull);
+    await here.load();
+    // A small book is read on this isolate: no worker's part.
+    expect(here.lastOpening!.us, greaterThan(0));
+    expect(here.lastOpening!.workerUs, isNull);
+    // The journal kept: read on a worker, which takes part of the time.
+    final apart = SqlLedgerDataSource(
+      opened,
+      clock: clock(),
+      keepsJournal: true,
+    );
+    await apart.load();
+    await apart.journal.settled;
+    final (:us, :workerUs) = apart.lastOpening!;
+    expect(workerUs, isNotNull);
+    expect(workerUs, lessThanOrEqualTo(us));
+  });
+
   test('a new ledger starts with categories and two accounts', () async {
     final ledger = await reopen();
     expect(ledger.categories.all, hasLength(9));
