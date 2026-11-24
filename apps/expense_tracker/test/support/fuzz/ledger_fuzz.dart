@@ -4,6 +4,7 @@ import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../fuzz.dart';
+import 'restore_invariants.dart';
 
 final today = DateTime.utc(2026, 10, 15);
 const accounts = [
@@ -15,7 +16,7 @@ const accounts = [
 
 Ledger fresh(Ledger l) => Ledger(
   today: today,
-  accounts: accounts,
+  accounts: l.accounts.all,
   categories: const [],
   entries: [...l.entries.all],
   entryPlaces: [for (final e in l.entries.all) l.entries.orderOf(e.id)],
@@ -111,7 +112,10 @@ void ledgerFuzz() {
 
       for (var step = 0; step < 60; step++) {
         final all = ledger.entries.all;
-        switch (r.nextInt(9)) {
+        final ids = idsOf(ledger);
+        final before = restoreState(ledger);
+        final reason = 'seed $seed step $step';
+        switch (r.nextInt(11)) {
           case 0 || 1 || 2:
             guard(() => ledger.entryCommands.add(make()));
           case 3 when all.isNotEmpty:
@@ -123,7 +127,9 @@ void ledgerFuzz() {
             if (x != null) removed.add(x);
           case 5 when removed.isNotEmpty:
             final e = removed.removeAt(r.nextInt(removed.length));
-            ledger.entryCommands.restore(e);
+            if (!ledger.entryCommands.restore(e)) {
+              expect(restoreState(ledger), before, reason: reason);
+            }
           case 6 when all.length > 3:
             final ids = [
               for (var i = 0; i < 3; i++) all[r.nextInt(all.length)].id,
@@ -152,8 +158,47 @@ void ledgerFuzz() {
             );
           case 8 when ledger.trash.all.isNotEmpty:
             final t = ledger.trash.all[r.nextInt(ledger.trash.all.length)];
-            ledger.entryCommands.restoreTrashed(t);
+            final ok = ledger.entryCommands.restoreTrashed(
+              t,
+              reopen: r.nextBool(),
+              withOriginal: r.nextBool(),
+            );
+            if (!ok) expect(restoreState(ledger), before, reason: reason);
+          case 9:
+            // An account closed, or opened again.
+            final a = ledger.accounts.all[r.nextInt(accounts.length)];
+            ledger.accountCommands.updateAccount(
+              a.copyWith(archived: !a.archived),
+            );
+          case 10:
+            // A purchase and its refund, then both deleted: together, or
+            // the refund first.
+            final buy = make();
+            if (buy.type != EntryType.expense) break;
+            final refund = Entry(
+              id: 'e${n++}',
+              date: buy.date,
+              type: EntryType.income,
+              amount: 1 + r.nextInt(buy.amount + 200),
+              account: buy.account,
+              category: buy.category,
+              refundOf: buy.id,
+            );
+            guard(() => ledger.entryCommands.add(buy));
+            guard(() => ledger.entryCommands.add(refund));
+            if (r.nextBool()) {
+              removed.addAll(
+                ledger.entryCommands.removeAll([buy.id, refund.id]),
+              );
+            } else {
+              for (final id in [refund.id, buy.id]) {
+                if (ledger.entryCommands.remove(id) case final x?) {
+                  removed.add(x);
+                }
+              }
+            }
         }
+        expectPartition(ledger, ids, reason);
         if (r.nextInt(3) == 0) {
           // read some, so lazily absorbed things are partly settled
           snap(ledger);
