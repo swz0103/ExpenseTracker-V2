@@ -106,9 +106,10 @@ final class DriveFile {
   /// Bytes; 0 when Google did not say.
   final int size;
 
-  /// The backup key epoch it was sealed with, as marked when it went up;
-  /// null for one sent before backups were so marked.
-  final int? epoch;
+  /// The backup key epoch it was sealed with, as marked when it went up
+  /// (its digits, as Drive keeps them); null for one sent before backups
+  /// were so marked.
+  final String? epoch;
 }
 
 /// Why talking to Google Drive stopped.
@@ -358,9 +359,7 @@ final class DriveBackup {
                 DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
             // Drive writes sizes as words.
             int.tryParse(row.text('size') ?? '') ?? row.whole('size') ?? 0,
-            epoch: int.tryParse(
-              row.object('appProperties')?.text(epochProperty) ?? '',
-            ),
+            epoch: row.object('appProperties')?.text(epochProperty),
           ),
     ]..sort((a, b) => b.modified.compareTo(a.modified));
   }

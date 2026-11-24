@@ -299,7 +299,6 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       case BookStanding.behind:
         if (!withoutBackup) {
           if (await beforeUpgrade?.call() case final UpgradeBackupFailed no) {
-            ErrorLog.instance.record('升級前備份', no.error);
             return no;
           }
         }

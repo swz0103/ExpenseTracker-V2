@@ -174,6 +174,20 @@ Work package 3.4 (reminders and calendar). REM-05's test runs unskipped in `p3_4
 - F81: `reminder_alerts_test.dart` (paying a card plans again at once), `test/features/reminders/model/coalesced_run_test.dart`
 - F53, F45, F101, AND-11: `reminders_section_test.dart` (最多晚 1 小時 until alarms on the minute are allowed; a kind shown off while notifications are not allowed, and ticking it asks; budget reminders start off; the battery's 去開 says what to choose), `test/core/messages/reminder_messages_test.dart`, `reminder_rules_test.dart` and `notification_adapter_test.dart` (a channel per kind). AND-11's scanner without Play services is not built: it needs a camera permission and a QR decoding library, a new dependency; 3.5 already words the failure.
 
+## fixed in decisions batch B
+
+Owner decisions of 2026-11-23, no known-defect tests; the tests named cover them.
+
+- D2: `.github/workflows/android.yml` job `sign` attests the signed APK's build provenance (`actions/attest-build-provenance` pinned by SHA; `id-token` and `attestations` on that job only)
+- D15: `test/features/backup/model/old_key_backups_test.dart`, `drive_backup_test.dart` (backups marked with their key epoch), `test/core/messages/key_messages_test.dart`
+- D18: `test/app/quarantine_notices_test.dart`
+- D19: `test/core/ledger/persistence/book_migrations_test.dart` (group "a copy that cannot be kept holds the upgrade back"), `test/app/ledger_session_test.dart`, `test/app/upgrade_held_page_test.dart`
+- D26: `infrastructure/vault/test/ledger_backup/backup_v5_test.dart`, `backup_v4_test.dart` (a version 4 fixture still restores), `test/scenarios/ledger/persistence/backup_book_version_test.dart`
+- D29: `test/app/about_section_test.dart` (play flavor), `test/core/messages/update_messages_test.dart`
+- D40: `android/app/src/test/.../BackgroundWorkTest.kt`
+- D41: `infrastructure/storage/test/encrypted_database_test.dart` (group "a read apart"), `backup_v5_test.dart` (a write during the backup's read lands after it), `test/core/ledger/persistence/sql_ledger_data_source_test.dart`, host gate `test/perf/backup_read_gate_test.dart`
+- D45: `android/app/src/test/.../ReminderAlarmsTest.kt`, device tests in `ReminderAlarmsDeviceTest.kt`
+
 ## not covered
 
 One line per finding that has no test here. Findings with an executed reproduction come first with the specific reason; the rest were found by reading code (no executed reproduction), which the brief does not require.

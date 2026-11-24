@@ -86,4 +86,16 @@ abstract final class ErrorSteps {
 
   /// The first screen could not be put together.
   static const startScreen = '啟動：第一個畫面';
+
+  /// The copy of a book kept before its upgrade could not be written, or
+  /// the person went on without it (D19).
+  static const upgradeBackup = '升級前備份';
+
+  /// The fingerprint of the rows set aside last told could not be read
+  /// or kept: the notice is given again (D18).
+  static const quarantineNotice = '隔離提示';
+
+  /// A backup of keys a reset replaced could not be listed or taken away
+  /// (D15).
+  static const oldKeyBackups = '舊金鑰的備份';
 }

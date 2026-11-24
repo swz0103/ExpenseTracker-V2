@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../core/diagnostics/error_log.dart';
+import '../core/diagnostics/error_steps.dart';
 import '../core/ledger/persistence/quarantine.dart';
 
 /// Which rows set aside as the book opened the person is told of (D18):
@@ -20,7 +21,7 @@ final class QuarantineNotices {
       if (file.existsSync()) told = file.readAsStringSync().trim();
     } on Object catch (error) {
       // Unreadable: told again, which is the safe side.
-      ErrorLog.instance.record('隔離提示', error);
+      ErrorLog.instance.record(ErrorSteps.quarantineNotice, error);
     }
     final (:tell, :fingerprint) = quarantineToTell(rows, told: told);
     try {
@@ -30,7 +31,7 @@ final class QuarantineNotices {
         await file.writeAsString(fingerprint, flush: true);
       }
     } on Object catch (error) {
-      ErrorLog.instance.record('隔離提示', error);
+      ErrorLog.instance.record(ErrorSteps.quarantineNotice, error);
     }
     return tell;
   }

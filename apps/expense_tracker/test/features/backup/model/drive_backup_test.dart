@@ -129,9 +129,9 @@ void main() {
     epoch = 2;
     await sync.backUpNow();
     final listed = await sync.backups();
-    expect([for (final f in listed) f.epoch], [2, 1]);
+    expect([for (final f in listed) f.epoch], ['2', '1']);
     await sync.trash(listed.last.id);
-    expect([for (final f in await sync.backups()) f.epoch], [2]);
+    expect([for (final f in await sync.backups()) f.epoch], ['2']);
   });
 
   test("only the newest five of this ledger's backups are kept", () async {

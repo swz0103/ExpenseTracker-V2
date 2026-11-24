@@ -343,7 +343,10 @@ class _OpenedLedgerState extends State<OpenedLedger>
       if (mounted) setState(() => _held = held);
       withoutBackup = await choice.future;
       if (withoutBackup) {
-        ErrorLog.instance.record('升級前備份', StateError('skipped by choice'));
+        ErrorLog.instance.record(
+          ErrorSteps.upgradeBackup,
+          StateError('skipped by choice'),
+        );
       }
       if (mounted) setState(() => _held = null);
     }
@@ -529,7 +532,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     final drive = _services.drive;
     final old = OldKeyBackups(
       epoch: _services.backupManager.backupEpoch,
-      localFiles: _services.backupManager.keptFiles,
+      localBackups: _services.backupManager.keptBackups,
       driveFiles: drive != null && drive.linked ? drive.backups : null,
       trashOnDrive: drive?.trash,
     );

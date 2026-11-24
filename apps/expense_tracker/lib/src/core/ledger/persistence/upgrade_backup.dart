@@ -1,5 +1,8 @@
 import 'dart:io';
 
+import '../../diagnostics/error_log.dart';
+import '../../diagnostics/error_steps.dart';
+
 /// How keeping a copy of the book before it is brought up to this version
 /// went (D19): kept, or not, and why. A book is brought up only once its
 /// copy is kept, or when the person chose, twice, to go on without one.
@@ -40,12 +43,14 @@ final class UpgradeBackupFailed extends UpgradeBackup {
   };
 }
 
-/// Keeps the copy with [keep], which throws when it cannot: how it went.
+/// Keeps the copy with [keep], which throws when it cannot: how it went,
+/// a failure noted in the diagnostics.
 Future<UpgradeBackup> keepUpgradeBackup(Future<void> Function() keep) async {
   try {
     await keep();
     return const UpgradeBackupKept();
   } on Object catch (error) {
+    ErrorLog.instance.record(ErrorSteps.upgradeBackup, error);
     return UpgradeBackupFailed.of(error);
   }
 }

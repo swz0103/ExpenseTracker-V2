@@ -247,9 +247,22 @@ final class EncryptedBackupManager implements BackupManager {
     }
   }
 
-  /// Every backup file the app keeps on the phone: the weekly ones and
-  /// the copies kept before a restore or an upgrade.
-  List<File> keptFiles() => [..._backups(), ..._startup.keptBeforeRestore()];
+  /// Every backup the app keeps on the phone, the weekly ones and the
+  /// copies kept before a restore or an upgrade, with the key epoch it
+  /// was sealed with and when it was taken; one whose header cannot be
+  /// read is left out, noted.
+  Future<List<(File, int, DateTime)>> keptBackups() async {
+    final kept = <(File, int, DateTime)>[];
+    for (final file in [..._backups(), ..._startup.keptBeforeRestore()]) {
+      try {
+        final header = await LedgerBackup.readHeader(file);
+        kept.add((file, header.backupEpoch, header.createdAt));
+      } on Object catch (error, stack) {
+        ErrorLog.instance.record(ErrorSteps.backupHeader, error, stack);
+      }
+    }
+    return kept;
+  }
 
   /// The backups in [backupFolder], newest first; their names carry the
   /// time they were taken.

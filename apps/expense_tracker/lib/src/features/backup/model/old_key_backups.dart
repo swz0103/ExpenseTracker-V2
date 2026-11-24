@@ -1,8 +1,7 @@
 import 'dart:io';
 
-import 'package:vault/ledger_backup.dart';
-
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/diagnostics/error_steps.dart';
 import 'drive_backup.dart';
 
 /// The backups sealed with keys a reset has since replaced (D15): their
@@ -12,7 +11,7 @@ import 'drive_backup.dart';
 final class OldKeyBackups {
   const OldKeyBackups({
     required this.epoch,
-    required this.localFiles,
+    required this.localBackups,
     this.driveFiles,
     this.trashOnDrive,
   });
@@ -21,9 +20,10 @@ final class OldKeyBackups {
   /// epoch was sealed before the reset.
   final int epoch;
 
-  /// The backup files kept on the phone by the app (its weekly backups,
-  /// the copies kept before a restore or an upgrade).
-  final List<File> Function() localFiles;
+  /// The backups the app keeps on the phone (its weekly backups, the
+  /// copies kept before a restore or an upgrade), each with the key epoch
+  /// and the time its header names; one that cannot be read left out.
+  final Future<List<(File, int epoch, DateTime at)>> Function() localBackups;
 
   /// This ledger's backups on Google Drive; none when Drive is not linked.
   final Future<List<DriveFile>> Function()? driveFiles;
@@ -31,9 +31,11 @@ final class OldKeyBackups {
   /// Moves a backup on Drive to its trash.
   final Future<void> Function(String id)? trashOnDrive;
 
-  /// The backups of earlier keys, on Drive and on the phone. A backup on
-  /// Drive sent before backups were marked with their epoch was sent by
-  /// an earlier version of the app, so before this reset: it is one too.
+  /// The backups of earlier keys, on Drive and on the phone. On Drive,
+  /// every one not marked with the epoch of now ([DriveFile.epoch]): one
+  /// sent before backups were marked was sent by an earlier version of
+  /// the app, so before this reset; asked right after a reset, none is
+  /// marked with a later epoch.
   /// Drive not answering leaves its list out ([OldKeyBackupsFound.driveUnreached]).
   Future<OldKeyBackupsFound> find() async {
     var drive = const <DriveFile>[];
@@ -42,23 +44,17 @@ final class OldKeyBackups {
       try {
         drive = [
           for (final file in await list())
-            if ((file.epoch ?? 0) < epoch) file,
+            if (file.epoch != '$epoch') file,
         ];
       } on Object catch (error) {
-        ErrorLog.instance.record('找舊金鑰的備份', error);
+        ErrorLog.instance.record(ErrorSteps.oldKeyBackups, error);
         unreached = true;
       }
     }
-    final local = <(File, DateTime)>[];
-    for (final file in localFiles()) {
-      try {
-        final header = await LedgerBackup.readHeader(file);
-        if (header.backupEpoch < epoch) local.add((file, header.createdAt));
-      } on Object catch (error) {
-        // Not a backup this can read: left as it is.
-        ErrorLog.instance.record('找舊金鑰的備份', error);
-      }
-    }
+    final local = [
+      for (final (file, sealed, at) in await localBackups())
+        if (sealed < epoch) (file, at),
+    ];
     local.sort((a, b) => b.$2.compareTo(a.$2));
     return OldKeyBackupsFound(drive, local, driveUnreached: unreached);
   }
@@ -72,7 +68,7 @@ final class OldKeyBackups {
         await trashOnDrive?.call(file.id);
         gone++;
       } on Object catch (error) {
-        ErrorLog.instance.record('刪除舊金鑰的備份', error);
+        ErrorLog.instance.record(ErrorSteps.oldKeyBackups, error);
       }
     }
     for (final (file, _) in found.local) {
@@ -80,7 +76,7 @@ final class OldKeyBackups {
         if (file.existsSync()) await file.delete();
         gone++;
       } on Object catch (error) {
-        ErrorLog.instance.record('刪除舊金鑰的備份', error);
+        ErrorLog.instance.record(ErrorSteps.oldKeyBackups, error);
       }
     }
     return gone;

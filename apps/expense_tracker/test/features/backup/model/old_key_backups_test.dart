@@ -40,7 +40,7 @@ void main() {
     final file = File('${directory.path}/記帳本-1.etbk')..writeAsStringSync('one');
     await drive().upload(file, ledger: 'L1', epoch: 2);
     await drive().upload(file, ledger: 'L1');
-    expect([for (final f in await drive().list()) f.epoch], [null, 2]);
+    expect([for (final f in await drive().list()) f.epoch], [null, '2']);
   });
 
   test('on Drive: those of earlier epochs and unmarked ones, of this ledger '
@@ -53,7 +53,7 @@ void main() {
     final client = drive();
     final old = OldKeyBackups(
       epoch: 2,
-      localFiles: () => const [],
+      localBackups: () async => const [],
       driveFiles: () => client.list(interactive: false, ledger: 'L1'),
       trashOnDrive: client.trash,
     );
@@ -76,7 +76,7 @@ void main() {
   test('Drive not answering leaves its list out, and says so', () async {
     final old = OldKeyBackups(
       epoch: 2,
-      localFiles: () => const [],
+      localBackups: () async => const [],
       driveFiles: () async =>
           throw const DriveException(DriveProblem.offline, 'offline'),
     );
@@ -104,7 +104,7 @@ void main() {
     final newPath = await after.backUp();
     final old = OldKeyBackups(
       epoch: after.backupEpoch,
-      localFiles: after.keptFiles,
+      localBackups: after.keptBackups,
     );
     final found = await old.find();
     expect(found.drive, isEmpty);
