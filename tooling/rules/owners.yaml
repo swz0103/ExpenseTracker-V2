@@ -39,6 +39,15 @@ items:
     status: owned
   # Reports and budgets keep their own periods (a quarter, a chosen run
   # of months) but count months and days with core's YearMonth.
+  # Full-width digits and signs typed on a Chinese keyboard, read as
+  # ASCII by the parsers that take them (D86).
+  - id: typed-full-width
+    what: 全形數字與符號的讀取
+    layer: core
+    owner:
+      - packages/core/lib/money/typed_text.dart
+    target: packages/core/lib/money/
+    status: owned
   - id: dates-periods
     what: 日期、年月、期間範圍
     layer: core
@@ -97,7 +106,10 @@ items:
     status: owned
   # Decision D25: an entry dated after today is 預定; every "as of today"
   # sum (balances, net worth, budgets, overview, reports, card bills) asks
-  # countsOn, and maxDaysAhead is the one limit for dating ahead.
+  # countsOn, and maxDaysAhead is the one limit for dating ahead. The tags
+  # and merchants, a card's sums, the usual ones and the holdings too
+  # (D71); apps/expense_tracker/test/rules/as_of_today_rules_test.dart
+  # finds a read of the entries in lib that goes past countedOn.
   - id: as-of-today
     what: 「截至今天」是否計入（預定紀錄）與可預定的天數上限
     layer: ledger
@@ -131,7 +143,8 @@ items:
     target: packages/ledger/trade_costs/lib/
     status: owned
   # Decision D7: a broker discount is checked against one range,
-  # BrokerDiscountRange; each account may keep its own.
+  # BrokerDiscountRange; each account may keep its own. D86: 0.6折 is
+  # refused, full-width digits read through core's halfWidth.
   - id: broker-discount-range
     what: 券商手續費折扣的範圍與輸入
     layer: ledger
@@ -150,6 +163,8 @@ items:
       - packages/ledger/entries/lib/model/entry.dart
     target: packages/ledger/trade_costs/lib/
     status: owned
+  # The full fee's rate is one constant, fullFeePerMillion (charges.dart),
+  # which the fee and the setting's words both read.
   - id: fees-tax-settlement
     what: 手續費、稅、交割金額
     layer: ledger
@@ -305,7 +320,9 @@ items:
     target: apps/expense_tracker/lib/app/coordinators/reminders/
     status: owned
   # One table: each kind's channel and grace window, the plan's horizon,
-  # the hour a due date is told, how late an inexact alarm may come.
+  # the hour a due date is told, how late an inexact alarm may come. The
+  # most alerts (ReminderTiming.most) go to the phone with each plan; the
+  # phone only guards Android's limit (ReminderAlarms.armable).
   - id: reminder-timing
     what: 提醒的頻道、寬限時間、排程天數與時刻
     layer: app

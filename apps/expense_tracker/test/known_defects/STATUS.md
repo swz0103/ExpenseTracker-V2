@@ -188,6 +188,16 @@ Owner decisions of 2026-11-23, no known-defect tests; the tests named cover them
 - D41: `infrastructure/storage/test/encrypted_database_test.dart` (group "a read apart"), `backup_v5_test.dart` (a write during the backup's read lands after it), `test/core/ledger/persistence/sql_ledger_data_source_test.dart`, host gate `test/perf/backup_read_gate_test.dart`
 - D45: `android/app/src/test/.../ReminderAlarmsTest.kt`, device tests in `ReminderAlarmsDeviceTest.kt`
 
+## fixed in FIX-R8
+
+Findings of review round 8, no known-defect tests; the tests named cover them.
+
+- D25/D71 (one as-of-today predicate): `test/scenarios/ledger/planned_entries_test.dart` (tags and a card leave 預定 out; an old book's trade dated later joins the holdings on its day), `test/core/ledger/services/report_service_test.dart`, `statement_service_test.dart`, `entry_query_service_test.dart`, `test/features/accounts/model/card_summary_test.dart`, `test/core/ledger/repositories/holding_repository_test.dart`; rule `test/rules/as_of_today_rules_test.dart`
+- D86 (broker discount): `packages/ledger/trade_costs/test/calc/broker_discount_test.dart`, `packages/core/test/money/typed_text_test.dart`, `test/features/accounts/model/account_form_test.dart`, `test/core/messages/trade_messages_test.dart`
+- Hard-coded rate and alert cap: `packages/ledger/trade_costs/test/calc/charges_test.dart`, `test/design_system/display/amount_test.dart`, `test/app/android/notification_adapter_test.dart`, `android/app/src/test/.../ReminderAlarmsTest.kt`, device test in `ReminderAlarmsDeviceTest.kt`
+- D56/D81 (wording): rule `test/rules/glossary_rules_test.dart`
+- D41 (concurrency): `infrastructure/storage/test/encrypted_database_test.dart` (built with threads), `test/core/platform/store_threading_test.dart`, `test/core/ledger/persistence/sql_ledger_data_source_test.dart` (a backup starting the moment the last one ends), `test/features/backup/model/drive_backup_test.dart` (every page listed); the quarantine fingerprint was already cleared with its set, `test/app/quarantine_notices_test.dart`
+
 ## not covered
 
 One line per finding that has no test here. Findings with an executed reproduction come first with the specific reason; the rest were found by reading code (no executed reproduction), which the brief does not require.
