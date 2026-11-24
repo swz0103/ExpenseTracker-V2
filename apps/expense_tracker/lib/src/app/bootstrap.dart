@@ -16,6 +16,7 @@ import 'quarantine_notices.dart';
 import 'upgrade_held_page.dart';
 import '../features/backup/model/encrypted_backup_manager.dart';
 import '../features/backup/model/old_key_backups.dart';
+import '../features/backup/model/outbox.dart';
 import '../features/backup/ui/old_key_backups_offer.dart';
 import '../core/ledger/persistence/quarantine.dart';
 import '../core/design_system/design_system.dart';
@@ -198,6 +199,8 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
           final state => LockScreen(
             key: ValueKey(state.runtimeType),
             startup: startup,
+            deliveredRevision: () =>
+                Outbox.deliveredRevision(startup.directory, widget.preferences),
             sources: Platform.isAndroid
                 ? const RestoreSources(
                     pickFile: androidPickFile,

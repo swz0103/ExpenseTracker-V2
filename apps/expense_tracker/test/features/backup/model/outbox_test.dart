@@ -116,6 +116,27 @@ void main() {
     expect(preferences.driveRevision, 1);
   });
 
+  test('the revision delivered, as a restore reads it: the highest of the '
+      'preferences, the job\'s notes and the backup waiting (review 28)', () {
+    expect(Outbox.deliveredRevision(directory, preferences), 0);
+    preferences
+      ..phoneFolderSet('content://tree/backups', name: '備份')
+      ..phoneBackup(DateTime.utc(2026, 10, 28), 40)
+      ..driveBackup(DateTime.utc(2026, 10, 28), 41);
+    expect(Outbox.deliveredRevision(directory, preferences), 41);
+    // The job delivered 57 while the app was closed, not read back yet.
+    deliver({
+      'phone': {'at': 1, 'revision': 57, 'ledger': 'ledger-one', 'uri': 'x'},
+      'drive': {'at': 1, 'revision': 50, 'ledger': 'ledger-one'},
+    });
+    expect(Outbox.deliveredRevision(directory, preferences), 57);
+    // A backup at 60 waits for the job.
+    File(
+      '${folder().path}/ready.json',
+    ).writeAsStringSync(jsonEncode({'revision': 60, 'ledger': 'ledger-one'}));
+    expect(Outbox.deliveredRevision(directory, preferences), 60);
+  });
+
   test('another ledger\'s or folder\'s delivery is not this one\'s', () async {
     preferences.phoneFolderSet('content://tree/other', name: '別的');
     final box = outbox();

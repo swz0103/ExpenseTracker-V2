@@ -329,9 +329,12 @@ final class LedgerVault {
     int revisionBefore = 0,
   }) async {
     if (!replacing) _requireAbsent();
+    // The ledger replaced, where the backup's keys open it (a backup of
+    // the same book): the restore goes on from above it too (review 28).
+    final replaced = replacing ? _revisionOrZero(keys) : 0;
     await _replace(keys, (staging) async {
       await fill(staging);
-      final from = max(staging.revision, revisionBefore);
+      final from = max(staging.revision, max(revisionBefore, replaced));
       staging.write((w) => w.continueRevision(from));
     });
     // The backup is in place: copies set aside as damaged before it are
@@ -340,6 +343,24 @@ final class LedgerVault {
     await pruneDamagedCopies();
     if (await _journalDamaged.exists()) await _journalDamaged.delete();
     return _open(keys);
+  }
+
+  /// The revision the database here stands at, read with [keys]; 0 when
+  /// there is none, or it does not open with them (another ledger's, or
+  /// damaged): then nothing of it is known.
+  int _revisionOrZero(UnlockedKeyring keys) {
+    if (!databaseFile.existsSync()) return 0;
+    try {
+      final old = _openStore(databaseFile, keys);
+      try {
+        return old.revision;
+      } finally {
+        old.close();
+      }
+    } on Object {
+      // Not this ledger's, or not readable: the app layer's figure stands.
+      return 0;
+    }
   }
 
   /// Replaces every key of the ledger [open] with [next]

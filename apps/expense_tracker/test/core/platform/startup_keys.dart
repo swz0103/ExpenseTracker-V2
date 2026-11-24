@@ -242,6 +242,20 @@ void startupKeyTests() {
       again.lock();
     });
 
+    test('a restore goes on from above the revision the app layer knows '
+        'delivered (review 28)', () async {
+      final phone = startup();
+      // The backup holds a few writes, far below the 57 delivered: the
+      // book restored stands at 57 + 1.
+      await phone.restore(
+        backup.path,
+        'a passphrase for backups',
+        revisionAtLeast: 57,
+      );
+      expect((phone.state as Ready).vault.store.revision, 58);
+      phone.lock();
+    });
+
     test('the backup passphrase restores it too', () async {
       final phone = startup();
       await phone.restore(backup.path, 'a passphrase for backups');

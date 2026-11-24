@@ -47,6 +47,29 @@ final class Outbox {
   static Directory folderOf(Directory directory) =>
       Directory('${directory.path}/outbox');
 
+  /// The highest revision a backup of the ledger in [directory] is known
+  /// to have been delivered or to wait at: the folder's and Drive's as
+  /// [preferences] note them, what the job noted in `delivered.json`
+  /// that the app has not read back yet, and the backup waiting in
+  /// `ready.json`; 0 when none says. Read without the ledger's keys, of
+  /// any ledger: a restore goes on from above it, so no delivery passes
+  /// for the book restored (review 28).
+  static int deliveredRevision(Directory directory, Preferences preferences) {
+    final folder = folderOf(directory);
+    int? revisionIn(Object? json) => switch (json) {
+      {'revision': final int revision} => revision,
+      _ => null,
+    };
+    final delivered = _read(File('${folder.path}/delivered.json'));
+    return [
+      preferences.phoneRevision,
+      preferences.driveRevision,
+      revisionIn(delivered?['phone']),
+      revisionIn(delivered?['drive']),
+      revisionIn(_read(File('${folder.path}/ready.json'))),
+    ].nonNulls.fold(0, max);
+  }
+
   Directory get _folder => folderOf(directory);
   File get _ready => File('${_folder.path}/ready.json');
   File get _delivered => File('${_folder.path}/delivered.json');

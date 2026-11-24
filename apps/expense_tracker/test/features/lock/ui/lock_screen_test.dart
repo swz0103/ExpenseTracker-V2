@@ -748,6 +748,34 @@ void main() {
       startup.lock();
     });
 
+    testWidgets('a backup restored goes on from above the revision the app '
+        'knows delivered (review 28)', (tester) async {
+      final startup = await backedUp(tester);
+      startup.lockToRestore();
+      var asked = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LockScreen(
+            startup: startup,
+            deliveredRevision: () {
+              asked++;
+              return 57;
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).first, backup.path);
+      await tester.enterText(find.byType(TextField).last, code);
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await settle(tester, () => startup.state is Ready);
+      // The book and its backup hold a few writes; 57 was delivered:
+      // 57 + 1.
+      expect((startup.state as Ready).vault.store.revision, 58);
+      expect(asked, 1);
+      startup.lock();
+    });
+
     testWidgets('a backup chosen says it opens with its recovery code; one '
         'older than the ledger it replaces is restored only once confirmed, '
         'both shown (SEC-10)', (tester) async {

@@ -792,6 +792,44 @@ void main() {
       expect(ahead.store.revision, 32);
     });
 
+    test('a restore over the same book goes on from the one it replaces, '
+        'read with the backup\'s keys; another book\'s is not read '
+        '(review 28)', () async {
+      final here = await target.restore(
+        source.keys,
+        (staging) async =>
+            staging.write((w) => w.continueRevision(57), counts: false),
+      );
+      expect(here.store.revision, 58);
+      here.close();
+      // An older backup of it, filled to 3, nothing told before: the book
+      // it replaces stood at 58, so 58 + 1.
+      final older = await target.restore(
+        source.keys,
+        (staging) async =>
+            staging.write((w) => w.continueRevision(3), counts: false),
+        replacing: true,
+      );
+      expect(older.store.revision, 59);
+      older.close();
+      // Another book's backup: its keys do not open the one here, so only
+      // its own 3 counts: 3 + 1.
+      final other = LedgerVault(
+        Directory('${directory.path}/other'),
+        codec: codec,
+      );
+      final (theirs, _) = await other.create(password);
+      theirs.close();
+      final replaced = await target.restore(
+        theirs.keys,
+        (staging) async =>
+            staging.write((w) => w.continueRevision(3), counts: false),
+        replacing: true,
+      );
+      addTearDown(replaced.close);
+      expect(replaced.store.revision, 4);
+    });
+
     test('a failure part way leaves no ledger and can be retried', () async {
       await expectLater(
         target.restore(source.keys, (staging) async {

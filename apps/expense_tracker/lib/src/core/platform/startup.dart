@@ -513,10 +513,17 @@ final class Startup extends ChangeNotifier {
   /// backup passphrase. A backup opened by anything but the password
   /// leaves this phone's ledger asking for a new password
   /// ([needsNewPassword]).
+  ///
+  /// [revisionAtLeast] is the most the app layer knows a backup of this
+  /// phone's ledger to have been delivered or to wait at (the folder's,
+  /// Drive's, the outbox's): the restored book goes on from above it and
+  /// from above what [_revisionBefore] reads, so it passes every
+  /// delivered revision and a new backup is due (review 28).
   Future<void> restore(
     String path,
     String secret, {
     bool recovery = false,
+    int revisionAtLeast = 0,
   }) async {
     final file = File(path);
     final header = await LedgerBackup.readHeader(file);
@@ -533,7 +540,7 @@ final class Startup extends ChangeNotifier {
     final open = await _vault.restore(
       keys,
       replacing: replacing,
-      revisionBefore: await _revisionBefore(),
+      revisionBefore: max(revisionAtLeast, await _revisionBefore()),
       (staging) async {
         await LedgerBackup.restore(
           file: file,
@@ -577,7 +584,8 @@ final class Startup extends ChangeNotifier {
   /// its keys: the backup of it kept before a restore from settings
   /// ([replacedLedger]) and the copy kept for Android's cloud backup
   /// ([cloudCopy]); 0 when neither says. A restore goes on from above it
-  /// ([LedgerVault.restore]).
+  /// ([LedgerVault.restore]), which also reads the ledger it replaces
+  /// where the backup's keys open it.
   Future<int> _revisionBefore() async {
     var before = _replacedLedger?.revision ?? 0;
     if (cloudCopy.existsSync()) {
