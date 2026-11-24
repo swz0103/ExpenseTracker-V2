@@ -177,16 +177,45 @@ void main() {
     for (final full in <Object>[file, database]) {
       expect(say(full), '手機空間不足，帳本還沒整理好。請先清出一些空間，再打開帳本');
       expect(
-        describeRestoreFailure(full, recovery: true),
+        describeTry(full, recovery: false, restore: false),
+        '手機空間不足，帳本還沒整理好。請先清出一些空間，再打開帳本',
+      );
+      expect(
+        describeTry(full, recovery: true, restore: true),
         '手機空間不足，備份沒有還原，帳本維持原狀。請先清出一些空間，再試一次',
       );
+      // Found by the fingerprint's opening: said as such, and not kept
+      // as the fingerprint's fault (noted where the book is made again).
+      expect(describeDeviceFailure(full), (
+        words: '手機空間不足，帳本還沒整理好。請先清出一些空間，再打開帳本',
+        kept: false,
+      ));
     }
     // Anything else in a restore is said as for an opening.
     const wrong = KeyringException(KeyringError.wrongSecret);
-    expect(describeRestoreFailure(wrong, recovery: true), '救援碼不正確');
+    expect(describeTry(wrong, recovery: true, restore: true), '救援碼不正確');
     expect(
-      describeRestoreFailure(const FileSystemException('open'), recovery: true),
+      describeTry(
+        const FileSystemException('open'),
+        recovery: true,
+        restore: true,
+      ),
       '找不到這個備份檔',
     );
+  });
+
+  test('a fingerprint that fails says why, and keeps what is its fault', () {
+    expect(
+      describeDeviceFailure(const KeyringException(KeyringError.unknownDevice)),
+      (words: '先用密碼打開一次，之後就能用生物辨識解鎖', kept: false),
+    );
+    expect(
+      describeDeviceFailure(const KeyringException(KeyringError.wrongSecret)),
+      (words: '生物辨識解鎖失敗，請改用密碼', kept: true),
+    );
+    expect(describeDeviceFailure(StateError('cancelled')), (
+      words: '生物辨識解鎖已取消，可以改用密碼',
+      kept: true,
+    ));
   });
 }

@@ -119,13 +119,33 @@ String? describeUnlockFailure(Object error, {required bool recovery}) =>
       _ => null,
     };
 
-/// What to tell the person when restoring a backup failed with [error],
-/// as [describeUnlockFailure] says, but for want of room: the backup was
-/// not restored and the book here is as it was (review 30).
-String? describeRestoreFailure(Object error, {required bool recovery}) =>
-    isNoSpace(error)
+/// What to tell the person when a try on the lock screen failed with
+/// [error], as [describeUnlockFailure] says; but a backup being restored
+/// ([restore]) for want of room is said as not restored, the book here
+/// as it was (review 30).
+String? describeTry(
+  Object error, {
+  required bool recovery,
+  required bool restore,
+}) => restore && isNoSpace(error)
     ? LockWords.restoreNoSpace
     : describeUnlockFailure(error, recovery: recovery);
+
+/// What to tell the person when opening with the fingerprint failed with
+/// [error], and whether it is kept as a fault of the fingerprint. A
+/// phone not yet enrolled is expected; a phone found full as the book is
+/// made again is the opening's, said as such and noted where the book is
+/// made (review 30); any other failure is the fingerprint's.
+({String words, bool kept}) describeDeviceFailure(Object error) =>
+    switch (error) {
+      KeyringException(error: KeyringError.unknownDevice) => (
+        words: LockWords.fingerprintNotYet,
+        kept: false,
+      ),
+      KeyringException() => (words: LockWords.fingerprintFailed, kept: true),
+      _ when isNoSpace(error) => (words: LockWords.noSpace, kept: false),
+      _ => (words: LockWords.fingerprintStopped, kept: true),
+    };
 
 /// [LockWords.noSpace] when [error] is a write refused for want of room
 /// on the phone; null for any other failure.

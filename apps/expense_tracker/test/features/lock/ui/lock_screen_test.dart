@@ -653,8 +653,8 @@ void main() {
     });
 
     testWidgets('a phone found full stays said while the fingerprint is '
-        'asked for, and the fingerprint finding it full says so, noted as '
-        'an opening (review 30)', (tester) async {
+        'asked for, and the fingerprint finding it full says so, not noted '
+        'as its fault (review 30)', (tester) async {
       final startup = Startup(vault, device: DeviceUnlock('phone', key));
       await tester.runAsync(() => startup.setUp(password));
       await tester.runAsync(
@@ -675,19 +675,30 @@ void main() {
       // Still full as the fingerprint opens the keys.
       IOOverrides.global = NoRoom();
       addTearDown(() => IOOverrides.global = null);
-      final noted = ErrorLog.instance.count;
+      int fingerprintFaults() => ErrorLog.instance.entries
+          .where((e) => e.$2.startsWith(LockWords.fingerprintHeading))
+          .length;
+      final faultsBefore = fingerprintFaults();
+      final before = ErrorLog.instance.entries.first;
       startup.takeOpening();
       await show(tester, startup);
       // The fingerprint is being asked for: the opening's words stay.
       expect(find.text(LockWords.noSpace), findsOneWidget);
-      await settle(tester, () => ErrorLog.instance.count > noted);
-      await tester.pump();
+      // Noted where the book is made again (counted again, the same as
+      // the first try), never as the fingerprint's fault.
+      await settle(tester, () => ErrorLog.instance.entries.first != before);
+      await settle(
+        tester,
+        () => find.byKey(Keys.fingerprint).hitTestable().evaluate().isNotEmpty,
+      );
       expect(find.text(LockWords.noSpace), findsOneWidget);
       expect(find.text(LockWords.fingerprintStopped), findsNothing);
       expect(startup.state, isA<Locked>());
-      final entry = ErrorLog.instance.entries.first.$2;
-      expect(entry, startsWith(ErrorSteps.bookOpen));
-      expect(entry, isNot(contains(LockWords.fingerprintHeading)));
+      expect(
+        ErrorLog.instance.entries.first.$2,
+        startsWith(ErrorSteps.salvageNotMade),
+      );
+      expect(fingerprintFaults(), faultsBefore);
     });
 
     testWidgets('a fingerprint turned off in settings is not offered on the '
