@@ -367,8 +367,7 @@ final class ComposeForm {
   List<String> categoryChoices() =>
       ledger.reportService.categoriesByUse(income: tab == ComposeMode.income);
 
-  /// Brings back a form put aside: [entry] with its receipt photo, on
-  /// accounts still open; when none is open, its own accounts stay.
+  /// Brings back a form put aside ([entry], its photo), on open accounts.
   void restore(Entry entry, String? photo) {
     refunded = ledger.entryQueryService.originalOf(entry) ?? refunded;
     load(entry);
