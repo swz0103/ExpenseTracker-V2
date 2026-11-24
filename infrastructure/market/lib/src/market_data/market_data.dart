@@ -252,10 +252,8 @@ final class MarketDataGateway {
     final today = _taipeiDate(_clock());
     MarketResult<StockClose>? last;
     for (var back = 0; back < 2; back++) {
-      final month = DateTime.utc(today.year, today.month - back);
-      final fetched = await _fetch(
-        twseHistoryUri(symbol, month.year, month.month),
-      );
+      final (year, month) = shiftMonth(today.year, today.month, -back);
+      final fetched = await _fetch(twseHistoryUri(symbol, year, month));
       final snapshot = fetched.snapshot;
       if (snapshot == null) {
         last = MarketResult(fetched.state, reason: fetched.reason);
@@ -549,7 +547,7 @@ BusinessDate _taipeiDate(DateTime instant) {
 }
 
 int _epochDay(BusinessDate date) {
-  final instant = DateTime.utc(date.year, date.month, date.day);
+  final instant = date.asUtcMidnight;
   return instant.millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
 }
 

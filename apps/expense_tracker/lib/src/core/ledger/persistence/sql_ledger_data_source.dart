@@ -305,9 +305,14 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final trashFrom = today.subtract(trashRetention);
     final Future<ReplayReport?>? posting;
     final DecodedBook book;
-    int? workedUs;
+    OpeningWorked? worked;
     if (keepsJournal || _store.count > _decodeApart) {
-      (:book, :workedUs, posting: posting) = await _openApart(today, trashFrom);
+      (:book, :worked, posting: posting) = await _openApart(today, trashFrom);
+      if (worked.helperFault case final fault?) {
+        // The book opened all the same, only later: its second worker's
+        // half was decoded on the first.
+        ErrorLog.instance.record(ErrorSteps.openingHelper, StateError(fault));
+      }
     } else {
       posting = null;
       book = decodeBook(await _shelves(), trashFrom: trashFrom, today: today);
@@ -354,7 +359,11 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       );
     }
     if (keepsJournal) journal.open(ledger, posted: posting);
-    lastOpening = (us: watch.elapsedMicroseconds, workerUs: workedUs);
+    lastOpening = (
+      us: watch.elapsedMicroseconds,
+      workerUs: worked?.us,
+      split: worked?.split ?? false,
+    );
     return ledger;
   }
 
@@ -362,8 +371,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   /// spent reading it (null when it was read here, a small book), in
   /// microseconds: what is left is starting the worker, handing the book
   /// back and making the ledger of it, the part the screen's isolate
-  /// waits on or does (open_gate_test.dart). Null before a load.
-  ({int us, int? workerUs})? lastOpening;
+  /// waits on or does (open_gate_test.dart); and whether the worker had
+  /// half of the entries decoded on a second one (`openingWork`). Null
+  /// before a load.
+  ({int us, int? workerUs, bool split})? lastOpening;
 
   /// Reads and decodes the book on a worker isolate, which drops what has
   /// expired ([DecodedBook.expired]) and hands the book here as soon as it
@@ -372,7 +383,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   /// the book decoded once, for the screens and the journal). The book,
   /// how long the worker took to read it, and what posting it found (null
   /// when nothing was posted).
-  Future<({DecodedBook book, int workedUs, Future<ReplayReport?>? posting})>
+  Future<
+    ({DecodedBook book, OpeningWorked worked, Future<ReplayReport?>? posting})
+  >
   _openApart(DateTime today, DateTime trashFrom) async {
     final books = ReceivePort();
     try {
@@ -385,9 +398,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
             today: today,
             trashFrom: trashFrom,
             rules: keepsJournal ? journalRules : null,
-            // The cores beside the worker's: the screen's isolate only
-            // waits for the book meanwhile.
-            helpers: Platform.numberOfProcessors - 1,
+            // A second worker only where there is a core beside the
+            // worker's: the screen's isolate only waits for the book
+            // meanwhile.
+            split: Platform.numberOfProcessors > 1,
           ),
         );
       });
@@ -396,16 +410,21 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       // opening's.
       final first = await Future.any<Object?>([books.first, work]);
       return switch (first) {
-        (book: final DecodedBook book, :final int workedUs) => (
+        (book: final DecodedBook book, :final OpeningWorked worked) => (
           book: book,
-          workedUs: workedUs,
+          worked: worked,
           posting: work.then((opened) => opened.posted),
         ),
-        (book: final DecodedBook book, posted: _, :final int workedUs) => (
-          book: book,
-          workedUs: workedUs,
-          posting: keepsJournal ? Future<ReplayReport?>.value() : null,
-        ),
+        (
+          book: final DecodedBook book,
+          posted: _,
+          :final OpeningWorked worked,
+        ) =>
+          (
+            book: book,
+            worked: worked,
+            posting: keepsJournal ? Future<ReplayReport?>.value() : null,
+          ),
         _ => throw StateError('the book was not read'),
       };
     } finally {

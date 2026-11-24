@@ -46,6 +46,39 @@ void main() {
     );
   });
 
+  test('monthsAfter keeps the day, held to the last day of the month it '
+      'lands in', () {
+    // 31 March one month back: February 2027 has 28 days.
+    expect(
+      monthsAfter(DateTime.utc(2027, 3, 31), -1),
+      DateTime.utc(2027, 2, 28),
+    );
+    // In a leap year, the 29th.
+    expect(
+      monthsAfter(DateTime.utc(2028, 3, 31), -1),
+      DateTime.utc(2028, 2, 29),
+    );
+    // 31 December three months back: September has 30 days.
+    expect(
+      monthsAfter(DateTime.utc(2026, 12, 31), -3),
+      DateTime.utc(2026, 9, 30),
+    );
+    // 29 February twelve months on: 28 February of 2029.
+    expect(
+      monthsAfter(DateTime.utc(2028, 2, 29), 12),
+      DateTime.utc(2029, 2, 28),
+    );
+    // Across a year forward, and a day every month has.
+    expect(
+      monthsAfter(DateTime.utc(2026, 11, 15), 3),
+      DateTime.utc(2027, 2, 15),
+    );
+    expect(
+      monthsAfter(DateTime.utc(2026, 11, 15), 0),
+      DateTime.utc(2026, 11, 15),
+    );
+  });
+
   test('yearBefore keeps the day, 29 February becoming the 28th', () {
     expect(yearBefore(DateTime.utc(2026, 3, 31)), DateTime.utc(2025, 3, 31));
     expect(yearBefore(DateTime.utc(2028, 2, 29)), DateTime.utc(2027, 2, 28));

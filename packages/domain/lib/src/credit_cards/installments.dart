@@ -22,11 +22,11 @@ List<BusinessDate> installmentCloses(
 ) => [
   for (var index = 0; index < count; index++)
     () {
-      final month = DateTime.utc(first.year, first.month + index, 1);
-      final lastDay = monthEnd(month.year, month.month).day;
+      final (year, month) = shiftMonth(first.year, first.month, index);
+      final lastDay = daysInMonth(year, month);
       return BusinessDate(
-        month.year,
-        month.month,
+        year,
+        month,
         closingDay <= lastDay ? closingDay : lastDay,
       );
     }(),

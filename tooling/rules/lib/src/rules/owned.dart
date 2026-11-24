@@ -8,15 +8,21 @@ import 'calls.dart';
 /// Whether [file] is code (not a test) the owned-value rules look at.
 bool _isCode(SourceFile file) =>
     file.isUnder(appLib) ||
-    file.path.startsWith('packages/') && file.path.contains('/lib/');
+    (file.path.startsWith('packages/') || file.isUnder(infrastructureDir)) &&
+        file.path.contains('/lib/');
 
 /// B4: days and months are worked out by core's calendar helpers
 /// (`dayOf`, `monthStart`, `monthEnd`, `monthStarts`, `monthIndex`,
-/// `shiftMonth`), not by hand around `DateTime.utc`.
+/// `shiftMonth`, `monthsAfter`, `yearBefore`), not by hand around
+/// `DateTime.utc`. A month or year step that keeps a day,
+/// `DateTime.utc(y, m - 1, d)` or `DateTime.utc(y + 1, m, d)`, runs over
+/// into the next month when that month is shorter (31 March one month
+/// back is 3 March); only day 1, which every month has, is let pass.
 ///
 /// Known noise: `DateTime.utc(a, b - c)` that is not a month step, and a
 /// product with 12 that names a year but is not a month count, are
-/// flagged all the same; a step written through variables is missed.
+/// flagged all the same; a step written through variables is missed, and
+/// so is a year stepped by anything but a written number.
 final class CalendarByHand extends FileRule {
   const CalendarByHand();
 
@@ -45,15 +51,19 @@ final class CalendarByHand extends FileRule {
           args[2] is IntegerLiteral &&
           (args[2] as IntegerLiteral).value == 0) {
         flag(call.node, 'a month end by hand: use monthEnd or daysInMonth');
-      } else if (args.length == 2 &&
-          args[1] is BinaryExpression &&
-          const {
-            '+',
-            '-',
-          }.contains((args[1] as BinaryExpression).operator.lexeme)) {
+      } else if (args.length == 2 && _isStep(args[1])) {
         flag(
           call.node,
           'a month stepped by hand: use monthStart or shiftMonth',
+        );
+      } else if (args.length == 3 &&
+          (_isStep(args[0], byNumber: true) || _isStep(args[1])) &&
+          !(args[2] is IntegerLiteral &&
+              (args[2] as IntegerLiteral).value == 1)) {
+        flag(
+          call.node,
+          'a month or year stepped by hand with its day: use monthsAfter '
+          'or yearBefore',
         );
       }
     }
@@ -64,6 +74,14 @@ final class CalendarByHand extends FileRule {
     }
     return found;
   }
+
+  /// `a + n` or `a - n`: a month stepped; a year only [byNumber], a
+  /// written number of years (`year - 1`), so that a year brought to
+  /// another calendar (`rocYear + rocYearOffset`) passes.
+  static bool _isStep(Argument e, {bool byNumber = false}) =>
+      e is BinaryExpression &&
+      const {'+', '-'}.contains(e.operator.lexeme) &&
+      (!byNumber || e.rightOperand is IntegerLiteral);
 
   /// `DateTime.utc(x.year, x.month, x.day)` of one and the same `x`.
   static bool _isDayStrip(NodeList<Argument> args) {

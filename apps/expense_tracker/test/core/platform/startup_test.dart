@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -305,6 +306,33 @@ void main() {
       await startup.unlockWithPassword(password);
       expect((startup.state as Ready).vault.store.rows().single.id, 'cash');
       startup.lock();
+    });
+
+    test('making the book again that fails before the copy is in place '
+        'keeps the file, goes back to the lock screen, and does not spend '
+        'the launch\'s one (D113)', () async {
+      final startup = await withRecord();
+      // The new keys cannot be written, as on a full disk: a folder in
+      // their place.
+      final full = Directory('${directory.path}/keyring.json.new')
+        ..createSync();
+      await startup.bookDamaged(damagedError);
+      expect(startup.state, isA<Locked>());
+      expect(ErrorLog.instance.entries.first.$2, contains('重建帳本未完成'));
+      // Kept where it was (the vault test compares its bytes).
+      expect(vault.databaseFile.existsSync(), isTrue);
+      expect(vault.damagedCopies(), isEmpty, reason: 'nothing set aside');
+      // Room again: opened from the lock screen, then found damaged
+      // again, it is made again, the first try not counted.
+      full.deleteSync();
+      await startup.unlockWithPassword(password);
+      expect(startup.state, isA<Ready>());
+      await startup.bookDamaged(damagedError);
+      expect((startup.state as Ready).vault.store.rows().single.id, 'cash');
+      expect(vault.damagedCopies(), hasLength(1));
+      // That one counted: damage found again is set aside.
+      await startup.bookDamaged(damagedError);
+      expect(startup.state, isA<Damaged>());
     });
 
     test('a book made again found damaged as it opens is Damaged, its old '

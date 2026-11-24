@@ -32,9 +32,14 @@ Iterable<DateTime> monthStarts(DateTime from, DateTime to) sync* {
   }
 }
 
-/// The same day a year earlier, at UTC midnight; 29 February becomes the
-/// 28th.
-DateTime yearBefore(DateTime day) {
-  final (y, m, d) = addMonthsClamped(day.year, day.month, day.day, -12);
+/// [day]'s day of the month [months] after its own (before when
+/// negative), at UTC midnight, held to that month's last day: 31 March
+/// one month back is 28 (or 29) February, never 3 March.
+DateTime monthsAfter(DateTime day, int months) {
+  final (y, m, d) = addMonthsClamped(day.year, day.month, day.day, months);
   return DateTime.utc(y, m, d);
 }
+
+/// The same day a year earlier, at UTC midnight; 29 February becomes the
+/// 28th.
+DateTime yearBefore(DateTime day) => monthsAfter(day, -12);

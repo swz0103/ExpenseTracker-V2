@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
+import 'package:expense_tracker/src/core/messages/key_failures.dart'
+    show backupIsOlder;
 import 'package:expense_tracker/src/features/backup/model/backup_manager.dart';
 import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
@@ -52,8 +54,8 @@ void main() {
     final startup = startupIn('cloud-reset');
     await startup.setUp(password);
     final before = EncryptedBackupManager(startup, vaultOf(startup));
-    // One counted write: revision 1. The re-keyed copy is written in one
-    // batch, so it stands at revision 1 too.
+    // One counted write: revision 1. The re-keyed copy goes on from it,
+    // the reset counted as a change: revision 2 (review 26).
     vaultOf(startup).store.write((w) => w.setMeta('note', 1));
     expect(before.revision, 1);
     expect(await before.keepCloudCopy(), isTrue);
@@ -61,12 +63,37 @@ void main() {
     final revision = before.revision;
     await startup.resetKeys(password: password);
     final after = EncryptedBackupManager(startup, vaultOf(startup));
-    // Same revision, but sealed with epoch 1 while backups now use 2.
-    expect(after.revision, revision);
+    // The cloud copy is of revision 1, sealed with epoch 1; the ledger
+    // now stands at 2 and backups use epoch 2.
+    expect(after.revision, revision + 1);
     expect(revision, 1);
     expect(await after.keepCloudCopy(), isTrue);
     expect((await LedgerBackup.readHeader(startup.cloudCopy)).backupEpoch, 2);
     expect(await after.keepCloudCopy(), isFalse);
+    vaultOf(startup).close();
+  });
+
+  test('a backup taken before a reset is older than the ledger after it, '
+      'however few changes came before (review 26)', () async {
+    final startup = startupIn('older-after-reset');
+    await startup.setUp(password);
+    for (var i = 0; i < 5; i++) {
+      vaultOf(startup).store.write((w) => w.setMeta('note', i));
+    }
+    final before = EncryptedBackupManager(startup, vaultOf(startup));
+    // Five counted writes: revision 5.
+    expect(before.revision, 5);
+    final taken = await LedgerBackup.readHeader(File(await before.backUp()));
+    expect(taken.revision, 5);
+    await startup.resetKeys(password: password);
+    final after = EncryptedBackupManager(startup, vaultOf(startup));
+    // 5 and the reset: 6. Restarted at 1, the backup of 5 passed for a
+    // newer one.
+    expect(after.revision, 6);
+    expect(await after.keepCloudCopy(), isTrue);
+    final current = await LedgerBackup.readHeader(startup.cloudCopy);
+    expect(current.revision, 6);
+    expect(backupIsOlder(taken, current), isTrue);
     vaultOf(startup).close();
   });
 

@@ -30,7 +30,9 @@ import java.io.File
  * the network cut short is tried again after a growing wait, and only
  * after [BackgroundWork.RETRIES] of them is it noted as failed (AND-05).
  * The upload goes in parts; a run WorkManager stops ends between two, or
- * in the folder copy, writes nothing more and is run again later; and only
+ * in the folder copy, and is run again later, having written down only
+ * what the places before received (a folder copy made before a stop in
+ * the Drive upload is not made again); and only
  * one run works at a time, so a stopped one still finishing and the next
  * never share an upload or the outbox.
  */
@@ -107,8 +109,11 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         }
 
         var phoneHas = true
+        var driveHas = true
+        var again = false
         val folder = preferences.optString("phoneFolder").ifEmpty { null }
-        if (folder != null && !preferences.isNull("phoneFolder")) {
+        fun toPhone() {
+            if (folder == null || preferences.isNull("phoneFolder")) return
             val (at, made) = last("phone", "phoneBackedUp", "phoneRevision", folder)
             val every = if (preferences.optBoolean("phoneDaily")) BackupPlan.DAY else 7 * BackupPlan.DAY
             if (BackupPlan.due(now, at, made, revision, every)) {
@@ -127,9 +132,8 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
             }
         }
 
-        var driveHas = true
-        var again = false
-        if (preferences.optBoolean("driveLinked")) {
+        fun toDrive() {
+            if (!preferences.optBoolean("driveLinked")) return
             val (at, made) = last("drive", "driveBackedUp", "driveRevision", null)
             // The same key as Preferences.photosOnWifiKey; on unless turned off.
             val onWifi = preferences.optBoolean("photosOnWifi", true)
@@ -156,8 +160,13 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
             }
         }
 
-        delivered.put("problems", problems)
-        save(File(outbox, "delivered.json"), delivered.toString())
+        // What each place received is written down before the next, and
+        // however the run ends: a stop during the Drive upload keeps that
+        // the folder already has this backup.
+        BackupPlan.inTurn(listOf(::toPhone, ::toDrive)) {
+            delivered.put("problems", problems)
+            save(File(outbox, "delivered.json"), delivered.toString())
+        }
         // Every place holds it: the copy here is no longer needed.
         if (phoneHas && driveHas) {
             backup.delete()

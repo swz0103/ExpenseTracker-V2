@@ -215,6 +215,64 @@ void f(DateTime d, DateTime e, int year) {
     });
   });
 
+  group('B4-calendar-by-hand: a step that keeps its day (R26)', () {
+    const rule = CalendarByHand();
+    test('flags a month or year step with a day, in the app, the packages '
+        'and infrastructure', () {
+      final v = run(rule, {
+        '$_feat/a/x.dart': '''
+void f(DateTime end, DateTime today) {
+  final a = DateTime.utc(end.year, end.month + 1, end.day);
+  final b = DateTime.utc(today.year, today.month - 3, today.day);
+  final c = DateTime.utc(today.year - 1, today.month, today.day);
+  final d = DateTime.utc(today.year, today.month - 1, 15);
+}
+''',
+        'infrastructure/market/lib/src/x.dart': '''
+void f(DateTime today, int back) {
+  final m = DateTime.utc(today.year, today.month - back);
+  final e = DateTime.utc(today.year + 1, today.month, today.day);
+}
+''',
+      });
+      const step =
+          'a month or year stepped by hand with its day: use monthsAfter '
+          'or yearBefore';
+      expect(
+        [for (final e in v) (e.file, e.line, e.message)],
+        [
+          ('$_feat/a/x.dart', 2, step),
+          ('$_feat/a/x.dart', 3, step),
+          ('$_feat/a/x.dart', 4, step),
+          ('$_feat/a/x.dart', 5, step),
+          (
+            'infrastructure/market/lib/src/x.dart',
+            2,
+            'a month stepped by hand: use monthStart or shiftMonth',
+          ),
+          ('infrastructure/market/lib/src/x.dart', 3, step),
+        ],
+      );
+    });
+    test('passes day 1, a year brought to another calendar, a day step and '
+        'infrastructure tests', () {
+      expect(
+        run(rule, {
+          '$_feat/a/x.dart': '''
+void f(DateTime d, int rocYear, int month, int day, int i) {
+  final a = DateTime.utc(d.year, d.month + i, 1);
+  final b = DateTime.utc(rocYear + rocYearOffset, month, day);
+  final c = DateTime.utc(d.year, d.month, d.day + 1);
+}
+''',
+          'infrastructure/market/test/x_test.dart':
+              'final a = DateTime.utc(d.year, d.month - 1, d.day);\n',
+        }),
+        isEmpty,
+      );
+    });
+  });
+
   group('B5-owned-values', () {
     const rule = OwnedValues();
     test('flags an owned value outside its owner', () {

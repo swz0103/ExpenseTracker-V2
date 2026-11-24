@@ -15,8 +15,8 @@ final class _Nowhere implements LedgerDataSource {
 void main() {
   final day = DateTime.utc(2026, 10, 20);
 
-  Ledger book(List<Entry> entries) => Ledger(
-    today: day,
+  Ledger book(List<Entry> entries, {DateTime? today}) => Ledger(
+    today: today ?? day,
     accounts: const [Account('bank', '銀行', AccountKind.bank, 1000000)],
     categories: [],
     entries: entries,
@@ -103,6 +103,29 @@ void main() {
     );
     expect(returnsOf(ledger).nextDividend('0056')?.month, DateTime.utc(2027));
     expect(returnsOf(ledger).nextDividend('2330'), isNull);
+  });
+
+  test('R26: on 29 February the last year and two years start after the '
+      '28th, not after 1 March', () {
+    final ledger = book(today: DateTime.utc(2028, 2, 29), [
+      trade('b', DateTime.utc(2025, 9, 1), EntryType.buy, 36000, shares: 1000),
+      // A year back from 29 Feb 2028 is 28 Feb 2027: 1 Mar 2027 is
+      // inside the last twelve months.
+      trade('d1', DateTime.utc(2027, 3, 1), EntryType.dividend, 1000),
+      trade('d0', DateTime.utc(2026, 3, 1), EntryType.dividend, 1000),
+    ]);
+    final guesses = returnsOf(ledger).expectedDividends();
+    // d1 a year on: March 2028; d0 is older than a year.
+    expect(
+      [for (final g in guesses) (g.month, g.amount)],
+      [(DateTime.utc(2028, 3), 1000)],
+    );
+    // Two years back is 28 Feb 2026, so d0 alone still names March.
+    final older = book(today: DateTime.utc(2028, 2, 29), [
+      trade('b', DateTime.utc(2025, 9, 1), EntryType.buy, 36000, shares: 1000),
+      trade('d0', DateTime.utc(2026, 3, 1), EntryType.dividend, 1000),
+    ]);
+    expect(returnsOf(older).payingMonths('0056'), [3]);
   });
 }
 
