@@ -70,9 +70,14 @@ final class BankRate {
   final FxRate? spotBuy;
   final FxRate? spotSell;
 
-  /// What the bank pays for this currency in an account: the value of a
-  /// foreign-currency balance in NT$.
-  FxRate? get valuation => spotBuy ?? cashBuy;
+  /// The board's rate on [side] for money in an account: the spot rate,
+  /// or the cash rate where the bank quotes no spot one. What values a
+  /// foreign balance in NT\$ (the side by core's `valuationSide`): the
+  /// buying rate for what is held, the selling rate for what is owed.
+  FxRate? rateFor(BoardSide side) => switch (side) {
+    BoardSide.buying => spotBuy ?? cashBuy,
+    BoardSide.selling => spotSell ?? cashSell,
+  };
 }
 
 /// The day's board, one row per quoted currency.

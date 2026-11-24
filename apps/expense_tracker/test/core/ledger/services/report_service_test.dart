@@ -128,4 +128,61 @@ void main() {
       lastMonth,
     );
   });
+
+  group('what a person owes agrees with their balance', () {
+    test('a spending kept on the person\'s account lowers what is owed', () {
+      final book = Book(
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 100000),
+          Account('p', '小明', AccountKind.receivable, 0),
+        ],
+        entries: [
+          entry(
+            'l',
+            type: EntryType.transfer,
+            amount: 1000,
+            to: 'p',
+            date: DateTime.utc(2026, 10, 1),
+          ),
+          entry(
+            'x',
+            amount: 300,
+            account: 'p',
+            date: DateTime.utc(2026, 10, 2),
+          ),
+        ],
+      );
+      // 1000 lent, 300 taken off: 700, as the balance.
+      expect(
+        [for (final (e, left) in book.reports.owedBy('p')) (e.id, left)],
+        [('l', 700)],
+      );
+      expect(book.balances.balance('p'), 700);
+    });
+
+    test('a person kept in US\$ owes what arrived, in US cents', () {
+      final book = Book(
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 100000),
+          Account('p', '小明', AccountKind.receivable, 0, currency: 'USD'),
+        ],
+        entries: [
+          Entry(
+            id: 'l',
+            date: DateTime.utc(2026, 10, 1),
+            type: EntryType.transfer,
+            amount: 3200,
+            account: 'bank',
+            to: 'p',
+            received: 10000,
+          ),
+        ],
+      );
+      expect(
+        [for (final (e, left) in book.reports.owedBy('p')) (e.id, left)],
+        [('l', 10000)],
+      );
+      expect(book.balances.balance('p'), 10000);
+    });
+  });
 }

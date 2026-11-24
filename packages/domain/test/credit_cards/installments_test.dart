@@ -65,4 +65,61 @@ void main() {
       BusinessDate(2026, 11, 20),
     ]);
   });
+
+  group('refunds of a purchase in instalments', () {
+    final schedule = [
+      (BusinessDate(2026, 9, 5), 400),
+      (BusinessDate(2026, 10, 5), 400),
+      (BusinessDate(2026, 11, 5), 400),
+    ];
+
+    test('a full refund cancels what is not billed yet, on its day', () {
+      final changes = refundedInstalments(schedule, [
+        (BusinessDate(2026, 9, 20), 1200),
+      ]);
+      // 800 not billed by 9/20: billed at once, the two later ones gone.
+      expect(changes.single, [
+        (BusinessDate(2026, 9, 20), 800),
+        (BusinessDate(2026, 10, 5), -400),
+        (BusinessDate(2026, 11, 5), -400),
+      ]);
+    });
+
+    test('a partial refund shrinks the later instalments; two halves '
+        'settle it', () {
+      final changes = refundedInstalments(schedule, [
+        (BusinessDate(2026, 9, 20), 300),
+        (BusinessDate(2026, 9, 25), 900),
+      ]);
+      // 300 of the 800 left: 500 shared over 400 and 400 -> 250 each.
+      expect(changes[0], [
+        (BusinessDate(2026, 9, 20), 300),
+        (BusinessDate(2026, 10, 5), -150),
+        (BusinessDate(2026, 11, 5), -150),
+      ]);
+      // The rest, 500, cancelled by the second.
+      expect(changes[1], [
+        (BusinessDate(2026, 9, 25), 500),
+        (BusinessDate(2026, 10, 5), -250),
+        (BusinessDate(2026, 11, 5), -250),
+      ]);
+    });
+
+    test('a refund after the last instalment cancels nothing', () {
+      expect(
+        refundedInstalments(schedule, [(BusinessDate(2026, 12, 1), 1200)]),
+        [<(BusinessDate, int)>[]],
+      );
+    });
+
+    test('refunds are worked through by day, answered in the order given', () {
+      final changes = refundedInstalments(schedule, [
+        (BusinessDate(2026, 10, 20), 400),
+        (BusinessDate(2026, 9, 20), 800),
+      ]);
+      // 9/20 first: 800 of 800 left; nothing is left for 10/20 to cancel.
+      expect(changes[0], isEmpty);
+      expect(changes[1].first, (BusinessDate(2026, 9, 20), 800));
+    });
+  });
 }

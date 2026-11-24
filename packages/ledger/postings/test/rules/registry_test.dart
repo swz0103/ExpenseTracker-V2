@@ -18,7 +18,10 @@ void main() {
       Dividend.kind,
       OutOfHoldings.kind,
     });
-    expect([for (final a in r.amenders) a.slot], [Slots.instalments, Slots.fx]);
+    expect(
+      [for (final a in r.amenders) a.slot],
+      [Slots.instalments, Slots.cancelledInstalments, Slots.fx],
+    );
     expect(
       [
         for (final t in r.types)

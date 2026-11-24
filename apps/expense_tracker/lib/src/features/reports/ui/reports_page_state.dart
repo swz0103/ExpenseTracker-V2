@@ -465,28 +465,12 @@ class _ReportsPageState extends State<ReportsPage> {
     ];
   }
 
-  /// The [count] largest categories of [report], with what each spent a
-  /// year before, and the rest together as 其他.
-  static List<(String, int, int?)> _blocksOf(Report report, int count) {
-    final names = report.names;
-    final spending = report.spending;
-    final rest = names
-        .skip(count)
-        .fold(0, (sum, n) => sum + (spending[n] ?? 0));
-    return [
-      for (final n in names.take(count))
-        (n, spending[n] ?? 0, report.lastSpending[n]),
-      if (rest > 0) ('其他', rest, null),
-    ];
-  }
-
   /// The categories of [report] as blocks sized by what they spent, [box]
   /// wide. As many of the largest as get a block big enough to read, the
   /// rest together: on a small phone or with large text, fewer blocks.
   Widget _treemap(BuildContext context, BoxConstraints box, Report report) {
     final names = report.names;
     final ledger = widget.ledger;
-    final spending = report.spending;
     final expense = report.expense;
     final scale = textGrowth(context);
     final width = box.maxWidth;
@@ -495,17 +479,17 @@ class _ReportsPageState extends State<ReportsPage> {
     final minHeight = 56 * scale;
     final base = width * 0.82;
     var height = base;
-    var blocks = _blocksOf(report, names.length);
+    var blocks = report.blocks(names.length);
     var rects = <Rect>[];
     // Taller first, then fewer blocks: a category merged into 其他
     // only when no height up to half again more makes room for it.
     search:
     for (var count = min(7, names.length); count >= 1; count--) {
-      blocks = _blocksOf(report, count);
+      blocks = report.blocks(count);
       for (final stretch in const [1.0, 1.2, 1.4, 1.6]) {
         height = base * stretch;
         rects = treemapLayout([
-          for (final b in blocks) b.$2,
+          for (final b in blocks) b.amount,
         ], Rect.fromLTWH(0, 0, width, height));
         if (rects.every(
           (r) => r.width - 8 >= minWidth && r.height - 8 >= minHeight,
@@ -518,25 +502,35 @@ class _ReportsPageState extends State<ReportsPage> {
       height: height,
       child: Stack(
         children: [
-          for (final (i, (name, amount, last)) in blocks.indexed)
+          for (final (i, block) in blocks.indexed)
             if (i < rects.length)
               Positioned.fromRect(
                 rect: rects[i].deflate(4),
-                child: CategoryBlock(
-                  ledger: ledger,
-                  category: name == '其他' && !spending.containsKey('其他')
-                      ? _restBlock()
-                      : ledger.category(name),
-                  amount: amount,
-                  share: percent(amount, expense),
-                  change: last == null || last == 0
-                      ? null
-                      : percent(amount - last, last),
-                  large: i == 0,
-                  onTap: name == '其他' && !spending.containsKey('其他')
-                      ? null
-                      : () => _showCategory(name),
-                ),
+                child: switch (block) {
+                  CategoryShare(:final name, :final amount, :final last) =>
+                    CategoryBlock(
+                      ledger: ledger,
+                      category: ledger.category(name),
+                      amount: amount,
+                      share: percent(amount, expense),
+                      change: last == null || last == 0
+                          ? null
+                          : percent(amount - last, last),
+                      large: i == 0,
+                      onTap: () => _showCategory(name),
+                    ),
+                  // The smallest together: a block of its own, never
+                  // taken for a category called 其他 (D53).
+                  RestShare(:final amount) => CategoryBlock(
+                    ledger: ledger,
+                    category: _restBlock(),
+                    amount: amount,
+                    share: percent(amount, expense),
+                    change: null,
+                    large: i == 0,
+                    onTap: null,
+                  ),
+                },
               ),
         ],
       ),

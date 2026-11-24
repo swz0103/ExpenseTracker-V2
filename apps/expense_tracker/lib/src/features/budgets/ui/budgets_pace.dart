@@ -8,7 +8,6 @@ class _Pace extends StatelessWidget {
     required this.ledger,
     required this.year,
     required this.month,
-    required this.current,
     required this.spent,
     required this.total,
   });
@@ -16,59 +15,56 @@ class _Pace extends StatelessWidget {
   final Ledger ledger;
   final int year;
   final int month;
-  final bool current;
   final int spent;
   final int total;
 
   @override
   Widget build(BuildContext context) {
-    final (passed, days) = ledger.budgetService.daysGone(year, month);
     String money(int v) => ledger.orDots(groupDigits(v));
-    if (!current) {
-      final saved = total - spent;
-      return CardGrid(gap: 10, [
-        _Figure(
-          glyph: Glyph.cash,
-          color: AppColors.positive,
-          label: '平均每天花',
-          value: money(spent ~/ days),
-          sub: '$month 月 ${countOf(days, CountUnit.days)}',
-        ),
-        _Figure(
-          glyph: Glyph.calendar,
-          color: AppColors.accent,
-          label: '跟預算比',
-          value: '${saved >= 0 ? '省' : '超'} ${money(saved.abs())}',
-          valueColor: saved >= 0 ? AppColors.accent : AppColors.negative,
-          sub: '用了 ${wholePercent(spent, total)}',
-        ),
-      ]);
+    switch (ledger.budgetService.pace(spent, total, year, month)) {
+      case PastPace(:final days, :final perDay, :final saved):
+        return CardGrid(gap: 10, [
+          _Figure(
+            glyph: Glyph.cash,
+            color: AppColors.positive,
+            label: '平均每天花',
+            value: money(perDay),
+            sub: '$month 月 ${countOf(days, CountUnit.days)}',
+          ),
+          _Figure(
+            glyph: Glyph.calendar,
+            color: AppColors.accent,
+            label: '跟預算比',
+            value: '${saved >= 0 ? '省' : '超'} ${money(saved.abs())}',
+            valueColor: saved >= 0 ? AppColors.accent : AppColors.negative,
+            sub: '用了 ${wholePercent(spent, total)}',
+          ),
+        ]);
+      case final CurrentPace pace:
+        final heading = pace.forecast;
+        final over = pace.overBudget;
+        return CardGrid(gap: 10, [
+          _Figure(
+            glyph: Glyph.cash,
+            color: AppColors.positive,
+            label: '每天可以花',
+            value: money(pace.perDay),
+            sub: '剩 ${countOf(pace.daysLeft, CountUnit.days)}',
+          ),
+          _Figure(
+            glyph: Glyph.calendar,
+            color: over ? AppColors.negative : AppColors.accent,
+            label: '月底預估',
+            value: heading == null ? '—' : money(heading),
+            valueColor: over ? AppColors.negative : null,
+            sub: heading == null
+                ? '第 ${BudgetService.forecastFrom} 天起估算'
+                : over
+                ? '會超 ${money(heading - total)}'
+                : '約剩 ${money(total - heading)}',
+          ),
+        ]);
     }
-    final left = total - spent;
-    final remaining = days - passed + 1;
-    final heading = ledger.budgetService.forecast(spent, year, month);
-    final over = heading > total;
-    return CardGrid(gap: 10, [
-      _Figure(
-        glyph: Glyph.cash,
-        color: AppColors.positive,
-        label: '每天可以花',
-        value: left > 0 ? money(left ~/ remaining) : '0',
-        sub: '剩 ${countOf(remaining, CountUnit.days)}',
-      ),
-      _Figure(
-        glyph: Glyph.calendar,
-        color: over ? AppColors.negative : AppColors.accent,
-        label: '月底預估',
-        value: passed >= 7 ? money(heading) : '—',
-        valueColor: over && passed >= 7 ? AppColors.negative : null,
-        sub: passed < 7
-            ? '第 7 天起估算'
-            : over
-            ? '會超 ${money(heading - total)}'
-            : '約剩 ${money(total - heading)}',
-      ),
-    ]);
   }
 }
 

@@ -90,4 +90,47 @@ void main() {
     expect(market.moveOf('2330'), 1);
     expect(market.quotedOn, friday);
   });
+
+  group('valueAtHome (D59)', () {
+    final market = MarketDataRepository(
+      rates: {'USD': 32, 'JPY': 0.2},
+      sellRates: {'USD': 32.5},
+    );
+
+    test('what is held is valued at the buying rate', () {
+      // US$100.00 (10000 cents) x 32 = 3200.
+      expect(market.valueAtHome(10000, 'USD'), 3200);
+    });
+
+    test('what is owed is valued at the selling rate', () {
+      // -US$100.00 x 32.5 = -3250.
+      expect(market.valueAtHome(-10000, 'USD'), -3250);
+    });
+
+    test('without a selling rate the buying rate stands in', () {
+      // -¥1000 x 0.2 = -200.
+      expect(market.valueAtHome(-1000, 'JPY'), -200);
+    });
+
+    test('NT\$ is itself; a currency without a rate has no value', () {
+      expect(market.valueAtHome(-500, 'TWD'), -500);
+      expect(market.valueAtHome(100, 'EUR'), isNull);
+    });
+
+    test('the selling rates are taken with the rest, and replaced', () {
+      expect(market.sellRates, {'USD': 32.5});
+      final other = MarketDataRepository()..replaceWith(market);
+      expect(other.sellRates, {'USD': 32.5});
+      other.replace(
+        rates: {'USD': 31},
+        moves: const {},
+        quotedOn: null,
+        quoteDays: const {},
+      );
+      // A board without selling rates values a debt at the buying rate:
+      // -US$100.00 x 31 = -3100.
+      expect(other.sellRates, isEmpty);
+      expect(other.valueAtHome(-10000, 'USD'), -3100);
+    });
+  });
 }

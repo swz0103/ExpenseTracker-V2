@@ -148,4 +148,219 @@ void main() {
     expect(weeks[2], (DateTime.utc(2026, 9, 27), -150));
     expect(weeks.first.$2, 0);
   });
+
+  group('one net worth (D63)', () {
+    test('a card paid past what it owed is held, not dropped', () {
+      final book = Book(
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 1000),
+          Account('card', '卡', AccountKind.card, 5000),
+        ],
+      );
+      final worth = book.balances.netWorth(day);
+      // Held: bank 1000 + the card's credit 5000 = 6000; nothing owed.
+      expect(worth.saved, 6000);
+      expect(worth.owed, 0);
+      expect(worth.net, 6000);
+      expect(book.balances.netWorthAt(day), 6000);
+      expect(book.balances.assets, 6000);
+      expect(book.balances.cardDebt, 0);
+    });
+
+    test('one card in credit and one in debt each stand on their side', () {
+      final book = Book(
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 1000),
+          Account('c1', '卡甲', AccountKind.card, 5000),
+          Account('c2', '卡乙', AccountKind.card, -3000),
+        ],
+      );
+      final worth = book.balances.netWorth(day);
+      // Held 1000 + 5000 = 6000, owed 3000: 3000.
+      expect((worth.held, worth.owed, worth.net), (6000, 3000, 3000));
+      expect(book.balances.cardDebt, 3000);
+    });
+
+    test('nothing happened this month: the change since last month is 0', () {
+      final book = Book(
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 1000),
+          Account('card', '卡', AccountKind.card, 5000),
+        ],
+      );
+      final moved =
+          book.balances.netWorth(day).net -
+          book.balances.netWorthAt(DateTime.utc(2026, 9, 30));
+      expect(moved, 0);
+    });
+
+    test('the parts: in accounts, in shares, lent, owed', () {
+      final book = Book(
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 1000),
+          Account('ming', '小明', AccountKind.receivable, 300),
+          Account('amy', '小美', AccountKind.receivable, -200),
+          Account('loan', '房貸', AccountKind.loan, -5000),
+        ],
+      );
+      final worth = book.balances.netWorth(day);
+      // Saved 1000, lent 300; owed: what is owed to 小美 200 + the loan
+      // 5000 = 5200; net 1300 - 5200 = -3900.
+      expect(worth.saved, 1000);
+      expect(worth.invested, 0);
+      expect(worth.lent, 300);
+      expect(worth.owed, 5200);
+      expect(worth.net, -3900);
+    });
+  });
+
+  group('foreign balances by side (D59)', () {
+    test('a US\$ card debt is valued at the selling rate, a deposit at '
+        'the buying rate', () {
+      final book = Book(
+        accounts: const [
+          Account('usd', '美元', AccountKind.bank, 10000, currency: 'USD'),
+          Account(
+            'uc',
+            '美元卡',
+            AccountKind.card,
+            -10000,
+            currency: 'USD',
+            closingDay: 5,
+            dueDay: 20,
+          ),
+        ],
+        rates: {'USD': 32},
+        sellRates: {'USD': 32.5},
+      );
+      // US$100 held x 32 = 3200; US$100 owed x 32.5 = 3250.
+      expect(book.balances.worthOf(book.accounts.resolve('usd')), 3200);
+      expect(book.balances.worthOf(book.accounts.resolve('uc')), -3250);
+      expect(book.balances.cardDebt, 3250);
+      // 3200 - 3250 = -50: the spread is owed too.
+      expect(book.balances.netWorthAt(day), -50);
+    });
+  });
+
+  group('a refund of a purchase in instalments', () {
+    const card = Account(
+      'card',
+      '信用卡',
+      AccountKind.card,
+      0,
+      closingDay: 5,
+      dueDay: 20,
+    );
+    Book make({int? refund = 1200}) => Book(
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 0), card],
+      entries: [
+        entry(
+          'p',
+          date: DateTime.utc(2026, 8, 10),
+          amount: 1200,
+          account: 'card',
+          installments: 12,
+        ),
+        if (refund != null)
+          entry(
+            'r',
+            type: EntryType.income,
+            date: DateTime.utc(2026, 9, 20),
+            amount: refund,
+            account: 'card',
+            refundOf: 'p',
+          ),
+      ],
+    );
+
+    test('refunded in full, the card owes nothing at once', () {
+      final book = make();
+      // 100 billed on 9/5; on 9/20 the 1100 not billed is billed at once
+      // and the 1200 given back: -100 - 1100 + 1200 = 0.
+      expect(
+        book.balances.balance('card', until: DateTime.utc(2026, 9, 19)),
+        -100,
+      );
+      expect(book.balances.balance('card'), 0);
+      expect(
+        book.balances.balance('card', until: DateTime.utc(2027, 12, 31)),
+        0,
+      );
+      expect(book.balances.netWorthAt(day), 0);
+      expect(book.balances.stillToBill(book.entries.byId('p')!), 0);
+      expect(book.statements.instalmentsOn(card), isEmpty);
+      // What the refund did to the card: +100 net.
+      expect(book.balances.effect(book.entries.byId('r')!, 'card'), 100);
+    });
+
+    test('half refunded, the instalments left shrink by half', () {
+      final book = make(refund: 600);
+      // 1100 not billed by 9/20: 600 billed at once, the 500 left shared
+      // over the 11 instalments of 100 -> 46 or 45 each.
+      expect(book.balances.balance('card'), -100);
+      expect(book.balances.stillToBill(book.entries.byId('p')!), 500);
+      expect(
+        book.balances.balance('card', until: DateTime.utc(2027, 12, 31)),
+        -600,
+      );
+    });
+
+    test('the statement and what was spent since agree with the balance', () {
+      final book = make();
+      final c = book.accounts.resolve('card');
+      // Closed 9/5 owing 100; since then the refund, +100 net.
+      expect(book.statements.statementDue(c), 100);
+      final since = book.statements
+          .unbilled(c)
+          .fold(0, (sum, e) => sum - book.balances.effect(e, 'card'));
+      expect(since, -100);
+      expect(-book.balances.balance('card'), 100 + since);
+    });
+  });
+
+  group('flows follow the days the balance moves', () {
+    const card = Account(
+      'card',
+      '信用卡',
+      AccountKind.card,
+      0,
+      closingDay: 5,
+      dueDay: 20,
+    );
+    Book make() => Book(
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 0), card],
+      entries: [
+        entry(
+          'p',
+          date: DateTime.utc(2026, 8, 10),
+          amount: 1200,
+          account: 'card',
+          installments: 12,
+        ),
+      ],
+    );
+
+    test('a month\'s flow is what its statements billed', () {
+      final b = make().balances;
+      // Bought 8/10, the first instalment billed 9/5.
+      expect(b.flowOf('card', DateTime.utc(2026, 8, 1)), (
+        inflow: 0,
+        outflow: 0,
+      ));
+      expect(b.flowOf('card', DateTime.utc(2026, 9, 1)), (
+        inflow: 0,
+        outflow: 100,
+      ));
+    });
+
+    test('the weeks add up to how the balance moved over them', () {
+      final b = make().balances;
+      final weeks = b.weeklyChanges('card', weeks: 8);
+      final sum = weeks.fold(0, (s, w) => s + w.$2);
+      final before = weeks.first.$1.subtract(const Duration(days: 1));
+      // Of the statements, only 9/5 closes in the 8 weeks to 10/4: -100.
+      expect(sum, b.balance('card') - b.balance('card', until: before));
+      expect(sum, -100);
+    });
+  });
 }

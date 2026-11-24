@@ -17,7 +17,7 @@ import 'write_batch.dart';
 /// The version of the posting rules. Postings an older version posted are
 /// posted afresh when the book opens: raise it when a rule changes what a
 /// record posts.
-const journalRules = 2;
+const journalRules = 3;
 
 // Exception to the motion scale: a slice of work, not a movement.
 /// How long the journal's work in the background runs before it lets the
@@ -210,6 +210,8 @@ final class JournalKeeper {
     accounts: _accounts.values,
     categories: _categories.values,
     start: _start,
+    entryById: (id) => _ledger?.entries.byId(id),
+    refundsOf: (id) => _ledger?.entries.refundsOf(id) ?? const [],
   );
 
   /// Posts the whole book afresh, as of [revision]: off this isolate when

@@ -68,6 +68,7 @@ const recordFields = <String, Set<String>>{
     'home',
     'received',
     'group',
+    'mark',
   },
   'budget': {'category', 'categoryId', 'limit', 'warning', 'carry', 'since'},
   'recurring': {

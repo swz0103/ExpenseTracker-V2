@@ -67,9 +67,11 @@ final class CardSummary {
     return amounts[(periodsBilled(e) - 1).clamp(0, amounts.length - 1)];
   }
 
-  /// What is left to be billed of [e].
-  int unbilledOf(Entry e) =>
-      e.amount - _statements.billed(e, _statements.closedBy);
+  /// What is left to be billed of [e] after today, as [debt] is read at
+  /// the end of today: an instalment billed today is owed, not still to
+  /// bill, so the credit taken is counted once on a closing day (D67);
+  /// what refunds cancelled is billed.
+  int unbilledOf(Entry e) => _balances.stillToBill(e);
 
   /// What the instalment purchases have left to bill, all together.
   late final int pending = plans.fold(0, (sum, e) => sum + unbilledOf(e));
@@ -137,30 +139,26 @@ final class CardSummary {
   int get closingDay => card.closingDay ?? 1;
   int get dueDay => card.dueDay ?? 15;
 
-  /// What entries on the card of [type] tagged [tag] came to this year,
-  /// of those that count [today] ([countsOn]): a 預定 one joins on its day.
-  int taggedThisYear(String tag, EntryType type) {
+  /// What entries on the card marked [mark] (D52: by their mark, never a
+  /// tag's words) came to this year, of those that count [today]
+  /// ([countsOn]): a 預定 one joins on its day.
+  int markedThisYear(EntryMark mark) {
     final year = today.year;
     var total = 0;
     for (var month = 1; month <= today.month; month++) {
       for (final e in countedOn(_entries.inMonth(year, month), today)) {
-        if (e.account == card.id && e.type == type && e.tags.contains(tag)) {
-          total += e.amount;
-        }
+        if (e.account == card.id && e.mark == mark) total += e.amount;
       }
     }
     return total;
   }
 
-  /// What entries on the card of [type] tagged [tag] came to since the
-  /// last close: the cycle not billed yet, of those that count [today].
-  int taggedSinceClose(String tag, EntryType type) {
+  /// What entries on the card marked [mark] came to since the last
+  /// close: the cycle not billed yet, of those that count [today].
+  int markedSinceClose(EntryMark mark) {
     var total = 0;
     for (final e in countedOn(_entries.all, today)) {
-      if (e.account == card.id &&
-          e.type == type &&
-          e.tags.contains(tag) &&
-          e.date.isAfter(end)) {
+      if (e.account == card.id && e.mark == mark && e.date.isAfter(end)) {
         total += e.amount;
       }
     }
@@ -204,6 +202,7 @@ final class CardSummary {
       category: reward ? '其他收入' : feeCategory,
       note: '${card.name}${reward ? '回饋' : '年費'}',
       tags: [reward ? '回饋' : '年費'],
+      mark: reward ? EntryMark.reward : EntryMark.annualFee,
     );
   }
 }

@@ -17,6 +17,7 @@ import '../../../core/formatting/words.dart';
 
 part 'compose_form_extras.dart';
 part 'compose_form_lending.dart';
+part 'compose_form_refund.dart';
 part 'compose_form_split.dart';
 part 'compose_form_trade.dart';
 part 'compose_form_transfer.dart';
@@ -107,6 +108,11 @@ final class ComposeForm {
   var tags = <String>[];
   var note = '';
 
+  /// What the entry is besides its type (D52): a card's cashback or
+  /// annual fee as the card page starts it, an e-invoice scanned; kept
+  /// through an edit.
+  EntryMark? mark;
+
   /// The parts of a split, or null when the whole goes to [category].
   List<(String, int)>? parts;
 
@@ -175,6 +181,7 @@ final class ComposeForm {
 
   /// Puts [entry]'s values in the fields.
   void load(Entry entry) {
+    mark = entry.mark;
     amount = entry.amount;
     date = entry.date;
     account = entry.account;
@@ -228,6 +235,7 @@ final class ComposeForm {
 
   /// Empty fields with sensible first choices for the current tab.
   void fresh() {
+    mark = null;
     final accounts = startAccounts;
     amount = 0;
     date = ledger.today;
@@ -313,6 +321,7 @@ final class ComposeForm {
     date = invoice.date;
     note = invoice.note;
     if (!tags.contains('發票')) tags = [...tags, '發票'];
+    mark = EntryMark.invoice;
     more = true;
     category = guessCategory(
       ledger.entryQueryService,
@@ -455,19 +464,6 @@ final class ComposeForm {
   /// A transfer between accounts kept in different currencies.
   bool get crossing => type == EntryType.transfer && currency != toCurrency;
 
-  /// [home], else the refunded share of the purchase's worth, else the
-  /// amount at today's rate; null without a rate.
-  int? get homeValue {
-    final typed = home;
-    if (typed != null) return typed;
-    final original = refunded;
-    final worth = original?.home;
-    if (original != null && worth != null && original.amount > 0) {
-      return (worth * amount / original.amount).round();
-    }
-    return ledger.marketData.toHome(amount, currency);
-  }
-
   /// [received], else the amount at today's rates.
   int? get receivedValue =>
       received ?? ledger.marketData.convert(amount, currency, toCurrency);
@@ -549,7 +545,8 @@ final class ComposeForm {
   /// none, unless [wholeSplit], for its part to be checked.
   Entry build({bool wholeSplit = false}) {
     final kind = type;
-    final split = splitParts;
+    final refund = _refundShare;
+    final split = refund == null ? splitParts : refund.parts;
     final (tradeFee, tradeTax) = charges;
     return Entry(
       id: editing?.id ?? ledger.newId(),
@@ -562,6 +559,7 @@ final class ComposeForm {
         EntryType.transfer => transferCategory,
         EntryType.dividend => dividendCategory,
         EntryType.buy || EntryType.sell => investmentCategory,
+        _ when refund != null => refund.category,
         _ => split == null || split.isEmpty ? category : split.first.$1,
       },
       note: note.trim(),
@@ -578,7 +576,11 @@ final class ComposeForm {
           : shares,
       recurring: editing?.recurring ?? draft?.recurring,
       merchant: kind == EntryType.expense ? merchant : '',
-      tags: kind == EntryType.expense || kind == EntryType.income ? tags : [],
+      tags: refund != null
+          ? refund.tags
+          : kind == EntryType.expense || kind == EntryType.income
+          ? tags
+          : [],
       parts: split != null && split.length > (wholeSplit ? 0 : 1)
           ? split
           : const [],
@@ -591,6 +593,7 @@ final class ComposeForm {
       split: stock && splitShares && !reducing,
       home: foreign ? homeValue : null,
       received: crossing ? receivedValue : null,
+      mark: kind == EntryType.expense || kind == EntryType.income ? mark : null,
     );
   }
 }

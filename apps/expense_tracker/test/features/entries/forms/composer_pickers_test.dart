@@ -185,6 +185,7 @@ void main() {
     final made = added(count).single;
     expect((made.amount, made.date), (105, DateTime.utc(2024, 10, 25)));
     expect(made.tags, contains('發票'));
+    expect(made.mark, EntryMark.invoice);
     expect(made.note, contains('AB12345678'));
 
     codes.add(const ScanRead('$_head:**********:2:3:1:乾電池:1:55:口罩:2:25'));

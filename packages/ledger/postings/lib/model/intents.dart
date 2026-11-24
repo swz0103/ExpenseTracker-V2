@@ -45,7 +45,8 @@ final class Spending extends LedgerIntent {
 }
 
 /// Money into [account] under [category]: income, or a refund giving
-/// spending back (its category then a spending one).
+/// spending back (its category then a spending one), split as its
+/// purchase was when [parts] are given (D65).
 final class Earning extends LedgerIntent {
   const Earning({
     required super.id,
@@ -54,6 +55,7 @@ final class Earning extends LedgerIntent {
     required this.account,
     required this.category,
     required this.amount,
+    this.parts = const [],
     super.amendments,
   });
 
@@ -61,6 +63,10 @@ final class Earning extends LedgerIntent {
   final AccountId account;
   final AccountId category;
   final int amount;
+
+  /// Each category's account and amount, in [account]'s currency, adding
+  /// up to [amount]; empty when the whole is under [category].
+  final List<(AccountId, int)> parts;
 
   @override
   IntentType get type => kind;

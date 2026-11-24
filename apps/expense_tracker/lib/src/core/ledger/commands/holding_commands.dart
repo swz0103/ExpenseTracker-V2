@@ -22,16 +22,19 @@ final class HoldingCommands {
   final EntryRepository _entries;
 
   /// Takes new closing prices and rates: the stocks' reference prices and
-  /// names in [holdings], each day's change in [moves].
+  /// names in [holdings], each day's change in [moves], the board's
+  /// buying [rates] and [sellRates].
   void setMarket({
     required List<Holding> holdings,
     required Map<String, double> moves,
     required Map<String, double> rates,
+    Map<String, double> sellRates = const {},
     DateTime? quotedOn,
     Map<String, DateTime> quoteDays = const {},
   }) {
     _market.replace(
       rates: rates,
+      sellRates: sellRates,
       moves: moves,
       quotedOn: quotedOn,
       quoteDays: quoteDays,

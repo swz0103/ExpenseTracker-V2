@@ -64,10 +64,20 @@ final class EarningRule implements PostingRule<Earning> {
   Posted post(Earning i, RuleContext context) {
     final (currency, refused) = _currencyOf(context, i.account);
     if (currency == null) return refused!;
-    if (i.amount < 0) return const Refused(Refusals.badAmount);
+    if (i.amount < 0 || i.parts.any((p) => p.$2 < 0)) {
+      return const Refused(Refusals.badAmount);
+    }
+    if (i.parts.isNotEmpty &&
+        i.parts.fold(0, (sum, p) => sum + p.$2) != i.amount) {
+      return const Refused(Refusals.badAmount);
+    }
     return Lines([
       Line(i.account, i.amount, currency),
-      Line(i.category, -i.amount, currency),
+      if (i.parts.isEmpty)
+        Line(i.category, -i.amount, currency)
+      else
+        for (final (category, amount) in i.parts)
+          Line(category, -amount, currency),
     ]);
   }
 }
