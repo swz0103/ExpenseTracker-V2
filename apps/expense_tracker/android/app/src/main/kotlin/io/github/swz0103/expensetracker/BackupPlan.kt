@@ -55,20 +55,46 @@ internal object BackupPlan {
     }
 
     /**
-     * Delivers to [places] in turn, calling [keep] to write down what was
-     * noted after each and however the run ends: a run stopped (or failing)
-     * at a later place still keeps that an earlier one received the backup,
-     * so it is not copied there again (review 26). [keep] runs once after
-     * the last place, not twice.
+     * Delivers to [places] in turn, writing down what was noted ([noted])
+     * with [write] after each and however the run ends: a run stopped (or
+     * failing) at a later place still keeps that an earlier one received
+     * the backup, so it is not copied there again (review 26). It is
+     * written only when it changed since the last write, [written] being
+     * what is there already (null for nothing): a run that delivers
+     * nothing writes nothing (review 28). A failure to write down after a
+     * place that already failed, or was stopped, never takes that one's
+     * place: it is added to it as suppressed, so a stop still ends the
+     * run as a stop (review 28).
      */
-    fun inTurn(places: List<() -> Unit>, keep: () -> Unit) {
+    fun inTurn(
+        places: List<() -> Unit>,
+        noted: () -> String,
+        written: String?,
+        write: (String) -> Unit,
+    ) {
+        var last = written
+        fun keep() {
+            val now = noted()
+            if (now == last) return
+            write(now)
+            last = now
+        }
+        var failure: Throwable? = null
         try {
-            for ((i, place) in places.withIndex()) {
+            for (place in places) {
                 place()
-                if (i < places.lastIndex) keep()
+                keep()
             }
+        } catch (e: Throwable) {
+            failure = e
+            throw e
         } finally {
-            keep()
+            try {
+                keep()
+            } catch (e: Exception) {
+                val first = failure ?: throw e
+                if (first !== e) first.addSuppressed(e)
+            }
         }
     }
 

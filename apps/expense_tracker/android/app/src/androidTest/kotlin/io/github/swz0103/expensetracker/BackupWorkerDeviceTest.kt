@@ -74,6 +74,29 @@ class BackupWorkerDeviceTest {
     }
 
     @Test
+    fun aRunWithNothingToDeliverLeavesWhatWasNotedAsItWas() {
+        // Review 28 finding 4: no folder and Drive unlinked, the usual
+        // run; what was noted is not written again.
+        preferences.writeText(JSONObject().put("driveLinked", false).toString())
+        val backup = File(outbox, "ready.etbk").apply { writeText("sealed") }
+        File(outbox, "ready.json").writeText(
+            JSONObject()
+                .put("file", backup.name)
+                .put("revision", 3)
+                .put("ledger", "L1")
+                .put("mark", "abc123")
+                .toString(),
+        )
+        // Spaced as JSONObject never writes it: a write would change it.
+        val noted = "{ \"problems\" : { } }"
+        val delivered = File(outbox, "delivered.json").apply { writeText(noted) }
+        val worker = TestWorkerBuilder.from(context, BackupWorker::class.java, Executors.newSingleThreadExecutor())
+            .build()
+        assertTrue(worker.doWork() is ListenableWorker.Result.Success)
+        assertEquals(noted, delivered.readText())
+    }
+
+    @Test
     fun aRunWhileAnotherIsUnderWayLeavesTheOutboxAlone() {
         // Review 21 finding 2: a stopped run still finishing, and the next.
         preferences.writeText(

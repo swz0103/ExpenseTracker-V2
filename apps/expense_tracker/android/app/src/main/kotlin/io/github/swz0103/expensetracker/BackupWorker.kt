@@ -83,8 +83,12 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         val revision = ready.getInt("revision")
         val ledger = ready.getString("ledger")
         val mark = ready.optString("mark")
-        val delivered = read(File(outbox, "delivered.json")) ?: JSONObject()
+        val kept = read(File(outbox, "delivered.json"))
+        val delivered = kept ?: JSONObject()
         val problems = delivered.optJSONObject("problems") ?: JSONObject()
+        // What the file holds now: written again only once it differs.
+        val asKept = kept?.toString()
+        delivered.put("problems", problems)
         val now = System.currentTimeMillis()
 
         // The last delivery of this ledger the app or this job made there.
@@ -162,11 +166,13 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
 
         // What each place received is written down before the next, and
         // however the run ends: a stop during the Drive upload keeps that
-        // the folder already has this backup.
-        BackupPlan.inTurn(listOf(::toPhone, ::toDrive)) {
-            delivered.put("problems", problems)
-            save(File(outbox, "delivered.json"), delivered.toString())
-        }
+        // the folder already has this backup. Only what changed is
+        // written; a stop stays a stop when the writing fails too.
+        BackupPlan.inTurn(
+            listOf(::toPhone, ::toDrive),
+            noted = { delivered.toString() },
+            written = asKept,
+        ) { save(File(outbox, "delivered.json"), it) }
         // Every place holds it: the copy here is no longer needed.
         if (phoneHas && driveHas) {
             backup.delete()
