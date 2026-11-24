@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:expense_tracker/src/core/platform/bounded_https.dart';
 import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
+import 'package:expense_tracker/src/features/backup/model/restore_sources.dart'
+    show driveNote;
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/fake_drive.dart';
@@ -202,7 +204,7 @@ void main() {
         throwsA(
           isA<DriveException>()
               .having((e) => e.problem, 'problem', DriveProblem.offline)
-              .having((e) => e.message, 'message', '連不上 Google，請稍後再試'),
+              .having(driveNote, 'as said', '連不上 Google，請稍後再試'),
         ),
       );
     });
@@ -226,18 +228,16 @@ void main() {
       }
     });
 
-    test('a refusal carries Drive\'s own reason', () async {
+    test('a refusal carries Drive\'s own reason for the log, never for '
+        'the screen', () async {
       final refusing = _Refusing(403, '{"error":{"message":"Rate limit"}}');
       await expectLater(
         drive(refusing).list(),
         throwsA(
           isA<DriveException>()
               .having((e) => e.status, 'status', 403)
-              .having(
-                (e) => e.message,
-                'message',
-                'Google 雲端硬碟沒有接受（403 Rate limit）',
-              ),
+              .having((e) => e.detail, 'detail', '403 Rate limit')
+              .having(driveNote, 'as said', 'Google 雲端硬碟沒有接受這次的要求，可在診斷匯出詳細資料'),
         ),
       );
     });
@@ -265,11 +265,7 @@ void main() {
       await expectLater(
         drive(_Refusing(500, 'Server Error')).list(),
         throwsA(
-          isA<DriveException>().having(
-            (e) => e.message,
-            'message',
-            'Google 雲端硬碟沒有接受（500 ）',
-          ),
+          isA<DriveException>().having((e) => e.detail, 'detail', '500 '),
         ),
       );
     });
@@ -285,7 +281,7 @@ void main() {
         throwsA(
           isA<DriveException>()
               .having((e) => e.problem, 'problem', DriveProblem.notAllowed)
-              .having((e) => e.message, 'message', '沒有取得 Google 雲端硬碟的權限'),
+              .having(driveNote, 'as said', '沒有取得 Google 雲端硬碟的權限'),
         ),
       );
       expect(

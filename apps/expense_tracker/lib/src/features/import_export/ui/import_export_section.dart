@@ -190,7 +190,7 @@ class _ExportSheetState extends State<_ExportSheet> {
       if (saved) note('已下載$what');
     } on Object catch (error) {
       ErrorLog.instance.record('下載匯出檔', error);
-      note('下載失敗：${describeProblem(error)}');
+      note(problemNote('下載失敗', error));
     }
   }
 
