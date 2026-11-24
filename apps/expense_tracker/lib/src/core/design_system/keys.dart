@@ -79,6 +79,9 @@ abstract final class Keys {
   static const restoreFound = ValueKey('lock:restore-found');
   static const back = ValueKey('lock:back');
 
+  /// The unlock screen's 忘記密碼？.
+  static const forgot = ValueKey('lock:forgot');
+
   /// 安全: the password card, its 變更, and 現在鎖上.
   static const password = ValueKey('security:password');
   static const changePassword = ValueKey('security:change');

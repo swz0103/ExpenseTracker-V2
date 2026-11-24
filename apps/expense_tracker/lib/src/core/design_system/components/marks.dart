@@ -249,10 +249,15 @@ class Pill extends StatelessWidget {
     this.color = AppColors.accent,
     this.amount,
     this.hidden = false,
+    this.tinted = false,
   });
 
   final String text;
   final Color color;
+
+  /// Drawn as the design system's deep tint of [color]: on a tint of it,
+  /// in words a step deeper (lighter on the dark theme), 4.5:1 on both.
+  final bool tinted;
 
   /// An amount with a sign written in [text], read out with its
   /// direction in words rather than the sign ([readOut]); dots, read as
@@ -268,7 +273,7 @@ class Pill extends StatelessWidget {
         vertical: Space.half,
       ),
       decoration: BoxDecoration(
-        color: AppColors.glass,
+        color: tinted ? tintOf(color, 0.3) : AppColors.glass,
         borderRadius: BorderRadius.circular(Radii.small),
       ),
       child: Text(
@@ -279,7 +284,10 @@ class Pill extends StatelessWidget {
         },
         maxLines: 1,
         softWrap: false,
-        style: TextStyle(fontSize: TextSize.caption, color: color),
+        style: TextStyle(
+          fontSize: TextSize.caption,
+          color: tinted ? deepOf(color) : color,
+        ),
       ),
     );
   }

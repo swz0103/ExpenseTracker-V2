@@ -7,10 +7,9 @@ import '../support/places.dart';
 /// Some widgets trip over no time at all, as AnimatedSize did.
 void main() {
   testWidgets('every place opens with motion turned off', (tester) async {
-    for (final (name, taps) in places) {
-      await show(tester, 360, 1, still: true);
-      await go(tester, taps);
-      expect(tester.takeException(), isNull, reason: name);
+    for (final place in allPlaces) {
+      await place.open(tester, const Look(360, 1, still: true));
+      expect(tester.takeException(), isNull, reason: place.name);
     }
   });
 }

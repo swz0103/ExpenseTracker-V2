@@ -8,7 +8,7 @@ part 'seed_history.dart';
 /// holdings, with fifteen plainer months before them for the reports.
 // Exception to function length: the demo book's records, one or two
 // lines each; data, not steps to follow.
-Ledger demoLedger() {
+Ledger demoLedger({DateTime? today}) {
   final entries = <Entry>[];
   var serial = 0;
   void add(
@@ -204,7 +204,7 @@ Ledger demoLedger() {
   ]);
 
   return Ledger(
-    today: DateTime.utc(2026, 10, 4),
+    today: today ?? DateTime.utc(2026, 10, 4),
     // Closing prices of the Friday before.
     quotedOn: DateTime.utc(2026, 10, 2),
     // A sample of 臺灣銀行's board, so a foreign account can be tried.

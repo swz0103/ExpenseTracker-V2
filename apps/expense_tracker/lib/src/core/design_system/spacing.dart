@@ -18,4 +18,8 @@ abstract final class Space {
   static const s18 = 72.0;
   static const s20 = 80.0;
   static const s24 = 96.0;
+
+  /// The least a thing to tap is, high and wide (Android's 48 dp). The one
+  /// place the number is written; controls take it from here.
+  static const target = 48.0;
 }

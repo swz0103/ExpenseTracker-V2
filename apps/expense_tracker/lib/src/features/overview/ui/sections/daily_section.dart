@@ -374,10 +374,12 @@ class _DayCards extends StatelessWidget {
     if (entries.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: Space.s2),
-        child: Row(
+        // The button goes under the words when the text is large.
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             const Text('這天沒有紀錄', style: mutedText),
-            const Spacer(),
             TextButton(
               onPressed: onAdd,
               style: wordButton(AppColors.accent),

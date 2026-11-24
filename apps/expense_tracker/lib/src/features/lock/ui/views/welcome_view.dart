@@ -237,8 +237,10 @@ class _WelcomeViewState extends State<WelcomeView>
                     ),
             ),
             const SizedBox(height: Space.s2),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            // Wraps under the question when the text is large.
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Text('已經有帳本？', style: mutedText),
                 TextButton(
@@ -282,8 +284,10 @@ class _WelcomeViewState extends State<WelcomeView>
               onTap: widget.onRestoreFound,
             ),
             const SizedBox(height: Space.s2),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            // Wraps under the question when the text is large.
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Text('或', style: mutedText),
                 TextButton(
