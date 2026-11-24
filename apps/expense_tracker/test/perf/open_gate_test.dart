@@ -83,7 +83,7 @@ void main() {
         final ledger = await source.load();
         expect(ledger.entries.length, count);
       });
-      final (:us, :workerUs) = source.lastOpening!;
+      final (:us, :workerUs, split: _) = source.lastOpening!;
       openings.add(_Opening(us, workerUs!, held.heldUs));
     }
     double least(double Function(_Opening o) share) =>
