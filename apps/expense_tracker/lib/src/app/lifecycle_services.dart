@@ -129,6 +129,7 @@ final class LifecycleServices {
           withBackup: backupManager.withBackup<void>,
           revision: () => backupManager.revision,
           ledger: backupManager.ledgerId,
+          epoch: () => backupManager.backupEpoch,
           unmetered: androidUnmetered,
         )
       : null;

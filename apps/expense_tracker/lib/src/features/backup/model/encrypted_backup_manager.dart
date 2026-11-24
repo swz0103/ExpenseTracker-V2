@@ -101,6 +101,10 @@ final class EncryptedBackupManager implements BackupManager {
   /// is restored to.
   String get ledgerId => _vault.keys.keyring.id;
 
+  /// The backup key epoch backups are sealed with now: raised by a reset
+  /// of the keys (or a new backup key), so older ones can be told apart.
+  int get backupEpoch => _vault.keys.currentBackupEpoch;
+
   /// Writes a backup with the receipt photos where files wait to be handed
   /// over, gives it to [use], then deletes it.
   Future<T> withBackup<T>(
@@ -242,6 +246,10 @@ final class EncryptedBackupManager implements BackupManager {
       rethrow;
     }
   }
+
+  /// Every backup file the app keeps on the phone: the weekly ones and
+  /// the copies kept before a restore or an upgrade.
+  List<File> keptFiles() => [..._backups(), ..._startup.keptBeforeRestore()];
 
   /// The backups in [backupFolder], newest first; their names carry the
   /// time they were taken.

@@ -14,6 +14,9 @@ import 'lifecycle_services.dart';
 import 'load_failed_page.dart';
 import 'quarantine_notices.dart';
 import 'upgrade_held_page.dart';
+import '../../design_system/display/date.dart';
+import '../core/design_system/dialogs.dart';
+import '../features/backup/model/old_key_backups.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../core/ledger/persistence/quarantine.dart';
 import '../core/ledger/persistence/upgrade_backup.dart';
@@ -497,7 +500,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       if (code != null) {
         unawaited(
           reset
-              ? showRecoveryCode(context, code, why: KeyWords.resetDone)
+              ? _afterReset(code)
               : widget.startup.passwordless
               ? showRecoveryCode(
                   context,
@@ -517,6 +520,39 @@ class _OpenedLedgerState extends State<OpenedLedger>
     widget.lifecycle.detach(this);
     _services.dispose();
     super.dispose();
+  }
+
+  /// After a reset of the keys: the new recovery code, then the backups
+  /// still sealed with the old keys, offered to be taken away (D15).
+  Future<void> _afterReset(String code) async {
+    await showRecoveryCode(context, code, why: KeyWords.resetDone);
+    final drive = _services.drive;
+    final old = OldKeyBackups(
+      epoch: _services.backupManager.backupEpoch,
+      localFiles: _services.backupManager.keptFiles,
+      driveFiles: drive != null && drive.linked ? drive.backups : null,
+      trashOnDrive: drive?.trash,
+    );
+    final found = await old.find();
+    if (!mounted) return;
+    if (found.isEmpty) {
+      if (found.driveUnreached) showNote(context, KeyWords.oldBackupsUnreached);
+      return;
+    }
+    final sure = await confirm(
+      context,
+      KeyWords.oldBackupsTitle,
+      KeyWords.oldBackupsGo,
+      danger: true,
+      body: KeyWords.oldBackupsBody(
+        drive: [for (final f in found.drive) formatYMd(f.modified.toLocal())],
+        phone: [for (final (_, at) in found.local) formatYMd(at.toLocal())],
+        driveUnreached: found.driveUnreached,
+      ),
+    );
+    if (!sure) return;
+    final gone = await old.remove(found);
+    if (mounted) showNote(context, KeyWords.oldBackupsGone(gone));
   }
 
   /// Whether this opening of the ledger is still the open one and not

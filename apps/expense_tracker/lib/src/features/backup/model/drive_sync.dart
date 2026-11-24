@@ -19,6 +19,7 @@ final class DriveSync extends ChangeNotifier {
     required this._withBackup,
     required this._revision,
     required this._ledger,
+    this._epoch,
     this._unmetered,
     DateTime Function()? clock,
   }) : _clock = clock ?? AppClock.now;
@@ -35,6 +36,10 @@ final class DriveSync extends ChangeNotifier {
   /// The ledger's own id, marking its backups on Drive apart from those of
   /// another ledger kept in the same folder.
   final String _ledger;
+
+  /// The backup key epoch the backups are sealed with now, marking each
+  /// on Drive so those of keys since replaced can be found (D15).
+  final int Function()? _epoch;
 
   /// Whether the phone is on Wi-Fi: a backup with the photos carries
   /// every one, so it waits for one rather than spend mobile data.
@@ -91,6 +96,14 @@ final class DriveSync extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// This ledger's backups on Drive, newest first; never shows Google's
+  /// screens.
+  Future<List<DriveFile>> backups() =>
+      _drive.list(interactive: false, ledger: _ledger);
+
+  /// Moves the backup [id] to the Drive trash.
+  Future<void> trash(String id) => _drive.trash(id, interactive: false);
+
   /// Sends a backup now, asking Google's screens when needed.
   Future<void> backUpNow() => _send(interactive: true);
 
@@ -141,7 +154,12 @@ final class DriveSync extends ChangeNotifier {
       await _withBackup((file) {
         _stage = DriveStage.uploading;
         notifyListeners();
-        return _drive.upload(file, ledger: _ledger, interactive: interactive);
+        return _drive.upload(
+          file,
+          ledger: _ledger,
+          epoch: _epoch?.call(),
+          interactive: interactive,
+        );
       }, withPhotos: photos);
       _preferences.driveBackup(_clock(), revision);
       // Linked before the account was kept: learnt with the next backup.
