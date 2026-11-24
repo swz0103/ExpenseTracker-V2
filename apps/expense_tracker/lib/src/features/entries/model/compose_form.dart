@@ -10,14 +10,15 @@ import 'package:ledger_trade_costs/model/trade_values.dart' show TradeKind;
 import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/validation_messages.dart';
+import 'compose_form_refund.dart';
 import 'invoices.dart';
 import 'invoice_qr.dart';
 import '../../../core/ledger/trading.dart';
 import '../../../core/formatting/words.dart';
+export 'compose_form_refund.dart' show RefundFields;
 
 part 'compose_form_extras.dart';
 part 'compose_form_lending.dart';
-part 'compose_form_refund.dart';
 part 'compose_form_split.dart';
 part 'compose_form_trade.dart';
 part 'compose_form_transfer.dart';
@@ -545,7 +546,7 @@ final class ComposeForm {
   /// none, unless [wholeSplit], for its part to be checked.
   Entry build({bool wholeSplit = false}) {
     final kind = type;
-    final refund = _refundShare;
+    final refund = refundBeingWritten;
     final split = refund == null ? splitParts : refund.parts;
     final (tradeFee, tradeTax) = charges;
     return Entry(

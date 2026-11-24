@@ -1,4 +1,5 @@
-part of 'compose_form.dart';
+import '../../../core/ledger/ledger.dart';
+import 'compose_form.dart';
 
 /// What a refund being written gives back of its purchase, and the worth
 /// at home of a foreign entry.
@@ -9,13 +10,13 @@ extension RefundFields on ComposeForm {
   int? get homeValue {
     final typed = home;
     if (typed != null) return typed;
-    if (_refundShare?.home case final share?) return share;
+    if (refundBeingWritten?.home case final share?) return share;
     return ledger.marketData.toHome(amount, currency);
   }
 
   /// The spending the entry gives back: [refunded], or the one a refund
   /// being changed gives back; null for any other entry.
-  Entry? get _original {
+  Entry? get refundedPurchase {
     final opened = refunded;
     if (opened != null) return opened;
     final of = editing?.refundOf;
@@ -25,8 +26,8 @@ extension RefundFields on ComposeForm {
   /// What the refund being written gives back of its purchase, as the
   /// ledger's one rule shares it (`refundShare`: its worth, split and
   /// tags, D62, D65); null when it is no refund.
-  RefundShare? get _refundShare {
-    final original = _original;
+  RefundShare? get refundBeingWritten {
+    final original = refundedPurchase;
     if (original == null || type != EntryType.income) return null;
     return refundShare(
       original,
