@@ -819,15 +819,24 @@ void main() {
   test('an entry known by a tag\'s words is given its mark; the tags stay '
       '(D52)', () async {
     final s = open();
-    Map<String, Object?> entry(String id, String type, List<String> tags) => {
+    Map<String, Object?> entry(
+      String id,
+      String type,
+      List<String> tags, {
+      String account = 'a1',
+      String? note,
+    }) => {
       'id': id,
       'date': '2026-10-01',
       'type': type,
       'amount': 100,
-      'account': 'a1',
+      'account': account,
       'tags': tags,
+      'note': ?note,
       '_v': 2,
     };
+    // As the scanner and the import wrote an invoice's note.
+    const scanned = '拿鐵 發票 AB12345678';
     s.write((w) {
       w.put(
         'account',
@@ -836,14 +845,34 @@ void main() {
       );
       w.put('entry', 'r', jsonEncode(entry('r', 'income', ['回饋'])));
       w.put('entry', 'f', jsonEncode(entry('f', 'expense', ['年費'])));
-      w.put('entry', 'i', jsonEncode(entry('i', 'expense', ['發票', '家用'])));
+      w.put(
+        'account',
+        'b1',
+        jsonEncode({'id': 'b1', 'name': '銀行', 'kind': 'bank', 'opening': 0}),
+      );
+      w.put(
+        'entry',
+        'i',
+        jsonEncode(entry('i', 'expense', ['發票', '家用'], note: scanned)),
+      );
       w.put('entry', 'n', jsonEncode(entry('n', 'expense', ['回饋'])));
+      // Tagged by hand (r13 F7): not of the shape the app's pages wrote.
+      w.put(
+        'entry',
+        'hf',
+        jsonEncode(entry('hf', 'expense', ['年費'], account: 'b1')),
+      );
+      w.put(
+        'entry',
+        'hi',
+        jsonEncode(entry('hi', 'expense', ['發票'], note: '統一發票對獎')),
+      );
       w.put(
         'trash',
         't',
         jsonEncode({
           'on': '2026-10-03',
-          'entry': entry('t', 'expense', ['發票']),
+          'entry': entry('t', 'expense', ['發票'], note: scanned),
           '_v': 2,
         }),
       );
@@ -855,6 +884,10 @@ void main() {
     expect(ledger.entries.byId('i')!.tags, ['發票', '家用']);
     // Spending tagged 回饋 was never cashback.
     expect(ledger.entries.byId('n')!.mark, isNull);
+    // A fee off a card, an invoice tag on a note naming no number: the
+    // person's own tags, left unmarked.
+    expect(ledger.entries.byId('hf')!.mark, isNull);
+    expect(ledger.entries.byId('hi')!.mark, isNull);
     final trashed = rowsOf(store!, 'trash')['t']!['entry']! as Map;
     expect(trashed['mark'], 'invoice');
   });
