@@ -100,6 +100,18 @@ void main() {
     expect(editorOn('健身房'), findsOneWidget);
   });
 
+  testWidgets('訂閱與固定支出 says each item\'s share of the year as a whole '
+      'percent (review 16: percent call sites)', (tester) async {
+    await show(tester, 360, 1, height: 1200, book: planned());
+    await go(tester, ['更多', '定期交易', '固定支出/年 ›']);
+    // A year: rent 12,000 × 12 = 144,000, gym 800 × 12 = 9,600, the
+    // insurance 6,000; 159,600 in all. 144,000 / 159,600 = 90.2% → 90%;
+    // 9,600 / 159,600 = 6.0% → 6%; 6,000 / 159,600 = 3.76% → 4%.
+    expect(find.textContaining('佔 90%'), findsOneWidget);
+    expect(find.textContaining('佔 6%'), findsOneWidget);
+    expect(find.textContaining('佔 4%'), findsOneWidget);
+  });
+
   testWidgets('a row of 訂閱與固定支出 opens its item to edit (1.5-11)', (
     tester,
   ) async {

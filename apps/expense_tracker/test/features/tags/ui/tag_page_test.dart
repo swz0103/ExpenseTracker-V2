@@ -76,6 +76,28 @@ void main() {
     expect(find.byKey(Keys.discard), findsOneWidget, reason: 'the entry');
   });
 
+  testWidgets('a tag\'s categories are each said as a whole percent of '
+      'what it spent (review 16: percent call sites)', (tester) async {
+    ledger = book()
+      ..entryCommands.add(
+        Entry(
+          id: 'trip-3',
+          date: DateTime.utc(2026, 9, 21),
+          type: EntryType.expense,
+          amount: 1100,
+          account: 'bank',
+          category: '居家生活',
+          tags: const ['旅行'],
+        ),
+      );
+    await show(tester, 390, 1, book: ledger);
+    await go(tester, ['更多', '標籤與商家', '#旅行']);
+    // 2,400 + 900 = 3,300 on 交通通勤 and 1,100 on 居家生活, of 4,400:
+    // 75% and 25%.
+    expect(find.text('交通通勤 75%'), findsOneWidget);
+    expect(find.text('居家生活 25%'), findsOneWidget);
+  });
+
   testWidgets('改名 a tag moves its entries to the new name, a # typed '
       'before it left out', (tester) async {
     await open(tester, ['#旅行']);
