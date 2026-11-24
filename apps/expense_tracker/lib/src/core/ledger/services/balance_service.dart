@@ -100,23 +100,11 @@ final class BalanceService {
     return total + running.until(end);
   }
 
-  /// The entries paid from or into each account, oldest day first: one
-  /// pass over the book in date order, shared by every account asked
-  /// about, so no account's entries need sorting.
-  Map<String, List<Entry>> _touching() => _cache.remember('touching', () {
-    final by = <String, List<Entry>>{};
-    for (final e in _entries.byDate) {
-      (by[e.account] ??= []).add(e);
-      final to = e.to;
-      if (to != null && to != e.account) (by[to] ??= []).add(e);
-    }
-    return by;
-  });
-
   /// The entries paid from or into [account], newest first: from the
-  /// index the balances keep, rather than a pass over every entry.
+  /// index the entries keep by account, rather than a pass over every
+  /// entry.
   List<Entry> entriesOf(String account) =>
-      List.unmodifiable((_touching()[account] ?? const <Entry>[]).reversed);
+      List.unmodifiable(_entries.ofAccount(account).reversed);
 
   /// What came into [account] and what left it in [month] (the month of
   /// that day), each as a positive amount in its currency, as of today:
@@ -131,8 +119,10 @@ final class BalanceService {
         var outflow = 0;
         final first = DateTime.utc(month.year, month.month);
         final last = DateTime.utc(month.year, month.month + 1, 0);
-        for (final (day, change) in _runningOf(account).changes) {
-          if (day.isBefore(first) || day.isAfter(last)) continue;
+        for (final (day, change) in _runningOf(account).changesIn(
+          first,
+          last,
+        )) {
           if (!countsOn(day, today)) continue;
           if (change > 0) {
             inflow += change;
@@ -173,7 +163,7 @@ final class BalanceService {
     // Instalments, each billed when its statement closes: few, and out of
     // the entries' order, so sorted apart and merged in.
     final steps = <(int, int)>[];
-    for (final e in _touching()[id] ?? const <Entry>[]) {
+    for (final e in _entries.ofAccount(id)) {
       final from = e.account == id;
       final into = e.type == EntryType.transfer && e.to == id;
       if (!from && !into) continue;
@@ -348,16 +338,32 @@ final class _Running {
   final days = <int>[];
   final totals = <int>[];
 
-  /// Each change's day and amount, in order.
-  Iterable<(DateTime, int)> get changes sync* {
-    var before = 0;
-    for (var i = 0; i < days.length; i++) {
+  /// Each change's day and amount from [first] to [last], both days
+  /// included, in order: found by a search, not a pass over every change.
+  Iterable<(DateTime, int)> changesIn(DateTime first, DateTime last) sync* {
+    final from = _firstAtOrAfter(first.microsecondsSinceEpoch);
+    final to = _firstAtOrAfter(last.microsecondsSinceEpoch + 1);
+    for (var i = from; i < to; i++) {
       yield (
         DateTime.fromMicrosecondsSinceEpoch(days[i], isUtc: true),
-        totals[i] - before,
+        totals[i] - (i == 0 ? 0 : totals[i - 1]),
       );
-      before = totals[i];
     }
+  }
+
+  /// The place of the first change on or after [day] (microseconds).
+  int _firstAtOrAfter(int day) {
+    var low = 0;
+    var high = days.length;
+    while (low < high) {
+      final middle = (low + high) >> 1;
+      if (days[middle] < day) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    return low;
   }
 
   /// The change of the entries that count on [day] ([countsOn]): those

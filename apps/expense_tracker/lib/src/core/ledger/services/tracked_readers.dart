@@ -89,6 +89,30 @@ final class TrackedEntryReader implements EntryReader {
     _cache.noteReads(_topics);
     return _inner.refundsOf(id);
   }
+
+  @override
+  Iterable<List<Entry>> get newestMonths {
+    _cache.noteReads(_topics);
+    return _inner.newestMonths;
+  }
+
+  @override
+  List<Entry> ofAccount(String account) {
+    _cache.noteReads(_topics);
+    return _inner.ofAccount(account);
+  }
+
+  @override
+  List<Entry> inGroup(String group) {
+    _cache.noteReads(_topics);
+    return _inner.inGroup(group);
+  }
+
+  @override
+  List<Entry> written(Iterable<Entry> some) {
+    _cache.noteReads(_topics);
+    return _inner.written(some);
+  }
 }
 
 /// A [AccountReader] that tells [QueryCache] it was read.

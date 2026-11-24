@@ -1,7 +1,9 @@
 import 'package:core/foundation_values.dart' show Currency;
-import 'package:core/money/amount_format.dart' show figures;
+import 'package:core/money/amount_format.dart' as amount_format
+    show figures;
 
 import '../cache/query_cache.dart';
+import '../cache/topic.dart';
 import 'tracked_readers.dart';
 import '../models/models.dart';
 import '../repositories/account_repository.dart';
@@ -37,38 +39,65 @@ final class EntryQueryService {
 
   /// Entries of any month whose note, merchant, category or tags hold
   /// [words], or whose amount is [words]; newest first.
-  List<Entry> search(String words) =>
-      _cache.remember(('search', words), () => _search(words));
+  List<Entry> search(String words) => _cache.remember(
+    ('search', words),
+    () => _search(words),
+    reads: const {Topic.entries, Topic.accounts},
+  );
+
+  /// The words last searched for and what they found.
+  (String, List<Entry>)? _last;
+
+  /// Each month's search text, kept with the month's list it was made
+  /// from: a change makes a new list of the months it touches only, so a
+  /// search after a save works out the text of those months alone.
+  static final _texts = Expando<_MonthText>('searchText');
 
   List<Entry> _search(String words) {
     final lower = words.toLowerCase();
-    // Each entry's words, lower-cased once per change.
-    final texts = _cache.remember(
-      'searchText',
+    final last = _last;
+    final List<Entry> found;
+    if (last != null &&
+        _cache.readsOf(('search', last.$1)) != null &&
+        lower.contains(last.$1.toLowerCase()) &&
+        !_amountLike.hasMatch(words)) {
+      // Typing on, with nothing changed since: whatever text holds the
+      // longer words holds the words before, and these cannot be an
+      // amount, so what they find is among what those found.
+      found = [
+        for (final e in last.$2)
+          if (_wordsOf(e).contains(lower)) e,
+      ];
+    } else {
+      // Each account's currency, looked up once rather than per entry.
+      final currencies = {for (final a in _accounts.all) a.id: a.currency};
+      final scales = [
+        for (final MapEntry(:key, :value) in currencies.entries)
+          '$key:${Currency.scaleOf(value)}',
+      ].join('\n');
+      found = [];
       // Exception to as-of-today: a search runs over every entry written.
-      () => [for (final e in _entries.all) _wordsOf(e)],
-    );
-    // Each account's currency, looked up once rather than per entry.
-    final currencies = {for (final a in _accounts.all) a.id: a.currency};
-    final found = [
-      // Exception to as-of-today: a search runs over every entry written.
-      for (final (i, e) in _entries.all.indexed)
-        if (texts[i].contains(lower) ||
-            '${e.amount}' == words ||
-            figures(
-                  e.amount,
-                  Currency.scaleOf(currencies[e.account] ?? homeCode),
-                  grouped: false,
-                ) ==
-                words)
-          (i, e),
-    ];
-    found.sort((a, b) {
-      final byDate = b.$2.date.compareTo(a.$2.date);
-      return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
-    });
-    return [for (final (_, e) in found) e];
+      // Newest month first, each newest first: the order shown.
+      for (final month in _entries.newestMonths) {
+        var text = _texts[month];
+        if (text == null || text.scales != scales) {
+          text = _texts[month] = _MonthText(month, currencies, scales);
+        }
+        for (var i = 0; i < month.length; i++) {
+          if (text.words[i].contains(lower) ||
+              text.amounts[i] == words ||
+              text.figures[i] == words) {
+            found.add(month[i]);
+          }
+        }
+      }
+    }
+    _last = (words, found);
+    return found;
   }
+
+  /// Words that could be an amount as written, in whole or with decimals.
+  static final _amountLike = RegExp(r'^[\d.,\-−]*$');
 
   /// Known merchants, most used first: a 預定 entry is a use once its
   /// day comes ([countsOn]), and its merchant is known from the start.
@@ -175,23 +204,14 @@ final class EntryQueryService {
   List<Entry> groupOf(Entry entry) {
     final group = entry.group;
     if (group == null) return [entry];
-    final all = _cache.remember('groups', () {
-      final groups = <String, List<Entry>>{};
-      // Exception to as-of-today: a group's members are looked up, 預定 or not.
-      for (final e in _entries.all) {
-        final key = e.group;
-        if (key != null) (groups[key] ??= []).add(e);
-      }
-      for (final members in groups.values) {
-        members.sort(
-          (a, b) => (a.type == EntryType.expense ? 0 : 1).compareTo(
-            b.type == EntryType.expense ? 0 : 1,
-          ),
-        );
-      }
-      return groups;
-    });
-    return all[group] ?? [entry];
+    // Exception to as-of-today: a group's members are looked up, 預定 or not.
+    final members = _entries.inGroup(group);
+    if (members.isEmpty) return [entry];
+    return [...members]..sort(
+      (a, b) => (a.type == EntryType.expense ? 0 : 1).compareTo(
+        b.type == EntryType.expense ? 0 : 1,
+      ),
+    );
   }
 
   /// The entry that stands for its group in a list: the spending, or the
@@ -216,4 +236,27 @@ final class EntryQueryService {
   /// How much of [original] is left to refund.
   int refundable(Entry original) =>
       original.amount - _entries.refundedTotal(original.id);
+}
+
+/// A month's entries as a search reads them, in the month's order: each
+/// one's words lower-cased, and its amount written plainly and in its
+/// currency's figures, worked out once for the month's list.
+final class _MonthText {
+  _MonthText(List<Entry> month, Map<String, String> currencies, this.scales)
+    : words = [for (final e in month) EntryQueryService._wordsOf(e)],
+      amounts = [for (final e in month) '${e.amount}'],
+      figures = [
+        for (final e in month)
+          amount_format.figures(
+            e.amount,
+            Currency.scaleOf(currencies[e.account] ?? homeCode),
+            grouped: false,
+          ),
+      ];
+
+  /// The accounts' currencies' scales the figures were written in.
+  final String scales;
+  final List<String> words;
+  final List<String> amounts;
+  final List<String> figures;
 }

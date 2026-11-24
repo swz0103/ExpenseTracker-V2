@@ -224,15 +224,14 @@ final class EntryCommands {
   /// undo; none when taking them away would leave a later sale short of
   /// shares, which is told through [CommandContext.problem].
   List<Entry> removeAll(Iterable<String> ids) {
-    final wanted = {...ids};
-    final removed = <(int, Entry)>[
-      // Exception to as-of-today: entries are removed by id.
-      for (final (i, e) in _entries.all.indexed)
-        if (wanted.contains(e.id)) (i, e),
+    // Found by id and taken away one by one, which the entries' indexes
+    // follow: the balances of the accounts left untouched stand.
+    final found = [
+      for (final id in {...ids}) ?_entries.byId(id),
     ];
-    if (removed.isEmpty) return const [];
-    final skipping = _skipping([for (final (_, e) in removed) e]);
-    _entries.removeWhere((e) => wanted.contains(e.id));
+    if (found.isEmpty) return const [];
+    final skipping = _skipping(_entries.written(found));
+    final removed = _entries.removeEach(found);
     if (!_tryReplay(() {
       for (final (i, e) in removed) {
         _entries.insert(i, e);

@@ -83,7 +83,7 @@ final class StatementService {
   int _statementDue(Account card) {
     final (_, end, _) = statement(card);
     var paid = 0;
-    for (final e in countedOn(_entries.all, _today())) {
+    for (final e in countedOn(_after(card, end), _today())) {
       if (e.type == EntryType.transfer &&
           e.to == card.id &&
           e.date.isAfter(end)) {
@@ -109,10 +109,29 @@ final class StatementService {
       EntryType.expense => e.installments < 2,
       _ => false,
     };
-    return [
-      for (final e in countedOn(_entries.all, _today()))
-        if (e.account == card.id && posted(e) && e.date.isAfter(end)) e,
-    ]..sort((a, b) => b.date.compareTo(a.date));
+    // In the order written before the sort, as a pass over the book
+    // found them.
+    return _entries.written([
+      for (final e in countedOn(_after(card, end), _today()))
+        if (e.account == card.id && posted(e)) e,
+    ])..sort((a, b) => b.date.compareTo(a.date));
+  }
+
+  /// The entries paid from or into [card] after [end]: from the index
+  /// the entries keep by account, the days before found by a search.
+  List<Entry> _after(Account card, DateTime end) {
+    final entries = _entries.ofAccount(card.id);
+    var low = 0;
+    var high = entries.length;
+    while (low < high) {
+      final middle = (low + high) >> 1;
+      if (entries[middle].date.isAfter(end)) {
+        high = middle;
+      } else {
+        low = middle + 1;
+      }
+    }
+    return entries.sublist(low);
   }
 
   /// Purchases on [card] still being paid in instalments, of those that
@@ -121,13 +140,14 @@ final class StatementService {
   List<Entry> instalmentsOn(Account card) => _cache.remember(
     reads: _cardTopics,
     ('instalments', card.id, closedBy, _today()),
-    () => [
-      for (final e in countedOn(_entries.all, _today()))
+    // In the order written, as a pass over the book found them.
+    () => _entries.written([
+      for (final e in countedOn(_entries.ofAccount(card.id), _today()))
         if (e.account == card.id &&
             e.installments > 1 &&
             _balances.stillToBill(e) > 0)
           e,
-    ],
+    ]),
   );
 }
 
