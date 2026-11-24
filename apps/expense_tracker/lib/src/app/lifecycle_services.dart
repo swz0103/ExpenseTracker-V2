@@ -205,9 +205,9 @@ final class LifecycleServices {
       today: () => ledger.today,
       historyDir: Directory('${_directory.path}/prices'),
     );
-    unawaited(market.refresh());
-    unawaited(_followMarket());
-    unawaited(weeklyBackup());
+    _beside(market.refresh());
+    _beside(_followMarket());
+    _beside(weeklyBackup());
     if (android && canSelfUpdate) {
       try {
         _update = AppUpdate(
@@ -215,7 +215,7 @@ final class LifecycleServices {
           preferences,
           cache: await androidCacheDirectory(),
         );
-        unawaited(checkUpdate());
+        _beside(checkUpdate());
       } on Object catch (error) {
         ErrorLog.instance.record(UpdateMessages.checkStep, error);
       }
@@ -223,6 +223,27 @@ final class LifecycleServices {
     calendar?.follow(reminderBookOf(ledger));
     notifier?.follow(reminderBookOf(ledger));
     _homeWidget?.follow(widgetBookOf(ledger));
+  }
+
+  /// What [start] and [resumed] left running (the weekly backup, the
+  /// prices, the look for a newer version, the phone's folder): done when
+  /// all of it is. Each records its own failures; one it let through
+  /// fails this too.
+  Future<void> get settled async {
+    while (_running.isNotEmpty) {
+      final now = List.of(_running);
+      _running.clear();
+      await Future.wait(now);
+    }
+  }
+
+  final _running = <Future<void>>[];
+
+  /// Runs [work] beside the app, without waiting for it, kept for
+  /// [settled].
+  void _beside(Future<void> work) {
+    _running.add(work);
+    unawaited(work);
   }
 
   /// What the market's background job fetches while the app is closed:
@@ -264,10 +285,10 @@ final class LifecycleServices {
   /// looked for again, and what the background job did is noted.
   void resumed() {
     _market?.refresh().ignore();
-    unawaited(checkUpdate());
+    _beside(checkUpdate());
     if (_ledger != null) {
       collectOutbox();
-      unawaited(phoneBackup());
+      _beside(phoneBackup());
     }
   }
 
