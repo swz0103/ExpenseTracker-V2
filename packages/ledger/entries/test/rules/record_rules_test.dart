@@ -101,6 +101,13 @@ void main() {
       ]);
       expect(accountShapeIssues(opening: -99999999999), isEmpty);
     });
+    test('D116: a loan rate below nothing is refused, written or read back; '
+        'no interest is kept', () {
+      expect(_types(accountIssues(loanRate: -1)), [NegativeLoanRate]);
+      expect(_types(accountShapeIssues(loanRate: -215)), [NegativeLoanRate]);
+      expect(accountIssues(loanRate: 0), isEmpty);
+      expect(accountShapeIssues(loanRate: 215), isEmpty);
+    });
     test('read back, the name is not asked for', () {
       expect(accountShapeIssues(), isEmpty);
       expect(_types(accountShapeIssues(closingDay: 0)), [ClosingDayOutOfRange]);

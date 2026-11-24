@@ -264,6 +264,11 @@ final class NegativeCreditLimit extends RecordIssue {
   const NegativeCreditLimit();
 }
 
+/// A loan's yearly rate below nothing (D116).
+final class NegativeLoanRate extends RecordIssue {
+  const NegativeLoanRate();
+}
+
 /// A statement close moved where the card's schedule cannot hold it:
 /// more than a week from its scheduled day, or not before its payment.
 final class CloseMoveRefused extends RecordIssue {

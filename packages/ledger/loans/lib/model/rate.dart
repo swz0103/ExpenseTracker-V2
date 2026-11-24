@@ -14,6 +14,16 @@ int? rateOf(String typed) {
   return hundredths > 10000 ? null : hundredths;
 }
 
+/// A rate as typed, kept with its sign: 「-2」 is -200, so the write rules
+/// can refuse it (D116) rather than take it for no rate. Null where
+/// [rateOf] is, past the sign.
+int? signedRateOf(String typed) {
+  final trimmed = typed.trim();
+  if (!trimmed.startsWith('-')) return rateOf(trimmed);
+  final rate = rateOf(trimmed.substring(1));
+  return rate == null ? null : -rate;
+}
+
 /// A rate in hundredths of a percent as the form shows it: 215 as 2.15.
 String rateText(int? rate) {
   if (rate == null) return '';

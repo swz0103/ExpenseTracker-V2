@@ -153,6 +153,38 @@ void main() {
     },
   );
 
+  group('D116: a loan rate below nothing is refused', () {
+    AccountForm loan(Ledger ledger, String rate, {Account? old}) =>
+        AccountForm(ledger, old: old)
+          ..kind = AccountKind.loan
+          ..name = '房貸'
+          ..principal = '1,000,000'
+          ..months = '240'
+          ..rate = rate;
+
+    test('entered, it is said and nothing is kept', () {
+      final ledger = book();
+      final form = loan(ledger, '-2');
+      expect(form.problem, '利率不能是負數');
+      expect(form.save(), isFalse);
+      expect(ledger.accounts.all.map((a) => a.id), ['bank', 'card']);
+    });
+
+    test('edited, the loan keeps the rate it had', () {
+      final ledger = book();
+      expect(loan(ledger, '2').save(), isTrue);
+      final kept = ledger.accounts.all.last;
+      final form = loan(ledger, '-1.5', old: kept);
+      expect(form.problem, '利率不能是負數');
+      expect(form.save(), isFalse);
+      expect(ledger.accounts.all.last.loan?.rate, 200);
+    });
+
+    test('-0 is no interest, and is kept', () {
+      expect(loan(book(), '-0').problem, isNull);
+    });
+  });
+
   test('a loan keeps its terms, and owes its amount when nothing else is '
       'typed', () {
     final ledger = book();

@@ -36,31 +36,41 @@ List<RecordIssue> recurringShapeIssues({
 ];
 
 /// Why an account of these fields cannot be kept: no name, a card's days
-/// outside the month, a credit limit below nothing. A form that does not
-/// ask for the name passes none.
+/// outside the month, a credit limit or a loan's [loanRate] below
+/// nothing. A form that does not ask for the name passes none.
 List<RecordIssue> accountIssues({
   String? name,
   int? closingDay,
   int? dueDay,
   int? limit,
+  int? loanRate,
 }) => [
   if (name != null && name.trim().isEmpty) const BlankName(),
-  ...accountShapeIssues(closingDay: closingDay, dueDay: dueDay, limit: limit),
+  ...accountShapeIssues(
+    closingDay: closingDay,
+    dueDay: dueDay,
+    limit: limit,
+    loanRate: loanRate,
+  ),
 ];
 
 /// [accountIssues] less the name: what an account read back from
 /// elsewhere must be. Its [opening] balance, when given, may be below
-/// nothing (a debt), but no further from it than the most kept.
+/// nothing (a debt), but no further from it than the most kept. A loan's
+/// [loanRate] (hundredths of a percent a year) is never below nothing
+/// (D116).
 List<RecordIssue> accountShapeIssues({
   int? closingDay,
   int? dueDay,
   int? limit,
   int? opening,
+  int? loanRate,
 }) => [
   if (closingDay != null && (closingDay < 1 || closingDay > 31))
     const ClosingDayOutOfRange(),
   if (dueDay != null && (dueDay < 1 || dueDay > 31)) const DueDayOutOfRange(),
   if (limit != null && limit < 0) const NegativeCreditLimit(),
+  if (loanRate != null && loanRate < 0) const NegativeLoanRate(),
   if ((limit != null && limit > maxAmountAnyCurrency) ||
       (opening != null && opening.abs() > maxAmountAnyCurrency))
     AmountTooLarge(maxAmountAnyCurrency),
