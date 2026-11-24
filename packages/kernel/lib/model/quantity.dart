@@ -8,9 +8,11 @@ final BigInt quantityScale = BigInt.from(10).pow(12);
 /// The largest quantity kept: whole units as many as a 64-bit integer
 /// holds, which is as many as the app's own counts of shares (an `int`)
 /// can be. A file keeps a quantity as its whole units and its parts.
-final BigInt maxQuantity = BigInt.from(_maxInt) * quantityScale;
+final BigInt maxQuantity = _maxInt * quantityScale;
 
-const _maxInt = 9223372036854775807;
+/// The largest 64-bit integer, 2^63 − 1, built as a [BigInt]: as an `int`
+/// literal it cannot be written exactly on the web (the preview build).
+final BigInt _maxInt = (BigInt.one << 63) - BigInt.one;
 
 /// No quantity: a line of money.
 final BigInt noQuantity = BigInt.zero;

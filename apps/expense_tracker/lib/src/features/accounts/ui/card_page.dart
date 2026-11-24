@@ -253,9 +253,9 @@ class CardPage extends StatelessWidget {
       color: AppColors.positive,
       icon: Glyph.sparkle,
       label: '今年回饋',
-      value: ledger.money(card.taggedThisYear('回饋', EntryType.income)),
+      value: ledger.money(card.markedThisYear(EntryMark.reward)),
       valueColor: AppColors.positive,
-      sub: '本期 ${ledger.money(card.taggedSinceClose('回饋', EntryType.income))}',
+      sub: '本期 ${ledger.money(card.markedSinceClose(EntryMark.reward))}',
       trailing: const GlyphIcon(Glyph.add, size: 16),
       onTap: () => nav.compose(
         type: EntryType.income,
@@ -266,7 +266,7 @@ class CardPage extends StatelessWidget {
       color: AppColors.negative,
       icon: Glyph.ticket,
       label: '今年年費',
-      value: ledger.money(card.taggedThisYear('年費', EntryType.expense)),
+      value: ledger.money(card.markedThisYear(EntryMark.annualFee)),
       trailing: const GlyphIcon(Glyph.add, size: 16),
       onTap: () => nav.compose(
         type: EntryType.expense,

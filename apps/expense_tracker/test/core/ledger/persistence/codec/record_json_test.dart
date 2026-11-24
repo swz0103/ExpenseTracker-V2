@@ -270,4 +270,28 @@ void main() {
       [('c1', 100)],
     );
   });
+
+  group('D52: an entry\'s mark', () {
+    Map<String, Object?> row(Object? mark) => {
+      'id': 'r',
+      'date': '2026-10-04',
+      'type': 'income',
+      'amount': 40,
+      'account': 'card',
+      'mark': ?mark,
+    };
+    test('is read back as written', () {
+      final reward = entryFromJson(row('reward'));
+      expect(reward.mark, EntryMark.reward);
+      expect(entryToJson(reward)['mark'], 'reward');
+    });
+    test('none is kept as no field; one this version does not know reads '
+        'as none', () {
+      expect(
+        entryToJson(entryFromJson(row(null))).containsKey('mark'),
+        isFalse,
+      );
+      expect(entryFromJson(row('later')).mark, isNull);
+    });
+  });
 }

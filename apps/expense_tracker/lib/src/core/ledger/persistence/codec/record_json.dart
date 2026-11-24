@@ -171,56 +171,52 @@ Map<String, Object?> entryToJson(Entry e, [CategoryRefs? refs]) => {
   'home': ?e.home,
   'received': ?e.received,
   'group': ?e.group,
+  'mark': ?e.mark?.name,
 };
 
 /// The entry [entryToJson] wrote.
-Entry entryFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
-    _read(() {
-      final type = EntryType.values.byName(_need(json, 'type'));
-      return _entryOf(json, refs, type);
-    });
-
-/// The entry of [type] [json] holds.
-Entry _entryOf(Map<String, Object?> json, CategoryRefs? refs, EntryType type) =>
-    Entry(
-      id: _need(json, 'id'),
-      date: _date(_need(json, 'date')),
-      type: type,
-      amount: _int(json['amount']),
-      account: _need(json, 'account'),
-      category: _refName(json, 'category', refs) ?? '',
-      note: _text(json, 'note') ?? '',
-      to: _text(json, 'to'),
-      holding: _text(json, 'holding'),
-      shares: _int(json['shares']),
-      recurring: _text(json, 'recurring'),
-      merchant: _text(json, 'merchant') ?? '',
-      tags: [for (final t in _list(json, 'tags') ?? const []) t! as String],
-      parts: [
-        for (final p in _list(json, 'parts') ?? const [])
-          if (p case {'amount': final int amount}
-              when p is Map<String, Object?>)
-            (
-              _refName(p, 'name', refs, idKey: 'categoryId') ??
-                  (throw const FormatException('parts')),
-              amount,
-            )
-          else
-            throw const FormatException('parts'),
-      ],
-      fee: _int(json['fee']),
-      tax: _int(json['tax']),
-      refundOf: _text(json, 'refundOf'),
-      installments: _int(json['installments']),
-      average: json['average'] == true,
-      split: json['split'] == true,
-      // Only a sale is a day trade: an older version that kept the field
-      // of a sale it changed into something else left it behind.
-      dayTrade: json['dayTrade'] == true && json['type'] == EntryType.sell.name,
-      home: _maybe(json['home']),
-      received: _maybe(json['received']),
-      group: _text(json, 'group'),
-    );
+Entry entryFromJson(Map<String, Object?> json, [CategoryRefs? refs]) => _read(
+  () => Entry(
+    id: _need(json, 'id'),
+    date: _date(_need(json, 'date')),
+    type: EntryType.values.byName(_need(json, 'type')),
+    amount: _int(json['amount']),
+    account: _need(json, 'account'),
+    category: _refName(json, 'category', refs) ?? '',
+    note: _text(json, 'note') ?? '',
+    to: _text(json, 'to'),
+    holding: _text(json, 'holding'),
+    shares: _int(json['shares']),
+    recurring: _text(json, 'recurring'),
+    merchant: _text(json, 'merchant') ?? '',
+    tags: [for (final t in _list(json, 'tags') ?? const []) t! as String],
+    parts: [
+      for (final p in _list(json, 'parts') ?? const [])
+        if (p case {'amount': final int amount} when p is Map<String, Object?>)
+          (
+            _refName(p, 'name', refs, idKey: 'categoryId') ??
+                (throw const FormatException('parts')),
+            amount,
+          )
+        else
+          throw const FormatException('parts'),
+    ],
+    fee: _int(json['fee']),
+    tax: _int(json['tax']),
+    refundOf: _text(json, 'refundOf'),
+    installments: _int(json['installments']),
+    average: json['average'] == true,
+    split: json['split'] == true,
+    // Only a sale is a day trade: an older version that kept the field
+    // of a sale it changed into something else left it behind.
+    dayTrade: json['dayTrade'] == true && json['type'] == EntryType.sell.name,
+    home: _maybe(json['home']),
+    received: _maybe(json['received']),
+    group: _text(json, 'group'),
+    // A mark a later version knows and this one does not reads as none.
+    mark: EntryMark.values.asNameMap()[json['mark']],
+  ),
+);
 
 Map<String, Object?> budgetToJson(Budget b, [CategoryRefs? refs]) => {
   ..._ref('category', b.category, refs),

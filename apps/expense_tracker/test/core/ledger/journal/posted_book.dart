@@ -39,6 +39,8 @@ Future<PostedBook> post(Ledger ledger, {PostingStore? into}) async {
     accounts: ledger.accounts.all,
     categories: ledger.categories.all,
     start: (ledger.holdings as HoldingRepository).start,
+    entryById: ledger.entries.byId,
+    refundsOf: ledger.entries.refundsOf,
   );
   final kept = [
     for (final (i, e) in ledger.entries.all.indexed) (entry: e, seq: i + 1),

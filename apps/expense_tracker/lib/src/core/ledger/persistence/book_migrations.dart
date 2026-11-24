@@ -1,7 +1,11 @@
+// Exception to ledger words: the tags earlier versions identified
+// cashback, an annual fee and an e-invoice by, read once by book step 4.
 import 'dart:convert';
 import 'dart:math' show max;
 
 import 'package:core/foundation_values.dart' show PublicId;
+import 'package:ledger_entries/model.dart' show Entry, EntryMark, EntryType;
+import 'package:ledger_entries/rules.dart' show refundShare;
 import 'package:storage/storage.dart';
 
 import 'codec/category_refs.dart';
@@ -30,7 +34,12 @@ typedef BookStep = void Function(EncryptedDatabase store, RowWriter writer);
 /// `bookSteps[n]` brings a book at version n to n + 1. A change across
 /// the records of a book adds a step at the end; a step is never changed
 /// once released, since books already through it will not run it again.
-const List<BookStep> bookSteps = [_categoryIds, _namesToIds];
+const List<BookStep> bookSteps = [
+  _categoryIds,
+  _namesToIds,
+  _refundsMirrorPurchases,
+  _marksFromTags,
+];
 
 /// The version this app brings every book it opens up to.
 final bookVersion = bookSteps.length;
@@ -140,6 +149,160 @@ void _namesToIds(EncryptedDatabase store, RowWriter w) {
     }
   }
 }
+
+/// Version 2 to 3: a refund of a split purchase kept without a split is
+/// given its share of each part, and a refund kept without tags the
+/// purchase's tags, as every refund is written since D65 (the ledger's
+/// one rule, `refundShare`): a purchase refunded in full then leaves no
+/// category and no tag total behind. The refunds of a purchase are
+/// shared in the order the book keeps them; a tag the refund was given
+/// itself is left as it is. A refund whose purchase is not kept, or
+/// cannot be read, stays as it was.
+void _refundsMirrorPurchases(EncryptedDatabase store, RowWriter w) {
+  final shelf = Collection.entry.name;
+  final rows = store.rows(shelf: shelf);
+  final byId = <String, Map<String, Object?>>{};
+  for (final row in rows) {
+    final json = readableRecord(row.body);
+    if (json case {'id': final String id}) byId[id] = json;
+  }
+  // What each purchase's refunds gave back so far, as the rule reads them.
+  final earlier = <String, List<Entry>>{};
+  for (final row in rows) {
+    final json = readableRecord(row.body);
+    if (json == null || json['type'] != EntryType.income.name) continue;
+    final of = json['refundOf'];
+    if (of is! String) continue;
+    final original = byId[of];
+    final amount = json['amount'];
+    if (original == null || amount is! int) continue;
+    if (original['type'] != EntryType.expense.name) continue;
+    final purchase = _keyed(original);
+    if (purchase == null) continue;
+    final kept = earlier.putIfAbsent(of, () => []);
+    final share = refundShare(purchase, amount, earlier: kept);
+    final ownParts = json['parts'];
+    final ownTags = json['tags'];
+    final next = {...json};
+    var changed = false;
+    if ((ownParts is! List || ownParts.isEmpty) && share.parts.isNotEmpty) {
+      for (final key in _categoryKeys) {
+        next.remove(key);
+      }
+      next.addAll(_unkey(share.category, entry: true));
+      next['parts'] = [
+        for (final (key, value) in share.parts)
+          {..._unkey(key, entry: false), 'amount': value},
+      ];
+      changed = true;
+    }
+    if ((ownTags is! List || ownTags.isEmpty) && share.tags.isNotEmpty) {
+      next['tags'] = share.tags;
+      changed = true;
+    }
+    // The refund as it now stands, for the next refund of the purchase.
+    if (_keyed(next) case final mine?) kept.add(mine);
+    if (changed) w.put(shelf, row.id, jsonEncode(next));
+  }
+}
+
+/// Version 3 to 4: an entry the app identified by a tag's words is given
+/// its mark (D52), so a tag renamed changes no figure: cashback (income
+/// tagged 回饋), an annual fee (spending tagged 年費), an e-invoice
+/// (spending tagged 發票); in the trash too. The tags stay as they are.
+void _marksFromTags(EncryptedDatabase store, RowWriter w) {
+  Map<String, Object?>? marked(Map<String, Object?> json) {
+    if (json['mark'] != null) return null;
+    final tags = json['tags'];
+    if (tags is! List) return null;
+    final mark = switch (json['type']) {
+      'income' when tags.contains(_rewardTag) => EntryMark.reward,
+      'expense' when tags.contains(_annualFeeTag) => EntryMark.annualFee,
+      'expense' when tags.contains(_invoiceTag) => EntryMark.invoice,
+      _ => null,
+    };
+    return mark == null ? null : {...json, 'mark': mark.name};
+  }
+
+  final entries = Collection.entry.name;
+  for (final row in store.rows(shelf: entries)) {
+    final json = readableRecord(row.body);
+    if (json == null) continue;
+    if (marked(json) case final next?) {
+      w.put(entries, row.id, jsonEncode(next));
+    }
+  }
+  final trash = Collection.trash.name;
+  for (final row in store.rows(shelf: trash)) {
+    final json = readableRecord(row.body);
+    final entry = json?['entry'];
+    if (json == null || entry is! Map<String, Object?>) continue;
+    if (marked(entry) case final next?) {
+      w.put(trash, row.id, jsonEncode({...json, 'entry': next}));
+    }
+  }
+}
+
+/// The tags earlier versions identified these entries by, read once to
+/// give them their mark.
+const _rewardTag = '回饋';
+const _annualFeeTag = '年費';
+const _invoiceTag = '發票';
+
+/// The keys an entry names its category under: by id, or by name.
+const _categoryKeys = ['categoryId', 'category'];
+
+/// [json], an entry row, as an [Entry] of its amount, split and tags
+/// whose categories are opaque keys (`id:` and an id, `name:` and a
+/// name), for [refundShare]. Null when not readable.
+Entry? _keyed(Map<String, Object?> json) {
+  final amount = json['amount'];
+  if (amount is! int) return null;
+  String? key(Map<String, Object?> m, String nameKey) => switch (m) {
+    {'categoryId': final String id} => 'id:$id',
+    _ when m[nameKey] is String => 'name:${m[nameKey]}',
+    _ => null,
+  };
+  final parts = <(String, int)>[];
+  final kept = json['parts'];
+  for (final p in kept is List ? kept : const []) {
+    if (p is! Map<String, Object?>) return null;
+    final k = key(p, 'name');
+    final value = p['amount'];
+    if (k == null || value is! int) return null;
+    parts.add((k, value));
+  }
+  final home = json['home'];
+  return Entry(
+    id: switch (json['id']) {
+      final String id => id,
+      _ => '',
+    },
+    date: DateTime.utc(2000),
+    type: json['type'] == EntryType.expense.name
+        ? EntryType.expense
+        : EntryType.income,
+    amount: amount,
+    account: '',
+    category: key(json, 'category') ?? '',
+    parts: parts,
+    tags: [
+      for (final t in switch (json['tags']) {
+        final List<Object?> tags => tags,
+        _ => const <Object?>[],
+      })
+        if (t is String) t,
+    ],
+    home: home is int ? home : null,
+  );
+}
+
+/// The JSON naming the category of an opaque [key] of [_keyed]: an
+/// entry's (`category`) or a part's (`name`), by id or by name.
+Map<String, Object?> _unkey(String key, {required bool entry}) =>
+    key.startsWith('id:')
+    ? {'categoryId': key.substring(3)}
+    : {(entry ? 'category' : 'name'): key.substring(5)};
 
 /// The key the budget [row] is kept under once it holds [json]: its
 /// category's id when it names one by id and no other budget is kept

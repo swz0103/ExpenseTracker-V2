@@ -158,3 +158,14 @@ final class FxRate {
   @override
   int get hashCode => Object.hash(base, quote, numerator, denominator);
 }
+
+/// The two rates a bank's board quotes for a currency: what it pays for
+/// one ([buying]) and what it asks ([selling]).
+enum BoardSide { buying, selling }
+
+/// Which of the board's rates values a balance in a foreign currency
+/// (D59): what is held at the rate the bank would buy it at, what is owed
+/// (a balance below zero, such as a US$ card's debt) at the rate it would
+/// sell the currency to pay it with. The one rule every net worth asks.
+BoardSide valuationSide(int balance) =>
+    balance < 0 ? BoardSide.selling : BoardSide.buying;

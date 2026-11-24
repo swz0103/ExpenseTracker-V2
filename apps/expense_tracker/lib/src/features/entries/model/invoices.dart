@@ -56,7 +56,7 @@ bool hasInvoice(
       .any(
         (e) =>
             e.note.contains(number) ||
-            (e.tags.contains('發票') &&
+            (e.mark == EntryMark.invoice &&
                 // An entry still noting its own number is another invoice.
                 !e.note.contains(RegExp(r'發票 \S')) &&
                 e.date == day &&

@@ -335,6 +335,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       budgets: book.budgets,
       recurring: book.recurring,
       rates: market.rates,
+      sellRates: market.sellRates,
       moves: market.moves,
       quotedOn: market.quotedOn,
       quoteDays: market.days,
@@ -822,6 +823,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     List<Holding> holdings,
     Map<String, double> moves,
     Map<String, double> rates,
+    Map<String, double> sellRates,
     DateTime? quotedOn,
     Map<String, DateTime> days,
   })
@@ -831,32 +833,47 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       holdings: holdingsOf(kept),
       moves: kept.moves,
       rates: kept.rates,
+      sellRates: kept.sellRates,
       quotedOn: kept.quotedOn,
       days: kept.days,
     );
   }
 
-  /// Fetches 臺灣銀行's board: the spot buying rate of each currency, what
-  /// a foreign balance is worth in NT$. Returns whether any rate changed.
+  /// Fetches 臺灣銀行's board: the spot buying and selling rate of each
+  /// currency, what a foreign balance held and owed is worth in NT$
+  /// (D59). Returns whether any rate changed.
   Future<bool> refreshRates() async {
     final gateway = _gateway;
     if (gateway == null) return false;
     final board = (await gateway.bankRates()).value;
     if (board == null) return false;
     final fetched = <String, double>{};
+    final selling = <String, double>{};
     for (final MapEntry(key: code, value: row) in board.rates.entries) {
-      final rate = row.valuation;
-      if (rate != null) fetched[code] = rate.numerator / rate.denominator;
+      if (row.rateFor(BoardSide.buying) case final rate?) {
+        fetched[code] = rate.numerator / rate.denominator;
+      }
+      if (row.rateFor(BoardSide.selling) case final rate?) {
+        selling[code] = rate.numerator / rate.denominator;
+      }
     }
     return _whenQuiet(() {
       final kept = marketFrom(_readableMarket(_store.rows(shelf: _market)));
-      if (fetched.isEmpty || mapEquals(fetched, kept.rates)) return false;
+      if (fetched.isEmpty ||
+          (mapEquals(fetched, kept.rates) &&
+              mapEquals(selling, kept.sellRates))) {
+        return false;
+      }
       // Fetched, not changed by the person: no new backup is due for it.
       _store.write(
         (w) => w.put(
           _market,
           'rates',
-          jsonEncode({'asOf': '${board.asOf}', 'rates': fetched}),
+          jsonEncode({
+            'asOf': '${board.asOf}',
+            'rates': fetched,
+            'sell': selling,
+          }),
         ),
         counts: false,
       );

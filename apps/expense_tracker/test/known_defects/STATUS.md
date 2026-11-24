@@ -9,7 +9,6 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | id | package | test file | fails-when-enabled | note |
 |---|---|---|---|---|
 | BUD-01 | 2.2 | p2_2_budgets_test.dart | yes | raising the limit on Dec 10 rewrites November allowance to 15,000 (expects 10,000) |
-| BUD-02 | 2.2 | p2_2_budgets_test.dart | yes | spentAgainst(parent) is 0, expected 3,000 from the child category |
 | F14 | 2.3 | p2_3_recurring_test.dart | yes | auto-booking adds a second entry on the day already entered by hand |
 | LOG-01 | 2.3 | p2_3_recurring_test.dart | yes | bookDue books 1 entry for a US$ item with no rate |
 | REC-01 | 2.3 | p2_3_recurring_test.dart | yes | resuming books April-November entries at once |
@@ -39,7 +38,15 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | JRN-09 | 待決定 | p2_0_journal_test.dart | yes | old shape: a record naming an account the book does not keep (1) |
 | JRN-10 | 待決定 | p2_0_journal_test.dart | yes | old shape: instalments on an account that is not a card (1) |
 
-30 findings covered.
+29 findings covered.
+
+## fixed in CORR-1
+
+Work package CORR-1 (money correctness, decisions D52-D54, D59, D60, D62-D65, D67). Its one audit id:
+
+- BUD-02: `p2_2_budgets_test.dart` (a parent category's budget counts its sub-categories) runs in the ordinary suite; `test/core/ledger/services/budget_service_test.dart`, `packages/ledger/entries/test/rules/category_rules_test.dart` (the one rule, `isUnder`/`spendingUnder`)
+
+The findings of reviews 3-5 it fixes have no id in this table; their tests: `test/core/ledger/services/balance_service_test.dart` (one net worth, D59 by side, instalment refunds, flows), `test/features/accounts/model/card_summary_test.dart` (D67), `test/features/entries/model/compose_form_test.dart` (D62, D65), `test/core/ledger/services/budget_service_test.dart` (D64, D54), `test/features/reports/model/report_test.dart` (D53, D54), `test/scenarios/ledger/journal/money_parity_test.dart` and `test/scenarios/ledger/journal/journal_incremental_test.dart` (the journal agrees), `test/scenarios/ledger/money_properties_test.dart` (review 5's invariants on seeded books).
 
 ## fixed in 2.0
 
@@ -217,7 +224,7 @@ Work package CORR-2 (recurring items and state transitions). The two known-defec
 - F82, R4: `p2_3_recurring_test.dart`; `test/features/recurring/model/recurring_form_test.dart` (CORR-2 group), `test/core/ledger/models/recurring_test.dart`, `test/core/ledger/commands/recurring_commands_test.dart` (days let go no longer fallen on are forgotten)
 - LOG-09: `p2_3_recurring_test.dart`; `test/core/ledger/services/recurring_service_test.dart` (group "matching bookings to days")
 - R1, R3, R5: `test/core/ledger/models/recurring_test.dart`, `test/features/recurring/model/recurring_form_test.dart`, `test/core/ledger/services/recurring_service_test.dart` (R3 yearly every three years; R5 a foreign day gone by), `test/core/ledger/commands/recurring_commands_test.dart`
-- D66, D61, D68: `test/core/ledger/services/recurring_service_invariants_test.dart` (review 5's Q1–Q6b, Q4 and Q6b now hold), `test/core/ledger/commands/recurring_commands_test.dart`, `test/scenarios/ledger/recurring_booking_test.dart`, `test/features/reminders/model/reminders_test.dart`, `test/core/messages/recurring_messages_test.dart`
+- D66, D61, D68: `test/scenarios/recurring/recurring_invariants_test.dart` (review 5's Q1–Q6b, Q4 and Q6b now hold), `test/core/ledger/commands/recurring_commands_test.dart`, `test/scenarios/ledger/recurring_booking_test.dart`, `test/features/reminders/model/reminders_test.dart`, `test/core/messages/recurring_messages_test.dart`
 - D75, D76: `test/scenarios/ledger/state/inverse_test.dart` (D1, D1o, D2, D3), `form_test.dart` (K1, K2), `persist_test.dart` (P1, P4: memory equals the book reopened), `test/core/ledger/repositories/entry_repository_test.dart`, `trash_repository_test.dart`, `infrastructure/storage/test/encrypted_database_test.dart` (a record moved and back keeps its place), `test/scenarios/ledger/trash_test.dart`
 - D77: `test/scenarios/ledger/state/persist_test.dart` (T1), `test/scenarios/ledger/trash_test.dart`
 - D78: `test/scenarios/ledger/state/persist_test.dart` (T2), `inverse_test.dart` (I2), `test/features/entries/ui/trash_section_test.dart`, `test/core/messages/trash_messages_test.dart`

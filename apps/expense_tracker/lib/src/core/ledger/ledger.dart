@@ -53,6 +53,8 @@ export 'rules/budget_rules.dart';
 export 'rules/recurring_rules.dart';
 // The narrow parts a model takes in place of the whole ledger
 // (docs/adr/0013-models-take-what-they-use.md).
+export 'commands/category_commands.dart'
+    show CategoryMerge, Merged, MergeRefused, MergeRefusal;
 export 'commands/attachment_commands.dart' show AttachmentCommands;
 export 'commands/entry_commands.dart'
     show
@@ -69,8 +71,9 @@ export 'repositories/budget_repository.dart' show BudgetReader;
 export 'repositories/category_repository.dart' show CategoryReader;
 export 'repositories/draft_repository.dart' show DraftReader;
 export 'repositories/recurring_repository.dart' show RecurringReader;
-export 'services/balance_service.dart' show BalanceService;
-export 'services/budget_service.dart' show BudgetService;
+export 'services/balance_service.dart' show BalanceService, NetWorth;
+export 'services/budget_service.dart'
+    show BudgetService, BudgetPace, CurrentPace, PastPace;
 export 'services/entry_query_service.dart' show EntryQueryService;
 export 'services/entry_validator.dart' show EntryValidator;
 export 'services/recurring_service.dart' show RecurringService;
@@ -98,6 +101,7 @@ final class Ledger extends ChangeNotifier {
     required List<Recurring> recurring,
     this.dataSource,
     Map<String, double> rates = const {},
+    Map<String, double> sellRates = const {},
     List<Trashed> trash = const [],
     Map<String, double> moves = const {},
     DateTime? quotedOn,
@@ -111,6 +115,7 @@ final class Ledger extends ChangeNotifier {
        _receipts = ReceiptRepository(receipts),
        _market = MarketDataRepository(
          rates: rates,
+         sellRates: sellRates,
          moves: moves,
          quotedOn: quotedOn,
          quoteDays: quoteDays,
@@ -314,6 +319,7 @@ final class Ledger extends ChangeNotifier {
     entries: _entries,
     accounts: _accounts,
     categories: _categories,
+    balances: balanceService,
     cache: _cache,
     today: _clock,
   );
@@ -325,6 +331,7 @@ final class Ledger extends ChangeNotifier {
   );
   late final budgetService = BudgetService(
     entries: _entries,
+    categories: _categories,
     reportService: reportService,
     today: _clock,
   );

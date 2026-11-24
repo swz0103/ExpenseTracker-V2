@@ -294,4 +294,30 @@ void main() {
       expect(full.withKind(KindFilter.all).count, 4);
     });
   });
+
+  test('a split part in a subcategory of the one filtered to (D54)', () {
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 10, 4),
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 0)],
+      categories: [
+        Category('飲食', 'food', 0xFF111111),
+        Category('早餐', 'food', 0xFF111111, parent: '飲食'),
+      ],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+    const filter = EntryFilter(category: '飲食');
+    final split = Entry(
+      id: 'x',
+      date: DateTime.utc(2026, 10, 4),
+      type: EntryType.expense,
+      amount: 100,
+      account: 'bank',
+      category: '交通',
+      parts: const [('交通', 60), ('早餐', 40)],
+    );
+    expect(filter.shows(ledger, split), isTrue);
+  });
 }

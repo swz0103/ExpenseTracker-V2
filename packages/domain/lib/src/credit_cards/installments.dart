@@ -57,3 +57,57 @@ List<BusinessDate> installmentBillingDays(
       schedule.datesOf(close).$1,
   ];
 }
+
+/// What refunds of a purchase in instalments do to what its card is
+/// billed (refund vs instalments): each refund cancels, on its own day,
+/// as much of the instalments not billed by then as it gives back,
+/// billed at once so it nets with the refund, and each later instalment
+/// shrinks by its share of what was cancelled (shared by the largest
+/// remainder over what each had left, so none grows). A purchase
+/// refunded in full is settled on the refund's day. [schedule] is the
+/// purchase's billing days and shares in order; [refunds] each refund's
+/// day and amount, in the order kept, worked through by day. The answer
+/// is, for each refund in the order given, the changes it makes to what
+/// is billed on each day (more billed positive), which come to nothing.
+/// The one rule the balances and the journal both follow.
+List<List<(BusinessDate, int)>> refundedInstalments(
+  List<(BusinessDate, int)> schedule,
+  List<(BusinessDate, int)> refunds,
+) {
+  final days = [for (final (day, _) in schedule) day];
+  final shares = [for (final (_, share) in schedule) share];
+  final order = List<int>.generate(refunds.length, (i) => i)
+    ..sort((a, b) {
+      final byDay = refunds[a].$1.compareTo(refunds[b].$1);
+      return byDay != 0 ? byDay : a.compareTo(b);
+    });
+  final changes = List<List<(BusinessDate, int)>>.filled(
+    refunds.length,
+    const [],
+  );
+  for (final i in order) {
+    final (day, amount) = refunds[i];
+    final later = [
+      for (var k = 0; k < days.length; k++)
+        if (days[k].compareTo(day) > 0 && shares[k] > 0) k,
+    ];
+    final unbilled = later.fold(0, (sum, k) => sum + shares[k]);
+    final cancelled = amount < unbilled ? amount : unbilled;
+    if (cancelled <= 0) continue;
+    final kept = Money(
+      _units,
+      BigInt.from(unbilled - cancelled),
+    ).allocate([for (final k in later) BigInt.from(shares[k])]);
+    final lines = <(BusinessDate, int)>[(day, cancelled)];
+    for (final (j, k) in later.indexed) {
+      final left = kept[j].minorUnits.toInt();
+      if (left != shares[k]) lines.add((days[k], left - shares[k]));
+      shares[k] = left;
+    }
+    changes[i] = lines;
+  }
+  return changes;
+}
+
+/// Whole units, for sharing amounts already in their smallest unit.
+final _units = Currency('XXX', 0);

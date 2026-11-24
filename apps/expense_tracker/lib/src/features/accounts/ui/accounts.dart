@@ -165,29 +165,19 @@ class _NetWorth extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final invest = ledger.holdings.marketValue;
-    var lent = 0;
-    for (final a in ledger.accounts.all) {
-      if (a.kind == AccountKind.receivable && a.inNetWorth) {
-        final worth = ledger.balanceService.worthOf(a);
-        if (worth > 0) lent += worth;
-      }
-    }
-    final debt =
-        ledger.balanceService.cardDebt + ledger.balanceService.loanDebt;
-    final saved = ledger.balanceService.assets - invest - lent;
-    final net = ledger.balanceService.assets - debt;
     final today = ledger.today;
+    final worth = ledger.balanceService.netWorth(today);
+    final net = worth.net;
     final moved =
         net -
         ledger.balanceService.netWorthAt(
           DateTime.utc(today.year, today.month, 0),
         );
     final parts = [
-      ('存款', saved, AppColors.bank),
-      (Words.investment, invest, AppColors.holdings),
-      (Words.lend, lent, AppColors.receivable),
-      ('負債', debt, AppColors.card),
+      ('存款', worth.saved, AppColors.bank),
+      (Words.investment, worth.invested, AppColors.holdings),
+      (Words.lend, worth.lent, AppColors.receivable),
+      ('負債', worth.owed, AppColors.card),
     ];
     final shown = [
       for (final p in parts)

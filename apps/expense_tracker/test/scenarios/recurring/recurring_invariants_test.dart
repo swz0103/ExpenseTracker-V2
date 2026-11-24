@@ -11,7 +11,7 @@ import 'package:expense_tracker/src/features/reminders/ui/reminders_section.dart
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../baseline/baseline_ledger.dart';
-import '../../support/invariant_book.dart';
+import '../../support/seeded_book.dart';
 
 final today = day(2026, 11, 24);
 

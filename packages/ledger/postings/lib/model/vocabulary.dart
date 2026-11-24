@@ -159,6 +159,8 @@ abstract final class Refusals {
   static const instalmentsCount = 'instalments.count';
   static const instalmentsNotOneAccount = 'instalments.notOneAccount';
   static const instalmentsNoSchedule = 'instalments.noSchedule';
+  static const cancelledBadValue = 'instalments.cancelled.badValue';
+  static const cancelledNotOneAccount = 'instalments.cancelled.notOneAccount';
 }
 
 /// The slots amendments are kept under.
@@ -168,6 +170,11 @@ abstract final class Slots {
 
   /// How many instalments a purchase is billed in: an int, 2 or more.
   static const instalments = 'instalments';
+
+  /// What a refund of a purchase in instalments changes of what its card
+  /// is billed: a `List<(Day, int)>`, each day with what is billed more
+  /// (less when negative), as the card cycle's rule worked it out.
+  static const cancelledInstalments = 'instalments.cancelled';
 }
 
 /// The order the amenders run in, lowest first: instalments spread a
@@ -176,5 +183,6 @@ abstract final class Slots {
 /// included.
 abstract final class AmenderOrder {
   static const instalments = 10;
+  static const cancelledInstalments = 15;
   static const fx = 20;
 }

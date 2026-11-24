@@ -41,6 +41,9 @@ abstract interface class EntryReader {
   /// refund it.
   int refundedTotal(String id);
 
+  /// The entries that refund the entry with [id].
+  List<Entry> refundsOf(String id);
+
   /// A number that changes whenever an entry paid from or into [account]
   /// is added, taken away or changed, and whenever the book changes in a
   /// way not followed entry by entry: what was worked out for [account]
@@ -154,7 +157,9 @@ final class EntryRepository implements EntryReader {
   final _stands = Map<Entry, Entry>.identity();
 
   Map<String, Entry>? _ids;
-  Map<String, int>? _refunds;
+
+  /// The entries refunding each entry, by its id.
+  Map<String, List<Entry>>? _refunds;
   DateTime? _first;
   var _firstKnown = false;
 
@@ -231,8 +236,7 @@ final class EntryRepository implements EntryReader {
     }
     _ids?[e.id] = e;
     if (e.refundOf case final of?) {
-      final refunds = _refunds;
-      if (refunds != null) refunds[of] = (refunds[of] ?? 0) + e.amount;
+      _refunds?.update(of, (kept) => [...kept, e], ifAbsent: () => [e]);
     }
     if (_firstKnown) {
       final first = _first;
@@ -263,9 +267,13 @@ final class EntryRepository implements EntryReader {
     _ids?.remove(e.id);
     if (e.refundOf case final of?) {
       final refunds = _refunds;
-      if (refunds != null) {
-        final left = (refunds[of] ?? 0) - e.amount;
-        if (left == 0) {
+      final kept = refunds?[of];
+      if (refunds != null && kept != null) {
+        final left = [
+          for (final x in kept)
+            if (!identical(x, e)) x,
+        ];
+        if (left.isEmpty) {
           refunds.remove(of);
         } else {
           refunds[of] = left;
@@ -474,15 +482,19 @@ final class EntryRepository implements EntryReader {
   }
 
   @override
-  int refundedTotal(String id) {
-    final sums = _refunds ??= () {
-      final found = <String, int>{};
+  int refundedTotal(String id) =>
+      refundsOf(id).fold(0, (sum, e) => sum + e.amount);
+
+  @override
+  List<Entry> refundsOf(String id) {
+    final refunds = _refunds ??= () {
+      final found = <String, List<Entry>>{};
       for (final e in _items) {
-        if (e.refundOf case final of?) found[of] = (found[of] ?? 0) + e.amount;
+        if (e.refundOf case final of?) (found[of] ??= []).add(e);
       }
       return found;
     }();
-    return sums[id] ?? 0;
+    return List.unmodifiable(refunds[id] ?? const <Entry>[]);
   }
 
   /// Every month's entries in [inMonth] order, worked out from the list.

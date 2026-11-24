@@ -1,3 +1,5 @@
+import 'package:ledger_entries/rules.dart' show isUnder;
+
 import '../cache/topic.dart';
 import '../models/models.dart';
 import '../persistence/write_batch.dart';
@@ -99,16 +101,92 @@ final class CategoryCommands {
     _context.keep(WriteBatch(categories: [kept]));
   }
 
-  /// Moves everything in [from] to [into] and removes [from].
-  void mergeCategory(String from, String into) {
-    if (from == into) return;
+  /// Moves everything in [from] to [into] and removes [from] (D60): its
+  /// entries, deleted entries and recurring items; its budget, added to
+  /// the budget of [into] (the limits summed, [into]'s settings kept) or
+  /// moved to it; its subcategories, now under [into]. Refused, with
+  /// nothing changed, when either is not a category, both are the same,
+  /// they are on different sides (spending and income), [into] is
+  /// archived, or [into] sits under [from].
+  CategoryMerge mergeCategory(String from, String into) {
+    Category? named(String name) {
+      for (final c in _categories.all) {
+        if (c.name == name) return c;
+      }
+      return null;
+    }
+
+    final source = named(from);
+    final target = named(into);
+    final refusal = switch ((source, target)) {
+      (null, _) || (_, null) => MergeRefusal.missing,
+      _ when from == into => MergeRefusal.same,
+      (final s?, final t?) when s.income != t.income => MergeRefusal.otherSide,
+      (_, final t?) when t.archived => MergeRefusal.archived,
+      _ when isUnder(into, from, (n) => _categories.byName(n).parent) =>
+        MergeRefusal.intoOwnSubcategory,
+      _ => null,
+    };
+    if (refusal != null) return MergeRefused(refusal);
     final unit = UnitOfWork();
     _moveUses(from, into, unit);
-    if (_budgets.remove(from)) unit.registerDeleted(Collection.budget, from);
-    final (:removed, :freed) = _categories.removeMerged(from);
+    final budget = _budgets.all.where((b) => b.category == from).firstOrNull;
+    if (budget != null) {
+      _budgets.remove(from);
+      unit.registerDeleted(Collection.budget, from);
+      final kept = _budgets.all.where((b) => b.category == into).firstOrNull;
+      final merged = kept == null
+          ? budget.renamed(into)
+          : Budget(
+              into,
+              kept.limit + budget.limit,
+              warning: kept.warning,
+              carry: kept.carry,
+              since: kept.since,
+            );
+      _budgets.put(merged);
+      unit.registerDirty(merged);
+    }
+    final (:removed, :freed) = _categories.removeMerged(from, into: into);
     if (removed != null) unit.registerDeleted(Collection.category, removed.id);
     unit.registerAllDirty(freed);
     _context.changed(Topic.all);
     _context.keep(unit.batch);
+    return const Merged();
   }
+}
+
+/// What [CategoryCommands.mergeCategory] did.
+sealed class CategoryMerge {
+  const CategoryMerge();
+}
+
+/// Merged: everything of the one category is the other's.
+final class Merged extends CategoryMerge {
+  const Merged();
+}
+
+/// Not merged, and nothing changed, for [reason].
+final class MergeRefused extends CategoryMerge {
+  const MergeRefused(this.reason);
+
+  final MergeRefusal reason;
+}
+
+/// Why two categories are not merged.
+enum MergeRefusal {
+  /// One of them is not a category the book keeps.
+  missing,
+
+  /// They are the same category.
+  same,
+
+  /// One is spending's, the other income's.
+  otherSide,
+
+  /// The one merged into is archived.
+  archived,
+
+  /// The one merged into sits under the one merged.
+  intoOwnSubcategory,
 }

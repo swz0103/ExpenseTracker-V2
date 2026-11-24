@@ -17,6 +17,7 @@ Entry _spend(
   List<String> tags = const [],
   EntryType type = EntryType.expense,
   int installments = 1,
+  EntryMark? mark,
 }) => Entry(
   id: id,
   date: DateTime.utc(2026, month, day),
@@ -26,6 +27,7 @@ Entry _spend(
   category: '購物休閒',
   tags: tags,
   installments: installments,
+  mark: mark,
 );
 
 CardSummary _summary({
@@ -149,17 +151,64 @@ void main() {
     expect(plain.scheduledClose, plain.nextClose);
   });
 
-  test('cashback and fees are summed by tag, this year and this cycle', () {
+  test('cashback and fees are summed by their mark, this year and this '
+      'cycle', () {
     final card = _summary(
       entries: [
-        _spend('r1', 5, 100, month: 3, tags: ['回饋'], type: EntryType.income),
-        _spend('r2', 25, 40, tags: ['回饋'], type: EntryType.income),
-        _spend('fee', 1, 1800, month: 2, tags: ['年費']),
+        _spend(
+          'r1',
+          5,
+          100,
+          month: 3,
+          tags: ['回饋'],
+          type: EntryType.income,
+          mark: EntryMark.reward,
+        ),
+        _spend(
+          'r2',
+          25,
+          40,
+          tags: ['回饋'],
+          type: EntryType.income,
+          mark: EntryMark.reward,
+        ),
+        _spend(
+          'fee',
+          1,
+          1800,
+          month: 2,
+          tags: ['年費'],
+          mark: EntryMark.annualFee,
+        ),
       ],
     );
-    expect(card.taggedThisYear('回饋', EntryType.income), 140);
-    expect(card.taggedSinceClose('回饋', EntryType.income), 40);
-    expect(card.taggedThisYear('年費', EntryType.expense), 1800);
+    expect(card.markedThisYear(EntryMark.reward), 140);
+    expect(card.markedSinceClose(EntryMark.reward), 40);
+    expect(card.markedThisYear(EntryMark.annualFee), 1800);
+  });
+
+  test('a tag renamed changes no figure; a tag alone makes none (D52)', () {
+    final card = _summary(
+      entries: [
+        _spend(
+          'r1',
+          25,
+          40,
+          tags: ['獎勵'],
+          type: EntryType.income,
+          mark: EntryMark.reward,
+        ),
+        _spend('r2', 26, 70, tags: ['回饋'], type: EntryType.income),
+      ],
+    );
+    expect(card.markedThisYear(EntryMark.reward), 40);
+    expect(card.markedSinceClose(EntryMark.reward), 40);
+  });
+
+  test('the cashback and fee the page starts carry their mark', () {
+    final card = _summary();
+    expect(card.extra(EntryType.income).mark, EntryMark.reward);
+    expect(card.extra(EntryType.expense).mark, EntryMark.annualFee);
   });
 
   test('a 預定 cashback, fee or purchase counts on its day only (D71)', () {
@@ -168,17 +217,46 @@ void main() {
     // 500 on 10/12 is 預定 too.
     final card = _summary(
       entries: [
-        _spend('r2', 25, 40, tags: ['回饋'], type: EntryType.income),
-        _spend('r3', 9, 60, month: 10, tags: ['回饋'], type: EntryType.income),
-        _spend('fee', 1, 1800, month: 2, tags: ['年費']),
-        _spend('fee2', 20, 900, month: 10, tags: ['年費']),
+        _spend(
+          'r2',
+          25,
+          40,
+          tags: ['回饋'],
+          type: EntryType.income,
+          mark: EntryMark.reward,
+        ),
+        _spend(
+          'r3',
+          9,
+          60,
+          month: 10,
+          tags: ['回饋'],
+          type: EntryType.income,
+          mark: EntryMark.reward,
+        ),
+        _spend(
+          'fee',
+          1,
+          1800,
+          month: 2,
+          tags: ['年費'],
+          mark: EntryMark.annualFee,
+        ),
+        _spend(
+          'fee2',
+          20,
+          900,
+          month: 10,
+          tags: ['年費'],
+          mark: EntryMark.annualFee,
+        ),
         _spend('later', 12, 500, month: 10),
       ],
     );
-    expect(card.taggedThisYear('回饋', EntryType.income), 40);
-    expect(card.taggedSinceClose('回饋', EntryType.income), 40);
-    expect(card.taggedThisYear('年費', EntryType.expense), 1800);
-    expect(card.taggedSinceClose('年費', EntryType.expense), 0);
+    expect(card.markedThisYear(EntryMark.reward), 40);
+    expect(card.markedSinceClose(EntryMark.reward), 40);
+    expect(card.markedThisYear(EntryMark.annualFee), 1800);
+    expect(card.markedSinceClose(EntryMark.annualFee), 0);
     // Since the 9/20 close only the 9/25 cashback counts: −40 spent.
     expect(card.unbilled.map((e) => e.id), ['r2']);
     expect(card.spentSince, -40);
@@ -207,5 +285,66 @@ void main() {
     final unknown = payByOf(DateTime.utc(2028, 1, 1));
     expect(unknown, isA<WeekendsOnly<BusinessDate>>());
     expect(unknown.value, BusinessDate(2028, 1, 3));
+  });
+
+  group('credit taken from day to day (D67)', () {
+    test('2,396 in 6 bought on the closing day: debt + still to bill is '
+        '2,396 on every day, closing days included', () {
+      var now = DateTime.utc(2026, 9, 5);
+      final ledger = Ledger(
+        today: now,
+        clock: () => now,
+        accounts: const [
+          Account(
+            'card',
+            '卡',
+            AccountKind.card,
+            0,
+            closingDay: 5,
+            dueDay: 20,
+            limit: 10000,
+          ),
+        ],
+        categories: const [],
+        entries: [
+          Entry(
+            id: 'a',
+            date: DateTime.utc(2026, 9, 5),
+            type: EntryType.expense,
+            amount: 2396,
+            account: 'card',
+            category: '購物',
+            installments: 6,
+          ),
+        ],
+        holdings: const [],
+        budgets: const [],
+        recurring: const [],
+      );
+      final wrong = <String>[];
+      for (
+        var d = DateTime.utc(2026, 9, 5);
+        !d.isAfter(DateTime.utc(2027, 4, 30));
+        d = d.add(const Duration(days: 1))
+      ) {
+        now = d;
+        final s = CardSummary.of(
+          ledger.account('card'),
+          statements: ledger.statementService,
+          balances: ledger.balanceService,
+          entries: ledger.entries,
+          accounts: ledger.accounts,
+          today: d,
+        );
+        if (s.debt + s.pending != 2396) {
+          wrong.add('${d.month}/${d.day}: ${s.debt} + ${s.pending}');
+        }
+        // 2396 of 10000 is 24%; 10000 - 2396 = 7604 left.
+        if (s.usedPercent != 24 || s.available != 7604) {
+          wrong.add('${d.month}/${d.day}: ${s.usedPercent}% ${s.available}');
+        }
+      }
+      expect(wrong, isEmpty);
+    });
   });
 }

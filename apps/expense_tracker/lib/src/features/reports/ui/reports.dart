@@ -44,8 +44,9 @@ class ReportsPage extends StatefulWidget {
   State<ReportsPage> createState() => _ReportsPageState();
 }
 
-/// The block that gathers the smallest categories, when no real category
-/// is called 其他.
+/// How the block that gathers the smallest categories looks: named 其他,
+/// but a block of its own ([RestShare]), whatever the categories are
+/// called.
 Category _restBlock() => Category('其他', 'other', AppColors.faint.toARGB32());
 
 /// The report of [period] from the parts of [ledger] it reads.
@@ -54,6 +55,7 @@ Report _reportOf(Ledger ledger, ReportPeriod period) => Report.of(
   entries: ledger.entries,
   reports: ledger.reportService,
   balances: ledger.balanceService,
+  categories: ledger.categories,
   today: ledger.today,
 );
 
@@ -74,4 +76,10 @@ Widget? _plannedRow(Ledger ledger, Report report) => report.planned.isEmpty
   Ledger ledger,
   String name,
   ReportPeriod period,
-) => Report.spentUnder(name, ledger.entries, period, ledger.today);
+) => Report.spentUnder(
+  name,
+  ledger.entries,
+  period,
+  ledger.today,
+  ledger.categories,
+);

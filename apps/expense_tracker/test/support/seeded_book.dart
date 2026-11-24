@@ -1,7 +1,8 @@
-// Round 5 support: a seeded random valid book (round 4's generator, extended
-// with sub-categories, tags, instalments, budgets), a replay of a book from
-// its accepted entries, and a shrinker that cuts a failing book down to a
-// minimal counterexample.
+// A seeded random valid book (review rounds 4 and 5's generator, with
+// sub-categories, tags, instalments, budgets), a replay of a book from its
+// accepted entries, and a shrinker that cuts a failing book down to a
+// minimal counterexample: what the invariants over the shown figures are
+// checked on.
 import 'dart:math';
 
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
@@ -165,9 +166,8 @@ Book generate(
       final o = of(pool);
       final left = l.entryQueryService.refundable(o);
       final amount = r.nextBool() ? left : pick(1, left);
-      final home = o.home == null
-          ? null
-          : (o.home! * amount / o.amount).round();
+      // As the composer writes a refund: the ledger's one rule (D62, D65).
+      final share = refundShare(o, amount, earlier: l.entries.refundsOf(o.id));
       put(
         entryOf(
           l.newId(),
@@ -175,8 +175,10 @@ Book generate(
           EntryType.income,
           amount,
           o.account,
-          category: o.category,
-          home: home,
+          category: share.category,
+          home: share.home,
+          parts: share.parts,
+          tags: share.tags,
           refundOf: o.id,
           merchant: '',
         ),

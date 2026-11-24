@@ -132,10 +132,10 @@ final class EntryFilter {
     if (account != null && e.account != account && e.to != account) {
       return false;
     }
+    // Under the category: its subcategories and split parts included
+    // (D54), as budgets and reports count it.
     return category == null ||
-        e.category == category ||
-        ledger.category(e.category).parent == category ||
-        e.parts.any((p) => p.$1 == category);
+        entryIsUnder(e, category, (name) => ledger.category(name).parent);
   }
 
   static DateTime _utcDay(DateTime d) => DateTime.utc(d.year, d.month, d.day);

@@ -1,4 +1,5 @@
-import 'package:core/foundation_values.dart' show Currency;
+import 'package:core/foundation_values.dart'
+    show BoardSide, Currency, valuationSide;
 
 import '../models/models.dart'
     show homeCode, rateScale, roundedBigQuotient, scaledRate;
@@ -12,6 +13,12 @@ abstract interface class MarketDataReader {
   /// NT$ for one unit of each foreign currency: 臺灣銀行's spot buying
   /// rate. Empty until fetched; the map cannot be changed.
   Map<String, double> get rates;
+
+  /// NT$ for one unit of each foreign currency: 臺灣銀行's spot selling
+  /// rate, what is owed in it is valued at (D59). Empty until fetched,
+  /// and for a board kept before the selling rates were; the map cannot
+  /// be changed.
+  Map<String, double> get sellRates;
 
   /// Each stock's change per share on its last trading day, by code; the
   /// map cannot be changed.
@@ -37,6 +44,12 @@ abstract interface class MarketDataReader {
   /// rate for it.
   int? toHome(int minor, String currency);
 
+  /// What a [balance] of [currency] is worth in whole NT$: held at the
+  /// buying rate, owed at the selling rate (core's `valuationSide`, D59),
+  /// the buying rate standing in for a selling rate not fetched yet;
+  /// null without a rate.
+  int? valueAtHome(int balance, String currency);
+
   /// [amount] of [from] in the smallest unit of [to], through NT$ at
   /// [rates]; null without a rate for either.
   int? convert(int amount, String from, String to);
@@ -47,14 +60,17 @@ abstract interface class MarketDataReader {
 final class MarketDataRepository implements MarketDataReader {
   MarketDataRepository({
     Map<String, double> rates = const {},
+    Map<String, double> sellRates = const {},
     Map<String, double> moves = const {},
     this._quotedOn,
     Map<String, DateTime> quoteDays = const {},
   }) : _rates = {...rates},
+       _sellRates = {...sellRates},
        _moves = {...moves},
        _quoteDays = {...quoteDays};
 
   final Map<String, double> _rates;
+  final Map<String, double> _sellRates;
   final Map<String, double> _moves;
   DateTime? _quotedOn;
   final Map<String, DateTime> _quoteDays;
@@ -64,6 +80,9 @@ final class MarketDataRepository implements MarketDataReader {
 
   @override
   Map<String, double> get rates => Map.unmodifiable(_rates);
+
+  @override
+  Map<String, double> get sellRates => Map.unmodifiable(_sellRates);
 
   @override
   Map<String, double> get moves => Map.unmodifiable(_moves);
@@ -86,9 +105,18 @@ final class MarketDataRepository implements MarketDataReader {
   }
 
   @override
-  int? toHome(int minor, String currency) {
+  int? toHome(int minor, String currency) =>
+      _atRate(minor, currency, _rates[currency]);
+
+  @override
+  int? valueAtHome(int balance, String currency) =>
+      _atRate(balance, currency, switch (valuationSide(balance)) {
+        BoardSide.buying => _rates[currency],
+        BoardSide.selling => _sellRates[currency] ?? _rates[currency],
+      });
+
+  int? _atRate(int minor, String currency, double? rate) {
     if (currency == homeCode) return minor;
-    final rate = _rates[currency];
     if (rate == null) return null;
     // minor / unit × rate, in whole numbers.
     return roundedBigQuotient(
@@ -126,15 +154,24 @@ final class MarketDataRepository implements MarketDataReader {
   /// Takes everything fetched anew, in place of what was kept.
   void replace({
     required Map<String, double> rates,
+    Map<String, double> sellRates = const {},
     required Map<String, double> moves,
     required DateTime? quotedOn,
     required Map<String, DateTime> quoteDays,
   }) {
     // Copied first: the maps given may be this repository's own.
-    final (r, m, d) = ({...rates}, {...moves}, {...quoteDays});
+    final (r, s, m, d) = (
+      {...rates},
+      {...sellRates},
+      {...moves},
+      {...quoteDays},
+    );
     _rates
       ..clear()
       ..addAll(r);
+    _sellRates
+      ..clear()
+      ..addAll(s);
     _moves
       ..clear()
       ..addAll(m);
@@ -147,6 +184,7 @@ final class MarketDataRepository implements MarketDataReader {
   /// Takes what [other] holds, as when the book is read again.
   void replaceWith(MarketDataReader other) => replace(
     rates: other.rates,
+    sellRates: other.sellRates,
     moves: other.moves,
     quotedOn: other.quotedOn,
     quoteDays: other.quoteDays,

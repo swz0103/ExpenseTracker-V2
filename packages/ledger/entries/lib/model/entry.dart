@@ -33,6 +33,21 @@ const feeCategory = '其他支出';
 /// What an entry does. Buys, sells and dividends are investment entries.
 enum EntryType { expense, income, transfer, buy, sell, dividend }
 
+/// What an entry is besides its type, for the figures that count it
+/// (D52): known by this, never by a tag's words, so renaming a tag
+/// changes no figure.
+enum EntryMark {
+  /// A card's cashback, credited as income on the card.
+  reward,
+
+  /// A card's annual fee, spent on the card.
+  annualFee,
+
+  /// A spending read from an e-invoice, scanned or imported: what finds
+  /// an invoice already in the book.
+  invoice,
+}
+
 /// One line of the book, in the smallest unit of its account's currency:
 /// whole NT$ for most.
 final class Entry {
@@ -61,6 +76,7 @@ final class Entry {
     this.received,
     this.group,
     this.dayTrade = false,
+    this.mark,
   });
 
   final String id;
@@ -133,6 +149,9 @@ final class Entry {
   /// reached [to], in the smallest unit of its currency.
   final int? received;
 
+  /// What the entry is besides its type, if anything ([EntryMark]).
+  final EntryMark? mark;
+
   bool get isRefund => refundOf != null;
 
   /// [amount] in whole NT$: [home] when the entry has one.
@@ -183,11 +202,15 @@ final class Entry {
   };
 
   /// [spending] by category: the parts of a split, a transfer's fee under
-  /// [feeCategory].
+  /// [feeCategory]; a refund's parts give back (D65).
   List<(String, int)> get spendingParts {
     if (spending == 0) return const [];
     if (type == EntryType.transfer) return [(feeCategory, fee)];
-    if (_splitCounts) return parts;
+    if (_splitCounts) {
+      return isRefund
+          ? [for (final (name, value) in parts) (name, -value)]
+          : parts;
+    }
     return [(category, spending)];
   }
 
@@ -233,6 +256,7 @@ final class Entry {
     received: received,
     group: group,
     dayTrade: dayTrade,
+    mark: mark,
   );
 
   /// This entry as one of those written together as [group] (none when
@@ -262,6 +286,7 @@ final class Entry {
     received: received,
     group: group,
     dayTrade: dayTrade,
+    mark: mark,
   );
 
   /// This entry under another [id], as the store knows it after an edit.

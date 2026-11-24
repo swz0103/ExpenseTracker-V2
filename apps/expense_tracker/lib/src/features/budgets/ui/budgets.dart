@@ -154,7 +154,6 @@ class _BudgetsPageState extends State<BudgetsPage> {
                 ledger: ledger,
                 year: year,
                 month: month,
-                current: current,
                 spent: spent,
                 total: total,
               ),

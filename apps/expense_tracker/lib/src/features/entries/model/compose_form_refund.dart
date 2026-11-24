@@ -1,0 +1,40 @@
+part of 'compose_form.dart';
+
+/// What a refund being written gives back of its purchase, and the worth
+/// at home of a foreign entry.
+extension RefundFields on ComposeForm {
+  /// [home], else the refunded share of the purchase's worth (the rest of
+  /// it for the refund that gives back the rest, D62), else the amount at
+  /// today's rate; null without a rate.
+  int? get homeValue {
+    final typed = home;
+    if (typed != null) return typed;
+    if (_refundShare?.home case final share?) return share;
+    return ledger.marketData.toHome(amount, currency);
+  }
+
+  /// The spending the entry gives back: [refunded], or the one a refund
+  /// being changed gives back; null for any other entry.
+  Entry? get _original {
+    final opened = refunded;
+    if (opened != null) return opened;
+    final of = editing?.refundOf;
+    return of == null ? null : ledger.entries.byId(of);
+  }
+
+  /// What the refund being written gives back of its purchase, as the
+  /// ledger's one rule shares it (`refundShare`: its worth, split and
+  /// tags, D62, D65); null when it is no refund.
+  RefundShare? get _refundShare {
+    final original = _original;
+    if (original == null || type != EntryType.income) return null;
+    return refundShare(
+      original,
+      amount,
+      earlier: [
+        for (final e in ledger.entries.refundsOf(original.id))
+          if (e.id != editing?.id) e,
+      ],
+    );
+  }
+}

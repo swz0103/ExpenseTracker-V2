@@ -100,7 +100,9 @@ class _CategoryEditorState extends State<_CategoryEditor> {
       options: categoryOptions(
         ledger,
         income: c.income,
-        where: (o) => o.name != c.name,
+        // Not itself, nor one under it (the command refuses those too).
+        where: (o) =>
+            !isUnder(o.name, c.name, (name) => ledger.category(name).parent),
       ),
     );
     if (into == null || !mounted) return;

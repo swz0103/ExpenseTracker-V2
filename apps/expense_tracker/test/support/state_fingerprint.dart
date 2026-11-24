@@ -8,11 +8,11 @@ import 'package:expense_tracker/src/core/ledger/persistence/codec/record_json.da
 
 import '../baseline/baseline_ledger.dart';
 import 'book_records.dart';
-import 'invariant_book.dart';
+import 'seeded_book.dart';
 
 export '../baseline/baseline_ledger.dart';
 export 'book_records.dart';
-export 'invariant_book.dart';
+export 'seeded_book.dart';
 
 DateTime last(int m) => day(2026, m + 1, 0);
 DateTime first(int m) => day(2026, m, 1);

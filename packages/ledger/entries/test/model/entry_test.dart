@@ -91,4 +91,18 @@ void main() {
       expect(e.title, '餐飲');
     });
   });
+
+  test('a mark is kept through a copy (D52)', () {
+    final e = Entry(
+      id: 'r',
+      date: _day,
+      type: EntryType.income,
+      amount: 40,
+      account: 'card',
+      mark: EntryMark.reward,
+    );
+    expect(e.withId('s').mark, EntryMark.reward);
+    expect(e.withLabels(tags: const ['獎勵']).mark, EntryMark.reward);
+    expect(e.inGroup('g').mark, EntryMark.reward);
+  });
 }
