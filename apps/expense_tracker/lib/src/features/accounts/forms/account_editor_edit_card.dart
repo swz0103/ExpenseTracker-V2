@@ -202,30 +202,20 @@ const _ring = Border.fromBorderSide(
   BorderSide(color: AppColors.white, width: 3),
 );
 
-/// Blocks of the account form kept apart from its state's file: a card's
-/// billing days, and the account's own broker discount.
+/// Parts of the account form kept apart from its state's file: the
+/// account as it stands, and its own broker discount.
 extension _AccountBlocks on _AccountEditorState {
-  /// 結帳日 and 繳款日 of a credit card, side by side.
-  Widget _cardDays() {
-    return CardRow([
-      FigureCard(
-        color: AppColors.card,
-        icon: Glyph.calendar,
-        label: '結帳日',
-        value: '每月 ${_f.closing} 日',
-        size: TextSize.body,
-        onTap: () => _pickDay(true),
-      ),
-      FigureCard(
-        color: AppColors.card,
-        icon: Glyph.calendar,
-        label: '繳款日',
-        value: '每月 ${_f.due} 日',
-        size: TextSize.body,
-        onTap: () => _pickDay(false),
-      ),
-    ]);
-  }
+  /// The account as the form stands, for its colour and label.
+  Account get _preview => Account(
+    _old?.id ?? '',
+    _f.name.trim(),
+    _f.kind,
+    0,
+    icon: _f.icon,
+    dueDay: _f.card ? _f.due : null,
+    currency: _f.foreignAllowed ? _f.currency : homeCode,
+    color: _f.color,
+  );
 
   /// 券商手續費折扣 of an account that trades: its own, or empty for the
   /// phone-wide one (D7).

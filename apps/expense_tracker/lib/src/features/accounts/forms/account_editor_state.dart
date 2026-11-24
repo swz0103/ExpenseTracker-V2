@@ -177,18 +177,6 @@ class _AccountEditorState extends State<_AccountEditor> {
     return [...usual.take(usual.length - 1), own];
   }
 
-  /// The account as the form stands, for its colour and label.
-  Account get _preview => Account(
-    _old?.id ?? '',
-    _f.name.trim(),
-    _f.kind,
-    0,
-    icon: _f.icon,
-    dueDay: _f.card ? _f.due : null,
-    currency: _f.foreignAllowed ? _f.currency : homeCode,
-    color: _f.color,
-  );
-
   /// A centre panel of colours: the kind's own first, then the others.
   Future<void> _pickColor() async {
     final picked = await showPanel<int>(
@@ -513,6 +501,28 @@ class _AccountEditorState extends State<_AccountEditor> {
         ),
       ),
     );
+  }
+
+  /// 結帳日 and 繳款日 of a credit card, side by side.
+  Widget _cardDays() {
+    return CardRow([
+      FigureCard(
+        color: AppColors.card,
+        icon: Glyph.calendar,
+        label: '結帳日',
+        value: '每月 ${_f.closing} 日',
+        size: TextSize.body,
+        onTap: () => _pickDay(true),
+      ),
+      FigureCard(
+        color: AppColors.card,
+        icon: Glyph.calendar,
+        label: '繳款日',
+        value: '每月 ${_f.due} 日',
+        size: TextSize.body,
+        onTap: () => _pickDay(false),
+      ),
+    ]);
   }
 
   /// The fields of an account other than a loan, top to bottom.
