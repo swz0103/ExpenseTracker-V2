@@ -64,7 +64,13 @@ Startup productionStartup(
   DeviceUnlock? device,
   UptimeSource? uptime,
 }) => Startup(
-  LedgerVault(directory, codec: KeyringCodec(), now: AppClock.now),
+  LedgerVault(
+    directory,
+    codec: KeyringCodec(),
+    now: AppClock.now,
+    noteFailed: (error, stack) =>
+        ErrorLog.instance.record(ErrorSteps.recordsKeptNote, error, stack),
+  ),
   device: device,
   check: SqlLedgerDataSource.check,
   checkRestored: SqlLedgerDataSource.checkRestored,

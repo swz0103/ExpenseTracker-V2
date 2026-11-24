@@ -21,6 +21,7 @@ import 'package:storage/storage.dart';
 
 import 'book_migrations.dart';
 import 'book_opening.dart';
+import 'damage_report.dart';
 import 'journal_keeper.dart';
 import 'journal_rebuild.dart';
 import 'ledger_data_source.dart';
@@ -126,15 +127,17 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// Told when a page of the journal's tables is found damaged (D102):
   /// the connection is of no more use, and the database is to be made
-  /// again from its records. Once a session.
-  void Function(Object error)? onJournalDamaged;
+  /// again from its records. Answers whether the report was acted on;
+  /// once it was, it is not told again this session ([DamageReport]).
+  Future<bool> Function(Object error)? get onJournalDamaged =>
+      _journalDamage.tell;
+  set onJournalDamaged(Future<bool> Function(Object error)? tell) =>
+      _journalDamage.tell = tell;
 
-  var _journalDamageTold = false;
+  final _journalDamage = DamageReport();
 
   void _journalFault(Object error) {
-    if (_journalDamageTold || !EncryptedDatabase.damageIn(error)) return;
-    _journalDamageTold = true;
-    onJournalDamaged?.call(error);
+    if (EncryptedDatabase.damageIn(error)) _journalDamage(error);
   }
 
   /// The whole journal posted afresh on a worker isolate (D51): from the
