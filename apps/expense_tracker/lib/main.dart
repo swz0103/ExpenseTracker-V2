@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 
 import 'src/features/backup/model/file_cleanup.dart';
 import 'src/app/bootstrap.dart';
+import 'src/app/production_startup.dart';
 import 'src/app/first_screen.dart';
 import 'src/core/diagnostics/performance_monitor.dart';
 import 'src/app/platform.dart';
