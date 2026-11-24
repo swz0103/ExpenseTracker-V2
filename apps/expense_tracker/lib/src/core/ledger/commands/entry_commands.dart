@@ -155,7 +155,7 @@ final class EntryCommands {
       final old = _entries.byId(id);
       if (old == null) continue;
       trades |= old.isInvestment;
-      final index = _entries.indexWhere((x) => identical(x, old));
+      final index = _entries.indexOf(old);
       _entries.removeAt(index);
       undo.add(() => _entries.insert(index, old));
     }
@@ -166,7 +166,7 @@ final class EntryCommands {
         undo.add(() => _entries.remove(e));
       } else {
         trades |= old.isInvestment;
-        final index = _entries.indexWhere((x) => identical(x, old));
+        final index = _entries.indexOf(old);
         _entries[index] = e;
         undo.add(() => _entries[index] = old);
       }

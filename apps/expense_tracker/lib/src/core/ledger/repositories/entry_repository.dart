@@ -224,29 +224,29 @@ final class EntryRepository implements EntryReader {
     if (_ordered) {
       final seqs = _seqs;
       if (seqs == null) return _discard();
-      final set = Set<Entry>.identity()..addAll(gone);
-      final months = <int>{};
-      final accounts = <String>{};
-      final refunded = <String>{};
-      final groups = <String>{};
+      final months = <int, List<Entry>>{};
+      final accounts = <String, List<Entry>>{};
+      final refunded = <String, List<Entry>>{};
+      final groups = <String, List<Entry>>{};
       for (final e in gone) {
-        months.add(_monthOf(e));
-        accounts.addAll(_accountsOf(e));
-        if (e.refundOf case final of?) refunded.add(of);
-        if (e.group case final group?) groups.add(group);
+        (months[_monthOf(e)] ??= []).add(e);
+        for (final account in _accountsOf(e)) {
+          (accounts[account] ??= []).add(e);
+        }
+        if (e.refundOf case final of?) (refunded[of] ??= []).add(e);
+        if (e.group case final group?) (groups[group] ??= []).add(e);
       }
-      for (final month in months) {
-        _months?.removeAll(month, set);
+      void follow<K>(_Lists<K>? lists, Map<K, List<Entry>> by) {
+        if (lists == null) return;
+        for (final MapEntry(:key, :value) in by.entries) {
+          lists.removeAll(key, value);
+        }
       }
-      for (final account in accounts) {
-        _accounts?.removeAll(account, set);
-      }
-      for (final of in refunded) {
-        _refunds?.removeAll(of, set);
-      }
-      for (final group in groups) {
-        _groups?.removeAll(group, set);
-      }
+
+      follow(_months, months);
+      follow(_accounts, accounts);
+      follow(_refunds, refunded);
+      follow(_groups, groups);
       gone.forEach(seqs.remove);
     }
     final ids = _ids;
@@ -270,6 +270,11 @@ final class EntryRepository implements EntryReader {
   /// The place of the first entry that passes [test]; -1 when none does.
   int indexWhere(bool Function(Entry entry) test) => _items.indexWhere(test);
 
+  /// The place of [entry], this very entry; -1 when it is not held.
+  /// Looked for from the end, where the entries written lately are, which
+  /// are those most often changed.
+  int indexOf(Entry entry) => _items.lastIndexOf(entry);
+
   /// Whether any entry passes [test].
   bool any(bool Function(Entry entry) test) => _items.any(test);
 
@@ -292,8 +297,10 @@ final class EntryRepository implements EntryReader {
       // Already elsewhere in the list, as a sort moves it: two places
       // for one entry, which no place number follows.
       if (seqs == null || seqs.containsKey(entry)) return _discard();
-      seqs[entry] = seqs.remove(old)!;
+      // At [old]'s place: both numbered while the lists follow.
+      seqs[entry] = seqs[old]!;
       _move(old, entry);
+      seqs.remove(old);
     }
     final ids = _ids;
     if (ids != null) {
@@ -324,7 +331,7 @@ final class EntryRepository implements EntryReader {
         if (staying.contains(key) && sameDay) {
           lists.swap(key, old, entry);
         } else {
-          lists.removeAll(key, Set<Entry>.identity()..add(old));
+          lists.removeAll(key, [old]);
         }
       }
       for (final key in now) {
@@ -338,7 +345,7 @@ final class EntryRepository implements EntryReader {
     void written(_Lists<String>? lists, String? was, String? now) {
       if (lists == null) return;
       if (was != null && was == now) return lists.swap(was, old, entry);
-      if (was != null) lists.removeAll(was, Set<Entry>.identity()..add(old));
+      if (was != null) lists.removeAll(was, [old]);
       if (now != null) lists.add(now, entry);
     }
 
@@ -387,7 +394,7 @@ final class EntryRepository implements EntryReader {
 
   /// Takes away [element], this very entry; false when it is not held.
   bool remove(Entry element) {
-    final index = _items.indexOf(element);
+    final index = indexOf(element);
     if (index < 0) return false;
     removeAt(index);
     return true;
@@ -432,7 +439,7 @@ final class EntryRepository implements EntryReader {
       // A few: each found by a plain look along the list.
       final at = [
         for (final e in wanted)
-          if (_items.indexOf(e) case final i when i >= 0) i,
+          if (indexOf(e) case final i when i >= 0) i,
       ]..sort();
       for (final i in at) {
         found.add((i, _items[i]));
@@ -497,7 +504,7 @@ final class EntryRepository implements EntryReader {
     final months = _monthLists;
     for (final month in months.keys.toList()..sort()) {
       // A month is kept newest first.
-      yield* months[month]!.reversed;
+      yield* (months[month] ?? const <Entry>[]).reversed;
     }
   }
 
@@ -505,7 +512,7 @@ final class EntryRepository implements EntryReader {
   Iterable<List<Entry>> get newestMonths sync* {
     final months = _monthLists;
     for (final month in months.keys.toList()..sort((a, b) => b - a)) {
-      yield months[month]!;
+      if (months[month] case final entries?) yield entries;
     }
   }
 
@@ -536,7 +543,7 @@ final class EntryRepository implements EntryReader {
       final months = _monthLists;
       final by = <String, List<Entry>>{};
       for (final month in months.keys.toList()..sort()) {
-        for (final e in months[month]!.reversed) {
+        for (final e in (months[month] ?? const <Entry>[]).reversed) {
           for (final account in _accountsOf(e)) {
             (by[account] ??= []).add(e);
           }
@@ -624,86 +631,167 @@ final class EntryRepository implements EntryReader {
 /// Entries kept in lists by a key (a month, an account, the entry they
 /// refund, a group), each list in one order and never changed once handed
 /// out: a change puts a new one in its place.
+///
+/// What changes a list is noted and put in when the list is next asked
+/// for, all at once: a change costs the keys it touches, not the length of
+/// their lists, and a run of changes (a category renamed on thousands of
+/// entries, an account's entries while its balance is not asked for)
+/// costs one pass over each list.
 final class _Lists<K> {
   _Lists(this._lists, this._before);
 
+  /// Each list as made: never changed once made, handed out as a view.
   final Map<K, List<Entry>> _lists;
+
+  /// The view of each list handed out, the same until the list changes.
+  final _views = <K, List<Entry>>{};
 
   /// Whether the first entry comes before the second in a list.
   final bool Function(Entry, Entry) _before;
 
-  /// Entries put in place of others at the same place, not yet in their
-  /// lists: a run of them (a category renamed on thousands of entries)
-  /// costs one pass over a list when it is next asked for, not one each.
-  final _pending = <K, _Swaps>{};
+  final _pending = <K, _Pending>{};
 
-  Iterable<K> get keys => _lists.keys;
+  /// The keys that hold, or may hold, a list.
+  Iterable<K> get keys => {..._lists.keys, ..._pending.keys};
 
-  /// The list under [key], with what was put in place in it.
+  /// The list under [key], with what changed in it put in; null when
+  /// none is held. It cannot be changed.
   List<Entry>? operator [](K key) {
     _settle(key);
-    return _lists[key];
+    final list = _lists[key];
+    if (list == null) return null;
+    return _views[key] ??= UnmodifiableListView(list);
   }
 
   void _settle(K key) {
-    final swaps = _pending.remove(key);
-    if (swaps == null) return;
-    final list = _lists[key];
-    if (list == null) return;
-    _lists[key] = List.unmodifiable([for (final x in list) swaps.now[x] ?? x]);
-  }
-
-  /// Puts [now] in [old]'s place under [key].
-  void swap(K key, Entry old, Entry now) {
-    final swaps = _pending.putIfAbsent(key, _Swaps.new);
-    // [old] may itself have been put there by an earlier swap: then it is
-    // that swap's entry that stands in the list.
-    final stand = swaps.stands.remove(old) ?? old;
-    swaps.now[stand] = now;
-    swaps.stands[now] = stand;
-  }
-
-  /// Adds [e] under [key], at its place in the order.
-  void add(K key, Entry e) {
-    _settle(key);
+    final pending = _pending.remove(key);
+    if (pending == null) return;
     final old = _lists[key] ?? const <Entry>[];
+    final next =
+        pending.now.isEmpty &&
+            pending.removed.length <= _few &&
+            pending.added.length <= _few
+        ? _spliced(old, pending)
+        : _merged(old, pending);
+    if (identical(next, old)) return;
+    _views.remove(key);
+    if (next.isEmpty) {
+      _lists.remove(key);
+    } else {
+      _lists[key] = next;
+    }
+  }
+
+  /// [old] with a few entries taken away and a few added: each found by
+  /// a look along the list or a search in its order, the rest copied
+  /// across in runs.
+  List<Entry> _spliced(List<Entry> old, _Pending pending) {
+    final gone = [
+      for (final e in pending.removed)
+        if (old.indexOf(e) case final i when i >= 0) i,
+    ]..sort();
+    var kept = old;
+    if (gone.isNotEmpty) {
+      kept = List<Entry>.filled(old.length - gone.length, old.first);
+      var from = 0;
+      var to = 0;
+      for (final i in gone) {
+        kept.setRange(to, to + i - from, old, from);
+        to += i - from;
+        from = i + 1;
+      }
+      kept.setRange(to, kept.length, old, from);
+    }
+    if (pending.added.isEmpty) return kept;
+    final added = pending.added.toList()
+      ..sort((a, b) => _before(a, b) ? -1 : 1);
+    final at = [for (final e in added) _placeOf(kept, e)];
+    final next = List<Entry>.filled(kept.length + added.length, added.first);
+    var from = 0;
+    var to = 0;
+    for (var k = 0; k < added.length; k++) {
+      next.setRange(to, to + at[k] - from, kept, from);
+      to += at[k] - from;
+      from = at[k];
+      next[to++] = added[k];
+    }
+    next.setRange(to, next.length, kept, from);
+    return next;
+  }
+
+  /// [old] with every change put in, in one pass.
+  List<Entry> _merged(List<Entry> old, _Pending pending) {
+    final added = pending.added.toList()
+      ..sort((a, b) => _before(a, b) ? -1 : 1);
+    final next = <Entry>[];
+    var k = 0;
+    for (final x in old) {
+      final y = pending.now[x] ?? x;
+      if (pending.removed.contains(y)) continue;
+      while (k < added.length && _before(added[k], y)) {
+        next.add(added[k++]);
+      }
+      next.add(y);
+    }
+    while (k < added.length) {
+      next.add(added[k++]);
+    }
+    return next;
+  }
+
+  /// Where [e] would stand in [list]: found by a search.
+  int _placeOf(List<Entry> list, Entry e) {
     var low = 0;
-    var high = old.length;
+    var high = list.length;
     while (low < high) {
       final middle = (low + high) >> 1;
-      if (_before(old[middle], e)) {
+      if (_before(list[middle], e)) {
         low = middle + 1;
       } else {
         high = middle;
       }
     }
-    _lists[key] = List.unmodifiable([
-      ...old.take(low),
-      e,
-      ...old.skip(low),
-    ]);
+    return low;
   }
 
-  /// Takes [gone] out of the list under [key].
-  void removeAll(K key, Set<Entry> gone) {
-    _settle(key);
-    final old = _lists[key];
-    if (old == null) return;
-    final kept = [
-      for (final x in old)
-        if (!gone.contains(x)) x,
-    ];
-    if (kept.isEmpty) {
-      _lists.remove(key);
-    } else if (kept.length != old.length) {
-      _lists[key] = List.unmodifiable(kept);
+  /// At most this many added to or taken from a list at once are each
+  /// found on their own, rather than the list gone through entry by entry.
+  static const _few = 8;
+
+  _Pending _of(K key) => _pending.putIfAbsent(key, _Pending.new);
+
+  /// Puts [now] in [old]'s place under [key].
+  void swap(K key, Entry old, Entry now) {
+    final pending = _of(key);
+    if (pending.added.remove(old)) {
+      pending.added.add(now);
+      return;
+    }
+    // [old] may itself have been put there by an earlier swap: then it is
+    // that swap's entry that stands in the list.
+    final stand = pending.stands.remove(old) ?? old;
+    pending.now[stand] = now;
+    pending.stands[now] = stand;
+  }
+
+  /// Adds [e] under [key], at its place in the order.
+  void add(K key, Entry e) => _of(key).added.add(e);
+
+  /// Takes [gone], each held under [key], out of its list.
+  void removeAll(K key, List<Entry> gone) {
+    final pending = _of(key);
+    for (final e in gone) {
+      if (!pending.added.remove(e)) pending.removed.add(e);
     }
   }
 }
 
-/// The entries put in place of others in one list: each now standing for
-/// the one in the list, and back.
-final class _Swaps {
+/// What has changed in one list since it was last asked for: entries put
+/// in place of others (each now standing for the one in the list, and
+/// back), entries added, and entries taken away.
+final class _Pending {
   final now = Map<Entry, Entry>.identity();
   final stands = Map<Entry, Entry>.identity();
+  final added = Set<Entry>.identity();
+  final removed = Set<Entry>.identity();
 }
