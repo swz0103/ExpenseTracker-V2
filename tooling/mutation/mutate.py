@@ -90,11 +90,20 @@ def read_results(path):
     """{id: (area, result)} from a results file written before."""
     rows = {}
     if os.path.exists(path):
-        for line in open(path, encoding='utf-8'):
-            parts = line.rstrip('\n').split('\t')
+        with open(path, encoding='utf-8') as f:
+            lines = f.read().splitlines()
+        for line in lines:
+            parts = line.split('\t')
             if len(parts) >= 6:
                 rows[parts[0]] = (parts[1], parts[5])
     return rows
+
+
+def read_json(path):
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding='utf-8') as f:
+        return json.load(f)
 
 
 def scores(rows):
@@ -182,8 +191,11 @@ def main(argv=None):
         sys.exit(f'unknown areas: {", ".join(sorted(unknown))}')
     only = None
     if args.ids:
-        text = (open(args.ids).read() if os.path.exists(args.ids)
-                else args.ids.replace(',', ' '))
+        if os.path.exists(args.ids):
+            with open(args.ids, encoding='utf-8') as f:
+                text = f.read()
+        else:
+            text = args.ids.replace(',', ' ')
         only = set(text.split())
     out = args.out or os.path.join(root, 'build', 'mutation', 'results.tsv')
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
@@ -240,8 +252,7 @@ def main(argv=None):
     if survivors:
         print('\nsurvived: ' + ' '.join(survivors))
 
-    baseline = (json.load(open(args.baseline))
-                if os.path.exists(args.baseline) else {})
+    baseline = read_json(args.baseline)
     if chosen is not None:
         baseline = {a: v for a, v in baseline.items() if a in chosen}
     status = 0
@@ -255,8 +266,7 @@ def main(argv=None):
                   'with --update')
         status = 1 if below else 0
     if args.update:
-        whole = (json.load(open(args.baseline))
-                 if os.path.exists(args.baseline) else {})
+        whole = read_json(args.baseline)
         whole.update(raised(found, baseline))
         with open(args.baseline, 'w', encoding='utf-8') as f:
             json.dump(dict(sorted(whole.items())), f, indent=2)

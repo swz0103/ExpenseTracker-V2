@@ -1,0 +1,74 @@
+name: Mutation score (nightly)
+
+# Changes the ledger's calculations one small way at a time
+# (tooling/mutation/mutants.py) and checks that a test fails each time.
+# Each area's score (mutants killed / mutants that compile) must stay at or
+# above tooling/mutation/baseline.json, which only rises. Nightly and by
+# hand only: it takes far too long for a pull request.
+on:
+  schedule:
+    - cron: '43 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  area:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        area:
+          - core
+          - trade
+          - loans
+          - entries
+          - domain
+          - balance
+          - report
+          - budget
+          - statement
+          - recurring
+          - cardcycle
+          - cardsummary
+          - amount
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          # Nothing here pushes: no token is left in .git/config.
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+      - name: Mutate a copy of the repository
+        # The tool changes files in place: it runs on a `git archive`
+        # copy, never on the checkout.
+        run: |
+          set -euo pipefail
+          flutter config --no-analytics
+          copy="$RUNNER_TEMP/mutation"
+          mkdir -p "$copy"
+          git archive HEAD | tar -x -C "$copy"
+          python3 tooling/mutation/test_mutate.py
+          python3 "$copy/tooling/mutation/mutate.py" \
+            --areas '${{ matrix.area }}' \
+            --out "$RUNNER_TEMP/results-${{ matrix.area }}.tsv" \
+            --baseline tooling/mutation/baseline.json \
+            --check
+      - name: Keep the results
+        if: always()
+        # v7.0.2.
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: mutation-${{ matrix.area }}
+          path: ${{ runner.temp }}/results-${{ matrix.area }}.tsv
+          if-no-files-found: ignore
+          retention-days: 14
