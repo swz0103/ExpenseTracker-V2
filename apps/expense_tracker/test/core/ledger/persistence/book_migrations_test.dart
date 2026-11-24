@@ -679,4 +679,47 @@ void main() {
     expect(october, {'飲食': 0, '交通': 0});
     expect(store!.meta(EncryptedDatabase.bookVersionKey), bookVersion);
   });
+
+  test('an entry known by a tag\'s words is given its mark; the tags stay '
+      '(D52)', () async {
+    final s = open();
+    Map<String, Object?> entry(String id, String type, List<String> tags) => {
+      'id': id,
+      'date': '2026-10-01',
+      'type': type,
+      'amount': 100,
+      'account': 'a1',
+      'tags': tags,
+      '_v': 2,
+    };
+    s.write((w) {
+      w.put(
+        'account',
+        'a1',
+        jsonEncode({'id': 'a1', 'name': '卡', 'kind': 'card', 'opening': 0}),
+      );
+      w.put('entry', 'r', jsonEncode(entry('r', 'income', ['回饋'])));
+      w.put('entry', 'f', jsonEncode(entry('f', 'expense', ['年費'])));
+      w.put('entry', 'i', jsonEncode(entry('i', 'expense', ['發票', '家用'])));
+      w.put('entry', 'n', jsonEncode(entry('n', 'expense', ['回饋'])));
+      w.put(
+        'trash',
+        't',
+        jsonEncode({
+          'on': '2026-10-03',
+          'entry': entry('t', 'expense', ['發票']),
+          '_v': 2,
+        }),
+      );
+    });
+    final ledger = await load();
+    expect(ledger.entries.byId('r')!.mark, EntryMark.reward);
+    expect(ledger.entries.byId('f')!.mark, EntryMark.annualFee);
+    expect(ledger.entries.byId('i')!.mark, EntryMark.invoice);
+    expect(ledger.entries.byId('i')!.tags, ['發票', '家用']);
+    // Spending tagged 回饋 was never cashback.
+    expect(ledger.entries.byId('n')!.mark, isNull);
+    final trashed = rowsOf(store!, 'trash')['t']!['entry']! as Map;
+    expect(trashed['mark'], 'invoice');
+  });
 }

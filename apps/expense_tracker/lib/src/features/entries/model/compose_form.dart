@@ -107,6 +107,11 @@ final class ComposeForm {
   var tags = <String>[];
   var note = '';
 
+  /// What the entry is besides its type (D52): a card's cashback or
+  /// annual fee as the card page starts it, an e-invoice scanned; kept
+  /// through an edit.
+  EntryMark? mark;
+
   /// The parts of a split, or null when the whole goes to [category].
   List<(String, int)>? parts;
 
@@ -175,6 +180,7 @@ final class ComposeForm {
 
   /// Puts [entry]'s values in the fields.
   void load(Entry entry) {
+    mark = entry.mark;
     amount = entry.amount;
     date = entry.date;
     account = entry.account;
@@ -228,6 +234,7 @@ final class ComposeForm {
 
   /// Empty fields with sensible first choices for the current tab.
   void fresh() {
+    mark = null;
     final accounts = startAccounts;
     amount = 0;
     date = ledger.today;
@@ -313,6 +320,7 @@ final class ComposeForm {
     date = invoice.date;
     note = invoice.note;
     if (!tags.contains('發票')) tags = [...tags, '發票'];
+    mark = EntryMark.invoice;
     more = true;
     category = guessCategory(
       ledger.entryQueryService,
@@ -619,6 +627,7 @@ final class ComposeForm {
       split: stock && splitShares && !reducing,
       home: foreign ? homeValue : null,
       received: crossing ? receivedValue : null,
+      mark: kind == EntryType.expense || kind == EntryType.income ? mark : null,
     );
   }
 }

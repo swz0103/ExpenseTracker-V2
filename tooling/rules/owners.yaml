@@ -127,6 +127,27 @@ items:
       - packages/ledger/entries/lib/model/planned.dart
     target: packages/ledger/entries/lib/model/
     status: owned
+  # Decision D52: cashback, an annual fee and an e-invoice are known by
+  # Entry.mark (EntryMark), never by a tag's words; book step 4 gave the
+  # entries tagged so their mark. D54: "under category X" is
+  # category_rules.dart's isUnder alone (budgets, reports, the filter).
+  - id: entry-marks-and-category-membership
+    what: 回饋、年費、發票的種類與「某分類底下」的定義
+    layer: ledger
+    owner:
+      - packages/ledger/entries/lib/model/entry.dart
+      - packages/ledger/entries/lib/rules/category_rules.dart
+    target: packages/ledger/entries/lib/
+    status: owned
+  # D62, D65: what a refund gives back of its purchase (worth, split,
+  # tags) is refundShare alone; the composer and the CSV import ask it.
+  - id: refund-share
+    what: 退款沖回原消費的台幣金額、分攤與標籤
+    layer: ledger
+    owner:
+      - packages/ledger/entries/lib/rules/refund_rules.dart
+    target: packages/ledger/entries/lib/rules/
+    status: owned
   - id: income-expense-kinds
     what: 什麼算「支出」「收入」
     layer: ledger

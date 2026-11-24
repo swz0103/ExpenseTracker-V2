@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:math' show max;
 
 import 'package:core/foundation_values.dart' show PublicId;
-import 'package:ledger_entries/model.dart' show Entry, EntryType;
+import 'package:ledger_entries/model.dart' show Entry, EntryMark, EntryType;
 import 'package:ledger_entries/rules.dart' show refundShare;
 import 'package:storage/storage.dart';
 
@@ -36,6 +36,7 @@ const List<BookStep> bookSteps = [
   _categoryIds,
   _namesToIds,
   _refundsMirrorPurchases,
+  _marksFromTags,
 ];
 
 /// The version this app brings every book it opens up to.
@@ -201,6 +202,49 @@ void _refundsMirrorPurchases(EncryptedDatabase store, RowWriter w) {
     if (changed) w.put(shelf, row.id, jsonEncode(next));
   }
 }
+
+/// Version 3 to 4: an entry the app identified by a tag's words is given
+/// its mark (D52), so a tag renamed changes no figure: cashback (income
+/// tagged 回饋), an annual fee (spending tagged 年費), an e-invoice
+/// (spending tagged 發票); in the trash too. The tags stay as they are.
+void _marksFromTags(EncryptedDatabase store, RowWriter w) {
+  Map<String, Object?>? marked(Map<String, Object?> json) {
+    if (json['mark'] != null) return null;
+    final tags = json['tags'];
+    if (tags is! List) return null;
+    final mark = switch (json['type']) {
+      'income' when tags.contains(_rewardTag) => EntryMark.reward,
+      'expense' when tags.contains(_annualFeeTag) => EntryMark.annualFee,
+      'expense' when tags.contains(_invoiceTag) => EntryMark.invoice,
+      _ => null,
+    };
+    return mark == null ? null : {...json, 'mark': mark.name};
+  }
+
+  final entries = Collection.entry.name;
+  for (final row in store.rows(shelf: entries)) {
+    final json = readableRecord(row.body);
+    if (json == null) continue;
+    if (marked(json) case final next?) {
+      w.put(entries, row.id, jsonEncode(next));
+    }
+  }
+  final trash = Collection.trash.name;
+  for (final row in store.rows(shelf: trash)) {
+    final json = readableRecord(row.body);
+    final entry = json?['entry'];
+    if (json == null || entry is! Map<String, Object?>) continue;
+    if (marked(entry) case final next?) {
+      w.put(trash, row.id, jsonEncode({...json, 'entry': next}));
+    }
+  }
+}
+
+// Exception to shared words: the tags earlier versions identified these
+// entries by, read once to give them their mark.
+const _rewardTag = '回饋';
+const _annualFeeTag = '年費';
+const _invoiceTag = '發票';
 
 /// The keys an entry names its category under: by id, or by name.
 const _categoryKeys = ['categoryId', 'category'];

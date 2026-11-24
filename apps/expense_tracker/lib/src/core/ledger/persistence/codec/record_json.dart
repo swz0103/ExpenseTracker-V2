@@ -171,6 +171,7 @@ Map<String, Object?> entryToJson(Entry e, [CategoryRefs? refs]) => {
   'home': ?e.home,
   'received': ?e.received,
   'group': ?e.group,
+  'mark': ?e.mark?.name,
 };
 
 /// The entry [entryToJson] wrote.
@@ -212,6 +213,8 @@ Entry entryFromJson(Map<String, Object?> json, [CategoryRefs? refs]) => _read(
     home: _maybe(json['home']),
     received: _maybe(json['received']),
     group: _text(json, 'group'),
+    // A mark a later version knows and this one does not reads as none.
+    mark: EntryMark.values.asNameMap()[json['mark']],
   ),
 );
 

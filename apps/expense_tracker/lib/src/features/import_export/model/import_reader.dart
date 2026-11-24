@@ -561,5 +561,6 @@ Entry _invoice(
     note: '$what$more 發票 $number'.trim(),
     merchant: shop,
     tags: const ['發票'],
+    mark: EntryMark.invoice,
   );
 }
