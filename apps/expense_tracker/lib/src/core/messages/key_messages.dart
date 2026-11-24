@@ -60,12 +60,16 @@ abstract final class KeyWords {
   }) => [
     '這些備份是重設前用舊金鑰做的，用舊的密碼或救援碼仍打得開。',
     if (drive.isNotEmpty)
-      'Google 雲端硬碟：${drive.length} 份（${drive.join('、')}），會移到雲端硬碟的垃圾桶',
+      'Google 雲端硬碟：${drive.length} 份（${drive.join('、')}），$oldBackupsToTrash',
     if (phone.isNotEmpty) '這支手機：${phone.length} 份（${phone.join('、')}），會直接刪除',
     if (driveUnreached) oldBackupsUnreached,
     '資料夾、匯出的檔案與 Google 系統備份裡的舊備份不在此列，請自行處理。',
   ].join('\n\n');
   static const oldBackupsGo = '刪除舊備份';
+
+  /// What becomes of the old backups on Drive (decided: the Drive trash,
+  /// recoverable until Drive empties it).
+  static const oldBackupsToTrash = '移到雲端硬碟的垃圾桶，30 天後自動刪除';
   static const oldBackupsUnreached = '連不上 Google 雲端硬碟，那裡的舊備份沒有列出，可以之後自行刪除。';
   static String oldBackupsGone(int count) => '已刪除 $count 份舊金鑰的備份';
 

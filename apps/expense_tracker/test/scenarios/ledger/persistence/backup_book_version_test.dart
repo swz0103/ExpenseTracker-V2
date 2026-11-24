@@ -5,10 +5,12 @@ import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/book_migrations.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/upgrade_backup.dart';
+import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
+import 'package:vault/ledger_vault.dart';
 
 /// D26: a backup (version 5) carries the book's version, so a book
 /// restored from one taken by this version opens as it was kept: no
@@ -106,5 +108,44 @@ void main() {
     await restored.load();
     expect(copies, 1);
     expect(into.meta(EncryptedDatabase.bookVersionKey), bookVersion);
+  });
+
+  test('a book whose keys were reset is not brought up again, and no copy '
+      'is kept first', () async {
+    final startup = Startup(
+      LedgerVault(
+        Directory('${directory.path}/vault'),
+        codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
+      ),
+      check: SqlLedgerDataSource.check,
+    );
+    await startup.setUp('correct horse battery');
+    OpenVault open() => switch (startup.state) {
+      Ready(:final vault) => vault,
+      _ => throw StateError('Not open'),
+    };
+    await SqlLedgerDataSource(open().store, clock: clock).load();
+    final rows = [for (final r in open().store.rows()) (r.shelf, r.id, r.body)];
+    expect(open().store.meta(EncryptedDatabase.bookVersionKey), bookVersion);
+    await startup.resetKeys(password: 'correct horse battery');
+    final store = open().store;
+    addTearDown(store.close);
+    expect([for (final r in store.rows()) (r.shelf, r.id, r.body)], rows);
+    expect(store.meta(EncryptedDatabase.bookVersionKey), bookVersion);
+    var copies = 0;
+    final reopened = SqlLedgerDataSource(
+      store,
+      clock: clock,
+      beforeUpgrade: () async {
+        copies++;
+        return const UpgradeBackupKept();
+      },
+    );
+    final revision = store.revision;
+    await reopened.load();
+    expect(copies, 0);
+    // Nothing was brought up or written as it opened.
+    expect(store.revision, revision);
+    expect([for (final r in store.rows()) (r.shelf, r.id, r.body)], rows);
   });
 }

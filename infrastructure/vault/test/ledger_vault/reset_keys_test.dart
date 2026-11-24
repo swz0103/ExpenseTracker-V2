@@ -57,6 +57,34 @@ void main() {
     }
   }
 
+  test('a reset keeps the book\'s version and layout, so the book is not '
+      'brought up again', () async {
+    final (vault, _) = await ledger('versions');
+    final open = await vault.unlockWithPassword(password);
+    open.store.write(
+      (w) => w.setMeta(EncryptedDatabase.bookVersionKey, 2),
+      counts: false,
+    );
+    final before = rowsOf(open.store);
+    final versionsBefore = await open.store.readApart(_versions);
+    expect(versionsBefore, (book: 2, layout: EncryptedDatabase.schema));
+    final reset = await open.keys.reset(password: password);
+    final opened = await vault.resetKeys(open, reset.unlocked);
+    addTearDown(opened.close);
+    expect(rowsOf(opened.store), before);
+    expect(opened.store.meta(EncryptedDatabase.bookVersionKey), 2);
+    expect(await opened.store.readApart(_versions), versionsBefore);
+  });
+
+  test('a book with no version yet is given none by a reset', () async {
+    final (vault, _) = await ledger('no-version');
+    final open = await vault.unlockWithPassword(password);
+    final reset = await open.keys.reset(password: password);
+    final opened = await vault.resetKeys(open, reset.unlocked);
+    addTearDown(opened.close);
+    expect(opened.store.meta(EncryptedDatabase.bookVersionKey), isNull);
+  });
+
   test('a reset re-encrypts the database and the photos (SEC-06)', () async {
     final (vault, code) = await ledger('one');
     final oldKeyring = Keyring.parse(vault.keyringFile.readAsStringSync());
@@ -318,3 +346,7 @@ void main() {
     });
   });
 }
+
+/// The book's version and the file's layout, as a read apart finds them.
+Future<({int? book, int layout})> _versions(StoreSnapshot s) async =>
+    (book: s.book, layout: s.layout);
