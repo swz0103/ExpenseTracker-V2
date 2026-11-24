@@ -45,6 +45,23 @@ QuantityConversion quantityOf(BigInt count, BigInt perUnit) {
   return ExactQuantity(quantity.toInt());
 }
 
+/// [count] parts, [perUnit] of them to one unit, as a posting's quantity
+/// rounded half to even when it has a part finer than [quantityScale]
+/// allows: the one rounding of quantities (decision D48). Throws an
+/// [ArgumentError] past [maxQuantity], which no book reaches.
+int roundedQuantity(BigInt count, BigInt perUnit) {
+  final step = perUnit ~/ _scale;
+  if (step * _scale != perUnit) {
+    throw ArgumentError.value(perUnit, 'perUnit', 'not a multiple of scale');
+  }
+  var quantity = count ~/ step;
+  final rest = (count - quantity * step).abs() * BigInt.two;
+  final away = count.isNegative ? -BigInt.one : BigInt.one;
+  if (rest > step || (rest == step && quantity.isOdd)) quantity += away;
+  if (quantity.abs() > _max) throw ArgumentError.value(count, 'count');
+  return quantity.toInt();
+}
+
 /// A posting's [quantity] back as parts, [perUnit] of them to one unit.
 BigInt countOf(int quantity, BigInt perUnit) =>
     BigInt.from(quantity) * (perUnit ~/ _scale);

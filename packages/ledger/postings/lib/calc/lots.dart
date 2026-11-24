@@ -123,34 +123,33 @@ List<LotChange> _changes(List<Lot> before, List<LotPosition> after) => [
   );
 }
 
-/// [changes] as lines on [holding]; or a refusal when a lot's units
-/// cannot be a posting's quantity (finer than a millionth of a share,
-/// or too many): never rounded.
+/// [changes] as lines on [holding]. A lot finer than a millionth of a
+/// share is rounded half to even (`roundedQuantity`, decision D48) and
+/// counted in [Lines.rounded], never silently; one of more than
+/// [maxQuantity] is refused.
 Posted lotLines(
   AccountId holding,
   List<LotChange> changes,
   CurrencyCode currency,
 ) {
   final lines = <Line>[];
+  var rounded = 0;
   for (final change in changes) {
+    final int quantity;
     switch (quantityOf(change.units, unitsPerShare)) {
       case ExactQuantity(:final value):
-        lines.add(
-          Line(
-            holding,
-            change.cost,
-            currency,
-            quantity: value,
-            sub: change.sub,
-          ),
-        );
+        quantity = value;
       case TooFine():
-        return const Refused(Refusals.quantityTooFine);
+        rounded++;
+        quantity = roundedQuantity(change.units, unitsPerShare);
       case TooLarge():
         return const Refused(Refusals.quantityTooLarge);
     }
+    lines.add(
+      Line(holding, change.cost, currency, quantity: quantity, sub: change.sub),
+    );
   }
-  return Lines(lines);
+  return Lines(lines, rounded: rounded);
 }
 
 /// [shares] whole shares as a quantity.

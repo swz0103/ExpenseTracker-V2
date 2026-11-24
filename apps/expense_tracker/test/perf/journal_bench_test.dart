@@ -8,6 +8,7 @@ import 'package:expense_tracker/src/core/ledger/journal/book_mapping.dart';
 import 'package:expense_tracker/src/core/ledger/journal/replay.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/journal_keeper.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/journal_rebuild.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/write_batch.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/holding_repository.dart';
@@ -15,6 +16,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kernel/kernel.dart';
 import 'package:ledger_postings/model/vocabulary.dart';
 import 'package:storage/storage.dart';
+
+import '../support/held.dart';
 
 /// The journal at 100,000 entries in the encrypted file, as the app keeps
 /// it: posting the whole book afresh, one save's posting, every balance
@@ -120,10 +123,6 @@ void main() {
         categories: ledger.categories.all,
         start: (ledger.holdings as HoldingRepository).start,
       );
-      final seqs = {
-        for (final row in store.rows(shelf: Collection.entry.name))
-          row.id: row.seq,
-      };
       final tree = AccountTree();
       final journal = Journal(
         registry: registryFor(() => mapping),
@@ -131,17 +130,22 @@ void main() {
         store: store.journal,
         source: (_) => null,
       );
-      final rebuild = Stopwatch()..start();
-      final report = await replayBook(
-        mapping: mapping,
-        journal: journal,
-        store: store.journal,
-        entries: [
-          for (final e in ledger.entries.all) (entry: e, seq: seqs[e.id]!),
-        ],
-      );
+      // As the app posts it: on worker isolates, the screen's isolate
+      // only waiting; the longest it was held is measured beside.
+      final rebuild = Stopwatch();
+      final (result: report, heldUs: heldUs) = await timeHeld(() async {
+        rebuild.start();
+        final posted = await store.postApart(
+          postingWork(aside: const {}, start: const []),
+          mark: (rules: journalRules, revision: store.revision),
+        );
+        rebuild.stop();
+        return posted;
+      });
       final rebuildMs = rebuild.elapsedMilliseconds;
+      final held = heldUs ~/ 1000;
       expect(report.unposted, isEmpty);
+      store.journal.accounts().forEach(tree.put);
 
       // One save's posting, as the keeper posts it: the intent and the
       // mark in one transaction.
@@ -188,6 +192,7 @@ void main() {
       final monthUs = median(() => reader.month(today_.previous.firstOfMonth));
       final found = {
         'rebuild_100k_ms': rebuildMs,
+        'rebuild_held_ms': held,
         'save_posting_us': saveUs,
         'every_balance_us': balancesUs,
         'month_report_us': monthUs,

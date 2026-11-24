@@ -85,7 +85,8 @@ abstract interface class PostingStore {
   void keepAccounts(Iterable<LedgerAccount> accounts);
 
   /// Forgets every intent, posting and monthly sum (not the accounts),
-  /// before everything is posted again.
+  /// and the mark, before everything is posted again: a journal cleared
+  /// and not yet posted whole is never taken for the records' own.
   void clear();
 
   int get intentCount;

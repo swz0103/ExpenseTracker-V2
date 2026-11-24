@@ -221,14 +221,21 @@ void main() {
     expect(cash.code, 'notAMoneyAccount');
   });
 
-  test('a lot finer than a millionth of a share is refused, not rounded', () {
+  test('a lot finer than a millionth of a share is rounded half to even, '
+      'and counted', () {
     b = book();
     ok(buy('one', 1, 1, 1, 100, 0));
     ok(buy('more', 2, 2, 127, 12700, 0));
     // 1 more for the 128 held: the first lot becomes 129/128 =
-    // 1.0078125 shares, seven decimals.
-    final r = keep(b, dividend('odd', 3, 3, shares: 1)) as RuleRejected;
-    expect(r.code, 'quantity.tooFine');
+    // 1.0078125 shares, 1,007,812.5 millionths, to even 1,007,812; the
+    // second 127 × 129/128 = 127.9921875, to 127,992,188 (…187.5, even
+    // 188). Together 129,000,000: the whole shares still add up.
+    final r = keep(b, dividend('odd', 3, 3, shares: 1)) as Written;
+    expect(r.report.rounded, 2);
+    expect(b.reader.bySub(stock), [
+      (sub: 'one', quantity: 1007812, amount: 100),
+      (sub: 'more', quantity: 127992188, amount: 12700),
+    ]);
   });
 
   test('what a stock held from the start', () {

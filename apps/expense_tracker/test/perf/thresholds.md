@@ -23,6 +23,20 @@ shared CI runner does not fail the build but a real regression does.
 | `save.average_frame_build_time_millis` (frame build after a save) | ms | 1.8 / 2.1 / 6.5 | 4 / 5 / 13 |
 | `memory_mb` (RSS with the book loaded) | MiB | 232 / 286 / 475 | 470 / 580 / 950 |
 
+### The first-open journal rebuild (work package 2.0, D51)
+
+| key | unit | estimate 100k | limit 100k |
+|---|---|---|---|
+| `100k_journal_rebuild_ms` (every posting made afresh from the records, on worker isolates) | ms | 4,000–7,500 | 15,000 |
+| `100k_journal_rebuild_held_ms` (the longest the screen's isolate was held meanwhile) | ms | 30–125 | 250 |
+
+Not yet measured on the emulator: these two limits are twice an estimate
+from the host bench below (2,600–3,800 ms and 27–122 ms on the development
+VM), the rebuild scaled by about two for an emulator or a mid-range phone
+(the emulator's 100k load is close to the Galaxy A56's). Replace them with
+twice the first emulator run's figures; lowering is welcome, raising needs
+a reason as above. The 3.6k and 10k runs report the same figures, ungated.
+
 Which `save` field the "frame build after save" figure came from was not
 recorded with the measurements; the average frame build time is assumed (the
 worst frame would be a flakier gate). Check against a real run.
@@ -50,23 +64,37 @@ catch a regression in loading itself.
 100,000 entries (70% spending, 2% of it in 3 instalments, 10% income, 15%
 transfers, 5% buys of three stocks; 100,017 intents, 212,340 postings) in
 the encrypted file, as the app keeps it. Measured on the development VM
-(Xeon, shared with other runs at the time, Flutter test JIT), three runs,
-2026-11-23; each limit about twice the slowest run, rounded. Not measured
-on a phone: expect two to four times these there.
+(Xeon, shared with other runs at the time, Flutter test JIT), three runs;
+each limit about twice the slowest quiet run, rounded, and never above
+the limit before it (a figure whose doubled run would be, `save_posting_us`
+and `month_report_us`, keeps its earlier limit). Not measured on a phone:
+expect about two times these there (the emulator section above).
 
 | key | what | measured | limit |
 |---|---|---|---|
-| `rebuild_100k_ms` | every posting thrown away and posted afresh from the records, 1,000 intents a transaction (in the app 100, the screen drawn between) | 11,788 / 12,698 / 12,157 ms | 26,000 ms |
-| `save_posting_us` | one entry's posting and the journal's mark, one transaction, `synchronous=FULL` | 784 / 1,495 / 853 µs | 3,000 µs |
-| `every_balance_us` | every account's balance today, from the months' sums and this month's postings | 1,611 / 1,048 / 1,454 µs | 3,500 µs |
-| `month_report_us` | a month's income and spending by category | 61 / 39 / 38 µs | 130 µs |
+| `rebuild_100k_ms` | every posting thrown away and posted afresh from the records, as the app does it on first opening: decoding, mapping and posting on worker isolates (`journalSlices` at once), written in one transaction with the indexes made after and the mark last (`EncryptedDatabase.postApart`) | 2,610 / 2,875 / 2,669 ms (quiet), up to 3,792 under load | 6,000 ms |
+| `rebuild_held_ms` | the longest the screen's isolate was held meanwhile (`test/support/held.dart`) | 27 / 35 / 43 ms, up to 122 under load | 250 ms |
+| `save_posting_us` | one entry's posting and the journal's mark, one transaction, `synchronous=FULL` | 536 / 574 / 882 µs, one run 2,279 under load | 3,000 µs |
+| `every_balance_us` | every account's balance today, from the months' sums and this month's postings | 955 / 538 / 520 µs | 2,000 µs |
+| `month_report_us` | a month's income and spending by category | 89 / 44 / 52 µs | 130 µs |
+
+Measured 2026-11-24 after D51 (before it: the rebuild 11,788 / 12,698 /
+12,157 ms in the screen's isolate, 1,000 intents a transaction, limit
+26,000 ms; every balance 1,611 / 1,048 / 1,454 µs, limit 3,500 µs). Where
+the rebuild's time goes at 100k (one isolate, JIT): decoding the records
+350–500 ms, making entries 170–330, mapping 160–300, posting 450–900; in
+SQL intents and streams 190–280, postings 290–550, the indexes made after
+420–720, the months' sums 54–120, the commit 400–600. The workers
+overlap the first four; the SQL write is the floor that is left.
 
 The save gate (`save_scale_gate_test.dart`) counts the journal's update in
 the save it times, so a journal update that grows with the book fails it in
 CI on any machine. Posting the whole book afresh happens once (the first
-opening after this version, after a restore, or when the posting rules
-change) and in the background; about a quarter of its time is the months'
-sums, which could be built once at the end instead of with each posting.
+opening after this version, after a restore, after an older version wrote
+records, or when the posting rules change). `journal_rebuild_gate_test.dart`
+gates, in the ordinary `flutter test`, the longest hold of the screen's
+isolate while a 20,000-entry book is posted afresh, as a share of posting
+it at once there (at most 0.045, as the batch-write gate below).
 
 ## Batch writes on the computer (`batch_write_block`, DAT-03)
 

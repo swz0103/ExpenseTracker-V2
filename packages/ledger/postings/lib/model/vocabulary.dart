@@ -143,7 +143,6 @@ abstract final class Refusals {
 
   /// A sale or reduction of more shares than are held before it.
   static const oversold = 'oversold';
-  static const quantityTooFine = 'quantity.tooFine';
   static const quantityTooLarge = 'quantity.tooLarge';
   static const fxNeeded = 'fx.needed';
   static const fxUnused = 'fx.unused';

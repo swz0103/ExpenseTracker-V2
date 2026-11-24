@@ -1,13 +1,17 @@
 import 'package:kernel/kernel.dart';
 import 'package:sqlite3/sqlite3.dart';
 
-/// Layout version 1 to 2: the journal's tables beside the records. All
-/// of them are derived from the records (`rows`): they can be dropped
-/// and posted again, a backup does not carry them, and a record set
-/// aside has no postings. The body of an intent stays in its row.
+/// The journal's tables beside the records, made when missing as the file
+/// opens. Outside the layout's version ladder on purpose (decision D49):
+/// an older version, which checks that version, opens the file and leaves
+/// these tables alone; the records it writes then move the revision past
+/// the journal's mark, and the journal is posted afresh. All of them are
+/// derived from the records (`rows`): they can be dropped and posted
+/// again, a backup does not carry them, and a record set aside has no
+/// postings. The body of an intent stays in its row.
 void createJournalTables(Database db) {
   db.execute('''
-    CREATE TABLE account (
+    CREATE TABLE IF NOT EXISTS account (
       id TEXT PRIMARY KEY,
       class TEXT NOT NULL,
       name TEXT NOT NULL,
@@ -21,7 +25,7 @@ void createJournalTables(Database db) {
     ) STRICT, WITHOUT ROWID
   ''');
   db.execute('''
-    CREATE TABLE intent_index (
+    CREATE TABLE IF NOT EXISTS intent_index (
       id TEXT PRIMARY KEY,
       type TEXT NOT NULL,
       date INTEGER NOT NULL,
@@ -29,7 +33,7 @@ void createJournalTables(Database db) {
     ) STRICT, WITHOUT ROWID
   ''');
   db.execute('''
-    CREATE TABLE intent_stream (
+    CREATE TABLE IF NOT EXISTS intent_stream (
       stream TEXT NOT NULL,
       date INTEGER NOT NULL,
       seq INTEGER NOT NULL,
@@ -37,9 +41,8 @@ void createJournalTables(Database db) {
       PRIMARY KEY (stream, date, seq, intent_id)
     ) STRICT, WITHOUT ROWID
   ''');
-  db.execute('CREATE INDEX intent_stream_intent ON intent_stream (intent_id)');
   db.execute('''
-    CREATE TABLE posting (
+    CREATE TABLE IF NOT EXISTS posting (
       intent_id TEXT NOT NULL,
       line INTEGER NOT NULL,
       account TEXT NOT NULL,
@@ -51,20 +54,10 @@ void createJournalTables(Database db) {
       seq INTEGER NOT NULL
     ) STRICT
   ''');
-  // Kept in the order written (rowid), so posting a whole book appends;
-  // an intent's lines are found by the first index.
-  db.execute('CREATE UNIQUE INDEX posting_line ON posting (intent_id, line)');
-  // A period's sums read this index alone; one account's history in
-  // book order the second.
-  db.execute(
-    'CREATE INDEX posting_date '
-    'ON posting (date, account, currency, amount, quantity)',
-  );
-  db.execute('CREATE INDEX posting_account ON posting (account, date, seq)');
   // Each month's sum by account, kept in the same transaction as the
   // postings: every balance is the months before plus this month's.
   db.execute('''
-    CREATE TABLE month_sum (
+    CREATE TABLE IF NOT EXISTS month_sum (
       account TEXT NOT NULL,
       currency TEXT NOT NULL,
       month INTEGER NOT NULL,
@@ -73,11 +66,86 @@ void createJournalTables(Database db) {
       PRIMARY KEY (account, currency, month)
     ) STRICT, WITHOUT ROWID
   ''');
-  db.execute(
-    'CREATE INDEX month_sum_month '
-    'ON month_sum (month, account, currency, amount, quantity)',
-  );
+  _journalIndexes.values.forEach(db.execute);
 }
+
+/// The journal's indexes, by name. Posting a whole book afresh drops
+/// them and makes them again once every row is in ([SqlPostingStore.fill]):
+/// one sort each, in place of one insertion per row.
+const _journalIndexes = {
+  // A period's whole months are read by month.
+  'month_sum_month':
+      'CREATE INDEX IF NOT EXISTS month_sum_month '
+      'ON month_sum (month, account, currency, amount, quantity)',
+  // The posting table is kept in the order written (rowid); an intent's
+  // lines are found by this index.
+  'posting_line':
+      'CREATE UNIQUE INDEX IF NOT EXISTS posting_line '
+      'ON posting (intent_id, line)',
+  'intent_stream_intent':
+      'CREATE INDEX IF NOT EXISTS intent_stream_intent '
+      'ON intent_stream (intent_id)',
+  // The days of a month cut by a period's end are read through this.
+  'posting_date': 'CREATE INDEX IF NOT EXISTS posting_date ON posting (date)',
+  // One account's history in book order.
+  'posting_account':
+      'CREATE INDEX IF NOT EXISTS posting_account '
+      'ON posting (account, date, seq)',
+};
+
+/// The connection's settings a fill changes for its own transaction.
+typedef _Pragmas = ({Object? cache, Object? synchronous});
+
+/// A record as kept: its shelf, its id there, its place, its body.
+typedef KeptRow = ({String shelf, String id, int seq, String body});
+
+/// Posting a whole book afresh, under way in one transaction
+/// ([SqlPostingStore.begin]): parts added as they are posted, then
+/// finished, or abandoned with nothing changed.
+final class JournalFill {
+  JournalFill._(this._store, this._was);
+
+  final SqlPostingStore _store;
+  final _Pragmas _was;
+  final _months = <(String, String, int), (int, int)>{};
+  var _done = false;
+
+  /// Writes the intents and postings of [part].
+  void add(FreshPostingStore part) {
+    if (_done) throw StateError('fill done');
+    _store._add(part, _months);
+  }
+
+  /// Makes the indexes and the months' sums, keeps [accounts] as the tree
+  /// and [mark] last, and commits.
+  void finish({
+    required List<LedgerAccount> accounts,
+    required JournalMark mark,
+  }) {
+    if (_done) throw StateError('fill done');
+    _done = true;
+    try {
+      _store._finish(_months, accounts, mark);
+    } catch (_) {
+      _store._rollBack();
+      rethrow;
+    } finally {
+      _store._restore(_was);
+    }
+  }
+
+  /// Lets go of everything added: the journal as it was.
+  void abandon() {
+    if (_done) return;
+    _done = true;
+    _store._rollBack();
+    _store._restore(_was);
+  }
+}
+
+/// What posting a whole book afresh answers: its own [result], and the
+/// account tree its postings name.
+typedef PostedApart<T> = ({T result, List<LedgerAccount> accounts});
 
 /// The journal's [PostingStore] on the ledger's own file.
 final class SqlPostingStore implements PostingStore {
@@ -103,6 +171,10 @@ final class SqlPostingStore implements PostingStore {
   PreparedStatement _sql(String sql) {
     _check();
     return _statements[sql] ??= _db.prepare(sql, persistent: true);
+  }
+
+  void _rollBack() {
+    if (!_db.autocommit) _db.execute('ROLLBACK');
   }
 
   /// Lets the prepared statements go, before the file is closed.
@@ -342,11 +414,15 @@ final class SqlPostingStore implements PostingStore {
       final firstWhole = loCut ? loMonth + 1 : loMonth;
       final lastWhole = hiCut ? hiMonth - 1 : hiMonth;
       if (firstWhole <= lastWhole) {
+        // From the start every month is read anyway: by account, in the
+        // table's own order, with nothing to sort. A span of months by
+        // the month index.
+        final month = lo == 0 ? '+month' : 'month';
         add(
           _sql(
             'SELECT account, currency, SUM(amount) AS amount, '
             'SUM(quantity) AS quantity FROM month_sum '
-            'WHERE month BETWEEN ? AND ? GROUP BY account, currency',
+            'WHERE $month BETWEEN ? AND ? GROUP BY account, currency',
           ).select([firstWhole, lastWhole]),
         );
       }
@@ -430,6 +506,195 @@ final class SqlPostingStore implements PostingStore {
       'month_sum',
     ]) {
       _db.execute('DELETE FROM $table');
+    }
+    // Nothing posted is the records' own any more: never a half-built
+    // journal trusted.
+    _db.execute(
+      "DELETE FROM meta WHERE key IN ('$_rulesKey', '$_revisionKey')",
+    );
+  }
+
+  /// Begins posting the whole book afresh, in one transaction: every
+  /// intent, posting and monthly sum kept is let go and the indexes are
+  /// dropped, to be made again once every row is in (one sort each, in
+  /// place of one insertion per row). Parts are then added as they are
+  /// posted ([JournalFill.add]); [JournalFill.finish] makes the indexes
+  /// and the months' sums, keeps the tree and the mark last, and commits.
+  /// The commit need not wait for the disk (WAL, `synchronous=NORMAL` is
+  /// safe from corruption): only derived tables are written, and a crash
+  /// before they reach it loses the mark, so the book is posted afresh.
+  JournalFill begin() {
+    _check();
+    for (final s in _statements.values) {
+      s.close();
+    }
+    _statements.clear();
+    final was = (
+      cache: _db.select('PRAGMA cache_size').single.values.single,
+      synchronous: _db.select('PRAGMA synchronous').single.values.single,
+    );
+    _db.execute('PRAGMA cache_size = $_fillCache');
+    _db.execute('PRAGMA synchronous = NORMAL');
+    _db.execute('BEGIN IMMEDIATE');
+    try {
+      for (final name in _journalIndexes.keys) {
+        _db.execute('DROP INDEX IF EXISTS $name');
+      }
+      clear();
+    } catch (_) {
+      _db.execute('ROLLBACK');
+      _restore(was);
+      rethrow;
+    }
+    return JournalFill._(this, was);
+  }
+
+  /// The page cache while a whole book is written, in KiB (negative, as
+  /// SQLite counts it): room for the indexes to be sorted in memory. Put
+  /// back as it was once the book is in.
+  static const _fillCache = -65536;
+
+  /// Puts the connection's settings back as the store set them.
+  void _restore(_Pragmas was) {
+    _db.execute('PRAGMA synchronous = ${was.synchronous}');
+    _db.execute('PRAGMA cache_size = ${was.cache}');
+  }
+
+  void _add(
+    FreshPostingStore part,
+    Map<(String, String, int), (int, int)> months,
+  ) {
+    // In the order of the key, so each row lands at the end of its tree.
+    final intents = [...part.intents]
+      ..sort((a, b) => a.id.value.compareTo(b.id.value));
+    _insertMany('intent_index (id, type, date, seq)', 4, intents.length, (
+      i,
+      into,
+    ) {
+      final r = intents[i];
+      into
+        ..add(r.id.value)
+        ..add(r.type.value)
+        ..add(r.date.ymd)
+        ..add(r.seq);
+    });
+    final streams = [
+      for (final r in intents)
+        for (final s in r.streams) (s, r),
+    ];
+    _insertMany(
+      'intent_stream (stream, date, seq, intent_id)',
+      4,
+      streams.length,
+      (i, into) {
+        final (s, r) = streams[i];
+        into
+          ..add(s)
+          ..add(r.date.ymd)
+          ..add(r.seq)
+          ..add(r.id.value);
+      },
+    );
+    final postings = part.postings;
+    _insertMany(
+      'posting (intent_id, line, account, currency, amount, quantity, sub, '
+      'date, seq)',
+      9,
+      postings.length,
+      (i, into) {
+        final p = postings[i];
+        into
+          ..add(p.intent.value)
+          ..add(p.line)
+          ..add(p.account.value)
+          ..add(p.currency.value)
+          ..add(p.amount)
+          ..add(p.quantity)
+          ..add(p.sub)
+          ..add(p.date.ymd)
+          ..add(p.seq);
+      },
+    );
+    for (final p in postings) {
+      final key = (p.account.value, p.currency.value, p.date.monthKey);
+      final (amount, quantity) = months[key] ?? (0, 0);
+      months[key] = (amount + p.amount, quantity + p.quantity);
+    }
+  }
+
+  void _finish(
+    Map<(String, String, int), (int, int)> months,
+    List<LedgerAccount> accounts,
+    JournalMark mark,
+  ) {
+    _journalIndexes.values.forEach(_db.execute);
+    final sums = months.entries.toList()
+      ..sort((a, b) {
+        final byAccount = a.key.$1.compareTo(b.key.$1);
+        if (byAccount != 0) return byAccount;
+        final byCurrency = a.key.$2.compareTo(b.key.$2);
+        return byCurrency != 0 ? byCurrency : a.key.$3.compareTo(b.key.$3);
+      });
+    _insertMany(
+      'month_sum (account, currency, month, amount, quantity)',
+      5,
+      sums.length,
+      (i, into) {
+        final MapEntry(key: (account, currency, month), value: (a, q)) =
+            sums[i];
+        into
+          ..add(account)
+          ..add(currency)
+          ..add(month)
+          ..add(a)
+          ..add(q);
+      },
+    );
+    keepAccounts(accounts);
+    keepMark(mark);
+    _db.execute('COMMIT');
+  }
+
+  /// How many rows one INSERT statement carries when a whole book is
+  /// written: far under SQLite's limit of 32,766 values a statement.
+  static const _rowsPerInsert = 500;
+
+  /// Inserts [count] rows of [width] values into [into], each row's values
+  /// added by [row], [_rowsPerInsert] rows a statement.
+  void _insertMany(
+    String into,
+    int width,
+    int count,
+    void Function(int i, List<Object?> values) row,
+  ) {
+    final one = '(${List.filled(width, '?').join(', ')})';
+    String sql(int rows) =>
+        'INSERT INTO $into VALUES ${List.filled(rows, one).join(', ')}';
+    final full = _db.prepare(sql(_rowsPerInsert));
+    try {
+      final values = <Object?>[];
+      var i = 0;
+      for (; i + _rowsPerInsert <= count; i += _rowsPerInsert) {
+        values.clear();
+        for (var k = i; k < i + _rowsPerInsert; k++) {
+          row(k, values);
+        }
+        full.execute(values);
+      }
+      if (i < count) {
+        values.clear();
+        for (var k = i; k < count; k++) {
+          row(k, values);
+        }
+        final last = _db.prepare(sql(count - i));
+        try {
+          last.execute(values);
+        } finally {
+          last.close();
+        }
+      }
+    } finally {
+      full.close();
     }
   }
 

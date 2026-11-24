@@ -83,7 +83,7 @@ flowchart LR
 | `services/` | 只讀、跨 Repository 的計算，經 `QueryCache` 記住答案 | balance statement report entryQuery budget recurring · entryValidator |
 | `commands/` | 寫入；跨 Repository 的修改用 `UnitOfWork` 一次交出 | entry account category budget recurring holding attachment |
 | `cache/` | `Topic`（資料主題）、`TopicNotifier`、`QueryCache`（讀了哪些主題自動追蹤，主題變了才作廢） | — |
-| `journal/` | 分錄（工作包 2.0）：紀錄對應成意圖（`BookMapping`，舊資料形狀 `OldShape`）、整本重放（`replayBook`）、與現行數字比對（`checkParity`） | models、cache、repositories、services |
+| `journal/` | 分錄（工作包 2.0）：紀錄對應成意圖（`BookMapping`，舊資料形狀 `OldShape`）、整本重放（`replayBook`）、與現行數字比對（`checkParity`）、需要使用者檢視的舊形狀紀錄（`recordsNeedingReview`，D47） | models、cache、repositories、services |
 | `persistence/` | `WriteBatch`、`UnitOfWork`、`WriteQueue`、`SqlLedgerDataSource`、紀錄版本與升級、一型別一檔的 JSON；`JournalKeeper` 讓分錄跟著紀錄 | — |
 | `ledger.dart` | 只做組合與通知：`today` `newId` `watch(topics)` `settled` `problem` `amounts` | — |
 
@@ -91,7 +91,7 @@ flowchart LR
 
 **一筆寫入怎麼走**：`entryCommands.add(e)` → `entries.add` → `holdings.replay`（股數不夠就還原並丟出）→ `CommandContext` 通知 `Topic.entries` 等主題、交出 `WriteBatch` → `WriteQueue` 依序 `keep` 成資料庫一個交易。畫面先生效；寫入失敗時 `problem` 變成 `KeepFailed`，佇列清空後整本重讀，畫面回到實際存下的狀態。
 
-**分錄跟著紀錄（2.0）**：紀錄仍是唯一真相、寫入仍走上面那條路；分錄是由紀錄算出、可整批重建的索引，存在同一個加密檔的衍生資料表（`posting`、`month_sum`…，不進備份）。開帳時若分錄不是由這一版規則、這一個 `revision` 算出，就在背景整本重放；每次 `keep` 之後，`JournalKeeper` 把變動的紀錄記成分錄，再在背景比對畫面上的數字（餘額、每月收支與分類、持股、卡費、各幣別為零），不同就寫進診斷紀錄（只寫哪種數字，不寫金額）。畫面還沒有讀分錄。
+**分錄跟著紀錄（2.0）**：紀錄仍是唯一真相、寫入仍走上面那條路；分錄是由紀錄算出、可整批重建的索引，存在同一個加密檔的衍生資料表（`posting`、`month_sum`…，不進備份）。開帳時若分錄不是由這一版規則、這一個 `revision` 算出（例如舊版 App 寫過紀錄，D49），就在 worker isolate 上整本重放（`journal_rebuild.dart`、`EncryptedDatabase.postApart`，D51），畫面所在的 isolate 只等待；每次 `keep` 之後，`JournalKeeper` 把變動的紀錄記成分錄，再在背景比對畫面上的數字（餘額、每月收支與分類、持股、卡費、各幣別為零），不同就寫進診斷紀錄（只寫哪種數字，不寫金額）。畫面還沒有讀分錄。
 
 **一次讀取怎麼走**：`balanceService.balance(id)` 先查 `QueryCache`；沒有時計算，計算中讀過的 `Reader` 自動回報主題（`entries`、`accounts`）。之後只有這些主題變動才重算；改預算不會讓餘額重算。
 

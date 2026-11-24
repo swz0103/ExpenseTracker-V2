@@ -3,4 +3,5 @@
 library;
 
 export 'src/encrypted_database.dart';
-export 'src/journal_store.dart' show SqlPostingStore;
+export 'src/journal_store.dart'
+    show JournalFill, KeptRow, PostedApart, SqlPostingStore;

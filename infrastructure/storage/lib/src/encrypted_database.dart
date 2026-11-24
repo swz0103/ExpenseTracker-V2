@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:kernel/kernel.dart' show FreshPostingStore, JournalMark;
 import 'package:sqlite3/sqlite3.dart';
 
 import 'journal_store.dart';
@@ -173,17 +174,18 @@ final class EncryptedDatabase {
 
   /// The layout this build writes: the tables, not what their rows hold.
   /// It is the number of steps in [_layout].
-  static const schema = 2;
+  static const schema = 1;
 
   /// The steps that bring a file's layout up, one version at a time:
   /// `_layout[n]` takes a file at version n to n + 1. A file is brought
   /// up by every step it lacks, all in one transaction, as it opens; a
   /// new file is at version 0. A change of layout adds a step here and
   /// raises [schema].
-  static const List<void Function(Database db)> _layout = [
-    _createTables,
-    createJournalTables,
-  ];
+  ///
+  /// The journal's tables are not a step: they are derived, and an older
+  /// version, which knows nothing of them, must still open the file
+  /// (decision D49). They are made beside the ladder ([_create]).
+  static const List<void Function(Database db)> _layout = [_createTables];
 
   /// The [meta] key the store keeps its [revision] under.
   static const _revision = 'revision';
@@ -372,6 +374,79 @@ final class EncryptedDatabase {
     }
   });
 
+  /// Posts the whole journal afresh on a worker isolate through this same
+  /// connection, as [writeApart] writes records. [work] is given every
+  /// account, category and entry kept (shelf, id, place, body, in the
+  /// order kept) and posts them in memory, in parts it hands to `add` as
+  /// each is done, written there and then while the rest is posted (it
+  /// may share the posting out to isolates of its own); it answers the
+  /// account tree with its result. All of it is one transaction, [mark]
+  /// last in it ([SqlPostingStore.begin]), so a journal posted only in
+  /// part is never taken for the records' own. Until it is done nothing
+  /// else uses the store, as with [writeApart]. [work] must be sendable
+  /// to an isolate: it carries what it needs, never this store.
+  Future<T> postApart<T>(
+    Future<PostedApart<T>> Function(
+      List<KeptRow> rows,
+      void Function(FreshPostingStore part) add,
+    )
+    work, {
+    required JournalMark mark,
+  }) async {
+    _requireOpen();
+    _revisionBefore = revision;
+    final done = _apart = Completer<void>();
+    try {
+      return await _postApart(_db.handle.address, work, mark);
+    } finally {
+      _apart = null;
+      done.complete();
+      if (_closeAfter) close();
+    }
+  }
+
+  static Future<T> _postApart<T>(
+    int address,
+    Future<PostedApart<T>> Function(
+      List<KeptRow> rows,
+      void Function(FreshPostingStore part) add,
+    )
+    work,
+    JournalMark mark,
+  ) => Isolate.run(() async {
+    // A view of the connection this isolate opened: not closed here.
+    final db = sqlite3.fromPointer(
+      Pointer.fromAddress(address),
+      borrowed: true,
+    );
+    final journal = SqlPostingStore(db);
+    try {
+      final rows = [
+        for (final r in db.select(
+          "SELECT shelf, id, seq, body FROM rows WHERE shelf IN "
+          "('account', 'category', 'entry') ORDER BY seq",
+        ))
+          (
+            shelf: r['shelf'] as String,
+            id: r['id'] as String,
+            seq: r['seq'] as int,
+            body: r['body'] as String,
+          ),
+      ];
+      final fill = journal.begin();
+      try {
+        final posted = await work(rows, fill.add);
+        fill.finish(accounts: posted.accounts, mark: mark);
+        return posted.result;
+      } finally {
+        fill.abandon();
+      }
+    } finally {
+      journal.close();
+      db.close();
+    }
+  });
+
   /// Closes the store; while a write runs apart, once it is done.
   void close() {
     if (_closed) return;
@@ -399,6 +474,7 @@ final class EncryptedDatabase {
       throw const StorageUnavailable(StorageProblem.oldFormat);
     }
     bringUpLayout(db, _layout);
+    createJournalTables(db);
   }
 
   /// Version 0 to 1: the records' table and the store's own.

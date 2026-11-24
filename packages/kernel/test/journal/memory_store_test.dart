@@ -176,9 +176,12 @@ void main() {
     expect(store.subSums(jar, until: day(1, 31)), {
       ('b1', twd): (amount: 100, quantity: 10),
     });
+    store.keepMark((rules: 1, revision: 4));
     store.clear();
     expect((store.intentCount, store.postingCount), (0, 0));
     expect(store.sums(), isEmpty);
     expect(store.accounts().length, 6);
+    // Cleared and not yet posted whole: never the records' own.
+    expect(store.mark, isNull);
   });
 }

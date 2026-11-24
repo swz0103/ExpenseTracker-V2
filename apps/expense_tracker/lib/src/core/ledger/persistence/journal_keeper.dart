@@ -44,6 +44,7 @@ final class JournalKeeper {
     required this._recordOf,
     required this._isOpen,
     this._quiet = _now,
+    this._postApart,
     this.compares = true,
   });
 
@@ -68,6 +69,11 @@ final class JournalKeeper {
   final Future<void> Function() _quiet;
 
   static Future<void> _now() async {}
+
+  /// Posts the whole book afresh off this isolate, from the records as
+  /// kept, given the stocks held from the start, and keeps the mark of
+  /// the records' revision last; none (tests in memory) posts it here.
+  final Future<ReplayReport> Function(List<Holding> start)? _postApart;
 
   /// Whether the journal is compared with the figures the app shows
   /// after it changes: as the app keeps it; a bench timing the posting
@@ -177,9 +183,19 @@ final class JournalKeeper {
     start: _start,
   );
 
-  /// Posts the whole book afresh, from the records as the ledger holds
-  /// them, as of [revision].
+  /// Posts the whole book afresh, as of [revision]: off this isolate when
+  /// the store can ([_postApart]), the tree then read back; else here,
+  /// from the records as the ledger holds them.
   Future<void> _rebuild(int revision) async {
+    final apart = _postApart;
+    if (apart != null) {
+      await _ready();
+      _replay = await apart(_start);
+      await _ready();
+      _store.accounts().forEach(_journal!.accounts.put);
+      _noteRounded();
+      return;
+    }
     final ledger = _ledger!;
     final seqs = _entrySeqs();
     _replay = await replayBook(
@@ -195,6 +211,18 @@ final class JournalKeeper {
     );
     _store.transaction(
       () => _store.keepMark((rules: journalRules, revision: revision)),
+    );
+    _noteRounded();
+  }
+
+  /// Tells the diagnostics log, once per posting afresh, that quantities
+  /// finer than a millionth of a share were rounded (decision D48): how
+  /// often is kept in the report, never an amount.
+  void _noteRounded() {
+    if ((_replay?.rounded ?? 0) == 0) return;
+    ErrorLog.instance.record(
+      ErrorSteps.journalUpdate,
+      StateError('lot quantities rounded to a millionth of a share'),
     );
   }
 

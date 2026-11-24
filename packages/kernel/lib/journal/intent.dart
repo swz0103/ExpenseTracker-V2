@@ -54,8 +54,12 @@ sealed class Posted {
 }
 
 final class Lines extends Posted {
-  const Lines(this.lines);
+  const Lines(this.lines, {this.rounded = 0});
   final List<Line> lines;
+
+  /// How many of [lines] carry a quantity the rule had to round
+  /// (`roundedQuantity`): counted, so the rounding is never silent.
+  final int rounded;
 }
 
 final class Refused extends Posted {

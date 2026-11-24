@@ -205,6 +205,9 @@ final class MemoryPostingStore implements PostingStore {
     for (final id in [..._rows.keys]) {
       remove(id);
     }
+    final before = _mark;
+    _undo?.add(() => _mark = before);
+    _mark = null;
   }
 
   @override

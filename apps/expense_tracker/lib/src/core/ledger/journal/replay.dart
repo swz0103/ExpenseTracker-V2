@@ -18,11 +18,29 @@ final class ReplayReport {
   ReplayReport();
 
   var intents = 0;
+
+  /// How many lot lines had a quantity rounded to a millionth of a share
+  /// (decision D48).
+  var rounded = 0;
   final shapes = <OldShape, int>{};
   final unposted = <JournalRefusal>[];
 
   /// Notes [found] once more each.
   void count(Iterable<OldShape> found) {
+    _count(found);
+  }
+
+  /// Adds what [other] found, of another part of the same book.
+  void add(ReplayReport other) {
+    intents += other.intents;
+    rounded += other.rounded;
+    other.shapes.forEach(
+      (shape, n) => shapes[shape] = (shapes[shape] ?? 0) + n,
+    );
+    unposted.addAll(other.unposted);
+  }
+
+  void _count(Iterable<OldShape> found) {
     for (final shape in found) {
       shapes[shape] = (shapes[shape] ?? 0) + 1;
     }
@@ -62,7 +80,7 @@ Future<ReplayReport> replayBook({
     store.clear();
     store.keepAccounts(journal.accounts.all);
   });
-  _post(journal, mapping.openings, report, const {});
+  postIntents(journal, mapping.openings, report, const {});
   final ordered = [...entries]
     ..sort((a, b) {
       final byDay = a.entry.date.compareTo(b.entry.date);
@@ -80,7 +98,7 @@ Future<ReplayReport> replayBook({
       intents.add(mapped.intent);
       records[mapped.intent.id] = (entry, mapped.shapes);
     }
-    _post(journal, intents, report, records, mapping: mapping);
+    postIntents(journal, intents, report, records, mapping: mapping);
     if (pause != null && end < ordered.length) await pause();
   }
   store.transaction(() => store.keepAccounts(journal.accounts.all));
@@ -89,8 +107,9 @@ Future<ReplayReport> replayBook({
 
 /// Posts [intents] in one transaction; a refused one is replaced by its
 /// reading today (an oversold trade) or left out, and the rest posted
-/// again.
-void _post(
+/// again. [records] holds each intent's entry and old shapes; [mapping]
+/// gives an oversold trade's reading.
+void postIntents(
   Journal journal,
   List<LedgerIntent> intents,
   ReplayReport report,
@@ -102,6 +121,7 @@ void _post(
     final result = journal.putAll(todo);
     if (result is Written) {
       report.intents += todo.length;
+      report.rounded += result.report.rounded;
       for (final intent in todo) {
         report.count(records[intent.id]?.$2 ?? const {});
       }

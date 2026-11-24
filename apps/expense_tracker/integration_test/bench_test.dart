@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:expense_tracker/src/app/app.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/journal_keeper.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/journal_rebuild.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
@@ -12,6 +14,7 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
+import '../test/support/held.dart';
 import '../test/support/places.dart';
 
 /// Times the app on an emulator in profile mode: writing and loading
@@ -78,6 +81,22 @@ Future<void> bench(
   final writing = Stopwatch()..start();
   await dataSource.keep(WriteBatch(entries: entries));
   writing.stop();
+  // The first opening after this version: every posting of the journal
+  // made afresh from the records, on worker isolates, while the screen's
+  // isolate only waits; the longest it was held then, in ms.
+  final rebuilding = Stopwatch();
+  final rebuilt = await timeHeld(() async {
+    rebuilding.start();
+    final posted = await open.store.postApart(
+      postingWork(aside: const {}, start: const []),
+      mark: (rules: journalRules, revision: open.store.revision),
+    );
+    rebuilding.stop();
+    return posted;
+  });
+  expect(rebuilt.result.unposted, isEmpty, reason: 'every entry posted');
+  report[key('journal_rebuild_ms')] = rebuilding.elapsedMilliseconds;
+  report[key('journal_rebuild_held_ms')] = rebuilt.heldUs ~/ 1000;
   final loading = Stopwatch()..start();
   ledger = await dataSource.load();
   loading.stop();

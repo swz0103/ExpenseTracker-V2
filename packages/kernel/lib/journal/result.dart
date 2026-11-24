@@ -2,9 +2,15 @@ import '../model/ids.dart';
 
 /// What a write did: how many intents were posted (more than one when
 /// later intents of a stream followed), how many postings now stand for
-/// them, and [stale]: intents of a touched stream left as they were,
-/// because nobody here can post their kind any more.
-typedef WriteReport = ({int posted, int postings, List<IntentId> stale});
+/// them, how many lines had a quantity rounded ([rounded]), and [stale]:
+/// intents of a touched stream left as they were, because nobody here
+/// can post their kind any more.
+typedef WriteReport = ({
+  int posted,
+  int postings,
+  int rounded,
+  List<IntentId> stale,
+});
 
 /// What the journal answers a write: written, or refused with nothing
 /// changed. Sealed, so a caller's switch covers every case.

@@ -42,14 +42,16 @@ final class Journal {
   }) => _write(also, () {
     var posted = 0;
     var postings = 0;
+    var rounded = 0;
     final stale = <IntentId>[];
     for (final intent in intents) {
       final r = _put(intent);
       posted += r.posted;
       postings += r.postings;
+      rounded += r.rounded;
       stale.addAll(r.stale);
     }
-    return (posted: posted, postings: postings, stale: stale);
+    return (posted: posted, postings: postings, rounded: rounded, stale: stale);
   });
 
   /// Takes the intent [id] and its postings away, and posts the later
@@ -86,16 +88,7 @@ final class Journal {
         throw _Abort(UnknownAmendment(intent.id, slot));
       }
     }
-    final streams = [
-      ...spec.streamsOf(intent),
-      for (final a in registry.amenders)
-        if (intent.amendments.containsKey(a.slot))
-          ...?a.streams?.call(
-            spec.touchesOf(intent),
-            intent.amendments[a.slot],
-            accounts,
-          ),
-    ];
+    final streams = _streamsOf(spec, intent);
     final row = IntentRow(
       id: intent.id,
       type: intent.type,
@@ -117,6 +110,27 @@ final class Journal {
       from: from,
     );
   }
+
+  /// The streams [intent] is in: its rule's, and those its amendments
+  /// add. An intent in none is posted from itself alone, whatever was
+  /// posted before it: a whole book can post those in any order, apart.
+  /// Empty for a kind nobody here posts.
+  List<String> streamsOf(LedgerIntent intent) =>
+      switch (registry[intent.type]) {
+        final spec? => _streamsOf(spec, intent),
+        null => const [],
+      };
+
+  List<String> _streamsOf(IntentSpec spec, LedgerIntent intent) => [
+    ...spec.streamsOf(intent),
+    for (final a in registry.amenders)
+      if (intent.amendments.containsKey(a.slot))
+        ...?a.streams?.call(
+          spec.touchesOf(intent),
+          intent.amendments[a.slot],
+          accounts,
+        ),
+  ];
 
   JournalResult _write(void Function()? also, WriteReport Function() body) {
     try {
@@ -153,12 +167,15 @@ final class Journal {
         queue.addAll(row.streams);
       }
     }
-    final order = todo.values.toList()
-      ..sort((a, b) {
-        final byPlace = comparePositions(a.position, b.position);
-        return byPlace != 0 ? byPlace : a.id.value.compareTo(b.id.value);
-      });
+    // Most writes post their own intent alone: nothing to order.
+    final order = todo.length == 1
+        ? [todo.values.single]
+        : (todo.values.toList()..sort((a, b) {
+            final byPlace = comparePositions(a.position, b.position);
+            return byPlace != 0 ? byPlace : a.id.value.compareTo(b.id.value);
+          }));
     var written = 0;
+    var rounded = 0;
     final stale = <IntentId>[];
     for (final row in order) {
       final spec = registry[row.type];
@@ -169,7 +186,9 @@ final class Journal {
         continue;
       }
       final context = RuleContext(accounts, _store, row.position);
-      final postings = switch (_posted(spec, intent, context)) {
+      final (posted, roundedHere) = _posted(spec, intent, context);
+      rounded += roundedHere;
+      final postings = switch (posted) {
         Refused(:final code, :final detail) => throw _Abort(
           RuleRejected(row.id, code, detail),
         ),
@@ -181,14 +200,21 @@ final class Journal {
     return (
       posted: order.length - stale.length,
       postings: written,
+      rounded: rounded,
       stale: stale,
     );
   }
 
-  /// The rule's lines, then each amender's rewrite, in order.
-  Posted _posted(IntentSpec spec, LedgerIntent intent, RuleContext context) {
+  /// The rule's lines, then each amender's rewrite, in order; with how
+  /// many lines the rule rounded a quantity on.
+  (Posted, int) _posted(
+    IntentSpec spec,
+    LedgerIntent intent,
+    RuleContext context,
+  ) {
     var posted = spec.linesOf(intent, context);
-    if (!spec.amendable) return posted;
+    final rounded = posted is Lines ? posted.rounded : 0;
+    if (!spec.amendable) return (posted, rounded);
     for (final amender in registry.amenders) {
       if (posted is! Lines) break;
       posted = amender.amend((
@@ -198,7 +224,7 @@ final class Journal {
         context: context,
       ));
     }
-    return posted;
+    return (posted, rounded);
   }
 
   /// [lines] as postings of [row]; or an abort: every account known, in

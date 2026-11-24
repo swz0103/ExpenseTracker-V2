@@ -19,8 +19,9 @@ import 'package:storage/storage.dart';
 
 import 'book_migrations.dart';
 import 'journal_keeper.dart';
+import 'journal_rebuild.dart';
 import 'ledger_data_source.dart';
-import '../journal/replay.dart' show KeptEntry;
+import '../journal/replay.dart' show KeptEntry, ReplayReport;
 import '../ledger.dart';
 import 'codec/category_refs.dart';
 import 'codec/record_fields.dart';
@@ -119,7 +120,22 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     recordOf: _keptEntry,
     isOpen: () => _store.isOpen,
     quiet: _quiet,
+    postApart: _postJournalApart,
   );
+
+  /// The whole journal posted afresh on a worker isolate (D51): from the
+  /// records as kept, those set aside as the book opened left out, the
+  /// mark of the records' revision kept last.
+  Future<ReplayReport> _postJournalApart(List<Holding> start) async {
+    await _quiet();
+    return _store.postApart(
+      postingWork(
+        aside: {for (final r in _aside.rows) '${r.shelf}/${r.id}'},
+        start: start,
+      ),
+      mark: (rules: journalRules, revision: _store.revision),
+    );
+  }
 
   /// Where each entry read as the book last opened stands, until the
   /// journal has taken it; then read from the store again.

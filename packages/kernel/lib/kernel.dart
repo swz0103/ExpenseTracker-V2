@@ -4,6 +4,7 @@
 library;
 
 export 'journal/intent.dart';
+export 'journal/fresh_store.dart';
 export 'journal/journal.dart';
 export 'journal/memory_store.dart';
 export 'journal/result.dart';

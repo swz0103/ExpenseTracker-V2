@@ -17,7 +17,7 @@ String said(JournalResult r) => switch (r) {
 
 void main() {
   test('each result says what it is', () {
-    const report = (posted: 2, postings: 4, stale: <IntentId>[]);
+    const report = (posted: 2, postings: 4, rounded: 0, stale: <IntentId>[]);
     expect(said(const Written(report)), 'written 2');
     expect(said(const Unbalanced(id, CurrencyCode('TWD'), 3)), 'unbalanced 3');
     expect(said(const UnknownAccount(id, AccountId('a'))), 'unknown a');

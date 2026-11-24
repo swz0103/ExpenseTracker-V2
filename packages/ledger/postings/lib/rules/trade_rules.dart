@@ -20,19 +20,15 @@ import '../model/vocabulary.dart';
       : (currency, null);
 }
 
-/// [lines] and [more], or the first refusal among them.
-Posted _join(List<Line> lines, List<Posted> more) {
-  final all = [...lines];
-  for (final posted in more) {
-    switch (posted) {
-      case Lines(lines: final some):
-        all.addAll(some);
-      case Refused():
-        return posted;
-    }
-  }
-  return Lines(all);
-}
+/// [lines] and the lot lines [lots], with how many of those were
+/// rounded; or the lots' refusal.
+Posted _join(List<Line> lines, Posted lots) => switch (lots) {
+  Lines(lines: final more, :final rounded) => Lines([
+    ...lines,
+    ...more,
+  ], rounded: rounded),
+  Refused() => lots,
+};
 
 final class OpeningPositionRule implements PostingRule<OpeningPosition> {
   const OpeningPositionRule();
@@ -109,13 +105,10 @@ final class SellRule implements PostingRule<Sell> {
       fee: i.fee,
       tax: i.tax,
     );
-    return _join(
-      [
-        Line(i.cash, got, currency),
-        Line(Fixed.realisedGains, sold.cost - got, currency, sub: i.code),
-      ],
-      [lotLines(holding, sold.changes, currency)],
-    );
+    return _join([
+      Line(i.cash, got, currency),
+      Line(Fixed.realisedGains, sold.cost - got, currency, sub: i.code),
+    ], lotLines(holding, sold.changes, currency));
   }
 }
 
@@ -168,10 +161,10 @@ final class DividendRule implements PostingRule<Dividend> {
       currency: held,
       wholeShares: !i.split,
     );
-    return _join(
-      [...cash, realised(r.dropped)],
-      [lotLines(holding, r.changes, held)],
-    );
+    return _join([
+      ...cash,
+      realised(r.dropped),
+    ], lotLines(holding, r.changes, held));
   }
 
   /// Shares taken back and capital returned, which lowers their cost;
@@ -197,10 +190,10 @@ final class DividendRule implements PostingRule<Dividend> {
         lowering -= off;
         changes.add((sub: lot.sub, units: -lot.units, cost: -off));
       }
-      return _join(
-        [Line(i.cash, back, currency), realised(-lowering)],
-        [lotLines(holding, changes, currency)],
-      );
+      return _join([
+        Line(i.cash, back, currency),
+        realised(-lowering),
+      ], lotLines(holding, changes, currency));
     }
     final r = reratio(
       lots,
@@ -209,10 +202,10 @@ final class DividendRule implements PostingRule<Dividend> {
       currency: currency,
       capitalReturned: back,
     );
-    return _join(
-      [Line(i.cash, back, currency), realised(r.lowered + r.dropped - back)],
-      [lotLines(holding, r.changes, currency)],
-    );
+    return _join([
+      Line(i.cash, back, currency),
+      realised(r.lowered + r.dropped - back),
+    ], lotLines(holding, r.changes, currency));
   }
 
   /// The cash a dividend pays, less what is withheld, as dividends of

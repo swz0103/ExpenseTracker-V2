@@ -83,8 +83,8 @@ void main() {
     expect((pooled.dropped, pooled.lowered), (0, 0));
   });
 
-  test('changes as lines, or a refusal when a lot is finer than a '
-      'millionth', () {
+  test('changes as lines; a lot finer than a millionth rounded and '
+      'counted, one too large refused', () {
     final lines = lotLines(stock, [
       (sub: 'a', units: share, cost: 5),
     ], homeCurrency) as Lines;
@@ -92,10 +92,12 @@ void main() {
       [for (final l in lines.lines) (l.quantity, l.amount, l.sub)],
       [(1000000, 5, 'a')],
     );
+    expect(lines.rounded, 0);
+    // 1.5 millionths of a share: to even, 2.
     final fine = lotLines(stock, [
-      (sub: 'a', units: BigInt.one, cost: 0),
-    ], homeCurrency) as Refused;
-    expect(fine.code, 'quantity.tooFine');
+      (sub: 'a', units: BigInt.from(1500000), cost: 0),
+    ], homeCurrency) as Lines;
+    expect((fine.lines.single.quantity, fine.rounded), (2, 1));
     final huge = lotLines(stock, [
       (sub: 'a', units: share * BigInt.from(10).pow(10), cost: 0),
     ], homeCurrency) as Refused;

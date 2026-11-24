@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:kernel/kernel.dart';
 import 'package:sqlite3/sqlite3.dart';
+import 'package:storage/src/journal_store.dart' show createJournalTables;
 import 'package:storage/storage.dart';
 import 'package:test/test.dart';
 
@@ -61,12 +62,17 @@ void main() {
     directory.deleteSync(recursive: true);
   });
 
-  test('a file of the first layout is given the journal tables, its '
-      'records kept', () {
+  test('the journal leaves the layout version alone: a file an older '
+      'version kept is given the tables, and opens in that version still', () {
     store.write((w) => w.put('entry', 'e1', '{}'));
+    store.journal.keepMark((rules: 1, revision: store.revision));
     store.close();
+    // As an older version keeps the file: no journal tables, layout 1,
+    // and a record written by it, which moves the revision on.
     final raw = sqlite3.open(file.path)
       ..execute('PRAGMA key = "x\'${key.hex}\'"');
+    expect(raw.userVersion, 1);
+    raw.execute("UPDATE meta SET value = value + 1 WHERE key = 'revision'");
     for (final table in [
       'account',
       'intent_index',
@@ -76,13 +82,20 @@ void main() {
     ]) {
       raw.execute('DROP TABLE $table');
     }
-    raw.userVersion = 1;
     raw.close();
     store = EncryptedDatabase.open(file, key);
-    expect(EncryptedDatabase.schema, 2);
+    expect(EncryptedDatabase.schema, 1);
     expect(store.rows().single.id, 'e1');
     expect(store.journal.postingCount, 0);
-    expect(store.journal.mark, isNull);
+    // The mark is no longer the records' revision: posted afresh.
+    expect(store.journal.mark, (rules: 1, revision: 1));
+    expect(store.revision, 2);
+    store.close();
+    final again = sqlite3.open(file.path)
+      ..execute('PRAGMA key = "x\'${key.hex}\'"');
+    expect(again.userVersion, 1);
+    again.close();
+    store = EncryptedDatabase.open(file, key);
   });
 
   test('sums by month agree with the memory store, over any range', () {
@@ -244,6 +257,153 @@ void main() {
     expect(sql.sums(), isEmpty);
     expect(sql.inStream('s', from: (date: Day.stored(0), seq: 0)), isEmpty);
     expect(sql.accounts(), tree);
+  });
+
+  group('the whole journal posted afresh apart', () {
+    /// Two parts of a book: what the second has moves the first's money.
+    Future<PostedApart<int>> work(
+      List<KeptRow> rows,
+      void Function(FreshPostingStore part) add,
+    ) async {
+      final one = FreshPostingStore()
+        ..put(row('a', 20260101, 1, ['s']), [
+          p('a', 0, bank, -5, 20260101, 1),
+          p('a', 1, food, 5, 20260101, 1),
+        ]);
+      final two = FreshPostingStore()
+        ..put(row('b', 20260215, 2), [
+          p('b', 0, bank, -7, 20260215, 2),
+          p('b', 1, food, 7, 20260215, 2),
+        ]);
+      add(one);
+      add(two);
+      return (
+        result: rows.length,
+        accounts: const [
+          LedgerAccount(
+            id: bank,
+            cls: AccountClass.asset,
+            name: 'b',
+            owner: OwnerId('t'),
+            currency: twd,
+          ),
+        ],
+      );
+    }
+
+    Future<PostedApart<int>> fails(
+      List<KeptRow> rows,
+      void Function(FreshPostingStore part) add,
+    ) async {
+      add(FreshPostingStore());
+      throw StateError('cut short');
+    }
+
+    test('every part written, the months summed, the mark kept last; the '
+        'records and their revision untouched', () async {
+      store.write(
+        (w) => w
+          ..put('entry', 'e1', '{}')
+          ..put('trash', 't1', '{}'),
+      );
+      store.journal.put(row('old', 20250101, 9), [
+        p('old', 0, bank, 1, 20250101, 9),
+      ]);
+      final revision = store.revision;
+      final read = await store.postApart(
+        work,
+        mark: (rules: 1, revision: revision),
+      );
+      // The accounts, categories and entries are given: one entry here.
+      expect(read, 1);
+      expect(store.revision, revision);
+      expect(store.journal.mark, (rules: 1, revision: revision));
+      expect(store.journal.intent(const IntentId('old')), isNull);
+      expect(store.journal.sums(), {
+        (bank, twd): (amount: -12, quantity: 0), // -5 - 7
+        (food, twd): (amount: 12, quantity: 0),
+      });
+      // January's sum from the months' table, February's half from the
+      // postings: as the store keeps them for a single save.
+      expect(store.journal.sums(until: Day.stored(20260131)), {
+        (bank, twd): (amount: -5, quantity: 0),
+        (food, twd): (amount: 5, quantity: 0),
+      });
+      expect(store.journal.postingsOfIntent(const IntentId('b')), hasLength(2));
+      expect(
+        store.journal.inStream('s', from: (date: Day.stored(0), seq: 0)),
+        hasLength(1),
+      );
+      expect(store.journal.accounts().single.id, bank);
+      // The indexes are there again.
+      final raw = sqlite3.open(file.path)
+        ..execute('PRAGMA key = "x\'${key.hex}\'"');
+      store.close();
+      expect(
+        {
+          for (final r in raw.select(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND sql IS NOT NULL",
+          ))
+            r['name'],
+        },
+        containsAll([
+          'posting_line',
+          'posting_date',
+          'posting_account',
+          'intent_stream_intent',
+        ]),
+      );
+      raw.close();
+      store = EncryptedDatabase.open(file, key);
+    });
+
+    test(
+      'cut short, it leaves the journal and its mark as they were',
+      () async {
+        store.journal.put(row('old', 20250101, 9), [
+          p('old', 0, bank, 1, 20250101, 9),
+        ]);
+        store.journal.keepMark((rules: 1, revision: 0));
+        await expectLater(
+          store.postApart(fails, mark: (rules: 1, revision: 5)),
+          throwsStateError,
+        );
+        expect(store.journal.mark, (rules: 1, revision: 0));
+        expect(store.journal.intent(const IntentId('old')), isNotNull);
+        expect(store.writingApart, isFalse);
+      },
+    );
+  });
+
+  test('a fill puts the connection back as it was, finished or abandoned: '
+      'the records keep their durability', () {
+    final db = sqlite3.openInMemory()
+      ..execute('CREATE TABLE meta (key TEXT PRIMARY KEY, value INTEGER)')
+      ..execute('PRAGMA synchronous = FULL')
+      ..execute('PRAGMA cache_size = -1234');
+    addTearDown(db.close);
+    createJournalTables(db);
+    final sql = SqlPostingStore(db);
+    Object? pragma(String name) =>
+        db.select('PRAGMA $name').single.values.single;
+    final was = (pragma('synchronous'), pragma('cache_size'));
+
+    final fill = sql.begin();
+    expect(pragma('synchronous'), isNot(was.$1), reason: 'eased inside');
+    fill
+      ..add(
+        FreshPostingStore()..put(row('a', 20260101, 1), [
+          p('a', 0, bank, -5, 20260101, 1),
+          p('a', 1, food, 5, 20260101, 1),
+        ]),
+      )
+      ..finish(accounts: const [], mark: (rules: 1, revision: 3));
+    expect((pragma('synchronous'), pragma('cache_size')), was);
+    expect(sql.mark, (rules: 1, revision: 3));
+
+    sql.begin().abandon();
+    expect((pragma('synchronous'), pragma('cache_size')), was);
+    expect(sql.intentCount, 1, reason: 'abandoned: as it was');
   });
 
   test('a journal writes through it: put, refuse, take away', () {

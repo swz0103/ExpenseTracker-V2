@@ -38,6 +38,25 @@ void main() {
     );
   });
 
+  test('the one rounding of a count finer than a millionth: half to even', () {
+    // 2.5 millionths → 2; 3.5 → 4; 2.6 → 3; -2.5 → -2; -3.5 → -4.
+    expect(roundedQuantity(BigInt.from(2500000), perShare), 2);
+    expect(roundedQuantity(BigInt.from(3500000), perShare), 4);
+    expect(roundedQuantity(BigInt.from(2600000), perShare), 3);
+    expect(roundedQuantity(BigInt.from(-2500000), perShare), -2);
+    expect(roundedQuantity(BigInt.from(-3500000), perShare), -4);
+    expect(roundedQuantity(BigInt.from(3000000), perShare), 3);
+    expect(
+      () => roundedQuantity(BigInt.one, BigInt.from(1000)),
+      throwsArgumentError,
+    );
+    final most = BigInt.from(maxQuantity) * BigInt.from(1000000);
+    expect(
+      () => roundedQuantity(most + BigInt.from(1000000), perShare),
+      throwsArgumentError,
+    );
+  });
+
   test('whole units round half away from zero', () {
     expect(wholeUnits(1499999), 1);
     expect(wholeUnits(1500000), 2);

@@ -74,6 +74,93 @@ void main() {
     expect(third.$2.journal.lastParity, isA<InParity>());
   });
 
+  test('D49: an older version, which knows no journal, opens the file and '
+      'writes records; the next opening posts afresh, in parity', () async {
+    final store = keptStore(scratch);
+    await openWithJournal(store);
+    final marked = store.journal.mark!;
+    // The layout version an older version checks is the one it knows.
+    expect(EncryptedDatabase.schema, 1);
+    // As an older version writes: the records alone, through the store.
+    final pay = store.row('entry', 'pay')!;
+    store.write(
+      (w) => w.put('entry', 'pay', pay.body.replaceFirst('52000', '51000')),
+    );
+    expect(store.revision, marked.revision + 1);
+    final (ledger, source, _) = await openWithJournal(store);
+    expect(source.journal.lastReplay, isNotNull);
+    expect(store.journal.mark, (rules: journalRules, revision: store.revision));
+    expect(
+      [
+        for (final p in store.journal.postingsOfIntent(const IntentId('pay')))
+          p.amount,
+      ],
+      [51000, -51000],
+    );
+    expect(ledger.entries.byId('pay')!.amount, 51000);
+    expect(source.journal.lastParity, isA<InParity>());
+  });
+
+  test('D48: a lot finer than a millionth of a share is rounded, counted '
+      'and told once, never an amount', () async {
+    // A new book: the kept one has an old oversold sale, which today's
+    // write rules refuse any trade beside.
+    final store = EncryptedDatabase.open(
+      File('${scratch.path}/new.db'),
+      StorageKey.random(),
+    );
+    addTearDown(store.close);
+    final (ledger, source, _) = await openWithJournal(store);
+    final bank = ledger.accounts.main;
+    ledger.entryCommands.addAll([
+      Entry(
+        id: 'one',
+        date: day(10, 1),
+        type: EntryType.buy,
+        amount: 100,
+        account: bank,
+        holding: '9999',
+        shares: 1,
+      ),
+      Entry(
+        id: 'more',
+        date: day(10, 1),
+        type: EntryType.buy,
+        amount: 12700,
+        account: bank,
+        holding: '9999',
+        shares: 127,
+      ),
+      // 1 for every 128 held: 1.0078125 and 127.9921875 shares.
+      Entry(
+        id: 'odd',
+        date: day(10, 2),
+        type: EntryType.dividend,
+        amount: 0,
+        account: bank,
+        holding: '9999',
+        shares: 1,
+      ),
+    ]);
+    await settle(ledger, source);
+    // Posted afresh at the next opening: the rounding is counted there.
+    store.write((w) => w.put('meta-free', 'x', '{}'));
+    final before = ErrorLog.instance.count;
+    final (_, again, _) = await openWithJournal(store);
+    expect(again.journal.lastReplay!.rounded, 2);
+    expect(ErrorLog.instance.count, before + 1);
+    final logged = ErrorLog.instance.entries.first.$2;
+    expect(logged, contains(ErrorSteps.journalUpdate));
+    expect(logged, contains('rounded'));
+    expect(
+      [
+        for (final l in again.journal.reader.bySub(holdingAccount('9999')))
+          l.quantity,
+      ],
+      [1007812, 127992188],
+    );
+  });
+
   test('each change kept is posted: an entry added, edited and taken '
       'away; an account and its card days changed', () async {
     final (ledger, source, store) = await openWithJournal(keptStore(scratch));
