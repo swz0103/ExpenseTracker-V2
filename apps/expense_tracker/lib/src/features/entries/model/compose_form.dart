@@ -87,8 +87,7 @@ final class ComposeForm {
   /// A new entry's starting values, such as a card payment.
   final Entry? draft;
 
-  /// The spending being refunded, for a refund: given, or named by the
-  /// draft or the form put aside it starts from (D79).
+  /// The spending refunded: given, or named by the draft taken up (D79).
   Entry? refunded;
 
   /// The phone-wide broker's discount, in basis points of the full fee:
