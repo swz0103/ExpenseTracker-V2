@@ -1,4 +1,5 @@
 import 'package:expense_tracker/src/app/demo/seed.dart';
+import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/features/entries/forms/composer.dart';
 import 'package:flutter/material.dart';
@@ -52,6 +53,29 @@ void main() {
     await go(tester, ['紀錄']);
     expect(find.text('還沒有紀錄'), findsOneWidget);
     expect(find.text('沒有符合篩選的紀錄'), findsNothing);
+    await tester.tap(find.byKey(Keys.emptyAction('entries')));
+    await tester.pumpAndSettle();
+    expect(find.byType(Composer), findsOneWidget);
+  });
+
+  testWidgets('D117: a month with nothing, in a book with entries in '
+      'another, says 這個月還沒有紀錄, with 記一筆', (tester) async {
+    final ledger = emptyBook();
+    // The book's today is 2026-10-31; its one entry is in September.
+    ledger.entryCommands.add(
+      Entry(
+        id: 'sept',
+        date: DateTime.utc(2026, 9, 12),
+        type: EntryType.expense,
+        amount: 120,
+        account: 'cash',
+        category: '飲食',
+      ),
+    );
+    await show(tester, 360, 1, height: 800, book: ledger);
+    await go(tester, ['紀錄']);
+    expect(find.text('這個月還沒有紀錄'), findsOneWidget);
+    expect(find.text('還沒有紀錄'), findsNothing);
     await tester.tap(find.byKey(Keys.emptyAction('entries')));
     await tester.pumpAndSettle();
     expect(find.byType(Composer), findsOneWidget);

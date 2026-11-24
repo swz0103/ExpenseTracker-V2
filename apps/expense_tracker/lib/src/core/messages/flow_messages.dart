@@ -4,6 +4,10 @@ abstract final class FlowWords {
   /// 收支紀錄 with nothing written yet (no search, no filter).
   static const noEntriesYet = '還沒有紀錄';
 
+  /// 收支紀錄 on a month with nothing written, in a book that has entries
+  /// in other months (D117).
+  static const noEntriesThisMonth = '這個月還沒有紀錄';
+
   /// What writes the first one.
   static const addEntry = '記一筆';
 
