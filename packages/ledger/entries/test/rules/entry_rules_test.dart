@@ -606,4 +606,56 @@ void main() {
       },
     );
   });
+
+  group('edges review 11 found untested', () {
+    List<Type> shape(Entry e) => [
+      for (final i in entryShapeIssues(e)) i.runtimeType,
+    ];
+
+    test('a negative tax is a negative charge, written or read back', () {
+      expect(_issues(_entry(tax: -1)), [NegativeCharge]);
+      expect(shape(_entry(tax: -1)), [NegativeCharge]);
+    });
+
+    test('a date a millisecond or a microsecond past midnight is refused', () {
+      for (final date in [
+        DateTime.utc(2026, 10, 4, 0, 0, 0, 1),
+        DateTime.utc(2026, 10, 4, 0, 0, 0, 0, 1),
+      ]) {
+        expect(_issues(_entry(date: date)), [DateNotMidnight]);
+      }
+    });
+
+    test('instalments read back: 0 to 60 hold, -1 and 61 do not', () {
+      expect(shape(_entry(installments: 60)), isEmpty);
+      expect(shape(_entry(installments: 61)), [InstallmentsOutOfRange]);
+      expect(shape(_entry(installments: -1)), [InstallmentsOutOfRange]);
+    });
+
+    test('one instalment is a plain payment, off a card too', () {
+      expect(_issues(_entry(installments: 1)), isEmpty);
+    });
+
+    test('only a reduction is held against the shares held', () {
+      // A purchase of fewer than no shares is missing its shares, not a
+      // reduction past the 10 held.
+      expect(
+        _issues(
+          _entry(type: EntryType.buy, holding: '2330', shares: -11),
+          const EntryFacts(account: _bank, heldBefore: 10),
+        ),
+        [MissingShares],
+      );
+    });
+
+    test('a reduction leaving a later trade short is refused', () {
+      expect(
+        _issues(
+          _entry(type: EntryType.dividend, holding: '2330', shares: -1),
+          const EntryFacts(account: _bank, oversells: true),
+        ),
+        [SaleExceedsHolding],
+      );
+    });
+  });
 }

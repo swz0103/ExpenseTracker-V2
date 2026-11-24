@@ -200,4 +200,35 @@ void main() {
     expect((Currency.units.code, Currency.units.scale), ('XXX', 0));
     expect(identical(Currency.units, Currency.units), isTrue);
   });
+
+  test('the input limits hold at their edge (mutation review 11)', () {
+    final twd = Currency('TWD', 0);
+    // 10,000 shares are allocated, 10,001 refused.
+    final shares = Money(
+      twd,
+      BigInt.from(10000),
+    ).allocate(List.filled(10000, BigInt.one));
+    expect(shares.length, 10000);
+    expect(shares.first.minorUnits, BigInt.one);
+    expect(
+      () => Money(twd, BigInt.one).allocate(List.filled(10001, BigInt.one)),
+      error(MoneyError.invalidInput),
+    );
+    // A ratio of 4,096 bits is worked out: 2^4095 / 2^4095 = 1.
+    final big = BigInt.one << 4095;
+    expect(Money.quantizeRatio(twd, big, big).minorUnits, BigInt.one);
+    expect(
+      () => Money.quantizeRatio(twd, big << 1, big),
+      error(MoneyError.precision),
+    );
+    // A decimal of 128 characters is read (0.000…1 rounds to 0); 129
+    // are refused.
+    final text = '0.${'0' * 125}1';
+    expect(text.length, 128);
+    expect(Money.quantize(twd, text).minorUnits, BigInt.zero);
+    expect(
+      () => Money.quantize(twd, '${text}1'),
+      error(MoneyError.invalidInput),
+    );
+  });
 }

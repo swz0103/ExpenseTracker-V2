@@ -18,4 +18,10 @@ void main() {
     expect(timesPrice(3, 0.15), 0);
     expect(timesPrice(50, 12.01), 601);
   });
+
+  test('a price a double holds just below is rounded, not cut '
+      '(mutation review 11)', () {
+    // 1.005 × 10,000 is 10,049.999999999998 as doubles: 10,050 steps.
+    expect(scaledPrice(1.005), 10050);
+  });
 }

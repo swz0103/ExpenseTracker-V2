@@ -31,6 +31,11 @@ abstract class SyncJob extends ChangeNotifier {
   String? get problem => _problem;
   String? _problem;
 
+  /// Whether the last run threw, rather than answering with a [problem]
+  /// of its own: nothing came back at all.
+  bool get failed => _failed;
+  var _failed = false;
+
   DateTime? _lastTry;
 
   /// Fetches or sends now; without [force], only when [gap] has passed
@@ -54,10 +59,12 @@ abstract class SyncJob extends ChangeNotifier {
     notifyListeners();
     try {
       _problem = await work();
+      _failed = false;
       _lastSuccess = _clock();
     } on Object catch (error) {
       ErrorLog.instance.record(label, error);
       _problem = failure;
+      _failed = true;
     } finally {
       _busy = false;
       // Let go while at work (the ledger locked): no one is told.

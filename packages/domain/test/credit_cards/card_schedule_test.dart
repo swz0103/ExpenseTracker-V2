@@ -134,4 +134,93 @@ void main() {
       fails(CreditCardError.invalidInput),
     );
   });
+
+  group('edges review 11 found untested', () {
+    test('a close may move exactly a week, not eight days, and never onto '
+        'its due day', () {
+      final moved = CardCycleOverride(
+        scheduledClose: BusinessDate(2028, 3, 10),
+        closesOn: BusinessDate(2028, 3, 17),
+        dueOn: BusinessDate(2028, 4, 1),
+      );
+      expect(moved.closesOn, BusinessDate(2028, 3, 17));
+      expect(
+        () => CardCycleOverride(
+          scheduledClose: BusinessDate(2028, 3, 10),
+          closesOn: BusinessDate(2028, 3, 18),
+          dueOn: BusinessDate(2028, 4, 1),
+        ),
+        fails(CreditCardError.invalidInput),
+      );
+      expect(
+        () => CardCycleOverride(
+          scheduledClose: BusinessDate(2028, 3, 10),
+          closesOn: BusinessDate(2028, 3, 12),
+          dueOn: BusinessDate(2028, 3, 12),
+        ),
+        fails(CreditCardError.invalidInput),
+      );
+    });
+
+    test('a due day equal to the closing day is due the next month', () {
+      final schedule = CardSchedule(closingDay: 15, dueDay: 15);
+      expect(schedule.datesOf(BusinessDate(2028, 3, 15)), (
+        BusinessDate(2028, 3, 15),
+        BusinessDate(2028, 4, 15),
+      ));
+    });
+
+    test('a cycle bills a close after its start, up to its own close', () {
+      final cycle = CardCycle(
+        startsAfter: BusinessDate(2028, 2, 10),
+        closesOn: BusinessDate(2028, 3, 10),
+        dueOn: BusinessDate(2028, 3, 25),
+      );
+      expect(cycle.bills(BusinessDate(2028, 2, 10)), isFalse);
+      expect(cycle.bills(BusinessDate(2028, 2, 11)), isTrue);
+      expect(cycle.bills(BusinessDate(2028, 3, 10)), isTrue);
+      expect(cycle.bills(BusinessDate(2028, 3, 11)), isFalse);
+      expect(
+        () => CardCycle(
+          startsAfter: BusinessDate(2028, 3, 10),
+          closesOn: BusinessDate(2028, 3, 10),
+          dueOn: BusinessDate(2028, 3, 25),
+        ),
+        fails(CreditCardError.invalidInput),
+      );
+      // The same with its scheduled days apart: still refused.
+      expect(
+        () => CardCycle(
+          startsAfter: BusinessDate(2028, 3, 10),
+          closesOn: BusinessDate(2028, 3, 10),
+          dueOn: BusinessDate(2028, 3, 25),
+          scheduledStartsAfter: BusinessDate(2028, 2, 10),
+          scheduledClose: BusinessDate(2028, 3, 10),
+        ),
+        fails(CreditCardError.invalidInput),
+      );
+    });
+
+    test('two changes of billing days on the same close are refused', () {
+      expect(
+        () => CardSchedule(
+          closingDay: 10,
+          dueDay: 25,
+          history: [
+            CardScheduleChange(
+              until: BusinessDate(2028, 3, 10),
+              closingDay: 25,
+              dueDay: 10,
+            ),
+            CardScheduleChange(
+              until: BusinessDate(2028, 3, 10),
+              closingDay: 10,
+              dueDay: 25,
+            ),
+          ],
+        ),
+        fails(CreditCardError.invalidInput),
+      );
+    });
+  });
 }

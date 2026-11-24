@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:expense_tracker/src/core/design_system/keys.dart';
@@ -13,6 +14,9 @@ final class _Port implements UpdatePort {
   var outcome = UpdateInstall.started;
   var installs = 0;
 
+  /// Holds the download after its first piece until completed.
+  Completer<void>? hold;
+
   @override
   Future<String> fetch(Uri url) async =>
       '{"build":200,"version":"0.9.6","sha256":"$_sha","size":3,'
@@ -25,6 +29,10 @@ final class _Port implements UpdatePort {
     void Function(int received) progress,
   ) async {
     into.writeAsStringSync('abc');
+    if (hold case final held?) {
+      progress(1);
+      await held.future;
+    }
     progress(3);
   }
 
@@ -99,5 +107,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('新版 0.9.6'), findsNothing);
     expect(port.installs, 2);
+  });
+
+  testWidgets('D85: a download under way shows 取消下載, which stops it and '
+      'goes back to the choices without a word of failure', (tester) async {
+    final cache = Directory.systemTemp.createTempSync('update-panel-');
+    addTearDown(() => cache.deleteSync(recursive: true));
+    final port = _Port()..hold = Completer<void>();
+    final update = AppUpdate(port, Preferences(), cache: cache, build: 190);
+    await tester.runAsync(update.check);
+    late BuildContext page;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            page = context;
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+    showUpdatePanel(page, update).ignore();
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      await tester.tap(find.byKey(Keys.install));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
+    expect(find.text('下載中 33%'), findsOneWidget);
+    await tester.runAsync(() async {
+      await tester.tap(find.byKey(Keys.cancelDownload));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pumpAndSettle();
+    expect(find.byKey(Keys.cancelDownload), findsNothing);
+    expect(find.byKey(Keys.install), findsOneWidget);
+    expect(find.textContaining('失敗'), findsNothing);
+    expect(port.installs, 0);
+    port.hold!.complete();
   });
 }

@@ -42,6 +42,21 @@ abstract final class Words {
   static const add = '新增';
   static const back = '返回';
 
+  /// A form's main button (D81: 儲存).
+  static const save = '儲存';
+
+  /// Put away, to come back (D81: 封存), and brought back (恢復).
+  static const archive = '封存';
+  static const unarchive = '恢復';
+
+  /// An account with money left, settled into another as it is put away.
+  static const settleArchive = '結清封存';
+
+  // Leaving a form with changes (D83).
+  static const discardAsk = '要捨棄修改嗎？';
+  static const discard = '捨棄';
+  static const keepEditing = '繼續編輯';
+
   // Days and months.
   static const today = '今天';
   static const previousMonth = '上個月';

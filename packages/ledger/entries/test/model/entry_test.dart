@@ -105,4 +105,36 @@ void main() {
     expect(e.withLabels(tags: const ['獎勵']).mark, EntryMark.reward);
     expect(e.inGroup('g').mark, EntryMark.reward);
   });
+
+  test('what arrived is what was received, else the amount '
+      '(mutation review 11)', () {
+    Entry transfer({int? received}) => Entry(
+      id: 't',
+      date: DateTime.utc(2026, 10, 4),
+      type: EntryType.transfer,
+      amount: 3200,
+      account: 'bank',
+      to: 'usd',
+      received: received,
+    );
+    expect(transfer(received: 100).arrived, 100);
+    expect(transfer().arrived, 3200);
+  });
+
+  test('a capital reduction settles its whole amount, a dividend less the '
+      'premium (mutation review 11)', () {
+    Entry dividend(int shares) => Entry(
+      id: 'd',
+      date: DateTime.utc(2026, 10, 4),
+      type: EntryType.dividend,
+      amount: 5000,
+      tax: 100,
+      account: 'bank',
+      holding: '2330',
+      shares: shares,
+    );
+    // 5,000 back on a reduction; 5,000 - 100 on a dividend.
+    expect(dividend(-1000).settlement, 5000);
+    expect(dividend(0).settlement, 4900);
+  });
 }

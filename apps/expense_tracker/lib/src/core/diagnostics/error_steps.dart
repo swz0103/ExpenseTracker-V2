@@ -49,6 +49,10 @@ abstract final class ErrorSteps {
   /// the person is told and may choose again.
   static const backupDownload = '下載備份';
 
+  /// Linking Google Drive, or sending a backup there with the photos,
+  /// was refused or failed: the person is told and may try again.
+  static const driveBackup = '雲端硬碟備份';
+
   /// Google was not told to revoke the app's access: it can be revoked
   /// from the Google account's settings.
   static const driveRevoke = '撤銷 Google 授權';

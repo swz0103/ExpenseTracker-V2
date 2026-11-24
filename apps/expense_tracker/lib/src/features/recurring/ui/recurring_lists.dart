@@ -283,7 +283,7 @@ class _Paused extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: Space.s3),
                     ),
                     child: const Text(
-                      '恢復',
+                      Words.unarchive,
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),

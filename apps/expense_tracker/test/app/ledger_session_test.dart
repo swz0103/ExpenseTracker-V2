@@ -7,6 +7,7 @@ import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/quarantine.dart';
+import 'package:expense_tracker/src/core/messages/problem_messages.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/upgrade_backup.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
@@ -137,11 +138,14 @@ void main() {
       'and books what is due', () async {
     final ledger = book(recurring: [item('rent', 5, auto: true)]);
     final before = ErrorLog.instance.entries.length;
+    final told = <QuietStep>[];
     final start = await LedgerSession(
       load: () async => ledger,
       inbox: () async => throw StateError('sealed for another ledger'),
+      failed: told.add,
     ).open();
     expect(start.inbox, isNull);
+    expect(told, [QuietStep.autoBooking], reason: 'D84: told, not quiet');
     expect(start.booked, 1);
     expect(ErrorLog.instance.entries.length, before + 1);
     expect(ErrorLog.instance.entries.first.$2, contains('收件匣'));

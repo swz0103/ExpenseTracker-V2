@@ -7,6 +7,9 @@ abstract final class UpdateMessages {
   /// The step named in the error log when looking fails.
   static const checkStep = '檢查更新';
 
+  /// Stops the download of an update under way (D85).
+  static const cancelDownload = '取消下載';
+
   /// The step named in the error log when the download fails.
   static const downloadStep = '下載更新';
 

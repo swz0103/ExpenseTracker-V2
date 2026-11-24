@@ -44,7 +44,7 @@ void main() {
 
   testWidgets('an error nobody foresaw still says something', (tester) async {
     await refuse(tester, StateError('?'));
-    expect(find.text('發生未預期的錯誤。'), findsOneWidget);
+    expect(find.text('沒有完成這個動作，可在診斷匯出詳細資料'), findsOneWidget);
   });
 
   testWidgets('the note goes by itself after a while', (tester) async {

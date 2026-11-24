@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/messages/amount_messages.dart';
+import '../../../core/messages/update_messages.dart';
 import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/theme.dart';
 import '../model/app_update.dart';
@@ -54,8 +55,10 @@ class _UpdatePanelState extends State<_UpdatePanel> {
         setState(() => _problem = '請允許「記帳本」安裝應用程式，回來後再按一次更新');
       case UpdateInstall.damaged:
       case UpdateInstall.rejected:
-      case null:
         setState(() => _problem = widget.update.problem ?? '下載失敗，請稍後再試');
+      case null:
+        // Cancelled, or nothing to install: only a failure is said.
+        setState(() => _problem = widget.update.problem);
     }
   }
 
@@ -168,6 +171,13 @@ class _UpdatePanelState extends State<_UpdatePanel> {
       '下載中 ${ratioWholePercent(progress)}',
       textAlign: TextAlign.center,
       style: mutedBody,
+    ),
+    const SizedBox(height: Space.s2),
+    TextButton(
+      key: Keys.cancelDownload,
+      style: wordButton(AppColors.muted),
+      onPressed: widget.update.cancelDownload,
+      child: const Text(UpdateMessages.cancelDownload),
     ),
   ];
 

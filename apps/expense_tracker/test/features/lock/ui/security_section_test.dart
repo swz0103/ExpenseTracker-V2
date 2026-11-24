@@ -330,7 +330,7 @@ void main() {
     await go(tester, ['忘記密碼、換手機用']);
     await tester.tap(find.byKey(Keys.confirm));
     await tester.pumpAndSettle();
-    expect(find.textContaining('沒有換成：'), findsOneWidget);
+    expect(find.text('沒有換成，可在診斷匯出詳細資料'), findsOneWidget);
     expect(find.text('新的救援碼'), findsNothing);
   });
 

@@ -8,9 +8,23 @@ import '../ledger/ledger.dart'
 import 'trash_messages.dart';
 import 'validation_messages.dart';
 
-/// Why a command was refused or a step failed, in words a person can act
-/// on.
-String describeProblem(Object error) => switch (error) {
+// The one place an error becomes words on the screen (D84). An error the
+// person can act on is said as what to do; any other is never said as it
+// is (no exception, code, errno or path): one sentence of what did not
+// happen, and where its details are. The caller has recorded the error
+// in the ErrorLog, so the details are there to export.
+
+/// Where a failure's details are, for the person to hand on.
+const detailsInDiagnostics = '可在診斷匯出詳細資料';
+
+/// [what] did not happen, as one sentence with where its details are:
+/// `failureNote('沒有存成圖片')` is 沒有存成圖片，可在診斷匯出詳細資料.
+String failureNote(String what) => '$what，$detailsInDiagnostics';
+
+/// Why [error] stopped a step, in words a person can act on; null when
+/// it is not such an error, but a fault of the phone, its storage or the
+/// app, which only [failureNote] tells.
+String? actionableProblem(Object error) => switch (error) {
   KeepFailed(cause: DataSourceException(cause: RowSetAside())) ||
   DataSourceException(
     cause: RowSetAside(),
@@ -21,8 +35,46 @@ String describeProblem(Object error) => switch (error) {
   StayedInTrash(:final count) => stayedInTrashNote(count),
   NameTaken() => '這個分類名稱已經有了，或是保留給「全部支出」「轉帳」等用途。',
   MoneyException(code: MoneyError.precision) => '金額的小數位數太多。',
+  MoneyException() => '請輸入有效的金額。',
   PlatformException(code: 'busy') => '上一個檔案還在處理，請稍候再試。',
-  PlatformException() => '手機沒有完成這個動作，請再試一次。',
-  MoneyException() || FormatException() => '請輸入有效的金額。',
-  _ => '發生未預期的錯誤。',
+  _ => null,
 };
+
+/// Why a command was refused or a step failed, as a sentence of its own:
+/// what to do, or that it was not done and where the details are.
+String describeProblem(Object error) =>
+    actionableProblem(error) ?? failureNote('沒有完成這個動作');
+
+/// [what] did not happen because of [error], in one line: `what：` and
+/// what to do when the person can act on it, otherwise [failureNote].
+String problemNote(String what, Object error) =>
+    switch (actionableProblem(error)) {
+      final said? => '$what：$said',
+      null => failureNote(what),
+    };
+
+/// A step that runs by itself, out of sight, whose failure would go
+/// unheard without a note (D84): told once a run, in the note at the
+/// foot of the screen, with where its details are.
+enum QuietStep {
+  /// The recurring items marked to book themselves, and what was
+  /// confirmed on a notification.
+  autoBooking('到期的定期交易沒有自動入帳'),
+
+  /// The backup left for the background job, or what it delivered.
+  backgroundBackup('背景備份沒有完成'),
+
+  /// Closing prices and exchange rates.
+  marketRefresh('收盤價與匯率沒有更新'),
+
+  /// The due dates on the phone's calendar.
+  calendarSync('提醒沒有同步到日曆');
+
+  const QuietStep(this.what);
+
+  /// What did not happen.
+  final String what;
+
+  /// The note the person reads.
+  String get note => failureNote(what);
+}

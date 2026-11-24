@@ -423,4 +423,144 @@ void main() {
       expect(wrong, isEmpty);
     });
   });
+
+  group('edges review 11 found untested', () {
+    test('the share taken counts instalments and stops at the whole limit', () {
+      final card = _summary(
+        entries: [
+          _spend('a', 10, 1000),
+          _spend('tv', 1, 12000, installments: 6),
+        ],
+        limit: 10000,
+      );
+      // Owed 1,000 + 2,000 billed, 10,000 still to bill: 13,000 of
+      // 10,000, shown as all of it.
+      expect(card.usedShare, 1.0);
+      final half = _summary(
+        entries: [_spend('tv', 1, 12000, installments: 6)],
+        limit: 24000,
+      );
+      // 2,000 billed + 10,000 to bill = 12,000 of 24,000.
+      expect(half.usedShare, 0.5);
+    });
+
+    test('a limit of 0 is never near', () {
+      expect(_summary(limit: 0).nearLimit, isFalse);
+    });
+
+    test('marked this year counts this month; since the close, not the '
+        'close day', () {
+      final card = _summary(
+        entries: [
+          // The close of 9/20 itself, then 10/2 of this month.
+          _spend(
+            'onClose',
+            20,
+            40,
+            type: EntryType.income,
+            mark: EntryMark.reward,
+          ),
+          _spend(
+            'thisMonth',
+            2,
+            60,
+            month: 10,
+            type: EntryType.income,
+            mark: EntryMark.reward,
+          ),
+        ],
+      );
+      expect(card.markedThisYear(EntryMark.reward), 100);
+      expect(card.markedSinceClose(EntryMark.reward), 60);
+    });
+
+    test('one payment is billed once its statement closes', () {
+      final card = _summary(entries: [_spend('a', 10, 1000)]);
+      expect(card.unbilled, isEmpty);
+      // Bought 9/10, billed by the close of 9/20.
+      expect(card.periodsBilled(_spend('a', 10, 1000)), 1);
+    });
+
+    test('an instalment billed today is billed, not still to bill', () {
+      // 3,000 in three from 9/1, looked at on the close of 9/20.
+      final card = _summary(
+        entries: [_spend('tv', 1, 3000, installments: 3)],
+        today: DateTime.utc(2026, 9, 20),
+      );
+      expect(card.unbilledOf(card.plans.single), 2000);
+    });
+  });
+
+  test('a card without billing days closes on the 1st, due on the 15th', () {
+    final ledger = Ledger(
+      today: _today,
+      accounts: const [Account('card', '卡', AccountKind.card, 0)],
+      categories: const [],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+    // Closed 10/1 (10/4 today), opened 9/2, due 10/15.
+    expect(ledger.statementService.statement(ledger.account('card')), (
+      DateTime.utc(2026, 9, 2),
+      DateTime.utc(2026, 10, 1),
+      DateTime.utc(2026, 10, 15),
+    ));
+  });
+
+  test('a card without billing days shows the 1st and the 15th, and counts '
+      'only its own marked entries', () {
+    final ledger = Ledger(
+      today: _today,
+      accounts: const [
+        Account('bank', '銀行', AccountKind.bank, 1000),
+        Account('card', '卡', AccountKind.card, 0),
+      ],
+      categories: const [],
+      entries: [
+        Entry(
+          id: 'elsewhere',
+          date: DateTime.utc(2026, 10, 2),
+          type: EntryType.income,
+          amount: 50,
+          account: 'bank',
+          mark: EntryMark.reward,
+        ),
+      ],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+    final card = CardSummary.of(
+      ledger.account('card'),
+      statements: ledger.statementService,
+      balances: ledger.balanceService,
+      entries: ledger.entries,
+      accounts: ledger.accounts,
+      today: ledger.today,
+    );
+    expect((card.closingDay, card.dueDay), (1, 15));
+    expect(card.markedThisYear(EntryMark.reward), 0);
+  });
+
+  test('a refund dated later cancels nothing still to bill yet (mutation '
+      'review 11)', () {
+    final card = _summary(
+      entries: [
+        _spend('tv', 1, 3000, installments: 3),
+        Entry(
+          id: 'back',
+          date: DateTime.utc(2026, 10, 6),
+          type: EntryType.income,
+          amount: 3000,
+          account: 'card',
+          category: '購物休閒',
+          refundOf: 'tv',
+        ),
+      ],
+    );
+    // 1,000 billed on 9/20; 2,000 still to bill until the refund's day.
+    expect(card.unbilledOf(card.plans.single), 2000);
+  });
 }

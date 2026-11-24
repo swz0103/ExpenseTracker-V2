@@ -322,4 +322,136 @@ void main() {
     expect(service.nextDate(rare), DateTime.utc(2029, 3, 3));
     expect(service.nextDate(rare.copyWith(active: false)), isNull);
   });
+
+  group('edges review 11 found untested', () {
+    Entry booking(String id, int month, int d) => entry(
+      id,
+      recurring: 'rent',
+      amount: 12000,
+      date: DateTime.utc(2026, month, d),
+    );
+
+    test('a booking written months ahead settles its own day', () {
+      final book = Book(
+        recurring: [_rent],
+        entries: [booking('oct', 10, 1), booking('dec', 12, 1)],
+      );
+      expect(book.recurringService.settled(_rent), {
+        'oct': DateTime.utc(2026, 10, 1),
+        'dec': DateTime.utc(2026, 12, 1),
+      });
+    });
+
+    test('a second booking of a month settles a day come since, up to '
+        'today, and is asked again on a new day', () {
+      final book = Book(
+        recurring: [_rent],
+        entries: [booking('sep', 9, 1), booking('extra', 9, 2)],
+      )..today = DateTime.utc(2026, 9, 30);
+      // 10/1 has not come: the extra booking settles nothing yet.
+      expect(book.recurringService.settled(_rent), {
+        'sep': DateTime.utc(2026, 9, 1),
+      });
+      // On 10/1 (today itself) it settles 10/1.
+      book.today = DateTime.utc(2026, 10, 1);
+      expect(book.recurringService.settled(_rent), {
+        'sep': DateTime.utc(2026, 9, 1),
+        'extra': DateTime.utc(2026, 10, 1),
+      });
+      // And later still, 10/1 stays settled by it.
+      book.today = DateTime.utc(2026, 10, 20);
+      expect(
+        book.recurringService.settled(_rent)['extra'],
+        DateTime.utc(2026, 10, 1),
+      );
+    });
+
+    test('of two days as near in other months, the earlier', () {
+      // 10/16 is 30 days from 9/16 and from 11/15.
+      expect(
+        RecurringService.nearestDay(DateTime.utc(2026, 10, 16), [
+          DateTime.utc(2026, 11, 15),
+          DateTime.utc(2026, 9, 16),
+        ]),
+        DateTime.utc(2026, 9, 16),
+      );
+    });
+
+    test('the days still to book include the last day asked', () {
+      final book = Book(recurring: [_rent]);
+      expect(
+        book.recurringService.unpostedDates(
+          _rent,
+          from: DateTime.utc(2026, 10, 1),
+          to: DateTime.utc(2026, 11, 1),
+        ),
+        [DateTime.utc(2026, 10, 1), DateTime.utc(2026, 11, 1)],
+      );
+    });
+
+    test('the next day skips a day let go; a paused item has none', () {
+      final book = Book(
+        recurring: [
+          _rent.copyWith(skipped: {DateTime.utc(2026, 11, 1)}),
+        ],
+        entries: [booking('oct', 10, 1)],
+      );
+      final item = book.recurring.all.single;
+      expect(book.recurringService.nextDate(item), DateTime.utc(2026, 12, 1));
+      expect(
+        book.recurringService.nextDate(item.copyWith(active: false)),
+        isNull,
+      );
+    });
+
+    test('an item due today is due, not still to come', () {
+      const today = Recurring(
+        id: 'gym',
+        name: '健身',
+        amount: 800,
+        day: 4,
+        account: 'bank',
+        category: '娛樂',
+      );
+      final book = Book(recurring: [today]);
+      expect(book.recurringService.due, [today]);
+      expect(book.recurringService.upcoming, isEmpty);
+    });
+
+    test('a booking for a day still to come is dated today', () {
+      final book = Book(recurring: [_rent]);
+      expect(
+        book.recurringService
+            .booking(_rent, day: DateTime.utc(2026, 10, 20))
+            .date,
+        day,
+      );
+    });
+  });
+
+  test('still to come this month: soonest first; an income item books '
+      'income (mutation review 11)', () {
+    const tenth = Recurring(
+      id: 'tenth',
+      name: '保險',
+      amount: 900,
+      day: 10,
+      account: 'bank',
+      category: '居家',
+    );
+    const pay = Recurring(
+      id: 'pay',
+      name: '薪水',
+      amount: 50000,
+      day: 25,
+      income: true,
+      account: 'bank',
+      category: '薪水',
+    );
+    final book = Book(recurring: [_phone, tenth, pay]);
+    // 10/10, 10/20, 10/25.
+    expect(book.recurringService.upcoming, [tenth, _phone, pay]);
+    expect(book.recurringService.booking(pay).type, EntryType.income);
+    expect(book.recurringService.booking(tenth).type, EntryType.expense);
+  });
 }

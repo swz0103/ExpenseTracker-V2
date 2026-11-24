@@ -47,7 +47,15 @@ class _ComposerState extends State<Composer>
     _note
       ..text = _f.note
       ..addListener(() => _f.note = _note.text);
+    _opened = formPrint(_f);
   }
+
+  /// The form as it opened (a draft taken back included), to ask before
+  /// leaving changes (D83).
+  late final String _opened;
+
+  /// The form differs from how it opened; an entry only looked at never.
+  bool get _changed => !_viewing && formPrint(_f) != _opened;
 
   /// Fills the form from [draft], and what it paid for others.
   void _takeDraft(ComposeDraft draft) {
@@ -269,13 +277,13 @@ class _ComposerState extends State<Composer>
       return;
     }
     _drafts.remove(_f.tab);
-    Navigator.of(context).pop((ComposeOutcome.saved, entry));
+    EditGuard.close(context, (ComposeOutcome.saved, entry));
   }
 
   void _putAside() {
     _keptAway = false;
     _drafts[_f.tab] = _asDraft;
-    Navigator.of(context).pop();
+    EditGuard.close(context);
   }
 
   Future<void> _delete() async {
@@ -283,12 +291,17 @@ class _ComposerState extends State<Composer>
     if (entry == null) return;
     final ok = await confirm(context, '刪除這一筆？', Words.delete, danger: true);
     if (ok && mounted) {
-      Navigator.of(context).pop((ComposeOutcome.deleted, entry));
+      EditGuard.close(context, (ComposeOutcome.deleted, entry));
     }
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _note,
+    builder: (context, _) => EditGuard(changed: _changed, child: _body()),
+  );
+
+  Widget _body() {
     if (_page case final page?) {
       return SubpageFrame(
         title: page.title,
@@ -338,11 +351,12 @@ class _ComposerState extends State<Composer>
           discardColor: entry != null ? AppColors.danger : AppColors.muted,
           onDiscard: entry != null ? _delete : _putAside,
           onRefund: canRefund
-              ? () => Navigator.of(context).pop((ComposeOutcome.refund, entry))
+              ? () => EditGuard.close(context, (ComposeOutcome.refund, entry))
               : null,
           action: _viewing ? Words.edit : _action,
           actionColor: _viewing ? AppColors.accent : _color,
           onAction: _viewing ? () => setState(() => _viewing = false) : _submit,
+          cancel: !_viewing,
         ),
       ],
     );

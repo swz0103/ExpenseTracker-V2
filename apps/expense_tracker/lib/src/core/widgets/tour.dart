@@ -7,6 +7,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../design_system/glyphs.dart';
+import '../design_system/components/buttons.dart';
+import '../design_system/keys.dart';
+import '../messages/flow_messages.dart';
 import '../design_system/shape.dart';
 import '../design_system/spacing.dart';
 import '../design_system/motion.dart';
@@ -220,6 +223,26 @@ class _TourState extends State<Tour> with TickerProviderStateMixin {
             behavior: HitTestBehavior.opaque,
             onTap: () => unawaited(_finish()),
             child: CustomPaint(painter: _Dim(light, moving ? 0 : _ring.value)),
+          ),
+        ),
+        // A way out in sight at every stop, not only a tap on the dim
+        // (D85).
+        Positioned(
+          top: 0,
+          right: 0,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(Space.s2),
+              child: TextButton(
+                key: Keys.skipTour,
+                onPressed: () => unawaited(_finish()),
+                style: wordButton(
+                  AppColors.tourPaper,
+                  minimumSize: const Size(64, 48),
+                ),
+                child: const Text(FlowWords.skipTour),
+              ),
+            ),
           ),
         ),
         if (_shown)

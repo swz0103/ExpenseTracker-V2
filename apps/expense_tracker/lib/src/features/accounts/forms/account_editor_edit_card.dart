@@ -230,3 +230,64 @@ extension _AccountBlocks on _AccountEditorState {
     ),
   );
 }
+
+/// The account form's foot, apart from its fields.
+extension on _AccountEditorState {
+  /// 刪除, 封存 or 恢復 when changing, and 儲存; what is left under it.
+  Widget _buttons(Account? old) {
+    final removable =
+        old != null && !widget.ledger.accountCommands.usedOutsideTrash(old.id);
+    final problem = _problem;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (problem != null)
+          Padding(
+            padding: const EdgeInsets.only(top: Space.s3),
+            child: Text(
+              problem,
+              textAlign: TextAlign.center,
+              style: dangerText,
+            ),
+          ),
+        const SizedBox(height: Space.s4),
+        Row(
+          children: [
+            if (old != null)
+              TextButton(
+                onPressed: removable ? _remove : _archive,
+                style: wordButton(
+                  removable || !old.archived
+                      ? AppColors.danger
+                      : AppColors.accent,
+                  minimumSize: Size(64, 46),
+                ),
+                child: Text(
+                  removable
+                      ? Words.delete
+                      : old.archived
+                      ? Words.unarchive
+                      : widget.ledger.balanceService.balance(old.id) == 0
+                      ? Words.archive
+                      : Words.settleArchive,
+                ),
+              ),
+            const CancelButton(word: true),
+            const SizedBox(width: Space.s2),
+            Expanded(
+              child: FilledButton(
+                onPressed: _save,
+                style: solidButton(
+                  AppColors.accent,
+                  minimumSize: Size.fromHeight(46),
+                  radius: Radii.medium,
+                ),
+                child: const Text(Words.save),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}

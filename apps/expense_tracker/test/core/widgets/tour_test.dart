@@ -1,4 +1,5 @@
 import 'package:expense_tracker/src/core/design_system/glyphs.dart';
+import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/core/widgets/tour.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -86,6 +87,19 @@ void main() {
   testWidgets('a tap on the dim ends the tour at once', (tester) async {
     await show(tester);
     await tester.tapAt(const Offset(300, 300));
+    await tester.pumpAndSettle();
+    expect(done, 1);
+  });
+
+  testWidgets('D85: 略過 is in sight at every stop and ends the tour', (
+    tester,
+  ) async {
+    await show(tester);
+    expect(find.text('略過'), findsOneWidget);
+    await tester.tap(find.byTooltip('下一步'));
+    await tester.pumpAndSettle();
+    expect(find.text('略過'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.skipTour));
     await tester.pumpAndSettle();
     expect(done, 1);
   });

@@ -276,6 +276,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     load: _services.dataSource.load,
     bringUp: _services.dataSource.bringUp,
     quarantined: () => _services.dataSource.quarantined,
+    failed: (step) => _services.quiet.failed(step),
     inbox: Platform.isAndroid
         ? () async {
             final inbox = await LedgerInbox.open(
@@ -328,6 +329,8 @@ class _OpenedLedgerState extends State<OpenedLedger>
         openingReportName,
         openingReport(
           rows: rows,
+          // Exception to error words: into the exported diagnostics file,
+          // not onto the screen.
           failure: failure == null ? null : ErrorLog.describe(failure),
           log: ErrorLog.instance.text,
         ),

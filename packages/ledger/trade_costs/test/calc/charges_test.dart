@@ -94,4 +94,18 @@ void main() {
     expect(supplementaryPremium(ntd(20000), paidOn: paidOn), ntd(422));
     expect(supplementaryPremium(ntd(12345678), paidOn: paidOn), ntd(211000));
   });
+
+  test('a negative amount traded is refused (mutation review 11)', () {
+    expect(
+      () => TaiwanTradeCharges().fee(ntd(-1), shares('1')),
+      fails(InvestmentError.invalidInput),
+    );
+  });
+
+  test('a broker may charge no minimum (mutation review 11)', () {
+    final none = TaiwanTradeCharges(minimumFee: 0, oddLotMinimumFee: 0);
+    // 1,000 × 0.1425% = 1.425, rounded down: 1; no minimum lifts it.
+    expect(none.fee(ntd(1000), shares('1000')), ntd(1));
+    expect(none.fee(ntd(100), shares('1')), ntd(0));
+  });
 }

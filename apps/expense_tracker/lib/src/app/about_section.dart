@@ -56,7 +56,7 @@ class AboutSection extends StatelessWidget {
     } on Object catch (error) {
       ErrorLog.instance.record('下載診斷紀錄', error);
       if (context.mounted) {
-        showNote(context, '下載失敗：${describeProblem(error)}');
+        showNote(context, problemNote('下載失敗', error));
       }
     }
   }

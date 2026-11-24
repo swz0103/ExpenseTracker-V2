@@ -122,4 +122,30 @@ void main() {
       expect(changes[1].first, (BusinessDate(2026, 9, 20), 800));
     });
   });
+
+  test('nothing in instalments is nothing each month (mutation review 11)', () {
+    expect(installmentShares(0, 3), [0, 0, 0]);
+  });
+
+  test('instalments keep the closing day in effect when they start, '
+      'not today\'s (mutation review 11)', () {
+    // Closing on the 25th until the close of 2028-06-10, on the 10th
+    // since: a purchase of 2028-03-05 starts on the close of 03-25 and
+    // keeps the 25th.
+    final schedule = CardSchedule(
+      closingDay: 10,
+      dueDay: 25,
+      history: [
+        CardScheduleChange(
+          until: BusinessDate(2028, 6, 10),
+          closingDay: 25,
+          dueDay: 10,
+        ),
+      ],
+    );
+    expect(installmentStart(schedule, BusinessDate(2028, 3, 5)), (
+      BusinessDate(2028, 3, 25),
+      25,
+    ));
+  });
 }

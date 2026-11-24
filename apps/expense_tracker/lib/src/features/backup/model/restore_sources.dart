@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import '../../../core/messages/backup_messages.dart';
+import '../../../core/messages/problem_messages.dart';
 import 'drive_backup.dart';
 
 /// Where the lock screen can find a backup to restore, from the phone:
@@ -28,3 +30,13 @@ final class RestoreSources {
   /// passes every delivery (review 28). Absent, nothing is known.
   final int Function()? deliveredRevision;
 }
+
+/// What the person is told of [error], a Drive request that did not go
+/// through, here or as a backup is restored: what to do, or that Drive
+/// refused, its answer kept for the diagnostics rather than said (D84).
+String driveNote(DriveException error) => switch (error.problem) {
+  DriveProblem.notAllowed => BackupWords.driveNotAllowed,
+  DriveProblem.offline => BackupWords.driveOffline,
+  DriveProblem.noAnswer => BackupWords.driveNoAnswer,
+  DriveProblem.refused => failureNote(BackupWords.driveRefused),
+};
