@@ -170,7 +170,16 @@ void main() {
       );
       // 3,210 - 1,000 = 2,210 of the worth left: 2,300 is over it. The
       // last asks for a worth below zero.
-      expect(found.problems, ['第 4 行：「台幣金額」超過原支出還可退的 2,210', '第 5 行：「台幣金額」要大於 0']);
+      expect(found.problems, [
+        '第 4 行：「台幣金額」超過原支出還可退的 2,210',
+        '第 5 行：「台幣金額」要大於 0',
+      ]);
+    });
+
+    test('a day later than an entry may be dated is refused (r13 F6)', () {
+      // ROC 999/1/1 is the year 2910.
+      final found = read('999/1/1,支出,100,美元戶,Shop,3210\n');
+      expect(found.problems, ['第 2 行：日期最多只能排到 365 天後']);
     });
 
     test('with no rate and no worth written, the column is named', () {

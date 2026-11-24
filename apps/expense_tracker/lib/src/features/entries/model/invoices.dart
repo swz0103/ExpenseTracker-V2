@@ -1,3 +1,5 @@
+import '../../../../design_system/display/amount.dart';
+import '../../../core/formatting/words.dart';
 import '../../../core/ledger/ledger.dart';
 
 // Exception to ledger words: the categories a merchant's name hints at,
@@ -34,6 +36,25 @@ String guessCategory(
   return feeCategory;
 }
 
+/// The note of an invoice entry, scanned or imported: its first item and
+/// how many there were, then the invoice [number] after [Words.invoice],
+/// then [tail]. [invoiceNumberIn] reads it back: the one pair that
+/// writes and reads the shape.
+String invoiceNote(List<String> items, String number, {String tail = ''}) {
+  final what = items.isEmpty ? '' : items.first;
+  final more = items.length > 1
+      ? ' 等 ${countOf(items.length, CountUnit.items)}'
+      : '';
+  return '$what$more ${Words.invoice} $number$tail'.trim();
+}
+
+/// The invoice number [note] names, as [invoiceNote] writes it; null for
+/// a note that names none (one edited since, or never an invoice's).
+String? invoiceNumberIn(String note) =>
+    _invoiceNumber.firstMatch(note)?.group(1);
+
+final _invoiceNumber = RegExp('(?:^| )${Words.invoice} (\\S+)');
+
 /// Whether the invoice [number] of [day] is in the book already, as an
 /// import or a scan would find it.
 bool invoiceRecorded(EntryReader entries, DateTime day, String number) =>
@@ -65,7 +86,7 @@ bool hasInvoice(
             notesInvoice(e.note, number) ||
             (e.mark == EntryMark.invoice &&
                 // An entry still noting its own number is another invoice.
-                !e.note.contains(RegExp(r'發票 \S')) &&
+                invoiceNumberIn(e.note) == null &&
                 e.date == day &&
                 e.merchant == shop &&
                 e.amount == amount),

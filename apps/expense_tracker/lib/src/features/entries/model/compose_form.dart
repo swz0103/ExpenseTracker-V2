@@ -321,7 +321,7 @@ final class ComposeForm {
   void fillInvoice(InvoiceQr invoice) {
     date = invoice.date;
     note = invoice.note;
-    if (!tags.contains('發票')) tags = [...tags, '發票'];
+    if (!tags.contains(Words.invoice)) tags = [...tags, Words.invoice];
     mark = EntryMark.invoice;
     more = true;
     category = guessCategory(

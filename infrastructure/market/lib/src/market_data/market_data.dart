@@ -570,7 +570,7 @@ BusinessDate _rocSlashDate(Object? value) {
       : null;
   if (match == null) throw const FormatException('Invalid ROC date');
   return BusinessDate(
-    int.parse(match[1]!) + 1911,
+    int.parse(match[1]!) + rocYearOffset,
     int.parse(match[2]!),
     int.parse(match[3]!),
   );
@@ -581,7 +581,7 @@ BusinessDate _rocDate(Object? value) {
     throw const FormatException('Invalid ROC date');
   }
   return BusinessDate(
-    int.parse(value.substring(0, 3)) + 1911,
+    int.parse(value.substring(0, 3)) + rocYearOffset,
     int.parse(value.substring(3, 5)),
     int.parse(value.substring(5, 7)),
   );

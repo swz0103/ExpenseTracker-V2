@@ -74,7 +74,7 @@ RefundShare refundShare(
 
 /// [whole] × [part] / [of], rounded half away from zero.
 int _share(int whole, int part, int of) => Money.quantizeRatio(
-  _units,
+  Currency.units,
   BigInt.from(whole) * BigInt.from(part),
   BigInt.from(of),
 ).minorUnits.toInt();
@@ -83,7 +83,7 @@ int _share(int whole, int part, int of) => Money.quantizeRatio(
 /// nothing left out.
 List<(String, int)> _allocate(int amount, List<(String, int)> weights) {
   final shares = Money(
-    _units,
+    Currency.units,
     BigInt.from(amount),
   ).allocate([for (final (_, w) in weights) BigInt.from(w)]);
   return [
@@ -92,6 +92,3 @@ List<(String, int)> _allocate(int amount, List<(String, int)> weights) {
         (name, shares[i].minorUnits.toInt()),
   ];
 }
-
-/// Whole units, for sharing amounts already in their smallest unit.
-final _units = Currency('XXX', 0);

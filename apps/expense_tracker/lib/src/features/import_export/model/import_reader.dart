@@ -100,7 +100,10 @@ final class _Reader {
   /// it was.
   String? read(String Function(String) cell, {required int line}) {
     _line = line;
-    final read = readImportDay(cell('日期'));
+    final read = readImportDay(
+      cell('日期'),
+      latest: BusinessDate.of(latestEntryDay(book.today)),
+    );
     if (read case DayRefused(:final problem)) return dayProblemWords(problem);
     final day = _utcDay(read)!;
     final typed = cell('類型');
@@ -412,7 +415,10 @@ Import _invoiceLines(ImportBook book, String text, {required String account}) {
   final numbers = <String>{};
   var skipped = 0;
   for (final cells in heads) {
-    final read = readImportDay(cells[3]);
+    final read = readImportDay(
+      cells[3],
+      latest: BusinessDate.of(latestEntryDay(book.today)),
+    );
     final day = _utcDay(read);
     final shop = cells[5];
     final number = cells[6];
@@ -514,10 +520,6 @@ Entry _invoice(
   List<String> bought,
   int value,
 ) {
-  final what = bought.isEmpty ? '' : bought.first;
-  final more = bought.length > 1
-      ? ' 等 ${countOf(bought.length, CountUnit.items)}'
-      : '';
   return Entry(
     id: book.newId(),
     date: day,
@@ -532,9 +534,9 @@ Entry _invoice(
       shop,
       bought.join(' '),
     ),
-    note: '$what$more 發票 $number'.trim(),
+    note: invoiceNote(bought, number),
     merchant: shop,
-    tags: const ['發票'],
+    tags: const [Words.invoice],
     mark: EntryMark.invoice,
   );
 }

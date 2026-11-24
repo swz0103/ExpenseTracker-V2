@@ -95,7 +95,7 @@ List<List<(BusinessDate, int)>> refundedInstalments(
     final cancelled = amount < unbilled ? amount : unbilled;
     if (cancelled <= 0) continue;
     final kept = Money(
-      _units,
+      Currency.units,
       BigInt.from(unbilled - cancelled),
     ).allocate([for (final k in later) BigInt.from(shares[k])]);
     final lines = <(BusinessDate, int)>[(day, cancelled)];
@@ -108,6 +108,3 @@ List<List<(BusinessDate, int)>> refundedInstalments(
   }
   return changes;
 }
-
-/// Whole units, for sharing amounts already in their smallest unit.
-final _units = Currency('XXX', 0);

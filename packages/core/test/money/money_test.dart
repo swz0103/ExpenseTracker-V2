@@ -193,4 +193,9 @@ void main() {
       expect(() => parseMinorUnits(text), throwsFormatException, reason: text);
     }
   });
+
+  test('whole units of no currency, for sharing smallest units', () {
+    expect((Currency.units.code, Currency.units.scale), ('XXX', 0));
+    expect(identical(Currency.units, Currency.units), isTrue);
+  });
 }

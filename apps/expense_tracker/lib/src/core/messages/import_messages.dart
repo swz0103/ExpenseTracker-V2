@@ -1,6 +1,8 @@
 import 'package:domain/data_exchange.dart'
     show DayProblem, InvoiceRefusal, earliestImportYear;
 
+import 'package:ledger_entries/model.dart' show maxDaysAhead;
+
 import '../../../design_system/display/amount.dart' show groupDigits;
 
 /// Why a day of an imported file is not taken (D93).
@@ -8,6 +10,7 @@ String dayProblemWords(DayProblem problem) => switch (problem) {
   DayProblem.unreadable => '日期看不懂',
   DayProblem.shortYear => '年份只有兩位數，請寫成西元四位數（例如 2026）或民國三位數（例如 115）',
   DayProblem.tooEarly => '日期早於 $earliestImportYear 年',
+  DayProblem.tooLate => '日期最多只能排到 $maxDaysAhead 天後',
 };
 
 /// Why an invoice of the ministry's file is left out.

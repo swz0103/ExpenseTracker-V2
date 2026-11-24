@@ -27,7 +27,7 @@ void main() {
   test('the controls that turn text around are taken out (r13 F4)', () {
     // An override makes 'gpj.exe' show as 'exe.jpg'; a name with it is
     // the name without.
-    expect(plainText('現‮金'), '現金');
+    expect(plainText('現\u202E金'), '現金');
     for (final c in [
       0x202A, 0x202B, 0x202C, 0x202D, 0x202E, //
       0x2066, 0x2067, 0x2068, 0x2069,

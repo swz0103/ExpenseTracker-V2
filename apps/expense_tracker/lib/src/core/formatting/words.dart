@@ -20,6 +20,10 @@ abstract final class Words {
   static const category = '分類';
   static const tag = '標籤';
   static const merchant = '商家';
+
+  /// An e-invoice: the tag an invoice entry carries, and the word its
+  /// number follows in the note (`invoiceNote`).
+  static const invoice = '發票';
   static const receipt = '收據';
   static const date = '日期';
   static const amount = '金額';
