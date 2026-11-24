@@ -127,7 +127,7 @@ abstract final class ErrorSteps {
 
   /// The ledger's file, made again from its records (D102), could not be
   /// opened just then: it is kept, and the lock screen opens it again.
-  static const rebuiltNotOpened = '重建後開啟帳本';
+  static const rebuiltNotOpened = '重建後打開帳本';
 
   /// The note that records were kept in the ledger's file (D102) could
   /// not be written as a write was kept: the write stands, and the note
