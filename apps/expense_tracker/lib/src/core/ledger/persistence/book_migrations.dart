@@ -170,13 +170,14 @@ void _refundsMirrorPurchases(EncryptedDatabase store, RowWriter w) {
     final json = readableRecord(row.body);
     if (json == null || json['type'] != EntryType.income.name) continue;
     final of = json['refundOf'];
-    final original = of is String ? byId[of] : null;
+    if (of is! String) continue;
+    final original = byId[of];
     final amount = json['amount'];
     if (original == null || amount is! int) continue;
     if (original['type'] != EntryType.expense.name) continue;
     final purchase = _keyed(original);
     if (purchase == null) continue;
-    final kept = earlier.putIfAbsent(of! as String, () => []);
+    final kept = earlier.putIfAbsent(of, () => []);
     final share = refundShare(purchase, amount, earlier: kept);
     final ownParts = json['parts'];
     final ownTags = json['tags'];
@@ -261,7 +262,8 @@ Entry? _keyed(Map<String, Object?> json) {
     _ => null,
   };
   final parts = <(String, int)>[];
-  for (final p in json['parts'] is List ? json['parts']! as List : const []) {
+  final kept = json['parts'];
+  for (final p in kept is List ? kept : const []) {
     if (p is! Map<String, Object?>) return null;
     final k = key(p, 'name');
     final value = p['amount'];
@@ -270,7 +272,10 @@ Entry? _keyed(Map<String, Object?> json) {
   }
   final home = json['home'];
   return Entry(
-    id: json['id'] is String ? json['id']! as String : '',
+    id: switch (json['id']) {
+      final String id => id,
+      _ => '',
+    },
     date: DateTime.utc(2000),
     type: json['type'] == EntryType.expense.name
         ? EntryType.expense
@@ -280,7 +285,10 @@ Entry? _keyed(Map<String, Object?> json) {
     category: key(json, 'category') ?? '',
     parts: parts,
     tags: [
-      for (final t in json['tags'] is List ? json['tags']! as List : const [])
+      for (final t in switch (json['tags']) {
+        final List<Object?> tags => tags,
+        _ => const <Object?>[],
+      })
         if (t is String) t,
     ],
     home: home is int ? home : null,

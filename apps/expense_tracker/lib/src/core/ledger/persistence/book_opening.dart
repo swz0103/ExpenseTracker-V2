@@ -311,7 +311,8 @@ Market marketFrom(List<StoredRow> rows) {
         }
         // The selling rates, kept since D59; a board kept before has none.
         for (final MapEntry(:key, :value) in part(json, 'sell').entries) {
-          sellRates[key] = (value! as num).toDouble();
+          if (value is! num) throw const FormatException('sell');
+          sellRates[key] = value.toDouble();
         }
     }
   }
