@@ -6,6 +6,8 @@ import '../repositories/category_repository.dart';
 import '../repositories/entry_repository.dart';
 import 'balance_service.dart';
 
+import 'package:core/time/utc_days.dart';
+
 /// Sums the screens show: a month's or any stretch of days' income and
 /// spending, by category, merchant and tag, and what a person still owes.
 final class ReportService {
@@ -61,11 +63,7 @@ final class ReportService {
   /// The entries from [from] to [to], both counted, read a month at a
   /// time from the month index rather than through every entry.
   Iterable<Entry> _allBetween(DateTime from, DateTime to) sync* {
-    for (
-      var m = DateTime.utc(from.year, from.month);
-      !m.isAfter(to);
-      m = DateTime.utc(m.year, m.month + 1)
-    ) {
+    for (final m in monthStarts(from, to)) {
       // Exception to as-of-today: read only through _between, which takes it
       // through countedOn.
       for (final e in _entries.inMonth(m.year, m.month)) {
@@ -216,23 +214,31 @@ final class ReportService {
   });
 
   /// Open spending or [income] categories, the most used over this month
-  /// and the last first, so a new entry starts on the likely one; a 預定
-  /// entry is a use once its day comes.
-  List<String> categoriesByUse({required bool income}) {
-    final type = income ? EntryType.income : EntryType.expense;
-    final counts = <String, int>{};
-    for (final back in const [0, 1]) {
-      final month = DateTime.utc(_today().year, _today().month - back);
-      for (final e in countedOn(
-        _entries.inMonth(month.year, month.month),
-        _today(),
-      )) {
-        if (e.type == type) counts[e.category] = (counts[e.category] ?? 0) + 1;
+  /// and the last first, so a new entry or recurring item starts on the
+  /// likely one; a 預定 entry is a use once its day comes. Worked out once
+  /// a day per change of the entries or categories.
+  List<String> categoriesByUse({required bool income}) => _cache.remember(
+    ('categoriesByUse', income, _today()),
+    () {
+      final type = income ? EntryType.income : EntryType.expense;
+      final counts = <String, int>{};
+      for (final back in const [0, 1]) {
+        final month = monthStart(_today(), -back);
+        for (final e in countedOn(
+          _entries.inMonth(month.year, month.month),
+          _today(),
+        )) {
+          if (e.type == type) {
+            counts[e.category] = (counts[e.category] ?? 0) + 1;
+          }
+        }
       }
-    }
-    final names = [
-      for (final c in _categories.forEntries(income: income)) c.name,
-    ];
-    return names..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0));
-  }
+      final names = [
+        for (final c in _categories.forEntries(income: income)) c.name,
+      ];
+      return List<String>.unmodifiable(
+        names..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0)),
+      );
+    },
+  );
 }

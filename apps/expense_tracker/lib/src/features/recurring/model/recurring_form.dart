@@ -7,7 +7,8 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/recurring_messages.dart';
 import '../../../../design_system/display/date.dart';
 import '../../../core/messages/validation_messages.dart';
-import 'recurring_schedule.dart';
+
+import 'package:core/time/utc_days.dart';
 
 /// What the form of a recurring item holds while it is filled in: a new
 /// item, or the changes to [old]. The screen only shows it.
@@ -85,16 +86,17 @@ final class RecurringForm {
   /// The currency of the account it is paid from or into.
   String get currency => ledger.account(account).currency;
 
-  /// The categories offered under the card: the usual ones of its side,
-  /// with the one chosen first in place of the last when it is not among
-  /// them, so the choice is always in sight.
+  /// The categories offered under the card: the five of its side used
+  /// most lately ([ReportService.categoriesByUse], as the composer offers
+  /// them), with the one chosen first in place of the last when it is not
+  /// among them, so the choice is always in sight.
   List<Category> get categoryChoices {
-    final usual = usualCategories(
-      ledger.categories,
-      ledger.entries,
-      income: income,
-      today: ledger.today,
-    );
+    final usual = [
+      for (final name in ledger.reportService
+          .categoriesByUse(income: income)
+          .take(5))
+        ledger.category(name),
+    ];
     if (category.isNotEmpty &&
         usual.isNotEmpty &&
         !usual.any((c) => c.name == category)) {
@@ -139,7 +141,7 @@ final class RecurringForm {
     this.day = day;
     _dayChosen = true;
     for (var k = 0; k < 12; k++) {
-      final month = DateTime.utc(start.year, start.month + k);
+      final month = monthStart(start, k);
       final candidate = DateTime.utc(month.year, month.month, day);
       if (candidate.month != month.month) continue;
       if (!candidate.isBefore(start) || k > 0) {
