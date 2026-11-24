@@ -178,16 +178,10 @@ final class CardSummary {
   /// when nothing is owed.
   Entry? get payment => owed == 0
       ? null
-      : Entry(
-          id: '',
-          date: today,
-          type: EntryType.transfer,
-          amount: owed,
-          account: _accounts.main,
-          category: transferCategory,
-          note: '${card.name}繳款',
-          to: card.id,
-        );
+      : TransferDrafts(
+          main: _accounts.main,
+          today: today,
+        ).payInto(card.id, amount: owed, note: '${card.name}繳款');
 
   /// A spending on the card, to fill in.
   Entry get spending => Entry(

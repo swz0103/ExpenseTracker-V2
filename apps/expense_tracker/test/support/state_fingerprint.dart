@@ -17,16 +17,6 @@ export 'seeded_book.dart';
 DateTime last(int m) => day(2026, m + 1, 0);
 DateTime first(int m) => day(2026, m, 1);
 
-const rentItem = Recurring(
-  id: 'rent',
-  name: '房租',
-  amount: 500,
-  day: 5,
-  account: 'bank',
-  category: '購物',
-  auto: true,
-);
-
 final recurringItems = [
   Recurring(
     id: 'rent',

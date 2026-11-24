@@ -18,9 +18,6 @@ const featuresDir = '$appLib/src/features';
 /// Where each feature's tests live: `<featureTestsDir>/<name>/...`.
 const featureTestsDir = '$appTest/features';
 
-/// The composition layer of the app.
-const appShellDir = '$appLib/src/app';
-
 /// Roots scanned for Dart files (code and tests).
 const scanRoots = [
   'apps/expense_tracker/lib',

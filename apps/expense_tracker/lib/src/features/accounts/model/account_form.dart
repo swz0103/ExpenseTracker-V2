@@ -278,13 +278,11 @@ final class AccountForm {
       final owed = typedBalance;
       if (_funded && into != null && owed != null && owed < 0) {
         ledger.entryCommands.add(
-          Entry(
+          TransferDrafts.between(
             id: ledger.newId(),
             date: ledger.today,
-            type: EntryType.transfer,
             amount: -owed,
-            account: account.id,
-            category: transferCategory,
+            from: account.id,
             note: '${account.name}撥款',
             to: into,
           ),
@@ -304,13 +302,11 @@ final class AccountForm {
   /// left moves to [into], or a debt is paid from it.
   static Entry settlement(Ledger ledger, Account account, String into) {
     final left = ledger.balanceService.balance(account.id);
-    return Entry(
+    return TransferDrafts.between(
       id: ledger.newId(),
       date: ledger.today,
-      type: EntryType.transfer,
       amount: left.abs(),
-      account: left > 0 ? account.id : into,
-      category: transferCategory,
+      from: left > 0 ? account.id : into,
       note: '${account.name}結清',
       to: left > 0 ? into : account.id,
     );

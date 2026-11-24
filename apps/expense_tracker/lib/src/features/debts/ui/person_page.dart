@@ -18,19 +18,15 @@ class PersonPage extends StatelessWidget {
   /// Opens the composer on money paid for [person] from the main account
   /// ([lend]), or on money paid back, all that is owed by default.
   void _move(Account person, {required bool lend}) {
-    final main = ledger.accounts.main;
-    final owed = ledger.balanceService.balance(person.id);
+    final drafts = ledger.transferDrafts;
     nav.compose(
       type: EntryType.transfer,
-      draft: Entry(
-        id: '',
-        date: ledger.today,
-        type: EntryType.transfer,
-        amount: lend || owed < 0 ? 0 : owed,
-        account: lend ? main : person.id,
-        category: transferCategory,
-        to: lend ? person.id : main,
-      ),
+      draft: lend
+          ? drafts.lend(person.id)
+          : drafts.payBack(
+              person.id,
+              owed: ledger.balanceService.balance(person.id),
+            ),
     );
   }
 
@@ -363,15 +359,7 @@ class LoanPage extends StatelessWidget {
       solid: true,
       onTap: () => nav.compose(
         type: EntryType.transfer,
-        draft: Entry(
-          id: '',
-          date: ledger.today,
-          type: EntryType.transfer,
-          amount: 0,
-          account: ledger.accounts.main,
-          category: transferCategory,
-          to: loan.id,
-        ),
+        draft: ledger.transferDrafts.payInto(loan.id),
       ),
     );
   }

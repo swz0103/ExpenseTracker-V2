@@ -524,13 +524,11 @@ final class ComposeForm {
     }
     for (final (person, value) in shares) {
       made.add(
-        Entry(
+        TransferDrafts.between(
           id: _lentIds[person] ?? ledger.newId(),
           date: date,
-          type: EntryType.transfer,
           amount: value,
-          account: account,
-          category: transferCategory,
+          from: account,
           note: note.trim(),
           to: person,
         ),

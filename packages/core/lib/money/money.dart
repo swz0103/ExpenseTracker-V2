@@ -36,10 +36,6 @@ final class Currency {
   /// Never guess a scale; only this table decides it.
   factory Currency.of(String code) => Currency(code, scaleOf(code));
 
-  /// Bumped whenever a scale in the table changes. Stored money carries
-  /// its own scale, so a change needs a migration of stored amounts.
-  static const tableVersion = 2;
-
   /// The currencies the app offers, most used first.
   static const supported = [
     'TWD',
@@ -85,7 +81,6 @@ final class Money {
   static final minMinorUnits = -(BigInt.one << 63);
   static final maxMinorUnits = (BigInt.one << 63) - BigInt.one;
   static const roundingPolicy = 'half-away-from-zero-v1';
-  static const allocationPolicy = 'largest-remainder-v1';
   final Currency currency;
   final BigInt minorUnits;
 

@@ -221,6 +221,11 @@ final class Ledger extends ChangeNotifier {
   ReceiptReader get receipts => _receipts;
   DraftReader get drafts => _drafts;
 
+  /// The transfers the screens open the composer on, from and into the
+  /// main account, dated today.
+  TransferDrafts get transferDrafts =>
+      TransferDrafts(main: _accounts.main, today: today);
+
   /// The account [id]; one of that name and no balance when the book has
   /// none, as for an entry whose account was never kept.
   Account account(String id) => _accounts.resolve(id);
