@@ -145,7 +145,7 @@ expect about two times these there (the emulator section above).
 | `rebuild_held_ms` | the longest the screen's isolate was held while the journal was posted (the book sent to it as a copy, then collected) | 90–113 ms | 266–315 ms (over its limit at this load) | 250 ms |
 | `repost_100k_ms` | posting the whole book afresh later, from the records alone (`postApart`: the posting rules changed, a change the keeper could not follow) | 2,662–2,794 ms | 3,429–6,197 ms | 6,000 ms |
 | `parity_held_share` | `parity_hold_gate_test.dart`: the journal's check of a 100,000-entry book in memory, on the screen's isolate in slices of `journalSlice`: the longest the isolate is held, as a share of the whole check run at once (r13 F8). What is left in one piece is the first balance of an account worked out cold (the ledger's own index, which the screens build too) | — | 0.428 (84 of 197 ms, load ~15, 2026-11-24) | 0.6 |
-| `parity_held_ms` | the same gate's longest hold itself, in ms (review 18): the share stays the same as the book grows, the hold does not, so both are gated. Twice the slowest quiet run, 110 ms, as the rule above | — | 84 ms (2026-11-24, r13); 110 ms (review 18); 95–186 ms (three runs, load 7–10, 2026-11-24, not a basis) | 220 ms |
+| `parity_held_ms` | the same gate's longest hold itself, in ms (review 18): the share stays the same as the book grows, the hold does not, so both are gated. Twice the slowest quiet run, 110 ms, as the rule above. Since review 23 (review 25 finding 8) both are judged on the clean pairs only: the median share and the median sliced hold of the pairs the host did not stall, so an absolute ms figure is no longer read on a busy host | — | 84 ms (2026-11-24, r13); 110 ms (review 18); 95–186 ms (three runs, load 7–10, 2026-11-24, not a basis) | 220 ms |
 | `save_posting_us` | one entry's posting and the journal's mark, one transaction, `synchronous=FULL` | 777–804 µs | 1,055–2,852 µs | 3,000 µs |
 | `every_balance_us` | every account's balance today, from the months' sums and this month's postings | 557–908 µs | 582–1,144 µs | 2,000 µs |
 | `month_report_us` | a month's income and spending by category | 38–55 µs | 44–63 µs | 130 µs |
@@ -176,13 +176,78 @@ the save it times, so a journal update that grows with the book fails it in
 CI on any machine. Posting the whole book afresh happens once (the first
 opening after this version, after a restore, after an older version wrote
 records, or when the posting rules change). `journal_rebuild_gate_test.dart`
-gates, in the ordinary `flutter test`, the longest hold of the screen's
-isolate while a 20,000-entry book is posted afresh, as a share of posting
-it at once there (at most 0.045, as the batch-write gate below). Both
-share gates take the least of `gateTries` (3) runs of each side
-(`leastOf`, `test/support/held.dart`): what the code holds is held every
-time, while a machine busy elsewhere or another isolate's garbage
-collection stalls a run now and then.
+(`journal_rebuild_block`) gates the longest hold of the screen's isolate
+while a 50,000-entry book is posted afresh, as a share of posting it at
+once there, judged as every share gate is (below, "How a timing gate is
+judged").
+
+| measured | limit |
+|---|---|
+| 20,000 entries, before review 23 (least of three, full runs): 0.042 pass, 0.056 fail; no quiet figure was ever taken, the limit was copied from the batch writes | 0.045 |
+| 50,000 entries, no quiet run yet: the host stayed at load 5.7–12 on four cores, every sample's PSI 4.6–76% (2026-11-24, six runs of nine pairs, every pair contended, not a basis). Ratios 0.007–0.096; the median of each run's nine 0.014, 0.017, 0.018, 0.019, 0.019, 0.022; at once held 1,519–2,425 ms, apart 17–150 ms | 0.045 |
+
+The book went from 20,000 to 50,000 entries (review 23): posting at once
+grows with the book, the hold apart (one slice of the work, a hand-over)
+does not, so the same limit has room instead of sitting next to one 8 ms
+slice. The limit was not raised.
+
+## How a timing gate is judged (review 23)
+
+The gates below, the journal's, the opening's, the save's, the index's,
+the page's and the scale scenario are tagged `timing` (dart_test.yaml).
+CI and `tooling/run-host-checks.ps1` run the rest of the app's suite at
+the default concurrency with coverage, then
+`flutter test --tags timing --concurrency=1` without coverage (coverage
+slows the code measured and distorts the ratios). A plain `flutter test`
+still runs them all.
+
+A share gate (`journal_rebuild_block`, `batch_write_block`,
+`import_block`, `backup_read_block`, `parity_held`) is judged in
+`test/support/held.dart`:
+
+- **One timer**: `timeHeld`, a 1 ms timer whose widest gap is the hold,
+  in µs, settled 20 ms before and after.
+- **A witness of the host around each sample.** On Linux the PSI `some`
+  total of `/proc/pressure/cpu` (time some runnable task waited for a
+  core) and the steal ticks of `/proc/stat`; elsewhere a fixed loop of
+  about 3 ms timed before and after, against the fastest seen. A sample
+  is contended past 5% PSI of its wall time, 1% steal, or a loop 1.5
+  times its fastest. The one-minute load per core is printed, not
+  judged.
+- **Interleaved pairs**: apart, then at once, five times; each ratio from
+  two runs a moment apart, so a slow drift of the host's load falls on
+  both. A pair either of whose samples is contended is dropped.
+- **The verdict**: the median ratio of at least three clean pairs against
+  the limit (and for `parity_held` also the median hold of the clean
+  sliced runs against `parity_held_ms`). When the verdict is not a pass
+  and at least half the pairs were contended, pairs are taken on to nine
+  and all clean ones judged together; a failure on clean pairs gets no
+  second chance. Fewer than three clean pairs is `INCONCLUSIVE: host
+  contended (n of m samples clean)`, with every figure: a failure under
+  `CI`, a loud skip elsewhere, never a pass. The contention filter only
+  drops samples: a hold the code makes appears in every sample, the
+  clean ones included.
+- Every pair's figures, the witness's with them, are printed with every
+  result, pass or fail.
+
+Figures taken on a host at load 7 and more (on four cores) are not a
+basis for a limit; the quiet figures below were taken with PSI under
+5% throughout.
+
+Five quiet runs of the journal gate were to set its limit at about twice
+the worst (never above 0.045). None could be taken on 2026-11-24: the
+development host stayed at load 5.7–12 on four cores, and the witness
+marked every one of 99 pairs across the share gates contended. The limit
+stays 0.045 until five quiet runs exist; the figures under load (table
+above) suggest the quiet share at 50,000 entries is well under it. The
+same day, under that load (every pair contended, not a basis):
+
+| gate | ratios of nine pairs | apart held |
+|---|---|---|
+| `batch_write_block` | 0.014–0.171 | 20–226 ms |
+| `import_block` | 0.007–0.301 | 25–696 ms |
+| `backup_read_block` | 0.040–0.304 | 18–176 ms |
+| `parity_held` | 0.214–0.436 | 98–161 ms (limit 220) |
 
 ## Batch writes on the computer (`batch_write_block`, DAT-03)
 
@@ -193,7 +258,8 @@ change of 500 records or more (`writeApartFrom`: the rows made 8 ms at a
 time with the screen drawn between, then kept on a worker isolate through
 the same connection, `EncryptedDatabase.writeApart`). It gates the longest
 time the main isolate was held, as a share of the rename written at once,
-so the gate holds on any machine.
+so the gate holds on any machine; judged as above ("How a timing gate is
+judged"), with the shared timer in µs (the gate's own ms timer is gone).
 
 | measured (5 runs, Linux host, 2026-11-23) | limit |
 |---|---|
@@ -211,8 +277,9 @@ ordinary `flutter test`. It imports a CSV of 100,000 lines into the demo
 book twice: once at once (`importCsv`), and once as the import page does
 (`importCsvApart`: a long file read as CSV on a worker isolate, its lines
 and what is found 8 ms at a time with the screen drawn between). It gates
-the longest time the main isolate was held, the least of three runs, as a
-share of the import at once, with the batch writes' limit.
+the longest time the main isolate was held, as a share of the import at
+once, with the batch writes' limit (judged as above, "How a timing gate is
+judged"; the figures below are of the former least of three).
 
 | measured (4 runs, Linux host, 2026-11-24) | limit |
 |---|---|
@@ -224,13 +291,15 @@ What is left held is the garbage collection of the 100,000 entries made.
 
 Not an emulator figure: `test/perf/backup_read_gate_test.dart` runs in the
 ordinary `flutter test`. It backs up a real encrypted book of 100,000
-records five times as the app does (`LedgerBackup.write`: the records read
+records as the app does (`LedgerBackup.write`: the records read
 in one read transaction on a worker isolate through the same connection,
 `EncryptedDatabase.readApart`, then compressed and sealed on that worker),
-and gates the longest time the main isolate was held, the middle of the
-five runs, as a share of the same records read on the main isolate at
-once, as the backup read them before. Read there, the share would be 1 or
-more.
+and gates the longest time the main isolate was held as a share of the
+same records read on the main isolate at once, as the backup read them
+before: since review 23 in interleaved pairs, a read at once beside each
+backup (no longer one read for five backups, which a lucky-short read
+could fail), judged as above. Read there, the share would be 1 or more.
+The figures below are of the former middle of five.
 
 | measured (5 runs, Linux host, 2026-11-23) | limit |
 |---|---|
@@ -251,7 +320,9 @@ Not emulator figures: both run in the ordinary `flutter test`.
 (as undo does) and moves one to another day on a book of 100,000 entries,
 each with what a screen reads right after (the month, an entry by id, an
 untouched account's entries), and gates each as a share of working the
-entries' indexes out afresh, the least of three runs after a warm-up.
+entries' indexes out afresh (the least of three runs) after a warm-up,
+each change the least of fifteen tries (review 23: tens of µs each, so a
+try a busy host preempts is likely, all fifteen are not).
 Before, each of these threw every index away (120–150 ms at 100k).
 
 | measured (3 runs, Linux host, load 3–4.5, 2026-11-24) | limit |
