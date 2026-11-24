@@ -1,3 +1,6 @@
+@Tags(['timing'])
+library;
+
 import 'dart:io';
 import 'dart:math';
 
@@ -14,8 +17,10 @@ import '../support/held.dart';
 /// entries took 120–150 ms before the next balance could be read.
 ///
 /// Gated as a share of working the same indexes out afresh on a book of
-/// 100,000 entries, each side the least of [gateTries] runs, so it holds
-/// on any machine. With `BENCH=1` the times are printed as well.
+/// 100,000 entries, afresh the least of [gateTries] runs and each change
+/// the least of [_stepTries] (tens of microseconds of work: one try a
+/// busy host preempts is likely, every try is not), so it holds on any
+/// machine. With `BENCH=1` the times are printed as well.
 void main() {
   final today = DateTime.utc(2026, 10, 4);
   final bench = Platform.environment['BENCH'] != null;
@@ -65,7 +70,7 @@ void main() {
     Future<Map<String, int>> steps(int first) async {
       var k = 0;
       Future<int> timed(void Function(Entry e) change) =>
-          leastOf(gateTries, () async {
+          leastOf(_stepTries, () async {
             final e = repository.byId('e${first + 7 * k++}')!;
             final watch = Stopwatch()..start();
             change(e);
@@ -78,7 +83,7 @@ void main() {
       final delete = await timed(
         (e) => undos.addAll(repository.removeEach([e])),
       );
-      expect(undos, hasLength(gateTries));
+      expect(undos, hasLength(_stepTries));
       var back = 0;
       final undo = await timed((_) {
         final (i, e) = undos[back++];
@@ -149,3 +154,7 @@ void main() {
 /// The largest share of working the indexes out afresh a change may
 /// take: about twice the largest measured (thresholds.md).
 const _most = 0.0005;
+
+/// How many tries each change takes the least of: fifteen of tens of
+/// microseconds cost well under a millisecond (review 23).
+const _stepTries = 15;

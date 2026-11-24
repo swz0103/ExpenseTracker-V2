@@ -88,12 +88,21 @@ foreach ($check in $selected) {
         }
         $testArguments = @('test', '--reporter', 'expanded')
         # The app's coverage is read by class and function afterwards
-        # (tooling/architecture_checks/bin/declaration_coverage.dart).
-        if ($isFlutter) { $testArguments += @('--concurrency=1', '--coverage') }
+        # (tooling/architecture_checks/bin/declaration_coverage.dart). Its
+        # timing gates (tag `timing`, dart_test.yaml) are left to the step
+        # below, so the rest runs at the default concurrency.
+        if ($isFlutter) { $testArguments += @('--exclude-tags', 'timing', '--coverage') }
         # Line coverage per package, held to tooling/coverage_floors.json by
         # tooling/architecture_checks/bin/check_coverage.dart.
         if ($check.ContainsKey('Coverage')) { $testArguments += @('--coverage-path=coverage/lcov.info') }
         Invoke-CheckCommand $driver $testArguments
+        if ($isFlutter) {
+            # The timing gates, one file at a time and without coverage
+            # (which slows code and distorts the ratios they judge); on a
+            # host too busy to judge they fail under CI, saying so, and are
+            # skipped loudly elsewhere (test/support/held.dart).
+            Invoke-CheckCommand $driver @('test', '--reporter', 'expanded', '--tags', 'timing', '--concurrency=1')
+        }
     } finally {
         Pop-Location
     }
