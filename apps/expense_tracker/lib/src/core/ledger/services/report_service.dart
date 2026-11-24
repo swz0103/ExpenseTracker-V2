@@ -194,10 +194,14 @@ final class ReportService {
   }
 
   /// Every merchant with how many entries name it and their spending,
-  /// most used first.
-  List<(String, int, int)> get merchantStats =>
+  /// most used first: worked out once per change of the entries.
+  List<(String, int, int)> get merchantStats => _cache.remember(
+    ('merchantStats', _today()),
+    () => List.unmodifiable(
       merchantsBetween(firstDay, _today())
-        ..sort((a, b) => b.$2.compareTo(a.$2));
+        ..sort((a, b) => b.$2.compareTo(a.$2)),
+    ),
+  );
 
   /// Every tag in use, most used first ([tagStats]), then those only on
   /// 預定 entries: the names offered to pick from.

@@ -1,6 +1,5 @@
 import 'package:core/foundation_values.dart' show Currency;
-import 'package:core/money/amount_format.dart' as amount_format
-    show figures;
+import 'package:core/money/amount_format.dart' as amount_format show figures;
 
 import '../cache/query_cache.dart';
 import '../cache/topic.dart';
@@ -75,18 +74,24 @@ final class EntryQueryService {
         for (final MapEntry(:key, :value) in currencies.entries)
           '$key:${Currency.scaleOf(value)}',
       ].join('\n');
+      final amount = _amountLike.hasMatch(words);
       found = [];
       // Exception to as-of-today: a search runs over every entry written.
       // Newest month first, each newest first: the order shown.
       for (final month in _entries.newestMonths) {
-        var text = _texts[month];
-        if (text == null || text.scales != scales) {
-          text = _texts[month] = _MonthText(month, currencies, scales);
+        final text = _texts[month] ??= _MonthText(month);
+        final texts = text.words;
+        if (!amount) {
+          for (var i = 0; i < month.length; i++) {
+            if (texts[i].contains(lower)) found.add(month[i]);
+          }
+          continue;
         }
+        final (plain, figures) = text.amounts(currencies, scales);
         for (var i = 0; i < month.length; i++) {
-          if (text.words[i].contains(lower) ||
-              text.amounts[i] == words ||
-              text.figures[i] == words) {
+          if (texts[i].contains(lower) ||
+              plain[i] == words ||
+              figures[i] == words) {
             found.add(month[i]);
           }
         }
@@ -239,24 +244,38 @@ final class EntryQueryService {
 }
 
 /// A month's entries as a search reads them, in the month's order: each
-/// one's words lower-cased, and its amount written plainly and in its
-/// currency's figures, worked out once for the month's list.
+/// one's words lower-cased, and, once words that could be an amount are
+/// searched for, its amount written plainly and in its currency's
+/// figures; worked out once for the month's list.
 final class _MonthText {
-  _MonthText(List<Entry> month, Map<String, String> currencies, this.scales)
-    : words = [for (final e in month) EntryQueryService._wordsOf(e)],
-      amounts = [for (final e in month) '${e.amount}'],
-      figures = [
-        for (final e in month)
-          amount_format.figures(
-            e.amount,
-            Currency.scaleOf(currencies[e.account] ?? homeCode),
-            grouped: false,
-          ),
-      ];
+  _MonthText(this._month)
+    : words = [for (final e in _month) EntryQueryService._wordsOf(e)];
 
-  /// The accounts' currencies' scales the figures were written in.
-  final String scales;
+  final List<Entry> _month;
   final List<String> words;
-  final List<String> amounts;
-  final List<String> figures;
+
+  /// Each amount, plainly and in figures, with the accounts' currencies'
+  /// scales they were written in.
+  (String, List<String>, List<String>)? _amounts;
+
+  /// Each entry's amount, plainly and in its currency's figures, as
+  /// [scales] (each account's) write them.
+  (List<String>, List<String>) amounts(
+    Map<String, String> currencies,
+    String scales,
+  ) {
+    final kept = _amounts;
+    if (kept != null && kept.$1 == scales) return (kept.$2, kept.$3);
+    final plain = [for (final e in _month) '${e.amount}'];
+    final figures = [
+      for (final e in _month)
+        amount_format.figures(
+          e.amount,
+          Currency.scaleOf(currencies[e.account] ?? homeCode),
+          grouped: false,
+        ),
+    ];
+    _amounts = (scales, plain, figures);
+    return (plain, figures);
+  }
 }

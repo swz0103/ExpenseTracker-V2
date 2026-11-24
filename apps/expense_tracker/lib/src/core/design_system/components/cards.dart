@@ -170,29 +170,38 @@ class CardGrid extends StatelessWidget {
   final double gap;
 
   @override
-  Widget build(BuildContext context) {
-    final rows = <Widget>[];
-    for (var i = 0; i < children.length; i += columns) {
-      final cells = <Widget>[];
-      for (var j = 0; j < columns; j++) {
-        if (j > 0) cells.add(SizedBox(width: gap));
-        final k = i + j;
-        cells.add(
-          Expanded(child: k < children.length ? children[k] : const SizedBox()),
-        );
-      }
-      if (rows.isNotEmpty) rows.add(SizedBox(height: gap));
-      rows.add(
-        IntrinsicHeight(
+  Widget build(BuildContext context) => Column(
+    children: rowsOf(children, columns: columns, gap: gap),
+  );
+
+  /// The grid's rows, each one widget with [gap] above it but the first:
+  /// in a list, a long grid (every merchant) is built a row at a time as
+  /// it comes on screen.
+  static List<Widget> rowsOf(
+    List<Widget> children, {
+    int columns = 2,
+    double gap = 12,
+  }) => [
+    for (var i = 0; i < children.length; i += columns)
+      Padding(
+        padding: EdgeInsets.only(top: i == 0 ? 0 : gap),
+        child: IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: cells,
+            children: [
+              for (var j = 0; j < columns; j++) ...[
+                if (j > 0) SizedBox(width: gap),
+                Expanded(
+                  child: i + j < children.length
+                      ? children[i + j]
+                      : const SizedBox(),
+                ),
+              ],
+            ],
           ),
         ),
-      );
-    }
-    return Column(children: rows);
-  }
+      ),
+  ];
 }
 
 /// Big buttons that switch a page between its parts, such as 持股 and

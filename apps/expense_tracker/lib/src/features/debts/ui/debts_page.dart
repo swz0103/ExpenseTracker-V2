@@ -502,18 +502,26 @@ class _Action extends StatelessWidget {
   }
 }
 
-/// A small heading over a white board, or a line when it is empty.
-List<Widget> _board(
+/// A small heading over a grey board of [count] rows, each [row] built
+/// as it comes on screen on a slice of the board, or a line when it is
+/// empty: lines of a lazy [HeadedList].
+List<LineRun> _boardRuns(
   String title,
-  List<Widget> rows, {
+  int count,
+  Widget Function(int i) row, {
   String empty = '還沒有紀錄',
 }) => [
-  RuleHead(title),
-  if (rows.isEmpty)
-    Padding(
-      padding: const EdgeInsets.symmetric(horizontal: Space.s1),
-      child: Text(empty, style: mutedSmall),
+  LineRun.one(RuleHead(title)),
+  if (count == 0)
+    LineRun.one(
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Space.s1),
+        child: Text(empty, style: mutedSmall),
+      ),
     )
   else
-    QuoteBoard(rows),
+    LineRun(
+      count,
+      (i) => QuoteSlice(first: i == 0, last: i == count - 1, child: row(i)),
+    ),
 ];

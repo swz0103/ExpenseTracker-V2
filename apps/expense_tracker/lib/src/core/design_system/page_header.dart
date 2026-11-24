@@ -178,22 +178,38 @@ class StepSwitch extends StatelessWidget {
 /// A page's list under its [header], which stays put while the rest
 /// scrolls under it, with no line between them. [padding] is the list's,
 /// its sides the header's too.
+///
+/// [HeadedList.lazy] takes its lines as [LineRun]s, each line built only
+/// as it comes on screen: for a list as long as the book is, such as a
+/// person's dealings or a loan's payments.
 class HeadedList extends StatelessWidget {
   const HeadedList({
     super.key,
     required this.header,
-    required this.children,
+    required List<Widget> this.children,
     this.padding = EdgeInsets.zero,
     this.physics,
-  });
+  }) : runs = null;
+
+  const HeadedList.lazy({
+    super.key,
+    required this.header,
+    required List<LineRun> this.runs,
+    this.padding = EdgeInsets.zero,
+    this.physics,
+  }) : children = null;
 
   final Widget header;
-  final List<Widget> children;
+  final List<Widget>? children;
+  final List<LineRun>? runs;
   final EdgeInsets padding;
   final ScrollPhysics? physics;
 
   @override
   Widget build(BuildContext context) {
+    final runs = this.runs;
+    final physics = this.physics ?? FitScrollPhysics(padding.bottom);
+    final listPadding = padding.copyWith(top: 0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -206,15 +222,43 @@ class HeadedList extends StatelessWidget {
           child: header,
         ),
         Expanded(
-          child: ListView(
-            physics: physics ?? FitScrollPhysics(padding.bottom),
-            padding: padding.copyWith(top: 0),
-            children: children,
-          ),
+          child: runs == null
+              ? ListView(
+                  physics: physics,
+                  padding: listPadding,
+                  children: children!,
+                )
+              : ListView.builder(
+                  physics: physics,
+                  padding: listPadding,
+                  itemCount: runs.fold(0, (sum, run) => sum! + run.count),
+                  itemBuilder: (context, i) {
+                    for (final run in runs) {
+                      if (i < run.count) return run.build(i);
+                      i -= run.count;
+                    }
+                    return null;
+                  },
+                ),
         ),
       ],
     );
   }
+}
+
+/// [count] lines of a [HeadedList.lazy], the line at a place in the run
+/// built by [build] when it comes on screen.
+final class LineRun {
+  const LineRun(this.count, this.build);
+
+  /// One line, already made.
+  LineRun.one(Widget line) : this(1, (_) => line);
+
+  /// Each of [lines], already made.
+  LineRun.each(List<Widget> lines) : this(lines.length, (i) => lines[i]);
+
+  final int count;
+  final Widget Function(int i) build;
 }
 
 /// A list that only moves when there is more than its bottom margin

@@ -145,10 +145,13 @@ class TagPage extends StatelessWidget {
     return ListenableBuilder(
       listenable: ledger,
       builder: (context, _) {
+        // Worked out once a build: each is a pass over the book.
+        final project = merchant
+            ? null
+            : tagSummaryOf(ledger.entries, name, ledger.today);
         final entries = merchant
             ? visitsTo(ledger.entries, name)
-            : tagSummaryOf(ledger.entries, name, ledger.today)?.entries ??
-                  const <Entry>[];
+            : project?.entries ?? const <Entry>[];
         final menu = DotsMenu([
           DotsItem(Glyph.edit, '改名', () => _rename(context)),
           if (_others().isNotEmpty)
@@ -174,11 +177,7 @@ class TagPage extends StatelessWidget {
               if (merchant)
                 _VisitsCard(name: name, visits: entries, menu: menu)
               else
-                TagSummaryCard(
-                  ledger: ledger,
-                  project: tagSummaryOf(ledger.entries, name, ledger.today)!,
-                  menu: menu,
-                ),
+                TagSummaryCard(ledger: ledger, project: project!, menu: menu),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   Space.s2,

@@ -84,43 +84,49 @@ class PersonPage extends StatelessWidget {
         final entries = ledger.balanceService.entriesOf(person.id);
         final color = nameColor(person.name);
         final oldest = owed.isEmpty ? null : owed.last.$1.date;
-        return HeadedList(
+        final left = {for (final (lent, left) in owed) lent.id: left};
+        // Rows built as they come on screen: a person's dealings can be
+        // as many as the book holds.
+        return HeadedList.lazy(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(person.name, onBack: nav.back),
-          children: [
-            _DebtHero(
-              color: color,
-              lead: _Initial(person.name, size: 60),
-              label: balance < 0 ? '你欠${person.name}' : '還欠你',
-              value: ledger.orDots(groupDigits(balance.abs())),
-              lines: [
-                if (oldest == null)
-                  '沒有待收回的'
-                else
-                  '${countOf(owed.length, CountUnit.entries)}還沒收回 · 最久 ${countOf(_days(ledger, oldest), CountUnit.days)}',
-              ],
-              menu: DotsMenu([
-                DotsItem(Glyph.edit, '改名', () => _rename(context, person)),
-                DotsItem(
-                  Glyph.trash,
-                  Words.delete,
-                  () => _delete(context, person),
-                  danger: true,
-                ),
-              ]),
-            ),
-            const SizedBox(height: Space.s3),
-            _actions(person, balance, color),
-            if (owed.isNotEmpty)
-              ..._board('還沒收回', [
-                for (final (e, left) in owed) _owedRow(e, left),
-              ]),
-            ..._board('往來紀錄', [
-              for (final e in entries)
-                _movementRow(e, person.id, color, {
-                  for (final (lent, left) in owed) lent.id: left,
-                }),
+          runs: [
+            LineRun.each([
+              _DebtHero(
+                color: color,
+                lead: _Initial(person.name, size: 60),
+                label: balance < 0 ? '你欠${person.name}' : '還欠你',
+                value: ledger.orDots(groupDigits(balance.abs())),
+                lines: [
+                  if (oldest == null)
+                    '沒有待收回的'
+                  else
+                    '${countOf(owed.length, CountUnit.entries)}還沒收回 · 最久 ${countOf(_days(ledger, oldest), CountUnit.days)}',
+                ],
+                menu: DotsMenu([
+                  DotsItem(Glyph.edit, '改名', () => _rename(context, person)),
+                  DotsItem(
+                    Glyph.trash,
+                    Words.delete,
+                    () => _delete(context, person),
+                    danger: true,
+                  ),
+                ]),
+              ),
+              const SizedBox(height: Space.s3),
+              _actions(person, balance, color),
             ]),
+            if (owed.isNotEmpty)
+              ..._boardRuns(
+                '還沒收回',
+                owed.length,
+                (i) => _owedRow(owed[i].$1, owed[i].$2),
+              ),
+            ..._boardRuns(
+              '往來紀錄',
+              entries.length,
+              (i) => _movementRow(entries[i], person.id, color, left),
+            ),
           ],
         );
       },
@@ -278,35 +284,40 @@ class LoanPage extends StatelessWidget {
         final share = paidShare(ledger.balanceService, loan);
         final color = nameColor(loan.name);
         final entries = ledger.balanceService.entriesOf(loan.id);
-        return HeadedList(
+        // Rows built as they come on screen, however many payments.
+        return HeadedList.lazy(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(loan.name, onBack: nav.back),
-          children: [
-            _DebtHero(
-              color: color,
-              lead: share == null
-                  ? SquareIcon(Glyph.loan, color, size: 60)
-                  : _PaidRing(share: share, color: color, size: 96),
-              label: '尚欠',
-              value: ledger.orDots(groupDigits(owed)),
-              lines: _lines(loan, owed),
-              menu: DotsMenu([
-                DotsItem(Glyph.edit, Words.edit, () async {
-                  final gone = await editLoan(context, ledger, loan: loan);
-                  if (gone) nav.back();
-                }),
-                DotsItem(
-                  Glyph.check,
-                  '對帳',
-                  () => reconcileAccount(context, ledger, loan),
-                ),
-              ]),
-            ),
-            const SizedBox(height: Space.s3),
-            _payButton(loan, color),
-            ..._board('還款紀錄', [
-              for (final e in entries) _paymentRow(e, loan, color),
+          runs: [
+            LineRun.each([
+              _DebtHero(
+                color: color,
+                lead: share == null
+                    ? SquareIcon(Glyph.loan, color, size: 60)
+                    : _PaidRing(share: share, color: color, size: 96),
+                label: '尚欠',
+                value: ledger.orDots(groupDigits(owed)),
+                lines: _lines(loan, owed),
+                menu: DotsMenu([
+                  DotsItem(Glyph.edit, Words.edit, () async {
+                    final gone = await editLoan(context, ledger, loan: loan);
+                    if (gone) nav.back();
+                  }),
+                  DotsItem(
+                    Glyph.check,
+                    '對帳',
+                    () => reconcileAccount(context, ledger, loan),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: Space.s3),
+              _payButton(loan, color),
             ]),
+            ..._boardRuns(
+              '還款紀錄',
+              entries.length,
+              (i) => _paymentRow(entries[i], loan, color),
+            ),
           ],
         );
       },

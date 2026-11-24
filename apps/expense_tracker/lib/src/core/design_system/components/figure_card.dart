@@ -313,36 +313,54 @@ class CardRow extends StatelessWidget {
 
 /// Rows grouped on a flat light grey, no shadow: a day of entries, a
 /// list of accounts or of a statement's charges.
+///
+/// A long list can draw its box a row at a time, each row a slice of it
+/// ([top] and [bottom] say whether a slice is the first or the last), so
+/// only the rows on screen are built.
 class GroupBox extends StatelessWidget {
   const GroupBox({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(Space.s4),
     this.onTap,
+    this.top = true,
+    this.bottom = true,
   });
 
   final Widget child;
   final EdgeInsets padding;
   final VoidCallback? onTap;
 
+  /// Whether this is the box's top, with its round corners; false for a
+  /// slice under another.
+  final bool top;
+
+  /// Whether this is the box's bottom, with its round corners; false for
+  /// a slice with another under it.
+  final bool bottom;
+
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(Radii.large);
+    const round = Radius.circular(Radii.large);
+    final radius = BorderRadius.vertical(
+      top: top ? round : Radius.zero,
+      bottom: bottom ? round : Radius.zero,
+    );
     final tap = onTap;
     final group = Material(
       color: AppColors.group,
       borderRadius: radius,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        borderRadius: radius,
-        onTap: tap == null
-            ? null
-            : () {
+      clipBehavior: top || bottom ? Clip.antiAlias : Clip.hardEdge,
+      child: tap == null
+          ? Padding(padding: padding, child: child)
+          : InkWell(
+              borderRadius: radius,
+              onTap: () {
                 Haptics.selection();
                 tap();
               },
-        child: Padding(padding: padding, child: child),
-      ),
+              child: Padding(padding: padding, child: child),
+            ),
     );
     return tap == null ? group : Pressable(depth: 0.985, child: group);
   }

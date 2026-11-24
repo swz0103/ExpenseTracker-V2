@@ -119,10 +119,9 @@ final class BalanceService {
         var outflow = 0;
         final first = DateTime.utc(month.year, month.month);
         final last = DateTime.utc(month.year, month.month + 1, 0);
-        for (final (day, change) in _runningOf(account).changesIn(
-          first,
-          last,
-        )) {
+        for (final (day, change) in _runningOf(
+          account,
+        ).changesIn(first, last)) {
           if (!countsOn(day, today)) continue;
           if (change > 0) {
             inflow += change;

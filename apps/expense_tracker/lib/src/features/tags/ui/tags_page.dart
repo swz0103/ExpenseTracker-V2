@@ -244,8 +244,9 @@ class _TagsPageState extends State<TagsPage> {
       if (rest.isNotEmpty) ...[
         const SectionTitle('其他'),
         // Two to a row, each as wide as the other, so long and short
-        // names line up.
-        CardGrid(gap: 8, [
+        // names line up; a row of the list each, built as it comes on
+        // screen.
+        ...CardGrid.rowsOf(gap: 8, [
           for (final (name, count, _) in rest) _merchantCard(name, count),
         ]),
       ],

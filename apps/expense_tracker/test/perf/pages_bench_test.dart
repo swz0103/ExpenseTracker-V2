@@ -226,15 +226,48 @@ void main() {
       await fresh(['紀錄']);
       await row('紀錄: type search char 1', () async {
         await tester.enterText(find.byType(TextField).first, '午');
+        // The search waits for a pause in typing.
+        await tester.pump(const Duration(milliseconds: 300));
       });
       await row('紀錄: type search char 2', () async {
         await tester.enterText(find.byType(TextField).first, '午餐');
+        await tester.pump(const Duration(milliseconds: 300));
       });
       await row('紀錄: clear search', () async {
         await tester.enterText(find.byType(TextField).first, '');
+        await tester.pump(const Duration(milliseconds: 300));
+      });
+      // A save, then the first letter typed: what the search keeps from
+      // before the save, and what it works out again.
+      await row('紀錄: save elsewhere', () async {
+        ledger.entryCommands.add(
+          Entry(
+            id: 'search${DateTime.now().microsecondsSinceEpoch}',
+            date: today,
+            type: EntryType.expense,
+            amount: 50,
+            account: accts.first,
+            category: spend.first,
+            note: '午餐',
+          ),
+        );
+      });
+      await row('紀錄: type search char 1 after a save', () async {
+        await tester.enterText(find.byType(TextField).first, '午');
+        await tester.pump(const Duration(milliseconds: 300));
+      });
+      await row('紀錄: clear search again', () async {
+        await tester.enterText(find.byType(TextField).first, '');
+        await tester.pump(const Duration(milliseconds: 300));
       });
       await fresh(['紀錄']);
       await row('紀錄: open entry detail', () async {
+        // Lines are built as they come on screen: scrolled to first.
+        await tester.scrollUntilVisible(
+          find.text('週末點心').first,
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tester.tap(find.text('週末點心').first, warnIfMissed: false);
       });
     },
