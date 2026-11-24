@@ -536,15 +536,25 @@ final class DriveBackup {
   /// Saves the backup [id] into [into]: no more than the size Drive
   /// gives for it, so a broken or hostile answer cannot fill the phone. A
   /// file whose size Drive does not give is refused, and one larger than
-  /// any backup is refused by [DriveHttp] before it is asked for.
-  Future<void> download(String id, File into, {bool interactive = true}) async {
+  /// any backup is refused by [DriveHttp] before it is asked for. A
+  /// [size] already known, as the listing gives it ([DriveFile.size]), is
+  /// that bound; Drive is asked only when it is not known or nothing
+  /// (review 29).
+  Future<void> download(
+    String id,
+    File into, {
+    int? size,
+    bool interactive = true,
+  }) async {
     final address = Uri.parse('$_api/${Uri.encodeComponent(id)}');
-    final about = await _send(
-      'GET',
-      address.replace(queryParameters: {'fields': 'size'}),
-      interactive: interactive,
-    );
-    final size = _size(_answer(about));
+    if (size == null || size <= 0) {
+      final about = await _send(
+        'GET',
+        address.replace(queryParameters: {'fields': 'size'}),
+        interactive: interactive,
+      );
+      size = _size(_answer(about));
+    }
     if (size == null || size < 0) {
       throw const DriveException(DriveProblem.refused, 'no size');
     }

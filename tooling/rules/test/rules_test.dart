@@ -326,6 +326,49 @@ void f(DateTime d, int y, int m, int rocYear, bool b) {
     });
   });
 
+  group('B4-calendar-by-hand: a local midnight compared (R29)', () {
+    const rule = CalendarByHand();
+    const message =
+        'a local midnight compared as a moment with the ledger\'s UTC days: '
+        'compare dayOf of both';
+    test('flags a local midnight compared written there or through a local '
+        'variable, on either side', () {
+      final v = run(rule, {
+        '$_feat/a/x.dart': '''
+bool f(DateTime d, DateTime from, DateTime to, int y, int m) {
+  final day = DateTime(d.year, d.month, d.day);
+  final a = !day.isBefore(from) && !day.isAfter(to);
+  final b = from.isAfter(DateTime(y, m));
+  final c = (DateTime(y, m, 1)).compareTo(to);
+  return a && b && to.isAtSameMomentAs(day);
+}
+''',
+      });
+      expect(
+        [for (final e in v) (e.line, e.message)],
+        [(3, message), (3, message), (4, message), (5, message), (6, message)],
+      );
+    });
+    test('passes UTC midnights, a local moment with hours, a local midnight '
+        'not compared, and dayOf', () {
+      expect(
+        run(rule, {
+          '$_feat/a/x.dart': '''
+bool f(DateTime d, DateTime from, int y, int m) {
+  final day = DateTime.utc(y, m, 1);
+  final noon = DateTime(y, m, 1, 12);
+  final shown = DateTime(y, m);
+  final a = day.isBefore(from) || noon.isAfter(from);
+  final b = dayOf(d).isAfter(dayOf(from));
+  return a && b && shown.year == y;
+}
+''',
+        }),
+        isEmpty,
+      );
+    });
+  });
+
   group('B5-owned-values', () {
     const rule = OwnedValues();
     test('flags an owned value outside its owner', () {

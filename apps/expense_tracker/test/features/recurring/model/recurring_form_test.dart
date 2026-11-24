@@ -111,6 +111,23 @@ void main() {
     expect(form.start, DateTime.utc(2027, 4, 30));
   });
 
+  test('months tried one after another keep the day chosen (review 29)', () {
+    final form = RecurringForm(book())..start = DateTime.utc(2027, 3, 31);
+    form.setMonthOfYear(2);
+    // As above: the 31st held to 29 Feb 2028.
+    expect(form.start, DateTime.utc(2028, 2, 29));
+    form.setMonthOfYear(3);
+    // March 2028 has 31 days; 31 Mar 2028 is after 29 Feb 2028.
+    expect(form.start, DateTime.utc(2028, 3, 31));
+    form.setMonthOfYear(4);
+    // April has 30 days: the 31st held to 30 Apr 2028.
+    expect(form.start, DateTime.utc(2028, 4, 30));
+    // A day picked on the calendar is the one held from then on.
+    form.start = DateTime.utc(2028, 4, 15);
+    form.setMonthOfYear(5);
+    expect(form.start, DateTime.utc(2028, 5, 15));
+  });
+
   test('the weekday moves the start to the next such day', () {
     // 2026-10-20 is a Tuesday.
     final form = RecurringForm(book())..start = DateTime.utc(2026, 10, 20);

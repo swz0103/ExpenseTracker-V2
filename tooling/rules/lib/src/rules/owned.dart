@@ -20,14 +20,22 @@ bool _isCode(SourceFile file) =>
 /// `DateTime.utc(y + 1, m, d)`, runs over into the next month when that
 /// month is shorter (31 March one month back is 3 March); only day 1,
 /// which every month has, is let pass. A step in brackets, or in either
-/// branch of a `?:`, is a step all the same (review 28).
+/// branch of a `?:`, is a step all the same (review 28). A local
+/// midnight, `DateTime(y, m, d)` or `DateTime(y, m)`, compared as a
+/// moment (`isBefore`, `isAfter`, `isAtSameMomentAs`, `compareTo`), by
+/// itself or through a local variable it was put in, is a day compared
+/// with the ledger's UTC midnights as an instant: a day off east or west
+/// of UTC (review 29).
 ///
 /// Known noise: `DateTime.utc(a, b - c)` that is not a month step, and a
 /// product with 12 that names a year but is not a month count, are
 /// flagged all the same; a step written through variables is missed. A
 /// year is stepped by a written number, or by anything from a value
 /// named a year (`d.year - n`); one brought to another calendar by a
-/// value named an offset (`rocYear + rocYearOffset`) passes.
+/// value named an offset (`rocYear + rocYearOffset`) passes. Two local
+/// midnights compared with each other are flagged all the same; a local
+/// midnight held in a field, or passed on before it is compared, is
+/// missed.
 final class CalendarByHand extends FileRule {
   const CalendarByHand();
 
@@ -77,6 +85,15 @@ final class CalendarByHand extends FileRule {
     for (final node in products.found) {
       flag(node, 'months counted by hand: use monthIndex');
     }
+    final compared = _LocalMidnightsCompared();
+    file.unit.accept(compared);
+    for (final node in compared.found) {
+      flag(
+        node,
+        'a local midnight compared as a moment with the ledger\'s UTC days: '
+        'compare dayOf of both',
+      );
+    }
     return found;
   }
 
@@ -124,6 +141,64 @@ final class CalendarByHand extends FileRule {
     return year != null &&
         targetOf(args[1], 'month') == year &&
         targetOf(args[2], 'day') == year;
+  }
+}
+
+/// `isBefore`, `isAfter`, `isAtSameMomentAs` or `compareTo` with a local
+/// midnight on either side: `DateTime(y, m)` or `DateTime(y, m, d)`
+/// written there, or a local variable that one was put in.
+final class _LocalMidnightsCompared extends RecursiveAstVisitor<void> {
+  final found = <MethodInvocation>[];
+
+  /// Local variables, by name, that hold a local midnight.
+  final _held = <String>{};
+
+  static const _comparisons = {
+    'isBefore',
+    'isAfter',
+    'isAtSameMomentAs',
+    'compareTo',
+  };
+
+  /// `DateTime(y, m)` or `DateTime(y, m, d)`, without hours: a local
+  /// midnight. Unresolved, it may be a method invocation or an instance
+  /// creation.
+  static bool _isLocalMidnight(AstNode? e) {
+    if (e is ParenthesizedExpression) return _isLocalMidnight(e.expression);
+    final (String? target, String name, int count) = switch (e) {
+      MethodInvocation(:final target, :final methodName, :final argumentList) =>
+        (target?.toSource(), methodName.name, argumentList.arguments.length),
+      InstanceCreationExpression(:final constructorName, :final argumentList) =>
+        (
+          constructorName.name?.name,
+          constructorName.type.name.lexeme,
+          argumentList.arguments.length,
+        ),
+      _ => ('', '', 0),
+    };
+    return target == null && name == 'DateTime' && count >= 2 && count <= 3;
+  }
+
+  bool _isHeld(AstNode? e) =>
+      _isLocalMidnight(e) || e is SimpleIdentifier && _held.contains(e.name);
+
+  @override
+  void visitVariableDeclarationStatement(VariableDeclarationStatement node) {
+    for (final v in node.variables.variables) {
+      if (_isLocalMidnight(v.initializer)) _held.add(v.name.lexeme);
+    }
+    super.visitVariableDeclarationStatement(node);
+  }
+
+  @override
+  void visitMethodInvocation(MethodInvocation node) {
+    final args = node.argumentList.arguments;
+    if (_comparisons.contains(node.methodName.name) &&
+        args.length == 1 &&
+        (_isHeld(node.target) || _isHeld(args.first))) {
+      found.add(node);
+    }
+    super.visitMethodInvocation(node);
   }
 }
 

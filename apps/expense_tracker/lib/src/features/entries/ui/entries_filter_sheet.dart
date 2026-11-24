@@ -204,10 +204,9 @@ class _FilterSheetState extends State<_FilterSheet> {
       parseAmount(c.text, scale: 0);
   static String? _problem(TextEditingController c) => typedProblem(_bound(c));
 
-  DateTime get _today {
-    final t = widget.ledger.today;
-    return DateTime(t.year, t.month, t.day);
-  }
+  /// Today as a UTC midnight, so the quick spans step by calendar days
+  /// whatever the phone's daylight saving does.
+  DateTime get _today => dayOf(widget.ledger.today);
 
   @override
   void dispose() {
@@ -254,7 +253,7 @@ class _FilterSheetState extends State<_FilterSheet> {
   Future<void> _pickRange() async {
     final picked = await pickDateRange(
       context,
-      first: DateTime(2000),
+      first: DateTime.utc(2000),
       last: _today,
       initial: _range,
       title: '日期區間',

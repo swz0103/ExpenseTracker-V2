@@ -32,6 +32,10 @@ abstract final class LockWords {
     ].join(' ');
   }
 
+  /// Making the book again on opening found the phone full (review 29):
+  /// the book is as it was, and opens once there is room.
+  static const noSpace = '手機空間不足，帳本還沒整理好。請先清出一些空間，再打開帳本';
+
   /// The fingerprint could not open the ledger (not the person's own
   /// choice of the password, which says nothing).
   static const fingerprintFailed = '生物辨識解鎖失敗，請改用密碼';

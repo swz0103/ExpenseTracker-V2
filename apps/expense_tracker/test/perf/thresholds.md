@@ -111,10 +111,12 @@ this change 100–147 ms, CPU 230–260. The second worker alone: 55–100 ms
 less at 100k, about 100–200 ms more CPU.
 
 The gate runs in the ordinary `flutter test`: a book of 100,000 entries
-(the bench's mix) opened three times through `SqlLedgerDataSource.load`,
-which times itself and the worker's part (`lastOpening`). It gates two
-shares, the least of the three openings each, so it holds on any machine
-and core count:
+(the bench's mix) opened through `SqlLedgerDataSource.load`, which times
+itself and the worker's part (`lastOpening`): five times, up to nine when
+half were contended (`mediansOf`, since review 28). It gates two shares,
+each the median of the clean openings, so it holds on any machine and
+core count. The figures below were measured when the gate took the least
+of three openings (before review 28):
 
 | share | measured (2 cores; 4 cores) | limit |
 |---|---|---|
@@ -136,7 +138,8 @@ under its 0.06. The gate now also:
   by `openingWork`);
 - checks that what entries repeat is one object for each value (accounts,
   notes, merchants, tags, days: as many identities as distinct values);
-- limits the worker's own time (`workerUs`, least of three) to 2,600 ms,
+- limits the worker's own time (`workerUs`, the median of the clean
+  openings since review 28; least of three before it) to 2,600 ms,
   about twice the least measured here (1,299 ms);
 - opens the book once more with the journal kept, as the app does (the
   book sent as a copy, then posted on the worker), and checks the mark
@@ -144,7 +147,9 @@ under its 0.06. The gate now also:
 
 Measured 2026-11-24 (FIX-R24) on the development VM at load 5–9 on four
 cores (other agents' runs; a quiet host was not to be had), flutter
-test JIT, not pinned; each figure the least of three openings:
+test JIT, not pinned; each figure the least of three openings (as the
+gate took them before review 28; it now takes the median of the clean
+openings):
 
 | | worker's own time | outside share | gate |
 |---|---|---|---|
