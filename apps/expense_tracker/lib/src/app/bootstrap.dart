@@ -12,6 +12,7 @@ import 'app.dart';
 import 'ledger_session.dart';
 import 'lifecycle_services.dart';
 import 'load_failed_page.dart';
+import 'quarantine_notices.dart';
 import 'upgrade_held_page.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../core/ledger/persistence/quarantine.dart';
@@ -345,11 +346,15 @@ class _OpenedLedgerState extends State<OpenedLedger>
     }
     final start = await _session.open();
     await _services.start(start.ledger);
+    // Rows a newer version wrote are told once a set (D18); rows that
+    // cannot be read, every opening.
+    final tell = await QuarantineNotices(widget.startup.quarantineTold)
+        .toTell(start.quarantined);
     _afterFrame(() {
       if (start.inbox case final inbox?) _tellInbox(inbox);
       _tellBooked(start.booked);
-      if (start.quarantined.isNotEmpty) {
-        unawaited(_tellQuarantined(start.quarantined));
+      if (tell.isNotEmpty) {
+        unawaited(_tellQuarantined(tell, all: start.quarantined));
       }
     });
     return start.ledger;
@@ -380,9 +385,13 @@ class _OpenedLedgerState extends State<OpenedLedger>
     }
   }
 
-  /// Tells how many rows were set aside, with a way to report them, to
-  /// restore a backup, or to go on with the rest of the book.
-  Future<void> _tellQuarantined(List<QuarantinedRow> rows) async {
+  /// Tells how many rows were set aside ([rows]), with a way to report
+  /// them (every row set aside, [all]), to restore a backup, or to go on
+  /// with the rest of the book.
+  Future<void> _tellQuarantined(
+    List<QuarantinedRow> rows, {
+    required List<QuarantinedRow> all,
+  }) async {
     final restore = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -390,7 +399,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
         content: Text(quarantineBody(rows)),
         actions: [
           TextButton(
-            onPressed: () => unawaited(_exportReport(rows: rows)),
+            onPressed: () => unawaited(_exportReport(rows: all)),
             child: const Text(quarantineExport),
           ),
           TextButton(
