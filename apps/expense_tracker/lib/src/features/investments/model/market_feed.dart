@@ -1,8 +1,5 @@
 import 'package:core/foundation_values.dart' show YearMonth;
 
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:core/money/amount_parser.dart' show parseDecimal;
 import 'package:flutter/foundation.dart' show Listenable;
 import 'package:market/market_data.dart';
@@ -10,10 +7,8 @@ import 'package:market/market_data.dart';
 import '../../../core/platform/sync_job.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ledger/persistence/sql_ledger_data_source.dart';
-import '../../../core/formatting/json_fields.dart';
-import '../../../core/diagnostics/error_log.dart';
-import '../../../core/diagnostics/error_steps.dart';
 import '../../../core/messages/market_messages.dart';
+import 'price_months.dart';
 
 import 'package:core/time/utc_days.dart';
 
@@ -31,7 +26,7 @@ final class MarketFeed extends SyncJob implements PriceHistory {
     required this._commands,
     required this._today,
     super.clock,
-    this.historyDir,
+    this.kept,
   }) : super('收盤價與匯率', gap: const Duration(minutes: 20)) {
     _changes.addListener(_changed);
   }
@@ -44,12 +39,25 @@ final class MarketFeed extends SyncJob implements PriceHistory {
   /// The ledger's today, read each time.
   final DateTime Function() _today;
 
-  /// Where finished months of daily closes are kept, so a holding's chart
-  /// asks the exchanges only for what it has not seen; none in tests.
-  final Directory? historyDir;
+  /// Where finished months of daily closes are kept, sealed, so a
+  /// holding's chart asks the exchanges only for what it has not seen;
+  /// none in tests.
+  final PriceMonths? kept;
 
-  /// Each code's months of closes read this run, by `yyyy-mm`.
+  /// Each code's months of closes, by `yyyy-mm`: those [kept] and those
+  /// read this run.
   final _months = <String, Map<String, List<(DateTime, double)>>>{};
+
+  /// [kept] read into [_months] and [_otc], once.
+  Future<void>? _loaded;
+
+  Future<void> _load() async {
+    final codes = await kept?.read() ?? const <String, CodeMonths>{};
+    for (final MapEntry(:key, :value) in codes.entries) {
+      _months.putIfAbsent(key, () => {...value.months});
+      if (value.otc) _otc.add(key);
+    }
+  }
 
   /// Codes found on TPEx rather than TWSE.
   final _otc = <String>{};
@@ -96,14 +104,19 @@ final class MarketFeed extends SyncJob implements PriceHistory {
 
   /// [code]'s daily closes from [from] to today, oldest first: each month
   /// from TWSE's report, or TPEx's for a stock traded over the counter.
-  /// Months before this one are kept in [historyDir] once read; this
-  /// month is asked again (the gateway keeps it for 20 minutes). Months
-  /// that cannot be read are left out.
+  /// Months before this one are kept ([kept]) once read; this month is
+  /// asked again (the gateway keeps it for 20 minutes). Months that
+  /// cannot be read are left out.
+  ///
+  /// Each month asked names [code] to the exchange (TWSE or TPEx), as
+  /// their monthly reports are per stock; the day lists the prices come
+  /// from are one for all.
   @override
   Future<List<(DateTime, double)>> history(String code, DateTime from) async {
     final gateway = _journal.gateway;
     if (gateway == null) return const [];
-    final kept = _months[code] ??= _read(code);
+    await (_loaded ??= _load());
+    final kept = _months[code] ??= {};
     final today = _today();
     final closes = <(DateTime, double)>[];
     final last = monthStart(today);
@@ -121,7 +134,7 @@ final class MarketFeed extends SyncJob implements PriceHistory {
       }
       closes.addAll(days ?? const []);
     }
-    if (changed) _write(code, kept);
+    if (changed) await _write();
     return closes;
   }
 
@@ -148,61 +161,11 @@ final class MarketFeed extends SyncJob implements PriceHistory {
     return const [];
   }
 
-  File? _file(String code) {
-    final dir = historyDir;
-    return dir == null ? null : File('${dir.path}/$code.json');
-  }
-
-  /// A day kept on the phone as UTC midnight, as fetched closes are: a
-  /// day read back otherwise is local, and neither a buy's day nor the
-  /// span's first day would match it.
-
-  Map<String, List<(DateTime, double)>> _read(String code) {
-    final file = _file(code);
-    if (file == null || !file.existsSync()) return {};
-    try {
-      final json = JsonFields.decode(file.readAsStringSync());
-      if (json.flag('otc') ?? false) _otc.add(code);
-      final months = json.need<Map<String, Object?>>('months');
-      return {
-        for (final MapEntry(:key, :value) in months.entries)
-          key: [
-            for (final row in value is List ? value : const [])
-              if (row case [final String day, final num close])
-                (dayOf(DateTime.parse(day)), close.toDouble())
-              else
-                throw const FormatException('A close is a day and a price'),
-          ],
-      };
-    } on Object catch (error, stack) {
-      // A cache that cannot be read is fetched again.
-      ErrorLog.instance.record(ErrorSteps.priceHistory, error, stack);
-      return {};
-    }
-  }
-
-  void _write(String code, Map<String, List<(DateTime, double)>> months) {
-    final file = _file(code);
-    if (file == null) return;
-    try {
-      file.parent.createSync(recursive: true);
-      file.writeAsStringSync(
-        jsonEncode({
-          'otc': _otc.contains(code),
-          'months': {
-            for (final MapEntry(:key, :value) in months.entries)
-              key: [
-                for (final (day, price) in value)
-                  [day.toIso8601String().substring(0, 10), price],
-              ],
-          },
-        }),
-      );
-    } on Object catch (error, stack) {
-      // Kept in memory for this run.
-      ErrorLog.instance.record(ErrorSteps.priceHistory, error, stack);
-    }
-  }
+  /// Keeps every code's finished months, sealed.
+  Future<void> _write() async => kept?.write({
+    for (final MapEntry(:key, :value) in _months.entries)
+      key: (otc: _otc.contains(key), months: value),
+  });
 
   @override
   void dispose() {

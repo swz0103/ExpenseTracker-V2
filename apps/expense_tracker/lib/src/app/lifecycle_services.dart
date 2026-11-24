@@ -29,6 +29,7 @@ import '../features/backup/model/drive_sync.dart';
 import '../features/backup/model/encrypted_backup_manager.dart';
 import '../features/backup/model/file_cleanup.dart';
 import '../features/backup/model/outbox.dart';
+import '../features/investments/model/price_months.dart';
 import '../features/backup/model/phone_backup.dart';
 import '../features/entries/model/receipt_photos.dart';
 import '../features/investments/model/market_feed.dart';
@@ -197,13 +198,20 @@ final class LifecycleServices {
         await FileBox.derive(vault.keys, FileBox.receipts),
       );
     }
+    // The chart's months, sealed with the ledger's key; one another key
+    // sealed (a restore, a reset) or plain from an older version goes.
+    final prices = PriceMonths(
+      _directory,
+      await FileBox.derive(vault.keys, FileBox.prices),
+    );
+    unawaited(prices.settle());
     final market = _market = MarketFeed(
       dataSource,
       changes: ledger,
       holdings: ledger.holdings,
       commands: ledger.holdingCommands,
       today: () => ledger.today,
-      historyDir: Directory('${_directory.path}/prices'),
+      kept: prices,
     );
     unawaited(market.refresh());
     unawaited(_followMarket());
