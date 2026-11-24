@@ -161,7 +161,7 @@
     "apps/expense_tracker/lib/src/features/settings/model/app_update.dart": 1,
     "apps/expense_tracker/lib/src/features/settings/ui/preferences_section.dart": 13,
     "apps/expense_tracker/lib/src/features/settings/ui/update_panel.dart": 8,
-    "apps/expense_tracker/lib/src/features/tags/ui/tag_page.dart": 19,
+    "apps/expense_tracker/lib/src/features/tags/ui/tag_page.dart": 18,
     "apps/expense_tracker/lib/src/features/tags/ui/tag_summary_blocks.dart": 1,
     "apps/expense_tracker/lib/src/features/tags/ui/tags_page.dart": 8
   },

@@ -1,7 +1,7 @@
 part of 'tags_page.dart';
 
 /// A tag's page or a merchant's: the big card with ⋯ (改名, 合併到…,
-/// 移除), then its entries on a white board, each opening that entry.
+/// 刪除), then its entries on a white board, each opening that entry.
 class TagPage extends StatelessWidget {
   const TagPage({
     super.key,
@@ -129,7 +129,7 @@ class TagPage extends StatelessWidget {
     final ok = await confirm(
       context,
       '刪除 $_shown？',
-      '刪除',
+      Words.delete,
       danger: true,
       body: merchant
           ? '${countOf(count, CountUnit.entries)}紀錄會拿掉這個商家，紀錄本身保留。'
