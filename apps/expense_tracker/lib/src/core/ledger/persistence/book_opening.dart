@@ -44,6 +44,7 @@ final class DecodedBook {
     required this.namesOf,
     required this.categoryNames,
     required this.entrySeqs,
+    required this.entryPlaces,
     required this.expired,
     required this.expiredCounts,
     required this.holdings,
@@ -74,8 +75,13 @@ final class DecodedBook {
   /// Each category's id and name, as kept: what they stand for first.
   final List<(String, String)> categoryNames;
 
-  /// Where each entry kept stands, by id.
+  /// Where each entry kept stands, by id: for the journal.
   final Map<String, int> entrySeqs;
+
+  /// Where each of [entries] stands in the order written, beside it (its
+  /// row's place): for the screens' book, which takes the entries in that
+  /// order without a lookup by id.
+  final List<int> entryPlaces;
 
   /// What opening drops from the file: the entries in the trash longer
   /// than it keeps them, their receipts, and the notes of deletions as
@@ -121,8 +127,9 @@ DecodedBook decodeBook(
 
   List<T> read<T>(
     Collection collection,
-    T Function(Map<String, Object?>) from,
-  ) {
+    T Function(Map<String, Object?>) from, {
+    List<int>? seqs,
+  }) {
     final read = <T>[];
     for (final row in shelves[collection.name] ?? const <StoredRow>[]) {
       final record = json[row];
@@ -147,6 +154,7 @@ DecodedBook decodeBook(
         continue;
       }
       read.add(value);
+      seqs?.add(row.seq);
       namesToIds(row.shelf, record, collect);
       if (collected.isNotEmpty) {
         namesOf['${row.shelf}/${row.id}'] = {...collected};
@@ -193,7 +201,13 @@ DecodedBook decodeBook(
         // A note that cannot be read is left as it is.
         if (notes[i] case {'at': final num at} when at < cutoff) row.id,
   ];
-  var entries = read(Collection.entry, (j) => entryFromJson(j, refs));
+  // Each entry's place in the order written, beside it: its row's.
+  var entryPlaces = <int>[];
+  var entries = read(
+    Collection.entry,
+    (j) => entryFromJson(j, refs),
+    seqs: entryPlaces,
+  );
   final market = shelves[marketShelf] ?? const <StoredRow>[];
   final holdings = today == null
       ? null
@@ -215,15 +229,18 @@ DecodedBook decodeBook(
       );
       namesOf.remove('${Collection.entry.name}/$id');
     });
-    entries = [
-      for (final e in entries)
-        if (!holdings.faulty.containsKey(e.id)) e,
+    final kept = [
+      for (final (i, e) in entries.indexed)
+        if (!holdings.faulty.containsKey(e.id)) i,
     ];
+    entries = [for (final i in kept) entries[i]];
+    entryPlaces = [for (final i in kept) entryPlaces[i]];
   }
   return DecodedBook._(
     accounts: read(Collection.account, accountFromJson),
     categories: categories,
     entries: entries,
+    entryPlaces: entryPlaces,
     budgets: read(Collection.budget, (j) => budgetFromJson(j, refs)),
     recurring: read(Collection.recurring, (j) => recurringFromJson(j, refs)),
     trash: [

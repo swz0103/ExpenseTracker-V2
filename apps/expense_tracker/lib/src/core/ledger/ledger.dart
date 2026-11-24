@@ -95,7 +95,7 @@ final class Ledger extends ChangeNotifier {
     required List<Account> accounts,
     required List<Category> categories,
     required List<Entry> entries,
-    Map<String, int> entryOrder = const {},
+    List<int>? entryPlaces,
     required List<Holding> holdings,
     required List<Budget> budgets,
     required List<Recurring> recurring,
@@ -123,7 +123,9 @@ final class Ledger extends ChangeNotifier {
        _trash = TrashRepository(trash),
        _accounts = AccountRepository(accounts),
        _categories = CategoryRepository(categories),
-       _entries = EntryRepository(entries, entryOrder),
+       _entries = entryPlaces == null
+           ? EntryRepository(entries)
+           : EntryRepository.placed(entries, entryPlaces),
        _budgets = BudgetRepository(budgets),
        _recurring = RecurringRepository(recurring) {
     _holdings = HoldingRepository(

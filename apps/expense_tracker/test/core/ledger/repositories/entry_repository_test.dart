@@ -496,47 +496,31 @@ void main() {
             reason: '$step newest months',
           );
           for (final account in [...accounts, 'none']) {
-            expect(
-              _ids(entries.ofAccount(account)),
-              [
-                for (final (_, e) in byDay(plain, newest: false))
-                  if (e.account == account || e.to == account) e.id,
-              ],
-              reason: '$step account $account',
-            );
+            expect(_ids(entries.ofAccount(account)), [
+              for (final (_, e) in byDay(plain, newest: false))
+                if (e.account == account || e.to == account) e.id,
+            ], reason: '$step account $account');
           }
           for (var g = 0; g < 4; g++) {
-            expect(
-              _ids(entries.inGroup('g$g')),
-              [
-                for (final e in plain)
-                  if (e.group == 'g$g') e.id,
-              ],
-              reason: '$step group g$g',
-            );
+            expect(_ids(entries.inGroup('g$g')), [
+              for (final e in plain)
+                if (e.group == 'g$g') e.id,
+            ], reason: '$step group g$g');
           }
           for (final e in plain) {
-            expect(
-              _ids(entries.refundsOf(e.id)),
-              [
-                for (final r in plain)
-                  if (r.refundOf == e.id) r.id,
-              ],
-              reason: '$step refunds of ${e.id}',
-            );
+            expect(_ids(entries.refundsOf(e.id)), [
+              for (final r in plain)
+                if (r.refundOf == e.id) r.id,
+            ], reason: '$step refunds of ${e.id}');
           }
           final some = [
             for (final e in plain.reversed)
               if (random.nextBool()) e,
           ];
-          expect(
-            _ids(entries.written(some)),
-            [
-              for (final e in plain)
-                if (some.contains(e)) e.id,
-            ],
-            reason: '$step written',
-          );
+          expect(_ids(entries.written(some)), [
+            for (final e in plain)
+              if (some.contains(e)) e.id,
+          ], reason: '$step written');
         }
 
         for (var step = 0; step < 250; step++) {

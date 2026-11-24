@@ -74,8 +74,11 @@ Map<String, Object?> upgradeRecord(
 /// it already is.
 Map<String, Object?> _withKeptCategory(Map<String, Object?> entry) {
   if (entry['category'] != null || entry['categoryId'] != null) return entry;
-  final type = EntryType.values.asNameMap()[entry['type']];
+  final type = _types[entry['type']];
   if (type == null) return entry;
   final kept = keptCategory(type, '');
   return kept.isEmpty ? entry : {...entry, 'category': kept};
 }
+
+/// Each entry type by its name, looked up once.
+final _types = EntryType.values.asNameMap();

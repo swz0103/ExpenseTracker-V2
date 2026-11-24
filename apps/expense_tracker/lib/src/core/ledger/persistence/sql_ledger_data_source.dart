@@ -331,7 +331,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       accounts: book.accounts,
       categories: book.categories,
       entries: book.entries,
-      entryOrder: book.entrySeqs,
+      entryPlaces: book.entryPlaces,
       holdings: holdingsOf(market),
       budgets: book.budgets,
       recurring: book.recurring,
