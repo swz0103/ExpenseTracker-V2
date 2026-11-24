@@ -107,6 +107,8 @@ void main() {
     expect(ledger.holding('2330')!.price, 1234.5);
     expect(ledger.holding('2330')!.value, 123450);
     expect(ledger.marketData.rates['USD'], closeTo(31.835, 1e-9));
+    // The selling rate is kept too, for what is owed in US$ (D59).
+    expect(ledger.marketData.sellRates['USD'], closeTo(31.985, 1e-9));
     // US$100 at the spot buying rate.
     expect(ledger.balanceService.worthOf(ledger.account(usd.id)), 3184);
 

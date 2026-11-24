@@ -224,10 +224,18 @@ void main() {
     final usd = rates[Currency.of('USD')]!;
     final hundred = Money(Currency.of('USD'), BigInt.from(10000));
     // Valued at the spot buying rate; whole NT$, rounded half up.
-    expect(usd.valuation!.convert(hundred).minorUnits, BigInt.from(3184));
-    expect(usd.spotSell!.convert(hundred).minorUnits, BigInt.from(3199));
+    expect(
+      usd.rateFor(BoardSide.buying)!.convert(hundred).minorUnits,
+      BigInt.from(3184),
+    );
+    // What is owed in US\$ at the spot selling rate (D59).
+    expect(
+      usd.rateFor(BoardSide.selling)!.convert(hundred).minorUnits,
+      BigInt.from(3199),
+    );
     expect(rates[Currency.of('THB')]!.cashBuy, isNull);
-    expect(rates[Currency.of('THB')]!.valuation, isNotNull);
+    expect(rates[Currency.of('THB')]!.rateFor(BoardSide.buying), isNotNull);
+    expect(rates[Currency.of('THB')]!.rateFor(BoardSide.selling), isNotNull);
     // A currency this app does not use is skipped.
     expect(rates.rates.keys, {'USD', 'JPY', 'THB'});
   });

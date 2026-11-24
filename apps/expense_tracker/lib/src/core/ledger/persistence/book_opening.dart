@@ -274,6 +274,7 @@ typedef Market = ({
   Map<String, DateTime> days,
   DateTime? quotedOn,
   Map<String, double> rates,
+  Map<String, double> sellRates,
 });
 
 /// The closes and board last fetched, from [rows] of [marketShelf].
@@ -283,6 +284,7 @@ Market marketFrom(List<StoredRow> rows) {
   final names = <String, String>{};
   final days = <String, DateTime>{};
   final rates = <String, double>{};
+  final sellRates = <String, double>{};
   DateTime? quotedOn;
   Map<String, Object?> part(Map<String, Object?> json, String key) =>
       json[key] as Map<String, Object?>? ?? const {};
@@ -307,6 +309,10 @@ Market marketFrom(List<StoredRow> rows) {
         for (final MapEntry(:key, :value) in part(json, 'rates').entries) {
           rates[key] = (value! as num).toDouble();
         }
+        // The selling rates, kept since D59; a board kept before has none.
+        for (final MapEntry(:key, :value) in part(json, 'sell').entries) {
+          sellRates[key] = (value! as num).toDouble();
+        }
     }
   }
   return (
@@ -316,6 +322,7 @@ Market marketFrom(List<StoredRow> rows) {
     days: days,
     quotedOn: quotedOn,
     rates: rates,
+    sellRates: sellRates,
   );
 }
 

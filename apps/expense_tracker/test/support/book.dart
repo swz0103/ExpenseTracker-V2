@@ -60,11 +60,12 @@ final class Book {
     List<Category> categories = const [],
     List<Recurring> recurring = const [],
     Map<String, double> rates = const {},
+    Map<String, double> sellRates = const {},
   }) : entries = EntryRepository(entries),
        accounts = AccountRepository(accounts),
        categories = CategoryRepository(categories),
        recurring = RecurringRepository(recurring),
-       market = MarketDataRepository(rates: rates) {
+       market = MarketDataRepository(rates: rates, sellRates: sellRates) {
     holdings = HoldingRepository(const [], moveOf: market.moveOf)
       ..replay(this.entries.all, today: today);
   }

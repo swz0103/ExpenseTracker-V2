@@ -80,6 +80,7 @@ final class MarketFeed extends SyncJob implements PriceHistory {
         holdings: market.holdings,
         moves: market.moves,
         rates: market.rates,
+        sellRates: market.sellRates,
         quotedOn: market.quotedOn,
         quoteDays: market.days,
       );

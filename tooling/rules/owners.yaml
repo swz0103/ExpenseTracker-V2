@@ -30,6 +30,16 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/models/fixed_point.dart
     target: packages/core/lib/fx/
     status: scattered
+  # Decision D59: a foreign balance held is valued at the bank's buying
+  # rate, one owed at its selling rate; valuationSide is the one rule,
+  # MarketDataReader.valueAtHome and the journal's valuer ask it.
+  - id: fx-valuation-side
+    what: 外幣餘額用銀行買入價或賣出價估值
+    layer: core
+    owner:
+      - packages/core/lib/src/foundation_values/fx.dart
+    target: packages/core/lib/fx/
+    status: owned
   - id: ratio-rounding
     what: 百分比與比例的進位
     layer: core

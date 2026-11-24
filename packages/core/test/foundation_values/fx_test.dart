@@ -260,4 +260,14 @@ void main() {
       }
     }
   });
+
+  group('valuationSide (D59)', () {
+    test('what is held is valued at the bank\'s buying rate', () {
+      expect(valuationSide(1), BoardSide.buying);
+      expect(valuationSide(0), BoardSide.buying);
+    });
+    test('what is owed is valued at the bank\'s selling rate', () {
+      expect(valuationSide(-1), BoardSide.selling);
+    });
+  });
 }

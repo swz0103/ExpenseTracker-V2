@@ -286,6 +286,12 @@ final class TrackedMarketDataReader implements MarketDataReader {
   }
 
   @override
+  Map<String, double> get sellRates {
+    _cache.noteReads(_topics);
+    return _inner.sellRates;
+  }
+
+  @override
   Map<String, double> get moves {
     _cache.noteReads(_topics);
     return _inner.moves;
@@ -319,6 +325,12 @@ final class TrackedMarketDataReader implements MarketDataReader {
   int? toHome(int minor, String currency) {
     _cache.noteReads(_topics);
     return _inner.toHome(minor, currency);
+  }
+
+  @override
+  int? valueAtHome(int balance, String currency) {
+    _cache.noteReads(_topics);
+    return _inner.valueAtHome(balance, currency);
   }
 
   @override

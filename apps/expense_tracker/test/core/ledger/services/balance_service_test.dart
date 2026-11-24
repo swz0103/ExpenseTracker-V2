@@ -148,4 +148,97 @@ void main() {
     expect(weeks[2], (DateTime.utc(2026, 9, 27), -150));
     expect(weeks.first.$2, 0);
   });
+
+  group('one net worth (D63)', () {
+    test('a card paid past what it owed is held, not dropped', () {
+      final book = Book(
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 1000),
+          Account('card', '卡', AccountKind.card, 5000),
+        ],
+      );
+      final worth = book.balances.netWorth(day);
+      // Held: bank 1000 + the card's credit 5000 = 6000; nothing owed.
+      expect(worth.saved, 6000);
+      expect(worth.owed, 0);
+      expect(worth.net, 6000);
+      expect(book.balances.netWorthAt(day), 6000);
+      expect(book.balances.assets, 6000);
+      expect(book.balances.cardDebt, 0);
+    });
+
+    test('one card in credit and one in debt each stand on their side', () {
+      final book = Book(
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 1000),
+          Account('c1', '卡甲', AccountKind.card, 5000),
+          Account('c2', '卡乙', AccountKind.card, -3000),
+        ],
+      );
+      final worth = book.balances.netWorth(day);
+      // Held 1000 + 5000 = 6000, owed 3000: 3000.
+      expect((worth.held, worth.owed, worth.net), (6000, 3000, 3000));
+      expect(book.balances.cardDebt, 3000);
+    });
+
+    test('nothing happened this month: the change since last month is 0', () {
+      final book = Book(
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 1000),
+          Account('card', '卡', AccountKind.card, 5000),
+        ],
+      );
+      final moved =
+          book.balances.netWorth(day).net -
+          book.balances.netWorthAt(DateTime.utc(2026, 9, 30));
+      expect(moved, 0);
+    });
+
+    test('the parts: in accounts, in shares, lent, owed', () {
+      final book = Book(
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 1000),
+          Account('ming', '小明', AccountKind.receivable, 300),
+          Account('amy', '小美', AccountKind.receivable, -200),
+          Account('loan', '房貸', AccountKind.loan, -5000),
+        ],
+      );
+      final worth = book.balances.netWorth(day);
+      // Saved 1000, lent 300; owed: what is owed to 小美 200 + the loan
+      // 5000 = 5200; net 1300 - 5200 = -3900.
+      expect(worth.saved, 1000);
+      expect(worth.invested, 0);
+      expect(worth.lent, 300);
+      expect(worth.owed, 5200);
+      expect(worth.net, -3900);
+    });
+  });
+
+  group('foreign balances by side (D59)', () {
+    test('a US\$ card debt is valued at the selling rate, a deposit at '
+        'the buying rate', () {
+      final book = Book(
+        accounts: const [
+          Account('usd', '美元', AccountKind.bank, 10000, currency: 'USD'),
+          Account(
+            'uc',
+            '美元卡',
+            AccountKind.card,
+            -10000,
+            currency: 'USD',
+            closingDay: 5,
+            dueDay: 20,
+          ),
+        ],
+        rates: {'USD': 32},
+        sellRates: {'USD': 32.5},
+      );
+      // US$100 held x 32 = 3200; US$100 owed x 32.5 = 3250.
+      expect(book.balances.worthOf(book.accounts.resolve('usd')), 3200);
+      expect(book.balances.worthOf(book.accounts.resolve('uc')), -3250);
+      expect(book.balances.cardDebt, 3250);
+      // 3200 - 3250 = -50: the spread is owed too.
+      expect(book.balances.netWorthAt(day), -50);
+    });
+  });
 }
