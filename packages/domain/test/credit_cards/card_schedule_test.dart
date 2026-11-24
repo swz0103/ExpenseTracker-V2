@@ -188,6 +188,17 @@ void main() {
         ),
         fails(CreditCardError.invalidInput),
       );
+      // The same with its scheduled days apart: still refused.
+      expect(
+        () => CardCycle(
+          startsAfter: BusinessDate(2028, 3, 10),
+          closesOn: BusinessDate(2028, 3, 10),
+          dueOn: BusinessDate(2028, 3, 25),
+          scheduledStartsAfter: BusinessDate(2028, 2, 10),
+          scheduledClose: BusinessDate(2028, 3, 10),
+        ),
+        fails(CreditCardError.invalidInput),
+      );
     });
 
     test('two changes of billing days on the same close are refused', () {

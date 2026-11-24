@@ -621,4 +621,7 @@ EQUIVALENT = {
                       'same cycle (a cycle is longer than one day)',
     'amount-12': "keyedAmount: at scale 0 the zeros are '.', which no "
                  'figure without decimals ends with',
+    'statement-02': 'statementDue: _after already gives only entries after '
+                    'the close, so a payment on the close day never reaches '
+                    'the check',
 }

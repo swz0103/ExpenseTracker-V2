@@ -428,4 +428,30 @@ void main() {
       );
     });
   });
+
+  test('still to come this month: soonest first; an income item books '
+      'income (mutation review 11)', () {
+    const tenth = Recurring(
+      id: 'tenth',
+      name: '保險',
+      amount: 900,
+      day: 10,
+      account: 'bank',
+      category: '居家',
+    );
+    const pay = Recurring(
+      id: 'pay',
+      name: '薪水',
+      amount: 50000,
+      day: 25,
+      income: true,
+      account: 'bank',
+      category: '薪水',
+    );
+    final book = Book(recurring: [_phone, tenth, pay]);
+    // 10/10, 10/20, 10/25.
+    expect(book.recurringService.upcoming, [tenth, _phone, pay]);
+    expect(book.recurringService.booking(pay).type, EntryType.income);
+    expect(book.recurringService.booking(tenth).type, EntryType.expense);
+  });
 }

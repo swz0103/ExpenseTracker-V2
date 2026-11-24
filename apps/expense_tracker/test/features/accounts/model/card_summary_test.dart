@@ -543,4 +543,24 @@ void main() {
     expect((card.closingDay, card.dueDay), (1, 15));
     expect(card.markedThisYear(EntryMark.reward), 0);
   });
+
+  test('a refund dated later cancels nothing still to bill yet (mutation '
+      'review 11)', () {
+    final card = _summary(
+      entries: [
+        _spend('tv', 1, 3000, installments: 3),
+        Entry(
+          id: 'back',
+          date: DateTime.utc(2026, 10, 6),
+          type: EntryType.income,
+          amount: 3000,
+          account: 'card',
+          category: '購物休閒',
+          refundOf: 'tv',
+        ),
+      ],
+    );
+    // 1,000 billed on 9/20; 2,000 still to bill until the refund's day.
+    expect(card.unbilledOf(card.plans.single), 2000);
+  });
 }

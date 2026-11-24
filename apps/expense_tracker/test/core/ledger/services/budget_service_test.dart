@@ -259,4 +259,13 @@ void main() {
       expect((pace.daysLeft, pace.perDay), (28, 107));
     });
   });
+
+  test('the forecast shows from day 7; heading for exactly the budget is '
+      'not over it (mutation review 11)', () {
+    final book = Book()..today = DateTime.utc(2026, 10, 7);
+    // 700 in 7 of 31 days: 700 x 31 / 7 = 3,100, the whole budget.
+    final pace = book.budgets.pace(700, 3100, 2026, 10) as CurrentPace;
+    expect(pace.forecast, 3100);
+    expect(pace.overBudget, isFalse);
+  });
 }
