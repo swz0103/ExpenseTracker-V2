@@ -308,6 +308,23 @@ void main() {
       expect(vault.damagedCopies().single.readAsBytesSync(), spoiled);
     });
 
+    test(
+      'a book made again stands at the revision it had (review 26)',
+      () async {
+        final (open, _) = await vault.create(password);
+        for (var i = 0; i < 4; i++) {
+          open.store.write((w) => w.put('entry', 'n$i', '{}'));
+        }
+        expect(open.store.revision, 4);
+        open.close();
+        expect(await vault.salvage(await keysNow()), isTrue);
+        final opened = await vault.unlockWithPassword(password);
+        addTearDown(opened.close);
+        // The same book under the same keys: still 4, not 1.
+        expect(opened.store.revision, 4);
+      },
+    );
+
     test('books made again keep the newest two old files once the last '
         'has opened, and every one set aside since the book last opened '
         '(review 18, review 25)', () async {

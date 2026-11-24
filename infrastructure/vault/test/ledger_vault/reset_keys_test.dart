@@ -76,6 +76,24 @@ void main() {
     expect(await opened.store.readApart(_versions), versionsBefore);
   });
 
+  test('a reset moves the revision on from the ledger\'s, never back to '
+      'the start (review 26)', () async {
+    final (vault, _) = await ledger('revision');
+    final open = await vault.unlockWithPassword(password);
+    // One counted write in ledger(), then four more: revision 5.
+    for (var i = 0; i < 4; i++) {
+      open.store.write((w) => w.put('entry', 'n$i', '{}'));
+    }
+    expect(open.store.revision, 5);
+    final reset = await open.keys.reset(password: password);
+    final opened = await vault.resetKeys(open, reset.unlocked);
+    addTearDown(opened.close);
+    // 5, and the reset counted as one change: 6.
+    expect(opened.store.revision, 6);
+    opened.store.write((w) => w.put('entry', 'after', '{}'));
+    expect(opened.store.revision, 7);
+  });
+
   test('a book with no version yet is given none by a reset', () async {
     final (vault, _) = await ledger('no-version');
     final open = await vault.unlockWithPassword(password);

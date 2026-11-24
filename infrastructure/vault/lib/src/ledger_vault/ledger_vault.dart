@@ -347,6 +347,7 @@ final class LedgerVault {
     if (open._vault != this || next.keyring.id != old.keyring.id) {
       throw const VaultException(VaultProblem.otherLedger);
     }
+    final revision = open.store.revision;
     await _replace(next, (staging) async {
       final rows = open.store.rows();
       // Written on a worker isolate, so a large book does not hold the
@@ -363,6 +364,11 @@ final class LedgerVault {
           counts: false,
         );
       }
+      // The revision goes on from the ledger's, one further: the book is
+      // the same, but under new keys, so every backup and delivery of it
+      // as it stood (sealed with the old keys) is behind it and a new one
+      // is due by the rhythm (review 26).
+      staging.write((w) => w.continueRevision(revision));
       await _sealAgain(old, next);
     }, beforeSwap: open.close);
     return _open(next);
@@ -521,7 +527,7 @@ final class LedgerVault {
   /// records themselves cannot be read whole, the database then left
   /// exactly as it was.
   Future<bool> salvage(UnlockedKeyring keys) async {
-    final (List<RowChange>, int?) kept;
+    final (List<RowChange>, int?, int) kept;
     try {
       final old = _openStore(databaseFile, keys);
       try {
@@ -533,7 +539,7 @@ final class LedgerVault {
       if (error.problem == StorageProblem.damaged) return false;
       rethrow;
     }
-    final (changes, book) = kept;
+    final (changes, book, revision) = kept;
     await _replace(keys, (staging) async {
       await staging.writeApart(changes);
       if (book != null) {
@@ -542,6 +548,9 @@ final class LedgerVault {
           counts: false,
         );
       }
+      // The same book under the same keys: it stands at the revision it
+      // had, so its backups and deliveries still match it (review 26).
+      staging.write((w) => w.continueRevision(revision), counts: false);
     }, keepOld: true);
     if (await _journalDamaged.exists()) await _journalDamaged.delete();
     _salvagedUnopened = true;
@@ -553,8 +562,9 @@ final class LedgerVault {
   var _salvagedUnopened = false;
 
   /// The records of [snapshot] as changes that put them in a new
-  /// database, and the book's version: run on the worker that read them.
-  static Future<(List<RowChange>, int?)> _keptOf(
+  /// database, the book's version and the revision: run on the worker
+  /// that read them.
+  static Future<(List<RowChange>, int?, int)> _keptOf(
     StoreSnapshot snapshot,
   ) async => (
     [
@@ -562,6 +572,7 @@ final class LedgerVault {
         RowChange.put(row.shelf, row.id, row.body),
     ],
     snapshot.book,
+    snapshot.revision,
   );
 
   /// [ApartStore.integrityCheck], run on the worker.

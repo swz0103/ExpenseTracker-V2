@@ -203,6 +203,20 @@ final class RowWriter {
     );
   }
 
+  /// Puts the [EncryptedDatabase.revision] of a copy of a ledger made
+  /// again (its keys reset, its journal salvaged) at [revision], where the
+  /// ledger stood, so it counts on from there: restarting from 1 would let
+  /// a backup or a delivery of the ledger as it was pass for one of the
+  /// copy once the count came round to the same number. A write that
+  /// counts moves it on by one more, as ever.
+  void continueRevision(int revision) {
+    _requireOpen();
+    if (revision < 0) {
+      throw ArgumentError.value(revision, 'revision', 'never below 0');
+    }
+    _db.execute("UPDATE meta SET value = ? WHERE key = 'revision'", [revision]);
+  }
+
   void _requireOpen() {
     if (!_open) throw StateError('Write already finished.');
   }

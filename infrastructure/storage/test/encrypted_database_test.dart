@@ -404,6 +404,26 @@ void main() {
     );
   });
 
+  test('a copy made again continues the revision of the ledger it copies '
+      '(review 26)', () {
+    final store = open();
+    store.write((w) => w.put('entry', 'e1', '{}'));
+    expect(store.revision, 1);
+    // Put at 57, not counted: 57.
+    store.write((w) => w.continueRevision(57), counts: false);
+    expect(store.revision, 57);
+    // Put at 57 and counted: 58.
+    store.write((w) => w.continueRevision(57));
+    expect(store.revision, 58);
+    store.write((w) => w.put('entry', 'e2', '{}'));
+    expect(store.revision, 59);
+    expect(
+      () => store.write((w) => w.continueRevision(-1)),
+      throwsArgumentError,
+    );
+    expect(store.revision, 59);
+  });
+
   test('numbers kept beside the records stay apart from the revision', () {
     final store = open();
     expect(store.meta('book'), isNull);
