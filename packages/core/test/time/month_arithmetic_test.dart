@@ -9,6 +9,21 @@ void main() {
     expect(isLeapYear(2000), isTrue);
   });
 
+  test('dates run from year 1 to year 9999', () {
+    expect((minYear, maxYear), (1, 9999));
+    expect(BusinessDate(maxYear, 12, 31).toString(), '9999-12-31');
+    expect(() => BusinessDate(maxYear + 1, 1, 1), throwsFormatException);
+    expect(() => YearMonth(minYear - 1, 12), throwsFormatException);
+  });
+
+  test('a month index orders months and counts the months between', () {
+    // 2026 * 12 + (11 - 1) = 24322.
+    expect(monthIndex(2026, 11), 24322);
+    // December 2025 to February 2027: 14 months.
+    expect(monthIndex(2027, 2) - monthIndex(2025, 12), 14);
+    expect(monthIndex(2027, 1) > monthIndex(2026, 12), isTrue);
+  });
+
   test('month lengths', () {
     expect(daysInMonth(2026, 1), 31);
     expect(daysInMonth(2026, 2), 28);

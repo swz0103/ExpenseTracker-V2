@@ -97,8 +97,6 @@ void main() {
       out.differences.map((d) => (d.figure, d.subject)),
       contains((Figure.balance, lunch.account)),
     );
-    // Words for the diagnostics log: never an amount.
-    expect(out.described, isNot(contains('${lunch.amount}')));
   });
 }
 

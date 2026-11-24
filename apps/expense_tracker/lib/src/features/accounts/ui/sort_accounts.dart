@@ -21,13 +21,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                 .compareTo(ledger.balanceService.worthOf(a)),
           );
         case _SortBy.recent:
-          final last = <String, DateTime>{};
-          for (final e in countedOn(ledger.entries.all, ledger.today)) {
-            for (final id in [e.account, ?e.to]) {
-              final seen = last[id];
-              if (seen == null || e.date.isAfter(seen)) last[id] = e.date;
-            }
-          }
+          final last = ledger.entryQueryService.lastUsedOn;
           final never = DateTime.utc(1);
           _order.sort(
             (a, b) => (last[b.id] ?? never).compareTo(last[a.id] ?? never),

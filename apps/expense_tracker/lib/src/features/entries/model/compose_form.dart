@@ -485,10 +485,12 @@ final class ComposeForm {
     return found == null ? null : validationMessage(found);
   }
 
-  /// The key of the entry [warning] was last worked out for, and what it
-  /// said (compose_form_trade.dart).
+  /// What [warning] and [saleCost] were last worked out for, and what
+  /// they came to (compose_form_trade.dart).
   String? _warnedFor;
   String? _warned;
+  Object? _saleCostKey;
+  int? _saleCost;
 
   String? get _lendingProblem {
     if (amount <= 0) return '請輸入金額';
@@ -524,13 +526,11 @@ final class ComposeForm {
     }
     for (final (person, value) in shares) {
       made.add(
-        Entry(
+        TransferDrafts.between(
           id: _lentIds[person] ?? ledger.newId(),
           date: date,
-          type: EntryType.transfer,
           amount: value,
-          account: account,
-          category: transferCategory,
+          from: account,
           note: note.trim(),
           to: person,
         ),

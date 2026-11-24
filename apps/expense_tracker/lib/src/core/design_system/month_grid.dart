@@ -4,6 +4,8 @@ import 'spacing.dart';
 import 'theme.dart';
 import '../../../design_system/display/date.dart';
 
+import 'package:core/time/utc_days.dart';
+
 /// A month as the app's calendars draw it: the days of the week across,
 /// from Sunday, then a row a week. Every calendar of the app is one, so
 /// they read alike: the days of the months before and after are left
@@ -47,7 +49,7 @@ class MonthGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lead = weekdayIndex(DateTime.utc(year, month));
-    final days = DateTime.utc(year, month + 1, 0).day;
+    final days = monthEnd(year, month).day;
     final weeks = sixWeeks ? 6 : ((lead + days) / 7).ceil();
     return Column(
       mainAxisSize: MainAxisSize.min,

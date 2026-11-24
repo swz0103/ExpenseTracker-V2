@@ -20,6 +20,24 @@ void main() {
     expect(book.reports.spentOn(day), 300);
   });
 
+  test('the totals of a list count what counts today (D25)', () {
+    final soon = DateTime.utc(2026, 10, 6);
+    final book = Book(
+      entries: [
+        entry('lunch', amount: 120),
+        entry('pay', type: EntryType.income, amount: 3000),
+        entry('planned', amount: 500, date: soon),
+      ],
+    );
+    final all = book.entries.all;
+    // Today 10/4: 120 spent, 3000 earned; the 預定 500 on 10/6 not yet.
+    expect(book.reports.totalsOf(all), (income: 3000, expense: 120));
+    book.today = soon;
+    // 120 + 500 = 620 once 10/6 comes.
+    expect(book.reports.totalsOf(all), (income: 3000, expense: 620));
+    expect(book.reports.totalsOf(const []), (income: 0, expense: 0));
+  });
+
   test('spending up to a day of the month leaves the later days out', () {
     final book = Book(
       entries: [

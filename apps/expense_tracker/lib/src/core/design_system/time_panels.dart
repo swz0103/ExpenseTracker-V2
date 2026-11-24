@@ -15,6 +15,8 @@ import 'month_grid.dart';
 import 'motion.dart';
 import '../formatting/words.dart';
 
+import 'package:core/time/utc_days.dart';
+
 // The app's own date range and time pickers, as panels in the middle of
 // the screen: quick choices on top, then a month to tap the days on, or
 // two wheels for the hour and the minute.
@@ -43,9 +45,8 @@ Future<DateTimeRange?> pickDateRange(
 }
 
 /// [d] at the start of its day, kept in UTC or local as it came.
-DateTime _day(DateTime d) => d.isUtc
-    ? DateTime.utc(d.year, d.month, d.day)
-    : DateTime(d.year, d.month, d.day);
+DateTime _day(DateTime d) =>
+    d.isUtc ? dayOf(d) : DateTime(d.year, d.month, d.day);
 
 class _RangePanel extends StatefulWidget {
   const _RangePanel({

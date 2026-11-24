@@ -9,7 +9,7 @@ part of 'seed.dart';
 int _history(_Add add) {
   var bankNet = 0;
   for (var i = 0; i < _historyMonths; i++) {
-    final first = DateTime.utc(2025, 1 + i);
+    final first = monthStart(DateTime.utc(2025), i);
     final year = first.year;
     final m = first.month;
     // A small, repeatable wobble from month to month.

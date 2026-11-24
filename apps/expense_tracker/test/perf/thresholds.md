@@ -272,6 +272,20 @@ first letter searched for after a save (the least of three, as a ratio).
 |---|---|
 | 隱藏金額 686 → 723 widgets (×1.05); a save 692 → 723 (×1.04); first letter after a save 88 → 82 ms (×0.93). Before: 577 → 3,572 and 610 → 3,605 widgets | ×1.5 widgets, ×2 time (set by the work package) |
 
+`sale_cost_gate_test.dart` (review 19, 4.1): on a book of 100,000 entries,
+3,000 of them trades of twenty stocks, the sale form's 已實現損益 cost after
+a change of the shares (worked out again from the sold stock's own trades,
+kept by the entries in book order) and read again with nothing changed
+(kept), each as a share of the old way, every entry before the sale
+replayed whole; the least of three runs. Before, that whole replay ran on
+every rebuild of the form, the fold closed or not. That the stock's own
+trades give the same cost as all of them is proved in
+`test/features/entries/model/compose_form_trade_test.dart`.
+
+| measured (7 runs, Linux host, 2026-11-24) | limit |
+|---|---|
+| whole 16.7–37.6 ms; a change of the shares 0.68–2.6 ms (worst share 0.086); kept 1–3 µs (worst share 0.00008) | changed 0.2 (about 2× the worst); kept 0.0005 (about 2× the worst, and no less than 1 µs over a 2 ms replay) |
+
 `rebuild_gate_test.dart`: 總覽 builds 79 widgets after a budget changes
 (was 153), its title row following the entries rather than the whole
 ledger.

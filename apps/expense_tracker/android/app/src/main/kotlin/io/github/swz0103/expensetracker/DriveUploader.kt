@@ -23,7 +23,11 @@ import java.util.concurrent.TimeUnit
  * It never shows Google's screens: without access already given, it does
  * nothing.
  */
-internal class DriveUploader(private val context: Context) {
+internal class DriveUploader(
+    private val context: Context,
+    /** Whether WorkManager stopped the run: checked before each part of an upload. */
+    private val stopped: () -> Boolean = { false },
+) {
     class Refused(val status: Int, message: String) : IOException(message)
 
     private var token: String? = null
@@ -57,6 +61,7 @@ internal class DriveUploader(private val context: Context) {
         text: String? = null,
         file: File? = null,
         from: Long = 0,
+        length: Long = 0,
         also: Set<Int> = emptySet(),
     ): Response {
         for (attempt in 0..1) {
@@ -80,11 +85,11 @@ internal class DriveUploader(private val context: Context) {
                 when {
                     file != null -> {
                         connection.doOutput = true
-                        connection.setFixedLengthStreamingMode(file.length() - from)
+                        connection.setFixedLengthStreamingMode(length)
                         connection.outputStream.use { out ->
                             file.inputStream().use { input ->
                                 ResumableUpload.skip(input, from)
-                                input.copyTo(out)
+                                ResumableUpload.copy(input, out, length)
                             }
                         }
                     }
@@ -195,17 +200,27 @@ internal class DriveUploader(private val context: Context) {
                 }
             }
         }
+        if (stopped()) throw BackgroundWork.Stopped()
         val target = location ?: start(file, ledger, parent).also {
             sessions.write(UploadSession(it, file.name, size))
         }
-        send(
-            "PUT",
-            target,
-            mapOf("Content-Type" to "application/octet-stream") +
-                (if (from > 0) mapOf("Content-Range" to ResumableUpload.rest(from, size)) else emptyMap()),
-            file = file,
-            from = from,
-        )
+        // In parts, each a request of its own, so a run WorkManager stops
+        // ends between two; the next goes on from what Drive holds.
+        ResumableUpload.inParts(from, size, stopped) { first, last ->
+            val answer = send(
+                "PUT",
+                target,
+                mapOf(
+                    "Content-Type" to "application/octet-stream",
+                    "Content-Range" to ResumableUpload.part(first, last, size),
+                ),
+                file = file,
+                from = first,
+                length = last - first + 1,
+                also = setOf(ResumableUpload.INCOMPLETE),
+            )
+            if (answer.status == ResumableUpload.INCOMPLETE) ResumableUpload.nextByte(answer.range) else null
+        }
         sessions.clear()
         try {
             prune(parent, ledger)

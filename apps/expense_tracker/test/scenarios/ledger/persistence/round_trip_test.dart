@@ -242,10 +242,14 @@ void main() {
               DateTime.utc(2026, 10, 18 + r.nextInt(4)),
             );
           case 26 when entries.isNotEmpty:
-            live.attachmentCommands.setReceipt(
-              pick(entries).id,
-              r.nextBool() ? 'p${serial++}.etr' : null,
-            );
+            try {
+              live.entryCommands.replace(
+                pick(entries),
+                receipt: r.nextBool() ? 'p${serial++}.etr' : null,
+              );
+            } on RecordRefused {
+              // As in case 3.
+            }
           case 27 when live.recurring.all.isNotEmpty:
             final it = pick(live.recurring.all);
             if (it.skipped.isNotEmpty) {

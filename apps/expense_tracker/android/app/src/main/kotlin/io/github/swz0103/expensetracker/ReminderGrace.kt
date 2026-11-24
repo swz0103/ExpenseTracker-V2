@@ -33,6 +33,17 @@ object ReminderGrace {
         else -> Step.DROP
     }
 
+    /**
+     * Posts an alert with [show] and, only when it did post, remembers it
+     * with [markPosted]: an alert that could not be posted (notifications
+     * off, no channel) stays due within its grace. True when posted.
+     */
+    fun postOnce(show: () -> Boolean, markPosted: () -> Unit): Boolean {
+        val shown = show()
+        if (shown) markPosted()
+        return shown
+    }
+
     /** Of the ids posted before, those the new plan still holds. */
     fun keptPosted(posted: Set<String>, planned: Collection<String>): Set<String> =
         posted.intersect(planned.toSet())

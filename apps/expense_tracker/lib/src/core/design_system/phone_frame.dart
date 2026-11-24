@@ -87,15 +87,14 @@ class _StatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: Space.s6),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Space.s6),
       child: Row(
         children: [
           Text(
             '9:41',
             // Above the app, so no theme: name the font, no underline.
-            style: TextStyle(
-              fontFamily: 'Nunito',
+            style: appFont.copyWith(
               fontSize: TextSize.body,
               fontWeight: FontWeight.w700,
               color: AppColors.ink,
@@ -103,8 +102,8 @@ class _StatusBar extends StatelessWidget {
               decoration: TextDecoration.none,
             ),
           ),
-          Spacer(),
-          SizedBox(
+          const Spacer(),
+          const SizedBox(
             width: 12,
             height: 12,
             child: DecoratedBox(
@@ -114,8 +113,8 @@ class _StatusBar extends StatelessWidget {
               ),
             ),
           ),
-          Spacer(),
-          CustomPaint(size: Size(62, 14), painter: _StatusIcons()),
+          const Spacer(),
+          const CustomPaint(size: Size(62, 14), painter: _StatusIcons()),
         ],
       ),
     );

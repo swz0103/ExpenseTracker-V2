@@ -139,10 +139,6 @@ class AccountBody extends StatefulWidget {
 }
 
 class _AccountBodyState extends State<AccountBody> {
-  /// 繳卡費 for a card, 轉帳 for any other account.
-  static String _moveWord(Account account) =>
-      account.kind == AccountKind.card ? '繳卡費' : Words.transfer;
-
   var _week = 3;
   late var _month = (widget.ledger.today.year, widget.ledger.today.month);
 
@@ -161,25 +157,12 @@ class _AccountBodyState extends State<AccountBody> {
     );
   }
 
-  /// Opens the composer on a transfer out of [account], or for a card a
-  /// payment into it from the main account.
-  void _move(Account account) {
-    final ledger = widget.ledger;
-    final main = ledger.accounts.main;
-    final card = account.kind == AccountKind.card;
-    widget.nav.compose(
-      type: EntryType.transfer,
-      draft: Entry(
-        id: '',
-        date: ledger.today,
-        type: EntryType.transfer,
-        amount: card ? ledger.statementService.statementDue(account) : 0,
-        account: card || main == account.id ? main : account.id,
-        category: transferCategory,
-        to: card || main == account.id ? account.id : main,
-      ),
-    );
-  }
+  /// Opens the composer on a transfer out of [account]. A card has a page
+  /// of its own, which pays its statement.
+  void _move(Account account) => widget.nav.compose(
+    type: EntryType.transfer,
+    draft: widget.ledger.transferDrafts.move(account.id),
+  );
 
   /// How much [entries] of one day changed the account's balance.
   int _dayChange(List<Entry> entries) => entries.fold<int>(
@@ -212,7 +195,6 @@ class _AccountBodyState extends State<AccountBody> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _AccountActions(
-          moveWord: _moveWord(account),
           onRecord: () => _record(account),
           onMove: () => _move(account),
           onReconcile: reconcilable
@@ -262,18 +244,15 @@ class _AccountBodyState extends State<AccountBody> {
   }
 }
 
-/// The row of what is done with an account: 記一筆, a transfer or card
-/// payment, and 對帳 when [onReconcile] is given.
+/// The row of what is done with an account: 記一筆, a transfer, and 對帳
+/// when [onReconcile] is given.
 class _AccountActions extends StatelessWidget {
   const _AccountActions({
-    required this.moveWord,
     required this.onRecord,
     required this.onMove,
     required this.onReconcile,
   });
 
-  /// The word for the transfer action: 繳卡費 or 轉帳.
-  final String moveWord;
   final VoidCallback onRecord;
   final VoidCallback onMove;
 
@@ -298,7 +277,7 @@ class _AccountActions extends StatelessWidget {
           Expanded(
             child: AccountAction(
               icon: Glyph.transfer,
-              label: moveWord,
+              label: Words.transfer,
               onTap: onMove,
             ),
           ),

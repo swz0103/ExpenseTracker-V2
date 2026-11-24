@@ -60,4 +60,29 @@ class OffMainTest {
         offMain.run({ throw StackOverflowError() }, { heard.add("done $it") }, { heard.add("failed ${OffMain.kindOf(it)}") })
         assertEquals(listOf("done ready.jpg", "failed STACK_OVERFLOW_ERROR"), heard)
     }
+
+    @Test
+    fun serialWorkRunsOneAtATimeInTheOrderAsked() {
+        // Review 21 finding 5: the Keystore's keys and the reminders' plan.
+        val done = java.util.concurrent.CountDownLatch(3)
+        val order = java.util.Collections.synchronizedList(mutableListOf<String>())
+        val running = java.util.concurrent.atomic.AtomicInteger(0)
+        var overlapped = false
+        val serial = OffMain.serial { it.run() }
+        for (name in listOf("first", "second", "third")) {
+            serial.run(
+                {
+                    if (running.incrementAndGet() > 1) overlapped = true
+                    Thread.sleep(20)
+                    order.add(name)
+                    running.decrementAndGet()
+                },
+                { done.countDown() },
+                { done.countDown() },
+            )
+        }
+        assertEquals(true, done.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        assertEquals(listOf("first", "second", "third"), order)
+        assertEquals(false, overlapped)
+    }
 }

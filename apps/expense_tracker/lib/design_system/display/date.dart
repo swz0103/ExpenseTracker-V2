@@ -4,6 +4,8 @@ import 'package:core/foundation_values.dart' as time;
 
 import '../../src/core/formatting/words.dart';
 
+import 'package:core/time/utc_days.dart';
+
 /// Dates as the app shows them to people, each in one place. The formats
 /// are named for the ICU (CLDR) date skeletons, as `intl`'s
 /// `DateFormat.Md()` and its kin are: M month, d day, y year, E weekday,
@@ -83,12 +85,8 @@ String monthWord(int year, int month, {required DateTime today}) {
 
 /// 「今天」, 「昨天」, or the day as [formatDay] writes it.
 String relativeDay(DateTime d, {required DateTime today}) {
-  final day = DateTime.utc(d.year, d.month, d.day);
-  final days = DateTime.utc(
-    today.year,
-    today.month,
-    today.day,
-  ).difference(day).inDays;
+  final day = dayOf(d);
+  final days = dayOf(today).difference(day).inDays;
   if (days == 0) return Words.today;
   if (days == 1) return '昨天';
   return formatDay(d, today: today);
@@ -98,10 +96,7 @@ String relativeDay(DateTime d, {required DateTime today}) {
 /// the trading day of the close, is [today]; otherwise that day, as on a
 /// weekend or a holiday (「10/9」).
 String tradingDayWord(DateTime quoteDay, {required DateTime today}) =>
-    DateTime.utc(quoteDay.year, quoteDay.month, quoteDay.day) ==
-        DateTime.utc(today.year, today.month, today.day)
-    ? '今日'
-    : formatDay(quoteDay, today: today);
+    dayOf(quoteDay) == dayOf(today) ? '今日' : formatDay(quoteDay, today: today);
 
 /// 「今天 21:03」, 「昨天 08:14」 or 「11/2 08:14」: when something
 /// happened, for a list of recent events.
@@ -117,7 +112,7 @@ String? postponedTo(
   time.BusinessDayAnswer<time.BusinessDate> payBy,
 ) {
   final day = payBy.value.asUtcMidnight;
-  if (day == DateTime.utc(due.year, due.month, due.day)) return null;
+  if (day == dayOf(due)) return null;
   return '順延至 ${formatMd(day)}${_weekendsOnlyNote(payBy)}';
 }
 
@@ -140,7 +135,7 @@ Map<DateTime, List<T>> groupByDay<T>(
   final days = <DateTime, List<T>>{};
   for (final item in items) {
     final d = dateOf(item);
-    days.putIfAbsent(DateTime.utc(d.year, d.month, d.day), () => []).add(item);
+    days.putIfAbsent(dayOf(d), () => []).add(item);
   }
   return days;
 }

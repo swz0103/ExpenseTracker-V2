@@ -19,6 +19,13 @@ import io.flutter.plugin.common.MethodChannel
 class RemindersHandler(private val activity: FragmentActivity) : ChannelHandler {
     private var pendingNotify: MethodChannel.Result? = null
 
+    /**
+     * Handing over the plan cancels and arms a few alarms per alert and
+     * seals the plan with the Keystore: off the main thread, each plan
+     * after the one before, in the order the app sent them (AND-07).
+     */
+    private val offMain = OffMain.serial(activity)
+
     /** Asks once to post notifications (Android 13 and later). */
     private val askNotify =
         activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -63,16 +70,14 @@ class RemindersHandler(private val activity: FragmentActivity) : ChannelHandler 
                 if (alerts == null) {
                     result.error("bad-arguments", "alerts are required", null)
                 } else {
-                    val left = Reminders.replace(
-                        activity,
-                        alerts,
-                        exact = call.argument<Boolean>("exact") == true,
-                        wanted = call.argument<List<String>>("wanted")?.toSet(),
-                        channels = channels(call),
-                        retired = call.argument<List<String>>("retired") ?: emptyList(),
-                        most = call.argument<Int>("most") ?: ReminderAlarms.MOST_ALERTS,
-                    )
-                    result.success(left)
+                    val exact = call.argument<Boolean>("exact") == true
+                    val wanted = call.argument<List<String>>("wanted")?.toSet()
+                    val channels = channels(call)
+                    val retired = call.argument<List<String>>("retired") ?: emptyList()
+                    val most = call.argument<Int>("most") ?: ReminderAlarms.MOST_ALERTS
+                    offMain.answer(result, "reminders") {
+                        Reminders.replace(activity, alerts, exact, wanted, channels, retired, most)
+                    }
                 }
             }
             "showNotification" -> {

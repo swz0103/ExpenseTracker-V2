@@ -29,15 +29,35 @@ import java.io.File
  * goes on from where it stopped at the next run ([DriveUploader]); a run
  * the network cut short is tried again after a growing wait, and only
  * after [BackgroundWork.RETRIES] of them is it noted as failed (AND-05).
+ * The upload goes in parts; a run WorkManager stops ends between two, or
+ * in the folder copy, writes nothing more and is run again later; and only
+ * one run works at a time, so a stopped one still finishing and the next
+ * never share an upload or the outbox.
  */
 class BackupWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
-    override fun doWork(): Result {
+    override fun doWork(): Result = RUNS.run(whenBusy = Result.retry()) {
         try {
-            if (deliver()) return Result.retry()
+            if (deliver()) Result.retry() else Result.success()
+        } catch (e: BackgroundWork.Stopped) {
+            Result.retry()
+        } catch (e: InterruptedException) {
+            // Whoever interrupted the thread still learns of it.
+            Thread.currentThread().interrupt()
+            Result.retry()
         } catch (e: Exception) {
             // Tried again at the next run.
+            Result.success()
         }
-        return Result.success()
+    }
+
+    /** Ends the run where it is when WorkManager stopped it. */
+    private fun stopIfAsked() {
+        if (isStopped) throw BackgroundWork.Stopped()
+    }
+
+    /** A stop or an interruption ends the run; it is no failure of a place. */
+    private fun passOn(e: Exception) {
+        if (e is BackgroundWork.Stopped || e is InterruptedException) throw e
     }
 
     private fun read(file: File): JSONObject? = try {
@@ -92,11 +112,13 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
             val (at, made) = last("phone", "phoneBackedUp", "phoneRevision", folder)
             val every = if (preferences.optBoolean("phoneDaily")) BackupPlan.DAY else 7 * BackupPlan.DAY
             if (BackupPlan.due(now, at, made, revision, every)) {
+                stopIfAsked()
                 try {
                     toFolder(Uri.parse(folder), backup, mark, ready.optLong("at", now))
                     delivered.put("phone", entry(now, revision, ledger).put("uri", folder))
                     problems.remove("phone")
                 } catch (e: Exception) {
+                    passOn(e)
                     phoneHas = false
                     problems.put("phone", problem(now, e))
                 }
@@ -116,12 +138,14 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
             } else if (photos && onWifi && !unmetered()) {
                 driveHas = false
             } else {
+                stopIfAsked()
                 try {
-                    DriveUploader(applicationContext)
+                    DriveUploader(applicationContext) { isStopped }
                         .upload(driveBackup, ledger, UploadSession.In(File(outbox, UploadSession.FILE)))
                     delivered.put("drive", entry(now, revision, ledger))
                     problems.remove("drive")
                 } catch (e: Exception) {
+                    passOn(e)
                     driveHas = false
                     if (BackgroundWork.retries(e, runAttemptCount)) {
                         again = true
@@ -145,8 +169,11 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
     private fun entry(at: Long, revision: Int, ledger: String) =
         JSONObject().put("at", at).put("revision", revision).put("ledger", ledger)
 
-    private fun problem(at: Long, e: Exception) =
-        JSONObject().put("at", at).put("message", e.message ?: e.javaClass.simpleName)
+    /** What went wrong, as the app's error log shows it: under Play services' wrapping. */
+    private fun problem(at: Long, e: Exception): JSONObject {
+        val cause = BackgroundWork.causeOf(e)
+        return JSONObject().put("at", at).put("message", cause.message ?: cause.javaClass.simpleName)
+    }
 
     /** Writes the backup into the folder and keeps the newest of this ledger. */
     private fun toFolder(tree: Uri, backup: File, mark: String, at: Long) {
@@ -154,7 +181,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         if (!FolderFiles.allowed(resolver, tree)) {
             throw IllegalStateException("沒有這個資料夾的存取權，請重新選擇")
         }
-        FolderFiles.write(resolver, tree, backup, BackupPlan.phoneName(mark, at))
+        FolderFiles.write(resolver, tree, backup, BackupPlan.phoneName(mark, at)) { isStopped }
         val listed = FolderFiles.list(resolver, tree)
         val old = BackupPlan.beyondKept(listed.map { it["name"] as String }, mark).toSet()
         for (file in listed) {
@@ -179,6 +206,9 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
 
     companion object {
         private const val NAME = "backups"
+
+        /** One run at a time in this process. */
+        internal val RUNS = BackgroundWork.OneAtATime()
 
         /**
          * Runs the job about every six hours from now on, or stops it; with

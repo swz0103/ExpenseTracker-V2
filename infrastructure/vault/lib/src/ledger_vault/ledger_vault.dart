@@ -368,8 +368,8 @@ final class LedgerVault {
   Future<void> _sealAgain(UnlockedKeyring old, UnlockedKeyring next) async {
     final receipts = receiptsDirectory;
     if (await receipts.exists()) {
-      final from = await FileBox.derive(old, 'receipts');
-      final to = await FileBox.derive(next, 'receipts');
+      final from = await FileBox.derive(old, FileBox.receipts);
+      final to = await FileBox.derive(next, FileBox.receipts);
       for (final entity in receipts.listSync()) {
         if (entity is! File) continue;
         final name = entity.uri.pathSegments.last;
@@ -386,12 +386,12 @@ final class LedgerVault {
     }
     // The inbox's private key (LedgerInbox), so what was posted while
     // locked still opens.
-    const inboxKey = 'inbox.key';
+    const inboxKey = LedgerInbox.keyName;
     final inbox = File('${directory.path}/$inboxKey');
     if (await inbox.exists()) {
       try {
-        final from = await FileBox.derive(old, 'inbox');
-        final to = await FileBox.derive(next, 'inbox');
+        final from = await FileBox.derive(old, FileBox.inbox);
+        final to = await FileBox.derive(next, FileBox.inbox);
         final seed = await from.open(inboxKey, await inbox.readAsBytes());
         await stagedFiles.create(recursive: true);
         await File('${stagedFiles.path}/$inboxKey')

@@ -1,5 +1,7 @@
 import '../../core/ledger/ledger.dart';
 
+import 'package:core/time/utc_days.dart';
+
 part 'seed_history.dart';
 
 /// The preview's made-up book as of 2026-10-04, the same fixture as the
@@ -289,17 +291,7 @@ Ledger demoLedger({DateTime? today}) {
         icon: 'heart',
       ),
     ],
-    categories: [
-      Category('居家生活', 'home', 0xFF5C9A83),
-      Category('飲食日常', 'food', 0xFFD08B5B),
-      Category('交通通勤', 'travel', 0xFF5B8DB0),
-      Category('購物休閒', 'bag', 0xFF8E7CC0),
-      Category('訂閱服務', 'subscription', 0xFFC9A34A),
-      Category('其他支出', 'other', 0xFFB07A8C),
-      Category('薪資收入', 'salary', 0xFF2F7A65, income: true),
-      Category('股息收入', 'dividend', 0xFF5A6FA8, income: true),
-      Category('其他收入', 'income', 0xFF4E8A9A, income: true),
-    ],
+    categories: starterCategories(),
     entries: entries,
     holdings: const [
       Holding(

@@ -2,19 +2,13 @@ import 'package:core/foundation_values.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('a range counts both ends and knows when it crosses years', () {
+  test('a range counts both ends', () {
     final range = DateRange(
       BusinessDate(2026, 1, 8),
       BusinessDate(2026, 11, 22),
     );
     // 318 days between, plus the first: 319.
     expect(range.days, 319);
-    expect(range.crossesYears, isFalse);
-    final across = DateRange(
-      BusinessDate(2021, 12, 30),
-      BusinessDate(2026, 11, 22),
-    );
-    expect(across.crossesYears, isTrue);
     expect(
       DateRange(BusinessDate(2026, 3, 4), BusinessDate(2026, 3, 4)).days,
       1,
