@@ -92,9 +92,8 @@ final class RecurringForm {
   /// among them, so the choice is always in sight.
   List<Category> get categoryChoices {
     final usual = [
-      for (final name in ledger.reportService
-          .categoriesByUse(income: income)
-          .take(5))
+      for (final name
+          in ledger.reportService.categoriesByUse(income: income).take(5))
         ledger.category(name),
     ];
     if (category.isNotEmpty &&

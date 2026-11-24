@@ -47,6 +47,19 @@ final class ReportService {
           .where((e) => account == null || e.account == account)
           .fold(0, (total, e) => total + e.spending);
 
+  /// What [entries] earned and spent, of those that count today
+  /// ([countedOn]): the sums of a list as shown, where a 預定 entry is
+  /// listed, marked, and counted once its day comes (D25).
+  ({int income, int expense}) totalsOf(Iterable<Entry> entries) {
+    var income = 0;
+    var expense = 0;
+    for (final e in countedOn(entries, _today())) {
+      income += e.earning;
+      expense += e.spending;
+    }
+    return (income: income, expense: expense);
+  }
+
   int dividends(int year, int month) =>
       _inMonth(year, month).fold(0, (sum, e) => sum + e.dividendNet);
 
@@ -217,28 +230,26 @@ final class ReportService {
   /// and the last first, so a new entry or recurring item starts on the
   /// likely one; a 預定 entry is a use once its day comes. Worked out once
   /// a day per change of the entries or categories.
-  List<String> categoriesByUse({required bool income}) => _cache.remember(
-    ('categoriesByUse', income, _today()),
-    () {
-      final type = income ? EntryType.income : EntryType.expense;
-      final counts = <String, int>{};
-      for (final back in const [0, 1]) {
-        final month = monthStart(_today(), -back);
-        for (final e in countedOn(
-          _entries.inMonth(month.year, month.month),
-          _today(),
-        )) {
-          if (e.type == type) {
-            counts[e.category] = (counts[e.category] ?? 0) + 1;
+  List<String> categoriesByUse({required bool income}) =>
+      _cache.remember(('categoriesByUse', income, _today()), () {
+        final type = income ? EntryType.income : EntryType.expense;
+        final counts = <String, int>{};
+        for (final back in const [0, 1]) {
+          final month = monthStart(_today(), -back);
+          for (final e in countedOn(
+            _entries.inMonth(month.year, month.month),
+            _today(),
+          )) {
+            if (e.type == type) {
+              counts[e.category] = (counts[e.category] ?? 0) + 1;
+            }
           }
         }
-      }
-      final names = [
-        for (final c in _categories.forEntries(income: income)) c.name,
-      ];
-      return List<String>.unmodifiable(
-        names..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0)),
-      );
-    },
-  );
+        final names = [
+          for (final c in _categories.forEntries(income: income)) c.name,
+        ];
+        return List<String>.unmodifiable(
+          names..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0)),
+        );
+      });
 }

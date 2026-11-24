@@ -36,6 +36,22 @@ final class EntryQueryService {
     ...e.tags,
   ].join('\n').toLowerCase();
 
+  /// The last day each account was used on, as the one an entry is of or
+  /// the one it moves money to, among the entries that count today; an
+  /// account never used is not in it. Worked out once per change of the
+  /// entries and per day.
+  Map<String, DateTime> get lastUsedOn =>
+      _cache.remember(('lastUsedOn', _today()), () {
+        final last = <String, DateTime>{};
+        for (final e in countedOn(_entries.all, _today())) {
+          for (final id in [e.account, ?e.to]) {
+            final seen = last[id];
+            if (seen == null || e.date.isAfter(seen)) last[id] = e.date;
+          }
+        }
+        return Map.unmodifiable(last);
+      });
+
   /// Entries of any month whose note, merchant, category or tags hold
   /// [words], or whose amount is [words]; newest first.
   List<Entry> search(String words) => _cache.remember(

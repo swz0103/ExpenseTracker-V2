@@ -88,10 +88,9 @@ class _EntriesPageState extends State<EntriesPage> {
     });
   }
 
+  /// The picked entries still in the ledger, each looked up by its id.
   List<Entry> get _pickedEntries => [
-    // Exception to as-of-today: picked entries are looked up by id.
-    for (final e in widget.ledger.entries.all)
-      if (_picked.contains(e.id)) e,
+    for (final id in _picked) ?widget.ledger.entries.byId(id),
   ];
 
   /// Says how many of the picked entries a change reached, and ends the
@@ -183,7 +182,7 @@ class _EntriesPageState extends State<EntriesPage> {
     final kept = _kept;
     if (kept != null && kept.key == key) return kept;
     final shown = _shown();
-    return _kept = _Shown(key, shown, countedOn(shown, ledger.today));
+    return _kept = _Shown(key, shown, ledger.reportService.totalsOf(shown));
   }
 
   /// The month's entries, the chosen days', or every month's that match
@@ -427,12 +426,10 @@ class _EntriesPageState extends State<EntriesPage> {
 /// What the record list shows for one month, filter, search and day,
 /// with the [key] they make: the entries, as lines, and their sums.
 final class _Shown {
-  _Shown(this.key, List<Entry> shown, Iterable<Entry> counted)
+  _Shown(this.key, List<Entry> shown, ({int income, int expense}) totals)
     : lines = _linesOf(shown),
-      // The sums count what counts today; a 預定 entry is listed, marked,
-      // and counted once its day comes (D25).
-      income = counted.fold(0, (sum, e) => sum + e.earning),
-      expense = counted.fold(0, (sum, e) => sum + e.spending);
+      income = totals.income,
+      expense = totals.expense;
 
   final Record key;
   final List<_Line> lines;
