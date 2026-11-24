@@ -170,6 +170,26 @@ void main() {
     final target = await restore(file);
     expect(rowsOf(target), rowsOf(source));
     expect(target.integrityCheck(), 'ok');
+    // At the backup's revision (two counted writes in setUp: 2), not the
+    // count of chunks written into it (D115).
+    expect(header.revision, 2);
+    expect(target.revision, 2);
+  });
+
+  test('a header with a revision below 0 is refused (D115)', () async {
+    final file = await backup();
+    final original = frames(file);
+    final header = String.fromCharCodes(original[1]);
+    expect(header, contains('"revision":2'));
+    writeFrames(file, [
+      original[0],
+      header.replaceFirst('"revision":2', '"revision":-1').codeUnits,
+      ...original.skip(2),
+    ]);
+    await expectLater(
+      LedgerBackup.readHeader(file),
+      fails(BackupProblem.invalidFormat),
+    );
   });
 
   test('the recovery code opens a backup too', () async {

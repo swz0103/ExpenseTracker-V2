@@ -503,28 +503,31 @@ final class Startup extends ChangeNotifier {
     final replacing = _state is Locked;
     final staged = Directory('${_vault.stagedFiles.path}/receipts');
     var skipped = 0;
-    final open = await _vault.restore(keys, replacing: replacing, (
-      staging,
-    ) async {
-      await LedgerBackup.restore(
-        file: file,
-        keys: keys,
-        into: staging,
-        accept: check,
-        // Receipt photos the backup carries, still sealed: they open with
-        // the restored ledger's own key. Staged, and moved in only with
-        // the checked database.
-        onFile: (name, bytes) async {
-          if (!RegExp(r'^[\w.-]+$').hasMatch(name)) {
-            skipped++;
-            return;
-          }
-          await staged.create(recursive: true);
-          await File('${staged.path}/$name').writeAsBytes(bytes, flush: true);
-        },
-      );
-      checkRestored?.call(staging);
-    });
+    final open = await _vault.restore(
+      keys,
+      replacing: replacing,
+      revisionBefore: await _revisionBefore(),
+      (staging) async {
+        await LedgerBackup.restore(
+          file: file,
+          keys: keys,
+          into: staging,
+          accept: check,
+          // Receipt photos the backup carries, still sealed: they open with
+          // the restored ledger's own key. Staged, and moved in only with
+          // the checked database.
+          onFile: (name, bytes) async {
+            if (!RegExp(r'^[\w.-]+$').hasMatch(name)) {
+              skipped++;
+              return;
+            }
+            await staged.create(recursive: true);
+            await File('${staged.path}/$name').writeAsBytes(bytes, flush: true);
+          },
+        );
+        checkRestored?.call(staging);
+      },
+    );
     if (skipped > 0) {
       ErrorLog.instance.record(
         '還原備份',
@@ -541,6 +544,26 @@ final class Startup extends ChangeNotifier {
     }
     await _enrolDevice(open);
     _ready(open);
+  }
+
+  /// The most this phone's ledger is known to have stood at, read without
+  /// its keys: the backup of it kept before a restore from settings
+  /// ([replacedLedger]) and the copy kept for Android's cloud backup
+  /// ([cloudCopy]); 0 when neither says. A restore goes on from above it
+  /// ([LedgerVault.restore]).
+  Future<int> _revisionBefore() async {
+    var before = _replacedLedger?.revision ?? 0;
+    if (cloudCopy.existsSync()) {
+      try {
+        before = max(
+          before,
+          (await LedgerBackup.readHeader(cloudCopy)).revision,
+        );
+      } on Object catch (error) {
+        ErrorLog.instance.record('讀取備份標頭', error);
+      }
+    }
+    return before;
   }
 
   Future<UnlockedKeyring> _unlockWithCodeOrPassphrase(

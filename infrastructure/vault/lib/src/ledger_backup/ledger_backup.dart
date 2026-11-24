@@ -161,6 +161,10 @@ final class BackupHeader {
     } on Object {
       throw const BackupException(BackupProblem.invalidFormat, 'header');
     }
+    // A store's revision only counts up from 0.
+    if (header.revision < 0) {
+      throw const BackupException(BackupProblem.invalidFormat, 'header');
+    }
     // From version 4 on the app password never leaves the phone.
     if (version >= 4 && header.keyring.hasPassword) {
       throw const BackupException(BackupProblem.invalidFormat, 'header');
@@ -534,6 +538,9 @@ abstract final class LedgerBackup {
           counts: false,
         );
       }
+      // The store stands at the revision the backup was taken at, not at
+      // the count of the chunks written here (review 27, D115).
+      into.write((w) => w.continueRevision(header.revision), counts: false);
       return header;
     } finally {
       await reader.close();

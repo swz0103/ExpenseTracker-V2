@@ -316,13 +316,24 @@ final class LedgerVault {
   /// a backup is restored from settings: until the copy has passed its
   /// check the old ledger is untouched, and a failure before then keeps
   /// it. The app keeps a backup of it first.
+  ///
+  /// The restored book's revision goes on, one further, from the higher
+  /// of the revision [fill] leaves (the backup's) and [revisionBefore],
+  /// the most this phone's ledger is known to have stood at: the restore
+  /// counts as a change, so no backup or delivery made before it passes
+  /// for one of the book restored, and a new one is due (D115).
   Future<OpenVault> restore(
     UnlockedKeyring keys,
     Future<void> Function(EncryptedDatabase staging) fill, {
     bool replacing = false,
+    int revisionBefore = 0,
   }) async {
     if (!replacing) _requireAbsent();
-    await _replace(keys, fill);
+    await _replace(keys, (staging) async {
+      await fill(staging);
+      final from = max(staging.revision, revisionBefore);
+      staging.write((w) => w.continueRevision(from));
+    });
     // The backup is in place: copies set aside as damaged before it are
     // let go of but the newest few (D102), and a journal found damaged
     // went with the database it was in.
