@@ -35,9 +35,14 @@ String halfWidth(String text) => String.fromCharCodes([
 /// and carriage return; the invisible marks a copy from the web brings
 /// along (zero-width space U+200B, non-joiner U+200C, the direction
 /// marks U+200E and U+200F, word joiner U+2060, byte order mark
-/// U+FEFF); and half of a surrogate pair alone. `現金` and a zero-width
-/// space read `現金`, so a name read from a file is the name the book
-/// has. The zero-width joiner stays: emoji are made with it.
+/// U+FEFF); the controls that turn the direction text is shown in,
+/// with which a name can be made to read as another (embeddings and
+/// overrides U+202A to U+202E, isolates U+2066 to U+2069, r13 F4); the
+/// line and paragraph separators U+2028 and U+2029; the soft hyphen
+/// U+00AD and the Mongolian vowel separator U+180E; and half of a
+/// surrogate pair alone. `現金` and a zero-width space read `現金`, so a
+/// name read from a file is the name the book has. The zero-width joiner
+/// stays: emoji are made with it; so do combining marks.
 String plainText(String text) => String.fromCharCodes([
   for (final c in text.runes)
     if (!_unseen(c)) c,
@@ -47,6 +52,8 @@ bool _unseen(int c) =>
     (c < _space && c != _tab && c != _lineFeed && c != _carriageReturn) ||
     (c >= _delete && c < _firstPrintableLatin) ||
     _invisible.contains(c) ||
+    (c >= _firstEmbedding && c <= _lastEmbedding) ||
+    (c >= _firstIsolate && c <= _lastIsolate) ||
     (c >= _firstSurrogate && c <= _lastSurrogate);
 
 const _tab = 0x09;
@@ -61,4 +68,26 @@ const _firstPrintableLatin = 0xA0;
 const _firstSurrogate = 0xD800;
 const _lastSurrogate = 0xDFFF;
 
-const _invisible = {0x200B, 0x200C, 0x200E, 0x200F, 0x2060, 0xFEFF};
+/// The direction embeddings and overrides: LRE, RLE, PDF, LRO, RLO.
+const _firstEmbedding = 0x202A;
+const _lastEmbedding = 0x202E;
+
+/// The direction isolates: LRI, RLI, FSI, PDI.
+const _firstIsolate = 0x2066;
+const _lastIsolate = 0x2069;
+
+/// Zero-width space and non-joiner, the direction marks, the line and
+/// paragraph separators, word joiner, byte order mark, soft hyphen and
+/// the Mongolian vowel separator.
+const _invisible = {
+  0x200B,
+  0x200C,
+  0x200E,
+  0x200F,
+  0x2028,
+  0x2029,
+  0x2060,
+  0xFEFF,
+  0x00AD,
+  0x180E,
+};
