@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/journal_keeper.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/write_batch.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,9 +22,23 @@ import '../support/held.dart';
 ///   grows with what the worker hands back and what this isolate does
 ///   with it, which a phone of two cores feels most.
 ///
-/// Each is the least of [gateTries] runs. Pinned to two cores
-/// (`taskset -c 0,1 flutter test test/perf/open_gate_test.dart`) it is
-/// the host's stand-in for the emulator bench's `100k_load_ms`.
+/// The worker's own time is gated too, against a figure measured on the
+/// development host (`workerLimitUs`); and what the two ways of making it
+/// shorter leave in the book is checked as it is, not by its time, so
+/// losing either fails here whatever the machine's load (review 24):
+///
+/// - with a core beside the worker's, half of the entries were decoded
+///   on a second worker (`lastOpening.split`);
+/// - what entries repeat is one object for the book (`SameValues`): as
+///   many accounts, notes, merchants and days as there are values, not
+///   one per entry.
+///
+/// Each share and the worker's time is the least of [gateTries] runs.
+/// The book is then opened once more as the app opens it, with the
+/// journal kept: sent to this isolate as soon as it is read, and posted
+/// afresh on the worker. Pinned to two cores (`taskset -c 0,1 flutter
+/// test test/perf/open_gate_test.dart`) it is the host's stand-in for the
+/// emulator bench's `100k_load_ms`.
 void main() {
   /// The longest the screen's isolate may be held, as a share of the
   /// opening.
@@ -31,6 +46,11 @@ void main() {
 
   /// The most of the opening that may be spent outside the worker's work.
   const outsideLimit = 0.06;
+
+  /// The longest the worker may take to read the book, in microseconds:
+  /// about twice the least measured on the development host
+  /// (thresholds.md).
+  const workerLimitUs = 2600000;
 
   final today = DateTime.utc(2026, 10, 4);
 
@@ -73,6 +93,8 @@ void main() {
         ],
       ),
     );
+    // A second worker is started only with a core beside the worker's.
+    final splits = Platform.numberOfProcessors > 1;
 
     // The whole opening, as the app does it, the longest hold, and the
     // worker's part of it, as the data source timed it; each share the
@@ -82,25 +104,64 @@ void main() {
       final held = await timeHeld(() async {
         final ledger = await source.load();
         expect(ledger.entries.length, count);
+        if (i == 0) _expectShared(ledger.entries.all);
       });
-      final (:us, :workerUs, split: _) = source.lastOpening!;
+      final (:us, :workerUs, :split) = source.lastOpening!;
+      expect(split, splits, reason: 'half the entries on a second worker');
       openings.add(_Opening(us, workerUs!, held.heldUs));
     }
     double least(double Function(_Opening o) share) =>
         openings.map(share).reduce((a, b) => a < b ? a : b);
     final held = least((o) => o.held);
     final outside = least((o) => o.outside);
+    final worker = least((o) => o.workerUs.toDouble()).round();
+
+    // As the app opens it: the journal kept, the book sent here as soon
+    // as it is read, then posted afresh on the worker.
+    final kept = SqlLedgerDataSource(
+      store,
+      clock: FixedClock(UtcInstant(today)),
+      keepsJournal: true,
+    );
+    final ledger = await kept.load();
+    expect(ledger.entries.length, count);
+    _expectShared(ledger.entries.all);
+    final keptOpening = kept.lastOpening!;
+    expect(keptOpening.split, splits);
+    await kept.journal.settled;
+    expect(store.journal.mark, (rules: journalRules, revision: store.revision));
+    expect(store.journal.intentCount, count, reason: 'every entry posted');
+
     // ignore: avoid_print
     print(
       'OPEN 100k ${[for (final o in openings) o.us ~/ 1000]} ms, worker '
       '${[for (final o in openings) o.workerUs ~/ 1000]} ms, held '
       '${[for (final o in openings) o.heldUs ~/ 1000]} ms; held share '
       '${held.toStringAsFixed(3)}, outside share '
-      '${outside.toStringAsFixed(3)}',
+      '${outside.toStringAsFixed(3)}; split $splits; with the journal '
+      '${keptOpening.us ~/ 1000} ms, worker ${keptOpening.workerUs! ~/ 1000} '
+      'ms',
     );
     expect(held, lessThan(heldLimit), reason: 'the screen held');
     expect(outside, lessThan(outsideLimit), reason: 'outside the worker');
+    expect(worker, lessThan(workerLimitUs), reason: "the worker's own time");
   }, timeout: const Timeout(Duration(minutes: 5)));
+}
+
+/// What [entries] repeat is one object for each value (`SameValues`):
+/// as many accounts, notes, merchants, tags and days as there are
+/// values, not one for each entry.
+void _expectShared(List<Entry> entries) {
+  void one<T extends Object>(String what, Iterable<T> values) {
+    final kept = Set<T>.identity()..addAll(values);
+    expect(kept.length, values.toSet().length, reason: '$what shared');
+  }
+
+  one('accounts', entries.map((e) => e.account));
+  one('notes', entries.map((e) => e.note));
+  one('merchants', entries.map((e) => e.merchant));
+  one('tags', entries.expand((e) => e.tags));
+  one('days', entries.map((e) => e.date));
 }
 
 /// One opening: its time, the worker's part of it and the longest hold,
