@@ -99,6 +99,46 @@ void main() {
     expect(into.readAsStringSync(), 'one');
   });
 
+  test('a size already known from the listing bounds the download without '
+      'asking Drive; 0 asks as before (review 29)', () async {
+    final client = drive();
+    await client.upload(backup('記帳本-1.etbk', 'one'), ledger: 'L1');
+    final listed = (await client.list()).single;
+    final into = File('${directory.path}/restore.etbk');
+    var before = http.sent.length;
+    await client.download(listed.id, into, size: listed.size);
+    expect(into.readAsStringSync(), 'one');
+    // The body only: no size asked for.
+    expect(
+      [for (final s in http.sent.skip(before)) s.url.queryParameters],
+      [
+        {'alt': 'media'},
+      ],
+    );
+    // Known as 2 for an answer of 3 bytes: refused at that bound.
+    await expectLater(
+      client.download(listed.id, into, size: 2),
+      throwsA(
+        isA<DriveException>().having(
+          (e) => e.problem,
+          'problem',
+          DriveProblem.refused,
+        ),
+      ),
+    );
+    expect(into.existsSync(), isFalse);
+    // Not given (0): Drive is asked first.
+    before = http.sent.length;
+    await client.download(listed.id, into, size: 0);
+    expect(
+      [for (final s in http.sent.skip(before)) s.url.queryParameters],
+      [
+        {'fields': 'size'},
+        {'alt': 'media'},
+      ],
+    );
+  });
+
   test('a backup goes only to Google\'s own upload address (SEC-13)', () async {
     final client = drive();
     http.uploadAt = 'https://uploads.example.org';
