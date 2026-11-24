@@ -32,23 +32,31 @@ const agreeingFetchesBand = 0.1;
 
 /// Whether [fetched] is taken in place of [kept] (D95, D101): it is a
 /// price ([doubtfulMove] would not refuse it alone), and it is within
-/// [doubtfulMoveFactor] of [kept] or there is reason to believe the move:
-/// the book holds a split, stock dividend or capital reduction of the
-/// stock after [kept]'s day ([reshapedSince]); [kept] is more than
-/// [doubtfulMoveKeptDays] older ([keptDaysAgo]); or the fetch before
-/// was doubted at a figure [fetched] agrees with ([doubtedBefore],
-/// within [agreeingFetchesBand]). A figure that is no price is never
-/// taken.
+/// [doubtfulMoveFactor] of what is expected or there is reason to believe
+/// the move. Expected is [kept], or, where the book holds splits, stock
+/// dividends or capital reductions of the stock after [kept]'s day that
+/// multiplied its shares by [reshapedBy], [kept] divided by it: a close
+/// far from that, such as one garbled after a split, is doubted all the
+/// same (review 18). The reasons: [kept] is more than
+/// [doubtfulMoveKeptDays] older ([keptDaysAgo]), or the fetch before was
+/// doubted at a figure [fetched] agrees with ([doubtedBefore], within
+/// [agreeingFetchesBand]). A figure that is no price is never taken.
 bool takesFetched({
   required double? kept,
   required double fetched,
   int? keptDaysAgo,
   double? doubtedBefore,
-  bool reshapedSince = false,
+  double? reshapedBy,
 }) {
   if (!fetched.isFinite || fetched <= 0) return false;
-  if (!doubtfulMove(kept: kept, fetched: fetched)) return true;
-  if (reshapedSince) return true;
+  final expected =
+      kept != null &&
+          reshapedBy != null &&
+          reshapedBy.isFinite &&
+          reshapedBy > 0
+      ? kept / reshapedBy
+      : kept;
+  if (!doubtfulMove(kept: expected, fetched: fetched)) return true;
   if (keptDaysAgo != null && keptDaysAgo > doubtfulMoveKeptDays) return true;
   if (doubtedBefore == null || !doubtedBefore.isFinite || doubtedBefore <= 0) {
     return false;

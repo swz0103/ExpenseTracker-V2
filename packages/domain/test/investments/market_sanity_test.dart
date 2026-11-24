@@ -39,10 +39,45 @@ void main() {
     test('a split of one for twenty the book holds is taken at once', () {
       // 1,000 to 50 is twenty times smaller: doubted alone.
       expect(takesFetched(kept: 1000, fetched: 50), isFalse);
+      // Shares x 20: 1,000 / 20 = 50 expected, 50 taken.
+      expect(takesFetched(kept: 1000, fetched: 50, reshapedBy: 20), isTrue);
+      // A capital reduction of half: shares x 0.5, 1,000 / 0.5 = 2,000;
+      // 15,000 is 7.5 times that, within ten.
+      expect(takesFetched(kept: 1000, fetched: 15000, reshapedBy: 0.5), isTrue);
+    });
+
+    test('a garbled close after a split is still doubted (review 18)', () {
+      // 1:20, expected 1,000 / 20 = 50; a close garbled 100 times, 5,000,
+      // is 5,000 / 50 = 100 times that: past ten, doubted, though only
+      // five times the close kept before the split.
+      expect(takesFetched(kept: 1000, fetched: 5000), isTrue);
+      expect(takesFetched(kept: 1000, fetched: 5000, reshapedBy: 20), isFalse);
+      // Then the normal rules: fetched again agreeing, or a long gap.
       expect(
-        takesFetched(kept: 1000, fetched: 50, reshapedSince: true),
+        takesFetched(
+          kept: 1000,
+          fetched: 5000,
+          reshapedBy: 20,
+          doubtedBefore: 5000,
+        ),
         isTrue,
       );
+      expect(
+        takesFetched(
+          kept: 1000,
+          fetched: 5000,
+          reshapedBy: 20,
+          keptDaysAgo: 31,
+        ),
+        isTrue,
+      );
+      // A ratio that is no ratio is no reason.
+      expect(takesFetched(kept: 1000, fetched: 50, reshapedBy: 0), isFalse);
+      expect(
+        takesFetched(kept: 1000, fetched: 50, reshapedBy: double.nan),
+        isFalse,
+      );
+      expect(takesFetched(kept: null, fetched: 50, reshapedBy: 20), isTrue);
     });
 
     test('a split of one for ten then a 5% fall: taken the second time', () {
@@ -81,7 +116,7 @@ void main() {
           kept: 1000,
           fetched: double.nan,
           keptDaysAgo: 99,
-          reshapedSince: true,
+          reshapedBy: 1,
         ),
         isFalse,
       );

@@ -200,16 +200,64 @@ void main() {
       open.store.write((w) => w.put('account', 'cash', '{}'));
       var told = 0;
       startup.addListener(() => told++);
-      await startup.journalDamaged(
-        const StorageUnavailable(StorageProblem.damaged),
+      expect(
+        await startup.journalDamaged(
+          const StorageUnavailable(StorageProblem.damaged),
+        ),
+        isTrue,
       );
       final again = startup.state as Ready;
       expect(told, 1);
       expect(open.store.isOpen, isFalse);
       expect(identical(again.vault, open), isFalse);
       expect(again.vault.store.rows().single.id, 'cash');
-      expect(vault.damagedCopies(), isEmpty);
+      // The old file kept aside to send for a look (review 18).
+      expect(vault.damagedCopies(), hasLength(1));
       startup.lock();
+    });
+
+    test('two reports of damage at once make the book again once; it '
+        'opens with nothing left over (review 18)', () async {
+      final startup = Startup(vault);
+      await startup.setUp(password);
+      (startup.state as Ready).vault.store.write(
+        (w) => w.put('account', 'cash', '{}'),
+      );
+      const error = StorageUnavailable(StorageProblem.damaged);
+      final journal = startup.journalDamaged(error);
+      final book = startup.bookDamaged(error);
+      await Future.wait([journal, book]);
+      expect(await journal, isTrue);
+      final again = startup.state as Ready;
+      expect(again.vault.store.rows().single.id, 'cash');
+      expect(vault.databaseFile.existsSync(), isTrue);
+      expect(vault.damagedCopies(), hasLength(1), reason: 'made again once');
+      final names = [
+        for (final f in directory.listSync()) f.uri.pathSegments.last,
+      ];
+      for (final leftover in [
+        'keyring.json.new',
+        'journal.damaged',
+        'ledger.db.restore',
+        'files.restore',
+      ]) {
+        expect(names, isNot(contains(leftover)));
+      }
+      startup.lock();
+    });
+
+    test('journal damage told with no book open is not acted on', () async {
+      final startup = Startup(vault);
+      await startup.setUp(password);
+      startup.lock();
+      expect(
+        await startup.journalDamaged(
+          const StorageUnavailable(StorageProblem.damaged),
+        ),
+        isFalse,
+      );
+      expect(startup.state, isA<Locked>());
+      expect(File('${directory.path}/journal.damaged').existsSync(), isFalse);
     });
   });
 

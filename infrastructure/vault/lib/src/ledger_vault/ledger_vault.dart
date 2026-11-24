@@ -60,7 +60,12 @@ final class OpenVault {
 /// device key is lost, and nothing secret is kept in plain form. The
 /// keyring file is replaced atomically.
 final class LedgerVault {
-  LedgerVault(this.directory, {required this.codec, this.now = DateTime.now});
+  LedgerVault(
+    this.directory, {
+    required this.codec,
+    this.now = DateTime.now,
+    this.noteFailed,
+  });
 
   final Directory directory;
   final KeyringCodec codec;
@@ -68,6 +73,11 @@ final class LedgerVault {
   /// The time a damaged database is set aside at ([setAsideDamaged]):
   /// the app's clock, where the app is put together.
   final DateTime Function() now;
+
+  /// Told when the note that records were kept here ([_recordsKept])
+  /// could not be written as a write was kept: the write stands, and the
+  /// note is tried again at the next write and the next opening.
+  final void Function(Object error, StackTrace stack)? noteFailed;
 
   File get keyringFile => File('${directory.path}/keyring.json');
   File get databaseFile => File('${directory.path}/ledger.db');
@@ -113,8 +123,10 @@ final class LedgerVault {
     _requireAbsent();
     await directory.create(recursive: true);
     if (await databaseFile.exists()) await databaseFile.delete();
-    // A new ledger: no records were written to it yet.
+    // A new ledger: no records were written to it yet, nor a journal
+    // found damaged in it.
     if (await _recordsKept.exists()) await _recordsKept.delete();
+    if (await _journalDamaged.exists()) await _journalDamaged.delete();
     // The database first, then the keyring: a keyring without a database
     // then always means the database was lost (see [missingDatabase]).
     _openStore(databaseFile, keys).close();
@@ -392,10 +404,14 @@ final class LedgerVault {
   /// Fills a staging database and [stagedFiles], checks it, then puts
   /// both in place with [keys]' keyring (see [restore]). [beforeSwap]
   /// runs once the copy is checked, before anything here changes.
+  ///
+  /// With [keepOld], the database replaced is set aside as damaged
+  /// ([setAsideDamaged]) rather than let go of.
   Future<void> _replace(
     UnlockedKeyring keys,
     Future<void> Function(EncryptedDatabase staging) fill, {
     void Function()? beforeSwap,
+    bool keepOld = false,
   }) async {
     await directory.create(recursive: true);
     final staging = _staging;
@@ -406,7 +422,9 @@ final class LedgerVault {
       final store = _openStore(staging, keys);
       try {
         await fill(store);
-        if (store.integrityCheck() != 'ok') {
+        // On a worker: a large copy is checked without holding the
+        // screen still.
+        if (await store.workApart(_checked) != 'ok') {
           throw const VaultException(VaultProblem.damagedRestore);
         }
       } finally {
@@ -422,7 +440,11 @@ final class LedgerVault {
       await _pending.writeAsString(keys.keyring.encode(), flush: true);
       beforeSwap?.call();
       committed = true;
-      await _deleteDatabase(databaseFile);
+      if (keepOld) {
+        await setAsideDamaged();
+      } else {
+        await _deleteDatabase(databaseFile);
+      }
       await staging.rename(databaseFile.path);
       // The copy holds records: a database here of no bytes from now on is
       // damage, not a first launch cut short.
@@ -481,18 +503,21 @@ final class LedgerVault {
   /// Makes the database here again from its records alone, closed (D102):
   /// a page found damaged in the journal's tables, which are derived from
   /// the records and posted afresh when missing, costs nothing kept.
-  /// Every record and the book's version are read from it and written
-  /// into a new database, checked and put in its place as a restore is
-  /// ([restore]). Whether it was: false when the records themselves
-  /// cannot be read whole, the database then left exactly as it was.
+  /// Every record and the book's version are read from it on a worker,
+  /// so a large book does not hold the screen still, and written into a
+  /// new database, checked and put in its place as a restore is
+  /// ([restore]). The old file is set aside as damaged
+  /// ([setAsideDamaged]), so it can still be sent for a look; once the
+  /// book made again has opened, the copies are let go of but the newest
+  /// [keptDamagedCopies]. Whether it was made again: false when the
+  /// records themselves cannot be read whole, the database then left
+  /// exactly as it was.
   Future<bool> salvage(UnlockedKeyring keys) async {
-    final List<StoredRow> rows;
-    final int? book;
+    final (List<RowChange>, int?) kept;
     try {
       final old = _openStore(databaseFile, keys);
       try {
-        rows = old.rows();
-        book = old.meta(EncryptedDatabase.bookVersionKey);
+        kept = await old.readApart(_keptOf);
       } finally {
         old.close();
       }
@@ -500,20 +525,40 @@ final class LedgerVault {
       if (error.problem == StorageProblem.damaged) return false;
       rethrow;
     }
+    final (changes, book) = kept;
     await _replace(keys, (staging) async {
-      await staging.writeApart([
-        for (final row in rows) RowChange.put(row.shelf, row.id, row.body),
-      ]);
+      await staging.writeApart(changes);
       if (book != null) {
         staging.write(
-          (w) => w.setMeta(EncryptedDatabase.bookVersionKey, book!),
+          (w) => w.setMeta(EncryptedDatabase.bookVersionKey, book),
           counts: false,
         );
       }
-    });
+    }, keepOld: true);
     if (await _journalDamaged.exists()) await _journalDamaged.delete();
+    _salvagedUnopened = true;
     return true;
   }
+
+  /// A book made again ([salvage]) and not yet opened: once it opens, the
+  /// copies set aside are let go of but the newest few.
+  var _salvagedUnopened = false;
+
+  /// The records of [snapshot] as changes that put them in a new
+  /// database, and the book's version: run on the worker that read them.
+  static Future<(List<RowChange>, int?)> _keptOf(
+    StoreSnapshot snapshot,
+  ) async => (
+    [
+      for (final row in snapshot.rows)
+        RowChange.put(row.shelf, row.id, row.body),
+    ],
+    snapshot.book,
+  );
+
+  /// [ApartStore.integrityCheck], run on the worker.
+  static Future<String> _checked(ApartStore store) async =>
+      store.integrityCheck();
 
   Future<OpenVault> _open(UnlockedKeyring keys) async {
     try {
@@ -525,6 +570,14 @@ final class LedgerVault {
       } on Object {
         store.close();
         rethrow;
+      }
+      if (_salvagedUnopened) {
+        try {
+          await pruneDamagedCopies();
+          _salvagedUnopened = false;
+        } on FileSystemException {
+          // Let go of at the next opening, or the next restore.
+        }
       }
       return OpenVault._(this, keys, store);
     } on StorageUnavailable catch (error) {
@@ -556,6 +609,7 @@ final class LedgerVault {
         StorageKey(keys.databaseKey),
         keyVouched: true,
         written: file.path == databaseFile.path ? _noteRecordsKeptNow : null,
+        writtenFailed: noteFailed,
       );
 
   /// Notes that the database here has held records ([_recordsKept]).

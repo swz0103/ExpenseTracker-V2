@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/book_opening.dart'
+    show marketShelf;
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -225,6 +227,27 @@ void main() {
       expect(data.market().rates['USD'], closeTo(31.835, 1e-9));
     });
 
+    test('a rate doubted is remembered while its currency is off the board, '
+        'as a close is (review 18)', () async {
+      Object? doubtedKept() =>
+          (jsonDecode(store.row(marketShelf, 'rates')!.body)
+              as Map<String, Object?>)['doubted'];
+      final data = await source();
+      expect(await data.refreshRates(), isTrue);
+      // 400 / 31.835 = 12.6 times: doubted, kept to weigh the next by.
+      spot = board('400.00000');
+      now = now.add(const Duration(hours: 1));
+      await data.refreshRates();
+      expect(data.doubtfulRates, ['USD']);
+      expect(doubtedKept(), {'USD': 400.0});
+      // A board without the dollar: its doubt stays.
+      spot = _board().replaceFirst('USD', 'JPY');
+      now = now.add(const Duration(hours: 1));
+      await data.refreshRates();
+      expect(data.doubtfulRates, isEmpty);
+      expect(doubtedKept(), {'USD': 400.0});
+    });
+
     double tsmc(SqlLedgerDataSource data) =>
         data.market().holdings.firstWhere((h) => h.code == '2330').price;
 
@@ -240,9 +263,9 @@ void main() {
         expect(
           await data.refreshQuotes(
             ['2330', '0050'],
-            reshapedAfter: (code, day) {
+            reshapedBy: (code, day) {
               askedAfter = day;
-              return code == '2330';
+              return code == '2330' ? 20 : null;
             },
           ),
           isTrue,
@@ -252,6 +275,22 @@ void main() {
         expect(tsmc(data), 61.73);
       },
     );
+
+    test('a split of one for twenty with a close garbled a hundred times is '
+        'doubted (review 18)', () async {
+      final data = await source();
+      await data.refreshQuotes(['2330', '0050']);
+      // Expected 1,234.50 / 20 = 61.725; 6,173.00 is 100 times that,
+      // though only 5 times the close kept before the split.
+      daily = closes('1150930', '6,173.00');
+      now = now.add(const Duration(days: 1));
+      await data.refreshQuotes([
+        '2330',
+        '0050',
+      ], reshapedBy: (code, _) => code == '2330' ? 20 : null);
+      expect(data.doubtfulCloses, ['2330']);
+      expect(tsmc(data), 1234.5);
+    });
 
     test('D101: a split of one for ten then a 5% fall is taken when fetched '
         'again', () async {

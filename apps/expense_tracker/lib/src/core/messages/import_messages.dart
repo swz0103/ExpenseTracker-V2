@@ -1,5 +1,5 @@
 import 'package:domain/data_exchange.dart'
-    show DayProblem, InvoiceRefusal, earliestImportYear;
+    show DayProblem, InvoiceRefusal, earliestImportYear, homeAmountColumn;
 
 import 'package:ledger_entries/model.dart' show maxDaysAhead;
 
@@ -21,17 +21,13 @@ String invoiceRefusalWords(InvoiceRefusal why) => switch (why) {
 
 /// A row of a foreign account with no rate to value it by and no worth
 /// at home written: the file's own column is named.
-// Exception to glossary: the file format's column, kept so files written before read back.
-const importMissingHomeWords = '還沒有匯率，請在「台幣金額」欄填折合新台幣的金額';
+const importMissingHomeWords = '還沒有匯率，請在「$homeAmountColumn」欄填折合新台幣的金額';
 
 /// A refund's worth at home written not above zero (no [left]), or
 /// larger than what of its purchase's worth is not yet given back
 /// ([left]).
 String refundHomeWords(int? left) => switch (left) {
-  // Exception to glossary: the file format's column, kept so files written before read back.
-  null => '「台幣金額」要大於 0',
-  // Exception to glossary: the file format's column, kept so files written before read back.
-  <= 0 => '原支出的「台幣金額」已經全部退完',
-  // Exception to glossary: the file format's column, kept so files written before read back.
-  _ => '「台幣金額」超過原支出還可退的 ${groupDigits(left)}',
+  null => '「$homeAmountColumn」要大於 0',
+  <= 0 => '原支出的「$homeAmountColumn」已經全部退完',
+  _ => '「$homeAmountColumn」超過原支出還可退的 ${groupDigits(left)}',
 };

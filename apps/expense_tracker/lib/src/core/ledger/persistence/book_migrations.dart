@@ -287,8 +287,14 @@ const _annualFeeTag = '年費';
 const _invoiceTag = '發票';
 
 /// An invoice's number in a note as the scanner and the import wrote it
-/// then: the word, a space, two letters and eight digits.
-final _invoiceNote = RegExp(r'(?:^| )發票 [A-Z]{2}\d{8}(?![A-Za-z0-9])');
+/// then: the word ([_invoiceTag]), a space, two letters and eight digits.
+// Exception to shared words: frozen, the shape of the number as the
+// notes of that time were written (invoices.dart's `invoiceNumberShape`
+// owns it for what the app writes and reads now); a migration step reads
+// old books the same way whatever the app comes to write.
+final _invoiceNote = RegExp(
+  '(?:^| )$_invoiceTag [A-Z]{2}\\d{8}(?![A-Za-z0-9])',
+);
 
 /// The keys an entry names its category under: by id, or by name.
 const _categoryKeys = ['categoryId', 'category'];

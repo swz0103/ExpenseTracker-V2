@@ -150,13 +150,27 @@ final class Startup extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The damage being handled now ([bookDamaged], [journalDamaged]):
+  /// one at a time, a report while it runs waits for it rather than
+  /// closing and making the book again a second time.
+  Future<void>? _damage;
+
+  /// Runs [handle] as the one damage handling, or waits for the one
+  /// running.
+  Future<void> _oneDamage(Future<void> Function() handle) =>
+      _damage ??= handle().whenComplete(() => _damage = null);
+
   /// The open ledger's database was found damaged as the book was read
   /// (D94): it is closed. Where its records can still be read whole, the
   /// damage was in the journal's tables, derived from them: the database
   /// is made again from the records and opens again at once, the journal
   /// posted afresh (D102). Else it is set aside as it is, never written
-  /// over, and the app shows [Damaged].
-  Future<void> bookDamaged(Object error) async {
+  /// over, and the app shows [Damaged]. A report while one is handled
+  /// waits for that one.
+  Future<void> bookDamaged(Object error) =>
+      _oneDamage(() => _handleDamage(error));
+
+  Future<void> _handleDamage(Object error) async {
     final state = _state;
     final keys = state is Ready ? state.vault.keys : null;
     if (state is Ready) state.vault.close();
@@ -170,15 +184,20 @@ final class Startup extends ChangeNotifier {
 
   /// The journal's tables of the open ledger were found damaged (D102):
   /// noted first, so the next opening makes the database again should
-  /// this one not finish, then as [bookDamaged].
-  Future<void> journalDamaged(Object error) async {
-    if (_state is! Ready) return;
-    try {
-      await _vault.noteJournalDamaged();
-    } on Object catch (noted) {
-      ErrorLog.instance.record(ErrorSteps.bookDamaged, noted);
-    }
-    await bookDamaged(error);
+  /// this one not finish, then as [bookDamaged]. Whether the report was
+  /// acted on: false when no book is open (locked meanwhile), so it is to
+  /// be told again once one is.
+  Future<bool> journalDamaged(Object error) async {
+    if (_damage == null && _state is! Ready) return false;
+    await _oneDamage(() async {
+      try {
+        await _vault.noteJournalDamaged();
+      } on Object catch (noted) {
+        ErrorLog.instance.record(ErrorSteps.bookDamaged, noted);
+      }
+      await _handleDamage(error);
+    });
+    return true;
   }
 
   /// Whether the ledger, closed, was made again from its records with

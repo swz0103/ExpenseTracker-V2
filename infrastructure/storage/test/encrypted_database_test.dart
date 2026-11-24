@@ -150,6 +150,51 @@ void main() {
     expect(apart, 1);
   });
 
+  test('a write is kept, never thrown, when what it tells of it throws; '
+      'told again at the next write (review 18)', () async {
+    var tries = 0;
+    final failed = <Object>[];
+    final store = EncryptedDatabase.open(
+      file,
+      key,
+      written: () {
+        tries++;
+        if (tries < 3) throw const FileSystemException('disk full');
+      },
+      writtenFailed: (error, _) => failed.add(error),
+    );
+    opened.add(store);
+    store.write((w) => w.put('entry', 'a', '{}'));
+    expect(store.rows().single.id, 'a');
+    expect(failed, [isA<FileSystemException>()]);
+    await store.writeApart([RowChange.put('entry', 'b', '{}')]);
+    expect(store.count, 2);
+    expect(failed, hasLength(2));
+    // The third telling goes through; none after it.
+    store.write((w) => w.put('entry', 'c', '{}'));
+    store.write((w) => w.put('entry', 'd', '{}'));
+    expect(tries, 3);
+    expect(failed, hasLength(2));
+  });
+
+  test('a write is kept when what it tells of it throws and nobody is told '
+      'of that', () {
+    final store = EncryptedDatabase.open(
+      file,
+      key,
+      written: () => throw const FileSystemException('disk full'),
+    );
+    opened.add(store);
+    store.write((w) => w.put('entry', 'a', '{}'));
+    expect(store.count, 1);
+  });
+
+  test('the integrity check runs on a worker as here', () async {
+    final store = open()..write((w) => w.put('entry', 'a', '{}'));
+    expect(await store.workApart(_integrity), 'ok');
+    store.close();
+  });
+
   test('the page size is set as the file is opened, the one cutShort counts '
       'in', () {
     expect(EncryptedDatabase.pageSize, 4096);
@@ -802,3 +847,6 @@ Future<int> Function(StoreSnapshot) _waitingOn(SendPort send) => (s) async {
 /// The book's version and the layout a read apart found.
 Future<({int? book, int layout})> _versions(StoreSnapshot s) async =>
     (book: s.book, layout: s.layout);
+
+/// The integrity check, run on the worker of a work apart.
+Future<String> _integrity(ApartStore store) async => store.integrityCheck();
