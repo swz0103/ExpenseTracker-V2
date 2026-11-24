@@ -7,6 +7,7 @@ import '../journal/book_mapping.dart';
 import '../journal/old_shapes.dart';
 import '../journal/replay.dart';
 import '../models/models.dart';
+import '../../diagnostics/error_log.dart';
 import 'book_opening.dart';
 import 'write_batch.dart' show Collection;
 
@@ -121,14 +122,15 @@ Future<({DecodedRecords records, bool apart, String? fault})> _decodedInHalves(
   String? fault;
   // Told as text: what was thrown need not be sendable to the screen's
   // isolate, which records it (`SqlLedgerDataSource`).
-  void report(Object error) => fault = '$error';
+  void report(Object error) => fault = ErrorLog.describe(error);
   DecodedRecords rest;
   try {
     rest = await tail;
   } on Object catch (error) {
+    // Only the time saved is lost: told with the book and recorded on
+    // the screen's isolate, the half decoded here; a fault in its rows
+    // themselves throws now as it would have.
     report(error);
-    // Only the time saved is lost: the half is decoded here, and a fault
-    // in its rows themselves throws now as it would have.
     rest = decodeRows(tailRows);
   }
   return (

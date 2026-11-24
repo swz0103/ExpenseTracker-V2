@@ -157,7 +157,7 @@ void main() {
       'opening worker', () async {
     final (read, opened) = await open(decodeApart: _refused);
     expect(read.worked.split, isFalse);
-    expect(read.worked.helperFault, contains('no memory'));
+    expect(read.worked.helperFault, startsWith('IsolateSpawnException: '));
     expectAsWhole(read.book);
     expectPosted(opened);
   });
@@ -166,7 +166,7 @@ void main() {
       'worker', () async {
     final (read, opened) = await open(decodeApart: _failing);
     expect(read.worked.split, isFalse);
-    expect(read.worked.helperFault, 'Bad state: the worker failed');
+    expect(read.worked.helperFault, startsWith('StateError: '));
     expectAsWhole(read.book);
     expectPosted(opened);
   });
