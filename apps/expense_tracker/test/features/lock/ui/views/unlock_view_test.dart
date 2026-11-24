@@ -126,4 +126,31 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  /// The password's dots, in order: true for a filled one, false for a
+  /// hollow one.
+  List<bool> dots(WidgetTester tester) => [
+    for (final c in tester.widgetList<Container>(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Container &&
+            w.constraints ==
+                const BoxConstraints.tightFor(width: 11, height: 11),
+      ),
+    ))
+      (c.decoration! as BoxDecoration).color != null,
+  ];
+
+  testWidgets('nothing typed shows a single hollow dot, not a row (3.2-4)', (
+    tester,
+  ) async {
+    password.clear();
+    await show(tester, view());
+    expect(dots(tester), [false]);
+    // Three letters typed: three filled, then one hollow for the next.
+    password.text = 'abc';
+    addTearDown(password.clear);
+    await tester.pump();
+    expect(dots(tester), [true, true, true, false]);
+  });
 }

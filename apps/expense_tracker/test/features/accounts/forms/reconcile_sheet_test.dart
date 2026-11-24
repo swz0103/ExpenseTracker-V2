@@ -80,4 +80,42 @@ void main() {
     expect(find.text('帳上金額一致，不用調整'), findsOneWidget);
     expect(ledger.entries.length, count0);
   });
+
+  testWidgets('an overdrawn account starts the calculator blank (1.1-6)', (
+    tester,
+  ) async {
+    // Spend 500 more than the account holds, today: its balance is −500.
+    final held = shownBalance(ledger.balanceService, account);
+    ledger.entryCommands.add(
+      Entry(
+        id: ledger.newId(),
+        date: ledger.today,
+        type: EntryType.expense,
+        amount: held + 500,
+        account: account.id,
+        category: '飲食日常',
+      ),
+    );
+    expect(shownBalance(ledger.balanceService, account), -500);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => reconcileAccount(context, ledger, account),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    // Not cleared first: 8 typed is 8, not −5008 or 5008.
+    await tester.tap(find.byKey(Keys.calc('8')));
+    await tester.tap(find.byKey(Keys.calc(Words.done)));
+    await tester.pumpAndSettle();
+    // 8 − (−500) = 508 more than the book.
+    expect(find.textContaining('帳上 -500，實際 8，差 508'), findsOneWidget);
+  });
 }
