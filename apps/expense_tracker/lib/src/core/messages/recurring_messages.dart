@@ -59,6 +59,10 @@ String heldBody(List<HeldBooking> held) => [
 /// The yes of [heldTitle].
 const heldConfirm = '全部入帳';
 
+/// What was booked by itself as the ledger opened or came back.
+String autoBooked(int count) =>
+    '已自動記下 ${countOf(count, CountUnit.entries)}定期交易';
+
 /// What was booked once the person confirmed: 已記下 3 筆定期交易.
 String heldBooked(int count) => '已記下 ${countOf(count, CountUnit.entries)}定期交易';
 

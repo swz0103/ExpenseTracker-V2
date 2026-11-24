@@ -188,7 +188,7 @@ Entry _entryOf(Map<String, Object?> json, CategoryRefs? refs, EntryType type) =>
       type: type,
       amount: _int(json['amount']),
       account: _need(json, 'account'),
-      category: keptCategory(type, _refName(json, 'category', refs) ?? ''),
+      category: _refName(json, 'category', refs) ?? '',
       note: _text(json, 'note') ?? '',
       to: _text(json, 'to'),
       holding: _text(json, 'holding'),

@@ -210,6 +210,13 @@ final class EntryQueryService {
       if (e.holding == code) e,
   ]..sort(newestFirst(_entries));
 
+  /// The spending [refund] gives back, while the book holds it; null for
+  /// an entry that is not a refund, or none.
+  Entry? originalOf(Entry? refund) => switch (refund?.refundOf) {
+    final String id => _entries.byId(id),
+    null => null,
+  };
+
   /// How much of [original] has been refunded.
   int refunded(Entry original) => original.amount - refundable(original);
 

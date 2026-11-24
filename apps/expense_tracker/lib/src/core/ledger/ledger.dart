@@ -133,7 +133,9 @@ final class Ledger extends ChangeNotifier {
       _holdings.replay(_entries.all, today: today, lenient: true);
     }
     for (final t in trash) {
-      if (t.order case final order?) _entries.reserve(order);
+      if (t.order case final order?) {
+        _entries.reserve(order, id: t.entry.id);
+      }
     }
     amounts.addListener(_signal);
     final source = dataSource;

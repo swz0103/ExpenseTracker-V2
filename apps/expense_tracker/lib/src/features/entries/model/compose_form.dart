@@ -57,7 +57,7 @@ final class ComposeForm {
     this.draft,
     Entry? refunded,
     this.brokerDiscount = defaultBrokerDiscount,
-  }) : refunded = refunded ?? _refundedBy(ledger, draft) {
+  }) : refunded = refunded ?? ledger.entryQueryService.originalOf(draft) {
     mode = ComposeMode.of(type);
     trade = type.index >= EntryType.buy.index ? type : EntryType.buy;
     fresh();
@@ -89,13 +89,6 @@ final class ComposeForm {
   /// The spending being refunded, for a refund: given, or named by the
   /// draft or the form put aside it starts from (D79).
   Entry? refunded;
-
-  /// The spending [draft] refunds, while the book still holds it.
-  static Entry? _refundedBy(Ledger ledger, Entry? draft) =>
-      switch (draft?.refundOf) {
-        final String id => ledger.entries.byId(id),
-        null => null,
-      };
 
   /// The phone-wide broker's discount, in basis points of the full fee:
   /// the preference 券商手續費折扣, for a trade's account without its own.
@@ -368,8 +361,7 @@ final class ComposeForm {
   /// Brings back a form put aside: [entry] with its receipt photo, on
   /// accounts still open; when none is open, its own accounts stay.
   void restore(Entry entry, String? photo) {
-    // A refund put aside is taken up as a refund of the same purchase.
-    refunded = _refundedBy(ledger, entry) ?? refunded;
+    refunded = ledger.entryQueryService.originalOf(entry) ?? refunded;
     load(entry);
     findLending(entry);
     if (entry.isInvestment) trade = entry.type;

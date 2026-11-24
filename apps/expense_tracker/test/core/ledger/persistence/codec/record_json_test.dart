@@ -2,6 +2,7 @@ import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/codec/record_json.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/record_version.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Every record the data source keeps reads back as it was written.
@@ -183,15 +184,20 @@ void main() {
 
   test('D80: a transfer kept with no category reads under 轉帳; a '
       'recurring item reads back with the day 恢復 brought back', () {
-    final read = entryFromJson({
+    final kept = <String, Object?>{
       'id': 't',
       'date': '2026-10-01',
       'type': 'transfer',
       'amount': 100,
       'account': 'bank',
       'to': 'cash',
-    });
-    expect(read.category, '轉帳');
+    };
+    expect(entryFromJson(upgradeRecord('entry', kept)).category, '轉帳');
+    final trashed = upgradeRecord('trash', {'on': '2026-10-02', 'entry': kept});
+    expect(trashedFromJson(trashed).entry.category, '轉帳');
+    // Spending with no category, and a row already with one, as they are.
+    final spend = {...kept, 'type': 'expense'};
+    expect(identical(upgradeRecord('entry', spend), spend), isTrue);
     final item = Recurring(
       id: 'r',
       name: 'r',

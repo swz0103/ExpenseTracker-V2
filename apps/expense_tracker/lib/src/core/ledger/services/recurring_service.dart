@@ -72,7 +72,7 @@ final class RecurringService {
   /// to the month after the later of its latest booking and today, each
   /// taken by one booking at most. A booking dated on one of them takes
   /// it; then the rest, in order, each the earliest left in its own month,
-  /// else the nearest left, none after today or the booking's own day
+  /// else the nearest left, none still to come in another month
   /// (LOG-09: a booking moved to the day before still settles its own
   /// period). A booking with none left settles nothing.
   Map<String, DateTime> settled(Recurring item) => _cache.remember(
@@ -107,12 +107,15 @@ final class RecurringService {
       }
     }
     for (final e in left) {
-      // Never a day still to come that the booking is not dated on or
-      // after: a second booking of a day does not settle next month's.
+      // A day of its own month, paid early or late; else never one still
+      // to come after the booking's own day: a second booking of a day
+      // does not settle next month's.
       final last = e.date.isAfter(_today()) ? e.date : _today();
       final day = nearestDay(e.date, [
         for (final d in open)
-          if (!d.isAfter(last)) d,
+          if (!d.isAfter(last) ||
+              (d.year == e.date.year && d.month == e.date.month))
+            d,
       ]);
       if (day == null) continue;
       open.remove(day);

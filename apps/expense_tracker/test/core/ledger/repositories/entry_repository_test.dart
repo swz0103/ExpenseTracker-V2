@@ -537,7 +537,8 @@ void main() {
 
     test('D75: a place held in the trash is never given to a new entry', () {
       final entries = EntryRepository([_entry('a', _day(10, 1))]);
-      entries.reserve(7);
+      entries.reserve(7, id: 'trashed');
+      expect(entries.orderOf('trashed'), 7);
       entries.add(_entry('b', _day(10, 1)));
       expect(entries.orderOf('b'), 8);
       final copy = EntryRepository()..replaceWith(entries);

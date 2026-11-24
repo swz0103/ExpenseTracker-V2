@@ -1,3 +1,7 @@
+// Exception to file length: every write of the entries and every way back
+// (undo, the trash) share one bookkeeping of what a refusal undoes and of
+// the recurring days a deletion lets go; split, each half would need the
+// other's.
 import 'package:core/constants/retention.dart';
 import 'package:ledger_entries/rules.dart'
     show EntryDeleted, RecordIssue, SaleExceedsHolding;
@@ -20,6 +24,9 @@ import '../services/entry_validator.dart';
 import '../services/recurring_service.dart';
 import 'command_context.dart';
 import 'command_exceptions.dart';
+import 'restore_hold.dart';
+
+export 'restore_hold.dart';
 
 /// Writes the entries: adding, changing, removing and bringing them back,
 /// one at a time, as a group or many at once; each change is kept as one
@@ -672,31 +679,4 @@ final class EntryCommands {
       return false;
     }
   }
-}
-
-/// What stands in the way of putting an entry back from the trash as it
-/// is (D78), for the person to decide.
-sealed class RestoreHold {
-  const RestoreHold();
-}
-
-/// It names accounts closed (archived) since it was deleted.
-final class ClosedAccounts extends RestoreHold {
-  const ClosedAccounts(this.accounts);
-
-  final List<Account> accounts;
-}
-
-/// A refund whose purchase is in the trash too: they may come back
-/// together.
-final class OriginalInTrash extends RestoreHold {
-  const OriginalInTrash(this.original);
-
-  final Trashed original;
-}
-
-/// A refund whose purchase is gone for good: it would come back refunding
-/// nothing the book has.
-final class OriginalGone extends RestoreHold {
-  const OriginalGone();
 }

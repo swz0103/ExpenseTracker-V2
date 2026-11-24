@@ -93,9 +93,11 @@ final class EntryRepository implements EntryReader {
   int orderOf(String id) => _order[id] ?? _next;
 
   /// Notes that [place] is taken, as by an entry in the trash, so no entry
-  /// written later is put before it.
-  void reserve(int place) {
+  /// written later is put before it; with [id], that it is that entry's,
+  /// for it to come back to.
+  void reserve(int place, {String? id}) {
     if (place >= _next) _next = place + 1;
+    if (id != null) _order.putIfAbsent(id, () => place);
   }
 
   /// Puts [entry] back in its place [place] in the order written (D75):
