@@ -36,6 +36,8 @@ class PlanSection extends StatelessWidget {
         Topic.budgets,
         Topic.recurring,
         Topic.entries,
+        // 即將扣款 reads the account's currency.
+        Topic.accounts,
       }),
       builder: (context, _) => CardRow([_budgetTile(), _dueTile()]),
     );

@@ -55,7 +55,9 @@ final class TrashRepository implements TrashReader {
     for (final (i, t) in _items.indexed) {
       final next = change(t.entry);
       if (next != null) {
-        changed.add(_items[i] = Trashed(next, t.on, order: t.order));
+        changed.add(
+          _items[i] = Trashed(next, t.on, order: t.order, letGo: t.letGo),
+        );
       }
     }
     return changed;

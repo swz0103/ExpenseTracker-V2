@@ -296,6 +296,7 @@ Recurring recurringFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
 Map<String, Object?> trashedToJson(Trashed t, [CategoryRefs? refs]) => {
   'on': _day(t.on),
   'entry': entryToJson(t.entry, refs),
+  if (t.letGo case final day?) 'letGo': _day(day),
 };
 
 Trashed trashedFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
@@ -303,6 +304,10 @@ Trashed trashedFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
       () => Trashed(
         entryFromJson(_needObject(json, 'entry'), refs),
         _date(_need(json, 'on')),
+        letGo: switch (json['letGo']) {
+          final String day => _date(day),
+          _ => null,
+        },
       ),
     );
 

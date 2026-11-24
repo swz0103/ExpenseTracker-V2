@@ -3,6 +3,7 @@ import 'package:expense_tracker/src/core/ledger/services/recurring_service.dart'
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../support/book.dart';
+import '../../../support/fuzz/recurring_fuzz.dart';
 
 const _rent = Recurring(
   id: 'rent',
@@ -23,6 +24,8 @@ const _phone = Recurring(
 );
 
 void main() {
+  recurringFuzz();
+
   test('a day that came and was not booked is due', () {
     final book = Book(recurring: [_rent, _phone]);
     expect(book.recurringService.pendingDate(_rent), DateTime.utc(2026, 10, 1));

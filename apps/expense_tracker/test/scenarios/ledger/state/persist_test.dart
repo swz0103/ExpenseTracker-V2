@@ -562,7 +562,7 @@ void main() {
     final cash = l.account('cash');
     l.accountCommands.updateAccount(cash.copyWith(archived: true));
     final trashedE = l.trash.all.firstWhere((t) => t.entry.id == e.id);
-    expect(l.entryCommands.holdOf(trashedE), isA<ClosedAccounts>());
+    expect(l.entryCommands.holdsOf(trashedE), [isA<ClosedAccounts>()]);
     // Not put back onto the closed account unasked.
     expect(l.entryCommands.restoreTrashed(trashedE), isFalse);
     expect(l.entries.byId(e.id), isNull);
@@ -609,7 +609,7 @@ void main() {
       final trashedRefund = l.trash.all.firstWhere(
         (t) => t.entry.id == refund.id,
       );
-      expect(l.entryCommands.holdOf(trashedRefund), isA<OriginalInTrash>());
+      expect(l.entryCommands.holdsOf(trashedRefund), [isA<OriginalInTrash>()]);
       expect(l.entryCommands.restoreTrashed(trashedRefund), isFalse);
       final back = l.entryCommands.restoreTrashed(
         trashedRefund,
