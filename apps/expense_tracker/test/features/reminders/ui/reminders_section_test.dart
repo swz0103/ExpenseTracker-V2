@@ -135,7 +135,7 @@ void main() {
     phone.testFails = true;
     await put(tester);
     await go(tester, ['試一則']);
-    expect(find.textContaining('無法傳送測試通知：'), findsOneWidget);
+    expect(find.text('無法傳送測試通知，可在診斷匯出詳細資料'), findsOneWidget);
   });
 
   testWidgets('with notifications off on the phone, the strip says so and '

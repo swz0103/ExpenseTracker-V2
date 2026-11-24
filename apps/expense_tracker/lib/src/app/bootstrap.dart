@@ -328,6 +328,8 @@ class _OpenedLedgerState extends State<OpenedLedger>
         openingReportName,
         openingReport(
           rows: rows,
+          // Exception to error words: into the exported diagnostics file,
+          // not onto the screen.
           failure: failure == null ? null : ErrorLog.describe(failure),
           log: ErrorLog.instance.text,
         ),

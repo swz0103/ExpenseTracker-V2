@@ -11,6 +11,8 @@ import '../../../core/design_system/dialogs.dart';
 import '../../../core/messages/key_failures.dart';
 import '../../../core/messages/key_messages.dart';
 import '../../../core/messages/lock_messages.dart';
+import '../../../core/messages/problem_messages.dart';
+import '../../backup/ui/drive_note.dart';
 import '../model/unlock_countdown.dart';
 import 'views/backup_choosers.dart';
 import 'views/lock_parts.dart';
@@ -220,7 +222,7 @@ class _LockScreenState extends State<LockScreen> {
       await widget.startup.openQuietly();
     } on Object catch (error) {
       ErrorLog.instance.record('打開帳本', error);
-      _fail('無法打開帳本（${ErrorLog.describe(error)}）');
+      _fail(problemNote(LockWords.notOpened, error));
     }
   }
 
@@ -234,7 +236,7 @@ class _LockScreenState extends State<LockScreen> {
       await widget.startup.setUpWithoutPassword();
     } on Object catch (error) {
       ErrorLog.instance.record('建立帳本', error);
-      _fail('無法建立帳本（${ErrorLog.describe(error)}）');
+      _fail(problemNote(LockWords.notCreated, error));
     }
   }
 
@@ -309,7 +311,7 @@ class _LockScreenState extends State<LockScreen> {
       if (said == null) {
         ErrorLog.instance.record(KeyWords.unforeseenHeading, error);
       }
-      _fail(said ?? KeyWords.unforeseen(ErrorLog.describe(error)));
+      _fail(said ?? problemNote(LockWords.notOpened, error));
       // A wrong one may have started a wait, and one not tried for the
       // wait says so: shown from here on, counting down.
       await _countdown.refresh();
@@ -394,12 +396,11 @@ class _LockScreenState extends State<LockScreen> {
       });
       await _describe(into.path);
     } on DriveException catch (error) {
-      // Its own message is said to the person.
       ErrorLog.instance.record(ErrorSteps.backupDownload, error);
-      _fail(error.message);
+      _fail(driveNote(error));
     } on Object catch (error) {
       ErrorLog.instance.record(ErrorSteps.backupDownload, error);
-      _fail('無法下載備份（${ErrorLog.describe(error)}）');
+      _fail(problemNote(LockWords.notDownloaded, error));
     }
   }
 

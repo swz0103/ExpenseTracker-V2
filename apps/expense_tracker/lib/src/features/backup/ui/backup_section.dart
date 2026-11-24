@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../design_system/display/amount.dart';
 import '../model/drive_backup.dart';
+import 'drive_note.dart';
 import '../model/drive_sync.dart';
 import '../model/backup_manager.dart';
 import '../model/phone_backup.dart';
@@ -37,7 +38,7 @@ Future<void> restoreFromBackup(
   } on Object catch (error) {
     ErrorLog.instance.record('還原', error);
     if (context.mounted) {
-      showNote(context, '沒有開始還原：${describeProblem(error)}');
+      showNote(context, problemNote('沒有開始還原', error));
     }
   }
 }
@@ -96,7 +97,7 @@ class _BackupSectionState extends State<BackupSection> {
       if (saved) setState(() {});
     } on Object catch (error) {
       ErrorLog.instance.record('匯出備份', error);
-      if (mounted) showNote(context, '匯出失敗：${describeProblem(error)}');
+      if (mounted) showNote(context, problemNote('匯出失敗', error));
     }
   }
 
@@ -117,11 +118,11 @@ class _BackupSectionState extends State<BackupSection> {
           ? '已把帳本備份到 Google 雲端硬碟，之後有變動就每天一次'
           : '沒有連結 Google 雲端硬碟';
     } on DriveException catch (error) {
-      // Its own message is said to the person.
-      note = error.message;
+      ErrorLog.instance.record('備份', error);
+      note = driveNote(error);
     } on Object catch (error) {
       ErrorLog.instance.record('備份', error);
-      note = '備份失敗：${describeProblem(error)}';
+      note = problemNote('備份失敗', error);
     }
     // The code changed even when the backup did not go up: shown anyway.
     if (code != null && mounted) {
@@ -137,11 +138,11 @@ class _BackupSectionState extends State<BackupSection> {
       await drive.setPhotos(on);
       if (mounted && on) showNote(context, '已連同收據照片備份到雲端硬碟');
     } on DriveException catch (error) {
-      // Its own message is said to the person.
-      if (mounted) showNote(context, error.message);
+      ErrorLog.instance.record('備份', error);
+      if (mounted) showNote(context, driveNote(error));
     } on Object catch (error) {
       ErrorLog.instance.record('備份', error);
-      if (mounted) showNote(context, '備份失敗：${describeProblem(error)}');
+      if (mounted) showNote(context, problemNote('備份失敗', error));
     }
   }
 
@@ -178,7 +179,7 @@ class _BackupSectionState extends State<BackupSection> {
         );
       } on Object catch (error) {
         ErrorLog.instance.record('手機資料夾備份', error);
-        note = '沒有備份到手機資料夾：${describeProblem(error)}';
+        note = problemNote('沒有備份到手機資料夾', error);
         go = false;
       }
       if (mounted && note != null) showNote(context, note);

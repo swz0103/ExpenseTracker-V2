@@ -144,6 +144,8 @@ final class PhoneBackup extends ChangeNotifier {
       return true;
     } on Object catch (error) {
       ErrorLog.instance.record('手機資料夾備份', error);
+      // Exception to error words: kept for the log; the screen says only
+      // that the last backup did not work (上次沒有成功).
       _problem = ErrorLog.describe(error);
       notifyListeners();
       return false;

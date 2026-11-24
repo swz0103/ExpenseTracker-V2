@@ -27,6 +27,7 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 import '../../../core/messages/planned_messages.dart';
+import '../../../core/messages/problem_messages.dart';
 
 part 'reports_page_state.dart';
 

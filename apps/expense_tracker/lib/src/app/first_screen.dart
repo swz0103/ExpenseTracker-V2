@@ -90,18 +90,17 @@ Future<Widget> firstScreen(
   return app;
 }
 
-/// The failure page of [error], already kept in the error log.
+/// The failure page of [error], already kept in the error log, where
+/// the copied diagnostics carry it.
 Widget _failed(Object error, VoidCallback retry) =>
-    StartFailedApp(what: ErrorLog.describe(error), retry: retry);
+    StartFailedApp(retry: retry);
 
 /// The whole app when it could not start: what happened, try again, or
 /// copy the diagnostics to report it. No backup can be restored from
 /// here: without the app's folder there is nowhere to restore it to.
 class StartFailedApp extends StatefulWidget {
-  const StartFailedApp({super.key, required this.what, required this.retry});
+  const StartFailedApp({super.key, required this.retry});
 
-  /// What failed, already cleaned of what the person wrote.
-  final String what;
   final VoidCallback retry;
 
   @override
@@ -135,7 +134,7 @@ class _StartFailedAppState extends State<StartFailedApp> {
     theme: appTheme(),
     home: LoadFailedPage(
       title: startFailedTitle,
-      body: startFailedBody(widget.what),
+      body: startFailedBody,
       exportLabel: startFailedCopy,
       onRetry: widget.retry,
       onRestore: null,

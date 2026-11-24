@@ -3,6 +3,16 @@ import '../platform/preferences.dart' show AutoLock;
 /// The words of the lock: the wait after wrong passwords, the fingerprint,
 /// auto-lock and hiding the screens.
 abstract final class LockWords {
+  /// The book could not be opened, for a reason not the person's
+  /// (problemNote adds where its details are).
+  static const notOpened = '無法打開帳本';
+
+  /// A new book could not be made.
+  static const notCreated = '無法建立帳本';
+
+  /// The backup chosen could not be downloaded.
+  static const notDownloaded = '無法下載備份';
+
   /// What the lock screen says while a wait after wrong tries is on, the
   /// time left counted down: 輸入錯誤太多次，請等 4 分 30 秒再試.
   static String waitFor(Duration wait) => '輸入錯誤太多次，請等 ${span(wait)}再試';
