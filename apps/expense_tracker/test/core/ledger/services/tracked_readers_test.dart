@@ -126,7 +126,7 @@ void main() {
       'sharesOn': (r) => r.sharesOn('2330', day),
       'inTodaysShares': (r) => r.inTodaysShares('2330', day, 10),
       'everByCode': (r) => r.everByCode('2330')?.shares,
-      'reshapedAfter': (r) => r.reshapedAfter('2330', day),
+      'reshapedBy': (r) => r.reshapedBy('2330', day),
       'holdsWith': (r) => r.holdsWith([buy]),
       'marketValue': (r) => r.marketValue,
       'costBasis': (r) => r.costBasis,

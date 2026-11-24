@@ -57,9 +57,10 @@ void main() {
     expect(p.inTodaysShares('2330', DateTime.utc(2026, 9, 10), 20000), 20000);
     expect(p.sharesOn('2330', DateTime.utc(2026, 9, 5)), 20000);
     // D101: a close kept before the split may be far from the next.
-    expect(p.reshapedAfter('2330', DateTime.utc(2026, 9, 9)), isTrue);
-    expect(p.reshapedAfter('2330', DateTime.utc(2026, 9, 10)), isFalse);
-    expect(p.reshapedAfter('2330', null), isTrue);
-    expect(p.reshapedAfter('0050', null), isFalse);
+    // 1:20, shares 1,000 to 20,000: multiplied by 20,000 / 1,000 = 20.
+    expect(p.reshapedBy('2330', DateTime.utc(2026, 9, 9)), 20);
+    expect(p.reshapedBy('2330', DateTime.utc(2026, 9, 10)), isNull);
+    expect(p.reshapedBy('2330', null), 20);
+    expect(p.reshapedBy('0050', null), isNull);
   });
 }
