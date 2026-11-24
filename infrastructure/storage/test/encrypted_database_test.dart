@@ -156,7 +156,7 @@ void main() {
     final store = open()..write((w) => w.put('entry', 'a', 'x' * 9000));
     store.close();
     final database = raw();
-    addTearDown(database.dispose);
+    addTearDown(database.close);
     expect(
       database.select('PRAGMA cipher_page_size').single.values.single,
       '4096',
