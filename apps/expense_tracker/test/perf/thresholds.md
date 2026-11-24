@@ -154,12 +154,17 @@ test JIT, not pinned; each figure the least of three openings:
 
 After review 23's merge, with the host at load 0.6 for a moment (one-
 minute 3.3–6 while the gate ran): worker least 1,290 / 1,758 / 1,563 ms,
-outside share 0.026–0.029. The worker's time is not judged on the
-clean samples of `HostWitness` (held.dart) as the share gates are: the
-opening's own threads (its worker, the second one, the collector) make
-the host's PSI 17–37% of the opening even at load 0.6, so every opening
-read as contended and the limit was never judged. It stays the least of
-three, against a limit about twice the least measured.
+outside share 0.026–0.029. The opening's own threads (its worker, the
+second one, the collector) make the host's PSI 17–37% of the opening
+even at load 0.6, so a witness reading PSI across the opening marked
+every one contended. Since review 28 the witness reads PSI in two quiet
+windows of 150 ms beside each sample instead (held.dart, `timeHeld`), so
+the work's own threads are not counted and another program's load
+still is; the PSI across the sample is printed as `psi during`. The
+gate's three figures (held share, outside share, the worker's time) are
+then each the median of the clean openings (`mediansOf`, five, up to
+nine when half were contended), INCONCLUSIVE when fewer than three are
+clean, like the share gates. The limits are unchanged.
 
 At this load the worker's time with and without the second worker
 overlaps (as review 24 found), so the split is gated by what it leaves,
@@ -235,7 +240,8 @@ judged").
 | measured | limit |
 |---|---|
 | 20,000 entries, before review 23 (least of three, full runs): 0.042 pass, 0.056 fail; no quiet figure was ever taken, the limit was copied from the batch writes | 0.045 |
-| 50,000 entries, no quiet run yet: the host stayed at load 5.7–12 on four cores, every sample's PSI 4.6–76% (2026-11-24, six runs of nine pairs, every pair contended, not a basis). Ratios 0.007–0.096; the median of each run's nine 0.014, 0.017, 0.018, 0.019, 0.019, 0.022; at once held 1,519–2,425 ms, apart 17–150 ms | 0.045 |
+| 50,000 entries, one quiet run: the CI runner (ubuntu-26.04, PSI ≤ 1.0%, steal 0, load per core 0.4, 2026-11-24), five clean pairs: ratios 0.010–0.011, median 0.011; at once held 1,163–1,276 ms, apart 11–14 ms | 0.045 |
+| 50,000 entries, not quiet: the host stayed at load 5.7–12 on four cores, every sample's PSI 4.6–76% (2026-11-24, six runs of nine pairs, every pair contended, not a basis). Ratios 0.007–0.096; the median of each run's nine 0.014, 0.017, 0.018, 0.019, 0.019, 0.022; at once held 1,519–2,425 ms, apart 17–150 ms | 0.045 |
 
 The book went from 20,000 to 50,000 entries (review 23): posting at once
 grows with the book, the hold apart (one slice of the work, a hand-over)
@@ -250,7 +256,13 @@ CI and `tooling/run-host-checks.ps1` run the rest of the app's suite at
 the default concurrency with coverage, then
 `flutter test --tags timing --concurrency=1` without coverage (coverage
 slows the code measured and distorts the ratios). A plain `flutter test`
-still runs them all.
+still runs them all. So that the coverage CI reads (by declaration and
+the app's line floor) misses nothing, what only these files reached has
+a test of its own in the ordinary suite (review 27): the journal posted
+here a chunk at a time (`journal_keeper_test`), a large book opened on
+two workers (`journal_rebuild_test`), a long CSV read on a worker and
+the import's apart/at-once agreement (`import_export_test`), and the
+records page's search (`entries_page_test`).
 
 A share gate (`journal_rebuild_block`, `batch_write_block`,
 `import_block`, `backup_read_block`, `parity_held`) is judged in
@@ -260,11 +272,14 @@ A share gate (`journal_rebuild_block`, `batch_write_block`,
   in µs, settled 20 ms before and after.
 - **A witness of the host around each sample.** On Linux the PSI `some`
   total of `/proc/pressure/cpu` (time some runnable task waited for a
-  core) and the steal ticks of `/proc/stat`; elsewhere a fixed loop of
-  about 3 ms timed before and after, against the fastest seen. A sample
-  is contended past 5% PSI of its wall time, 1% steal, or a loop 1.5
-  times its fastest. The one-minute load per core is printed, not
-  judged.
+  core), read in two quiet windows of 150 ms just before and just after
+  the sample with this isolate idle (the work's own workers and
+  collector make tasks wait even on an idle host, review 28), and the
+  steal ticks of `/proc/stat` across the whole span; elsewhere a fixed
+  loop of about 3 ms timed in the same windows, against the fastest
+  seen. A sample is contended past 5% PSI of a window, 1% steal, or a
+  loop 1.5 times its fastest. The PSI across the sample (`psi during`)
+  and the one-minute load per core are printed, not judged.
 - **Interleaved pairs**: apart, then at once, five times; each ratio from
   two runs a moment apart, so a slow drift of the host's load falls on
   both. A pair either of whose samples is contended is dropped.
@@ -286,12 +301,35 @@ basis for a limit; the quiet figures below were taken with PSI under
 5% throughout.
 
 Five quiet runs of the journal gate were to set its limit at about twice
-the worst (never above 0.045). None could be taken on 2026-11-24: the
-development host stayed at load 5.7–12 on four cores, and the witness
-marked every one of 99 pairs across the share gates contended. The limit
-stays 0.045 until five quiet runs exist; the figures under load (table
-above) suggest the quiet share at 50,000 entries is well under it. The
-same day, under that load (every pair contended, not a basis):
+the worst (never above 0.045). One exists, on the CI runner (above:
+worst 0.011, twice 0.022); none could be taken on the development host on
+2026-11-24 (load 3–14 on four cores, PSI 1–90% per sample; it was quiet
+for a few minutes only, while another run shared it). The limit stays
+0.045 until five quiet runs exist.
+
+The CI runner's first run of these gates (quiet: every sample's PSI
+0.0–1.0%, steal 0.0%), five clean pairs each:
+
+| gate | ratios | apart held | at once held |
+|---|---|---|---|
+| `journal_rebuild_block` | 0.010–0.011 | 11–14 ms | 1,163–1,276 ms |
+| `batch_write_block` | 0.016–0.036 | 10–23 ms | 646–683 ms |
+| `backup_read_block` | 0.023–0.046 | 6–12 ms | 257–278 ms |
+| `parity_held` | 0.450–0.568 (limit 0.6) | 68–113 ms (limit 220) | 146–200 ms |
+| `import_block` | 0.010–0.112, failed at a median of 0.058 | 17, 53, 94, 166, 184 ms | 1,478–1,741 ms |
+
+The import's apart hold grew pair by pair because `shareOf` kept what
+each run made: an import's 100,000 entries per sample piled up on the
+screen's isolate (on this host RSS 261 → 1,220 MB over nine pairs), and
+each later sample paid for collecting a larger heap. Only the figures are
+kept now (RSS 255 → 281 MB over nine pairs), and each sample prints the
+process's RSS, so a growth is seen. The first sliced parity run (113 ms)
+was charged for compiling; the gate warms up both sides now, as the
+others do. `parity_held` has the least room of the share gates on a
+quiet runner (median 0.466 against 0.6).
+
+On the development host the same day, under load (every pair contended,
+not a basis):
 
 | gate | ratios of nine pairs | apart held |
 |---|---|---|
@@ -315,6 +353,15 @@ judged"), with the shared timer in µs (the gate's own ms timer is gone).
 | measured (5 runs, Linux host, 2026-11-23) | limit |
 |---|---|
 | at once: held 772–945 ms; apart: held 14–19 ms, 1,023–1,238 ms in all; share 0.016–0.021 | 0.045 (about 2× the worst share) |
+
+On CI (quiet runners, five clean pairs each): 0.016–0.036, median 0.020
+(at once 646–683 ms, apart 10–23 ms); at 2dbf821 0.032–0.043, median 0.040
+(at once 419–439 ms, apart 14–18 ms). The pairs are flat (no growth
+from pair to pair, unlike the import's before review 28): what moved is
+the denominator, the write at once being quicker on that runner, while
+the apart hold, most of it the in-memory rename below, stays about 15 ms.
+Not a measurement artifact; the room under 0.045 is thin on a fast
+runner (an open decision, see the report of FIX-R23).
 
 What is left held includes the rename of the screens' own copy of the book
 in memory, which is not the store's. Written apart, the rename takes about

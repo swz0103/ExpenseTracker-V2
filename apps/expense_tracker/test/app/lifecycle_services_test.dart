@@ -106,6 +106,22 @@ void main() {
     s.dispose();
   });
 
+  test('what each return to the app starts leaves nothing kept once it '
+      'ends (review 27)', () async {
+    final s = services();
+    await s.start(await s.dataSource.load());
+    await s.settled;
+    expect(s.running, 0);
+    for (var i = 0; i < 5; i++) {
+      s.resumed();
+    }
+    // Each return: the look for a newer version and the phone's folder.
+    expect(s.running, 10);
+    await s.settled;
+    expect(s.running, 0);
+    s.dispose();
+  });
+
   test('closing prices are asked for on start, not again on coming back '
       'right away', () async {
     final s = services();

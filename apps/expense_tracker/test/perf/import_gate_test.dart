@@ -46,28 +46,4 @@ void main() {
     );
     expectShare(result, 'import_block');
   }, timeout: const Timeout(Duration(minutes: 10)));
-
-  test('apart and at once read the same', () async {
-    const small = '日期,類型,金額,帳戶,分類\n2026-10-01,支出,5,現金,飲食\nbad,支出,5,現金,x\n';
-    final apart = await importCsvApart(
-      importBookOf(demoLedger()),
-      small,
-      fallback: 'cash',
-    );
-    final once = importCsv(importBookOf(demoLedger()), small, fallback: 'cash');
-    expect(apart.entries.map((e) => (e.date, e.amount, e.category)), [
-      (DateTime.utc(2026, 10, 1), 5, '飲食'),
-    ]);
-    expect(once.entries.map((e) => (e.date, e.amount, e.category)), [
-      (DateTime.utc(2026, 10, 1), 5, '飲食'),
-    ]);
-    expect(apart.problems, ['第 3 行：日期看不懂']);
-    expect(once.problems, apart.problems);
-    final open = await importCsvApart(
-      importBookOf(demoLedger()),
-      '日期,金額\n2026-10-01,"5\n',
-      fallback: 'cash',
-    );
-    expect(open.problems, ['第 2 行的引號看不懂，整個檔案沒有匯入']);
-  });
 }

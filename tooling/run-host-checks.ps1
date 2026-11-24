@@ -47,6 +47,10 @@ function Invoke-CheckCommand {
     }
 }
 
+# Packages whose timing gates could not be judged here (the host too busy):
+# skipped, not passed, and named in the last line.
+$inconclusive = @()
+
 # Sequential execution avoids native worker/DLL locks on Windows.
 foreach ($check in $selected) {
     Write-Host "Checking $($check.Path)"
@@ -101,10 +105,22 @@ foreach ($check in $selected) {
             # (which slows code and distorts the ratios they judge); on a
             # host too busy to judge they fail under CI, saying so, and are
             # skipped loudly elsewhere (test/support/held.dart).
-            Invoke-CheckCommand $driver @('test', '--reporter', 'expanded', '--tags', 'timing', '--concurrency=1')
+            $timingArguments = @('test', '--reporter', 'expanded', '--tags', 'timing', '--concurrency=1')
+            # Shown as it runs, and kept to look for INCONCLUSIVE after.
+            $timingOutput = @(& $driver @timingArguments | ForEach-Object { Write-Host $_; "$_" })
+            if ($LASTEXITCODE -ne 0) {
+                throw "$driver $($timingArguments -join ' ') failed with exit code $LASTEXITCODE."
+            }
+            if (@($timingOutput | Where-Object { $_ -match 'INCONCLUSIVE' }).Count -gt 0) {
+                $inconclusive += $check.Path
+            }
         }
     } finally {
         Pop-Location
     }
 }
-Write-Host "Passed all selected host checks ($($selected.Count) packages). Device and cloud gates are separate."
+if ($inconclusive.Count -gt 0) {
+    Write-Host "INCONCLUSIVE: the timing gates of $($inconclusive -join ', ') were skipped, the host too busy to judge them; every other selected host check passed ($($selected.Count) packages). Run them again on a quiet machine: flutter test --tags timing --concurrency=1"
+} else {
+    Write-Host "Passed all selected host checks ($($selected.Count) packages). Device and cloud gates are separate."
+}

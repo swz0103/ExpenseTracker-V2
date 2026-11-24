@@ -79,6 +79,11 @@ void main() {
       });
     }
 
+    // Warm up both, so neither is charged for compiling (the first sliced
+    // run on CI held 113 ms, the next four 68–75).
+    await run(sliced: true);
+    await run(sliced: false);
+    pausesTaken = 0;
     final result = await shareOf(
       apart: () => run(sliced: true),
       whole: () => run(sliced: false),

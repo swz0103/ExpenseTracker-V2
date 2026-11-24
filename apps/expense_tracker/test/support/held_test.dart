@@ -62,6 +62,90 @@ void main() {
     expect(quiet.contended, isFalse);
   });
 
+  test('PSI is judged in the quiet windows beside a sample, not across '
+      'the work, whose own threads add to it; steal across the whole', () {
+    const quiet = Contention(wallUs: 150000, psiShare: 0.01);
+    const ownWork = Contention(wallUs: 2000000, psiShare: 0.30);
+    const busyAfter = Contention(wallUs: 150000, psiShare: 0.08);
+    const span = Contention(wallUs: 2300000, psiShare: 0.2, stealShare: 0);
+    final own = Contention.around(
+      before: quiet,
+      during: ownWork,
+      after: quiet,
+      whole: span,
+    );
+    expect(own.psiShare, 0.01);
+    expect(own.psiDuring, 0.30);
+    expect(own.contended, isFalse, reason: 'the work alone is not contention');
+    expect(own.toString(), contains('psi during 30.0%'));
+    final other = Contention.around(
+      before: quiet,
+      during: ownWork,
+      after: busyAfter,
+      whole: span,
+    );
+    expect(other.psiShare, 0.08);
+    expect(other.contended, isTrue);
+    final stolen = Contention.around(
+      before: quiet,
+      during: ownWork,
+      after: quiet,
+      // 2% of the CPU time went to other machines over the span.
+      whole: const Contention(wallUs: 2300000, stealShare: 0.02),
+    );
+    expect(stolen.contended, isTrue);
+  });
+
+  test('a gate of one run per sample judges each figure by its median over '
+      'the clean runs', () {
+    Held<Map<String, double>> run(
+      double share,
+      double ms, {
+      bool busy = false,
+    }) => Held({'share': share, 'ms': ms}, 0, busy ? _busy : _quiet);
+    final passing = MedianResult(
+      [
+        run(0.01, 900),
+        run(0.02, 1000),
+        // a stalled run, dropped
+        run(0.50, 9000, busy: true),
+        run(0.03, 1100),
+      ],
+      limits: {'share': 0.08, 'ms': 2600},
+    );
+    expect(passing.cleanCount, 3);
+    expect(passing.median('share'), 0.02);
+    expect(passing.median('ms'), 1000);
+    expect(passing.verdict, ShareVerdict.pass);
+    final failing = MedianResult(
+      [run(0.01, 2700), run(0.02, 2650), run(0.03, 2900)],
+      limits: {'share': 0.08, 'ms': 2600},
+    );
+    expect(failing.verdict, ShareVerdict.fail);
+    expect(failing.describe('open'), contains('ms median 2700.000'));
+    final contended = MedianResult(
+      [for (var i = 0; i < 5; i++) run(0.01, 900, busy: true)],
+      limits: {'share': 0.08},
+    );
+    expect(contended.verdict, ShareVerdict.inconclusive);
+    expect(
+      () => expectShare(contended, 'open', environment: const {'CI': 'true'}),
+      throwsA(isA<TestFailure>()),
+    );
+  });
+
+  test('mediansOf takes more runs only when half were contended', () async {
+    var n = 0;
+    final result = await mediansOf(
+      run: () async => Held({'share': 0.01}, 0, n++ < 3 ? _busy : _quiet),
+      limits: {'share': 0.08},
+    );
+    // 3 of the first 5 contended: taken on to 9, 6 clean.
+    expect(result.taken, 9);
+    expect(result.cleanCount, 6);
+    expect(result.verdict, ShareVerdict.pass);
+  });
+
   test('the Linux witness reads PSI and steal from /proc', () {
     var at = 0;
     final files = <String, String>{};
@@ -230,6 +314,22 @@ void main() {
     );
     expect(taken, 5);
     expect(failing.verdict, ShareVerdict.fail);
+  });
+
+  test('shareOf keeps the figures of each run, never what it made', () async {
+    final made = List.filled(100000, 0);
+    final result = await shareOf(
+      apart: () async => Held<Object?>(made, 10000, _quiet),
+      whole: () async => Held<Object?>(made, 400000, _quiet),
+      limit: 0.045,
+    );
+    expect(result.pairs, hasLength(5));
+    for (final p in result.pairs) {
+      expect(p.apart.result, isNull);
+      expect(p.whole.result, isNull);
+      expect(p.apart.heldUs, 10000);
+      expect(p.whole.heldUs, 400000);
+    }
   });
 
   test('an inconclusive gate fails under CI and is skipped loudly '

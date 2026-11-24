@@ -36,7 +36,11 @@ import '../support/held.dart';
 ///   many accounts, notes, merchants and days as there are values, not
 ///   one per entry.
 ///
-/// Each share and the worker's time is the least of [gateTries] runs.
+/// Each share and the worker's time is the median of the openings the
+/// host did not stall, as the share gates are judged (held.dart,
+/// `mediansOf`, review 28): too few of those is INCONCLUSIVE, a failure
+/// under CI. The worker's time is a figure of this machine, which a busy
+/// host inflates most.
 /// The book is then opened once more as the app opens it, with the
 /// journal kept: sent to this isolate as soon as it is read, and posted
 /// afresh on the worker. Pinned to two cores (`taskset -c 0,1 flutter
@@ -100,24 +104,36 @@ void main() {
     final splits = Platform.numberOfProcessors > 1;
 
     // The whole opening, as the app does it, the longest hold, and the
-    // worker's part of it, as the data source timed it; each share the
-    // least of [gateTries] openings.
+    // worker's part of it, as the data source timed it; each figure the
+    // median of the clean openings.
     final openings = <_Opening>[];
-    for (var i = 0; i < gateTries; i++) {
-      final held = await timeHeld(() async {
-        final ledger = await source.load();
-        expect(ledger.entries.length, count);
-        if (i == 0) _expectShared(ledger.entries.all);
-      });
-      final (:us, :workerUs, :split) = source.lastOpening!;
-      expect(split, splits, reason: 'half the entries on a second worker');
-      openings.add(_Opening(us, workerUs!, held.heldUs));
-    }
-    double least(double Function(_Opening o) share) =>
-        openings.map(share).reduce((a, b) => a < b ? a : b);
-    final held = least((o) => o.held);
-    final outside = least((o) => o.outside);
-    final worker = least((o) => o.workerUs.toDouble()).round();
+    final result = await mediansOf(
+      run: () async {
+        final held = await timeHeld(() async {
+          final ledger = await source.load();
+          expect(ledger.entries.length, count);
+          if (openings.isEmpty) _expectShared(ledger.entries.all);
+        });
+        final (:us, :workerUs, :split) = source.lastOpening!;
+        expect(split, splits, reason: 'half the entries on a second worker');
+        final o = _Opening(us, workerUs!, held.heldUs);
+        openings.add(o);
+        return Held(
+          {
+            'held share': o.held,
+            'outside share': o.outside,
+            'worker ms': o.workerUs / 1000,
+          },
+          held.heldUs,
+          held.load,
+        );
+      },
+      limits: {
+        'held share': heldLimit,
+        'outside share': outsideLimit,
+        'worker ms': workerLimitUs / 1000,
+      },
+    );
 
     // As the app opens it: the journal kept, the book sent here as soon
     // as it is read, then posted afresh on the worker.
@@ -139,16 +155,12 @@ void main() {
     print(
       'OPEN 100k ${[for (final o in openings) o.us ~/ 1000]} ms, worker '
       '${[for (final o in openings) o.workerUs ~/ 1000]} ms, held '
-      '${[for (final o in openings) o.heldUs ~/ 1000]} ms; held share '
-      '${held.toStringAsFixed(3)}, outside share '
-      '${outside.toStringAsFixed(3)}; split $splits; with the journal '
-      '${keptOpening.us ~/ 1000} ms, worker ${keptOpening.workerUs! ~/ 1000} '
-      'ms',
+      '${[for (final o in openings) o.heldUs ~/ 1000]} ms; split $splits; '
+      'with the journal ${keptOpening.us ~/ 1000} ms, worker '
+      '${keptOpening.workerUs! ~/ 1000} ms',
     );
-    expect(held, lessThan(heldLimit), reason: 'the screen held');
-    expect(outside, lessThan(outsideLimit), reason: 'outside the worker');
-    expect(worker, lessThan(workerLimitUs), reason: "the worker's own time");
-  }, timeout: const Timeout(Duration(minutes: 5)));
+    expectShare(result, 'open_100k');
+  }, timeout: const Timeout(Duration(minutes: 10)));
 }
 
 /// What [entries] repeat is one object for each value (`SameValues`):

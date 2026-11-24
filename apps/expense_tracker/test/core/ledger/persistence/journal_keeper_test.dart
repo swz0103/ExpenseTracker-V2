@@ -761,4 +761,50 @@ void main() {
     await source.journal.settled;
     expect(source.journal.lastParity, isNull);
   });
+
+  test('a store that cannot post apart is posted here, a chunk at a time '
+      'with pauses between', () async {
+    // 250 entries: three chunks of journalChunk (100), so the replay
+    // pauses twice between them.
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 10, 4),
+      accounts: const [Account('a0', '銀行', AccountKind.bank, 0)],
+      categories: const [],
+      entries: [
+        for (var i = 0; i < 250; i++)
+          entryOf(
+            'e$i',
+            DateTime.utc(2026, 9, 1 + i % 30),
+            EntryType.expense,
+            10 + i,
+            'a0',
+            category: '飲食',
+          ),
+      ],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+    expect(journalChunk, 100);
+    var revision = 0;
+    final keeper = JournalKeeper(
+      store: MemoryPostingStore(),
+      revision: () => revision++,
+      entrySeqs: () => {
+        for (final (i, e) in ledger.entries.all.indexed) e.id: i + 1,
+      },
+      recordOf: (id) => switch (ledger.entries.byId(id)) {
+        final e? => (entry: e, seq: ledger.entries.length),
+        null => null,
+      },
+      isOpen: () => true,
+      compares: false,
+    );
+    keeper.open(ledger);
+    await keeper.settled;
+    expect(keeper.lastReplay!.unposted, isEmpty);
+    // Each entry: the spending and the account.
+    expect(keeper.reader.legs(const IntentId('e249')), hasLength(2));
+    expect(keeper.reader.legs(const IntentId('e0')), hasLength(2));
+  });
 }

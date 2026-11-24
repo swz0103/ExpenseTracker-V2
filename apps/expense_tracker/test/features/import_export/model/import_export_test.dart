@@ -365,4 +365,55 @@ void main() {
       expect(found.problems, ['AB00000002：同一張發票的日期或商家前後不一致']);
     });
   });
+
+  // Moved from test/perf/import_gate_test.dart: what it checks is not
+  // timed, so it runs with the ordinary suite (and its coverage).
+  test('apart and at once read the same', () async {
+    const small = '日期,類型,金額,帳戶,分類\n2026-10-01,支出,5,現金,飲食\nbad,支出,5,現金,x\n';
+    final apart = await importCsvApart(
+      importBookOf(demoLedger()),
+      small,
+      fallback: 'cash',
+    );
+    final once = importCsv(importBookOf(demoLedger()), small, fallback: 'cash');
+    expect(apart.entries.map((e) => (e.date, e.amount, e.category)), [
+      (DateTime.utc(2026, 10, 1), 5, '飲食'),
+    ]);
+    expect(once.entries.map((e) => (e.date, e.amount, e.category)), [
+      (DateTime.utc(2026, 10, 1), 5, '飲食'),
+    ]);
+    expect(apart.problems, ['第 3 行：日期看不懂']);
+    expect(once.problems, apart.problems);
+    final open = await importCsvApart(
+      importBookOf(demoLedger()),
+      '日期,金額\n2026-10-01,"5\n',
+      fallback: 'cash',
+    );
+    expect(open.problems, ['第 2 行的引號看不懂，整個檔案沒有匯入']);
+  });
+
+  test('a file of readApartFrom characters or more is read as CSV on a '
+      'worker, and reads the same', () async {
+    expect(readApartFrom, 100000);
+    // Each line '2026-10-01,支出,<1..9>,隨身現金,飲食,第 <i> 筆' is about 30
+    // characters: 4,000 lines are over 100,000.
+    final text = StringBuffer('日期,類型,金額,帳戶,分類,備註\n');
+    for (var i = 0; i < 4000; i++) {
+      text.write('2026-10-01,支出,${1 + i % 9},隨身現金,飲食,第 $i 筆\n');
+    }
+    final csv = text.toString();
+    expect(csv.length, greaterThanOrEqualTo(100000));
+    final apart = await importCsvApart(
+      importBookOf(demoLedger()),
+      csv,
+      fallback: 'cash',
+    );
+    final once = importCsv(importBookOf(demoLedger()), csv, fallback: 'cash');
+    expect(apart.entries, hasLength(4000));
+    expect(apart.problems, isEmpty);
+    expect(
+      apart.entries.map((e) => (e.date, e.amount, e.note)),
+      once.entries.map((e) => (e.date, e.amount, e.note)),
+    );
+  });
 }
