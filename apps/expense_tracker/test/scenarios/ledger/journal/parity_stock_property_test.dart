@@ -8,7 +8,7 @@ import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../baseline/baseline_ledger.dart';
-import 'posted_book.dart';
+import '../../../core/ledger/journal/posted_book.dart';
 
 Ledger fresh() => ledgerOf(
   today: day(2026, 10, 31),

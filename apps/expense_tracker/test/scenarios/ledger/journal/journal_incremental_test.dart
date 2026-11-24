@@ -12,8 +12,8 @@ import 'package:storage/storage.dart';
 
 import '../../../baseline/baseline_ledger.dart';
 
-import '../journal/posted_book.dart';
-import '../../../scenarios/ledger/journal/awkward_book.dart' show keptClock;
+import '../../../core/ledger/journal/posted_book.dart';
+import 'awkward_book.dart' show keptClock;
 
 String line(Posting p) =>
     '${p.account.value} ${p.amount} ${p.currency.value} ${p.date.ymd} q${p.quantity} ${p.sub}';

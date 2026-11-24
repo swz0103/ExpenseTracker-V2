@@ -6,7 +6,7 @@ import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../baseline/baseline_ledger.dart';
-import 'posted_book.dart';
+import '../../../core/ledger/journal/posted_book.dart';
 
 const accts = [
   Account('bank', '銀行', AccountKind.bank, 200000),

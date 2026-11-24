@@ -319,6 +319,8 @@ bool _marketReadable(StoredRow row, void Function(Object error) report) {
     marketFrom([row]);
     return true;
   } on Object catch (error) {
+    // Told to [report]: a close or rate that cannot be read is fetched
+    // again.
     report(error);
     return false;
   }

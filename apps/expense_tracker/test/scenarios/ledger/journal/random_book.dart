@@ -8,7 +8,7 @@ import 'package:expense_tracker/src/core/ledger/journal/parity.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 
 import '../../../baseline/baseline_ledger.dart';
-import 'posted_book.dart';
+import '../../../core/ledger/journal/posted_book.dart';
 
 const accounts = [
   Account('bank', '銀行', AccountKind.bank, 200000),
