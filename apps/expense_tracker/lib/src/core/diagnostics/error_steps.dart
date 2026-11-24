@@ -125,8 +125,9 @@ abstract final class ErrorSteps {
   static const journalRebuilt = '分錄重建';
 
   /// The note that the journal's tables were found damaged (D102), so
-  /// the next opening makes the book again, could not be written; the
-  /// book is still made again now.
+  /// the next opening makes the book again, could not be written (the
+  /// book is still made again now), or could not be let go of once the
+  /// book was made again (the next opening makes it again; review 28).
   static const journalDamagedNote = '分錄損毀標記';
 
   /// The ledger's file, made again from its records (D102), could not be

@@ -513,8 +513,20 @@ final class LedgerVault {
       // and found damaged as it is read. One that failed before it was
       // put in place fails this opening, the file as it was: the next
       // opening makes it again.
-      if (await salvage(keys) case SalvageNotMade(:final error, :final stack)) {
-        Error.throwWithStackTrace(error, stack);
+      // Once this launch has failed to make it [salvageTries] times, it
+      // is set aside as damaged instead (review 28): a failure that does
+      // not go away would otherwise bring the lock screen back forever.
+      if (await salvage(keys) case SalvageNotMade(
+        :final error,
+        :final stack,
+        :final gaveUp,
+      )) {
+        if (!gaveUp) Error.throwWithStackTrace(error, stack);
+        await setAsideDamaged();
+        Error.throwWithStackTrace(
+          const StorageUnavailable(StorageProblem.damaged),
+          stack,
+        );
       }
     }
     return _open(keys);
@@ -583,12 +595,31 @@ final class LedgerVault {
       );
     } on Object catch (error, stack) {
       if (placing) rethrow;
-      return SalvageNotMade(error, stack);
+      _salvagesNotMade++;
+      return SalvageNotMade(
+        error,
+        stack,
+        gaveUp: _salvagesNotMade >= salvageTries,
+      );
     }
-    if (await _journalDamaged.exists()) await _journalDamaged.delete();
     _salvagedUnopened = true;
+    // The copy is in place: a note that cannot be let go of only means
+    // the next opening makes the book again, never that it was not made.
+    try {
+      if (await _journalDamaged.exists()) await _journalDamaged.delete();
+    } on Object catch (error, stack) {
+      return Salvaged(noteKept: (error, stack));
+    }
     return const Salvaged();
   }
+
+  /// How many times one launch tries to make the book again and fails
+  /// before the copy is put in place ([SalvageNotMade]) before it gives
+  /// up and has the book set aside as damaged (review 28).
+  static const salvageTries = 3;
+
+  /// The [SalvageNotMade]s of this launch.
+  var _salvagesNotMade = 0;
 
   /// A book made again ([salvage]) and not yet opened: once it opens, the
   /// copies set aside are let go of but the newest few.
@@ -802,7 +833,11 @@ sealed class Salvage {
 
 /// Made again and put in place; the old file set aside as damaged.
 final class Salvaged extends Salvage {
-  const Salvaged();
+  const Salvaged({this.noteKept});
+
+  /// Why the note that the journal was found damaged could not be let go
+  /// of, if it could not: the next opening makes the book again.
+  final (Object, StackTrace)? noteKept;
 }
 
 /// The records themselves cannot be read whole: nothing made, the
@@ -815,8 +850,12 @@ final class SalvageUnreadable extends Salvage {
 /// as it was written, say): the database is left exactly as it was, and
 /// can be made again later. [error] is what failed.
 final class SalvageNotMade extends Salvage {
-  const SalvageNotMade(this.error, this.stack);
+  const SalvageNotMade(this.error, this.stack, {this.gaveUp = false});
 
   final Object error;
   final StackTrace stack;
+
+  /// This launch has failed to make it [LedgerVault.salvageTries] times:
+  /// the book is to be set aside as damaged rather than tried again.
+  final bool gaveUp;
 }

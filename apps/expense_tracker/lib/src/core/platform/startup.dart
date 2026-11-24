@@ -222,16 +222,26 @@ final class Startup extends ChangeNotifier {
   /// the copy is put in place (a disk full as it is written) leaves the
   /// file as it was (D113): nothing is set aside, the lock screen comes
   /// back, and the next opening, or the next damage found, makes it
-  /// again; only a book made again counts as this launch's one.
+  /// again; only a book made again counts as this launch's one. After
+  /// [LedgerVault.salvageTries] such failures in one launch it is set
+  /// aside as any damaged book is (review 28).
   Future<bool> _salvage(UnlockedKeyring keys, Object error) async {
     try {
       switch (await _vault.salvage(keys)) {
-        case Salvaged():
-          break;
+        case Salvaged(:final noteKept):
+          if (noteKept case (final failed, final stack)) {
+            ErrorLog.instance.record(
+              ErrorSteps.journalDamagedNote,
+              failed,
+              stack,
+            );
+          }
         case SalvageUnreadable():
           return false;
-        case SalvageNotMade(error: final failed, :final stack):
+        case SalvageNotMade(error: final failed, :final stack, :final gaveUp):
           ErrorLog.instance.record(ErrorSteps.salvageNotMade, failed, stack);
+          // Failed too often this launch: set aside as damaged instead.
+          if (gaveUp) return false;
           _state = _locked();
           notifyListeners();
           return true;

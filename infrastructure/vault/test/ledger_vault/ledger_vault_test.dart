@@ -331,6 +331,61 @@ void main() {
       expect(vault.damagedCopies(), hasLength(1));
     });
 
+    test('making it again that keeps failing before it is put in place '
+        'gives up after salvageTries in a launch, the book set aside as '
+        'damaged (review 28)', () async {
+      await withJournal();
+      await vault.noteJournalDamaged();
+      final before = vault.databaseFile.readAsBytesSync();
+      Directory('${vault.directory.path}/keyring.json.new').createSync();
+      expect(LedgerVault.salvageTries, 3);
+      // The first: tried from the damage report, kept as it was.
+      expect(
+        await vault.salvage(await keysNow()),
+        isA<SalvageNotMade>().having((f) => f.gaveUp, 'gaveUp', isFalse),
+      );
+      // The second: an opening, which fails as it did.
+      await expectLater(
+        vault.unlockWithPassword(password),
+        throwsA(isA<FileSystemException>()),
+      );
+      expect(vault.databaseFile.readAsBytesSync(), before);
+      expect(vault.damagedCopies(), isEmpty);
+      // The third: given up, the book set aside and the opening damaged.
+      await expectLater(
+        vault.unlockWithPassword(password),
+        throwsA(const StorageUnavailable(StorageProblem.damaged)),
+      );
+      expect(vault.databaseFile.existsSync(), isFalse);
+      expect(vault.damagedCopies().single.readAsBytesSync(), before);
+    });
+
+    test('a note that cannot be let go of once the book is made again '
+        'still says Salvaged, and the book opens (review 28)', () async {
+      await withJournal();
+      await vault.noteJournalDamaged();
+      final made = await IOOverrides.runWithIOOverrides(
+        () async => vault.salvage(await keysNow()),
+        _StuckNote(),
+      );
+      expect(
+        made,
+        isA<Salvaged>().having(
+          (s) => s.noteKept?.$1,
+          'noteKept',
+          isA<FileSystemException>(),
+        ),
+      );
+      // Still noted: the next opening makes it again, which costs nothing.
+      expect(
+        File('${vault.directory.path}/journal.damaged').existsSync(),
+        isTrue,
+      );
+      final opened = await vault.unlockWithPassword(password);
+      addTearDown(opened.close);
+      expect(opened.store.rows().single.id, 'cash');
+    });
+
     test('a journal found damaged is made again from the records, which '
         'are all kept (D102)', () async {
       await withJournal();
@@ -793,4 +848,37 @@ void main() {
       );
     });
   });
+}
+
+/// Files as they are, but the note of a damaged journal cannot be let go
+/// of, as on storage gone read-only.
+final class _StuckNote extends IOOverrides {
+  @override
+  File createFile(String path) {
+    final file = super.createFile(path);
+    return path.endsWith('/journal.damaged') ? _Undeletable(file) : file;
+  }
+}
+
+final class _Undeletable implements File {
+  _Undeletable(this._file);
+
+  final File _file;
+
+  @override
+  String get path => _file.path;
+
+  @override
+  Future<bool> exists() => _file.exists();
+
+  @override
+  bool existsSync() => _file.existsSync();
+
+  @override
+  Future<FileSystemEntity> delete({bool recursive = false}) =>
+      Future.error(FileSystemException('read-only', path));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnsupportedError('not needed here');
 }

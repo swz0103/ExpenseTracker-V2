@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
@@ -335,6 +336,69 @@ void main() {
       expect(startup.state, isA<Damaged>());
     });
 
+    test('making the book again that keeps failing before the copy is in '
+        'place is set aside as damaged after salvageTries, not tried on the '
+        'lock screen forever (review 28)', () async {
+      final startup = await withRecord();
+      Directory('${directory.path}/keyring.json.new').createSync();
+      // The first of three: from the damage report, back to the lock
+      // screen, the book closed as it was.
+      expect(await startup.journalDamaged(damagedError), isTrue);
+      expect(startup.state, isA<Locked>());
+      final before = vault.databaseFile.readAsBytesSync();
+      // The second: the opening makes it again and fails as before.
+      await expectLater(
+        startup.unlockWithPassword(password),
+        throwsA(isA<FileSystemException>()),
+      );
+      expect(startup.state, isA<Locked>());
+      expect(vault.damagedCopies(), isEmpty);
+      // The third: given up, set aside, and 帳本損毀 shown.
+      await expectLater(
+        startup.unlockWithPassword(password),
+        throwsA(damagedError),
+      );
+      expect(startup.state, isA<Damaged>());
+      expect(vault.databaseFile.existsSync(), isFalse);
+      expect(vault.damagedCopies().single.readAsBytesSync(), before);
+    });
+
+    test('damage reports that keep failing to make the book again are set '
+        'aside on the third (review 28)', () async {
+      final startup = await withRecord();
+      final full = Directory('${directory.path}/keyring.json.new')
+        ..createSync();
+      for (var i = 0; i < 2; i++) {
+        await startup.bookDamaged(damagedError);
+        expect(startup.state, isA<Locked>());
+        // Nothing noted: the lock screen opens it as it is.
+        full.deleteSync();
+        await startup.unlockWithPassword(password);
+        full.createSync();
+      }
+      await startup.bookDamaged(damagedError);
+      expect(startup.state, isA<Damaged>());
+      expect(vault.damagedCopies(), hasLength(1));
+    });
+
+    test('a book made again whose note cannot be let go of opens, never set '
+        'aside, the failure noted (review 28)', () async {
+      final startup = await withRecord();
+      await IOOverrides.runWithIOOverrides(
+        () async => expect(await startup.journalDamaged(damagedError), isTrue),
+        _StuckNote(),
+      );
+      expect((startup.state as Ready).vault.store.rows().single.id, 'cash');
+      expect(vault.databaseFile.existsSync(), isTrue);
+      // The old file, and the copy the opening made again from it as the
+      // note stayed: one rebuild more, nothing lost.
+      expect(vault.damagedCopies(), hasLength(2));
+      expect([
+        for (final e in ErrorLog.instance.entries) e.$2,
+      ], contains(contains('分錄損毀標記')));
+      startup.lock();
+    });
+
     test('a book made again found damaged as it opens is Damaged, its old '
         'file still kept (review 25)', () async {
       var spoilBook = false;
@@ -500,4 +564,45 @@ final class _CancelledDeviceKey implements DeviceKeyWrapper {
   @override
   Future<List<int>> unwrap(List<int> wrapped, List<int> context) =>
       Future.error(StateError('cancelled'));
+}
+
+/// Files as they are, but the note of a damaged journal cannot be let go
+/// of, as on storage gone read-only.
+final class _StuckNote extends IOOverrides {
+  @override
+  File createFile(String path) {
+    final file = super.createFile(path);
+    return path.endsWith('/journal.damaged') ? _Undeletable(file) : file;
+  }
+}
+
+final class _Undeletable implements File {
+  _Undeletable(this._file);
+
+  final File _file;
+
+  @override
+  String get path => _file.path;
+
+  @override
+  Future<bool> exists() => _file.exists();
+
+  @override
+  bool existsSync() => _file.existsSync();
+
+  @override
+  Future<File> writeAsString(
+    String contents, {
+    FileMode mode = FileMode.write,
+    Encoding encoding = utf8,
+    bool flush = false,
+  }) => _file.writeAsString(contents, mode: mode, flush: flush);
+
+  @override
+  Future<FileSystemEntity> delete({bool recursive = false}) =>
+      Future.error(FileSystemException('read-only', path));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnsupportedError('not needed here');
 }
