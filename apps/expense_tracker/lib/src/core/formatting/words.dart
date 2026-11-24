@@ -42,6 +42,11 @@ abstract final class Words {
   static const add = '新增';
   static const back = '返回';
 
+  // Leaving a form with changes (D83).
+  static const discardAsk = '要捨棄修改嗎？';
+  static const discard = '捨棄';
+  static const keepEditing = '繼續編輯';
+
   // Days and months.
   static const today = '今天';
   static const previousMonth = '上個月';

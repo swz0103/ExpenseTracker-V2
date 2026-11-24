@@ -31,6 +31,12 @@ abstract final class Keys {
   /// The yes of a question asked before something is done, such as 刪除.
   static const confirm = ValueKey('dialog:confirm');
 
+  /// [confirm]'s other choice, 取消 or what it was named.
+  static const confirmCancel = ValueKey('dialog:cancel');
+
+  /// An edit form's 取消 (EditGuard).
+  static const cancelEdit = ValueKey('form:cancel');
+
   /// A way out of a book that could not be opened: retry, restore or
   /// export.
   static Key loadFailed(String what) => ValueKey('load-failed:$what');

@@ -3,6 +3,7 @@ library;
 
 export 'controls.dart';
 export 'feedback.dart';
+export 'edit_guard.dart';
 export 'page_header.dart';
 export 'keys.dart';
 export 'components.dart';
