@@ -53,6 +53,8 @@ export 'rules/budget_rules.dart';
 export 'rules/recurring_rules.dart';
 // The narrow parts a model takes in place of the whole ledger
 // (docs/adr/0013-models-take-what-they-use.md).
+export 'commands/category_commands.dart'
+    show CategoryMerge, Merged, MergeRefused, MergeRefusal;
 export 'commands/attachment_commands.dart' show AttachmentCommands;
 export 'commands/entry_commands.dart' show EntryCommands;
 export 'commands/holding_commands.dart' show HoldingCommands;

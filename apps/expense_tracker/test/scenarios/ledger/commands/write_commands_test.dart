@@ -215,7 +215,8 @@ void main() {
       expect(w.book.categories.all, hasLength(1));
     });
 
-    test('a merge moves every use and drops the category and its budget', () {
+    test('a merge moves every use and the budget, and drops the category '
+        '(D60)', () {
       final w = _Writes(
         Book(
           categories: [
@@ -228,13 +229,18 @@ void main() {
       );
       w.categories.mergeCategory('吃飯', '飲食');
       expect(w.book.entries.byId('a')!.category, '飲食');
-      expect(w.budgets.all, isEmpty);
+      // The budget of 吃飯 is now 飲食's.
+      expect(
+        [for (final b in w.budgets.all) (b.category, b.limit)],
+        [('飲食', 100)],
+      );
       final batch = w.context.batches.single;
       expect(batch.entries.single.id, 'a');
       expect(batch.dropped.toSet(), {
         (Collection.budget, '吃飯'),
         (Collection.category, 'c2'),
       });
+      expect([for (final b in batch.budgets) b.category], ['飲食']);
     });
   });
 
