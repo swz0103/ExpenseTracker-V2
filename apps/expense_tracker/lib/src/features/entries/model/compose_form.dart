@@ -490,6 +490,11 @@ final class ComposeForm {
   String? _warnedFor;
   String? _warned;
 
+  /// What [saleCost] was last worked out for, and what it came to
+  /// (compose_form_trade.dart).
+  Object? _saleCostKey;
+  int? _saleCost;
+
   String? get _lendingProblem {
     if (amount <= 0) return '請輸入金額';
     if (lent!.any((p) => p.$2 <= 0)) return '代墊的金額要大於 0';

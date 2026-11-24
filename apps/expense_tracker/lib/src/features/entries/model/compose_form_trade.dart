@@ -53,35 +53,61 @@ extension TradeFields on ComposeForm {
 
   /// What the shares being sold cost, by the method chosen ([average] or
   /// first in, first out), from the lots held on the sale's day: the
-  /// book's trades up to then, the sale being changed left out. Null for
-  /// a buy, before a holding is chosen, and for more shares than were
-  /// held then, which no cost answers.
+  /// stock's trades up to then ([tradesBefore]), the sale being changed
+  /// left out. Null for a buy, before a holding is chosen, and for more
+  /// shares than were held then, which no cost answers.
+  ///
+  /// Worked out again only when what it rests on changes (the stock, the
+  /// shares, the method, the day, the book's entries and holdings, or
+  /// today), not on every keystroke elsewhere in the form.
   int? get saleCost {
     final code = holding;
     if (trade != EntryType.sell || code == null) return null;
-    return ledger.holdings.saleCostWith(
-      tradesBefore,
+    final key = (
+      code,
+      shares,
+      average,
+      date,
+      editing?.id,
+      ledger.today,
+      ledger.revisionOf(Topic.entries),
+      // The holdings the book starts from change with the market.
+      ledger.revisionOf(Topic.market),
+    );
+    if (key == _saleCostKey) return _saleCost;
+    _saleCostKey = key;
+    return _saleCost = ledger.holdings.saleCostWith(
+      tradesBefore(code),
       code,
       shares,
       average: average,
     );
   }
 
-  /// The book's entries before the one being written: those of earlier
-  /// days and, on its day, those written before it; the entry being
-  /// changed is left out, and so is all that follows it on its day.
-  List<Entry> get tradesBefore {
+  /// The book's trades of [code] before the one being written: those of
+  /// earlier days and, on its day, those written before it; the entry
+  /// being changed is left out, and so is all that follows it on its day.
+  /// A stock's lots are worked out from its own trades alone, so the
+  /// other stocks' are left out too.
+  List<Entry> tradesBefore(String code) {
     final changed = editing;
     final before = <Entry>[];
     var past = false;
+    // The stock's own entries, in the book's order, when the entry being
+    // changed is one of them (or none is): where it stands among them is
+    // all that decides which of its day come before. Otherwise every
+    // entry, to find where it stands.
+    final source = changed == null || changed.holding == code
+        ? ledger.entryQueryService.tradesInBookOrder(code)
+        : ledger.entries.all;
     // A trade is dated today at the latest (D70): one an old book dated
     // later is not before it, as the holdings do not count it yet.
-    for (final e in countedOn(ledger.entries.all, ledger.today)) {
+    for (final e in countedOn(source, ledger.today)) {
       if (changed != null && e.id == changed.id) {
         past = true;
         continue;
       }
-      if (e.date.isAfter(date)) continue;
+      if (e.holding != code || e.date.isAfter(date)) continue;
       // On the day itself, a new entry comes after all; one changed keeps
       // its place, unless it moved to another day.
       if (past && changed!.date == date && e.date == date) continue;

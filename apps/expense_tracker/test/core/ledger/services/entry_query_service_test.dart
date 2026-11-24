@@ -242,5 +242,10 @@ void main() {
       ],
     );
     expect(book.queries.tradesOf('2330').map((e) => e.id), ['b2', 'b1']);
+    // In the book's order, as a replay breaks a day's ties; kept.
+    final kept = book.queries.tradesInBookOrder('2330');
+    expect(kept.map((e) => e.id), ['b1', 'b2']);
+    expect(book.queries.tradesInBookOrder('2330'), same(kept));
+    expect(book.queries.tradesInBookOrder('0050').map((e) => e.id), ['x']);
   });
 }

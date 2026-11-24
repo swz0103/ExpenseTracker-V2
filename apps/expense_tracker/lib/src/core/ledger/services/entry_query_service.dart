@@ -251,6 +251,19 @@ final class EntryQueryService {
       if (e.holding == code) e,
   ]..sort(newestFirst(_entries));
 
+  /// Every entry of [code] (its trades and dividends) in the order the
+  /// book keeps them, which is how a replay orders those of one day:
+  /// worked out once per change of the entries.
+  List<Entry> tradesInBookOrder(String code) => _cache.remember(
+    ('tradesInBookOrder', code),
+    () => List<Entry>.unmodifiable([
+      // Exception to as-of-today: every one written; the caller takes
+      // them through countedOn.
+      for (final e in _entries.all)
+        if (e.holding == code) e,
+    ]),
+  );
+
   /// The spending [refund] gives back, while the book holds it; null for
   /// an entry that is not a refund, or none.
   Entry? originalOf(Entry? refund) => switch (refund?.refundOf) {
