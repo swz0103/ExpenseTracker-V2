@@ -73,7 +73,9 @@ void main() {
     );
     await apart.load();
     await apart.journal.settled;
-    final (:us, :workerUs) = apart.lastOpening!;
+    final (:us, :workerUs, :split) = apart.lastOpening!;
+    // A small book: no second worker.
+    expect(split, isFalse);
     expect(workerUs, isNotNull);
     expect(workerUs, lessThanOrEqualTo(us));
   });

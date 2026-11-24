@@ -133,6 +133,16 @@ abstract final class ErrorSteps {
   /// opened just then: it is kept, and the lock screen opens it again.
   static const rebuiltNotOpened = '重建後打開帳本';
 
+  /// Making the ledger's file again from its records (D102) failed before
+  /// the copy was put in place (a disk full, say): the file is kept as
+  /// it was, and made again at the next opening (D113).
+  static const salvageNotMade = '重建帳本未完成';
+
+  /// The second worker a large book's opening decodes half its entries
+  /// on could not be started, or failed: the book opened all the same,
+  /// that half decoded on the first (review 24).
+  static const openingHelper = '打開帳本：第二個工作執行緒';
+
   /// The note that records were kept in the ledger's file (D102) could
   /// not be written as a write was kept: the write stands, and the note
   /// is tried again at the next write and the next opening.

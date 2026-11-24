@@ -212,20 +212,37 @@ final class Startup extends ChangeNotifier {
   }
 
   /// Makes the ledger, closed, again from its records with [keys]
-  /// ([LedgerVault.salvage]) and opens it. Whether it was made again:
-  /// false when it was not, which leaves it to be set aside. Once made
-  /// again, the book is never set aside for an opening that fails
-  /// (review 25): one that finds it damaged has set it aside already and
-  /// shows [Damaged]; any other failure goes back to the lock screen,
-  /// where opening is tried again as any opening is.
+  /// ([LedgerVault.salvage]) and opens it. Whether it was handled here:
+  /// false when its records cannot be read whole, or putting the copy in
+  /// place failed, which leaves it to be set aside. Once made again, the
+  /// book is never set aside for an opening that fails (review 25): one
+  /// that finds it damaged has set it aside already and shows [Damaged];
+  /// any other failure goes back to the lock screen, where opening is
+  /// tried again as any opening is. Making it again that fails before
+  /// the copy is put in place (a disk full as it is written) leaves the
+  /// file as it was (D113): nothing is set aside, the lock screen comes
+  /// back, and the next opening, or the next damage found, makes it
+  /// again; only a book made again counts as this launch's one.
   Future<bool> _salvage(UnlockedKeyring keys, Object error) async {
-    _salvageSpent = true;
     try {
-      if (!await _vault.salvage(keys)) return false;
+      switch (await _vault.salvage(keys)) {
+        case Salvaged():
+          break;
+        case SalvageUnreadable():
+          return false;
+        case SalvageNotMade(error: final failed, :final stack):
+          ErrorLog.instance.record(ErrorSteps.salvageNotMade, failed, stack);
+          _state = _locked();
+          notifyListeners();
+          return true;
+      }
     } on Object catch (failed) {
+      // Failed as the copy was put in place: the book was made again.
+      _salvageSpent = true;
       ErrorLog.instance.record(ErrorSteps.bookDamaged, failed);
       return false;
     }
+    _salvageSpent = true;
     ErrorLog.instance.record(ErrorSteps.journalRebuilt, error);
     try {
       _ready(await _vault.reopen(keys));

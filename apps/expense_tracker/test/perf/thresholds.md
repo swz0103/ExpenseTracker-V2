@@ -124,6 +124,57 @@ and core count:
 A map of 100,000 places built here again measured 0.064; the hand-back of
 65f9d4b's book (its map by id included) about 0.05–0.09.
 
+### What the gate checks besides its shares (review 24)
+
+Review 24 found that the two shares did not catch the regressions they
+were there for: with the second worker lost (`helpers: 0`) the gate
+passed, and with `SameValues` lost the outside share rose only to 0.049,
+under its 0.06. The gate now also:
+
+- checks that, with a core beside the worker's, the last half of the
+  entries was decoded on a second worker (`lastOpening.split`, reported
+  by `openingWork`);
+- checks that what entries repeat is one object for each value (accounts,
+  notes, merchants, tags, days: as many identities as distinct values);
+- limits the worker's own time (`workerUs`, least of three) to 2,600 ms,
+  about twice the least measured here (1,299 ms);
+- opens the book once more with the journal kept, as the app does (the
+  book sent as a copy, then posted on the worker), and checks the mark
+  and that every entry was posted.
+
+Measured 2026-11-24 (FIX-R24) on the development VM at load 5–9 on four
+cores (other agents' runs; a quiet host was not to be had), flutter
+test JIT, not pinned; each figure the least of three openings:
+
+| | worker's own time | outside share | gate |
+|---|---|---|---|
+| as it is (split, `SameValues`) | 1,269–1,933 ms (8 runs) | 0.027–0.037 | passes |
+| second worker lost (`split: false` in `_openApart`) | 1,394 / 1,664 ms | 0.035 / 0.037 | fails: "half the entries on a second worker" |
+| `SameValues` lost (`entryFromJson(j, refs)` in `decodeBook`) | 1,541 / 1,706 ms | 0.048 / 0.051 | fails: "accounts shared" (100,000 for 2) |
+
+After review 23's merge, with the host at load 0.6 for a moment (one-
+minute 3.3–6 while the gate ran): worker least 1,290 / 1,758 / 1,563 ms,
+outside share 0.026–0.029. The worker's time is not judged on the
+clean samples of `HostWitness` (held.dart) as the share gates are: the
+opening's own threads (its worker, the second one, the collector) make
+the host's PSI 17–37% of the opening even at load 0.6, so every opening
+read as contended and the limit was never judged. It stays the least of
+three, against a limit about twice the least measured.
+
+At this load the worker's time with and without the second worker
+overlaps (as review 24 found), so the split is gated by what it leaves,
+not by its time; the time limit catches a gross slowing only.
+
+Each half building its entries on its own worker as well (review 24,
+item 3: `entryFromJson`, the shape rules and the names there, each half
+with its own `SameValues`, the second half's values made one with the
+first's after) was tried and not kept: alternated with the change above
+on the gate's book, four runs each at load 7–9, the worker's least time
+was 1,269–1,933 ms (median about 1,490) without it and 1,498–1,763 ms
+(median about 1,610) with it. The experiment is on the local branch
+`r24-entry-halves-experiment`, to be measured again on a quiet host or a
+phone.
+
 ## The journal of postings (host bench, work package 2.0)
 
 `journal_thresholds.json` holds the limits of `journal_bench_test.dart`
