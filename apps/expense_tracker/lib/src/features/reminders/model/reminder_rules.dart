@@ -63,9 +63,10 @@ abstract final class ReminderTiming {
   static const horizonDays = 62;
 
   /// The most notifications the phone is asked to keep at once, soonest
-  /// first. One on the minute takes two alarms (the exact one and its
-  /// inexact twin, ReminderAlarms.kt): 320, well under the 500 alarms
-  /// Android allows an app.
+  /// first; sent with each plan, so the phone arms exactly these. One on
+  /// the minute takes two alarms (the exact one and its inexact twin):
+  /// 320, well under the 500 alarms Android allows an app, which the
+  /// phone guards on its own (ReminderAlarms.kt) and reports when passed.
   static const most = 160;
 
   /// The hour a due date is told on its day (and days before), and the

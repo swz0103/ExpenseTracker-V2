@@ -1,5 +1,7 @@
 import 'package:core/foundation_values.dart' show BusinessDate;
 
+import '../../core/diagnostics/error_log.dart';
+import '../../core/diagnostics/error_steps.dart';
 import '../../core/messages/reminder_messages.dart';
 import '../../features/reminders/model/reminder_alerts.dart';
 import '../../features/reminders/model/reminder_rules.dart';
@@ -49,15 +51,30 @@ final class AndroidNotifications implements NotifyPort {
   Future<bool> access() async =>
       await platformChannel.invokeMethod<bool>('notificationAccess') ?? false;
 
+  /// What [plan] is handed over as: with it, the most alerts the phone is
+  /// asked to arm ([ReminderTiming.most]), which it keeps to within
+  /// Android's own limit.
+  static Map<String, Object?> planFields(ReminderPlan plan) => {
+    'most': ReminderTiming.most,
+    'exact': plan.exact,
+    'wanted': plan.wanted.toList(),
+    'channels': channels,
+    'retired': ReminderChannel.retired,
+    'alerts': [for (final a in plan.alerts) alertFields(a)],
+  };
+
+  /// Hands [plan] over; alerts the phone left out, past what it was asked
+  /// for or Android's limit, are recorded for 診斷, not passed over.
   @override
-  Future<void> schedule(ReminderPlan plan) =>
-      platformChannel.invokeMethod<void>('scheduleNotifications', {
-        'exact': plan.exact,
-        'wanted': plan.wanted.toList(),
-        'channels': channels,
-        'retired': ReminderChannel.retired,
-        'alerts': [for (final a in plan.alerts) alertFields(a)],
-      });
+  Future<void> schedule(ReminderPlan plan) async {
+    final left = await platformChannel.invokeMethod<int>(
+      'scheduleNotifications',
+      planFields(plan),
+    );
+    if (left != null && left > 0) {
+      ErrorLog.instance.record(ErrorSteps.notifications, AlertsLeftOut(left));
+    }
+  }
 
   @override
   Future<void> test({required bool exact}) =>
@@ -102,4 +119,15 @@ final class AndroidNotifications implements NotifyPort {
   @override
   Future<void> openBatterySettings() =>
       platformChannel.invokeMethod<void>('openBatterySettings');
+}
+
+/// The phone armed fewer alerts than it was handed: [count] were left
+/// out, past what it was asked for or Android's limit on alarms.
+final class AlertsLeftOut implements Exception {
+  const AlertsLeftOut(this.count);
+
+  final int count;
+
+  @override
+  String toString() => '$count alerts not armed';
 }

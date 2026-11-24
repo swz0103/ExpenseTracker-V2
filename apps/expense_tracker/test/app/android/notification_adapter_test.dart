@@ -1,11 +1,51 @@
 import 'package:expense_tracker/src/app/android/notification_adapter.dart';
+import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/platform/quick_action.dart';
 import 'package:expense_tracker/src/features/reminders/model/reminder_alerts.dart';
 import 'package:expense_tracker/src/features/reminders/model/reminder_rules.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// What the phone is handed: everything it posts, decided here.
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const channel = MethodChannel('expense_tracker/platform');
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  final plan = ReminderPlan(const [], exact: false, wanted: const {});
+
+  test('the plan goes with the most alerts the phone is to arm', () {
+    // ReminderTiming.most: 160.
+    expect(AndroidNotifications.planFields(plan)['most'], 160);
+  });
+
+  test('alerts the phone left out are recorded, not passed over', () async {
+    Object? sent;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      sent = call.arguments;
+      // The phone armed all but 3.
+      return 3;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    final before = ErrorLog.instance.count;
+    await const AndroidNotifications().schedule(plan);
+    expect((sent! as Map)['most'], 160);
+    expect(ErrorLog.instance.count - before, 1);
+    // The log keeps no figures: the count reads #.
+    expect(
+      ErrorLog.instance.entries.first.$2,
+      '通知：AlertsLeftOut: # alerts not armed',
+    );
+  });
+
+  test('nothing is recorded when every alert was armed', () async {
+    messenger.setMockMethodCallHandler(channel, (call) async => 0);
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    final before = ErrorLog.instance.count;
+    await const AndroidNotifications().schedule(plan);
+    expect(ErrorLog.instance.count, before);
+  });
+
   test('an alert goes with its wall-clock time, grace, channel and words', () {
     final alert = Alert(
       DateTime(2026, 11, 20, 9),

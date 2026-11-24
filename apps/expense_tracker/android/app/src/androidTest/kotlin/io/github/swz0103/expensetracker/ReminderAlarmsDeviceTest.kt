@@ -71,6 +71,21 @@ class ReminderAlarmsDeviceTest {
     }
 
     @Test
+    fun asManyAlertsAsTheAppAsksAreArmedAndTheRestCounted() {
+        val tomorrow = System.currentTimeMillis() + 86_400_000L
+        val left = Reminders.replace(
+            context,
+            (0 until 3).map { mapOf("at" to tomorrow + it * 60_000L, "title" to "扣款", "tag" to "due:$it") },
+            most = 2,
+        )
+        // Three given, two asked for: 3 - 2 = 1 left out, and told.
+        assertEquals(1, left)
+        assertNotNull(alarm(0))
+        assertNotNull(alarm(1))
+        assertNull(alarm(2))
+    }
+
+    @Test
     fun anAlarmGoingOffShowsTheSealedWords() {
         // Due a moment from now, within a day's grace: the alarm going off
         // once its time has come posts it (one going off early is set
