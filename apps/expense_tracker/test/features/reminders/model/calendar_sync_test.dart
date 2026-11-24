@@ -188,16 +188,20 @@ void main() {
     expect(CalendarSync(port, directory).chosen, isNull);
   });
 
-  test('a calendar out of reach is noted, not thrown', () async {
+  test('a calendar out of reach is noted, not thrown, and told', () async {
     final ledger = demoLedger();
     final port = FakeCalendars();
-    final sync = CalendarSync(port, directory);
+    var told = 0;
+    final sync = CalendarSync(port, directory, failed: () => told++);
     await sync.choose(
       const CalendarChoice(1, '工作', ''),
       reminderBookOf(ledger),
     );
+    expect(told, 0);
     port.reachable = false;
     expect(await sync.sync(reminderBookOf(ledger)), isNull);
+    // D84: the person hears of it (once a run: QuietFailures).
+    expect(told, 1);
   });
 
   test('a calendar that takes only some new events says how many it '

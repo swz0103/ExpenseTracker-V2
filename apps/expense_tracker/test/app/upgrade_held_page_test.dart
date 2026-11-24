@@ -51,12 +51,15 @@ void main() {
     );
   });
 
-  testWidgets('another failure is said with its reason', (tester) async {
+  testWidgets('another failure is said without its own words (D84)', (
+    tester,
+  ) async {
     await open(
       tester,
       UpgradeBackupFailed.of(const FileSystemException('denied', 'backups')),
     );
-    expect(find.textContaining('無法先把帳本備份起來（'), findsOneWidget);
+    expect(find.textContaining('無法先把帳本備份起來，可在診斷匯出詳細資料'), findsOneWidget);
+    expect(find.textContaining('denied'), findsNothing);
   });
 
   testWidgets('retry and export do what they say', (tester) async {

@@ -46,7 +46,7 @@ class _ReportsPageState extends State<ReportsPage> {
       if (saved && mounted) showNote(context, '已存成圖片');
     } on Object catch (error) {
       ErrorLog.instance.record('存成圖片', error);
-      if (mounted) showNote(context, '沒有存成圖片：${ErrorLog.describe(error)}');
+      if (mounted) showNote(context, problemNote('沒有存成圖片', error));
     }
   }
 

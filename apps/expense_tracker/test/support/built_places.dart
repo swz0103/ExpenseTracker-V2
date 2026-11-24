@@ -87,11 +87,7 @@ final builtPlaces = <Place>[
 
   Place(
     'start failed',
-    (tester, look) => _standalone(
-      tester,
-      look,
-      StartFailedApp(what: '無法開啟 App 的資料夾', retry: () {}),
-    ),
+    (tester, look) => _standalone(tester, look, StartFailedApp(retry: () {})),
   ),
 
   // The lock screens, on a ledger with a password.

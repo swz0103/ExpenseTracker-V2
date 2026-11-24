@@ -69,10 +69,10 @@ void main() {
     expect(newest(), '啟動：帳本資料夾：StateError: Bad state: folder broke');
     await tester.pumpWidget(screen!);
     expect(find.text('記帳本無法啟動'), findsOneWidget);
-    expect(
-      find.textContaining('（StateError: Bad state: folder broke）'),
-      findsOneWidget,
-    );
+    // The error itself is in the diagnostics it copies, never on the
+    // page (D84).
+    expect(find.textContaining('StateError'), findsNothing);
+    expect(find.textContaining('啟動時發生問題，資料沒有被改動'), findsOneWidget);
     expect(
       find.byKey(Keys.loadFailed('restore')),
       findsNothing,
@@ -123,7 +123,7 @@ void main() {
 
   group('the page for a start that failed', () {
     testWidgets('has the app\'s own theme', (tester) async {
-      await tester.pumpWidget(StartFailedApp(what: 'x', retry: () {}));
+      await tester.pumpWidget(StartFailedApp(retry: () {}));
       final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
       expect(app.theme?.textTheme.bodyMedium?.fontFamily, appFont.fontFamily);
     });
@@ -132,7 +132,7 @@ void main() {
       tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
       addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
       addTearDown(() => Shade.dark = false);
-      await tester.pumpWidget(StartFailedApp(what: 'x', retry: () {}));
+      await tester.pumpWidget(StartFailedApp(retry: () {}));
       expect(Shade.dark, isTrue);
     });
   });

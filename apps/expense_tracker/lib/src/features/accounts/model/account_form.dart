@@ -39,6 +39,28 @@ final class AccountForm {
 
   final Ledger ledger;
 
+  /// Every field as typed or chosen, to tell whether the form changed
+  /// since it opened (D83).
+  List<Object?> get fields => [
+    name,
+    balance,
+    limit,
+    kind,
+    icon,
+    closing,
+    due,
+    counted,
+    currency,
+    principal,
+    color,
+    rate,
+    months,
+    repay,
+    payFrom,
+    discount,
+    fundInto,
+  ];
+
   /// The account being changed; null for a new one.
   final Account? old;
 

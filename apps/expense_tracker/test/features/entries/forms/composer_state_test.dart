@@ -343,4 +343,43 @@ void main() {
     expect(ledger.balanceService.balance('lent'), 0);
     expect(owed, greaterThan(0));
   });
+
+  testWidgets('D83: 取消 leaves an untouched form at once; one written in '
+      'asks 要捨棄修改嗎？ first, and 繼續編輯 keeps it', (tester) async {
+    await open(tester);
+    await tester.tap(find.byKey(Keys.cancelEdit));
+    await tester.pumpAndSettle();
+    expect(find.text('要捨棄修改嗎？'), findsNothing);
+    expect(outcomes, [null]);
+
+    final count = ledger.entries.length;
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await amount(tester, '120');
+    await tester.tap(find.byKey(Keys.cancelEdit));
+    await tester.pumpAndSettle();
+    expect(find.text('要捨棄修改嗎？'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.confirmCancel));
+    await tester.pumpAndSettle();
+    // Still there, as written: saved as usual.
+    await save(tester);
+    expect(added(count).single.amount, 120);
+    expect(outcomes.last!.$1, ComposeOutcome.saved);
+  });
+
+  testWidgets('D83: back on a form written in asks, and 捨棄 drops it', (
+    tester,
+  ) async {
+    final count = ledger.entries.length;
+    await open(tester);
+    await amount(tester, '75');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('要捨棄修改嗎？'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.confirm));
+    await tester.pumpAndSettle();
+    expect(find.byType(Composer), findsNothing);
+    expect(ledger.entries.length, count);
+    expect(outcomes, [null]);
+  });
 }

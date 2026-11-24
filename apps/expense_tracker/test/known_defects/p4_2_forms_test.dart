@@ -93,14 +93,14 @@ void main() {
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(kept(tester, ledger), isTrue);
-    }, skip: knownDefect('ENT-03', '4.2') != null);
+    });
 
     testWidgets('a tap on the scrim asks, or keeps a draft', (tester) async {
       final ledger = await open(tester);
       await tester.tapAt(const Offset(210, 20));
       await tester.pumpAndSettle();
       expect(kept(tester, ledger), isTrue);
-    }, skip: knownDefect('ENT-03', '4.2') != null);
+    });
   });
 
   test(

@@ -304,7 +304,7 @@ mixin _CalendarActions on State<RemindersSection> {
       if (mounted) {
         showNote(
           context,
-          ReminderMessages.calendarUnreachable(describeProblem(error)),
+          problemNote(ReminderMessages.calendarUnreachable, error),
         );
       }
     }

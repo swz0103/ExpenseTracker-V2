@@ -3,6 +3,7 @@ import 'package:vault/backup_security.dart' show InboxItem;
 import '../core/diagnostics/error_log.dart';
 import '../core/diagnostics/error_steps.dart';
 import '../core/ledger/ledger.dart';
+import '../core/messages/problem_messages.dart' show QuietStep;
 import '../core/ledger/persistence/quarantine.dart';
 import '../core/ledger/persistence/upgrade_backup.dart';
 import '../features/reminders/model/inbox_apply.dart';
@@ -67,7 +68,12 @@ final class LedgerSession {
     this.bringUp,
     this.inbox,
     this.quarantined,
+    this.failed,
   });
+
+  /// Told when booking by itself fails, from the inbox or what fell due,
+  /// so the person hears of it once (D84); none in tests that do not ask.
+  final void Function(QuietStep step)? failed;
 
   /// Reads the book from where it is kept.
   final Future<Ledger> Function() load;
@@ -157,6 +163,7 @@ final class LedgerSession {
           ErrorSteps.inbox,
           StateError('bookings not kept'),
         );
+        failed?.call(QuietStep.autoBooking);
         return null;
       }
       for (final item in items) {
@@ -165,6 +172,7 @@ final class LedgerSession {
       return outcome;
     } on Object catch (error) {
       ErrorLog.instance.record(ErrorSteps.inbox, error);
+      failed?.call(QuietStep.autoBooking);
       return null;
     }
   }
@@ -195,6 +203,7 @@ final class LedgerSession {
       return ledger.recurringCommands.bookDue();
     } on Object catch (error) {
       ErrorLog.instance.record('定期自動入帳', error);
+      failed?.call(QuietStep.autoBooking);
       return AutoBooking.none;
     }
   }

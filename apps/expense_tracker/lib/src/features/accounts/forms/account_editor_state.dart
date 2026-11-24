@@ -6,6 +6,16 @@ class _AccountEditorState extends State<_AccountEditor> {
   /// The fields and what saving does.
   late final _f = AccountForm(widget.ledger, old: _old)
     ..kind = _old?.kind ?? widget.kind ?? AccountKind.bank;
+
+  /// The fields as the form opened, to ask before leaving changes (D83).
+  late final List<Object?> _opened;
+
+  @override
+  void initState() {
+    super.initState();
+    _opened = _f.fields;
+  }
+
   late final TextEditingController _principal = TextEditingController(
     text: _f.principal,
   )..addListener(() => setState(() => _f.principal = _principal.text));
@@ -65,7 +75,7 @@ class _AccountEditorState extends State<_AccountEditor> {
       setState(() => _problem = problem);
       return;
     }
-    if (_f.save()) Navigator.of(context).pop();
+    if (_f.save()) EditGuard.close(context);
   }
 
   /// Archives the account, or brings it back. One with money left is
@@ -96,7 +106,7 @@ class _AccountEditorState extends State<_AccountEditor> {
       if (!settled) return;
     }
     ledger.accountCommands.updateAccount(old.copyWith(archived: !old.archived));
-    if (mounted) Navigator.of(context).pop(!old.archived);
+    if (mounted) EditGuard.close(context, !old.archived);
   }
 
   Future<void> _remove() async {
@@ -115,7 +125,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     if (!ok || !mounted) return;
     widget.ledger.entryCommands.discardTrashed(trashed);
     commands.removeAccount(old.id);
-    Navigator.of(context).pop(true);
+    EditGuard.close(context, true);
   }
 
   Future<void> _pickDay(bool closing) async {
@@ -311,63 +321,6 @@ class _AccountEditorState extends State<_AccountEditor> {
     );
     if (picked == null || !mounted) return;
     setState(() => _f.fundInto = picked.isEmpty ? null : picked);
-  }
-
-  /// 刪除, 封存 or 恢復 when changing, and 儲存; what is left under it.
-  Widget _buttons(Account? old) {
-    final removable =
-        old != null && !widget.ledger.accountCommands.usedOutsideTrash(old.id);
-    final problem = _problem;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (problem != null)
-          Padding(
-            padding: const EdgeInsets.only(top: Space.s3),
-            child: Text(
-              problem,
-              textAlign: TextAlign.center,
-              style: dangerText,
-            ),
-          ),
-        const SizedBox(height: Space.s4),
-        Row(
-          children: [
-            if (old != null)
-              TextButton(
-                onPressed: removable ? _remove : _archive,
-                style: wordButton(
-                  removable || !old.archived
-                      ? AppColors.danger
-                      : AppColors.accent,
-                  minimumSize: Size(64, 46),
-                ),
-                child: Text(
-                  removable
-                      ? Words.delete
-                      : old.archived
-                      ? '恢復'
-                      : widget.ledger.balanceService.balance(old.id) == 0
-                      ? '封存'
-                      : '結清封存',
-                ),
-              ),
-            const SizedBox(width: Space.s2),
-            Expanded(
-              child: FilledButton(
-                onPressed: _save,
-                style: solidButton(
-                  AppColors.accent,
-                  minimumSize: Size.fromHeight(46),
-                  radius: Radii.medium,
-                ),
-                child: const Text('儲存'),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
   }
 
   /// 算進負債與淨資產, or 計入資產與淨資產, as a whole row.
@@ -584,13 +537,16 @@ class _AccountEditorState extends State<_AccountEditor> {
   Widget build(BuildContext context) {
     final old = _old;
     final color = accountColor(_preview);
-    return SingleChildScrollView(
-      physics: const FitScrollPhysics(16),
-      padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: _loanForm ? _loanFields(old) : _accountFields(old, color),
+    return EditGuard(
+      changed: !listEquals(_f.fields, _opened),
+      child: SingleChildScrollView(
+        physics: const FitScrollPhysics(16),
+        padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: _loanForm ? _loanFields(old) : _accountFields(old, color),
+        ),
       ),
     );
   }

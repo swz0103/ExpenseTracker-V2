@@ -135,7 +135,7 @@ void main() {
     phone.testFails = true;
     await put(tester);
     await go(tester, ['試一則']);
-    expect(find.textContaining('無法傳送測試通知：'), findsOneWidget);
+    expect(find.text('無法傳送測試通知，可在診斷匯出詳細資料'), findsOneWidget);
   });
 
   testWidgets('with notifications off on the phone, the strip says so and '
@@ -328,9 +328,9 @@ void main() {
     await go(tester, ['提醒定期扣款與卡費']);
     await settle(
       tester,
-      () => find.textContaining('日曆沒有連上：').evaluate().isNotEmpty,
+      () => find.textContaining('日曆沒有連上').evaluate().isNotEmpty,
     );
-    expect(find.textContaining('日曆沒有連上：'), findsOneWidget);
+    expect(find.text('日曆沒有連上，可在診斷匯出詳細資料'), findsOneWidget);
   });
 
   testWidgets('a calendar that cannot be written is said so', (tester) async {

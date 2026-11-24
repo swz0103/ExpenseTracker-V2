@@ -167,7 +167,7 @@ class _CalculatorState extends State<_Calculator> {
       final amount = _keys.amount;
       if (amount is! AmountOk) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).pop(amount.minor);
+        if (mounted) EditGuard.close(context, amount.minor);
       });
       return;
     }
@@ -176,6 +176,15 @@ class _CalculatorState extends State<_Calculator> {
 
   @override
   Widget build(BuildContext context) {
+    // A sum typed is not lost to a slip: leaving it asks first (D83); the
+    // keys' C clears it, a swipe or back with nothing typed leaves.
+    return EditGuard(
+      changed: _keys.expression != widget.initial,
+      child: _pad(),
+    );
+  }
+
+  Widget _pad() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
       child: Column(
