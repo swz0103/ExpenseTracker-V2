@@ -215,5 +215,48 @@ void main() {
       // 1,000 + (1,000 - 300).
       expect(book.budgets.allowance(since, 2026, 10), 1700);
     });
+
+    test('a purchase on the 1st is this month\'s own, scaled with its '
+        'refund', () {
+      final book = Book(
+        entries: [
+          entry('buy', amount: 1000, date: DateTime.utc(2026, 10, 1)),
+          entry(
+            'back',
+            type: EntryType.income,
+            amount: 400,
+            refundOf: 'buy',
+            date: DateTime.utc(2026, 10, 2),
+          ),
+        ],
+      );
+      // 600 own spending in 4 of 31 days: 600 x 31 / 4 = 4,650.
+      expect(book.budgets.forecast(600, 2026, 10), 4650);
+    });
+
+    test('a 預定 refund of an earlier purchase is not taken off yet', () {
+      final book = Book(
+        entries: [
+          entry('buy', amount: 1000, date: DateTime.utc(2026, 9, 20)),
+          entry('x', amount: 100, date: DateTime.utc(2026, 10, 2)),
+          entry(
+            'back',
+            type: EntryType.income,
+            amount: 300,
+            refundOf: 'buy',
+            date: DateTime.utc(2026, 10, 6),
+          ),
+        ],
+      );
+      // 100 x 31 / 4 = 775; the refund on 10/6 is not here yet.
+      expect(book.budgets.forecast(100, 2026, 10), 775);
+    });
+
+    test('this month: what can be spent a day over the days left, today '
+        'included', () {
+      final pace = Book().budgets.pace(100, 3100, 2026, 10) as CurrentPace;
+      // 3,000 left over 31 - 4 + 1 = 28 days: 107.1 -> 107.
+      expect((pace.daysLeft, pace.perDay), (28, 107));
+    });
   });
 }

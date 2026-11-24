@@ -16,7 +16,7 @@ AREAS = {
  'budget':  flt('test/core/ledger/services/budget_service_test.dart', ASOF),
  'statement': flt('test/core/ledger/services/statement_service_test.dart', ASOF),
  'recurring': flt('test/core/ledger/services/recurring_service_test.dart'),
- 'cardcycle': flt('test/core/ledger/services/statement_service_test.dart','test/core/ledger/services/balance_service_test.dart','test/baseline/installments_baseline_test.dart'),
+ 'cardcycle': flt('test/core/ledger/services/statement_service_test.dart','test/core/ledger/services/balance_service_test.dart','test/baseline/installments_baseline_test.dart','test/features/accounts/model/card_summary_test.dart', ASOF),
  'cardsummary': flt('test/features/accounts/model/card_summary_test.dart', ASOF),
  'amount':  flt('test/design_system/display'),
 }
@@ -595,4 +595,28 @@ EQUIVALENT = {
                   'whole day, and flows sum each side apart',
     'budget-04': 'forecast: no day of a month leaves 0 days gone (daysGone '
                  'is at least 1), so the guard is never reached',
+    'budget-21': 'forecast: own spending below nothing has a heading below '
+                 'nothing however it rounds, and earlier refunds only lower '
+                 'it, so max(0, ...) gives 0 either way',
+    'statement-13': 'unbilled: of the entries kept by the card, only a '
+                    'transfer into it is not its own, and posted() leaves '
+                    'transfers out already',
+    'statement-15': 'instalmentsOn: a purchase in one payment has nothing '
+                    'still to bill after today, so stillToBill > 0 leaves '
+                    'it out already',
+    'statement-21': "statementDue's cache key: closedBy is today less a "
+                    'day, so the key changes with today either way',
+    'recurring-04': '_settled: a day in the month after the latest booking '
+                    'and today is after every booking and after today, '
+                    'and in none of their months, so no booking can take it',
+    'recurring-12': 'pendingDate: unpostedDates already gives a paused item '
+                    'no days, so it is null either way',
+    'cardcycle-01': 'installmentAmounts: installmentShares of one payment '
+                    'is the whole total, as [total] is',
+    'cardcycle-10': '_stepsOf: billingSteps is only asked of a purchase in '
+                    'more than one instalment (the running balance, '
+                    'cancelledBy and stillToBill all check first)',
+    'cardsummary-12': 'nextClose: the cycle starting the day after the end, '
+                      'and the one containing the day after that, are the '
+                      'same cycle (a cycle is longer than one day)',
 }
