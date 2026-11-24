@@ -487,8 +487,12 @@ final class LedgerVault {
       await _deleteDatabase(databaseFile);
     } else if (await _journalDamaged.exists()) {
       // Made again where the records can be read; else opened as it is,
-      // and found damaged as it is read.
-      await salvage(keys);
+      // and found damaged as it is read. One that failed before it was
+      // put in place fails this opening, the file as it was: the next
+      // opening makes it again.
+      if (await salvage(keys) case SalvageNotMade(:final error, :final stack)) {
+        Error.throwWithStackTrace(error, stack);
+      }
     }
     return _open(keys);
   }
@@ -511,35 +515,53 @@ final class LedgerVault {
   /// ([setAsideDamaged]), so it can still be sent for a look; once the
   /// book made again has opened, the copies are let go of but the newest
   /// [keptDamagedCopies] and those set aside since the book last opened
-  /// ([pruneDamagedCopies]). Whether it was made again: false when the
-  /// records themselves cannot be read whole, the database then left
-  /// exactly as it was.
-  Future<bool> salvage(UnlockedKeyring keys) async {
-    final (List<RowChange>, int?) kept;
+  /// ([pruneDamagedCopies]).
+  ///
+  /// [Salvaged] once the copy is put in place; [SalvageUnreadable] when
+  /// the records themselves cannot be read whole, and [SalvageNotMade]
+  /// when anything else fails before the copy is put in place (a disk
+  /// full as it is written): the database is then left exactly as it
+  /// was. A failure once the copy is being put in place is thrown: only
+  /// going forward is left, which the next opening finishes.
+  Future<Salvage> salvage(UnlockedKeyring keys) async {
+    var placing = false;
     try {
-      final old = _openStore(databaseFile, keys);
+      final (List<RowChange>, int?) kept;
       try {
-        kept = await old.readApart(_keptOf);
-      } finally {
-        old.close();
+        final old = _openStore(databaseFile, keys);
+        try {
+          kept = await old.readApart(_keptOf);
+        } finally {
+          old.close();
+        }
+      } on StorageUnavailable catch (error) {
+        if (error.problem == StorageProblem.damaged) {
+          return const SalvageUnreadable();
+        }
+        rethrow;
       }
-    } on StorageUnavailable catch (error) {
-      if (error.problem == StorageProblem.damaged) return false;
-      rethrow;
+      final (changes, book) = kept;
+      await _replace(
+        keys,
+        (staging) async {
+          await staging.writeApart(changes);
+          if (book != null) {
+            staging.write(
+              (w) => w.setMeta(EncryptedDatabase.bookVersionKey, book),
+              counts: false,
+            );
+          }
+        },
+        beforeSwap: () => placing = true,
+        keepOld: true,
+      );
+    } on Object catch (error, stack) {
+      if (placing) rethrow;
+      return SalvageNotMade(error, stack);
     }
-    final (changes, book) = kept;
-    await _replace(keys, (staging) async {
-      await staging.writeApart(changes);
-      if (book != null) {
-        staging.write(
-          (w) => w.setMeta(EncryptedDatabase.bookVersionKey, book),
-          counts: false,
-        );
-      }
-    }, keepOld: true);
     if (await _journalDamaged.exists()) await _journalDamaged.delete();
     _salvagedUnopened = true;
-    return true;
+    return const Salvaged();
   }
 
   /// A book made again ([salvage]) and not yet opened: once it opens, the
@@ -720,4 +742,31 @@ final class LedgerVault {
       if (await part.exists()) await part.delete();
     }
   }
+}
+
+/// How making the database again from its records went
+/// ([LedgerVault.salvage]).
+sealed class Salvage {
+  const Salvage();
+}
+
+/// Made again and put in place; the old file set aside as damaged.
+final class Salvaged extends Salvage {
+  const Salvaged();
+}
+
+/// The records themselves cannot be read whole: nothing made, the
+/// database left exactly as it was.
+final class SalvageUnreadable extends Salvage {
+  const SalvageUnreadable();
+}
+
+/// Making it again failed before the copy was put in place (a disk full
+/// as it was written, say): the database is left exactly as it was, and
+/// can be made again later. [error] is what failed.
+final class SalvageNotMade extends Salvage {
+  const SalvageNotMade(this.error, this.stack);
+
+  final Object error;
+  final StackTrace stack;
 }
