@@ -1,4 +1,4 @@
-import 'package:expense_tracker/src/core/ledger/models/models.dart';
+import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../support/book.dart';
@@ -52,6 +52,45 @@ void main() {
     expect(book.queries.search('家用').map((e) => e.id), ['tagged']);
     expect(book.queries.search('4321').map((e) => e.id), ['priced']);
     expect(book.queries.search('沒有'), isEmpty);
+  });
+
+  test('typing on narrows what was found; a change is searched afresh', () {
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 10, 4),
+      accounts: [Account('a', '銀行', AccountKind.bank, 0)],
+      categories: const [],
+      entries: [
+        entry('lunch', account: 'a', merchant: '午餐', amount: 120),
+        entry('nap', account: 'a', merchant: '午睡', amount: 12),
+        entry('dinner', account: 'a', merchant: '晚餐', amount: 1200),
+      ],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+    final queries = ledger.entryQueryService;
+    List<String> found(String words) => [
+      for (final e in queries.search(words)) e.id,
+    ];
+    expect(found('午'), ['nap', 'lunch']);
+    // Longer words: among what 午 found.
+    expect(found('午餐'), ['lunch']);
+    // Words that could be an amount are matched whole, never narrowed:
+    // 12 after 1 finds the entry of 12, which 1 found only in its text.
+    expect(found('1'), isEmpty);
+    expect(found('12'), ['nap']);
+    expect(found('120'), ['lunch']);
+    // A save: the month's text is worked out again, the rest kept.
+    ledger.entryCommands.add(
+      entry(
+        'late',
+        account: 'a',
+        merchant: '午後',
+        date: DateTime.utc(2026, 10, 4),
+      ),
+    );
+    expect(found('午'), ['late', 'nap', 'lunch']);
+    expect(found('午後'), ['late']);
   });
 
   test('spending made alike three times lately is usual', () {
