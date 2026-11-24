@@ -81,4 +81,17 @@ void main() {
     expect(splitSign(0), (sign: 0, size: 0));
     expect(splitSign(5), (sign: 1, size: 5));
   });
+
+  test('zero has no sign, at any scale (mutation review 11)', () {
+    expect(figures(0, 2), '0.00');
+    expect(figures(0, 0), '0');
+  });
+
+  test('a value written with an exponent is rounded half away from zero '
+      '(mutation review 11)', () {
+    // 1e-7 at 7 decimals is 1; 5e-7 at 6 decimals is 0.5, rounded to 1.
+    expect(roundHalfAwayFromZero(1e-7, 7), 1);
+    expect(roundHalfAwayFromZero(5e-7, 6), 1);
+    expect(roundHalfAwayFromZero(-5e-7, 6), -1);
+  });
 }

@@ -567,3 +567,17 @@ M('amount',AM,"'$currency ${figuresIn(minor, currency)}';","'${figuresIn(minor, 
 M('amount',AM,'_names[currency] ?? currency','_names[currency] ?? _home')
 M('amount',AM,"final text = figures(minor, scale, grouped: false);\n  final zeros","final text = figures(minor, scale, grouped: true);\n  final zeros")
 MUTANTS = [x for x in MUTANTS if x is not None]
+
+# Mutants that cannot change what the code does, with why: left out of the
+# score. Each was checked by hand; a code change can make one live again.
+EQUIVALENT = {
+    'core-42': "trimmedDecimals: figures() never writes '-0' (a negative "
+               "minor keeps a non-zero digit after trimming)",
+    'core-43': "fixedDecimals: figures() never writes '-0.00' for the same "
+               "reason; the guard is defensive",
+    'core-54': 'Fraction: the gcd of a non-zero denominator is at least 1, '
+               'so dividing by a gcd of 1 changes nothing',
+    'trade-45': 'readBrokerDiscount: three whole digits (100 and up) are '
+                'past the range anyway and read DiscountOutOfRange; the '
+                'guard only keeps int.parse off huge numbers',
+}

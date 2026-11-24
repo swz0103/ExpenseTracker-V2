@@ -185,4 +185,19 @@ void main() {
       isNull,
     );
   });
+
+  test('a payment that would end the loan early pays no more than is owed '
+      '(mutation review 11)', () {
+    final schedule = loanSchedule(
+      amount: 10,
+      rate: 0,
+      months: 12,
+      repay: LoanRepay.even,
+    )!;
+    // 10 / 12 = 0.83 -> a payment of 1: the tenth month pays the last of
+    // it, and the two after pay nothing, never below nothing owed.
+    expect(schedule[9], (payment: 1, interest: 0, principal: 1, balance: 0));
+    expect(schedule[10], (payment: 0, interest: 0, principal: 0, balance: 0));
+    expect(schedule[11], (payment: 0, interest: 0, principal: 0, balance: 0));
+  });
 }
