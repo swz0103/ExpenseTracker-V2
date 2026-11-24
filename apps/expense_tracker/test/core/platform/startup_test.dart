@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:storage/storage.dart' show StorageProblem, StorageUnavailable;
+import 'package:storage/storage.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
@@ -87,6 +87,8 @@ void main() {
     Future<void> damage() async {
       final first = Startup(vault);
       await first.setUp(password);
+      // As the book's first opening writes its first records (D102).
+      (first.state as Ready).vault.store.write((w) => w.put('a', 'b', '{}'));
       first.lock();
       vault.databaseFile.writeAsBytesSync(const []);
     }
@@ -133,10 +135,28 @@ void main() {
       expect(vault.damagedCopies(), isEmpty);
     });
 
+    /// Set up, its records then spoiled on disk where they start (as a bad
+    /// sector would), and opened again: the opening reads none of them.
+    Future<Startup> spoiledRecords() async {
+      final first = Startup(vault);
+      await first.setUp(password);
+      first.lock();
+      // The records' table is the file's first after its schema: page 2.
+      const root = 2;
+      final bytes = vault.databaseFile.readAsBytesSync();
+      // Inside the page, past its header: 4096 x (page - 1) + 200.
+      for (var i = 0; i < 64; i++) {
+        bytes[EncryptedDatabase.pageSize * (root - 1) + 200 + i] ^= 0x5a;
+      }
+      vault.databaseFile.writeAsBytesSync(bytes);
+      final startup = Startup(vault);
+      await startup.unlockWithPassword(password);
+      return startup;
+    }
+
     test('reading the book passes on what it gives, and any other '
         'failure as it is', () async {
-      final startup = Startup(vault);
-      await startup.setUp(password);
+      final startup = await spoiledRecords();
       expect(await startup.readingBook(Future.value(7)), 7);
       await expectLater(
         startup.readingBook<int>(Future.error(StateError('other'))),
@@ -159,9 +179,9 @@ void main() {
       expect(vault.damagedCopies(), hasLength(1));
     });
 
-    test('found as the book is read, it is closed and set aside', () async {
-      final startup = Startup(vault);
-      await startup.setUp(password);
+    test('found as the book is read, its records spoiled, it is closed and '
+        'set aside', () async {
+      final startup = await spoiledRecords();
       final open = (startup.state as Ready).vault;
       await startup.bookDamaged(
         const StorageUnavailable(StorageProblem.damaged),
@@ -170,6 +190,26 @@ void main() {
       expect(open.store.isOpen, isFalse);
       expect(vault.databaseFile.existsSync(), isFalse);
       expect(vault.damagedCopies(), hasLength(1));
+    });
+
+    test('found where the records read whole (the journal\'s tables), the '
+        'book is made again from them and opens at once (D102)', () async {
+      final startup = Startup(vault);
+      await startup.setUp(password);
+      final open = (startup.state as Ready).vault;
+      open.store.write((w) => w.put('account', 'cash', '{}'));
+      var told = 0;
+      startup.addListener(() => told++);
+      await startup.journalDamaged(
+        const StorageUnavailable(StorageProblem.damaged),
+      );
+      final again = startup.state as Ready;
+      expect(told, 1);
+      expect(open.store.isOpen, isFalse);
+      expect(identical(again.vault, open), isFalse);
+      expect(again.vault.store.rows().single.id, 'cash');
+      expect(vault.damagedCopies(), isEmpty);
+      startup.lock();
     });
   });
 

@@ -1,5 +1,8 @@
 // Exception to shared words: the CSV columns read, as written by
 // import_export.dart and by other apps; a file format, not screen words.
+// Exception to file length: the one reader of a file's rows, each kind
+// of row (spending, refund, transfer, trade, invoice) a method of it that
+// shares its state (the rows read so far, what was refunded of each).
 part of 'import_export.dart';
 
 final class _Reader {
@@ -100,7 +103,10 @@ final class _Reader {
   /// it was.
   String? read(String Function(String) cell, {required int line}) {
     _line = line;
-    final read = readImportDay(cell('日期'));
+    final read = readImportDay(
+      cell('日期'),
+      latest: BusinessDate.of(latestEntryDay(book.today)),
+    );
     if (read case DayRefused(:final problem)) return dayProblemWords(problem);
     final day = _utcDay(read)!;
     final typed = cell('類型');
@@ -131,7 +137,7 @@ final class _Reader {
         note,
         income: kind == _Kind.income,
       ),
-      _Kind.refund => _refund(cell, day, account, amount, note),
+      _Kind.refund => _refund(cell, day, account, from, amount, note),
       _Kind.transfer => _transfer(cell, day, account, from, amount, note),
       _ => _investment(cell, kind, day, account, from, amount, note),
     };
@@ -144,6 +150,7 @@ final class _Reader {
       holdings: false,
       opening: _accounts,
     );
+    if (failure is MissingHomeAmount) return importMissingHomeWords;
     if (failure != null) return validationMessage(failure);
     if (_already(book, made)) return '帳本裡已經有這一筆';
     if (made.isRefund) {
@@ -208,11 +215,15 @@ final class _Reader {
   }
 
   /// A refund of the latest spending on [account] up to [day] with that
-  /// much left to give back, the same shop's first.
+  /// much left to give back, the same shop's first. On a foreign account
+  /// its worth at home is the 台幣金額 written, when it is within what of
+  /// the purchase's worth is left, else its share of the purchase's
+  /// worth (D62), else the amount at today's rate.
   Object _refund(
     String Function(String) cell,
     DateTime day,
     String account,
+    Account from,
     int amount,
     String note,
   ) {
@@ -234,15 +245,31 @@ final class _Reader {
       orElse: () => candidates.first,
     );
     // As the composer writes it: the purchase's split and tags (D65).
-    final share = refundShare(
-      original,
-      amount,
-      earlier: [
-        ...book.entries.refundsOf(original.id),
-        for (final (_, f) in _found)
-          if (f.refundOf == original.id) f,
-      ],
-    );
+    final earlier = [
+      ...book.entries.refundsOf(original.id),
+      for (final (_, f) in _found)
+        if (f.refundOf == original.id) f,
+    ];
+    final share = refundShare(original, amount, earlier: earlier);
+    // Exception to glossary: the file format's column, kept so files written before read back.
+    final (typed, homeProblem) = _cellAmount(cell, '台幣金額');
+    if (homeProblem != null) return homeProblem;
+    int? home;
+    if (from.foreign) {
+      // What of the purchase's worth is not yet given back: a refund of
+      // all that is left takes all of it.
+      final left = refundShare(
+        original,
+        original.amount,
+        earlier: earlier,
+      ).home;
+      if (typed != null && typed <= 0) return refundHomeWords(null);
+      if (typed != null && left != null && typed > left) {
+        return refundHomeWords(left);
+      }
+      home =
+          typed ?? share.home ?? book.marketData.toHome(amount, from.currency);
+    }
     return Entry(
       id: book.newId(),
       date: day,
@@ -254,6 +281,7 @@ final class _Reader {
       tags: share.tags,
       parts: share.parts,
       refundOf: original.id,
+      home: home,
     );
   }
 
@@ -468,7 +496,10 @@ Import _invoiceLines(ImportBook book, String text, {required String account}) {
   final numbers = <String>{};
   var skipped = 0;
   for (final cells in heads) {
-    final read = readImportDay(cells[3]);
+    final read = readImportDay(
+      cells[3],
+      latest: BusinessDate.of(latestEntryDay(book.today)),
+    );
     final day = _utcDay(read);
     final shop = cells[5];
     final number = cells[6];
@@ -570,10 +601,6 @@ Entry _invoice(
   List<String> bought,
   int value,
 ) {
-  final what = bought.isEmpty ? '' : bought.first;
-  final more = bought.length > 1
-      ? ' 等 ${countOf(bought.length, CountUnit.items)}'
-      : '';
   return Entry(
     id: book.newId(),
     date: day,
@@ -588,9 +615,9 @@ Entry _invoice(
       shop,
       bought.join(' '),
     ),
-    note: '$what$more 發票 $number'.trim(),
+    note: invoiceNote(bought, number),
     merchant: shop,
-    tags: const ['發票'],
+    tags: const [Words.invoice],
     mark: EntryMark.invoice,
   );
 }

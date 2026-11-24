@@ -35,4 +35,31 @@ void main() {
       throwsA(isA<ArgumentError>()),
     );
   });
+
+  test('a count kept on a day is scaled by the splits after it (D105)', () {
+    final p = Portfolio.replay(const [], [
+      trade('buy', EntryType.buy, 1000),
+      Entry(
+        id: 'split',
+        date: DateTime.utc(2026, 9, 10),
+        type: EntryType.dividend,
+        amount: 0,
+        account: 'bank',
+        category: '',
+        holding: '2330',
+        shares: 19000,
+        split: true,
+      ),
+    ]);
+    // 1:20: 1000 held on Sep 5 are 1000 x 20000 / 1000 = 20000 today.
+    expect(p.inTodaysShares('2330', DateTime.utc(2026, 9, 5), 1000), 20000);
+    // On the split's own day the count is already today's.
+    expect(p.inTodaysShares('2330', DateTime.utc(2026, 9, 10), 20000), 20000);
+    expect(p.sharesOn('2330', DateTime.utc(2026, 9, 5)), 20000);
+    // D101: a close kept before the split may be far from the next.
+    expect(p.reshapedAfter('2330', DateTime.utc(2026, 9, 9)), isTrue);
+    expect(p.reshapedAfter('2330', DateTime.utc(2026, 9, 10)), isFalse);
+    expect(p.reshapedAfter('2330', null), isTrue);
+    expect(p.reshapedAfter('0050', null), isFalse);
+  });
 }

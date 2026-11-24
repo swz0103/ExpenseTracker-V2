@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:ledger_entries/model.dart';
 import 'package:ledger_entries/rules.dart';
 import 'package:test/test.dart';
@@ -120,5 +122,72 @@ void main() {
       expect(share.category, '飲食');
       expect(share.tags, ['家用']);
     });
+  });
+
+  test('r13: 3,000 purchases refunded in parts at random give back '
+      'exactly their worth and each part of their split', () {
+    final r = Random(1);
+    for (var n = 0; n < 3000; n++) {
+      final amount = 1000 + r.nextInt(100000);
+      final count = 2 + r.nextInt(3);
+      var left = amount;
+      final parts = <(String, int)>[];
+      for (var i = 0; i < count; i++) {
+        final v = i == count - 1 ? left : 1 + r.nextInt(left - (count - 1 - i));
+        parts.add(('C$i', v));
+        left -= v;
+      }
+      final home = r.nextBool()
+          ? (amount * 31 / (1 + r.nextInt(5))).round()
+          : null;
+      final purchase = Entry(
+        id: 'p',
+        date: DateTime.utc(2026, 1, 1),
+        type: EntryType.expense,
+        amount: amount,
+        account: 'x',
+        category: 'C0',
+        parts: parts,
+        tags: const ['t'],
+        home: home,
+      );
+      final earlier = <Entry>[];
+      for (var rest = amount; rest > 0;) {
+        final give = r.nextInt(3) == 0 ? rest : 1 + r.nextInt(rest);
+        final share = refundShare(purchase, give, earlier: earlier);
+        earlier.add(
+          Entry(
+            id: 'r${earlier.length}',
+            date: DateTime.utc(2026, 2, 1),
+            type: EntryType.income,
+            amount: give,
+            account: 'x',
+            category: share.category,
+            parts: share.parts,
+            tags: share.tags,
+            home: share.home,
+            refundOf: 'p',
+          ),
+        );
+        rest -= give;
+      }
+      if (home != null) {
+        expect(
+          earlier.fold(0, (s, e) => s + (e.home ?? 0)),
+          home,
+          reason: '$n',
+        );
+      } else {
+        final by = <String, int>{};
+        for (final e in earlier) {
+          for (final (name, v) in e.spendingParts) {
+            by[name] = (by[name] ?? 0) + v;
+          }
+        }
+        for (final (name, v) in parts) {
+          expect(by[name], -v, reason: '$name n=$n');
+        }
+      }
+    }
   });
 }

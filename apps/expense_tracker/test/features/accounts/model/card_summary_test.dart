@@ -205,6 +205,30 @@ void main() {
     expect(card.markedSinceClose(EntryMark.reward), 40);
   });
 
+  test('an annual fee given back is taken off the year\'s (r13 F7)', () {
+    final fee = _spend(
+      'fee',
+      1,
+      1800,
+      month: 2,
+      tags: ['年費'],
+      mark: EntryMark.annualFee,
+    );
+    final waived = Entry(
+      id: 'waived',
+      date: DateTime.utc(2026, 3, 5),
+      type: EntryType.income,
+      amount: 1800,
+      account: 'card',
+      category: '購物休閒',
+      refundOf: 'fee',
+    );
+    final card = _summary(entries: [fee, waived]);
+    // 1800 charged, 1800 given back: 0.
+    expect(card.markedThisYear(EntryMark.annualFee), 0);
+    expect(card.markedThisYear(EntryMark.reward), 0);
+  });
+
   test('the cashback and fee the page starts carry their mark', () {
     final card = _summary();
     expect(card.extra(EntryType.income).mark, EntryMark.reward);

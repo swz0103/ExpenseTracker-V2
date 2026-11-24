@@ -39,4 +39,38 @@ void main() {
       }
     }
   });
+
+  test('r13: 3,000 schedules refunded at random: the changes come to '
+      'nothing, and no month is billed below zero', () {
+    final r = Random(3);
+    for (var n = 0; n < 3000; n++) {
+      final count = 2 + r.nextInt(11);
+      final total = 100 + r.nextInt(50000);
+      final shares = installmentShares(total, count).toList();
+      final schedule = [
+        for (var i = 0; i < count; i++)
+          (BusinessDate(2026, 1 + i, 10), shares[i]),
+      ];
+      final refunds = [
+        for (var i = 0, k = 1 + r.nextInt(4); i < k; i++)
+          (
+            BusinessDate(2026, 1 + r.nextInt(count), 1 + r.nextInt(28)),
+            1 + r.nextInt(total),
+          ),
+      ];
+      final changes = refundedInstalments(schedule, refunds);
+      final billed = {for (final (d, s) in schedule) d: s};
+      var sum = 0;
+      for (final list in changes) {
+        for (final (d, c) in list) {
+          sum += c;
+          billed[d] = (billed[d] ?? 0) + c;
+        }
+      }
+      expect(sum, 0, reason: 'n=$n');
+      for (final v in billed.values) {
+        expect(v, greaterThanOrEqualTo(0), reason: 'n=$n');
+      }
+    }
+  });
 }

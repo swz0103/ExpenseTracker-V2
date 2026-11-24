@@ -58,8 +58,7 @@ import '../core/time/app_clock.dart';
 /// (`PasswordPolicy.standard`); a ledger opened without a password keeps
 /// its key sealed by the Android Keystore, never in plain form.
 /// Wrong passwords are slowed down by the vault's one table
-/// (`AttemptPolicy.standard`), the wait measured by [uptime] where the
-/// phone has such a clock.
+/// (`AttemptPolicy.standard`), the wait measured by [uptime] if it can be.
 Startup productionStartup(
   Directory directory, {
   DeviceUnlock? device,
@@ -68,6 +67,7 @@ Startup productionStartup(
   LedgerVault(directory, codec: KeyringCodec(), now: AppClock.now),
   device: device,
   check: SqlLedgerDataSource.check,
+  checkRestored: SqlLedgerDataSource.checkRestored,
   quickKey: Platform.isAndroid
       ? const KeystoreQuickKey()
       : MemoryKeystore.instance,

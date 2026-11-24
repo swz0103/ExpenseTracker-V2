@@ -8,7 +8,8 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show PlatformException;
-import 'package:storage/storage.dart' show StorageProblem, StorageUnavailable;
+import 'package:storage/storage.dart'
+    show EncryptedDatabase, StorageProblem, StorageUnavailable;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
@@ -99,6 +100,7 @@ final class Startup extends ChangeNotifier {
     this._vault, {
     this.device,
     this.check,
+    this.checkRestored,
     DeviceKeyWrapper? quickKey,
     UptimeSource? uptime,
   }) : _quick = QuickKey(_vault.directory, quickKey ?? MemoryKeystore.instance),
@@ -149,16 +151,48 @@ final class Startup extends ChangeNotifier {
   }
 
   /// The open ledger's database was found damaged as the book was read
-  /// (D94): it is closed and set aside as it is, never written over, and
-  /// the app shows [Damaged].
+  /// (D94): it is closed. Where its records can still be read whole, the
+  /// damage was in the journal's tables, derived from them: the database
+  /// is made again from the records and opens again at once, the journal
+  /// posted afresh (D102). Else it is set aside as it is, never written
+  /// over, and the app shows [Damaged].
   Future<void> bookDamaged(Object error) async {
     final state = _state;
+    final keys = state is Ready ? state.vault.keys : null;
     if (state is Ready) state.vault.close();
     _recovery = null;
     _newPassword = false;
     _resume = null;
+    if (keys != null && await _salvaged(keys, error)) return;
     await _vault.setAsideDamaged();
     _damaged(error);
+  }
+
+  /// The journal's tables of the open ledger were found damaged (D102):
+  /// noted first, so the next opening makes the database again should
+  /// this one not finish, then as [bookDamaged].
+  Future<void> journalDamaged(Object error) async {
+    if (_state is! Ready) return;
+    try {
+      await _vault.noteJournalDamaged();
+    } on Object catch (noted) {
+      ErrorLog.instance.record(ErrorSteps.bookDamaged, noted);
+    }
+    await bookDamaged(error);
+  }
+
+  /// Whether the ledger, closed, was made again from its records with
+  /// [keys] and opened ([LedgerVault.salvage]).
+  Future<bool> _salvaged(UnlockedKeyring keys, Object error) async {
+    try {
+      if (!await _vault.salvage(keys)) return false;
+      ErrorLog.instance.record(ErrorSteps.journalRebuilt, error);
+      _ready(await _vault.reopen(keys));
+      return true;
+    } on Object catch (failed) {
+      ErrorLog.instance.record(ErrorSteps.bookDamaged, failed);
+      return false;
+    }
   }
 
   /// What [read], the open book being read, gives; a page of it found
@@ -189,6 +223,11 @@ final class Startup extends ChangeNotifier {
   /// Throws for a record the app cannot read, so a backup holding one is
   /// refused rather than restored.
   final void Function(String collection, String id, String body)? check;
+
+  /// Throws for a book restored, read whole, that the app cannot keep
+  /// though each record reads (D103: categories on a loop of parents),
+  /// so it is refused rather than put in place.
+  final void Function(EncryptedDatabase restored)? checkRestored;
   late StartupState _state;
   String? _recovery;
 
@@ -426,6 +465,7 @@ final class Startup extends ChangeNotifier {
           await File('${staged.path}/$name').writeAsBytes(bytes, flush: true);
         },
       );
+      checkRestored?.call(staging);
     });
     if (skipped > 0) {
       ErrorLog.instance.record(

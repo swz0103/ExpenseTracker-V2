@@ -27,6 +27,11 @@ final class Currency {
     }
   }
 
+  /// Whole units of no currency (ISO 4217's `XXX`): what amounts already
+  /// in their smallest unit are shared out in, by [Money.allocate] or
+  /// [Money.quantizeRatio], whatever currency they are of.
+  static final units = Currency('XXX', 0);
+
   /// The denomination for [code] with the decimals people use day to day.
   /// Never guess a scale; only this table decides it.
   factory Currency.of(String code) => Currency(code, scaleOf(code));

@@ -47,6 +47,15 @@ final class CurrencyMismatch extends JournalRefusal {
   final CurrencyCode got;
 }
 
+/// A line of [intent] puts on [account] a quantity no store keeps (past
+/// `maxQuantity` either way), alone or with the intent's other lines on
+/// it: a file keeps a quantity in 64-bit whole units.
+final class UnkeepableQuantity extends JournalRefusal {
+  const UnkeepableQuantity(super.intent, this.account, this.quantity);
+  final AccountId account;
+  final BigInt quantity;
+}
+
 /// Nobody here posts intents of [type]: such an intent is read only.
 final class UnknownIntentType extends JournalRefusal {
   const UnknownIntentType(super.intent, this.type);

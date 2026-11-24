@@ -81,3 +81,8 @@ final class BusinessDate implements Comparable<BusinessDate> {
 /// [n] with a leading zero below ten, as in dates and clock times written
 /// for machines (`2026-01-05`, `09:05`).
 String twoDigits(int n) => n.toString().padLeft(2, '0');
+
+/// The Republic of China calendar's year 1 is 1912: its years, as an
+/// invoice, the exchanges' reports and many files write them, are
+/// Gregorian ones less this. The one offset every reader adds.
+const rocYearOffset = 1911;

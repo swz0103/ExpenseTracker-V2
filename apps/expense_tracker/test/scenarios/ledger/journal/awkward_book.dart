@@ -148,6 +148,28 @@ final fitting = [
     installments: 12,
   ),
   entry('payCard', day(9, 25), EntryType.transfer, 2000, 'bank', to: 'card'),
+  // Part of the sofa given back: the instalments not yet billed shrink
+  // (the cancelledInstalments amendment).
+  entry(
+    'sofa-back',
+    day(9, 28),
+    EntryType.income,
+    6000,
+    'card',
+    category: '居家',
+    refundOf: 'sofa',
+  ),
+  // Half the split purchase given back by its split (an Earning's parts).
+  entry(
+    'split-back',
+    day(9, 29),
+    EntryType.income,
+    450,
+    'bank',
+    category: '飲食',
+    refundOf: 'split',
+    parts: [('飲食', 300), ('居家', 150)],
+  ),
   entry(
     'fx',
     day(9, 8),

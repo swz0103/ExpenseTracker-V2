@@ -50,6 +50,34 @@ void main() {
       expect((b.limit, b.warning, b.carry), (7000, 90, true));
     });
 
+    test('a subcategory merged into its own parent adds no limit (D103)', () {
+      final l = book(budgets: const [Budget('飲食', 5000), Budget('早餐', 1500)]);
+      expect(l.categoryCommands.mergeCategory('早餐', '飲食'), isA<Merged>());
+      // 飲食's 5000 already counted 早餐's spending: still 5000.
+      expect(l.budgets.forCategory('飲食').limit, 5000);
+      expect(l.budgets.all.any((b) => b.category == '早餐'), isFalse);
+    });
+
+    test('the merged budget starts with the earlier of the two (D103)', () {
+      final l = book(
+        budgets: [
+          Budget('飲食', 5000, since: day(2026, 3, 1)),
+          Budget('交通', 2000, since: day(2026, 7, 1)),
+        ],
+      );
+      l.categoryCommands.mergeCategory('飲食', '交通');
+      expect(l.budgets.forCategory('交通').since, day(2026, 3, 1));
+      // One with no start counts from the first month: none is earlier.
+      final open = book(
+        budgets: [
+          const Budget('飲食', 5000),
+          Budget('交通', 2000, since: day(2026, 7, 1)),
+        ],
+      );
+      open.categoryCommands.mergeCategory('飲食', '交通');
+      expect(open.budgets.forCategory('交通').since, isNull);
+    });
+
     test('puts the subcategories under the target', () {
       final l = book();
       l.categoryCommands.mergeCategory('飲食', '交通');

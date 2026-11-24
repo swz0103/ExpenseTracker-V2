@@ -73,6 +73,15 @@ final class LedgerVault {
   File get databaseFile => File('${directory.path}/ledger.db');
   File get _pending => File('${directory.path}/keyring.json.new');
 
+  /// Kept once records were first written to the database here: without
+  /// it, a database of no bytes was cut short before it held anything (a
+  /// first launch interrupted), and opens as a new book (D102).
+  File get _recordsKept => File('${directory.path}/ledger.db.kept');
+
+  /// Kept when the journal's tables were found damaged: the next opening
+  /// makes the database again from its records first ([salvage]).
+  File get _journalDamaged => File('${directory.path}/journal.damaged');
+
   /// A ledger is here: its keyring, or a complete replacement that a
   /// crash left before the rename. A half-written first keyring is not a
   /// ledger, so setup can start again.
@@ -104,6 +113,8 @@ final class LedgerVault {
     _requireAbsent();
     await directory.create(recursive: true);
     if (await databaseFile.exists()) await databaseFile.delete();
+    // A new ledger: no records were written to it yet.
+    if (await _recordsKept.exists()) await _recordsKept.delete();
     // The database first, then the keyring: a keyring without a database
     // then always means the database was lost (see [missingDatabase]).
     _openStore(databaseFile, keys).close();
@@ -293,6 +304,11 @@ final class LedgerVault {
   }) async {
     if (!replacing) _requireAbsent();
     await _replace(keys, fill);
+    // The backup is in place: copies set aside as damaged before it are
+    // let go of but the newest few (D102), and a journal found damaged
+    // went with the database it was in.
+    await pruneDamagedCopies();
+    if (await _journalDamaged.exists()) await _journalDamaged.delete();
     return _open(keys);
   }
 
@@ -408,6 +424,9 @@ final class LedgerVault {
       committed = true;
       await _deleteDatabase(databaseFile);
       await staging.rename(databaseFile.path);
+      // The copy holds records: a database here of no bytes from now on is
+      // damage, not a first launch cut short.
+      await _noteRecordsKept();
       await _placeStagedFiles();
       await _pending.rename(keyringFile.path);
     } on Object {
@@ -427,6 +446,11 @@ final class LedgerVault {
   /// Opens the ledger kept here, which must still have its database. One
   /// set aside as damaged, and not yet replaced by a backup, is still
   /// damaged (D94): opening never starts an empty book in its place.
+  ///
+  /// A database of no bytes that never held a record ([_recordsKept]) is
+  /// a first launch cut short: it opens as the new book it was to be. One
+  /// whose journal was found damaged is made again from its records first
+  /// ([salvage]).
   Future<OpenVault> _openKept(UnlockedKeyring keys) async {
     if (!await databaseFile.exists()) {
       if (damagedCopies().isNotEmpty) {
@@ -434,12 +458,75 @@ final class LedgerVault {
       }
       throw const VaultException(VaultProblem.missingDatabase);
     }
+    if (!await _recordsKept.exists() &&
+        await databaseFile.length() == 0 &&
+        EncryptedDatabase.cutShort(databaseFile)) {
+      await _deleteDatabase(databaseFile);
+    } else if (await _journalDamaged.exists()) {
+      // Made again where the records can be read; else opened as it is,
+      // and found damaged as it is read.
+      await salvage(keys);
+    }
     return _open(keys);
+  }
+
+  /// Notes that the journal's tables of the database here were found
+  /// damaged, so the next opening makes it again from its records
+  /// ([salvage]), should this session not get to it.
+  Future<void> noteJournalDamaged() async {
+    await directory.create(recursive: true);
+    await _journalDamaged.writeAsString('', flush: true);
+  }
+
+  /// Makes the database here again from its records alone, closed (D102):
+  /// a page found damaged in the journal's tables, which are derived from
+  /// the records and posted afresh when missing, costs nothing kept.
+  /// Every record and the book's version are read from it and written
+  /// into a new database, checked and put in its place as a restore is
+  /// ([restore]). Whether it was: false when the records themselves
+  /// cannot be read whole, the database then left exactly as it was.
+  Future<bool> salvage(UnlockedKeyring keys) async {
+    final List<StoredRow> rows;
+    final int? book;
+    try {
+      final old = _openStore(databaseFile, keys);
+      try {
+        rows = old.rows();
+        book = old.meta(EncryptedDatabase.bookVersionKey);
+      } finally {
+        old.close();
+      }
+    } on StorageUnavailable catch (error) {
+      if (error.problem == StorageProblem.damaged) return false;
+      rethrow;
+    }
+    await _replace(keys, (staging) async {
+      await staging.writeApart([
+        for (final row in rows) RowChange.put(row.shelf, row.id, row.body),
+      ]);
+      if (book != null) {
+        staging.write(
+          (w) => w.setMeta(EncryptedDatabase.bookVersionKey, book!),
+          counts: false,
+        );
+      }
+    });
+    if (await _journalDamaged.exists()) await _journalDamaged.delete();
+    return true;
   }
 
   Future<OpenVault> _open(UnlockedKeyring keys) async {
     try {
-      return OpenVault._(this, keys, _openStore(databaseFile, keys));
+      final store = _openStore(databaseFile, keys);
+      try {
+        // Kept by a version before the note: a book written to has them
+        // (read from the store's own numbers, not its records).
+        if (store.revision > 0) await _noteRecordsKept();
+      } on Object {
+        store.close();
+        rethrow;
+      }
+      return OpenVault._(this, keys, store);
     } on StorageUnavailable catch (error) {
       if (error.problem == StorageProblem.damaged) {
         // Kept aside as it is, never written over nor erased: a restore
@@ -468,10 +555,40 @@ final class LedgerVault {
         file,
         StorageKey(keys.databaseKey),
         keyVouched: true,
+        written: file.path == databaseFile.path ? _noteRecordsKeptNow : null,
       );
+
+  /// Notes that the database here has held records ([_recordsKept]).
+  Future<void> _noteRecordsKept() async {
+    if (!await _recordsKept.exists()) {
+      await _recordsKept.writeAsString('', flush: true);
+    }
+  }
+
+  /// [_noteRecordsKept] from a write as it is kept, before the next.
+  void _noteRecordsKeptNow() {
+    if (!_recordsKept.existsSync()) {
+      _recordsKept.writeAsStringSync('', flush: true);
+    }
+  }
 
   /// How a database set aside as damaged is named, before its time.
   static const _damagedPrefix = 'ledger-damaged-';
+
+  /// How many copies set aside as damaged a restore leaves, the newest
+  /// ([pruneDamagedCopies]).
+  static const keptDamagedCopies = 2;
+
+  /// Lets go of the copies set aside as damaged but the newest
+  /// [keptDamagedCopies], each with its log: once a backup is restored,
+  /// older ones are of no more use than the newest to send for a look.
+  Future<void> pruneDamagedCopies() async {
+    final copies = damagedCopies();
+    if (copies.length <= keptDamagedCopies) return;
+    for (final copy in copies.take(copies.length - keptDamagedCopies)) {
+      await _deleteDatabase(copy);
+    }
+  }
 
   /// Sets the database here aside as damaged (D94), with its log, under
   /// a name of the time it was ([damagedCopies]): never erased, so it can
@@ -482,7 +599,13 @@ final class LedgerVault {
     // 2026-11-24T09:58:50.578Z, with no colon, which some file systems
     // refuse.
     final at = now().toUtc().toIso8601String().replaceAll(':', '-');
-    final aside = File('${directory.path}/$_damagedPrefix$at.db');
+    // Never over another set aside at the same moment: a second one is
+    // named after it (`~2` sorts after `.db`, so the oldest stays first).
+    var aside = File('${directory.path}/$_damagedPrefix$at.db');
+    for (var n = 2; await aside.exists(); n++) {
+      final count = '$n'.padLeft(3, '0');
+      aside = File('${directory.path}/$_damagedPrefix$at~$count.db');
+    }
     for (final suffix in ['', '-wal', '-shm']) {
       final part = File('${databaseFile.path}$suffix');
       if (await part.exists()) await part.rename('${aside.path}$suffix');

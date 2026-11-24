@@ -128,6 +128,28 @@ void main() {
     );
   });
 
+  test('months summed whole (before r14 F6) are dropped as the file opens, '
+      'the mark with them: posted afresh', () {
+    store.journal.keepMark((rules: 1, revision: store.revision));
+    store.close();
+    sqlite3.open(file.path)
+      ..execute('PRAGMA key = "x\'${key.hex}\'"')
+      ..execute('DROP TABLE month_sum')
+      ..execute(
+        'CREATE TABLE month_sum (account INTEGER, currency TEXT, '
+        'month INTEGER, amount INTEGER, units INTEGER, parts INTEGER, '
+        'PRIMARY KEY (account, currency, month))',
+      )
+      ..close();
+    store = EncryptedDatabase.open(file, key);
+    expect(store.journal.mark, isNull);
+    store.journal.put(row('a', 20260101, 1), [
+      p('a', 0, bank, -5, 20260101, 1, quantity: 3),
+      p('a', 1, food, 5, 20260101, 1),
+    ]);
+    expect(store.journal.sums()[(bank, twd)]?.quantity, BigInt.from(3));
+  });
+
   test('sums by month agree with the memory store, over any range', () {
     final r = Random(11);
     final memory = MemoryPostingStore();

@@ -29,6 +29,28 @@ void main() {
     expect(topOf('咖啡', _parentOf), '飲食');
   });
 
+  test('every category of a loop has the same top (D103)', () {
+    // a and b each the other's parent: 'a' sorts first, whichever is asked.
+    expect(topOf('a', _parentOf), 'a');
+    expect(topOf('b', _parentOf), 'a');
+    // c under x, x under y, y under z, z under x: the loop is x, y, z.
+    const parents = {'c': 'x', 'x': 'y', 'y': 'z', 'z': 'x'};
+    for (final name in ['c', 'x', 'y', 'z']) {
+      expect(topOf(name, (n) => parents[n]), 'x', reason: name);
+    }
+  });
+
+  test('the categories on a loop are found, those hanging off it not', () {
+    expect(namesOnLoops(_parents), {'a', 'b'});
+    expect(
+      namesOnLoops(const {'c': 'x', 'x': 'y', 'y': 'z', 'z': 'x', 'q': 'q'}),
+      {'x', 'y', 'z', 'q'},
+    );
+    expect(namesOnLoops(const {'早餐': '飲食', '飲食': null}), isEmpty);
+    // A parent no category has ends the line.
+    expect(namesOnLoops(const {'早餐': '已刪除'}), isEmpty);
+  });
+
   test('an entry\'s spending under a category counts the parts below it', () {
     final e = _spend('早餐', parts: const [('早餐', 70), ('交通', 30)]);
     expect(spendingUnder(e, '飲食', _parentOf), 70);

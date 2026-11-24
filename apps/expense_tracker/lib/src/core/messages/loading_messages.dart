@@ -55,7 +55,7 @@ const loadFailedExport = '匯出診斷';
 const damagedTitle = '帳本檔案損毀';
 const damagedBody =
     '帳本檔案已損毀或不完整（不是密碼錯誤），無法打開。'
-    '損毀的檔案已原封不動另外儲存在手機上，不會被覆蓋，也沒有建立新的空帳本。'
+    '損毀的檔案已原封不動另外儲存在裝置上，不會被覆蓋，也沒有建立新的空帳本。'
     '請從備份還原；也可以複製診斷資料回報問題。';
 
 /// A book kept by an earlier version is not brought up to this one while

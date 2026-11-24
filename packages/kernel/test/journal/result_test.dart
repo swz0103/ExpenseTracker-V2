@@ -13,6 +13,7 @@ String said(JournalResult r) => switch (r) {
   IntentNotFound() => 'not found',
   RuleRejected(:final code) => 'rejected $code',
   UnknownAmendment(:final slot) => 'slot $slot',
+  UnkeepableQuantity(:final account) => 'unkeepable ${account.value}',
 };
 
 void main() {
@@ -36,6 +37,10 @@ void main() {
     expect(said(const IntentNotFound(id)), 'not found');
     expect(said(const RuleRejected(id, 'c')), 'rejected c');
     expect(said(const UnknownAmendment(id, 's')), 'slot s');
+    expect(
+      said(UnkeepableQuantity(id, const AccountId('h'), BigInt.one)),
+      'unkeepable h',
+    );
     expect(const RuleRejected(id, 'c').detail, '');
     expect(const IntentNotFound(id).intent, id);
   });

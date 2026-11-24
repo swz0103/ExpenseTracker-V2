@@ -72,7 +72,7 @@ final class MarketFeed extends SyncJob implements PriceHistory {
     _asked = codes;
     // Closes and rates come from different places: asked side by side.
     final (quotes, rates) = await (
-      _journal.refreshQuotes(codes),
+      _journal.refreshQuotes(codes, reshapedAfter: _holdings.reshapedAfter),
       _journal.refreshRates(),
     ).wait;
     if (quotes || rates) {
