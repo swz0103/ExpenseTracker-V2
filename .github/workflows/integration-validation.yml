@@ -143,6 +143,18 @@ jobs:
           flutter config --no-analytics
           flutter pub get --enforce-lockfile
           flutter test test/baseline test/known_defects
+      - name: Day ranges in other time zones
+        # The runner keeps UTC, where a local midnight and a UTC midnight
+        # are the same instant; a day compared as an instant only goes
+        # wrong east of UTC (Taipei) or across a change of the clocks
+        # (New York).
+        working-directory: apps/expense_tracker
+        run: |
+          for zone in Asia/Taipei America/New_York; do
+            TZ=$zone flutter test \
+              test/features/import_export/ui/import_export_section_test.dart \
+              test/features/entries/ui/entries_filter_sheet_test.dart
+          done
       - name: Host checks, then the timing gates on their own
         # The suite without the timing gates at the default concurrency
         # (with coverage), then `flutter test --tags timing

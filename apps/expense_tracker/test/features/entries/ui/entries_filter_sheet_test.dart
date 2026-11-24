@@ -98,8 +98,28 @@ void main() {
     final got = await open(tester);
     await go(tester, ['近 7 天', '套用']);
     final range = got.single!.range!;
-    expect(range.end, DateTime(2026, 10, 4));
-    expect(range.start, DateTime(2026, 9, 28));
+    expect(range.end, DateTime.utc(2026, 10, 4));
+    expect(range.start, DateTime.utc(2026, 9, 28));
+  });
+
+  // Run under TZ=America/New_York by CI as well: clocks went forward on
+  // Sunday 8 March 2026, so a local midnight less six days of hours
+  // fell on 3 March 23:00.
+  testWidgets('近 7 天 and 近 30 天 step by calendar days across a change '
+      'of the clocks', (tester) async {
+    ledger = demoLedger(today: DateTime.utc(2026, 3, 10));
+    final got = await open(tester);
+    await go(tester, ['近 7 天', '套用']);
+    // 10 March less 6 days = 4 March.
+    expect(got.single!.range!.start, DateTime.utc(2026, 3, 4));
+    expect(got.single!.range!.end, DateTime.utc(2026, 3, 10));
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await go(tester, ['近 30 天', '套用']);
+    // 10 March less 9 days is 1 March; 20 more back in a 28-day
+    // February is 9 February.
+    expect(got.last!.range!.start, DateTime.utc(2026, 2, 9));
   });
 
   testWidgets('a quick span opened again is shown chosen, and 依月份 lets it '
@@ -133,7 +153,7 @@ void main() {
     final range = got.single!.range!;
     expect(
       (range.start, range.end),
-      (DateTime(2026, 9), DateTime(2026, 9, 30)),
+      (DateTime.utc(2026, 9), DateTime.utc(2026, 9, 30)),
     );
     expect(EntryFilter.rangeLabel(range), '9/1–9/30');
   });
