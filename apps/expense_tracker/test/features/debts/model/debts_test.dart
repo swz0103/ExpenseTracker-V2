@@ -37,4 +37,41 @@ void main() {
     expect(paidShare(balances, paidOff), 1.0);
     expect(paidShare(balances, unknown), isNull, reason: 'no amount taken out');
   });
+
+  test('the people and loans in all are summed at home, never cents as '
+      'NT\$', () {
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 10, 4),
+      accounts: const [
+        Account('ming', '小明', AccountKind.receivable, 500),
+        Account('amy', '小美', AccountKind.receivable, 10000, currency: 'USD'),
+        Account('owe', '阿欠', AccountKind.receivable, -200),
+        Account('loan', '房貸', AccountKind.loan, -100000),
+        Account('uloan', '美元貸', AccountKind.loan, -1000, currency: 'USD'),
+      ],
+      categories: const [],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      rates: const {'USD': 32},
+    );
+    final all = ledger.accounts.all;
+    // 500 + US$100 x 32 = 3700; 阿欠 owes nothing.
+    expect(
+      owedFromAll(ledger.balanceService, [
+        for (final a in all)
+          if (a.kind == AccountKind.receivable) a,
+      ]),
+      3700,
+    );
+    // 100000 + US$10 x 32 = 100320.
+    expect(
+      owedOnAll(ledger.balanceService, [
+        for (final a in all)
+          if (a.kind == AccountKind.loan) a,
+      ]),
+      100320,
+    );
+  });
 }

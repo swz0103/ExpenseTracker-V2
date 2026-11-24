@@ -4,6 +4,7 @@ import '../models/models.dart';
 import '../repositories/account_repository.dart';
 import '../repositories/category_repository.dart';
 import '../repositories/entry_repository.dart';
+import 'balance_service.dart';
 
 /// Sums the screens show: a month's or any stretch of days' income and
 /// spending, by category, merchant and tag, and what a person still owes.
@@ -12,6 +13,7 @@ final class ReportService {
     required EntryReader entries,
     required AccountReader accounts,
     required CategoryReader categories,
+    required this._balances,
     required this._cache,
     required this._today,
   }) : _entries = TrackedEntryReader(entries, _cache),
@@ -21,6 +23,7 @@ final class ReportService {
   final EntryReader _entries;
   final AccountReader _accounts;
   final CategoryReader _categories;
+  final BalanceService _balances;
   final QueryCache _cache;
   final DateTime Function() _today;
 
@@ -130,37 +133,41 @@ final class ReportService {
   /// The day of the first entry, where the book starts.
   DateTime get firstDay => _entries.firstDate ?? _today();
 
-  /// What [person] still owes, payment by payment: each sum paid for
-  /// them, with what is left of it once what they paid back is taken off
-  /// the oldest first, after what they owed from the start; those paid
-  /// off are left out. Newest first.
+  /// What [person] still owes, payment by payment: each entry that
+  /// raised their account's balance (a sum paid for them, as it arrived
+  /// in the account's currency), with what is left of it once whatever
+  /// lowered the balance (what they paid back, anything else kept on the
+  /// account) is taken off the oldest first, after what they owed from
+  /// the start; those paid off are left out. Newest first. Each entry
+  /// counts what it does to the balance ([BalanceService.effect]), so
+  /// what is listed adds up to the balance whenever it is owed and the
+  /// account started at nothing.
   List<(Entry, int)> owedBy(String person) =>
       _cache.remember(('owedBy', person, _today()), () {
         final moves = [
-          for (final e in countedOn(_entries.all, _today()))
-            if (e.type == EntryType.transfer &&
-                (e.to == person || e.account == person))
-              e,
-        ]..sort((a, b) => a.date.compareTo(b.date));
+          for (final e in _balances.entriesOf(person).reversed)
+            if (countsOn(e.date, _today())) e,
+        ];
         // What they owed from the start is paid back before anything lent.
         var back = -_accounts.resolve(person).opening;
-        final lent = <Entry>[];
+        final lent = <(Entry, int)>[];
         for (final e in moves) {
-          if (e.to == person) {
-            lent.add(e);
+          final change = _balances.effect(e, person);
+          if (change > 0) {
+            lent.add((e, change));
           } else {
-            back += e.amount;
+            back -= change;
           }
         }
         final owed = <(Entry, int)>[];
-        for (final e in lent) {
+        for (final (e, amount) in lent) {
           final taken = back <= 0
               ? 0
-              : back < e.amount
+              : back < amount
               ? back
-              : e.amount;
+              : amount;
           back -= taken;
-          if (e.amount > taken) owed.add((e, e.amount - taken));
+          if (amount > taken) owed.add((e, amount - taken));
         }
         return owed.reversed.toList();
       });

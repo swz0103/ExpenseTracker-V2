@@ -100,6 +100,7 @@ final class Book {
     entries: entries,
     accounts: accounts,
     categories: categories,
+    balances: balances,
     cache: cache,
     today: _today,
   );

@@ -72,8 +72,9 @@ class DebtsPage extends StatelessWidget {
         final people = peopleOwing(ledger);
         final loans = openLoans(ledger);
         final balances = ledger.balanceService;
-        final lent = people.fold(0, (sum, a) => sum + owedFrom(balances, a));
-        final borrowed = loans.fold(0, (sum, a) => sum + owedOn(balances, a));
+        // In NT$: people and loans kept in other currencies at home.
+        final lent = owedFromAll(balances, people);
+        final borrowed = owedOnAll(balances, loans);
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(

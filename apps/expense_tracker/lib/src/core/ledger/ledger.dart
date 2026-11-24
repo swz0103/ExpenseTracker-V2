@@ -304,6 +304,7 @@ final class Ledger extends ChangeNotifier {
     entries: _entries,
     accounts: _accounts,
     categories: _categories,
+    balances: balanceService,
     cache: _cache,
     today: _clock,
   );
