@@ -24,11 +24,10 @@ void main() {
     }
     for (final list in plan.values) {
       for (final d in list) {
-        final booked = ledger.recurringService.confirmationsIn(
-          d.item,
-          today.year,
-          today.month,
-        );
+        final booked = [
+          for (final e in ledger.entries.inMonth(today.year, today.month))
+            if (e.recurring == d.item.id) e,
+        ];
         if (d.booked != null) expect(booked, contains(d.booked));
       }
     }

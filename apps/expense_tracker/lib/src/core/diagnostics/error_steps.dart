@@ -120,6 +120,15 @@ abstract final class ErrorSteps {
   /// found damaged (D102).
   static const journalRebuilt = '分錄重建';
 
+  /// The note that the journal's tables were found damaged (D102), so
+  /// the next opening makes the book again, could not be written; the
+  /// book is still made again now.
+  static const journalDamagedNote = '分錄損毀標記';
+
+  /// The ledger's file, made again from its records (D102), could not be
+  /// opened just then: it is kept, and the lock screen opens it again.
+  static const rebuiltNotOpened = '重建後打開帳本';
+
   /// The note that records were kept in the ledger's file (D102) could
   /// not be written as a write was kept: the write stands, and the note
   /// is tried again at the next write and the next opening.

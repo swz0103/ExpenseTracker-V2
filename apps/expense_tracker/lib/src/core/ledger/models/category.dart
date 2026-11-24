@@ -1,4 +1,22 @@
+// Exception to ledger words: the starter categories' names are data a
+// new book keeps (and renames as it likes), not words the screens say.
 import 'package:core/foundation_values.dart' show PublicId;
+import 'package:ledger_entries/model.dart' show dividendCategory, feeCategory;
+
+/// The categories a new book starts with, with their marks and colours,
+/// each with an id of its own: the one list, which the demo book is
+/// seeded with too, so the preview looks as a new book does.
+List<Category> starterCategories() => [
+  Category('居家生活', 'home', 0xFF5C9A83),
+  Category('飲食日常', 'food', 0xFFD08B5B),
+  Category('交通通勤', 'travel', 0xFF5B8DB0),
+  Category('購物休閒', 'bag', 0xFF8E7CC0),
+  Category('訂閱服務', 'subscription', 0xFFC9A34A),
+  Category(feeCategory, 'other', 0xFFB07A8C),
+  Category('薪資收入', 'salary', 0xFF2F7A65, income: true),
+  Category(dividendCategory, 'dividend', 0xFF5A6FA8, income: true),
+  Category('其他收入', 'income', 0xFF4E8A9A, income: true),
+];
 
 final class Category {
   /// A new category has an [id] of its own unless it is given one, as when

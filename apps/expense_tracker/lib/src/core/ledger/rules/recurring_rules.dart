@@ -5,6 +5,8 @@
 /// (`packages/ledger/recurring/rules/`).
 library;
 
+import 'package:core/time/utc_days.dart';
+
 /// The state of one date a recurring item falls on.
 enum RecurringPeriodStatus {
   /// Its day has not come yet.
@@ -37,8 +39,8 @@ RecurringPeriodStatus recurringPeriodStatus({
   if (!active) return RecurringPeriodStatus.paused;
   if (booked) return RecurringPeriodStatus.booked;
   if (skipped) return RecurringPeriodStatus.skipped;
-  final on = DateTime.utc(day.year, day.month, day.day);
-  final now = DateTime.utc(today.year, today.month, today.day);
+  final on = dayOf(day);
+  final now = dayOf(today);
   return on.isAfter(now)
       ? RecurringPeriodStatus.upcoming
       : RecurringPeriodStatus.due;

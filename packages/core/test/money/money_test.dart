@@ -186,11 +186,13 @@ void main() {
     );
     expect(Money.parse(Currency.of('TWD'), '1200').majorText, '1200');
   });
-  test('persisted minor units are parsed strictly', () {
-    expect(parseMinorUnits('0'), BigInt.zero);
-    expect(parseMinorUnits('-125'), BigInt.from(-125));
+  test('persisted minor units are read strictly', () {
+    final valid = Money.parse(usd, '1').toJson();
+    Money read(String text) => Money.fromJson({...valid, 'minorUnits': text});
+    expect(read('0').minorUnits, BigInt.zero);
+    expect(read('-125').minorUnits, BigInt.from(-125));
     for (final text in ['+1', ' 1', '1 ', '0x10', '-0', '01', '1.0', '']) {
-      expect(() => parseMinorUnits(text), throwsFormatException, reason: text);
+      expect(() => read(text), error(MoneyError.invalidInput), reason: text);
     }
   });
 

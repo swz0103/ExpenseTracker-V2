@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Closing prices from TWSE and TPEx. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Whether the network is Wi-Fi, so photo backups wait for one. -->
@@ -61,9 +62,11 @@
         <receiver
             android:name=".ConfirmReceiver"
             android:exported="false" />
+        <!-- Its actions are all system broadcasts, which reach a receiver
+             that is not exported: no other app can make it arm the plan. -->
         <receiver
             android:name=".RestartReceiver"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
@@ -114,6 +117,20 @@
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="barcode_ui" />
+        <!-- No usage reports leave the phone: the code scanner's libraries
+             bring Google's data transport (com.google.android.datatransport),
+             which would send them. Without its backend discovery no backend
+             is registered, so each report is dropped before it is kept or
+             scheduled; its job service and alarm receiver go too. -->
+        <service
+            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+            tools:node="remove" />
+        <service
+            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.JobInfoSchedulerService"
+            tools:node="remove" />
+        <receiver
+            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.AlarmManagerSchedulerBroadcastReceiver"
+            tools:node="remove" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

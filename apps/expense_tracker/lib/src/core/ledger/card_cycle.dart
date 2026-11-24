@@ -209,4 +209,4 @@ CardCycleOverride? _override(
 
 BusinessDate _day(DateTime d) => BusinessDate(d.year, d.month, d.day);
 
-DateTime _utc(BusinessDate d) => DateTime.utc(d.year, d.month, d.day);
+DateTime _utc(BusinessDate d) => d.asUtcMidnight;

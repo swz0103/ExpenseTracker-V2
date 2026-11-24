@@ -4,6 +4,7 @@ import 'package:domain/data_exchange.dart'
 import 'package:ledger_entries/model.dart' show maxDaysAhead;
 
 import '../../../design_system/display/amount.dart' show groupDigits;
+import '../formatting/words.dart';
 
 /// Why a day of an imported file is not taken (D93).
 String dayProblemWords(DayProblem problem) => switch (problem) {
@@ -21,7 +22,8 @@ String invoiceRefusalWords(InvoiceRefusal why) => switch (why) {
 
 /// A row of a foreign account with no rate to value it by and no worth
 /// at home written: the file's own column is named.
-const importMissingHomeWords = '還沒有匯率，請在「$homeAmountColumn」欄填折合新台幣的金額';
+const importMissingHomeWords =
+    '還沒有匯率，請在「$homeAmountColumn」欄填${Words.homeWorth}的金額';
 
 /// A refund's worth at home written not above zero (no [left]), or
 /// larger than what of its purchase's worth is not yet given back

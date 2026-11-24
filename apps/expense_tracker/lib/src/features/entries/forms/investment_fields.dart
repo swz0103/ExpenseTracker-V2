@@ -101,7 +101,10 @@ final class InvestmentFields {
     final suggested = _f.suggested;
     final sell = _f.trade == EntryType.sell;
     final settles = _f.settlement;
-    final cost = _f.saleCost;
+    final open = _f.more || _a.viewing;
+    // What the shares cost shows only with the fold open: closed, it is
+    // not worked out.
+    final cost = open ? _f.saleCost : null;
     final settled = _f.settles;
     final method = _f.average ? '平均成本' : '先進先出';
     return FieldsFold(
@@ -113,7 +116,7 @@ final class InvestmentFields {
         if (sell) method,
         if (_a.note.text.trim().isNotEmpty) _a.note.text.trim(),
       ].join(' · '),
-      open: _f.more || _a.viewing,
+      open: open,
       body: [
         // What it settles at, as a sum: the trade, then the fee and tax
         // taken off a sale or added to a buy; the charges can be changed.

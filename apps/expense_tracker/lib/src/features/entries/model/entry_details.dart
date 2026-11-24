@@ -53,7 +53,7 @@ List<(String, String)> entryDetails(
     if (e.fee > 0) (Words.fee, groupDigits(e.fee)),
     if (e.tax > 0)
       (e.type == EntryType.dividend ? '二代健保' : '稅', groupDigits(e.tax)),
-    if (e.home case final home?) ('折合新台幣', groupDigits(home)),
+    if (e.home case final home?) (Words.homeWorth, groupDigits(home)),
     if ((e.type, e.received) case (EntryType.transfer, final received?))
       ('轉入金額', amountIn(received, accounts.resolve(e.to ?? '').currency)),
     if (e.note.isNotEmpty && e.note != title) (Words.note, e.note),

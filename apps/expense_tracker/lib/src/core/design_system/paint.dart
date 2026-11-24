@@ -1,15 +1,12 @@
 import 'package:flutter/painting.dart';
 
-/// Canvas text inherits nothing, so name the app's font outright.
-const _canvasFont = TextStyle(
-  fontFamily: 'Nunito',
-  fontFamilyFallback: ['NotoSansTC'],
-);
+import 'theme.dart' show appFont;
 
-/// Lays out one line of [text] for painting on a canvas.
+/// Lays out one line of [text] for painting on a canvas. Canvas text
+/// inherits nothing, so the app's font is named outright ([appFont]).
 TextPainter layoutText(String text, TextStyle style, {double? maxWidth}) {
   final painter = TextPainter(
-    text: TextSpan(text: text, style: _canvasFont.merge(style)),
+    text: TextSpan(text: text, style: appFont.merge(style)),
     textDirection: TextDirection.ltr,
     maxLines: 1,
     ellipsis: '…',

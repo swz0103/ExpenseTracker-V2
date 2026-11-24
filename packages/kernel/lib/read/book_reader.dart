@@ -1,5 +1,3 @@
-import 'package:core/foundation_values.dart' show Currency, Money;
-
 import '../journal/store.dart';
 import '../model/accounts.dart';
 import '../model/day.dart';
@@ -48,15 +46,6 @@ final class BookReader {
   int balance(AccountId account, {Day? until, CurrencyCode? currency}) {
     final c = currency ?? accounts[account]?.currency ?? home;
     return _store.sums(until: until)[(account, c)]?.amount ?? 0;
-  }
-
-  /// [balance] as the app's [Money].
-  Money balanceMoney(AccountId account, {Day? until, CurrencyCode? currency}) {
-    final c = currency ?? accounts[account]?.currency ?? home;
-    return Money(
-      Currency.of(c.value),
-      BigInt.from(balance(account, until: until, currency: c)),
-    );
   }
 
   /// Every balance at the end of [until]: one aggregate.

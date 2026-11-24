@@ -311,13 +311,11 @@ final class _Reader {
     final fee = charged ?? 0;
     if (target.kind == AccountKind.card && fee > 0) return '繳卡費不能有手續費';
     if (fee > 0 && from.foreign) return '外幣帳戶轉出不能記手續費';
-    return Entry(
+    return TransferDrafts.between(
       id: book.newId(),
       date: day,
-      type: EntryType.transfer,
       amount: amount,
-      account: account,
-      category: transferCategory,
+      from: account,
       note: note,
       to: to,
       fee: fee,

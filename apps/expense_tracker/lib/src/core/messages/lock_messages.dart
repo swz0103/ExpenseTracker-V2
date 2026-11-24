@@ -28,7 +28,6 @@ abstract final class LockWords {
   static const fingerprintNotYet = '先用密碼打開一次，之後就能用生物辨識解鎖';
   static const fingerprintStopped = '生物辨識解鎖已取消，可以改用密碼';
   static const fingerprintHeading = '生物辨識解鎖';
-  static const fingerprintLabel = '用生物辨識解鎖';
 
   /// The diagnostics heading of a restore given up that could not reopen
   /// the ledger by itself.

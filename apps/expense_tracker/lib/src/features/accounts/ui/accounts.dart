@@ -18,6 +18,8 @@ import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/motion.dart';
 import '../../../core/formatting/words.dart';
 
+import 'package:core/time/utc_days.dart';
+
 part 'sort_accounts.dart';
 part 'wallet.dart';
 
@@ -176,9 +178,7 @@ class _NetWorth extends StatelessWidget {
     final net = worth.net;
     final moved =
         net -
-        ledger.balanceService.netWorthAt(
-          DateTime.utc(today.year, today.month, 0),
-        );
+        ledger.balanceService.netWorthAt(monthEnd(today.year, today.month - 1));
     final parts = [
       ('資產', worth.saved, AppColors.bank),
       (Words.investment, worth.invested, AppColors.holdings),

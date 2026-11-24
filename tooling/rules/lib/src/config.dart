@@ -18,9 +18,6 @@ const featuresDir = '$appLib/src/features';
 /// Where each feature's tests live: `<featureTestsDir>/<name>/...`.
 const featureTestsDir = '$appTest/features';
 
-/// The composition layer of the app.
-const appShellDir = '$appLib/src/app';
-
 /// Roots scanned for Dart files (code and tests).
 const scanRoots = [
   'apps/expense_tracker/lib',
@@ -118,6 +115,19 @@ const statusWordOwners = [
   '$appLib/design_system/display/status.dart',
   '$appLib/design_system/display/status_messages.dart',
 ];
+
+/// Owner of calendar arithmetic (rule B4): core's time folder.
+const calendarOwners = ['packages/core/lib/time/'];
+
+/// Values with one owner (rule B5), each written only under its owners.
+const ownedValues = <Object, List<String>>{
+  // The app's font family: `appFont`.
+  'Nunito': ['$appLib/src/core/design_system/theme.dart'],
+  // The build-number define: `currentBuild`.
+  'APP_BUILD': ['$appLib/src/features/settings/model/app_update.dart'],
+  // The last calendar year: `maxYear`.
+  9999: ['packages/core/lib/time/month_arithmetic.dart'],
+};
 
 /// Where the registry of single sources lives.
 const ownersFile = 'tooling/rules/owners.yaml';

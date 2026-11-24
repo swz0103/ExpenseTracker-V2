@@ -2,6 +2,7 @@ package io.github.swz0103.expensetracker
 
 import io.github.swz0103.expensetracker.ReminderGrace.Step
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -76,5 +77,25 @@ class ReminderGraceTest {
         for (action in RestartReceiver.ACTIONS) {
             assertTrue(action, receiver.contains("<action android:name=\"$action\"/>"))
         }
+    }
+
+    @Test
+    fun onlyTheSystemCanArmThePlanAgain() {
+        // Review 21 finding 4: the actions are system broadcasts, which
+        // reach a receiver no other app may call.
+        val manifest = File("src/main/AndroidManifest.xml").readText()
+        val receiver = manifest.substringAfter("android:name=\".RestartReceiver\"").substringBefore(">")
+        assertTrue(receiver.contains("android:exported=\"false\""))
+    }
+
+    @Test
+    fun anAlertThatCouldNotBePostedIsNotRememberedAsPosted() {
+        // Review 21 finding 1: notifications off when it was due.
+        var marked = 0
+        assertFalse(ReminderGrace.postOnce(show = { false }, markPosted = { marked++ }))
+        assertEquals(0, marked)
+        // Armed again once notifications are on: posted, and remembered once.
+        assertTrue(ReminderGrace.postOnce(show = { true }, markPosted = { marked++ }))
+        assertEquals(1, marked)
     }
 }

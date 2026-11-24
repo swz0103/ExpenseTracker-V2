@@ -239,11 +239,11 @@ void main() {
             !m.isAfter(DateTime.utc(2026, 11));
             m = DateTime.utc(2026, m.month + 1)
           ) {
-            final booked = l.recurringService.confirmationsIn(
-              item,
-              m.year,
-              m.month,
-            );
+            // Earliest first, a booking written ahead (預定) included.
+            final booked = [
+              for (final e in l.entries.inMonth(m.year, m.month).reversed)
+                if (e.recurring == item.id) e,
+            ];
             final dues = [
               for (final x in item.dueIn(m.year, m.month))
                 if (!x.isAfter(today)) x,

@@ -76,6 +76,28 @@ class RemindersDeviceTest {
         Reminders.replace(context, emptyList())
     }
 
+    @Test
+    fun anAlertThatCouldNotBePostedIsPostedWhenHandedOverAgain() {
+        // Review 21 finding 1. Before Android 8 every alert has a channel.
+        if (Build.VERSION.SDK_INT < 26) return
+        fun alert(channel: String) = mapOf(
+            "at" to System.currentTimeMillis() - 60_000L,
+            "grace" to 3_600_000L,
+            "id" to "due:test-missed@1",
+            "title" to "繳卡費",
+            "tag" to "due:test-missed",
+            "channel" to channel,
+        )
+        // A channel the phone does not have and the app never named:
+        // nothing to post in.
+        Reminders.replace(context, listOf(alert("test-no-such-channel")))
+        assertTrue(manager.activeNotifications.none { it.tag == "due:test-missed" })
+        // Handed over again with its channel, within its grace: posted now.
+        Reminders.replace(context, listOf(alert(CHANNEL)))
+        assertTrue(manager.activeNotifications.any { it.tag == "due:test-missed" })
+        Reminders.replace(context, emptyList())
+    }
+
     private companion object {
         /** The channel of due reminders, as the app names it. */
         const val CHANNEL = "due"

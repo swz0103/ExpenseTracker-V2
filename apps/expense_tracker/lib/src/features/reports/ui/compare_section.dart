@@ -15,6 +15,8 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 
+import 'package:core/time/utc_days.dart';
+
 /// What the period is set against.
 enum _Against {
   previous('上一期'),
@@ -47,17 +49,8 @@ class _CompareSectionState extends State<CompareSection> {
 
   DateTime get _today {
     final t = widget.ledger.today;
-    return DateTime.utc(t.year, t.month, t.day);
+    return dayOf(t);
   }
-
-  static DateTime _day(DateTime d) => DateTime.utc(d.year, d.month, d.day);
-
-  /// The same day a year earlier, the 29th of February becoming the 28th.
-  static DateTime _yearBefore(DateTime day) => DateTime.utc(
-    day.year - 1,
-    day.month,
-    min(day.day, DateTime.utc(day.year - 1, day.month + 1, 0).day),
-  );
 
   /// The period's days so far.
   (DateTime, DateTime) get _first {
@@ -76,10 +69,10 @@ class _CompareSectionState extends State<CompareSection> {
         final end = before.from.add(to.difference(from));
         return (before.from, end.isAfter(before.to) ? before.to : end);
       case _Against.lastYear:
-        return (_yearBefore(from), _yearBefore(to));
+        return (yearBefore(from), yearBefore(to));
       case _Against.custom:
-        if (custom == null) return (_yearBefore(from), _yearBefore(to));
-        return (_day(custom.start), _day(custom.end));
+        if (custom == null) return (yearBefore(from), yearBefore(to));
+        return (dayOf(custom.start), dayOf(custom.end));
     }
   }
 

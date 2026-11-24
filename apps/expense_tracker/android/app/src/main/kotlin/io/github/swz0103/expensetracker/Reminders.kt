@@ -35,6 +35,10 @@ import java.util.TimeZone
  * inexact twin at the same time, so the alert still comes when Android
  * cancels the exact alarms with their permission ([ReminderAlarms]).
  *
+ * The plan is handed over off the main thread (RemindersHandler.kt) while
+ * alarms go off on it: handing over, arming again and an alarm going off
+ * each run whole, one at a time.
+ *
  * The plan is armed again from what is kept after a restart, an update of
  * the app, a change of time zone or clock, and when alarms on the minute
  * are allowed ([RestartReceiver]). An alert whose time went by meanwhile
@@ -94,6 +98,7 @@ object Reminders {
      * limit ([ReminderAlarms.armable]), the rest are left out, logged, and
      * their number returned for the app to record.
      */
+    @Synchronized
     fun replace(
         context: Context,
         alerts: List<Map<String, Any?>>,
@@ -316,6 +321,7 @@ object Reminders {
      * come; each just past within its grace posted at once (once); each
      * past longer ago dropped.
      */
+    @Synchronized
     fun scheduleKept(context: Context) {
         val kept = ReminderStore.read(context)
         val now = System.currentTimeMillis()
@@ -336,25 +342,34 @@ object Reminders {
         }
     }
 
-    /** Posts the kept alert numbered [index], and remembers it was. */
+    /**
+     * Posts the kept alert numbered [index], and remembers it was only
+     * once it is showing: one that could not be posted (notifications off,
+     * no channel) is posted when the plan is armed again within its grace.
+     */
     fun postKept(context: Context, index: Int, alert: JSONObject) {
-        markPosted(context, idOf(alert, index))
-        show(
-            context,
-            index,
-            alert.optString("title"),
-            alert.optString("text"),
-            alert.optString("quick"),
-            alert.optString("tag"),
-            alert.optString("recurring"),
-            alert.optString("day"),
-            alert.optString("channel"),
+        ReminderGrace.postOnce(
+            show = {
+                show(
+                    context,
+                    index,
+                    alert.optString("title"),
+                    alert.optString("text"),
+                    alert.optString("quick"),
+                    alert.optString("tag"),
+                    alert.optString("recurring"),
+                    alert.optString("day"),
+                    alert.optString("channel"),
+                )
+            },
+            markPosted = { markPosted(context, idOf(alert, index)) },
         )
     }
 
     /** The alarm of the kept alert numbered [index] going off at [now]:
      *  posted when its time has come within its grace, set again when
      *  the clock moved so it is not due yet, dropped otherwise. */
+    @Synchronized
     fun alarmWentOff(context: Context, index: Int, now: Long = System.currentTimeMillis()) {
         val alert = ReminderStore.read(context).optJSONObject(index) ?: return
         val at = dueAt(alert)
@@ -442,7 +457,8 @@ object Reminders {
     }
 
     /** Posts one alert in [channel]; tapping it opens the app, or the
-     *  composer. */
+     *  composer. False when nothing was posted: notifications are off, or
+     *  there is no channel to post in. */
     fun show(
         context: Context,
         id: Int,
@@ -453,10 +469,10 @@ object Reminders {
         recurring: String = "",
         day: String = "",
         channel: String = "",
-    ) {
-        if (!allowed(context)) return
+    ): Boolean {
+        if (!allowed(context)) return false
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val postIn = channelFor(context, channel) ?: return
+        val postIn = channelFor(context, channel) ?: return false
         // Request codes from 1000 on, apart from the widget's.
         val tap = MainActivity.opening(context, quick, 1000 + id)
         val notification = NotificationCompat.Builder(context, postIn)
@@ -485,6 +501,7 @@ object Reminders {
             .build()
         // Tagged, so one no longer wanted can be taken away.
         manager.notify(tag.ifEmpty { null }, id, notification)
+        return true
     }
 }
 

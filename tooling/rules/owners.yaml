@@ -91,6 +91,41 @@ items:
       - packages/core/lib/time/holidays/coverage.dart
     target: packages/core/lib/time/
     status: owned
+  # A day held as the app holds days: a DateTime at UTC midnight (dayOf).
+  # Rule B4 keeps hand-made copies out.
+  - id: utc-day
+    what: 把時刻或日期取成「那一天」（UTC 午夜）
+    layer: core
+    owner:
+      - packages/core/lib/time/utc_days.dart
+    target: packages/core/lib/time/
+    status: owned
+  # Month ends, steps and counts (monthEnd, monthStart, monthStarts,
+  # monthIndex, shiftMonth); rule B4.
+  - id: month-arithmetic
+    what: 月底、前後幾個月、逐月、相差幾個月
+    layer: core
+    owner:
+      - packages/core/lib/time/month_arithmetic.dart
+      - packages/core/lib/time/utc_days.dart
+    target: packages/core/lib/time/
+    status: owned
+  # Reports' 去年同期: 29 February becomes the 28th.
+  - id: same-day-last-year
+    what: 去年的同一天（2/29 變 2/28）
+    layer: core
+    owner:
+      - packages/core/lib/time/utc_days.dart
+    target: packages/core/lib/time/
+    status: owned
+  # minYear/maxYear; rule B5 keeps 9999 out of other files.
+  - id: calendar-year-range
+    what: 日期的年份範圍（1 到 9999 年）
+    layer: core
+    owner:
+      - packages/core/lib/time/month_arithmetic.dart
+    target: packages/core/lib/time/
+    status: owned
   - id: identifiers
     what: 識別碼
     layer: core
@@ -517,6 +552,22 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/repositories/entry_repository.dart
     target: packages/ledger/entries/lib/rules/
     status: owned
+  # A new book's categories and the demo book's: starterCategories().
+  - id: starter-categories
+    what: 新帳本的預設分類（名稱、圖示、顏色）
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/models/category.dart
+    target: packages/ledger/entries/lib/model/
+    status: owned
+  # The transfers the screens and forms open or write: TransferDrafts.
+  - id: transfer-drafts
+    what: 轉帳草稿（轉出、代墊、收回、還款、繳卡費）
+    layer: ledger
+    owner:
+      - packages/ledger/entries/lib/model/transfer_drafts.dart
+    target: packages/ledger/entries/lib/model/
+    status: owned
   # D80: a transfer's category as read and as saved.
   - id: transfer-category
     what: 轉帳的分類
@@ -569,6 +620,14 @@ items:
       - apps/expense_tracker/lib/src/core/messages/update_messages.dart
     target: apps/expense_tracker/lib/app/coordinators/
     status: owned
+  # The APP_BUILD define, read once as currentBuild; rule B5.
+  - id: build-number
+    what: 這個版本的組建編號
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/settings/model/app_update.dart
+    target: apps/expense_tracker/lib/app/coordinators/
+    status: owned
   # What a scan came to (read, closed, failed and why), the words for
   # each, and the reason names the phone gives.
   - id: scan-outcome
@@ -592,6 +651,14 @@ items:
       - apps/expense_tracker/lib/src/core/design_system/widget_colors.dart
     target: apps/expense_tracker/lib/design_system/tokens/
     status: scattered
+  # appFont: the theme, canvas text and the preview frame take it; rule B5.
+  - id: app-font
+    what: 字型（Nunito 與中文後備字型）
+    layer: design_system
+    owner:
+      - apps/expense_tracker/lib/src/core/design_system/theme.dart
+    target: apps/expense_tracker/lib/design_system/tokens/
+    status: owned
   - id: type-spacing-touch
     what: 字級、間距、觸控高度
     layer: design_system
@@ -710,6 +777,16 @@ items:
       - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/BackupPlan.kt
     target: infrastructure/vault/lib/
     status: scattered
+  # FileBox.receipts / FileBox.inbox and LedgerInbox.keyName: the app
+  # seals photos and the vault seals them again on a password change.
+  - id: vault-box-names
+    what: 收據照片與收件匣金鑰的封存名稱
+    layer: data
+    owner:
+      - infrastructure/vault/lib/src/backup_security/file_box.dart
+      - infrastructure/vault/lib/src/backup_security/inbox.dart
+    target: infrastructure/vault/lib/
+    status: owned
   - id: channel-contract
     what: Dart 與 Kotlin 的通道契約
     layer: data

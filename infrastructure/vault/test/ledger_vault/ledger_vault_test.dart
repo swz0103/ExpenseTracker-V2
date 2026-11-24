@@ -151,7 +151,7 @@ void main() {
       final aside = vault.damagedCopies().single;
       expect(
         aside.uri.pathSegments.last,
-        'ledger-damaged-2026-11-24T09-58-50.000Z.db',
+        'ledger-damaged-n000001-2026-11-24T09-58-50.000Z.db',
       );
       expect(aside.lengthSync(), 0, reason: 'kept as it was');
       // Asked again, it is still damaged: no empty book in its place.
@@ -245,11 +245,11 @@ void main() {
       final second = await vault.setAsideDamaged();
       expect(
         first!.uri.pathSegments.last,
-        'ledger-damaged-2026-11-24T09-58-50.000Z.db',
+        'ledger-damaged-n000001-2026-11-24T09-58-50.000Z.db',
       );
       expect(
         second!.uri.pathSegments.last,
-        'ledger-damaged-2026-11-24T09-58-50.000Z~002.db',
+        'ledger-damaged-n000002-2026-11-24T09-58-50.000Z.db',
       );
       expect(vault.damagedCopies(), [
         isA<File>().having((f) => f.path, 'path', first.path),
@@ -273,8 +273,8 @@ void main() {
       expect(
         [for (final f in vault.damagedCopies()) f.uri.pathSegments.last],
         [
-          'ledger-damaged-2026-11-24T09-58-50.000Z~002.db',
-          'ledger-damaged-2026-11-24T09-58-50.000Z~003.db',
+          'ledger-damaged-n000002-2026-11-24T09-58-50.000Z.db',
+          'ledger-damaged-n000003-2026-11-24T09-58-50.000Z.db',
         ],
       );
     });
@@ -309,21 +309,82 @@ void main() {
     });
 
     test('books made again keep the newest two old files once the last '
-        'has opened (review 18)', () async {
+        'has opened, and every one set aside since the book last opened '
+        '(review 18, review 25)', () async {
       await withJournal();
       for (var i = 0; i < 3; i++) {
         expect(await vault.salvage(await keysNow()), isTrue);
       }
       // Not one let go before the book made again has opened.
       expect(vault.damagedCopies(), hasLength(3));
+      (await vault.unlockWithPassword(password)).close();
+      // All three were set aside since the book last opened: kept.
+      expect(vault.damagedCopies(), hasLength(3));
+      expect(await vault.salvage(await keysNow()), isTrue);
       final opened = await vault.unlockWithPassword(password);
       addTearDown(opened.close);
       expect(opened.store.rows().single.id, 'cash');
+      // Four; the two oldest, set aside before the last opening, let go.
       expect(
         [for (final f in vault.damagedCopies()) f.uri.pathSegments.last],
         [
-          'ledger-damaged-2026-11-24T09-58-50.000Z~002.db',
-          'ledger-damaged-2026-11-24T09-58-50.000Z~003.db',
+          'ledger-damaged-n000003-2026-11-24T09-58-50.000Z.db',
+          'ledger-damaged-n000004-2026-11-24T09-58-50.000Z.db',
+        ],
+      );
+    });
+
+    test('the clock set back never lets go of the newest copy: copies go '
+        'by their number, not their time (review 25)', () async {
+      var at = DateTime.utc(2026, 11, 24, 10);
+      vault = LedgerVault(
+        Directory('${directory.path}/ledger'),
+        codec: codec,
+        now: () => at,
+      );
+      await withJournal();
+      Future<void> salvageAt(DateTime time) async {
+        at = time;
+        expect(await vault.salvage(await keysNow()), isTrue);
+        (await vault.unlockWithPassword(password)).close();
+      }
+
+      await salvageAt(DateTime.utc(2026, 11, 24, 10));
+      await salvageAt(DateTime.utc(2026, 11, 24, 11));
+      // The phone's clock set back a day: the copy is still the newest.
+      await salvageAt(DateTime.utc(2026, 11, 23, 9));
+      expect(
+        [for (final f in vault.damagedCopies()) f.uri.pathSegments.last],
+        [
+          'ledger-damaged-n000002-2026-11-24T11-00-00.000Z.db',
+          'ledger-damaged-n000003-2026-11-23T09-00-00.000Z.db',
+        ],
+      );
+    });
+
+    test('copies named before numbers come first, and the next is '
+        'numbered after the highest (review 25)', () async {
+      await made();
+      final named = Directory('${directory.path}/ledger');
+      for (final old in [
+        'ledger-damaged-2026-11-20T08-00-00.000Z.db',
+        'ledger-damaged-2026-11-20T08-00-00.000Z~002.db',
+        'ledger-damaged-n000007-2026-11-21T08-00-00.000Z.db',
+      ]) {
+        File('${named.path}/$old').writeAsBytesSync(const [1]);
+      }
+      final aside = await vault.setAsideDamaged();
+      expect(
+        aside!.uri.pathSegments.last,
+        'ledger-damaged-n000008-2026-11-24T09-58-50.000Z.db',
+      );
+      expect(
+        [for (final f in vault.damagedCopies()) f.uri.pathSegments.last],
+        [
+          'ledger-damaged-2026-11-20T08-00-00.000Z.db',
+          'ledger-damaged-2026-11-20T08-00-00.000Z~002.db',
+          'ledger-damaged-n000007-2026-11-21T08-00-00.000Z.db',
+          'ledger-damaged-n000008-2026-11-24T09-58-50.000Z.db',
         ],
       );
     });

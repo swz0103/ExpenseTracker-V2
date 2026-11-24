@@ -229,9 +229,10 @@ void main() {
 
     test('a rate doubted is remembered while its currency is off the board, '
         'as a close is (review 18)', () async {
-      Object? doubtedKept() =>
-          (jsonDecode(store.row(marketShelf, 'rates')!.body)
-              as Map<String, Object?>)['doubted'];
+      Map<String, Object?> rates() =>
+          jsonDecode(store.row(marketShelf, 'rates')!.body)
+              as Map<String, Object?>;
+      Object? doubtedKept() => rates()['doubted'];
       final data = await source();
       expect(await data.refreshRates(), isTrue);
       // 400 / 31.835 = 12.6 times: doubted, kept to weigh the next by.
@@ -240,16 +241,74 @@ void main() {
       await data.refreshRates();
       expect(data.doubtfulRates, ['USD']);
       expect(doubtedKept(), {'USD': 400.0});
+      // With the board's day (review 25).
+      expect(rates()['doubtedOn'], {'USD': '2026-09-30T00:00:00.000Z'});
       // A board without the dollar: its doubt stays.
       spot = _board().replaceFirst('USD', 'JPY');
       now = now.add(const Duration(hours: 1));
       await data.refreshRates();
       expect(data.doubtfulRates, isEmpty);
       expect(doubtedKept(), {'USD': 400.0});
+      // 9/30 to 10/31 is 31 days, more than 30: let go of (review 25).
+      now = DateTime.utc(2026, 10, 31, 4);
+      await data.refreshRates();
+      expect(doubtedKept(), isNull);
+      expect(rates()['doubtedOn'], isNull);
     });
 
     double tsmc(SqlLedgerDataSource data) =>
         data.market().holdings.firstWhere((h) => h.code == '2330').price;
+
+    group('a doubted close weighs the next fetch only while it is recent '
+        '(review 25)', () {
+      /// 2330 kept at 1,234.50 of 9/29, a fetch of 117.28 doubted as
+      /// [doubtedOn] says (none: kept by a version before days were).
+      Future<SqlLedgerDataSource> doubtedAt(String? doubtedOn) async {
+        final data = await source();
+        await data.refreshQuotes(['2330', '0050']);
+        store.write(
+          (w) => w.put(
+            marketShelf,
+            'quotes',
+            jsonEncode({
+              'prices': {'2330': 1234.5, '0050': 62.75},
+              'days': {
+                '2330': '2026-09-29T00:00:00.000Z',
+                '0050': '2026-09-29T00:00:00.000Z',
+              },
+              'on': '2026-09-29T00:00:00.000Z',
+              'doubted': {'2330': 117.28},
+              if (doubtedOn != null) 'doubtedOn': {'2330': doubtedOn},
+            }),
+          ),
+          counts: false,
+        );
+        // 1,234.50 / 117.28 = 10.5 times: doubted alone.
+        daily = closes('1150930', '117.28');
+        now = now.add(const Duration(hours: 1));
+        await data.refreshQuotes(['2330', '0050']);
+        return data;
+      }
+
+      test('a doubt of the day before agrees: taken', () async {
+        final data = await doubtedAt('2026-09-29T00:00:00.000Z');
+        expect(data.doubtfulCloses, isEmpty);
+        expect(tsmc(data), 117.28);
+      });
+
+      test('a doubt 31 days older than the fetch is let go of', () async {
+        // 8/30 to 9/30 is 31 days, more than 30.
+        final data = await doubtedAt('2026-08-30T00:00:00.000Z');
+        expect(data.doubtfulCloses, ['2330']);
+        expect(tsmc(data), 1234.5);
+      });
+
+      test('a doubt kept with no day is let go of', () async {
+        final data = await doubtedAt(null);
+        expect(data.doubtfulCloses, ['2330']);
+        expect(tsmc(data), 1234.5);
+      });
+    });
 
     test(
       'D101: a split of one for twenty the book holds is taken at once',

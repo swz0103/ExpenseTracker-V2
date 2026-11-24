@@ -169,6 +169,29 @@ void main() {
       expect(book.queries.usualTransfers().map((e) => e.id), ['t1']);
     });
 
+    test('the last day an account was used counts either side, not 預定 '
+        'ones', () {
+      final book = Book(
+        entries: [
+          entry('a', date: DateTime.utc(2026, 9, 30)),
+          entry('b', type: EntryType.transfer, to: 'cash', amount: 500),
+          entry('c', account: 'card', date: soon),
+        ],
+      );
+      // 'b' is of the bank on 10/4 and moves money to cash; the card's
+      // only entry is 預定 on 10/6.
+      expect(book.queries.lastUsedOn, {
+        'bank': DateTime.utc(2026, 10, 4),
+        'cash': DateTime.utc(2026, 10, 4),
+      });
+      expect(
+        identical(book.queries.lastUsedOn, book.queries.lastUsedOn),
+        isTrue,
+      );
+      book.today = soon;
+      expect(book.queries.lastUsedOn['card'], DateTime.utc(2026, 10, 6));
+    });
+
     test('the last used category comes from what counts today', () {
       final book = Book(
         entries: [
@@ -219,5 +242,10 @@ void main() {
       ],
     );
     expect(book.queries.tradesOf('2330').map((e) => e.id), ['b2', 'b1']);
+    // In the book's order, as a replay breaks a day's ties; kept.
+    final kept = book.queries.tradesInBookOrder('2330');
+    expect(kept.map((e) => e.id), ['b1', 'b2']);
+    expect(book.queries.tradesInBookOrder('2330'), same(kept));
+    expect(book.queries.tradesInBookOrder('0050').map((e) => e.id), ['x']);
   });
 }

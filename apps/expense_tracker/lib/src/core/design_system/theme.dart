@@ -430,6 +430,8 @@ const darkFillContrast = 3.6;
 
 /// The app's own fonts, for a style that replaces the theme's own, as a
 /// button's `textStyle` does: without them the phone draws its own font.
+/// The one place the font stack is named; the theme, canvas text and the
+/// preview's frame take it from here.
 const appFont = TextStyle(
   fontFamily: 'Nunito',
   fontFamilyFallback: ['NotoSansTC'],
@@ -462,8 +464,8 @@ ThemeData appTheme() {
     brightness: dark ? Brightness.dark : Brightness.light,
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.paper,
-    fontFamily: 'Nunito',
-    fontFamilyFallback: const ['NotoSansTC'],
+    fontFamily: appFont.fontFamily,
+    fontFamilyFallback: appFont.fontFamilyFallback,
     useMaterial3: true,
     // A soft ripple in the accent under the finger, so every tap is felt.
     splashFactory: InkRipple.splashFactory,
@@ -477,9 +479,7 @@ ThemeData appTheme() {
       behavior: SnackBarBehavior.floating,
       backgroundColor: dark ? AppColors.surface : AppColors.ink,
       // Named outright: this style replaces the theme's, font included.
-      contentTextStyle: TextStyle(
-        fontFamily: 'Nunito',
-        fontFamilyFallback: const ['NotoSansTC'],
+      contentTextStyle: appFont.copyWith(
         fontSize: TextSize.body,
         color: dark ? AppColors.ink : AppColors.white,
       ),

@@ -1,7 +1,10 @@
 package io.github.swz0103.expensetracker
 
+import java.io.EOFException
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
+import java.io.OutputStream
 
 /**
  * An upload to Google Drive under way: where Drive takes it ([location],
@@ -68,8 +71,46 @@ internal object ResumableUpload {
     /** The `Content-Range` that asks how much of [size] bytes Drive holds. */
     fun query(size: Long): String = "bytes */$size"
 
-    /** The `Content-Range` of the bytes from [from] to the end of [size]. */
-    fun rest(from: Long, size: Long): String = "bytes $from-${size - 1}/$size"
+    /**
+     * The most bytes sent in one request: a multiple of 256 KiB, as Drive
+     * asks of every part but the last (8 MiB: 8 * 1024 * 1024).
+     */
+    const val PART = 8L * 1024 * 1024
+
+    /** The `Content-Range` of the bytes [first] to [last] of [size]; of none for an empty file. */
+    fun part(first: Long, last: Long, size: Long): String =
+        if (size == 0L) "bytes */0" else "bytes $first-$last/$size"
+
+    /**
+     * Sends the bytes from [from] to the end of [size] in parts of at most
+     * [PART] bytes with [put], which answers the first byte Drive does not
+     * hold yet, or null when Drive has the whole file. Before each part,
+     * [stopped] is asked: a stopped run ends with [BackgroundWork.Stopped].
+     * A part Drive took nothing of ends with an [IOException], to be tried
+     * again later rather than sent for ever.
+     */
+    fun inParts(from: Long, size: Long, stopped: () -> Boolean, put: (first: Long, last: Long) -> Long?) {
+        var next = from
+        while (true) {
+            if (stopped()) throw BackgroundWork.Stopped()
+            val last = if (size == 0L) -1 else minOf(next + PART, size) - 1
+            val held = put(next, last) ?: return
+            if (held <= next) throw IOException("Drive took none of the part from byte $next.")
+            next = held
+        }
+    }
+
+    /** Copies exactly [count] bytes of [input] to [output]. */
+    fun copy(input: InputStream, output: OutputStream, count: Long) {
+        val buffer = ByteArray(64 * 1024)
+        var left = count
+        while (left > 0) {
+            val read = input.read(buffer, 0, minOf(left, buffer.size.toLong()).toInt())
+            if (read < 0) throw EOFException("The file is shorter than the upload.")
+            output.write(buffer, 0, read)
+            left -= read
+        }
+    }
 
     /**
      * The first byte Drive does not hold, from the `Range` it answered
