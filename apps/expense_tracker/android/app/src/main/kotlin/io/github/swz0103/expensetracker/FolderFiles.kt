@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.net.Uri
 import android.provider.DocumentsContract
 import java.io.File
+import java.io.InputStream
 
 /**
  * Files in a folder the person chose (FolderHandler.kt), through the
@@ -89,6 +90,29 @@ internal object FolderFiles {
             DocumentsContract.deleteDocument(resolver, made)
             throw e
         }
+    }
+
+    /**
+     * The first bytes of the file [id] in [tree], at most [bytes] of them:
+     * enough to read a backup's header without copying the whole file.
+     */
+    fun head(resolver: ContentResolver, tree: Uri, id: String, bytes: Int): ByteArray {
+        val document = DocumentsContract.buildDocumentUriUsingTree(tree, id)
+        val input = resolver.openInputStream(document)
+            ?: throw IllegalStateException("The file cannot be read.")
+        return input.use { readUpTo(it, bytes) }
+    }
+
+    /** Up to [bytes] bytes from the start of [input]; fewer when it ends sooner. */
+    fun readUpTo(input: InputStream, bytes: Int): ByteArray {
+        val buffer = ByteArray(bytes.coerceAtLeast(0))
+        var filled = 0
+        while (filled < buffer.size) {
+            val read = input.read(buffer, filled, buffer.size - filled)
+            if (read < 0) break
+            filled += read
+        }
+        return buffer.copyOf(filled)
     }
 
     fun delete(resolver: ContentResolver, tree: Uri, id: String) {

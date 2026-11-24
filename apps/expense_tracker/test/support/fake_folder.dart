@@ -1,10 +1,16 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:expense_tracker/src/features/backup/model/phone_backup.dart';
 
 /// A folder kept in memory.
 final class FakeFolder implements FolderPort {
+  /// Each file's content as text; [bytes] holds what was written.
   final files = <String, String>{};
+
+  /// Each written file's bytes; one put into [files] by hand reads as its
+  /// text.
+  final bytes = <String, List<int>>{};
 
   /// When each file was last written, as the folder says; 2026-01-01 for
   /// one not given.
@@ -32,9 +38,20 @@ final class FakeFolder implements FolderPort {
   ];
 
   @override
-  Future<void> write(String uri, File file, String name) async =>
-      files[name] = file.readAsStringSync();
+  Future<void> write(String uri, File file, String name) async {
+    bytes[name] = file.readAsBytesSync();
+    files[name] = utf8.decode(bytes[name]!, allowMalformed: true);
+  }
 
   @override
-  Future<void> delete(String uri, String id) async => files.remove(id);
+  Future<void> delete(String uri, String id) async {
+    files.remove(id);
+    bytes.remove(id);
+  }
+
+  @override
+  Future<List<int>> head(String uri, String id, int count) async {
+    final whole = bytes[id] ?? utf8.encode(files[id] ?? '');
+    return whole.length > count ? whole.sublist(0, count) : whole;
+  }
 }

@@ -167,7 +167,8 @@ void main() {
     final old = OldKeyBackups(
       epoch: after.backupEpoch,
       localBackups: after.keptBackups,
-      folderBackups: () => phone.writtenBefore(resetAt),
+      folderBackups: () =>
+          phone.writtenBefore(resetAt, epoch: after.backupEpoch),
       deleteInFolder: phone.remove,
       keptDatabases: after.keptDatabases,
       deleteDatabase: after.deleteKeptDatabase,
@@ -183,6 +184,94 @@ void main() {
     expect(damaged.existsSync(), isFalse);
     expect(after.keptDatabases(), isEmpty);
     vaultOf(startup).close();
+  });
+
+  test('in the folder, the key epoch in a backup\'s header decides, '
+      'whatever its name or written time says (review 27 finding 1)', () async {
+    final startup = Startup(
+      LedgerVault(
+        directory,
+        codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
+      ),
+      check: SqlLedgerDataSource.check,
+    );
+    await startup.setUp(password);
+    var manager = EncryptedBackupManager(startup, vaultOf(startup));
+    final folder = FakeFolder();
+    final preferences = Preferences()
+      ..phoneFolderSet('content://tree/backups', name: '備份');
+    // The reset and both backups fall in the same minute, 10:00.
+    var now = DateTime(2026, 11, 24, 10, 0, 5);
+    var revision = 1;
+    final phone = PhoneBackup(
+      folder,
+      preferences,
+      withBackup: (use) => manager.withBackup(use, withPhotos: false),
+      revision: () => revision++,
+      ledger: 'ledger-one',
+      clock: () => now,
+    );
+    await phone.backUpNow();
+    final name = phone.nameAt(now);
+    expect(name, '記帳本-ledger-20261124-1000.etbk');
+    // The old-key backup moved aside under an earlier minute's name, so
+    // the new one can take the same minute's name.
+    const oldName = '記帳本-ledger-20261124-0959.etbk';
+    folder
+      ..bytes[oldName] = folder.bytes.remove(name)!
+      ..files[oldName] = folder.files.remove(name)!;
+    final resetAt = DateTime(2026, 11, 24, 10, 0, 30);
+    AppClock.use(FixedClock(UtcInstant(resetAt.toUtc())));
+    addTearDown(AppClock.reset);
+    await startup.resetKeys(password: password);
+    manager = EncryptedBackupManager(startup, vaultOf(startup));
+    expect(manager.backupEpoch, 2);
+    now = DateTime(2026, 11, 24, 10, 0, 50);
+    await phone.backUpNow();
+    // The folder gives no written time for either: 1970.
+    folder.modifiedAt
+      ..[name] = DateTime.fromMillisecondsSinceEpoch(0)
+      ..[oldName] = DateTime.fromMillisecondsSinceEpoch(0);
+    // A file put there by hand under this minute's name, not a backup:
+    // its header cannot be read and its written time is unknown, so it
+    // is kept out of the list too.
+    folder.files['記帳本-ledger-20261124-1000x.etbk'] = 'not a backup';
+    final listed = await phone.writtenBefore(resetAt, epoch: 2);
+    expect([for (final f in listed) f.name], [oldName]);
+    // Seen from epoch 1, neither backup is sealed before it.
+    expect(await phone.writtenBefore(resetAt, epoch: 1), isEmpty);
+    vaultOf(startup).close();
+  });
+
+  test('a backup in the folder whose header cannot be read and whose '
+      'written time the folder does not give is kept, in the reset\'s '
+      'minute (review 27 finding 1)', () async {
+    final folder = FakeFolder();
+    final preferences = Preferences()
+      ..phoneFolderSet('content://tree/backups', name: '備份');
+    final now = DateTime(2026, 11, 24, 10, 0, 50);
+    final phone = PhoneBackup(
+      folder,
+      preferences,
+      withBackup: (use) async {
+        final file = File('${directory.path}/b.etbk')..writeAsStringSync('b');
+        await use(file);
+      },
+      revision: () => 1,
+      ledger: 'ledger-one',
+      clock: () => now,
+    );
+    await phone.backUpNow();
+    final name = phone.nameAt(now);
+    final resetAt = DateTime(2026, 11, 24, 10, 0, 30);
+    folder.modifiedAt[name] = DateTime.fromMillisecondsSinceEpoch(0);
+    expect(await phone.writtenBefore(resetAt, epoch: 2), isEmpty);
+    // With a known time before the reset it is listed.
+    folder.modifiedAt[name] = DateTime(2026, 11, 24, 10, 0, 10);
+    expect(
+      [for (final f in await phone.writtenBefore(resetAt, epoch: 2)) f.name],
+      [name],
+    );
   });
 
   test(

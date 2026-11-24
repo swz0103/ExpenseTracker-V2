@@ -3,9 +3,11 @@ import 'package:core/foundation_values.dart' show BusinessDate, twoDigits;
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:vault/ledger_backup.dart' show LedgerBackup;
 
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/diagnostics/error_steps.dart';
 import '../../../core/time/app_clock.dart';
 
 /// The folder chosen cannot be kept: Android gave no lasting permission
@@ -37,6 +39,10 @@ abstract interface class FolderPort {
   Future<List<FolderFile>> list(String uri);
   Future<void> write(String uri, File file, String name);
   Future<void> delete(String uri, String id);
+
+  /// The first bytes of file [id], at most [bytes] of them: enough to
+  /// read a backup's header without copying the whole file.
+  Future<List<int>> head(String uri, String id, int bytes);
 }
 
 /// Backups to a folder on the phone, such as one in Documents that the
@@ -167,20 +173,42 @@ final class PhoneBackup extends ChangeNotifier {
     }
   }
 
-  /// This ledger's backups in the folder written before [at], newest
-  /// first, such as those sealed with keys a reset has since replaced:
-  /// by the time in the name, and in the minute of [at] by when the file
-  /// was written. None when no folder is chosen.
-  Future<List<FolderFile>> writtenBefore(DateTime at) async {
+  /// This ledger's backups in the folder sealed before a reset of the
+  /// keys at [at], newest first: those whose header names a key epoch
+  /// before [epoch]. One whose header cannot be read is judged by the
+  /// time in its name, and in the minute of [at] by when the file was
+  /// written; a folder that gives no such time (0) keeps it out of the
+  /// list. None when no folder is chosen.
+  Future<List<FolderFile>> writtenBefore(
+    DateTime at, {
+    required int epoch,
+  }) async {
     final uri = _preferences.phoneFolder;
     if (uri == null) return const [];
     final then = nameAt(at);
     return [
       for (final file in await _ours(uri))
-        if (file.name.compareTo(then) < 0 ||
-            (file.name == then && file.modified.isBefore(at)))
+        if (switch (await _epochOf(uri, file)) {
+          final sealed? => sealed < epoch,
+          null =>
+            file.name.compareTo(then) < 0 ||
+                (file.name == then &&
+                    file.modified.millisecondsSinceEpoch > 0 &&
+                    file.modified.isBefore(at)),
+        })
           file,
     ];
+  }
+
+  /// The key epoch [file]'s header names; null when it cannot be read.
+  Future<int?> _epochOf(String uri, FolderFile file) async {
+    try {
+      final head = await _folder.head(uri, file.id, LedgerBackup.headerReach);
+      return LedgerBackup.headerOf(head).backupEpoch;
+    } on Object catch (error) {
+      ErrorLog.instance.record(ErrorSteps.oldKeyBackups, error);
+      return null;
+    }
   }
 
   /// Deletes this ledger's backup [id] from the folder ([writtenBefore]).

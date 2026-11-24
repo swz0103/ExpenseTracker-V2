@@ -468,7 +468,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       driveFiles: drive != null && drive.linked ? drive.backups : null,
       trashOnDrive: drive?.trash,
       folderBackups: phone != null && phone.on && resetAt != null
-          ? () => phone.writtenBefore(resetAt)
+          ? () => phone.writtenBefore(resetAt, epoch: backups.backupEpoch)
           : null,
       deleteInFolder: phone?.remove,
       keptDatabases: backups.keptDatabases,
