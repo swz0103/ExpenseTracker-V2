@@ -181,4 +181,47 @@ void main() {
     // Cleared and not yet posted whole: never the records' own.
     expect(store.mark, isNull);
   });
+
+  test("an account's day sums, in day order, from the memory and the "
+      'fresh store alike', () {
+    final memory = MemoryPostingStore();
+    final fresh = FreshPostingStore();
+    for (final s in <PostingStore>[memory, fresh]) {
+      s.transaction(() {
+        s.put(row('a', day(1, 2), 1), [
+          p('a', 0, bank, 5, day(1, 2), 1),
+          p('a', 1, cash, -5, day(1, 2), 1),
+        ]);
+        s.put(row('b', day(1, 2), 2), [
+          p('b', 0, bank, 3, day(1, 2), 2),
+          p('b', 1, cash, -3, day(1, 2), 2),
+        ]);
+        s.put(row('c', day(1, 9), 3), [
+          p('c', 0, bank, -4, day(1, 9), 3),
+          p('c', 1, cash, 4, day(1, 9), 3),
+        ]);
+      });
+      expect(s.daySums(bank), [(day(1, 2), 8), (day(1, 9), -4)]);
+      expect(s.daySums(food), isEmpty);
+    }
+    expect(sumByDay(const []), isEmpty);
+    // A posting built at run time keeps no quantity unless given one.
+    final plain = Posting(
+      intent: IntentId('x' * 2),
+      line: 0,
+      account: AccountId('b' * 2),
+      amount: 1,
+      currency: CurrencyCode('T' * 3),
+      date: day(1, 1),
+      seq: 0,
+    );
+    expect(
+      (plain.quantity, plain.intent.value, plain.account.value),
+      (BigInt.zero, 'xx', 'bb'),
+    );
+    expect(IntentType('t' * 2).value, 'tt');
+    expect(OwnerId('o' * 2).value, 'oo');
+    expect(startOfBook, (date: Day.beforeAll, seq: 0));
+    expect(Day.afterAll.ymd, 99991231);
+  });
 }

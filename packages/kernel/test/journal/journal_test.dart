@@ -351,4 +351,13 @@ void main() {
       expect(marked, isFalse);
     });
   });
+
+  test('the streams of an intent: its rule\'s and its amenders\', none for '
+      'a kind nobody posts', () {
+    final b = book();
+    expect(b.journal.streamsOf(Beans('x', Day.stored(20260301), 1, 1, 1)), [
+      'jar',
+    ]);
+    expect(b.journal.streamsOf(const Stranger()), isEmpty);
+  });
 }
