@@ -90,7 +90,7 @@ const recordFields = <String, Set<String>>{
     'skipped',
     'openFrom',
   },
-  'trash': {'on', 'entry'},
+  'trash': {'on', 'entry', 'letGo'},
 };
 
 /// The row's own fields, kept by the data source beside each record.

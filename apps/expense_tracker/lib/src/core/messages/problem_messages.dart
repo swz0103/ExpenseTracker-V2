@@ -4,7 +4,8 @@ import 'package:flutter/services.dart';
 import '../ledger/persistence/ledger_data_source.dart';
 import '../ledger/persistence/quarantine.dart' show RowSetAside;
 import '../ledger/ledger.dart'
-    show KeepFailed, NameTaken, RecordRefused, ReloadFailed;
+    show KeepFailed, NameTaken, RecordRefused, ReloadFailed, StayedInTrash;
+import 'trash_messages.dart';
 import 'validation_messages.dart';
 
 /// Why a command was refused or a step failed, in words a person can act
@@ -17,6 +18,7 @@ String describeProblem(Object error) => switch (error) {
   DataSourceException() || KeepFailed() => '帳本無法寫入，請重新打開 App 再試。',
   ReloadFailed() => '帳本無法重新讀取，請重新打開 App；畫面上的內容可能與已儲存的不同。',
   RecordRefused(:final first) => validationMessage(first),
+  StayedInTrash(:final count) => stayedInTrashNote(count),
   NameTaken() => '這個分類名稱已經有了，或是保留給「全部支出」「轉帳」等用途。',
   MoneyException(code: MoneyError.precision) => '金額的小數位數太多。',
   PlatformException(code: 'busy') => '上一個檔案還在處理，請稍候再試。',

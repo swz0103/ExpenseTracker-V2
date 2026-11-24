@@ -24,6 +24,7 @@ import '../services/entry_validator.dart';
 import '../services/recurring_service.dart';
 import 'command_context.dart';
 import 'command_exceptions.dart';
+import 'held_notices.dart';
 import 'restore_hold.dart';
 
 export 'restore_hold.dart';
@@ -62,6 +63,9 @@ final class EntryCommands {
        _validator = entryValidator;
 
   final CommandContext _context;
+
+  /// The screens told through [_context], once for each putting back.
+  late final _told = HeldNotices(_context);
   final EntryRepository _entries;
   final AccountRepository _accounts;
   final CategoryRepository _categories;
@@ -103,7 +107,7 @@ final class EntryCommands {
     ];
     final opened = _accounts.addNew(accounts);
     _categories.addAll(named);
-    _context.changed(Topic.all);
+    _told.changed(Topic.all);
     _context.keep(
       WriteBatch(accounts: opened, categories: named, entries: entries),
     );
@@ -238,7 +242,7 @@ final class EntryCommands {
         dropped: [(Collection.entry, removed.id)],
       ),
     );
-    if (skipping.isNotEmpty) _context.changed(const {Topic.recurring});
+    if (skipping.isNotEmpty) _told.changed(const {Topic.recurring});
     return removed;
   }
 
@@ -279,15 +283,36 @@ final class EntryCommands {
         dropped: [for (final (_, e) in removed) (Collection.entry, e.id)],
       ),
     );
-    if (skipping.isNotEmpty) _context.changed(const {Topic.recurring});
+    if (skipping.isNotEmpty) _told.changed(const {Topic.recurring});
     return [for (final (_, e) in removed) e];
   }
 
-  /// Puts back what [removeAll] took away, as one change.
+  /// Puts back what [removeAll] took away, as one change, the screens
+  /// told once it is done. Entries something now stands in the way of
+  /// ([_heldBack]: an account closed since, a refund's purchase not in the
+  /// book) stay in the trash, to be put back there one by one, with their
+  /// whole group and refund or purchase, told through
+  /// [CommandContext.problem] as a [StayedInTrash]. True when every entry
+  /// is back; false when any is not, or when it no longer fits the trades
+  /// kept since (told the same way, nothing put back).
   bool restoreAll(List<Entry> removed) {
     if (removed.isEmpty) return true;
+    return _told.quietly(() => _restoreAll(removed));
+  }
+
+  bool _restoreAll(List<Entry> all) {
+    final every = {for (final e in all) e.id};
+    if (_entries.any((e) => every.contains(e.id))) return false;
+    final held = _heldBack(all);
+    final removed = [
+      for (final e in all)
+        if (!held.contains(e.id)) e,
+    ];
+    if (removed.isEmpty) {
+      _told.report(StayedInTrash(held.length));
+      return false;
+    }
     final ids = {for (final e in removed) e.id};
-    if (_entries.any((e) => ids.contains(e.id))) return false;
     if (!_tryCheck(removed)) return false;
     // Back in its own place (D75), where the data source keeps it too.
     for (final e in removed) {
@@ -309,14 +334,23 @@ final class EntryCommands {
         dropped: [for (final id in ids) (Collection.trash, id)],
       ),
     );
-    if (back.isNotEmpty) _context.changed(const {Topic.recurring});
-    return true;
+    if (back.isNotEmpty) _told.changed(const {Topic.recurring});
+    if (held.isNotEmpty) _told.report(StayedInTrash(held.length));
+    return held.isEmpty;
   }
 
-  /// Puts back an entry [remove] took away. False, told through
-  /// [CommandContext.problem], when it no longer fits the trades kept since.
-  bool restore(Entry entry) {
+  /// Puts back an entry [remove] took away, the screens told once it is
+  /// done. False, told through [CommandContext.problem], when it no longer
+  /// fits the trades kept since, or when something now stands in its way
+  /// ([_heldBack]): then it stays in the trash ([StayedInTrash]).
+  bool restore(Entry entry) => _told.quietly(() => _restore(entry));
+
+  bool _restore(Entry entry) {
     if (_entries.byId(entry.id) != null) return false;
+    if (_heldBack([entry]).isNotEmpty) {
+      _told.report(StayedInTrash(1));
+      return false;
+    }
     if (!_tryCheck([entry])) return false;
     // Back in its own place, as in [restoreAll].
     _entries.restoreAt(entry, _entries.orderOf(entry.id));
@@ -333,8 +367,44 @@ final class EntryCommands {
         dropped: [(Collection.trash, entry.id)],
       ),
     );
-    if (back.isNotEmpty) _context.changed(const {Topic.recurring});
+    if (back.isNotEmpty) _told.changed(const {Topic.recurring});
     return true;
+  }
+
+  /// Of [back], put back together by an undo, the ids of those that must
+  /// stay in the trash: each naming an account closed since, or a refund
+  /// whose purchase is neither in the book nor among [back]; and with them
+  /// the rest of their group and the refunds and purchases they make a
+  /// pair with among [back], which come back together or not at all.
+  Set<String> _heldBack(List<Entry> back) {
+    final ids = {for (final e in back) e.id};
+    bool closed(String id) => _accounts.byId(id)?.archived ?? false;
+    final held = {
+      for (final e in back)
+        if ({e.account, ?e.to}.any(closed) ||
+            (e.refundOf != null &&
+                !ids.contains(e.refundOf) &&
+                _entries.byId(e.refundOf!) == null))
+          e.id,
+    };
+    // Held together: a group, and a refund with its purchase.
+    for (var grew = held.isNotEmpty; grew;) {
+      grew = false;
+      final groups = {
+        for (final e in back)
+          if (held.contains(e.id)) ?e.group,
+      };
+      for (final e in back) {
+        if (held.contains(e.id)) continue;
+        if (groups.contains(e.group) ||
+            held.contains(e.refundOf) ||
+            back.any((r) => r.refundOf == e.id && held.contains(r.id))) {
+          held.add(e.id);
+          grew = true;
+        }
+      }
+    }
+    return held;
   }
 
   /// Everything that stands in the way of putting [trashed] back as it
@@ -344,7 +414,11 @@ final class EntryCommands {
   /// name, since closed. Empty when nothing does.
   List<RestoreHold> holdsOf(Trashed trashed) {
     final holds = <RestoreHold>[];
-    final entries = [trashed.entry];
+    // Every entry that would come back: each root with its group.
+    final entries = {
+      trashed.entry.id: trashed.entry,
+      for (final t in _withGroup(trashed)) t.entry.id: t.entry,
+    };
     final of = trashed.entry.refundOf;
     if (of != null && _entries.byId(of) == null) {
       final original = _trash.all.where((t) => t.entry.id == of).firstOrNull;
@@ -352,11 +426,13 @@ final class EntryCommands {
         holds.add(const OriginalGone());
       } else {
         holds.add(OriginalInTrash(original));
-        entries.add(original.entry);
+        for (final t in _withGroup(original)) {
+          entries[t.entry.id] = t.entry;
+        }
       }
     }
     final closed = <String, Account>{
-      for (final e in entries)
+      for (final e in entries.values)
         for (final id in {e.account, ?e.to})
           if (_accounts.byId(id) case final a? when a.archived) id: a,
     };
@@ -371,11 +447,20 @@ final class EntryCommands {
   /// [withOriginal] puts a refund's purchase in the trash back first. A
   /// refund whose purchase is gone for good needs no answer here. When
   /// the putting back cannot be done, an account opened for it is closed
-  /// again.
+  /// again. The screens are told once, when it is done or undone, never
+  /// of a state between.
   bool restoreTrashed(
     Trashed trashed, {
     bool reopen = false,
     bool withOriginal = false,
+  }) => _told.quietly(
+    () => _restoreTrashed(trashed, reopen: reopen, withOriginal: withOriginal),
+  );
+
+  bool _restoreTrashed(
+    Trashed trashed, {
+    required bool reopen,
+    required bool withOriginal,
   }) {
     final closed = <Account>[];
     Trashed? original;
@@ -395,7 +480,7 @@ final class EntryCommands {
     if (_entries.byId(entry.id) != null) {
       // Already back in the book, as by an undo: only the trash keeps it.
       _trash.removeEntries({entry.id});
-      _context.signal();
+      _told.signal();
       _context.keep(WriteBatch(dropped: [(Collection.trash, entry.id)]));
       return true;
     }
@@ -405,14 +490,7 @@ final class EntryCommands {
     final placed = <Trashed>[];
     // The purchase first, then the refund that names it.
     for (final root in [?original, trashed]) {
-      final back = [
-        for (final t in _trash.all)
-          if (identical(t, root) ||
-              (root.entry.group != null &&
-                  t.entry.group == root.entry.group &&
-                  _entries.byId(t.entry.id) == null))
-            t,
-      ];
+      final back = _withGroup(root);
       if (!_place(back)) {
         _undoPlaced(placed, before, closed);
         return false;
@@ -424,7 +502,7 @@ final class EntryCommands {
       for (final t in placed) t.entry.id: ?t.letGo,
     });
     _recurring.replaceExisting(unskipped);
-    if (opened.isNotEmpty) _context.changed(const {Topic.accounts});
+    if (opened.isNotEmpty) _told.changed(const {Topic.accounts});
     _context.keep(
       WriteBatch(
         accounts: opened,
@@ -433,8 +511,23 @@ final class EntryCommands {
         dropped: [for (final t in placed) (Collection.trash, t.entry.id)],
       ),
     );
-    if (unskipped.isNotEmpty) _context.changed(const {Topic.recurring});
+    if (unskipped.isNotEmpty) _told.changed(const {Topic.recurring});
     return true;
+  }
+
+  /// [root] with the entries of its group still in the trash, as they
+  /// come back from it together: what [holdsOf] weighs is what
+  /// [restoreTrashed] puts back.
+  List<Trashed> _withGroup(Trashed root) {
+    final group = root.entry.group;
+    return [
+      for (final t in _trash.all)
+        if (identical(t, root) ||
+            (group != null &&
+                t.entry.group == group &&
+                _entries.byId(t.entry.id) == null))
+          t,
+    ];
   }
 
   /// Puts [back] out of the trash into the entries, each in its own place
@@ -471,7 +564,7 @@ final class EntryCommands {
       }
     }
     closed.forEach(_accounts.replace);
-    _context.changed(Topic.all);
+    _told.changed(Topic.all);
   }
 
   /// Takes out of the trash, for good, the entries deleted longer ago
@@ -497,7 +590,7 @@ final class EntryCommands {
       _receipts.set(id, null);
     }
     // No sum rests on the trash.
-    _context.signal();
+    _told.signal();
     _context.keep(
       WriteBatch(
         receipts: {for (final id in gone) id: null},
@@ -593,7 +686,7 @@ final class EntryCommands {
         : null;
     unit.registerAllDirty(_entries.changeAll(retagged));
     unit.registerAllDirty(_trash.changeEntries(retagged));
-    _context.changed(Topic.all);
+    _told.changed(Topic.all);
     _context.keep(unit.batch);
   }
 
@@ -612,7 +705,7 @@ final class EntryCommands {
     ];
     _recurring.replaceExisting(items);
     unit.registerAllDirty(items);
-    _context.changed(Topic.all);
+    _told.changed(Topic.all);
     _context.keep(unit.batch);
   }
 
@@ -710,7 +803,7 @@ final class EntryCommands {
       return true;
     } on RecordRefused catch (refused) {
       // Said to the person through problem.
-      _context.report(refused);
+      _told.report(refused);
       return false;
     }
   }
@@ -731,7 +824,7 @@ final class EntryCommands {
         throw RecordRefused([SaleExceedsHolding(later: untouched)]);
       }
     }
-    _context.changed(const {Topic.entries});
+    _told.changed(const {Topic.entries});
   }
 
   /// [_replayOrUndo], telling a refusal through [CommandContext.report]
@@ -742,8 +835,8 @@ final class EntryCommands {
       return true;
     } on RecordRefused catch (short) {
       // Said to the person through problem.
-      _context.report(short);
-      _context.changed(Topic.all);
+      _told.report(short);
+      _told.changed(Topic.all);
       return false;
     }
   }

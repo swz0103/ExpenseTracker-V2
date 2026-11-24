@@ -4,6 +4,7 @@ import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../fuzz.dart';
+import 'restore_invariants.dart';
 
 /// Seeded runs, [fuzzSeeds] of them.
 void recurringFuzz() {
@@ -106,8 +107,11 @@ void recurringFuzz() {
         final all = ledger.entries.all
             .where((e) => e.recurring != null)
             .toList();
+        final ids = idsOf(ledger);
+        final before = restoreState(ledger);
+        final reason = 'seed $seed step $step';
         try {
-          switch (r.nextInt(7)) {
+          switch (r.nextInt(9)) {
             case 0:
               ledger.recurringCommands.confirm(item);
             case 1:
@@ -126,9 +130,10 @@ void recurringFuzz() {
               );
               if (x != null) trashed.add(x);
             case 3 when trashed.isNotEmpty:
-              ledger.entryCommands.restore(
+              final back = ledger.entryCommands.restore(
                 trashed.removeAt(r.nextInt(trashed.length)),
               );
+              if (!back) expect(restoreState(ledger), before, reason: reason);
             case 4 when item.skipped.isNotEmpty:
               ledger.recurringCommands.unskip(item, item.skipped.first);
             case 5 when all.isNotEmpty:
@@ -148,10 +153,28 @@ void recurringFuzz() {
               );
             case 6:
               ledger.recurringCommands.bookDue();
+            case 7 when ledger.trash.all.isNotEmpty:
+              final t = ledger.trash.all[r.nextInt(ledger.trash.all.length)];
+              final back = ledger.entryCommands.restoreTrashed(
+                t,
+                reopen: r.nextBool(),
+                withOriginal: r.nextBool(),
+              );
+              if (!back) expect(restoreState(ledger), before, reason: reason);
+            case 8 when all.length > 2:
+              final x = ledger.entryCommands.removeAll([
+                for (var i = 0; i < 3; i++) all[r.nextInt(all.length)].id,
+              ]);
+              if (r.nextBool()) {
+                ledger.entryCommands.restoreAll(x);
+              } else {
+                trashed.addAll(x);
+              }
           }
         } on RecordRefused {
           // refused
         }
+        expectPartition(ledger, ids, reason);
         if (r.nextBool()) snap(ledger);
         expect(snap(ledger), snap(fresh()), reason: 'seed $seed step $step');
       }

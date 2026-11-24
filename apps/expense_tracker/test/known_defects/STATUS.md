@@ -235,6 +235,10 @@ Work package CORR-2 (recurring items and state transitions). The two known-defec
 
 Review round 17. No known-defect id: the findings are stated by ordinary tests. D78 (restore holds, all or nothing) and the let-go day a restored booking takes back: `test/core/ledger/commands/entry_commands_test.dart`; the listener scan over whole files: `test/rules/ledger_listeners_test.dart`; the seeded fuzzers of the review, run from `ledger_test.dart`, `recurring_service_test.dart`, `entry_query_service_test.dart` and `entry_repository_test.dart` (sources in `test/support/fuzz/`; `--dart-define=FUZZ_SEEDS=60` for more seeds).
 
+## fixed in FIX-R20
+
+Review round 20. No known-defect id: the findings are stated by ordinary tests. A restore told once, at rest (R20 #1), group members weighed with their root (#2) and an undo that leaves held entries in the trash (#3): `test/core/ledger/commands/entry_commands_test.dart` (groups "R20: …"), `test/core/messages/trash_messages_test.dart`; the trash's `letGo` read, every field written of each record kind read (#4): `test/core/ledger/persistence/codec/record_fields_test.dart`; the listener scan with comments and strings blanked out and the review's evasions (#5): `test/rules/ledger_listeners_test.dart`; closed accounts, refund pairs and restores with random answers in the fuzzers, with the book/trash partition and an unchanged refused restore after every step (#6): `test/support/fuzz/ledger_fuzz.dart`, `recurring_fuzz.dart`, `restore_invariants.dart`.
+
 ## not covered
 
 One line per finding that has no test here. Findings with an executed reproduction come first with the specific reason; the rest were found by reading code (no executed reproduction), which the brief does not require.

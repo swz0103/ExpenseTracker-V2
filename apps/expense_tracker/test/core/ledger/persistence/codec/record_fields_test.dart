@@ -36,14 +36,19 @@ void main() {
     received: 1,
     group: 'g',
     dayTrade: true,
+    mark: EntryMark.reward,
   );
   final refs = CategoryRefs([
     Category('飲食', 'food', 1, id: 'c1'),
     Category('交通', 'travel', 1, id: 'c2'),
   ]);
 
+  /// The fields written of each collection, over every record of it.
+  final written = <String, Set<String>>{};
+
   void allKnown(String collection, Map<String, Object?> json) {
     expect(unknownFields(collection, json), isNull, reason: '$json');
+    (written[collection] ??= {}).addAll(json.keys);
   }
 
   test('every field written of each kind of record is known', () {
@@ -115,10 +120,20 @@ void main() {
       merchant: 'm',
       auto: true,
       skipped: {day},
+      openFrom: day,
     );
     allKnown('recurring', recurringToJson(recurring));
     allKnown('recurring', recurringToJson(recurring, refs));
-    allKnown('trash', trashedToJson(Trashed(entry, day)));
+    final trashed = Trashed(entry, day, order: 1, letGo: day);
+    allKnown('trash', trashedToJson(trashed));
+    allKnown('trash', trashedToJson(trashed, refs));
+    // Each record above sets every field its kind has, so the fields
+    // written are all the fields read: a field written that is not read
+    // would be kept as one a later version wrote and merged back over
+    // every rewrite of the row.
+    expect(written, {
+      for (final MapEntry(:key, :value) in recordFields.entries) key: value,
+    });
   });
 
   test('only what this version does not read is kept', () {
