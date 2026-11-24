@@ -25,6 +25,8 @@ extension _Pickers on _ComposerState {
 
   Future<void> _pickDate() async {
     final marked = {
+      // Exception to as-of-today: the date picker marks every day something is
+      // written on.
       for (final e in _ledger.entries.inMonth(_f.date.year, _f.date.month))
         e.date,
     };

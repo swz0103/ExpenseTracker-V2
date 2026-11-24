@@ -77,16 +77,18 @@ int? firstShown(Map<int, List<Due>> plan, DateTime today, int year, int month) {
 }
 
 /// The categories a new item is most likely in: the [count] used most by
-/// entries of that side, then the others in their order.
+/// entries of that side that count on [today] ([countsOn]), then the
+/// others in their order.
 List<Category> usualCategories(
   CategoryReader categories,
   EntryReader entries, {
   required bool income,
+  required DateTime today,
   int count = 5,
 }) {
   final open = categories.forEntries(income: income);
   final uses = <String, int>{};
-  for (final e in entries.all) {
+  for (final e in countedOn(entries.all, today)) {
     uses[e.category] = (uses[e.category] ?? 0) + 1;
   }
   final sorted = [...open]

@@ -205,6 +205,8 @@ final class _Reader {
   ) {
     final shop = cell('商家');
     final candidates = [
+      // Exception to as-of-today: a duplicate check looks at every entry
+      // written.
       for (final e in [...book.entries.all, for (final (_, f) in _found) f])
         if (e.type == EntryType.expense &&
             !e.isRefund &&
@@ -362,6 +364,7 @@ final class _Reader {
   }
 }
 
+// Exception to as-of-today: a duplicate check looks at every entry written.
 bool _already(ImportBook book, Entry entry) => book.entries
     .inMonth(entry.date.year, entry.date.month)
     .any(

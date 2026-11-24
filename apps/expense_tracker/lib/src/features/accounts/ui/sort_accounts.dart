@@ -22,7 +22,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
           );
         case _SortBy.recent:
           final last = <String, DateTime>{};
-          for (final e in ledger.entries.all) {
+          for (final e in countedOn(ledger.entries.all, ledger.today)) {
             for (final id in [e.account, ?e.to]) {
               final seen = last[id];
               if (seen == null || e.date.isAfter(seen)) last[id] = e.date;

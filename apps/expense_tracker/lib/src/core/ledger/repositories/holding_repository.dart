@@ -186,11 +186,23 @@ final class HoldingRepository implements HoldingReader {
   }
 
   /// Works the holdings out again from the starting positions and the
-  /// trades of [entries]. An oversold trade throws a [StateError] and
-  /// leaves the holdings as they were; with [lenient], as for a book just
-  /// read, it is left out instead.
-  void replay(List<Entry> entries, {bool lenient = false}) {
-    _portfolio = Portfolio.replay(_start, entries, lenient: lenient);
+  /// trades of [entries] that count on [today] ([countsOn]): a trade an
+  /// old book dated later, written before such trades were refused (D70),
+  /// joins on its day, when the ledger's day check replays again. An oversold
+  /// trade throws a [StateError] and leaves the holdings as they were,
+  /// one dated later included, so no change leaves a later sale short;
+  /// with [lenient], as for a book just read, it is left out instead.
+  void replay(
+    List<Entry> entries, {
+    required DateTime today,
+    bool lenient = false,
+  }) {
+    final counted = countedOn(entries, today).toList();
+    if (!lenient && counted.length != entries.length) {
+      // Every trade, the later ones too, must hold together.
+      Portfolio.replay(_start, entries);
+    }
+    _portfolio = Portfolio.replay(_start, counted, lenient: lenient);
     _withChanges = null;
   }
 

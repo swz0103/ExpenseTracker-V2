@@ -131,6 +131,8 @@ List<Reminder> _dueReminders(ReminderBook book) =>
 Set<String> wantedTags(ReminderBook book, Preferences preferences) => {
   if (preferences.dueAlerts)
     for (final r in _dueReminders(book)) 'due:${r.key}',
+  // Exception to as-of-today: an entry dated today is never 預定; anything
+  // written for today will do.
   if (preferences.dailyNudge && book.entries.onDay(book.today).isEmpty)
     nudgeTag,
   // A budget's notice stays while the budget is still past its mark.
@@ -240,6 +242,8 @@ List<Alert> alertsFor(
   }
   if (preferences.dailyNudge) {
     final today = book.today;
+    // Exception to as-of-today: an entry dated today is never 預定; anything
+    // written for today will do.
     final recorded = book.entries.onDay(today).isNotEmpty;
     for (var d = 0; d < ReminderTiming.horizonDays; d++) {
       if (d == 0 && recorded) continue;

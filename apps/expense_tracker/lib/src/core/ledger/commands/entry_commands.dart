@@ -226,6 +226,7 @@ final class EntryCommands {
   List<Entry> removeAll(Iterable<String> ids) {
     final wanted = {...ids};
     final removed = <(int, Entry)>[
+      // Exception to as-of-today: entries are removed by id.
       for (final (i, e) in _entries.all.indexed)
         if (wanted.contains(e.id)) (i, e),
     ];
@@ -548,10 +549,10 @@ final class EntryCommands {
   void _replayOrUndo(void Function() undo, {bool trades = true}) {
     if (trades) {
       try {
-        _holdings.replay(_entries.all);
+        _holdings.replay(_entries.all, today: _context.today);
       } on OversoldTrade catch (short) {
         undo();
-        _holdings.replay(_entries.all);
+        _holdings.replay(_entries.all, today: _context.today);
         final untouched = identical(_entries.byId(short.entry.id), short.entry);
         throw RecordRefused([SaleExceedsHolding(later: untouched)]);
       }

@@ -31,6 +31,8 @@ final class RecurringService {
 
   /// The entries booking [item] in [year]/[month], earliest first.
   List<Entry> confirmationsIn(Recurring item, int year, int month) => [
+    // Exception to as-of-today: a booking written ahead, 預定, still books its
+    // day.
     for (final e in _entries.inMonth(year, month).reversed)
       if (e.recurring == item.id) e,
   ];
@@ -65,6 +67,8 @@ final class RecurringService {
   /// never asked for again.
   DateTime _firstOpenMonth(Recurring item) {
     DateTime? latest;
+    // Exception to as-of-today: a booking written ahead, 預定, still books its
+    // day.
     for (final e in _entries.all) {
       if (e.recurring == item.id &&
           (latest == null || e.date.isAfter(latest))) {

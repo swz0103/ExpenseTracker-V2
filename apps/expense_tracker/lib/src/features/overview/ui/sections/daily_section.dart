@@ -117,6 +117,8 @@ class _DailySectionState extends State<DailySection> {
     for (var d = 0; d < 7; d++) {
       weekSpent += ledger.reportService.spentOn(first.add(Duration(days: d)));
     }
+    // Exception to as-of-today: the day's list shows 預定 entries marked; its
+    // sums go through spentOn.
     final entries = ledger.entries.onDay(_day);
     final atToday = !last.isBefore(ledger.today);
     final from = '${first.month} / ${first.day}';
@@ -260,6 +262,8 @@ class _WeekStrip extends StatelessWidget {
     final picked = day == selected;
     final future = day.isAfter(ledger.today);
     final outside = day.month != month;
+    // Exception to as-of-today: a day's dots show what is written on it, 預定 or
+    // not.
     final kinds = {for (final e in ledger.entries.onDay(day)) e.type};
     final dots = [
       if (kinds.contains(EntryType.expense)) AppColors.negative,

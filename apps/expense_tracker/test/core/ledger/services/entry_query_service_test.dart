@@ -87,6 +87,58 @@ void main() {
     expect(book.queries.categoryAt('沒去過'), isNull);
   });
 
+  group('a 預定 entry is not recent nor the latest (D71)', () {
+    // Today is 10/4; 10/6 and 10/8 are 預定.
+    final soon = DateTime.utc(2026, 10, 6);
+    final later = DateTime.utc(2026, 10, 8);
+
+    test('usual spending and transfers leave it out', () {
+      final book = Book(
+        entries: [
+          for (var i = 0; i < 2; i++)
+            entry(
+              'm$i',
+              merchant: '咖啡',
+              date: day.subtract(Duration(days: i)),
+            ),
+          entry('p', merchant: '咖啡', date: soon),
+          entry('t0', type: EntryType.transfer, to: 'cash', amount: 500),
+          entry(
+            't1',
+            type: EntryType.transfer,
+            to: 'cash',
+            amount: 500,
+            date: later,
+          ),
+        ],
+      );
+      // Two alike by today, not three: not usual yet.
+      expect(book.queries.usual(), isEmpty);
+      // One transfer by today, not two.
+      expect(book.queries.usualTransfers(), isEmpty);
+      book.today = later;
+      // On 10/8 three spendings alike, the latest 10/6's; two transfers.
+      expect(book.queries.usual().map((e) => e.id), ['p']);
+      expect(book.queries.usualTransfers().map((e) => e.id), ['t1']);
+    });
+
+    test('the last used category comes from what counts today', () {
+      final book = Book(
+        entries: [
+          entry('a', merchant: '捷運', category: '交通'),
+          entry('b', merchant: '捷運', category: '通勤', date: soon),
+          entry('c', merchant: '書店', date: later),
+        ],
+      );
+      expect(book.queries.lastAt('捷運')?.id, 'a');
+      expect(book.queries.categoryAt('捷運'), '交通');
+      // 書店 is known, to pick, though used only on a 預定 entry: last.
+      expect(book.queries.merchants, ['捷運', '書店']);
+      book.today = soon;
+      expect(book.queries.categoryAt('捷運'), '通勤');
+    });
+  });
+
   test("a stock's trades come newest first", () {
     final book = Book(
       entries: [

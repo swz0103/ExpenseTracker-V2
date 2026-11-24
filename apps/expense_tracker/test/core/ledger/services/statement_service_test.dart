@@ -48,6 +48,26 @@ void main() {
     expect(b.statements.unbilled(_card).map((e) => e.id), ['later']);
   });
 
+  test('a 預定 purchase is not unbilled nor in instalments yet (D25)', () {
+    // Today is 10/4; the purchases of 10/7 are 預定.
+    final b = book([
+      entry('c', account: 'card', amount: 400, date: DateTime.utc(2026, 10)),
+      entry('p', account: 'card', amount: 700, date: DateTime.utc(2026, 10, 7)),
+      entry(
+        'tv',
+        account: 'card',
+        amount: 1200,
+        installments: 3,
+        date: DateTime.utc(2026, 10, 7),
+      ),
+    ]);
+    expect(b.statements.unbilled(_card).map((e) => e.id), ['c']);
+    expect(b.statements.instalmentsOn(_card), isEmpty);
+    b.today = DateTime.utc(2026, 10, 7);
+    expect(b.statements.unbilled(_card).map((e) => e.id), ['p', 'c']);
+    expect(b.statements.instalmentsOn(_card).map((e) => e.id), ['tv']);
+  });
+
   test('an instalment purchase stays listed until every period is billed', () {
     final b = book([
       entry(

@@ -137,12 +137,13 @@ final class CardSummary {
   int get closingDay => card.closingDay ?? 1;
   int get dueDay => card.dueDay ?? 15;
 
-  /// What entries on the card of [type] tagged [tag] came to this year.
+  /// What entries on the card of [type] tagged [tag] came to this year,
+  /// of those that count [today] ([countsOn]): a 預定 one joins on its day.
   int taggedThisYear(String tag, EntryType type) {
     final year = today.year;
     var total = 0;
     for (var month = 1; month <= today.month; month++) {
-      for (final e in _entries.inMonth(year, month)) {
+      for (final e in countedOn(_entries.inMonth(year, month), today)) {
         if (e.account == card.id && e.type == type && e.tags.contains(tag)) {
           total += e.amount;
         }
@@ -152,10 +153,10 @@ final class CardSummary {
   }
 
   /// What entries on the card of [type] tagged [tag] came to since the
-  /// last close: the cycle not billed yet.
+  /// last close: the cycle not billed yet, of those that count [today].
   int taggedSinceClose(String tag, EntryType type) {
     var total = 0;
-    for (final e in _entries.all) {
+    for (final e in countedOn(_entries.all, today)) {
       if (e.account == card.id &&
           e.type == type &&
           e.tags.contains(tag) &&

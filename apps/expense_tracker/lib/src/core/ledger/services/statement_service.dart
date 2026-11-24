@@ -94,9 +94,10 @@ final class StatementService {
   }
 
   /// Purchases on [card] since its last statement closed, and the
-  /// refunds and rewards credited against them.
+  /// refunds and rewards credited against them, that count today
+  /// ([countsOn]): a 預定 purchase joins on its day (D25).
   List<Entry> unbilled(Account card) => _cache.remember(
-    ('unbilled', card.id, closedBy),
+    ('unbilled', card.id, closedBy, _today()),
     () => _unbilled(card),
     reads: _cardTopics,
   );
@@ -109,17 +110,18 @@ final class StatementService {
       _ => false,
     };
     return [
-      for (final e in _entries.all)
+      for (final e in countedOn(_entries.all, _today()))
         if (e.account == card.id && posted(e) && e.date.isAfter(end)) e,
     ]..sort((a, b) => b.date.compareTo(a.date));
   }
 
-  /// Purchases on [card] still being paid in instalments.
+  /// Purchases on [card] still being paid in instalments, of those that
+  /// count today: a 預定 purchase is paid in nothing yet.
   List<Entry> instalmentsOn(Account card) => _cache.remember(
     reads: _cardTopics,
-    ('instalments', card.id, closedBy),
+    ('instalments', card.id, closedBy, _today()),
     () => [
-      for (final e in _entries.all)
+      for (final e in countedOn(_entries.all, _today()))
         if (e.account == card.id &&
             e.installments > 1 &&
             billedPeriods(e, closedBy) < e.installments)

@@ -45,11 +45,13 @@ final class EntryQueryService {
     // Each entry's words, lower-cased once per change.
     final texts = _cache.remember(
       'searchText',
+      // Exception to as-of-today: a search runs over every entry written.
       () => [for (final e in _entries.all) _wordsOf(e)],
     );
     // Each account's currency, looked up once rather than per entry.
     final currencies = {for (final a in _accounts.all) a.id: a.currency};
     final found = [
+      // Exception to as-of-today: a search runs over every entry written.
       for (final (i, e) in _entries.all.indexed)
         if (texts[i].contains(lower) ||
             '${e.amount}' == words ||
@@ -68,12 +70,19 @@ final class EntryQueryService {
     return [for (final (_, e) in found) e];
   }
 
-  /// Known merchants, most used first.
-  List<String> get merchants => _cache.remember('merchants', _merchants);
+  /// Known merchants, most used first: a 預定 entry is a use once its
+  /// day comes ([countsOn]), and its merchant is known from the start.
+  List<String> get merchants =>
+      _cache.remember(('merchants', _today()), _merchants);
 
   List<String> _merchants() {
-    final counts = <String, int>{};
-    for (final e in _entries.all) {
+    final counts = <String, int>{
+      // Exception to as-of-today: every merchant written is offered to
+      // pick; only the uses below are counted.
+      for (final e in _entries.all)
+        if (e.merchant.isNotEmpty) e.merchant: 0,
+    };
+    for (final e in countedOn(_entries.all, _today())) {
       if (e.merchant.isEmpty) continue;
       counts[e.merchant] = (counts[e.merchant] ?? 0) + 1;
     }
@@ -84,11 +93,12 @@ final class EntryQueryService {
   /// The category last used with [merchant], if any.
   String? categoryAt(String merchant) => lastAt(merchant)?.category;
 
-  /// The latest spending at [merchant], if any: what a new entry there
-  /// starts from (its category and account).
-  Entry? lastAt(String merchant) => _cache.remember('lastAt', () {
+  /// The latest spending at [merchant] that counts today ([countsOn]), if
+  /// any: what a new entry there starts from (its category and account).
+  /// A 預定 entry is not the latest until its day.
+  Entry? lastAt(String merchant) => _cache.remember(('lastAt', _today()), () {
     final latest = <String, Entry>{};
-    for (final e in _entries.all) {
+    for (final e in countedOn(_entries.all, _today())) {
       if (e.merchant.isEmpty || e.type != EntryType.expense) continue;
       final kept = latest[e.merchant];
       if (kept == null || !e.date.isBefore(kept.date)) latest[e.merchant] = e;
@@ -101,14 +111,15 @@ final class EntryQueryService {
   /// most [most]: each as its latest entry, which 記一筆 offers to start
   /// from with one tap.
   ///
-  /// With [income], income instead, refunds left out.
+  /// With [income], income instead, refunds left out. Only entries that
+  /// count today ([countsOn]): a 預定 entry is not recent.
   List<Entry> usual({int most = 6, bool income = false}) =>
       _cache.remember(('usual', _today(), most, income), () {
         final since = _today().subtract(const Duration(days: 90));
         final counts = <(String, String, String), int>{};
         final latest = <(String, String, String), Entry>{};
         final kind = income ? EntryType.income : EntryType.expense;
-        for (final e in _entries.all) {
+        for (final e in countedOn(_entries.all, _today())) {
           if (e.type != kind ||
               e.refundOf != null ||
               e.date.isBefore(since) ||
@@ -131,13 +142,14 @@ final class EntryQueryService {
 
   /// Transfers made alike again and again lately, the most made first:
   /// the same two accounts and amount, two times or more in 90 days.
-  /// Money lent and paid back has its own tab and is left out.
+  /// Money lent and paid back has its own tab and is left out, and so is
+  /// a 預定 transfer ([countsOn]), which is not recent.
   List<Entry> usualTransfers({int most = 4}) =>
       _cache.remember(('usualTransfers', _today(), most), () {
         final since = _today().subtract(const Duration(days: 90));
         final counts = <(String, String, int), int>{};
         final latest = <(String, String, int), Entry>{};
-        for (final e in _entries.all) {
+        for (final e in countedOn(_entries.all, _today())) {
           final to = e.to;
           if (e.type != EntryType.transfer ||
               to == null ||
@@ -165,6 +177,7 @@ final class EntryQueryService {
     if (group == null) return [entry];
     final all = _cache.remember('groups', () {
       final groups = <String, List<Entry>>{};
+      // Exception to as-of-today: a group's members are looked up, 預定 or not.
       for (final e in _entries.all) {
         final key = e.group;
         if (key != null) (groups[key] ??= []).add(e);
@@ -191,6 +204,8 @@ final class EntryQueryService {
 
   /// Every trade and dividend of [code], newest first.
   List<Entry> tradesOf(String code) => [
+    // Exception to as-of-today: a holding's list shows every trade, 預定 ones
+    // marked.
     for (final e in _entries.all)
       if (e.holding == code) e,
   ]..sort((a, b) => b.date.compareTo(a.date));

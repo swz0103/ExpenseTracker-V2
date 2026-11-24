@@ -49,7 +49,7 @@ void main() {
   );
   final holdings = HoldingRepository(const [
     Holding('2330', '台積電', shares: 0, price: 1000, cost: 0, change: 0),
-  ], moveOf: market.moveOf)..replay(entries.all);
+  ], moveOf: market.moveOf)..replay(entries.all, today: day);
   final recurring = RecurringRepository(const [
     Recurring(
       id: 'r',

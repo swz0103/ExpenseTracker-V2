@@ -62,6 +62,7 @@ final class Report {
     final until = to.isAfter(today) ? today : to;
     final stretches = period.stretches;
     // Only what counts today: a 預定 entry is shown apart (D25).
+    // Exception to as-of-today: split at once into what counts and what is 預定.
     final all = entriesBetween(entries, from, to);
     final inPeriod = countedOn(all, today).toList();
     final planned = [
@@ -206,6 +207,8 @@ final class Report {
       !m.isAfter(to);
       m = DateTime.utc(m.year, m.month + 1)
     )
+      // Exception to as-of-today: the one reader of a stretch; each caller
+      // takes it through countedOn.
       for (final e in entries.inMonth(m.year, m.month))
         if (!e.date.isBefore(from) && !e.date.isAfter(to)) e,
   ];
@@ -279,6 +282,7 @@ final class Report {
     EntryReader entries,
     DateTime from,
     DateTime to,
+    // Exception to as-of-today: a year before days up to today: none is 預定.
   ) => entriesBetween(entries, _yearBefore(from), _yearBefore(to));
 
   static StretchSum _bucket(String label, Iterable<Entry> entries) {

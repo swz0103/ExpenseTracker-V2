@@ -95,10 +95,10 @@ class _TagsPageState extends State<TagsPage> {
   }
 
   List<Widget> _tagList() {
-    final latest = latestTag(ledger.entries);
+    final latest = latestTag(ledger.entries, ledger.today);
     final project = latest == null
         ? null
-        : tagSummaryOf(ledger.entries, latest);
+        : tagSummaryOf(ledger.entries, latest, ledger.today);
     if (project == null) {
       return const [
         EmptyState(

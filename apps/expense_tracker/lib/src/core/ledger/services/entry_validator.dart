@@ -122,6 +122,8 @@ final class EntryValidator {
   /// of their trades sells more shares than are held by then.
   bool holdsWith(List<Entry> extra, {Entry? replacing}) {
     return _holdings.holdsWith([
+      // Exception to as-of-today: the write rules check the whole timeline, so
+      // no change leaves a later sale short.
       for (final e in _entries.all)
         if (replacing == null || e.id != replacing.id) e,
       ...extra,

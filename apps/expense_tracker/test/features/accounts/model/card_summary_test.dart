@@ -162,6 +162,28 @@ void main() {
     expect(card.taggedThisYear('年費', EntryType.expense), 1800);
   });
 
+  test('a 預定 cashback, fee or purchase counts on its day only (D71)', () {
+    // Looked at 10/4. 回饋 of 40 on 9/25 counts; 60 on 10/9 is 預定.
+    // 年費 of 1,800 on 2/1 counts; 900 on 10/20 is 預定. A purchase of
+    // 500 on 10/12 is 預定 too.
+    final card = _summary(
+      entries: [
+        _spend('r2', 25, 40, tags: ['回饋'], type: EntryType.income),
+        _spend('r3', 9, 60, month: 10, tags: ['回饋'], type: EntryType.income),
+        _spend('fee', 1, 1800, month: 2, tags: ['年費']),
+        _spend('fee2', 20, 900, month: 10, tags: ['年費']),
+        _spend('later', 12, 500, month: 10),
+      ],
+    );
+    expect(card.taggedThisYear('回饋', EntryType.income), 40);
+    expect(card.taggedSinceClose('回饋', EntryType.income), 40);
+    expect(card.taggedThisYear('年費', EntryType.expense), 1800);
+    expect(card.taggedSinceClose('年費', EntryType.expense), 0);
+    // Since the 9/20 close only the 9/25 cashback counts: −40 spent.
+    expect(card.unbilled.map((e) => e.id), ['r2']);
+    expect(card.spentSince, -40);
+  });
+
   test('a cashback or fee starts on the card, tagged and named', () {
     final card = _summary();
     final reward = card.extra(EntryType.income);

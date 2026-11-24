@@ -72,6 +72,7 @@ final class RecurringForm {
       ledger.categories,
       ledger.entries,
       income: income,
+      today: ledger.today,
     );
     if (category.isNotEmpty &&
         usual.isNotEmpty &&

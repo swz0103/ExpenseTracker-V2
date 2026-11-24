@@ -86,6 +86,7 @@ class _EntriesPageState extends State<EntriesPage> {
   }
 
   List<Entry> get _pickedEntries => [
+    // Exception to as-of-today: picked entries are looked up by id.
     for (final e in widget.ledger.entries.all)
       if (_picked.contains(e.id)) e,
   ];
@@ -173,9 +174,13 @@ class _EntriesPageState extends State<EntriesPage> {
           !m.isBefore(DateTime.utc(range.start.year, range.start.month));
           m = DateTime.utc(m.year, m.month - 1)
         )
+          // Exception to as-of-today: the list shows 預定 entries marked; its
+          // totals go through countedOn.
           ...ledger.entries.inMonth(m.year, m.month),
       ];
     } else {
+      // Exception to as-of-today: the list shows 預定 entries marked; its totals
+      // go through countedOn.
       source = ledger.entries.inMonth(year, month);
     }
     return [

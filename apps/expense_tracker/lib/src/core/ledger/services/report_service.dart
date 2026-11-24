@@ -63,6 +63,8 @@ final class ReportService {
       !m.isAfter(to);
       m = DateTime.utc(m.year, m.month + 1)
     ) {
+      // Exception to as-of-today: read only through _between, which takes it
+      // through countedOn.
       for (final e in _entries.inMonth(m.year, m.month)) {
         if (!e.date.isBefore(from) && !e.date.isAfter(to)) yield e;
       }
@@ -164,14 +166,15 @@ final class ReportService {
       });
 
   /// Every tag with how many entries carry it and their spending, most
-  /// used first.
+  /// used first: of the entries that count today ([countsOn]), so a 預定
+  /// entry joins on its day (D71), as the budgets by tag count it.
   List<(String, int, int)> get tagStats =>
-      _cache.remember('tagStats', _tagStats);
+      _cache.remember(('tagStats', _today()), _tagStats);
 
   List<(String, int, int)> _tagStats() {
     final counts = <String, int>{};
     final sums = <String, int>{};
-    for (final e in _entries.all) {
+    for (final e in countedOn(_entries.all, _today())) {
       for (final tag in e.tags) {
         counts[tag] = (counts[tag] ?? 0) + 1;
         sums[tag] = (sums[tag] ?? 0) + e.spending;
@@ -189,17 +192,30 @@ final class ReportService {
       merchantsBetween(firstDay, _today())
         ..sort((a, b) => b.$2.compareTo(a.$2));
 
-  /// Every tag in use, most used first.
-  List<String> get tags => [for (final (tag, _, _) in tagStats) tag];
+  /// Every tag in use, most used first ([tagStats]), then those only on
+  /// 預定 entries: the names offered to pick from.
+  List<String> get tags => _cache.remember(('tags', _today()), () {
+    final used = [for (final (tag, _, _) in tagStats) tag];
+    final known = {
+      // Exception to as-of-today: a tag only on a 預定 entry is still one
+      // to pick; nothing is counted here.
+      for (final e in _entries.all) ...e.tags,
+    };
+    return [...used, ...known.difference(used.toSet())];
+  });
 
   /// Open spending or [income] categories, the most used over this month
-  /// and the last first, so a new entry starts on the likely one.
+  /// and the last first, so a new entry starts on the likely one; a 預定
+  /// entry is a use once its day comes.
   List<String> categoriesByUse({required bool income}) {
     final type = income ? EntryType.income : EntryType.expense;
     final counts = <String, int>{};
     for (final back in const [0, 1]) {
       final month = DateTime.utc(_today().year, _today().month - back);
-      for (final e in _entries.inMonth(month.year, month.month)) {
+      for (final e in countedOn(
+        _entries.inMonth(month.year, month.month),
+        _today(),
+      )) {
         if (e.type == type) counts[e.category] = (counts[e.category] ?? 0) + 1;
       }
     }
