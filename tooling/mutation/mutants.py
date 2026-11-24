@@ -4,7 +4,7 @@ SVC = APP + 'lib/src/core/ledger/services/'
 T = APP + 'test/'
 def flt(*files): return ('apps/expense_tracker', 'flutter test ' + ' '.join(files))
 # Every read method asked with an entry dated tomorrow (D25).
-ASOF = 'test/core/ledger/services/as_of_today_test.dart'
+ASOF = 'test/scenarios/ledger/as_of_today_test.dart'
 AREAS = {
  'core':    ('packages/core', 'dart test'),
  'trade':   ('packages/ledger/trade_costs', 'dart test'),

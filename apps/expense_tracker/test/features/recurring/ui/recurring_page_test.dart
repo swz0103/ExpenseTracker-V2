@@ -96,8 +96,7 @@ void main() {
     await show(tester, 360, 1, book: planned());
     await go(tester, ['更多', '定期交易', '~管理']);
     expect(editorOn('健身房'), findsNothing);
-    await tester.tap(find.text('健身房'));
-    await tester.pumpAndSettle();
+    await go(tester, ['健身房']);
     expect(editorOn('健身房'), findsOneWidget);
   });
 
@@ -107,8 +106,7 @@ void main() {
     await show(tester, 360, 1, book: planned());
     await go(tester, ['更多', '定期交易', '固定支出/年 ›']);
     expect(find.text('訂閱與固定支出'), findsWidgets);
-    await tester.tap(find.text('房租'));
-    await tester.pumpAndSettle();
+    await go(tester, ['房租']);
     expect(editorOn('房租'), findsOneWidget);
   });
 }

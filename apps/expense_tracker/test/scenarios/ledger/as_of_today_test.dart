@@ -3,7 +3,7 @@ import 'package:expense_tracker/src/core/ledger/services/budget_service.dart';
 import 'package:expense_tracker/src/features/accounts/model/card_summary.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../support/book.dart';
+import '../../support/book.dart';
 
 // As of today (D25): an entry dated tomorrow is 預定 and changes no figure
 // any read method shows today. Each kind of entry below is added, dated
