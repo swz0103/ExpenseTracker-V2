@@ -4,8 +4,8 @@ import 'package:expense_tracker/src/core/messages/key_failures.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart'
     show UnlockDelayed;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqlite3/sqlite3.dart' show SqliteException;
-import 'package:storage/storage.dart' show StorageProblem, StorageUnavailable;
+import 'package:storage/storage.dart'
+    show SqliteException, StorageProblem, StorageUnavailable;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
