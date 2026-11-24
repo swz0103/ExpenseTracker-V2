@@ -624,4 +624,7 @@ EQUIVALENT = {
     'statement-02': 'statementDue: _after already gives only entries after '
                     'the close, so a payment on the close day never reaches '
                     'the check',
+    'cardcycle-17': 'stillToBill: a refund dated after the day cancels '
+                    'on its own day or later, and its changes come to '
+                    'nothing, so counting them changes no sum',
 }
