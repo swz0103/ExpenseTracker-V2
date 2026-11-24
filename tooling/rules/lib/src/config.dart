@@ -119,15 +119,6 @@ const statusWordOwners = [
 /// Owner of calendar arithmetic (rule B4): core's time folder.
 const calendarOwners = ['packages/core/lib/time/'];
 
-/// Files rule B4 leaves alone for now: the entry index, the balances and
-/// the book-open path are being reworked by another work package
-/// (book-open speed); take each out once it uses core's helpers.
-const calendarPending = [
-  '$appLib/src/core/ledger/repositories/entry_repository.dart',
-  '$appLib/src/core/ledger/services/balance_service.dart',
-  '$appLib/src/core/ledger/persistence/book_opening.dart',
-];
-
 /// Values with one owner (rule B5), each written only under its owners.
 const ownedValues = <Object, List<String>>{
   // The app's font family: `appFont`.

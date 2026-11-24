@@ -7,6 +7,8 @@ import 'dart:collection';
 import '../models/models.dart';
 import 'entry_lists.dart';
 
+import 'package:core/time/month_arithmetic.dart';
+
 /// What the screens and queries may ask of the entries: no way to change
 /// them.
 abstract interface class EntryReader {
@@ -271,7 +273,7 @@ final class EntryRepository implements EntryReader {
       _refunds != null ||
       _groups != null;
 
-  static int _monthOf(Entry e) => e.date.year * 12 + e.date.month;
+  static int _monthOf(Entry e) => monthIndex(e.date.year, e.date.month);
 
   /// The accounts [e] is paid from or into, each once.
   static Iterable<String> _accountsOf(Entry e) sync* {
@@ -676,7 +678,7 @@ final class EntryRepository implements EntryReader {
 
   @override
   List<Entry> inMonth(int year, int month) =>
-      _monthLists[year * 12 + month] ?? const <Entry>[];
+      _monthLists[monthIndex(year, month)] ?? const <Entry>[];
 
   @override
   Iterable<Entry> get byDate sync* {

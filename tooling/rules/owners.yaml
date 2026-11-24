@@ -92,18 +92,16 @@ items:
     target: packages/core/lib/time/
     status: owned
   # A day held as the app holds days: a DateTime at UTC midnight (dayOf).
-  # Rule B4 keeps hand-made copies out; the entry index, the balances and
-  # the book-open path still write their own until the book-open work
-  # package moves them (tooling/rules config `calendarPending`).
+  # Rule B4 keeps hand-made copies out.
   - id: utc-day
     what: 把時刻或日期取成「那一天」（UTC 午夜）
     layer: core
     owner:
       - packages/core/lib/time/utc_days.dart
     target: packages/core/lib/time/
-    status: scattered
+    status: owned
   # Month ends, steps and counts (monthEnd, monthStart, monthStarts,
-  # monthIndex, shiftMonth); rule B4, with the same pending files.
+  # monthIndex, shiftMonth); rule B4.
   - id: month-arithmetic
     what: 月底、前後幾個月、逐月、相差幾個月
     layer: core
@@ -111,7 +109,7 @@ items:
       - packages/core/lib/time/month_arithmetic.dart
       - packages/core/lib/time/utc_days.dart
     target: packages/core/lib/time/
-    status: scattered
+    status: owned
   # Reports' 去年同期: 29 February becomes the 28th.
   - id: same-day-last-year
     what: 去年的同一天（2/29 變 2/28）

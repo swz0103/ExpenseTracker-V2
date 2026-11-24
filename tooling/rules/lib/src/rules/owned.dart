@@ -29,9 +29,7 @@ final class CalendarByHand extends FileRule {
 
   @override
   bool appliesTo(SourceFile file) =>
-      _isCode(file) &&
-      !file.isUnderAny(calendarOwners) &&
-      !file.isUnderAny(calendarPending);
+      _isCode(file) && !file.isUnderAny(calendarOwners);
 
   @override
   List<Violation> checkFile(SourceFile file) {
