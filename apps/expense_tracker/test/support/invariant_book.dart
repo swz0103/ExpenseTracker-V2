@@ -103,8 +103,9 @@ Book generate(
       final first = pick(10, amount - 10);
       final cat = of(spendCats);
       var cat2 = of(spendCats);
-      if (cat2 == cat)
+      if (cat2 == cat) {
         cat2 = spendCats[(spendCats.indexOf(cat) + 1) % spendCats.length];
+      }
       final inst = acct == 'card' && r.nextInt(100) < 15 ? of([3, 6]) : 0;
       put(
         entryOf(

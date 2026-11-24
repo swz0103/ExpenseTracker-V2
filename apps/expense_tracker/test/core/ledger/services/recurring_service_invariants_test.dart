@@ -198,27 +198,32 @@ void main() {
       runProperty('Q1', (items, history) {
         final l = bookOf(items, history);
         for (final item in items) {
-          if (!bookAll(l, item))
+          if (!bookAll(l, item)) {
             return '${item.id}: confirm loop does not settle in 500 bookings';
+          }
         }
         for (final item in items) {
           if (!item.active) {
-            if (l.recurringService.pendingDate(item) != null)
+            if (l.recurringService.pendingDate(item) != null) {
               return '${item.id} paused but pending';
+            }
             continue;
           }
           final p = l.recurringService.pendingDate(item);
-          if (p != null && !p.isAfter(today))
+          if (p != null && !p.isAfter(today)) {
             return '${item.id}: pending ${d(p)} still due';
+          }
           final left = l.recurringService.unpostedDates(
             item,
             from: day(2000, 1, 1),
             to: today,
           );
-          if (left.isNotEmpty)
+          if (left.isNotEmpty) {
             return '${item.id}: unposted still lists ${left.map(d)}';
-          if (l.recurringService.due.any((r) => r.id == item.id))
+          }
+          if (l.recurringService.due.any((r) => r.id == item.id)) {
             return '${item.id} in due list';
+          }
           // per month: bookings == due dates not after today
           final mine = [
             for (final e in l.entries.all)
@@ -254,8 +259,9 @@ void main() {
             }
             final dated = [for (final e in booked) e.date]..sort();
             for (var k = 0; k < dues.length; k++) {
-              if (dated[k] != dues[k])
+              if (dated[k] != dues[k]) {
                 return '${item.id}: booking dated ${d(dated[k])}, period was ${d(dues[k])}';
+              }
             }
           }
         }
@@ -318,7 +324,7 @@ void main() {
             for (final k in plan.keys.toList()..sort()) {
               for (final x in plan[k]!) {
                 b.write(
-                  '${x.item.id}@${m}/$k:${x.booked != null
+                  '${x.item.id}@$m/$k:${x.booked != null
                       ? 'B'
                       : x.skipped
                       ? 'S'
@@ -338,8 +344,9 @@ void main() {
           final removed = l.entryCommands.remove(e.id);
           if (removed == null) return 'could not delete booking ${e.id}';
           final mid = snap(l);
-          if (mid == before)
+          if (mid == before) {
             return 'deleting booking ${e.recurring}@${d(e.date)} changed nothing (not skipped)';
+          }
           if (!l.entryCommands.restore(removed)) return 'restore refused';
           final after = snap(l);
           if (after != before) {
@@ -469,11 +476,12 @@ void main() {
             if (DateTime.utc(
               2026,
               m,
-            ).isBefore(DateTime.utc(latest.year, latest.month)))
+            ).isBefore(DateTime.utc(latest.year, latest.month))) {
               continue;
+            }
             if (item.active &&
                 !(shown.length == wanted.length && shown.containsAll(wanted))) {
-              return '${item.id} ${m}月: calendar shows $shown as due but the service would book $wanted';
+              return '${item.id} $m月: calendar shows $shown as due but the service would book $wanted';
             }
           }
         }
@@ -490,8 +498,9 @@ void main() {
             final plan = monthPlan(l.recurring, l.recurringService, 2026, m);
             for (final k in plan.keys.toList()..sort()) {
               for (final x in plan[k]!) {
-                if (x.item.id != item.id || x.settled || x.day.isAfter(today))
+                if (x.item.id != item.id || x.settled || x.day.isAfter(today)) {
                   continue;
+                }
                 if (x.statusOn(today) != RecurringPeriodStatus.due) continue;
                 // 入帳 on the calendar books the day it is pressed for (D66).
                 final booking = l.recurringService.booking(item, day: x.day);

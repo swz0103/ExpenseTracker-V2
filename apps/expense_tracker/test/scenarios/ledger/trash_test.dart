@@ -10,6 +10,7 @@ void main() {
       (e) => e.type == EntryType.expense && e.recurring == null,
     );
     final count = ledger.entries.length;
+    final place = ledger.entries.all.indexOf(entry);
     final removed = ledger.entryCommands.remove(entry.id)!;
     expect(ledger.trash.all.single.entry, same(removed));
     expect(ledger.trash.all.single.on, ledger.today);
@@ -17,7 +18,8 @@ void main() {
     ledger.entryCommands.restoreTrashed(ledger.trash.all.single);
     expect(ledger.trash.all, isEmpty);
     expect(ledger.entries.all, hasLength(count));
-    final back = ledger.entries.all.last;
+    // Back in its own place, not last (D75).
+    final back = ledger.entries.all[place];
     expect(back.id, entry.id);
     expect(
       (back.amount, back.account, back.date),

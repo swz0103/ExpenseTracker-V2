@@ -154,7 +154,15 @@ DecodedBook decodeBook(
     Collection.category,
     (j) => categoryFromJson(j, refs),
   );
-  final trash = read(Collection.trash, (j) => trashedFromJson(j, refs));
+  // Each with its row's place: an entry moved to the trash keeps it (D75).
+  final trashPlaces = {
+    for (final row in shelves[Collection.trash.name] ?? const <StoredRow>[])
+      row.id: row.seq,
+  };
+  final trash = [
+    for (final t in read(Collection.trash, (j) => trashedFromJson(j, refs)))
+      Trashed(t.entry, t.on, order: trashPlaces[t.entry.id]),
+  ];
   final expiredIds = [
     if (trashFrom != null)
       for (final t in trash)

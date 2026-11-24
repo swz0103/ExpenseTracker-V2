@@ -207,7 +207,11 @@ final class EntryCommands {
       return null;
     }
     _recurring.replaceExisting(skipping);
-    final trashed = Trashed(removed, _context.today);
+    final trashed = Trashed(
+      removed,
+      _context.today,
+      order: _entries.orderOf(removed.id),
+    );
     _trash.put(trashed);
     _context.keep(
       WriteBatch(
@@ -241,7 +245,10 @@ final class EntryCommands {
       return const [];
     }
     _recurring.replaceExisting(skipping);
-    final trashed = [for (final (_, e) in removed) Trashed(e, _context.today)];
+    final trashed = [
+      for (final (_, e) in removed)
+        Trashed(e, _context.today, order: _entries.orderOf(e.id)),
+    ];
     _trash.putAll(trashed);
     _context.keep(
       WriteBatch(
@@ -260,9 +267,10 @@ final class EntryCommands {
     final ids = {for (final e in removed) e.id};
     if (_entries.any((e) => ids.contains(e.id))) return false;
     if (!_tryCheck(removed)) return false;
-    // Back as the latest written, which is where the data source keeps a
-    // record written again: the order is the same after a restart.
-    _entries.addAll(removed);
+    // Back in its own place (D75), where the data source keeps it too.
+    for (final e in removed) {
+      _entries.restoreAt(e, _entries.orderOf(e.id));
+    }
     if (!_tryReplay(
       () => _entries.removeWhere((e) => ids.contains(e.id)),
       trades: removed.any((e) => e.isInvestment),
@@ -288,8 +296,8 @@ final class EntryCommands {
   bool restore(Entry entry) {
     if (_entries.byId(entry.id) != null) return false;
     if (!_tryCheck([entry])) return false;
-    // Back as the latest written, as in [restoreAll].
-    _entries.add(entry);
+    // Back in its own place, as in [restoreAll].
+    _entries.restoreAt(entry, _entries.orderOf(entry.id));
     if (!_tryReplay(() => _entries.remove(entry), trades: entry.isInvestment)) {
       return false;
     }
@@ -331,10 +339,13 @@ final class EntryCommands {
     if (!_tryCheck([for (final t in back) t.entry])) return false;
     final before = _trash.all;
     _trash.removeAll(back);
-    final count = _entries.length;
-    _entries.addAll([for (final t in back) t.entry]);
+    // Each back in its own place (D75).
+    for (final t in back) {
+      _entries.restoreAt(t.entry, t.order ?? _entries.orderOf(t.entry.id));
+    }
+    final ids = {for (final t in back) t.entry.id};
     if (!_tryReplay(() {
-      _entries.removeRange(count, _entries.length);
+      _entries.removeWhere((e) => ids.contains(e.id));
       _trash.replaceWith(before);
     }, trades: back.any((t) => t.entry.isInvestment))) {
       return false;

@@ -2,9 +2,19 @@ import '../models/models.dart';
 
 /// What the screens may ask of the entries deleted lately.
 abstract interface class TrashReader {
-  /// The entries deleted lately, the last deleted first; the list cannot
-  /// be changed.
+  /// The entries deleted lately, the last day one was deleted first, and
+  /// within a day the latest written first ([trashOrder]); the list
+  /// cannot be changed.
   List<Trashed> get all;
+}
+
+/// The order of the trash: by the day deleted, the latest first, then by
+/// the entries' order written, the latest first. What the trash holds
+/// and what the book keeps of it read alike, as each keeps both.
+int trashOrder(Trashed a, Trashed b) {
+  final byDay = b.on.compareTo(a.on);
+  if (byDay != 0) return byDay;
+  return (b.order ?? -1).compareTo(a.order ?? -1);
 }
 
 /// The entries deleted lately (最近刪除), kept to be put back, the last
@@ -12,19 +22,20 @@ abstract interface class TrashReader {
 /// [TrashReader].
 final class TrashRepository implements TrashReader {
   TrashRepository([Iterable<Trashed> trashed = const []])
-    : _items = [...trashed];
+    : _items = [...trashed]..sort(trashOrder);
 
   final List<Trashed> _items;
 
   @override
   List<Trashed> get all => List.unmodifiable(_items);
 
-  /// Keeps [trashed] as the last deleted.
-  void put(Trashed trashed) => _items.insert(0, trashed);
+  /// Keeps [trashed], in its place ([trashOrder]).
+  void put(Trashed trashed) => putAll([trashed]);
 
-  /// Keeps each of [trashed], deleted in that order, so the last of them
-  /// is first.
-  void putAll(List<Trashed> trashed) => _items.insertAll(0, trashed.reversed);
+  /// Keeps each of [trashed], each in its place ([trashOrder]).
+  void putAll(List<Trashed> trashed) => _items
+    ..addAll(trashed)
+    ..sort(trashOrder);
 
   /// Takes away the deleted entries whose ids are in [ids].
   void removeEntries(Set<String> ids) =>
@@ -43,7 +54,9 @@ final class TrashRepository implements TrashReader {
     final changed = <Trashed>[];
     for (final (i, t) in _items.indexed) {
       final next = change(t.entry);
-      if (next != null) changed.add(_items[i] = Trashed(next, t.on));
+      if (next != null) {
+        changed.add(_items[i] = Trashed(next, t.on, order: t.order));
+      }
     }
     return changed;
   }
@@ -59,6 +72,7 @@ final class TrashRepository implements TrashReader {
     final copy = [...trashed];
     _items
       ..clear()
-      ..addAll(copy);
+      ..addAll(copy)
+      ..sort(trashOrder);
   }
 }

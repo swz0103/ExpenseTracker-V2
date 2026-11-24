@@ -270,7 +270,7 @@ class _TradeBoard extends StatelessWidget {
       for (final l in lots)
         if (l.isOpening) l,
     ];
-    final shown = [...trades]..sort((a, b) => b.date.compareTo(a.date));
+    final shown = [...trades]..sort(newestFirst(ledger.entries));
     final count = shown.length + opening.length;
     if (count == 0) return const SizedBox.shrink();
     String day(DateTime d) => formatYMd(d);

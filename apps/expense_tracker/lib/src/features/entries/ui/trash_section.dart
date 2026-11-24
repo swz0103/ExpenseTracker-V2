@@ -47,7 +47,11 @@ class TrashSection extends StatelessWidget {
     final today = ledger.today;
     // Grouped by the day each entry was for, latest day first.
     final days = groupByDay(
-      [...trash.all]..sort((a, b) => b.entry.date.compareTo(a.entry.date)),
+      [...trash.all]..sort((a, b) {
+        final byDay = b.entry.date.compareTo(a.entry.date);
+        // Within a day, the later written first (D76).
+        return byDay != 0 ? byDay : (b.order ?? 0).compareTo(a.order ?? 0);
+      }),
       (t) => t.entry.date,
     );
     return Column(
