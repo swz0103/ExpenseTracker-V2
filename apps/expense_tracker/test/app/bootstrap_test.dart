@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:expense_tracker/src/app/bootstrap.dart';
+import 'package:expense_tracker/src/app/load_failed_page.dart';
 import 'package:expense_tracker/src/app/settings_page.dart';
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
@@ -480,5 +481,53 @@ void main() {
     expect(left, 1);
     expect(startup.state, isA<Ready>());
     expect(find.byType(AppShell), findsOneWidget);
+  });
+
+  group('a damaged ledger file (D94)', () {
+    testWidgets('found as it opens: the damaged page, then the backup form', (
+      tester,
+    ) async {
+      await setUpLedger(tester);
+      startup.lock();
+      final vault = File('${directory.path}/ledger.db');
+      vault.writeAsBytesSync(const []);
+      await root(tester);
+      await tester.runAsync(() async {
+        try {
+          await startup.unlockWithPassword(_password);
+        } on Object {
+          // Shown on the page below.
+        }
+      });
+      await tester.pump();
+      expect(find.byType(DamagedBookPage), findsOneWidget);
+      expect(vault.existsSync(), isFalse, reason: 'set aside');
+      await tester.tap(find.byKey(Keys.loadFailed('restore')));
+      await tester.pump();
+      expect(find.byType(LockScreen), findsOneWidget);
+      expect(find.byKey(Keys.restoreGo), findsOneWidget);
+    });
+
+    testWidgets('found as the book is read: the damaged page', (tester) async {
+      await setUpLedger(tester);
+      final open = (startup.state as Ready).vault;
+      open.store.write((w) {
+        for (var i = 0; i < 3000; i++) {
+          w.put('gone', 'entry/e$i', '{"at":${i + 1}}');
+        }
+      });
+      startup.lock();
+      final file = File('${directory.path}/ledger.db');
+      final bytes = file.readAsBytesSync();
+      // Page 20 of the file, all zeros: the first page still opens.
+      bytes.fillRange(4096 * 20, 4096 * 21, 0);
+      file.writeAsBytesSync(bytes);
+      await root(tester);
+      await tester.runAsync(() => startup.unlockWithPassword(_password));
+      await until(tester, () => shown(find.byType(DamagedBookPage)));
+      expect(find.byType(DamagedBookPage), findsOneWidget);
+      expect(startup.state, isA<Damaged>());
+      expect(file.existsSync(), isFalse, reason: 'set aside');
+    });
   });
 }

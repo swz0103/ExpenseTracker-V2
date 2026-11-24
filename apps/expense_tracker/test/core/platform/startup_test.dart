@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:storage/storage.dart' show StorageProblem, StorageUnavailable;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
@@ -80,6 +81,70 @@ void main() {
     await startup.unlockWithPassword(password);
     expect(startup.state, isA<Ready>());
     startup.lock();
+  });
+
+  group('a damaged ledger file (D94)', () {
+    Future<void> damage() async {
+      final first = Startup(vault);
+      await first.setUp(password);
+      first.lock();
+      vault.databaseFile.writeAsBytesSync(const []);
+    }
+
+    test('is told apart from a wrong password, set aside, and '
+        'restored over', () async {
+      await damage();
+      final startup = Startup(vault);
+      var told = 0;
+      startup.addListener(() => told++);
+      await expectLater(
+        startup.unlockWithPassword(password),
+        throwsA(const StorageUnavailable(StorageProblem.damaged)),
+      );
+      expect(startup.state, isA<Damaged>());
+      expect(told, 1);
+      expect(vault.databaseFile.existsSync(), isFalse);
+      expect(vault.damagedCopies(), hasLength(1));
+
+      // Tried again: still damaged, never an empty book.
+      startup.retryAfterDamage();
+      expect(startup.state, isA<Locked>());
+      await expectLater(
+        startup.unlockWithPassword(password),
+        throwsA(const StorageUnavailable(StorageProblem.damaged)),
+      );
+      expect(startup.state, isA<Damaged>());
+      expect(vault.databaseFile.existsSync(), isFalse);
+
+      // Restoring is offered from there: the lock screen's backup form.
+      startup.lockToRestore();
+      expect(startup.state, isA<Locked>());
+      expect(startup.takeRestore(), isTrue);
+    });
+
+    test('a wrong password is said as before', () async {
+      await damage();
+      final startup = Startup(vault);
+      await expectLater(
+        startup.unlockWithPassword('not the password'),
+        throwsA(const KeyringException(KeyringError.wrongSecret)),
+      );
+      expect(startup.state, isA<Locked>());
+      expect(vault.damagedCopies(), isEmpty);
+    });
+
+    test('found as the book is read, it is closed and set aside', () async {
+      final startup = Startup(vault);
+      await startup.setUp(password);
+      final open = (startup.state as Ready).vault;
+      await startup.bookDamaged(
+        const StorageUnavailable(StorageProblem.damaged),
+      );
+      expect(startup.state, isA<Damaged>());
+      expect(open.store.isOpen, isFalse);
+      expect(vault.databaseFile.existsSync(), isFalse);
+      expect(vault.damagedCopies(), hasLength(1));
+    });
   });
 
   test('a cancelled fingerprint does not stop the password unlock', () async {

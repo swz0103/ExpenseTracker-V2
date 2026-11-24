@@ -8,11 +8,13 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show PlatformException;
+import 'package:storage/storage.dart' show StorageProblem, StorageUnavailable;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
 import '../diagnostics/error_log.dart';
+import '../diagnostics/error_steps.dart';
 import '../time/app_clock.dart';
 import 'memory_keystore.dart';
 import 'quick_key.dart';
@@ -68,6 +70,13 @@ final class Locked extends StartupState {
   final bool passphrase;
 }
 
+/// The ledger's database is damaged (D94): empty, cut short or a page of
+/// it unreadable. It is set aside as it is, never written over, and no
+/// empty book is started in its place; a backup restores the ledger.
+final class Damaged extends StartupState {
+  const Damaged();
+}
+
 /// Unlocked and ready.
 final class Ready extends StartupState {
   const Ready(this.vault);
@@ -114,11 +123,48 @@ final class Startup extends ChangeNotifier {
     final wait = await _attempts.wait();
     if (wait > Duration.zero) throw UnlockDelayed(wait);
     try {
-      return await open();
+      return await _watchDamage(open);
     } on KeyringException catch (error) {
       if (error.error == KeyringError.wrongSecret) await _attempts.failed();
       rethrow;
     }
+  }
+
+  /// Opens the ledger with [open]; a database found damaged as it opens
+  /// ([StorageProblem.damaged]) turns this into [Damaged] before it is
+  /// thrown on: the vault has set it aside already.
+  Future<OpenVault> _watchDamage(Future<OpenVault> Function() open) async {
+    try {
+      return await open();
+    } on StorageUnavailable catch (error) {
+      if (error.problem == StorageProblem.damaged) _damaged(error);
+      rethrow;
+    }
+  }
+
+  void _damaged(Object error) {
+    ErrorLog.instance.record(ErrorSteps.bookDamaged, error);
+    _state = const Damaged();
+    notifyListeners();
+  }
+
+  /// The open ledger's database was found damaged as the book was read
+  /// (D94): it is closed and set aside as it is, never written over, and
+  /// the app shows [Damaged].
+  Future<void> bookDamaged(Object error) async {
+    final state = _state;
+    if (state is Ready) state.vault.close();
+    _recovery = null;
+    _newPassword = false;
+    _resume = null;
+    await _vault.setAsideDamaged();
+    _damaged(error);
+  }
+
+  /// From [Damaged], back to the lock screen to try again.
+  void retryAfterDamage() {
+    _state = _locked();
+    notifyListeners();
   }
 
   final LedgerVault _vault;
@@ -256,7 +302,8 @@ final class Startup extends ChangeNotifier {
     final next = _quick.next;
     if (next.existsSync()) {
       try {
-        final open = await _vault.unlockWithPassword(await _quick.read(next));
+        final key = await _quick.read(next);
+        final open = await _watchDamage(() => _vault.unlockWithPassword(key));
         await next.rename(_quick.sealed.path);
         return open;
       } on KeyringException catch (error) {
@@ -265,7 +312,8 @@ final class Startup extends ChangeNotifier {
         await next.delete();
       }
     }
-    return _vault.unlockWithPassword(await quickSecret());
+    final secret = await quickSecret();
+    return _watchDamage(() => _vault.unlockWithPassword(secret));
   }
 
   /// The key a ledger without a password opens with. One kept in plain
@@ -494,7 +542,9 @@ final class Startup extends ChangeNotifier {
     }
     final asked = _AskedKey(device.wrapper);
     try {
-      _ready(await _vault.unlockWithDevice(device.id, asked));
+      _ready(
+        await _watchDamage(() => _vault.unlockWithDevice(device.id, asked)),
+      );
       return true;
     } on KeyringException {
       if (asked.declined) return false;
@@ -587,7 +637,7 @@ final class Startup extends ChangeNotifier {
     _resume = null;
     _replacedLedger = null;
     _restoreNext = false;
-    final open = await _vault.reopen(keys);
+    final open = await _watchDamage(() => _vault.reopen(keys));
     _resumed = true;
     _ready(open);
   }

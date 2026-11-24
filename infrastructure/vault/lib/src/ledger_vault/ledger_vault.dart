@@ -60,10 +60,14 @@ final class OpenVault {
 /// device key is lost, and nothing secret is kept in plain form. The
 /// keyring file is replaced atomically.
 final class LedgerVault {
-  LedgerVault(this.directory, {required this.codec});
+  LedgerVault(this.directory, {required this.codec, this.now = DateTime.now});
 
   final Directory directory;
   final KeyringCodec codec;
+
+  /// The time a damaged database is set aside at ([setAsideDamaged]):
+  /// the app's clock, where the app is put together.
+  final DateTime Function() now;
 
   File get keyringFile => File('${directory.path}/keyring.json');
   File get databaseFile => File('${directory.path}/ledger.db');
@@ -420,9 +424,14 @@ final class LedgerVault {
     }
   }
 
-  /// Opens the ledger kept here, which must still have its database.
+  /// Opens the ledger kept here, which must still have its database. One
+  /// set aside as damaged, and not yet replaced by a backup, is still
+  /// damaged (D94): opening never starts an empty book in its place.
   Future<OpenVault> _openKept(UnlockedKeyring keys) async {
     if (!await databaseFile.exists()) {
+      if (damagedCopies().isNotEmpty) {
+        throw const StorageUnavailable(StorageProblem.damaged);
+      }
       throw const VaultException(VaultProblem.missingDatabase);
     }
     return _open(keys);
@@ -432,6 +441,12 @@ final class LedgerVault {
     try {
       return OpenVault._(this, keys, _openStore(databaseFile, keys));
     } on StorageUnavailable catch (error) {
+      if (error.problem == StorageProblem.damaged) {
+        // Kept aside as it is, never written over nor erased: a restore
+        // then puts the backup where it was.
+        await setAsideDamaged();
+        rethrow;
+      }
       if (error.problem != StorageProblem.oldFormat) rethrow;
     }
     // A ledger from before records were kept as rows cannot be read: it
@@ -445,8 +460,48 @@ final class LedgerVault {
     return OpenVault._(this, keys, _openStore(databaseFile, keys));
   }
 
+  /// Every key here comes from the keyring's authenticated unwrap: the
+  /// database's own, so a first page it does not open is damage, not a
+  /// wrong key (EncryptedDatabase.open).
   EncryptedDatabase _openStore(File file, UnlockedKeyring keys) =>
-      EncryptedDatabase.open(file, StorageKey(keys.databaseKey));
+      EncryptedDatabase.open(
+        file,
+        StorageKey(keys.databaseKey),
+        keyVouched: true,
+      );
+
+  /// How a database set aside as damaged is named, before its time.
+  static const _damagedPrefix = 'ledger-damaged-';
+
+  /// Sets the database here aside as damaged (D94), with its log, under
+  /// a name of the time it was ([damagedCopies]): never erased, so it can
+  /// still be sent for a look; the ledger then has no database until a
+  /// backup is restored. Its path; null when there was none to set aside.
+  Future<File?> setAsideDamaged() async {
+    if (!await databaseFile.exists()) return null;
+    // 2026-11-24T09:58:50.578Z, with no colon, which some file systems
+    // refuse.
+    final at = now().toUtc().toIso8601String().replaceAll(':', '-');
+    final aside = File('${directory.path}/$_damagedPrefix$at.db');
+    for (final suffix in ['', '-wal', '-shm']) {
+      final part = File('${databaseFile.path}$suffix');
+      if (await part.exists()) await part.rename('${aside.path}$suffix');
+    }
+    return aside;
+  }
+
+  /// The databases set aside as damaged here ([setAsideDamaged]), oldest
+  /// first.
+  List<File> damagedCopies() {
+    if (!directory.existsSync()) return const [];
+    return [
+      for (final entity in directory.listSync())
+        if (entity is File &&
+            entity.uri.pathSegments.last.startsWith(_damagedPrefix) &&
+            entity.path.endsWith('.db'))
+          entity,
+    ]..sort((a, b) => a.path.compareTo(b.path));
+  }
 
   static Future<void> _deleteDatabase(File file) async {
     for (final suffix in ['', '-wal', '-shm', '-journal']) {

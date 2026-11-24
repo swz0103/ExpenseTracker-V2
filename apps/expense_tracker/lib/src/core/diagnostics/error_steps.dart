@@ -113,5 +113,8 @@ abstract final class ErrorSteps {
   static const oldKeyBackups = '舊金鑰的備份';
 
   /// Rows of the book set aside as it opened, how many (no contents).
+  /// The ledger's file found damaged, set aside for a backup (D94).
+  static const bookDamaged = '帳本檔案損毀';
+
   static const bookOpen = '打開帳本';
 }

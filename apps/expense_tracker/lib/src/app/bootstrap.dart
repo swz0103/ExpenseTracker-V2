@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:core/app_core.dart' show untilNextMidnight;
 import 'package:flutter/material.dart';
+import 'package:storage/storage.dart' show StorageProblem, StorageUnavailable;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
@@ -64,7 +65,7 @@ Startup productionStartup(
   DeviceUnlock? device,
   UptimeSource? uptime,
 }) => Startup(
-  LedgerVault(directory, codec: KeyringCodec()),
+  LedgerVault(directory, codec: KeyringCodec(), now: AppClock.now),
   device: device,
   check: SqlLedgerDataSource.check,
   quickKey: Platform.isAndroid
@@ -231,6 +232,10 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
             lifecycle: _lifecycle,
             leave: widget.leave,
           ),
+          Damaged() => DamagedBookPage(
+            onRetry: startup.retryAfterDamage,
+            onRestore: startup.lockToRestore,
+          ),
           final state => LockScreen(
             key: ValueKey(state.runtimeType),
             startup: startup,
@@ -326,8 +331,18 @@ class _OpenedLedgerState extends State<OpenedLedger>
     });
 
   Future<Ledger> _open() async {
-    await _hold.prepare(_session.prepare);
-    final start = await _session.open();
+    final SessionStart start;
+    try {
+      await _hold.prepare(_session.prepare);
+      start = await _session.open();
+    } on StorageUnavailable catch (error) {
+      // A page found damaged as the book is read (D94): the file is set
+      // aside and the damaged state shows in place of this page.
+      if (error.problem == StorageProblem.damaged) {
+        await widget.startup.bookDamaged(error);
+      }
+      rethrow;
+    }
     await _services.start(start.ledger);
     // Rows a newer version wrote are told once a set (D18); rows that
     // cannot be read, every opening.

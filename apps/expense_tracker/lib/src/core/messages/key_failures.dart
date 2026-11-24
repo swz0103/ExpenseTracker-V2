@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:storage/storage.dart' show StorageProblem, StorageUnavailable;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
@@ -64,6 +65,7 @@ String? describeUnlockFailure(Object error, {required bool recovery}) =>
       // Not tried at all: too many wrong ones came before it.
       UnlockDelayed(:final wait) => LockWords.waitFor(wait),
       FileSystemException() => '找不到這個備份檔',
+      StorageUnavailable(problem: StorageProblem.damaged) => '帳本檔案已損毀，請從備份還原',
       VaultException(:final problem) => switch (problem) {
         VaultProblem.missingDatabase => '這台裝置上的帳本資料不見了，請從備份還原',
         VaultProblem.missing => '這台手機上還沒有帳本',

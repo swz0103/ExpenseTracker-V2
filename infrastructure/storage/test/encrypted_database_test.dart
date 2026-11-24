@@ -158,6 +158,104 @@ void main() {
     );
   });
 
+  group('a damaged file (D94)', () {
+    const damaged = StorageUnavailable(StorageProblem.damaged);
+
+    /// A book of 3,000 rows, its log folded into the file as it closes.
+    void fill() {
+      open()
+        ..write((w) {
+          for (var i = 0; i < 3000; i++) {
+            w.put('entry', 'e$i', '{"id":"e$i","note":"${'n' * 100}"}');
+          }
+        })
+        ..close();
+      opened.clear();
+    }
+
+    test('of no bytes is damaged, never opened as a new empty book', () {
+      file.writeAsBytesSync(const []);
+      expect(() => open(), throwsA(damaged));
+      // Nothing was written into it.
+      expect(file.lengthSync(), 0);
+    });
+
+    test('of no bytes but a log holding its pages is not cut short', () {
+      file.writeAsBytesSync(const []);
+      File('${file.path}-wal').writeAsBytesSync([1, 2, 3]);
+      expect(EncryptedDatabase.cutShort(file), isFalse);
+      expect(EncryptedDatabase.cutShort(File('${file.path}.none')), isFalse);
+    });
+
+    test('cut short of a whole page is damaged', () {
+      fill();
+      final bytes = file.readAsBytesSync();
+      // 4096 * 5 + 100: five whole pages and part of a sixth.
+      file.writeAsBytesSync(bytes.sublist(0, 4096 * 5 + 100));
+      expect(() => open(), throwsA(damaged));
+    });
+
+    test('a first page that does not open: damaged only for a vouched '
+        'key, the key wrong otherwise', () {
+      fill();
+      final bytes = file.readAsBytesSync();
+      bytes[2000] ^= 0x10;
+      file.writeAsBytesSync(bytes);
+      expect(
+        () => open(),
+        throwsA(StorageUnavailable(StorageProblem.wrongKey)),
+      );
+      expect(
+        () => EncryptedDatabase.open(file, key, keyVouched: true),
+        throwsA(damaged),
+      );
+    });
+
+    test('a later page damaged is told as damaged when it is read', () {
+      fill();
+      final bytes = file.readAsBytesSync();
+      // Page 20 of the file, all zeros.
+      bytes.fillRange(4096 * 20, 4096 * 21, 0);
+      file.writeAsBytesSync(bytes);
+      final store = EncryptedDatabase.open(file, key, keyVouched: true);
+      opened.add(store);
+      expect(() => store.rows(), throwsA(damaged));
+    });
+
+    test('a later page damaged is told as damaged when read apart', () async {
+      fill();
+      final bytes = file.readAsBytesSync();
+      bytes.fillRange(4096 * 20, 4096 * 21, 0);
+      file.writeAsBytesSync(bytes);
+      final store = open();
+      await expectLater(
+        store.readApart((snapshot) async => snapshot.rows.length),
+        throwsA(damaged),
+      );
+    });
+
+    test('SQLite\'s own damage codes are told as damage', () {
+      expect(
+        EncryptedDatabase.isDamage(
+          SqliteException(extendedResultCode: 11, message: 'malformed'),
+        ),
+        isTrue,
+      );
+      expect(
+        EncryptedDatabase.isDamage(
+          SqliteException(extendedResultCode: 26, message: 'notadb'),
+        ),
+        isTrue,
+      );
+      expect(
+        EncryptedDatabase.isDamage(
+          SqliteException(extendedResultCode: 5, message: 'busy'),
+        ),
+        isFalse,
+      );
+    });
+  });
+
   test('a file from a newer build is refused', () {
     open().close();
     final database = raw();

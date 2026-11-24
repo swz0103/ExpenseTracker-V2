@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/design_system/keys.dart';
+import '../core/diagnostics/error_log.dart';
 import '../core/design_system/spacing.dart';
 import '../core/messages/loading_messages.dart';
 
@@ -74,5 +76,33 @@ class LoadFailedPage extends StatelessWidget {
         ),
       ),
     ),
+  );
+}
+
+/// The ledger's file is damaged (D94): set aside, never opened empty.
+/// Restore a backup, try again, or copy the diagnostics to report it:
+/// before any book is open there is nowhere to save a file to.
+class DamagedBookPage extends StatelessWidget {
+  const DamagedBookPage({
+    super.key,
+    required this.onRetry,
+    required this.onRestore,
+  });
+
+  final VoidCallback onRetry;
+  final VoidCallback onRestore;
+
+  @override
+  Widget build(BuildContext context) => LoadFailedPage(
+    title: damagedTitle,
+    body: damagedBody,
+    exportLabel: startFailedCopy,
+    onRetry: onRetry,
+    onRestore: onRestore,
+    onExport: () async {
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      await Clipboard.setData(ClipboardData(text: ErrorLog.instance.text));
+      messenger?.showSnackBar(const SnackBar(content: Text(startFailedCopied)));
+    },
   );
 }
