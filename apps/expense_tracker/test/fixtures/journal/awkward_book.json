@@ -31,6 +31,8 @@
     "{\"id\":\"tv\",\"date\":\"2026-09-14\",\"type\":\"expense\",\"amount\":10001,\"account\":\"card\",\"categoryId\":\"c-home\",\"installments\":3,\"_v\":2}",
     "{\"id\":\"sofa\",\"date\":\"2026-09-19\",\"type\":\"expense\",\"amount\":24000,\"account\":\"card\",\"categoryId\":\"c-home\",\"installments\":12,\"_v\":2}",
     "{\"id\":\"payCard\",\"date\":\"2026-09-25\",\"type\":\"transfer\",\"amount\":2000,\"account\":\"bank\",\"to\":\"card\",\"_v\":2}",
+    "{\"id\":\"sofa-back\",\"date\":\"2026-09-28\",\"type\":\"income\",\"amount\":6000,\"account\":\"card\",\"categoryId\":\"c-home\",\"refundOf\":\"sofa\",\"_v\":2}",
+    "{\"id\":\"split-back\",\"date\":\"2026-09-29\",\"type\":\"income\",\"amount\":450,\"account\":\"bank\",\"categoryId\":\"c-food\",\"parts\":[{\"categoryId\":\"c-food\",\"amount\":300},{\"categoryId\":\"c-home\",\"amount\":150}],\"refundOf\":\"split\",\"_v\":2}",
     "{\"id\":\"fx\",\"date\":\"2026-09-08\",\"type\":\"transfer\",\"amount\":32100,\"account\":\"bank\",\"to\":\"usd\",\"received\":100000,\"_v\":2}",
     "{\"id\":\"meal-usd\",\"date\":\"2026-09-10\",\"type\":\"expense\",\"amount\":2000,\"account\":\"usd\",\"categoryId\":\"c-food\",\"home\":650,\"_v\":2}",
     "{\"id\":\"meal-usd-back\",\"date\":\"2026-09-12\",\"type\":\"income\",\"amount\":500,\"account\":\"usd\",\"categoryId\":\"c-food\",\"refundOf\":\"meal-usd\",\"home\":160,\"_v\":2}",
