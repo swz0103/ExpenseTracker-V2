@@ -6,6 +6,7 @@
 // on every write, and split across files those notes would have to be
 // public. The pure parts live in codec/ and book_migrations.dart.
 
+import 'dart:async' show FutureOr;
 import 'dart:convert';
 import 'dart:isolate';
 
@@ -428,9 +429,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       } else {
         // A backup reading the book on a worker holds the store for that
         // read (D41): the change is written once it is done, never into
-        // the middle of it.
-        if (_store.busyApart) await _quiet();
-        _write(batch);
+        // the middle of it, and before another can start.
+        await _whenQuiet(() => _write(batch));
       }
     } on Object catch (error) {
       throw DataSourceException(error);
@@ -449,11 +449,25 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       batch.drafts.length;
 
   /// Waits until no other isolate uses the store (a write apart, or a
-  /// backup's read), so it may be read and written here again.
+  /// backup's read), so it may be read and written here again. Only for
+  /// the opening, before any backup can read the book; a write once it is
+  /// open goes through [_whenQuiet].
   Future<void> _quiet() async {
     while (_store.busyApart) {
       await _store.idle;
     }
+  }
+
+  /// Runs [then] once no other isolate uses the store (a write apart, or
+  /// a backup's read), in the same turn as the last look at it: nothing,
+  /// a backup starting included, comes between the look and [then] (D41).
+  /// The one way a change of the open book reaches the store.
+  Future<T> _whenQuiet<T>(FutureOr<T> Function() then) async {
+    while (_store.busyApart) {
+      await _store.idle;
+    }
+    // [then] starts here, in this turn; a write apart is awaited whole.
+    return await then();
   }
 
   /// The categories of [batch] whose name stands for them from now on,
@@ -574,8 +588,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     )) {
       await breathe();
     }
-    await _quiet();
-    await _store.writeApart(changes, counts: !batch.onlyDrafts);
+    await _whenQuiet(
+      () => _store.writeApart(changes, counts: !batch.onlyDrafts),
+    );
     for (final note in after) {
       note();
       await breathe();
@@ -792,24 +807,25 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     if (gateway == null) return false;
     final board = (await gateway.bankRates()).value;
     if (board == null) return false;
-    await _quiet();
     final fetched = <String, double>{};
     for (final MapEntry(key: code, value: row) in board.rates.entries) {
       final rate = row.valuation;
       if (rate != null) fetched[code] = rate.numerator / rate.denominator;
     }
-    final kept = _marketFrom(_readableMarket(_store.rows(shelf: _market)));
-    if (fetched.isEmpty || mapEquals(fetched, kept.rates)) return false;
-    // Fetched, not changed by the person: no new backup is due for it.
-    _store.write(
-      (w) => w.put(
-        _market,
-        'rates',
-        jsonEncode({'asOf': '${board.asOf}', 'rates': fetched}),
-      ),
-      counts: false,
-    );
-    return true;
+    return _whenQuiet(() {
+      final kept = _marketFrom(_readableMarket(_store.rows(shelf: _market)));
+      if (fetched.isEmpty || mapEquals(fetched, kept.rates)) return false;
+      // Fetched, not changed by the person: no new backup is due for it.
+      _store.write(
+        (w) => w.put(
+          _market,
+          'rates',
+          jsonEncode({'asOf': '${board.asOf}', 'rates': fetched}),
+        ),
+        counts: false,
+      );
+      return true;
+    });
   }
 
   /// The codes the last [refreshQuotes] found no close for: not quoted
@@ -847,8 +863,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   Future<bool> refreshQuotes(Iterable<String> codes) async {
     final gateway = _gateway;
     if (gateway == null) return false;
-    await _quiet();
-    final kept = _marketFrom(_readableMarket(_store.rows(shelf: _market)));
+    final kept = await _whenQuiet(
+      () => _marketFrom(_readableMarket(_store.rows(shelf: _market))),
+    );
     final prices = {...kept.prices};
     final moves = {...kept.moves};
     final names = {...kept.names};
@@ -901,23 +918,24 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
     unquoted = List.unmodifiable(missed);
     if (changed) {
-      await _quiet();
-      _store.write(
-        (w) => w.put(
-          _market,
-          'quotes',
-          jsonEncode({
-            'prices': prices,
-            'moves': moves,
-            'names': names,
-            'days': {
-              for (final MapEntry(:key, :value) in days.entries)
-                key: value.toIso8601String(),
-            },
-            'on': ?quotedOn?.toIso8601String(),
-          }),
+      await _whenQuiet(
+        () => _store.write(
+          (w) => w.put(
+            _market,
+            'quotes',
+            jsonEncode({
+              'prices': prices,
+              'moves': moves,
+              'names': names,
+              'days': {
+                for (final MapEntry(:key, :value) in days.entries)
+                  key: value.toIso8601String(),
+              },
+              'on': ?quotedOn?.toIso8601String(),
+            }),
+          ),
+          counts: false,
         ),
-        counts: false,
       );
     }
     return changed;
