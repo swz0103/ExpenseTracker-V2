@@ -174,7 +174,7 @@ class _NetWorth extends StatelessWidget {
           DateTime.utc(today.year, today.month, 0),
         );
     final parts = [
-      ('存款', worth.saved, AppColors.bank),
+      ('資產', worth.saved, AppColors.bank),
       (Words.investment, worth.invested, AppColors.holdings),
       (Words.lend, worth.lent, AppColors.receivable),
       ('負債', worth.owed, AppColors.card),

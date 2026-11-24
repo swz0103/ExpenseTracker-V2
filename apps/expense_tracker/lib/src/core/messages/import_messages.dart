@@ -24,9 +24,11 @@ const importMissingHomeWords = '還沒有匯率，請在「台幣金額」欄填
 /// A refund's worth at home written not above zero (no [left]), or
 /// larger than what of its purchase's worth is not yet given back
 /// ([left]).
-// Exception to glossary: the file format's column, kept so files written before read back.
 String refundHomeWords(int? left) => switch (left) {
-  null => '台幣金額要大於 0',
-  <= 0 => '原支出的台幣金額已經全部退完',
-  _ => '台幣金額超過原支出還可退的 ${groupDigits(left)}',
+  // Exception to glossary: the file format's column, kept so files written before read back.
+  null => '「台幣金額」要大於 0',
+  // Exception to glossary: the file format's column, kept so files written before read back.
+  <= 0 => '原支出的「台幣金額」已經全部退完',
+  // Exception to glossary: the file format's column, kept so files written before read back.
+  _ => '「台幣金額」超過原支出還可退的 ${groupDigits(left)}',
 };

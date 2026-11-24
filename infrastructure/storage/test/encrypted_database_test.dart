@@ -131,6 +131,55 @@ void main() {
     expect(String.fromCharCodes(header), isNot('SQLite format 3'));
   });
 
+  test('the first write kept is told once (D102)', () async {
+    var told = 0;
+    final store = EncryptedDatabase.open(file, key, written: () => told++);
+    opened.add(store);
+    expect(told, 0, reason: 'opening writes no record');
+    store.write((w) => w.put('entry', 'a', '{}'));
+    expect(told, 1);
+    store.write((w) => w.put('entry', 'b', '{}'));
+    await store.writeApart([RowChange.put('entry', 'c', '{}')]);
+    expect(told, 1);
+    store.close();
+    // Through a write apart first, on another opening.
+    var apart = 0;
+    final again = EncryptedDatabase.open(file, key, written: () => apart++);
+    opened.add(again);
+    await again.writeApart([RowChange.put('entry', 'd', '{}')]);
+    expect(apart, 1);
+  });
+
+  test('the page size is set as the file is opened, the one cutShort counts '
+      'in', () {
+    expect(EncryptedDatabase.pageSize, 4096);
+    final store = open()..write((w) => w.put('entry', 'a', 'x' * 9000));
+    store.close();
+    final database = raw();
+    addTearDown(database.dispose);
+    expect(
+      database.select('PRAGMA cipher_page_size').single.values.single,
+      '4096',
+    );
+    expect(file.lengthSync() % EncryptedDatabase.pageSize, 0);
+  });
+
+  test('damage is told apart from any other failure', () {
+    expect(
+      EncryptedDatabase.damageIn(
+        const StorageUnavailable(StorageProblem.damaged),
+      ),
+      isTrue,
+    );
+    expect(
+      EncryptedDatabase.damageIn(
+        const StorageUnavailable(StorageProblem.wrongKey),
+      ),
+      isFalse,
+    );
+    expect(EncryptedDatabase.damageIn(StateError('closed')), isFalse);
+  });
+
   test('the library is built with threads, for work apart (D41)', () {
     // SQLCipher as the app ships it: one connection, two isolates.
     expect(EncryptedDatabase.serialized, isTrue);

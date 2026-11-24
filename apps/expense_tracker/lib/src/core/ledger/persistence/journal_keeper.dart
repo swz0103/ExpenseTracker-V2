@@ -47,8 +47,15 @@ final class JournalKeeper {
     this._busy = _never,
     this._quiet = _now,
     this._postApart,
+    this._fault = _unheard,
     this.compares = true,
   });
+
+  /// Told of each fault of the journal's work, as it is logged: a page of
+  /// its tables found damaged is the data source's to act on (D102).
+  final void Function(Object error) _fault;
+
+  static void _unheard(Object error) {}
 
   final PostingStore _store;
 
@@ -150,6 +157,8 @@ final class JournalKeeper {
     _refundTo
       ..clear()
       ..addEntries([
+        // Exception to as-of-today: every refund kept, whatever its day,
+        // gives back its purchase.
         for (final e in ledger.entries.all)
           if (e.refundOf case final of?) MapEntry(e.id, of),
       ]);
@@ -182,7 +191,10 @@ final class JournalKeeper {
       } on Object catch (error, stack) {
         // The book closed (locked, left): what was left is let go, the
         // mark not moved, so it is posted afresh at the next opening.
-        if (error is! _Closed) ErrorLog.instance.record(what, error, stack);
+        if (error is! _Closed) {
+          ErrorLog.instance.record(what, error, stack);
+          _fault(error);
+        }
       } finally {
         _queued--;
       }
@@ -199,6 +211,7 @@ final class JournalKeeper {
       } on Object catch (error, stack) {
         // The mark is not moved: the book is posted afresh below.
         ErrorLog.instance.record(ErrorSteps.journalUpdate, error, stack);
+        _fault(error);
       }
       while (_blocked) {
         await _quiet();
@@ -489,6 +502,7 @@ final class JournalKeeper {
         // Closed under it: compared again after the next opening.
         if (error is! _Closed) {
           ErrorLog.instance.record(ErrorSteps.journalParity, error, stack);
+          _fault(error);
         }
       } finally {
         _queued--;

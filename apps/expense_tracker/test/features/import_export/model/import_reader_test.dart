@@ -170,7 +170,7 @@ void main() {
       );
       // 3,210 - 1,000 = 2,210 of the worth left: 2,300 is over it. The
       // last asks for a worth below zero.
-      expect(found.problems, ['第 4 行：台幣金額超過原支出還可退的 2,210', '第 5 行：台幣金額要大於 0']);
+      expect(found.problems, ['第 4 行：「台幣金額」超過原支出還可退的 2,210', '第 5 行：「台幣金額」要大於 0']);
     });
 
     test('with no rate and no worth written, the column is named', () {

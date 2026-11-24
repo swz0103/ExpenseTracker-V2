@@ -14,6 +14,7 @@ import '../../../core/messages/validation_messages.dart';
 import '../../entries/model/invoices.dart';
 
 part 'import_reader.dart';
+part 'import_refund.dart';
 
 /// The parts of the book an import reads: what is there already, to
 /// leave out what it holds and to add what it lacks, and new ids

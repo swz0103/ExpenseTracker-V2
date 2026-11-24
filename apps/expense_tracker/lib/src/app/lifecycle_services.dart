@@ -100,7 +100,7 @@ final class LifecycleServices {
     // and not brought up while the copy cannot be kept (D19).
     beforeUpgrade: () => keepUpgradeBackup(backupManager.keepBeforeUpgrade),
     keepsJournal: true,
-  );
+  )..onJournalDamaged = (error) => unawaited(startup.journalDamaged(error));
 
   Ledger? _ledger;
 

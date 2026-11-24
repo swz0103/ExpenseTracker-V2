@@ -214,7 +214,7 @@ final class RowWriter {
 /// SQLite owns crash recovery: an interrupted write is rolled back by
 /// SQLite itself on the next open. Each [write] is one transaction.
 final class EncryptedDatabase {
-  EncryptedDatabase._(this._db);
+  EncryptedDatabase._(this._db, this._written);
 
   /// Opens or creates [file], in SQLite's serialized threading mode
   /// (SQLITE_OPEN_FULLMUTEX): [writeApart] and [readApart] use this one
@@ -235,10 +235,15 @@ final class EncryptedDatabase {
   /// typed or taken from elsewhere, it stays [StorageProblem.wrongKey].
   /// The one case this misnames: a ledger.db of another ledger put beside
   /// a keyring by hand reads as damaged, which only sets it aside.
+  ///
+  /// [written] is told once, after the first write of records through
+  /// this connection is kept ([write], [writeApart]): what notes outside
+  /// the file that records were ever kept in it (D102).
   factory EncryptedDatabase.open(
     File file,
     StorageKey key, {
     bool keyVouched = false,
+    void Function()? written,
   }) {
     assert(_layout.length == schema, 'schema is the number of layout steps');
     assert(serialized, 'SQLite is built without threads: no work apart');
@@ -247,7 +252,7 @@ final class EncryptedDatabase {
     try {
       _configure(db, key, keyVouched: keyVouched);
       _guarded(() => _create(db));
-      return EncryptedDatabase._(db);
+      return EncryptedDatabase._(db, written);
     } catch (_) {
       db.close();
       rethrow;
@@ -255,7 +260,8 @@ final class EncryptedDatabase {
   }
 
   /// The size of a page of the file, SQLCipher's (cipher_page_size): a
-  /// whole file is whole pages.
+  /// whole file is whole pages. Set on every connection as it opens, so
+  /// [cutShort] and the file agree whatever the library's default.
   static const pageSize = 4096;
 
   /// Whether [file] is there but cannot be a whole ledger: no bytes with
@@ -275,6 +281,15 @@ final class EncryptedDatabase {
   /// disk image is malformed") or SQLITE_NOTADB past the first page.
   static bool isDamage(SqliteException error) =>
       error.resultCode == _corrupt || error.resultCode == _notADatabase;
+
+  /// Whether [error], thrown by any read or write of the file, says a page
+  /// of it is damaged: as told ([StorageProblem.damaged]) or as SQLite's
+  /// own error ([isDamage]), as the journal's tables throw it.
+  static bool damageIn(Object error) => switch (error) {
+    StorageUnavailable(problem: StorageProblem.damaged) => true,
+    final SqliteException e => isDamage(e),
+    _ => false,
+  };
 
   /// Runs [read], a read or write of the file, with a page found damaged
   /// told as [StorageProblem.damaged] rather than SQLite's own error.
@@ -459,6 +474,17 @@ final class EncryptedDatabase {
   void write(void Function(RowWriter writer) changes, {bool counts = true}) {
     _requireOpen();
     _guarded(() => _transaction(_db, changes, counts: counts));
+    _noteWritten();
+  }
+
+  /// Told once, after the first write kept ([EncryptedDatabase.open]'s
+  /// `written`).
+  void Function()? _written;
+
+  void _noteWritten() {
+    final written = _written;
+    _written = null;
+    written?.call();
   }
 
   static void _transaction(
@@ -494,8 +520,10 @@ final class EncryptedDatabase {
   /// revision as it stood before, any other read or write throws a
   /// [StateError], and [close] waits for it. All of [changes], or none
   /// when it throws.
-  Future<void> writeApart(List<RowChange> changes, {bool counts = true}) =>
-      workApart(_writing(changes, counts));
+  Future<void> writeApart(List<RowChange> changes, {bool counts = true}) async {
+    await workApart(_writing(changes, counts));
+    _noteWritten();
+  }
 
   /// Kept apart from the instance, so the closure sent to the worker
   /// carries the changes, never `this`.
@@ -739,6 +767,8 @@ final class EncryptedDatabase {
     try {
       // hex is exactly 64 hex digits; no user text reaches this statement.
       db.execute('PRAGMA key = "x\'${key.hex}\'"');
+      // Named, not left to the library's default: [cutShort] counts in it.
+      db.execute('PRAGMA cipher_page_size = $pageSize');
       db.select('SELECT count(*) FROM sqlite_master');
     } on SqliteException catch (error) {
       // Never rethrow: the original error may quote the key statement.

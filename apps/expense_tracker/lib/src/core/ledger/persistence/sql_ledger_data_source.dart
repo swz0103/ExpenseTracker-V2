@@ -121,7 +121,21 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     busy: () => _store.busyApart,
     quiet: _quiet,
     postApart: _postJournalApart,
+    fault: _journalFault,
   );
+
+  /// Told when a page of the journal's tables is found damaged (D102):
+  /// the connection is of no more use, and the database is to be made
+  /// again from its records. Once a session.
+  void Function(Object error)? onJournalDamaged;
+
+  var _journalDamageTold = false;
+
+  void _journalFault(Object error) {
+    if (_journalDamageTold || !EncryptedDatabase.damageIn(error)) return;
+    _journalDamageTold = true;
+    onJournalDamaged?.call(error);
+  }
 
   /// The whole journal posted afresh on a worker isolate (D51): from the
   /// records as kept, those set aside as the book opened left out, the

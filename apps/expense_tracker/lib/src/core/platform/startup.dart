@@ -149,16 +149,48 @@ final class Startup extends ChangeNotifier {
   }
 
   /// The open ledger's database was found damaged as the book was read
-  /// (D94): it is closed and set aside as it is, never written over, and
-  /// the app shows [Damaged].
+  /// (D94): it is closed. Where its records can still be read whole, the
+  /// damage was in the journal's tables, derived from them: the database
+  /// is made again from the records and opens again at once, the journal
+  /// posted afresh (D102). Else it is set aside as it is, never written
+  /// over, and the app shows [Damaged].
   Future<void> bookDamaged(Object error) async {
     final state = _state;
+    final keys = state is Ready ? state.vault.keys : null;
     if (state is Ready) state.vault.close();
     _recovery = null;
     _newPassword = false;
     _resume = null;
+    if (keys != null && await _salvaged(keys, error)) return;
     await _vault.setAsideDamaged();
     _damaged(error);
+  }
+
+  /// The journal's tables of the open ledger were found damaged (D102):
+  /// noted first, so the next opening makes the database again should
+  /// this one not finish, then as [bookDamaged].
+  Future<void> journalDamaged(Object error) async {
+    if (_state is! Ready) return;
+    try {
+      await _vault.noteJournalDamaged();
+    } on Object catch (noted) {
+      ErrorLog.instance.record(ErrorSteps.bookDamaged, noted);
+    }
+    await bookDamaged(error);
+  }
+
+  /// Whether the ledger, closed, was made again from its records with
+  /// [keys] and opened ([LedgerVault.salvage]).
+  Future<bool> _salvaged(UnlockedKeyring keys, Object error) async {
+    try {
+      if (!await _vault.salvage(keys)) return false;
+      ErrorLog.instance.record(ErrorSteps.journalRebuilt, error);
+      _ready(await _vault.reopen(keys));
+      return true;
+    } on Object catch (failed) {
+      ErrorLog.instance.record(ErrorSteps.bookDamaged, failed);
+      return false;
+    }
   }
 
   /// What [read], the open book being read, gives; a page of it found

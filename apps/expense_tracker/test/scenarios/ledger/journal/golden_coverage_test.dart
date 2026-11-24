@@ -16,8 +16,8 @@ import 'package:kernel/kernel.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
-import '../../../scenarios/ledger/journal/awkward_book.dart' show openKept;
-import 'posted_book.dart';
+import 'awkward_book.dart' show openKept;
+import '../../../core/ledger/journal/posted_book.dart';
 
 final _clock = FixedClock(UtcInstant(DateTime.utc(2026, 10, 4, 4)));
 
