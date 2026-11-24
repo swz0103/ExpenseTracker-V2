@@ -41,7 +41,7 @@ final class BalanceService {
       _effectOn(_accounts.resolve(e.account), e, account, at);
 
   /// [_effect], with the account [e] is paid from, [from], already found.
-  static int _effectOn(Account from, Entry e, String account, DateTime at) {
+  int _effectOn(Account from, Entry e, String account, DateTime at) {
     var change = 0;
     if (e.account == account) {
       change += switch (e.type) {
@@ -50,10 +50,31 @@ final class BalanceService {
         EntryType.transfer => -(e.amount + e.fee),
         EntryType.expense => -from.billed(e, at),
       };
+      for (final (day, billed) in _cancelled(from, e)) {
+        if (countsOn(day, at)) change -= billed;
+      }
     }
     if (e.type == EntryType.transfer && e.to == account) change += e.arrived;
     return change;
   }
+
+  /// What the refund [e], kept on [from], changes of what [from] is billed
+  /// for the purchase in instalments it gives back (`cancelledBy`); empty
+  /// for any other entry.
+  List<(DateTime, int)> _cancelled(Account from, Entry e) {
+    final of = e.refundOf;
+    if (of == null || from.kind != AccountKind.card) return const [];
+    final purchase = _entries.byId(of);
+    if (purchase == null || purchase.installments < 2) return const [];
+    return from.cancelledBy(e, purchase, _entries.refundsOf(of));
+  }
+
+  /// What of the purchase in instalments [e] is still to be billed after
+  /// today, its refunds by today having cancelled what they did: what
+  /// the card's balance today does not hold of it yet.
+  int stillToBill(Entry e) => _accounts
+      .resolve(e.account)
+      .stillToBill(e, _entries.refundsOf(e.id), _today());
 
   /// The balance of [account] at the end of [until], or of today.
   int balance(String account, {DateTime? until}) {
@@ -98,7 +119,9 @@ final class BalanceService {
       List.unmodifiable((_touching()[account] ?? const <Entry>[]).reversed);
 
   /// What came into [account] and what left it in [month] (the month of
-  /// that day), each as a positive amount in its currency, as of today.
+  /// that day), each as a positive amount in its currency, as of today:
+  /// the changes of its balance on the days of the month, so a purchase
+  /// in instalments leaves as its statements bill it.
   ({int inflow, int outflow}) flowOf(String account, DateTime month) {
     final today = _today();
     return _cache.remember(
@@ -106,12 +129,11 @@ final class BalanceService {
       () {
         var inflow = 0;
         var outflow = 0;
-        for (final e in countedOn(
-          _entries.inMonth(month.year, month.month),
-          today,
-        )) {
-          if (e.account != account && e.to != account) continue;
-          final change = _effect(e, account, today);
+        final first = DateTime.utc(month.year, month.month);
+        final last = DateTime.utc(month.year, month.month + 1, 0);
+        for (final (day, change) in _runningOf(account).changes) {
+          if (day.isBefore(first) || day.isAfter(last)) continue;
+          if (!countsOn(day, today)) continue;
           if (change > 0) {
             inflow += change;
           } else {
@@ -160,6 +182,16 @@ final class BalanceService {
           for (final (day, share) in own.billingSteps(e)) {
             steps.add((day.microsecondsSinceEpoch, -share));
           }
+        }
+        continue;
+      }
+      // A refund cancelling instalments: what it cancels is billed on
+      // the days the rule says, apart from the refund itself.
+      final cancelled = from ? _cancelled(own, e) : const <(DateTime, int)>[];
+      if (cancelled.isNotEmpty) {
+        steps.add((e.date.microsecondsSinceEpoch, e.amount));
+        for (final (day, billed) in cancelled) {
+          steps.add((day.microsecondsSinceEpoch, -billed));
         }
         continue;
       }
@@ -263,19 +295,21 @@ final class BalanceService {
         _today(),
       ), () => _weeklyChanges(account, weeks));
 
+  /// How [account]'s balance moved in each week: from the end of the day
+  /// before it to the end of its last day, or of today for this week.
   List<(DateTime, int)> _weeklyChanges(String account, int weeks) {
-    final first = startOfWeek(BusinessDate.of(_today())).asUtcMidnight
+    final today = _today();
+    final first = startOfWeek(BusinessDate.of(today)).asUtcMidnight
         .subtract(Duration(days: 7 * (weeks - 1)));
+    final running = _runningOf(account);
     final result = <(DateTime, int)>[];
     for (var w = 0; w < weeks; w++) {
       final start = first.add(Duration(days: 7 * w));
-      final end = start.add(const Duration(days: 7));
-      var change = 0;
-      for (final e in countedOn(_entries.all, _today())) {
-        if (!e.date.isBefore(start) && e.date.isBefore(end)) {
-          change += _effect(e, account, end);
-        }
-      }
+      final last = start.add(const Duration(days: 6));
+      final end = last.isAfter(today) ? today : last;
+      final change =
+          running.until(end) -
+          running.until(start.subtract(const Duration(days: 1)));
       result.add((start, change));
     }
     return result;
@@ -313,6 +347,18 @@ final class _Running {
   /// Each change's day, as microseconds since the epoch, in order.
   final days = <int>[];
   final totals = <int>[];
+
+  /// Each change's day and amount, in order.
+  Iterable<(DateTime, int)> get changes sync* {
+    var before = 0;
+    for (var i = 0; i < days.length; i++) {
+      yield (
+        DateTime.fromMicrosecondsSinceEpoch(days[i], isUtc: true),
+        totals[i] - before,
+      );
+      before = totals[i];
+    }
+  }
 
   /// The change of the entries that count on [day] ([countsOn]): those
   /// on or before it, so a balance as of today leaves 預定 entries out

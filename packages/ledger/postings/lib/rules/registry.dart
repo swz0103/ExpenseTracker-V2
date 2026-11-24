@@ -87,4 +87,5 @@ IntentRegistry todaysIntents({required ScheduleOf scheduleOf}) =>
         ),
       )
       ..amend(instalmentsAmender(scheduleOf))
+      ..amend(cancelledInstalmentsAmender)
       ..amend(fxAmender);

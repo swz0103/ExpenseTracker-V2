@@ -252,4 +252,75 @@ void main() {
     expect(ops, greaterThan(1000), reason: '$kinds');
     expect(failures, isEmpty, reason: failures.take(5).join('\n---\n'));
   }, timeout: const Timeout(Duration(minutes: 20)));
+
+  test('a refund of a purchase in instalments is posted again when the '
+      'purchase or an earlier refund changes', () async {
+    final file = File('${scratch.path}/refunds.db');
+    final store = EncryptedDatabase.open(file, StorageKey.random());
+    addTearDown(store.close);
+    final source = SqlLedgerDataSource(
+      store,
+      clock: keptClock,
+      keepsJournal: true,
+    );
+    final ledger = await source.load();
+    await source.journal.settled;
+    ledger.accountCommands
+      ..addAccount(const Account('bank', '銀行', AccountKind.bank, 10000))
+      ..addAccount(
+        const Account(
+          'card',
+          '卡',
+          AccountKind.card,
+          0,
+          closingDay: 5,
+          dueDay: 20,
+        ),
+      );
+    Entry refund(String id, int amount, int d) => entryOf(
+      id,
+      day(2026, 9, d),
+      EntryType.income,
+      amount,
+      'card',
+      category: '飲食',
+      refundOf: 'p',
+    );
+    final steps = <String, void Function()>{
+      'buy': () => ledger.entryCommands.add(
+        entryOf(
+          'p',
+          day(2026, 8, 10),
+          EntryType.expense,
+          1200,
+          'card',
+          category: '飲食',
+          installments: 12,
+        ),
+      ),
+      'refund half': () => ledger.entryCommands.add(refund('r1', 600, 20)),
+      'refund the rest': () => ledger.entryCommands.add(refund('r2', 600, 25)),
+      'the purchase in 6': () => ledger.entryCommands.replace(
+        entryOf(
+          'p',
+          day(2026, 8, 10),
+          EntryType.expense,
+          1200,
+          'card',
+          category: '飲食',
+          installments: 6,
+        ),
+      ),
+      'the first refund less': () =>
+          ledger.entryCommands.replace(refund('r1', 300, 20)),
+      'the first refund gone': () => ledger.entryCommands.remove('r1'),
+    };
+    for (final MapEntry(key: what, value: step) in steps.entries) {
+      step();
+      await ledger.settled;
+      await source.journal.settled;
+      expect(await compare(ledger, store, true), isNull, reason: what);
+      expect(source.journal.lastParity, isA<InParity>(), reason: what);
+    }
+  });
 }

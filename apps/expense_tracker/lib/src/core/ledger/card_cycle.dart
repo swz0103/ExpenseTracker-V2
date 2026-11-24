@@ -74,6 +74,55 @@ extension CardBilling on Account {
     ];
   }
 
+  /// What [refund], paid back on this card, changes of what the card is
+  /// billed for [purchase], the purchase in instalments it gives back,
+  /// [refunds] being every refund of it: domain's
+  /// `refundedInstalments`, the one rule (more billed positive; it comes
+  /// to nothing). Empty for a refund of anything else, or kept on
+  /// another account: it cancels no instalment of this card.
+  List<(DateTime, int)> cancelledBy(
+    Entry refund,
+    Entry purchase,
+    List<Entry> refunds,
+  ) {
+    if (!_cancels(refund, purchase)) return const [];
+    final mine = [
+      for (final r in refunds)
+        if (_cancels(r, purchase)) r,
+    ];
+    final at = mine.indexWhere((r) => r.id == refund.id);
+    if (at < 0) return const [];
+    final changes = refundedInstalments(
+      [for (final (day, share) in billingSteps(purchase)) (_day(day), share)],
+      [for (final r in mine) (_day(r.date), r.amount)],
+    );
+    return [for (final (day, change) in changes[at]) (_utc(day), change)];
+  }
+
+  bool _cancels(Entry refund, Entry purchase) =>
+      purchase.type == EntryType.expense &&
+      purchase.installments > 1 &&
+      purchase.account == id &&
+      refund.account == id &&
+      refund.type == EntryType.income &&
+      refund.refundOf == purchase.id;
+
+  /// What of [purchase] is still to be billed after the end of [at], its
+  /// [refunds] dated by then having cancelled what they did.
+  int stillToBill(Entry purchase, List<Entry> refunds, DateTime at) {
+    var left = 0;
+    for (final (day, share) in billingSteps(purchase)) {
+      if (day.isAfter(at)) left += share;
+    }
+    for (final r in refunds) {
+      if (r.date.isAfter(at)) continue;
+      for (final (day, change) in cancelledBy(r, purchase, refunds)) {
+        if (day.isAfter(at)) left += change;
+      }
+    }
+    return left;
+  }
+
   /// How many instalments of [e] have been billed by [at]: those whose
   /// statement has closed, on the ledger's own instalment schedule.
   int billedPeriods(Entry e, DateTime at) {

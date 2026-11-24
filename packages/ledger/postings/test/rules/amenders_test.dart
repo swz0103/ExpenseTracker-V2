@@ -242,4 +242,52 @@ void main() {
       );
     });
   });
+
+  group('a refund cancelling instalments', () {
+    test('bills what it cancels on its day and takes the later ones off', () {
+      final b = book();
+      keep(b, spend('tv', card, 900, amendments: const {Slots.instalments: 3}));
+      keep(
+        b,
+        Earning(
+          id: const IntentId('back'),
+          date: day(9, 25),
+          seq: 2,
+          account: card,
+          category: food,
+          amount: 900,
+          amendments: {
+            Slots.cancelledInstalments: [
+              (day(9, 25), 600),
+              (day(10, 20), -300),
+              (day(11, 20), -300),
+            ],
+          },
+        ),
+      );
+      // 300 billed 9/20; the refund 900 less the 600 billed at once.
+      expect(b.reader.balance(card, until: day(9, 24)), -300);
+      expect(b.reader.balance(card, until: day(9, 25)), 0);
+      expect(b.reader.balance(card, until: day(11, 30)), 0);
+      expect(b.reader.balance(pendingInstalments(card)), 0);
+      expect(b.store.intent(const IntentId('back'))!.streams, [
+        'instalments:acct:card',
+      ]);
+    });
+
+    test('refused with a value of another shape', () {
+      final r = book().journal.put(
+        Earning(
+          id: const IntentId('e'),
+          date: day(9, 1),
+          seq: 1,
+          account: card,
+          category: food,
+          amount: 9,
+          amendments: const {Slots.cancelledInstalments: 3},
+        ),
+      ) as RuleRejected;
+      expect(r.code, 'instalments.cancelled.badValue');
+    });
+  });
 }

@@ -27,6 +27,8 @@ final class BookMapping {
     required Iterable<Account> accounts,
     required Iterable<Category> categories,
     Iterable<Holding> start = const [],
+    this._entryById = _noEntry,
+    this._refundsOf = _noRefunds,
   }) : _accounts = {for (final a in accounts) a.id: a},
        _categories = [...categories],
        _start = [...start] {
@@ -35,6 +37,14 @@ final class BookMapping {
       (c.income ? _incomeIds : _spendingIds).putIfAbsent(c.name, () => c.id);
     }
   }
+
+  /// The entry kept under an id, and the refunds of one: what a refund
+  /// of a purchase in instalments cancels is worked out from them.
+  final Entry? Function(String id) _entryById;
+  final List<Entry> Function(String id) _refundsOf;
+
+  static Entry? _noEntry(String id) => null;
+  static List<Entry> _noRefunds(String id) => const [];
 
   final Map<String, Account> _accounts;
   final List<Category> _categories;
@@ -169,7 +179,15 @@ final class BookMapping {
                   for (final (name, amount) in split)
                     (category(name, income: false), amount),
                 ],
-          amendments: fx(worth()),
+          amendments: {
+            ...fx(worth()),
+            if (_cancelledBy(e, from) case final cancelled
+                when cancelled.isNotEmpty)
+              Slots.cancelledInstalments: [
+                for (final (day, billed) in cancelled)
+                  (Day.of(BusinessDate.of(day)), billed),
+              ],
+          },
         );
       case EntryType.transfer:
         intent = _transfer(
@@ -192,6 +210,17 @@ final class BookMapping {
             : _trade(e, code, id, date, seq, account, amendments);
     }
     return (intent: intent, accounts: accounts, shapes: shapes);
+  }
+
+  /// What the refund [e], kept on [from], changes of what [from] is
+  /// billed for the purchase in instalments it gives back, by the card
+  /// cycle's rule (`cancelledBy`); empty for any other entry.
+  List<(DateTime, int)> _cancelledBy(Entry e, Account from) {
+    final of = e.refundOf;
+    if (of == null || from.kind != AccountKind.card) return const [];
+    final purchase = _entryById(of);
+    if (purchase == null) return const [];
+    return from.cancelledBy(e, purchase, _refundsOf(of));
   }
 
   /// [e], a sale or reduction its holdings leave out, as they do today.

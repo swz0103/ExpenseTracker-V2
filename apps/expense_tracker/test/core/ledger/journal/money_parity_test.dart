@@ -113,4 +113,49 @@ void main() {
     );
     await expectParity(ledger);
   });
+
+  for (final refunds in [
+    [1200],
+    [300, 900],
+    [600],
+  ]) {
+    test('refunds $refunds of a purchase in 12 instalments: the journal '
+        'bills the card as the app does', () async {
+      final ledger = book(
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 0),
+          Account(
+            'card',
+            '信用卡',
+            AccountKind.card,
+            0,
+            closingDay: 5,
+            dueDay: 20,
+          ),
+        ],
+        entries: [
+          entryOf(
+            'p',
+            day(2026, 8, 10),
+            EntryType.expense,
+            1200,
+            'card',
+            category: '飲食',
+            installments: 12,
+          ),
+          for (final (i, amount) in refunds.indexed)
+            entryOf(
+              'r$i',
+              day(2026, 9, 20 + i),
+              EntryType.income,
+              amount,
+              'card',
+              category: '飲食',
+              refundOf: 'p',
+            ),
+        ],
+      );
+      await expectParity(ledger);
+    });
+  }
 }

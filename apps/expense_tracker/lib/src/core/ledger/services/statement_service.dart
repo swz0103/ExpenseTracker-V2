@@ -116,7 +116,8 @@ final class StatementService {
   }
 
   /// Purchases on [card] still being paid in instalments, of those that
-  /// count today: a 預定 purchase is paid in nothing yet.
+  /// count today: a 預定 purchase is paid in nothing yet, one its refunds
+  /// settled is paid.
   List<Entry> instalmentsOn(Account card) => _cache.remember(
     reads: _cardTopics,
     ('instalments', card.id, closedBy, _today()),
@@ -124,7 +125,7 @@ final class StatementService {
       for (final e in countedOn(_entries.all, _today()))
         if (e.account == card.id &&
             e.installments > 1 &&
-            billedPeriods(e, closedBy) < e.installments)
+            _balances.stillToBill(e) > 0)
           e,
     ],
   );

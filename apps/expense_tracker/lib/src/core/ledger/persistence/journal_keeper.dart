@@ -210,6 +210,8 @@ final class JournalKeeper {
     accounts: _accounts.values,
     categories: _categories.values,
     start: _start,
+    entryById: (id) => _ledger?.entries.byId(id),
+    refundsOf: (id) => _ledger?.entries.refundsOf(id) ?? const [],
   );
 
   /// Posts the whole book afresh, as of [revision]: off this isolate when

@@ -67,9 +67,11 @@ final class CardSummary {
     return amounts[(periodsBilled(e) - 1).clamp(0, amounts.length - 1)];
   }
 
-  /// What is left to be billed of [e].
-  int unbilledOf(Entry e) =>
-      e.amount - _statements.billed(e, _statements.closedBy);
+  /// What is left to be billed of [e] after today, as [debt] is read at
+  /// the end of today: an instalment billed today is owed, not still to
+  /// bill, so the credit taken is counted once on a closing day (D67);
+  /// what refunds cancelled is billed.
+  int unbilledOf(Entry e) => _balances.stillToBill(e);
 
   /// What the instalment purchases have left to bill, all together.
   late final int pending = plans.fold(0, (sum, e) => sum + unbilledOf(e));

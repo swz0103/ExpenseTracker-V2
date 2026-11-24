@@ -208,4 +208,65 @@ void main() {
     expect(unknown, isA<WeekendsOnly<BusinessDate>>());
     expect(unknown.value, BusinessDate(2028, 1, 3));
   });
+
+  group('credit taken from day to day (D67)', () {
+    test('2,396 in 6 bought on the closing day: debt + still to bill is '
+        '2,396 on every day, closing days included', () {
+      var now = DateTime.utc(2026, 9, 5);
+      final ledger = Ledger(
+        today: now,
+        clock: () => now,
+        accounts: const [
+          Account(
+            'card',
+            '卡',
+            AccountKind.card,
+            0,
+            closingDay: 5,
+            dueDay: 20,
+            limit: 10000,
+          ),
+        ],
+        categories: const [],
+        entries: [
+          Entry(
+            id: 'a',
+            date: DateTime.utc(2026, 9, 5),
+            type: EntryType.expense,
+            amount: 2396,
+            account: 'card',
+            category: '購物',
+            installments: 6,
+          ),
+        ],
+        holdings: const [],
+        budgets: const [],
+        recurring: const [],
+      );
+      final wrong = <String>[];
+      for (
+        var d = DateTime.utc(2026, 9, 5);
+        !d.isAfter(DateTime.utc(2027, 4, 30));
+        d = d.add(const Duration(days: 1))
+      ) {
+        now = d;
+        final s = CardSummary.of(
+          ledger.account('card'),
+          statements: ledger.statementService,
+          balances: ledger.balanceService,
+          entries: ledger.entries,
+          accounts: ledger.accounts,
+          today: d,
+        );
+        if (s.debt + s.pending != 2396) {
+          wrong.add('${d.month}/${d.day}: ${s.debt} + ${s.pending}');
+        }
+        // 2396 of 10000 is 24%; 10000 - 2396 = 7604 left.
+        if (s.usedPercent != 24 || s.available != 7604) {
+          wrong.add('${d.month}/${d.day}: ${s.usedPercent}% ${s.available}');
+        }
+      }
+      expect(wrong, isEmpty);
+    });
+  });
 }

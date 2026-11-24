@@ -241,4 +241,126 @@ void main() {
       expect(book.balances.netWorthAt(day), -50);
     });
   });
+
+  group('a refund of a purchase in instalments', () {
+    const card = Account(
+      'card',
+      '信用卡',
+      AccountKind.card,
+      0,
+      closingDay: 5,
+      dueDay: 20,
+    );
+    Book make({int? refund = 1200}) => Book(
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 0), card],
+      entries: [
+        entry(
+          'p',
+          date: DateTime.utc(2026, 8, 10),
+          amount: 1200,
+          account: 'card',
+          installments: 12,
+        ),
+        if (refund != null)
+          entry(
+            'r',
+            type: EntryType.income,
+            date: DateTime.utc(2026, 9, 20),
+            amount: refund,
+            account: 'card',
+            refundOf: 'p',
+          ),
+      ],
+    );
+
+    test('refunded in full, the card owes nothing at once', () {
+      final book = make();
+      // 100 billed on 9/5; on 9/20 the 1100 not billed is billed at once
+      // and the 1200 given back: -100 - 1100 + 1200 = 0.
+      expect(
+        book.balances.balance('card', until: DateTime.utc(2026, 9, 19)),
+        -100,
+      );
+      expect(book.balances.balance('card'), 0);
+      expect(
+        book.balances.balance('card', until: DateTime.utc(2027, 12, 31)),
+        0,
+      );
+      expect(book.balances.netWorthAt(day), 0);
+      expect(book.balances.stillToBill(book.entries.byId('p')!), 0);
+      expect(book.statements.instalmentsOn(card), isEmpty);
+      // What the refund did to the card: +100 net.
+      expect(book.balances.effect(book.entries.byId('r')!, 'card'), 100);
+    });
+
+    test('half refunded, the instalments left shrink by half', () {
+      final book = make(refund: 600);
+      // 1100 not billed by 9/20: 600 billed at once, the 500 left shared
+      // over the 11 instalments of 100 -> 46 or 45 each.
+      expect(book.balances.balance('card'), -100);
+      expect(book.balances.stillToBill(book.entries.byId('p')!), 500);
+      expect(
+        book.balances.balance('card', until: DateTime.utc(2027, 12, 31)),
+        -600,
+      );
+    });
+
+    test('the statement and what was spent since agree with the balance', () {
+      final book = make();
+      final c = book.accounts.resolve('card');
+      // Closed 9/5 owing 100; since then the refund, +100 net.
+      expect(book.statements.statementDue(c), 100);
+      final since = book.statements
+          .unbilled(c)
+          .fold(0, (sum, e) => sum - book.balances.effect(e, 'card'));
+      expect(since, -100);
+      expect(-book.balances.balance('card'), 100 + since);
+    });
+  });
+
+  group('flows follow the days the balance moves', () {
+    const card = Account(
+      'card',
+      '信用卡',
+      AccountKind.card,
+      0,
+      closingDay: 5,
+      dueDay: 20,
+    );
+    Book make() => Book(
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 0), card],
+      entries: [
+        entry(
+          'p',
+          date: DateTime.utc(2026, 8, 10),
+          amount: 1200,
+          account: 'card',
+          installments: 12,
+        ),
+      ],
+    );
+
+    test('a month\'s flow is what its statements billed', () {
+      final b = make().balances;
+      // Bought 8/10, the first instalment billed 9/5.
+      expect(b.flowOf('card', DateTime.utc(2026, 8, 1)), (
+        inflow: 0,
+        outflow: 0,
+      ));
+      expect(b.flowOf('card', DateTime.utc(2026, 9, 1)), (
+        inflow: 0,
+        outflow: 100,
+      ));
+    });
+
+    test('the weeks add up to how the balance moved over them', () {
+      final b = make().balances;
+      final weeks = b.weeklyChanges('card', weeks: 8);
+      final sum = weeks.fold(0, (s, w) => s + w.$2);
+      final before = weeks.first.$1.subtract(const Duration(days: 1));
+      // Of the statements, only 9/5 closes in the 8 weeks to 10/4: -100.
+      expect(sum, b.balance('card') - b.balance('card', until: before));
+      expect(sum, -100);
+    });
+  });
 }

@@ -195,6 +195,9 @@ items:
   # 2.0: the day each instalment is billed is domain's
   # installmentBillingDays alone; the card cycle and the journal's
   # instalments amender both ask it. The cycle itself is still in two.
+  # What a refund cancels of a purchase in instalments is domain's
+  # refundedInstalments alone (the card cycle's cancelledBy, the journal's
+  # cancelled-instalments amender).
   - id: installments-billing-cycle
     what: 分期排程與帳單週期
     layer: ledger

@@ -52,6 +52,58 @@ Amender instalmentsAmender(ScheduleOf scheduleOf) => Amender(
   ],
 );
 
+/// Bills what a refund cancels of a purchase in instalments on its card,
+/// out of the account's pending instalments, on the days kept with the
+/// refund under [Slots.cancelledInstalments] (domain's
+/// `refundedInstalments`, worked out where the refund is mapped): so a
+/// purchase refunded in full leaves its card owing nothing at once.
+final cancelledInstalmentsAmender = Amender(
+  slot: Slots.cancelledInstalments,
+  owner: Owners.cards,
+  order: AmenderOrder.cancelledInstalments,
+  amend: _cancelled,
+  // In the card's instalments stream: a change of the purchase, or of an
+  // earlier refund of it, posts the refund again.
+  streams: (touched, value, accounts) => [
+    if (value != null)
+      for (final account in touched)
+        if (accounts[account]?.currency != null) Streams.instalments(account),
+  ],
+);
+
+Posted _cancelled(Amendment a) {
+  final value = a.value;
+  if (value == null) return Lines(a.lines);
+  if (value is! List<(Day, int)>) {
+    return const Refused(
+      Refusals.cancelledBadValue,
+      Slots.cancelledInstalments,
+    );
+  }
+  final money = [
+    for (final line in a.lines)
+      if (line.date == null &&
+          line.amount > 0 &&
+          (a.context.accounts[line.account]?.cls.isBalanceSheet ?? false))
+        line,
+  ];
+  if (money.length != 1) {
+    return const Refused(
+      Refusals.cancelledNotOneAccount,
+      Slots.cancelledInstalments,
+    );
+  }
+  final line = money.single;
+  final pending = pendingInstalments(line.account);
+  return Lines([
+    ...a.lines,
+    for (final (day, billed) in value) ...[
+      Line(pending, billed, line.currency, date: day),
+      Line(line.account, -billed, line.currency, date: day),
+    ],
+  ]);
+}
+
 Posted _instalments(Amendment a, ScheduleOf scheduleOf) {
   final value = a.value;
   if (value == null) return Lines(a.lines);

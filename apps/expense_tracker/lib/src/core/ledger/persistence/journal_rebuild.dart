@@ -98,10 +98,17 @@ Future<PostedBook> Function(List<KeptRow>, AddPart) postingWork({
 /// postings read the ones before, after them, in book order. The report
 /// and the account tree.
 PostedBook postBook(DecodedBook book, AddPart add, List<Holding> start) {
+  final byId = {for (final e in book.entries) e.id: e};
+  final refunds = <String, List<Entry>>{};
+  for (final e in book.entries) {
+    if (e.refundOf case final of?) (refunds[of] ??= []).add(e);
+  }
   final mapping = BookMapping(
     accounts: book.accounts,
     categories: book.categories,
     start: start,
+    entryById: (id) => byId[id],
+    refundsOf: (id) => refunds[id] ?? const [],
   );
   final tree = AccountTree(mapping.tree);
   final report = ReplayReport();
