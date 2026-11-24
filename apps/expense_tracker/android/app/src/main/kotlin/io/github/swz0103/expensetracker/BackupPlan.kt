@@ -55,6 +55,24 @@ internal object BackupPlan {
     }
 
     /**
+     * Delivers to [places] in turn, calling [keep] to write down what was
+     * noted after each and however the run ends: a run stopped (or failing)
+     * at a later place still keeps that an earlier one received the backup,
+     * so it is not copied there again (review 26). [keep] runs once after
+     * the last place, not twice.
+     */
+    fun inTurn(places: List<() -> Unit>, keep: () -> Unit) {
+        try {
+            for ((i, place) in places.withIndex()) {
+                place()
+                if (i < places.lastIndex) keep()
+            }
+        } finally {
+            keep()
+        }
+    }
+
+    /**
      * Of the names in the phone's folder, those of the ledger marked
      * [mark] beyond the newest [KEEP]; other files, and other ledgers'
      * backups, are never among them.

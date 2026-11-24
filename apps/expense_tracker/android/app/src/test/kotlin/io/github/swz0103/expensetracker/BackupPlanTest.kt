@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import java.util.TimeZone
 
@@ -56,5 +57,52 @@ class BackupPlanTest {
             listOf("記帳本-abc123-20261002-0900.etbk", "記帳本-abc123-20261001-0900.etbk"),
             BackupPlan.beyondKept(names, "abc123"),
         )
+    }
+
+    @Test
+    fun aStopDuringTheSecondPlaceKeepsWhatTheFirstReceived() {
+        // Review 26 finding 2: the folder copy is noted, then the Drive
+        // upload is stopped between two parts.
+        val noted = mutableMapOf<String, Int>()
+        val kept = mutableListOf<Map<String, Int>>()
+        try {
+            BackupPlan.inTurn(
+                listOf(
+                    { noted["phone"] = 3 },
+                    { throw BackgroundWork.Stopped() },
+                ),
+            ) { kept.add(noted.toMap()) }
+            fail("the stop goes on to the worker")
+        } catch (e: BackgroundWork.Stopped) {
+            // Expected: the run ends where it is.
+        }
+        assertEquals(listOf(mapOf("phone" to 3), mapOf("phone" to 3)), kept)
+    }
+
+    @Test
+    fun aRunThatEndsWellKeepsOnceAfterEachPlace() {
+        val noted = mutableMapOf<String, Int>()
+        val kept = mutableListOf<Map<String, Int>>()
+        BackupPlan.inTurn(
+            listOf({ noted["phone"] = 3 }, { noted["drive"] = 3 }),
+        ) { kept.add(noted.toMap()) }
+        assertEquals(
+            listOf(mapOf("phone" to 3), mapOf("phone" to 3, "drive" to 3)),
+            kept,
+        )
+    }
+
+    @Test
+    fun aStopInTheFirstPlaceStillKeepsWhatWasNotedBefore() {
+        val kept = mutableListOf<String>()
+        try {
+            BackupPlan.inTurn(
+                listOf({ throw BackgroundWork.Stopped() }, { kept.add("drive ran") }),
+            ) { kept.add("kept") }
+            fail("the stop goes on to the worker")
+        } catch (e: BackgroundWork.Stopped) {
+            // Expected.
+        }
+        assertEquals(listOf("kept"), kept)
     }
 }
