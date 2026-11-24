@@ -232,6 +232,22 @@ void main() {
     expect(failing.verdict, ShareVerdict.fail);
   });
 
+  test('shareOf keeps the figures of each run, never what it made', () async {
+    final made = List.filled(100000, 0);
+    final result = await shareOf(
+      apart: () async => Held<Object?>(made, 10000, _quiet),
+      whole: () async => Held<Object?>(made, 400000, _quiet),
+      limit: 0.045,
+    );
+    expect(result.pairs, hasLength(5));
+    for (final p in result.pairs) {
+      expect(p.apart.result, isNull);
+      expect(p.whole.result, isNull);
+      expect(p.apart.heldUs, 10000);
+      expect(p.whole.heldUs, 400000);
+    }
+  });
+
   test('an inconclusive gate fails under CI and is skipped loudly '
       'elsewhere', () {
     final contended = ShareResult([

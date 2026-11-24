@@ -237,19 +237,23 @@ final class LifecycleServices {
   /// fails this too.
   Future<void> get settled async {
     while (_running.isNotEmpty) {
-      final now = List.of(_running);
-      _running.clear();
-      await Future.wait(now);
+      await Future.wait(List.of(_running));
     }
   }
 
+  /// What is running now: each piece leaves the list as it ends, so a
+  /// long run of resumes keeps nothing (review 27).
   final _running = <Future<void>>[];
 
+  /// How many pieces of [settled] are still running.
+  int get running => _running.length;
+
   /// Runs [work] beside the app, without waiting for it, kept for
-  /// [settled].
+  /// [settled] until it ends. A failure it lets through still reaches
+  /// the zone, as an unawaited one did.
   void _beside(Future<void> work) {
     _running.add(work);
-    unawaited(work);
+    unawaited(work.whenComplete(() => _running.remove(work)));
   }
 
   /// What the market's background job fetches while the app is closed:

@@ -8,11 +8,16 @@ import 'package:flutter_test/flutter_test.dart';
 /// meanwhile ([load]), so a sample a busy machine stalled can be told
 /// from one the code held.
 final class Held<T> {
-  const Held(this.result, this.heldUs, this.load);
+  const Held(this.result, this.heldUs, this.load, {this.rssBytes});
 
   final T result;
   final int heldUs;
   final Contention load;
+
+  /// The process's resident memory as the sample ended, printed only: a
+  /// figure that grows pair by pair says something is kept between
+  /// samples, which each later sample pays for in collections.
+  final int? rssBytes;
 
   /// Whether the host was too busy elsewhere for the sample to count.
   bool get contended => load.contended;
@@ -43,7 +48,12 @@ Future<Held<T>> timeHeld<T>(
   final result = await run();
   await Future<void>.delayed(const Duration(milliseconds: 20));
   timer.cancel();
-  return Held(result, held, host.between(before, host.read()));
+  return Held(
+    result,
+    held,
+    host.between(before, host.read()),
+    rssBytes: ProcessInfo.currentRss,
+  );
 }
 
 /// How busy the host was during one sample, from two [HostReading]s.
@@ -96,6 +106,11 @@ final class Contention {
     if (loadPerCore case final l?) 'load/core ${l.toStringAsFixed(2)}',
   ].join(', ');
 }
+
+String _rss(Held<Object?> h) => switch (h.rssBytes) {
+  final b? => ', rss ${b >> 20} MB',
+  null => '',
+};
 
 String _percent(double share) => '${(share * 100).toStringAsFixed(1)}%';
 
@@ -267,7 +282,8 @@ final class ProbeWitness implements HostWitness {
 
 /// One interleaved pair of a share gate: the work done apart and the
 /// same work at once, a moment apart, so slow drift of the host's load
-/// falls on both.
+/// falls on both. Only the figures are kept, never what the work made
+/// (see [shareOf]).
 typedef SharePair = ({Held<Object?> apart, Held<Object?> whole});
 
 /// How a share gate came out.
@@ -324,14 +340,17 @@ final class ShareResult {
   String describe(String name) {
     final lines = [
       '$name: ${verdict.name.toUpperCase()}; ${clean.length} of '
-          '${pairs.length} pairs clean; median '
+          '${pairs.length} pairs clean (${Platform.numberOfProcessors} '
+          'cores); median '
           '${median?.toStringAsFixed(3) ?? '-'}, least '
           '${least?.toStringAsFixed(3) ?? '-'}, limit $limit'
           '${apartMostUs == null ? '' : '; apart held median ${((apartMedianUs ?? 0) / 1000).toStringAsFixed(1)} ms, limit ${apartMostUs! ~/ 1000} ms'}',
       for (final (i, p) in pairs.indexed)
         '  pair ${i + 1}: apart ${p.apart.heldUs ~/ 1000} ms held '
-            '(${p.apart.load}), at once ${p.whole.heldUs ~/ 1000} ms held '
-            '(${p.whole.load}), ratio ${_ratio(p).toStringAsFixed(3)}'
+            '(${p.apart.load}${_rss(p.apart)}), at once '
+            '${p.whole.heldUs ~/ 1000} ms held '
+            '(${p.whole.load}${_rss(p.whole)}), ratio '
+            '${_ratio(p).toStringAsFixed(3)}'
             '${_contended(p) ? ' CONTENDED' : ''}',
     ];
     return lines.join('\n');
@@ -358,9 +377,15 @@ Future<ShareResult> shareOf({
   int most = shareMostPairs,
 }) async {
   final taken = <SharePair>[];
+  // What each run made is dropped at once: kept, the results of every
+  // pair (an import's 100,000 entries each) pile up on this isolate's
+  // heap, and each later sample pays a longer collection of it; the holds
+  // apart grew pair by pair (17, 53, 94, 166, 184 ms on a quiet runner).
+  Held<Object?> figures(Held<Object?> h) =>
+      Held<Object?>(null, h.heldUs, h.load, rssBytes: h.rssBytes);
   Future<void> take() async {
-    final a = await apart();
-    final w = await whole();
+    final a = figures(await apart());
+    final w = figures(await whole());
     taken.add((apart: a, whole: w));
   }
 
