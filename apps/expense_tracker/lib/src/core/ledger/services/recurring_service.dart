@@ -7,6 +7,8 @@ import '../repositories/entry_repository.dart';
 import '../repositories/market_data_repository.dart';
 import '../repositories/recurring_repository.dart';
 
+import 'package:core/time/utc_days.dart';
+
 /// What falls due next for each recurring item, what it has booked and
 /// the entry that would book it.
 final class RecurringService {
@@ -82,11 +84,7 @@ final class RecurringService {
         ? booked.last.date
         : _today();
     final open = <DateTime>{
-      for (
-        var m = first;
-        !m.isAfter(DateTime.utc(latest.year, latest.month + 1));
-        m = DateTime.utc(m.year, m.month + 1)
-      )
+      for (final m in monthStarts(first, monthStart(latest, 1)))
         ...item.dueIn(m.year, m.month),
     };
     final taken = <String, DateTime>{};
@@ -164,7 +162,7 @@ final class RecurringService {
     ('pending', item, _today()),
     () {
       if (!item.active) return null;
-      final end = DateTime.utc(_today().year, _today().month + 1, 0);
+      final end = monthEnd(_today().year, _today().month);
       final days = unpostedDates(item, from: _firstOpenMonth(item), to: end);
       return days.isEmpty ? null : days.first;
     },
@@ -183,16 +181,10 @@ final class RecurringService {
     required DateTime to,
   }) {
     if (!item.active) return const [];
-    var month = DateTime.utc(from.year, from.month);
     final open = _firstOpenMonth(item);
-    if (month.isBefore(open)) month = open;
     final booked = settled(item).values.toSet();
     final found = <DateTime>[];
-    for (
-      ;
-      !month.isAfter(to);
-      month = DateTime.utc(month.year, month.month + 1)
-    ) {
+    for (final month in monthStarts(from.isBefore(open) ? open : from, to)) {
       for (final d in item.dueIn(month.year, month.month)) {
         if (!d.isBefore(from) && !d.isAfter(to) && !booked.contains(d)) {
           found.add(d);
@@ -208,7 +200,7 @@ final class RecurringService {
     final pending = pendingDate(item);
     if (pending != null) return pending;
     if (!item.active) return null;
-    final next = DateTime.utc(_today().year, _today().month + 1);
+    final next = monthStart(_today(), 1);
     for (final d in item.datesFrom(next, count: 2)) {
       if (!item.skipped.contains(d)) return d;
     }

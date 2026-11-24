@@ -13,6 +13,8 @@ import '../services/report_service.dart';
 import '../services/statement_service.dart';
 import 'old_shapes.dart';
 
+import 'package:core/time/utc_days.dart';
+
 /// What the app shows today, as its own services work it out: the side
 /// of the comparison the journal must match.
 typedef TodaysFigures = ({
@@ -381,14 +383,7 @@ List<int> _months(EntryReader reader) {
     if (e.date.isBefore(first)) first = e.date;
     if (e.date.isAfter(last)) last = e.date;
   }
-  return [
-    for (
-      var m = DateTime.utc(first.year, first.month);
-      !m.isAfter(last);
-      m = DateTime.utc(m.year, m.month + 1)
-    )
-      m.year * 100 + m.month,
-  ];
+  return [for (final m in monthStarts(first, last)) m.year * 100 + m.month];
 }
 
 /// Why the journal refused a record, in its own word.

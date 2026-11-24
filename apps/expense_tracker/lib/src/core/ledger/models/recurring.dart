@@ -1,5 +1,8 @@
 import 'dart:math';
 
+import 'package:core/time/utc_days.dart';
+import 'package:core/time/month_arithmetic.dart';
+
 /// How often a recurring item comes round.
 enum RepeatUnit { day, week, month, year }
 
@@ -109,7 +112,7 @@ final class Recurring {
   /// ledger refuses to write but an older book may hold.
   List<DateTime> datesIn(int year, int month) {
     if (every < 1) return const [];
-    final last = DateTime.utc(year, month + 1, 0);
+    final last = monthEnd(year, month);
     final first = start;
     final stop = end;
     bool keep(DateTime d) =>
@@ -135,7 +138,8 @@ final class Recurring {
         }
       case RepeatUnit.month:
         // On [day], which the form keeps when only the start moves (F82).
-        final months = (year - first.year) * 12 + month - first.month;
+        final months =
+            monthIndex(year, month) - monthIndex(first.year, first.month);
         if (months >= 0 && months % every == 0) {
           final d = DateTime.utc(year, month, min(day, last.day));
           if (keep(d)) dates.add(d);
@@ -163,11 +167,11 @@ final class Recurring {
   /// reach, so a rare item is found as surely as a monthly one.
   List<DateTime> datesFrom(DateTime from, {int count = 1}) {
     final found = <DateTime>[];
-    final day = DateTime.utc(from.year, from.month, from.day);
+    final day = dayOf(from);
     // A period further, for a date at the end of a month.
     final months = monthsApart * (count + 1);
     for (var k = 0; k <= months && found.length < count; k++) {
-      final month = DateTime.utc(from.year, from.month + k);
+      final month = monthStart(from, k);
       for (final d in datesIn(month.year, month.month)) {
         if (d.isBefore(day)) continue;
         found.add(d);

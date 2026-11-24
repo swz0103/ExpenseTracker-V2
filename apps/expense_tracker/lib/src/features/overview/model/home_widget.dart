@@ -15,6 +15,8 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
 
+import 'package:core/time/utc_days.dart';
+
 /// The parts of the ledger the home-screen widget is written from, its
 /// clock, and its changes to follow
 /// (docs/adr/0013-models-take-what-they-use.md).
@@ -96,7 +98,7 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
   final over = status is BudgetOver;
   final state = status == null ? '' : budgetLook(status).id;
   final used = hasBudget ? percent(spent, allowance) : null;
-  final days = DateTime.utc(today.year, m + 1, 0).day;
+  final days = monthEnd(today.year, m).day;
   final pace = hasBudget ? percent(today.day, days) : null;
   // The same days as 總覽's week, from Sunday.
   final first = startOfWeek(BusinessDate.of(today)).asUtcMidnight;

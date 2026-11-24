@@ -19,6 +19,9 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 
+import 'package:core/time/utc_days.dart';
+import 'package:core/time/month_arithmetic.dart';
+
 /// 收支紀錄: the month's income against spending, then every entry by
 /// day, with search and filters; 設定 exports it.
 class EntriesPage extends StatefulWidget {
@@ -197,11 +200,10 @@ class _EntriesPageState extends State<EntriesPage> {
       source = ledger.entryQueryService.search(words);
     } else if (range != null) {
       source = [
-        for (
-          var m = DateTime.utc(range.end.year, range.end.month);
-          !m.isBefore(DateTime.utc(range.start.year, range.start.month));
-          m = DateTime.utc(m.year, m.month - 1)
-        )
+        for (final m in monthStarts(
+          range.start,
+          monthStart(range.end),
+        ).toList().reversed)
           // Exception to as-of-today: the list shows 預定 entries marked; its
           // totals go through countedOn.
           ...ledger.entries.inMonth(m.year, m.month),
@@ -274,10 +276,10 @@ class _EntriesPageState extends State<EntriesPage> {
   /// Moves [by] months, never past this one.
   void _stepMonth(int by) {
     final today = widget.ledger.today;
-    final date = DateTime.utc(_month.$1, _month.$2 + by);
-    if (date.year * 12 + date.month > today.year * 12 + today.month) return;
+    final (year, month) = shiftMonth(_month.$1, _month.$2, by);
+    if (monthIndex(year, month) > monthIndex(today.year, today.month)) return;
     Haptics.selection();
-    setState(() => _month = (date.year, date.month));
+    setState(() => _month = (year, month));
   }
 
   /// The search box's look: a white pill with a magnifier, and a clear

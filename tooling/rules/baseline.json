@@ -33,6 +33,8 @@
     "apps/expense_tracker/lib/src/features/reminders/model/inbox_apply.dart": 3
   },
   "B3-clock": {},
+  "B4-calendar-by-hand": {},
+  "B5-owned-values": {},
   "B7-status-words": {},
   "B9-text-literals": {
     "apps/expense_tracker/lib/src/app/about_section.dart": 23,
@@ -41,7 +43,7 @@
     "apps/expense_tracker/lib/src/app/bootstrap.dart": 4,
     "apps/expense_tracker/lib/src/app/demo/launch.dart": 11,
     "apps/expense_tracker/lib/src/app/demo/preview_services.dart": 1,
-    "apps/expense_tracker/lib/src/app/demo/seed.dart": 103,
+    "apps/expense_tracker/lib/src/app/demo/seed.dart": 94,
     "apps/expense_tracker/lib/src/app/demo/seed_history.dart": 58,
     "apps/expense_tracker/lib/src/app/ledger_session.dart": 3,
     "apps/expense_tracker/lib/src/app/lifecycle_services.dart": 12,
@@ -59,7 +61,7 @@
     "apps/expense_tracker/lib/src/features/accounts/model/card_summary.dart": 6,
     "apps/expense_tracker/lib/src/features/accounts/model/reconcile.dart": 3,
     "apps/expense_tracker/lib/src/features/accounts/ui/account_card.dart": 20,
-    "apps/expense_tracker/lib/src/features/accounts/ui/account_page.dart": 8,
+    "apps/expense_tracker/lib/src/features/accounts/ui/account_page.dart": 7,
     "apps/expense_tracker/lib/src/features/accounts/ui/accounts.dart": 8,
     "apps/expense_tracker/lib/src/features/accounts/ui/card_page.dart": 30,
     "apps/expense_tracker/lib/src/features/accounts/ui/sort_accounts.dart": 7,

@@ -1,6 +1,7 @@
 import 'package:rules/src/engine.dart';
 import 'package:rules/src/registry.dart';
 import 'package:rules/src/rules/imports.dart';
+import 'package:rules/src/rules/owned.dart';
 import 'package:rules/src/rules/structure.dart';
 import 'package:rules/src/rules/usage.dart';
 import 'package:test/test.dart';
@@ -12,9 +13,9 @@ List<Violation> run(Rule rule, Map<String, String> sources) =>
     rule.check(Project(sources));
 
 void main() {
-  test('the registry has the ten rules with unique ids', () {
+  test('the registry has the twelve rules with unique ids', () {
     final ids = [for (final r in allRules) r.id];
-    expect(ids.toSet(), hasLength(10));
+    expect(ids.toSet(), hasLength(12));
     expect(
       ids,
       containsAll([
@@ -23,6 +24,8 @@ void main() {
         'A4-pure-calc',
         'B2-number-format',
         'B3-clock',
+        'B4-calendar-by-hand',
+        'B5-owned-values',
         'B7-status-words',
         'B9-text-literals',
         'D2-no-part',
@@ -161,6 +164,85 @@ void f(double d, String s) {
               'void f(String s) { DateTime.parse(s); s.trim(); }\n',
           'packages/core/lib/src/a.dart':
               'void f(String s) { int.parse(s); }\n',
+        }),
+        isEmpty,
+      );
+    });
+  });
+
+  group('B4-calendar-by-hand', () {
+    const rule = CalendarByHand();
+    test('flags a day strip, a month end, a month step and a month count', () {
+      final v = run(rule, {
+        '$_feat/a/x.dart': '''
+void f(DateTime d, DateTime t, int year, int month) {
+  final a = DateTime.utc(d.year, d.month, d.day);
+  final b = DateTime.utc(year, month + 1, 0);
+  final c = DateTime.utc(d.year, d.month - 1);
+  final e = d.year * 12 + d.month;
+}
+''',
+        'packages/domain/lib/src/y.dart':
+            'final a = DateTime.utc(t.year, t.month, t.day);\n',
+      });
+      expect(v.map((e) => e.message), [
+        'a day stripped by hand: use dayOf',
+        'a month end by hand: use monthEnd or daysInMonth',
+        'a month stepped by hand: use monthStart or shiftMonth',
+        'months counted by hand: use monthIndex',
+        'a day stripped by hand: use dayOf',
+      ]);
+    });
+    test('passes core\'s time folder, tests, other days and other '
+        'products', () {
+      expect(
+        run(rule, {
+          'packages/core/lib/time/utc_days.dart':
+              'final a = DateTime.utc(d.year, d.month, d.day);\n',
+          'apps/expense_tracker/test/x_test.dart':
+              'final a = DateTime.utc(d.year, d.month, d.day);\n',
+          '$_feat/a/x.dart': '''
+void f(DateTime d, DateTime e, int year) {
+  final a = DateTime.utc(d.year, e.month, d.day);
+  final b = DateTime.utc(year, 3, 1);
+  final c = DateTime.utc(year, 1);
+  final g = 12 * 7;
+}
+''',
+        }),
+        isEmpty,
+      );
+    });
+  });
+
+  group('B5-owned-values', () {
+    const rule = OwnedValues();
+    test('flags an owned value outside its owner', () {
+      final v = run(rule, {
+        '$_app/src/core/design_system/paint.dart':
+            "const f = TextStyle(fontFamily: 'Nunito');\n",
+        '$_app/src/app/about.dart':
+            "const b = String.fromEnvironment('APP_BUILD');\n",
+        'packages/domain/lib/src/c.dart': 'bool f(int y) => y > 9999;\n',
+      });
+      expect(v, hasLength(3));
+      expect(v.map((e) => e.message), [
+        contains('app_update.dart'),
+        contains('theme.dart'),
+        contains('month_arithmetic.dart'),
+      ]);
+    });
+    test('passes the owners, tests and other values', () {
+      expect(
+        run(rule, {
+          '$_app/src/core/design_system/theme.dart':
+              "const f = TextStyle(fontFamily: 'Nunito');\n",
+          '$_app/src/features/settings/model/app_update.dart':
+              "const b = int.fromEnvironment('APP_BUILD');\n",
+          'packages/core/lib/time/month_arithmetic.dart':
+              'const maxYear = 9999;\n',
+          'packages/core/test/time/x_test.dart': 'final y = 9999;\n',
+          '$_feat/a/x.dart': "const n = 'Nunito Sans'; const m = 999;\n",
         }),
         isEmpty,
       );

@@ -13,6 +13,8 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 
+import 'package:core/time/utc_days.dart';
+
 /// Kinds the record list can be narrowed to.
 enum KindFilter {
   all('全部'),
@@ -121,9 +123,8 @@ final class EntryFilter {
     final category = this.category;
     if (!kind.shows(e)) return false;
     if (range != null) {
-      final day = _utcDay(e.date);
-      if (day.isBefore(_utcDay(range.start)) ||
-          day.isAfter(_utcDay(range.end))) {
+      final day = dayOf(e.date);
+      if (day.isBefore(dayOf(range.start)) || day.isAfter(dayOf(range.end))) {
         return false;
       }
     }
@@ -137,8 +138,6 @@ final class EntryFilter {
     return category == null ||
         entryIsUnder(e, category, (name) => ledger.category(name).parent);
   }
-
-  static DateTime _utcDay(DateTime d) => DateTime.utc(d.year, d.month, d.day);
 
   /// The chosen days as words, such as 9/1–10/4.
   static String rangeLabel(DateTimeRange range) =>

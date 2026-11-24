@@ -1,5 +1,7 @@
 import 'returns.dart';
 
+import 'package:core/time/utc_days.dart';
+
 /// The dividends expected over the twelve months after today, as 股息
 /// shows them: each month's sum by holding, the holdings by how much
 /// they pay in all, and each month's total.
@@ -7,9 +9,7 @@ final class DividendOutlook {
   DividendOutlook._(this.months, this.byMonth, this.names, this.order);
 
   factory DividendOutlook.of(List<DividendGuess> guesses, DateTime today) {
-    final months = [
-      for (var k = 1; k <= 12; k++) DateTime.utc(today.year, today.month + k),
-    ];
+    final months = [for (var k = 1; k <= 12; k++) monthStart(today, k)];
     // By month, then by holding; several from one holding in a month add
     // up.
     final byMonth = [for (final _ in months) <String, int>{}];

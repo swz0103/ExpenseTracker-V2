@@ -8,5 +8,6 @@ export 'holidays/business_days.dart';
 export 'holidays/coverage.dart';
 export 'instant.dart';
 export 'month_arithmetic.dart';
+export 'utc_days.dart';
 export 'week.dart';
 export 'year_month.dart';

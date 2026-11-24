@@ -10,6 +10,8 @@ import '../../features/backup/model/backup_manager.dart';
 import '../../features/reminders/model/reminder_alerts.dart';
 import '../../core/time/app_clock.dart';
 
+import 'package:core/time/utc_days.dart';
+
 /// The web preview's stand-ins for the phone: notifications that go
 /// nowhere, screen hiding kept in memory, made-up daily closes and keys
 /// that keep nothing, so 通知與提醒, 安全, 備份與還原, their panels and
@@ -127,7 +129,7 @@ final class DemoPrices extends SyncJob implements PriceHistory {
     final end = ledger?.holding(code)?.price ?? 100;
     final days = <DateTime>[
       for (
-        var d = DateTime.utc(from.year, from.month, from.day);
+        var d = dayOf(from);
         !d.isAfter(today);
         d = d.add(const Duration(days: 1))
       )

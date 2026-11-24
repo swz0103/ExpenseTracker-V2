@@ -1,9 +1,10 @@
 import 'calendar_day.dart';
+import 'month_arithmetic.dart';
 
 /// An absolute instant serialized in UTC, distinct from a business date.
 final class UtcInstant implements Comparable<UtcInstant> {
   UtcInstant(DateTime input) : value = input.toUtc() {
-    if (value.year < 1 || value.year > 9999) {
+    if (value.year < minYear || value.year > maxYear) {
       throw const FormatException('Instant outside supported range.');
     }
   }

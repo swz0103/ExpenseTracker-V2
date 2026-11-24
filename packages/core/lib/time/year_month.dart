@@ -5,7 +5,7 @@ import 'month_arithmetic.dart';
 /// statements are kept by.
 final class YearMonth implements Comparable<YearMonth> {
   YearMonth(this.year, this.month) {
-    if (year < 1 || year > 9999 || month < 1 || month > 12) {
+    if (year < minYear || year > maxYear || month < 1 || month > 12) {
       throw const FormatException('Invalid year and month.');
     }
   }

@@ -78,11 +78,7 @@ CardBillStatus cardBillStatus({
   if (dueOn == null) return const BillNotYetBilled();
   if (owed <= 0) return const BillPaid();
   final last = payBy ?? dueOn;
-  final left = DateTime.utc(
-    last.year,
-    last.month,
-    last.day,
-  ).difference(DateTime.utc(today.year, today.month, today.day)).inDays;
+  final left = today.daysUntil(last);
   if (left > 0) return BillDue(dueOn, left);
   if (left == 0) return BillDueToday(dueOn);
   return BillOverdue(dueOn, -left);

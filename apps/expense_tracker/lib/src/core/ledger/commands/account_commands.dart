@@ -79,9 +79,9 @@ final class AccountCommands {
       return after;
     }
     final day = after.closingDay ?? closing;
-    var from = DateTime.utc(_context.today.year, _context.today.month + 1, 0);
+    var from = monthEnd(_context.today.year, _context.today.month);
     for (final month in [_context.today.month, _context.today.month + 1]) {
-      final last = DateTime.utc(_context.today.year, month + 1, 0);
+      final last = monthEnd(_context.today.year, month);
       final close = DateTime.utc(last.year, last.month, min(day, last.day));
       if (close.isAfter(_context.today)) {
         from = close;
