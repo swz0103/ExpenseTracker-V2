@@ -326,29 +326,47 @@ final class DriveBackup {
     return _folder = _need<String>(_answer(made), 'id');
   }
 
-  /// The backups in the folder, newest first; with [ledger], only those
-  /// of that ledger.
+  /// How many backups Drive is asked for at a time; the rest come a page
+  /// after another ([list]).
+  static const pageSize = 100;
+
+  /// The most pages [list] reads: [pageSize] × 50 = 5,000 backups, far
+  /// past any folder, so a Drive that keeps answering with more cannot
+  /// hold it forever.
+  static const _mostPages = 50;
+
+  /// The backups in the folder, newest first, every page of them; with
+  /// [ledger], only those of that ledger.
   Future<List<DriveFile>> list({
     bool interactive = true,
     String? ledger,
   }) async {
     final folder = await _folderId(interactive: interactive);
-    final response = await _send(
-      'GET',
-      Uri.parse(_api).replace(
-        queryParameters: {
-          'q':
-              "'${_quote(folder)}' in parents and trashed=false"
-              '${ledger == null ? '' : " and appProperties has { key='ledger' and value='${_quote(ledger)}' }"}',
-          'fields': 'files(id,name,size,modifiedTime,appProperties)',
-          'orderBy': 'modifiedTime desc',
-          'pageSize': '100',
-          'spaces': 'drive',
-        },
-      ),
-      interactive: interactive,
-    );
-    final files = _answer(response).objects('files') ?? const [];
+    final files = <JsonFields>[];
+    String? page;
+    for (var read = 0; read < _mostPages; read++) {
+      final response = await _send(
+        'GET',
+        Uri.parse(_api).replace(
+          queryParameters: {
+            'q':
+                "'${_quote(folder)}' in parents and trashed=false"
+                '${ledger == null ? '' : " and appProperties has { key='ledger' and value='${_quote(ledger)}' }"}',
+            'fields':
+                'nextPageToken,files(id,name,size,modifiedTime,appProperties)',
+            'orderBy': 'modifiedTime desc',
+            'pageSize': '$pageSize',
+            'spaces': 'drive',
+            'pageToken': ?page,
+          },
+        ),
+        interactive: interactive,
+      );
+      final answer = _answer(response);
+      files.addAll(answer.objects('files') ?? const []);
+      page = answer.text('nextPageToken');
+      if (page == null || page.isEmpty) break;
+    }
     return [
       for (final row in files)
         if ((row.text('name') ?? '').endsWith('.etbk'))

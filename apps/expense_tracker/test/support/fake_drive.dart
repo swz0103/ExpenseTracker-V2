@@ -107,7 +107,15 @@ final class FakeDrive implements DriveHttp {
                 },
             },
       ];
-      return _json({'files': rows});
+      // A page of pageSize rows from pageToken on, as Drive gives them.
+      final size = int.tryParse(url.queryParameters['pageSize'] ?? '');
+      if (size == null) return _json({'files': rows});
+      final from = int.tryParse(url.queryParameters['pageToken'] ?? '') ?? 0;
+      final to = from + size < rows.length ? from + size : rows.length;
+      return _json({
+        'files': rows.sublist(from, to),
+        if (to < rows.length) 'nextPageToken': '$to',
+      });
     }
     if (method == 'POST' && path == '/drive/v3/files') {
       final body = jsonDecode(text!) as Map<String, Object?>;

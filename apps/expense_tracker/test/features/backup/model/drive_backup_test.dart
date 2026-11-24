@@ -155,6 +155,29 @@ void main() {
     expect(await client.list(), hasLength(12));
   });
 
+  test('every page of the folder is listed, not only the first', () async {
+    final client = drive();
+    await client.upload(backup('記帳本-0.etbk', '0'), ledger: 'L1');
+    // 100 a page: 230 more makes 231, three pages (100 + 100 + 31).
+    for (var i = 0; i < 230; i++) {
+      http.seed('舊-$i.etbk', ledger: 'L1', epoch: 1);
+    }
+    expect(DriveBackup.pageSize, 100);
+    // Only the listing below: the upload's own clean-up listed too.
+    http.sent.clear();
+    final listed = await client.list(ledger: 'L1');
+    expect(listed, hasLength(231));
+    expect({for (final f in listed) f.id}, hasLength(231));
+    final asked = [
+      for (final s in http.sent)
+        if (s.method == 'GET' &&
+            s.url.path == '/drive/v3/files' &&
+            !s.url.queryParameters['q']!.contains('mimeType'))
+          s.url.queryParameters['pageToken'],
+    ];
+    expect(asked, [null, '100', '200']);
+  });
+
   test('a failed cleanup does not undo the upload', () async {
     final client = drive();
     http.trashFails = true;
