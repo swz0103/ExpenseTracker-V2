@@ -113,6 +113,7 @@ PostedBook postBook(DecodedBook book, AddPart add, List<Holding> start) {
   final tree = AccountTree(mapping.tree);
   final report = ReplayReport();
   final entries = book.entries;
+  final places = book.entryPlaces;
   final streamed = <(LedgerIntent, Entry, Set<OldShape>)>[];
   for (var at = 0; at < entries.length; at += journalApartChunk) {
     final part = FreshPostingStore();
@@ -124,11 +125,9 @@ PostedBook postBook(DecodedBook book, AddPart add, List<Holding> start) {
     );
     final alone = <LedgerIntent>[];
     final records = <IntentId, (Entry, Set<OldShape>)>{};
-    for (final entry in entries.sublist(
-      at,
-      _min(at + journalApartChunk, entries.length),
-    )) {
-      final mapped = mapping.map(entry, book.entrySeqs[entry.id]!);
+    for (var i = at; i < _min(at + journalApartChunk, entries.length); i++) {
+      final entry = entries[i];
+      final mapped = mapping.map(entry, places[i]);
       mapped.accounts.forEach(tree.put);
       if (journal.streamsOf(mapped.intent).isEmpty) {
         alone.add(mapped.intent);

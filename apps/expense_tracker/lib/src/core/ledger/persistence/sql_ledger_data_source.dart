@@ -138,19 +138,12 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     );
   }
 
-  /// Where each entry read as the book last opened stands, until the
-  /// journal has taken it; then read from the store again.
-  Map<String, int>? _seqsAtLoad;
-
-  Map<String, int> _entrySeqs() {
-    final kept = _seqsAtLoad;
-    _seqsAtLoad = null;
-    return kept ??
-        {
-          for (final row in _store.rows(shelf: Collection.entry.name))
-            row.id: row.seq,
-        };
-  }
+  /// Where each entry kept stands, by id, read from the store: only
+  /// when the journal is posted afresh on this isolate (no worker).
+  Map<String, int> _entrySeqs() => {
+    for (final row in _store.rows(shelf: Collection.entry.name))
+      row.id: row.seq,
+  };
 
   /// The entry kept as [id] and its place; null when there is none or
   /// it cannot be read (a row set aside has no postings).
@@ -352,10 +345,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         StateError('${_aside.rows.length} rows set aside'),
       );
     }
-    if (keepsJournal) {
-      _seqsAtLoad = book.entrySeqs;
-      journal.open(ledger, posted: posting);
-    }
+    if (keepsJournal) journal.open(ledger, posted: posting);
     return ledger;
   }
 
