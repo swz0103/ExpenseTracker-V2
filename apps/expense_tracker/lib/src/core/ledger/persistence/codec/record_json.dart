@@ -175,9 +175,9 @@ Map<String, Object?> entryToJson(Entry e, [CategoryRefs? refs]) => {
   'mark': ?e.mark?.name,
 };
 
-/// The entry [entryToJson] wrote.
-/// An entry from its record. With [same], the values entries repeat
-/// (accounts, categories kept by name, merchants, stocks, tags, days) are
+/// An entry from its record, as [entryToJson] wrote it. With [same], the
+/// values entries repeat (accounts, categories kept by name, merchants,
+/// stocks, tags, short notes, days) are
 /// shared with the entries read before through it ([SameValues]), as the
 /// book opens.
 Entry entryFromJson(
@@ -195,7 +195,10 @@ Entry entryFromJson(
     amount: _int(json['amount']),
     account: _same(same, _need(json, 'account')),
     category: _same(same, _refName(json, 'category', refs) ?? ''),
-    note: _text(json, 'note') ?? '',
+    note: switch (_text(json, 'note')) {
+      null => '',
+      final note => same == null ? note : same.note(note),
+    },
     to: _sameOrNone(same, _text(json, 'to')),
     holding: _sameOrNone(same, _text(json, 'holding')),
     shares: _int(json['shares']),

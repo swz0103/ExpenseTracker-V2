@@ -36,6 +36,7 @@ void main() {
       'account': String.fromCharCodes('cash'.codeUnits),
       'merchant': String.fromCharCodes('全聯'.codeUnits),
       'tags': [String.fromCharCodes('家用'.codeUnits)],
+      'note': String.fromCharCodes('午餐'.codeUnits),
     };
 
     test('share what they repeat through one SameValues', () {
@@ -45,6 +46,8 @@ void main() {
       expect(identical(a.account, b.account), isTrue);
       expect(identical(a.merchant, b.merchant), isTrue);
       expect(identical(a.tags.single, b.tags.single), isTrue);
+      expect(identical(a.note, b.note), isTrue);
+      expect(b.note, '午餐');
       expect(identical(a.date, b.date), isTrue);
       expect(b.date, DateTime.utc(2026, 9, 4));
     });

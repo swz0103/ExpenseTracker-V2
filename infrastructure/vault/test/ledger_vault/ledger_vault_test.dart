@@ -293,6 +293,44 @@ void main() {
       },
     );
 
+    test('a book made again that fails before it is put in place leaves '
+        'the file as it was, to be made again later (D113)', () async {
+      await withJournal();
+      await vault.noteJournalDamaged();
+      final before = vault.databaseFile.readAsBytesSync();
+      // The new keys cannot be written, as on a full disk: a folder in
+      // their place.
+      final pending = Directory('${vault.directory.path}/keyring.json.new')
+        ..createSync();
+      final failed = await vault.salvage(await keysNow());
+      expect(
+        failed,
+        isA<SalvageNotMade>().having(
+          (f) => f.error,
+          'error',
+          isA<FileSystemException>(),
+        ),
+      );
+      expect(vault.databaseFile.readAsBytesSync(), before);
+      expect(vault.damagedCopies(), isEmpty, reason: 'nothing set aside');
+      // Still noted: the next opening makes it again, and fails as this.
+      expect(
+        File('${vault.directory.path}/journal.damaged').existsSync(),
+        isTrue,
+      );
+      await expectLater(
+        vault.unlockWithPassword(password),
+        throwsA(isA<FileSystemException>()),
+      );
+      expect(vault.databaseFile.readAsBytesSync(), before);
+      // Room again: the next opening makes it again and opens it.
+      pending.deleteSync();
+      final opened = await vault.unlockWithPassword(password);
+      addTearDown(opened.close);
+      expect(opened.store.rows().single.id, 'cash');
+      expect(vault.damagedCopies(), hasLength(1));
+    });
+
     test('a journal found damaged is made again from the records, which '
         'are all kept (D102)', () async {
       await withJournal();
@@ -317,7 +355,7 @@ void main() {
         }
         expect(open.store.revision, 4);
         open.close();
-        expect(await vault.salvage(await keysNow()), isTrue);
+        expect(await vault.salvage(await keysNow()), isA<Salvaged>());
         final opened = await vault.unlockWithPassword(password);
         addTearDown(opened.close);
         // The same book under the same keys: still 4, not 1.
@@ -330,14 +368,14 @@ void main() {
         '(review 18, review 25)', () async {
       await withJournal();
       for (var i = 0; i < 3; i++) {
-        expect(await vault.salvage(await keysNow()), isTrue);
+        expect(await vault.salvage(await keysNow()), isA<Salvaged>());
       }
       // Not one let go before the book made again has opened.
       expect(vault.damagedCopies(), hasLength(3));
       (await vault.unlockWithPassword(password)).close();
       // All three were set aside since the book last opened: kept.
       expect(vault.damagedCopies(), hasLength(3));
-      expect(await vault.salvage(await keysNow()), isTrue);
+      expect(await vault.salvage(await keysNow()), isA<Salvaged>());
       final opened = await vault.unlockWithPassword(password);
       addTearDown(opened.close);
       expect(opened.store.rows().single.id, 'cash');
@@ -362,7 +400,7 @@ void main() {
       await withJournal();
       Future<void> salvageAt(DateTime time) async {
         at = time;
-        expect(await vault.salvage(await keysNow()), isTrue);
+        expect(await vault.salvage(await keysNow()), isA<Salvaged>());
         (await vault.unlockWithPassword(password)).close();
       }
 
@@ -410,7 +448,7 @@ void main() {
       await withJournal();
       await spoil('rows');
       final before = vault.databaseFile.readAsBytesSync();
-      expect(await vault.salvage(await keysNow()), isFalse);
+      expect(await vault.salvage(await keysNow()), isA<SalvageUnreadable>());
       expect(vault.databaseFile.readAsBytesSync(), before);
     });
 

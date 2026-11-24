@@ -11,6 +11,23 @@ void main() {
     expect(identical(same.text(again), first), isTrue);
   });
 
+  test('a short note is shared, a long one kept as it is', () {
+    final same = SameValues();
+    String fresh(String text) => String.fromCharCodes(text.codeUnits);
+    // 16 characters, the most shared: 早餐 and fourteen x.
+    final short = '早餐${'x' * 14}';
+    expect(short.length, 16);
+    expect(sharedNoteLength, 16);
+    final first = fresh(short);
+    expect(identical(same.note(first), first), isTrue);
+    expect(identical(same.note(fresh(short)), first), isTrue);
+    // 17 characters: each kept as read.
+    final long = '${short}y';
+    final again = fresh(long);
+    expect(identical(same.note(fresh(long)), again), isFalse);
+    expect(identical(same.note(again), again), isTrue);
+  });
+
   test('a day is made once for its text', () {
     final same = SameValues();
     var made = 0;
