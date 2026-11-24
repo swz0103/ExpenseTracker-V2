@@ -55,7 +55,7 @@ class _LockScreenState extends State<LockScreen> {
   /// once, without the opening again.
   var _cameBack = false;
   var _busy = false;
-  String? _problem;
+  late String? _problem = describeLocked(widget.startup.state);
 
   /// The opening animation, on a ledger with a password when the app has
   /// just started; the password form comes after it.
@@ -220,7 +220,7 @@ class _LockScreenState extends State<LockScreen> {
       await widget.startup.openQuietly();
     } on Object catch (error) {
       ErrorLog.instance.record('打開帳本', error);
-      _fail('無法打開帳本（${ErrorLog.describe(error)}）');
+      _fail(describeNoSpace(error) ?? '無法打開帳本（${ErrorLog.describe(error)}）');
     }
   }
 
@@ -385,7 +385,7 @@ class _LockScreenState extends State<LockScreen> {
       setState(() => _busy = true);
       _forgetPicked();
       final into = File('${(await cache()).path}/restore.etbk');
-      await drive.download(chosen.id, into);
+      await drive.download(chosen.id, into, size: chosen.size);
       _picked = into.path;
       if (!mounted) return;
       setState(() {

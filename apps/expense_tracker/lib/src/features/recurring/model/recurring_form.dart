@@ -29,6 +29,7 @@ final class RecurringForm {
     category = old?.category ?? _firstCategory(false);
     _from = _opened = on ?? _firstDay();
     day = old?.day ?? _from.day;
+    _yearDay = _from.day;
   }
 
   final Ledger ledger;
@@ -51,9 +52,20 @@ final class RecurringForm {
   /// Moving the start of an item whose day of the month is chosen keeps
   /// that day (F82); a new item's follows the start until one is chosen.
   set start(DateTime value) {
+    _yearDay = value.day;
+    _move(value);
+  }
+
+  /// Moves the start without choosing [_yearDay] again.
+  void _move(DateTime value) {
     _from = value;
     if (old == null && !_dayChosen) day = value.day;
   }
+
+  /// The day of the month a yearly item is held from: the start's as the
+  /// form opened or as last chosen, not as [setMonthOfYear] shortened it
+  /// for a shorter month (review 29).
+  late int _yearDay;
 
   /// The day of the month a monthly item falls due, set by
   /// [setDayOfMonth].
@@ -141,6 +153,7 @@ final class RecurringForm {
   /// day on or after it (a 31st waits for a month that has one).
   void setDayOfMonth(int day) {
     this.day = day;
+    _yearDay = day;
     _dayChosen = true;
     for (var k = 0; k < 12; k++) {
       final month = monthStart(start, k);
@@ -153,17 +166,17 @@ final class RecurringForm {
     }
   }
 
-  /// Paid each year in [month]: on the start's day, held to the month's
-  /// last day, the first such on or after the start. The start's day
-  /// stays what each year is held from (review 28): from 31 March 2027,
-  /// February is 28 February 2027, before the start, so 29 February
-  /// 2028, never the 28th carried on.
+  /// Paid each year in [month]: on the day chosen ([_yearDay]), held to
+  /// the month's last day, the first such on or after the start. That
+  /// day stays what each year is held from (reviews 28, 29): from 31
+  /// March 2027, February is 28 February 2027, before the start, so 29
+  /// February 2028; March after it is 31 March 2028, never the 29th
+  /// carried on.
   void setMonthOfYear(int month) {
-    final anchor = start.day;
     DateTime inYear(int year) =>
-        DateTime.utc(year, month, min(anchor, daysInMonth(year, month)));
+        DateTime.utc(year, month, min(_yearDay, daysInMonth(year, month)));
     final first = inYear(start.year);
-    start = first.isBefore(dayOf(start)) ? inYear(start.year + 1) : first;
+    _move(first.isBefore(dayOf(start)) ? inYear(start.year + 1) : first);
   }
 
   /// Paid on [weekday] (1 Monday … 7 Sunday): the start moves to the

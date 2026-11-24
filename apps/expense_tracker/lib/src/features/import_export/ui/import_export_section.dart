@@ -1,4 +1,5 @@
 import 'package:core/foundation_values.dart' show BusinessDate, YearMonth;
+import 'package:core/time/utc_days.dart' show dayOf, monthStart;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -125,7 +126,7 @@ class _ExportSheetState extends State<_ExportSheet> {
   static const _color = SettingsColors.csv;
 
   var _span = _Span.month;
-  late DateTime _from = DateTime(_today.year, _today.month);
+  late DateTime _from = monthStart(_today);
   late DateTime _to = _today;
 
   Ledger get _ledger => widget.ledger;
@@ -134,9 +135,10 @@ class _ExportSheetState extends State<_ExportSheet> {
   /// The entries [span] covers, oldest first as the ledger keeps them.
   List<Entry> _entries(_Span span) {
     final t = _today;
+    // Days, not instants: the entry's, [from]'s and [to]'s own fields.
     bool within(DateTime d, DateTime from, DateTime to) {
-      final day = DateTime(d.year, d.month, d.day);
-      return !day.isBefore(from) && !day.isAfter(to);
+      final day = dayOf(d);
+      return !day.isBefore(dayOf(from)) && !day.isAfter(dayOf(to));
     }
 
     // An export takes every entry written, 預定 ones too.

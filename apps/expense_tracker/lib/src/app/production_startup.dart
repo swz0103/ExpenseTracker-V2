@@ -29,8 +29,14 @@ Startup productionStartup(
     directory,
     codec: KeyringCodec(),
     now: AppClock.now,
-    noteFailed: (error, stack) =>
-        ErrorLog.instance.record(ErrorSteps.recordsKeptNote, error, stack),
+    noteFailed: (note, error, stack) => ErrorLog.instance.record(
+      switch (note) {
+        KeptNote.recordsKept => ErrorSteps.recordsKeptNote,
+        KeptNote.journalDamaged => ErrorSteps.journalDamagedNote,
+      },
+      error,
+      stack,
+    ),
   ),
   device: device,
   check: SqlLedgerDataSource.check,

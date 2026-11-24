@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:sqlite3/sqlite3.dart';
@@ -360,6 +361,58 @@ void main() {
       expect(vault.damagedCopies().single.readAsBytesSync(), before);
     });
 
+    test('a disk full is not counted against salvageTries: a fourth try, '
+        'once there is room, opens the book (review 29)', () async {
+      await withJournal();
+      await vault.noteJournalDamaged();
+      final before = vault.databaseFile.readAsBytesSync();
+      Future<T> full<T>(Future<T> Function() run) =>
+          IOOverrides.runWithIOOverrides(run, _NoRoom());
+      // The first: tried from the damage report.
+      final first = await full(() async => vault.salvage(await keysNow()));
+      expect(
+        first,
+        isA<SalvageNotMade>()
+            .having((f) => isNoSpace(f.error), 'no space', isTrue)
+            .having((f) => f.gaveUp, 'gaveUp', isFalse),
+      );
+      // The second and third: openings, each failing for want of room as
+      // the first did, never given up (salvageTries is 3).
+      for (var i = 0; i < 2; i++) {
+        await expectLater(
+          full(() => vault.unlockWithPassword(password)),
+          throwsA(predicate<Object>(isNoSpace, 'no space')),
+        );
+      }
+      expect(vault.databaseFile.readAsBytesSync(), before);
+      expect(vault.damagedCopies(), isEmpty, reason: 'nothing set aside');
+      // The fourth, with room again: made again and opened.
+      final opened = await vault.unlockWithPassword(password);
+      addTearDown(opened.close);
+      expect(opened.store.rows().single.id, 'cash');
+      expect(vault.damagedCopies(), hasLength(1));
+    });
+
+    test('a note that cannot be let go of on opening is told to '
+        'noteFailed, and the book opens (review 29)', () async {
+      await withJournal();
+      await vault.noteJournalDamaged();
+      final told = <(KeptNote, Object)>[];
+      final noting = LedgerVault(
+        vault.directory,
+        codec: codec,
+        noteFailed: (note, error, _) => told.add((note, error)),
+      );
+      final opened = await IOOverrides.runWithIOOverrides(
+        () => noting.unlockWithPassword(password),
+        _StuckNote(),
+      );
+      addTearDown(opened.close);
+      expect(opened.store.rows().single.id, 'cash');
+      expect(told.single.$1, KeptNote.journalDamaged);
+      expect(told.single.$2, isA<FileSystemException>());
+    });
+
     test('a note that cannot be let go of once the book is made again '
         'still says Salvaged, and the book opens (review 28)', () async {
       await withJournal();
@@ -610,11 +663,11 @@ void main() {
 
   test('a write is kept when its note cannot be written; the failure is '
       'told (review 18)', () async {
-    final failed = <Object>[];
+    final failed = <(KeptNote, Object)>[];
     final noting = LedgerVault(
       Directory('${directory.path}/noting'),
       codec: codec,
-      noteFailed: (error, _) => failed.add(error),
+      noteFailed: (note, error, _) => failed.add((note, error)),
     );
     final (open, _) = await noting.create(password);
     addTearDown(open.close);
@@ -622,7 +675,8 @@ void main() {
     Directory('${noting.directory.path}/ledger.db.kept').createSync();
     keepOne(open);
     expect(open.store.rows().single.id, 'cash');
-    expect(failed, [isA<FileSystemException>()]);
+    expect(failed.single.$1, KeptNote.recordsKept);
+    expect(failed.single.$2, isA<FileSystemException>());
   });
 
   test('a ledger of the old format is set aside for a new one', () async {
@@ -886,6 +940,53 @@ void main() {
       );
     });
   });
+}
+
+/// Files as they are, but the new keys cannot be written: no space left
+/// on the device (ENOSPC, 28).
+final class _NoRoom extends IOOverrides {
+  @override
+  File createFile(String path) {
+    final file = super.createFile(path);
+    return path.endsWith('/keyring.json.new') ? _Full(file) : file;
+  }
+}
+
+final class _Full implements File {
+  _Full(this._file);
+
+  final File _file;
+
+  @override
+  String get path => _file.path;
+
+  @override
+  Future<bool> exists() => _file.exists();
+
+  @override
+  bool existsSync() => _file.existsSync();
+
+  @override
+  Future<FileSystemEntity> delete({bool recursive = false}) =>
+      _file.delete(recursive: recursive);
+
+  @override
+  Future<File> writeAsString(
+    String contents, {
+    FileMode mode = FileMode.write,
+    Encoding encoding = utf8,
+    bool flush = false,
+  }) => Future.error(
+    FileSystemException(
+      'write',
+      path,
+      const OSError('No space left on device', 28),
+    ),
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnsupportedError('not needed here');
 }
 
 /// Files as they are, but the note of a damaged journal cannot be let go

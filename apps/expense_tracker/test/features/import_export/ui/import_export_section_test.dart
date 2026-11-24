@@ -103,6 +103,29 @@ void main() {
     expect(backups.saved.single.$1, '記帳本-20261001-20261004.csv');
   });
 
+  // Run under TZ=Asia/Taipei and TZ=America/New_York by CI as well: a
+  // picked day is a UTC midnight, and comparing it as an instant with a
+  // local midnight dropped the first day east of UTC, the last one west.
+  testWidgets('自訂 from a picked day takes that day and today whole', (
+    tester,
+  ) async {
+    final backups = _SavingBackupManager();
+    await open(tester, backups: backups);
+    await go(tester, ['自訂', '從', '前天']);
+    final picked = [
+      for (final e in ledger.entries.all)
+        if (e.date.year == 2026 && e.date.month == 10 && e.date.day >= 2) e,
+    ];
+    // The demo book's days: 2 entries on the 2nd, 2 on the 3rd, 10 on the
+    // 4th (today): 2 + 2 + 10 = 14.
+    expect(picked, hasLength(14));
+    await export(tester, 14);
+    final (name, text) = backups.saved.single;
+    expect(name, '記帳本-20261002-20261004.csv');
+    // 14 rows under the heading row.
+    expect(text.trim().split('\n'), hasLength(15));
+  });
+
   testWidgets('without a way to save files, the CSV is copied', (tester) async {
     String? copied;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
