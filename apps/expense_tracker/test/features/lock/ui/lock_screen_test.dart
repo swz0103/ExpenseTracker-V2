@@ -7,17 +7,20 @@ import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:expense_tracker/src/features/lock/ui/views/lock_parts.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/messages/lock_messages.dart';
 import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
 import 'package:expense_tracker/src/features/backup/model/restore_sources.dart';
 import 'package:expense_tracker/src/features/lock/ui/lock_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:storage/storage.dart' show StorageProblem, StorageUnavailable;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
 import '../../../support/fake_drive.dart';
+import '../../../support/no_room.dart';
 import '../../../support/places.dart';
 
 const password = 'correct horse battery';
@@ -84,6 +87,22 @@ void main() {
     await settle(tester, () => startup.state is Ready);
     expect(startup.state, isA<Ready>());
     startup.lock();
+  });
+
+  testWidgets('back on the lock screen for a full phone, it says to free '
+      'space first (review 29)', (tester) async {
+    final startup = await opened(tester);
+    await tester.runAsync(
+      () => IOOverrides.runWithIOOverrides(
+        () => startup.journalDamaged(
+          const StorageUnavailable(StorageProblem.damaged),
+        ),
+        NoRoom(),
+      ),
+    );
+    expect(startup.state, isA<Locked>());
+    await show(tester, startup);
+    expect(find.text(LockWords.noSpace), findsOneWidget);
   });
 
   testWidgets('restoring from settings opens on the backup form, and back '

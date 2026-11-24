@@ -81,10 +81,15 @@ final class LedgerVault {
   /// the app's clock, where the app is put together.
   final DateTime Function() now;
 
-  /// Told when the note that records were kept here ([_recordsKept])
-  /// could not be written as a write was kept: the write stands, and the
-  /// note is tried again at the next write and the next opening.
-  final void Function(Object error, StackTrace stack)? noteFailed;
+  /// Told when a note kept beside the database failed, and which
+  /// ([KeptNote]): the one that records were kept here ([_recordsKept])
+  /// could not be written as a write was kept (the write stands, and the
+  /// note is tried again at the next write and the next opening); or the
+  /// one that the journal was found damaged could not be let go of once
+  /// the book was made again on opening (the next opening makes it again,
+  /// review 29).
+  final void Function(KeptNote note, Object error, StackTrace stack)?
+  noteFailed;
 
   File get keyringFile => File('${directory.path}/keyring.json');
   File get databaseFile => File('${directory.path}/ledger.db');
@@ -537,17 +542,21 @@ final class LedgerVault {
       // Once this launch has failed to make it [salvageTries] times, it
       // is set aside as damaged instead (review 28): a failure that does
       // not go away would otherwise bring the lock screen back forever.
-      if (await salvage(keys) case SalvageNotMade(
-        :final error,
-        :final stack,
-        :final gaveUp,
-      )) {
-        if (!gaveUp) Error.throwWithStackTrace(error, stack);
-        await setAsideDamaged();
-        Error.throwWithStackTrace(
-          const StorageUnavailable(StorageProblem.damaged),
-          stack,
-        );
+      // A note that could not be let go of is kept in the error log, as
+      // the damage report's path keeps it (review 29): else every launch
+      // makes the book again without a word of why.
+      switch (await salvage(keys)) {
+        case SalvageNotMade(:final error, :final stack, :final gaveUp):
+          if (!gaveUp) Error.throwWithStackTrace(error, stack);
+          await setAsideDamaged();
+          Error.throwWithStackTrace(
+            const StorageUnavailable(StorageProblem.damaged),
+            stack,
+          );
+        case Salvaged(noteKept: (final error, final stack)):
+          noteFailed?.call(KeptNote.journalDamaged, error, stack);
+        case Salvaged() || SalvageUnreadable():
+          break;
       }
     }
     return _open(keys);
@@ -616,7 +625,9 @@ final class LedgerVault {
       );
     } on Object catch (error, stack) {
       if (placing) rethrow;
-      _salvagesNotMade++;
+      // A disk full goes away once room is made: it is never what sets
+      // a healthy book aside (review 29).
+      if (!isNoSpace(error)) _salvagesNotMade++;
       return SalvageNotMade(
         error,
         stack,
@@ -636,7 +647,8 @@ final class LedgerVault {
 
   /// How many times one launch tries to make the book again and fails
   /// before the copy is put in place ([SalvageNotMade]) before it gives
-  /// up and has the book set aside as damaged (review 28).
+  /// up and has the book set aside as damaged (review 28). A failure
+  /// for want of room ([isNoSpace]) is not counted (review 29).
   static const salvageTries = 3;
 
   /// The [SalvageNotMade]s of this launch.
@@ -715,7 +727,14 @@ final class LedgerVault {
         StorageKey(keys.databaseKey),
         keyVouched: true,
         written: file.path == databaseFile.path ? _noteRecordsKeptNow : null,
-        writtenFailed: noteFailed,
+        writtenFailed: switch (noteFailed) {
+          final told? => (error, stack) => told(
+            KeptNote.recordsKept,
+            error,
+            stack,
+          ),
+          null => null,
+        },
       );
 
   /// Notes that the database here has held records ([_recordsKept]).
@@ -844,6 +863,17 @@ final class LedgerVault {
       if (await part.exists()) await part.delete();
     }
   }
+}
+
+/// A note kept beside the database whose write or removal failed
+/// ([LedgerVault.noteFailed]).
+enum KeptNote {
+  /// Records were kept here (`ledger.db.kept`), written as a write is.
+  recordsKept,
+
+  /// The journal was found damaged (`journal.damaged`), let go of once
+  /// the book is made again.
+  journalDamaged,
 }
 
 /// How making the database again from its records went

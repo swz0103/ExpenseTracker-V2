@@ -1,6 +1,7 @@
 import 'dart:io';
 
-import 'package:storage/storage.dart' show StorageProblem, StorageUnavailable;
+import 'package:storage/storage.dart'
+    show StorageProblem, StorageUnavailable, isNoSpace;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
@@ -89,6 +90,8 @@ String? describeUnlockFailure(Object error, {required bool recovery}) =>
       },
       // Not tried at all: too many wrong ones came before it.
       UnlockDelayed(:final wait) => LockWords.waitFor(wait),
+      // Making the book again on opening, for want of room (review 29).
+      FileSystemException() when isNoSpace(error) => LockWords.noSpace,
       FileSystemException() => '找不到這個備份檔',
       StorageUnavailable(problem: StorageProblem.damaged) => '帳本檔案已損毀，請從備份還原',
       VaultException(:final problem) => switch (problem) {
@@ -114,6 +117,11 @@ String? describeUnlockFailure(Object error, {required bool recovery}) =>
       ),
       _ => null,
     };
+
+/// [LockWords.noSpace] when [error] is a write refused for want of room
+/// on the phone; null for any other failure.
+String? describeNoSpace(Object error) =>
+    isNoSpace(error) ? LockWords.noSpace : null;
 
 /// When a backup was taken and how many records it holds.
 String describeBackup(BackupHeader header) =>

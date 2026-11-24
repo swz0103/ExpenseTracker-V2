@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
+import 'package:expense_tracker/src/core/messages/key_failures.dart';
+import 'package:expense_tracker/src/core/messages/lock_messages.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +11,7 @@ import 'package:storage/storage.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
+import '../../support/no_room.dart';
 import 'startup_gate.dart';
 import 'startup_keys.dart';
 
@@ -379,6 +382,49 @@ void main() {
       await startup.bookDamaged(damagedError);
       expect(startup.state, isA<Damaged>());
       expect(vault.damagedCopies(), hasLength(1));
+    });
+
+    test('a full phone as the book is made again is never counted: the '
+        'lock screen says so, and a fourth try with room opens it '
+        '(review 29)', () async {
+      final startup = await withRecord();
+      Future<T> full<T>(Future<T> Function() run) =>
+          IOOverrides.runWithIOOverrides(run, NoRoom());
+      // The first: from the damage report, back to the lock screen,
+      // which is to say the phone is full.
+      expect(await full(() => startup.journalDamaged(damagedError)), isTrue);
+      expect(
+        startup.state,
+        isA<Locked>().having((l) => l.noSpace, 'noSpace', isTrue),
+      );
+      // The book closed as it was, compared from here on.
+      final before = vault.databaseFile.readAsBytesSync();
+      // The second and third: openings that fail as the first did, said
+      // as a phone full, never given up.
+      for (var i = 0; i < 2; i++) {
+        Object? failed;
+        try {
+          await full(() => startup.unlockWithPassword(password));
+        } on Object catch (error) {
+          failed = error;
+        }
+        expect(
+          describeUnlockFailure(failed!, recovery: false),
+          LockWords.noSpace,
+        );
+        expect(startup.state, isA<Locked>());
+      }
+      expect(vault.databaseFile.readAsBytesSync(), before);
+      expect(vault.damagedCopies(), isEmpty, reason: 'nothing set aside');
+      // The fourth, with room again: made again and opened.
+      await startup.unlockWithPassword(password);
+      expect((startup.state as Ready).vault.store.rows().single.id, 'cash');
+      expect(vault.damagedCopies(), hasLength(1));
+      startup.lock();
+      expect(
+        startup.state,
+        isA<Locked>().having((l) => l.noSpace, 'noSpace', isFalse),
+      );
     });
 
     test('a book made again whose note cannot be let go of opens, never set '

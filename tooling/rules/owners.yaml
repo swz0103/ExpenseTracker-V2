@@ -302,6 +302,15 @@ items:
       - infrastructure/storage/lib/src/journal_store.dart
     target: infrastructure/storage/lib/
     status: owned
+  # ENOSPC / ERROR_DISK_FULL told from other failures (review 29): the
+  # copy before an upgrade and the book made again both ask it.
+  - id: no-space
+    what: 手機空間不足的判斷（寫入失敗是因為沒有空間）
+    layer: data
+    owner:
+      - infrastructure/storage/lib/src/no_space.dart
+    target: infrastructure/storage/lib/
+    status: owned
   # Today's records as intents, the old shapes each posted in a recorded
   # form, posting afresh (on worker isolates at first opening, D51), the
   # rules version and the parity check.

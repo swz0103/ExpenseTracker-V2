@@ -9,7 +9,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:storage/storage.dart'
-    show EncryptedDatabase, StorageProblem, StorageUnavailable;
+    show EncryptedDatabase, StorageProblem, StorageUnavailable, isNoSpace;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
@@ -55,6 +55,7 @@ final class Locked extends StartupState {
     required this.deviceUnlock,
     this.askFirst = true,
     this.passphrase = false,
+    this.noSpace = false,
   });
 
   /// This device has a key to try before asking for the password. It is
@@ -69,6 +70,10 @@ final class Locked extends StartupState {
   /// Whether a backup passphrase opens the ledger too, where the recovery
   /// code is asked for.
   final bool passphrase;
+
+  /// Back here because making the book again found the phone full
+  /// (review 29): the screen says so before anything is tried.
+  final bool noSpace;
 }
 
 /// The ledger's database is damaged (D94): empty, cut short or a page of
@@ -241,8 +246,9 @@ final class Startup extends ChangeNotifier {
         case SalvageNotMade(error: final failed, :final stack, :final gaveUp):
           ErrorLog.instance.record(ErrorSteps.salvageNotMade, failed, stack);
           // Failed too often this launch: set aside as damaged instead.
+          // A disk full never counts towards it (review 29).
           if (gaveUp) return false;
-          _state = _locked();
+          _state = _locked(noSpace: isNoSpace(failed));
           notifyListeners();
           return true;
       }
@@ -926,7 +932,7 @@ final class Startup extends ChangeNotifier {
     notifyListeners();
   }
 
-  StartupState _locked() {
+  StartupState _locked({bool noSpace = false}) {
     _quick.settle(ledgerExists: _vault.exists);
     if (!_vault.exists) return const NeedsSetup();
     final keyring = _keyring();
@@ -941,6 +947,7 @@ final class Startup extends ChangeNotifier {
       deviceUnlock: device != null && (enrolled || !turnedOff),
       askFirst: !turnedOff,
       passphrase: keyring?.hasPassphrase ?? false,
+      noSpace: noSpace,
     );
   }
 

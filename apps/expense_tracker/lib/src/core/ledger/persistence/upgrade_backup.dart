@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:storage/storage.dart' show isNoSpace;
 
 import '../../diagnostics/error_log.dart';
 import '../../diagnostics/error_steps.dart';
@@ -27,20 +27,11 @@ final class UpgradeBackupFailed extends UpgradeBackup {
 
   /// The failure of [error], thrown writing the copy.
   factory UpgradeBackupFailed.of(Object error) => UpgradeBackupFailed(
-    _noSpace(error) ? UpgradeBackupProblem.noSpace : UpgradeBackupProblem.other,
+    isNoSpace(error)
+        ? UpgradeBackupProblem.noSpace
+        : UpgradeBackupProblem.other,
     error,
   );
-
-  /// The system's "no space left on the device": ENOSPC on Linux and
-  /// Android, ERROR_DISK_FULL on Windows.
-  static const _enospc = 28;
-  static const _diskFull = 112;
-
-  static bool _noSpace(Object error) => switch (error) {
-    FileSystemException(osError: OSError(errorCode: _enospc || _diskFull)) =>
-      true,
-    _ => false,
-  };
 }
 
 /// Keeps the copy with [keep], which throws when it cannot: how it went,
