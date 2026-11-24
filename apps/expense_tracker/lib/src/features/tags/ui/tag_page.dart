@@ -330,11 +330,18 @@ class _RenameSheetState extends State<_RenameSheet> {
 
   void _done() {
     final typed = _text.text.trim().replaceFirst(RegExp('^#'), '');
-    Navigator.of(context).pop(typed.isEmpty ? null : typed);
+    EditGuard.close(context, typed.isEmpty ? null : typed);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _text,
+    builder: (context, form) =>
+        EditGuard(changed: _text.text != widget.name, child: form!),
+    child: _form(),
+  );
+
+  Widget _form() {
     final color = nameColor(widget.name);
     final ink = deepOf(color);
     return Padding(
@@ -402,6 +409,21 @@ class _RenameSheetState extends State<_RenameSheet> {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: Space.s4),
+          Row(
+            children: [
+              const Expanded(child: CancelButton()),
+              const SizedBox(width: Space.s2),
+              Expanded(
+                flex: 2,
+                child: PanelButton(
+                  Words.done,
+                  color: AppColors.accent,
+                  onTap: _done,
+                ),
+              ),
+            ],
           ),
         ],
       ),

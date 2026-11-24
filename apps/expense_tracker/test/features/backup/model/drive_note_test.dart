@@ -3,7 +3,7 @@
 library;
 
 import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
-import 'package:expense_tracker/src/features/backup/ui/drive_note.dart';
+import 'package:expense_tracker/src/features/backup/model/drive_note.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

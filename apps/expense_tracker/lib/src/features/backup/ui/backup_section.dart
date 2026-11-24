@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../design_system/display/amount.dart';
 import '../model/drive_backup.dart';
-import 'drive_note.dart';
+import '../model/drive_note.dart';
 import '../model/drive_sync.dart';
 import '../model/backup_manager.dart';
 import '../model/phone_backup.dart';

@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../formatting/words.dart';
+import 'components/buttons.dart';
 import 'components/panels.dart';
 import 'dialogs.dart';
 import 'feedback.dart';
 import 'keys.dart';
+import 'theme.dart';
 
 /// D83: every edit form's way out, the one block all of them use. While
 /// the form holds [changed] edits, any way of leaving it (取消, back, a
@@ -159,12 +161,23 @@ class _EditGuardState extends State<EditGuard> {
 /// An edit form's 取消, beside its main button: leaves, asking first
 /// while the form holds changes ([EditGuard.cancel]).
 class CancelButton extends StatelessWidget {
-  const CancelButton({super.key});
+  const CancelButton({super.key, this.word = false});
+
+  /// In words only, as a form's other word actions (刪除, 封存) beside a
+  /// filled 儲存; a panel button otherwise.
+  final bool word;
 
   @override
-  Widget build(BuildContext context) => PanelButton(
-    Words.cancel,
-    key: Keys.cancelEdit,
-    onTap: () => unawaited(EditGuard.cancel(context)),
-  );
+  Widget build(BuildContext context) {
+    void cancel() => unawaited(EditGuard.cancel(context));
+    if (word) {
+      return TextButton(
+        key: Keys.cancelEdit,
+        onPressed: cancel,
+        style: wordButton(AppColors.muted, minimumSize: const Size(64, 46)),
+        child: const Text(Words.cancel),
+      );
+    }
+    return PanelButton(Words.cancel, key: Keys.cancelEdit, onTap: cancel);
+  }
 }
