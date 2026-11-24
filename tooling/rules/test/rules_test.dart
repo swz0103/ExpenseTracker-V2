@@ -273,6 +273,59 @@ void f(DateTime d, int rocYear, int month, int day, int i) {
     });
   });
 
+  group('B4-calendar-by-hand: steps written another way (R28)', () {
+    const rule = CalendarByHand();
+    const step =
+        'a month or year stepped by hand with its day: use monthsAfter '
+        'or yearBefore';
+    test('flags a step in brackets, with hours, local, a year stepped by a '
+        'value, and a step in a ?:', () {
+      final v = run(rule, {
+        '$_feat/a/x.dart': '''
+void f(DateTime d, int y, int m, int n) {
+  final a = DateTime.utc(y, (m - 1), d.day);
+  final b = DateTime.utc(y, m - 1, d.day, 0);
+  final c = DateTime(y, m - 1, d.day);
+  final e = DateTime.utc(d.year - n, d.month, d.day);
+  final g = DateTime.utc(m == 1 ? y - 1 : y, m == 1 ? 12 : m - 1, d.day);
+  final h = DateTime(y, m + 1, 0);
+  final i = DateTime.utc(y, (m + 1), (0));
+  final j = DateTime(y, m == 12 ? 1 : m + 1);
+}
+''',
+      });
+      expect(
+        [for (final e in v) (e.line, e.message)],
+        [
+          (2, step),
+          (3, step),
+          (4, step),
+          (5, step),
+          (6, step),
+          (7, 'a month end by hand: use monthEnd or daysInMonth'),
+          (8, 'a month end by hand: use monthEnd or daysInMonth'),
+          (9, 'a month stepped by hand: use monthStart or shiftMonth'),
+        ],
+      );
+    });
+    test('passes day 1 in brackets, an offset year, a local day of a moment '
+        'and a ?: without a step', () {
+      expect(
+        run(rule, {
+          '$_feat/a/x.dart': '''
+void f(DateTime d, int y, int m, int rocYear, bool b) {
+  final a = DateTime(y, m - 1, (1));
+  final c = DateTime.utc(rocYear + rocYearOffset, m, d.day, 12);
+  final e = DateTime(d.year, d.month, d.day);
+  final g = DateTime.utc(b ? y : d.year, b ? m : d.month, d.day);
+}
+''',
+        }),
+        isEmpty,
+      );
+    });
+  });
+
   group('B5-owned-values', () {
     const rule = OwnedValues();
     test('flags an owned value outside its owner', () {

@@ -14,15 +14,20 @@ bool _isCode(SourceFile file) =>
 /// B4: days and months are worked out by core's calendar helpers
 /// (`dayOf`, `monthStart`, `monthEnd`, `monthStarts`, `monthIndex`,
 /// `shiftMonth`, `monthsAfter`, `yearBefore`), not by hand around
-/// `DateTime.utc`. A month or year step that keeps a day,
-/// `DateTime.utc(y, m - 1, d)` or `DateTime.utc(y + 1, m, d)`, runs over
-/// into the next month when that month is shorter (31 March one month
-/// back is 3 March); only day 1, which every month has, is let pass.
+/// `DateTime.utc` or `DateTime` (with or without hours; a local day
+/// stripped is the phone's own day, which is not `dayOf`'s). A month or
+/// year step that keeps a day, `DateTime.utc(y, m - 1, d)` or
+/// `DateTime.utc(y + 1, m, d)`, runs over into the next month when that
+/// month is shorter (31 March one month back is 3 March); only day 1,
+/// which every month has, is let pass. A step in brackets, or in either
+/// branch of a `?:`, is a step all the same (review 28).
 ///
 /// Known noise: `DateTime.utc(a, b - c)` that is not a month step, and a
 /// product with 12 that names a year but is not a month count, are
-/// flagged all the same; a step written through variables is missed, and
-/// so is a year stepped by anything but a written number.
+/// flagged all the same; a step written through variables is missed. A
+/// year is stepped by a written number, or by anything from a value
+/// named a year (`d.year - n`); one brought to another calendar by a
+/// value named an offset (`rocYear + rocYearOffset`) passes.
 final class CalendarByHand extends FileRule {
   const CalendarByHand();
 
@@ -43,23 +48,23 @@ final class CalendarByHand extends FileRule {
     void flag(AstNode node, String message) =>
         found.add(Violation(id, file.path, file.lineOfNode(node), message));
     for (final call in callsIn(file)) {
-      if (!call.matches('DateTime', 'utc')) continue;
+      final utc = call.matches('DateTime', 'utc');
+      if (!utc && !call.matches(null, 'DateTime')) continue;
       final args = call.arguments;
-      if (args.length == 3 && _isDayStrip(args)) {
+      // A local day of a moment is the phone's own day, which dayOf (in
+      // UTC) is not: only its steps and month ends are by hand.
+      if (utc && args.length >= 3 && _isDayStrip(args)) {
         flag(call.node, 'a day stripped by hand: use dayOf');
-      } else if (args.length == 3 &&
-          args[2] is IntegerLiteral &&
-          (args[2] as IntegerLiteral).value == 0) {
+      } else if (args.length >= 3 && _isInt(args[2], 0)) {
         flag(call.node, 'a month end by hand: use monthEnd or daysInMonth');
       } else if (args.length == 2 && _isStep(args[1])) {
         flag(
           call.node,
           'a month stepped by hand: use monthStart or shiftMonth',
         );
-      } else if (args.length == 3 &&
-          (_isStep(args[0], byNumber: true) || _isStep(args[1])) &&
-          !(args[2] is IntegerLiteral &&
-              (args[2] as IntegerLiteral).value == 1)) {
+      } else if (args.length >= 3 &&
+          (_isStep(args[0], year: true) || _isStep(args[1])) &&
+          !_isInt(args[2], 1)) {
         flag(
           call.node,
           'a month or year stepped by hand with its day: use monthsAfter '
@@ -75,13 +80,34 @@ final class CalendarByHand extends FileRule {
     return found;
   }
 
-  /// `a + n` or `a - n`: a month stepped; a year only [byNumber], a
-  /// written number of years (`year - 1`), so that a year brought to
-  /// another calendar (`rocYear + rocYearOffset`) passes.
-  static bool _isStep(Argument e, {bool byNumber = false}) =>
-      e is BinaryExpression &&
-      const {'+', '-'}.contains(e.operator.lexeme) &&
-      (!byNumber || e.rightOperand is IntegerLiteral);
+  /// Whether [e], out of its brackets, is the written number [value].
+  static bool _isInt(AstNode e, int value) =>
+      _bare(e) is IntegerLiteral && (_bare(e) as IntegerLiteral).value == value;
+
+  /// [e] out of any brackets around it.
+  static AstNode _bare(AstNode e) =>
+      e is ParenthesizedExpression ? _bare(e.expression) : e;
+
+  /// `a + n` or `a - n`, in brackets or in either branch of a `?:`: a
+  /// month stepped. A [year] is stepped by a written number
+  /// (`year - 1`), or by anything from a value named a year
+  /// (`d.year - n`), but not by a value named an offset, so that a year
+  /// brought to another calendar (`rocYear + rocYearOffset`) passes.
+  static bool _isStep(AstNode e, {bool year = false}) => switch (_bare(e)) {
+    ConditionalExpression(:final thenExpression, :final elseExpression) =>
+      _isStep(thenExpression, year: year) ||
+          _isStep(elseExpression, year: year),
+    BinaryExpression(:final operator, :final leftOperand, :final rightOperand)
+        when const {'+', '-'}.contains(operator.lexeme) =>
+      !year || _yearStep(leftOperand, _bare(rightOperand)),
+    _ => false,
+  };
+
+  static bool _yearStep(AstNode left, AstNode right) =>
+      right is IntegerLiteral ||
+      left.toSource().toLowerCase().endsWith('year') &&
+          !(right is Identifier &&
+              right.toSource().toLowerCase().endsWith('offset'));
 
   /// `DateTime.utc(x.year, x.month, x.day)` of one and the same `x`.
   static bool _isDayStrip(NodeList<Argument> args) {
