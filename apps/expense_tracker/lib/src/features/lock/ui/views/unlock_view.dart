@@ -175,7 +175,7 @@ class _UnlockViewState extends State<UnlockView>
     final screen = MediaQuery.sizeOf(context);
     final inset = MediaQuery.paddingOf(context);
     final back = widget.onBack;
-    final scale = MediaQuery.textScalerOf(context).scale(1.0);
+    final scale = textGrowth(context);
     final height = _heightFor(scale < 1 ? 1 : scale);
     return Stack(
       children: [
