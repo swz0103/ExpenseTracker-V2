@@ -185,4 +185,25 @@ void main() {
       'backup 1',
     );
   });
+
+  test('emptied after a reset of the keys: the waiting backup and what '
+      'says it is ready go, even with nowhere to deliver now; what was '
+      'delivered is kept (review 22 finding 2)', () async {
+    preferences.phoneFolderSet('content://tree/backups', name: '備份');
+    final box = outbox();
+    expect(await box.prepare(), isTrue);
+    deliver({'problems': <String, Object?>{}});
+    // Delivery turned off since: the backup would otherwise stay for good.
+    preferences.phoneFolderSet(null);
+    expect(await box.prepare(), isFalse);
+    expect(backups(), ['記帳本-1.etbk']);
+    await box.empty();
+    expect(backups(), isEmpty);
+    expect(File('${folder().path}/ready.json').existsSync(), isFalse);
+    expect(File('${folder().path}/delivered.json').existsSync(), isTrue);
+    // Nothing there at all: nothing to do.
+    directory.deleteSync(recursive: true);
+    directory.createSync();
+    await box.empty();
+  });
 }

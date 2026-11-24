@@ -51,6 +51,12 @@ final class OpenVault {
   }
 
   void close() => store.close();
+
+  /// The databases kept beside this ledger ([LedgerVault.keptDatabases]).
+  List<File> keptDatabases() => _vault.keptDatabases();
+
+  /// Deletes [file], one of [keptDatabases], with its log.
+  Future<void> deleteKept(File file) => _vault.deleteKept(file);
 }
 
 /// The ledger's files on this device: `keyring.json` next to `ledger.db`.
@@ -678,6 +684,28 @@ final class LedgerVault {
             entity.path.endsWith('.db'))
           entity,
     ]..sort((a, b) => a.path.compareTo(b.path));
+  }
+
+  /// The databases kept here beside the ledger, oldest first: the copies
+  /// set aside as damaged ([damagedCopies]) and a ledger set aside in the
+  /// old format (`ledger-v2.db`). Each is still encrypted with the keys it
+  /// was made under, so a reset of the keys leaves them openable with the
+  /// old ones: the app lists them for the person to take away.
+  List<File> keptDatabases() => [
+    ...damagedCopies(),
+    if (_oldFormatCopy.existsSync()) _oldFormatCopy,
+  ];
+
+  /// Where a ledger from before records were kept as rows is set aside.
+  File get _oldFormatCopy => File('${directory.path}/ledger-v2.db');
+
+  /// Deletes [file], one of [keptDatabases], with its log. Any other file
+  /// is refused ([ArgumentError]): the ledger itself is never taken.
+  Future<void> deleteKept(File file) async {
+    if (!keptDatabases().any((kept) => kept.path == file.path)) {
+      throw ArgumentError.value(file.path, 'file', 'not a kept database');
+    }
+    await _deleteDatabase(file);
   }
 
   static Future<void> _deleteDatabase(File file) async {

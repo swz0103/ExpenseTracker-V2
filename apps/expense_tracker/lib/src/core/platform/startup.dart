@@ -417,6 +417,11 @@ final class Startup extends ChangeNotifier {
 
   var _keysReset = false;
 
+  /// When the keys were last replaced in this run ([resetKeys]), taken
+  /// just before: a backup written before it was sealed with the old keys.
+  DateTime? get keysResetAt => _keysResetAt;
+  DateTime? _keysResetAt;
+
   /// Whether the code [takeRecoveryCode] gives comes from resetting the
   /// keys, once.
   bool takeKeysReset() {
@@ -583,6 +588,7 @@ final class Startup extends ChangeNotifier {
       await codec.unlockWithPassword(open.keys.keyring, password);
       secret = password;
     }
+    final at = AppClock.now();
     final reset = await open.keys.reset(password: secret);
     if (quick) await _quick.write(_quick.next, secret);
     final OpenVault next;
@@ -596,6 +602,7 @@ final class Startup extends ChangeNotifier {
     await recoveryGiven.writeAsString('', flush: true);
     _recovery = reset.recoveryCode;
     _keysReset = true;
+    _keysResetAt = at;
     _ready(next);
   }
 

@@ -10,6 +10,7 @@ import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
+import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
 /// Backups, restore and keys of the encrypted ledger, as the settings
@@ -45,6 +46,29 @@ void main() {
     Ready(:final vault) => vault,
     _ => throw StateError('Not open'),
   };
+
+  test('the copy for Android\'s backup is written again after a reset of '
+      'the keys, the ledger unchanged (review 22 finding 2)', () async {
+    final startup = startupIn('cloud-reset');
+    await startup.setUp(password);
+    final before = EncryptedBackupManager(startup, vaultOf(startup));
+    // One counted write: revision 1. The re-keyed copy is written in one
+    // batch, so it stands at revision 1 too.
+    vaultOf(startup).store.write((w) => w.setMeta('note', 1));
+    expect(before.revision, 1);
+    expect(await before.keepCloudCopy(), isTrue);
+    expect(await before.keepCloudCopy(), isFalse, reason: 'nothing changed');
+    final revision = before.revision;
+    await startup.resetKeys(password: password);
+    final after = EncryptedBackupManager(startup, vaultOf(startup));
+    // Same revision, but sealed with epoch 1 while backups now use 2.
+    expect(after.revision, revision);
+    expect(revision, 1);
+    expect(await after.keepCloudCopy(), isTrue);
+    expect((await LedgerBackup.readHeader(startup.cloudCopy)).backupEpoch, 2);
+    expect(await after.keepCloudCopy(), isFalse);
+    vaultOf(startup).close();
+  });
 
   test('a copy kept before an upgrade is offered to restore, the last two '
       'kept', () async {

@@ -351,6 +351,16 @@ final class LifecycleServices {
     }
   }
 
+  /// After a reset of the keys: the backup waiting for the background
+  /// job was sealed with the old ones, and goes ([Outbox.empty]).
+  Future<void> emptyOutbox() async {
+    try {
+      await _outbox?.empty();
+    } on Object catch (error) {
+      ErrorLog.instance.record('背景備份', error);
+    }
+  }
+
   /// Notes what the background job delivered while the app was closed.
   void collectOutbox() {
     try {

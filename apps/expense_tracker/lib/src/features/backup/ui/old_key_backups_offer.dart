@@ -17,6 +17,9 @@ Future<void> offerToRemoveOldKeyBackups(
   if (!context.mounted) return;
   if (found.isEmpty) {
     if (found.driveUnreached) showNote(context, KeyWords.oldBackupsUnreached);
+    if (found.folderUnreached) {
+      showNote(context, KeyWords.oldBackupsFolderUnreached);
+    }
     return;
   }
   final sure = await confirm(
@@ -27,7 +30,12 @@ Future<void> offerToRemoveOldKeyBackups(
     body: KeyWords.oldBackupsBody(
       drive: [for (final f in found.drive) formatYMd(f.modified.toLocal())],
       phone: [for (final (_, at) in found.local) formatYMd(at.toLocal())],
+      folder: [for (final f in found.folder) formatYMd(f.modified.toLocal())],
+      databases: [
+        for (final (_, at) in found.databases) formatYMd(at.toLocal()),
+      ],
       driveUnreached: found.driveUnreached,
+      folderUnreached: found.folderUnreached,
     ),
   );
   if (!sure) return;

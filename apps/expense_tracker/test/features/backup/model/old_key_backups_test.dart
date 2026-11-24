@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:core/app_core.dart' show FixedClock;
+import 'package:core/foundation_values.dart' show UtcInstant;
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
@@ -9,7 +11,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
+import 'package:expense_tracker/src/core/platform/preferences.dart';
+import 'package:expense_tracker/src/core/time/app_clock.dart';
+import 'package:expense_tracker/src/features/backup/model/phone_backup.dart';
+
 import '../../../support/fake_drive.dart';
+import '../../../support/fake_folder.dart';
 
 /// D15: after a reset of the keys, the backups still sealed with the old
 /// ones are found, on Drive and on the phone, and taken away only when
@@ -114,4 +121,81 @@ void main() {
     expect(File(newPath).existsSync(), isTrue);
     vaultOf(startup).close();
   });
+
+  test('after a reset: the folder\'s backups written before it and the '
+      'databases kept beside the ledger are listed, and taken only when '
+      'asked (review 22 finding 2)', () async {
+    final startup = Startup(
+      LedgerVault(
+        directory,
+        codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
+      ),
+      check: SqlLedgerDataSource.check,
+    );
+    await startup.setUp(password);
+    // A copy set aside as damaged before, still under the old keys.
+    final damaged = File(
+      '${directory.path}/ledger-damaged-2026-11-01T08-00-00.000Z.db',
+    )..writeAsStringSync('old pages');
+    final folder = FakeFolder();
+    final preferences = Preferences()
+      ..phoneFolderSet('content://tree/backups', name: '備份');
+    var now = DateTime(2026, 11, 20, 9);
+    final phone = PhoneBackup(
+      folder,
+      preferences,
+      withBackup: (use) async {
+        final file = File('${directory.path}/b.etbk')..writeAsStringSync('b');
+        await use(file);
+      },
+      revision: () => 1,
+      ledger: 'ledger-one',
+      clock: () => now,
+    );
+    await phone.backUpNow();
+    final oldName = phone.nameAt(now);
+    expect(startup.keysResetAt, isNull);
+    final resetAt = DateTime(2026, 11, 24, 10);
+    AppClock.use(FixedClock(UtcInstant(resetAt.toUtc())));
+    addTearDown(AppClock.reset);
+    await startup.resetKeys(password: password);
+    expect(startup.keysResetAt, resetAt);
+    now = DateTime(2026, 11, 24, 11);
+    await phone.backUpNow();
+    final newName = phone.nameAt(now);
+    final after = EncryptedBackupManager(startup, vaultOf(startup));
+    final old = OldKeyBackups(
+      epoch: after.backupEpoch,
+      localBackups: after.keptBackups,
+      folderBackups: () => phone.writtenBefore(resetAt),
+      deleteInFolder: phone.remove,
+      keptDatabases: after.keptDatabases,
+      deleteDatabase: after.deleteKeptDatabase,
+    );
+    final found = await old.find();
+    expect([for (final f in found.folder) f.name], [oldName]);
+    expect([for (final (f, _) in found.databases) f.path], [damaged.path]);
+    expect(found.isEmpty, isFalse);
+    expect(folder.files.keys.toSet(), {oldName, newName});
+    expect(damaged.existsSync(), isTrue);
+    expect(await old.remove(found), 2);
+    expect(folder.files.keys, [newName]);
+    expect(damaged.existsSync(), isFalse);
+    expect(after.keptDatabases(), isEmpty);
+    vaultOf(startup).close();
+  });
+
+  test(
+    'a folder that cannot be read leaves its list out, and says so',
+    () async {
+      final old = OldKeyBackups(
+        epoch: 2,
+        localBackups: () async => const [],
+        folderBackups: () async => throw StateError('no permission'),
+      );
+      final found = await old.find();
+      expect(found.isEmpty, isTrue);
+      expect(found.folderUnreached, isTrue);
+    },
+  );
 }
