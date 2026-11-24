@@ -49,6 +49,10 @@ Future<PostedBook> Function(List<StoredRecord>, AddPart) postingWork({
     (rows, add) => _postBook(rows, add, aside, start);
 
 /// A record's JSON as this version reads it, or null for one set aside.
+/// Every record the book set aside as it opened is left out by [aside],
+/// so any other is read as the book read it; one that cannot be read
+/// now fails the posting, which leaves the journal as it was (its mark
+/// not moved) and is kept in the diagnostics log by the keeper.
 Map<String, Object?>? _readable(StoredRecord row, Set<String> aside) {
   if (aside.contains('${row.shelf}/${row.id}')) return null;
   final json = readableRecord(row.body);
@@ -56,23 +60,6 @@ Map<String, Object?>? _readable(StoredRecord row, Set<String> aside) {
   final version = versionOf(json);
   if (version == null || version > recordVersion) return null;
   return upgradeRecord(row.shelf, json);
-}
-
-/// [from] of each of [rows]; a row it cannot read is set aside as the
-/// book opens it, so it has no postings.
-List<T> _read<T>(
-  Iterable<Map<String, Object?>> rows,
-  T Function(Map<String, Object?>) from,
-) {
-  final read = <T>[];
-  for (final json in rows) {
-    try {
-      read.add(from(json));
-    } on FormatException {
-      continue;
-    }
-  }
-  return read;
 }
 
 Future<PostedBook> _postBook(
@@ -92,8 +79,8 @@ Future<PostedBook> _postBook(
         (id, name),
   ];
   final refs = CategoryRefs()..fill(names);
-  final accounts = _read(of(Collection.account), accountFromJson);
-  final categories = _read(categoryJson, (j) => categoryFromJson(j, refs));
+  final accounts = of(Collection.account).map(accountFromJson).toList();
+  final categories = [for (final j in categoryJson) categoryFromJson(j, refs)];
   final entries = [
     for (final row in rows)
       if (row.shelf == Collection.entry.name) row,
@@ -212,13 +199,7 @@ _Slice _postSlice(
   for (final row in rows) {
     final json = _readable(row, aside);
     if (json == null) continue;
-    final Entry entry;
-    try {
-      entry = entryFromJson(json, refs);
-    } on FormatException {
-      // Set aside as the book opens: no postings.
-      continue;
-    }
+    final entry = entryFromJson(json, refs);
     final mapped = mapping.map(entry, row.seq);
     for (final account in mapped.accounts) {
       tree.put(account);
