@@ -55,9 +55,9 @@ final class ComposeForm {
     required EntryType type,
     this.editing,
     this.draft,
-    this.refunded,
+    Entry? refunded,
     this.brokerDiscount = defaultBrokerDiscount,
-  }) {
+  }) : refunded = refunded ?? _refundedBy(ledger, draft) {
     mode = ComposeMode.of(type);
     trade = type.index >= EntryType.buy.index ? type : EntryType.buy;
     fresh();
@@ -86,8 +86,16 @@ final class ComposeForm {
   /// A new entry's starting values, such as a card payment.
   final Entry? draft;
 
-  /// The spending being refunded, for a refund.
-  final Entry? refunded;
+  /// The spending being refunded, for a refund: given, or named by the
+  /// draft or the form put aside it starts from (D79).
+  Entry? refunded;
+
+  /// The spending [draft] refunds, while the book still holds it.
+  static Entry? _refundedBy(Ledger ledger, Entry? draft) =>
+      switch (draft?.refundOf) {
+        final String id => ledger.entries.byId(id),
+        null => null,
+      };
 
   /// The phone-wide broker's discount, in basis points of the full fee:
   /// the preference 券商手續費折扣, for a trade's account without its own.
@@ -360,6 +368,8 @@ final class ComposeForm {
   /// Brings back a form put aside: [entry] with its receipt photo, on
   /// accounts still open; when none is open, its own accounts stay.
   void restore(Entry entry, String? photo) {
+    // A refund put aside is taken up as a refund of the same purchase.
+    refunded = _refundedBy(ledger, entry) ?? refunded;
     load(entry);
     findLending(entry);
     if (entry.isInvestment) trade = entry.type;
@@ -559,7 +569,7 @@ final class ComposeForm {
       // Paid back: from the person's account into the chosen one.
       account: lendingBack ? to : account,
       category: switch (kind) {
-        EntryType.transfer => transferCategory,
+        EntryType.transfer => keptCategory(kind, editing?.category ?? ''),
         EntryType.dividend => dividendCategory,
         EntryType.buy || EntryType.sell => investmentCategory,
         _ => split == null || split.isEmpty ? category : split.first.$1,

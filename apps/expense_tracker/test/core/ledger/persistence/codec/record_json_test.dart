@@ -181,6 +181,31 @@ void main() {
     expect(again.datesIn(2026, 3), rent.datesIn(2026, 3));
   });
 
+  test('D80: a transfer kept with no category reads under 轉帳; a '
+      'recurring item reads back with the day 恢復 brought back', () {
+    final read = entryFromJson({
+      'id': 't',
+      'date': '2026-10-01',
+      'type': 'transfer',
+      'amount': 100,
+      'account': 'bank',
+      'to': 'cash',
+    });
+    expect(read.category, '轉帳');
+    final item = Recurring(
+      id: 'r',
+      name: 'r',
+      amount: 1,
+      day: 5,
+      account: 'bank',
+      category: '居家',
+      openFrom: DateTime.utc(2026, 6, 5),
+    );
+    final json = recurringToJson(item);
+    expect(json['openFrom'], '2026-06-05');
+    expect(recurringFromJson(json).openFrom, DateTime.utc(2026, 6, 5));
+  });
+
   test('a record of the wrong shape is a format error', () {
     expect(
       () => entryFromJson({'id': 'x', 'date': 'soon'}),

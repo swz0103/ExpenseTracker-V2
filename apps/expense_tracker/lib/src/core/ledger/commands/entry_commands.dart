@@ -80,6 +80,7 @@ final class EntryCommands {
     List<Category> categories = const [],
   }) {
     if (entries.isEmpty && accounts.isEmpty && categories.isEmpty) return;
+    entries = _kept(entries);
     _check(entries, opening: accounts);
     final count = _entries.length;
     _entries.addAll(entries);
@@ -113,6 +114,7 @@ final class EntryCommands {
   /// Puts each of [entries] in place of the one with the same id, as one
   /// change; those the ledger does not hold are left out.
   void replaceAll(List<Entry> entries) {
+    entries = _kept(entries);
     _check(entries, replacing: entries.map((e) => e.id));
     final before = <int, Entry>{};
     for (final e in entries) {
@@ -149,6 +151,7 @@ final class EntryCommands {
     if (was.any((id) => _entries.byId(id) == null && _trash.holds(id))) {
       throw RecordRefused(const [EntryDeleted()]);
     }
+    entries = _kept(entries);
     _check(entries, replacing: was);
     final ids = {for (final e in entries) e.id};
     final gone = {...was}..removeAll(ids);
@@ -490,6 +493,18 @@ final class EntryCommands {
     replaceAll(moved);
     return moved.length;
   }
+
+  /// [entries] as the book keeps them: a transfer with no category under
+  /// [transferCategory], by the one rule the book is read with
+  /// ([keptCategory], D80).
+  static List<Entry> _kept(List<Entry> entries) => [
+    for (final e in entries)
+      if (keptCategory(e.type, e.category) case final name
+          when name != e.category)
+        e.withCategory(name)
+      else
+        e,
+  ];
 
   /// Spending or income that is not a refund: what a batch may change.
   static bool _plain(Entry e) =>
