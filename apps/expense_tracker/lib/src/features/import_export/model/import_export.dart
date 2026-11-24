@@ -4,7 +4,7 @@ import 'package:core/foundation_values.dart' show BusinessDate, Currency;
 import 'package:core/money/amount_parser.dart';
 import 'package:core/money/typed_text.dart' show plainText;
 import 'package:domain/data_exchange.dart';
-import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/foundation.dart' show compute, visibleForTesting;
 
 import '../../../../design_system/display/amount.dart';
 import '../../../core/formatting/words.dart';
@@ -216,6 +216,10 @@ String _day(DateTime d) => BusinessDate.of(d).toString();
 /// reads it; words after a closing quote throw [CsvFormatException]. Not
 /// what an import reads: [importCsv] refuses a quote left open, the whole
 /// file, rather than run the rest of it into one cell.
+///
+/// Read by the tests that pin how a spreadsheet's CSV is read (the
+/// baseline among them); the app imports with [importCsvApart].
+@visibleForTesting
 List<List<String>> parseCsv(String text) {
   try {
     return readCsv(text);
@@ -228,6 +232,9 @@ List<List<String>> parseCsv(String text) {
 
 /// The day [text] writes ([readImportDay], decision D93), as a UTC
 /// midnight; null when it is not taken, [readImportDay] saying why.
+/// For the tests (the baseline among them): an import reads its days
+/// with [readImportDay].
+@visibleForTesting
 DateTime? readDay(String text) => _utcDay(readImportDay(text));
 
 /// The day [read], as a UTC midnight; null when it was refused.
@@ -327,6 +334,10 @@ const _shades = [
 /// out, naming the line: the rest of it is never run into one cell. Each
 /// line left out is named by the line of the file it is on, blank lines
 /// and line breaks inside quoted words counted.
+///
+/// The same pipeline as [importCsvApart], all at once: for the tests
+/// (the baseline among them); the app imports with [importCsvApart].
+@visibleForTesting
 Import importCsv(ImportBook book, String text, {required String fallback}) =>
     switch (_readCsv(text)) {
       (rows: final rows?, unreadable: _) => _importing(

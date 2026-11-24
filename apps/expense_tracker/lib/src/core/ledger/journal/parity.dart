@@ -95,12 +95,6 @@ final class OutOfParity extends Parity {
   });
 
   final List<Difference> differences;
-
-  /// The differences in words for the diagnostics log: which figures of
-  /// what, never an amount.
-  String get described =>
-      [for (final d in differences) '${d.figure.name} ${d.subject} ${d.at}']
-          .join('; ');
 }
 
 /// What of a book to compare: every account, month and stock, or those a

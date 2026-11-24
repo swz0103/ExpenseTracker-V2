@@ -60,8 +60,6 @@ void main() {
     final refs = CategoryRefs([_category('a', '飲食'), _category('b', '交通')]);
     expect(refs.idOf('飲食'), 'a');
     expect(refs.nameOf('b'), '交通');
-    expect(refs.knows('a'), isTrue);
-    expect(refs.knows('z'), isFalse);
   });
 
   test(
@@ -85,7 +83,7 @@ void main() {
     final refs = CategoryRefs([_category('a', '飲食')]);
     refs.remove('a');
     expect(refs.idOf('飲食'), isNull);
-    expect(refs.knows('a'), isFalse);
+    expect(refs.nameOf('a'), 'a');
     refs.remove('a'); // twice is fine
   });
 
@@ -99,9 +97,8 @@ void main() {
     expect(refs.idOf('Z'), isNull);
   });
 
-  test('lenient refs know every id and name it as itself', () {
-    final refs = CategoryRefs.lenient();
-    expect(refs.knows('anything'), isTrue);
+  test('refs of no categories name every id as itself', () {
+    final refs = CategoryRefs();
     expect(refs.nameOf('anything'), 'anything');
     expect(refs.idOf('name'), isNull);
   });

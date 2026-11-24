@@ -29,14 +29,6 @@ final class RecurringService {
   final QueryCache _cache;
   final DateTime Function() _today;
 
-  /// The entries booking [item] in [year]/[month], earliest first.
-  List<Entry> confirmationsIn(Recurring item, int year, int month) => [
-    // Exception to as-of-today: a booking written ahead, 預定, still books its
-    // day.
-    for (final e in _entries.inMonth(year, month).reversed)
-      if (e.recurring == item.id) e,
-  ];
-
   /// Every entry booking each recurring item, by item id, oldest day
   /// first and within a day in the order written.
   Map<String, List<Entry>> _bookings() => _cache.remember(

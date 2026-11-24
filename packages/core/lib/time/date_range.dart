@@ -14,9 +14,6 @@ final class DateRange {
   /// How many days it covers, both ends counted.
   int get days => first.daysUntil(last) + 1;
 
-  /// Whether it starts in one year and ends in another.
-  bool get crossesYears => first.year != last.year;
-
   bool contains(BusinessDate date) =>
       !date.isBefore(first) && !date.isAfter(last);
 

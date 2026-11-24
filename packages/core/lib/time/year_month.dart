@@ -29,10 +29,6 @@ final class YearMonth implements Comparable<YearMonth> {
   BusinessDate get firstDay => BusinessDate(year, month, 1);
   BusinessDate get lastDay => BusinessDate(year, month, days);
 
-  /// [day] of this month, held to its last day.
-  BusinessDate dayClamped(int day) =>
-      BusinessDate(year, month, day > days ? days : day);
-
   /// How many months from this one to [other] (negative when earlier).
   int monthsUntil(YearMonth other) =>
       (other.year - year) * 12 + other.month - month;

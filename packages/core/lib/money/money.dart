@@ -1,15 +1,7 @@
 enum MoneyError { invalidInput, precision, overflow, currencyMismatch }
 
 /// Strict decimal minor units as persisted: an optional '-', no leading
-/// zeros, no '+', whitespace, '-0' or hex. Throws [FormatException], as
-/// [BigInt.parse] does, so decoders keep their error handling.
-BigInt parseMinorUnits(String text) {
-  if (text.length > 20 || !_minorUnitsPattern.hasMatch(text)) {
-    throw FormatException('Invalid minor units', text);
-  }
-  return BigInt.parse(text);
-}
-
+/// zeros, no '+', whitespace, '-0' or hex.
 final _minorUnitsPattern = RegExp(r'^(0|-?[1-9][0-9]*)$');
 
 final class MoneyException implements Exception {

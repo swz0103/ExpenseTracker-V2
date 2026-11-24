@@ -51,7 +51,6 @@ void main() {
     // 2026-01-08 to 2026-11-22: 23 + 28 + 31 + 30 + 31 + 30 + 31 + 31
     // + 30 + 31 + 22 = 318.
     expect(BusinessDate(2026, 1, 8).daysUntil(BusinessDate(2026, 11, 22)), 318);
-    expect(BusinessDate(2026, 1, 8).yearMonth, YearMonth(2026, 1));
     expect(BusinessDate(2026, 1, 8).compact, '20260108');
     expect(BusinessDate(2026, 1, 8).asUtcMidnight, DateTime.utc(2026, 1, 8));
     expect(

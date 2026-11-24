@@ -85,10 +85,6 @@ final class HolidayCalendar {
   BusinessDayAnswer<BusinessDate> nextBusinessDay(BusinessDate date) =>
       _walk(date, 1, 1);
 
-  /// The last business day before [date].
-  BusinessDayAnswer<BusinessDate> previousBusinessDay(BusinessDate date) =>
-      _walk(date, -1, 1);
-
   /// [date] when it is a business day, otherwise the next one: where a due
   /// date that falls on a day off moves to.
   BusinessDayAnswer<BusinessDate> onOrAfter(BusinessDate date) =>

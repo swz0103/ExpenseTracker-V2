@@ -40,16 +40,12 @@ void main() {
     });
   });
 
-  group('next and previous business day', () {
+  group('next business day', () {
     test('skip the Lunar New Year and the weekend around it', () {
       // 2026-02-13 Fri; 14-15 weekend; 16-20 holidays; 21-22 weekend.
       expect(
         taiwanHolidays.nextBusinessDay(d(2026, 2, 13)).value,
         d(2026, 2, 23),
-      );
-      expect(
-        taiwanHolidays.previousBusinessDay(d(2026, 2, 23)).value,
-        d(2026, 2, 13),
       );
     });
     test('onOrAfter keeps a business day and moves a day off', () {

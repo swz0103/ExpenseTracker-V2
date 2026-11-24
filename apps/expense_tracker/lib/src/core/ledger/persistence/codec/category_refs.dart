@@ -7,17 +7,12 @@ import '../../models/category.dart';
 /// A name no category has (an entry that still carries one since deleted)
 /// has no id and is kept as the name it is.
 final class CategoryRefs {
-  CategoryRefs([Iterable<Category> categories = const []]) : _lenient = false {
+  CategoryRefs([Iterable<Category> categories = const []]) {
     categories.forEach(set);
   }
 
-  /// Refs that take every id for its own name, for reading a row out of
-  /// context, as a backup is checked before it is restored.
-  CategoryRefs.lenient() : _lenient = true;
-
   final _names = <String, String>{};
   final _ids = <String, String>{};
-  final bool _lenient;
 
   /// The id of the category named [name]; null when there is none.
   String? idOf(String name) => _ids[name];
@@ -25,9 +20,6 @@ final class CategoryRefs {
   /// The name of the category with [id]; the id itself when there is none,
   /// so what cannot be placed is still shown.
   String nameOf(String id) => _names[id] ?? id;
-
-  /// Whether a category with [id] is known.
-  bool knows(String id) => _lenient || _names.containsKey(id);
 
   /// Puts [category] in, or renames the one with its id.
   void set(Category category) {

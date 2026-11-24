@@ -3,8 +3,9 @@ import '../repositories/draft_repository.dart';
 import '../repositories/receipt_repository.dart';
 import 'command_context.dart';
 
-/// Writes what is kept beside the entries: receipt photos and the forms
-/// put aside in the composer.
+/// Writes what is kept beside the entries: the forms put aside in the
+/// composer. A receipt photo is written with its entry, by the entry
+/// commands' `add` and `replace`.
 final class AttachmentCommands {
   AttachmentCommands({
     required this._context,
@@ -26,13 +27,5 @@ final class AttachmentCommands {
   void setDraft(String tab, String? json) {
     if (!_drafts.set(tab, json)) return;
     _context.keep(WriteBatch(drafts: {tab: json}));
-  }
-
-  /// Gives the entry with [id] the receipt photo [file], or takes its
-  /// photo away when null.
-  void setReceipt(String id, String? file) {
-    if (!_receipts.set(id, file)) return;
-    _context.signal();
-    _context.keep(WriteBatch(receipts: {id: file}));
   }
 }

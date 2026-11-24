@@ -1,5 +1,4 @@
 import 'month_arithmetic.dart';
-import 'year_month.dart';
 
 /// A civil calendar date with no timezone or implied midnight instant.
 final class BusinessDate implements Comparable<BusinessDate> {
@@ -39,9 +38,6 @@ final class BusinessDate implements Comparable<BusinessDate> {
   /// Whether it is a Saturday or a Sunday.
   bool get isWeekend =>
       weekday == DateTime.saturday || weekday == DateTime.sunday;
-
-  /// The year and month it falls in.
-  YearMonth get yearMonth => YearMonth(year, month);
 
   /// The day [days] later (earlier when negative).
   BusinessDate addDays(int days) =>

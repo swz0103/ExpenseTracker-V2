@@ -165,7 +165,10 @@ void main() {
       ..accountCommands.updateAccount(
         ledger.account(card.id).copyWith(closingDay: 5, dueDay: 20),
       )
-      ..attachmentCommands.setReceipt(lunch.id, 'lunch.etr');
+      ..entryCommands.replace(
+        ledger.entries.byId(lunch.id)!,
+        receipt: 'lunch.etr',
+      );
     ledger = await reopen(ledger);
     final renamed = ledger.entries.all.single;
     expect((renamed.category, renamed.merchant), ('吃', '全聯福利中心'));

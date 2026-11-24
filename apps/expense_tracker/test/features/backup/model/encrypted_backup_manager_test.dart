@@ -94,7 +94,7 @@ void main() {
     expect(ledger.problem.value, isNull);
     final backupManager = EncryptedBackupManager(first, vaultOf(first));
     final path = await backupManager.backUp();
-    expect(path, startsWith(backupManager.backupFolder));
+    expect(path, startsWith('${first.directory.path}/backups'));
     expect(await backupManager.backUpIfDue(), isNull);
     expect(await backupManager.backUpIfDue(every: Duration.zero), isNull);
     ledger.entryCommands.add(
@@ -113,7 +113,10 @@ void main() {
       keep: 1,
     );
     expect(weekly, isNotNull);
-    expect(Directory(backupManager.backupFolder).listSync(), hasLength(1));
+    expect(
+      Directory('${first.directory.path}/backups').listSync(),
+      hasLength(1),
+    );
 
     final second = startupIn('second');
     expect(second.state, isA<NeedsSetup>());
@@ -319,7 +322,7 @@ void main() {
       expect(names[1], endsWith('-2.etbk'));
       expect(names[2], endsWith('-3.etbk'));
       expect(
-        Directory(backupManager.backupFolder)
+        Directory('${startup.directory.path}/backups')
             .listSync()
             .where((f) => f.path.endsWith('.part')),
         isEmpty,
