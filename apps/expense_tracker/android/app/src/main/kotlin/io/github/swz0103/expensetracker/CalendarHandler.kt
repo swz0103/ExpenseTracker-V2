@@ -15,6 +15,9 @@ import io.flutter.plugin.common.MethodChannel
 class CalendarHandler(private val activity: FragmentActivity) : ChannelHandler {
     private var pendingCalendar: MethodChannel.Result? = null
 
+    /** A calendar provider can be slow: every query and change runs off the main thread. */
+    private val offMain = OffMain.of(activity)
+
     /** Asks once for the calendar. */
     private val askCalendar =
         activity.registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
@@ -43,7 +46,7 @@ class CalendarHandler(private val activity: FragmentActivity) : ChannelHandler {
                 if (!granted()) {
                     result.error("no-access", "Calendar access was not given.", null)
                 } else {
-                    result.success(CalendarBridge.calendars(activity.contentResolver))
+                    offMain.answer(result, "calendar") { CalendarBridge.calendars(activity.contentResolver) }
                 }
             }
             "calendarEvents" -> {
@@ -54,7 +57,7 @@ class CalendarHandler(private val activity: FragmentActivity) : ChannelHandler {
                 } else if (calendar == null || from == null) {
                     result.error("bad-arguments", "calendar and from are required", null)
                 } else {
-                    OffMain.of(activity).answer(result, "calendar") { CalendarBridge.events(activity.contentResolver, calendar, from) }
+                    offMain.answer(result, "calendar") { CalendarBridge.events(activity.contentResolver, calendar, from) }
                 }
             }
             "applyCalendarChanges" -> {
@@ -67,7 +70,7 @@ class CalendarHandler(private val activity: FragmentActivity) : ChannelHandler {
                 } else if (calendar == null || insert == null || update == null || delete == null) {
                     result.error("bad-arguments", "calendar, insert, update and delete are required", null)
                 } else {
-                    OffMain.of(activity).answer(result, "calendar") {
+                    offMain.answer(result, "calendar") {
                         CalendarBridge.apply(activity.contentResolver, calendar, insert, update, delete)
                     }
                 }
@@ -76,9 +79,6 @@ class CalendarHandler(private val activity: FragmentActivity) : ChannelHandler {
         }
         return true
     }
-
-    /** Runs [work] off the main thread, as a calendar provider can be slow,
-     *  and answers with what it gives. */
 
     private companion object {
         val PERMISSIONS = arrayOf(

@@ -74,6 +74,32 @@ class BackupWorkerDeviceTest {
     }
 
     @Test
+    fun aRunWhileAnotherIsUnderWayLeavesTheOutboxAlone() {
+        // Review 21 finding 2: a stopped run still finishing, and the next.
+        preferences.writeText(
+            JSONObject()
+                .put("phoneFolder", "content://com.android.externalstorage.documents/tree/primary%3ABackups")
+                .put("phoneDaily", true)
+                .toString(),
+        )
+        val backup = File(outbox, "ready.etbk").apply { writeText("sealed") }
+        File(outbox, "ready.json").writeText(
+            JSONObject()
+                .put("file", backup.name)
+                .put("revision", 3)
+                .put("ledger", "L1")
+                .put("mark", "abc123")
+                .toString(),
+        )
+        val worker = TestWorkerBuilder.from(context, BackupWorker::class.java, Executors.newSingleThreadExecutor())
+            .build()
+        val second = BackupWorker.RUNS.run(whenBusy = null as ListenableWorker.Result?) { worker.doWork() }
+        assertTrue(second is ListenableWorker.Result.Retry)
+        assertTrue("nothing noted", !File(outbox, "delivered.json").exists())
+        assertTrue("kept", backup.exists())
+    }
+
+    @Test
     fun turningTheBackupsOnLeavesAJob() {
         WorkManagerTestInitHelper.initializeTestWorkManager(context)
         BackupWorker.schedule(context, on = true)
