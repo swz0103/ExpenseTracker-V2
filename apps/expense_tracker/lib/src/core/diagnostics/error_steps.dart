@@ -87,6 +87,10 @@ abstract final class ErrorSteps {
   /// The first screen could not be put together.
   static const startScreen = '啟動：第一個畫面';
 
+  /// The phone's SQLite is built without threads, so a backup's read on
+  /// a worker is not kept apart from the app's own (D41).
+  static const storeThreading = '啟動：資料庫執行緒模式';
+
   /// The copy of a book kept before its upgrade could not be written, or
   /// the person went on without it (D19).
   static const upgradeBackup = '升級前備份';
