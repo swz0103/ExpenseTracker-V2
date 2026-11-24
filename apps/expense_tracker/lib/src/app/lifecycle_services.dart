@@ -194,7 +194,7 @@ final class LifecycleServices {
       }
       _receipts = AndroidReceipts(
         _directory,
-        await FileBox.derive(vault.keys, 'receipts'),
+        await FileBox.derive(vault.keys, FileBox.receipts),
       );
     }
     final market = _market = MarketFeed(
