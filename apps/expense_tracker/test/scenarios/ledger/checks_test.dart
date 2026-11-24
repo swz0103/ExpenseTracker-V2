@@ -65,7 +65,7 @@ void main() {
           entry(EntryType.expense, 500, account: 'usd'),
         ),
       ),
-      '還沒有匯率，請輸入折合台幣的金額',
+      '還沒有匯率，請輸入折合新台幣的金額',
     );
     expect(
       _messageOf(

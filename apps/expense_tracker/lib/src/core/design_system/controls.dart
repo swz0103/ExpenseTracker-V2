@@ -262,7 +262,7 @@ class ChoicePill extends StatelessWidget {
   Widget _pill(Widget words, bool fill) {
     return TapArea(
       selected: removable ? null : selected,
-      label: removable ? '移除篩選' : null,
+      label: removable ? '清除這個篩選' : null,
       onTap: onTap,
       child: Container(
         height: 36,

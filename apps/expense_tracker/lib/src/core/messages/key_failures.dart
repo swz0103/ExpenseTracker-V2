@@ -81,7 +81,7 @@ String? describeUnlockFailure(Object error, {required bool recovery}) =>
       KeyringException(error: KeyringError.noSuchSlot) =>
         recovery ? '這裡沒有設定備份密碼，請輸入救援碼' : '這本帳本沒有密碼，請改用救援碼',
       KeyringException(error: KeyringError.unknownDevice) =>
-        '這台手機還不能用指紋打開，請改用密碼',
+        '這台手機還不能用生物辨識打開，請改用密碼',
       KeyringException(error: KeyringError.weakPassword) => describeKeyProblem(
         error,
       ),

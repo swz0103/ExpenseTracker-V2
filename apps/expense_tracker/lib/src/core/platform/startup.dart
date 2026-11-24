@@ -692,7 +692,7 @@ final class Startup extends ChangeNotifier {
       if (_declined(error)) {
         await _noDevice.writeAsString('', flush: true);
       } else {
-        ErrorLog.instance.record('指紋登記', error);
+        ErrorLog.instance.record('生物辨識登記', error);
       }
     }
   }

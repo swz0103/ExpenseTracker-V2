@@ -15,7 +15,7 @@ String describeProblem(Object error) => switch (error) {
     cause: RowSetAside(),
   ) => '這筆變更會覆蓋一筆讀不出來、已隔離的資料，為了保護它沒有存下。',
   DataSourceException() || KeepFailed() => '帳本無法寫入，請重新打開 App 再試。',
-  ReloadFailed() => '帳本無法重新讀取，請重新打開 App；畫面上的內容可能與保存的不同。',
+  ReloadFailed() => '帳本無法重新讀取，請重新打開 App；畫面上的內容可能與已儲存的不同。',
   RecordRefused(:final first) => validationMessage(first),
   NameTaken() => '這個分類名稱已經有了，或是保留給「全部支出」「轉帳」等用途。',
   MoneyException(code: MoneyError.precision) => '金額的小數位數太多。',

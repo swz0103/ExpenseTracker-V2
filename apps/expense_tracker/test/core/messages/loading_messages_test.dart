@@ -34,7 +34,7 @@ void main() {
   test('the report lists each row by where it is kept, and why', () {
     expect(
       openingReport(rows: rows, log: '2026-10-04 開啟帳本'),
-      '記帳本 開啟診斷\n'
+      '記帳本 打開診斷\n'
       '隔離的資料：3 筆\n'
       '紀錄 entry/e1：讀不出來（not JSON）\n'
       '預算 budget/c1：由較新版本寫入（第 3 版）\n'
@@ -46,7 +46,7 @@ void main() {
     );
     expect(
       openingReport(failure: 'SqliteException: disk I/O error'),
-      '記帳本 開啟診斷\n無法開啟：SqliteException: disk I/O error',
+      '記帳本 打開診斷\n無法打開：SqliteException: disk I/O error',
     );
   });
 

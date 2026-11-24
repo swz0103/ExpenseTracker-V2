@@ -389,7 +389,7 @@ class _UnlockViewState extends State<UnlockView>
                       Icons.fingerprint,
                       size: 30,
                       color: AppColors.accent,
-                      semanticLabel: '用指紋或臉部解鎖',
+                      semanticLabel: '用生物辨識解鎖',
                     ),
                   ),
                 ),

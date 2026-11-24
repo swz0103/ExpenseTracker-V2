@@ -119,7 +119,7 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
         }
         val prompt = BiometricPrompt(activity, ContextCompat.getMainExecutor(activity), callback)
         val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle(if (encrypt) "啟用指紋解鎖" else "解鎖記帳本")
+            .setTitle(if (encrypt) "開啟生物辨識解鎖" else "解鎖記帳本")
             .setNegativeButtonText("改用密碼")
             .setAllowedAuthenticators(BIOMETRIC_STRONG)
             .build()

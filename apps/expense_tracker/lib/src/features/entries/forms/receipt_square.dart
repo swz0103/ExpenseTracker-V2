@@ -164,7 +164,7 @@ class ReceiptSquare extends StatelessWidget {
             right: -10,
             top: -10,
             child: IconButton(
-              tooltip: '移除收據',
+              tooltip: '刪除收據',
               onPressed: onRemove,
               style: IconButton.styleFrom(backgroundColor: AppColors.white),
               icon: const GlyphIcon(

@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../../support/places.dart';
 
 /// A tag's page and a merchant's in the demo book, with a second tag
-/// #旅行 added: their entries, and 改名, 合併到… and 移除 from the ⋯,
+/// #旅行 added: their entries, and 改名, 合併到… and 刪除 from the ⋯,
 /// each kept on the entries themselves.
 void main() {
   setUpAll(loadFonts);
@@ -128,13 +128,13 @@ void main() {
     expect(find.text('#旅行'), findsWidgets, reason: 'opened on the one kept');
   });
 
-  testWidgets('移除標籤 takes the tag off its entries and keeps them', (
+  testWidgets('刪除標籤 takes the tag off its entries and keeps them', (
     tester,
   ) async {
     await open(tester, ['#旅行']);
     final count = ledger.entries.all.length;
-    await go(tester, ['~更多選項', '移除標籤']);
-    expect(find.text('移除 #旅行？'), findsOneWidget);
+    await go(tester, ['~更多選項', '刪除標籤']);
+    expect(find.text('刪除 #旅行？'), findsOneWidget);
     expect(find.text('2 筆紀錄會拿掉這個標籤，紀錄本身保留。'), findsOneWidget);
     await tester.tap(find.byKey(Keys.confirm));
     await tester.pumpAndSettle();
@@ -171,10 +171,10 @@ void main() {
     expect(at('家樂福'), both);
   });
 
-  testWidgets('移除商家 takes the merchant off its entries', (tester) async {
+  testWidgets('刪除商家 takes the merchant off its entries', (tester) async {
     await open(tester, ['商家', 'Apple']);
-    await go(tester, ['~更多選項', '移除商家']);
-    expect(find.text('移除 Apple？'), findsOneWidget);
+    await go(tester, ['~更多選項', '刪除商家']);
+    expect(find.text('刪除 Apple？'), findsOneWidget);
     expect(find.text('1 筆紀錄會拿掉這個商家，紀錄本身保留。'), findsOneWidget);
     await tester.tap(find.byKey(Keys.confirm));
     await tester.pumpAndSettle();

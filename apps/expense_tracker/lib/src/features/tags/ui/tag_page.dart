@@ -128,8 +128,8 @@ class TagPage extends StatelessWidget {
         : tagSummaryOf(ledger.entries, name, ledger.today)?.entries.length ?? 0;
     final ok = await confirm(
       context,
-      '移除 $_shown？',
-      '移除',
+      '刪除 $_shown？',
+      '刪除',
       danger: true,
       body: merchant
           ? '${countOf(count, CountUnit.entries)}紀錄會拿掉這個商家，紀錄本身保留。'
@@ -155,7 +155,7 @@ class TagPage extends StatelessWidget {
             DotsItem(Glyph.merge, '合併到…', () => _merge(context)),
           DotsItem(
             Glyph.trash,
-            merchant ? '移除商家' : '移除標籤',
+            merchant ? '刪除商家' : '刪除標籤',
             () => _remove(context),
             danger: true,
           ),

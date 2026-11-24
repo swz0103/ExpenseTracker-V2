@@ -58,10 +58,10 @@ const upgradeHeldTitle = '升級前的備份沒有完成';
 /// error already in words, describeProblem).
 String upgradeHeldBody(UpgradeBackupProblem problem, String why) {
   final cause = switch (problem) {
-    UpgradeBackupProblem.noSpace => '手機空間不足，無法先把帳本備份起來。',
-    UpgradeBackupProblem.other => '無法先把帳本備份起來（$why）。',
+    UpgradeBackupProblem.noSpace => '手機空間不足，無法先把帳本備份起來',
+    UpgradeBackupProblem.other => '無法先把帳本備份起來（$why）',
   };
-  return '$cause帳本沒有被改動，也還沒有升級到這個版本。';
+  return '$cause。帳本沒有被改動，也還沒有升級到這個版本。';
 }
 
 /// How much room the copy takes, and how to make it.
@@ -86,7 +86,7 @@ const startFailedCopy = '複製診斷資料';
 const startFailedCopied = '已複製診斷資料';
 
 /// The name of the diagnostics file of an opening.
-const openingReportName = '記帳本-開啟診斷.txt';
+const openingReportName = '記帳本-打開診斷.txt';
 
 /// The diagnostics of an opening, to export: which rows were set aside
 /// and why, or what stopped the book opening ([failure], already cleaned
@@ -97,8 +97,8 @@ String openingReport({
   String? failure,
   String log = '',
 }) => [
-  '記帳本 開啟診斷',
-  if (failure != null) '無法開啟：$failure',
+  '記帳本 打開診斷',
+  if (failure != null) '無法打開：$failure',
   if (rows.isNotEmpty) '隔離的資料：${rows.length} 筆',
   for (final row in rows)
     '${_shelf(row.shelf)} ${row.key}：${quarantineReason(row)}'

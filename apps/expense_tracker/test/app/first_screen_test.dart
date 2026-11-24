@@ -100,7 +100,7 @@ void main() {
       'without it', () async {
     final screen = await start(steps(fail: {'device'}));
     expect((screen as Text).data, 'app device=null privacy=null');
-    expect(newest(), '啟動：指紋解鎖：StateError: Bad state: device broke');
+    expect(newest(), '啟動：生物辨識解鎖：StateError: Bad state: device broke');
     expect(did.last, 'started /data/user/0/app/files');
   });
 

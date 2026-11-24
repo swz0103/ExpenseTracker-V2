@@ -24,24 +24,24 @@ abstract final class LockWords {
 
   /// The fingerprint could not open the ledger (not the person's own
   /// choice of the password, which says nothing).
-  static const fingerprintFailed = '指紋解鎖失敗，請改用密碼';
-  static const fingerprintNotYet = '先用密碼打開一次，之後就能用指紋解鎖';
-  static const fingerprintStopped = '指紋解鎖已取消，可以改用密碼';
-  static const fingerprintHeading = '指紋解鎖';
-  static const fingerprintLabel = '用指紋或臉部解鎖';
+  static const fingerprintFailed = '生物辨識解鎖失敗，請改用密碼';
+  static const fingerprintNotYet = '先用密碼打開一次，之後就能用生物辨識解鎖';
+  static const fingerprintStopped = '生物辨識解鎖已取消，可以改用密碼';
+  static const fingerprintHeading = '生物辨識解鎖';
+  static const fingerprintLabel = '用生物辨識解鎖';
 
   /// The diagnostics heading of a restore given up that could not reopen
   /// the ledger by itself.
   static const cancelRestoreHeading = '取消還原';
 
-  /// 安全 › 指紋解鎖.
-  static const fingerprint = '指紋解鎖';
-  static const fingerprintOn = '已開啟 · 可用指紋或臉部打開帳本';
+  /// 安全 › 生物辨識解鎖.
+  static const fingerprint = '生物辨識解鎖';
+  static const fingerprintOn = '已開啟 · 可用生物辨識打開帳本';
   static const fingerprintOff = '已關閉 · 只用密碼打開帳本';
-  static const fingerprintTurnedOn = '已開啟指紋解鎖';
-  static const fingerprintTurnedOff = '已關閉指紋解鎖';
+  static const fingerprintTurnedOn = '已開啟生物辨識解鎖';
+  static const fingerprintTurnedOff = '已關閉生物辨識解鎖';
   static const fingerprintNotTurned = '沒有完成，請再試一次';
-  static const fingerprintSettingHeading = '指紋設定';
+  static const fingerprintSettingHeading = '生物辨識設定';
 
   /// 安全 › 自動上鎖.
   static const autoLock = '自動上鎖';

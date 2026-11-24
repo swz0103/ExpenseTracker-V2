@@ -124,6 +124,7 @@ const _header = [
   '稅',
   '分期',
   '轉入金額',
+  // Exception to glossary: a column of the file format, kept so files written before read back.
   '台幣金額',
   '成本算法',
 ];
@@ -297,9 +298,11 @@ const _kinds = {
   '賣出': _Kind.sell,
   'sell': _Kind.sell,
   '股息': _Kind.cash,
+  // Exception to glossary: a word brokers write, read on import.
   '現金股利': _Kind.cash,
   'dividend': _Kind.cash,
   '配股': _Kind.stock,
+  // Exception to glossary: a word brokers write, read on import.
   '股票股利': _Kind.stock,
   '分割': _Kind.split,
   '減資': _Kind.cut,

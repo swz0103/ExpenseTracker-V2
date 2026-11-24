@@ -82,7 +82,7 @@ abstract final class ErrorSteps {
 
   /// The phone could not say whether it unlocks with a fingerprint or
   /// face as the app started: the app starts without it.
-  static const startDevice = '啟動：指紋解鎖';
+  static const startDevice = '啟動：生物辨識解鎖';
 
   /// The first screen could not be put together.
   static const startScreen = '啟動：第一個畫面';

@@ -17,7 +17,7 @@ void main() {
     // The lock's own settings, each on the page that has it (F39, SEC-07).
     expect(
       [for (final t in findSettings('指紋')) (t.name, t.page)],
-      [('指紋解鎖', SettingsDestination.security)],
+      [('生物辨識解鎖', SettingsDestination.security)],
     );
     expect(
       [for (final t in findSettings('上鎖')) (t.name, t.page)],

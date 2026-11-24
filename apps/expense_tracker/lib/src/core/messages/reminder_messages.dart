@@ -54,7 +54,7 @@ abstract final class ReminderMessages {
   static String calendarUnreachable(String problem) => '日曆沒有連上：$problem';
 
   /// 不再同步 when the app's events could be taken off the calendar.
-  static const calendarCleared = '已停止同步，之後的提醒已從日曆移除';
+  static const calendarCleared = '已停止同步，之後的提醒已從日曆刪除';
 
   /// 不再同步 when they could not (calendar access turned off): the link
   /// is dropped all the same.

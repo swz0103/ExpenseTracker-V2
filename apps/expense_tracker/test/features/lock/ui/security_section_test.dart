@@ -405,7 +405,7 @@ void main() {
     expect(privacy.on, isFalse);
   });
 
-  group('指紋解鎖 (F39, F40)', () {
+  group('生物辨識解鎖 (F39, F40)', () {
     _StubBackupManager keys({bool on = false}) => _StubBackupManager()
       ..password = 'a password'
       ..phoneHasFingerprint = true
@@ -434,8 +434,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(backupManager.turns, [true]);
       expect(switchOn(tester), isTrue);
-      expect(find.text('已開啟 · 可用指紋或臉部打開帳本'), findsOneWidget);
-      expect(find.text('已開啟指紋解鎖'), findsOneWidget);
+      expect(find.text('已開啟 · 可用生物辨識打開帳本'), findsOneWidget);
+      expect(find.text('已開啟生物辨識解鎖'), findsOneWidget);
     });
 
     testWidgets('turning it off needs no prompt, and says it is off', (
@@ -448,7 +448,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(backupManager.turns, [false]);
       expect(switchOn(tester), isFalse);
-      expect(find.text('已關閉指紋解鎖'), findsOneWidget);
+      expect(find.text('已關閉生物辨識解鎖'), findsOneWidget);
     });
 
     testWidgets('turning the phone\'s prompt down leaves it off with no '
@@ -461,7 +461,7 @@ void main() {
       expect(backupManager.turns, [true]);
       expect(switchOn(tester), isFalse);
       expect(find.text('沒有完成，請再試一次'), findsNothing);
-      expect(find.text('已開啟指紋解鎖'), findsNothing);
+      expect(find.text('已開啟生物辨識解鎖'), findsNothing);
       expect(noted(), before);
     });
 

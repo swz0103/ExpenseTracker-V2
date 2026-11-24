@@ -90,6 +90,6 @@ void main() {
     );
     expect(outcome.booked, 0);
     expect(ledger.entries.all, isEmpty);
-    expect(outcome.review, ['「訂閱」10/5 沒有入帳：還沒有匯率，請輸入折合台幣的金額']);
+    expect(outcome.review, ['「訂閱」10/5 沒有入帳：還沒有匯率，請輸入折合新台幣的金額']);
   });
 }

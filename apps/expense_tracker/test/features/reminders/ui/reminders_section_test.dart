@@ -418,7 +418,7 @@ void main() {
     );
     expect(calendar.chosen, isNull);
     expect(calendars.written(2), isEmpty);
-    expect(find.text('已停止同步，之後的提醒已從日曆移除'), findsOneWidget);
+    expect(find.text('已停止同步，之後的提醒已從日曆刪除'), findsOneWidget);
     expect(find.text('提醒定期扣款與卡費'), findsOneWidget);
 
     await tester.runAsync(

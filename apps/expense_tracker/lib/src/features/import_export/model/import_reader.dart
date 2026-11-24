@@ -168,6 +168,7 @@ final class _Reader {
       // ledger's to refuse, as a split typed in.
       if (parts.length == 1) parts = [];
     }
+    // Exception to glossary: the file format's column, kept so files written before read back.
     final (home, homeProblem) = _cellAmount(cell, '台幣金額');
     if (homeProblem != null) return homeProblem;
     final card = from.kind == AccountKind.card;

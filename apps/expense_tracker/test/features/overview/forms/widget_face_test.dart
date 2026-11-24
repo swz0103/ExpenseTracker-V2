@@ -83,7 +83,7 @@ void main() {
     await put(tester, const WidgetFace(snapshot: null));
     expect(find.text('記帳本'), findsOneWidget);
     expect(find.text('已隱藏金額'), findsOneWidget);
-    expect(find.text('點此開啟'), findsOneWidget);
+    expect(find.text('點此打開'), findsOneWidget);
     expect(find.text('本週'), findsNothing, reason: 'no week kept');
     expect(find.byType(Positioned), findsNothing, reason: 'no budget bar');
   });
@@ -154,7 +154,7 @@ void main() {
     // One row high: the same two lines, and the two buttons as ever.
     await put(tester, const WidgetRow(snapshot: null));
     expect(find.text('已隱藏金額'), findsOneWidget);
-    expect(find.text('點此開啟'), findsOneWidget);
+    expect(find.text('點此打開'), findsOneWidget);
     expect(find.text('−'), findsOneWidget);
     expect(find.text('＋'), findsOneWidget);
   });
