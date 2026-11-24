@@ -242,7 +242,9 @@ class _AddLimitCard extends StatelessWidget {
 }
 
 /// 「11 月 ⌄」 big on the left, tapped to pick a month; 回到本月 when
-/// another month is shown, and two round buttons to step.
+/// another month is shown, and two round buttons to step, on the right,
+/// or under the month when the line has no room for both (a narrow phone,
+/// large text).
 class _MonthRow extends StatelessWidget {
   const _MonthRow({
     required this.month,
@@ -280,7 +282,9 @@ class _MonthRow extends StatelessWidget {
         ),
       ),
     );
-    return Row(
+    return OverflowBar(
+      alignment: MainAxisAlignment.spaceBetween,
+      overflowAlignment: OverflowBarAlignment.end,
       children: [
         ReadAsButton(
           label: '$month 月，選月份',
@@ -316,23 +320,27 @@ class _MonthRow extends StatelessWidget {
             ),
           ),
         ),
-        const Spacer(),
-        if (!current)
-          TextButton(
-            onPressed: onToday,
-            style: wordButton(
-              AppColors.accent,
-              fill: AppColors.selected,
-              minimumSize: Size(0, 44),
-              radius: Radii.largeIncreased,
-            ),
-            child: const Text(
-              '回到本月',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
-        round(Glyph.back, Words.previousMonth, canBack ? onBack : null),
-        round(Glyph.next, Words.nextMonth, current ? null : onNext),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!current)
+              TextButton(
+                onPressed: onToday,
+                style: wordButton(
+                  AppColors.accent,
+                  fill: AppColors.selected,
+                  minimumSize: Size(0, 44),
+                  radius: Radii.largeIncreased,
+                ),
+                child: const Text(
+                  '回到本月',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            round(Glyph.back, Words.previousMonth, canBack ? onBack : null),
+            round(Glyph.next, Words.nextMonth, current ? null : onNext),
+          ],
+        ),
       ],
     );
   }
