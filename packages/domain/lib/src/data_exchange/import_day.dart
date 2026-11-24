@@ -1,13 +1,10 @@
-import 'package:core/foundation_values.dart' show BusinessDate, daysInMonth;
+import 'package:core/foundation_values.dart'
+    show BusinessDate, daysInMonth, rocYearOffset;
 
 /// The earliest year a date read from an imported file may be in
 /// (decision D93): an earlier one is a year misread, such as a
 /// Republic of China year taken for a Gregorian one, never a record.
 const earliestImportYear = 1950;
-
-/// The Republic of China calendar's year 1 is 1912: its years are
-/// Gregorian ones less this.
-const _rocOffset = 1911;
 
 /// Why a text is not a day of an imported file.
 enum DayProblem {
@@ -20,6 +17,10 @@ enum DayProblem {
 
   /// Before [earliestImportYear] (D93).
   tooEarly,
+
+  /// After the last day an entry may be dated (`latest` of
+  /// [readImportDay]): a year misread, such as ROC 999 for 2910 (r13 F6).
+  tooLate,
 }
 
 /// A day read from an imported file, or why it could not be.
@@ -42,9 +43,11 @@ final class DayRefused extends ImportDay {
 /// The day [text] writes, by decision D93: a year of four digits is
 /// Gregorian (2026-03-05, 2026/3/5, 2026.3.5, 20260305), one of three is
 /// the Republic of China's (115/3/5, 1150305), one of one or two is
-/// refused as [DayProblem.shortYear], and a day before
-/// [earliestImportYear] as [DayProblem.tooEarly].
-ImportDay readImportDay(String text) {
+/// refused as [DayProblem.shortYear], a day before
+/// [earliestImportYear] as [DayProblem.tooEarly], and one after [latest],
+/// the last day an entry written today may be dated, as
+/// [DayProblem.tooLate].
+ImportDay readImportDay(String text, {BusinessDate? latest}) {
   final value = text.trim();
   final String year;
   final String month;
@@ -59,7 +62,7 @@ ImportDay readImportDay(String text) {
   }
   if (year.length < 3) return const DayRefused(DayProblem.shortYear);
   final written = int.parse(year);
-  final gregorian = year.length == 3 ? written + _rocOffset : written;
+  final gregorian = year.length == 3 ? written + rocYearOffset : written;
   final m = int.parse(month);
   final d = int.parse(day);
   if (m < 1 || m > 12 || d < 1 || d > daysInMonth(gregorian, m)) {
@@ -68,7 +71,11 @@ ImportDay readImportDay(String text) {
   if (gregorian < earliestImportYear) {
     return const DayRefused(DayProblem.tooEarly);
   }
-  return DayRead(BusinessDate(gregorian, m, d));
+  final date = BusinessDate(gregorian, m, d);
+  if (latest != null && date.compareTo(latest) > 0) {
+    return const DayRefused(DayProblem.tooLate);
+  }
+  return DayRead(date);
 }
 
 /// 20260305, 1150305 and 261005: the year, then two digits each of the

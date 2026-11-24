@@ -7,6 +7,7 @@ import 'package:domain/data_exchange.dart';
 import 'package:flutter/foundation.dart' show compute;
 
 import '../../../../design_system/display/amount.dart';
+import '../../../core/formatting/words.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/amount_messages.dart';
 import '../../../core/messages/import_messages.dart';
@@ -26,8 +27,13 @@ final class ImportBook {
     required this.entryQueryService,
     required this.entryValidator,
     required this.marketData,
+    required this.today,
     required this._newId,
   });
+
+  /// The book's today: a day read later than an entry may be dated on it
+  /// is refused (r13 F6).
+  final DateTime today;
 
   final AccountReader accounts;
   final CategoryReader categories;

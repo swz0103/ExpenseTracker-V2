@@ -163,6 +163,7 @@ void main() {
     String board(String rate) => _board().replaceFirst('31.83500', rate);
 
     late EncryptedDatabase store;
+    late FixedClock sourceClock;
 
     Future<SqlLedgerDataSource> source() async {
       final directory = Directory.systemTemp.createTempSync('market-');
@@ -174,9 +175,10 @@ void main() {
       final (open, _) = await vault.create('market password');
       addTearDown(open.close);
       store = open.store;
+      sourceClock = FixedClock(UtcInstant(DateTime.utc(2026, 9, 30, 4)));
       return SqlLedgerDataSource(
         open.store,
-        clock: FixedClock(UtcInstant(DateTime.utc(2026, 9, 30, 4))),
+        clock: sourceClock,
         market: MarketDataGateway(
           transport: _Pages(() => daily, () => spot),
           clock: () => now,
@@ -221,6 +223,101 @@ void main() {
       expect(await data.refreshRates(), isFalse);
       expect(data.doubtfulRates, ['USD']);
       expect(data.market().rates['USD'], closeTo(31.835, 1e-9));
+    });
+
+    double tsmc(SqlLedgerDataSource data) =>
+        data.market().holdings.firstWhere((h) => h.code == '2330').price;
+
+    test(
+      'D101: a split of one for twenty the book holds is taken at once',
+      () async {
+        final data = await source();
+        await data.refreshQuotes(['2330', '0050']);
+        // 1,234.50 / 20 = 61.725: twenty times smaller, a split after 9/29.
+        daily = closes('1150930', '61.73');
+        now = now.add(const Duration(days: 1));
+        DateTime? askedAfter;
+        expect(
+          await data.refreshQuotes(
+            ['2330', '0050'],
+            reshapedAfter: (code, day) {
+              askedAfter = day;
+              return code == '2330';
+            },
+          ),
+          isTrue,
+        );
+        expect(askedAfter, DateTime.utc(2026, 9, 29));
+        expect(data.doubtfulCloses, isEmpty);
+        expect(tsmc(data), 61.73);
+      },
+    );
+
+    test('D101: a split of one for ten then a 5% fall is taken when fetched '
+        'again', () async {
+      final data = await source();
+      await data.refreshQuotes(['2330', '0050']);
+      // 1,234.50 / 10 x 0.95 = 117.2775: 1,234.50 / 117.28 = 10.5 times.
+      daily = closes('1150930', '117.28');
+      now = now.add(const Duration(hours: 1));
+      await data.refreshQuotes(['2330', '0050']);
+      expect(data.doubtfulCloses, ['2330']);
+      expect(tsmc(data), 1234.5);
+      // Fetched again, the same close (it agrees within a tenth): taken.
+      now = now.add(const Duration(hours: 1));
+      await data.refreshQuotes(['2330', '0050']);
+      expect(data.doubtfulCloses, isEmpty);
+      expect(tsmc(data), 117.28);
+    });
+
+    test('D101: after a long gap the kept close gives way', () async {
+      final data = await source();
+      await data.refreshQuotes(['2330', '0050']);
+      // 11/08 is 40 days after 9/29 (more than 30): 1,234.50 to 20.
+      now = DateTime.utc(2026, 11, 8, 4);
+      sourceClock.advance(now.difference(DateTime.utc(2026, 9, 30, 4)));
+      daily = closes('1151108', '20.00');
+      await data.refreshQuotes(['2330', '0050']);
+      expect(data.doubtfulCloses, isEmpty);
+      expect(tsmc(data), 20);
+    });
+
+    test('D101: a garbled close is still refused, and forgotten once a '
+        'sound one comes', () async {
+      final data = await source();
+      await data.refreshQuotes(['2330', '0050']);
+      daily = closes('1150930', '123,450.00');
+      now = now.add(const Duration(hours: 1));
+      await data.refreshQuotes(['2330', '0050']);
+      expect(data.doubtfulCloses, ['2330']);
+      // The next fetch is sound: 1,240 is near 1,234.50, taken.
+      daily = closes('1150930', '1,240.00');
+      now = now.add(const Duration(hours: 1));
+      await data.refreshQuotes(['2330', '0050']);
+      expect(data.doubtfulCloses, isEmpty);
+      expect(tsmc(data), 1240);
+      // The garbled one is forgotten: 123,450 again is doubted again.
+      daily = closes('1150930', '123,450.00');
+      now = now.add(const Duration(hours: 1));
+      await data.refreshQuotes(['2330', '0050']);
+      expect(data.doubtfulCloses, ['2330']);
+      expect(tsmc(data), 1240);
+    });
+
+    test('D101: a rate doubted once and found again is taken', () async {
+      final data = await source();
+      await data.refreshRates();
+      // 31.835 to 3.18 (a tenth less a little): doubted.
+      spot = board('3.18000');
+      now = now.add(const Duration(hours: 1));
+      expect(await data.refreshRates(), isFalse);
+      expect(data.doubtfulRates, ['USD']);
+      expect(data.market().rates['USD'], closeTo(31.835, 1e-9));
+      // Again at 3.18: agreed, taken.
+      now = now.add(const Duration(hours: 1));
+      expect(await data.refreshRates(), isTrue);
+      expect(data.doubtfulRates, isEmpty);
+      expect(data.market().rates['USD'], closeTo(3.18, 1e-9));
     });
 
     test('a close dated after today is not taken (F7)', () async {

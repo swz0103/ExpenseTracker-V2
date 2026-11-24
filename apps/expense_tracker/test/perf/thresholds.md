@@ -77,6 +77,7 @@ expect about two times these there (the emulator section above).
 | `rebuild_100k_ms` | from the start of that opening until every posting is written: the same worker posts the decoded entries (`postBook`, `journalApartChunk` at a time) into one transaction, indexes after, the mark last | 2,839–3,307 ms | 4,710–5,378 ms | 6,000 ms |
 | `rebuild_held_ms` | the longest the screen's isolate was held while the journal was posted (the book sent to it as a copy, then collected) | 90–113 ms | 266–315 ms (over its limit at this load) | 250 ms |
 | `repost_100k_ms` | posting the whole book afresh later, from the records alone (`postApart`: the posting rules changed, a change the keeper could not follow) | 2,662–2,794 ms | 3,429–6,197 ms | 6,000 ms |
+| `parity_held_share` | `parity_hold_gate_test.dart`: the journal's check of a 100,000-entry book in memory, on the screen's isolate in slices of `journalSlice`: the longest the isolate is held, as a share of the whole check run at once (r13 F8). What is left in one piece is the first balance of an account worked out cold (the ledger's own index, which the screens build too) | — | 0.428 (84 of 197 ms, load ~15, 2026-11-24) | 0.6 |
 | `save_posting_us` | one entry's posting and the journal's mark, one transaction, `synchronous=FULL` | 777–804 µs | 1,055–2,852 µs | 3,000 µs |
 | `every_balance_us` | every account's balance today, from the months' sums and this month's postings | 557–908 µs | 582–1,144 µs | 2,000 µs |
 | `month_report_us` | a month's income and spending by category | 38–55 µs | 44–63 µs | 130 µs |

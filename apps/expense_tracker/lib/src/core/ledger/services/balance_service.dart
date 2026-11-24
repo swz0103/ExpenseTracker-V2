@@ -229,10 +229,11 @@ final class BalanceService {
   /// counted account stands on the side its balance is on, whatever its
   /// kind: a card or a loan paid past what it owed is money held, a bank
   /// account overdrawn is owed. The shares then held count at today's
-  /// price.
+  /// price (D105), those of a stock sold since included, until the
+  /// prices of past days are kept.
   NetWorth netWorth(DateTime day) {
     var invested = 0;
-    for (final h in _holdings.all) {
+    for (final h in _holdings.every) {
       invested += timesPrice(_holdings.sharesOn(h.code, day), h.price);
     }
     var saved = 0;

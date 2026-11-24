@@ -542,5 +542,6 @@ ImportBook importBookOf(Ledger ledger) => ImportBook(
   entryQueryService: ledger.entryQueryService,
   entryValidator: ledger.entryValidator,
   marketData: ledger.marketData,
+  today: ledger.today,
   newId: ledger.newId,
 );

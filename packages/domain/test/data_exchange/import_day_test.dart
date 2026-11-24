@@ -60,4 +60,18 @@ void main() {
     }
     expect(read('2028-02-29'), BusinessDate(2028, 2, 29));
   });
+
+  test('a day later than an entry may be dated is refused (r13 F6)', () {
+    final latest = BusinessDate(2027, 10, 4);
+    // ROC 999 is 999 + 1911 = 2910.
+    expect(
+      readImportDay('999/1/1', latest: latest),
+      isA<DayRefused>().having((d) => d.problem, 'problem', DayProblem.tooLate),
+    );
+    expect(readImportDay('2027-10-04', latest: latest), isA<DayRead>());
+    expect(
+      readImportDay('2027-10-05', latest: latest),
+      isA<DayRefused>().having((d) => d.problem, 'problem', DayProblem.tooLate),
+    );
+  });
 }

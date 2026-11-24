@@ -98,15 +98,43 @@ Future<Parity> parityOf(
 /// [journalRules] they were posted by.
 const _golden = 'test/fixtures/journal/postings_golden.json';
 
-/// Every posting of [b], account by account in book order: what it posts.
+/// The shape of [postingsOf]'s print. Raised when the print itself shows
+/// more (r14 F3: each posting's seq, each intent's streams, the account
+/// tree), which moves every print with no rule changed: the one other
+/// reason `UPDATE_JOURNAL_GOLDEN=1` may keep new prints.
+const goldenPrintShape = 2;
+
+/// Every posting of [b], account by account in book order, each intent
+/// with the streams it is in, and the account tree: what it posts.
 String postingsOf(PostedBook b) {
   final accounts = [...b.reader.accounts.all]
     ..sort((x, y) => x.id.value.compareTo(y.id.value));
+  final intents = <IntentId>{};
   return [
+    for (final a in accounts) accountLine(a),
     for (final a in accounts)
-      for (final p in b.reader.postings(a.id)) '$p',
+      for (final p in b.reader.postings(a.id)) ...[
+        '$p',
+        if (intents.add(p.intent))
+          if (b.store.intent(p.intent) case final row?)
+            'intent ${row.id.value} ${row.type.value} ${row.date.ymd}/'
+                '${row.seq} streams ${row.streams.join(',')}',
+      ],
   ].join('\n');
 }
+
+/// Whether [now] may be kept over a book's [kept] golden print: the same
+/// print, or journalRules or the print's shape raised since it was kept.
+bool mayKeepPrint(Map<String, Object?> kept, String now) =>
+    kept['print'] == now ||
+    kept['journalRules'] != journalRules ||
+    kept['printShape'] != goldenPrintShape;
+
+/// [a] as the tree keeps it, every field.
+String accountLine(LedgerAccount a) =>
+    'account ${a.id.value} ${a.cls.name} ${a.name} ${a.owner.value} '
+    'parent ${a.parent?.value} ${a.currency?.value} ${a.commodity} '
+    '${a.tag} net ${a.inNetWorth} flow ${a.inFlowReports}';
 
 /// A short print of [text] (64-bit FNV-1a).
 String printOf(String text) {
@@ -123,16 +151,34 @@ String printOf(String text) {
 /// `UPDATE_JOURNAL_GOLDEN=1`), so no book keeps postings an older rule
 /// made without being posted afresh.
 void expectGoldenPostings(String book, PostedBook b) {
-  final file = File(_golden);
-  final kept = jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
-  final books = {...(kept['books']! as Map<String, Object?>)};
   final now = printOf(postingsOf(b));
+  final want = {
+    'journalRules': journalRules,
+    'printShape': goldenPrintShape,
+    'print': now,
+  };
+  Map<String, Object?> read() =>
+      jsonDecode(File(_golden).readAsStringSync()) as Map<String, Object?>;
+  final was = (read()['books']! as Map<String, Object?>)[book];
+  final kept = was is Map<String, Object?> ? was : const <String, Object?>{};
   if (Platform.environment['UPDATE_JOURNAL_GOLDEN'] != null) {
-    books[book] = now;
-    const json = JsonEncoder.withIndent('  ');
-    file.writeAsStringSync(
-      '${json.convert({'journalRules': journalRules, 'books': books})}\n',
+    // New prints are kept only for a reason: the rules raised, or the
+    // print's own shape. A print that moved with neither is a rule
+    // changed without raising journalRules (r14 F3), never written over.
+    // Each book keeps its own, so books kept one after another each
+    // answer for themselves.
+    expect(
+      mayKeepPrint(kept, now),
+      isTrue,
+      reason:
+          'what $book posts changed but journalRules did not rise: raise '
+          'it before keeping new prints',
     );
+    // Read again just before writing: another book may have been kept.
+    final books = {...(read()['books']! as Map<String, Object?>)};
+    books[book] = want;
+    const json = JsonEncoder.withIndent('  ');
+    File(_golden).writeAsStringSync('${json.convert({'books': books})}\n');
     return;
   }
   expect(
@@ -143,7 +189,14 @@ void expectGoldenPostings(String book, PostedBook b) {
         '(UPDATE_JOURNAL_GOLDEN=1)',
   );
   expect(
-    books[book],
+    kept['printShape'],
+    goldenPrintShape,
+    reason:
+        'the print shows more: keep the new prints '
+        '(UPDATE_JOURNAL_GOLDEN=1)',
+  );
+  expect(
+    kept['print'],
     now,
     reason: 'what $book posts changed without raising journalRules',
   );

@@ -104,6 +104,8 @@ void main() {
       unorderedEquals([
         'keyring.json',
         'ledger.db',
+        // Records were kept in it (D102).
+        'ledger.db.kept',
         'receipts',
         'inbox.key',
         'inbox.pub',
@@ -162,6 +164,8 @@ void main() {
       unorderedEquals([
         'keyring.json',
         'ledger.db',
+        // Records were kept in it (D102).
+        'ledger.db.kept',
         'receipts',
         'inbox.key',
         'inbox.pub',
@@ -269,6 +273,7 @@ void main() {
         unorderedEquals([
           'keyring.json',
           'ledger.db',
+          'ledger.db.kept',
           'receipts',
           'inbox.key',
           'inbox.pub',

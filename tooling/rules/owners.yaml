@@ -489,7 +489,9 @@ items:
     status: scattered
   # Decision D95: a close or rate fetched more than one named factor
   # away from the one kept is doubted and set aside; the gateway refuses
-  # a close dated after today.
+  # a close dated after today. D101: taken all the same when found again,
+  # when the one kept is older than one named number of days, or when the
+  # book holds a split or reduction of the stock since.
   - id: market-sanity
     what: 行情合理性（可疑倍數、未來日期）
     layer: ledger

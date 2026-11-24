@@ -141,16 +141,27 @@ final class CardSummary {
 
   /// What entries on the card marked [mark] (D52: by their mark, never a
   /// tag's words) came to this year, of those that count [today]
-  /// ([countsOn]): a 預定 one joins on its day.
+  /// ([countsOn]): a 預定 one joins on its day. A refund of one (an
+  /// annual fee waived) takes back what it gives back (r13 F7).
   int markedThisYear(EntryMark mark) {
     final year = today.year;
     var total = 0;
     for (var month = 1; month <= today.month; month++) {
       for (final e in countedOn(_entries.inMonth(year, month), today)) {
-        if (e.account == card.id && e.mark == mark) total += e.amount;
+        total += _markedPart(e, mark);
       }
     }
     return total;
+  }
+
+  /// What [e] adds to the card's total of [mark]: its amount when marked
+  /// so, less it for a refund of one so marked, else nothing.
+  int _markedPart(Entry e, EntryMark mark) {
+    if (e.account != card.id) return 0;
+    if (e.mark == mark) return e.amount;
+    final of = e.refundOf;
+    if (of != null && _entries.byId(of)?.mark == mark) return -e.amount;
+    return 0;
   }
 
   /// What entries on the card marked [mark] came to since the last
@@ -158,9 +169,7 @@ final class CardSummary {
   int markedSinceClose(EntryMark mark) {
     var total = 0;
     for (final e in countedOn(_entries.all, today)) {
-      if (e.account == card.id && e.mark == mark && e.date.isAfter(end)) {
-        total += e.amount;
-      }
+      if (e.date.isAfter(end)) total += _markedPart(e, mark);
     }
     return total;
   }

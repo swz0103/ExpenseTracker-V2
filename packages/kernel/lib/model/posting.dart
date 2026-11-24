@@ -84,6 +84,6 @@ final class Posting {
 
   @override
   String toString() =>
-      'Posting(${intent.value}#$line ${date.ymd} ${account.value} '
+      'Posting(${intent.value}#$line ${date.ymd}/$seq ${account.value} '
       '$amount ${currency.value} q$quantity $sub)';
 }

@@ -2,6 +2,7 @@ import '../model/accounts.dart';
 import '../model/day.dart';
 import '../model/ids.dart';
 import '../model/posting.dart';
+import '../model/quantity.dart';
 import 'intent.dart';
 import 'result.dart';
 import 'store.dart';
@@ -225,9 +226,12 @@ final class Journal {
   }
 
   /// [lines] as postings of [row]; or an abort: every account known, in
-  /// its own currency, and the lines coming to zero in each currency.
+  /// its own currency, the lines coming to zero in each currency, and
+  /// every quantity one any store keeps, each line's and each account's
+  /// within the intent (r14 F5).
   List<Posting> _check(IntentRow row, List<Line> lines) {
     final residual = <CurrencyCode, int>{};
+    final quantities = <AccountId, BigInt>{};
     final postings = <Posting>[];
     for (final line in lines) {
       if (line.amount == 0 && line.quantity == BigInt.zero) continue;
@@ -239,6 +243,17 @@ final class Journal {
       if (own != null && own != line.currency) {
         throw _Abort(CurrencyMismatch(row.id, account.id, own, line.currency));
       }
+      final held = (quantities[line.account] ?? BigInt.zero) + line.quantity;
+      if (!keepable(line.quantity) || !keepable(held)) {
+        throw _Abort(
+          UnkeepableQuantity(
+            row.id,
+            line.account,
+            keepable(line.quantity) ? held : line.quantity,
+          ),
+        );
+      }
+      quantities[line.account] = held;
       final was = residual[line.currency] ?? 0;
       final sum = was + line.amount;
       // A sum past what 64 bits hold wraps: such lines never balance.

@@ -63,4 +63,9 @@ void main() {
     expect(twoDigits(5), '05');
     expect(twoDigits(12), '12');
   });
+
+  test('the ROC year is the Gregorian one less one offset', () {
+    // ROC 115 is 115 + 1911 = 2026.
+    expect(115 + rocYearOffset, 2026);
+  });
 }

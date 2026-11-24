@@ -4,7 +4,8 @@ import 'dart:convert';
 import 'dart:math' show max;
 
 import 'package:core/foundation_values.dart' show PublicId;
-import 'package:ledger_entries/model.dart' show Entry, EntryMark, EntryType;
+import 'package:ledger_entries/model.dart'
+    show Entry, EntryMark, EntryType, homeCode;
 import 'package:ledger_entries/rules.dart' show refundShare;
 import 'package:storage/storage.dart';
 
@@ -155,12 +156,23 @@ void _namesToIds(EncryptedDatabase store, RowWriter w) {
 /// purchase's tags, as every refund is written since D65 (the ledger's
 /// one rule, `refundShare`): a purchase refunded in full then leaves no
 /// category and no tag total behind. The refunds of a purchase are
-/// shared in the order the book keeps them; a tag the refund was given
-/// itself is left as it is. A refund whose purchase is not kept, or
-/// cannot be read, stays as it was.
+/// shared in the order the book keeps them, the order the ledger's
+/// `refundsOf` gives them in; a tag the refund was given itself is left
+/// as it is. A refund on a foreign account kept without a worth at home
+/// is given its share of the purchase's (D62), as the composer and an
+/// import give it (r13 F2): a split given without one would count its
+/// foreign parts as NT$. A refund whose purchase is not kept, or cannot
+/// be read, stays as it was.
 void _refundsMirrorPurchases(EncryptedDatabase store, RowWriter w) {
   final shelf = Collection.entry.name;
   final rows = store.rows(shelf: shelf);
+  final foreign = <String>{
+    for (final row in store.rows(shelf: Collection.account.name))
+      if (readableRecord(row.body)
+          case {'id': final String id, 'currency': final String currency}
+          when currency != homeCode)
+        id,
+  };
   final byId = <String, Map<String, Object?>>{};
   for (final row in rows) {
     final json = readableRecord(row.body);
@@ -200,6 +212,12 @@ void _refundsMirrorPurchases(EncryptedDatabase store, RowWriter w) {
       next['tags'] = share.tags;
       changed = true;
     }
+    if (json['home'] == null &&
+        share.home != null &&
+        foreign.contains(json['account'])) {
+      next['home'] = share.home;
+      changed = true;
+    }
     // The refund as it now stands, for the next refund of the purchase.
     if (_keyed(next) case final mine?) kept.add(mine);
     if (changed) w.put(shelf, row.id, jsonEncode(next));
@@ -210,15 +228,32 @@ void _refundsMirrorPurchases(EncryptedDatabase store, RowWriter w) {
 /// its mark (D52), so a tag renamed changes no figure: cashback (income
 /// tagged 回饋), an annual fee (spending tagged 年費), an e-invoice
 /// (spending tagged 發票); in the trash too. The tags stay as they are.
+///
+/// Only an entry of the shape the app's own page wrote is marked (r13
+/// F7), never one the person merely tagged so: cashback and an annual fee
+/// on a card (the card page writes them there and nowhere else), an
+/// e-invoice whose note still names its number (`發票 AB12345678`, as the
+/// scanner and the import wrote it). One whose note was edited since
+/// keeps its tag, unmarked.
 void _marksFromTags(EncryptedDatabase store, RowWriter w) {
+  final cards = <String>{
+    for (final row in store.rows(shelf: Collection.account.name))
+      if (readableRecord(row.body) case {'id': final String id, 'kind': 'card'})
+        id,
+  };
   Map<String, Object?>? marked(Map<String, Object?> json) {
     if (json['mark'] != null) return null;
     final tags = json['tags'];
     if (tags is! List) return null;
+    final onCard = cards.contains(json['account']);
+    final note = json['note'];
+    final namesInvoice = note is String && _invoiceNote.hasMatch(note);
     final mark = switch (json['type']) {
-      'income' when tags.contains(_rewardTag) => EntryMark.reward,
-      'expense' when tags.contains(_annualFeeTag) => EntryMark.annualFee,
-      'expense' when tags.contains(_invoiceTag) => EntryMark.invoice,
+      'income' when onCard && tags.contains(_rewardTag) => EntryMark.reward,
+      'expense' when onCard && tags.contains(_annualFeeTag) =>
+        EntryMark.annualFee,
+      'expense' when namesInvoice && tags.contains(_invoiceTag) =>
+        EntryMark.invoice,
       _ => null,
     };
     return mark == null ? null : {...json, 'mark': mark.name};
@@ -247,7 +282,13 @@ void _marksFromTags(EncryptedDatabase store, RowWriter w) {
 /// give them their mark.
 const _rewardTag = '回饋';
 const _annualFeeTag = '年費';
+// Exception to shared words: the tag as earlier versions wrote it, read
+// as it was whatever the screens say now.
 const _invoiceTag = '發票';
+
+/// An invoice's number in a note as the scanner and the import wrote it
+/// then: the word, a space, two letters and eight digits.
+final _invoiceNote = RegExp(r'(?:^| )發票 [A-Z]{2}\d{8}(?![A-Za-z0-9])');
 
 /// The keys an entry names its category under: by id, or by name.
 const _categoryKeys = ['categoryId', 'category'];

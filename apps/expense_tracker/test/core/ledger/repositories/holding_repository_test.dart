@@ -97,6 +97,22 @@ void main() {
     expect(make().soldOut, isEmpty);
   });
 
+  test('a stock sold out with nothing gained is still found to value '
+      'the days it was held (D105)', () {
+    final holdings = HoldingRepository([_tsmc], moveOf: (_) => null)
+      // 10 bought at 900, all sold at 900 again: nothing realised (the
+      // sale's 9000 less the lot's 9000), so the holdings list it not.
+      ..replay([
+        buy,
+        _trade('all', EntryType.sell, 5, 10, 9000),
+      ], today: _today);
+    expect(holdings.all, isEmpty);
+    expect(holdings.everByCode('2330')?.price, 1000);
+    expect(holdings.everByCode('0050'), isNull);
+    // No split since: a day's count is today's.
+    expect(holdings.inTodaysShares('2330', DateTime.utc(2026, 9, 2), 10), 10);
+  });
+
   test("the day's change follows the shares held", () {
     final holdings = make(moves: {'2330': 2.5});
     expect(holdings.byCode('2330')?.change, 15);

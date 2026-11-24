@@ -38,7 +38,8 @@ void main() {
     expect(p(), p());
     expect(p().hashCode, p().hashCode);
     expect(p(), isNot(p(amount: 11)));
-    expect('${p()}', 'Posting(i#0 20260102 bank 10 TWD q4 s)');
+    // The day, then its seq (3): the book's order among a day's intents.
+    expect('${p()}', 'Posting(i#0 20260102/3 bank 10 TWD q4 s)');
   });
 
   test('ids are their text', () {

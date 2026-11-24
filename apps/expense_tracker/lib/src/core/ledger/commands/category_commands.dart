@@ -103,8 +103,10 @@ final class CategoryCommands {
 
   /// Moves everything in [from] to [into] and removes [from] (D60): its
   /// entries, deleted entries and recurring items; its budget, added to
-  /// the budget of [into] (the limits summed, [into]'s settings kept) or
-  /// moved to it; its subcategories, now under [into]. Refused, with
+  /// the budget of [into] (the limits summed, [into]'s settings kept, the
+  /// earlier start of the two, D103) or moved to it; its subcategories,
+  /// now under [into]. A subcategory merged into a category it sits under
+  /// adds no limit: [into]'s budget already counts its spending (D103). Refused, with
   /// nothing changed, when either is not a category, both are the same,
   /// they are on different sides (spending and income), [into] is
   /// archived, or [into] sits under [from].
@@ -135,14 +137,15 @@ final class CategoryCommands {
       _budgets.remove(from);
       unit.registerDeleted(Collection.budget, from);
       final kept = _budgets.all.where((b) => b.category == into).firstOrNull;
+      final within = isUnder(from, into, (n) => _categories.byName(n).parent);
       final merged = kept == null
           ? budget.renamed(into)
           : Budget(
               into,
-              kept.limit + budget.limit,
+              within ? kept.limit : kept.limit + budget.limit,
               warning: kept.warning,
               carry: kept.carry,
-              since: kept.since,
+              since: _earlier(kept.since, budget.since),
             );
       _budgets.put(merged);
       unit.registerDirty(merged);
@@ -155,6 +158,11 @@ final class CategoryCommands {
     return const Merged();
   }
 }
+
+/// The earlier of two budgets' starts; none (counted from the first
+/// month) when either has none.
+DateTime? _earlier(DateTime? a, DateTime? b) =>
+    a == null || b == null ? null : (a.isBefore(b) ? a : b);
 
 /// What [CategoryCommands.mergeCategory] did.
 sealed class CategoryMerge {

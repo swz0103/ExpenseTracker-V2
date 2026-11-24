@@ -52,4 +52,15 @@ void main() {
     expect(notesInvoice('AB1，已付', 'AB1'), isTrue);
     expect(notesInvoice('發票 AB1', ''), isFalse);
   });
+
+  test('one pair writes and reads an invoice\'s note (r13 F6)', () {
+    final note = invoiceNote(['拿鐵', '可頌'], 'AB12345678');
+    expect(note, '拿鐵 等 2 項 發票 AB12345678');
+    expect(invoiceNumberIn(note), 'AB12345678');
+    expect(invoiceNote(const [], 'AB12345678'), '發票 AB12345678');
+    expect(invoiceNumberIn('發票 AB12345678 · 賣方 1'), 'AB12345678');
+    // A note that names none: edited, or never an invoice's.
+    expect(invoiceNumberIn('午餐'), isNull);
+    expect(invoiceNumberIn('電子發票'), isNull);
+  });
 }

@@ -488,6 +488,10 @@ void main() {
       tester,
     ) async {
       await setUpLedger(tester);
+      // As the book's first opening writes its first records (D102).
+      (startup.state as Ready).vault.store.write(
+        (w) => w.put('account', 'a', '{}'),
+      );
       startup.lock();
       final vault = File('${directory.path}/ledger.db');
       vault.writeAsBytesSync(const []);
@@ -508,7 +512,8 @@ void main() {
       expect(find.byKey(Keys.restoreGo), findsOneWidget);
     });
 
-    testWidgets('found as the book is read: the damaged page', (tester) async {
+    testWidgets('found as the book is read where its records still read '
+        'whole: made again from them, and opened (D102)', (tester) async {
       await setUpLedger(tester);
       final open = (startup.state as Ready).vault;
       open.store.write((w) {
@@ -519,15 +524,22 @@ void main() {
       startup.lock();
       final file = File('${directory.path}/ledger.db');
       final bytes = file.readAsBytesSync();
-      // Page 20 of the file, all zeros: the first page still opens.
+      // Page 20 of the file, all zeros: not one the records are read
+      // from (the first page still opens; the rows read whole).
       bytes.fillRange(4096 * 20, 4096 * 21, 0);
       file.writeAsBytesSync(bytes);
       await root(tester);
       await tester.runAsync(() => startup.unlockWithPassword(_password));
-      await until(tester, () => shown(find.byType(DamagedBookPage)));
-      expect(find.byType(DamagedBookPage), findsOneWidget);
-      expect(startup.state, isA<Damaged>());
-      expect(file.existsSync(), isFalse, reason: 'set aside');
+      await untilBook(tester);
+      expect(find.byType(DamagedBookPage), findsNothing);
+      final again = (startup.state as Ready).vault;
+      expect(again.store.isOpen, isTrue);
+      // Nothing set aside as damaged.
+      expect(
+        directory.listSync().where((f) => f.path.contains('ledger-damaged')),
+        isEmpty,
+      );
+      expect(file.existsSync(), isTrue);
     });
   });
 }
