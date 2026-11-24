@@ -132,8 +132,7 @@ void main() {
     // would be kept as one a later version wrote and merged back over
     // every rewrite of the row.
     expect(written, {
-      for (final MapEntry(:key, :value) in recordFields.entries)
-        key: value,
+      for (final MapEntry(:key, :value) in recordFields.entries) key: value,
     });
   });
 

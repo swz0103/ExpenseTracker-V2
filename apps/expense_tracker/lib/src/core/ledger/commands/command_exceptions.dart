@@ -49,6 +49,20 @@ final class KeepFailed extends LedgerProblem {
   String toString() => 'KeepFailed($cause)';
 }
 
+/// An undo put back only part of what was deleted, or none of it: [count]
+/// entries stay in the trash, because something stands in their way that
+/// the person decides on there, one by one (D78): an account closed since,
+/// or a refund's purchase not in the book.
+final class StayedInTrash extends LedgerProblem {
+  StayedInTrash(this.count);
+
+  /// How many entries stayed.
+  final int count;
+
+  @override
+  String toString() => 'StayedInTrash($count)';
+}
+
 /// After a change could not be kept, the book could not be read back
 /// either; what the screens show may differ from what is kept.
 final class ReloadFailed extends LedgerProblem {

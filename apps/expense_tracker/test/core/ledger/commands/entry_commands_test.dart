@@ -2,8 +2,215 @@ import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// R17: putting a deleted entry back from the trash (D78 holds, all or
-/// nothing) and which let-go day a restored booking takes back.
+/// nothing) and which let-go day a restored booking takes back; R20: a
+/// restore told once, groups weighed whole, an undo held like the trash.
 void main() {
+  // R20: a purchase of 300 and its refund on 銀行; g1 on 銀行 and g2 on 舊
+  // written as one (group G); a on 銀行 alone.
+  Ledger book20({int refund = 100, String refundOn = 'bank'}) => Ledger(
+    today: DateTime.utc(2026, 10, 1),
+    accounts: const [
+      Account('bank', '銀行', AccountKind.bank, 1000),
+      Account('old', '舊', AccountKind.bank, 1000),
+    ],
+    categories: const [],
+    entries: [
+      Entry(
+        id: 'buy',
+        date: DateTime.utc(2026, 9, 20),
+        type: EntryType.expense,
+        amount: 300,
+        account: 'bank',
+      ),
+      Entry(
+        id: 'ref',
+        date: DateTime.utc(2026, 9, 21),
+        type: EntryType.income,
+        amount: refund,
+        account: refundOn,
+        refundOf: 'buy',
+      ),
+      Entry(
+        id: 'g1',
+        date: DateTime.utc(2026, 9, 22),
+        type: EntryType.expense,
+        amount: 5,
+        account: 'bank',
+        group: 'G',
+      ),
+      Entry(
+        id: 'g2',
+        date: DateTime.utc(2026, 9, 22),
+        type: EntryType.expense,
+        amount: 5,
+        account: 'old',
+        group: 'G',
+      ),
+      Entry(
+        id: 'a',
+        date: DateTime.utc(2026, 9, 23),
+        type: EntryType.expense,
+        amount: 7,
+        account: 'bank',
+      ),
+    ],
+    holdings: const [],
+    budgets: const [],
+    recurring: const [],
+  );
+
+  void close(Ledger l, String id) =>
+      l.accountCommands.updateAccount(l.account(id).copyWith(archived: true));
+
+  List<String> live(Ledger l) => [for (final e in l.entries.all) e.id];
+
+  List<String> trashed(Ledger l) =>
+      [for (final t in l.trash.all) t.entry.id]..sort();
+
+  /// What a listener sees of [l]: the entries, the trash, whether 銀行 is
+  /// closed and its balance.
+  String seen(Ledger l) =>
+      '${live(l)} ${trashed(l)} ${l.account('bank').archived} '
+      '${l.balanceService.balance('bank')}';
+
+  group('R20: a restore is one quiet change', () {
+    test('restored with its purchase: every listener, and the problem, hear '
+        'of it once, at rest', () {
+      final ledger = book20();
+      ledger.entryCommands.remove('ref');
+      ledger.entryCommands.remove('buy');
+      close(ledger, 'bank');
+      final before = seen(ledger);
+      final states = <String>[];
+      final watched = <String>[];
+      ledger.addListener(() => states.add(seen(ledger)));
+      ledger
+          .watch(const {Topic.entries})
+          .addListener(() => watched.add(seen(ledger)));
+      ledger.problem.addListener(() => states.add('problem'));
+      final ok = ledger.entryCommands.restoreTrashed(
+        ledger.trash.all.firstWhere((t) => t.entry.id == 'ref'),
+        reopen: true,
+        withOriginal: true,
+      );
+      expect(ok, isTrue);
+      // 1000 - 300 + 100 - 5 - 7.
+      const after = '[buy, ref, g1, g2, a] [] false 788';
+      expect(before, '[g1, g2, a] [buy, ref] true 988');
+      expect(states, [after]);
+      expect(watched, [after]);
+    });
+
+    test('refused (a refund of 400 for a purchase of 300): the problem and '
+        'one change, both after it is all undone', () {
+      final ledger = book20(refund: 400);
+      ledger.entryCommands.remove('ref');
+      ledger.entryCommands.remove('buy');
+      close(ledger, 'bank');
+      final before = seen(ledger);
+      final states = <String>[];
+      ledger.addListener(() => states.add(seen(ledger)));
+      ledger.problem.addListener(() => states.add('problem ${seen(ledger)}'));
+      final ok = ledger.entryCommands.restoreTrashed(
+        ledger.trash.all.firstWhere((t) => t.entry.id == 'ref'),
+        reopen: true,
+        withOriginal: true,
+      );
+      expect(ok, isFalse);
+      expect(seen(ledger), before);
+      expect(states, ['problem $before', before]);
+    });
+  });
+
+  group('R20: what comes back with a group is weighed with it', () {
+    test('a group member on a closed account holds the whole group', () {
+      final ledger = book20();
+      ledger.entryCommands.removeAll(['g1', 'g2']);
+      close(ledger, 'old');
+      final g1 = ledger.trash.all.firstWhere((t) => t.entry.id == 'g1');
+      final holds = ledger.entryCommands.holdsOf(g1);
+      expect(holds, [isA<ClosedAccounts>()]);
+      expect((holds.single as ClosedAccounts).accounts.map((a) => a.id), [
+        'old',
+      ]);
+      expect(ledger.entryCommands.restoreTrashed(g1), isFalse);
+      expect(trashed(ledger), ['g1', 'g2']);
+      expect(ledger.entryCommands.restoreTrashed(g1, reopen: true), isTrue);
+      expect(ledger.account('old').archived, isFalse);
+      expect(trashed(ledger), isEmpty);
+    });
+  });
+
+  group('R20: an undo puts back only what nothing stands in the way of', () {
+    test('a group with a member on a closed account stays in the trash; the '
+        'rest comes back, and the page is told how many stayed', () {
+      final ledger = book20();
+      final removed = ledger.entryCommands.removeAll(['g1', 'g2', 'a']);
+      close(ledger, 'old');
+      final ok = ledger.entryCommands.restoreAll(removed);
+      expect(ok, isFalse);
+      expect(live(ledger), ['buy', 'ref', 'a']);
+      expect(trashed(ledger), ['g1', 'g2']);
+      expect(ledger.account('old').archived, isTrue);
+      expect(
+        ledger.problem.value,
+        isA<StayedInTrash>().having((p) => p.count, 'count', 2),
+      );
+      // From the trash, one by one, once agreed.
+      final g1 = ledger.trash.all.firstWhere((t) => t.entry.id == 'g1');
+      expect(ledger.entryCommands.restoreTrashed(g1, reopen: true), isTrue);
+      expect(live(ledger), ['buy', 'ref', 'g1', 'g2', 'a']);
+    });
+
+    test('a purchase stays with its refund', () {
+      // The refund is on 舊, closed; the purchase on 銀行, open.
+      final ledger = book20(refundOn: 'old');
+      final removed = ledger.entryCommands.removeAll(['buy', 'ref', 'a']);
+      close(ledger, 'old');
+      expect(ledger.entryCommands.restoreAll(removed), isFalse);
+      expect(trashed(ledger), ['buy', 'ref']);
+      expect(live(ledger), ['g1', 'g2', 'a']);
+      expect((ledger.problem.value! as StayedInTrash).count, 2);
+    });
+
+    test('a refund whose purchase is not in the book stays; with its '
+        'purchase it comes back', () {
+      final ledger = book20();
+      ledger.entryCommands.remove('buy');
+      final refund = ledger.entryCommands.removeAll(['ref']);
+      expect(ledger.entryCommands.restoreAll(refund), isFalse);
+      expect(trashed(ledger), ['buy', 'ref']);
+      expect((ledger.problem.value! as StayedInTrash).count, 1);
+
+      final again = book20();
+      final both = again.entryCommands.removeAll(['buy', 'ref']);
+      expect(again.entryCommands.restoreAll(both), isTrue);
+      expect(live(again), ['buy', 'ref', 'g1', 'g2', 'a']);
+      expect(again.problem.value, isNull);
+    });
+
+    test('nothing in the way: all of it is back, nothing said', () {
+      final ledger = book20();
+      final removed = ledger.entryCommands.removeAll(['g1', 'g2']);
+      expect(ledger.entryCommands.restoreAll(removed), isTrue);
+      expect(live(ledger), ['buy', 'ref', 'g1', 'g2', 'a']);
+      expect(ledger.problem.value, isNull);
+    });
+
+    test('the undo of one entry whose account closed meanwhile is refused '
+        'the same way', () {
+      final ledger = book20();
+      final a = ledger.entryCommands.remove('a')!;
+      close(ledger, 'bank');
+      final states = <String>[];
+      ledger.addListener(() => states.add('changed'));
+      ledger.problem.addListener(() => states.add('problem'));
+      expect(ledger.entryCommands.restore(a), isFalse);
+      expect(trashed(ledger), ['a']);
+      expect((ledger.problem.value! as StayedInTrash).count, 1);
+      expect(states, ['problem']);
+    });
+  });
   group('D78 restore holds', () {
     // A purchase of 300 and its refund of 100, both deleted, then the
     // account closed.
