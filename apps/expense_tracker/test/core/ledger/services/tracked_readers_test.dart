@@ -124,6 +124,8 @@ void main() {
       'lotsOf': (r) => r.lotsOf('2330').length,
       'saleCost': (r) => r.saleCost('2330', 4),
       'sharesOn': (r) => r.sharesOn('2330', day),
+      'inTodaysShares': (r) => r.inTodaysShares('2330', day, 10),
+      'everByCode': (r) => r.everByCode('2330')?.shares,
       'holdsWith': (r) => r.holdsWith([buy]),
       'marketValue': (r) => r.marketValue,
       'costBasis': (r) => r.costBasis,

@@ -14,6 +14,7 @@ final class Portfolio {
     this.every,
     this._lots,
     this._steps,
+    this._rescales,
     this.leftOut,
     this.faulty,
   );
@@ -40,6 +41,7 @@ final class Portfolio {
     final steps = <String, List<(DateTime, int)>>{
       for (final h in start) h.code: [(opening, h.shares)],
     };
+    final rescales = <String, List<_Rescale>>{};
     final leftOut = <String>[];
     final faulty = <String, Object>{};
     for (final e in _inOrder(entries)) {
@@ -60,7 +62,10 @@ final class Portfolio {
         continue;
       }
       if (traded != null) byCode[code] = traded;
-      _step(steps[code] ??= [], e, held.shares, traded?.shares ?? held.shares);
+      final after = traded?.shares ?? held.shares;
+      if (_step(steps[code] ??= [], e, held.shares, after)) {
+        (rescales[code] ??= []).add((e.date, held.shares, after));
+      }
     }
     final holdings = [
       for (final h in byCode.values)
@@ -71,6 +76,7 @@ final class Portfolio {
       List.unmodifiable(byCode.values),
       lots,
       steps,
+      rescales,
       List.unmodifiable(leftOut),
       Map.unmodifiable(faulty),
     );
@@ -217,8 +223,8 @@ final class Portfolio {
 
   /// Adds the [after] shares held after [e] to [kept], [before] being those
   /// held before it. A split or reduction scales the earlier counts to the
-  /// new shares.
-  static void _step(
+  /// new shares; whether it did is returned.
+  static bool _step(
     List<(DateTime, int)> kept,
     Entry e,
     int before,
@@ -234,6 +240,7 @@ final class Portfolio {
       }
     }
     kept.add((e.date, after));
+    return rescaled;
   }
 
   /// Held stocks, and sold ones with a realised result, largest first.
@@ -249,6 +256,10 @@ final class Portfolio {
   /// Each stock's shares after each trade, in date order; counts before a
   /// split or reduction are scaled to today's shares.
   final Map<String, List<(DateTime, int)>> _steps;
+
+  /// Each stock's splits and reductions, in date order: the day, and the
+  /// shares held before and after.
+  final Map<String, List<_Rescale>> _rescales;
 
   /// The trades left out, by id: those an older version let take more
   /// shares than were held, read leniently.
@@ -276,6 +287,17 @@ final class Portfolio {
       held = shares;
     }
     return held;
+  }
+
+  /// [shares] of [code] held at the end of [day], as they were counted
+  /// then, in today's shares: scaled by each split or reduction after
+  /// [day] as [sharesOn] scales its earlier counts.
+  int inTodaysShares(String code, DateTime day, int shares) {
+    var n = shares;
+    for (final (date, before, after) in _rescales[code] ?? const <_Rescale>[]) {
+      if (date.isAfter(day)) n = (n * after / before).round();
+    }
+    return n;
   }
 
   /// The cost of selling [shares] out of [lots], and the lots left: the
@@ -368,3 +390,6 @@ final class OversoldTrade extends StateError {
   /// The sale or reduction that is short.
   final Entry entry;
 }
+
+/// A split or reduction: its day, and the shares held before and after.
+typedef _Rescale = (DateTime, int, int);
