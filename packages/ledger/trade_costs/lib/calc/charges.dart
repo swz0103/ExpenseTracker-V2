@@ -4,6 +4,13 @@ import '../model/trade_values.dart';
 import 'broker_discount.dart';
 import '../rules/taiwan_rates.dart';
 
+/// The broker's full fee in Taiwan, before any discount, in millionths
+/// of the amount traded: 1425, that is 0.1425%. The one source of the
+/// rate, for the fee and for the words that name it.
+const fullFeePerMillion = 1425;
+
+const _million = 1000000;
+
 /// Suggested Taiwan brokerage fee and securities transaction tax for a
 /// trade; the user can still type what the broker actually charged.
 /// Amounts are in whole New Taiwan dollars and rounded down, as brokers do.
@@ -28,14 +35,15 @@ final class TaiwanTradeCharges {
   final Money minimumFee;
   final Money oddLotMinimumFee;
 
-  /// 0.1425% of [gross] after the discount, at least the minimum.
+  /// [fullFeePerMillion] (0.1425%) of [gross] after the discount, at
+  /// least the minimum.
   Money fee(Money gross, ShareQuantity quantity) {
     _check(gross, quantity);
     if (gross.minorUnits == BigInt.zero) return gross;
     final fee =
         gross.minorUnits *
-        BigInt.from(1425 * discountBasisPoints) ~/
-        BigInt.from(1000000 * 10000);
+        BigInt.from(fullFeePerMillion * discountBasisPoints) ~/
+        BigInt.from(_million * BrokerDiscountRange.highest);
     final oddLot = quantity.coefficient < BigInt.from(1000);
     final minimum = oddLot ? oddLotMinimumFee : minimumFee;
     return fee < minimum.minorUnits ? minimum : Money(_twd, fee);

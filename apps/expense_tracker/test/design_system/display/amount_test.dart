@@ -80,6 +80,13 @@ void main() {
       expect(tenthsPercent(125), '12.5%');
       expect(tenthsPercent(125, sign: true), '+12.5%');
     });
+
+    test('a rate in millionths as a percent, trailing zeros dropped', () {
+      // 1425 / 10,000 = 0.1425; 3000 / 10,000 = 0.3; 10,000 is 1.
+      expect(perMillionPercent(1425), '0.1425%');
+      expect(perMillionPercent(3000), '0.3%');
+      expect(perMillionPercent(10000), '1%');
+    });
   });
 
   group('F107: amounts read aloud with their direction in words', () {

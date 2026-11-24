@@ -175,6 +175,14 @@ String percentOf(int part, int whole) =>
 String ratioPercent(double ratio) =>
     tenthsPercent(ratioTenths(ratio), sign: true);
 
+/// A rate in millionths as a percent, trailing zeros dropped: 1425 as
+/// `0.1425%`, 3000 as `0.3%`.
+String perMillionPercent(int perMillion) =>
+    '${trimmedDecimals(perMillion / _millionthsPerPercent, 4)}%';
+
+/// Millionths in a percent: 10,000.
+const _millionthsPerPercent = 10000;
+
 /// [part] of [whole] as a whole percent: `33%`. `0%` when [whole] is 0.
 String wholePercent(int part, int whole) => '${percent(part, whole)}%';
 
