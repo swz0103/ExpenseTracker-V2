@@ -8,7 +8,7 @@ import 'package:vault/ledger_vault.dart';
 
 import '../../../design_system/display/amount.dart';
 import '../../../design_system/display/date.dart';
-import '../platform/startup.dart' show UnlockDelayed;
+import '../platform/startup.dart' show Locked, StartupState, UnlockDelayed;
 import 'lock_messages.dart';
 
 /// The words of the ledger's keys, in one place: passwords and their rule,
@@ -122,6 +122,13 @@ String? describeUnlockFailure(Object error, {required bool recovery}) =>
 /// on the phone; null for any other failure.
 String? describeNoSpace(Object error) =>
     isNoSpace(error) ? LockWords.noSpace : null;
+
+/// What the lock screen says as it opens in [state]: that the phone was
+/// found full as the book was being made again (review 29), or nothing.
+String? describeLocked(StartupState state) => switch (state) {
+  Locked(noSpace: true) => LockWords.noSpace,
+  _ => null,
+};
 
 /// When a backup was taken and how many records it holds.
 String describeBackup(BackupHeader header) =>

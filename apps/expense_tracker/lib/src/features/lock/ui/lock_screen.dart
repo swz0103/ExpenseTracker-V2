@@ -55,13 +55,7 @@ class _LockScreenState extends State<LockScreen> {
   /// once, without the opening again.
   var _cameBack = false;
   var _busy = false;
-
-  /// What went wrong, said on the form; at first, a phone found full as
-  /// the book was being made again (review 29).
-  late String? _problem = switch (widget.startup.state) {
-    Locked(noSpace: true) => LockWords.noSpace,
-    _ => null,
-  };
+  late String? _problem = describeLocked(widget.startup.state);
 
   /// The opening animation, on a ledger with a password when the app has
   /// just started; the password form comes after it.
