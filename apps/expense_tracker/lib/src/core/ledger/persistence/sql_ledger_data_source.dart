@@ -308,6 +308,11 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     OpeningWorked? worked;
     if (keepsJournal || _store.count > _decodeApart) {
       (:book, :worked, posting: posting) = await _openApart(today, trashFrom);
+      if (worked.helperFault case final fault?) {
+        // The book opened all the same, only later: its second worker's
+        // half was decoded on the first.
+        ErrorLog.instance.record(ErrorSteps.openingHelper, StateError(fault));
+      }
     } else {
       posting = null;
       book = decodeBook(await _shelves(), trashFrom: trashFrom, today: today);

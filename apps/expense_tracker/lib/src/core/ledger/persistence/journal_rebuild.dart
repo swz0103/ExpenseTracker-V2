@@ -66,7 +66,11 @@ Future<OpenedBook> Function(ApartStore) openingWork({
   if (book.expired.isNotEmpty) {
     store.write(book.expired, counts: book.expiredCounts);
   }
-  final worked = (us: watch.elapsedMicroseconds, split: halves?.apart ?? false);
+  final worked = (
+    us: watch.elapsedMicroseconds,
+    split: halves?.apart ?? false,
+    helperFault: halves?.fault,
+  );
   final mark = rules == null ? null : (rules: rules, revision: store.revision);
   if (mark == null || store.journal.mark == mark) {
     // Nothing to post: the book goes back whole as the worker ends,
@@ -100,10 +104,11 @@ Future<DecodedRecords> decodedApart(List<StoredRow> rows) =>
 
 /// [entries] decoded in two halves at once: the first here, the last by
 /// [decodeApart]. Should that one not start, or fail, its half is
-/// decoded here after the first; one still running when the first half
-/// throws is let go of, its outcome never left unhandled. The records of
-/// both, in row order, and whether the last half was decoded apart.
-Future<({DecodedRecords records, bool apart})> _decodedInHalves(
+/// decoded here after the first, and what it threw is told with the book
+/// (`helperFault`); one still running when the first half throws is let
+/// go of, its outcome never left unhandled. The records of both, in row
+/// order, whether the last half was decoded apart, and what it threw.
+Future<({DecodedRecords records, bool apart, String? fault})> _decodedInHalves(
   List<StoredRow> entries,
   DecodeApart decodeApart,
 ) async {
@@ -113,30 +118,35 @@ Future<({DecodedRecords records, bool apart})> _decodedInHalves(
   // throws at once is a failure like any other.
   final tail = Future.sync(() => decodeApart(tailRows))..ignore();
   final head = decodeRows(entries.sublist(0, half));
+  String? fault;
+  // Told as text: what was thrown need not be sendable to the screen's
+  // isolate, which records it (`SqlLedgerDataSource`).
+  void report(Object error) => fault = '$error';
   DecodedRecords rest;
-  var apart = true;
   try {
     rest = await tail;
-  } on Object {
+  } on Object catch (error) {
+    report(error);
     // Only the time saved is lost: the half is decoded here, and a fault
     // in its rows themselves throws now as it would have.
     rest = decodeRows(tailRows);
-    apart = false;
   }
   return (
     records: (
       records: [...head.records, ...rest.records],
       aside: [...head.aside, ...rest.aside],
     ),
-    apart: apart,
+    apart: fault == null,
+    fault: fault,
   );
 }
 
 /// How reading the book on its worker went: how long it took, in
 /// microseconds, from the first row read until it was ready to hand
-/// over; and whether the last half of its entries was decoded on a
-/// second worker meanwhile ([openingWork]).
-typedef OpeningWorked = ({int us, bool split});
+/// over; whether the last half of its entries was decoded on a second
+/// worker meanwhile ([openingWork]); and what that worker threw when it
+/// could not be started or failed, its half then decoded on this one.
+typedef OpeningWorked = ({int us, bool split, String? helperFault});
 
 /// What opening the book on its worker answers: the book itself when
 /// nothing was posted (else it was sent as soon as it was read, as a

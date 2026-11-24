@@ -148,6 +148,7 @@ void main() {
     final (read, opened) = await open();
     expect(read.worked.split, isTrue);
     expect(opened.worked.split, isTrue);
+    expect(read.worked.helperFault, isNull);
     expectAsWhole(read.book);
     expectPosted(opened);
   });
@@ -156,6 +157,7 @@ void main() {
       'opening worker', () async {
     final (read, opened) = await open(decodeApart: _refused);
     expect(read.worked.split, isFalse);
+    expect(read.worked.helperFault, contains('no memory'));
     expectAsWhole(read.book);
     expectPosted(opened);
   });
@@ -164,6 +166,7 @@ void main() {
       'worker', () async {
     final (read, opened) = await open(decodeApart: _failing);
     expect(read.worked.split, isFalse);
+    expect(read.worked.helperFault, 'Bad state: the worker failed');
     expectAsWhole(read.book);
     expectPosted(opened);
   });
