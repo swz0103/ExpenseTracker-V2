@@ -131,6 +131,17 @@ void main() {
         ),
         '至少要 8 個字',
       );
+      // A refused passphrase says the passphrase rule's minimum.
+      expect(
+        describeKeyProblem(
+          const KeyringException(
+            KeyringError.weakPassword,
+            passwordProblem: PasswordProblem.tooShort,
+            minimumLength: 12,
+          ),
+        ),
+        '至少要 12 個字',
+      );
       // A StateError that merely mentions the word is not taken for it.
       expect(describeKeyProblem(StateError('wrongSecret')), '沒有完成，請再試一次');
       expect(keyRefusal(StateError('wrongSecret')), isNull);
@@ -138,6 +149,18 @@ void main() {
         keyRefusal(const KeyringException(KeyringError.wrongSecret)),
         '目前的密碼不正確',
       );
+    });
+  });
+
+  group('the backup passphrase rule (review 22 finding 1)', () {
+    test('is stricter than the password rule', () {
+      // PasswordPolicy.passphrase: 12 characters, not digits alone.
+      expect(passphraseRule, '至少 12 個字，不能全是數字');
+      // 11 characters ("apple pie 1") pass as a password, not here.
+      expect(passwordRefusal('apple pie 1'), isNull);
+      expect(passphraseRefusal('apple pie 1'), '至少要 12 個字');
+      expect(passphraseRefusal('123456789012'), '不能全是數字，請加上文字或符號');
+      expect(passphraseRefusal('apple pie 12'), isNull);
     });
   });
 }

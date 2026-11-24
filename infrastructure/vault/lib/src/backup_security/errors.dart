@@ -23,13 +23,23 @@ enum KeyringError {
 }
 
 final class KeyringException implements Exception {
-  const KeyringException(this.error, {this.passwordProblem});
+  const KeyringException(
+    this.error, {
+    this.passwordProblem,
+    this.minimumLength,
+  });
 
   final KeyringError error;
 
   /// The rule a refused password broke, for [KeyringError.weakPassword].
   /// A detail: two exceptions of the same [error] are equal.
   final PasswordProblem? passwordProblem;
+
+  /// The fewest characters the rule a refused password broke asks for,
+  /// for [KeyringError.weakPassword]: the password and the backup
+  /// passphrase are held to different rules. A detail, like
+  /// [passwordProblem].
+  final int? minimumLength;
 
   @override
   bool operator ==(Object other) =>

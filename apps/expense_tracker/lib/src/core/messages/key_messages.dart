@@ -33,7 +33,8 @@ abstract final class KeyWords {
   static const passphraseOn = '已設定 · 備份可用它或救援碼打開';
   static const passphraseOff = '沒有設定 · 備份只能用救援碼打開';
   static const passphraseWhy =
-      '另設一組只用來打開備份的密碼（不是 App 的密碼）。設定後，之後的備份可以用它或救援碼還原。';
+      '另設一組只用來打開備份的密碼（不是 App 的密碼）。設定後，之後的備份可以用它或救援碼還原。'
+      '拿到備份檔的人可以一直猜，所以要比 App 的密碼長，例如用幾個不相關的詞組成一句。';
   static const passphraseSet = '已設定備份密碼，之後的備份可以用它還原';
   static const passphraseRemove = '不再使用備份密碼？之後的備份只能用救援碼還原；已經存在的備份不受影響。';
   static const passphraseRemoved = '已停用備份密碼';

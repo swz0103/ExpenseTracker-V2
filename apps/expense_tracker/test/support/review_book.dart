@@ -116,6 +116,12 @@ final class ReviewKeys extends Fake implements BackupManager {
 
   @override
   String? refusePassword(String password) => null;
+
+  @override
+  String get passphraseRule => '至少 12 個字';
+
+  @override
+  String? refusePassphrase(String passphrase) => null;
 }
 
 /// A phone that allows what [status] says, and posts nothing.

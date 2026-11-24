@@ -12,9 +12,10 @@ enum PasswordProblem {
   allDigits,
 }
 
-/// What a password must be to be set: the one rule for the app password
-/// and the backup passphrase, wherever one is set. A password set before
-/// the rule changed keeps working for unlocking; only setting one checks.
+/// What a password must be to be set: [standard] for the app password and
+/// [passphrase] for the backup passphrase, wherever one is set. A password
+/// set before a rule changed keeps working for unlocking; only setting one
+/// checks.
 ///
 /// Length counts Unicode code points after NFC normalization, the form a
 /// password is stretched in.
@@ -29,6 +30,12 @@ final class PasswordPolicy {
   /// Provisional numbers, waiting for the owner's decision: 8 characters
   /// at least, and not digits alone.
   static const standard = PasswordPolicy();
+
+  /// The rule a backup passphrase is held to: 12 characters at least, and
+  /// not digits alone. Stricter than [standard] because the passphrase
+  /// opens every backup, which anyone holding the file can try offline
+  /// with no wait between guesses.
+  static const passphrase = PasswordPolicy(minimumLength: 12);
 
   /// The fewest code points a password may have.
   final int minimumLength;

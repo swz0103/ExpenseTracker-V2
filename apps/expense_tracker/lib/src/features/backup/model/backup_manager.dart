@@ -53,9 +53,18 @@ abstract interface class BackupManager {
   /// The password rule, said under the fields where one is set.
   String get passwordRule;
 
-  /// Why [password] cannot be set as a password or backup passphrase, or
-  /// null when it can: the vault's one rule.
+  /// Why [password] cannot be set as the password, or null when it can:
+  /// the vault's rule.
   String? refusePassword(String password);
+
+  /// The backup passphrase rule, said under the field where it is set:
+  /// stricter than [passwordRule], as anyone holding a backup can guess
+  /// it offline.
+  String get passphraseRule;
+
+  /// Why [passphrase] cannot be set as the backup passphrase, or null
+  /// when it can: the vault's passphrase rule.
+  String? refusePassphrase(String passphrase);
 
   /// Gives a ledger without a password the password [next]. Throws
   /// [KeyRefused] for one against the rule.
@@ -75,7 +84,7 @@ abstract interface class BackupManager {
   /// recovery code.
   bool get hasBackupPassphrase;
 
-  /// Sets the backup passphrase, held to the password policy.
+  /// Sets the backup passphrase, held to the passphrase rule.
   Future<void> setBackupPassphrase(String passphrase);
 
   /// Backups from now on open with the recovery code alone.

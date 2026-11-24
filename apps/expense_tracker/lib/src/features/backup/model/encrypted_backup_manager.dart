@@ -372,6 +372,13 @@ final class EncryptedBackupManager implements BackupManager {
   @override
   String? refusePassword(String password) => words.passwordRefusal(password);
 
+  @override
+  String get passphraseRule => words.passphraseRule;
+
+  @override
+  String? refusePassphrase(String passphrase) =>
+      words.passphraseRefusal(passphrase);
+
   /// Runs [change], a refusal by the keys said in words ([KeyRefused]).
   static Future<T> _said<T>(Future<T> Function() change) async {
     try {
