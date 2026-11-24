@@ -129,9 +129,35 @@ final class MissingShares extends RecordIssue {
   const MissingShares();
 }
 
-/// A sale of more shares than are held by then.
+/// An entry dated further ahead than [days] after today (D25).
+final class DateTooFarAhead extends RecordIssue {
+  const DateTooFarAhead(this.days);
+
+  /// How far ahead an entry may be dated.
+  final int days;
+}
+
+/// A trade or dividend dated after today: shares change hands on the day
+/// they do, so only spending, income and transfers may be 預定 (D25).
+final class InvestmentPlanned extends RecordIssue {
+  const InvestmentPlanned();
+}
+
+/// A day trade (當日沖銷) that is not a sale: only a sale closes a
+/// position opened the same day (D6).
+final class DayTradeNotSale extends RecordIssue {
+  const DayTradeNotSale();
+}
+
+/// A sale of more shares than are held by then. With [later], it is not
+/// the record written that is short but a sale or reduction after it,
+/// such as when a purchase it sold from is taken away: the one type every
+/// path that refuses an oversold sale gives (D12).
 final class SaleExceedsHolding extends RecordIssue {
-  const SaleExceedsHolding();
+  const SaleExceedsHolding({this.later = false});
+
+  /// A later sale or reduction, not the record itself, would be short.
+  final bool later;
 }
 
 /// A refund of card spending paid into another account.

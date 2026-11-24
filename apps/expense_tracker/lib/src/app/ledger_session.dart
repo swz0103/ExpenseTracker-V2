@@ -4,6 +4,7 @@ import '../core/diagnostics/error_log.dart';
 import '../core/diagnostics/error_steps.dart';
 import '../core/ledger/ledger.dart';
 import '../core/ledger/persistence/quarantine.dart';
+import '../core/ledger/persistence/upgrade_backup.dart';
 import '../features/reminders/model/inbox_apply.dart';
 
 /// The inbox of confirmations written while the ledger was locked
@@ -46,15 +47,34 @@ final class SessionResume {
   final int booked;
 }
 
-/// The steps that change or check a ledger as it opens: load it, apply
-/// the inbox, check it is whole, and book what is due. Plain Dart, apart
-/// from the screens: they show what [open] returns. A step that fails is
-/// logged and the others still run; only loading stops the opening.
+/// The steps that change or check a ledger as it opens: bring it up to
+/// this version ([prepare]), load it, apply the inbox, check it is whole,
+/// and book what is due. Plain Dart, apart from the screens: they show
+/// what [prepare] and [open] return. A step that fails is logged and the
+/// others still run; only bringing up and loading stop the opening.
 final class LedgerSession {
-  LedgerSession({required this.load, this.inbox, this.quarantined});
+  LedgerSession({
+    required this.load,
+    this.bringUp,
+    this.inbox,
+    this.quarantined,
+  });
 
   /// Reads the book from where it is kept.
   final Future<Ledger> Function() load;
+
+  /// Brings a book kept by an earlier version up to this one, once a copy
+  /// of it is kept, or without one when asked; the copy that could not be
+  /// kept, the book left as it was. None where nothing is brought up.
+  final Future<UpgradeBackupFailed?> Function({required bool withoutBackup})?
+  bringUp;
+
+  /// Before [open]: brings the book up to this version (D19). A book kept
+  /// by an earlier version is brought up only once a copy of it is kept;
+  /// when that copy cannot be written, the book stays as it was and this
+  /// says why, for the person to try again, or to go on [withoutBackup].
+  Future<UpgradeBackupFailed?> prepare({bool withoutBackup = false}) async =>
+      await bringUp?.call(withoutBackup: withoutBackup);
 
   /// Opens the inbox; none off Android.
   final Future<InboxSource> Function()? inbox;

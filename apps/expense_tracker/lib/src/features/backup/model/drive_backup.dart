@@ -97,7 +97,7 @@ final class IoDriveHttp implements DriveHttp {
 
 /// A backup kept on Google Drive.
 final class DriveFile {
-  const DriveFile(this.id, this.name, this.modified, this.size);
+  const DriveFile(this.id, this.name, this.modified, this.size, {this.epoch});
 
   final String id;
   final String name;
@@ -105,6 +105,11 @@ final class DriveFile {
 
   /// Bytes; 0 when Google did not say.
   final int size;
+
+  /// The backup key epoch it was sealed with, as marked when it went up
+  /// (its digits, as Drive keeps them); null for one sent before backups
+  /// were so marked.
+  final String? epoch;
 }
 
 /// Why talking to Google Drive stopped.
@@ -335,7 +340,7 @@ final class DriveBackup {
           'q':
               "'${_quote(folder)}' in parents and trashed=false"
               '${ledger == null ? '' : " and appProperties has { key='ledger' and value='${_quote(ledger)}' }"}',
-          'fields': 'files(id,name,size,modifiedTime)',
+          'fields': 'files(id,name,size,modifiedTime,appProperties)',
           'orderBy': 'modifiedTime desc',
           'pageSize': '100',
           'spaces': 'drive',
@@ -354,11 +359,17 @@ final class DriveBackup {
                 DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
             // Drive writes sizes as words.
             int.tryParse(row.text('size') ?? '') ?? row.whole('size') ?? 0,
+            epoch: row.object('appProperties')?.text(epochProperty),
           ),
     ]..sort((a, b) => b.modified.compareTo(a.modified));
   }
 
-  /// Uploads [file] into the folder, marked as a backup of [ledger], then
+  /// The property a backup goes up marked with: the backup key epoch it
+  /// was sealed with, so those of keys since replaced can be found (D15).
+  static const epochProperty = 'epoch';
+
+  /// Uploads [file] into the folder, marked as a backup of [ledger] and
+  /// with the key [epoch] it was sealed with ([epochProperty]), then
   /// moves that ledger's older backups beyond the newest [keep] to the
   /// Drive trash. Backups of other ledgers, and those made before backups
   /// were marked, are never touched. Pruning is best effort: the upload
@@ -366,6 +377,7 @@ final class DriveBackup {
   Future<void> upload(
     File file, {
     required String ledger,
+    int? epoch,
     bool interactive = true,
     int keep = 5,
   }) async {
@@ -386,7 +398,10 @@ final class DriveBackup {
         'name': name,
         'parents': [folder],
         'mimeType': 'application/octet-stream',
-        'appProperties': {'ledger': ledger},
+        'appProperties': {
+          'ledger': ledger,
+          if (epoch != null) epochProperty: '$epoch',
+        },
       }),
     );
     final location = start.headers['location'];
@@ -408,7 +423,7 @@ final class DriveBackup {
     try {
       final kept = await list(interactive: interactive, ledger: ledger);
       for (final old in kept.skip(keep)) {
-        await _trash(old.id, interactive: interactive);
+        await trash(old.id, interactive: interactive);
       }
     } on DriveException catch (error) {
       // Tried again after the next upload.
@@ -418,7 +433,7 @@ final class DriveBackup {
 
   /// Moves [id] to the Drive trash, where it stays restorable for 30 days;
   /// one already gone is fine.
-  Future<void> _trash(String id, {required bool interactive}) async {
+  Future<void> trash(String id, {bool interactive = true}) async {
     try {
       await _send(
         'PATCH',

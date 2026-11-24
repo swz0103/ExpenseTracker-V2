@@ -194,6 +194,42 @@ void main() {
     expect(find.text('發票 AB12345678 已經記過了'), findsOneWidget);
   });
 
+  testWidgets('D30: when the right code fails, the left one fills the form '
+      'and the items are said to be missing', (tester) async {
+    final count = ledger.entries.length;
+    final codes = <ScanOutcome>[
+      const ScanRead('$_head:**********:1:3:1:乾電池:1:55'),
+      const ScanFailed(ScanFailure.failed),
+    ];
+    await open(tester, scan: _scanner(codes));
+    await go(tester, ['掃發票']);
+    expect(find.text('−105'), findsOneWidget);
+    expect(
+      find.text('品項未讀到：已用左邊的 QR Code 填入金額、日期、賣方統編與發票號碼，可以再修改'),
+      findsOneWidget,
+    );
+    // Still the person's to change: the amount typed over the scan.
+    await amount(tester, '100');
+    await save(tester);
+    final made = added(count).single;
+    expect((made.amount, made.date), (100, DateTime.utc(2024, 10, 25)));
+    expect(made.tags, contains('發票'));
+    expect(made.note, '乾電池 發票 AB12345678 · 統編 12345678 · 品項未讀到');
+  });
+
+  testWidgets('D30: a scan of the right code given up fills from the left', (
+    tester,
+  ) async {
+    final codes = <ScanOutcome>[
+      const ScanRead('$_head:**********:0:2:1'),
+      const ScanClosed(),
+    ];
+    await open(tester, scan: _scanner(codes));
+    await go(tester, ['掃發票']);
+    expect(find.text('−105'), findsOneWidget);
+    expect(find.textContaining('品項未讀到'), findsWidgets);
+  });
+
   testWidgets('a code that is not an invoice\'s left one is said so', (
     tester,
   ) async {

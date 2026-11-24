@@ -265,7 +265,36 @@ void main() {
     );
     // A new book's first write, then the two changes.
     expect((apart.revision, other.revision), (3, 3));
-    expect(apart.writingApart, isFalse);
+    expect(apart.busyApart, isFalse);
+  });
+
+  test('a change kept while a backup reads the book waits for the read, '
+      'and is kept after it (D41)', () async {
+    final s = EncryptedDatabase.open(file, key);
+    store = s;
+    final source = SqlLedgerDataSource(s, clock: clock());
+    final ledger = await source.load();
+    s.write((w) {
+      for (var i = 0; i < 20000; i++) {
+        w.put('price', 'p$i', '{}');
+      }
+    }, counts: false);
+    final before = s.revision;
+    final reading = s.readApart(_rowsRead);
+    expect(s.busyApart, isTrue);
+    // As the screens keep a change: one record, written at once.
+    final keeping = source.keep(
+      WriteBatch(accounts: [Account('wallet', '零錢', AccountKind.cash, 0)]),
+    );
+    final read = await reading;
+    await keeping;
+    expect(ledger.problem.value, isNull);
+    // What the backup read is the book before the change.
+    expect(read.revision, before);
+    expect(read.ids, isNot(contains('wallet')));
+    // The change is kept after it.
+    expect(s.revision, before + 1);
+    expect(s.row('account', 'wallet'), isNotNull);
   });
 
   test('a deleted entry is kept 30 days', () async {
@@ -510,3 +539,8 @@ void main() {
     },
   );
 }
+
+/// What a backup's read found: its revision and the ids of the records,
+/// on the worker (sent there: no store along).
+Future<({int revision, Set<String> ids})> _rowsRead(StoreSnapshot s) async =>
+    (revision: s.revision, ids: {for (final r in s.rows) r.id});

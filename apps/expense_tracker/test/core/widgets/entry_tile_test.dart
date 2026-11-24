@@ -73,6 +73,30 @@ void main() {
     expect(amount.style?.color, AppColors.muted);
   });
 
+  testWidgets('D9: a screen reader says a refund as 退款, not 收入', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    final ledger = book();
+    await show(tester, ledger, back);
+    expect(find.bySemanticsLabel(RegExp('退款 300 元')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('收入 300 元')), findsNothing);
+    handle.dispose();
+  });
+
+  test('D9: a refund reads 退款, income still reads 收入', () {
+    expect(entrySpoken(back), '退款 300 元');
+    final pay = Entry(
+      id: 'pay',
+      date: day,
+      type: EntryType.income,
+      amount: 300,
+      account: 'bank',
+      category: '薪資',
+    );
+    expect(entrySpoken(pay), '收入 300 元');
+  });
+
   test('F06: shares are counted with thousands commas', () {
     final split = Entry(
       id: 'split',

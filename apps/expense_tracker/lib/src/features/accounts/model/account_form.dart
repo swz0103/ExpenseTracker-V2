@@ -11,6 +11,9 @@ import '../../../core/messages/validation_messages.dart';
 
 import 'package:ledger_loans/calc/loan_plan.dart';
 import 'package:ledger_loans/model/rate.dart';
+import 'package:ledger_trade_costs/calc/broker_discount.dart';
+
+import '../../../core/messages/trade_messages.dart';
 
 /// What the account form holds while it is filled in, and what saving
 /// it does to the ledger: a new account, or the changes to [old] with
@@ -31,7 +34,8 @@ final class AccountForm {
       rate = rateText(old?.loan?.rate),
       months = '${old?.loan?.months ?? ''}',
       repay = old?.loan?.repay ?? LoanRepay.even,
-      payFrom = old?.loan?.payFrom;
+      payFrom = old?.loan?.payFrom,
+      discount = discountTyped(old?.brokerDiscount);
 
   final Ledger ledger;
 
@@ -68,6 +72,41 @@ final class AccountForm {
   String months;
   LoanRepay repay;
   String? payFrom;
+
+  /// The account's own broker discount as typed (0.6, 2.8 折); empty
+  /// takes the phone-wide one.
+  String discount;
+
+  /// Whether the account can pay for or receive a trade, and so keeps a
+  /// broker discount of its own: an account of money in NT\$, not a card,
+  /// loan or person.
+  bool get trades =>
+      !kind.isDebt &&
+      kind != AccountKind.receivable &&
+      (old?.currency ?? (foreignAllowed ? currency : homeCode)) == homeCode;
+
+  /// The discount as typed, read against `BrokerDiscountRange`.
+  DiscountReading get _discountRead => readBrokerDiscount(discount);
+
+  /// The account's own broker discount, in basis points; null when left
+  /// empty, not typed right ([discountProblem]) or not an account that
+  /// trades.
+  int? get typedDiscount => trades && discount.trim().isNotEmpty
+      ? switch (_discountRead) {
+          DiscountRead(:final basisPoints) => basisPoints,
+          _ => null,
+        }
+      : null;
+
+  /// What is wrong with the discount as typed; null when it is fine or
+  /// left empty.
+  String? get discountProblem => !trades || discount.trim().isEmpty
+      ? null
+      : switch (_discountRead) {
+          DiscountRead() => null,
+          DiscountOutOfRange() => BrokerDiscountText.outOfRange,
+          DiscountUnreadable() => BrokerDiscountText.unreadable,
+        };
 
   int? get typedRate => loan ? rateOf(rate) : null;
 
@@ -124,7 +163,9 @@ final class AccountForm {
       dueDay: account.dueDay,
       limit: account.limit,
     );
-    return found.isEmpty ? limitProblem : validationMessage(found.first);
+    return found.isEmpty
+        ? limitProblem ?? discountProblem
+        : validationMessage(found.first);
   }
 
   /// What is wrong with the card's credit limit as typed: 80,000 and
@@ -202,6 +243,7 @@ final class AccountForm {
         place: kind == AccountKind.loan || kind == AccountKind.receivable
             ? null
             : _nextPlace,
+        brokerDiscount: typedDiscount,
       );
     }
     return Account(
@@ -222,6 +264,7 @@ final class AccountForm {
       color: color,
       loan: loanTerms,
       place: before.place,
+      brokerDiscount: typedDiscount,
     );
   }
 

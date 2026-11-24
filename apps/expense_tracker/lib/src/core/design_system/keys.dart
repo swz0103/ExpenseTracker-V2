@@ -35,6 +35,14 @@ abstract final class Keys {
   /// export.
   static Key loadFailed(String what) => ValueKey('load-failed:$what');
 
+  /// A way out of a book held back from its upgrade because the copy
+  /// before it could not be kept: retry, export, or go on without it.
+  static Key upgradeHeld(String what) => ValueKey('upgrade-held:$what');
+
+  /// A way on from the notice of rows set aside: export, restore or
+  /// continue.
+  static Key quarantine(String what) => ValueKey('quarantine:$what');
+
   /// 刪除 on the bar over entries picked by a long press.
   static const deletePicked = ValueKey('ledger:delete-picked');
 
@@ -105,4 +113,7 @@ abstract final class Keys {
   /// button, and the way to choose no password.
   static const newPassword = ValueKey('keys:new-password');
   static const noPassword = ValueKey('keys:no-password');
+
+  /// The account form's own broker discount (D7).
+  static const accountDiscount = ValueKey('account:broker-discount');
 }

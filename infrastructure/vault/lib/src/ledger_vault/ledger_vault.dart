@@ -315,6 +315,15 @@ final class LedgerVault {
       await staging.writeApart([
         for (final row in rows) RowChange.put(row.shelf, row.id, row.body),
       ]);
+      // The book's version goes with its records, so the book re-keyed is
+      // not brought up again, nor copied first as before an upgrade. The
+      // layout needs nothing: both files are at this build's.
+      if (open.store.meta(EncryptedDatabase.bookVersionKey) case final book?) {
+        staging.write(
+          (w) => w.setMeta(EncryptedDatabase.bookVersionKey, book),
+          counts: false,
+        );
+      }
       await _sealAgain(old, next);
     }, beforeSwap: open.close);
     return _open(next);

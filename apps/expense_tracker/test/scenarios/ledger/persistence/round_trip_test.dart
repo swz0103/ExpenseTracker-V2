@@ -108,7 +108,7 @@ void main() {
             final old = pick(entries);
             try {
               live.entryCommands.replace(spend(old.id), receipt: null);
-            } on StateError {
+            } on RecordRefused {
               // Replacing a purchase a later sale needs is refused.
             }
           case 4 when entries.isNotEmpty:
@@ -265,7 +265,7 @@ void main() {
                   shares: 1 + r.nextInt(5),
                 ),
               );
-            } on StateError {
+            } on RecordRefused {
               // A sale of shares not held is refused; nothing is kept.
             }
           case 23:
@@ -280,7 +280,7 @@ void main() {
           // write the store could not keep is what must not happen.
           expect(
             live.problem.value,
-            anyOf(isNull, isA<SharesShort>(), isA<NameTaken>()),
+            anyOf(isNull, isA<RecordRefused>(), isA<NameTaken>()),
             reason: 'step $step',
           );
           final kept = bookRecords(live);

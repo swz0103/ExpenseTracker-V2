@@ -324,6 +324,7 @@ final class Ledger extends ChangeNotifier {
     holdings: _holdings,
     entryQueryService: entryQueryService,
     balanceService: balanceService,
+    today: _clock,
   );
 
   late final CommandContext _context = _LedgerContext(this);

@@ -101,6 +101,64 @@ class ReminderAlarmsDeviceTest {
         assertEquals("日常信用卡", shown.notification.extras.getString("android.text"))
     }
 
+    @Test
+    fun anAlarmOnTheMinuteHasAnInexactTwinTakenAwayWithIt() {
+        val tomorrow = System.currentTimeMillis() + 86_400_000L
+        Reminders.replace(
+            context,
+            listOf(mapOf("at" to tomorrow, "title" to "繳卡費", "tag" to "due:card")),
+            exact = true,
+        )
+        assertNotNull(alarm(0))
+        // The twin exists only while alarms on the minute are allowed.
+        if (Reminders.exactAllowed(context)) {
+            assertNotNull(alarm(ReminderAlarms.twinCode(0)))
+        } else {
+            assertNull(alarm(ReminderAlarms.twinCode(0)))
+        }
+        // Asked for inexact alarms: no twin.
+        Reminders.replace(
+            context,
+            listOf(mapOf("at" to tomorrow, "title" to "繳卡費", "tag" to "due:card")),
+        )
+        assertNotNull(alarm(0))
+        assertNull(alarm(ReminderAlarms.twinCode(0)))
+        Reminders.replace(context, emptyList())
+        assertNull(alarm(0))
+        assertNull(alarm(ReminderAlarms.twinCode(0)))
+    }
+
+    @Test
+    fun bothAlarmsOfAPairGoingOffPostOnce() {
+        val due = System.currentTimeMillis() + 1_500L
+        Reminders.replace(
+            context,
+            listOf(
+                mapOf(
+                    "at" to due,
+                    "id" to "due:card:pair",
+                    "grace" to 86_400_000L,
+                    "channel" to CHANNEL,
+                    "title" to "繳卡費 12,800",
+                    "text" to "日常信用卡",
+                    "tag" to "due:card",
+                ),
+            ),
+            exact = true,
+        )
+        while (System.currentTimeMillis() <= due) Thread.sleep(100)
+        val wentOff = Intent(context, ReminderReceiver::class.java).putExtra(Reminders.EXTRA_ID, 0)
+        // The alarm on the minute, then its twin: both carry the same number.
+        ReminderReceiver().onReceive(context, wentOff)
+        manager.cancelAll()
+        ReminderReceiver().onReceive(context, wentOff)
+        // The second found it posted: nothing shows again.
+        assertEquals(0, manager.activeNotifications.count { it.tag == "due:card" })
+        // And both alarms are gone.
+        assertNull(alarm(0))
+        assertNull(alarm(ReminderAlarms.twinCode(0)))
+    }
+
     private companion object {
         /** The channel of due reminders, as the app names it. */
         const val CHANNEL = "due"

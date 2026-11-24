@@ -301,6 +301,180 @@ void main() {
     },
   );
 
+  group('a backup and a posting afresh share the store, one at a time', () {
+    /// A vault holding the kept book, with no journal yet.
+    Future<OpenVault> vaultBook() async {
+      final vaultDir = Directory('${scratch.path}/vault')..createSync();
+      final (open, _) = await LedgerVault(
+        vaultDir,
+        codec: KeyringCodec(minimumPassword: 6),
+      ).create('pass word');
+      addTearDown(open.close);
+      final kept = keptStore(Directory('${scratch.path}/k')..createSync());
+      open.store.write((w) {
+        for (final row in kept.rows()) {
+          w.put(row.shelf, row.id, row.body);
+        }
+      });
+      kept.close();
+      return open;
+    }
+
+    /// A backup as the app takes one: once nothing else uses the store.
+    Future<File> backUp(OpenVault open) async {
+      final file = File('${scratch.path}/b.etbk');
+      while (open.store.busyApart) {
+        await open.store.idle;
+      }
+      await LedgerBackup.write(
+        store: open.store,
+        keys: open.keys,
+        file: file,
+        backupId: 'b',
+        createdAt: DateTime.utc(2026, 10, 4),
+      );
+      return file;
+    }
+
+    /// The backup restored holds every record of [open], and the journal
+    /// is the records' own, in parity.
+    Future<void> bothWhole(
+      OpenVault open,
+      SqlLedgerDataSource source,
+      File backup,
+    ) async {
+      expect(open.store.journal.mark, (
+        rules: journalRules,
+        revision: open.store.revision,
+      ));
+      expect(source.journal.lastParity, isA<InParity>());
+      final into = EncryptedDatabase.open(
+        File('${scratch.path}/restored.db'),
+        StorageKey.random(),
+      );
+      addTearDown(into.close);
+      await LedgerBackup.restore(file: backup, keys: open.keys, into: into);
+      expect(into.count, open.store.count);
+    }
+
+    test('a backup asked for while the book is posted afresh waits for '
+        'it; both end whole', () async {
+      final open = await vaultBook();
+      final source = SqlLedgerDataSource(
+        open.store,
+        clock: keptClock,
+        keepsJournal: true,
+      );
+      await source.load();
+      // The posting afresh is under way on a worker.
+      while (!open.store.busyApart) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      }
+      final backup = await backUp(open);
+      await source.journal.settled;
+      await bothWhole(open, source, backup);
+    });
+
+    test('a posting afresh asked for while a backup reads waits for it; '
+        'both end whole', () async {
+      final open = await vaultBook();
+      final backingUp = backUp(open);
+      // The backup's read holds the store as the book opens.
+      expect(open.store.busyApart, isTrue);
+      final source = SqlLedgerDataSource(
+        open.store,
+        clock: keptClock,
+        keepsJournal: true,
+      );
+      await source.load();
+      final backup = await backingUp;
+      await source.journal.settled;
+      expect(source.journal.lastReplay, isNotNull);
+      await bothWhole(open, source, backup);
+    });
+  });
+
+  test('預定 entries (D25) are posted at their day and the journal stays in '
+      'parity', () async {
+    final (ledger, source, store) = await openWithJournal(keptStore(scratch));
+    ledger.entryCommands.addAll([
+      // Next week and next month: 預定 today.
+      Entry(
+        id: 'soon',
+        date: day(10, 11),
+        type: EntryType.expense,
+        amount: 320,
+        account: 'cash',
+        category: '飲食',
+      ),
+      Entry(
+        id: 'payday',
+        date: day(11, 5),
+        type: EntryType.income,
+        amount: 42000,
+        account: 'bank',
+        category: '薪水',
+      ),
+    ]);
+    await settle(ledger, source);
+    expect(isPlanned(ledger.entries.byId('soon')!, day(10, 4)), isTrue);
+    expect(source.journal.lastParity, isA<InParity>());
+    final posted = store.journal.postingsOfIntent(const IntentId('soon'));
+    expect(posted, isNotEmpty);
+    expect(posted.every((p) => p.date == Day.stored(20261011)), isTrue);
+    // Not in today's balances: read as of today the journal leaves it
+    // out, as the app does.
+    final today = source.journal.reader.balances(until: Day.stored(20261004));
+    final before = source.journal.reader.balances(until: Day.stored(20261012));
+    expect(today, isNot(before));
+  });
+
+  test('a sale refused for want of shares (D12) posts nothing; the journal '
+      'stays in parity', () async {
+    // A new book: the kept one has an old oversold sale, beside which
+    // today's write rules refuse every trade.
+    final store = EncryptedDatabase.open(
+      File('${scratch.path}/new.db'),
+      StorageKey.random(),
+    );
+    addTearDown(store.close);
+    final (ledger, source, _) = await openWithJournal(store);
+    final bank = ledger.accounts.main;
+    ledger.entryCommands.add(
+      Entry(
+        id: 'ten',
+        date: day(10, 1),
+        type: EntryType.buy,
+        amount: 1000,
+        account: bank,
+        holding: '9999',
+        shares: 10,
+      ),
+    );
+    await settle(ledger, source);
+    final postings = store.journal.postingCount;
+    final revision = store.revision;
+    expect(
+      () => ledger.entryCommands.add(
+        Entry(
+          id: 'short',
+          date: day(10, 3),
+          type: EntryType.sell,
+          amount: 1000,
+          account: bank,
+          holding: '9999',
+          shares: 11,
+        ),
+      ),
+      throwsA(isA<RecordRefused>()),
+    );
+    await settle(ledger, source);
+    expect(store.journal.intent(const IntentId('short')), isNull);
+    expect(store.journal.postingCount, postings);
+    expect(store.revision, revision);
+    expect(source.journal.lastParity, isA<InParity>());
+  });
+
   test('a 600-record merchant rename written apart reaches the journal, '
       'in parity, its mark the records\' revision', () async {
     final (ledger, source, store) = await openWithJournal(keptStore(scratch));
@@ -321,7 +495,7 @@ void main() {
     var apart = false;
     final watch = Timer.periodic(
       const Duration(microseconds: 200),
-      (_) => apart |= store.writingApart,
+      (_) => apart |= store.busyApart,
     );
     // The rename touches 600 entries: kept on a worker isolate, while the
     // journal waits for it.

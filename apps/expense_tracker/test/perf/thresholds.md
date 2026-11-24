@@ -118,3 +118,26 @@ What is left held includes the rename of the screens' own copy of the book
 in memory, which is not the store's. Written apart, the rename takes about
 a quarter longer in all; the screen keeps drawing meanwhile. Not yet in the
 emulator bench: a phone figure needs a run there.
+
+## A backup's read on the computer (`backup_read_block`, D41)
+
+Not an emulator figure: `test/perf/backup_read_gate_test.dart` runs in the
+ordinary `flutter test`. It backs up a real encrypted book of 100,000
+records five times as the app does (`LedgerBackup.write`: the records read
+in one read transaction on a worker isolate through the same connection,
+`EncryptedDatabase.readApart`, then compressed and sealed on that worker),
+and gates the longest time the main isolate was held, the middle of the
+five runs, as a share of the same records read on the main isolate at
+once, as the backup read them before. Read there, the share would be 1 or
+more.
+
+| measured (5 runs, Linux host, 2026-11-23) | limit |
+|---|---|
+| read at once: held 431–641 ms; backup apart: middle of five 16–31 ms (single runs 14–318 ms); share 0.037–0.065 | 0.2 (about 3× the worst share) |
+
+What is left held is the garbage collection of the isolate group: the
+worker's allocations (the rows read, the JSON and the sealed chunks) now
+and then stop every isolate of the group for a scavenge, which is why one
+run in five can be held far longer than the others. It was so before as
+well, when only the sealing ran on the worker. Not yet in the emulator
+bench: a phone figure needs a run there.

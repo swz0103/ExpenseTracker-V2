@@ -16,9 +16,10 @@ import 'record_version.dart';
 // changes across the records of a book, such as which category a record
 // names and how.
 
-/// Where the store keeps the book's version: how many of [bookSteps] it
-/// has been through. A book kept before versions were has none: 0.
-const bookVersionKey = 'book';
+/// The store keeps the book's version under
+/// [EncryptedDatabase.bookVersionKey]: how many of [bookSteps] it has
+/// been through. A book kept before versions were has none: 0. A backup
+/// carries it, so a book restored is not brought up again.
 
 /// One step up: reads the rows of [store] and writes what changes through
 /// [writer], inside the transaction every step of an opening shares. A
@@ -51,7 +52,7 @@ enum BookStanding {
 }
 
 BookStanding standingOf(EncryptedDatabase store) {
-  final version = store.meta(bookVersionKey);
+  final version = store.meta(EncryptedDatabase.bookVersionKey);
   if (version == null && store.count == 0) return BookStanding.fresh;
   final at = version ?? 0;
   if (at < bookVersion) return BookStanding.behind;
@@ -64,20 +65,20 @@ BookStanding standingOf(EncryptedDatabase store) {
 /// for it. Nothing is done for a book at or past the version of [steps].
 void bringUpBook(EncryptedDatabase store, {List<BookStep>? steps}) {
   final ladder = steps ?? bookSteps;
-  final at = store.meta(bookVersionKey) ?? 0;
+  final at = store.meta(EncryptedDatabase.bookVersionKey) ?? 0;
   if (at >= ladder.length) return;
   store.write((w) {
     for (final step in ladder.skip(at)) {
       step(store, w);
     }
-    w.setMeta(bookVersionKey, ladder.length);
+    w.setMeta(EncryptedDatabase.bookVersionKey, ladder.length);
   }, counts: false);
 }
 
 /// Notes, through [writer], that the book just given its first records
 /// is at this app's version.
 void markCurrent(RowWriter writer) =>
-    writer.setMeta(bookVersionKey, bookVersion);
+    writer.setMeta(EncryptedDatabase.bookVersionKey, bookVersion);
 
 /// Version 0 to 1: each category kept by its name, as books were before
 /// categories had ids, is given an id and kept under it. Two kept under

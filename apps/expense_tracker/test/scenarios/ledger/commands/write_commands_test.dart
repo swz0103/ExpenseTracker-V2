@@ -5,6 +5,7 @@ import 'package:expense_tracker/src/core/ledger/commands/command_exceptions.dart
 import 'package:expense_tracker/src/core/ledger/commands/entry_commands.dart';
 import 'package:expense_tracker/src/core/ledger/commands/recurring_commands.dart';
 import 'package:expense_tracker/src/core/ledger/models/models.dart';
+import 'package:ledger_entries/rules.dart' show SaleExceedsHolding;
 import 'package:expense_tracker/src/core/ledger/persistence/write_batch.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/budget_repository.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/receipt_repository.dart';
@@ -105,7 +106,7 @@ void main() {
       final w = _Writes(Book(entries: [_trade('buy', EntryType.buy, 5)]));
       expect(
         () => w.entries.add(_trade('sell', EntryType.sell, 9, day: 2)),
-        throwsStateError,
+        throwsA(isA<RecordRefused>()),
       );
       expect(w.book.entries.all.map((e) => e.id), ['buy']);
       expect(w.book.holdings.byCode('2330')?.shares, 5);
@@ -122,7 +123,14 @@ void main() {
         ),
       );
       expect(w.entries.remove('buy'), isNull);
-      expect(w.context.problem.value, isA<SharesShort>());
+      expect(
+        w.context.problem.value,
+        isA<RecordRefused>().having(
+          (r) => r.first,
+          'first',
+          isA<SaleExceedsHolding>().having((i) => i.later, 'later', true),
+        ),
+      );
       expect(w.book.entries.length, 2);
       expect(w.trash.all, isEmpty);
     });

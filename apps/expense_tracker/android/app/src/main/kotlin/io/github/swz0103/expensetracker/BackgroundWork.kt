@@ -21,11 +21,11 @@ internal object BackgroundWork {
     const val RETRIES = 3
 
     /**
-     * The exchanges' day lists are a few MiB each: the background job
-     * fetches them only on Wi-Fi or another network that costs nothing per
-     * byte. On mobile data the app fetches what it needs when it is opened.
+     * The market job runs on any network (D40): what it fetches is small,
+     * and a stale price makes the figures wrong, which costs more than the
+     * data. It still waits out a low battery and backs off after a failure.
      */
-    val MARKET_NETWORK = NetworkType.UNMETERED
+    val MARKET_NETWORK = NetworkType.CONNECTED
 
     /**
      * The backups need a network only to reach Google Drive; the phone's

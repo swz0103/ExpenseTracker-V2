@@ -17,6 +17,7 @@ import '../core/diagnostics/error_log.dart';
 import '../core/diagnostics/error_steps.dart';
 import '../core/ledger/ledger.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
+import '../core/ledger/persistence/upgrade_backup.dart';
 import '../core/time/app_clock.dart';
 import '../core/platform/distribution.dart';
 import '../core/platform/one_at_a_time.dart';
@@ -95,8 +96,9 @@ final class LifecycleServices {
       // The exchanges' snapshots are a few MiB of JSON.
       decodeJson: (body) => Isolate.run(() => jsonDecode(body)),
     ),
-    // A book an earlier version kept is copied before it is brought up.
-    beforeUpgrade: () => backupManager.keepBeforeUpgrade(),
+    // A book an earlier version kept is copied before it is brought up,
+    // and not brought up while the copy cannot be kept (D19).
+    beforeUpgrade: () => keepUpgradeBackup(backupManager.keepBeforeUpgrade),
     keepsJournal: true,
   );
 
@@ -128,6 +130,7 @@ final class LifecycleServices {
           withBackup: backupManager.withBackup<void>,
           revision: () => backupManager.revision,
           ledger: backupManager.ledgerId,
+          epoch: () => backupManager.backupEpoch,
           unmetered: androidUnmetered,
         )
       : null;

@@ -226,7 +226,7 @@ void main() {
       final bytes = File(path).readAsBytesSync();
       // The header names its version after the magic and frame length.
       final text = String.fromCharCodes(bytes);
-      final at = text.indexOf('"version":4');
+      final at = text.indexOf('"version":5');
       expect(at, greaterThan(0));
       bytes[at + '"version":'.length] = '9'.codeUnitAt(0);
       File(path).writeAsBytesSync(bytes);

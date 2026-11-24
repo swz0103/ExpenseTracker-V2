@@ -8,15 +8,16 @@
 - 一個檔案、WAL、`synchronous=FULL`（0.21.0 起）：存檔回來時資料已經寫進磁碟，App 當掉或存完瞬間斷電都不會少。模擬器實測（`apps/expense_tracker/integration_test/bench_test.dart` 的 `keep_one`，2026-11-21）：每存一筆 NORMAL 約 0.15 ms、FULL 約 0.45～1.1 ms；最慢的 5% NORMAL 約 1 ms、FULL 約 1.0～1.3 ms，都遠低於一格畫面的 16.7 ms，所以寫入留在畫面的執行緒上。
 - `write` 是一個交易：全部寫入，或丟例外時全部不寫；每次寫入 `revision` 加一，備份用它判斷有沒有變動。
 - `writeApart`：大批寫入（改商家名、合併分類、匯入、還原、重設金鑰）在背景 isolate 透過同一個連線寫成一個交易，畫面不停頓（DAT-03）。寫入期間 `revision` 回答開始前的值，其他讀寫丟 `StateError`，`close` 等它寫完；`idle` 在寫完時完成。SQLite 編譯為 `THREADSAFE=1`，連線可以交給另一條執行緒。
+- `readApart`：在背景 isolate 透過同一個連線，以一個讀取交易讀出全部資料、`revision`、帳本版本（`bookVersionKey`）與 layout（`StoreSnapshot`），再在那個 isolate 上接著做事（備份的壓縮與加密），資料不回到畫面的執行緒（D41）。讀取期間這裡仍可讀、不可寫（寫入丟 `StateError`，要等 `idle`）；資料讀完就放開，之後的工作不擋寫入。
 - 一筆資料改內容時保留原本的順序（`seq`）。
 - 分錄的資料表（`createJournalTables`，**不升版面版本**，決定 D49：舊版 App 仍能開同一本帳；舊版寫了紀錄，`revision` 就和分錄的 `mark` 對不上，新版下次開帳整本重放）：在同一個檔案裡加上 `account`、`intent_index`（id、種類、日期、順序；內容仍在 `rows`，不重複）、`intent_stream`、`posting`、`month_sum`（與分錄在同一個交易內維護）。這些表都是**衍生**的：可以整批丟掉重建（`clear`，連 `mark` 一起清），備份不帶（備份只讀 `rows`），被隔離的紀錄沒有分錄。`journal` 是 kernel 的 `PostingStore`；它記下自己由哪一版規則、紀錄的哪一個 `revision` 算出（`mark`，存在 `meta`，不算一次變動）。
-- 整本重放（`postApart`，決定 D51）：在 worker isolate 讀紀錄、交給 App 的工作記成分錄，再用一個交易寫入（`JournalFill`：先拆索引、多列 INSERT、索引最後重建、每月合計最後算一次、`mark` 最後寫）；只在這個交易裡放寬 `synchronous`，`rows` 不受影響。和 `writeApart` 共用同一個「一次只有一個 worker」的守門；中途中斷就整個回滾，分錄維持原狀。
+- 整本重放（`postApart`，決定 D51）：在 worker isolate 讀紀錄、交給 App 的工作記成分錄，再用一個交易寫入（`JournalFill`：先拆索引、多列 INSERT、索引最後重建、每月合計最後算一次、`mark` 最後寫）；只在這個交易裡放寬 `synchronous`，`rows` 不受影響。和 `writeApart`、`readApart` 共用同一個「一次只有一個 worker」的守門；中途中斷就整個回滾，分錄維持原狀。
 
 ## 對外入口
 
 | 入口 | 內容 |
 | --- | --- |
-| `storage.dart` | `EncryptedDatabase`（`open`、`write`、`writeApart`、`idle`、`writingApart`、`revision`、`schema`、`journal`、`postApart`）、`RowWriter`（`put`、`drop`）、`RowChange`、`StoredRow`、`StorageKey`、`StorageUnavailable`、`SqlPostingStore`、`JournalFill`、`KeptRow`、`PostedApart` |
+| `storage.dart` | `EncryptedDatabase`（`open`、`write`、`writeApart`、`readApart`、`idle`、`busyApart`、`revision`、`schema`、`bookVersionKey`、`journal`、`postApart`）、`RowWriter`（`put`、`drop`）、`RowChange`、`StoredRow`、`StoreSnapshot`、`StorageKey`、`StorageUnavailable`、`SqlPostingStore`、`JournalFill`、`KeptRow`、`PostedApart` |
 | `bin/crash_worker.dart` | 「寫到一半被強制結束」的測試用，CI 會先編譯它 |
 
 ## 不做什麼

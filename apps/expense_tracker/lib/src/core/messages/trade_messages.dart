@@ -6,7 +6,16 @@ abstract final class BrokerDiscountText {
   static const title = '券商手續費折扣';
 
   /// What it changes, under the choices.
-  static const detail = '記買進、賣出時試算的手續費：成交金額 × 0.1425% × 折扣';
+  static const detail = '記買進、賣出時試算的手續費：成交金額 × 0.1425% × 折扣；帳戶可另設自己的折扣';
+
+  /// The field of an account's own discount, and what it says empty.
+  static const accountHint = '例如 0.6 或 2.8 折；空白沿用設定的預設折扣';
+
+  /// A discount typed that is a number, but none a fee is charged at.
+  static const outOfRange = '折扣要大於 0、最多 1（不打折），例如 0.6 或 6 折';
+
+  /// A discount typed that is not a number.
+  static const unreadable = '請輸入折扣，例如 0.6 或 2.8 折';
 
   /// Other words it is found by in the settings' search.
   static const searchWords = [Words.fee, '折扣', '券商', '股票'];
@@ -32,4 +41,16 @@ String discountName(int basisPoints) {
     rest %= unit;
   }
   return digits.isEmpty ? '$whole 折' : '$whole.$digits 折';
+}
+
+/// A discount in basis points of the full fee as it is typed: 6000 as
+/// 0.6, 2850 as 0.285, 10000 as 1; empty for none.
+String discountTyped(int? basisPoints) {
+  if (basisPoints == null) return '';
+  if (basisPoints >= 10000) return '1';
+  final digits = basisPoints
+      .toString()
+      .padLeft(4, '0')
+      .replaceFirst(RegExp(r'0+$'), '');
+  return '0.$digits';
 }

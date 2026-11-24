@@ -43,6 +43,7 @@ final class JournalKeeper {
     required this._entrySeqs,
     required this._recordOf,
     required this._isOpen,
+    this._busy = _never,
     this._quiet = _now,
     this._postApart,
     this.compares = true,
@@ -63,11 +64,16 @@ final class JournalKeeper {
   /// book is closed is let go.
   final bool Function() _isOpen;
 
-  /// Done once no write runs apart on another isolate (DAT-03): the
-  /// journal shares the records' connection, so it never posts, reads or
-  /// compares while one does.
+  /// Whether another isolate uses the records' connection now (a write
+  /// or a read apart, a posting afresh): the journal shares it, so it
+  /// never posts, reads or compares while one does.
+  final bool Function() _busy;
+
+  /// Done once no other isolate uses the connection; [_busy] is asked
+  /// again after, since another may have taken it meanwhile.
   final Future<void> Function() _quiet;
 
+  static bool _never() => false;
   static Future<void> _now() async {}
 
   /// Posts the whole book afresh off this isolate, from the records as
@@ -137,7 +143,9 @@ final class JournalKeeper {
     _queued++;
     _chain = _chain.then((_) async {
       try {
-        await _ready();
+        while (_blocked) {
+          await _quiet();
+        }
         await step();
         then();
       } on Object catch (error, stack) {
@@ -189,9 +197,13 @@ final class JournalKeeper {
   Future<void> _rebuild(int revision) async {
     final apart = _postApart;
     if (apart != null) {
-      await _ready();
+      while (_blocked) {
+        await _quiet();
+      }
       _replay = await apart(_start);
-      await _ready();
+      while (_blocked) {
+        await _quiet();
+      }
       _store.accounts().forEach(_journal!.accounts.put);
       _noteRounded();
       return;
@@ -409,12 +421,15 @@ final class JournalKeeper {
     final scope = _wanted;
     if (ledger == null || scope == null) return;
     await ledger.settled;
-    await _ready();
+    while (_blocked) {
+      await _quiet();
+    }
     if (_queued > 1) return; // more changes to take first; they ask again
     _wanted = null;
     final revision = ledger.revision;
     final parity = await checkParity(
       today: (
+        day: ledger.today,
         entries: ledger.entries,
         accounts: ledger.accounts,
         holdings: ledger.holdings,
@@ -447,24 +462,29 @@ final class JournalKeeper {
   /// A pause that lets the screen draw once [journalSlice] has passed
   /// since the last one, and otherwise none.
   ///
-  /// After any pause the store is ready again ([_ready]) before the work
+  /// After any pause the store is ready again ([_blocked]) before the work
   /// goes on: no write apart running, the book not closing.
   Future<void> Function() _slicer() {
     final watch = Stopwatch()..start();
     return () async {
       if (watch.elapsed < journalSlice) return;
       await Future<void>.delayed(Duration.zero);
-      await _ready();
+      while (_blocked) {
+        await _quiet();
+      }
       watch.reset();
     };
   }
 
-  /// Waits until no write runs apart; throws [_Closed] once the book is
-  /// closing or closed. What follows up to the next await has the store
-  /// to itself: nothing else on this isolate runs in between.
-  Future<void> _ready() async {
-    await _quiet();
+  /// Whether another isolate uses the store now; throws [_Closed] once
+  /// the book is closing or closed. Asked in a loop, `while (_blocked)
+  /// await _quiet();`, so that what follows the loop, up to the next
+  /// await, has the store to itself: the check and the work run with
+  /// nothing else on this isolate in between (a backup waiting for the
+  /// same moment may take the store first; then this waits again).
+  bool get _blocked {
     if (!_isOpen()) throw const _Closed();
+    return _busy();
   }
 }
 

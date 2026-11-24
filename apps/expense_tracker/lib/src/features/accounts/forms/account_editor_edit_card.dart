@@ -128,6 +128,7 @@ const _plain = InputDecoration(
 
 class _Field extends StatelessWidget {
   const _Field({
+    super.key,
     required this.controller,
     required this.hint,
     this.number = false,
@@ -200,3 +201,32 @@ class _DayKey extends StatelessWidget {
 const _ring = Border.fromBorderSide(
   BorderSide(color: AppColors.white, width: 3),
 );
+
+/// Parts of the account form kept apart from its state's file: the
+/// account as it stands, and its own broker discount.
+extension _AccountBlocks on _AccountEditorState {
+  /// The account as the form stands, for its colour and label.
+  Account get _preview => Account(
+    _old?.id ?? '',
+    _f.name.trim(),
+    _f.kind,
+    0,
+    icon: _f.icon,
+    dueDay: _f.card ? _f.due : null,
+    currency: _f.foreignAllowed ? _f.currency : homeCode,
+    color: _f.color,
+  );
+
+  /// 券商手續費折扣 of an account that trades: its own, or empty for the
+  /// phone-wide one (D7).
+  Widget _discountGroup() => FormGroup(
+    title: BrokerDiscountText.title,
+    child: _Field(
+      key: Keys.accountDiscount,
+      controller: _discount,
+      hint: BrokerDiscountText.accountHint,
+      number: true,
+      error: _f.discountProblem,
+    ),
+  );
+}

@@ -47,6 +47,7 @@ final class Report {
     required this.days,
     required this.biggestSpend,
     required this.weekdays,
+    required this.planned,
   });
 
   factory Report.of(
@@ -60,7 +61,13 @@ final class Report {
     final to = period.to;
     final until = to.isAfter(today) ? today : to;
     final stretches = period.stretches;
-    final inPeriod = entriesBetween(entries, from, to);
+    // Only what counts today: a 預定 entry is shown apart (D25).
+    final all = entriesBetween(entries, from, to);
+    final inPeriod = countedOn(all, today).toList();
+    final planned = [
+      for (final e in all)
+        if (isPlanned(e, today)) e,
+    ];
     final tally = _tally(inPeriod);
     final expense = tally.expense;
     final before = _yearAgo(entries, from, until);
@@ -70,7 +77,7 @@ final class Report {
         if (a.isAfter(today))
           StretchSum(label, 0, 0, ahead: true)
         else
-          _bucket(label, entriesBetween(entries, a, b)),
+          _bucket(label, countedOn(entriesBetween(entries, a, b), today)),
     ];
     final passed = [
       for (final (i, b) in buckets.indexed)
@@ -125,6 +132,7 @@ final class Report {
       days: tally.days,
       biggestSpend: tally.biggest,
       weekdays: tally.weekdays,
+      planned: planned,
     );
   }
 
@@ -173,6 +181,13 @@ final class Report {
   /// Spending on each day of the week, Sunday first.
   final List<int> weekdays;
 
+  /// The period's 預定 entries, dated after today: in none of the sums
+  /// above until their day comes, shown apart (D25).
+  final List<Entry> planned;
+
+  /// What the [planned] entries will spend, as the sums count it.
+  int get plannedSpending => planned.fold(0, (sum, e) => sum + e.spending);
+
   /// The same day a year earlier, the 29th of February becoming the 28th.
   static DateTime _yearBefore(DateTime day) => DateTime.utc(
     day.year - 1,
@@ -201,9 +216,13 @@ final class Report {
     String name,
     EntryReader entries,
     ReportPeriod period,
+    DateTime today,
   ) {
     final under = [
-      for (final e in entriesBetween(entries, period.from, period.to))
+      for (final e in countedOn(
+        entriesBetween(entries, period.from, period.to),
+        today,
+      ))
         if (e.spendingParts.any((p) => p.$1 == name)) e,
     ]..sort((a, b) => b.date.compareTo(a.date));
     var total = 0;
@@ -262,7 +281,7 @@ final class Report {
     DateTime to,
   ) => entriesBetween(entries, _yearBefore(from), _yearBefore(to));
 
-  static StretchSum _bucket(String label, List<Entry> entries) {
+  static StretchSum _bucket(String label, Iterable<Entry> entries) {
     var income = 0;
     var expense = 0;
     for (final e in entries) {

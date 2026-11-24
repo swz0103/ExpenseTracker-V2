@@ -34,12 +34,15 @@ abstract final class UpdateMessages {
     UpdateFailure.installUnforeseen => '更新時發生未預期的錯誤，已記在診斷，請稍後再試',
   };
 
+  /// What 關於 says under a build Google Play updates (the play flavor):
+  /// only who updates it, nothing else about updates.
+  static const byGooglePlay = '由 Google Play 更新';
+
   /// What 關於 says under this build's [version] (empty when the build
-  /// has none); null for a build that never updates itself, which has
-  /// nothing to say of updates.
-  static String? status(UpdateStatus status, {required String version}) =>
+  /// has none).
+  static String status(UpdateStatus status, {required String version}) =>
       switch (status) {
-        UpdateNotOffered() => null,
+        UpdateNotOffered() => byGooglePlay,
         UpdateHandBuilt() => '自行建置的版本',
         UpdateNotLooked() => '點這裡檢查更新',
         UpdateChecking() => '檢查中…',

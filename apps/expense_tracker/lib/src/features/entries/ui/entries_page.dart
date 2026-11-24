@@ -297,8 +297,11 @@ class _EntriesPageState extends State<EntriesPage> {
     final filter = _filter;
     final words = _words;
     final searching = words.isNotEmpty;
-    final income = shown.fold(0, (sum, e) => sum + e.earning);
-    final expense = shown.fold(0, (sum, e) => sum + e.spending);
+    // The sums count what counts today; a 預定 entry is listed, marked,
+    // and counted once its day comes (D25).
+    final counted = countedOn(shown, ledger.today);
+    final income = counted.fold(0, (sum, e) => sum + e.earning);
+    final expense = counted.fold(0, (sum, e) => sum + e.spending);
     final account = filter.account;
     return [
       PageHeader(

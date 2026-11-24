@@ -17,6 +17,7 @@ import '../../../core/widgets/pickers.dart';
 import '../model/compose_draft.dart';
 import '../model/compose_form.dart';
 import '../../../core/messages/installment_messages.dart';
+import '../../../core/messages/invoice_messages.dart';
 import '../../../core/messages/problem_messages.dart';
 import '../../../core/messages/scan_messages.dart';
 import '../../../core/platform/scan.dart';
@@ -140,7 +141,8 @@ class Composer extends StatefulWidget {
   final ScanQr? scan;
 
   /// The broker's discount a trade's fee is suggested at, in basis points
-  /// of the full fee: the preference 券商手續費折扣.
+  /// of the full fee: the preference 券商手續費折扣, for an account
+  /// without its own.
   final int brokerDiscount;
 
   @override

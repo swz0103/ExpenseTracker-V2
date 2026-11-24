@@ -32,6 +32,8 @@ extension _Amount on _ComposerState {
         currency: _f.currency,
         sense: _f.amount == 0
             ? AmountSense.plain
+            : _f.refunded != null || (_f.editing?.isRefund ?? false)
+            ? AmountSense.refund
             : switch (_f.type) {
                 EntryType.expense || EntryType.buy => AmountSense.spending,
                 EntryType.transfer => AmountSense.plain,

@@ -44,10 +44,34 @@ abstract final class KeyWords {
   static const resetWhy =
       '換掉帳本的全部金鑰：資料庫與收據照片重新加密，產生新的救援碼，之後的備份改用新的金鑰。'
       '完成後，舊的密碼檔與舊救援碼再也打不開這台手機上的帳本。\n\n'
-      '但已經存在的舊備份（雲端硬碟、資料夾、Google 系統備份、匯出的檔案）仍可用當時的密碼或救援碼打開，'
-      '若懷疑外流，請自行刪除它們。指紋解鎖與備份密碼需要重新設定。';
+      '但已經存在的舊備份（雲端硬碟、資料夾、Google 系統備份、匯出的檔案）仍可用當時的密碼或救援碼打開。'
+      '完成後會列出這支手機與雲端硬碟上的舊備份，確認後可刪除；其他地方的請自行刪除。指紋解鎖與備份密碼需要重新設定。';
   static const resetGo = '重設';
   static const resetDone = '金鑰已重設。舊的救援碼不再適用，請抄下新的';
+
+  /// After a reset (D15): the backups still sealed with the old keys.
+  static const oldBackupsTitle = '刪除舊金鑰的備份？';
+
+  /// What was found, by where, each with how many and their dates.
+  static String oldBackupsBody({
+    required List<String> drive,
+    required List<String> phone,
+    required bool driveUnreached,
+  }) => [
+    '這些備份是重設前用舊金鑰做的，用舊的密碼或救援碼仍打得開。',
+    if (drive.isNotEmpty)
+      'Google 雲端硬碟：${drive.length} 份（${drive.join('、')}），$oldBackupsToTrash',
+    if (phone.isNotEmpty) '這支手機：${phone.length} 份（${phone.join('、')}），會直接刪除',
+    if (driveUnreached) oldBackupsUnreached,
+    '資料夾、匯出的檔案與 Google 系統備份裡的舊備份不在此列，請自行處理。',
+  ].join('\n\n');
+  static const oldBackupsGo = '刪除舊備份';
+
+  /// What becomes of the old backups on Drive (decided: the Drive trash,
+  /// recoverable until Drive empties it).
+  static const oldBackupsToTrash = '移到雲端硬碟的垃圾桶，30 天後自動刪除';
+  static const oldBackupsUnreached = '連不上 Google 雲端硬碟，那裡的舊備份沒有列出，可以之後自行刪除。';
+  static String oldBackupsGone(int count) => '已刪除 $count 份舊金鑰的備份';
 
   static const newPasswordTitle = '設定新的密碼';
   static const newPasswordWhy = '帳本是用救援碼或備份密碼打開的，請設定新的密碼。設定好之前，原本的密碼（如果有）仍然有效。';

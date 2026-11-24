@@ -207,6 +207,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(port.fetched, 0);
       expect(find.byType(SnackBar), findsNothing);
+      // D29: the card says who updates it, and nothing else of updates.
+      expect(find.text('由 Google Play 更新'), findsOneWidget);
       for (final text in [
         '自動檢查新版本',
         '自行建置的版本',

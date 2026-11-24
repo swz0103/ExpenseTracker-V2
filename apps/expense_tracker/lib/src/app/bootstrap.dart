@@ -12,6 +12,10 @@ import 'app.dart';
 import 'ledger_session.dart';
 import 'lifecycle_services.dart';
 import 'load_failed_page.dart';
+import 'quarantine_notices.dart';
+import 'upgrade_held_page.dart';
+import '../features/backup/model/old_key_backups.dart';
+import '../features/backup/ui/old_key_backups_offer.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../core/ledger/persistence/quarantine.dart';
 import '../core/design_system/design_system.dart';
@@ -299,6 +303,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
   /// Opening the book: load, inbox, health check, what is due.
   late final _session = LedgerSession(
     load: _services.dataSource.load,
+    bringUp: _services.dataSource.bringUp,
     quarantined: () => _services.dataSource.quarantined,
     inbox: Platform.isAndroid
         ? () async {
@@ -313,14 +318,26 @@ class _OpenedLedgerState extends State<OpenedLedger>
 
   late Future<Ledger> _ledger = _open();
 
+  /// Holds the opening while the copy before an upgrade cannot be kept
+  /// (D19); its page shows meanwhile.
+  late final _hold = UpgradeHold()
+    ..addListener(() {
+      if (mounted) setState(() {});
+    });
+
   Future<Ledger> _open() async {
+    await _hold.prepare(_session.prepare);
     final start = await _session.open();
     await _services.start(start.ledger);
+    // Rows a newer version wrote are told once a set (D18); rows that
+    // cannot be read, every opening.
+    final tell = await QuarantineNotices(widget.startup.quarantineTold)
+        .toTell(start.quarantined);
     _afterFrame(() {
       if (start.inbox case final inbox?) _tellInbox(inbox);
       _tellBooked(start.booked);
-      if (start.quarantined.isNotEmpty) {
-        unawaited(_tellQuarantined(start.quarantined));
+      if (tell.isNotEmpty) {
+        unawaited(_tellQuarantined(tell, all: start.quarantined));
       }
     });
     return start.ledger;
@@ -351,31 +368,19 @@ class _OpenedLedgerState extends State<OpenedLedger>
     }
   }
 
-  /// Tells how many rows were set aside, with a way to report them, to
-  /// restore a backup, or to go on with the rest of the book.
-  Future<void> _tellQuarantined(List<QuarantinedRow> rows) async {
-    final restore = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(quarantineTitle(rows.length)),
-        content: Text(quarantineBody(rows)),
-        actions: [
-          TextButton(
-            onPressed: () => unawaited(_exportReport(rows: rows)),
-            child: const Text(quarantineExport),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(quarantineRestore),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(quarantineContinue),
-          ),
-        ],
-      ),
+  /// Tells how many rows were set aside ([rows]), with a way to report
+  /// them (every row set aside, [all]), to restore a backup, or to go on
+  /// with the rest of the book.
+  Future<void> _tellQuarantined(
+    List<QuarantinedRow> rows, {
+    required List<QuarantinedRow> all,
+  }) async {
+    final restore = await showQuarantineNotice(
+      context,
+      rows,
+      onExport: () => unawaited(_exportReport(rows: all)),
     );
-    if (restore == true && mounted) {
+    if (restore && mounted) {
       await restoreFromBackup(context, _services.backupManager);
     }
   }
@@ -459,7 +464,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       if (code != null) {
         unawaited(
           reset
-              ? showRecoveryCode(context, code, why: KeyWords.resetDone)
+              ? _afterReset(code)
               : widget.startup.passwordless
               ? showRecoveryCode(
                   context,
@@ -479,6 +484,20 @@ class _OpenedLedgerState extends State<OpenedLedger>
     widget.lifecycle.detach(this);
     _services.dispose();
     super.dispose();
+  }
+
+  /// After a reset of the keys: the new recovery code, then the backups
+  /// still sealed with the old keys, offered to be taken away (D15).
+  Future<void> _afterReset(String code) async {
+    await showRecoveryCode(context, code, why: KeyWords.resetDone);
+    final drive = _services.drive;
+    final old = OldKeyBackups(
+      epoch: _services.backupManager.backupEpoch,
+      localBackups: _services.backupManager.keptBackups,
+      driveFiles: drive != null && drive.linked ? drive.backups : null,
+      trashOnDrive: drive?.trash,
+    );
+    if (mounted) await offerToRemoveOldKeyBackups(context, old);
   }
 
   /// Whether this opening of the ledger is still the open one and not
@@ -529,6 +548,14 @@ class _OpenedLedgerState extends State<OpenedLedger>
     future: _ledger,
     builder: (context, snapshot) {
       final ledger = snapshot.data;
+      if (_hold.held case final held? when ledger == null) {
+        return UpgradeHeldPage(
+          failure: held,
+          onRetry: () => _hold.choose(withoutBackup: false),
+          onExport: () => _exportReport(failure: held.error),
+          onWithoutBackup: () => _hold.choose(withoutBackup: true),
+        );
+      }
       if (snapshot.hasError) {
         final error = snapshot.error!;
         return LoadFailedPage(

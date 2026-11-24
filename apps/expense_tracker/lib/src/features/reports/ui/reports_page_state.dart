@@ -192,6 +192,7 @@ class _ReportsPageState extends State<ReportsPage> {
         : buckets[selected];
     return switch (_tab) {
       0 => Sections([
+        ?_plannedRow(ledger, report),
         for (final w in _flow(
           report,
           buckets,
@@ -545,7 +546,7 @@ class _ReportsPageState extends State<ReportsPage> {
   /// The period's entries spent under [name], in a sheet; each opens.
   Future<void> _showCategory(String name) {
     final ledger = widget.ledger;
-    final (entries, total) = Report.spentUnder(name, ledger.entries, _period);
+    final (entries, total) = _spentUnder(ledger, name, _period);
     return showSheet<void>(
       context,
       (context) => ConstrainedBox(

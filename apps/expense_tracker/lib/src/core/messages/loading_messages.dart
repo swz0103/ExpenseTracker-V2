@@ -1,5 +1,6 @@
 import '../formatting/words.dart';
 import '../ledger/persistence/quarantine.dart';
+import '../ledger/persistence/upgrade_backup.dart';
 
 // What opening the book tells the person: rows set aside, and a book that
 // could not be opened at all; and the diagnostics either one exports.
@@ -48,6 +49,33 @@ const loadFailedBody = '讀取帳本時發生問題，資料沒有被改動。�
 const loadFailedRetry = '再試一次';
 const loadFailedRestore = '從備份還原';
 const loadFailedExport = '匯出診斷';
+
+/// A book kept by an earlier version is not brought up to this one while
+/// the copy kept first cannot be written (D19).
+const upgradeHeldTitle = '升級前的備份沒有完成';
+
+/// Why the copy before the upgrade was not kept: no room, or [why] (an
+/// error already in words, describeProblem).
+String upgradeHeldBody(UpgradeBackupProblem problem, String why) {
+  final cause = switch (problem) {
+    UpgradeBackupProblem.noSpace => '手機空間不足，無法先把帳本備份起來。',
+    UpgradeBackupProblem.other => '無法先把帳本備份起來（$why）。',
+  };
+  return '$cause帳本沒有被改動，也還沒有升級到這個版本。';
+}
+
+/// How much room the copy takes, and how to make it.
+const upgradeHeldSpace =
+    '升級前會先完整備份一份帳本（含收據照片），手機需要有足夠的空間。'
+    '可以先刪除不需要的照片、影片或 App，再按「再試一次」。';
+const upgradeHeldRetry = '再試一次';
+const upgradeHeldExport = '匯出診斷';
+const upgradeHeldSkip = '不備份，仍要升級';
+
+/// The second question before going on without the copy.
+const upgradeHeldConfirm = '確定不備份就升級？';
+const upgradeHeldConfirmBody = '升級後，這本帳本只能由這個版本以後的 App 打開；如果升級出了問題，只能從更早的備份還原。';
+const upgradeHeldConfirmAction = '仍要升級';
 
 /// The app could not start at all, `what` having failed (already
 /// cleaned of what the person wrote).

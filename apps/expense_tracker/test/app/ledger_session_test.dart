@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:expense_tracker/src/app/ledger_session.dart';
@@ -6,6 +7,7 @@ import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/quarantine.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/upgrade_backup.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 
@@ -61,6 +63,32 @@ void main() {
     final all = ErrorLog.instance.entries;
     return [for (final (_, text) in all.take(all.length - before)) text];
   }
+
+  group('bringing the book up first (D19)', () {
+    final full = UpgradeBackupFailed.of(
+      const FileSystemException('', '', OSError('No space left', 28)),
+    );
+
+    test('nothing to bring up: nothing held', () async {
+      final session = LedgerSession(load: () async => book());
+      expect(await session.prepare(), isNull);
+    });
+
+    test('held while the copy is not kept; on without it when asked', () async {
+      final asked = <bool>[];
+      final session = LedgerSession(
+        load: () async => book(),
+        bringUp: ({required withoutBackup}) async {
+          asked.add(withoutBackup);
+          return withoutBackup ? null : full;
+        },
+      );
+      expect(await session.prepare(), same(full));
+      expect(await session.prepare(), same(full));
+      expect(await session.prepare(withoutBackup: true), isNull);
+      expect(asked, [false, false, true]);
+    });
+  });
 
   test('without an inbox the book opens with nothing to tell', () async {
     final ledger = book();

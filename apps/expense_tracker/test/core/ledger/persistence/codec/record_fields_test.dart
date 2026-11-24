@@ -35,6 +35,7 @@ void main() {
     home: 1,
     received: 1,
     group: 'g',
+    dayTrade: true,
   );
   final refs = CategoryRefs([
     Category('飲食', 'food', 1, id: 'c1'),
@@ -71,6 +72,7 @@ void main() {
             payFrom: 'b',
           ),
           closes: {day: day},
+          brokerDiscount: 2800,
           history: [
             CardScheduleChange(
               until: BusinessDate(2026, 11, 5),

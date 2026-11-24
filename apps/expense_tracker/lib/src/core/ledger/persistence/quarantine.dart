@@ -104,3 +104,45 @@ String quarantineDetail(Object error) {
       ? '${error.runtimeType}'
       : '${error.runtimeType}: $short';
 }
+
+/// The rows of a notice to tell the person as the book opens (D18), and
+/// the fingerprint to remember of the rows a newer version wrote. Rows
+/// that cannot be read are told every opening; rows set aside because a
+/// newer version wrote them are told once per distinct set: not again
+/// while the set's fingerprint is the one [told] remembers. The
+/// fingerprint is null when no row is newer (nothing to remember).
+({List<QuarantinedRow> tell, String? fingerprint}) quarantineToTell(
+  List<QuarantinedRow> rows, {
+  String? told,
+}) {
+  final newer = [
+    for (final row in rows)
+      if (row.reason == QuarantineReason.newer) row,
+  ];
+  final fingerprint = newer.isEmpty ? null : newerFingerprint(newer);
+  return (
+    tell: [
+      for (final row in rows)
+        if (row.reason != QuarantineReason.newer || fingerprint != told) row,
+    ],
+    fingerprint: fingerprint,
+  );
+}
+
+/// A fingerprint of a set of rows a newer version wrote: where each is
+/// kept and the version that wrote it, never anything of its content.
+/// The same set in any order gives the same fingerprint: its count and a
+/// 32-bit FNV-1a of the sorted keys, as text, kept beside the keyring.
+String newerFingerprint(List<QuarantinedRow> rows) {
+  final keys = [for (final row in rows) '${row.key}@${row.version}']..sort();
+  var hash = _fnvOffset;
+  for (final unit in keys.join('\n').codeUnits) {
+    hash ^= unit;
+    // × 16777619 (2^24 + 403), modulo 2^32, kept exact on every platform.
+    hash = (hash * 403 + (hash % 256) * 16777216) % 0x100000000;
+  }
+  return '${keys.length}:${hash.toRadixString(16).padLeft(8, '0')}';
+}
+
+/// FNV-1a's 32-bit offset basis.
+const _fnvOffset = 0x811c9dc5;

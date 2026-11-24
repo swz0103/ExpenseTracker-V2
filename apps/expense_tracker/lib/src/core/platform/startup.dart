@@ -175,6 +175,10 @@ final class Startup extends ChangeNotifier {
   /// leaving the phone does not make a new one (encrypted_backup_manager.dart).
   File get recoveryGiven => File('${directory.path}/recovery-given');
 
+  /// The fingerprint of the rows a newer version wrote that the person was
+  /// last told were set aside (quarantine_notices.dart): told once a set.
+  File get quarantineTold => File('${directory.path}/quarantine-told');
+
   /// The copy of the ledger, without its photos, that Android's own
   /// backup takes to the person's Google account and brings back when the
   /// app is installed again or on a new phone (res/xml): the only file

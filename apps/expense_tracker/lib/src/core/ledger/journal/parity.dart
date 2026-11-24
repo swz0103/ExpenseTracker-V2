@@ -16,6 +16,9 @@ import 'old_shapes.dart';
 /// What the app shows today, as its own services work it out: the side
 /// of the comparison the journal must match.
 typedef TodaysFigures = ({
+  /// Today, as the app counts it: an entry dated later is 預定 (D25),
+  /// in none of the figures until its day.
+  DateTime day,
   EntryReader entries,
   AccountReader accounts,
   HoldingReader holdings,
@@ -144,6 +147,12 @@ Future<Parity> checkParity({
   bool inScope(Set<String>? within, String id) =>
       within == null || within.contains(id);
 
+  // As of today (D25): a 預定 entry's postings are dated at its day. The
+  // app counts it in a balance at that day or later, as the postings do,
+  // but in no month's report or holding until the day comes: those are
+  // read up to today.
+  final now = Day.of(BusinessDate.of(today.day));
+
   // 1. Balances, at the end of each day either side changes them.
   final days = _changeDays(today);
   for (final a in today.accounts.all) {
@@ -181,7 +190,9 @@ Future<Parity> checkParity({
     if (scope.months != null && !scope.months!.contains(month)) continue;
     final first = Day.stored(month * 100 + 1);
     final last = first.lastOfMonth;
-    final report = reader.period(first, last);
+    // Up to today: what a month after it holds is 預定 (an entry's
+    // income and spending are posted at its own day).
+    final report = reader.period(first, last.ymd > now.ymd ? now : last);
     final label = '${first.year}-${first.month}';
     check(
       Figure.income,
@@ -220,7 +231,7 @@ Future<Parity> checkParity({
 
   // 3. Each stock: what the holdings list, and any the postings hold.
   int bySub(AccountId account, String code) => -reader
-      .bySub(account)
+      .bySub(account, until: now)
       .where((l) => l.sub == code)
       .fold(0, (sum, l) => sum + l.amount);
   final listed = {for (final h in today.holdings.all) h.code: h};
@@ -231,11 +242,17 @@ Future<Parity> checkParity({
   for (final code in held) {
     if (!inScope(scope.codes, code)) continue;
     final account = holdingAccount(code);
-    final shares = wholeUnits(reader.quantity(account));
+    final shares = wholeUnits(reader.quantity(account, until: now));
     final h = listed[code];
     check(Figure.shares, code, 'now', h?.shares ?? 0, shares);
     if (h == null) continue; // sold out with nothing gained: not listed
-    check(Figure.cost, code, 'now', h.cost, reader.balance(account));
+    check(
+      Figure.cost,
+      code,
+      'now',
+      h.cost,
+      reader.balance(account, until: now),
+    );
     check(
       Figure.realised,
       code,

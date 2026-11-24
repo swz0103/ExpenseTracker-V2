@@ -112,6 +112,28 @@ void main() {
     expect(sync.account, isNull);
   });
 
+  test('a backup sent through DriveSync is marked with the key epoch now, '
+      'listed and moved to the trash by it (D15)', () async {
+    var epoch = 1;
+    final sync = DriveSync(
+      drive(),
+      Preferences(),
+      withBackup: (use, {withPhotos = true}) =>
+          use(backup('記帳本-1.etbk', 'one')),
+      revision: () => 1,
+      ledger: 'L1',
+      epoch: () => epoch,
+    );
+    addTearDown(sync.dispose);
+    await sync.backUpNow();
+    epoch = 2;
+    await sync.backUpNow();
+    final listed = await sync.backups();
+    expect([for (final f in listed) f.epoch], ['2', '1']);
+    await sync.trash(listed.last.id);
+    expect([for (final f in await sync.backups()) f.epoch], ['2']);
+  });
+
   test("only the newest five of this ledger's backups are kept", () async {
     final client = drive();
     // Another ledger's backups, and ones from before backups were marked,

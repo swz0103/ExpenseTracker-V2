@@ -28,6 +28,7 @@ import 'codec/record_fields.dart';
 import 'codec/row_decoding.dart';
 import 'quarantine.dart';
 import 'record_version.dart';
+import 'upgrade_backup.dart';
 import 'codec/record_json.dart';
 import 'codec/record_shape.dart';
 import '../../diagnostics/performance_monitor.dart';
@@ -94,8 +95,8 @@ const writeApartFrom = 500;
 /// Opening reads row by row: a row this version cannot read is set aside
 /// ([quarantined]), kept on disk as it is and never written over, and
 /// the rest of the book opens. A book kept by an earlier version is first
-/// brought up (book_migrations.dart), after [beforeUpgrade] has kept a
-/// copy of it.
+/// brought up (book_migrations.dart), only once [beforeUpgrade] has kept a
+/// copy of it ([bringUp]).
 final class SqlLedgerDataSource implements LedgerDataSource {
   SqlLedgerDataSource(
     this._store, {
@@ -119,6 +120,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     entrySeqs: _entrySeqs,
     recordOf: _keptEntry,
     isOpen: () => _store.isOpen,
+    busy: () => _store.busyApart,
     quiet: _quiet,
     postApart: _postJournalApart,
   );
@@ -127,7 +129,11 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   /// records as kept, those set aside as the book opened left out, the
   /// mark of the records' revision kept last.
   Future<ReplayReport> _postJournalApart(List<Holding> start) async {
-    await _quiet();
+    // Asked again after each wait, so the store is taken in the same step
+    // as it is found free (a backup may be waiting for the same moment).
+    while (_store.busyApart) {
+      await _store.idle;
+    }
     return _store.postApart(
       postingWork(
         aside: {for (final r in _aside.rows) '${r.shelf}/${r.id}'},
@@ -182,10 +188,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   final MarketDataGateway? _gateway;
 
   /// Keeps a copy of the book as it is, before a book kept by an earlier
-  /// version is brought up; none in tests. A copy that cannot be kept is
-  /// noted in the diagnostics log and the book is brought up all the same:
-  /// the steps run in one transaction, so a failing one changes nothing.
-  final Future<void> Function()? beforeUpgrade;
+  /// version is brought up; none in tests. A copy that cannot be kept
+  /// keeps the book from being brought up (D19): [bringUp] says why, and
+  /// [load] refuses the book until the person decides.
+  final Future<UpgradeBackup> Function()? beforeUpgrade;
 
   /// Which category each id stands for, as the records are read and kept.
   final _refs = CategoryRefs();
@@ -348,29 +354,43 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// Brings the book up to this version before it is read: a new one is
   /// given its first records, one kept by an earlier version goes through
-  /// the steps it lacks. A book that was opened before is never given
-  /// records again, even when the person removed every account.
-  Future<void> _bringUp() async {
+  /// the steps it lacks, once [beforeUpgrade] has kept a copy of it, or
+  /// without one when the person chose [withoutBackup]. A book that was
+  /// opened before is never given records again, even when the person
+  /// removed every account.
+  ///
+  /// The copy that could not be kept, the book left as it was; null once
+  /// the book is at this version (or later).
+  Future<UpgradeBackupFailed?> bringUp({bool withoutBackup = false}) async {
+    while (_store.busyApart) {
+      await _store.idle;
+    }
     switch (standingOf(_store)) {
       case BookStanding.fresh:
         _start();
       case BookStanding.behind:
-        try {
-          await beforeUpgrade?.call();
-        } on Object catch (error) {
-          ErrorLog.instance.record('升級前備份', error);
+        if (!withoutBackup) {
+          if (await beforeUpgrade?.call() case final UpgradeBackupFailed no) {
+            return no;
+          }
+        }
+        while (_store.busyApart) {
+          await _store.idle;
         }
         bringUpBook(_store);
       case BookStanding.current || BookStanding.ahead:
         break;
     }
+    return null;
   }
 
   Future<Ledger> _load() async {
     _aside.clear();
     _named.clear();
     _namesOf.clear();
-    await _bringUp();
+    // Never read a book left behind: the copy before its upgrade was not
+    // kept, and the person has not chosen to go on without it.
+    if (await bringUp() case final no?) throw UpgradeHeld(no);
     final collections = await _shelves();
     final json = await _records(collections);
     List<T> read<T>(
@@ -414,6 +434,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final today = _today();
     final trash = read(Collection.trash, (j) => trashedFromJson(j, _refs));
     final from = today.subtract(trashRetention);
+    while (_store.busyApart) {
+      await _store.idle;
+    }
     _dropExpired(trash, collections[_gone] ?? const [], from);
     final ledger = Ledger(
       today: today,
@@ -487,6 +510,12 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       if (_sizeOf(batch) >= _writeApartFrom && _claimed(batch).isEmpty) {
         await _writeApart(batch);
       } else {
+        // A backup reading the book on a worker holds the store for that
+        // read (D41): the change is written once it is done, never into
+        // the middle of it.
+        while (_store.busyApart) {
+          await _store.idle;
+        }
         _write(batch);
       }
     } on Object catch (error) {
@@ -506,10 +535,12 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       batch.dropped.length +
       batch.drafts.length;
 
-  /// Waits until no write runs apart, so the store may be read and
-  /// written here again.
+  /// Done once no other isolate uses the store. A caller about to use it
+  /// asks [EncryptedDatabase.busyApart] again in a loop instead, so the
+  /// store is found free and used in one step: another waiting for the
+  /// same moment may take it first.
   Future<void> _quiet() async {
-    while (_store.writingApart) {
+    while (_store.busyApart) {
       await _store.idle;
     }
   }
@@ -632,7 +663,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     )) {
       await breathe();
     }
-    await _quiet();
+    while (_store.busyApart) {
+      await _store.idle;
+    }
     await _store.writeApart(changes, counts: !batch.onlyDrafts);
     for (final note in after) {
       note();
@@ -850,7 +883,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     if (gateway == null) return false;
     final board = (await gateway.bankRates()).value;
     if (board == null) return false;
-    await _quiet();
+    while (_store.busyApart) {
+      await _store.idle;
+    }
     final fetched = <String, double>{};
     for (final MapEntry(key: code, value: row) in board.rates.entries) {
       final rate = row.valuation;
@@ -905,7 +940,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   Future<bool> refreshQuotes(Iterable<String> codes) async {
     final gateway = _gateway;
     if (gateway == null) return false;
-    await _quiet();
+    while (_store.busyApart) {
+      await _store.idle;
+    }
     final kept = _marketFrom(_readableMarket(_store.rows(shelf: _market)));
     final prices = {...kept.prices};
     final moves = {...kept.moves};
@@ -959,7 +996,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
     unquoted = List.unmodifiable(missed);
     if (changed) {
-      await _quiet();
+      while (_store.busyApart) {
+        await _store.idle;
+      }
       _store.write(
         (w) => w.put(
           _market,
@@ -1046,3 +1085,14 @@ List<Holding> _holdingsOf(_Market market) => [
       change: 0,
     ),
 ];
+
+/// A book kept by an earlier version was not opened: the copy kept before
+/// bringing it up could not be written ([SqlLedgerDataSource.bringUp]).
+final class UpgradeHeld implements Exception {
+  const UpgradeHeld(this.failure);
+
+  final UpgradeBackupFailed failure;
+
+  @override
+  String toString() => 'UpgradeHeld(${failure.problem.name})';
+}

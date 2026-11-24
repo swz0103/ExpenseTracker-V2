@@ -279,9 +279,9 @@ class _VersionCardState extends State<_VersionCard> {
       ? UpdateHandBuilt()
       : UpdateNotOffered();
 
-  /// What the card says under the version; null when it says nothing: the
-  /// play build has no update to speak of.
-  String? _state(AppUpdate? update) => UpdateMessages.status(
+  /// What the card says under the version (the play build: only that
+  /// Google Play updates it).
+  String _state(AppUpdate? update) => UpdateMessages.status(
     update?.status ?? _withoutUpdate,
     version: appVersion,
   );
@@ -298,8 +298,7 @@ class _VersionCardState extends State<_VersionCard> {
       await update.check();
       if (!context.mounted) return;
       if (update.newer == null) {
-        final answer = _state(update);
-        if (answer != null) showNote(context, answer);
+        showNote(context, _state(update));
         return;
       }
     }
@@ -343,15 +342,14 @@ class _VersionCardState extends State<_VersionCard> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                if (_state(update) case final state?)
-                  Text(
-                    state,
-                    style: TextStyle(
-                      fontSize: TextSize.body,
-                      fontWeight: FontWeight.w700,
-                      color: deepOf(color),
-                    ),
+                Text(
+                  _state(update),
+                  style: TextStyle(
+                    fontSize: TextSize.body,
+                    fontWeight: FontWeight.w700,
+                    color: deepOf(color),
                   ),
+                ),
                 if (progress != null)
                   Padding(
                     padding: const EdgeInsets.only(top: Space.s2),

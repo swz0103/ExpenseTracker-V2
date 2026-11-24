@@ -21,7 +21,7 @@ import java.net.URL
  * read or sent. The app lists only what the ledger needs (the exchanges'
  * lists while shares are held, the bank's rates while an account is in
  * another currency) and stops the job when it needs neither; it runs on
- * Wi-Fi only, never on a low battery, and a run the network cut short is
+ * any network, never on a low battery, and a run the network cut short is
  * tried again after a growing wait ([BackgroundWork]; AND-05).
  */
 class MarketWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
@@ -70,7 +70,7 @@ class MarketWorker(context: Context, params: WorkerParameters) : Worker(context,
         private const val NAME = "market"
 
         /**
-         * Every three hours on Wi-Fi from now on, or stopped with [on]
+         * Every three hours on any network from now on, or stopped with [on]
          * false (lib/src/app/android/market_cache_adapter.dart).
          */
         fun schedule(context: Context, on: Boolean) {

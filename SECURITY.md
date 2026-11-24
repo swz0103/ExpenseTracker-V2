@@ -20,3 +20,7 @@
 ## 支援的版本
 
 只有 GitHub Releases 上最新的版本會收到修正；App 內「設定 › 關於」會通知並更新。
+
+## 驗證下載的 APK
+
+GitHub Releases 上的每個 APK 都附有建置來源證明（GitHub attestation），可用 `gh attestation verify ExpenseTracker.apk --repo swz0103/ExpenseTracker-V2` 確認它是由本儲存庫的發行流程建置與簽章。

@@ -366,6 +366,52 @@ void main() {
       ]);
       expect(_issues(sale), isEmpty);
     });
+    test('D12: the rules name the sale itself short, not a later one', () {
+      final sale = _entry(type: EntryType.sell, holding: '2330', shares: 1);
+      final found = entryIssues(
+        sale,
+        const EntryFacts(account: _bank, oversells: true),
+      ).whereType<SaleExceedsHolding>().single;
+      expect(found.later, false);
+      expect(const SaleExceedsHolding(later: true).later, true);
+    });
+  });
+
+  group('D6: a day trade', () {
+    Entry trade(EntryType type) => Entry(
+      id: 't',
+      date: _day,
+      type: type,
+      amount: 100000,
+      account: 'bank',
+      holding: '2330',
+      shares: 1000,
+      dayTrade: true,
+    );
+    test('a sale may be one', () {
+      expect(_issues(trade(EntryType.sell)), isEmpty);
+    });
+    test('nothing else may', () {
+      expect(_issues(trade(EntryType.buy)), [DayTradeNotSale]);
+      expect(
+        _issues(
+          Entry(
+            id: 'd',
+            date: _day,
+            type: EntryType.expense,
+            amount: 1,
+            account: 'bank',
+            dayTrade: true,
+          ),
+        ),
+        [DayTradeNotSale],
+      );
+    });
+    test('kept through a change of group or labels', () {
+      final sale = trade(EntryType.sell);
+      expect(sale.inGroup('g').dayTrade, isTrue);
+      expect(sale.withLabels(tags: const ['x']).dayTrade, isTrue);
+    });
   });
 
   group('refunds', () {

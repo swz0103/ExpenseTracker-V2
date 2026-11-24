@@ -11,7 +11,8 @@ name: Android APK
 # and never sees the signing key (the build runs Gradle plugins and
 # packages' code); `sign` sees only the key and the built APK, and checks
 # nothing out; `publish` is the only one that may write (the release).
-# `sign` and `publish` run only for a validated push to main. The key is
+# `sign` and `publish` run only for a validated push to main; `sign`
+# also attests the signed APK's build provenance. The key is
 # a secret of the GitHub Environment `release-signing` (settings of the
 # repository, with required reviewers and main as the only branch), so
 # only `sign` can read it, and only once approved. `play` builds the
@@ -299,8 +300,12 @@ jobs:
     # required reviewers and a deployment branch rule for main, and moves
     # the four ANDROID_PREVIEW_* secrets into it.
     environment: release-signing
+    # id-token and attestations: only to attest where the signed APK was
+    # built (the step after signing); no other job gets them.
     permissions:
       contents: read
+      id-token: write
+      attestations: write
     concurrency:
       group: android-sign-${{ github.run_id }}
     env:
@@ -355,6 +360,14 @@ jobs:
               size: $size, notes: ($notes | split("\n") | map(select(length > 0)))}' \
             > "$RUNNER_TEMP/apk/update.json"
           cat "$RUNNER_TEMP/apk/update.json"
+      - name: Attest where the signed APK was built
+        # A signed build provenance statement (Sigstore, kept by GitHub) for
+        # the APK as published: anyone can check a downloaded APK with
+        # `gh attestation verify ExpenseTracker.apk --repo <owner>/<repo>`.
+        # v4.2.2.
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
+        with:
+          subject-path: ${{ runner.temp }}/apk/ExpenseTracker.apk
       - name: Hand the APK to the publish job
         # v7.0.2.
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

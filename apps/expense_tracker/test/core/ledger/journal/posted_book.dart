@@ -17,6 +17,7 @@ typedef PostedBook = ({
 
 /// What [l] shows today, for [checkParity].
 TodaysFigures figuresOf(Ledger l) => (
+  day: l.today,
   entries: l.entries,
   accounts: l.accounts,
   holdings: l.holdings,

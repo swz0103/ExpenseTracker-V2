@@ -63,6 +63,15 @@ items:
       - packages/core/lib/time/holidays/
     target: packages/core/lib/time/
     status: owned
+  # Decision D33: a guard test fails holidayTableLeadDays (60) before the
+  # office or market table runs out, naming the file to extend.
+  - id: holiday-table-coverage
+    what: 假日表涵蓋期限檢查（到期前 60 天）
+    layer: core
+    owner:
+      - packages/core/lib/time/holidays/coverage.dart
+    target: packages/core/lib/time/
+    status: owned
   - id: identifiers
     what: 識別碼
     layer: core
@@ -85,6 +94,16 @@ items:
     owner:
       - packages/ledger/entries/lib/rules
     target: packages/ledger/entries/lib/rules/
+    status: owned
+  # Decision D25: an entry dated after today is 預定; every "as of today"
+  # sum (balances, net worth, budgets, overview, reports, card bills) asks
+  # countsOn, and maxDaysAhead is the one limit for dating ahead.
+  - id: as-of-today
+    what: 「截至今天」是否計入（預定紀錄）與可預定的天數上限
+    layer: ledger
+    owner:
+      - packages/ledger/entries/lib/model/planned.dart
+    target: packages/ledger/entries/lib/model/
     status: owned
   - id: income-expense-kinds
     what: 什麼算「支出」「收入」
@@ -109,6 +128,26 @@ items:
     owner:
       - packages/ledger/trade_costs/lib/rules/taiwan_market_days.dart
       - packages/ledger/trade_costs/lib/calc/settlement.dart
+    target: packages/ledger/trade_costs/lib/
+    status: owned
+  # Decision D7: a broker discount is checked against one range,
+  # BrokerDiscountRange; each account may keep its own.
+  - id: broker-discount-range
+    what: 券商手續費折扣的範圍與輸入
+    layer: ledger
+    owner:
+      - packages/ledger/trade_costs/lib/calc/broker_discount.dart
+    target: packages/ledger/trade_costs/lib/calc/
+    status: owned
+  # Decision D6: a sale may be a day trade (Entry.dayTrade, model and
+  # commands only, no field on screen yet); its tax is the dated table's
+  # one day-trade rate, TaiwanRates.dayTradeTax.
+  - id: day-trade-tax
+    what: 當日沖銷的標記與證交稅率
+    layer: ledger
+    owner:
+      - packages/ledger/trade_costs/lib/rules/taiwan_rates.dart
+      - packages/ledger/entries/lib/model/entry.dart
     target: packages/ledger/trade_costs/lib/
     status: owned
   - id: fees-tax-settlement

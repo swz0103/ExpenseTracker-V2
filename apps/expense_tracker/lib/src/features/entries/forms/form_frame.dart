@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/shape.dart';
+import '../../../core/formatting/words.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
@@ -99,7 +100,7 @@ class FormFooter extends StatelessWidget {
             TextButton(
               onPressed: refund,
               style: wordButton(AppColors.positive, minimumSize: Size(64, 48)),
-              child: const Text('退款'),
+              child: const Text(Words.refund),
             ),
           const SizedBox(width: Space.s2),
           Expanded(

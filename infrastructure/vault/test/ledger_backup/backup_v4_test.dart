@@ -80,7 +80,7 @@ void main() {
   test('a backup carries no app password slot (SEC-02)', () async {
     final file = await write();
     final header = await LedgerBackup.readHeader(file);
-    expect(header.version, 4);
+    expect(header.version, 5);
     expect(header.keyring.hasPassword, isFalse);
     final plain = utf8.decode(frames(file).first);
     final keyring = jsonDecode(
@@ -190,6 +190,42 @@ void main() {
     // text at most 48 MiB of JSON: under the 64 MiB a frame may hold.
     expect(LedgerBackup.pieceBytes * 4 ~/ 3, lessThan(LedgerBackup.maxFrame));
     expect(LedgerBackup.chunkBytes * 6, lessThan(LedgerBackup.maxFrame));
+  });
+
+  test('a version 4 backup, written before version 5, still restores '
+      '(D26)', () async {
+    // Written by the format code as it was at version 4: six records, the
+    // book's meta at 2 (which version 4 did not carry), one photo.
+    final file = File('test/ledger_backup/fixtures/v4.etbk');
+    final header = await LedgerBackup.readHeader(file);
+    expect(header.version, 4);
+    expect(header.rows, 6);
+    expect(header.book, isNull);
+    expect(header.layout, isNull);
+    final opened = await codec.unlockWithPassphrase(
+      header.keyring,
+      'fixture passphrase',
+    );
+    final into = open();
+    addTearDown(into.close);
+    final files = <String, List<int>>{};
+    await LedgerBackup.restore(
+      file: file,
+      keys: opened,
+      into: into,
+      onFile: (name, bytes) async => files[name] = bytes,
+    );
+    expect(
+      [for (final r in into.rows()) r.id],
+      ['cash', 'e1', 'e2', 'e3', 'e4', 'e5'],
+    );
+    expect(into.row('entry', 'e3')?.body, '{"amount":300,"note":"午餐 3"}');
+    expect(files, {
+      'r1.etr': [1, 2, 3, 4],
+    });
+    // Version 4 carried no book version: none is restored, and the app
+    // brings the book up as it opens.
+    expect(into.meta(EncryptedDatabase.bookVersionKey), isNull);
   });
 }
 

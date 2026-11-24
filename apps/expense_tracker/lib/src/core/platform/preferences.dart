@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:ledger_trade_costs/calc/broker_discount.dart'
+    show BrokerDiscountRange;
 
 import '../formatting/json_fields.dart';
 import '../ledger/trading.dart' show defaultBrokerDiscount;
@@ -250,7 +252,8 @@ final class Preferences extends ChangeNotifier {
 
   /// [basisPoints] held to a discount a fee can have: from 0.01% of the
   /// fee to all of it.
-  static int _discountIn(int basisPoints) => basisPoints.clamp(1, 10000);
+  static int _discountIn(int basisPoints) =>
+      BrokerDiscountRange.clamp(basisPoints);
 
   /// A notification when a budget reaches its warning share, and again
   /// when it is used up. Off until the person turns it on, which asks the

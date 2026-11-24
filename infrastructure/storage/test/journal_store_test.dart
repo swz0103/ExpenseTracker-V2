@@ -357,6 +357,29 @@ void main() {
       store = EncryptedDatabase.open(file, key);
     });
 
+    test('one worker at a time: a posting afresh is refused while a read '
+        'or a write runs apart, and the others while it runs', () async {
+      store.write((w) => w.put('entry', 'e1', '{}'));
+      final reading = store.readApart((snapshot) async => snapshot.rows.length);
+      expect(
+        () => store.postApart(work, mark: (rules: 1, revision: 1)),
+        throwsStateError,
+      );
+      expect(await reading, 1);
+      await store.idle;
+      final posting = store.postApart(work, mark: (rules: 1, revision: 1));
+      expect(store.busyApart, isTrue);
+      expect(() => store.readApart((snapshot) async => 0), throwsStateError);
+      expect(
+        () => store.writeApart(const [RowChange.drop('entry', 'e1')]),
+        throwsStateError,
+      );
+      expect(() => store.journal.postingCount, throwsStateError);
+      await posting;
+      expect(store.busyApart, isFalse);
+      expect(store.journal.mark, (rules: 1, revision: 1));
+    });
+
     test(
       'cut short, it leaves the journal and its mark as they were',
       () async {
@@ -370,7 +393,7 @@ void main() {
         );
         expect(store.journal.mark, (rules: 1, revision: 0));
         expect(store.journal.intent(const IntentId('old')), isNotNull);
-        expect(store.writingApart, isFalse);
+        expect(store.busyApart, isFalse);
       },
     );
   });

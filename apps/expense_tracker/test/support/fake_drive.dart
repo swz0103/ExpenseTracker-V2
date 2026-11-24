@@ -8,12 +8,15 @@ typedef DriveSent = ({String method, Uri url, Map<String, String> headers});
 
 /// A file kept on the fake Drive.
 final class DriveRow {
-  DriveRow(this.name, this.bytes, this.at, this.ledger);
+  DriveRow(this.name, this.bytes, this.at, this.ledger, {this.epoch});
 
   final String name;
   final List<int> bytes;
   final DateTime at;
   final String? ledger;
+
+  /// The key epoch it went up marked with; null when unmarked.
+  final String? epoch;
   var trashed = false;
 }
 
@@ -23,7 +26,7 @@ final class FakeDrive implements DriveHttp {
   final sent = <DriveSent>[];
   final files = <String, DriveRow>{};
   final revoked = <String>[];
-  final _sessions = <String, String?>{};
+  final _sessions = <String, Map<String, Object?>?>{};
   String? folder;
   var _next = 0;
   var _clock = DateTime.utc(2026, 10, 1);
@@ -44,9 +47,15 @@ final class FakeDrive implements DriveHttp {
   Iterable<DriveRow> get kept => files.values.where((f) => !f.trashed);
 
   /// Puts a backup on Drive as another ledger or an older version did.
-  void seed(String name, {String? ledger}) {
+  void seed(String name, {String? ledger, int? epoch}) {
     _clock = _clock.add(const Duration(minutes: 1));
-    files['s${_next++}'] = DriveRow(name, const [1], _clock, ledger);
+    files['s${_next++}'] = DriveRow(
+      name,
+      const [1],
+      _clock,
+      ledger,
+      epoch: epoch == null ? null : '$epoch',
+    );
   }
 
   @override
@@ -91,6 +100,11 @@ final class FakeDrive implements DriveHttp {
               'name': row.name,
               'size': '${row.bytes.length}',
               'modifiedTime': row.at.toIso8601String(),
+              if (row.epoch case final epoch?)
+                'appProperties': {
+                  'ledger': ?row.ledger,
+                  DriveBackup.epochProperty: epoch,
+                },
             },
       ];
       return _json({'files': rows});
@@ -105,9 +119,7 @@ final class FakeDrive implements DriveHttp {
       final body = jsonDecode(text!) as Map<String, Object?>;
       expect(body['parents'], [folder]);
       final id = 'f${_next++}';
-      _sessions[id] =
-          (body['appProperties'] as Map<String, Object?>?)?['ledger']
-              as String?;
+      _sessions[id] = body['appProperties'] as Map<String, Object?>?;
       return DriveResponse(
         200,
         headers: {
@@ -124,7 +136,8 @@ final class FakeDrive implements DriveHttp {
         url.queryParameters['name']!,
         await file!.readAsBytes(),
         _clock,
-        _sessions[id],
+        _sessions[id]?['ledger'] as String?,
+        epoch: _sessions[id]?[DriveBackup.epochProperty] as String?,
       );
       return _json({'id': id});
     }

@@ -101,6 +101,10 @@ final class EncryptedBackupManager implements BackupManager {
   /// is restored to.
   String get ledgerId => _vault.keys.keyring.id;
 
+  /// The backup key epoch backups are sealed with now: raised by a reset
+  /// of the keys (or a new backup key), so older ones can be told apart.
+  int get backupEpoch => _vault.keys.currentBackupEpoch;
+
   /// Writes a backup with the receipt photos where files wait to be handed
   /// over, gives it to [use], then deletes it.
   Future<T> withBackup<T>(
@@ -221,10 +225,10 @@ final class EncryptedBackupManager implements BackupManager {
       '.part',
     );
     // A large change being kept on a worker is waited for: the backup
-    // reads the whole book at once, as one state (DAT-03). Nothing waits
-    // between this and that read.
+    // reads the whole book in one read on a worker (readApart, D41), as
+    // one state (DAT-03). Nothing waits between this and that read.
     final store = _vault.store;
-    while (store.writingApart) {
+    while (store.busyApart) {
       await store.idle;
     }
     try {
@@ -241,6 +245,23 @@ final class EncryptedBackupManager implements BackupManager {
       if (part.existsSync()) part.deleteSync();
       rethrow;
     }
+  }
+
+  /// Every backup the app keeps on the phone, the weekly ones and the
+  /// copies kept before a restore or an upgrade, with the key epoch it
+  /// was sealed with and when it was taken; one whose header cannot be
+  /// read is left out, noted.
+  Future<List<(File, int, DateTime)>> keptBackups() async {
+    final kept = <(File, int, DateTime)>[];
+    for (final file in [..._backups(), ..._startup.keptBeforeRestore()]) {
+      try {
+        final header = await LedgerBackup.readHeader(file);
+        kept.add((file, header.backupEpoch, header.createdAt));
+      } on Object catch (error, stack) {
+        ErrorLog.instance.record(ErrorSteps.backupHeader, error, stack);
+      }
+    }
+    return kept;
   }
 
   /// The backups in [backupFolder], newest first; their names carry the

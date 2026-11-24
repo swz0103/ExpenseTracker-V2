@@ -91,6 +91,23 @@ final class StoredRow {
   final String body;
 }
 
+/// The book as one read found it ([EncryptedDatabase.readApart]): every
+/// record in the order first kept, the revision they stand at, the book's
+/// version and the file's layout.
+final class StoreSnapshot {
+  const StoreSnapshot._(this.rows, this.revision, this.book, this.layout);
+
+  final List<StoredRow> rows;
+  final int revision;
+
+  /// What is kept under [EncryptedDatabase.bookVersionKey]; null when
+  /// nothing is.
+  final int? book;
+
+  /// The file's layout version ([EncryptedDatabase.schema] once open).
+  final int layout;
+}
+
 /// One change of a write done off the caller's isolate
 /// ([EncryptedDatabase.writeApart]): a record put in place, or dropped.
 /// Plain text only, so it can be sent to another isolate.
@@ -190,6 +207,11 @@ final class EncryptedDatabase {
   /// The [meta] key the store keeps its [revision] under.
   static const _revision = 'revision';
 
+  /// The [meta] key the app keeps its book's version under: how far its
+  /// records were brought up (the app's book_migrations.dart). A backup
+  /// carries it, so a book restored is not brought up again.
+  static const bookVersionKey = 'book';
+
   final Database _db;
   bool _closed = false;
 
@@ -198,19 +220,25 @@ final class EncryptedDatabase {
   /// never while a write runs apart, never once closed.
   late final SqlPostingStore journal = SqlPostingStore(_db, _requireOpen);
 
-  /// A write running on another isolate ([writeApart]); done when it is.
+  /// A write ([writeApart]) or a read ([readApart]) running on another
+  /// isolate through this connection; done when it is.
   Completer<void>? _apart;
 
-  /// The [revision] as it stood when that write began.
+  /// The [revision] as it stood when that work began.
   int _revisionBefore = 0;
 
-  /// Closed while a write ran apart: closed once it is done.
+  /// Closed while work ran apart: closed once it is done.
   bool _closeAfter = false;
 
-  /// Whether a write is running on another isolate ([writeApart]).
-  bool get writingApart => _apart != null;
+  /// Whether the work apart is a read ([readApart]): the store may still
+  /// be read here meanwhile, never written.
+  bool _readingApart = false;
 
-  /// Done once no write runs on another isolate.
+  /// Whether another isolate is using this connection ([writeApart],
+  /// [readApart]): the store may not be written until [idle].
+  bool get busyApart => _apart != null;
+
+  /// Done once no other isolate uses this connection.
   Future<void> get idle => _apart?.future ?? Future<void>.value();
 
   String get journalMode =>
@@ -228,20 +256,20 @@ final class EncryptedDatabase {
   /// The number kept under [key] beside the records, or null when none
   /// is ([RowWriter.setMeta]).
   int? meta(String key) {
-    _requireOpen();
+    _requireReadable();
     final rows = _db.select('SELECT value FROM meta WHERE key = ?', [key]);
     return rows.isEmpty ? null : rows.single['value'] as int;
   }
 
   /// How many records are kept.
   int get count {
-    _requireOpen();
+    _requireReadable();
     return _db.select('SELECT count(*) AS n FROM rows').single['n'] as int;
   }
 
   /// `ok` when SQLite and SQLCipher find no damage.
   String integrityCheck() {
-    _requireOpen();
+    _requireReadable();
     final rows = _db.select('PRAGMA integrity_check');
     final cipher = _db.select('PRAGMA cipher_integrity_check');
     final result = rows.map((row) => '${row.values.single}').join('\n');
@@ -251,7 +279,7 @@ final class EncryptedDatabase {
   /// Every record, in the order first kept; with [shelf], only that
   /// shelf's.
   List<StoredRow> rows({String? shelf}) {
-    _requireOpen();
+    _requireReadable();
     final found = shelf == null
         ? _db.select('SELECT * FROM rows ORDER BY seq')
         : _db.select('SELECT * FROM rows WHERE shelf = ? ORDER BY seq', [
@@ -262,7 +290,7 @@ final class EncryptedDatabase {
 
   /// The record [id] on [shelf], or null when there is none.
   StoredRow? row(String shelf, String id) {
-    _requireOpen();
+    _requireReadable();
     final found = _db.select('SELECT * FROM rows WHERE shelf = ? AND id = ?', [
       shelf,
       id,
@@ -282,7 +310,7 @@ final class EncryptedDatabase {
   /// draw between pages rather than wait for the whole book at once. Pass
   /// the last page's last [StoredRow.seq] for the next.
   List<StoredRow> rowsAfter(int after, {int limit = 5000}) {
-    _requireOpen();
+    _requireReadable();
     return [
       for (final row in _db.select(
         'SELECT * FROM rows WHERE seq > ? ORDER BY seq LIMIT ?',
@@ -447,6 +475,84 @@ final class EncryptedDatabase {
     }
   });
 
+  /// Reads every record and the [revision] in one read transaction on a
+  /// worker isolate, through this same connection, then runs [then] on
+  /// that worker with what was read: a backup of a large book is read,
+  /// compressed and sealed without holding the caller's isolate, and with
+  /// it the screen, still; the records never come back to it.
+  ///
+  /// What [then] sees is one state of the book: from the call until the
+  /// read is done ([idle]) the store may be read here but not written (a
+  /// write waits for [idle], or throws a [StateError]); it is free again
+  /// as soon as the records are read, while [then] still runs. [then] is sent to the worker, so it must carry
+  /// only what can be sent: plain values, never this store.
+  Future<T> readApart<T>(
+    Future<T> Function(StoreSnapshot snapshot) then,
+  ) async {
+    _requireOpen();
+    _revisionBefore = revision;
+    final done = _apart = Completer<void>();
+    _readingApart = true;
+    void release() {
+      if (!identical(_apart, done)) return;
+      _apart = null;
+      _readingApart = false;
+      done.complete();
+      if (_closeAfter) close();
+    }
+
+    // The worker says when the read is done, before it runs [then].
+    final read = RawReceivePort((_) => release());
+    try {
+      return await _readApart(_db.handle.address, read.sendPort, then);
+    } finally {
+      // Also when the read threw before it could say so.
+      read.close();
+      release();
+    }
+  }
+
+  /// Kept apart from the instance, so the closure sent to the worker
+  /// carries the connection's address, the port and [then], never `this`.
+  static Future<T> _readApart<T>(
+    int address,
+    SendPort read,
+    Future<T> Function(StoreSnapshot snapshot) then,
+  ) => Isolate.run(() {
+    final db = sqlite3.fromPointer(
+      Pointer.fromAddress(address),
+      borrowed: true,
+    );
+    final StoreSnapshot snapshot;
+    try {
+      db.execute('BEGIN');
+      try {
+        int? kept(String key) {
+          final found = db.select('SELECT value FROM meta WHERE key = ?', [
+            key,
+          ]);
+          return found.isEmpty ? null : found.single['value'] as int;
+        }
+
+        snapshot = StoreSnapshot._(
+          [
+            for (final row in db.select('SELECT * FROM rows ORDER BY seq'))
+              _stored(row),
+          ],
+          kept(_revision) ?? 0,
+          kept(bookVersionKey),
+          db.userVersion,
+        );
+      } finally {
+        db.execute('COMMIT');
+      }
+    } finally {
+      db.close();
+    }
+    read.send(null);
+    return then(snapshot);
+  });
+
   /// Closes the store; while a write runs apart, once it is done.
   void close() {
     if (_closed) return;
@@ -462,8 +568,16 @@ final class EncryptedDatabase {
   void _requireOpen() {
     if (_closed) throw StateError('Store is closed.');
     if (_apart != null) {
-      throw StateError('Store is busy with a write apart.');
+      throw StateError('Store is busy with work apart.');
     }
+  }
+
+  /// As [_requireOpen], but a read apart ([readApart]) does not stop a
+  /// read: SQLite serializes the two on the one connection, and nothing
+  /// writes meanwhile.
+  void _requireReadable() {
+    if (_readingApart && !_closed) return;
+    _requireOpen();
   }
 
   static void _create(Database db) {

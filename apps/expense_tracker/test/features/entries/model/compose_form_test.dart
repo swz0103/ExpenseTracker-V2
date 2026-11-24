@@ -87,6 +87,59 @@ void main() {
     expect(usual.charges, (85, 0));
   });
 
+  test("D7: a trade's fee is suggested at its account's own discount", () {
+    final ledger = book();
+    ledger.accountCommands.updateAccount(
+      ledger.account('bank').copyWith(brokerDiscount: 2800),
+    );
+    final form = ComposeForm(ledger, type: EntryType.buy)..holding = '2330';
+    form
+      ..setShares(1000)
+      ..setPrice(100);
+    // 100,000 x 0.001425 = 142.5; x 0.28 = 39.9 -> 39, not the 6折 85.
+    expect(form.account, 'bank');
+    expect(form.tradeDiscount, 2800);
+    expect(form.charges, (39, 0));
+    // Paid from cash, which keeps none: the phone-wide 6折, 85.
+    form.account = 'cash';
+    expect(form.tradeDiscount, 6000);
+    expect(form.charges, (85, 0));
+  });
+
+  test('D6: a day-trade sale changed keeps the flag and its tax rate', () {
+    // 1000 shares sold for 100,000 the day they were bought: tax at the
+    // day-trade rate 0.15% = 150, fee at 6折 = 85.
+    final sold = Entry(
+      id: 's',
+      date: day,
+      type: EntryType.sell,
+      amount: 100000,
+      account: 'bank',
+      category: investmentCategory,
+      holding: '2330',
+      shares: 1000,
+      fee: 85,
+      tax: 150,
+      dayTrade: true,
+    );
+    final form = ComposeForm(book(), type: EntryType.sell, editing: sold);
+    expect(form.dayTrade, isTrue);
+    // Kept as suggested, so read as untouched: it follows the price.
+    expect(form.tradeTax, isNull);
+    expect(form.charges, (85, 150));
+    form.setPrice(200);
+    // 200,000 x 0.15% = 300.
+    expect(form.charges.$2, 300);
+    expect(form.build().dayTrade, isTrue);
+    // A sale that is not one is taxed at 0.3%: 100,000 x 0.3% = 300.
+    final plain = ComposeForm(book(), type: EntryType.sell)
+      ..holding = '2330'
+      ..setShares(1000)
+      ..setPrice(100);
+    expect(plain.charges.$2, 300);
+    expect(plain.build().dayTrade, isFalse);
+  });
+
   test('a fee typed stays when the shares change; one untouched follows', () {
     // 1000 shares at 100 = 100,000; fee 85 as suggested at 6折, so the
     // saved entry reads as untouched.

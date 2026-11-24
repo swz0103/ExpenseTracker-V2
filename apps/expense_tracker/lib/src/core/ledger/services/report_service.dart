@@ -24,25 +24,40 @@ final class ReportService {
   final QueryCache _cache;
   final DateTime Function() _today;
 
+  /// The entries of [year]/[month] that count today ([countsOn]): a
+  /// 預定 entry, dated later, counts once its day comes (D25).
+  Iterable<Entry> _inMonth(int year, int month) =>
+      countedOn(_entries.inMonth(year, month), _today());
+
   /// Income of a month, dividends included.
   int income(int year, int month) =>
-      _entries.inMonth(year, month).fold(0, (total, e) => total + e.earning);
+      _inMonth(year, month).fold(0, (total, e) => total + e.earning);
 
-  /// Spending of a month, less refunds, with transfer fees.
-  int expense(int year, int month, {int? untilDay}) => _entries
-      .inMonth(year, month)
-      .where((e) => untilDay == null || e.date.day <= untilDay)
-      .fold(0, (total, e) => total + e.spending);
+  /// Spending of a month, less refunds, with transfer fees; with
+  /// [account], only what was spent from it, as its card says (D20):
+  /// transfers out, card payments and money lent are not spending.
+  int expense(int year, int month, {int? untilDay, String? account}) =>
+      _inMonth(year, month)
+          .where((e) => untilDay == null || e.date.day <= untilDay)
+          .where((e) => account == null || e.account == account)
+          .fold(0, (total, e) => total + e.spending);
 
   int dividends(int year, int month) =>
-      _entries.inMonth(year, month).fold(0, (sum, e) => sum + e.dividendNet);
+      _inMonth(year, month).fold(0, (sum, e) => sum + e.dividendNet);
 
-  int spentOn(DateTime day) =>
-      _entries.onDay(day).fold(0, (total, e) => total + e.spending);
+  int spentOn(DateTime day) => countedOn(
+    _entries.onDay(day),
+    _today(),
+  ).fold(0, (total, e) => total + e.spending);
+
+  /// The entries from [from] to [to], both counted, that count today
+  /// ([countsOn]).
+  Iterable<Entry> _between(DateTime from, DateTime to) =>
+      countedOn(_allBetween(from, to), _today());
 
   /// The entries from [from] to [to], both counted, read a month at a
   /// time from the month index rather than through every entry.
-  Iterable<Entry> _between(DateTime from, DateTime to) sync* {
+  Iterable<Entry> _allBetween(DateTime from, DateTime to) sync* {
     for (
       var m = DateTime.utc(from.year, from.month);
       !m.isAfter(to);
@@ -118,9 +133,9 @@ final class ReportService {
   /// the oldest first, after what they owed from the start; those paid
   /// off are left out. Newest first.
   List<(Entry, int)> owedBy(String person) =>
-      _cache.remember(('owedBy', person), () {
+      _cache.remember(('owedBy', person, _today()), () {
         final moves = [
-          for (final e in _entries.all)
+          for (final e in countedOn(_entries.all, _today()))
             if (e.type == EntryType.transfer &&
                 (e.to == person || e.account == person))
               e,

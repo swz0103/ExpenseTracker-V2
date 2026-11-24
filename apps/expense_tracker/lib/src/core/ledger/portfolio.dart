@@ -13,7 +13,7 @@ final class Portfolio {
 
   /// Replays the trades of [entries] over the [start] positions, in date
   /// order and in the order written within a day. An oversold trade
-  /// throws a [StateError].
+  /// throws an [OversoldTrade].
   ///
   /// With [lenient], a trade that would oversell is left out instead, so a
   /// book kept before a rule was added still opens.
@@ -39,7 +39,7 @@ final class Portfolio {
       try {
         traded = _traded(e, held, lots);
       } on StateError {
-        if (!lenient) rethrow;
+        if (!lenient) throw OversoldTrade(e);
         leftOut.add(e.id);
         continue;
       }
@@ -330,3 +330,12 @@ final class Portfolio {
 }
 
 final _twd = Currency.of(homeCode);
+
+/// A trade that takes more shares than are held by then: [entry], the
+/// first one in date order.
+final class OversoldTrade extends StateError {
+  OversoldTrade(this.entry) : super('A trade takes more shares than are held.');
+
+  /// The sale or reduction that is short.
+  final Entry entry;
+}

@@ -27,9 +27,12 @@ void main() {
     expect(invoice.items.last.count, 2);
     expect(invoice.items.last.price, 25);
     expect(invoice.wantsMore, isTrue);
-    expect(invoice.note, '乾電池 等 2 項 發票 AB12345678');
+    // D30: until the right code is read, the note says its items are
+    // missing and names the seller.
+    expect(invoice.note, '乾電池 等 2 項 發票 AB12345678 · 統編 12345678 · 品項未讀到');
 
     final whole = invoice.withRight('**牛奶:1:35');
+    expect(whole.note, '乾電池 等 3 項 發票 AB12345678');
     expect([for (final i in whole.items) i.name], ['乾電池', '口罩', '牛奶']);
     expect(whole.wantsMore, isFalse);
     // A left code again is not a right one.

@@ -34,9 +34,10 @@ String cardKindLabel(Account account) => switch (account.kind) {
   AccountKind.receivable => Words.lend,
 };
 
-/// What [account] spent this month: everything that left it.
-int spentThisMonth(Ledger ledger, Account account) =>
-    ledger.balanceService.flowOf(account.id, ledger.today).outflow;
+/// What [account] spent this month, as the reports count 支出: spending
+/// less refunds, with transfer fees; not money that only moved (D20).
+int spentThisMonth(Ledger ledger, Account account) => ledger.reportService
+    .expense(ledger.today.year, ledger.today.month, account: account.id);
 
 /// The face of an account's card: one tint, its own or its kind's, with the name,
 /// one large figure and one line under it. Behind the front card only
@@ -244,10 +245,14 @@ class _Figure extends StatelessWidget {
             ],
           ),
         ),
+        // A long note, such as a bill's moved due day and days left,
+        // wraps beside the figure rather than running off the card.
         if (note.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(left: Space.s2, bottom: Space.s1),
-            child: Text(note, style: mutedSmall),
+          Flexible(
+            child: Padding(
+              padding: const EdgeInsets.only(left: Space.s2, bottom: Space.s1),
+              child: Text(note, style: mutedSmall, textAlign: TextAlign.end),
+            ),
           ),
       ],
     );

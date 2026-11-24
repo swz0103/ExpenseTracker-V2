@@ -142,7 +142,12 @@ class EntryView extends StatelessWidget {
     final photos = this.photos;
     final receipt = this.receipt;
     final cells = <Widget>[
-      for (final (label, value) in entryDetails(ledger.accounts, e, title))
+      for (final (label, value) in entryDetails(
+        ledger.accounts,
+        e,
+        title,
+        today: ledger.today,
+      ))
         ViewFieldTile(label: label, value: value),
       if (photos != null && receipt != null)
         TapArea(

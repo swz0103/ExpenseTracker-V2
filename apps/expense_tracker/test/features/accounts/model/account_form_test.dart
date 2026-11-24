@@ -195,4 +195,40 @@ void main() {
     expect(edit.save(), isTrue);
     expect(ledger.accounts.all.last.color, isNull);
   });
+
+  group('D7: an account keeps its own broker discount', () {
+    AccountForm bank(String discount) =>
+        AccountForm(book(), old: book().account('bank'))..discount = discount;
+
+    test('typed as a share or in 折, kept in basis points', () {
+      expect(bank('0.6').build().brokerDiscount, 6000);
+      expect(bank('2.8 折').build().brokerDiscount, 2800);
+      expect(bank('2.8 折').problem, isNull);
+    });
+    test('left empty, the phone-wide one is taken', () {
+      expect(bank('').build().brokerDiscount, isNull);
+      expect(bank('').problem, isNull);
+    });
+    test('outside the range or not a number, it is said and not saved', () {
+      expect(bank('6').discountProblem, '折扣要大於 0、最多 1（不打折），例如 0.6 或 6 折');
+      expect(bank('0').problem, '折扣要大於 0、最多 1（不打折），例如 0.6 或 6 折');
+      expect(bank('六折').problem, '請輸入折扣，例如 0.6 或 2.8 折');
+      expect(bank('6').save(), isFalse);
+    });
+    test('saved, and shown again as typed', () {
+      final ledger = book();
+      final form = AccountForm(ledger, old: ledger.account('bank'))
+        ..discount = '0.28';
+      expect(form.save(), isTrue);
+      expect(ledger.account('bank').brokerDiscount, 2800);
+      expect(AccountForm(ledger, old: ledger.account('bank')).discount, '0.28');
+    });
+    test('a card, a loan or a person keeps none', () {
+      final card = AccountForm(book(), old: book().account('card'))
+        ..discount = '0.6';
+      expect(card.trades, isFalse);
+      expect(card.build().brokerDiscount, isNull);
+      expect(card.discountProblem, isNull);
+    });
+  });
 }

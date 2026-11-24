@@ -12,13 +12,27 @@ void main() {
   final due = BusinessDate(2026, 11, 20);
 
   test('a card bill has one wording per state', () {
-    expect(cardBillLook(BillDue(due, 3)).words, '11/20 繳款');
+    expect(cardBillLook(BillDue(due, 3)).words, '11/20 繳款 · 還有 3 天');
     expect(cardBillLook(BillDue(due, 3)).spoken, '11/20 繳款，還有 3 天');
     expect(cardBillLook(BillDueToday(due)).words, '今天繳款');
     expect(cardBillLook(BillOverdue(due, 1)).words, '已逾期 1 天');
     expect(cardBillLook(BillOverdue(due, 1)).spoken, '11/20 繳款，已逾期 1 天');
     expect(cardBillLook(const BillPaid()).words, '已繳清');
     expect(cardBillLook(const BillNotYetBilled()).words, '未出帳');
+  });
+
+  test('D22: a postponed bill names the day it moved to before the days', () {
+    expect(
+      cardBillWords(BillDue(due, 5), postponed: '順延至 11/23'),
+      '11/20 繳款 · 順延至 11/23 · 還有 5 天',
+    );
+    expect(cardBillWords(BillDue(due, 5)), '11/20 繳款 · 還有 5 天');
+    // Only a bill not yet late says where it moved.
+    expect(cardBillWords(BillDueToday(due), postponed: '順延至 11/23'), '今天繳款');
+    expect(
+      cardBillWords(BillOverdue(due, 2), postponed: '順延至 11/23'),
+      '已逾期 2 天',
+    );
   });
 
   test('only due today and overdue ask for attention', () {

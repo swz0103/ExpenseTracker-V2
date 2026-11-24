@@ -106,7 +106,10 @@ final class BalanceService {
       () {
         var inflow = 0;
         var outflow = 0;
-        for (final e in _entries.inMonth(month.year, month.month)) {
+        for (final e in countedOn(
+          _entries.inMonth(month.year, month.month),
+          today,
+        )) {
           if (e.account != account && e.to != account) continue;
           final change = _effect(e, account, today);
           if (change > 0) {
@@ -249,7 +252,7 @@ final class BalanceService {
       final start = first.add(Duration(days: 7 * w));
       final end = start.add(const Duration(days: 7));
       var change = 0;
-      for (final e in _entries.all) {
+      for (final e in countedOn(_entries.all, _today())) {
         if (!e.date.isBefore(start) && e.date.isBefore(end)) {
           change += _effect(e, account, end);
         }
@@ -268,14 +271,16 @@ final class _Running {
   final days = <int>[];
   final totals = <int>[];
 
-  /// The change of the entries on or before [day].
+  /// The change of the entries that count on [day] ([countsOn]): those
+  /// on or before it, so a balance as of today leaves 預定 entries out
+  /// until their day (D25).
   int until(DateTime day) {
-    final end = day.microsecondsSinceEpoch;
     var low = 0;
     var high = days.length;
     while (low < high) {
       final middle = (low + high) >> 1;
-      if (days[middle] > end) {
+      final at = DateTime.fromMicrosecondsSinceEpoch(days[middle], isUtc: true);
+      if (!countsOn(at, day)) {
         high = middle;
       } else {
         low = middle + 1;

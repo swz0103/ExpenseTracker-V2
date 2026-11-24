@@ -48,10 +48,11 @@ final class StatusLook {
   final bool alerts;
 }
 
-/// A card's last statement on screen: 已繳清, 11/20 繳款, 今天繳款 or
-/// 已逾期 2 天, short enough for an account card's line; read out with
-/// the due day and the days left or late. The same words on the card's
-/// page, the account list and 總覽.
+/// A card's last statement on screen: 已繳清, 11/20 繳款 · 還有 3 天,
+/// 今天繳款 or 已逾期 2 天, short enough for an account card's line; read
+/// out with the due day and the days left or late. The days count to the
+/// day it can be paid without being late (`payBy`), as the rule does. The
+/// same words on the card's page, the account list and 總覽 (D22).
 StatusLook cardBillLook(CardBillStatus status) => switch (status) {
   BillNotYetBilled() => const StatusLook(
     id: 'notBilled',
@@ -59,11 +60,11 @@ StatusLook cardBillLook(CardBillStatus status) => switch (status) {
     color: AppColors.muted,
     glyph: Glyph.card,
   ),
-  BillDue(:final dueOn, :final daysLeft) => StatusLook(
+  final BillDue due => StatusLook(
     id: 'due',
-    words: '${formatMd(_day(dueOn))} 繳款',
+    words: _dueWords(due),
     spoken:
-        '${formatMd(_day(dueOn))} 繳款，還有 ${countOf(daysLeft, CountUnit.days)}',
+        '${formatMd(_day(due.dueOn))} 繳款，${StatusWords.daysLeft} ${countOf(due.daysLeft, CountUnit.days)}',
     color: AppColors.muted,
     glyph: Glyph.calendar,
   ),
@@ -94,13 +95,21 @@ StatusLook cardBillLook(CardBillStatus status) => switch (status) {
 DateTime _day(BusinessDate d) => d.asUtcMidnight;
 
 /// A card bill's words with [postponed] (「順延至 11/23」, from
-/// `postponedTo`) after them while it is due on a day off and not yet
-/// late: 「11/21 繳款 · 順延至 11/23」. The card's page and the account
+/// `postponedTo`) after the due day while it is due on a day off and not
+/// yet late: 「11/21 繳款 · 順延至 11/23 · 還有 2 天」. The card's page and the account
 /// list write it this way.
-String cardBillWords(CardBillStatus status, {String? postponed}) {
-  final words = cardBillLook(status).words;
-  return status is BillDue && postponed != null ? '$words · $postponed' : words;
-}
+String cardBillWords(CardBillStatus status, {String? postponed}) =>
+    status is BillDue && postponed != null
+    ? _dueWords(status, postponed: postponed)
+    : cardBillLook(status).words;
+
+/// A bill due in some days: its due day, when it moved the day it can be
+/// paid, and the days left: 「11/21 繳款 · 順延至 11/23 · 還有 2 天」.
+String _dueWords(BillDue status, {String? postponed}) => [
+  '${formatMd(_day(status.dueOn))} 繳款',
+  ?postponed,
+  '${StatusWords.daysLeft} ${countOf(status.daysLeft, CountUnit.days)}',
+].join(' · ');
 
 /// A budget on screen: within, 快用完 or 超支. Its badge is the one
 /// treatment of an alert; the figure beside it is written after

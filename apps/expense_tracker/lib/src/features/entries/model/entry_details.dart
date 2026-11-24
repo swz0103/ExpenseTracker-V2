@@ -3,6 +3,7 @@ import '../../../core/messages/installment_messages.dart';
 import '../../../../design_system/display/date.dart';
 import '../../../../design_system/display/amount.dart';
 import '../../../core/formatting/words.dart';
+import '../../../../design_system/display/status_messages.dart';
 
 /// The sign an entry's amount is written with: − for money out, + for
 /// money in, none for a transfer.
@@ -23,16 +24,23 @@ String entryTitle(AccountReader accounts, Entry e) => switch (e.type) {
 
 /// Each thing written with [e], as (what it is, what was written), in the
 /// order an entry looked at shows them; what was left empty is left out,
-/// and a note that only repeats [title] too.
+/// and a note that only repeats [title] too. An entry dated after
+/// [today] has its day marked 預定 (D25).
 List<(String, String)> entryDetails(
   AccountReader accounts,
   Entry e,
-  String title,
-) {
+  String title, {
+  required DateTime today,
+}) {
   final account = accounts.resolve(e.account);
   return [
     if (e.type != EntryType.transfer) (Words.account, account.name),
-    (Words.date, formatMMMEd(e.date)),
+    (
+      Words.date,
+      isPlanned(e, today)
+          ? '${formatMMMEd(e.date)} · ${StatusWords.planned}'
+          : formatMMMEd(e.date),
+    ),
     if (e.merchant.isNotEmpty) (Words.merchant, e.merchant),
     if (e.tags.isNotEmpty) (Words.tag, e.tags.map((t) => '#$t').join(' ')),
     if (e.parts.isNotEmpty)

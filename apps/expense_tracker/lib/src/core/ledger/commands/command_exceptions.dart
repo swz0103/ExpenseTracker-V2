@@ -8,19 +8,6 @@ sealed class LedgerProblem implements Exception {
   const LedgerProblem();
 }
 
-/// A change was refused because it would leave a later sale or reduction
-/// of a stock short of shares.
-///
-/// Still a [StateError] as well, as the oversold write always threw (the
-/// baseline in test/baseline/lots_baseline_test.dart pins it); callers
-/// catch it as the [LedgerProblem] it is.
-final class SharesShort extends StateError implements LedgerProblem {
-  SharesShort() : super('A later sale or reduction would be short of shares.');
-
-  @override
-  String toString() => 'SharesShort';
-}
-
 /// A record the ledger's write rules refuse (package ledger_entries):
 /// [issues] say why, the errors of each record refused in turn. Every
 /// command that writes throws it before it changes anything, whoever

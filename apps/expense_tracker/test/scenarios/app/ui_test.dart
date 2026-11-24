@@ -101,7 +101,7 @@ void main() {
           shares: 50,
         ),
       ),
-      throwsStateError,
+      throwsA(isA<RecordRefused>()),
     );
     expect(ledger.holding('2603')!.shares, 3);
     final removed = ledger.entryCommands.remove('buy')!;
