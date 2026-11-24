@@ -75,8 +75,10 @@ Future<bool> confirm(
     barrierColor: AppColors.scrim,
     builder: (context) => Dialog(
       backgroundColor: AppColors.paper,
+      // Close to the edges, so a title of nine characters keeps one line
+      // on a 320 dp phone with the text a third larger.
       insetPadding: const EdgeInsets.symmetric(
-        horizontal: Space.s6,
+        horizontal: Space.s4,
         vertical: Space.s6,
       ),
       shape: RoundedRectangleBorder(
@@ -84,27 +86,39 @@ Future<bool> confirm(
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
+          Space.s5,
           Space.s6,
-          Space.s6,
-          Space.s6,
+          Space.s5,
           Space.s5,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: TextSize.heading,
-                fontWeight: FontWeight.w800,
+            // The words scroll when they do not fit (a long body, a big
+            // text size); the two choices stay in view under them.
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: TextSize.heading,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (body != null) ...[
+                      const SizedBox(height: Space.s2),
+                      Text(body, textAlign: TextAlign.center, style: mutedBody),
+                    ],
+                  ],
+                ),
               ),
             ),
-            if (body != null) ...[
-              const SizedBox(height: Space.s2),
-              Text(body, textAlign: TextAlign.center, style: mutedBody),
-            ],
             const SizedBox(height: Space.s5),
             Row(
               children: [

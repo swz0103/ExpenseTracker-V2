@@ -108,7 +108,14 @@ String entryDetail(Ledger ledger, Entry e) {
       : detail;
 }
 
-String _detailOf(Ledger ledger, Entry e) {
+/// [entryDetail] as a screen reader says it: a refund without its ↩ and
+/// with its original after a comma, 退款，原：午餐; the rest as shown.
+String entryDetailSpoken(Ledger ledger, Entry e) {
+  final detail = _detailOf(ledger, e, spoken: true);
+  return isPlanned(e, ledger.today) ? '${StatusWords.planned}，$detail' : detail;
+}
+
+String _detailOf(Ledger ledger, Entry e, {bool spoken = false}) {
   final account = ledger.account(e.account).name;
   final shares = '${e.holding} · ${countOf(e.shares, CountUnit.shares)}';
   final category = e.parts.length > 1
@@ -122,8 +129,12 @@ String _detailOf(Ledger ledger, Entry e) {
     EntryType.dividend when e.shares > 0 =>
       '${e.holding} · ${e.split ? '分割' : '配股'} ${countOf(e.shares, CountUnit.shares)}',
     _ when e.isRefund => switch (ledger.entries.byId(e.refundOf!)) {
-      final original? => '↩ ${Words.refund} · 原：${original.title}',
-      null => '↩ ${Words.refund} · $account',
+      final original? =>
+        spoken
+            ? '${Words.refund}，原：${original.title}'
+            : '↩ ${Words.refund} · 原：${original.title}',
+      null =>
+        spoken ? '${Words.refund}，$account' : '↩ ${Words.refund} · $account',
     },
     _ => [
       if (e.merchant.isNotEmpty) e.merchant,
@@ -233,11 +244,15 @@ class EntryTile extends StatelessWidget {
           fontWeight: FontWeight.w500,
         ),
       ),
-      Text(
-        entryDetail(ledger, entry),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: mutedSmall,
+      Semantics(
+        label: entryDetailSpoken(ledger, entry),
+        excludeSemantics: true,
+        child: Text(
+          entryDetail(ledger, entry),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: mutedSmall,
+        ),
       ),
       if (forOthers != null)
         Text(
