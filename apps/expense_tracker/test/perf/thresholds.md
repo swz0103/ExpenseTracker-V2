@@ -184,7 +184,8 @@ judged").
 | measured | limit |
 |---|---|
 | 20,000 entries, before review 23 (least of three, full runs): 0.042 pass, 0.056 fail; no quiet figure was ever taken, the limit was copied from the batch writes | 0.045 |
-| 50,000 entries, no quiet run yet: the host stayed at load 5.7–12 on four cores, every sample's PSI 4.6–76% (2026-11-24, six runs of nine pairs, every pair contended, not a basis). Ratios 0.007–0.096; the median of each run's nine 0.014, 0.017, 0.018, 0.019, 0.019, 0.022; at once held 1,519–2,425 ms, apart 17–150 ms | 0.045 |
+| 50,000 entries, one quiet run: the CI runner (ubuntu-26.04, PSI ≤ 1.0%, steal 0, load per core 0.4, 2026-11-24), five clean pairs: ratios 0.010–0.011, median 0.011; at once held 1,163–1,276 ms, apart 11–14 ms | 0.045 |
+| 50,000 entries, not quiet: the host stayed at load 5.7–12 on four cores, every sample's PSI 4.6–76% (2026-11-24, six runs of nine pairs, every pair contended, not a basis). Ratios 0.007–0.096; the median of each run's nine 0.014, 0.017, 0.018, 0.019, 0.019, 0.022; at once held 1,519–2,425 ms, apart 17–150 ms | 0.045 |
 
 The book went from 20,000 to 50,000 entries (review 23): posting at once
 grows with the book, the hold apart (one slice of the work, a hand-over)
@@ -199,7 +200,13 @@ CI and `tooling/run-host-checks.ps1` run the rest of the app's suite at
 the default concurrency with coverage, then
 `flutter test --tags timing --concurrency=1` without coverage (coverage
 slows the code measured and distorts the ratios). A plain `flutter test`
-still runs them all.
+still runs them all. So that the coverage CI reads (by declaration and
+the app's line floor) misses nothing, what only these files reached has
+a test of its own in the ordinary suite (review 27): the journal posted
+here a chunk at a time (`journal_keeper_test`), a large book opened on
+two workers (`journal_rebuild_test`), a long CSV read on a worker and
+the import's apart/at-once agreement (`import_export_test`), and the
+records page's search (`entries_page_test`).
 
 A share gate (`journal_rebuild_block`, `batch_write_block`,
 `import_block`, `backup_read_block`, `parity_held`) is judged in
@@ -235,12 +242,35 @@ basis for a limit; the quiet figures below were taken with PSI under
 5% throughout.
 
 Five quiet runs of the journal gate were to set its limit at about twice
-the worst (never above 0.045). None could be taken on 2026-11-24: the
-development host stayed at load 5.7–12 on four cores, and the witness
-marked every one of 99 pairs across the share gates contended. The limit
-stays 0.045 until five quiet runs exist; the figures under load (table
-above) suggest the quiet share at 50,000 entries is well under it. The
-same day, under that load (every pair contended, not a basis):
+the worst (never above 0.045). One exists, on the CI runner (above:
+worst 0.011, twice 0.022); none could be taken on the development host on
+2026-11-24 (load 3–14 on four cores, PSI 1–90% per sample; it was quiet
+for a few minutes only, while another run shared it). The limit stays
+0.045 until five quiet runs exist.
+
+The CI runner's first run of these gates (quiet: every sample's PSI
+0.0–1.0%, steal 0.0%), five clean pairs each:
+
+| gate | ratios | apart held | at once held |
+|---|---|---|---|
+| `journal_rebuild_block` | 0.010–0.011 | 11–14 ms | 1,163–1,276 ms |
+| `batch_write_block` | 0.016–0.036 | 10–23 ms | 646–683 ms |
+| `backup_read_block` | 0.023–0.046 | 6–12 ms | 257–278 ms |
+| `parity_held` | 0.450–0.568 (limit 0.6) | 68–113 ms (limit 220) | 146–200 ms |
+| `import_block` | 0.010–0.112, failed at a median of 0.058 | 17, 53, 94, 166, 184 ms | 1,478–1,741 ms |
+
+The import's apart hold grew pair by pair because `shareOf` kept what
+each run made: an import's 100,000 entries per sample piled up on the
+screen's isolate (on this host RSS 261 → 1,220 MB over nine pairs), and
+each later sample paid for collecting a larger heap. Only the figures are
+kept now (RSS 255 → 281 MB over nine pairs), and each sample prints the
+process's RSS, so a growth is seen. The first sliced parity run (113 ms)
+was charged for compiling; the gate warms up both sides now, as the
+others do. `parity_held` has the least room of the share gates on a
+quiet runner (median 0.466 against 0.6).
+
+On the development host the same day, under load (every pair contended,
+not a basis):
 
 | gate | ratios of nine pairs | apart held |
 |---|---|---|
