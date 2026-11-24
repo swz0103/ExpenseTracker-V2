@@ -278,13 +278,20 @@ final class Portfolio {
   /// stock dividends and capital reductions the book holds after [day]
   /// (all, with no day): a close kept on [day] divided by it is what a
   /// close fetched now is expected near (D101, review 18). Null when the
-  /// book holds none; one held before which no share was held counts as
-  /// once.
+  /// book holds none; one held before which no share was held, or after
+  /// which none was left, counts as once, so the reshapes after it still
+  /// count (review 25).
+  ///
+  /// The ratio is the holder's whole shares before and after, not the
+  /// company's: a small lot rounds it (5 shares cut 10:1 leave 1, read as
+  /// 0.2), and a reshape dated after the market already adjusted counts
+  /// again. The close it gives is only the centre of the band a fetched
+  /// close is checked against ([takesFetched]), never a price.
   double? reshapedBy(String code, DateTime? day) {
     double? by;
     for (final (date, before, after) in _reshapes[code] ?? const <_Rescale>[]) {
       if (day != null && !date.isAfter(day)) continue;
-      by = (by ?? 1) * (before > 0 ? after / before : 1);
+      by = (by ?? 1) * (before > 0 && after > 0 ? after / before : 1);
     }
     return by;
   }

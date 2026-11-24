@@ -63,4 +63,29 @@ void main() {
     expect(p.reshapedBy('2330', null), 20);
     expect(p.reshapedBy('0050', null), isNull);
   });
+
+  test('a reshape that leaves no share counts as once; the later ones '
+      'still count (review 25)', () {
+    Entry reshape(String id, int shares, int day) => Entry(
+      id: id,
+      date: DateTime.utc(2026, 9, day),
+      type: EntryType.dividend,
+      amount: 0,
+      account: 'bank',
+      category: '',
+      holding: '2330',
+      shares: shares,
+      split: shares > 0,
+    );
+    final p = Portfolio.replay(const [], [
+      trade('buy', EntryType.buy, 5),
+      // A reduction that takes all 5: 5 to 0, counted as once.
+      reshape('cut', -5, 10),
+      trade('again', EntryType.buy, 1000, day: 11),
+      // 1:2, 1,000 to 2,000: x 2.
+      reshape('split', 1000, 12),
+    ]);
+    // 1 (the cut) x 2000 / 1000 = 2, not 0 x 2 = 0.
+    expect(p.reshapedBy('2330', DateTime.utc(2026, 9, 9)), 2);
+  });
 }
