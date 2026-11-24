@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:domain/investments.dart' show DoubtedFigure;
 import 'package:ledger_entries/rules.dart' show namesOnLoops;
 import 'package:storage/storage.dart';
 
@@ -396,9 +397,9 @@ typedef Market = ({
   DateTime? quotedOn,
   Map<String, double> rates,
   Map<String, double> sellRates,
-  Map<String, double> doubtedCloses,
-  Map<String, double> doubtedRates,
-  Map<String, double> doubtedSellRates,
+  Map<String, DoubtedFigure> doubtedCloses,
+  Map<String, DoubtedFigure> doubtedRates,
+  Map<String, DoubtedFigure> doubtedSellRates,
   DateTime? ratesOn,
 });
 
@@ -410,23 +411,32 @@ Market marketFrom(List<StoredRow> rows) {
   final days = <String, DateTime>{};
   final rates = <String, double>{};
   final sellRates = <String, double>{};
-  final doubtedCloses = <String, double>{};
-  final doubtedRates = <String, double>{};
-  final doubtedSellRates = <String, double>{};
+  final doubtedCloses = <String, DoubtedFigure>{};
+  final doubtedRates = <String, DoubtedFigure>{};
+  final doubtedSellRates = <String, DoubtedFigure>{};
   DateTime? quotedOn;
   DateTime? ratesOn;
   Map<String, Object?> part(Map<String, Object?> json, String key) =>
       json[key] as Map<String, Object?>? ?? const {};
-  // What the last fetch doubted (D101), kept beside the figures; a row
-  // kept before has none.
+  // What the last fetch doubted (D101), kept beside the figures, each
+  // with its day under [field]`On`; a row kept before has none. A doubt
+  // kept with no day (before review 25) is read as too old to weigh.
   void doubted(
     Map<String, Object?> json,
     String field,
-    Map<String, double> to,
+    Map<String, DoubtedFigure> to,
   ) {
+    final days = part(json, '${field}On');
     for (final MapEntry(:key, :value) in part(json, field).entries) {
       if (value is! num) throw FormatException(field);
-      to[key] = value.toDouble();
+      if (days[key] case final String on) {
+        if (DateTime.tryParse(on) case final d?) {
+          to[key] = (
+            figure: value.toDouble(),
+            day: DateTime.utc(d.year, d.month, d.day),
+          );
+        }
+      }
     }
   }
 

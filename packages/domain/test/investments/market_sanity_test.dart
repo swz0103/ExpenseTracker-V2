@@ -126,4 +126,17 @@ void main() {
       );
     });
   });
+
+  test('a doubt more than thirty days older than the fetch is let go of '
+      '(review 25)', () {
+    final doubts = <String, DoubtedFigure>{
+      // 10/31 to 11/30 is 30 days: still standing.
+      'USD': (figure: 400, day: DateTime.utc(2026, 10, 31)),
+      // 10/30 to 11/30 is 31 days: let go of.
+      'JPY': (figure: 2, day: DateTime.utc(2026, 10, 30)),
+    };
+    expect(doubtsStanding(doubts, DateTime.utc(2026, 11, 30)), {
+      'USD': (figure: 400.0, day: DateTime.utc(2026, 10, 31)),
+    });
+  });
 }
