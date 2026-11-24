@@ -27,6 +27,11 @@ extension CardBilling on Account {
   /// The last statement closing on or before [day].
   DateTime closingOn(DateTime day) => _utc(schedule.lastCloseOn(_day(day)));
 
+  /// The first statement close after [end], as it may have been moved:
+  /// the close of the cycle that starts the day after [end].
+  DateTime closeAfter(DateTime end) =>
+      _utc(schedule.cycleFor(_day(end.add(const Duration(days: 1)))).closesOn);
+
   /// The statement whose last day is [end]: its first day and when it
   /// must be paid.
   (DateTime, DateTime) cycleEnding(DateTime end) {

@@ -175,6 +175,24 @@ void main() {
     }
   });
 
+  test('R28: two closes moved apart make a 42-day cycle, not a 0-day one', () {
+    // Closing 15: the February close moved 7 days earlier (8 Feb), the
+    // March one 7 days later (22 Mar); 8 Feb -> 22 Mar is 28 + 14 = 42
+    // days, 21 of them gone on 1 Mar.
+    final card = _summary(
+      closingDay: 15,
+      closes: {
+        DateTime.utc(2027, 2, 15): DateTime.utc(2027, 2, 8),
+        DateTime.utc(2027, 3, 15): DateTime.utc(2027, 3, 22),
+      },
+      today: DateTime.utc(2027, 3, 1),
+    );
+    expect(card.end, DateTime.utc(2027, 2, 8));
+    expect(card.nextClose, DateTime.utc(2027, 3, 22));
+    expect(card.scheduledClose, DateTime.utc(2027, 3, 15));
+    expect((card.daysGone, card.cycleDays), (21, 42));
+  });
+
   test('a moved close is told with the day it was due', () {
     final moved = _summary(
       closes: {DateTime.utc(2026, 10, 20): DateTime.utc(2026, 10, 17)},

@@ -1,9 +1,11 @@
 /// Checks how a card's page is read out.
 library;
 
+import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/navigation/nav.dart';
+import 'package:expense_tracker/src/core/widgets/pickers.dart';
 import 'package:expense_tracker/src/features/accounts/ui/card_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -109,5 +111,46 @@ void main() {
     expect(find.textContaining('第 5 / 31 天'), findsOneWidget);
     expect(_bars(tester), contains(('本期已過', '16%')));
     handle.dispose();
+  });
+
+  testWidgets('R28: two closes moved apart count the cycle to the later '
+      'one, and moving the close starts from it', (tester) async {
+    tester.view.physicalSize = const Size(420, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final ledger = Ledger(
+      today: DateTime.utc(2027, 3, 1),
+      accounts: [
+        Account(
+          'card',
+          '卡',
+          AccountKind.card,
+          0,
+          closingDay: 15,
+          dueDay: 5,
+          limit: 100000,
+          closes: {
+            DateTime.utc(2027, 2, 15): DateTime.utc(2027, 2, 8),
+            DateTime.utc(2027, 3, 15): DateTime.utc(2027, 3, 22),
+          },
+        ),
+      ],
+      categories: [],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+    await _show(tester, ledger);
+    // Closed 8 Feb (moved from the 15th), next close 22 Mar (moved from
+    // the 15th): 28 + 14 = 42 days, 21 gone on 1 Mar.
+    expect(find.textContaining('第 21 / 42 天'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.moveClose));
+    await tester.pumpAndSettle();
+    final picker = tester.widget<DayChoices>(find.byType(DayChoices));
+    expect(picker.selected, DateTime.utc(2027, 3, 22));
+    // At most a week after the scheduled 15 Mar: 22 Mar.
+    expect(picker.latest, DateTime.utc(2027, 3, 22));
+    expect(picker.marked, {DateTime.utc(2027, 3, 15)});
   });
 }

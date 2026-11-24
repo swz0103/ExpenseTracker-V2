@@ -119,12 +119,10 @@ final class CardSummary {
   BusinessDayAnswer<BusinessDate> get payBy => payByOf(due);
 
   /// The next close, as it may have been moved: the one that ends the
-  /// cycle under way. Found from a day well inside the next cycle, never
-  /// by stepping [end]'s day a month on (a close held to 28 February
-  /// would step to a day before the real next close).
-  late final DateTime nextClose = card.closingOn(
-    end.add(const Duration(days: 40)),
-  );
+  /// cycle under way, the cycle that starts the day after [end]. Never
+  /// found by stepping [end]'s day a month on (a close held to 28
+  /// February would step to a day before the real next close).
+  late final DateTime nextClose = card.closeAfter(end);
 
   /// The day [nextClose] was due before it was moved, if it was.
   DateTime get scheduledClose {

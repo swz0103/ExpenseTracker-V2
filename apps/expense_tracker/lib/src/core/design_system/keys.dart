@@ -117,6 +117,9 @@ abstract final class Keys {
   static const newPassword = ValueKey('keys:new-password');
   static const noPassword = ValueKey('keys:no-password');
 
+  /// A card page's 下次結帳, which moves the next close.
+  static const moveClose = ValueKey('card:move-close');
+
   /// The account form's own broker discount (D7).
   static const accountDiscount = ValueKey('account:broker-discount');
 }

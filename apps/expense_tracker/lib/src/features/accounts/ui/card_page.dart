@@ -108,6 +108,7 @@ class CardPage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: Space.s2),
               child: FigureCard(
+                key: Keys.moveClose,
                 color: Palette.violet,
                 icon: Glyph.calendar,
                 label: '下次結帳',
