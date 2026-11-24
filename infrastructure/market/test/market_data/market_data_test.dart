@@ -143,6 +143,35 @@ void main() {
     expect(transport.requests, hasLength(3));
   });
 
+  test('a close dated after today is refused (D95)', () async {
+    // Taipei's today is 2026-09-30; 9991231 is ROC 999, the year 2910.
+    for (final date in ['1151001', '9991231']) {
+      final market = gateway(
+        FakeTransport(
+          (_) async => MarketResponse(
+            200,
+            '[{"Date":"$date","Code":"2330","ClosingPrice":"1,234.50"}]',
+          ),
+        ),
+      );
+      final close = await market.stockClose(instrument('2330'));
+      expect(close.state, MarketState.failed, reason: date);
+      expect(close.value, isNull);
+    }
+    final today = gateway(
+      FakeTransport(
+        (_) async => const MarketResponse(
+          200,
+          '[{"Date":"1150930","Code":"2330","ClosingPrice":"1,234.50"}]',
+        ),
+      ),
+    );
+    expect(
+      (await today.stockClose(instrument('2330'))).state,
+      MarketState.available,
+    );
+  });
+
   test('concurrent lookups share one request', () async {
     final release = Completer<void>();
     final transport = FakeTransport((_) async {
@@ -311,6 +340,23 @@ void main() {
         '20261001',
         '20260901',
       ]);
+    });
+
+    test('a day after today in the report is passed over (D95)', () async {
+      final transport = FakeTransport(
+        (_) async => MarketResponse(
+          200,
+          report([
+            day('115/09/26', '201.50', '+1.50'),
+            day('115/10/02', '999.00', '+1.00'),
+          ]),
+        ),
+      );
+      final market = gateway(transport);
+      final result = await market.listedHistoryClose('2317');
+      expect(result.value!.decimalPrice, '201.50');
+      final month = await market.monthCloses('2317', 2026, 9);
+      expect([for (final c in month.value!) c.decimalPrice], ['201.50']);
     });
 
     test('a page that is not a report fails closed', () async {

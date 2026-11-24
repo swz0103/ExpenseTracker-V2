@@ -15,6 +15,7 @@ import 'package:core/constants/retention.dart';
 import 'package:core/foundation_values.dart';
 import 'package:core/money/amount_parser.dart' show parseDecimal;
 import 'package:flutter/foundation.dart' show mapEquals;
+import 'package:domain/investments.dart' show doubtfulMove;
 import 'package:market/market_data.dart';
 import 'package:storage/storage.dart';
 
@@ -812,13 +813,33 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     if (gateway == null) return false;
     final board = (await gateway.bankRates()).value;
     if (board == null) return false;
-    final fetched = <String, double>{};
+    final quoted = <String, double>{};
     for (final MapEntry(key: code, value: row) in board.rates.entries) {
       final rate = row.valuation;
-      if (rate != null) fetched[code] = rate.numerator / rate.denominator;
+      if (rate != null) quoted[code] = rate.numerator / rate.denominator;
     }
     return _whenQuiet(() {
       final kept = marketFrom(_readableMarket(_store.rows(shelf: _market)));
+      // A rate too far from the one kept is doubted (D95): the one kept
+      // stays, and the doubt is noted.
+      final fetched = <String, double>{};
+      final doubted = <String>[];
+      for (final MapEntry(key: code, value: rate) in quoted.entries) {
+        final before = kept.rates[code];
+        if (doubtfulMove(kept: before, fetched: rate)) {
+          doubted.add(code);
+          if (before != null) fetched[code] = before;
+        } else {
+          fetched[code] = rate;
+        }
+      }
+      doubtfulRates = List.unmodifiable(doubted);
+      if (doubted.isNotEmpty) {
+        ErrorLog.instance.record(
+          ErrorSteps.doubtfulQuote,
+          StateError('rates of ${doubted.join(', ')} set aside'),
+        );
+      }
       if (fetched.isEmpty || mapEquals(fetched, kept.rates)) return false;
       // Fetched, not changed by the person: no new backup is due for it.
       _store.write(
@@ -836,6 +857,15 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   /// The codes the last [refreshQuotes] found no close for: not quoted
   /// by either exchange, or out of reach.
   List<String> unquoted = const [];
+
+  /// The codes whose close the last [refreshQuotes] doubted (D95): more
+  /// than `doubtfulMoveFactor` times away from the one kept. The one kept
+  /// stays, with its day, so the holding shows its older close.
+  List<String> doubtfulCloses = const [];
+
+  /// The currencies whose rate the last [refreshRates] doubted (D95); the
+  /// rate kept stays.
+  List<String> doubtfulRates = const [];
 
   /// The latest close of [code] from [gateway], TWSE first, or null when
   /// none is found; [prices] are the closes kept from before.
@@ -878,6 +908,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     var quotedOn = kept.quotedOn;
     var changed = false;
     final missed = <String>[];
+    final doubted = <String>[];
+    final today = _today();
     // Every code asked at once: the exchanges' day lists are fetched once
     // and shared, and a code looked for on TPEx or in the month report
     // does not hold up the others.
@@ -897,6 +929,17 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         close.asOf.month,
         close.asOf.day,
       );
+      // A close dated after today is no close; one too far from the one
+      // kept is doubted (D95). Either way the one kept stays, with its
+      // day, and the day the holdings are quoted on does not move for it.
+      if (day.isAfter(today)) {
+        missed.add(code);
+        continue;
+      }
+      if (doubtfulMove(kept: prices[code], fetched: price)) {
+        doubted.add(code);
+        continue;
+      }
       if (quotedOn == null || day.isAfter(quotedOn)) {
         quotedOn = day;
         changed = true;
@@ -922,6 +965,25 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       changed = true;
     }
     unquoted = List.unmodifiable(missed);
+    doubtfulCloses = List.unmodifiable(doubted);
+    if (doubted.isNotEmpty) {
+      ErrorLog.instance.record(
+        ErrorSteps.doubtfulQuote,
+        StateError('closes of ${doubted.join(', ')} set aside'),
+      );
+    }
+    // A day kept from before that is after today (written by an earlier
+    // version) is let go of: the holdings are quoted on no day ahead.
+    if (quotedOn != null && quotedOn.isAfter(today)) {
+      quotedOn = null;
+      for (final day in days.values) {
+        if (!day.isAfter(today) &&
+            (quotedOn == null || day.isAfter(quotedOn))) {
+          quotedOn = day;
+        }
+      }
+      changed = true;
+    }
     if (changed) {
       await _whenQuiet(
         () => _store.write(

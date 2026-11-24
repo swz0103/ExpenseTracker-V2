@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:core/app_core.dart';
@@ -6,6 +7,7 @@ import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_sour
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:market/market_data.dart';
+import 'package:storage/storage.dart' show EncryptedDatabase;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
@@ -146,4 +148,125 @@ void main() {
     expect(ledger.marketData.olderQuote('2317'), DateTime.utc(2026, 9, 26));
     expect(ledger.marketData.olderQuote('2330'), isNull);
   });
+
+  group('D95: a figure fetched that cannot be right is not taken', () {
+    /// The exchanges and the bank as [daily] and [spot] say, the clock
+    /// [now].
+    late String daily;
+    late String spot;
+    var now = DateTime.utc(2026, 9, 30, 4);
+    String closes(String date, String tsmc) =>
+        '[{"Date":"$date","Code":"2330","ClosingPrice":"$tsmc"},'
+        '{"Date":"$date","Code":"0050","ClosingPrice":"62.75"}]';
+    String board(String rate) => _board().replaceFirst('31.83500', rate);
+
+    late EncryptedDatabase store;
+
+    Future<SqlLedgerDataSource> source() async {
+      final directory = Directory.systemTemp.createTempSync('market-');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final vault = LedgerVault(
+        directory,
+        codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
+      );
+      final (open, _) = await vault.create('market password');
+      addTearDown(open.close);
+      store = open.store;
+      return SqlLedgerDataSource(
+        open.store,
+        clock: FixedClock(UtcInstant(DateTime.utc(2026, 9, 30, 4))),
+        market: MarketDataGateway(
+          transport: _Pages(() => daily, () => spot),
+          clock: () => now,
+        ),
+      );
+    }
+
+    setUp(() {
+      now = DateTime.utc(2026, 9, 30, 4);
+      daily = closes('1150929', '1,234.50');
+      spot = board('31.83500');
+    });
+
+    test(
+      'a close ten times away is doubted: the kept one stays, older',
+      () async {
+        final data = await source();
+        expect(await data.refreshQuotes(['2330', '0050']), isTrue);
+        // The next day's list: 1,234.50 became 99,999.00, over ten times.
+        daily = closes('1150930', '99,999.00');
+        now = now.add(const Duration(hours: 1));
+        expect(await data.refreshQuotes(['2330', '0050']), isTrue);
+        expect(data.doubtfulCloses, ['2330']);
+        final ledger = await data.load();
+        expect(ledger.holdings.hasQuote('2330'), isTrue);
+        final market = data.market();
+        expect(
+          market.holdings.firstWhere((h) => h.code == '2330').price,
+          1234.5,
+        );
+        // 0050 moved the quotes on to 9/30; 2330 shows its close of 9/29.
+        expect(market.quotedOn, DateTime.utc(2026, 9, 30));
+        expect(ledger.marketData.olderQuote('2330'), DateTime.utc(2026, 9, 29));
+      },
+    );
+
+    test('a rate ten times away is doubted, the kept one stays', () async {
+      final data = await source();
+      expect(await data.refreshRates(), isTrue);
+      spot = board('0.00001');
+      now = now.add(const Duration(hours: 1));
+      expect(await data.refreshRates(), isFalse);
+      expect(data.doubtfulRates, ['USD']);
+      expect(data.market().rates['USD'], closeTo(31.835, 1e-9));
+    });
+
+    test('a close dated after today is not taken (F7)', () async {
+      final data = await source();
+      // 9991231 is ROC 999: the year 2910.
+      daily = closes('9991231', '1,234.50');
+      expect(await data.refreshQuotes(['2330']), isFalse);
+      expect(data.unquoted, ['2330']);
+      expect(data.market().quotedOn, isNull);
+    });
+
+    test('a quote day kept ahead of today is let go of', () async {
+      final data = await source();
+      // An earlier version kept the day of a close dated 2910.
+      const ahead = '2910-12-31T00:00:00.000Z';
+      store.write(
+        (w) => w.put(
+          'market',
+          'quotes',
+          jsonEncode({
+            'prices': {'2330': 1234.5},
+            'days': {'2330': ahead},
+            'on': ahead,
+          }),
+        ),
+        counts: false,
+      );
+      expect(data.market().quotedOn, DateTime.utc(2910, 12, 31));
+      now = now.add(const Duration(hours: 1));
+      await data.refreshQuotes(['2330', '0050']);
+      expect(data.market().quotedOn, DateTime.utc(2026, 9, 29));
+    });
+  });
+}
+
+/// The day's list and the bank's board as the test has them now.
+final class _Pages implements MarketTransport {
+  _Pages(this.daily, this.spot);
+
+  final String Function() daily;
+  final String Function() spot;
+
+  @override
+  Future<MarketResponse> get(Uri uri) async {
+    if (uri == MarketDataGateway.twseUri) return MarketResponse(200, daily());
+    if (uri == MarketDataGateway.bankRatesUri) {
+      return MarketResponse(200, spot());
+    }
+    return const MarketResponse(404, '');
+  }
 }

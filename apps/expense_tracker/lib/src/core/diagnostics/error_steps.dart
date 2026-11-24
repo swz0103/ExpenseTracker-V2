@@ -116,5 +116,8 @@ abstract final class ErrorSteps {
   /// The ledger's file found damaged, set aside for a backup (D94).
   static const bookDamaged = '帳本檔案損毀';
 
+  /// A close or rate fetched that was doubted and set aside (D95).
+  static const doubtfulQuote = '可疑的行情';
+
   static const bookOpen = '打開帳本';
 }

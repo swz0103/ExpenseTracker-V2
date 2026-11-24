@@ -288,6 +288,15 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/services/recurring_service.dart
     target: packages/ledger/csv_exchange/lib/rules/ + packages/ledger/e_invoice/lib/rules/ + packages/ledger/recurring/lib/rules/
     status: scattered
+  # Decision D93: the one rule for a day read from an imported file
+  # (CSV lines, e-invoice M lines and the ministry's CSV).
+  - id: import-dates
+    what: 匯入日期的年份規則（西元、民國、最早年份）
+    layer: ledger
+    owner:
+      - packages/domain/lib/src/data_exchange/import_day.dart
+    target: packages/domain/lib/src/data_exchange/
+    status: owned
   - id: default-account-ordering
     what: 預設帳戶與排序規則
     layer: ledger
@@ -442,6 +451,16 @@ items:
       - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/MarketWorker.kt
     target: apps/expense_tracker/lib/app/coordinators/market/
     status: scattered
+  # Decision D95: a close or rate fetched more than one named factor
+  # away from the one kept is doubted and set aside; the gateway refuses
+  # a close dated after today.
+  - id: market-sanity
+    what: 行情合理性（可疑倍數、未來日期）
+    layer: ledger
+    owner:
+      - packages/domain/lib/src/investments/market_sanity.dart
+    target: packages/domain/lib/src/investments/
+    status: owned
   - id: trash-undo
     what: 刪除、復原與垃圾桶
     layer: app

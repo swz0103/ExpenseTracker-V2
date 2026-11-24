@@ -90,8 +90,9 @@ void main() {
       for (final invoice in read.invoices) {
         expect(numbers.add(invoice.number), isTrue, reason: 'once each');
         expect(invoice.date.year, greaterThanOrEqualTo(earliestImportYear));
-        if (before != null)
+        if (before != null) {
           expect(before.compareTo(invoice.date), lessThanOrEqualTo(0));
+        }
         before = invoice.date;
       }
       for (final refused in read.refused) {
