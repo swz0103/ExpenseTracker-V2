@@ -245,6 +245,21 @@ void main() {
     );
   });
 
+  test('a file over 4 GiB is refused before any of it is read (R12)', () async {
+    expect(LedgerBackup.maxBackupBytes, 4294967296);
+    // Sparse: one byte past the limit, taking no room on the disk.
+    final file = File('${directory.path}/huge.etbk');
+    final handle = file.openSync(mode: FileMode.write);
+    handle
+      ..setPositionSync(LedgerBackup.maxBackupBytes)
+      ..writeByteSync(0)
+      ..closeSync();
+    await expectLater(
+      LedgerBackup.readHeader(file),
+      fails(BackupProblem.tooLarge),
+    );
+  });
+
   test('a newer format, a tail or an unknown epoch are refused', () async {
     final file = await backup();
     final original = frames(file);

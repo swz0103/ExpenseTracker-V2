@@ -82,13 +82,20 @@ class _ImportPageState extends State<_ImportPage> {
     return (home.isEmpty ? open : home).first.id;
   }
 
-  void _read() {
+  /// Which read is the latest: one finished after a later one began is
+  /// not shown.
+  var _reading = 0;
+
+  Future<void> _read() async {
     final ledger = widget.ledger;
+    final reading = ++_reading;
+    final found = widget.invoices
+        ? importInvoices(importBookOf(ledger), _text, account: _account)
+        : await importCsvApart(importBookOf(ledger), _text, fallback: _account);
+    if (!mounted || reading != _reading) return;
     setState(() {
       _left.clear();
-      _found = widget.invoices
-          ? importInvoices(importBookOf(ledger), _text, account: _account)
-          : importCsv(importBookOf(ledger), _text, fallback: _account);
+      _found = found;
     });
   }
 
@@ -101,7 +108,7 @@ class _ImportPageState extends State<_ImportPage> {
       return;
     }
     _text = text;
-    _read();
+    await _read();
   }
 
   /// Reads a file the person chooses.
@@ -116,7 +123,7 @@ class _ImportPageState extends State<_ImportPage> {
     }
     if (text == null || !mounted) return;
     _text = text;
-    _read();
+    await _read();
   }
 
   Future<void> _pickAccount() async {
@@ -134,7 +141,7 @@ class _ImportPageState extends State<_ImportPage> {
     );
     if (picked == null || !mounted) return;
     _account = picked;
-    _read();
+    await _read();
   }
 
   /// What is ticked of what was read.

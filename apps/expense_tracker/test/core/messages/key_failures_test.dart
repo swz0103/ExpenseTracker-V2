@@ -28,6 +28,13 @@ void main() {
   String? say(Object error, {bool recovery = false}) =>
       describeUnlockFailure(error, recovery: recovery);
 
+  test('a file too large to be a backup says so (R12)', () {
+    expect(
+      say(const BackupException(BackupProblem.tooLarge)),
+      '這個檔案超過 4 GB，不是記帳本的備份',
+    );
+  });
+
   test('a damaged ledger file is not a wrong password (D94)', () {
     const damaged = StorageUnavailable(StorageProblem.damaged);
     expect(say(damaged), '帳本檔案已損毀，請從備份還原');

@@ -116,6 +116,17 @@ AmountResult parseAmount(
 }) {
   final trimmed = text.trim();
   if (trimmed.isEmpty) return const AmountRefused(AmountProblem.empty);
+  // Measured before any pattern: a pattern run over millions of
+  // characters overflows the stack.
+  if (trimmed.length > _maxLength) {
+    final numeric = trimmed.codeUnits.every(
+      (unit) =>
+          (unit >= _zero && unit <= _nine) || unit == _comma || unit == _dot,
+    );
+    return AmountRefused(
+      numeric ? AmountProblem.tooLarge : AmountProblem.notANumber,
+    );
+  }
   var body = trimmed;
   var negative = false;
   if (body.startsWith('-') || body.startsWith('−')) {
@@ -186,6 +197,15 @@ AmountProblem _whyNot(String body, int scale) {
 // More digits than any amount within [maxAmountUnits] has, so BigInt
 // never works on long input.
 const _maxDigits = 20;
+
+// The longest text read as an amount: room for the largest amount,
+// grouped, with a sign and more decimals than any currency has; a longer
+// one is refused before it is matched.
+const _maxLength = 64;
+final _zero = '0'.codeUnitAt(0);
+final _nine = '9'.codeUnitAt(0);
+final _comma = ','.codeUnitAt(0);
+final _dot = '.'.codeUnitAt(0);
 final _five = '5'.codeUnitAt(0);
 
 int _pow10(int exponent) {

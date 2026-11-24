@@ -1,4 +1,5 @@
 import 'package:core/foundation_values.dart';
+import 'package:core/money/typed_text.dart' show plainText;
 
 import 'csv.dart';
 import 'import_day.dart';
@@ -61,7 +62,7 @@ typedef EInvoiceFile = ({
 EInvoiceFile readEInvoices(String text) {
   final rows = readCsvRecords(text);
   if (rows.isEmpty) return (invoices: const [], refused: const []);
-  final header = [for (final name in rows.first.cells) name.trim()];
+  final header = [for (final name in rows.first.cells) plainText(name).trim()];
   int column(String name, {bool required = true}) {
     final index = header.indexOf(name);
     if (index < 0 && required) {
@@ -77,7 +78,7 @@ EInvoiceFile readEInvoices(String text) {
   final sellerAt = column('賣方名稱', required: false);
   final itemAt = column('消費明細_品名', required: false);
   String cell(List<String> row, int index) =>
-      index >= 0 && index < row.length ? row[index].trim() : '';
+      index >= 0 && index < row.length ? plainText(row[index]).trim() : '';
 
   final invoices = <String, _Invoice>{};
   for (final (:line, cells: row) in rows.skip(1)) {

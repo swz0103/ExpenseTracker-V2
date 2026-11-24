@@ -23,6 +23,10 @@ enum BackupProblem {
 
   /// The content decrypted but is not a ledger the app can read.
   invalidContent,
+
+  /// Larger than any backup is ([LedgerBackup.maxBackupBytes]): refused
+  /// before it is read, and never written.
+  tooLarge,
 }
 
 final class BackupException implements Exception {
@@ -184,6 +188,11 @@ abstract final class LedgerBackup {
 
   /// The largest frame a backup may hold.
   static const maxFrame = 64 * 1024 * 1024;
+
+  /// The largest backup file, 4 GiB: one larger is refused before any of
+  /// it is read, and a backup that would be larger is not written, so
+  /// every backup written can be read.
+  static const maxBackupBytes = 4 * 1024 * 1024 * 1024;
 
   /// The most bytes of a file one chunk carries: base64 makes it 4/3 as
   /// large, and gzip of the worst (random) bytes adds little, so a piece's
@@ -352,6 +361,11 @@ abstract final class LedgerBackup {
       await sink.flush();
     } finally {
       await sink.close();
+    }
+    final written = File(path);
+    if (await written.length() > maxBackupBytes) {
+      await written.delete();
+      throw const BackupException(BackupProblem.tooLarge);
     }
   }
 
@@ -568,6 +582,9 @@ final class _FrameReader {
   final RandomAccessFile _file;
 
   static Future<_FrameReader> open(File file) async {
+    if (await file.length() > LedgerBackup.maxBackupBytes) {
+      throw const BackupException(BackupProblem.tooLarge);
+    }
     final handle = await file.open();
     final reader = _FrameReader._(handle);
     final magic = await handle.read(LedgerBackup._magic.length);

@@ -2,7 +2,9 @@
 // format; they keep their spelling whatever the screens come to say.
 import 'package:core/foundation_values.dart' show BusinessDate, Currency;
 import 'package:core/money/amount_parser.dart';
+import 'package:core/money/typed_text.dart' show plainText;
 import 'package:domain/data_exchange.dart';
+import 'package:flutter/foundation.dart' show compute;
 
 import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
@@ -319,28 +321,90 @@ const _shades = [
 /// out, naming the line: the rest of it is never run into one cell. Each
 /// line left out is named by the line of the file it is on, blank lines
 /// and line breaks inside quoted words counted.
-Import importCsv(ImportBook book, String text, {required String fallback}) {
-  final List<CsvRecord> rows;
+Import importCsv(ImportBook book, String text, {required String fallback}) =>
+    switch (_readCsv(text)) {
+      (rows: final rows?, unreadable: _) => _importing(
+        book,
+        rows,
+        fallback,
+      ).last!,
+      (rows: _, :final unreadable) => _unreadableFile(unreadable!),
+    };
+
+/// [importCsv] without holding the screen still: a long [text] is read
+/// as CSV on a worker isolate, and its lines are read a slice of time at
+/// a time ([importSlice]), the screen drawn between slices.
+Future<Import> importCsvApart(
+  ImportBook book,
+  String text, {
+  required String fallback,
+}) async {
+  final read = text.length < readApartFrom
+      ? _readCsv(text)
+      : await compute(_readCsv, text);
+  final rows = read.rows;
+  if (rows == null) return _unreadableFile(read.unreadable!);
+  final slice = Stopwatch()..start();
+  Import? found;
+  for (final step in _importing(book, rows, fallback)) {
+    found = step;
+    if (slice.elapsed > importSlice) {
+      await Future<void>.delayed(Duration.zero);
+      slice.reset();
+    }
+  }
+  return found!;
+}
+
+/// From how many characters [importCsvApart] reads a file as CSV on a
+/// worker isolate: a shorter one is read in a few milliseconds.
+const readApartFrom = 100000;
+
+/// How long [importCsvApart] reads lines before the screen is drawn:
+/// half a frame at 60 Hz.
+const importSlice = Duration(milliseconds: 8);
+
+/// [text] read as CSV: its records, or the line of a quote that cannot be
+/// read.
+({List<CsvRecord>? rows, int? unreadable}) _readCsv(String text) {
   try {
-    rows = readCsvRecords(text);
+    return (rows: readCsvRecords(text), unreadable: null);
   } on CsvFormatException catch (error) {
     // Said to the person: the file is left as it is rather than guessed at.
-    return Import(const [], 1, problems: ['第 ${error.line} 行的引號看不懂，整個檔案沒有匯入']);
+    return (rows: null, unreadable: error.line);
   }
-  if (rows.isEmpty) return const Import([], 0);
-  final head = [for (final h in rows.first.cells) h.trim()];
+}
+
+/// The whole file left out for a quote that cannot be read on [line].
+Import _unreadableFile(int line) =>
+    Import(const [], 1, problems: ['第 $line 行的引號看不懂，整個檔案沒有匯入']);
+
+/// The steps of importing [rows]: null after each line read, then what
+/// was found, last.
+Iterable<Import?> _importing(
+  ImportBook book,
+  List<CsvRecord> rows,
+  String fallback,
+) sync* {
+  if (rows.isEmpty) {
+    yield const Import([], 0);
+    return;
+  }
+  final head = [for (final h in rows.first.cells) plainText(h).trim()];
   if (!head.contains('日期') || !head.contains('金額')) {
-    return Import(const [], rows.length, problems: const ['第一行要有「日期」和「金額」欄位']);
+    yield Import(const [], rows.length, problems: const ['第一行要有「日期」和「金額」欄位']);
+    return;
   }
   final reader = _Reader(book, fallback);
   for (final (:line, cells: row) in rows.skip(1)) {
     String cell(String name) {
       final at = head.indexOf(name);
-      return at < 0 || at >= row.length ? '' : row[at].trim();
+      return at < 0 || at >= row.length ? '' : plainText(row[at]).trim();
     }
 
     final problem = reader.read(cell, line: line);
     if (problem != null) reader.skip(line, problem);
+    yield null;
   }
-  return reader.result();
+  yield* reader.result();
 }

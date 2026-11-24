@@ -4,13 +4,21 @@ part of 'import_export.dart';
 
 final class _Reader {
   _Reader(this.book, this.fallback)
-    : _names = {for (final a in book.accounts.all) a.name: a.id};
+    : _names = {for (final a in book.accounts.all) plainText(a.name): a.id},
+      _categoryByName = {
+        for (final c in book.categories.all.reversed) plainText(c.name): c,
+      };
 
   final ImportBook book;
   final String fallback;
   final Map<String, String> _names;
   final _accounts = <Account>[];
   final _categories = <Category>[];
+
+  /// Every category of the book and of this file, by name, the book's
+  /// first where two share one: found at once, not looked for line by
+  /// line through them all.
+  final Map<String, Category> _categoryByName;
 
   /// The lines read, with the line each came from.
   final _found = <(int, Entry)>[];
@@ -71,20 +79,20 @@ final class _Reader {
   String _categoryNamed(String name, {required bool income}) {
     final other = income ? '其他收入' : feeCategory;
     if (name.isEmpty) return other;
-    for (final c in [...book.categories.all, ..._categories]) {
-      if (c.name == name) return c.income == income ? name : other;
+    if (_categoryByName[name] case final c?) {
+      return c.income == income ? c.name : other;
     }
     // A name the book keeps for itself is not made a category.
     if (!book.categories.isNameFree(name)) return other;
     final count = book.categories.all.length + _categories.length;
-    _categories.add(
-      Category(
-        name,
-        income ? 'income' : 'other',
-        _shades[count % _shades.length],
-        income: income,
-      ),
+    final made = Category(
+      name,
+      income ? 'income' : 'other',
+      _shades[count % _shades.length],
+      income: income,
     );
+    _categories.add(made);
+    _categoryByName[name] = made;
     return name;
   }
 
@@ -326,16 +334,27 @@ final class _Reader {
   }
 
   /// What was read, oldest first, less trades that sell or take away more
-  /// shares than are held by then.
-  Import result() {
-    final sorted = [..._found]
-      ..sort((a, b) {
-        final byDay = a.$2.date.compareTo(b.$2.date);
-        return byDay != 0 ? byDay : a.$1.compareTo(b.$1);
-      });
+  /// shares than are held by then: null after each step of the work, so
+  /// a long file can be read a slice at a time, then the import, last.
+  Iterable<Import?> result() sync* {
+    // By day, then in the order read: each day's places gathered a step
+    // at a time, then only the days sorted.
+    final byDay = <int, List<int>>{};
+    for (final (i, (_, e)) in _found.indexed) {
+      (byDay[e.date.millisecondsSinceEpoch ~/ Duration.millisecondsPerDay] ??=
+              [])
+          .add(i);
+      yield null;
+    }
+    final days = byDay.keys.toList()..sort();
+    yield null;
     final kept = <Entry>[];
     final trades = <Entry>[];
-    for (final (line, e) in sorted) {
+    final used = <String>{};
+    final cats = <String>{};
+    for (final i in days.expand((day) => byDay[day]!)) {
+      final (line, e) = _found[i];
+      yield null;
       if (e.isInvestment) {
         // Only a sale or a reduction can leave a stock short of shares.
         final takes = e.type == EntryType.sell || e.isReduction;
@@ -346,14 +365,14 @@ final class _Reader {
         trades.add(e);
       }
       kept.add(e);
+      used.add(e.account);
+      if (e.to case final to?) used.add(to);
+      cats.add(e.category);
+      for (final (name, _) in e.parts) {
+        cats.add(name);
+      }
     }
-    final used = {
-      for (final e in kept) ...[e.account, ?e.to],
-    };
-    final cats = {
-      for (final e in kept) ...[e.category, for (final (c, _) in e.parts) c],
-    };
-    return Import(
+    yield Import(
       kept,
       _skipped,
       accounts: [
@@ -426,7 +445,7 @@ Import _invoiceLines(ImportBook book, String text, {required String account}) {
   final heads = <List<String>>[];
   for (final raw in text.split('\n')) {
     final line = raw.trim();
-    final cells = line.split('|').map((c) => c.trim()).toList();
+    final cells = line.split('|').map((c) => plainText(c).trim()).toList();
     if (cells.first == 'M' && cells.length >= 8) heads.add(cells);
     if (cells.first == 'D' && cells.length >= 4) {
       (items[cells[1]] ??= []).add(cells[3]);

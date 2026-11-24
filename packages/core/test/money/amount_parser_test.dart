@@ -28,6 +28,15 @@ void main() {
       expect(twd('99999999999999999999'), no(AmountProblem.tooLarge));
       expect(twd('9' * 500), no(AmountProblem.tooLarge));
     });
+    test('millions of characters are refused before any pattern (R12)', () {
+      // Matched by the grouping pattern, these overflowed the stack.
+      expect(twd('1${',000' * 1000000}'), no(AmountProblem.tooLarge));
+      expect(twd('1.${'0' * 3000000}'), no(AmountProblem.tooLarge));
+      expect(twd('x' * 3000000), no(AmountProblem.notANumber));
+      expect(twd('1 ${'2' * 100}'), no(AmountProblem.notANumber));
+      // 64 characters are still read.
+      expect(usd('1.${'0' * 62}'), const AmountOk(100));
+    });
     test('rounding up past the limit is too large', () {
       // 999,999,999.995 rounds to 1,000,000,000.00.
       expect(usd('999999999.995', Decimals.round), no(AmountProblem.tooLarge));

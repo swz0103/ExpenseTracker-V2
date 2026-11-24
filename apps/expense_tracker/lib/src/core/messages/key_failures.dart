@@ -61,6 +61,8 @@ String? describeUnlockFailure(Object error, {required bool recovery}) =>
         BackupProblem.authenticationFailed => '打不開這個備份：輸入的不是它的救援碼或密碼，或檔案被改過',
         BackupProblem.targetNotEmpty => '這台手機上已經有帳本了',
         BackupProblem.invalidContent => '這個備份裡有 App 讀不懂的資料，沒有還原',
+        BackupProblem.tooLarge =>
+          '這個檔案超過 ${LedgerBackup.maxBackupBytes ~/ _gib} GB，不是記帳本的備份',
       },
       // Not tried at all: too many wrong ones came before it.
       UnlockDelayed(:final wait) => LockWords.waitFor(wait),
@@ -124,3 +126,6 @@ bool backupIsOlder(BackupHeader backup, BackupHeader current) =>
     (backup.keyring.id == current.keyring.id &&
         backup.revision < current.revision) ||
     backup.rows < current.rows;
+
+/// Bytes in a GiB, to say a size in GB.
+const _gib = 1024 * 1024 * 1024;
