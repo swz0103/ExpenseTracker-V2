@@ -23,13 +23,20 @@ import javax.crypto.SecretKey
  * (lib/src/app/android/keystore_adapter.dart).
  */
 class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
+    /**
+     * The Keystore answers over binder calls, on every password-less open:
+     * off the main thread, one at a time, so two first uses never make the
+     * sealing key twice (AND-07). The fingerprint prompt stays on it.
+     */
+    private val offMain = OffMain.serial(activity)
+
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         when (call.method) {
             "canUseBiometrics" -> result.success(
                 BiometricManager.from(activity).canAuthenticate(BIOMETRIC_STRONG) ==
                     BiometricManager.BIOMETRIC_SUCCESS,
             )
-            "hasDeviceKey" -> result.success(existingKey() != null)
+            "hasDeviceKey" -> offMain.answer(result, "keystore") { existingKey() != null }
             "wrap", "unwrap" -> {
                 val data = call.argument<ByteArray>("data")
                 val context = call.argument<ByteArray>("context")
@@ -137,25 +144,33 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
         context: ByteArray,
         result: MethodChannel.Result,
     ) {
-        try {
-            val cipher = Cipher.getInstance(DeviceKeyBlob.TRANSFORMATION)
-            val output = if (encrypt) {
-                cipher.init(Cipher.ENCRYPT_MODE, quickKey())
-                DeviceKeyBlob.seal(cipher, data, context)
-            } else {
-                val iv = DeviceKeyBlob.ivOf(data)
-                val existing = existingKey(QUICK_ALIAS)
-                if (iv == null || existing == null) {
-                    result.error("key-invalidated", "The sealing key is gone.", null)
-                    return
+        offMain.run(
+            {
+                val cipher = Cipher.getInstance(DeviceKeyBlob.TRANSFORMATION)
+                if (encrypt) {
+                    cipher.init(Cipher.ENCRYPT_MODE, quickKey())
+                    DeviceKeyBlob.seal(cipher, data, context)
+                } else {
+                    val iv = DeviceKeyBlob.ivOf(data)
+                    val existing = existingKey(QUICK_ALIAS)
+                    if (iv == null || existing == null) {
+                        // The sealing key is gone.
+                        null
+                    } else {
+                        cipher.init(Cipher.DECRYPT_MODE, existing, iv)
+                        DeviceKeyBlob.open(cipher, data, context)
+                    }
                 }
-                cipher.init(Cipher.DECRYPT_MODE, existing, iv)
-                DeviceKeyBlob.open(cipher, data, context)
-            }
-            result.success(output)
-        } catch (e: Exception) {
-            result.error("keystore", e.message, null)
-        }
+            },
+            { output ->
+                if (output == null) {
+                    result.error("key-invalidated", "The sealing key is gone.", null)
+                } else {
+                    result.success(output)
+                }
+            },
+            { result.error("keystore", it.message, null) },
+        )
     }
 
     /**

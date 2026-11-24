@@ -3,6 +3,9 @@ package io.github.swz0103.expensetracker
 import android.app.Activity
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 /**
  * One part of `expense_tracker/platform` (lib/src/app/android/): it
@@ -67,6 +70,22 @@ internal class OffMain(
     companion object {
         /** A thread of its own for the work, the activity's main thread for the answer. */
         fun of(activity: Activity) = OffMain({ Thread(it).start() }, activity::runOnUiThread)
+
+        /**
+         * One thread for the work, each piece after the one before, in the
+         * order asked, for work two of which must not overlap (the
+         * Keystore's keys, the reminders' plan); the thread goes when idle.
+         */
+        fun serial(activity: Activity): OffMain = serial(activity::runOnUiThread)
+
+        /** [serial], answering through [main]. */
+        fun serial(main: (Runnable) -> Unit): OffMain {
+            val queue = ThreadPoolExecutor(0, 1, IDLE_SECONDS, TimeUnit.SECONDS, LinkedBlockingQueue())
+            return OffMain(queue::execute, main)
+        }
+
+        /** How long the thread of [serial] waits for more work before it goes. */
+        private const val IDLE_SECONDS = 30L
 
         /** What kind of failure [error] is, as the error log keeps it. */
         fun kindOf(error: Throwable): String = ScanFault.kind(error.javaClass.simpleName)

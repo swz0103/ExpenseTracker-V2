@@ -27,17 +27,21 @@ class FolderHandler(private val activity: FragmentActivity) : ChannelHandler {
                 result.success(null)
                 return@registerForActivityResult
             }
-            try {
-                activity.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-                )
-                result.success(mapOf("uri" to uri.toString(), "name" to nameOf(uri)))
-            } catch (e: Exception) {
+            // The permission and the folder's name ask the documents
+            // provider, which can be slow: off the main thread.
+            offMain.run(
+                {
+                    activity.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                    )
+                    mapOf("uri" to uri.toString(), "name" to nameOf(uri))
+                },
+                { result.success(it) },
                 // Android keeps no permission for some places, such as the
                 // storage's top or Download since Android 11.
-                result.error("rejected", e.message, null)
-            }
+                { result.error("rejected", it.message, null) },
+            )
         }
 
     /** Where the chooser opens: Documents on the phone's own storage. */
