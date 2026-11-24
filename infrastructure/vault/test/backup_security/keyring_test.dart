@@ -279,4 +279,49 @@ void main() {
     );
     expect(again.databaseKey, opened.databaseKey);
   });
+
+  test('the passphrase slot is stretched harder than the password', () {
+    final production = KeyringCodec();
+    expect(production.kdf.id, 'argon2id-v19-m19456-t2-p1-k32');
+    // 64 MiB = 65536 KiB, 2 passes.
+    expect(production.passphraseKdf.id, 'argon2id-v19-m65536-t2-p1-k32');
+    expect(PasswordKdf.passphrase.memory, 65536);
+    expect(PasswordKdf.passphrase.iterations, 2);
+    // A codec with cheap parameters for tests stays cheap for both.
+    expect(codec.passphraseKdf.id, PasswordKdf.insecureForTests.id);
+  });
+
+  test('a passphrase slot names its parameters, old ones still open', () async {
+    const passphrase = 'a passphrase for backups';
+    // Today: the passphrase takes its own parameters, not the password's.
+    final split = KeyringCodec(
+      kdf: PasswordKdf.insecureForTests,
+      passphraseKdf: PasswordKdf.olderForTests,
+    );
+    final keys = await split.create(password);
+    final set = await keys.unlocked.setPassphrase(passphrase);
+    final json =
+        jsonDecode(set.keyring.exported.encode()) as Map<String, Object?>;
+    expect(
+      (json['passphrase']! as Map<String, Object?>)['kdf'],
+      PasswordKdf.olderForTests.id,
+    );
+    // A slot set before, with the password's parameters, opens with a
+    // codec whose passphrase parameters are new.
+    final before = await (await codec.create(password)).unlocked
+        .setPassphrase(passphrase);
+    final opened = await split.unlockWithPassphrase(
+      Keyring.parse(before.keyring.exported.encode()),
+      passphrase,
+    );
+    expect(opened.databaseKey, before.databaseKey);
+    // A codec that knows neither refuses rather than guesses.
+    await expectLater(
+      codec.unlockWithPassphrase(
+        Keyring.parse(set.keyring.exported.encode()),
+        passphrase,
+      ),
+      _fails(KeyringError.unsupportedVersion),
+    );
+  });
 }

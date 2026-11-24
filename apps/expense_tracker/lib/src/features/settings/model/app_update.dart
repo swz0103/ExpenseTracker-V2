@@ -111,6 +111,11 @@ enum UpdateInstall {
 /// this number with the file).
 const maxApkBytes = 150 * 1024 * 1024;
 
+/// The most `update.json` may weigh, in bytes: it is a few hundred bytes,
+/// and it is read at every opening, so a huge answer must not fill the
+/// phone's memory.
+const maxUpdateInfoBytes = 64 * 1024;
+
 /// The internet and Android's installer; `AndroidUpdatePort` with the app's
 /// channel on the phone, a fake in tests.
 abstract interface class UpdatePort {

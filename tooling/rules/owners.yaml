@@ -522,6 +522,31 @@ items:
       - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/MarketWorker.kt
     target: apps/expense_tracker/lib/app/coordinators/market/
     status: scattered
+  # Review 22 finding 5: the update feed and Drive follow a redirect only
+  # to https and read a body only up to a limit, through one helper.
+  - id: app-https-limits
+    what: 更新檢查與雲端硬碟連線的轉址與大小上限
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/bounded_https.dart
+    target: apps/expense_tracker/lib/src/core/platform/
+    status: owned
+  # How a secret field sets up the keyboard (review 22 finding 4).
+  - id: secret-keyboard
+    what: 密碼、救援碼欄位的鍵盤設定（不學習、不建議）
+    layer: design_system
+    owner:
+      - apps/expense_tracker/lib/src/core/design_system/password_field.dart
+    target: apps/expense_tracker/lib/src/core/design_system/
+    status: owned
+  # Review 22 finding 3: the chart's months of closes, sealed.
+  - id: price-month-cache
+    what: 走勢圖月收盤價的快取（以帳本金鑰封存）
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/investments/model/price_months.dart
+    target: apps/expense_tracker/lib/src/features/investments/model/
+    status: owned
   # Decision D95: a close or rate fetched more than one named factor
   # away from the one kept is doubted and set aside; the gateway refuses
   # a close dated after today. D101: taken all the same when found again,

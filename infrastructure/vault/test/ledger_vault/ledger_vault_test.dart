@@ -570,6 +570,30 @@ void main() {
     expect(File('${vault.directory.path}/ledger-v2.db').existsSync(), isTrue);
   });
 
+  test('the databases kept beside the ledger are listed and taken away '
+      'one by one, never the ledger itself (review 22 finding 2)', () async {
+    final (open, _) = await vault.create(password);
+    addTearDown(open.close);
+    final dir = vault.directory.path;
+    final damaged = File('$dir/ledger-damaged-2026-11-01T08-00-00.000Z.db')
+      ..writeAsStringSync('old pages');
+    File('${damaged.path}-wal').writeAsStringSync('old log');
+    final oldFormat = File('$dir/ledger-v2.db')..writeAsStringSync('v2');
+    expect(
+      [for (final f in open.keptDatabases()) f.path],
+      [damaged.path, oldFormat.path],
+    );
+    await open.deleteKept(damaged);
+    expect(damaged.existsSync(), isFalse);
+    expect(File('${damaged.path}-wal').existsSync(), isFalse);
+    expect([for (final f in open.keptDatabases()) f.path], [oldFormat.path]);
+    await expectLater(
+      open.deleteKept(vault.databaseFile),
+      throwsA(isA<ArgumentError>()),
+    );
+    expect(vault.databaseFile.existsSync(), isTrue);
+  });
+
   group('restore', () {
     late OpenVault source;
     late LedgerVault target;

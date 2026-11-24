@@ -40,6 +40,17 @@ final class PasswordKdf {
   /// OWASP baseline: 19 MiB, 2 passes, 1 lane.
   static const standard = PasswordKdf._(19456, 2);
 
+  /// The backup passphrase slot's parameters: 64 MiB, 2 passes, 1 lane.
+  /// The passphrase travels in every backup's plain header, so whoever
+  /// holds a backup file can guess it offline with no lockout; it is
+  /// stretched harder than the password, which stays on the phone.
+  /// Measured on the development VM (pure Dart, AOT): 0.6–0.75 s, against
+  /// 0.17–0.27 s for [standard]; about 2 s on a mid-range phone at the
+  /// usual factor of three. It runs only when the passphrase is set and
+  /// when a backup is opened with it. Slots set before keep the id they
+  /// name ([standard]) and still open.
+  static const passphrase = PasswordKdf._(65536, 2);
+
   /// Cheap parameters for tests. A keyring written with them is refused by a
   /// codec using [standard].
   static const insecureForTests = PasswordKdf._(256, 1);
@@ -233,8 +244,9 @@ final class Keyring {
   /// This keyring as a backup carries it: without the password slot, which
   /// a short password would let anyone holding the file guess offline, and
   /// without the device slots, which open nothing elsewhere. The recovery
-  /// code (256 bits) and the backup passphrase, held to the full policy,
-  /// still open it.
+  /// code (256 bits) and the backup passphrase, held to the stricter
+  /// [PasswordPolicy.passphrase] and stretched with
+  /// [PasswordKdf.passphrase], still open it.
   Keyring get exported => Keyring._(
     id: id,
     kdf: kdf,
@@ -408,37 +420,64 @@ final class RotatedRecovery {
 
 /// Creates and opens keyrings.
 final class KeyringCodec {
-  /// [minimumPassword], when given, replaces the policy with the rule
-  /// before it (a length alone), for tools and tests that make the short
+  /// [minimumPassword], when given, replaces both policies with the rule
+  /// before them (a length alone), for tools and tests that make the short
   /// passwords older versions allowed; the app sets every password under
-  /// [PasswordPolicy.standard].
+  /// [PasswordPolicy.standard] and every backup passphrase under
+  /// [PasswordPolicy.passphrase].
+  ///
+  /// [passphraseKdf] defaults to [PasswordKdf.passphrase] when [kdf] is
+  /// [PasswordKdf.standard], and to [kdf] otherwise, so a codec made with
+  /// cheap parameters for tests stretches passphrases cheaply too.
   KeyringCodec({
     this.kdf = PasswordKdf.standard,
+    PasswordKdf? passphraseKdf,
     int? minimumPassword,
     this.retired = PasswordKdf.retired,
-  }) : policy = minimumPassword == null
+  }) : passphraseKdf =
+           passphraseKdf ??
+           (kdf == PasswordKdf.standard ? PasswordKdf.passphrase : kdf),
+       policy = minimumPassword == null
            ? PasswordPolicy.standard
-           : PasswordPolicy(
-               minimumLength: minimumPassword,
-               digitsOnlyAllowed: true,
-             );
+           : _older(minimumPassword),
+       passphrasePolicy = minimumPassword == null
+           ? PasswordPolicy.passphrase
+           : _older(minimumPassword);
+
+  static PasswordPolicy _older(int minimumLength) =>
+      PasswordPolicy(minimumLength: minimumLength, digitsOnlyAllowed: true);
 
   /// The parameters a password is set with.
   final PasswordKdf kdf;
 
+  /// The parameters a backup passphrase is set with.
+  final PasswordKdf passphraseKdf;
+
   /// Parameters a keyring may still name, set before [kdf] took over.
   final List<PasswordKdf> retired;
 
-  /// The parameters [id] names, if this codec reads them.
-  PasswordKdf? _readable(String id) {
-    for (final known in [kdf, ...retired]) {
-      if (known.id == id) return known;
+  /// The parameters [id] names, if this codec reads them for a password.
+  PasswordKdf? _readable(String id) => _named(id, [kdf, ...retired]);
+
+  /// The parameters [id] names, if this codec reads them for a backup
+  /// passphrase: its own, or any a password may name, as passphrases
+  /// were once set with the password's.
+  PasswordKdf? _readablePassphrase(String id) =>
+      _named(id, [passphraseKdf, kdf, ...retired]);
+
+  static PasswordKdf? _named(String id, List<PasswordKdf> known) {
+    for (final params in known) {
+      if (params.id == id) return params;
     }
     return null;
   }
 
-  /// What a password or backup passphrase must be to be set.
+  /// What a password must be to be set.
   final PasswordPolicy policy;
+
+  /// What a backup passphrase must be to be set: stricter than [policy],
+  /// as anyone holding a backup can guess it offline.
+  final PasswordPolicy passphrasePolicy;
 
   final _cipher = AesGcm.with256bits();
   final _random = Random.secure();
@@ -492,7 +531,7 @@ final class KeyringCodec {
   ) async {
     final slot = keyring._passphrase;
     if (slot == null) throw const KeyringException(KeyringError.noSuchSlot);
-    final params = _readable(slot.kdf);
+    final params = _readablePassphrase(slot.kdf);
     if (params == null) {
       throw const KeyringException(KeyringError.unsupportedVersion);
     }
@@ -563,12 +602,14 @@ final class KeyringCodec {
     );
   }
 
-  String _checkedPassword(String password) {
-    final problem = policy.check(password);
+  String _checkedPassword(String password, [PasswordPolicy? rule]) {
+    final held = rule ?? policy;
+    final problem = held.check(password);
     if (problem != null) {
       throw KeyringException(
         KeyringError.weakPassword,
         passwordProblem: problem,
+        minimumLength: held.minimumLength,
       );
     }
     return PasswordPolicy.normalize(password);
@@ -696,15 +737,20 @@ final class UnlockedKeyring {
     return _next(keyring._copyWith(kdf: _codec.kdf.id, password: slot));
   }
 
-  /// Sets the backup passphrase, held to the codec's [PasswordPolicy]:
-  /// backups written from now on open with it as well as with the
-  /// recovery code.
+  /// Sets the backup passphrase, held to the codec's
+  /// [KeyringCodec.passphrasePolicy] and stretched with its
+  /// [KeyringCodec.passphraseKdf]: backups written from now on open with
+  /// it as well as with the recovery code.
   Future<UnlockedKeyring> setPassphrase(String passphrase) async {
-    final normalized = _codec._checkedPassword(passphrase);
-    final salt = _codec._randomBytes(16);
-    final key = await _codec._derive(normalized, salt);
-    final box = await _codec._seal(key, _master, keyring.id, 'passphrase');
-    final slot = _PassphraseSlot(_codec.kdf.id, salt, box);
+    final codec = _codec;
+    final normalized = codec._checkedPassword(
+      passphrase,
+      codec.passphrasePolicy,
+    );
+    final salt = codec._randomBytes(16);
+    final key = await codec._derive(normalized, salt, codec.passphraseKdf);
+    final box = await codec._seal(key, _master, keyring.id, 'passphrase');
+    final slot = _PassphraseSlot(codec.passphraseKdf.id, salt, box);
     return _next(keyring._copyWith(passphrase: () => slot));
   }
 

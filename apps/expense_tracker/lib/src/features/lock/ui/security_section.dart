@@ -110,10 +110,10 @@ class _SecuritySectionState extends State<SecuritySection> {
         glyph: Glyph.safe,
         color: SettingsColors.backup,
         title: KeyWords.passphrase,
-        detail: '${KeyWords.passphraseWhy}${backupManager.passwordRule}。',
+        detail: '${KeyWords.passphraseWhy}${backupManager.passphraseRule}。',
         askCurrent: false,
         action: KeyWords.set,
-        refuse: backupManager.refusePassword,
+        refuse: backupManager.refusePassphrase,
         submit: (_, next) => backupManager.setBackupPassphrase(next),
         extra: has
             ? PanelButton(

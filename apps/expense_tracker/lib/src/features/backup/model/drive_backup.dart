@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/platform/bounded_https.dart';
 import '../../../core/formatting/json_fields.dart';
 import '../../../core/diagnostics/error_steps.dart';
 
@@ -32,9 +33,29 @@ abstract interface class DriveHttp {
   });
 }
 
-/// [DriveHttp] over dart:io.
+/// [DriveHttp] over dart:io, through [BoundedHttps]: a redirect is
+/// followed only to `https`, an answer's words are read up to
+/// [answerLimit] and a saved body up to [saveLimit].
 final class IoDriveHttp implements DriveHttp {
-  const IoDriveHttp();
+  const IoDriveHttp({
+    required this.saveLimit,
+    this.answerLimit = maxAnswerBytes,
+  });
+
+  /// The most a JSON answer from Drive may weigh: a page of
+  /// [DriveBackup.pageSize] backups is some tens of kilobytes.
+  static const maxAnswerBytes = 1024 * 1024;
+
+  /// The most an answer read as words may weigh, in bytes.
+  final int answerLimit;
+
+  /// The most a body saved to a file may weigh: no backup is larger
+  /// (`LedgerBackup.maxBackupBytes`, given by the app).
+  final int saveLimit;
+
+  /// Any `https` address: Drive's own hosts move; the token goes only to
+  /// the origin first asked ([BoundedHttps.open]).
+  static bool _https(Uri to) => true;
 
   @override
   Future<DriveResponse> send(
@@ -49,20 +70,25 @@ final class IoDriveHttp implements DriveHttp {
       ..connectionTimeout = const Duration(seconds: 20)
       ..idleTimeout = const Duration(seconds: 20);
     try {
-      final request = await client.openUrl(method, url);
-      headers.forEach(request.headers.set);
-      if (file != null) {
-        request.contentLength = await file.length();
-        await request.addStream(file.openRead());
-      } else if (text != null) {
-        final bytes = utf8.encode(text);
-        request.contentLength = bytes.length;
-        request.add(bytes);
-      } else {
-        request.contentLength = 0;
-      }
-      final response = await request.close().timeout(
-        const Duration(minutes: 5),
+      final response = await BoundedHttps.open(
+        client,
+        method,
+        url,
+        allowed: _https,
+        headers: headers,
+        wait: const Duration(minutes: 5),
+        send: (request) async {
+          if (file != null) {
+            request.contentLength = await file.length();
+            await request.addStream(file.openRead());
+          } else if (text != null) {
+            final bytes = utf8.encode(text);
+            request.contentLength = bytes.length;
+            request.add(bytes);
+          } else {
+            request.contentLength = 0;
+          }
+        },
       );
       final found = <String, String>{};
       response.headers.forEach((name, values) {
@@ -70,24 +96,22 @@ final class IoDriveHttp implements DriveHttp {
       });
       final ok = response.statusCode >= 200 && response.statusCode < 300;
       if (saveTo != null && ok) {
-        final sink = saveTo.openWrite();
-        try {
-          // A body that stops arriving for a minute is given up on.
-          await sink.addStream(
-            response.timeout(
-              const Duration(minutes: 1),
-              onTimeout: (sink) => sink.addError(
-                const HttpException('The download stopped arriving.'),
-              ),
-            ),
-          );
-          await sink.flush();
-        } finally {
-          await sink.close();
-        }
+        // A body that stops arriving for a minute is given up on.
+        await BoundedHttps.save(
+          response,
+          saveTo,
+          saveLimit,
+          uri: url,
+          stall: const Duration(minutes: 1),
+        );
         return DriveResponse(response.statusCode, headers: found);
       }
-      final body = await response.transform(utf8.decoder).join();
+      final body = await BoundedHttps.text(
+        response,
+        answerLimit,
+        uri: url,
+        stall: const Duration(minutes: 1),
+      );
       return DriveResponse(response.statusCode, headers: found, body: body);
     } finally {
       client.close(force: true);

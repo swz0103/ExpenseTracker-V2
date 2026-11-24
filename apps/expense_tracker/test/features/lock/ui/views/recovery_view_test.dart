@@ -39,12 +39,16 @@ void main() {
     busy ? await tester.pump() : await tester.pumpAndSettle();
   }
 
-  testWidgets('the code is typed in the open, and 打開 opens with it', (
-    tester,
-  ) async {
+  testWidgets('the code or passphrase is hidden until the eye shows it, '
+      'and 打開 opens with it (review 22 finding 4)', (tester) async {
     await show(tester);
     await tester.enterText(find.byType(TextField), 'ABCD-EFGH');
-    expect(find.text('ABCD-EFGH'), findsOneWidget);
+    bool obscured() =>
+        tester.widget<TextField>(find.byType(TextField)).obscureText;
+    expect(obscured(), isTrue);
+    await tester.tap(find.bySemanticsLabel('顯示密碼'));
+    await tester.pump();
+    expect(obscured(), isFalse);
     expect(code.text, 'ABCD-EFGH');
     await go(tester, ['打開']);
     expect(pressed, ['submit']);

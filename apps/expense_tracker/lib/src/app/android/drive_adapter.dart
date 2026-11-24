@@ -1,3 +1,5 @@
+import 'package:vault/ledger_backup.dart' show LedgerBackup;
+
 import '../../core/platform/errands.dart';
 import '../../features/backup/model/drive_backup.dart';
 import 'platform_channel.dart';
@@ -20,7 +22,7 @@ Future<void> androidClearDriveToken(String token) =>
 
 /// Backups on Google Drive through the phone's Google account.
 DriveBackup androidDrive() => DriveBackup(
-  const IoDriveHttp(),
+  const IoDriveHttp(saveLimit: LedgerBackup.maxBackupBytes),
   token: androidDriveToken,
   forget: androidClearDriveToken,
 );

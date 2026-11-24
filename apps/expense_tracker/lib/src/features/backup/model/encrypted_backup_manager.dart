@@ -263,6 +263,17 @@ final class EncryptedBackupManager implements BackupManager {
     return kept;
   }
 
+  /// The databases kept beside the ledger (copies set aside as damaged,
+  /// a ledger set aside in the old format), each with when it was last
+  /// written: still encrypted with the keys they were made under.
+  List<(File, DateTime)> keptDatabases() => [
+    for (final file in _vault.keptDatabases())
+      if (file.existsSync()) (file, file.lastModifiedSync()),
+  ];
+
+  /// Deletes [file], one of [keptDatabases], with its log.
+  Future<void> deleteKeptDatabase(File file) => _vault.deleteKept(file);
+
   /// The backups in the backups folder, newest first; their names carry the
   /// time they were taken.
   List<File> _backups() {
@@ -313,7 +324,12 @@ final class EncryptedBackupManager implements BackupManager {
     if (target.existsSync()) {
       try {
         final header = await LedgerBackup.readHeader(target);
-        if (header.revision == _vault.store.revision) return false;
+        // The same revision sealed with keys since reset is written again:
+        // the old keys must not stay in the person's Google account.
+        if (header.revision == _vault.store.revision &&
+            header.backupEpoch == backupEpoch) {
+          return false;
+        }
       } on Object catch (error, stack) {
         // Unreadable: written again.
         ErrorLog.instance.record(ErrorSteps.backupHeader, error, stack);
@@ -371,6 +387,13 @@ final class EncryptedBackupManager implements BackupManager {
 
   @override
   String? refusePassword(String password) => words.passwordRefusal(password);
+
+  @override
+  String get passphraseRule => words.passphraseRule;
+
+  @override
+  String? refusePassphrase(String passphrase) =>
+      words.passphraseRefusal(passphrase);
 
   /// Runs [change], a refusal by the keys said in words ([KeyRefused]).
   static Future<T> _said<T>(Future<T> Function() change) async {

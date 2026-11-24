@@ -33,7 +33,8 @@ abstract final class KeyWords {
   static const passphraseOn = '已設定 · 備份可用它或救援碼打開';
   static const passphraseOff = '沒有設定 · 備份只能用救援碼打開';
   static const passphraseWhy =
-      '另設一組只用來打開備份的密碼（不是 App 的密碼）。設定後，之後的備份可以用它或救援碼還原。';
+      '另設一組只用來打開備份的密碼（不是 App 的密碼）。設定後，之後的備份可以用它或救援碼還原。'
+      '拿到備份檔的人可以一直猜，所以要比 App 的密碼長，例如用幾個不相關的詞組成一句。';
   static const passphraseSet = '已設定備份密碼，之後的備份可以用它還原';
   static const passphraseRemove = '不再使用備份密碼？之後的備份只能用救援碼還原；已經存在的備份不受影響。';
   static const passphraseRemoved = '已停用備份密碼';
@@ -56,14 +57,22 @@ abstract final class KeyWords {
   static String oldBackupsBody({
     required List<String> drive,
     required List<String> phone,
+    List<String> folder = const [],
+    List<String> databases = const [],
     required bool driveUnreached,
+    bool folderUnreached = false,
   }) => [
     '這些備份是重設前用舊金鑰做的，用舊的密碼或救援碼仍打得開。',
     if (drive.isNotEmpty)
       'Google 雲端硬碟：${drive.length} 份（${drive.join('、')}），$oldBackupsToTrash',
     if (phone.isNotEmpty) '這支手機：${phone.length} 份（${phone.join('、')}），會直接刪除',
+    if (folder.isNotEmpty)
+      '手機上選的備份資料夾：${folder.length} 份（${folder.join('、')}），會直接刪除',
+    if (databases.isNotEmpty)
+      'App 留著的損毀或舊格式帳本：${databases.length} 份（${databases.join('、')}），會直接刪除',
     if (driveUnreached) oldBackupsUnreached,
-    '資料夾、匯出的檔案與 Google 系統備份裡的舊備份不在此列，請自行處理。',
+    if (folderUnreached) oldBackupsFolderUnreached,
+    '匯出的檔案與 Google 系統備份裡的舊備份不在此列，請自行處理。',
   ].join('\n\n');
   static const oldBackupsGo = '刪除舊備份';
 
@@ -71,6 +80,7 @@ abstract final class KeyWords {
   /// recoverable until Drive empties it).
   static const oldBackupsToTrash = '移到雲端硬碟的垃圾桶，30 天後自動刪除';
   static const oldBackupsUnreached = '連不上 Google 雲端硬碟，那裡的舊備份沒有列出，可以之後自行刪除';
+  static const oldBackupsFolderUnreached = '讀不到手機上選的備份資料夾，那裡的舊備份沒有列出，可以之後自行刪除';
   static String oldBackupsGone(int count) => '已刪除 $count 份舊金鑰的備份';
 
   static const newPasswordTitle = '設定新的密碼';

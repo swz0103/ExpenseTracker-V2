@@ -34,6 +34,10 @@ abstract final class ErrorSteps {
   /// written: fetched again.
   static const priceHistory = '歷史股價快取';
 
+  /// The backup waiting for the background job could not be taken away
+  /// after a reset of the keys: replaced by the next one written.
+  static const outboxEmpty = '清空背景備份';
+
   /// A leftover file could not be looked at or deleted: tried again at
   /// the next start.
   static const cleanup = '清除暫存檔';

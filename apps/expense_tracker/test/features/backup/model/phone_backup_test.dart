@@ -117,4 +117,39 @@ void main() {
     expect(folder.allowedNow, isFalse);
     expect(folder.files, hasLength(1));
   });
+
+  test('the backups written before a reset of the keys are found by the '
+      'time in their names, in its minute by when they were written, and '
+      'deleted only when asked (review 22 finding 2)', () async {
+    folder.files['相片.jpg'] = 'mine';
+    folder.files['記帳本-other-20260101-0900.etbk'] = 'other';
+    final phone = backup();
+    await phone.choose(); // 2026-10-27 09:00
+    now = DateTime(2026, 10, 28, 10, 30);
+    revision = 2;
+    await phone.backUpNow();
+    final first = phone.nameAt(DateTime(2026, 10, 27, 9));
+    final second = phone.nameAt(now);
+    expect(first, '記帳本-ledger-20261027-0900.etbk');
+    expect(second, '記帳本-ledger-20261028-1030.etbk');
+    // Reset at 10:30:40, in the minute of the second backup.
+    final reset = DateTime(2026, 10, 28, 10, 30, 40);
+    folder.modifiedAt[second] = DateTime(2026, 10, 28, 10, 30, 50);
+    expect([for (final f in await phone.writtenBefore(reset)) f.name], [first]);
+    folder.modifiedAt[second] = DateTime(2026, 10, 28, 10, 30, 20);
+    final old = await phone.writtenBefore(reset);
+    expect([for (final f in old) f.name], [second, first]);
+    // Nothing went until asked.
+    expect(folder.files, hasLength(4));
+    for (final file in old) {
+      await phone.remove(file.id);
+    }
+    expect(folder.files.keys.toSet(), {
+      '相片.jpg',
+      '記帳本-other-20260101-0900.etbk',
+    });
+    // With no folder chosen there is nothing to list.
+    await phone.stop();
+    expect(await phone.writtenBefore(reset), isEmpty);
+  });
 }

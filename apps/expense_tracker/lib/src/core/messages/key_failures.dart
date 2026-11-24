@@ -12,19 +12,41 @@ import 'lock_messages.dart';
 
 /// The words of the ledger's keys, in one place: passwords and their rule,
 /// the recovery code, the backup passphrase, resetting the keys, and what
-/// a failed unlock or restore says. The rule itself is the vault's
-/// [PasswordPolicy.standard]; these only say it.
+/// a failed unlock or restore says. The rules themselves are the vault's
+/// [PasswordPolicy.standard] and [PasswordPolicy.passphrase]; these only
+/// say them.
 const _policy = PasswordPolicy.standard;
+const _passphrasePolicy = PasswordPolicy.passphrase;
 
-/// Under the fields where a password or backup passphrase is set.
-final passwordRule = '至少 ${_policy.minimumLength} 個字，不能全是數字';
+/// Under the fields where a password is set.
+final passwordRule = _ruleOf(_policy);
 
-/// Why [password] cannot be set, or null when it can.
-String? passwordRefusal(String password) => switch (_policy.check(password)) {
-  PasswordProblem.tooShort => '至少要 ${_policy.minimumLength} 個字',
-  PasswordProblem.allDigits => '不能全是數字，請加上文字或符號',
-  null => null,
-};
+/// Under the field where the backup passphrase is set.
+final passphraseRule = _ruleOf(_passphrasePolicy);
+
+String _ruleOf(PasswordPolicy rule) => '至少 ${rule.minimumLength} 個字，不能全是數字';
+
+/// Why [password] cannot be set as the password, or null when it can.
+String? passwordRefusal(String password) =>
+    _refusal(_policy.check(password), _policy.minimumLength);
+
+/// Why [passphrase] cannot be set as the backup passphrase, or null when
+/// it can.
+String? passphraseRefusal(String passphrase) => _refusal(
+  _passphrasePolicy.check(passphrase),
+  _passphrasePolicy.minimumLength,
+);
+
+String? _refusal(PasswordProblem? problem, int minimumLength) =>
+    switch (problem) {
+      PasswordProblem.tooShort => _tooShort(minimumLength),
+      PasswordProblem.allDigits => _allDigits,
+      null => null,
+    };
+
+String _tooShort(int minimumLength) => '至少要 $minimumLength 個字';
+
+const _allDigits = '不能全是數字，請加上文字或符號';
 
 /// What a password, passphrase or key change that failed says, by its
 /// kind: the current password typed wrong, or a new one against the rule.
@@ -35,10 +57,11 @@ String describeKeyProblem(Object error) => switch (error) {
   KeyringException(
     error: KeyringError.weakPassword,
     passwordProblem: final problem,
+    minimumLength: final minimum,
   ) =>
     switch (problem) {
-      PasswordProblem.allDigits => '不能全是數字，請加上文字或符號',
-      _ => '至少要 ${_policy.minimumLength} 個字',
+      PasswordProblem.allDigits => _allDigits,
+      _ => _tooShort(minimum ?? _policy.minimumLength),
     },
   _ => '沒有完成，請再試一次',
 };

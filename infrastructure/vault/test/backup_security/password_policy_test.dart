@@ -66,4 +66,56 @@ void main() {
       throwsA(const KeyringException(KeyringError.weakPassword)),
     );
   });
+
+  test('the backup passphrase rule: 12 characters at least', () {
+    const rule = PasswordPolicy.passphrase;
+    expect(rule.minimumLength, 12);
+    expect(rule.digitsOnlyAllowed, isFalse);
+    // 11 characters ("correct hor") are refused, 12 ("correct hors") pass.
+    expect(rule.check('correct hor'), PasswordProblem.tooShort);
+    expect(rule.check('correct hors'), isNull);
+    expect(rule.check('123456789012'), PasswordProblem.allDigits);
+    // The password rule is unchanged: 8 characters still do.
+    expect(PasswordPolicy.standard.check('correct '), isNull);
+  });
+
+  test('the codec sets passphrases under the stricter rule', () async {
+    final codec = KeyringCodec(kdf: PasswordKdf.insecureForTests);
+    expect(codec.passphrasePolicy.minimumLength, 12);
+    final keys = await codec.create('correct horse');
+    await expectLater(
+      keys.unlocked.setPassphrase('correct hor'),
+      throwsA(
+        isA<KeyringException>()
+            .having((e) => e.error, 'error', KeyringError.weakPassword)
+            .having(
+              (e) => e.passwordProblem,
+              'problem',
+              PasswordProblem.tooShort,
+            )
+            .having((e) => e.minimumLength, 'minimum', 12),
+      ),
+    );
+    // A password refused says its own minimum.
+    await expectLater(
+      keys.unlocked.changePassword('short'),
+      throwsA(
+        isA<KeyringException>().having((e) => e.minimumLength, 'minimum', 8),
+      ),
+    );
+    // An 11-character passphrase set before the rule (as the tools still
+    // may) keeps opening with today's codec.
+    final old = KeyringCodec(
+      kdf: PasswordKdf.insecureForTests,
+      minimumPassword: 6,
+    );
+    expect(old.passphrasePolicy.minimumLength, 6);
+    final legacy = await (await old.create('correct horse')).unlocked
+        .setPassphrase('correct hor');
+    final opened = await codec.unlockWithPassphrase(
+      Keyring.parse(legacy.keyring.exported.encode()),
+      'correct hor',
+    );
+    expect(opened.databaseKey, legacy.databaseKey);
+  });
 }

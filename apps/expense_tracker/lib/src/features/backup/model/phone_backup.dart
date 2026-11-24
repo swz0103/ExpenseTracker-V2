@@ -167,16 +167,42 @@ final class PhoneBackup extends ChangeNotifier {
     }
   }
 
+  /// This ledger's backups in the folder written before [at], newest
+  /// first, such as those sealed with keys a reset has since replaced:
+  /// by the time in the name, and in the minute of [at] by when the file
+  /// was written. None when no folder is chosen.
+  Future<List<FolderFile>> writtenBefore(DateTime at) async {
+    final uri = _preferences.phoneFolder;
+    if (uri == null) return const [];
+    final then = nameAt(at);
+    return [
+      for (final file in await _ours(uri))
+        if (file.name.compareTo(then) < 0 ||
+            (file.name == then && file.modified.isBefore(at)))
+          file,
+    ];
+  }
+
+  /// Deletes this ledger's backup [id] from the folder ([writtenBefore]).
+  Future<void> remove(String id) async {
+    final uri = _preferences.phoneFolder;
+    if (uri == null) return;
+    await _folder.delete(uri, id);
+  }
+
+  /// This ledger's backups in the folder, newest first.
+  Future<List<FolderFile>> _ours(String uri) async => [
+    for (final file in await _folder.list(uri))
+      if (file.name.startsWith('$_prefix$_mark-') &&
+          file.name.endsWith(_suffix))
+        file,
+  ]..sort((a, b) => b.name.compareTo(a.name));
+
   /// Deletes this ledger's backups beyond the newest [keep]; other files
   /// in the folder, another ledger's backups among them, are never
   /// touched.
   Future<void> _prune(String uri) async {
-    final ours = [
-      for (final file in await _folder.list(uri))
-        if (file.name.startsWith('$_prefix$_mark-') &&
-            file.name.endsWith(_suffix))
-          file,
-    ]..sort((a, b) => b.name.compareTo(a.name));
+    final ours = await _ours(uri);
     for (final old in ours.skip(keep)) {
       await _folder.delete(uri, old.id);
     }

@@ -114,6 +114,18 @@ final class Outbox {
     return true;
   }
 
+  /// Takes away the backup waiting for the job, and what says it is
+  /// ready: after a reset of the keys it is sealed with the old ones. The
+  /// next [prepare] writes one with the new keys when one is wanted.
+  Future<void> empty() async {
+    final folder = _folder;
+    if (!folder.existsSync()) return;
+    if (_ready.existsSync()) await _ready.delete();
+    for (final old in folder.listSync()) {
+      if (old is File && old.path.endsWith('.etbk')) await old.delete();
+    }
+  }
+
   /// Notes in [Preferences] what the job delivered while the app was
   /// closed, so the settings show it and the app does not send the same
   /// backup again. Returns what went wrong there since last asked, to be

@@ -64,6 +64,12 @@ final class _StubBackupManager implements BackupManager {
   String? refusePassword(String password) => passwordRefusal(password);
 
   @override
+  String get passphraseRule => passphraseRuleWords;
+
+  @override
+  String? refusePassphrase(String passphrase) => passphraseRefusal(passphrase);
+
+  @override
   Future<void> setPassword(String next) async {
     calls++;
     password = next;
@@ -148,6 +154,9 @@ final _wrong = KeyRefused(
 
 /// The rule's words, as the app says them.
 final passwordRuleWords = passwordRule;
+
+/// The passphrase rule's words, as the app says them.
+final passphraseRuleWords = passphraseRule;
 
 void main() {
   Future<void> show(
@@ -333,10 +342,12 @@ void main() {
     await tester.tap(find.byKey(Keys.passphrase));
     await tester.pumpAndSettle();
     expect(find.byType(TextField), findsNWidgets(2));
-    await tester.enterText(find.byType(TextField).at(0), 'short');
-    await tester.enterText(find.byType(TextField).at(1), 'short');
+    // 11 characters: enough for a password, not for the passphrase.
+    await tester.enterText(find.byType(TextField).at(0), 'correct hor');
+    await tester.enterText(find.byType(TextField).at(1), 'correct hor');
     await go(tester, ['設定']);
-    expect(find.text('至少要 8 個字'), findsOneWidget);
+    expect(find.text('至少要 12 個字'), findsOneWidget);
+    expect(find.textContaining('至少 12 個字，不能全是數字'), findsOneWidget);
     expect(backupManager.passphrase, '');
     await tester.enterText(
       find.byType(TextField).at(0),

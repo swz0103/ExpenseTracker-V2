@@ -96,6 +96,12 @@ final class DemoBackupManager implements BackupManager {
   @override
   String? refusePassword(String password) => null;
 
+  @override
+  String get passphraseRule => '';
+
+  @override
+  String? refusePassphrase(String passphrase) => null;
+
   var _passphrase = false;
 
   @override

@@ -3,6 +3,7 @@ import 'dart:io';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
 import 'drive_backup.dart';
+import 'phone_backup.dart' show FolderFile;
 
 /// The backups sealed with keys a reset has since replaced (D15): their
 /// headers carry the old keyring, which the old recovery code and
@@ -14,6 +15,10 @@ final class OldKeyBackups {
     required this.localBackups,
     this.driveFiles,
     this.trashOnDrive,
+    this.folderBackups,
+    this.deleteInFolder,
+    this.keptDatabases,
+    this.deleteDatabase,
   });
 
   /// The backup key epoch backups are sealed with now: one of an earlier
@@ -30,6 +35,23 @@ final class OldKeyBackups {
 
   /// Moves a backup on Drive to its trash.
   final Future<void> Function(String id)? trashOnDrive;
+
+  /// This ledger's backups in the folder chosen on the phone written
+  /// before the reset (`PhoneBackup.writtenBefore`): the folder is the
+  /// person's own, often copied by another app, so they are listed, never
+  /// taken without asking. None when no folder is chosen.
+  final Future<List<FolderFile>> Function()? folderBackups;
+
+  /// Deletes a backup from the folder on the phone.
+  final Future<void> Function(String id)? deleteInFolder;
+
+  /// The databases kept beside the ledger, set aside as damaged or in the
+  /// old format, with when each was last written: all made before the
+  /// reset, so encrypted with the old keys.
+  final List<(File, DateTime)> Function()? keptDatabases;
+
+  /// Deletes one of [keptDatabases], with its log.
+  final Future<void> Function(File file)? deleteDatabase;
 
   /// The backups of earlier keys, on Drive and on the phone. On Drive,
   /// every one not marked with the epoch of now ([DriveFile.epoch]): one
@@ -51,12 +73,31 @@ final class OldKeyBackups {
         unreached = true;
       }
     }
+    var folder = const <FolderFile>[];
+    var folderUnreached = false;
+    if (folderBackups case final list?) {
+      try {
+        folder = await list();
+      } on Object catch (error) {
+        ErrorLog.instance.record(ErrorSteps.oldKeyBackups, error);
+        folderUnreached = true;
+      }
+    }
     final local = [
       for (final (file, sealed, at) in await localBackups())
         if (sealed < epoch) (file, at),
     ];
     local.sort((a, b) => b.$2.compareTo(a.$2));
-    return OldKeyBackupsFound(drive, local, driveUnreached: unreached);
+    final databases = [...?keptDatabases?.call()]
+      ..sort((a, b) => b.$2.compareTo(a.$2));
+    return OldKeyBackupsFound(
+      drive,
+      local,
+      folder: folder,
+      databases: databases,
+      driveUnreached: unreached,
+      folderUnreached: folderUnreached,
+    );
   }
 
   /// Takes [found] away: to the Drive trash, and off the phone. How many
@@ -79,6 +120,22 @@ final class OldKeyBackups {
         ErrorLog.instance.record(ErrorSteps.oldKeyBackups, error);
       }
     }
+    for (final file in found.folder) {
+      try {
+        await deleteInFolder?.call(file.id);
+        gone++;
+      } on Object catch (error) {
+        ErrorLog.instance.record(ErrorSteps.oldKeyBackups, error);
+      }
+    }
+    for (final (file, _) in found.databases) {
+      try {
+        await deleteDatabase?.call(file);
+        gone++;
+      } on Object catch (error) {
+        ErrorLog.instance.record(ErrorSteps.oldKeyBackups, error);
+      }
+    }
     return gone;
   }
 }
@@ -88,14 +145,30 @@ final class OldKeyBackupsFound {
   const OldKeyBackupsFound(
     this.drive,
     this.local, {
+    this.folder = const [],
+    this.databases = const [],
     this.driveUnreached = false,
+    this.folderUnreached = false,
   });
 
   final List<DriveFile> drive;
+
+  /// The app's own backups on the phone.
   final List<(File, DateTime)> local;
+
+  /// Backups in the folder chosen on the phone.
+  final List<FolderFile> folder;
+
+  /// Databases kept beside the ledger, damaged or in the old format.
+  final List<(File, DateTime)> databases;
 
   /// Drive is linked but did not answer: its backups are not listed.
   final bool driveUnreached;
 
-  bool get isEmpty => drive.isEmpty && local.isEmpty;
+  /// The folder on the phone could not be read: its backups are not
+  /// listed.
+  final bool folderUnreached;
+
+  bool get isEmpty =>
+      drive.isEmpty && local.isEmpty && folder.isEmpty && databases.isEmpty;
 }

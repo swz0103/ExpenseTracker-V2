@@ -5,6 +5,10 @@ import 'package:expense_tracker/src/features/backup/model/phone_backup.dart';
 /// A folder kept in memory.
 final class FakeFolder implements FolderPort {
   final files = <String, String>{};
+
+  /// When each file was last written, as the folder says; 2026-01-01 for
+  /// one not given.
+  final modifiedAt = <String, DateTime>{};
   var allowedNow = true;
   var picks = true;
   var rejects = false;
@@ -24,7 +28,7 @@ final class FakeFolder implements FolderPort {
   @override
   Future<List<FolderFile>> list(String uri) async => [
     for (final name in files.keys)
-      (id: name, name: name, modified: DateTime(2026)),
+      (id: name, name: name, modified: modifiedAt[name] ?? DateTime(2026)),
   ];
 
   @override

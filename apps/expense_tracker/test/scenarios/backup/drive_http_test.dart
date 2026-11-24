@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:expense_tracker/src/core/platform/bounded_https.dart';
 import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -73,7 +74,8 @@ final class _Offline implements DriveHttp {
 void main() {
   late Directory directory;
   late _Server server;
-  const http = IoDriveHttp();
+  // 4 GiB, as the app gives it (LedgerBackup.maxBackupBytes).
+  const http = IoDriveHttp(saveLimit: 4 * 1024 * 1024 * 1024);
 
   setUp(() async {
     directory = Directory.systemTemp.createTempSync('drive-http-');
@@ -108,6 +110,24 @@ void main() {
       expect(
         asked.headers['content-length'],
         '${utf8.encode('{"name":"記帳本"}').length}',
+      );
+    });
+
+    test('an answer past the limit is refused (review 22 finding 5)', () async {
+      server.reply = (status: 200, body: 'x' * 100, headers: const {});
+      // 100 bytes against a 64-byte limit.
+      await expectLater(
+        const IoDriveHttp(
+          saveLimit: 64,
+          answerLimit: 64,
+        ).send('GET', server.url('/files')),
+        throwsA(isA<AnswerTooLarge>()),
+      );
+      final into = File('${directory.path}/download.etbk');
+      await expectLater(
+        const IoDriveHttp(saveLimit: 64)
+            .send('GET', server.url('/files/f1'), saveTo: into),
+        throwsA(isA<AnswerTooLarge>()),
       );
     });
 

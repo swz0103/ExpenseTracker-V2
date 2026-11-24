@@ -29,6 +29,11 @@ final class FileBox {
   /// sealed under.
   static const inbox = 'inbox';
 
+  /// The purpose the app's cache of daily closes is sealed under: which
+  /// stocks a chart was opened for says what the ledger holds. Not sealed
+  /// again on a reset of the keys: the app lets it go and fetches again.
+  static const prices = 'prices';
+
   /// The box for files of [purpose], such as [receipts]. A box opens only
   /// what one of the same purpose sealed, so every side names it by these
   /// constants.

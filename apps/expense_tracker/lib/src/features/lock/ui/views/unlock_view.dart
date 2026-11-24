@@ -7,6 +7,7 @@ import '../../../../core/design_system/keys.dart';
 import '../../../../core/design_system/shape.dart';
 import '../../../../core/design_system/spacing.dart';
 import '../../../../core/design_system/motion.dart';
+import '../../../../core/design_system/password_field.dart' show SecretKeyboard;
 import '../../../../core/formatting/words.dart';
 
 /// Opening a ledger with its password, on the welcome's ground: the mark
@@ -468,9 +469,10 @@ class _UnlockViewState extends State<UnlockView>
           controller: widget.password,
           focusNode: _focus,
           obscureText: true,
-          enableSuggestions: false,
-          autocorrect: false,
-          keyboardType: TextInputType.visiblePassword,
+          enableSuggestions: SecretKeyboard.suggestions,
+          autocorrect: SecretKeyboard.autocorrect,
+          enableIMEPersonalizedLearning: SecretKeyboard.personalizedLearning,
+          keyboardType: SecretKeyboard.type,
           textInputAction: TextInputAction.go,
           showCursor: false,
           enableInteractiveSelection: false,

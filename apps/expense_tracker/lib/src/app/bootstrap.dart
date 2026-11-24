@@ -448,16 +448,31 @@ class _OpenedLedgerState extends State<OpenedLedger>
     super.dispose();
   }
 
-  /// After a reset of the keys: the new recovery code, then the backups
-  /// still sealed with the old keys, offered to be taken away (D15).
+  /// After a reset of the keys: the backup waiting for the background job
+  /// goes (the app's own queue), then the new recovery code, then the
+  /// backups and kept databases still sealed with the old keys, offered
+  /// to be taken away (D15): on Drive, on the phone, in the folder chosen
+  /// for backups (those written before the reset) and the damaged or
+  /// old-format copies beside the ledger.
   Future<void> _afterReset(String code) async {
+    final resetAt = widget.startup.keysResetAt;
+    await _services.emptyOutbox();
+    if (!mounted) return;
     await showRecoveryCode(context, code, why: KeyWords.resetDone);
     final drive = _services.drive;
+    final phone = _services.phone;
+    final backups = _services.backupManager;
     final old = OldKeyBackups(
-      epoch: _services.backupManager.backupEpoch,
-      localBackups: _services.backupManager.keptBackups,
+      epoch: backups.backupEpoch,
+      localBackups: backups.keptBackups,
       driveFiles: drive != null && drive.linked ? drive.backups : null,
       trashOnDrive: drive?.trash,
+      folderBackups: phone != null && phone.on && resetAt != null
+          ? () => phone.writtenBefore(resetAt)
+          : null,
+      deleteInFolder: phone?.remove,
+      keptDatabases: backups.keptDatabases,
+      deleteDatabase: backups.deleteKeptDatabase,
     );
     if (mounted) await offerToRemoveOldKeyBackups(context, old);
   }
