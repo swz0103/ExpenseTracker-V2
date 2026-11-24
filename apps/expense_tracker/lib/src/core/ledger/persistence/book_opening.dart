@@ -8,6 +8,7 @@ import 'codec/category_refs.dart';
 import 'codec/record_json.dart';
 import 'codec/record_shape.dart';
 import 'codec/row_decoding.dart';
+import 'codec/same_values.dart';
 import 'quarantine.dart';
 import 'record_version.dart';
 import '../repositories/holding_repository.dart'
@@ -44,7 +45,6 @@ final class DecodedBook {
     required this.aside,
     required this.namesOf,
     required this.categoryNames,
-    required this.entrySeqs,
     required this.entryPlaces,
     required this.expired,
     required this.expiredCounts,
@@ -76,12 +76,12 @@ final class DecodedBook {
   /// Each category's id and name, as kept: what they stand for first.
   final List<(String, String)> categoryNames;
 
-  /// Where each entry kept stands, by id: for the journal.
-  final Map<String, int> entrySeqs;
-
   /// Where each of [entries] stands in the order written, beside it (its
   /// row's place): for the screens' book, which takes the entries in that
-  /// order without a lookup by id.
+  /// order without a lookup by id, and for the journal, which posts each
+  /// entry at its place (`postBook`). Never a map by id: one was built
+  /// on every opening, sent to the screen's isolate and kept there, for
+  /// a posting that reads the places from the rows anyway.
   final List<int> entryPlaces;
 
   /// What opening drops from the file: the entries in the trash longer
@@ -111,14 +111,19 @@ Map<String, List<StoredRow>> shelvesOf(Iterable<StoredRow> rows) {
 /// a JSON object, that a later version wrote, or that cannot be read is
 /// set aside instead ([DecodedBook.aside]), and the rest of the book
 /// opens. [trashFrom] is the oldest day the trash keeps an entry put
-/// there; none drops nothing.
+/// there; none drops nothing. [entryTail], the last of the entry rows
+/// already decoded elsewhere ([decodeRows], on a second worker as a large
+/// book opens), is taken as it is.
 DecodedBook decodeBook(
   Map<String, List<StoredRow>> shelves, {
   DateTime? trashFrom,
   DateTime? today,
+  DecodedRecords? entryTail,
 }) {
   final aside = Quarantine();
-  final json = _records(shelves, aside);
+  final json = _records(shelves, aside, entryTail);
+  // One copy of what entries repeat, for the whole book.
+  final same = SameValues();
   final namesOf = <String, Set<String>>{};
   final collected = <String>{};
   String? collect(String name) {
@@ -132,8 +137,10 @@ DecodedBook decodeBook(
     List<int>? seqs,
   }) {
     final read = <T>[];
-    for (final row in shelves[collection.name] ?? const <StoredRow>[]) {
-      final record = json[row];
+    final rows = shelves[collection.name] ?? const <StoredRow>[];
+    final records = json[collection.name]!;
+    for (final (i, row) in rows.indexed) {
+      final record = records[i];
       if (record == null) continue;
       final T value;
       try {
@@ -168,8 +175,8 @@ DecodedBook decodeBook(
   // What each category id stands for first: a category's parent and every
   // other record name theirs through it.
   final categoryNames = [
-    for (final row in shelves[Collection.category.name] ?? const <StoredRow>[])
-      if (json[row] case {'id': final String id, 'name': final String name})
+    for (final record in json[Collection.category.name]!)
+      if (record case {'id': final String id, 'name': final String name})
         (id, name),
   ];
   final refs = CategoryRefs()..fill(categoryNames);
@@ -199,7 +206,10 @@ DecodedBook decodeBook(
       row.id: row.seq,
   };
   final trash = [
-    for (final t in read(Collection.trash, (j) => trashedFromJson(j, refs)))
+    for (final t in read(
+      Collection.trash,
+      (j) => trashedFromJson(j, refs, same),
+    ))
       Trashed(t.entry, t.on, order: trashPlaces[t.entry.id], letGo: t.letGo),
   ];
   final expiredIds = [
@@ -222,7 +232,7 @@ DecodedBook decodeBook(
   var entryPlaces = <int>[];
   var entries = read(
     Collection.entry,
-    (j) => entryFromJson(j, refs),
+    (j) => entryFromJson(j, refs, same),
     seqs: entryPlaces,
   );
   final market = shelves[marketShelf] ?? const <StoredRow>[];
@@ -276,10 +286,6 @@ DecodedBook decodeBook(
     aside: aside.rows,
     namesOf: namesOf,
     categoryNames: categoryNames,
-    entrySeqs: {
-      for (final row in shelves[Collection.entry.name] ?? const <StoredRow>[])
-        row.id: row.seq,
-    },
     expired: [
       for (final id in expiredIds) ...[
         RowChange.drop(Collection.trash.name, id),
@@ -293,52 +299,92 @@ DecodedBook decodeBook(
   );
 }
 
-/// The record of each row of [shelves] but the receipts, decoded and
-/// brought up to the current version; a row that is not a JSON object, or
-/// that a later version wrote, is set [aside] instead.
-Map<StoredRow, Map<String, Object?>> _records(
+/// The record of each row of [shelves] but the receipts, by shelf, in
+/// the order of its rows, decoded and brought up to the current version;
+/// null for a row that is not a JSON object, or that a later version
+/// wrote, which is set [aside] instead. Every collection has its list,
+/// empty when it has no rows. The last entry rows, as many as
+/// [entryTail] holds, are taken from it, their rows set aside after
+/// those of the entries before them, as when all are decoded here.
+Map<String, List<Map<String, Object?>?>> _records(
   Map<String, List<StoredRow>> shelves,
   Quarantine aside,
+  DecodedRecords? entryTail,
 ) {
-  final records = [
-    for (final collection in Collection.values)
-      if (collection != Collection.receipt) ...?shelves[collection.name],
-  ];
-  final decoded = decodeBodies([for (final row in records) row.body]);
-  final json = <StoredRow, Map<String, Object?>>{};
-  for (final (i, row) in records.indexed) {
-    final record = decoded.values[i];
-    if (record is! Map<String, Object?>) {
+  final records = <String, List<Map<String, Object?>?>>{};
+  for (final collection in Collection.values) {
+    if (collection == Collection.receipt) continue;
+    final rows = shelves[collection.name] ?? const <StoredRow>[];
+    if (collection == Collection.entry && entryTail != null) {
+      final head = rows.length - entryTail.records.length;
+      records[collection.name] = [
+        ..._shelfRecords(rows.sublist(0, head), aside),
+        ...entryTail.records,
+      ];
+      entryTail.aside.forEach(aside.adopt);
+    } else {
+      records[collection.name] = _shelfRecords(rows, aside);
+    }
+  }
+  return records;
+}
+
+/// [rows], all of one shelf, decoded and brought up to this version as
+/// the book opens them ([decodeBook]), with the rows set aside: done on a
+/// worker of its own for the last half of a large book's entries.
+DecodedRecords decodeRows(List<StoredRow> rows) {
+  final aside = Quarantine();
+  return (records: _shelfRecords(rows, aside), aside: aside.rows);
+}
+
+/// What [decodeRows] made: each row's record, null for one set aside,
+/// and those set aside, in order.
+typedef DecodedRecords = ({
+  List<Map<String, Object?>?> records,
+  List<QuarantinedRow> aside,
+});
+
+List<Map<String, Object?>?> _shelfRecords(
+  List<StoredRow> rows,
+  Quarantine aside,
+) {
+  final decoded = decodeBodies([for (final row in rows) row.body]);
+  return [for (final (i, row) in rows.indexed) _record(row, decoded, i, aside)];
+}
+
+Map<String, Object?>? _record(
+  StoredRow row,
+  DecodedRows decoded,
+  int i,
+  Quarantine aside,
+) {
+  final record = decoded.values[i];
+  if (record is! Map<String, Object?>) {
+    aside.record(
+      row.shelf,
+      row.id,
+      QuarantineReason.unreadable,
+      detail: decoded.failures.containsKey(i)
+          ? 'not JSON'
+          : 'not a JSON object',
+    );
+    return null;
+  }
+  switch (versionOf(record)) {
+    case null:
       aside.record(
         row.shelf,
         row.id,
-        QuarantineReason.unreadable,
-        detail: decoded.failures.containsKey(i)
-            ? 'not JSON'
-            : 'not a JSON object',
+        QuarantineReason.invalid,
+        detail: '_v is not a version',
       );
-      continue;
-    }
-    switch (versionOf(record)) {
-      case null:
-        aside.record(
-          row.shelf,
-          row.id,
-          QuarantineReason.invalid,
-          detail: '_v is not a version',
-        );
-      case final version when version > recordVersion:
-        aside.record(
-          row.shelf,
-          row.id,
-          QuarantineReason.newer,
-          version: version,
-        );
-      case _:
-        json[row] = upgradeRecord(row.shelf, record);
-    }
+      return null;
+    case final version when version > recordVersion:
+      aside.record(row.shelf, row.id, QuarantineReason.newer, version: version);
+      return null;
+    case _:
+      return upgradeRecord(row.shelf, record);
   }
-  return json;
 }
 
 /// The closes and board last fetched, from the [marketShelf] rows.

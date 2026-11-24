@@ -5,6 +5,7 @@ import 'package:ledger_trade_costs/calc/broker_discount.dart'
 
 import '../../models/models.dart';
 import 'category_refs.dart';
+import 'same_values.dart';
 
 // The ledger's records as JSON, as the data source keeps them and a backup
 // carries them. Each reader takes what its writer wrote and fills in the
@@ -175,32 +176,53 @@ Map<String, Object?> entryToJson(Entry e, [CategoryRefs? refs]) => {
 };
 
 /// The entry [entryToJson] wrote.
-Entry entryFromJson(Map<String, Object?> json, [CategoryRefs? refs]) => _read(
+/// An entry from its record. With [same], the values entries repeat
+/// (accounts, categories kept by name, merchants, stocks, tags, days) are
+/// shared with the entries read before through it ([SameValues]), as the
+/// book opens.
+Entry entryFromJson(
+  Map<String, Object?> json, [
+  CategoryRefs? refs,
+  SameValues? same,
+]) => _read(
   () => Entry(
     id: _need(json, 'id'),
-    date: _date(_need(json, 'date')),
+    date: switch (_need(json, 'date')) {
+      final day when same != null => same.day(day, _date),
+      final day => _date(day),
+    },
     type: EntryType.values.byName(_need(json, 'type')),
     amount: _int(json['amount']),
-    account: _need(json, 'account'),
-    category: _refName(json, 'category', refs) ?? '',
+    account: _same(same, _need(json, 'account')),
+    category: _same(same, _refName(json, 'category', refs) ?? ''),
     note: _text(json, 'note') ?? '',
-    to: _text(json, 'to'),
-    holding: _text(json, 'holding'),
+    to: _sameOrNone(same, _text(json, 'to')),
+    holding: _sameOrNone(same, _text(json, 'holding')),
     shares: _int(json['shares']),
-    recurring: _text(json, 'recurring'),
-    merchant: _text(json, 'merchant') ?? '',
-    tags: [for (final t in _list(json, 'tags') ?? const []) t! as String],
-    parts: [
-      for (final p in _list(json, 'parts') ?? const [])
-        if (p case {'amount': final int amount} when p is Map<String, Object?>)
-          (
-            _refName(p, 'name', refs, idKey: 'categoryId') ??
-                (throw const FormatException('parts')),
-            amount,
-          )
-        else
-          throw const FormatException('parts'),
-    ],
+    recurring: _sameOrNone(same, _text(json, 'recurring')),
+    merchant: _same(same, _text(json, 'merchant') ?? ''),
+    // None shares one empty list: a book's every entry comes through
+    // here, most with neither, and each list made is one more object kept
+    // and handed from the worker the book is read on.
+    tags: switch (_list(json, 'tags')) {
+      null => const [],
+      final tags => [for (final t in tags) _same(same, t! as String)],
+    },
+    parts: switch (_list(json, 'parts')) {
+      null => const [],
+      final parts => [
+        for (final p in parts)
+          if (p case {'amount': final int amount}
+              when p is Map<String, Object?>)
+            (
+              _refName(p, 'name', refs, idKey: 'categoryId') ??
+                  (throw const FormatException('parts')),
+              amount,
+            )
+          else
+            throw const FormatException('parts'),
+      ],
+    },
     fee: _int(json['fee']),
     tax: _int(json['tax']),
     refundOf: _text(json, 'refundOf'),
@@ -214,9 +236,19 @@ Entry entryFromJson(Map<String, Object?> json, [CategoryRefs? refs]) => _read(
     received: _maybe(json['received']),
     group: _text(json, 'group'),
     // A mark a later version knows and this one does not reads as none.
-    mark: EntryMark.values.asNameMap()[json['mark']],
+    mark: _marks[json['mark']],
   ),
 );
+
+/// Each entry mark by its name, looked up once (not a map made for each
+/// entry read).
+final _marks = EntryMark.values.asNameMap();
+
+String _same(SameValues? same, String text) =>
+    same == null ? text : same.text(text);
+
+String? _sameOrNone(SameValues? same, String? text) =>
+    text == null || same == null ? text : same.text(text);
 
 Map<String, Object?> budgetToJson(Budget b, [CategoryRefs? refs]) => {
   ..._ref('category', b.category, refs),
@@ -299,17 +331,20 @@ Map<String, Object?> trashedToJson(Trashed t, [CategoryRefs? refs]) => {
   if (t.letGo case final day?) 'letGo': _day(day),
 };
 
-Trashed trashedFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
-    _read(
-      () => Trashed(
-        entryFromJson(_needObject(json, 'entry'), refs),
-        _date(_need(json, 'on')),
-        letGo: switch (json['letGo']) {
-          final String day => _date(day),
-          _ => null,
-        },
-      ),
-    );
+Trashed trashedFromJson(
+  Map<String, Object?> json, [
+  CategoryRefs? refs,
+  SameValues? same,
+]) => _read(
+  () => Trashed(
+    entryFromJson(_needObject(json, 'entry'), refs, same),
+    _date(_need(json, 'on')),
+    letGo: switch (json['letGo']) {
+      final String day => _date(day),
+      _ => null,
+    },
+  ),
+);
 
 /// A category named [name] as it is kept under [key]: by its id, under
 /// `${key}Id` (or [idKey]), when [refs] knows it, else by the name.

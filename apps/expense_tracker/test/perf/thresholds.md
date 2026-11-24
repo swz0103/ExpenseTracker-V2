@@ -57,6 +57,73 @@ the same runs was 72 and 76 ms. Its limit is therefore an absolute ceiling
 (400 ms), not twice a measurement; the 10k and 100k limits are the ones that
 catch a regression in loading itself.
 
+## Opening a large book (`open_gate_test.dart`, after CORR-2 and FIX-R13)
+
+`100k_load_ms` went from 1,000–1,600 ms (16ffb7a and before) to 1,887–2,174
+ms on the CI emulator (c172444 … e05adbf), over its 1,700 ms limit. The
+emulator has about two cores and the opening runs on a worker isolate
+(`openingWork`, `EncryptedDatabase.workApart`), so the host was pinned to
+two cores (`taskset -c 0,1`) for these figures. The development VM was
+shared with other runs at the time (load 3–12 on four cores), so each
+figure is the least of four loads, two runs each; flutter test, JIT.
+
+Where an opening of the bench's 100,000 entries went (65f9d4b, two cores,
+least / median of nine loads): reading the rows 436 / 565 ms (SQLCipher;
+reading by cursor and column index was no faster); decoding the JSON
+480–690; bringing records up (`upgradeRecord`) 100–200, of it the D80
+kept-category check about 40; making the entries 430–500 (`entryFromJson`
+305, the shape rules 61, the names 28, finding each row's record in a map
+by row 37); the holdings 14–60; a map of each entry's place by id 28–275,
+built on every opening, handed to the screen's isolate and kept there, but
+read only by a posting the app never does there; handing the book back
+(`Isolate.exit`) 71 / 155; the ledger made of it 4 / 6. At c172444 the
+screen's isolate also built a map of 100,000 places by id
+(`EntryRepository`, 84–250 ms, the longest hold 74–156 ms against 31–54
+at 16ffb7a); PERF (8838491) put the places beside the entries instead.
+FIX-R13 added nothing that grows with the book to `load()` (a loop check of
+the categories, three more maps of the market row). Nothing of CORR-2's
+recurring rules runs in `load()`: `bookDue` runs after it, at
+`LedgerSession.start`, and reads every entry once (cached), not once per
+item. The emulator's 10k and small-book save figures rose in the same run
+as its 100k one (124 → 166 ms, 4 → 4.9 ms a frame) with no change on
+those paths: that run was slower throughout.
+
+What was changed: the map of places by id is gone (the journal posts each
+entry at the place beside it); what entries repeat (accounts, categories
+kept by name, merchants, stocks, tags, days) is one copy for the book
+(`SameValues`, about 300,000 objects fewer to hand back and to collect);
+no list or map is made per entry for nothing (tags and parts with none,
+the marks' names); the records are kept by shelf beside their rows, not in
+a map by row; and from 20,000 entries (`splitOpeningFrom`) half of the
+entries' JSON is decoded on a second worker at once when there is a core
+for it.
+
+| commit | 100k load, two cores (least, two runs) | CPU used (median) |
+|---|---|---|
+| 16ffb7a | 1,651 / 1,741 ms | 2,700 / 2,840 ms |
+| c172444 | 1,895 / 1,809 ms | 2,870 / 2,900 ms |
+| 65f9d4b | 1,575 / 1,915 ms | 2,410 / 3,260 ms |
+| e05adbf | 1,596 / 1,741 ms | 2,490 / 3,040 ms |
+| this change | 1,281 / 1,532 ms | 2,240 / 2,360 ms |
+
+At 10,000 entries (no second worker): e05adbf 108–178 ms, CPU 340–380;
+this change 100–147 ms, CPU 230–260. The second worker alone: 55–100 ms
+less at 100k, about 100–200 ms more CPU.
+
+The gate runs in the ordinary `flutter test`: a book of 100,000 entries
+(the bench's mix) opened three times through `SqlLedgerDataSource.load`,
+which times itself and the worker's part (`lastOpening`). It gates two
+shares, the least of the three openings each, so it holds on any machine
+and core count:
+
+| share | measured (2 cores; 4 cores) | limit |
+|---|---|---|
+| the longest hold of the screen's isolate, of the opening | 0.013–0.018; 0.013; 0.041 in a full run on a machine at load 12 | 0.08 (about twice the full run's) |
+| the opening spent outside the worker's own work (starting it, the hand-back, the ledger made here) | 0.042–0.046; 0.042; 0.031 in the full run | 0.06 |
+
+A map of 100,000 places built here again measured 0.064; the hand-back of
+65f9d4b's book (its map by id included) about 0.05–0.09.
+
 ## The journal of postings (host bench, work package 2.0)
 
 `journal_thresholds.json` holds the limits of `journal_bench_test.dart`

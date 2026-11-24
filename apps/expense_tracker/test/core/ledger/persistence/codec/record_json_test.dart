@@ -2,6 +2,7 @@ import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/codec/record_json.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/codec/same_values.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/record_version.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -23,6 +24,43 @@ void main() {
     final without = trashedToJson(Trashed(entry, on));
     expect(without.containsKey('letGo'), isFalse);
     expect(trashedFromJson(without).letGo, isNull);
+  });
+
+  group('entries read as the book opens', () {
+    Map<String, Object?> row(String id) => {
+      'id': id,
+      'date': '2026-09-04',
+      'type': 'expense',
+      'amount': 5,
+      // Made afresh for each row, as decoding each row's JSON makes them.
+      'account': String.fromCharCodes('cash'.codeUnits),
+      'merchant': String.fromCharCodes('全聯'.codeUnits),
+      'tags': [String.fromCharCodes('家用'.codeUnits)],
+    };
+
+    test('share what they repeat through one SameValues', () {
+      final same = SameValues();
+      final a = entryFromJson(row('a'), null, same);
+      final b = entryFromJson(row('b'), null, same);
+      expect(identical(a.account, b.account), isTrue);
+      expect(identical(a.merchant, b.merchant), isTrue);
+      expect(identical(a.tags.single, b.tags.single), isTrue);
+      expect(identical(a.date, b.date), isTrue);
+      expect(b.date, DateTime.utc(2026, 9, 4));
+    });
+
+    test('read alone, keep their own', () {
+      final a = entryFromJson(row('a'));
+      final b = entryFromJson(row('b'));
+      expect(identical(a.account, b.account), isFalse);
+      expect(a.account, b.account);
+    });
+
+    test('with no tags or parts, have none', () {
+      final e = entryFromJson({...row('a')}..remove('tags'));
+      expect(e.tags, isEmpty);
+      expect(e.parts, isEmpty);
+    });
   });
 
   test('an account keeps its card terms and its looks', () {
