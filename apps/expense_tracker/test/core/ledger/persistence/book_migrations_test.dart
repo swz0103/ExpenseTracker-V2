@@ -680,6 +680,142 @@ void main() {
     expect(store!.meta(EncryptedDatabase.bookVersionKey), bookVersion);
   });
 
+  test('a refund on a foreign account kept without a worth at home is '
+      'given its share of the purchase\'s (r13 F2)', () async {
+    final s = open();
+    String row(Map<String, Object?> json) =>
+        jsonEncode({...json, 'date': '2026-10-01', '_v': 2});
+    s.write((w) {
+      w.put(
+        'account',
+        'a1',
+        jsonEncode({'id': 'a1', 'name': '現金', 'kind': 'cash', 'opening': 0}),
+      );
+      w.put(
+        'account',
+        'u1',
+        jsonEncode({
+          'id': 'u1',
+          'name': '美元',
+          'kind': 'bank',
+          'opening': 0,
+          'currency': 'USD',
+        }),
+      );
+      w.put(
+        'category',
+        'c-food',
+        jsonEncode({'id': 'c-food', 'name': '飲食', 'icon': 'food', 'color': 1}),
+      );
+      w.put(
+        'entry',
+        'p',
+        row({
+          'id': 'p',
+          'type': 'expense',
+          'amount': 10000,
+          'account': 'u1',
+          'categoryId': 'c-food',
+          'home': 3210,
+        }),
+      );
+      for (final (id, amount, account) in [
+        ('r1', 3000, 'u1'),
+        ('r2', 7000, 'u1'),
+        ('cash', 100, 'a1'),
+      ]) {
+        w.put(
+          'entry',
+          id,
+          row({
+            'id': id,
+            'type': 'income',
+            'amount': amount,
+            'account': account,
+            'categoryId': 'c-food',
+            'refundOf': 'p',
+          }),
+        );
+      }
+    });
+    await load();
+    final rows = rowsOf(store!, 'entry');
+    // 3,210 x 3,000 / 10,000 = 963; the rest, 3,210 - 963 = 2,247.
+    expect(rows['r1']!['home'], 963);
+    expect(rows['r2']!['home'], 2247);
+    // A refund on a NT$ account has no worth at home to be given.
+    expect(rows['cash']!.containsKey('home'), isFalse);
+  });
+
+  test('step 3 shares the refunds of a purchase in the order the ledger\'s '
+      'refundsOf gives them in (r13 F7)', () async {
+    final s = open();
+    String row(Map<String, Object?> json) =>
+        jsonEncode({...json, 'account': 'a1', '_v': 2});
+    s.write((w) {
+      w.put(
+        'account',
+        'a1',
+        jsonEncode({'id': 'a1', 'name': '現金', 'kind': 'cash', 'opening': 0}),
+      );
+      for (final (id, name) in [('c-a', '甲'), ('c-b', '乙'), ('c-c', '丙')]) {
+        w.put(
+          'category',
+          id,
+          jsonEncode({'id': id, 'name': name, 'icon': 'food', 'color': 1}),
+        );
+      }
+      w.put(
+        'entry',
+        'p',
+        row({
+          'id': 'p',
+          'date': '2026-10-01',
+          'type': 'expense',
+          'amount': 100,
+          'categoryId': 'c-a',
+          'parts': [
+            {'categoryId': 'c-a', 'amount': 33},
+            {'categoryId': 'c-b', 'amount': 33},
+            {'categoryId': 'c-c', 'amount': 34},
+          ],
+        }),
+      );
+      // Written in this order, dated against it: the later written first.
+      for (final (id, day, amount) in [
+        ('r1', '2026-10-09', 10),
+        ('r2', '2026-10-03', 10),
+        ('r3', '2026-10-05', 80),
+      ]) {
+        w.put(
+          'entry',
+          id,
+          row({
+            'id': id,
+            'date': day,
+            'type': 'income',
+            'amount': amount,
+            'categoryId': 'c-a',
+            'refundOf': 'p',
+          }),
+        );
+      }
+    });
+    final ledger = await load();
+    expect(
+      [for (final e in ledger.entries.refundsOf('p')) e.id],
+      ['r1', 'r2', 'r3'],
+    );
+    // r1, 10 of 33/33/34: 3.3, 3.3, 3.4 -> 3, 3, 3 and the one left to
+    // the largest remainder (0.4, 丙): 3, 3, 4.
+    expect(ledger.entries.byId('r1')!.parts, [('甲', 3), ('乙', 3), ('丙', 4)]);
+    // r2, 10 of 30/30/30 left: 3.33 each -> 3, 3, 3 and one more to the
+    // first of the equal remainders (甲): 4, 3, 3.
+    expect(ledger.entries.byId('r2')!.parts, [('甲', 4), ('乙', 3), ('丙', 3)]);
+    // r3, the rest: 33 - 7 = 26, 33 - 6 = 27, 34 - 7 = 27.
+    expect(ledger.entries.byId('r3')!.parts, [('甲', 26), ('乙', 27), ('丙', 27)]);
+  });
+
   test('an entry known by a tag\'s words is given its mark; the tags stay '
       '(D52)', () async {
     final s = open();

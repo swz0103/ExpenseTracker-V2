@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:domain/data_exchange.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
+import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/codec/record_shape.dart';
 import 'package:expense_tracker/src/features/import_export/model/import_export.dart';
 import 'package:expense_tracker/src/features/import_export/ui/import_page.dart'
@@ -131,5 +132,50 @@ void main() {
     expect(found.accounts, isEmpty);
     expect(found.categories, isEmpty);
     expect(ledger.accounts.all, hasLength(before));
+  });
+
+  group('a refund on a foreign account (r13 F2)', () {
+    // Exception to glossary: the file format's column, kept so files written before read back.
+    const head = '日期,類型,金額,帳戶,商家,台幣金額\n';
+    const bought = '2026-09-01,支出,100,美元戶,Shop,3210\n';
+
+    Import read(String rows, {String currency = 'USD'}) {
+      final ledger = demoLedger();
+      ledger.accountCommands.addAccount(
+        Account('usd', '美元戶', AccountKind.bank, 1000000, currency: currency),
+      );
+      return importCsv(importBookOf(ledger), head + rows, fallback: 'bank');
+    }
+
+    test('its worth at home is the 台幣金額 written', () {
+      final found = read('${bought}2026-09-02,退款,100,美元戶,Shop,3210\n');
+      expect(found.problems, isEmpty);
+      final refund = found.entries.last;
+      expect(refund.refundOf, found.entries.first.id);
+      expect(refund.home, 3210);
+    });
+
+    test('without one, its share of the purchase\'s worth (D62)', () {
+      final found = read('${bought}2026-09-02,退款,40,美元戶,Shop,\n');
+      expect(found.problems, isEmpty);
+      // 3,210 x 40 / 100 = 1,284.
+      expect(found.entries.last.home, 1284);
+    });
+
+    test('more than the purchase\'s worth left is refused, named', () {
+      final found = read(
+        '${bought}2026-09-02,退款,50,美元戶,Shop,1000\n'
+        '2026-09-03,退款,50,美元戶,Shop,2300\n'
+        '2026-09-04,退款,10,美元戶,Shop,-5\n',
+      );
+      // 3,210 - 1,000 = 2,210 of the worth left: 2,300 is over it. The
+      // last asks for a worth below zero.
+      expect(found.problems, ['第 4 行：台幣金額超過原支出還可退的 2,210', '第 5 行：台幣金額要大於 0']);
+    });
+
+    test('with no rate and no worth written, the column is named', () {
+      final found = read('2026-09-01,支出,100,美元戶,Shop,\n', currency: 'GBP');
+      expect(found.problems, ['第 2 行：還沒有匯率，請在「台幣金額」欄填折合新台幣的金額']);
+    });
   });
 }

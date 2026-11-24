@@ -4,7 +4,8 @@ import 'dart:convert';
 import 'dart:math' show max;
 
 import 'package:core/foundation_values.dart' show PublicId;
-import 'package:ledger_entries/model.dart' show Entry, EntryMark, EntryType;
+import 'package:ledger_entries/model.dart'
+    show Entry, EntryMark, EntryType, homeCode;
 import 'package:ledger_entries/rules.dart' show refundShare;
 import 'package:storage/storage.dart';
 
@@ -155,12 +156,23 @@ void _namesToIds(EncryptedDatabase store, RowWriter w) {
 /// purchase's tags, as every refund is written since D65 (the ledger's
 /// one rule, `refundShare`): a purchase refunded in full then leaves no
 /// category and no tag total behind. The refunds of a purchase are
-/// shared in the order the book keeps them; a tag the refund was given
-/// itself is left as it is. A refund whose purchase is not kept, or
-/// cannot be read, stays as it was.
+/// shared in the order the book keeps them, the order the ledger's
+/// `refundsOf` gives them in; a tag the refund was given itself is left
+/// as it is. A refund on a foreign account kept without a worth at home
+/// is given its share of the purchase's (D62), as the composer and an
+/// import give it (r13 F2): a split given without one would count its
+/// foreign parts as NT$. A refund whose purchase is not kept, or cannot
+/// be read, stays as it was.
 void _refundsMirrorPurchases(EncryptedDatabase store, RowWriter w) {
   final shelf = Collection.entry.name;
   final rows = store.rows(shelf: shelf);
+  final foreign = <String>{
+    for (final row in store.rows(shelf: Collection.account.name))
+      if (readableRecord(row.body)
+          case {'id': final String id, 'currency': final String currency}
+          when currency != homeCode)
+        id,
+  };
   final byId = <String, Map<String, Object?>>{};
   for (final row in rows) {
     final json = readableRecord(row.body);
@@ -198,6 +210,12 @@ void _refundsMirrorPurchases(EncryptedDatabase store, RowWriter w) {
     }
     if ((ownTags is! List || ownTags.isEmpty) && share.tags.isNotEmpty) {
       next['tags'] = share.tags;
+      changed = true;
+    }
+    if (json['home'] == null &&
+        share.home != null &&
+        foreign.contains(json['account'])) {
+      next['home'] = share.home;
       changed = true;
     }
     // The refund as it now stands, for the next refund of the purchase.
