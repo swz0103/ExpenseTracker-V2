@@ -158,6 +158,8 @@ final class Ledger extends ChangeNotifier {
     _day = now;
     // A trade an old book dated later joins the holdings on its day.
     _holdings.replay(_entries.all, today: now, lenient: true);
+    // What the trash keeps no longer goes, as on opening (D77).
+    entryCommands.expireTrash();
     // What was worked out for yesterday, such as the last statement,
     // is worked out again.
     notifyListeners();

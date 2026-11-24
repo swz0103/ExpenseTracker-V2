@@ -1,3 +1,4 @@
+import 'package:core/constants/retention.dart';
 import 'package:ledger_entries/rules.dart' show RecordIssue, SaleExceedsHolding;
 
 import '../cache/topic.dart';
@@ -361,6 +362,32 @@ final class EntryCommands {
     );
     if (unskipped.isNotEmpty) _context.changed(const {Topic.recurring});
     return true;
+  }
+
+  /// Takes out of the trash, for good, the entries deleted longer ago
+  /// than it keeps them ([trashRetention]), with their receipt photos, as
+  /// opening the book does: also when the day turns with the app open
+  /// (D77), so nothing past its time is shown or restored. How many.
+  int expireTrash() {
+    final from = _context.today.subtract(trashRetention);
+    final gone = [
+      for (final t in _trash.all)
+        if (t.on.isBefore(from)) t.entry.id,
+    ];
+    if (gone.isEmpty) return 0;
+    _trash.removeEntries({...gone});
+    for (final id in gone) {
+      _receipts.set(id, null);
+    }
+    // No sum rests on the trash.
+    _context.signal();
+    _context.keep(
+      WriteBatch(
+        receipts: {for (final id in gone) id: null},
+        dropped: [for (final id in gone) (Collection.trash, id)],
+      ),
+    );
+    return gone.length;
   }
 
   /// Puts the spending or income among [entries] under [name]. Splits,
