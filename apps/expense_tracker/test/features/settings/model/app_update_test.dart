@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
+import 'package:expense_tracker/src/core/platform/bounded_https.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/core/platform/update_status.dart';
 import 'package:expense_tracker/src/features/settings/model/app_update.dart';
@@ -244,6 +245,30 @@ void main() {
       expect(await app.install(), isNull);
       expect(app.failure, UpdateFailure.installUnforeseen);
       expect(app.problem, '更新時發生未預期的錯誤，已記在診斷，請稍後再試');
+    });
+
+    test('an answer past the cap or a redirect refused is not said as the '
+        'network, looking or downloading (review 27 finding 4)', () async {
+      final app = update();
+      final apk = Uri.parse('https://github.com/x.apk');
+      port.fails = AnswerTooLarge(65536, apk);
+      expect(await app.check(), isNull);
+      expect(app.failure, UpdateFailure.refused);
+      port.fails = RedirectRefused(Uri.parse('https://elsewhere.example/'));
+      expect(await app.check(), isNull);
+      expect(app.failure, UpdateFailure.refused);
+      port.fails = null;
+      await app.check();
+      port.downloadFails = AnswerTooLarge(157286400, apk);
+      expect(await app.install(), isNull);
+      expect(app.failure, UpdateFailure.grewPastSize);
+      expect(app.problem, '下載的檔案比預期大，已中止');
+      port.downloadFails = RedirectRefused(
+        Uri.parse('https://elsewhere.example/x.apk'),
+      );
+      expect(await app.install(), isNull);
+      expect(app.failure, UpdateFailure.refused);
+      expect(app.status, isA<UpdateAvailable>());
     });
 
     test('while it downloads, how far it is', () async {

@@ -6,6 +6,7 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:expense_tracker/src/features/investments/model/price_months.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -125,9 +126,56 @@ void main() {
     expect(sealed().existsSync(), isFalse);
   });
 
+  test('a file the phone cannot read is kept, and not written over this '
+      'run; it is read again the next (review 27 finding 6)', () async {
+    await PriceMonths(directory, seal: box.seal, open: box.open).write(august);
+    final before = sealed().readAsBytesSync();
+    final months = PriceMonths(directory, seal: box.seal, open: box.open);
+    // Reading the file fails as a locked or failing disk would.
+    final read = await IOOverrides.runZoned(() async {
+      await months.settle();
+      return months.read();
+    }, createFile: (path) => _Unreadable(path));
+    expect(read, isEmpty);
+    expect(sealed().readAsBytesSync(), before);
+    // The months fetched again this run are kept in memory only.
+    await months.write({'2330': august['2330']!});
+    expect(sealed().readAsBytesSync(), before);
+    expect(directory.listSync(), hasLength(1));
+    // The next run reads it whole.
+    expect(
+      (await PriceMonths(
+        directory,
+        seal: box.seal,
+        open: box.open,
+      ).read()).keys,
+      ['2330', '6488'],
+    );
+  });
+
   test('with nothing kept there is nothing to read', () async {
     final months = PriceMonths(directory, seal: box.seal, open: box.open);
     await months.settle();
     expect(await months.read(), isEmpty);
   });
+}
+
+/// A file that is there and cannot be read; anything else done to it is a
+/// failure of the test.
+final class _Unreadable implements File {
+  _Unreadable(this.path);
+
+  @override
+  final String path;
+
+  @override
+  bool existsSync() => true;
+
+  @override
+  Future<Uint8List> readAsBytes() async =>
+      throw FileSystemException('Input/output error', path);
+
+  @override
+  Object? noSuchMethod(Invocation invocation) =>
+      fail('Not to be touched: ${invocation.memberName}');
 }

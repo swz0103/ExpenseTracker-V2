@@ -21,7 +21,9 @@ typedef CodeMonths = ({bool otc, Map<String, List<(DateTime, double)>> months});
 /// A file this ledger's key does not open (another ledger's after a
 /// restore, or the old keys' after a reset) or that is damaged is taken
 /// away when first read ([settle] as the ledger opens); its months are
-/// fetched again.
+/// fetched again. One the phone could not read at all (an IO error) is
+/// kept and not written over this run: its months are fetched for now,
+/// and it is read again next run.
 final class PriceMonths {
   PriceMonths(this.directory, {required this.seal, required this.open});
 
@@ -50,6 +52,10 @@ final class PriceMonths {
   /// The [write]s, one after another.
   Future<void> _writing = Future.value();
 
+  /// The file is there but could not be read this run: kept, and not
+  /// written over.
+  var _unread = false;
+
   /// As the ledger opens: takes away the plain folder of older versions,
   /// and a sealed file this ledger's key does not open.
   Future<void> settle() async {
@@ -62,14 +68,24 @@ final class PriceMonths {
   }
 
   /// Every stock's months kept; none when there is no file, or one that
-  /// does not open, which is then deleted.
+  /// does not open, which is then deleted, or one that cannot be read,
+  /// which is kept.
   Future<Map<String, CodeMonths>> read() => _read ??= _open();
 
   Future<Map<String, CodeMonths>> _open() async {
     final file = _file;
     if (!file.existsSync()) return {};
+    final List<int> sealed;
     try {
-      final plain = await open(name, await file.readAsBytes());
+      sealed = await file.readAsBytes();
+    } on Object catch (error, stack) {
+      // The phone could not read it, which says nothing of what it holds.
+      ErrorLog.instance.record(ErrorSteps.priceHistory, error, stack);
+      _unread = true;
+      return {};
+    }
+    try {
+      final plain = await open(name, sealed);
       final json = JsonFields.decode(utf8.decode(plain));
       final codes = json.need<Map<String, Object?>>('codes');
       return {
@@ -110,11 +126,14 @@ final class PriceMonths {
 
   /// Keeps [codes], all of them, sealed: written beside, then renamed
   /// over, so a cut-short write leaves the last whole one. A failure is
-  /// noted; the months stay in memory for this run.
+  /// noted; the months stay in memory for this run. Nothing is written
+  /// while a file that could not be read is kept ([read]).
   Future<void> write(Map<String, CodeMonths> codes) =>
       _writing = _writing.then((_) => _write(codes));
 
   Future<void> _write(Map<String, CodeMonths> codes) async {
+    await read();
+    if (_unread) return;
     final file = _file;
     final next = File('${file.path}.${Random.secure().nextInt(1 << 30)}.new');
     try {

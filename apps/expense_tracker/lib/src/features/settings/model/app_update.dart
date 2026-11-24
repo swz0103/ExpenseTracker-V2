@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/messages/update_messages.dart';
+import '../../../core/platform/bounded_https.dart';
 import '../../../core/platform/distribution.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/platform/update_status.dart';
@@ -331,9 +332,14 @@ final class AppUpdate extends ChangeNotifier {
       return null;
     } on Object catch (error, stack) {
       ErrorLog.instance.record(UpdateMessages.downloadStep, error, stack);
-      _failure = error is IOException || error is TimeoutException
-          ? UpdateFailure.downloadCut
-          : UpdateFailure.installUnforeseen;
+      // A cap or a redirect refused is not the network: said before the
+      // IOException they are.
+      _failure = switch (error) {
+        AnswerTooLarge() => UpdateFailure.grewPastSize,
+        RedirectRefused() => UpdateFailure.refused,
+        IOException() || TimeoutException() => UpdateFailure.downloadCut,
+        _ => UpdateFailure.installUnforeseen,
+      };
       if (apk.existsSync()) await apk.delete();
       return null;
     } finally {

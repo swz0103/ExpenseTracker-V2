@@ -57,6 +57,57 @@ void main() {
     );
   });
 
+  test('a download is capped at the size Drive gives for the file, and '
+      'one past it or of no size is refused, not offline, and leaves no '
+      'file (review 27 findings 2 and 4)', () async {
+    final client = drive();
+    await client.upload(backup('記帳本-1.etbk', 'one'), ledger: 'L1');
+    final id = (await client.list()).single.id;
+    final into = File('${directory.path}/restore.etbk');
+    // The answer is 3 bytes; Drive says 2.
+    http.sizeSaid[id] = '2';
+    await expectLater(
+      client.download(id, into),
+      throwsA(
+        isA<DriveException>().having(
+          (e) => e.problem,
+          'problem',
+          DriveProblem.refused,
+        ),
+      ),
+    );
+    expect(into.existsSync(), isFalse);
+    // Asked for the size first, then the body with that limit.
+    expect(
+      [for (final s in http.sent.reversed.take(2)) s.url.queryParameters],
+      [
+        {'alt': 'media'},
+        {'fields': 'size'},
+      ],
+    );
+    http.sizeSaid[id] = null;
+    await expectLater(
+      client.download(id, into),
+      throwsA(
+        isA<DriveException>()
+            .having((e) => e.problem, 'problem', DriveProblem.refused)
+            .having((e) => e.detail, 'detail', 'no size'),
+      ),
+    );
+    // One byte past the largest backup, 4 GiB (4294967296 + 1).
+    http.sizeSaid[id] = '4294967297';
+    await expectLater(
+      client.download(id, into),
+      throwsA(
+        isA<DriveException>().having((e) => e.detail, 'detail', 'too large'),
+      ),
+    );
+    expect(into.existsSync(), isFalse);
+    http.sizeSaid[id] = '3';
+    await client.download(id, into);
+    expect(into.readAsStringSync(), 'one');
+  });
+
   test('a backup goes only to Google\'s own upload address (SEC-13)', () async {
     final client = drive();
     http.uploadAt = 'https://uploads.example.org';

@@ -29,9 +29,20 @@ abstract final class BoundedHttps {
   /// The most redirects one request follows.
   static const maxRedirects = 5;
 
-  /// Headers never sent on to another origin than the one first asked, as
-  /// dart:io's own redirects do with them.
-  static const _private = {'authorization', 'cookie'};
+  /// The only headers sent on to another origin than the one first asked:
+  /// what to answer with and which part. Every other one (Authorization,
+  /// Cookie, Proxy-Authorization, any key) stays with the first origin.
+  static const _carried = {'accept', 'accept-encoding', 'user-agent', 'range'};
+
+  /// The headers of [headers] sent to a hop: all of them to the origin
+  /// first asked ([sameOrigin]), only [_carried] ones to any other.
+  static Map<String, String> headersFor(
+    Map<String, String> headers, {
+    required bool sameOrigin,
+  }) => {
+    for (final MapEntry(key: name, :value) in headers.entries)
+      if (sameOrigin || _carried.contains(name.toLowerCase())) name: value,
+  };
 
   /// Sends [method] to [url] with [headers] and the body [send] writes.
   /// A GET's redirect is followed while it goes to `https` and [allowed]
@@ -51,12 +62,10 @@ abstract final class BoundedHttps {
     for (var hops = 0; ; hops++) {
       final request = await client.openUrl(method, at);
       request.followRedirects = false;
-      final sameOrigin = at.origin == url.origin;
-      headers.forEach((name, value) {
-        if (sameOrigin || !_private.contains(name.toLowerCase())) {
-          request.headers.set(name, value);
-        }
-      });
+      headersFor(
+        headers,
+        sameOrigin: at.origin == url.origin,
+      ).forEach(request.headers.set);
       if (send != null) await send(request);
       final closing = request.close();
       final response = wait == null
