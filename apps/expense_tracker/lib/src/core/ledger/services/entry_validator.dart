@@ -40,13 +40,16 @@ final class EntryValidator {
   /// [opening] are accounts an import brings, not in the book yet;
   /// [refunding] the spending a refund it reads gives back, the book's or
   /// one of the same file, with what is left of it once the refunds read
-  /// before are given (review 37 1).
+  /// before are given (review 37 1). [settling] names the account [e]
+  /// settles before it is archived, which lets it be dated through that
+  /// account's last entry (D121).
   RecordIssue? validate(
     Entry e, {
     Entry? replacing,
     bool holdings = true,
     Iterable<Account> opening = const [],
     ({Entry original, int left})? refunding,
+    String? settling,
   }) {
     for (final issue in issues(
       e,
@@ -54,6 +57,7 @@ final class EntryValidator {
       holdings: holdings,
       opening: opening,
       refunding: refunding,
+      settling: settling,
     )) {
       if (issue.isError) return issue;
     }
@@ -68,6 +72,7 @@ final class EntryValidator {
     bool holdings = true,
     Iterable<Account> opening = const [],
     ({Entry original, int left})? refunding,
+    String? settling,
   }) {
     Account? account(String id) =>
         _accounts.byId(id) ?? opening.where((a) => a.id == id).firstOrNull;
@@ -112,6 +117,10 @@ final class EntryValidator {
             ? _balanceAfter(e, replacing)
             : null,
         today: _today?.call(),
+        settlesThrough:
+            settling != null && (e.account == settling || e.to == settling)
+            ? _balances.lastDayAhead(settling)
+            : null,
       ),
     );
   }

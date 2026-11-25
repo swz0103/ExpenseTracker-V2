@@ -229,6 +229,45 @@ void main() {
     expect(ledger.entries.all.length, count);
   });
 
+  testWidgets('D121: someone lent money dated 400 days ahead is settled on '
+      'that day, beyond the year ahead, and archived; another person is not '
+      'offered to settle into', (tester) async {
+    final today = DateTime.utc(2026, 10, 4);
+    // 2026-10-04 + 400 days = 2027-11-08, beyond 2026-10-04 + 365 days =
+    // 2027-10-04, as a clock set forward and corrected, or a restore, can
+    // leave in the book.
+    final far = DateTime.utc(2027, 11, 8);
+    final start = Ledger(
+      today: today,
+      accounts: const [
+        Account('bank', '日常銀行', AccountKind.bank, 100000),
+        Account('lent', '代墊朋友', AccountKind.receivable, 0),
+        Account('other', '阿安', AccountKind.receivable, 0),
+      ],
+      categories: const [],
+      entries: [transfer('far', far, 5000)],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+    await open(tester, start: start);
+    await go(tester, ['~更多選項', '封存']);
+    await tester.tap(find.byKey(Keys.confirm));
+    await tester.pumpAndSettle();
+    expect(find.text('餘額轉到哪個帳戶'), findsOneWidget);
+    expect(find.text('阿安'), findsNothing);
+    await go(tester, ['日常銀行']);
+    expect(ledger.account('lent').archived, isTrue);
+    final settled = ledger.balanceService.entriesOf('lent').first;
+    expect(
+      (settled.type, settled.date, settled.amount, settled.to),
+      (EntryType.transfer, far, 5000, 'bank'),
+    );
+    expect(ledger.balanceService.finalBalance('lent'), 0);
+    // Today's balances as they were: both entries are 預定.
+    expect(ledger.balanceService.balance('bank'), 100000);
+  });
+
   testWidgets('review 35: with no account of their currency it says so, and '
       'offers to add one or keep them', (tester) async {
     final start = book();

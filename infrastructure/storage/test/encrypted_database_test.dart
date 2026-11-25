@@ -211,6 +211,30 @@ void main() {
     store.close();
   });
 
+  test('a worker reads shelves of few records whole by their shelf, in the '
+      'order kept, through the shelf index (review 36 #2)', () async {
+    final store = open()
+      ..write((w) {
+        w.put('category', 'c1', 'c');
+        for (var i = 0; i < 5; i++) {
+          w.put('entry', 'e$i', '$i');
+        }
+        w.put('account', 'a1', 'a');
+        w.put('category', 'c2', 'c');
+      });
+    expect(await store.workApart(_keptFew), 'c1 a1 c2; 3');
+    store.close();
+    final database = raw();
+    addTearDown(database.close);
+    final plan = [
+      for (final r in database.select('EXPLAIN QUERY PLAN $keptShelfQuery', [
+        'account',
+      ]))
+        r['detail'] as String,
+    ];
+    expect(plan, ['SEARCH rows USING INDEX sqlite_autoindex_rows_1 (shelf=?)']);
+  });
+
   test('the page size is set as the file is opened, the one cutShort counts '
       'in', () {
     expect(EncryptedDatabase.pageSize, 4096);
@@ -925,6 +949,11 @@ Future<({int? book, int layout})> _versions(StoreSnapshot s) async =>
 
 /// The integrity check, run on the worker of a work apart.
 Future<String> _integrity(ApartStore store) async => store.integrityCheck();
+
+Future<String> _keptFew(ApartStore store) async {
+  final rows = store.kept(const ['account', 'category'], few: true).toList();
+  return '${[for (final r in rows) r.id].join(' ')}; ${rows.length}';
+}
 
 Future<String> _keptInTwos(ApartStore store) async {
   final rows = store.kept(const ['entry', 'category'], page: 2).toList();

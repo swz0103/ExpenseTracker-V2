@@ -111,7 +111,7 @@ class ReminderAlarmsDeviceTest {
             context,
             Intent(context, ReminderReceiver::class.java).putExtra(Reminders.EXTRA_ID, 0),
         )
-        val shown = manager.activeNotifications.single { it.tag == "due:card" }
+        val shown = manager.settled { all -> all.any { it.tag == "due:card" } }.single { it.tag == "due:card" }
         assertEquals("繳卡費 12,800", shown.notification.extras.getString("android.title"))
         assertEquals("日常信用卡", shown.notification.extras.getString("android.text"))
     }
@@ -167,8 +167,10 @@ class ReminderAlarmsDeviceTest {
         ReminderReceiver().onReceive(context, wentOff)
         manager.cancelAll()
         ReminderReceiver().onReceive(context, wentOff)
-        // The second found it posted: nothing shows again.
-        assertEquals(0, manager.activeNotifications.count { it.tag == "due:card" })
+        // The second found it posted: nothing shows again, the cancel
+        // applied and no second post arriving late.
+        val shown = manager.settled(steady = 500) { all -> all.none { it.tag == "due:card" } }
+        assertEquals(0, shown.count { it.tag == "due:card" })
         // And both alarms are gone.
         assertNull(alarm(0))
         assertNull(alarm(ReminderAlarms.twinCode(0)))

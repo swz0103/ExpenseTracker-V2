@@ -44,7 +44,7 @@ class RemindersDeviceTest {
     fun aDueItemIsShownOnTheRemindersChannelWithItsTag() {
         assertTrue(Reminders.allowed(context))
         Reminders.show(context, 4242, "扣款：Netflix 390", "定期交易", "", tag = "due:test-netflix", channel = CHANNEL)
-        val shown = manager.activeNotifications.single { it.id == 4242 }
+        val shown = manager.settled { all -> all.any { it.id == 4242 } }.single { it.id == 4242 }
         assertEquals("due:test-netflix", shown.tag)
         if (Build.VERSION.SDK_INT >= 26) {
             assertEquals(CHANNEL, shown.notification.channelId)
@@ -58,19 +58,9 @@ class RemindersDeviceTest {
         Reminders.replace(context, emptyList(), wanted = setOf("due:test-kept"))
         // The notification service applies posts and cancels on its own
         // thread: wait for it to settle rather than read it at once.
-        val tags = settled { "due:test-kept" in it && "due:test-card" !in it }
+        val tags = manager.settledTags { "due:test-kept" in it && "due:test-card" !in it }
         assertTrue("due:test-kept" in tags)
         assertTrue("due:test-card" !in tags)
-    }
-
-    /** The tags shown once [done] holds, or after 3 s, whichever first. */
-    private fun settled(done: (Set<String?>) -> Boolean): Set<String?> {
-        val until = System.currentTimeMillis() + 3_000
-        while (true) {
-            val tags = manager.activeNotifications.map { it.tag }.toSet()
-            if (done(tags) || System.currentTimeMillis() > until) return tags
-            Thread.sleep(50)
-        }
     }
 
     @Test
@@ -85,7 +75,7 @@ class RemindersDeviceTest {
             context, 4245, "扣款：Netflix 390", "定期交易", "",
             tag = "due:test-words", recurring = "netflix", day = "2026-11-25", channel = CHANNEL,
         )
-        val shown = manager.activeNotifications.single { it.id == 4245 }.notification
+        val shown = manager.settled { all -> all.any { it.id == 4245 } }.single { it.id == 4245 }.notification
         assertEquals("入帳了", shown.actions.single().title.toString())
         assertEquals("提醒", shown.publicVersion.extras.getCharSequence("android.title").toString())
         assertEquals("打開看看", shown.publicVersion.extras.getCharSequence("android.text").toString())
@@ -124,10 +114,10 @@ class RemindersDeviceTest {
         // A channel the phone does not have and the app never named:
         // nothing to post in.
         Reminders.replace(context, listOf(alert("test-no-such-channel")))
-        assertTrue(manager.activeNotifications.none { it.tag == "due:test-missed" })
+        assertTrue("due:test-missed" !in manager.settledTags(steady = 500) { "due:test-missed" !in it })
         // Handed over again with its channel, within its grace: posted now.
         Reminders.replace(context, listOf(alert(CHANNEL)))
-        assertTrue(manager.activeNotifications.any { it.tag == "due:test-missed" })
+        assertTrue("due:test-missed" in manager.settledTags { "due:test-missed" in it })
         Reminders.replace(context, emptyList())
     }
 

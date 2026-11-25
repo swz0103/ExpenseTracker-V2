@@ -112,7 +112,10 @@ Future<bool> settleAndArchive(
     final into = await _settleInto(context, ledger, account, owing: left < 0);
     if (into == null || !context.mounted) return false;
     final made = AccountForm.settlement(ledger, account, into);
-    if (!refusalShown(context, () => ledger.entryCommands.add(made))) {
+    if (!refusalShown(
+      context,
+      () => ledger.entryCommands.addSettlement(made, account.id),
+    )) {
       return false;
     }
     // The entry as the book holds it, the one its undo takes back.
