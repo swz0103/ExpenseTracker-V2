@@ -21,6 +21,7 @@ abstract interface class LedgerDataSource {
 final class DataSourceException implements CarriedFault {
   const DataSourceException(this.cause);
 
+  @override
   final Object cause;
 
   @override

@@ -45,6 +45,7 @@ final class KeepFailed extends LedgerProblem implements CarriedFault {
   const KeepFailed(this.cause);
 
   /// What the data source threw.
+  @override
   final Object cause;
 
   @override
@@ -71,6 +72,7 @@ final class ReloadFailed extends LedgerProblem implements CarriedFault {
   const ReloadFailed(this.cause);
 
   /// What the data source threw.
+  @override
   final Object cause;
 
   @override

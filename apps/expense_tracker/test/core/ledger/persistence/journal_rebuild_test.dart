@@ -157,7 +157,7 @@ void main() {
       'opening worker', () async {
     final (read, opened) = await open(decodeApart: _refused);
     expect(read.worked.split, isFalse);
-    expect(read.worked.helperFault, startsWith('IsolateSpawnException: '));
+    expect(read.worked.helperFault, 'IsolateSpawnException');
     expectAsWhole(read.book);
     expectPosted(opened);
   });

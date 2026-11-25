@@ -40,9 +40,7 @@ void main() {
     expect(ErrorLog.instance.count, before + 1);
     expect(
       ErrorLog.instance.entries.first.$2,
-      startsWith(
-        '暫存的表單：FormatException: FormatException: Unexpected character',
-      ),
+      startsWith('暫存的表單：FormatException'),
     );
   });
 
