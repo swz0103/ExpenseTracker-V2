@@ -6,6 +6,7 @@ import '../persistence/write_batch.dart';
 import '../repositories/budget_repository.dart';
 import 'command_context.dart';
 import 'command_exceptions.dart';
+import 'undo.dart';
 
 /// Writes the budgets.
 final class BudgetCommands {
@@ -36,9 +37,19 @@ final class BudgetCommands {
     _context.keep(WriteBatch(budgets: [budget]));
   }
 
-  void removeBudget(String category) {
+  /// Takes away the budget on [category]; the [Undo] puts it back where
+  /// it stood, as it was (D82). Null when there is none.
+  Undo? removeBudget(String category) {
+    final index = _budgets.all.indexWhere((b) => b.category == category);
+    if (index < 0) return null;
+    final removed = _budgets.all[index];
     _budgets.remove(category);
     _context.changed(const {Topic.budgets});
     _context.keep(WriteBatch(dropped: [(Collection.budget, category)]));
+    return () {
+      _budgets.putAt(index, removed);
+      _context.changed(const {Topic.budgets});
+      _context.keep(WriteBatch(budgets: [removed]));
+    };
   }
 }

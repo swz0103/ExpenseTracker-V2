@@ -14,6 +14,7 @@ import '../repositories/trash_repository.dart';
 import '../services/balance_service.dart';
 import 'command_context.dart';
 import 'command_exceptions.dart';
+import 'undo.dart';
 
 import 'dart:math';
 
@@ -181,11 +182,33 @@ final class AccountCommands {
   /// it from being removed until they are emptied (D78).
   List<Trashed> trashedNaming(String id) => _trash.mentioning(id);
 
-  void removeAccount(String id) {
-    if (isUsed(id)) return;
-    final removed = _accounts.remove(id);
-    if (removed == null) return;
+  /// Takes away the account [id] when nothing names it ([isUsed]); the
+  /// [Undo] puts it back where it stood (D82). Null when it is not taken.
+  Undo? removeAccount(String id) {
+    if (isUsed(id)) return null;
+    final found = _accounts.removeAt(id);
+    if (found == null) return null;
+    final (index, removed) = found;
     _context.changed(Topic.all);
     _context.keep(WriteBatch(dropped: [(Collection.account, removed.id)]));
+    return () {
+      if (!_accounts.putAt(index, removed)) return;
+      _context.changed(Topic.all);
+      _context.keep(WriteBatch(accounts: [removed]));
+    };
+  }
+
+  /// Archives the account [id], or brings it back when [archived] is
+  /// false; the [Undo] sets it as it was (D82). Null when there is none
+  /// or it already is so.
+  Undo? setArchived(String id, {required bool archived}) {
+    final before = _accounts.byId(id);
+    if (before == null || before.archived == archived) return null;
+    updateAccount(before.copyWith(archived: archived));
+    return () {
+      final now = _accounts.byId(id);
+      if (now == null || now.archived != archived) return;
+      updateAccount(now.copyWith(archived: !archived));
+    };
   }
 }

@@ -66,4 +66,12 @@ void main() {
     budgets.replaceWith(budgets.all);
     expect(_of(budgets), [('交通', 50), ('#家用', 80)]);
   });
+
+  test('a budget put back takes its place again, or the last', () {
+    final budgets = BudgetRepository([Budget('飲食', 100), Budget('交通', 50)]);
+    budgets.putAt(1, Budget('#家用', 80));
+    expect(_of(budgets), [('飲食', 100), ('#家用', 80), ('交通', 50)]);
+    budgets.putAt(9, Budget('飲食', 70));
+    expect(_of(budgets), [('#家用', 80), ('交通', 50), ('飲食', 70)]);
+  });
 }

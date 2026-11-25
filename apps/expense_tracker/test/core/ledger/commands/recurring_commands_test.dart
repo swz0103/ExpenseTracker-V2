@@ -209,4 +209,32 @@ void main() {
     );
     expect(ledger.recurring.all.single.skipped, {DateTime.utc(2026, 11, 10)});
   });
+
+  test('a recurring item deleted comes back where it stood (D82)', () {
+    Recurring item(String id) => Recurring(
+      id: id,
+      name: id,
+      amount: 100,
+      day: 1,
+      account: 'bank',
+      category: '居家',
+    );
+    final l = Ledger(
+      today: today,
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 0)],
+      categories: const [],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: [item('a'), item('b'), item('c')],
+    );
+    final undo = l.recurringCommands.removeRecurring('b')!;
+    expect([for (final r in l.recurring.all) r.id], ['a', 'c']);
+    undo();
+    expect([for (final r in l.recurring.all) r.id], ['a', 'b', 'c']);
+    // Run again, no second copy.
+    undo();
+    expect(l.recurring.all, hasLength(3));
+    expect(l.recurringCommands.removeRecurring('none'), isNull);
+  });
 }

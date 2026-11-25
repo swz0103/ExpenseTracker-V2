@@ -372,6 +372,8 @@ class _OpenedLedgerState extends State<OpenedLedger>
   /// is offered all the same when it cannot.
   Future<void> _restoreAfterFailure() async {
     try {
+      // Exception to undo rule: the book could not be opened; a copy is
+      // kept first, and the lock screen asks before a backup replaces it.
       await _services.backupManager.restoreAnother();
     } on Object catch (error) {
       ErrorLog.instance.record(loadFailedRestore, error);

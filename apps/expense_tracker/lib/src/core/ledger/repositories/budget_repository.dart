@@ -33,6 +33,13 @@ final class BudgetRepository implements BudgetReader {
     _items.add(budget);
   }
 
+  /// Puts [budget] back at [index] (or last, when the list is shorter
+  /// now), in place of one for what it covers.
+  void putAt(int index, Budget budget) {
+    remove(budget.category);
+    _items.insert(index.clamp(0, _items.length), budget);
+  }
+
   /// Takes away the budget for [category]; nothing when there is none.
   bool remove(String category) {
     final count = _items.length;

@@ -163,6 +163,8 @@ class _SecuritySectionState extends State<SecuritySection> {
         actionKey: Keys.resetGo,
         refuse: backupManager.refusePassword,
         submit: (current, _) =>
+            // Exception to undo rule: asked by this panel, which takes the
+            // current password and its own 重設 (KeyWords.resetGo).
             backupManager.resetKeys(backupManager.hasPassword ? current : null),
       ),
     );

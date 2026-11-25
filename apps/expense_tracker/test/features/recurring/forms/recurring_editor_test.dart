@@ -63,4 +63,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(asked(), isTrue);
   });
+
+  testWidgets('刪除 takes the item away at once, with 復原 (D82)', (tester) async {
+    final ledger = gym();
+    await show(tester, 360, 1, book: ledger);
+    await go(tester, ['更多', '定期交易', '~管理', '健身房', '~刪除']);
+    expect(find.byKey(Keys.confirm), findsNothing);
+    expect(ledger.recurring.all, isEmpty);
+    expect(find.text('已刪除「健身房」'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.snack('復原')));
+    await tester.pumpAndSettle();
+    expect([for (final r in ledger.recurring.all) r.id], ['gym']);
+  });
 }

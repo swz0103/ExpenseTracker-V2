@@ -11,6 +11,9 @@ import '../repositories/recurring_repository.dart';
 import '../repositories/trash_repository.dart';
 import 'command_context.dart';
 import 'command_exceptions.dart';
+import 'undo.dart';
+
+export 'undo.dart';
 
 /// Writes the categories: adding, changing, ordering and merging them; a
 /// new name or a merge reaches every entry, budget and recurring item.
@@ -67,16 +70,23 @@ final class CategoryCommands {
   /// category [from] in [to]: what comes back from 最近刪除 fits the book
   /// as it is now, not as it was.
   ///
-  /// What changed is registered with [unit], when given.
-  void _moveUses(String from, String to, [UnitOfWork? unit]) {
+  /// What changed is registered with [unit], when given, and noted in
+  /// [book] and [trash] for an undo.
+  void _moveUses(
+    String from,
+    String to, [
+    UnitOfWork? unit,
+    EntryImages? book,
+    EntryImages? trash,
+  ]) {
     Entry? moved(Entry e) =>
         e.category == from || e.parts.any((p) => p.$1 == from)
         ? e.withCategory(to, from: from)
         : null;
     // Each change is made first: `unit?.` would skip its argument too.
     final changed = [
-      ..._entries.changeAll(moved),
-      ..._trash.changeEntries(moved),
+      ..._entries.changeAll(book?.noting(moved) ?? moved),
+      ..._trash.changeEntries(trash?.noting(moved) ?? moved),
       ..._recurring.renameCategory(from, to),
     ];
     unit?.registerAllDirty(changed);
@@ -101,6 +111,20 @@ final class CategoryCommands {
     _context.keep(WriteBatch(categories: [kept]));
   }
 
+  /// Archives the category [name], or brings it back when [archived] is
+  /// false; the [Undo] sets it as it was (D82). Null when there is none
+  /// or it already is so.
+  Undo? setArchived(String name, {required bool archived}) {
+    final before = _categories.all.where((c) => c.name == name).firstOrNull;
+    if (before == null || before.archived == archived) return null;
+    updateCategory(name, before.copyWith(archived: archived));
+    return () {
+      final now = _categories.all.where((c) => c.id == before.id).firstOrNull;
+      if (now == null || now.archived != archived) return;
+      updateCategory(now.name, now.copyWith(archived: !archived));
+    };
+  }
+
   /// Moves everything in [from] to [into] and removes [from] (D60): its
   /// entries, deleted entries and recurring items; its budget, added to
   /// the budget of [into] (the limits summed, [into]'s settings kept, the
@@ -109,7 +133,8 @@ final class CategoryCommands {
   /// adds no limit: [into]'s budget already counts its spending (D103). Refused, with
   /// nothing changed, when either is not a category, both are the same,
   /// they are on different sides (spending and income), [into] is
-  /// archived, or [into] sits under [from].
+  /// archived, or [into] sits under [from]. A merge can be undone
+  /// ([Merged.undo], D82).
   CategoryMerge mergeCategory(String from, String into) {
     Category? named(String name) {
       for (final c in _categories.all) {
@@ -130,8 +155,17 @@ final class CategoryCommands {
       _ => null,
     };
     if (refusal != null) return MergeRefused(refusal);
+    // What the merge changes, as it was, for its undo.
+    final categories = _categories.all;
+    final budgets = _budgets.all;
+    final items = [
+      for (final r in _recurring.all)
+        if (r.category == from) r,
+    ];
+    final book = EntryImages();
+    final trash = EntryImages();
     final unit = UnitOfWork();
-    _moveUses(from, into, unit);
+    _moveUses(from, into, unit, book, trash);
     final budget = _budgets.all.where((b) => b.category == from).firstOrNull;
     if (budget != null) {
       _budgets.remove(from);
@@ -155,7 +189,65 @@ final class CategoryCommands {
     unit.registerAllDirty(freed);
     _context.changed(Topic.all);
     _context.keep(unit.batch);
-    return const Merged();
+    return Merged(
+      () => _unmerge(
+        from: from,
+        into: into,
+        categories: categories,
+        budgets: budgets,
+        items: items,
+        book: book,
+        trash: trash,
+      ),
+    );
+  }
+
+  /// Puts back what merging [from] into [into] changed: the categories
+  /// and the budgets as they were, and the entries, deleted entries and
+  /// recurring items moved, those changed again since left as they are.
+  /// Nothing when [from] is a category again (made anew since).
+  void _unmerge({
+    required String from,
+    required String into,
+    required List<Category> categories,
+    required List<Budget> budgets,
+    required List<Recurring> items,
+    required EntryImages book,
+    required EntryImages trash,
+  }) {
+    if (!_categories.isNameFree(from)) return;
+    final unit = UnitOfWork();
+    unit.registerAllDirty(_entries.changeAll(book.back));
+    unit.registerAllDirty(_trash.changeEntries(trash.back));
+    final back = [
+      for (final r in items)
+        if (_recurring.byId(r.id)?.category == into) r,
+    ];
+    _recurring.replaceExisting(back);
+    unit.registerAllDirty(back);
+    for (final b in _budgets.all) {
+      if (!budgets.any((was) => was.category == b.category)) {
+        unit.registerDeleted(Collection.budget, b.category);
+      }
+    }
+    _budgets.replaceWith(budgets);
+    unit.registerAllDirty(budgets);
+    // The category back in its place, and those under it under it again;
+    // any other change of the categories since is kept.
+    final now = {for (final c in _categories.all) c.id: c};
+    final restored = [
+      for (final c in categories)
+        if (c.name == from || c.parent == from) c else ?now[c.id],
+      for (final c in _categories.all)
+        if (!categories.any((was) => was.id == c.id)) c,
+    ];
+    _categories.replaceWith(restored);
+    unit.registerAllDirty([
+      for (final c in categories)
+        if (c.name == from || c.parent == from) c,
+    ]);
+    _context.changed(Topic.all);
+    _context.keep(unit.batch);
   }
 }
 
@@ -169,9 +261,12 @@ sealed class CategoryMerge {
   const CategoryMerge();
 }
 
-/// Merged: everything of the one category is the other's.
+/// Merged: everything of the one category is the other's, until [undo]
+/// puts it back.
 final class Merged extends CategoryMerge {
-  const Merged();
+  const Merged(this.undo);
+
+  final Undo undo;
 }
 
 /// Not merged, and nothing changed, for [reason].

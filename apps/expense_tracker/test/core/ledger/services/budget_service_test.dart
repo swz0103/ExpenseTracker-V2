@@ -29,6 +29,54 @@ void main() {
     expect(book.budgets.spentAgainst(Budget('交通', 1000), 2026, 10), 40);
   });
 
+  group('which budgets a saved entry touches, and whether it went over '
+      '(review 32, finding 8)', () {
+    Book book(List<Budget> budgets) => Book(
+      categories: [
+        Category('飲食', 'food', 0xFF111111),
+        Category('早餐', 'food', 0xFF222222, parent: '飲食'),
+        Category('交通', 'car', 0xFF333333),
+      ],
+      budgets: budgets,
+      entries: [
+        entry('a', amount: 900, category: '早餐', tags: ['家用']),
+      ],
+    );
+
+    test('a parent budget counts its subcategory (D54)', () {
+      final b = book(const [Budget('飲食', 800)]);
+      final breakfast = b.entries.byId('a')!;
+      expect(b.budgets.touches(const Budget('飲食', 800), breakfast), isTrue);
+      expect(b.budgets.touches(const Budget('交通', 800), breakfast), isFalse);
+      // 900 spent against 800.
+      expect(b.budgets.overAfter(breakfast), isTrue);
+    });
+
+    test('a tag budget is kept as #tag and matches the tag', () {
+      final b = book(const [Budget('#家用', 500)]);
+      final breakfast = b.entries.byId('a')!;
+      expect(b.budgets.touches(const Budget('#家用', 500), breakfast), isTrue);
+      expect(b.budgets.touches(const Budget('家用', 500), breakfast), isFalse);
+      // 900 against 500.
+      expect(b.budgets.overAfter(breakfast), isTrue);
+    });
+
+    test('the total counts any spending; income touches none', () {
+      final b = book(const [Budget(allSpending, 1000), Budget('交通', 10)]);
+      final breakfast = b.entries.byId('a')!;
+      // 900 of 1000 spent: not over; 交通 is over, but untouched.
+      expect(b.budgets.overAfter(breakfast), isFalse);
+      final pay = entry('p', type: EntryType.income, amount: 5000);
+      expect(b.budgets.touches(const Budget(allSpending, 1), pay), isFalse);
+      expect(b.budgets.overAfter(pay), isFalse);
+    });
+
+    test('a budget of nothing is never over', () {
+      final b = book(const [Budget('飲食', 0)]);
+      expect(b.budgets.overAfter(b.entries.byId('a')!), isFalse);
+    });
+  });
+
   test("a carried budget adds last month's leftover, never more", () {
     final book = Book(
       entries: [entry('a', amount: 300, date: DateTime.utc(2026, 9, 3))],

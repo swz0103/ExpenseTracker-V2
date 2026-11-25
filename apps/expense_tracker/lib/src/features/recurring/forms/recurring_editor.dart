@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 
-import '../../../core/design_system/dialogs.dart';
 import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
@@ -14,6 +13,7 @@ import '../model/recurring_schedule.dart';
 import '../model/recurring_form.dart';
 import 'recurring_form_widgets.dart';
 import '../../../../design_system/display/date.dart';
+import '../../../core/messages/done_messages.dart';
 import '../../../core/messages/recurring_messages.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
@@ -87,18 +87,13 @@ class _RecurringEditorState extends State<_RecurringEditor> {
     }
   }
 
-  Future<void> _remove() async {
+  /// Deletes the item, what it booked kept; told with 復原, not asked
+  /// first (D82).
+  void _remove() {
     final item = widget.item;
     if (item == null) return;
-    final ok = await confirm(
-      context,
-      '刪除「${item.name}」？',
-      Words.delete,
-      danger: true,
-      body: '已記的紀錄會保留。',
-    );
-    if (!ok || !mounted) return;
-    _ledger.recurringCommands.removeRecurring(item.id);
+    final undo = _ledger.recurringCommands.removeRecurring(item.id);
+    if (undo != null) showUndo(context, DoneWords.deleted(item.name), undo);
     EditGuard.close(context);
   }
 

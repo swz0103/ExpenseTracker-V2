@@ -21,6 +21,7 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 import '../model/debts.dart';
+import '../../../core/messages/done_messages.dart';
 import '../../../core/messages/trash_messages.dart';
 
 part 'person_page.dart';

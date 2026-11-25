@@ -6,6 +6,7 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/formatting/words.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/done_messages.dart';
 import '../../../core/widgets/pickers.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
@@ -82,12 +83,20 @@ class _CategoryEditorState extends State<_CategoryEditor> {
     EditGuard.close(context, made);
   }
 
+  /// Archives the category or brings it back, told with 復原 (D82).
   void _archive(Ledger ledger) {
     final c = widget.initial;
-    ledger.categoryCommands.updateCategory(
+    final undo = ledger.categoryCommands.setArchived(
       c.name,
-      c.copyWith(archived: !c.archived),
+      archived: !c.archived,
     );
+    if (undo != null) {
+      showUndo(
+        context,
+        c.archived ? DoneWords.unarchived(c.name) : DoneWords.archived(c.name),
+        undo,
+      );
+    }
     EditGuard.close(context);
   }
 
@@ -106,7 +115,12 @@ class _CategoryEditorState extends State<_CategoryEditor> {
       ),
     );
     if (into == null || !mounted) return;
-    ledger.categoryCommands.mergeCategory(c.name, into);
+    // Told with 復原, not asked first (D82).
+    if (ledger.categoryCommands.mergeCategory(c.name, into) case Merged(
+      :final undo,
+    )) {
+      showUndo(context, DoneWords.merged(c.name, into), undo);
+    }
     EditGuard.close(context);
   }
 

@@ -8,6 +8,7 @@ import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
 import '../core/ledger/trading.dart' show defaultBrokerDiscount;
+import '../core/widgets/entry_tile.dart' show deleteEntries;
 import '../core/widgets/problem_note.dart';
 import '../core/platform/quick_action.dart';
 import '../core/widgets/tour.dart';
@@ -189,23 +190,11 @@ class _AppShellState extends State<AppShell> {
       return;
     }
     if (outcome == ComposeOutcome.deleted) {
-      Haptics.medium();
-      // An entry written as one with others goes with them.
-      final removed = ledger.entryCommands.removeAll([
-        for (final e in ledger.entryQueryService.groupOf(saved)) e.id,
-      ]);
-      if (removed.isEmpty) return;
-      showNote(
-        context,
-        '已刪除「${saved.title}」'
-        '${saved.recurring == null ? '' : '，這一期跳過'}',
-        action: '復原',
-        onAction: () => ledger.entryCommands.restoreAll(removed),
-      );
+      deleteEntries(context, ledger, [saved]);
       return;
     }
     // A firmer knock when this put a budget over its allowance.
-    if (_overBudget(saved)) {
+    if (ledger.budgetService.overAfter(saved)) {
       Haptics.medium();
     } else {
       Haptics.light();
@@ -351,29 +340,6 @@ class _AppShellState extends State<AppShell> {
     MerchantsRoute() => TagsPage(ledger: ledger, nav: _nav, merchants: true),
     SectionRoute(:final section) => _morePage(ledger, section),
   };
-
-  /// Whether [saved] left a budget it counts against over its allowance
-  /// for that month.
-  bool _overBudget(Entry saved) {
-    if (saved.type != EntryType.expense) return false;
-    final ledger = widget.ledger;
-    final (year, month) = (saved.date.year, saved.date.month);
-    for (final budget in ledger.budgets.all) {
-      final allowed = ledger.budgetService.allowance(budget, year, month);
-      if (allowed > 0 &&
-          ledger.budgetService.spentAgainst(budget, year, month) > allowed) {
-        final names = {
-          saved.category,
-          ...saved.spendingParts.map((p) => p.$1),
-          ...saved.tags,
-        };
-        if (budget.category == allSpending || names.contains(budget.category)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
 
   @override
   Widget build(BuildContext context) {

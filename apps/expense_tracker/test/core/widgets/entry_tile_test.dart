@@ -1,5 +1,6 @@
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
+import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/widgets/entry_tile.dart';
 import 'package:flutter/material.dart';
@@ -201,5 +202,104 @@ void main() {
     );
     expect(holdingLabel(named), '2330 台積電');
     expect(holdingLabel(unnamed), '2330');
+  });
+
+  group('deleteEntries: the one way an entry is deleted (D82)', () {
+    /// Runs [deleteEntries] on [picked] from a button, and returns what
+    /// it deleted.
+    Future<List<Entry>> run(
+      WidgetTester tester,
+      Ledger ledger,
+      List<Entry> picked,
+    ) async {
+      late List<Entry> removed;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: appTheme(),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () =>
+                    removed = deleteEntries(context, ledger, picked),
+                child: const Text('go'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('go'));
+      await tester.pumpAndSettle();
+      return removed;
+    }
+
+    testWidgets('one entry: named in the note, 復原 puts it back', (
+      tester,
+    ) async {
+      final ledger = book();
+      final removed = await run(tester, ledger, [back]);
+      expect([for (final e in removed) e.id], ['back']);
+      expect(ledger.entries.byId('back'), isNull);
+      expect(find.text('已刪除「飲食」'), findsOneWidget);
+      await tester.tap(find.byKey(Keys.snack('復原')));
+      await tester.pump();
+      expect(ledger.entries.byId('back'), isNotNull);
+      expect(ledger.trash.all, isEmpty);
+    });
+
+    testWidgets('several: counted in the note', (tester) async {
+      final ledger = book();
+      await run(tester, ledger, [lunch, back]);
+      expect(ledger.entries.all, isEmpty);
+      expect(find.text('已刪除 2 筆'), findsOneWidget);
+    });
+
+    testWidgets('a booking of a recurring item: its period let go', (
+      tester,
+    ) async {
+      final rent = Recurring(
+        id: 'rent',
+        name: '房租',
+        amount: 500,
+        day: 4,
+        account: 'bank',
+        category: '飲食',
+        start: day,
+      );
+      final booked = Entry(
+        id: 'r1',
+        date: day,
+        type: EntryType.expense,
+        amount: 500,
+        account: 'bank',
+        category: '飲食',
+        note: '房租',
+        recurring: 'rent',
+      );
+      final ledger = Ledger(
+        today: day,
+        accounts: const [Account('bank', '銀行', AccountKind.bank, 100000)],
+        categories: [Category('飲食', 'food', 0xFF5C9A83)],
+        entries: [booked],
+        holdings: const [],
+        budgets: const [],
+        recurring: [rent],
+        dataSource: _Batches(),
+      );
+      await run(tester, ledger, [booked]);
+      expect(find.text('已刪除「房租」，這一期跳過'), findsOneWidget);
+    });
+
+    testWidgets('nothing held: nothing said', (tester) async {
+      final ledger = book();
+      final gone = Entry(
+        id: 'gone',
+        date: day,
+        type: EntryType.expense,
+        amount: 1,
+        account: 'bank',
+      );
+      expect(await run(tester, ledger, [gone]), isEmpty);
+      expect(find.byKey(Keys.snack('復原')), findsNothing);
+    });
   });
 }

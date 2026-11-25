@@ -242,16 +242,15 @@ void main() {
     expect(outcomes.single!.$1, ComposeOutcome.saved);
   });
 
-  testWidgets('an entry looked at is deleted once agreed', (tester) async {
+  testWidgets('an entry looked at is deleted without asking: its note '
+      'offers 復原 (D82)', (tester) async {
     final lunch = ledger.entries.all.firstWhere(
       (e) => e.type == EntryType.expense,
     );
     await open(tester, entry: lunch);
     await tester.tap(find.byKey(Keys.discard));
     await tester.pumpAndSettle();
-    expect(find.text('刪除這一筆？'), findsOneWidget);
-    await tester.tap(find.byKey(Keys.confirm));
-    await tester.pumpAndSettle();
+    expect(find.byKey(Keys.confirm), findsNothing);
     expect(outcomes.single!.$1, ComposeOutcome.deleted);
     expect(outcomes.single!.$2.id, lunch.id);
   });

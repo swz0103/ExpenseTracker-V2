@@ -139,23 +139,13 @@ class _EntriesPageState extends State<EntriesPage> {
   /// of them. When the ledger refuses (a later sale would be short of
   /// shares) nothing is taken, the ledger says why, and the picks stay.
   void _removePicked() {
-    final ledger = widget.ledger;
-    // Entries written as one go with the one standing for them.
-    final removed = ledger.entryCommands.removeAll({
-      for (final e in _pickedEntries)
-        for (final m in ledger.entryQueryService.groupOf(e)) m.id,
-    });
-    if (removed.isEmpty) {
-      if (_pickedEntries.isEmpty) setState(_picked.clear);
+    final picked = _pickedEntries;
+    if (picked.isEmpty) {
+      setState(_picked.clear);
       return;
     }
+    if (deleteEntries(context, widget.ledger, picked).isEmpty) return;
     setState(_picked.clear);
-    showNote(
-      context,
-      '已刪除 ${countOf(removed.length, CountUnit.entries)}',
-      action: '復原',
-      onAction: () => ledger.entryCommands.restoreAll(removed),
-    );
   }
 
   /// What the list shows, kept until the month, the filter, the search,

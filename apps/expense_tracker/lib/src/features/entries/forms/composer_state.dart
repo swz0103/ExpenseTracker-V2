@@ -286,13 +286,12 @@ class _ComposerState extends State<Composer>
     EditGuard.close(context);
   }
 
-  Future<void> _delete() async {
+  /// Closes the form for the entry to be deleted, not asked first: the
+  /// deletion is told with 復原 (D82, `deleteEntries`).
+  void _delete() {
     final entry = widget.entry;
     if (entry == null) return;
-    final ok = await confirm(context, '刪除這一筆？', Words.delete, danger: true);
-    if (ok && mounted) {
-      EditGuard.close(context, (ComposeOutcome.deleted, entry));
-    }
+    EditGuard.close(context, (ComposeOutcome.deleted, entry));
   }
 
   @override

@@ -47,10 +47,18 @@ final class RecurringRepository implements RecurringReader {
     }
   }
 
-  /// Takes away the item with [id] and returns it; null when there is none.
-  Recurring? remove(String id) {
+  /// Takes away the item with [id] and returns it with where it stood;
+  /// null when there is none.
+  (int, Recurring)? remove(String id) {
     final index = _items.indexWhere((r) => r.id == id);
-    return index < 0 ? null : _items.removeAt(index);
+    return index < 0 ? null : (index, _items.removeAt(index));
+  }
+
+  /// Puts [item] back at [index] (or last, when the list is shorter now);
+  /// nothing when the book holds one with its id again.
+  void putAt(int index, Recurring item) {
+    if (byId(item.id) != null) return;
+    _items.insert(index.clamp(0, _items.length), item);
   }
 
   /// Moves the items of category [from] to [to].

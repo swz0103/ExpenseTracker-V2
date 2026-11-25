@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../formatting/words.dart';
 import 'theme.dart';
 import 'keys.dart';
 import 'shape.dart';
@@ -25,6 +26,13 @@ void showNote(
   onAction: onAction,
   spoken: spoken,
 );
+
+/// Tells [done], a change just made that can be taken back, with
+/// 復原 to run [undo] (D82): the one way such a change is told. A change
+/// told this way is not asked about first; one that cannot be undone is
+/// asked first (`confirm`) and then told with [showNote].
+void showUndo(BuildContext context, String done, VoidCallback undo) =>
+    showNote(context, done, action: Words.undo, onAction: undo);
 
 /// [showNote] from code that has no screen of its own, such as what
 /// answers a fault nobody caught: said over whatever screen is open.

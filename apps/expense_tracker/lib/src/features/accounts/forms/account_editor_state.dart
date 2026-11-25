@@ -78,13 +78,15 @@ class _AccountEditorState extends State<_AccountEditor> {
     if (_f.save()) EditGuard.close(context);
   }
 
-  /// Archives the account, or brings it back. One with money left is
-  /// settled first: its balance moves to the account picked.
+  /// Archives the account, or brings it back, told with 復原 (D82). One
+  /// with money left is settled first: its balance moves to the account
+  /// picked, and 復原 takes that back too.
   Future<void> _archive() async {
     final old = _old;
     if (old == null) return;
     final ledger = widget.ledger;
     final left = ledger.balanceService.balance(old.id);
+    Entry? settlement;
     if (!old.archived && left != 0) {
       final into = await pickOption<String>(
         context,
@@ -98,33 +100,60 @@ class _AccountEditorState extends State<_AccountEditor> {
         ),
       );
       if (into == null || !mounted) return;
-      final settled = refusalShown(
-        context,
-        () =>
-            ledger.entryCommands.add(AccountForm.settlement(ledger, old, into)),
-      );
-      if (!settled) return;
+      final made = AccountForm.settlement(ledger, old, into);
+      if (!refusalShown(context, () => ledger.entryCommands.add(made))) return;
+      settlement = made;
     }
-    ledger.accountCommands.updateAccount(old.copyWith(archived: !old.archived));
-    if (mounted) EditGuard.close(context, !old.archived);
+    final undo = ledger.accountCommands.setArchived(
+      old.id,
+      archived: !old.archived,
+    );
+    if (!mounted) return;
+    if (undo != null) {
+      showUndo(
+        context,
+        old.archived
+            ? DoneWords.unarchived(old.name)
+            : DoneWords.archived(old.name),
+        () {
+          undo();
+          if (settlement != null) {
+            ledger.entryCommands.takeBack([settlement.id]);
+          }
+        },
+      );
+    }
+    EditGuard.close(context, !old.archived);
   }
 
+  /// Deletes the account. Nothing in the trash naming it: not asked
+  /// first, told with 復原 (D82). Deleted entries in the trash that name
+  /// it go for good with it, which cannot be undone: asked first (D78).
   Future<void> _remove() async {
     final old = _old;
     if (old == null) return;
-    final commands = widget.ledger.accountCommands;
-    // Entries in the trash still naming it go with it, once said (D78).
+    final ledger = widget.ledger;
+    final commands = ledger.accountCommands;
     final trashed = commands.trashedNaming(old.id);
-    final ok = await confirm(
-      context,
-      '刪除「${old.name}」？',
-      Words.delete,
-      danger: true,
-      body: trashedNamingNote(trashed.length),
-    );
-    if (!ok || !mounted) return;
-    widget.ledger.entryCommands.discardTrashed(trashed);
-    commands.removeAccount(old.id);
+    if (trashed.isNotEmpty) {
+      final ok = await confirm(
+        context,
+        '刪除「${old.name}」？',
+        Words.delete,
+        danger: true,
+        body: trashedNamingNote(trashed.length),
+      );
+      if (!ok || !mounted) return;
+      ledger.entryCommands.discardTrashed(trashed);
+    }
+    final undo = commands.removeAccount(old.id);
+    if (undo != null) {
+      if (trashed.isEmpty) {
+        showUndo(context, DoneWords.deleted(old.name), undo);
+      } else {
+        showNote(context, DoneWords.deleted(old.name));
+      }
+    }
     EditGuard.close(context, true);
   }
 
