@@ -15,6 +15,7 @@ import 'load_failed_page.dart';
 import 'quarantine_notices.dart';
 import 'quiet_failures.dart';
 import 'upgrade_held_page.dart';
+import 'when_idle.dart';
 import '../features/backup/model/encrypted_backup_manager.dart';
 import '../features/backup/model/hand_over.dart';
 import '../features/backup/model/old_key_backups.dart';
@@ -326,6 +327,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     final tell = await QuarantineNotices(widget.startup.quarantineTold)
         .toTell(start.quarantined);
     _afterFrame(() {
+      unawaited(start.ledger.entryValidator.prepare(whenIdle));
       if (start.inbox case final inbox?) _tellInbox(inbox);
       _tellBooked(start.ledger, start.booked, start.held);
       if (tell.isNotEmpty) {
