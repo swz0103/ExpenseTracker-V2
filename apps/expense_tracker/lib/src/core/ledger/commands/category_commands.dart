@@ -13,8 +13,6 @@ import 'command_context.dart';
 import 'command_exceptions.dart';
 import 'undo.dart';
 
-export 'undo.dart';
-
 /// Writes the categories: adding, changing, ordering and merging them; a
 /// new name or a merge reaches every entry, budget and recurring item.
 final class CategoryCommands {

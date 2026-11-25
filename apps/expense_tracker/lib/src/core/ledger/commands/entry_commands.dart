@@ -159,6 +159,7 @@ final class EntryCommands {
       e.category,
       for (final (name, _) in e.parts) name,
     ]);
+    // Exception to as-of-today: an entry of any day may name them.
     _entries.all.forEach(note);
     for (final t in _trash.all) {
       note(t.entry);
