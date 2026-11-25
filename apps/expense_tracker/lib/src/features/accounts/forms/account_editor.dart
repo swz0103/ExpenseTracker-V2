@@ -11,8 +11,8 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/calculator.dart';
-import '../../../core/widgets/problem_note.dart';
 import '../../../core/widgets/pickers.dart';
+import '../../../core/widgets/problem_note.dart';
 
 import '../model/account_form.dart';
 import '../ui/account_card.dart' show cardKindLabel;
@@ -22,6 +22,7 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 import '../../../core/messages/done_messages.dart';
+import '../../../core/messages/flow_messages.dart';
 import '../../../core/messages/trade_messages.dart';
 import '../../../core/messages/trash_messages.dart';
 
@@ -43,15 +44,17 @@ Future<bool> ensureAccount(BuildContext context, Ledger ledger) async {
 
 /// Opens the account form: a new account, or [account] to change. Saving
 /// writes to [ledger] directly. True when the account was deleted or
-/// archived, so the page showing it should go back.
+/// archived, so the page showing it should go back. A new one opens in
+/// [currency] when given.
 Future<bool> editAccount(
   BuildContext context,
   Ledger ledger, {
   Account? account,
+  String? currency,
 }) async {
   final gone = await showSheet<bool>(
     context,
-    (_) => _AccountEditor(ledger: ledger, account: account),
+    (_) => _AccountEditor(ledger: ledger, account: account, currency: currency),
   );
   return gone ?? false;
 }
@@ -72,14 +75,105 @@ Future<bool> editLoan(
 }
 
 class _AccountEditor extends StatefulWidget {
-  const _AccountEditor({required this.ledger, this.account, this.kind});
+  const _AccountEditor({
+    required this.ledger,
+    this.account,
+    this.kind,
+    this.currency,
+  });
 
   final Ledger ledger;
   final Account? account;
+
+  /// The currency a new account opens in; the home one when null.
+  final String? currency;
 
   /// The kind a new account opens as.
   final AccountKind? kind;
 
   @override
   State<_AccountEditor> createState() => _AccountEditorState();
+}
+
+/// Archives [account], settling it first when something is left once what
+/// is dated ahead has come: the account picked, of its currency, takes
+/// the balance or pays the debt ([AccountForm.settlement], D120). With no
+/// such account, says so and offers to add one, or to keep [account] as
+/// it is. Told with 復原, which takes the settlement back too (D82).
+/// Whether it was archived; a refusal of the ledger is said.
+Future<bool> settleAndArchive(
+  BuildContext context,
+  Ledger ledger,
+  Account account,
+) async {
+  final left = ledger.balanceService.finalBalance(account.id);
+  Entry? settlement;
+  if (left != 0) {
+    final into = await _settleInto(context, ledger, account, owing: left < 0);
+    if (into == null || !context.mounted) return false;
+    final made = AccountForm.settlement(ledger, account, into);
+    if (!refusalShown(context, () => ledger.entryCommands.add(made))) {
+      return false;
+    }
+    // The entry as the book holds it, the one its undo takes back.
+    settlement = ledger.entries.byId(made.id);
+  }
+  Undo? undo;
+  final archived = refusalShown(
+    context,
+    () => undo = ledger.accountCommands.setArchived(account.id, archived: true),
+  );
+  if (!archived) {
+    if (settlement != null) ledger.entryCommands.takeBack([settlement]);
+    return false;
+  }
+  if (undo case final undo?) {
+    showUndo(context, DoneWords.archived(account.name), () {
+      undo();
+      if (settlement != null) ledger.entryCommands.takeBack([settlement]);
+    });
+  }
+  return true;
+}
+
+/// The account [account]'s balance goes to, or its debt is paid from
+/// ([owing]): picked among the open ones of its currency. With none,
+/// offers to add one (and picks again) or to keep [account]; null when
+/// the person keeps it or picks nothing.
+Future<String?> _settleInto(
+  BuildContext context,
+  Ledger ledger,
+  Account account, {
+  required bool owing,
+}) async {
+  for (;;) {
+    if (!context.mounted) return null;
+    final options = accountOptions(
+      ledger,
+      currency: account.currency,
+      // Money is held there: not a debt, nor another person.
+      where: (a) =>
+          a.id != account.id &&
+          !a.kind.isDebt &&
+          a.kind != AccountKind.receivable,
+    );
+    if (options.isNotEmpty) {
+      return pickOption<String>(
+        context,
+        title: owing ? SettleWords.payFrom : SettleWords.moveTo,
+        selected: null,
+        columns: 3,
+        options: options,
+      );
+    }
+    final add = await confirm(
+      context,
+      SettleWords.noAccount(currencyName(account.currency)),
+      SettleWords.addAccount,
+      body: SettleWords.noAccountBody(account.name),
+      cancel: SettleWords.keep,
+    );
+    if (!add || !context.mounted) return null;
+    await editAccount(context, ledger, currency: account.currency);
+  }
 }

@@ -78,6 +78,10 @@ abstract final class Keys {
   /// The switch that keeps backups with photos to Wi-Fi.
   static const photosOnWifi = ValueKey('backup:photos-on-wifi');
 
+  /// 重新選擇 on the folder card, when the folder no longer lets the app
+  /// write.
+  static const chooseFolderAgain = ValueKey('backup:choose-folder-again');
+
   /// The update panel's 更新, 晚一點再說 and 略過這一版.
   static const install = ValueKey('update:install');
   static const later = ValueKey('update:later');

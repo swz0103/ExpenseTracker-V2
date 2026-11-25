@@ -342,13 +342,15 @@ final class AccountForm {
   }
 
   /// The transfer that settles [account] before it is archived: what is
-  /// left once what is dated ahead has come moves to [into] today, or a
-  /// debt is paid from it.
+  /// left once what is dated ahead has come moves to [into], or a debt is
+  /// paid from it, on the day of the last entry dated ahead or today when
+  /// none is (D120).
   static Entry settlement(Ledger ledger, Account account, String into) {
-    final left = ledger.balanceService.finalBalance(account.id);
+    final balances = ledger.balanceService;
+    final left = balances.finalBalance(account.id);
     return TransferDrafts.between(
       id: ledger.newId(),
-      date: ledger.today,
+      date: balances.lastDayAhead(account.id),
       amount: left.abs(),
       from: left > 0 ? account.id : into,
       note: '${account.name}結清',

@@ -98,12 +98,30 @@ final class PhoneBackup extends ChangeNotifier {
   String? get problem => _problem;
   String? _problem;
 
+  /// The folder chosen no longer lets the app write ([FolderDenied]), as
+  /// last found by a backup or by [check]: the settings say so and offer
+  /// to choose again, until a folder is chosen.
+  bool get denied => _denied;
+  var _denied = false;
+
+  /// Asks whether the folder chosen still lets the app write, and notes
+  /// it in [denied]: a refusal the background job met shows too.
+  Future<void> check() async {
+    final uri = _preferences.phoneFolder;
+    if (uri == null) return;
+    final refused = !await _folder.allowed(uri);
+    if (refused == _denied || _preferences.phoneFolder != uri) return;
+    _denied = refused;
+    notifyListeners();
+  }
+
   /// Asks for a folder and writes a first backup into it. False when the
   /// person cancelled.
   Future<bool> choose() async {
     final picked = await _folder.pick();
     if (picked == null) return false;
     _preferences.phoneFolderSet(picked.uri, name: picked.name);
+    _denied = false;
     await backUpNow();
     return true;
   }
@@ -113,6 +131,7 @@ final class PhoneBackup extends ChangeNotifier {
     final uri = _preferences.phoneFolder;
     _preferences.phoneFolderSet(null);
     _problem = null;
+    _denied = false;
     notifyListeners();
     if (uri != null) await _folder.forget(uri);
   }
@@ -157,8 +176,10 @@ final class PhoneBackup extends ChangeNotifier {
     notifyListeners();
     try {
       if (!await _folder.allowed(uri)) {
+        _denied = true;
         throw const FolderDenied();
       }
+      _denied = false;
       final at = _clock();
       final revision = _revision();
       await _withBackup((file) => _folder.write(uri, file, nameAt(at)));

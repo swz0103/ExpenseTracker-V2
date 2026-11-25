@@ -20,19 +20,24 @@ void main() {
     );
   });
 
-  test('the final balance counts what is dated up to a year ahead', () {
+  test('the final balance counts every entry dated ahead, also beyond the '
+      'year ahead an entry may now be dated on (review 36)', () {
     final book = Book(
       entries: [
         entry('a', amount: 300),
-        // Today + 365 days (maxDaysAhead) is the last day an entry may be
-        // dated on; one dated later still is not counted.
         entry('b', amount: 200, date: DateTime.utc(2026, 12, 1)),
+        // Beyond today + 365 days (maxDaysAhead), as a clock set forward
+        // and corrected, or a restore, can leave one.
         entry('c', amount: 50, date: DateTime.utc(2099, 1, 1)),
       ],
     );
-    // 1000 - 300 today; 1000 - 300 - 200 at the end.
+    // 1000 - 300 today; 1000 - 300 - 200 - 50 at the end.
     expect(book.balances.balance('bank'), 700);
-    expect(book.balances.finalBalance('bank'), 500);
+    expect(book.balances.finalBalance('bank'), 450);
+    expect(book.balances.lastDayAhead('bank'), DateTime.utc(2099, 1, 1));
+    // Nothing ahead: today; no entries at all: the opening sum, today.
+    expect(book.balances.lastDayAhead('cash'), book.today);
+    expect(book.balances.finalBalance('cash'), 50);
   });
 
   test("an account's entries, newest first, both ends of a transfer", () {

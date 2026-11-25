@@ -111,6 +111,36 @@ void main() {
     expect(phone.busy, isFalse);
   });
 
+  test('R37: a folder that refuses is noted as denied, by a backup or a '
+      'check, until a folder is chosen', () async {
+    final phone = backup();
+    await phone.choose();
+    expect(phone.denied, isFalse);
+    folder.allowedNow = false;
+    // The background job's refusal: found by asking the folder.
+    await phone.check();
+    expect(phone.denied, isTrue);
+    folder.allowedNow = true;
+    await phone.check();
+    expect(phone.denied, isFalse);
+    folder.allowedNow = false;
+    now = now.add(const Duration(days: 8));
+    revision = 2;
+    expect(await phone.backUpIfDue(), isFalse);
+    expect(phone.denied, isTrue);
+    // Chosen again, the chooser grants the folder anew.
+    folder.allowedNow = true;
+    await phone.choose();
+    expect(phone.denied, isFalse);
+    // Stopped, nothing is said of a folder.
+    folder.allowedNow = false;
+    await phone.check();
+    await phone.stop();
+    expect(phone.denied, isFalse);
+    await phone.check();
+    expect(phone.denied, isFalse);
+  });
+
   test('stopping gives the folder back and keeps its backups', () async {
     final phone = backup();
     await phone.choose();

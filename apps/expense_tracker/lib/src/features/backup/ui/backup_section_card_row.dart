@@ -65,3 +65,40 @@ class _CardRow extends StatelessWidget {
     );
   }
 }
+
+/// The folder card's notice that the folder chosen no longer lets the app
+/// write, with 重新選擇, which opens the chooser again.
+class _FolderDenied extends StatelessWidget {
+  const _FolderDenied({required this.color, required this.onChoose});
+
+  final Color color;
+  final VoidCallback? onChoose;
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = deepOf(color);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              BackupWords.folderDenied,
+              style: TextStyle(
+                fontSize: TextSize.body,
+                fontWeight: FontWeight.w700,
+                color: ink,
+              ),
+            ),
+          ),
+          TextButton(
+            key: Keys.chooseFolderAgain,
+            style: wordButton(ink),
+            onPressed: onChoose,
+            child: const Text(BackupWords.chooseFolderAgain),
+          ),
+        ],
+      ),
+    );
+  }
+}

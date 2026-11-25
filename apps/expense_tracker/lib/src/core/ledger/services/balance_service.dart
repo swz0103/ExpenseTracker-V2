@@ -88,11 +88,35 @@ final class BalanceService {
   }
 
   /// The balance of [account] once every entry dated ahead has come: at
-  /// the end of the last day an entry may be dated on ([latestEntryDay]).
-  /// What archiving a person judges (DEB-01): a lend dated next week
-  /// leaves money owed though today's balance is nothing.
-  int finalBalance(String account) =>
-      balance(account, until: latestEntryDay(_today()));
+  /// the end of the last day an entry may be dated on ([latestEntryDay]),
+  /// or of the day of its last entry when that is later still (review
+  /// 36: a clock set forward and corrected, or a restore, can leave one
+  /// beyond the cap). What archiving a person judges (DEB-01): a lend
+  /// dated next week leaves money owed though today's balance is nothing.
+  int finalBalance(String account) {
+    final cap = latestEntryDay(_today());
+    final last = _lastDay(account);
+    return balance(
+      account,
+      until: last != null && last.isAfter(cap) ? last : cap,
+    );
+  }
+
+  /// The day [account]'s last entry dated ahead is on, however far, or
+  /// today when none is: the day a settlement before archiving is dated
+  /// (D120), so it comes as a planned entry once what is dated ahead has
+  /// come and today's balance never shows the opposite of what is left.
+  DateTime lastDayAhead(String account) {
+    final today = _today();
+    final last = _lastDay(account);
+    return last != null && last.isAfter(today) ? last : today;
+  }
+
+  /// The day of [account]'s last entry, either end of a transfer; null
+  /// when it has none.
+  DateTime? _lastDay(String account) =>
+      // Exception to as-of-today: it looks for the entries dated ahead.
+      _entries.ofAccount(account).lastOrNull?.date;
 
   /// The balance of [account] at the end of [end], as [balance] works it
   /// out, but not kept: for a pass over many days, such as the journal's

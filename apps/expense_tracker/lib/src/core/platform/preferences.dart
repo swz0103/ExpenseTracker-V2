@@ -8,7 +8,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:core/foundation_values.dart' show PublicId;
+import 'package:core/foundation_values.dart' show NameSalt, PublicId;
 import 'package:flutter/foundation.dart';
 import 'package:ledger_trade_costs/calc/broker_discount.dart'
     show BrokerDiscountRange;
@@ -324,6 +324,11 @@ final class Preferences {
     if (json.json.containsKey('budgetAlerted')) {
       _budgetAlerted = {...?json.texts('budgetAlerted')};
     }
+    // One damaged is made anew at its first use: notices showing are
+    // cleared once.
+    if (json.text('noticeSalt') case final salt?) {
+      _noticeSalt = NameSalt.tryParse(salt);
+    }
     return had;
   }
 
@@ -335,6 +340,7 @@ final class Preferences {
     'phoneFolderName',
     'phoneFolderId',
     'budgetAlerted',
+    'noticeSalt',
   ];
 
   // ---- following ----
@@ -518,6 +524,21 @@ final class Preferences {
   Set<String> get budgetAlerted => Set.unmodifiable(_budgetAlerted);
   var _budgetAlerted = <String>{};
 
+  /// This install's secret salt the budgets' notification tags are made
+  /// under (a `NameId`), so a tag cannot be matched by guessing a name.
+  /// Made at its first use and kept sealed, never in the plain file.
+  /// Notices showing from before it was made are taken away once, their
+  /// tags no longer wanted; [budgetAlerted] keeps them from coming again.
+  NameSalt get noticeSalt {
+    final kept = _noticeSalt;
+    if (kept != null) return kept;
+    final made = NameSalt.generate();
+    _change(() => _noticeSalt = made);
+    return made;
+  }
+
+  NameSalt? _noticeSalt;
+
   /// Keeps [keys] as the budget notifications posted; those of earlier
   /// months are let go by the caller. Tells no one.
   void budgetAlertedSet(Set<String> keys) =>
@@ -700,12 +721,17 @@ final class Preferences {
     'phoneFolderName': _phoneFolderName,
     'phoneFolderId': _phoneFolderId,
     'budgetAlerted': _budgetAlerted.toList(),
+    'noticeSalt': _noticeSalt?.value,
   };
 
   String _privateText() => jsonEncode(_private());
 
   /// Nothing private is kept: no sealed part is needed.
-  bool get _noPrivate =>
+  bool get _noPrivate => _noPrivateButSalt && _noticeSalt == null;
+
+  /// Nothing private but the salt, which is never kept plain: lost with
+  /// a sealed part that cannot be written, and made again.
+  bool get _noPrivateButSalt =>
       _driveAccount == null && _phoneFolder == null && _budgetAlerted.isEmpty;
 
   Future<void> _writeOnce() async {
@@ -747,7 +773,7 @@ final class Preferences {
           'autoLock': _autoLock.name,
           // Not sealed this time (the Keystore refused): kept plain, as
           // before, rather than lost; sealed at the next change.
-          if (!sealedOk) ..._private(),
+          if (!sealedOk) ...(_private()..remove('noticeSalt')),
         }),
       ),
     );
@@ -762,7 +788,7 @@ final class Preferences {
     if (text == _privateWritten) return true;
     // Nothing chosen since the sealed file did not open: it stays, and
     // what is private now is kept plain beside it for this turn.
-    if (_sealedUnread && !_privateChosen) return _noPrivate;
+    if (_sealedUnread && !_privateChosen) return _noPrivateButSalt;
     try {
       if (_noPrivate) {
         _sealedUnread = false;

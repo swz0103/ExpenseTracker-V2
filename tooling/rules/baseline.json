@@ -51,7 +51,7 @@
     "apps/expense_tracker/lib/src/app/shell.dart": 15,
     "apps/expense_tracker/lib/src/features/accounts/forms/account_editor.dart": 2,
     "apps/expense_tracker/lib/src/features/accounts/forms/account_editor_edit_card.dart": 3,
-    "apps/expense_tracker/lib/src/features/accounts/forms/account_editor_state.dart": 34,
+    "apps/expense_tracker/lib/src/features/accounts/forms/account_editor_state.dart": 32,
     "apps/expense_tracker/lib/src/features/accounts/forms/loan_cards.dart": 13,
     "apps/expense_tracker/lib/src/features/accounts/forms/loan_fields.dart": 19,
     "apps/expense_tracker/lib/src/features/accounts/forms/reconcile_sheet.dart": 6,
