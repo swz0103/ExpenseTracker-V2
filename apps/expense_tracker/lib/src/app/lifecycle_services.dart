@@ -42,6 +42,7 @@ import '../features/reminders/model/reminder_alerts.dart';
 import '../features/reminders/ui/reminders_section.dart' show reminderBookOf;
 import '../features/settings/model/app_update.dart';
 import '../core/platform/app_files.dart';
+import 'modules.dart';
 
 /// What runs beside an open ledger for as long as the app is: closing
 /// prices, the calendar, notifications and the home-screen widget follow
@@ -114,6 +115,7 @@ final class LifecycleServices {
     // and not brought up while the copy cannot be kept (D19).
     beforeUpgrade: () => keepUpgradeBackup(backupManager.keepBeforeUpgrade),
     keepsJournal: true,
+    modules: installModules,
   )..onJournalDamaged = startup.journalDamaged;
 
   Ledger? _ledger;

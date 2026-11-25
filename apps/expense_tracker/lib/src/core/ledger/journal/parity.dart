@@ -55,6 +55,13 @@ enum Figure {
   /// What the book is worth today, holdings at their price.
   netWorth,
 
+  /// What the accounts a module claims for its balance-sheet row are
+  /// worth today ([BookReader.balanceSheet]).
+  sheetRow,
+
+  /// How many accounts two modules both claim: none in a sound build.
+  sheetClaims,
+
   /// What one currency's postings come to: zero in a sound book.
   trialBalance,
 
@@ -113,7 +120,8 @@ const ParityScope everything = (accounts: null, months: null, codes: null);
 /// postings, within [scope]: each account's balance at the end of each
 /// day either side changes it, each month's income, spending and
 /// spending by category, each stock's shares, cost, gain and dividends,
-/// each card's statement due, and that every currency comes to zero.
+/// each card's statement due, each module's balance-sheet row, and that
+/// every currency comes to zero.
 /// [unposted] are records the journal refused; [shapes] the old shapes
 /// met. [pause] runs between each figure's work, so a large book's check
 /// does not hold the screen still. With [everyDay], balances are compared at the
@@ -312,6 +320,29 @@ Future<Parity> checkParity({
       today.balances.netWorthAt(today.day),
       reader.netWorth(now).net,
     );
+  }
+
+  // 5b. Each module's balance-sheet row: what the app counts for the
+  // accounts it claims, and no account claimed twice.
+  if (scope == everything) {
+    if (pause != null) await pause();
+    final sheet = reader.balanceSheet(now);
+    for (final row in sheet.rows) {
+      final claimed = row.accounts.toSet();
+      check(
+        Figure.sheetRow,
+        row.row,
+        '$now',
+        today.accounts.all
+            .where((a) => claimed.contains(moneyAccount(a.id)))
+            .fold(
+              0,
+              (sum, a) => sum + today.balances.worthOf(a, until: today.day),
+            ),
+        row.worth,
+      );
+    }
+    check(Figure.sheetClaims, 'book', '$now', 0, sheet.contested.length);
   }
 
   // 6. Every currency comes to zero.

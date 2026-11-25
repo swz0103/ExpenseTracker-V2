@@ -9,6 +9,7 @@ import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/holding_repository.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/journal_keeper.dart'
     show journalRules;
+import 'package:expense_tracker/src/app/modules.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kernel/kernel.dart';
 import 'package:ledger_postings/model/vocabulary.dart';
@@ -47,6 +48,12 @@ Future<PostedBook> post(Ledger ledger, {PostingStore? into}) async {
   ];
   final byId = {for (final k in kept) k.entry.id: k};
   final store = into ?? MemoryPostingStore();
+  // As the app's journal reads: the modules' claims with the valuers.
+  final contributions = valuedAsTheApp(
+    holdings: ledger.holdings,
+    market: ledger.marketData,
+  );
+  installModules(contributions);
   final tree = AccountTree();
   final journal = Journal(
     registry: registryFor(() => mapping),
@@ -66,12 +73,7 @@ Future<PostedBook> post(Ledger ledger, {PostingStore? into}) async {
   );
   return (
     report: report,
-    reader: BookReader(
-      store,
-      tree,
-      valuedAsTheApp(holdings: ledger.holdings, market: ledger.marketData),
-      homeCurrency,
-    ),
+    reader: BookReader(store, tree, contributions, homeCurrency),
     journal: journal,
     store: store,
   );

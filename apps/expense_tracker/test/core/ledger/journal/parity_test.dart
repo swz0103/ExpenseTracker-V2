@@ -3,12 +3,16 @@ import 'dart:io';
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
+import 'package:expense_tracker/src/app/modules.dart';
 import 'package:expense_tracker/src/core/ledger/journal/parity.dart';
+import 'package:expense_tracker/src/core/ledger/journal/valuation.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
 import 'package:kernel/kernel.dart';
+import 'package:ledger_loans/feature/loans_module.dart';
+import 'package:ledger_postings/model/vocabulary.dart' show homeCurrency;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
@@ -83,6 +87,52 @@ void main() {
     expect(kept.figures, parity.figures);
   });
 
+  test('the loans module\'s balance-sheet rows are compared with what the '
+      'app counts, and an account two modules claim is caught', () async {
+    final ledger = demoLedger();
+    final b = await post(ledger);
+    final parity = await checkParity(
+      today: figuresOf(ledger),
+      reader: b.reader,
+    );
+    expect(parity, isA<InParity>(), reason: _said(parity));
+    final now = Day.of(BusinessDate.of(ledger.today));
+    final sheet = b.reader.balanceSheet(now);
+    expect(
+      [for (final r in sheet.rows) (r.owner, r.row)],
+      [
+        (LoansModule.owner, LoansModule.loansRow),
+        (LoansModule.owner, LoansModule.peopleRow),
+      ],
+    );
+    // The demo's one loan, 車貸, opens at 286,000 owed; its payments
+    // come after.
+    expect(sheet.rows.first.accounts, [const AccountId('acct:car-loan')]);
+    expect(sheet.rows.first.worth, lessThan(0));
+    // A second module claiming the loans as well is a boundary to mend.
+    final twice = valuedAsTheApp(
+      holdings: ledger.holdings,
+      market: ledger.marketData,
+    );
+    installModules(twice);
+    twice
+        .on(sheetClaims)
+        .add(
+          const OwnerId('other'),
+          SheetClaim(row: 'other', claims: (a) => a.tag == 'loan'),
+        );
+    final caught = await checkParity(
+      today: figuresOf(ledger),
+      reader: BookReader(b.store, b.journal.accounts, twice, homeCurrency),
+    );
+    expect(
+      (caught as OutOfParity).differences.map(
+        (d) => (d.figure, d.app, d.postings),
+      ),
+      [(Figure.sheetClaims, 0, 1)],
+    );
+  });
+
   test('the check can fail: one intent taken away and it says where', () async {
     final ledger = demoLedger();
     final b = await post(ledger);
@@ -143,8 +193,9 @@ void main() {
     // + 2 the opening balances of the bank and the cash, posted before
     //   every day (the card opens at 0)
     // + 2 months (September, October) + 0 stocks + 1 card's statement
-    // + 1 the book's worth + 1 the currencies' sum = 73.
-    expect(offered, 73);
+    // + 1 the book's worth + 1 the modules' balance-sheet rows
+    // + 1 the currencies' sum = 74.
+    expect(offered, 74);
     // A regression that stops offering pauses (or offers one per account
     // only) falls far below the count.
   });

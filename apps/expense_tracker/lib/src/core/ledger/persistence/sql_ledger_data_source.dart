@@ -22,6 +22,7 @@ import 'package:core/fx/dated_figures.dart'
     show DatedFigures, FoundOn, MarketHistory;
 import 'package:market/market_data.dart';
 import 'package:storage/storage.dart';
+import 'package:kernel/kernel.dart' show Contributions;
 
 import 'book_migrations.dart';
 import 'book_opening.dart';
@@ -109,7 +110,14 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     this._writeApartFrom = writeApartFrom,
     this.beforeUpgrade,
     this.keepsJournal = false,
+    this._modules = _noModules,
   }) : _gateway = market;
+
+  /// The modules' contributions the journal's reader takes in
+  /// ([JournalKeeper]); the app's composition root gives them.
+  final void Function(Contributions contributions) _modules;
+
+  static void _noModules(Contributions contributions) {}
 
   /// Whether the journal of postings is kept beside the records and
   /// checked against them (journal_keeper.dart): as the app opens its
@@ -127,6 +135,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     quiet: _quiet,
     postApart: _postJournalApart,
     fault: _journalFault,
+    modules: _modules,
   );
 
   /// Told when a page of the journal's tables is found damaged (D102):
