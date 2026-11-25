@@ -1,4 +1,20 @@
-part of 'recurring_page.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/problem_note.dart';
+import '../../../core/navigation/nav.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import '../../../core/messages/recurring_messages.dart' show pausedHint;
+import 'recurring_rows.dart';
+import 'recurring_page.dart';
 
 // 管理固定項目, 訂閱與固定支出 and 已暫停.
 
@@ -26,8 +42,9 @@ class _SubPage extends StatelessWidget {
 
 /// 管理固定項目: every active item as a square, 支出 then 收入, each
 /// side with how many and what they come to a month.
-class _Manage extends StatelessWidget {
-  const _Manage({
+class RecurringManage extends StatelessWidget {
+  const RecurringManage({
+    super.key,
     required this.ledger,
     required this.nav,
     required this.onEdit,
@@ -120,8 +137,9 @@ class _Manage extends StatelessWidget {
 /// 訂閱與固定支出: what the fixed spending comes to a year and a month,
 /// a bar of each item's share, and each item's year, month and share,
 /// the dearest first.
-class _Subscriptions extends StatelessWidget {
-  const _Subscriptions({
+class RecurringSubscriptions extends StatelessWidget {
+  const RecurringSubscriptions({
+    super.key,
     required this.ledger,
     required this.nav,
     required this.onEdit,
@@ -142,7 +160,7 @@ class _Subscriptions extends StatelessWidget {
         if (rows.isEmpty)
           const EmptyState(
             glyph: Glyph.subscription,
-            color: _recurringColor,
+            color: recurringColor,
             message: '還沒有固定支出',
           )
         else ...[
@@ -220,8 +238,9 @@ class _Subscriptions extends StatelessWidget {
 }
 
 /// 已暫停: what pausing means, then each paused item in grey with 恢復.
-class _Paused extends StatelessWidget {
-  const _Paused({
+class RecurringPaused extends StatelessWidget {
+  const RecurringPaused({
+    super.key,
     required this.ledger,
     required this.nav,
     required this.onEdit,
@@ -258,7 +277,7 @@ class _Paused extends StatelessWidget {
             if (paused.isEmpty)
               const EmptyState(
                 glyph: Glyph.cycleCalendar,
-                color: _recurringColor,
+                color: recurringColor,
                 message: '沒有暫停的項目',
               )
             else

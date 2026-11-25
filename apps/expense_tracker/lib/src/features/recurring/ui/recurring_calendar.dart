@@ -1,11 +1,34 @@
-part of 'recurring_page.dart';
+import 'package:core/time/utc_days.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/entry_tile.dart';
+import '../../../core/widgets/problem_note.dart';
+import '../model/recurring_schedule.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/month_grid.dart';
+import '../../../core/design_system/motion.dart';
+import '../../../core/formatting/words.dart';
+import 'recurring_rows.dart';
+
+/// The grey of a day with several items, or with all of them booked.
+const _busyDay = AppColors.surface;
 
 // The month as a calendar and the items of the day chosen.
 
 /// The month as a white calendar: day numbers on one line, a fixed slot
 /// under each for its mark, dots or tick, and 到期 under a day due.
-class _Calendar extends StatelessWidget {
-  const _Calendar({
+class RecurringCalendar extends StatelessWidget {
+  const RecurringCalendar({
+    super.key,
     required this.ledger,
     required this.year,
     required this.month,
@@ -262,8 +285,9 @@ class _Calendar extends StatelessWidget {
 
 /// The chosen day: its date and how far off, then its items as cards
 /// (side by side to slide through when several), or a line to add one.
-class _DayItems extends StatefulWidget {
-  const _DayItems({
+class RecurringDayItems extends StatefulWidget {
+  const RecurringDayItems({
+    super.key,
     required this.ledger,
     required this.day,
     required this.items,
@@ -284,10 +308,10 @@ class _DayItems extends StatefulWidget {
   final VoidCallback onAdd;
 
   @override
-  State<_DayItems> createState() => _DayItemsState();
+  State<RecurringDayItems> createState() => _DayItemsState();
 }
 
-class _DayItemsState extends State<_DayItems> {
+class _DayItemsState extends State<RecurringDayItems> {
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
@@ -508,8 +532,13 @@ class _DayItemsState extends State<_DayItems> {
 }
 
 /// A small grey cell along the bottom: a label over a figure.
-class _Cell extends StatelessWidget {
-  const _Cell({required this.label, required this.value, this.onTap});
+class RecurringFigureCell extends StatelessWidget {
+  const RecurringFigureCell({
+    super.key,
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
 
   final String label;
   final String value;
