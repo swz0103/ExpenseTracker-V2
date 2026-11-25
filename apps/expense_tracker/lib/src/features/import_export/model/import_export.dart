@@ -239,32 +239,6 @@ List<String> _row(AccountReader accounts, Entry e) {
   return [for (final column in ExchangeColumn.values) cell(column)];
 }
 
-/// The rows of [text] read as CSV, a leading byte order mark and blank
-/// lines left out, a quote left open read to the end, as a spreadsheet
-/// reads it; words after a closing quote throw [CsvFormatException]. Not
-/// what an import reads: [importCsv] refuses a quote left open, the whole
-/// file, rather than run the rest of it into one cell.
-///
-/// Read by the tests that pin how a spreadsheet's CSV is read (the
-/// baseline among them); the app imports with [importCsvApart].
-@visibleForTesting
-List<List<String>> parseCsv(String text) {
-  try {
-    return readCsv(text);
-  } on CsvFormatException catch (error) {
-    if (!error.unclosed) rethrow;
-    // An unclosed quote is closed at the end of the text and read again.
-    return readCsv('$text"');
-  }
-}
-
-/// The day [text] writes ([readImportDay], decision D93), as a UTC
-/// midnight; null when it is not taken, [readImportDay] saying why.
-/// For the tests (the baseline among them): an import reads its days
-/// with [readImportDay].
-@visibleForTesting
-DateTime? readDay(String text) => _utcDay(readImportDay(text));
-
 /// The day [read], as a UTC midnight; null when it was refused.
 DateTime? _utcDay(ImportDay read) => switch (read) {
   DayRead(date: BusinessDate(:final year, :final month, :final day)) =>

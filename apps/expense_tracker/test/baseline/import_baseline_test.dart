@@ -20,14 +20,21 @@ Ledger book([List<Entry> entries = const []]) => ledgerOf(
   entries: entries,
 );
 
+/// The day [text] writes by the import's one rule (D93), as a UTC
+/// midnight; null when it is refused.
+DateTime? readDay(String text) => switch (readImportDay(text)) {
+  DayRead(:final date) => day(date.year, date.month, date.day),
+  DayRefused() => null,
+};
+
 Import read(Ledger ledger, String text) =>
     importCsv(importBookOf(ledger), text, fallback: 'bank');
 
 void main() {
   group('byte order mark and line ends', () {
     test('a file starting with a BOM reads like one without', () {
-      final plain = parseCsv('日期,備註\n2026-03-05,午餐\n');
-      final bom = parseCsv('\u{FEFF}日期,備註\n2026-03-05,午餐\n');
+      final plain = readCsv('日期,備註\n2026-03-05,午餐\n');
+      final bom = readCsv('\u{FEFF}日期,備註\n2026-03-05,午餐\n');
       expect(bom, [
         ['日期', '備註'],
         ['2026-03-05', '午餐'],
@@ -44,11 +51,11 @@ void main() {
       expect(found.skipped, 0);
     });
     test('CRLF and LF lines read the same', () {
-      expect(parseCsv('a,b\r\n1,2\r\n'), [
+      expect(readCsv('a,b\r\n1,2\r\n'), [
         ['a', 'b'],
         ['1', '2'],
       ]);
-      expect(parseCsv('a,b\n1,2\n'), parseCsv('a,b\r\n1,2\r\n'));
+      expect(readCsv('a,b\n1,2\n'), readCsv('a,b\r\n1,2\r\n'));
     });
     test('written files start with a BOM and end lines with CRLF', () {
       expect(
@@ -115,15 +122,15 @@ void main() {
 
   group('formula-injection guard, reading', () {
     test('the guard quote is taken off again', () {
-      expect(parseCsv("'=SUM(A1)\n"), [
+      expect(readCsv("'=SUM(A1)\n"), [
         ['=SUM(A1)'],
       ]);
-      expect(parseCsv("''=x\n"), [
+      expect(readCsv("''=x\n"), [
         ["'=x"],
       ]);
     });
     test('an ordinary leading quote is kept as written', () {
-      expect(parseCsv("'hello\n"), [
+      expect(readCsv("'hello\n"), [
         ["'hello"],
       ]);
     });
@@ -230,12 +237,6 @@ void main() {
       final found = read(book(), '日期,金額\n2026-10-01,120\n2026-10-02,"12"3\n');
       expect(found.entries, isEmpty);
       expect(found.problems, ['第 3 行的引號看不懂，整個檔案沒有匯入']);
-    });
-    test('an unclosed quote is read to the end', () {
-      expect(parseCsv('日期,備註\n2026-03-05,"沒有收尾'), [
-        ['日期', '備註'],
-        ['2026-03-05', '沒有收尾'],
-      ]);
     });
     test('a sale of shares not held is left out, with the reason', () {
       final found = read(

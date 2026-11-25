@@ -1,5 +1,4 @@
 import 'package:core/constants/category_colors.dart';
-import 'package:domain/data_exchange.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/features/import_export/model/import_export.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
@@ -10,24 +9,6 @@ import 'package:expense_tracker/src/features/import_export/ui/import_page.dart'
 import '../../../support/seeded_book.dart' show emptyBook;
 
 void main() {
-  test('CSV fields are quoted and read back', () {
-    final fields = ['午餐', 'a,b', '說"好"', '兩\n行'];
-    expect(parseCsv(writeCsv([fields])), [fields]);
-    final rows = parseCsv('\u{FEFF}日期,備註\r\n2026-03-05,"a,b ""c"""\n\n');
-    expect(rows, [
-      ['日期', '備註'],
-      ['2026-03-05', 'a,b "c"'],
-    ]);
-    expect(parseCsv('日期,備註\n2026-03-05,"沒有收尾'), [
-      ['日期', '備註'],
-      ['2026-03-05', '沒有收尾'],
-    ]);
-    expect(readDay('2026/3/5'), DateTime.utc(2026, 3, 5));
-    expect(readDay('20260305'), DateTime.utc(2026, 3, 5));
-    expect(readDay('1150305'), DateTime.utc(2026, 3, 5));
-    expect(readDay('2026-02-30'), isNull);
-  });
-
   test('a file with words after a closing quote is left out, naming the '
       'line', () {
     final result = importCsv(
