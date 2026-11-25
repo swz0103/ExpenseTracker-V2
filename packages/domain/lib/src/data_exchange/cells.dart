@@ -98,7 +98,14 @@ final class TagsCell extends CellCodec {
       if (t.trim().isNotEmpty) t.trim(),
   ];
 
-  String write(List<String> tags) => tags.join('、');
+  /// [tags] joined by 、; a single tag holding a space gets a 、 after it,
+  /// so it is read back whole, not split at the space.
+  String write(List<String> tags) {
+    final joined = tags.join('、');
+    return tags.length == 1 && _space.hasMatch(joined) ? '$joined、' : joined;
+  }
+
+  static final _space = RegExp(r'\s');
 }
 
 /// What a category cell says: one category, or a split.

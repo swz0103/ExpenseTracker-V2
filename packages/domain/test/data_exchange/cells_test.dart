@@ -66,6 +66,9 @@ void main() {
   test('tags: split at 、 or ; when there, else at spaces', () {
     const cell = TagsCell();
     expect(cell.write(['家用', '早餐']), '家用、早餐');
+    // One tag with a space is read back whole.
+    expect(cell.write(['出差 台北']), '出差 台北、');
+    expect(cell.read('出差 台北、'), ['出差 台北']);
     expect(cell.read('家用、早餐'), ['家用', '早餐']);
     expect(cell.read('出差 台北;家用'), ['出差 台北', '家用']);
     expect(cell.read('家用 早餐'), ['家用', '早餐']);
