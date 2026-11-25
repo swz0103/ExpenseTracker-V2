@@ -1,10 +1,30 @@
-part of 'composer.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../model/compose_form.dart';
+import '../../../core/messages/installment_messages.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../core/design_system/spacing.dart';
+import 'compose_cards.dart';
+import 'extras_fields.dart';
+import 'investment_fields.dart';
+import 'lend_fields.dart';
+import 'form_rows.dart';
+import 'note_field.dart';
+import '../../../core/formatting/words.dart';
+import 'composer_state.dart';
+import 'composer_pickers.dart';
+import 'composer_amount.dart';
 
 /// The form's fields, one builder each, by kind of entry. Each kind's
 /// list starts at the amount (a trade's at what is traded).
-extension _Fields on _ComposerState {
+extension ComposerFields on ComposerState {
   /// Two cards side by side, such as the account and the day.
-  Widget _pair(Widget left, Widget right) => Padding(
+  Widget pairCards(Widget left, Widget right) => Padding(
     padding: const EdgeInsets.only(top: Space.s3),
     child: Row(
       children: [
@@ -15,54 +35,60 @@ extension _Fields on _ComposerState {
     ),
   );
 
-  Widget _accountPick(String label) {
-    final account = _ledger.account(_f.account);
+  Widget accountCard(String label) {
+    final account = composerLedger.account(form.account);
     return PickCard(
       icon: accountIcon(account),
       label: label,
       value: account.name,
-      onTap: _viewing
+      onTap: viewing
           ? null
           : () async {
-              final picked = await _pickAccount(label, _f.account);
+              final picked = await chooseAccount(label, form.account);
               if (picked == null) return;
-              _set(() {
-                _f.account = picked;
-                _f.home = null;
+              update(() {
+                form.account = picked;
+                form.home = null;
               });
             },
     );
   }
 
-  Widget _datePick() {
-    final day = formatMd(_f.date);
+  Widget dateCard() {
+    final day = formatMd(form.date);
     return PickCard(
       icon: Glyph.calendar,
       label: Words.date,
-      value: _f.date == _ledger.today ? '今天 $day' : '$day ${formatE(_f.date)}',
-      onTap: _viewing ? null : _pickDate,
+      value: form.date == composerLedger.today
+          ? '今天 $day'
+          : '$day ${formatE(form.date)}',
+      onTap: viewing ? null : chooseDate,
     );
   }
 
   /// The note, folded to one line until opened or written in.
   Widget _noteRow() => NoteRow(
-    controller: _note,
-    viewing: _viewing,
-    open: _f.more,
-    onOpen: () => _set(() => _f.more = true),
+    controller: note,
+    viewing: viewing,
+    open: form.more,
+    onOpen: () => update(() => form.more = true),
   );
 
-  List<Widget> _fields() {
-    if (_f.refunded != null) {
-      return [_hero(), _pair(_accountPick('退回到'), _datePick()), _noteRow()];
+  List<Widget> kindFields() {
+    if (form.refunded != null) {
+      return [
+        amountHero(),
+        pairCards(accountCard('退回到'), dateCard()),
+        _noteRow(),
+      ];
     }
-    switch (_f.mode) {
+    switch (form.mode) {
       case ComposeMode.expense || ComposeMode.income:
-        final expense = _f.mode == ComposeMode.expense;
-        final parts = _f.parts;
+        final expense = form.mode == ComposeMode.expense;
+        final parts = form.parts;
         return [
-          _hero(
-            under: _f.lending
+          amountHero(
+            under: form.lending
                 ? LendFields(this).row()
                 : parts == null
                 ? UsualFields(this).spending()
@@ -72,56 +98,58 @@ extension _Fields on _ComposerState {
             AllocationBar(
               parts: [
                 for (final (name, value) in parts)
-                  (_ledger.category(name), value),
+                  (composerLedger.category(name), value),
               ],
-              onTap: _editPart,
+              onTap: editPart,
             ),
           CategoryFields(this).row(expense: expense),
-          _pair(_accountPick(expense ? '付款帳戶' : '收款帳戶'), _datePick()),
-          if (_f.foreign) CurrencyFields(this).home(),
-          if (_f.onCard)
+          pairCards(accountCard(expense ? '付款帳戶' : '收款帳戶'), dateCard()),
+          if (form.foreign) CurrencyFields(this).home(),
+          if (form.onCard)
             Padding(
               padding: const EdgeInsets.only(top: Space.s2),
               child: FigureCard(
-                color: _color,
+                color: color,
                 icon: Glyph.card,
                 label: '分期付款',
-                value: _f.installments < 2
+                value: form.installments < 2
                     ? '不分期'
-                    : installmentPlan(_f.amount, _f.installments),
+                    : installmentPlan(form.amount, form.installments),
                 size: TextSize.body,
-                onTap: _pickInstallments,
+                onTap: chooseInstallments,
               ),
             ),
           ExtrasFields(this).build(expense: expense),
         ];
       case ComposeMode.transfer:
         return [
-          _hero(under: UsualFields(this).transfers()),
+          amountHero(under: UsualFields(this).transfers()),
           _ends(),
-          if (_f.crossing) CurrencyFields(this).received(),
-          if (!_f.takesFee)
+          if (form.crossing) CurrencyFields(this).received(),
+          if (!form.takesFee)
             Padding(
               padding: const EdgeInsets.only(top: Space.s3),
-              child: _datePick(),
+              child: dateCard(),
             )
           else
-            _pair(
-              _f.takesFee
+            pairCards(
+              form.takesFee
                   ? PickCard(
                       icon: Glyph.coins,
                       label: Words.fee,
-                      value: '手續費 ${groupDigits(_f.fee)}',
-                      valueColor: _f.fee > 0
+                      value: '手續費 ${groupDigits(form.fee)}',
+                      valueColor: form.fee > 0
                           ? AppColors.negative
                           : AppColors.ink,
                       onTap: () async {
-                        final value = await _ask(Words.fee, _f.fee);
-                        if (value != null) _set(() => _f.fee = value);
+                        final value = await askAmount(Words.fee, form.fee);
+                        if (value != null) {
+                          update(() => form.fee = value);
+                        }
                       },
                     )
                   : const SizedBox.shrink(),
-              _datePick(),
+              dateCard(),
             ),
           _noteRow(),
         ];
@@ -135,20 +163,20 @@ extension _Fields on _ComposerState {
   /// The two accounts of a transfer side by side, each with what it will
   /// hold afterwards, and between them the arrow that turns them round.
   Widget _ends() => TransferEnds(
-    ledger: _ledger,
-    from: _ledger.account(_f.account),
-    to: _ledger.account(_f.to),
-    amount: _f.amount,
-    fromAfter: _f.fromAfter,
-    toAfter: _f.toAfter,
+    ledger: composerLedger,
+    from: composerLedger.account(form.account),
+    to: composerLedger.account(form.to),
+    amount: form.amount,
+    fromAfter: form.fromAfter,
+    toAfter: form.toAfter,
     onPickFrom: () async {
-      final picked = await _pickAccount('轉出帳戶', _f.account);
-      if (picked != null) _set(() => _f.setFrom(picked));
+      final picked = await chooseAccount('轉出帳戶', form.account);
+      if (picked != null) update(() => form.setFrom(picked));
     },
     onPickTo: () async {
-      final picked = await _pickAccount('轉入帳戶', _f.to);
-      if (picked != null) _set(() => _f.setTo(picked));
+      final picked = await chooseAccount('轉入帳戶', form.to);
+      if (picked != null) update(() => form.setTo(picked));
     },
-    onSwap: () => _set(_f.swapEnds),
+    onSwap: () => update(form.swapEnds),
   );
 }

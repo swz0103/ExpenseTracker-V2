@@ -1,10 +1,37 @@
-part of 'composer.dart';
+import 'package:core/constants/category_colors.dart';
 
-class _ComposerState extends State<Composer>
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../model/compose_draft.dart';
+import '../model/compose_form.dart';
+import '../../../core/messages/problem_messages.dart';
+import '../model/receipt_photos.dart';
+import '../../../core/design_system/spacing.dart';
+import 'compose_widgets.dart';
+import 'entry_view_card.dart';
+import 'compose_actions.dart';
+import 'fill_layout.dart';
+import 'form_frame.dart';
+import 'form_rows.dart';
+import '../../../core/formatting/words.dart';
+import 'composer.dart';
+import 'composer_fields.dart';
+import 'composer_lend.dart';
+import 'composer_extras.dart';
+import 'composer_pickers.dart';
+import 'composer_amount.dart';
+
+class ComposerState extends State<Composer>
     with WidgetsBindingObserver
     implements ComposeActions {
   /// The fields and their rules.
-  late final ComposeForm _f = ComposeForm(
+  @override
+  late final ComposeForm form = ComposeForm(
     widget.ledger,
     type: widget.type,
     editing: widget.entry,
@@ -13,17 +40,19 @@ class _ComposerState extends State<Composer>
     brokerDiscount: widget.brokerDiscount,
   );
 
-  final _note = TextEditingController();
-  String? _problem;
+  @override
+  final note = TextEditingController();
+  String? shownProblem;
 
   /// An entry opened from a list is shown first; 編輯 unlocks it.
-  late var _viewing = widget.entry != null;
+  @override
+  late var viewing = widget.entry != null;
 
-  Ledger get _ledger => widget.ledger;
+  Ledger get composerLedger => widget.ledger;
 
   /// This ledger's forms put aside, by tab.
   ComposeDrafts get _drafts =>
-      ComposeDrafts(_ledger.drafts, _ledger.attachmentCommands);
+      ComposeDrafts(composerLedger.drafts, composerLedger.attachmentCommands);
 
   /// The form was put aside as the app went to the background, in case
   /// the phone closes it there; taken back when the app returns.
@@ -33,21 +62,21 @@ class _ComposerState extends State<Composer>
   String? _before;
 
   /// A choice open in place of the form, if any.
-  _Page? _page;
+  ComposerPage? _page;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_takeLeftover());
-    if (widget.entry == null && widget.draft == null && _f.refunded == null) {
-      final draft = _drafts[_f.mode];
+    unawaited(takeLeftoverPhoto());
+    if (widget.entry == null && widget.draft == null && form.refunded == null) {
+      final draft = _drafts[form.mode];
       if (draft != null) _takeDraft(draft);
     }
-    _note
-      ..text = _f.note
-      ..addListener(() => _f.note = _note.text);
-    _opened = formPrint(_f);
+    note
+      ..text = form.note
+      ..addListener(() => form.note = note.text);
+    _opened = formPrint(form);
   }
 
   /// The form as it opened (a draft taken back included), to ask before
@@ -55,24 +84,24 @@ class _ComposerState extends State<Composer>
   late final String _opened;
 
   /// The form differs from how it opened; an entry only looked at never.
-  bool get _changed => !_viewing && formPrint(_f) != _opened;
+  bool get _changed => !viewing && formPrint(form) != _opened;
 
   /// Fills the form from [draft], and what it paid for others.
   void _takeDraft(ComposeDraft draft) {
-    _f.restore(draft.entry, draft.receipt);
-    _f.date = draft.dateOn(_ledger.today);
-    if (draft.lent != null && _f.mode == ComposeMode.expense) {
-      _f.lent = draft.lent;
+    form.restore(draft.entry, draft.receipt);
+    form.date = draft.dateOn(composerLedger.today);
+    if (draft.lent != null && form.mode == ComposeMode.expense) {
+      form.lent = draft.lent;
     }
   }
 
   /// The form as it stands, to put aside.
   ComposeDraft get _asDraft =>
-      ComposeDraft(_f.build(), _f.receipt, _f.lent, _ledger.today);
+      ComposeDraft(form.build(), form.receipt, form.lent, composerLedger.today);
 
   /// Shows the form's note again after the form filled it afresh.
   void _showNote() {
-    if (_note.text != _f.note) _note.text = _f.note;
+    if (note.text != form.note) note.text = form.note;
   }
 
   @override
@@ -83,97 +112,101 @@ class _ComposerState extends State<Composer>
     final page = _page;
     _page = null;
     page?.close();
-    _note.dispose();
+    note.dispose();
     super.dispose();
   }
 
   /// Starts the current tab afresh.
   void _fresh() {
-    _f.fresh();
-    _problem = null;
+    form.fresh();
+    shownProblem = null;
     _showNote();
   }
 
   /// 代墊 from the expense tab, 對方還錢 from the income tab.
-  void _lend({required bool back}) {
-    _set(() {
-      _f.lend(back: back);
-      if (back) _f.payAll();
+  @override
+  void lend({required bool back}) {
+    update(() {
+      form.lend(back: back);
+      if (back) form.payAll();
     });
-    if (_f.people.isEmpty) unawaited(_pickPerson());
+    if (form.people.isEmpty) unawaited(choosePerson());
   }
 
   /// Back from 代墊 or 對方還錢 to a plain entry of the same tab.
-  void _unlend() => _set(() {
-    _f.mode = _f.tab;
-    _f.paying = {};
+  @override
+  void unlend() => update(() {
+    form.mode = form.tab;
+    form.paying = {};
   });
 
   /// Opens a choice inside the sheet in place of the form, titled
   /// [title]; [build] is given what to call with the value chosen. The
   /// arrow back or the phone's back returns to the form with none.
-  Future<T?> _open<T>(
+  Future<T?> openPage<T>(
     String title,
     Widget Function(ValueChanged<T> done) build,
   ) {
     _page?.close();
     final result = Completer<T?>();
-    late final _Page page;
+    late final ComposerPage page;
     void finish(T? value) {
       if (result.isCompleted) return;
       result.complete(value);
-      if (identical(_page, page)) _set(() => _page = null);
+      if (identical(_page, page)) update(() => _page = null);
     }
 
-    page = _Page(title, build(finish), () => finish(null));
-    _set(() => _page = page);
+    page = ComposerPage(title, build(finish), () => finish(null));
+    update(() => _page = page);
     return result.future;
   }
 
   /// A category picked ([ComposeForm.pickCategory] says what else moves).
-  void _pickCategoryName(String name) => _set(() => _f.pickCategory(name));
+  @override
+  void pickCategoryName(String name) => update(() => form.pickCategory(name));
 
   /// Moves to another tab: the fields start afresh, or as that tab's
   /// draft left them. A receipt photo already chosen stays, unless the
   /// draft brings its own: the photo is of what was bought or paid,
   /// whichever kind of entry it turns out to be.
   void _switch(ComposeMode mode) {
-    if (mode == _f.mode) return;
+    if (mode == form.mode) return;
     setState(() {
-      _f.switchTo(mode);
+      form.switchTo(mode);
       final draft = _drafts[mode];
       if (draft != null && widget.entry == null) {
-        final photo = _f.receipt;
+        final photo = form.receipt;
         _takeDraft(draft);
-        _f.receipt ??= photo;
+        form.receipt ??= photo;
       }
-      _problem = null;
+      shownProblem = null;
       _showNote();
     });
   }
 
-  Color get _color {
-    if (_f.refunded != null) return AppColors.positive;
-    return _f.tab.color;
+  @override
+  Color get color {
+    if (form.refunded != null) return AppColors.positive;
+    return form.tab.color;
   }
 
   /// What the tabs do not say: an entry being changed, money paid for
   /// someone or paid back, a refund. Shown as small tags under the top
   /// row; a new plain entry needs none.
   List<(String, Color)> get _marks => [
-    if (_f.refunded != null) (Words.refund, AppColors.positive),
-    if (widget.entry != null && !_viewing) ('編輯中', AppColors.accent),
+    if (form.refunded != null) (Words.refund, AppColors.positive),
+    if (widget.entry != null && !viewing) ('編輯中', AppColors.accent),
   ];
 
   String get _action {
     if (widget.entry != null) return '儲存修改';
-    if (_f.refunded != null) return '記下${Words.refund}';
-    if (_f.lending && _f.own <= 0) return '記下代墊';
-    return switch (_f.type) {
+    if (form.refunded != null) return '記下${Words.refund}';
+    if (form.lending && form.own <= 0) return '記下代墊';
+    return switch (form.type) {
       EntryType.expense => '記下支出',
       EntryType.income => '記下收入',
-      EntryType.transfer when _f.mode == ComposeMode.lend =>
-        _f.back ? '記下還款' : '記下代墊',
+      EntryType.transfer when form.mode == ComposeMode.lend =>
+        form.back ? '記下還款' : '記下代墊',
       EntryType.transfer => '確認轉帳',
       EntryType.buy => '記下買進',
       EntryType.sell => '記下賣出',
@@ -181,10 +214,11 @@ class _ComposerState extends State<Composer>
     };
   }
 
-  Future<String?> _newCategory() async {
-    final income = _f.tab == ComposeMode.income;
-    final count = _ledger.categories.all.length;
-    final made = await showCategoryEditor(
+  @override
+  Future<String?> newCategory() async {
+    final income = form.tab == ComposeMode.income;
+    final count = composerLedger.categories.all.length;
+    final made = await widget.categoryEditor(
       context,
       title: income ? '新增收入分類' : '新增支出分類',
       initial: Category(
@@ -194,37 +228,41 @@ class _ComposerState extends State<Composer>
         income: income,
       ),
       colors: AppColors.categoryColors,
-      ledger: _ledger,
+      ledger: composerLedger,
     );
     if (made == null) return null;
-    _ledger.categoryCommands.addCategory(made);
+    composerLedger.categoryCommands.addCategory(made);
     return made.name;
   }
 
-  void _split() => setState(_f.toggleSplit);
+  @override
+  void split() => setState(form.toggleSplit);
 
-  void _evenly() => setState(_f.evenly);
+  @override
+  void evenly() => setState(form.evenly);
 
   /// A category from the whole list while splitting: added as a part,
   /// unless it is one already.
-  Future<void> _addPart() async {
-    final name = await _pickCategory(null);
+  @override
+  Future<void> addPart() async {
+    final name = await chooseCategory(null);
     if (name == null) return;
-    final parts = _f.parts ?? const [];
+    final parts = form.parts ?? const [];
     if (parts.any((p) => p.$1 == name)) return;
-    setState(() => _f.addPart(name));
+    setState(() => form.addPart(name));
   }
 
-  Future<void> _editPart(int index) async {
-    final parts = _f.parts;
+  Future<void> editPart(int index) async {
+    final parts = form.parts;
     if (parts == null) return;
     final (name, value) = parts[index];
-    final amount = await _ask(name, value);
+    final amount = await askAmount(name, value);
     if (amount == null) return;
-    setState(() => _f.setPart(index, amount));
+    setState(() => form.setPart(index, amount));
   }
 
-  void _changeTrade(EntryType trade) => setState(() => _f.changeTrade(trade));
+  @override
+  void changeTrade(EntryType trade) => setState(() => form.changeTrade(trade));
 
   /// A new entry written part way is kept as the app leaves, so a phone
   /// short of memory closing the app loses nothing: it is there, with
@@ -232,14 +270,18 @@ class _ComposerState extends State<Composer>
   /// away again, unless it was put aside with 暫存 before.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (widget.entry != null || _viewing || _f.refunded != null) return;
+    if (widget.entry != null || viewing || form.refunded != null) {
+      return;
+    }
     switch (state) {
       case AppLifecycleState.paused || AppLifecycleState.hidden:
-        if (_keptAway || (_f.amount == 0 && _f.receipt == null)) return;
+        if (_keptAway || (form.amount == 0 && form.receipt == null)) {
+          return;
+        }
         try {
           final draft = _asDraft;
-          _before = _ledger.drafts.of(_f.tab.name);
-          _drafts[_f.tab] = draft;
+          _before = composerLedger.drafts.of(form.tab.name);
+          _drafts[form.tab] = draft;
           _keptAway = true;
         } on Object {
           // A form that cannot be built yet is not worth keeping.
@@ -247,41 +289,41 @@ class _ComposerState extends State<Composer>
       case AppLifecycleState.resumed:
         if (!_keptAway) return;
         _keptAway = false;
-        _ledger.attachmentCommands.setDraft(_f.tab.name, _before);
+        composerLedger.attachmentCommands.setDraft(form.tab.name, _before);
       default:
         break;
     }
   }
 
   void _submit() {
-    final problem = _f.problem;
+    final problem = form.problem;
     if (problem != null) {
-      setState(() => _problem = problem);
+      setState(() => shownProblem = problem);
       return;
     }
     // Paid partly for others, more than one entry, written as one, with
     // the receipt photo, in place of what was opened.
-    final made = _f.buildAll();
+    final made = form.buildAll();
     final entry = made.first;
     try {
-      _ledger.entryCommands.save(
+      composerLedger.entryCommands.save(
         made,
-        replacing: _f.openedIds,
-        receipt: _f.receipt,
+        replacing: form.openedIds,
+        receipt: form.receipt,
         receiptOn: entry.id,
       );
     } on LedgerProblem catch (error) {
       // Said to the person below the form, as anywhere else.
-      setState(() => _problem = describeProblem(error));
+      setState(() => shownProblem = describeProblem(error));
       return;
     }
-    _drafts.remove(_f.tab);
+    _drafts.remove(form.tab);
     EditGuard.close(context, (ComposeOutcome.saved, entry));
   }
 
   void _putAside() {
     _keptAway = false;
-    _drafts[_f.tab] = _asDraft;
+    _drafts[form.tab] = _asDraft;
     EditGuard.close(context);
   }
 
@@ -295,7 +337,7 @@ class _ComposerState extends State<Composer>
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: _note,
+    listenable: note,
     builder: (context, _) => EditGuard(changed: _changed, child: _body()),
   );
 
@@ -308,15 +350,15 @@ class _ComposerState extends State<Composer>
       );
     }
     final entry = widget.entry;
-    final refunded = _f.refunded;
+    final refunded = form.refunded;
     final canRefund =
-        _viewing &&
+        viewing &&
         entry != null &&
         entry.type == EntryType.expense &&
-        _ledger.entryQueryService.refundable(entry) > 0;
+        composerLedger.entryQueryService.refundable(entry) > 0;
     // An entry looked at shows its own card in place of the form, until
     // 編輯.
-    final looked = _viewing && entry != null && refunded == null;
+    final looked = viewing && entry != null && refunded == null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -331,12 +373,12 @@ class _ComposerState extends State<Composer>
                 0,
               ),
               child: EntryView(
-                ledger: _ledger,
+                ledger: composerLedger,
                 entry: entry,
-                mode: _f.mode,
+                mode: form.mode,
                 marks: _marks,
                 photos: widget.photos,
-                receipt: _f.receipt,
+                receipt: form.receipt,
               ),
             ),
           )
@@ -351,10 +393,10 @@ class _ComposerState extends State<Composer>
           onRefund: canRefund
               ? () => EditGuard.close(context, (ComposeOutcome.refund, entry))
               : null,
-          action: _viewing ? Words.edit : _action,
-          actionColor: _viewing ? AppColors.accent : _color,
-          onAction: _viewing ? () => setState(() => _viewing = false) : _submit,
-          cancel: !_viewing,
+          action: viewing ? Words.edit : _action,
+          actionColor: viewing ? AppColors.accent : color,
+          onAction: viewing ? () => setState(() => viewing = false) : _submit,
+          cancel: !viewing,
         ),
       ],
     );
@@ -363,14 +405,14 @@ class _ComposerState extends State<Composer>
   /// The form: the top, the amount pinned under it, and the fields under
   /// that, which scroll, cut off at the amount's foot.
   List<Widget> _form(Entry? entry) {
-    final all = _fields();
+    final all = kindFields();
     final hero = switch (all) {
       [final AmountHero first, ...] => first,
       _ => null,
     };
-    final problem = _problem;
+    final problem = shownProblem;
     // Said before saving; the entry may still be kept.
-    final warning = _viewing ? null : _f.warning;
+    final warning = viewing ? null : form.warning;
     final below = [
       if (hero?.under case final under?) ...[
         const SizedBox(height: Space.s1),
@@ -398,7 +440,7 @@ class _ComposerState extends State<Composer>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: Space.s5),
           child: IgnorePointer(
-            ignoring: _viewing,
+            ignoring: viewing,
             child: AmountHero(
               label: hero.label,
               unit: hero.unit,
@@ -420,7 +462,7 @@ class _ComposerState extends State<Composer>
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, 0),
             child: IgnorePointer(
-              ignoring: _viewing,
+              ignoring: viewing,
               child: FillLayout(
                 // Each tab takes only the room its fields need: kept at
                 // the tallest one's height, a short tab after 投資 left a
@@ -440,7 +482,7 @@ class _ComposerState extends State<Composer>
   /// The top, which stays put: the kind of entry, or what is being
   /// changed, and the marks on it.
   Widget _top(Entry? entry) {
-    final refunded = _f.refunded;
+    final refunded = form.refunded;
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, 0),
       child: Column(
@@ -449,19 +491,19 @@ class _ComposerState extends State<Composer>
           if (refunded != null)
             Padding(
               padding: const EdgeInsets.only(right: Space.s2, bottom: Space.s1),
-              child: OriginalEntryTile(ledger: _ledger, entry: refunded),
+              child: OriginalEntryTile(ledger: composerLedger, entry: refunded),
             )
-          else if (_viewing)
-            Center(child: Pill(_f.mode.label, color: _f.mode.color))
+          else if (viewing)
+            Center(child: Pill(form.mode.label, color: form.mode.color))
           else if (entry == null)
             EntryTypeTabs(
               labels: [for (final m in ComposeForm.tabs) m.label],
-              selected: ComposeForm.tabs.indexOf(_f.tab),
-              color: _f.tab.color,
+              selected: ComposeForm.tabs.indexOf(form.tab),
+              color: form.tab.color,
               onChanged: (i) => _switch(ComposeForm.tabs[i]),
               onReset: () => setState(() {
-                _drafts.remove(_f.tab);
-                _f.mode = _f.tab;
+                _drafts.remove(form.tab);
+                form.mode = form.tab;
                 _fresh();
               }),
             ),
@@ -484,109 +526,72 @@ class _ComposerState extends State<Composer>
 
   /// A word on the scan in the form itself: a note at the foot of the
   /// screen would sit under the sheet, out of sight.
-  void _say(String words) => _set(() => _problem = words);
+  void sayNote(String words) => update(() => shownProblem = words);
 
-  void _set(VoidCallback change) {
+  @override
+  void update(VoidCallback change) {
     if (mounted) setState(change);
   }
 
   // What the sections of the form ask of it (ComposeActions).
 
   @override
-  ComposeForm get form => _f;
-
-  @override
-  bool get viewing => _viewing;
-
-  @override
-  Color get color => _color;
-
-  @override
-  TextEditingController get note => _note;
-
-  @override
-  void update(VoidCallback change) => _set(change);
-
-  @override
   Future<int?> ask(String title, int initial, {String unit = homeCode}) =>
-      _ask(title, initial, unit: unit);
+      askAmount(title, initial, unit: unit);
 
   @override
-  Future<void> calculate() => _calculate();
+  Future<void> calculate() => typeAmount();
 
   @override
-  Future<void> pickHolding() => _pickHolding();
+  Future<void> pickHolding() => chooseHolding();
 
   @override
-  void changeTrade(EntryType trade) => _changeTrade(trade);
+  Widget hero({Widget? under, String? unit}) =>
+      amountHero(under: under, unit: unit);
 
   @override
-  Widget hero({Widget? under, String? unit}) => _hero(under: under, unit: unit);
+  Widget pair(Widget left, Widget right) => pairCards(left, right);
 
   @override
-  Widget pair(Widget left, Widget right) => _pair(left, right);
+  Widget accountPick(String label) => accountCard(label);
 
   @override
-  Widget accountPick(String label) => _accountPick(label);
-
-  @override
-  Widget datePick() => _datePick();
+  Widget datePick() => dateCard();
 
   @override
   ReceiptPhotos? get photos => widget.photos;
 
   @override
-  Future<void> pickMerchant() => _pickMerchant();
+  Future<void> pickMerchant() => chooseMerchant();
 
   @override
-  Future<void> pickTags() => _pickTags();
+  Future<void> pickTags() => chooseTags();
 
   @override
-  Widget receiptSquare(ReceiptPhotos photos) => _receiptSquare(photos);
+  Widget receiptSquare(ReceiptPhotos photos) => receiptBeside(photos);
 
   @override
   bool get editing => widget.entry != null;
 
   @override
-  Future<void> pickPerson() => _pickPerson();
+  Future<void> pickPerson() => choosePerson();
 
   @override
-  Future<void> pickLent() => _pickLent();
-
-  @override
-  void unlend() => _unlend();
+  Future<void> pickLent() => chooseLent();
 
   @override
   Widget categories({required bool expense}) =>
       CategoryFields(this).row(expense: expense);
 
   @override
-  bool get fresh => !_viewing && widget.entry == null && widget.draft == null;
+  bool get fresh => !viewing && widget.entry == null && widget.draft == null;
 
   @override
   bool get canScan => widget.scan != null;
 
   @override
-  void lend({required bool back}) => _lend(back: back);
+  Future<void> scanInvoice() => scanPaperInvoice();
 
   @override
-  Future<void> scanInvoice() => _scanInvoice();
-
-  @override
-  Future<void> addPart() => _addPart();
-
-  @override
-  Future<String?> newCategory() => _newCategory();
-
-  @override
-  Future<String?> pickCategory(String? selected) => _pickCategory(selected);
-
-  @override
-  void pickCategoryName(String name) => _pickCategoryName(name);
-
-  @override
-  void split() => _split();
-
-  @override
-  void evenly() => _evenly();
+  Future<String?> pickCategory(String? selected) => chooseCategory(selected);
 }
