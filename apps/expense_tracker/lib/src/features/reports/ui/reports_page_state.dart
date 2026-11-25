@@ -1,6 +1,31 @@
-part of 'reports.dart';
+import 'dart:ui' as ui;
 
-class _ReportsPageState extends State<ReportsPage> {
+import 'package:flutter/material.dart';
+
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
+
+import '../../../core/charts/period_charts.dart';
+import '../../../../design_system/display/amount.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/entry_tile.dart';
+import 'compare_section.dart';
+import '../model/report.dart';
+import '../model/report_period.dart';
+import 'report_blocks.dart';
+import 'report_habits.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/diagnostics/error_log.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import '../../../core/messages/problem_messages.dart';
+import 'reports.dart';
+
+class ReportsPageState extends State<ReportsPage> {
   late var _period = ReportPeriod.of(ReportSpan.year, widget.ledger.today);
   int? _stretch;
 
@@ -56,7 +81,7 @@ class _ReportsPageState extends State<ReportsPage> {
     final kept = _report;
     if (kept != null && _reportFor == key) return kept;
     _reportFor = key;
-    return _report = _reportOf(ledger, _period);
+    return _report = reportOf(ledger, _period);
   }
 
   /// Moves to [period]; the stretch and category picked in the last one
@@ -199,7 +224,7 @@ class _ReportsPageState extends State<ReportsPage> {
         : buckets[selected];
     return switch (_tab) {
       0 => Sections([
-        ?_plannedRow(ledger, report),
+        ?reportPlannedRow(ledger, report),
         for (final w in _flow(
           report,
           buckets,
@@ -464,7 +489,15 @@ class _ReportsPageState extends State<ReportsPage> {
   List<Widget> _mix(Report report) {
     if (report.names.isEmpty) return const [];
     return [
-      LayoutBuilder(builder: (context, box) => _treemap(context, box, report)),
+      LayoutBuilder(
+        builder: (context, box) => reportTreemap(
+          context,
+          box,
+          widget.ledger,
+          report,
+          onCategory: _showCategory,
+        ),
+      ),
       const Padding(
         padding: EdgeInsets.only(top: Space.s2, left: Space.s1),
         child: Text('▲▼ 是跟去年同期比', style: mutedSmall),
@@ -472,82 +505,10 @@ class _ReportsPageState extends State<ReportsPage> {
     ];
   }
 
-  /// The categories of [report] as blocks sized by what they spent, [box]
-  /// wide. As many of the largest as get a block big enough to read, the
-  /// rest together: on a small phone or with large text, fewer blocks.
-  Widget _treemap(BuildContext context, BoxConstraints box, Report report) {
-    final names = report.names;
-    final ledger = widget.ledger;
-    final expense = report.expense;
-    final scale = textGrowth(context);
-    final width = box.maxWidth;
-    // What a block needs: its name with the share over its amount.
-    final minWidth = 84 * scale;
-    final minHeight = 56 * scale;
-    final base = width * 0.82;
-    var height = base;
-    var blocks = report.blocks(names.length);
-    var rects = <Rect>[];
-    // Taller first, then fewer blocks: a category merged into 其他
-    // only when no height up to half again more makes room for it.
-    search:
-    for (var count = min(7, names.length); count >= 1; count--) {
-      blocks = report.blocks(count);
-      for (final stretch in const [1.0, 1.2, 1.4, 1.6]) {
-        height = base * stretch;
-        rects = treemapLayout([
-          for (final b in blocks) b.amount,
-        ], Rect.fromLTWH(0, 0, width, height));
-        if (rects.every(
-          (r) => r.width - 8 >= minWidth && r.height - 8 >= minHeight,
-        )) {
-          break search;
-        }
-      }
-    }
-    return SizedBox(
-      height: height,
-      child: Stack(
-        children: [
-          for (final (i, block) in blocks.indexed)
-            if (i < rects.length)
-              Positioned.fromRect(
-                rect: rects[i].deflate(4),
-                child: switch (block) {
-                  CategoryShare(:final name, :final amount, :final last) =>
-                    CategoryBlock(
-                      ledger: ledger,
-                      category: ledger.category(name),
-                      amount: amount,
-                      share: percent(amount, expense),
-                      change: last == null || last == 0
-                          ? null
-                          : percent(amount - last, last),
-                      large: i == 0,
-                      onTap: () => _showCategory(name),
-                    ),
-                  // The smallest together: a block of its own, never
-                  // taken for a category called 其他 (D53).
-                  RestShare(:final amount) => CategoryBlock(
-                    ledger: ledger,
-                    category: _restBlock(),
-                    amount: amount,
-                    share: percent(amount, expense),
-                    change: null,
-                    large: i == 0,
-                    onTap: null,
-                  ),
-                },
-              ),
-        ],
-      ),
-    );
-  }
-
   /// The period's entries spent under [name], in a sheet; each opens.
   Future<void> _showCategory(String name) {
     final ledger = widget.ledger;
-    final (entries, total) = _spentUnder(ledger, name, _period);
+    final (entries, total) = reportSpentUnder(ledger, name, _period);
     return showSheet<void>(
       context,
       (context) => ConstrainedBox(
