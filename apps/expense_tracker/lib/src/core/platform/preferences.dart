@@ -206,13 +206,7 @@ final class Preferences {
     try {
       if (await sealed.exists()) {
         final bytes = await sealed.readAsBytes();
-        List<int> open;
-        try {
-          open = await _keystore.unwrap(bytes, _privateContext);
-        } on Object {
-          // A Keystore busy at the start often opens it a moment later.
-          open = await _keystore.unwrap(bytes, _privateContext);
-        }
+        final open = await _unwrapped(bytes);
         _readPrivate(JsonFields.decode(utf8.decode(open)));
         _privateWritten = _privateText();
       }
@@ -232,6 +226,18 @@ final class Preferences {
     await _clearHalfWritten();
     if (unread) return;
     if (again || !await _backgroundFile!.exists()) _save();
+  }
+
+  /// [sealed] opened by the Keystore, asked twice: one busy at the start
+  /// often opens it a moment later. The second refusal is thrown.
+  Future<List<int>> _unwrapped(List<int> sealed) async {
+    for (var tries = 2; ; tries--) {
+      try {
+        return await _keystore.unwrap(sealed, _privateContext);
+      } on Object {
+        if (tries == 1) rethrow;
+      }
+    }
   }
 
   /// Copies a stop part way through a write left beside the files.

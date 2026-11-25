@@ -44,7 +44,7 @@
     "apps/expense_tracker/lib/src/app/demo/seed.dart": 94,
     "apps/expense_tracker/lib/src/app/demo/seed_history.dart": 58,
     "apps/expense_tracker/lib/src/app/ledger_session.dart": 3,
-    "apps/expense_tracker/lib/src/app/lifecycle_services.dart": 12,
+    "apps/expense_tracker/lib/src/app/lifecycle_services.dart": 9,
     "apps/expense_tracker/lib/src/app/more_page.dart": 20,
     "apps/expense_tracker/lib/src/app/settings_page.dart": 21,
     "apps/expense_tracker/lib/src/app/settings_search.dart": 67,
