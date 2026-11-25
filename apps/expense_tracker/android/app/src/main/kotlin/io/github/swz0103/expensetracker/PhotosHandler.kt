@@ -22,7 +22,7 @@ class PhotosHandler(private val activity: FragmentActivity) : ChannelHandler {
 
     /** Where the camera writes before the photo is made smaller. */
     private val cameraFile: File
-        get() = File(activity.cacheDir, "camera").apply { mkdirs() }.resolve("receipt.jpg")
+        get() = File(activity.cacheDir, AppFiles.CAMERA).apply { mkdirs() }.resolve(AppFiles.CAMERA_PHOTO)
 
     /**
      * A photo taken while the phone closed the app to make room: nothing
@@ -30,7 +30,7 @@ class PhotosHandler(private val activity: FragmentActivity) : ChannelHandler {
      * handed over by `takeLeftoverPhoto` when 記一筆 opens again.
      */
     private val leftover: File
-        get() = File(activity.cacheDir, "receipt-leftover.jpg")
+        get() = File(activity.cacheDir, AppFiles.RECEIPT_LEFTOVER)
 
     private val takePicture =
         activity.registerForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
@@ -84,7 +84,7 @@ class PhotosHandler(private val activity: FragmentActivity) : ChannelHandler {
      * into the private `receipts` folder and deletes this copy. Off the
      * main thread.
      */
-    private fun keepPhoto(source: Uri, into: File = File(activity.cacheDir, "receipt-ready.jpg")) {
+    private fun keepPhoto(source: Uri, into: File = File(activity.cacheDir, AppFiles.RECEIPT_READY)) {
         OffMain.of(activity).run(
             work = {
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }

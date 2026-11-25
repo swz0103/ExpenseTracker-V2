@@ -12,6 +12,7 @@ import 'phone_backup.dart' show BackupHead;
 import '../../../core/time/app_clock.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
+import '../../../core/platform/app_files.dart';
 
 /// The keys and backups of the open encrypted ledger.
 final class EncryptedBackupManager implements BackupManager {
@@ -50,7 +51,7 @@ final class EncryptedBackupManager implements BackupManager {
 
   /// The sealed receipt photos, by name, for a backup to carry.
   Map<String, File> _receipts() {
-    final folder = Directory('${_startup.directory.path}/receipts');
+    final folder = Directory('${_startup.directory.path}/${AppFiles.receipts}');
     if (!folder.existsSync()) return const {};
     return {
       for (final entity in folder.listSync())
@@ -60,7 +61,8 @@ final class EncryptedBackupManager implements BackupManager {
 
   /// Where a file to hand over is written until the person has it;
   /// emptied at each start (leftovers.dart).
-  Directory get _exports => Directory('${_startup.directory.path}/exports');
+  Directory get _exports =>
+      Directory('${_startup.directory.path}/${AppFiles.exports}');
 
   @override
   Future<bool> exportBackup() async {
@@ -176,7 +178,8 @@ final class EncryptedBackupManager implements BackupManager {
   }
 
   /// Where the weekly backups are kept.
-  Directory get _folder => Directory('${_startup.directory.path}/backups');
+  Directory get _folder =>
+      Directory('${_startup.directory.path}/${AppFiles.backups}');
 
   /// Writes an encrypted backup into the backups folder and returns its
   /// path.

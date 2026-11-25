@@ -21,6 +21,7 @@ import 'views/welcome_view.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
 import '../../../../design_system/display/date.dart';
+import '../../../core/platform/app_files.dart';
 
 /// The first screen of the phone app. A new ledger starts with one tap,
 /// without a password (one can be set later in settings), or from a
@@ -379,7 +380,7 @@ class _LockScreenState extends State<LockScreen> {
       if (chosen == null || !mounted) return;
       setState(() => _busy = true);
       _forgetPicked();
-      final into = File('${(await cache()).path}/restore.etbk');
+      final into = File('${(await cache()).path}/${AppFiles.restoreCopy}');
       await drive.download(chosen.id, into, size: chosen.size);
       _picked = into.path;
       if (!mounted) return;

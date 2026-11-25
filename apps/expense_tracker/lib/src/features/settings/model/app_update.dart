@@ -12,6 +12,7 @@ import '../../../core/platform/update_status.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/time/app_clock.dart';
 import '../../../core/formatting/json_fields.dart';
+import '../../../core/platform/app_files.dart';
 
 /// This build's number, set by the APK build (android.yml); 0 in a build
 /// made by hand and in the preview, which never look for updates.
@@ -312,7 +313,7 @@ final class AppUpdate extends ChangeNotifier {
       notifyListeners();
       return null;
     }
-    final folder = Directory('${_cache.path}/updates');
+    final folder = Directory('${_cache.path}/${AppFiles.updates}');
     final apk = File('${folder.path}/ExpenseTracker-${info.build}.apk');
     try {
       await folder.create(recursive: true);

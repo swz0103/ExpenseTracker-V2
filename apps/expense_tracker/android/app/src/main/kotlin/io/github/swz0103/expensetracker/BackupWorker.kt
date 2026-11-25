@@ -71,9 +71,9 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
     /** Delivers what is due; true when a delivery the network cut short is to be tried again soon. */
     private fun deliver(): Boolean {
         val files = applicationContext.filesDir
-        val outbox = File(files, "outbox")
-        val preferences = read(File(files, "preferences.json")) ?: return false
-        val ready = read(File(outbox, "ready.json")) ?: return false
+        val outbox = File(files, AppFiles.OUTBOX)
+        val preferences = read(File(files, AppFiles.PREFERENCES)) ?: return false
+        val ready = read(File(outbox, AppFiles.OUTBOX_READY)) ?: return false
         val backup = File(outbox, ready.optString("file"))
         if (ready.optString("file").isEmpty() || !backup.exists()) return false
         // Drive's own copy without the photos, when the folder takes them.
@@ -83,7 +83,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         val revision = ready.getInt("revision")
         val ledger = ready.getString("ledger")
         val mark = ready.optString("mark")
-        val kept = read(File(outbox, "delivered.json"))
+        val kept = read(File(outbox, AppFiles.OUTBOX_DELIVERED))
         val delivered = kept ?: JSONObject()
         val problems = delivered.optJSONObject("problems") ?: JSONObject()
         // What the file holds now: written again only once it differs.
@@ -172,7 +172,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
             listOf(::toPhone, ::toDrive),
             noted = { delivered.toString() },
             written = asKept,
-        ) { save(File(outbox, "delivered.json"), it) }
+        ) { save(File(outbox, AppFiles.OUTBOX_DELIVERED), it) }
         // Every place holds it: the copy here is no longer needed.
         if (phoneHas && driveHas) {
             backup.delete()
@@ -237,7 +237,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
                 return
             }
             val drive = try {
-                JSONObject(File(context.filesDir, "preferences.json").readText()).optBoolean("driveLinked")
+                JSONObject(File(context.filesDir, AppFiles.PREFERENCES).readText()).optBoolean("driveLinked")
             } catch (e: Exception) {
                 // Unread: the network is asked for, as Drive may need it.
                 true

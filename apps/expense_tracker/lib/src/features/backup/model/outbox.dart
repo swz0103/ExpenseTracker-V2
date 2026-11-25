@@ -7,6 +7,7 @@ import 'phone_backup.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/time/app_clock.dart';
 import '../../../core/formatting/json_fields.dart';
+import '../../../core/platform/app_files.dart';
 
 /// Backups that reach the phone's folder and Google Drive without the app
 /// being opened. The ledger's key is only in the open app, so the backup
@@ -45,7 +46,7 @@ final class Outbox {
   final DateTime Function() _clock;
 
   static Directory folderOf(Directory directory) =>
-      Directory('${directory.path}/outbox');
+      Directory('${directory.path}/${AppFiles.outbox}');
 
   /// The highest revision a backup of the ledger in [directory] is known
   /// to have been delivered or to wait at: the folder's and Drive's as
@@ -60,19 +61,19 @@ final class Outbox {
       {'revision': final int revision} => revision,
       _ => null,
     };
-    final delivered = _read(File('${folder.path}/delivered.json'));
+    final delivered = _read(File('${folder.path}/${AppFiles.outboxDelivered}'));
     return [
       preferences.phoneRevision,
       preferences.driveRevision,
       revisionIn(delivered?['phone']),
       revisionIn(delivered?['drive']),
-      revisionIn(_read(File('${folder.path}/ready.json'))),
+      revisionIn(_read(File('${folder.path}/${AppFiles.outboxReady}'))),
     ].nonNulls.fold(0, max);
   }
 
   Directory get _folder => folderOf(directory);
-  File get _ready => File('${_folder.path}/ready.json');
-  File get _delivered => File('${_folder.path}/delivered.json');
+  File get _ready => File('${_folder.path}/${AppFiles.outboxReady}');
+  File get _delivered => File('${_folder.path}/${AppFiles.outboxDelivered}');
 
   /// Somewhere to deliver to: a folder on the phone, or Google Drive.
   bool get wanted =>

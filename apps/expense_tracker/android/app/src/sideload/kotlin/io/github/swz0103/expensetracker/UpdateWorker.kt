@@ -40,7 +40,7 @@ class UpdateWorker(context: Context, params: WorkerParameters) : Worker(context,
 
     private fun look() {
         val context = applicationContext
-        val preferences = File(context.filesDir, "preferences.json")
+        val preferences = File(context.filesDir, AppFiles.PREFERENCES)
         val on = try {
             !preferences.exists() || JSONObject(preferences.readText()).optBoolean("updateChecks", true)
         } catch (e: Exception) {

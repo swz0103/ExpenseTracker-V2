@@ -9,6 +9,7 @@ import '../../features/entries/model/receipt_photos.dart';
 import 'platform_channel.dart';
 import '../../core/platform/errands.dart';
 import '../../core/time/app_clock.dart';
+import '../../core/platform/app_files.dart';
 
 /// Receipt photos in the app's private `receipts` folder, each sealed
 /// with the ledger's [FileBox], so a photo is as private as the ledger.
@@ -20,7 +21,7 @@ final class AndroidReceipts implements ReceiptPhotos {
   final Directory directory;
   final FileBox box;
 
-  Directory get _folder => Directory('${directory.path}/receipts');
+  Directory get _folder => Directory('${directory.path}/${AppFiles.receipts}');
 
   @override
   Future<String?> take({required bool camera}) async => _seal(

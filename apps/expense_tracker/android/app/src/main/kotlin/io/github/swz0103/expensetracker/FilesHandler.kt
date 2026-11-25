@@ -55,7 +55,7 @@ class FilesHandler(private val activity: FragmentActivity) : ChannelHandler {
             offMain.answer(result, "pick") {
                 val input = activity.contentResolver.openInputStream(uri)
                     ?: throw IllegalStateException("The chosen file cannot be read.")
-                val copy = File(activity.cacheDir, "restore.etbk")
+                val copy = File(activity.cacheDir, AppFiles.RESTORE_COPY)
                 input.use { copy.outputStream().use { output -> it.copyTo(output) } }
                 copy.absolutePath
             }

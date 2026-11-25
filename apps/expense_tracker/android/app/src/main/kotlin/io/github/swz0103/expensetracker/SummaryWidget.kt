@@ -142,7 +142,7 @@ class SummaryWidget : AppWidgetProvider() {
             views.setViewVisibility(id, if (shown) View.VISIBLE else View.GONE)
 
         private fun read(context: Context): WidgetView.Snapshot? = try {
-            val file = File(context.filesDir, "widget.json")
+            val file = File(context.filesDir, AppFiles.WIDGET)
             if (!file.exists()) null else WidgetView.parse(JSONObject(file.readText()))
         } catch (e: Exception) {
             null
