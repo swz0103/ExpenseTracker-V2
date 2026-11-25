@@ -900,13 +900,15 @@ final class EntryCommands {
   /// any wrong: each checked in place of the entry of its id that the
   /// ledger holds when [replacing] names it, with the accounts [opening]
   /// brings, [settling] the account they settle before it is archived
-  /// ([addSettlement]). Shares are checked by replaying the trades
-  /// afterwards.
+  /// ([addSettlement]), [back] when they come back from the trash or an
+  /// undo on the days the book held them on. Shares are checked by
+  /// replaying the trades afterwards.
   void _check(
     Iterable<Entry> entries, {
     Iterable<String> replacing = const [],
     Iterable<Account> opening = const [],
     String? settling,
+    bool back = false,
   }) {
     final replaced = {...replacing};
     final errors = [
@@ -916,6 +918,7 @@ final class EntryCommands {
           replacing: replaced.contains(e.id) ? _entries.byId(e.id) : null,
           opening: opening,
           settling: settling,
+          back: back,
         ),
     ];
     if (errors.isNotEmpty) throw RecordRefused(errors);
@@ -927,6 +930,7 @@ final class EntryCommands {
     Entry? replacing,
     Iterable<Account> opening = const [],
     String? settling,
+    bool back = false,
   }) {
     final errors = [
       for (final issue in _validator.issues(
@@ -935,6 +939,7 @@ final class EntryCommands {
         holdings: false,
         opening: opening,
         settling: settling,
+        back: back,
       ))
         if (issue.isError) issue,
     ];
@@ -945,7 +950,7 @@ final class EntryCommands {
   /// refusal through [CommandContext.report]; false when refused.
   bool _tryCheck(List<Entry> back) {
     try {
-      _check(back);
+      _check(back, back: true);
       return true;
     } on RecordRefused catch (refused) {
       // Said to the person through problem.

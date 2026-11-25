@@ -42,7 +42,10 @@ final class EntryValidator {
   /// one of the same file, with what is left of it once the refunds read
   /// before are given (review 37 1). [settling] names the account [e]
   /// settles before it is archived, which lets it be dated through that
-  /// account's last entry (D121).
+  /// account's last entry (D121). [back] says [e] comes back from the
+  /// trash or an undo, on the day the book held it on; like an edit that
+  /// keeps the day of [replacing], it is not refused for how far ahead
+  /// that day is (review 38 1).
   RecordIssue? validate(
     Entry e, {
     Entry? replacing,
@@ -50,6 +53,7 @@ final class EntryValidator {
     Iterable<Account> opening = const [],
     ({Entry original, int left})? refunding,
     String? settling,
+    bool back = false,
   }) {
     for (final issue in issues(
       e,
@@ -58,6 +62,7 @@ final class EntryValidator {
       opening: opening,
       refunding: refunding,
       settling: settling,
+      back: back,
     )) {
       if (issue.isError) return issue;
     }
@@ -73,6 +78,7 @@ final class EntryValidator {
     Iterable<Account> opening = const [],
     ({Entry original, int left})? refunding,
     String? settling,
+    bool back = false,
   }) {
     Account? account(String id) =>
         _accounts.byId(id) ?? opening.where((a) => a.id == id).firstOrNull;
@@ -121,6 +127,7 @@ final class EntryValidator {
             settling != null && (e.account == settling || e.to == settling)
             ? _balances.lastDayAhead(settling)
             : null,
+        heldOn: back ? e.date : replacing?.date,
       ),
     );
   }

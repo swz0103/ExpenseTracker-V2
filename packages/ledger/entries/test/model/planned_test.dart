@@ -95,4 +95,26 @@ void main() {
     // Only a transfer settles.
     expect(issues(on(far), settles: far), [DateTooFarAhead]);
   });
+
+  test('an entry that keeps the day the book holds it on is not refused for '
+      'how far ahead it is (review 38 1); a changed day is', () {
+    // 2026-11-24 + 400 days = 2027-12-29, beyond 2027-11-24.
+    final far = DateTime.utc(2027, 12, 29);
+    List<Type> issues(Entry e, {DateTime? held}) => [
+      for (final i in entryIssues(
+        e,
+        EntryFacts(
+          account: const AccountFacts(AccountKind.bank),
+          today: today,
+          heldOn: held,
+        ),
+      ))
+        i.runtimeType,
+    ];
+    expect(issues(on(far), held: far), isEmpty);
+    expect(issues(on(far)), [DateTooFarAhead]);
+    expect(issues(on(DateTime.utc(2027, 12, 30)), held: far), [
+      DateTooFarAhead,
+    ]);
+  });
 }
