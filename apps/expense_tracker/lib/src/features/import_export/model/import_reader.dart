@@ -91,7 +91,7 @@ final class _Reader {
     final made = Category(
       name,
       income ? 'income' : 'other',
-      _shades[count % _shades.length],
+      nextCategoryColor(count),
       income: income,
     );
     _categories.add(made);

@@ -1,5 +1,6 @@
 // Exception to shared words: a CSV's columns and kinds are a file
 // format; they keep their spelling whatever the screens come to say.
+import 'package:core/constants/category_colors.dart';
 import 'package:core/foundation_values.dart' show BusinessDate, Currency;
 import 'package:core/money/amount_parser.dart';
 import 'package:core/money/typed_text.dart' show plainText;
@@ -309,17 +310,6 @@ const _kinds = {
   '退款': _Kind.refund,
   'refund': _Kind.refund,
 };
-
-/// Colours for categories an import adds.
-const _shades = [
-  0xFF5C9A83,
-  0xFFD08B5B,
-  0xFF5B8DB0,
-  0xFF8E7CC0,
-  0xFFC9A34A,
-  0xFFB07A8C,
-  0xFF4E8A9A,
-];
 
 /// Every kind of entry in [text], CSV with a header naming at least 日期
 /// and 金額; the other columns of [toCsv] are read when there. Without a

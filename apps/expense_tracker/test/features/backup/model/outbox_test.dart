@@ -61,13 +61,25 @@ void main() {
     expect(await box.prepare(), isTrue);
     expect(scheduled, [true]);
     expect(ready(), {
-      'v': 1,
+      'v': 2,
       'file': '記帳本-1.etbk',
       'drivePhotos': false,
       'revision': 1,
       'ledger': 'ledger-one',
       'mark': 'ledger',
       'at': DateTime.utc(2026, 10, 28, 9).millisecondsSinceEpoch,
+      // The rules the job follows; it keeps none of its own (review 32).
+      'plan': {
+        'keep': 5,
+        'daily': 86400000, // 24 × 60 × 60 × 1000
+        'weekly': 604800000, // 7 × 86,400,000
+        'drive': 86400000,
+        'phoneName': '記帳本-ledger-20261028-0900.etbk',
+        'phonePrefix': '記帳本-ledger-',
+        'suffix': '.etbk',
+        'driveFolder': '記帳本備份',
+        'folderDenied': '沒有這個資料夾的存取權，請重新選擇',
+      },
     });
     // Unchanged: not written again.
     expect(await box.prepare(), isFalse);
@@ -75,6 +87,22 @@ void main() {
     expect(await box.prepare(), isTrue);
     expect(backups(), ['記帳本-2.etbk']);
     expect(ready()['revision'], 2);
+  });
+
+  test('a backup left by a version that handed over no rules is handed '
+      'them, and not written again', () async {
+    preferences.phoneFolderSet('content://tree/backups', name: '備份');
+    final box = outbox();
+    expect(await box.prepare(), isTrue);
+    final old = ready()
+      ..['v'] = 1
+      ..remove('plan');
+    File('${folder().path}/ready.json').writeAsStringSync(jsonEncode(old));
+    expect(await box.prepare(), isFalse);
+    expect(written, 1);
+    expect(ready()['v'], 2);
+    expect((ready()['plan']! as Map<String, Object?>)['keep'], 5);
+    expect(ready()['file'], '記帳本-1.etbk');
   });
 
   test('a revision every place already holds is not left', () async {

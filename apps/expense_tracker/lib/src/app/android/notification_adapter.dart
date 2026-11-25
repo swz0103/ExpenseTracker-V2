@@ -6,6 +6,7 @@ import '../../core/messages/reminder_messages.dart';
 import '../../features/reminders/model/reminder_alerts.dart';
 import '../../features/reminders/model/reminder_rules.dart';
 import 'platform_channel.dart';
+import '../../core/messages/native_messages.dart';
 
 /// Notifications through `Reminders.kt`, which only keeps and posts what
 /// it is given: each alert of the plan goes with its time on the wall
@@ -60,6 +61,7 @@ final class AndroidNotifications implements NotifyPort {
     'wanted': plan.wanted.toList(),
     'channels': channels,
     'retired': ReminderChannel.retired,
+    'words': NativeWords.reminders,
     'alerts': [for (final a in plan.alerts) alertFields(a)],
   };
 
@@ -80,6 +82,7 @@ final class AndroidNotifications implements NotifyPort {
   Future<void> test({required bool exact}) =>
       platformChannel.invokeMethod<void>('testNotification', {
         'exact': exact,
+        'words': NativeWords.reminders,
         'channels': channels,
         'channel': ReminderKind.test.channel.name,
         'title': ReminderMessages.testTitle,
@@ -90,6 +93,7 @@ final class AndroidNotifications implements NotifyPort {
   Future<void> post(Alert alert, int id) =>
       platformChannel.invokeMethod<void>('showNotification', {
         'id': id,
+        'words': NativeWords.reminders,
         'channels': channels,
         'channel': alert.kind.channel.name,
         'title': alert.title,

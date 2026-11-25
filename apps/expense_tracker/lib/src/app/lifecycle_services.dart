@@ -41,6 +41,7 @@ import '../features/reminders/model/calendar_sync.dart';
 import '../features/reminders/model/reminder_alerts.dart';
 import '../features/reminders/ui/reminders_section.dart' show reminderBookOf;
 import '../features/settings/model/app_update.dart';
+import '../core/platform/app_files.dart';
 
 /// What runs beside an open ledger for as long as the app is: closing
 /// prices, the calendar, notifications and the home-screen widget follow
@@ -178,7 +179,7 @@ final class LifecycleServices {
   /// The figures the home-screen widget 本月概況 shows.
   late final _homeWidget = android
       ? HomeWidget(
-          File('${_directory.path}/widget.json'),
+          File('${_directory.path}/${AppFiles.widget}'),
           preferences,
           refresh: androidRefreshWidgets,
         )

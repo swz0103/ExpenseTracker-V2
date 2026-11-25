@@ -7,6 +7,7 @@ import '../../../core/messages/backup_messages.dart';
 import '../../../core/platform/preferences.dart';
 import 'drive_backup.dart';
 import '../../../core/time/app_clock.dart';
+import 'backup_rules.dart';
 
 /// Backups on the person's Google Drive: linked once with Google's
 /// sign-in, then sent by hand from the settings and daily by themselves
@@ -110,7 +111,7 @@ final class DriveSync extends ChangeNotifier {
   /// Sends a backup when linked, the last one is older than [every] and
   /// the ledger changed since, on Wi-Fi when it carries the photos; never
   /// shows Google's screens. True when one was sent.
-  Future<bool> backUpIfDue({Duration every = const Duration(days: 1)}) async {
+  Future<bool> backUpIfDue({Duration every = BackupRules.drive}) async {
     if (!linked || _busy) return false;
     final last = backedUp;
     if (last != null &&

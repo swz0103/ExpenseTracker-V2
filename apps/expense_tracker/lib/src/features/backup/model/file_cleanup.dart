@@ -3,6 +3,7 @@ import 'dart:io';
 import '../../../core/time/app_clock.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
+import '../../../core/platform/app_files.dart';
 
 /// Deletes plain copies an earlier run may have left behind when it was
 /// stopped part way: files waiting in `exports` to be handed over (a
@@ -31,19 +32,21 @@ Future<void> clearLeftovers(
     }
   }
 
-  final camera = cache == null ? null : Directory('${cache.path}/camera');
+  final camera = cache == null
+      ? null
+      : Directory('${cache.path}/${AppFiles.camera}');
   // A backup still being written when the app was stopped.
-  final backups = Directory('${files.path}/backups');
+  final backups = Directory('${files.path}/${AppFiles.backups}');
   // Android's own backup takes all of cloud/: anything there but the one
   // copy, such as a file from before copies were written elsewhere first,
   // would go up with it.
-  final cloud = Directory('${files.path}/cloud');
+  final cloud = Directory('${files.path}/${AppFiles.cloud}');
   final leftovers = <FileSystemEntity>[
-    Directory('${files.path}/exports'),
+    Directory('${files.path}/${AppFiles.exports}'),
     if (cloud.existsSync())
       for (final entity in cloud.listSync())
         if (entity.uri.pathSegments.where((s) => s.isNotEmpty).last !=
-            '記帳本.etbk')
+            AppFiles.cloudCopy)
           entity,
     if (backups.existsSync())
       for (final entity in backups.listSync())
@@ -52,11 +55,11 @@ Future<void> clearLeftovers(
       for (final photo in camera.listSync())
         if (older(photo, const Duration(minutes: 5))) photo,
     if (cache != null) ...[
-      File('${cache.path}/receipt-ready.jpg'),
-      File('${cache.path}/restore.etbk'),
+      File('${cache.path}/${AppFiles.receiptReady}'),
+      File('${cache.path}/${AppFiles.restoreCopy}'),
       // A newer version handed to the installer: installed, or not wanted.
-      Directory('${cache.path}/updates'),
-      for (final kept in [File('${cache.path}/receipt-leftover.jpg')])
+      Directory('${cache.path}/${AppFiles.updates}'),
+      for (final kept in [File('${cache.path}/${AppFiles.receiptLeftover}')])
         if (older(kept, const Duration(days: 1))) kept,
     ],
   ];
@@ -75,7 +78,7 @@ Future<void> clearLeftovers(
 /// included until they leave the trash): a photo replaced or taken away,
 /// or one taken for an entry that was never saved.
 Future<void> sweepReceipts(Directory files, Set<String> kept) async {
-  final folder = Directory('${files.path}/receipts');
+  final folder = Directory('${files.path}/${AppFiles.receipts}');
   if (!await folder.exists()) return;
   await for (final entity in folder.list()) {
     if (entity is! File) continue;

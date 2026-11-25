@@ -54,7 +54,7 @@ void main() {
       widgetSnapshot(
         widgetBookOf(book(budgets: [total])),
         WidgetFigures.amounts,
-      ),
+      )?..remove('ahead'),
       {
         'v': 2,
         'month': '2026-10',
@@ -72,6 +72,7 @@ void main() {
         'today': 2,
         'shortLabel': '10 月預算剩',
         'shortFigure': '7,655',
+        'stale': {'title': '本月概況', 'figure': '—', 'detail': '打開 App 更新本月數字'},
       },
     );
     final over = widgetSnapshot(
@@ -91,6 +92,52 @@ void main() {
     expect(none?['pace'], isNull);
     expect(none?['shortLabel'], '10 月支出');
     expect(none?['shortFigure'], '12,345');
+  });
+
+  test('each later day of the month is worked out for the widget, which '
+      'does no calendar or pace maths itself (NAT-1)', () {
+    final ahead =
+        widgetSnapshot(
+              widgetBookOf(book(budgets: [total])),
+              WidgetFigures.amounts,
+            )!['ahead']!
+            as Map<String, Object?>;
+    // Written on Tuesday 2026-10-20: the 21st to the 31st.
+    expect(ahead.keys, [for (var d = 21; d <= 31; d++) '2026-10-$d']);
+    // Thursday, the same week: the days since spent nothing; 22 of 31
+    // days is 70.97%, so the pace is 71.
+    expect(ahead['2026-10-22'], {
+      'week': [0, 0, 100, 0, 0, -1, -1],
+      'today': 4,
+      'pace': 71,
+      'weekTotal': '12,345',
+    });
+    // Wednesday of the next week: it starts empty; 28 of 31 is 90.32%.
+    expect(ahead['2026-10-28'], {
+      'week': [0, 0, 0, 0, -1, -1, -1],
+      'today': 3,
+      'pace': 90,
+      'weekTotal': '0',
+    });
+    expect(ahead['2026-10-31'], {
+      'week': [0, 0, 0, 0, 0, 0, 0],
+      'today': 6,
+      'pace': 100,
+      'weekTotal': '0',
+    });
+    // Without a budget there is no pace mark to move.
+    final none =
+        widgetSnapshot(widgetBookOf(book()), WidgetFigures.amounts)!['ahead']!
+            as Map<String, Object?>;
+    expect((none['2026-10-22']! as Map<String, Object?>)['pace'], isNull);
+    // The percentage keeps no week total, then or later.
+    final percent =
+        widgetSnapshot(
+              widgetBookOf(book(budgets: [total])),
+              WidgetFigures.percent,
+            )!['ahead']!
+            as Map<String, Object?>;
+    expect((percent['2026-10-28']! as Map<String, Object?>)['weekTotal'], '');
   });
 
   test('percent keeps no amount at all', () {

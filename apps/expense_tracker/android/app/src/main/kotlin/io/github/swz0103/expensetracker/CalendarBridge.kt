@@ -17,16 +17,12 @@ import java.util.TimeZone
  * their Google Calendar, so its own reminders tell them. The app decides
  * which events there should be and what changes (calendar_sync.dart);
  * this reads the app's events back and makes the changes it is given.
- * The app's events carry [MARK] and their key on the last line of their
- * description, which is how they are told apart from the person's own.
+ * The app's events carry a mark and their key on the last line of their
+ * description, which is how they are told apart from the person's own;
+ * the app hands the mark over with each call (`CalendarSync.mark`), and
+ * how long an event lasts with the changes (`CalendarSync.eventLength`).
  */
 object CalendarBridge {
-    private const val MARK = "記帳本#"
-    private const val MINUTE = 60_000L
-
-    /** How long each event lasts. */
-    private const val LENGTH = 30 * MINUTE
-
     /** Below the provider's 500 operations per transaction, with room to spare. */
     private const val MAX_OPERATIONS = 450
 
@@ -54,18 +50,18 @@ object CalendarBridge {
         return found
     }
 
-    /** A description as written: the note, then the mark and the key. */
-    fun describe(note: String, key: String): String = "$note\n$MARK$key"
+    /** A description as written: the note, then the [mark] and the key. */
+    fun describe(note: String, key: String, mark: String): String = "$note\n$mark$key"
 
     /**
      * The note and key of an app's event from its [description]; null for
      * an event that is not the app's (no mark starting its last line).
      */
-    fun split(description: String?): Pair<String, String>? {
+    fun split(description: String?, mark: String): Pair<String, String>? {
         if (description == null) return null
-        val at = description.lastIndexOf("\n$MARK")
+        val at = description.lastIndexOf("\n$mark")
         if (at < 0) return null
-        val key = description.substring(at + 1 + MARK.length)
+        val key = description.substring(at + 1 + mark.length)
         if (key.contains('\n')) return null
         return description.substring(0, at) to key
     }
@@ -74,7 +70,7 @@ object CalendarBridge {
      * The app's events in [calendar] from [from] (milliseconds) on: the
      * calendar's id, key, title, note, start and minutes of reminders.
      */
-    fun events(resolver: ContentResolver, calendar: Long, from: Long): List<Map<String, Any>> {
+    fun events(resolver: ContentResolver, calendar: Long, from: Long, mark: String): List<Map<String, Any>> {
         val found = mutableListOf<Map<String, Any>>()
         resolver.query(
             Events.CONTENT_URI,
@@ -82,11 +78,11 @@ object CalendarBridge {
             // Only the app's own events, not one deleted and waiting to sync.
             "${Events.CALENDAR_ID} = ? AND ${Events.DTSTART} >= ? AND " +
                 "${Events.DELETED} = 0 AND ${Events.DESCRIPTION} LIKE ?",
-            arrayOf(calendar.toString(), from.toString(), "%\n$MARK%"),
+            arrayOf(calendar.toString(), from.toString(), "%\n$mark%"),
             null,
         )?.use { row ->
             while (row.moveToNext()) {
-                val (note, key) = split(row.getString(2)) ?: continue
+                val (note, key) = split(row.getString(2), mark) ?: continue
                 val id = row.getLong(0)
                 found.add(
                     mapOf(
@@ -111,13 +107,16 @@ object CalendarBridge {
         return minutes
     }
 
-    private fun values(calendar: Long, event: Map<String, Any?>, start: Long, minutes: List<Int>) =
+    /** How the app's events are written: the mark and how long each lasts (milliseconds). */
+    class Shape(val mark: String, val length: Long)
+
+    private fun values(calendar: Long, event: Map<String, Any?>, start: Long, minutes: List<Int>, shape: Shape) =
         ContentValues().apply {
             put(Events.CALENDAR_ID, calendar)
             put(Events.TITLE, event["title"] as? String ?: "")
-            put(Events.DESCRIPTION, describe(event["note"] as? String ?: "", "${event["key"]}"))
+            put(Events.DESCRIPTION, describe(event["note"] as? String ?: "", "${event["key"]}", shape.mark))
             put(Events.DTSTART, start)
-            put(Events.DTEND, start + LENGTH)
+            put(Events.DTEND, start + shape.length)
             put(Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
             // Only an event with reminders rings.
             put(Events.HAS_ALARM, if (minutes.isEmpty()) 0 else 1)
@@ -152,6 +151,7 @@ object CalendarBridge {
         insert: List<Map<String, Any?>>,
         update: List<Map<String, Any?>>,
         delete: List<Long>,
+        shape: Shape,
     ): Int {
         val ops = ArrayList<ContentProviderOperation>()
         for (id in delete) {
@@ -170,7 +170,7 @@ object CalendarBridge {
             ops.add(
                 ContentProviderOperation
                     .newUpdate(ContentUris.withAppendedId(Events.CONTENT_URI, id))
-                    .withValues(values(calendar, event, start, minutes))
+                    .withValues(values(calendar, event, start, minutes, shape))
                     .build(),
             )
             ops.add(
@@ -196,7 +196,7 @@ object CalendarBridge {
             val eventAt = ops.size
             ops.add(
                 ContentProviderOperation.newInsert(Events.CONTENT_URI)
-                    .withValues(values(calendar, event, start, minutes))
+                    .withValues(values(calendar, event, start, minutes, shape))
                     .build(),
             )
             for (before in minutes) {

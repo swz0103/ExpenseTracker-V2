@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../../../core/platform/app_files.dart';
+
 /// Where a file to hand over is written until the person has it, in the
 /// app's folder [directory]; emptied at each start (leftovers.dart).
 Directory exportsIn(Directory directory) =>
-    Directory('${directory.path}/exports');
+    Directory('${directory.path}/${AppFiles.exports}');
 
 /// Hands [bytes] to the person as the file [name] through [export] (the
 /// phone's save dialog), written into [folder] only until then. False

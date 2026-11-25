@@ -22,6 +22,7 @@ import 'src/app/android/haptics_adapter.dart';
 import 'src/core/design_system/haptics.dart';
 import 'src/core/design_system/recovery_code.dart';
 import 'src/core/platform/sensitive_clipboard.dart';
+import 'src/core/platform/app_files.dart';
 
 /// The production entry: the encrypted ledger only. The web preview starts
 /// from `main_preview.dart`. Every wait before the first screen is
@@ -67,7 +68,9 @@ final _steps = StartSteps(
       uptime: Platform.isAndroid ? androidUptime : null,
     ),
     privacy: privacy,
-    preferences: Preferences(file: File('${folder.path}/preferences.json')),
+    preferences: Preferences(
+      file: File('${folder.path}/${AppFiles.preferences}'),
+    ),
     // Shortcuts, the widget and notifications go through the lock gate.
     quick: Platform.isAndroid ? quickAction : null,
     leave: Platform.isAndroid ? androidMoveToBack : null,

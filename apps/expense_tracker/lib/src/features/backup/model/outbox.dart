@@ -3,10 +3,11 @@ import 'dart:io';
 import 'dart:math';
 
 import '../../../core/platform/preferences.dart';
-import 'phone_backup.dart';
+import 'backup_rules.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/time/app_clock.dart';
 import '../../../core/formatting/json_fields.dart';
+import '../../../core/platform/app_files.dart';
 
 /// Backups that reach the phone's folder and Google Drive without the app
 /// being opened. The ledger's key is only in the open app, so the backup
@@ -45,7 +46,7 @@ final class Outbox {
   final DateTime Function() _clock;
 
   static Directory folderOf(Directory directory) =>
-      Directory('${directory.path}/outbox');
+      Directory('${directory.path}/${AppFiles.outbox}');
 
   /// The highest revision a backup of the ledger in [directory] is known
   /// to have been delivered or to wait at: the folder's and Drive's as
@@ -60,19 +61,19 @@ final class Outbox {
       {'revision': final int revision} => revision,
       _ => null,
     };
-    final delivered = _read(File('${folder.path}/delivered.json'));
+    final delivered = _read(File('${folder.path}/${AppFiles.outboxDelivered}'));
     return [
       preferences.phoneRevision,
       preferences.driveRevision,
       revisionIn(delivered?['phone']),
       revisionIn(delivered?['drive']),
-      revisionIn(_read(File('${folder.path}/ready.json'))),
+      revisionIn(_read(File('${folder.path}/${AppFiles.outboxReady}'))),
     ].nonNulls.fold(0, max);
   }
 
   Directory get _folder => folderOf(directory);
-  File get _ready => File('${_folder.path}/ready.json');
-  File get _delivered => File('${_folder.path}/delivered.json');
+  File get _ready => File('${_folder.path}/${AppFiles.outboxReady}');
+  File get _delivered => File('${_folder.path}/${AppFiles.outboxDelivered}');
 
   /// Somewhere to deliver to: a folder on the phone, or Google Drive.
   bool get wanted =>
@@ -98,6 +99,9 @@ final class Outbox {
     if (ready != null &&
         ready['ledger'] == _ledger &&
         ready['revision'] == revision) {
+      // One written by a version that handed over no plan is handed this
+      // one's, so the job can deliver it.
+      if (ready['v'] != _version) await _handOver(ready);
       return false;
     }
     final phoneHas =
@@ -115,15 +119,19 @@ final class Outbox {
     final driveFile = phone && drive && !photos
         ? await _write(_folder, withPhotos: false)
         : null;
+    final at = _clock();
     await _save(_ready, {
-      'v': 1,
+      'v': _version,
       'file': file.uri.pathSegments.last,
       'driveFile': ?driveFile?.uri.pathSegments.last,
       'drivePhotos': photos,
       'revision': revision,
       'ledger': _ledger,
-      'mark': PhoneBackup.markOf(_ledger),
-      'at': _clock().toUtc().millisecondsSinceEpoch,
+      'mark': BackupRules.markOf(_ledger),
+      'at': at.toUtc().millisecondsSinceEpoch,
+      // The job keeps no rule of its own; the file is named by the
+      // phone's clock, as the app's own backups there are.
+      'plan': BackupRules.handover(BackupRules.markOf(_ledger), at),
     });
     // The one waiting before is replaced: only the newest is delivered.
     for (final old in _folder.listSync()) {
@@ -135,6 +143,25 @@ final class Outbox {
       }
     }
     return true;
+  }
+
+  /// What `ready.json` is: from 2 on, it carries the plan the job follows
+  /// ([BackupRules.handover]).
+  static const _version = 2;
+
+  /// Writes [ready] again with this version's plan, taken for the time
+  /// its backup was written.
+  Future<void> _handOver(Map<String, Object?> ready) async {
+    final written = ready['at'];
+    // On the phone's clock, as the backup was named when written.
+    final at = written is int
+        ? DateTime.fromMillisecondsSinceEpoch(written)
+        : _clock();
+    await _save(_ready, {
+      ...ready,
+      'v': _version,
+      'plan': BackupRules.handover(BackupRules.markOf(_ledger), at),
+    });
   }
 
   /// Takes away the backup waiting for the job, and what says it is

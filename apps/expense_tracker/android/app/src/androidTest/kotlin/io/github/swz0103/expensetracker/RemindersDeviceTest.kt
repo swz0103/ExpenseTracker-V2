@@ -62,6 +62,27 @@ class RemindersDeviceTest {
     }
 
     @Test
+    fun aDueItemIsConfirmedAndShownLockedInTheAppsWords() {
+        // NAT-1: the app hands its words over with the plan; they are kept
+        // for the alarms going off while it is closed.
+        Reminders.keepWords(
+            context,
+            mapOf("confirm" to "入帳了", "publicTitle" to "提醒", "publicText" to "打開看看"),
+        )
+        Reminders.show(
+            context, 4245, "扣款：Netflix 390", "定期交易", "",
+            tag = "due:test-words", recurring = "netflix", day = "2026-11-25", channel = CHANNEL,
+        )
+        val shown = manager.activeNotifications.single { it.id == 4245 }.notification
+        assertEquals("入帳了", shown.actions.single().title.toString())
+        assertEquals("提醒", shown.publicVersion.extras.getCharSequence("android.title").toString())
+        assertEquals("打開看看", shown.publicVersion.extras.getCharSequence("android.text").toString())
+        Reminders.keepWords(context, NativeWords.run {
+            mapOf("confirm" to REMINDER_CONFIRM, "publicTitle" to REMINDER_PUBLIC_TITLE, "publicText" to REMINDER_PUBLIC_TEXT)
+        })
+    }
+
+    @Test
     fun theWordsKeptForLaterAreSealed() {
         val prefs = context.getSharedPreferences("reminders", Context.MODE_PRIVATE)
         // As 0.19 kept them: in plain words only, read once and sealed.

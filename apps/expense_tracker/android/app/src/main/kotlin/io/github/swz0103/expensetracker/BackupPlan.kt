@@ -1,20 +1,38 @@
 package io.github.swz0103.expensetracker
 
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 
 /**
- * The rules the background job (BackupWorker.kt) follows, the same as the
- * app's own (phone_backup.dart, drive_sync.dart); kept apart from Android
- * so they are tested on their own.
+ * How the background job (BackupWorker.kt) decides; kept apart from
+ * Android so it is tested on its own. The rules themselves (how many
+ * stay, how often, the names) are the app's (backup_rules.dart): the app
+ * hands them over with each backup, as [Handed], and this side keeps none.
  */
 internal object BackupPlan {
-    const val DAY = 24L * 60 * 60 * 1000
-
-    /** How many of a ledger's backups stay in the phone's folder and on Drive. */
-    const val KEEP = 5
+    /**
+     * The rules handed over with a backup (`plan` in the outbox's
+     * ready.json, `BackupRules.handover`): how many backups stay, the
+     * phone folder's two rhythms and Drive's (milliseconds), the name this
+     * backup takes in the phone's folder and how this ledger's names start
+     * and end there, the Drive folder's name, and what to say when the
+     * phone's folder no longer lets the app write.
+     */
+    data class Handed(
+        val keep: Int,
+        val daily: Long,
+        val weekly: Long,
+        val drive: Long,
+        val phoneName: String,
+        val phonePrefix: String,
+        val suffix: String,
+        val driveFolder: String,
+        val folderDenied: String,
+    ) {
+        /** The phone folder's rhythm the person chose. */
+        fun phoneEvery(daily: Boolean): Long = if (daily) this.daily else weekly
+    }
 
     /**
      * Whether a backup of [revision] is due at [now]: none was made yet,
@@ -39,19 +57,6 @@ internal object BackupPlan {
         } ?: return null
         val fraction = Regex("^\\.(\\d{1,3})").find(text.substring(19))?.groupValues?.get(1)
         return whole + (fraction?.padEnd(3, '0')?.toLong() ?: 0)
-    }
-
-    /**
-     * The name of a backup of the ledger marked [mark] taken at [at] in
-     * the phone's folder: `記帳本-<mark>-YYYYMMDD-HHMM.etbk`, as
-     * PhoneBackup.nameAt writes it.
-     */
-    fun phoneName(mark: String, at: Long, zone: TimeZone = TimeZone.getDefault()): String {
-        val time = Calendar.getInstance(zone).apply { timeInMillis = at }
-        fun two(n: Int) = n.toString().padStart(2, '0')
-        return "記帳本-$mark-${time.get(Calendar.YEAR)}${two(time.get(Calendar.MONTH) + 1)}" +
-            "${two(time.get(Calendar.DAY_OF_MONTH))}-${two(time.get(Calendar.HOUR_OF_DAY))}" +
-            "${two(time.get(Calendar.MINUTE))}.etbk"
     }
 
     /**
@@ -99,12 +104,12 @@ internal object BackupPlan {
     }
 
     /**
-     * Of the names in the phone's folder, those of the ledger marked
-     * [mark] beyond the newest [KEEP]; other files, and other ledgers'
-     * backups, are never among them.
+     * Of the names in the phone's folder, this ledger's ([Handed.phonePrefix]
+     * and [Handed.suffix]) beyond the newest [Handed.keep]; other files,
+     * and other ledgers' backups, are never among them.
      */
-    fun beyondKept(names: List<String>, mark: String): List<String> =
-        names.filter { it.startsWith("記帳本-$mark-") && it.endsWith(".etbk") }
+    fun beyondKept(names: List<String>, plan: Handed): List<String> =
+        names.filter { it.startsWith(plan.phonePrefix) && it.endsWith(plan.suffix) }
             .sortedDescending()
-            .drop(KEEP)
+            .drop(plan.keep)
 }

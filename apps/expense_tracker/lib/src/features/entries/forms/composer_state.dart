@@ -190,8 +190,7 @@ class _ComposerState extends State<Composer>
       initial: Category(
         '',
         income ? 'income' : 'other',
-        AppColors.categoryColors[count % AppColors.categoryColors.length]
-            .toARGB32(),
+        nextCategoryColor(count),
         income: income,
       ),
       colors: AppColors.categoryColors,

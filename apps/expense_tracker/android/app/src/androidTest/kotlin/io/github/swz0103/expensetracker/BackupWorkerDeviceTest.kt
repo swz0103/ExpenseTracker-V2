@@ -46,6 +46,18 @@ class BackupWorkerDeviceTest {
         if (kept != null) preferences.writeText(kept) else preferences.delete()
     }
 
+    /** The rules as the app hands them over (BackupRules.handover). */
+    private val plan = JSONObject()
+        .put("keep", 5)
+        .put("daily", 86_400_000L)
+        .put("weekly", 604_800_000L)
+        .put("drive", 86_400_000L)
+        .put("phoneName", "記帳本-abc123-20261028-1104.etbk")
+        .put("phonePrefix", "記帳本-abc123-")
+        .put("suffix", ".etbk")
+        .put("driveFolder", "記帳本備份")
+        .put("folderDenied", "沒有這個資料夾的存取權，請重新選擇")
+
     @Test
     fun aFolderNoLongerAllowedIsNotedAndTheBackupKept() {
         preferences.writeText(
@@ -61,6 +73,7 @@ class BackupWorkerDeviceTest {
                 .put("revision", 3)
                 .put("ledger", "L1")
                 .put("mark", "abc123")
+                .put("plan", plan)
                 .toString(),
         )
         val worker = TestWorkerBuilder.from(context, BackupWorker::class.java, Executors.newSingleThreadExecutor())
@@ -71,6 +84,27 @@ class BackupWorkerDeviceTest {
         val problem = delivered.getJSONObject("problems").getJSONObject("phone")
         assertTrue(problem.getString("message"), problem.getString("message").contains("存取權"))
         assertTrue("kept for the next try", backup.exists())
+    }
+
+    @Test
+    fun aBackupHandedOverWithoutTheAppsRulesWaitsForTheApp() {
+        // Written by a version before the rules were handed over: the
+        // app hands them over when next opened (Outbox.prepare).
+        preferences.writeText(
+            JSONObject()
+                .put("phoneFolder", "content://com.android.externalstorage.documents/tree/primary%3ABackups")
+                .put("phoneDaily", true)
+                .toString(),
+        )
+        val backup = File(outbox, "ready.etbk").apply { writeText("sealed") }
+        File(outbox, "ready.json").writeText(
+            JSONObject().put("file", backup.name).put("revision", 3).put("ledger", "L1").toString(),
+        )
+        val worker = TestWorkerBuilder.from(context, BackupWorker::class.java, Executors.newSingleThreadExecutor())
+            .build()
+        assertTrue(worker.doWork() is ListenableWorker.Result.Success)
+        assertTrue("nothing noted", !File(outbox, "delivered.json").exists())
+        assertTrue("kept", backup.exists())
     }
 
     @Test
@@ -85,6 +119,7 @@ class BackupWorkerDeviceTest {
                 .put("revision", 3)
                 .put("ledger", "L1")
                 .put("mark", "abc123")
+                .put("plan", plan)
                 .toString(),
         )
         // Spaced as JSONObject never writes it: a write would change it.
@@ -112,6 +147,7 @@ class BackupWorkerDeviceTest {
                 .put("revision", 3)
                 .put("ledger", "L1")
                 .put("mark", "abc123")
+                .put("plan", plan)
                 .toString(),
         )
         val worker = TestWorkerBuilder.from(context, BackupWorker::class.java, Executors.newSingleThreadExecutor())

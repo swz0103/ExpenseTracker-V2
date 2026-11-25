@@ -12,6 +12,7 @@ import '../../core/diagnostics/error_steps.dart';
 import '../../core/messages/problem_messages.dart' show QuietStep;
 import '../../core/platform/errands.dart';
 import '../../core/time/app_clock.dart';
+import '../../core/platform/app_files.dart';
 
 /// Receipt photos in the app's private `receipts` folder, each sealed
 /// with the ledger's [FileBox], so a photo is as private as the ledger.
@@ -27,7 +28,7 @@ final class AndroidReceipts implements ReceiptPhotos {
   /// (QuietFailures, D84).
   final void Function(QuietStep step) failed;
 
-  Directory get _folder => Directory('${directory.path}/receipts');
+  Directory get _folder => Directory('${directory.path}/${AppFiles.receipts}');
 
   @override
   Future<String?> take({required bool camera}) async => _seal(

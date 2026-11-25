@@ -14,6 +14,7 @@ import 'package:core/foundation_values.dart'
 import '../../../core/ledger/ledger.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/messages/widget_messages.dart';
 
 import 'package:core/time/utc_days.dart';
 
@@ -71,8 +72,13 @@ final class WidgetBook implements Listenable {
 /// `pace` is how far through the month today is, a mark on that bar;
 /// `week` is each day from Sunday as a share of the week's largest day,
 /// -1 for days still to come; `shortLabel` and `shortFigure` are what the
-/// widget shows when made small; `date` is the day it was written, so the
-/// widget can move the week on by itself when the app is not opened.
+/// widget shows when made small; `date` is the day it was written.
+///
+/// The widget decides nothing (NAT-1): `ahead` holds, for each later day
+/// of the month, the week, today's place in it, the pace and the week's
+/// total as they stand that day with nothing more recorded, so the
+/// widget moves on by itself while the app is not opened; `stale` holds
+/// the words it shows once the month is over.
 Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
   if (figures == WidgetFigures.off) return null;
   if (figures == WidgetFigures.amounts && book.amountsHidden) return null;
@@ -109,6 +115,13 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
   final weekday = weekdayIndex(BusinessDate.of(today));
   final week = _weekHeights(daySpent, weekday);
   const noBudget = '沒有設定每月總預算';
+  final weekTotal = figures == WidgetFigures.amounts
+      ? groupDigits(daySpent.fold(0, (a, b) => a + b))
+      : '';
+  final shared = {
+    'ahead': _ahead(today, week: week, weekTotal: weekTotal, paced: hasBudget),
+    'stale': widgetStaleFace,
+  };
   return switch (figures) {
     WidgetFigures.amounts => {
       'v': 2,
@@ -124,7 +137,7 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
       'progress': used?.clamp(0, 100),
       'pace': pace,
       'week': week,
-      'weekTotal': groupDigits(daySpent.fold(0, (a, b) => a + b)),
+      'weekTotal': weekTotal,
       'today': weekday,
       'shortLabel': status == null
           ? '$m 月支出'
@@ -134,6 +147,7 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
       'shortFigure': status == null
           ? groupDigits(spent)
           : groupDigits(budgetFigure(status)),
+      ...shared,
     },
     WidgetFigures.percent => {
       'v': 2,
@@ -155,9 +169,47 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
       'today': weekday,
       'shortLabel': '$m 月預算',
       'shortFigure': used == null ? '—' : '已用 $used%',
+      ...shared,
     },
     WidgetFigures.off => null,
   };
+}
+
+/// Each day of [today]'s month after it, by its date, as the widget shows
+/// it that day when nothing more is recorded: the days since have nothing
+/// spent, a new week starts empty (its total nothing), and the pace mark
+/// (only with a budget, [paced]) moves to that day.
+Map<String, Object?> _ahead(
+  DateTime today, {
+  required List<int> week,
+  required String weekTotal,
+  required bool paced,
+}) {
+  final written = BusinessDate.of(today);
+  final writtenDay = weekdayIndex(written);
+  final writtenWeek = startOfWeek(written);
+  final last = monthEnd(today.year, today.month).day;
+  final start = written.asUtcMidnight;
+  final ahead = <String, Object?>{};
+  for (var n = 1; today.day + n <= last; n++) {
+    final day = BusinessDate.of(start.add(Duration(days: n)));
+    final at = weekdayIndex(day);
+    final sameWeek = startOfWeek(day) == writtenWeek;
+    ahead[day.toString()] = {
+      'week': [
+        for (var i = 0; i < 7; i++)
+          i > at
+              ? -1
+              : !sameWeek || i > writtenDay
+              ? 0
+              : week[i],
+      ],
+      'today': at,
+      'pace': paced ? percent(today.day + n, last) : null,
+      'weekTotal': sameWeek || weekTotal.isEmpty ? weekTotal : groupDigits(0),
+    };
+  }
+  return ahead;
 }
 
 /// The budget for all spending, or null when no total budget is set.
