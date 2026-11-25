@@ -19,6 +19,7 @@
 | `money/price.dart` | 股數乘股價的精確金額（`timesPrice`），股價取到萬分之一再以整數運算 |
 | `money/amount_sum.dart` | 計算機算式的精確運算（分數，不經 `double`）與是否為合法金額 |
 | `percent/percent.dart` | 百分比與比例，唯一的取位規則（半數遠離零）；超過與否用 `isOver` 比金額 |
+| `fx/dated_figures.dart` | 有日期的匯率與收盤價表（D58）：`DatedFigures.on` 是唯一的取日規則——當天的，否則之前最近一天的，否則今天的（`FoundOn` 標明是哪一種）；`MarketHistory` 放買入價、賣出價、收盤價三張表 |
 | `app_core.dart` | `Clock`：唯一的「現在」，`today()` 是台灣的今天；測試用 `FixedClock` |
 
 ## 不做什麼

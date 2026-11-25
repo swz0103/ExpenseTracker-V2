@@ -1,4 +1,4 @@
-import 'package:domain/investments.dart' show MarketHistory;
+import 'package:core/fx/dated_figures.dart' show MarketHistory;
 
 import '../cache/topic.dart';
 import '../models/models.dart';

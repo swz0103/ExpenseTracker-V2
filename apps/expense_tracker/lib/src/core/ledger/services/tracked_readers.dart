@@ -1,5 +1,5 @@
 import 'package:core/foundation_values.dart' show BoardSide;
-import 'package:domain/investments.dart' show FigureOn, MarketHistory;
+import 'package:core/fx/dated_figures.dart' show FigureOn, MarketHistory;
 
 import '../cache/query_cache.dart';
 import '../cache/topic.dart';

@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:domain/data_exchange.dart';
-import 'package:domain/investments.dart' show DatedFigures, MarketHistory;
+import 'package:core/fx/dated_figures.dart' show DatedFigures, MarketHistory;
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/codec/record_shape.dart';

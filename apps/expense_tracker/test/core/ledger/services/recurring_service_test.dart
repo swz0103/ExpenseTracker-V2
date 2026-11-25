@@ -1,5 +1,5 @@
 import 'package:core/foundation_values.dart' show BusinessDate;
-import 'package:domain/investments.dart' show DatedFigures, MarketHistory;
+import 'package:core/fx/dated_figures.dart' show DatedFigures, MarketHistory;
 import 'package:expense_tracker/src/core/ledger/models/models.dart';
 import 'package:expense_tracker/src/core/ledger/services/recurring_service.dart';
 import 'package:flutter_test/flutter_test.dart';

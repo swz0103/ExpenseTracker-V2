@@ -1,10 +1,9 @@
 import 'package:core/foundation_values.dart' show BusinessDate;
-import 'package:domain/investments.dart' show DatedFigures, MarketHistory;
+import 'package:core/fx/dated_figures.dart' show DatedFigures, MarketHistory;
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/trading.dart';
 import 'package:expense_tracker/src/features/entries/model/compose_form.dart';
-import 'package:expense_tracker/src/features/entries/model/compose_form_refund.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keeps nothing.

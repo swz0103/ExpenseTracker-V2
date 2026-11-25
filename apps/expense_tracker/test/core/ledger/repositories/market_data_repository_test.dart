@@ -1,5 +1,5 @@
 import 'package:core/foundation_values.dart' show BoardSide, BusinessDate;
-import 'package:domain/investments.dart'
+import 'package:core/fx/dated_figures.dart'
     show DatedFigures, FoundOn, MarketHistory;
 import 'package:expense_tracker/src/core/ledger/repositories/market_data_repository.dart';
 import 'package:flutter_test/flutter_test.dart';

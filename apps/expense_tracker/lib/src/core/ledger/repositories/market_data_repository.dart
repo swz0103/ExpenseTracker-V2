@@ -1,7 +1,7 @@
 import 'package:core/foundation_values.dart'
     show BoardSide, Currency, valuationSide;
 import 'package:core/time/calendar_day.dart';
-import 'package:domain/investments.dart' show FigureOn, MarketHistory;
+import 'package:core/fx/dated_figures.dart' show FigureOn, MarketHistory;
 
 import '../models/models.dart'
     show homeCode, rateScale, roundedBigQuotient, scaledRate;

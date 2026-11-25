@@ -1,5 +1,5 @@
 import 'package:core/time/calendar_day.dart' show BusinessDate;
-import 'package:domain/investments.dart' show FoundOn;
+import 'package:core/fx/dated_figures.dart' show FoundOn;
 
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/amount_messages.dart';

@@ -8,7 +8,7 @@ import 'package:expense_tracker/src/core/ledger/persistence/book_opening.dart'
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:domain/investments.dart' show FoundOn;
+import 'package:core/fx/dated_figures.dart' show FoundOn;
 import 'package:market/market_data.dart';
 import 'package:storage/storage.dart' show EncryptedDatabase, StorageKey;
 import 'package:vault/ledger_backup.dart';

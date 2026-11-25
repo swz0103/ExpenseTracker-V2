@@ -1,7 +1,8 @@
 import 'dart:convert';
 
 import 'package:core/time/calendar_day.dart';
-import 'package:domain/investments.dart' show DoubtedFigure, MarketHistory;
+import 'package:domain/investments.dart' show DoubtedFigure;
+import 'package:core/fx/dated_figures.dart' show MarketHistory;
 import 'package:ledger_entries/rules.dart' show namesOnLoops;
 import 'package:storage/storage.dart';
 

@@ -1,4 +1,4 @@
-import 'package:domain/investments.dart' show MarketHistory;
+import 'package:core/fx/dated_figures.dart' show MarketHistory;
 import 'package:expense_tracker/src/core/ledger/cache/query_cache.dart';
 import 'package:expense_tracker/src/core/ledger/models/models.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/account_repository.dart';

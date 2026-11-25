@@ -1,5 +1,5 @@
 import 'package:core/money/price.dart' show timesPrice;
-import 'package:domain/investments.dart' show FoundOn;
+import 'package:core/fx/dated_figures.dart' show FoundOn;
 
 import '../repositories/holding_repository.dart';
 import '../repositories/market_data_repository.dart';

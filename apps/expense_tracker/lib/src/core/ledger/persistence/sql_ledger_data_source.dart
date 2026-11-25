@@ -17,13 +17,9 @@ import 'package:core/foundation_values.dart';
 import 'package:core/money/amount_parser.dart' show parseDecimal;
 import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:domain/investments.dart'
-    show
-        DatedFigures,
-        DoubtedFigure,
-        FoundOn,
-        MarketHistory,
-        doubtsStanding,
-        takesFetched;
+    show DoubtedFigure, doubtsStanding, takesFetched;
+import 'package:core/fx/dated_figures.dart'
+    show DatedFigures, FoundOn, MarketHistory;
 import 'package:market/market_data.dart';
 import 'package:storage/storage.dart';
 

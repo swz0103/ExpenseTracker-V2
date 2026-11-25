@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:core/time/calendar_day.dart';
-import 'package:domain/investments.dart'
+import 'package:core/fx/dated_figures.dart'
     show DatedFigures, FoundOn, MarketHistory;
 
 /// How the row of the rates and closes of one day is named among the

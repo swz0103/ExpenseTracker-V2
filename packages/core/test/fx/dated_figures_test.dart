@@ -1,5 +1,5 @@
 import 'package:core/time/calendar_day.dart';
-import 'package:domain/investments.dart';
+import 'package:core/fx/dated_figures.dart';
 import 'package:test/test.dart';
 
 /// D58: a rate or close for a day is that day's, else the nearest earlier

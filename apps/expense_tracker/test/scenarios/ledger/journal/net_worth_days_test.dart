@@ -6,7 +6,7 @@ import 'package:expense_tracker/src/core/ledger/repositories/holding_repository.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kernel/kernel.dart';
 import 'package:core/foundation_values.dart' show BusinessDate;
-import 'package:domain/investments.dart' show DatedFigures, MarketHistory;
+import 'package:core/fx/dated_figures.dart' show DatedFigures, MarketHistory;
 
 import '../../../core/ledger/journal/posted_book.dart';
 import 'random_book.dart' as rt;

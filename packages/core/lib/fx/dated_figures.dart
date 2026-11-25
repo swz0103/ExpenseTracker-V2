@@ -1,4 +1,5 @@
-import 'package:core/time/calendar_day.dart';
+import '../time/calendar_day.dart';
+import '../time/month_arithmetic.dart' show monthIndex;
 
 /// Which day a figure asked for on a day was found on (D58): the one
 /// rule for a day's exchange rate or close.
@@ -117,7 +118,7 @@ final class _Series {
   final List<int> _numbers;
 
   static int _number(BusinessDate day) =>
-      (day.year * 12 + day.month - 1) * 31 + day.day - 1;
+      monthIndex(day.year, day.month) * 31 + day.day - 1;
 
   /// The place of the latest day not after [day]; -1 when every day is.
   int atOrBefore(BusinessDate day) {
