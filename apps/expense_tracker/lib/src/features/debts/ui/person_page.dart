@@ -159,7 +159,8 @@ class PersonPage extends StatelessWidget {
                 color: color,
                 lead: PersonInitial(person.name, size: 60),
                 label: balance < 0 ? '你欠${person.name}' : '還欠你',
-                value: ledger.orDots(groupDigits(balance.abs())),
+                // In the person's own currency (review 41).
+                value: ledger.moneyIn(balance.abs(), person.currency),
                 lines: [
                   if (oldest == null)
                     '沒有待收回的'
@@ -184,12 +185,12 @@ class PersonPage extends StatelessWidget {
               ...debtBoardRuns(
                 '還沒收回',
                 owed.length,
-                (i) => _owedRow(owed[i].$1, owed[i].$2),
+                (i) => _owedRow(owed[i].$1, owed[i].$2, person),
               ),
             ...debtBoardRuns(
               '往來紀錄',
               entries.length,
-              (i) => _movementRow(entries[i], person.id, color, left),
+              (i) => _movementRow(entries[i], person, color, left),
             ),
           ],
         );
@@ -223,17 +224,24 @@ class PersonPage extends StatelessWidget {
     );
   }
 
+  /// What [e] put on [person]'s account, in the person's currency: for a
+  /// sum paid over from another currency, what arrived (review 41), the
+  /// scale what is left of it is in.
+  int _lent(Entry e, Account person) =>
+      ledger.balanceService.effect(e, person.id);
+
   /// A sum paid for the person and not yet paid back: what it was for,
-  /// its day, and how long it has waited.
-  Widget _owedRow(Entry e, int left) {
+  /// its day, and how long it has waited, in the person's currency.
+  Widget _owedRow(Entry e, int left, Account person) {
+    final lent = _lent(e, person);
     return QuoteRow(
       onTap: () => nav.showEntry(ledger.entryQueryService.groupLead(e)),
       title: _what(e),
-      detail: switch (advanceStatus(amount: e.amount, left: left)) {
+      detail: switch (advanceStatus(amount: lent, left: left)) {
         AdvanceStatus.partlySettled =>
           '${formatMd(e.date)} · '
               '${advanceLook(AdvanceStatus.partlySettled).words} · '
-              '共 ${ledger.orDots(groupDigits(e.amount))}',
+              '共 ${ledger.moneyIn(lent, person.currency)}',
         _ => formatMd(e.date),
       },
       trailing: Row(
@@ -241,27 +249,32 @@ class PersonPage extends StatelessWidget {
         children: [
           _DaysTag(daysSince(ledger, e.date)),
           const SizedBox(width: Space.s3),
-          RowFigure(ledger.orDots(groupDigits(left))),
+          RowFigure(ledger.moneyIn(left, person.currency)),
         ],
       ),
     );
   }
 
   /// One movement with the person: paid back in green with a minus, paid
-  /// for with a ＋.
+  /// for with a ＋; each in the currency of the account it was paid from
+  /// (review 41: a sum paid in NT\$ for a person kept in US\$ says NT\$).
   Widget _movementRow(
     Entry e,
-    String person,
+    Account person,
     Color color,
     Map<String, int> stillOwed,
   ) {
-    final back = e.account == person;
+    final back = e.account == person.id;
+    final currency = ledger.account(e.account).currency;
     // A sum paid for them says where it stands: 未收回, 部分收回 or
-    // 已結清, as the advance rules decide.
+    // 已結清, as the advance rules decide, in the person's currency.
     final status = back
         ? null
         : advanceLook(
-            advanceStatus(amount: e.amount, left: stillOwed[e.id] ?? 0),
+            advanceStatus(
+              amount: _lent(e, person),
+              left: stillOwed[e.id] ?? 0,
+            ),
           );
     return QuoteRow(
       onTap: () => nav.showEntry(ledger.entryQueryService.groupLead(e)),
@@ -276,10 +289,11 @@ class PersonPage extends StatelessWidget {
           : '${formatMd(e.date)} · ${status.words}',
       trailing: RowFigure(
         back
-            ? '−${ledger.orDots(groupDigits(e.amount))}'
-            : ledger.orDots(groupDigits(e.amount)),
+            ? '−${ledger.moneyIn(e.amount, currency)}'
+            : ledger.moneyIn(e.amount, currency),
         spoken: ledger.spoken(
           back ? -e.amount : e.amount,
+          currency: currency,
           sense: AmountSense.plain,
         ),
         color: back ? AppColors.positive : AppColors.ink,

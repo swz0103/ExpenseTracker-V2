@@ -246,8 +246,10 @@ class _PersonSquare extends StatelessWidget {
     final oldest = owed.isEmpty ? null : owed.last.$1.date;
     final color = nameColor(person.name);
     final ink = deepOf(color);
-    final amount = ledger.orDots(
-      groupDigits(owedFrom(ledger.balanceService, person)),
+    // In the person's own currency (review 41): US\$125 is not 12,500.
+    final amount = ledger.moneyIn(
+      owedFrom(ledger.balanceService, person),
+      person.currency,
     );
     final age = oldest == null
         ? '沒有欠款'
