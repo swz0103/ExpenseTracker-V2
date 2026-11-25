@@ -17,7 +17,7 @@ import '../core/platform/update_status.dart';
 import '../core/platform/distribution.dart';
 import '../features/settings/model/app_update.dart';
 import '../features/settings/ui/update_panel.dart';
-import '../features/settings/model/platform_services.dart';
+import 'platform_services.dart';
 import '../core/design_system/settings_colors.dart';
 import '../core/design_system/app_mark.dart';
 import '../../design_system/display/date.dart';

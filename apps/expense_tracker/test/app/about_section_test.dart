@@ -13,7 +13,7 @@ import 'package:expense_tracker/src/core/platform/distribution.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/core/platform/update_status.dart';
 import 'package:expense_tracker/src/features/settings/model/app_update.dart';
-import 'package:expense_tracker/src/features/settings/model/platform_services.dart';
+import 'package:expense_tracker/src/app/platform_services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

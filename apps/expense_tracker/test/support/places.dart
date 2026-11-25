@@ -8,7 +8,7 @@ import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/backup/model/backup_manager.dart';
 import 'package:expense_tracker/src/features/reminders/model/calendar_sync.dart';
-import 'package:expense_tracker/src/features/settings/model/platform_services.dart';
+import 'package:expense_tracker/src/app/platform_services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';

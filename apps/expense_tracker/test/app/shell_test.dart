@@ -5,7 +5,7 @@ import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/navigation/nav.dart';
 import 'package:expense_tracker/src/core/platform/quick_action.dart';
-import 'package:expense_tracker/src/features/settings/model/platform_services.dart';
+import 'package:expense_tracker/src/app/platform_services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

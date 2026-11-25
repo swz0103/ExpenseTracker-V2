@@ -8,7 +8,7 @@ import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
 import '../core/navigation/nav.dart';
-import '../features/settings/model/platform_services.dart';
+import 'platform_services.dart';
 import '../features/backup/ui/backup_section.dart';
 import '../features/import_export/ui/import_export_section.dart';
 import '../features/settings/ui/preferences_section.dart';

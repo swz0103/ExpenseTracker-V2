@@ -1,22 +1,19 @@
-// Exception to models take what they use: it hands the preview a made-up
-// ledger to open, so it names the type it makes (ADR-0013).
-
 import 'package:flutter/foundation.dart';
 
-import '../../../core/platform/sync_job.dart';
-import 'app_update.dart';
-import '../../backup/model/drive_sync.dart';
-import '../../backup/model/backup_manager.dart';
-import '../../backup/model/phone_backup.dart';
-import '../../reminders/model/calendar_sync.dart';
-import '../../entries/model/receipt_photos.dart';
-import '../../../core/ledger/ledger.dart';
-import '../../../core/navigation/nav.dart' show AppRoute;
-import '../../reminders/model/reminder_alerts.dart';
-import '../../../core/platform/preferences.dart';
-import '../../../core/platform/quick_action.dart';
-import '../../../core/platform/scan.dart';
-import '../../../core/platform/screen_privacy.dart';
+import '../core/platform/sync_job.dart';
+import '../features/settings/model/app_update.dart';
+import '../features/backup/model/drive_sync.dart';
+import '../features/backup/model/backup_manager.dart';
+import '../features/backup/model/phone_backup.dart';
+import '../features/reminders/model/calendar_sync.dart';
+import '../features/entries/model/receipt_photos.dart';
+import '../core/ledger/ledger.dart';
+import '../core/navigation/nav.dart' show AppRoute;
+import '../features/reminders/model/reminder_alerts.dart';
+import '../core/platform/preferences.dart';
+import '../core/platform/quick_action.dart';
+import '../core/platform/scan.dart';
+import '../core/platform/screen_privacy.dart';
 
 /// What the phone and the open ledger offer the screens beyond the book:
 /// keys and backups, the calendar for due dates, hiding the screens,

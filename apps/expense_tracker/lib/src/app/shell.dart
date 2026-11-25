@@ -14,7 +14,7 @@ import '../core/widgets/entry_tile.dart' show deleteEntries;
 import '../core/widgets/problem_note.dart';
 import '../core/platform/quick_action.dart';
 import '../core/widgets/tour.dart';
-import '../features/settings/model/platform_services.dart';
+import 'platform_services.dart';
 import '../features/accounts/ui/account_page.dart';
 import '../features/accounts/ui/accounts.dart';
 import '../features/budgets/ui/budgets.dart';

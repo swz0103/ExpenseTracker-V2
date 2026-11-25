@@ -49,7 +49,7 @@ import 'platform.dart';
 import '../core/platform/preferences.dart';
 import '../core/platform/screen_privacy.dart';
 import '../features/settings/ui/update_panel.dart';
-import '../features/settings/model/platform_services.dart';
+import 'platform_services.dart';
 import '../core/platform/startup.dart';
 import '../core/platform/startup_state.dart';
 import '../core/time/app_clock.dart';

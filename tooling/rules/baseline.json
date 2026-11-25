@@ -8,7 +8,6 @@
     "apps/expense_tracker/lib/src/features/lock/ui/lock_screen.dart": 2,
     "apps/expense_tracker/lib/src/features/lock/ui/security_section.dart": 1,
     "apps/expense_tracker/lib/src/features/recurring/ui/recurring_page.dart": 1,
-    "apps/expense_tracker/lib/src/features/settings/model/platform_services.dart": 6,
     "apps/expense_tracker/lib/src/features/settings/ui/preferences_section.dart": 2
   },
   "A3-ui-no-data": {
