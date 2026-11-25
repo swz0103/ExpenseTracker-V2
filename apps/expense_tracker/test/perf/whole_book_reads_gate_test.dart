@@ -140,7 +140,7 @@ const _warmUps = 5;
 
 /// The largest share of the old reads 記一筆's may take after a save:
 /// about twice the largest measured (thresholds.md).
-const _composerMost = 0.45;
+const _composerMost = 0.28;
 
 /// The largest share all eight may take after a save.
 const _allMost = 0.27;

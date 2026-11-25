@@ -477,8 +477,15 @@ Linux host, 2026-11-25, load 2.1–3.2 on four cores, PSI `some` avg10
 | `returns_gate_test.dart`, the 投資 pages' reads after a save (rate, guesses, a holding's rate, next dividend and months) | 40.5–46.6 ms | 2.7–4.4 ms | 0.101 | 0.2 |
 | the same after 隱藏金額 (kept) | | 7–13 µs | 0.0003 | 0.0006 |
 | a holding's next dividend alone after a save | 19.2–21.6 ms | 18–32 µs | 0.0016 | 0.003 |
-| `whole_book_reads_gate_test.dart`, 記一筆's five reads after a save | 19.3–23.3 ms | 3.8–4.4 ms | 0.227 | 0.45 |
-| all eight whole-book reads after a save | 37.4–39.9 ms | 4.2–5.1 ms | 0.136 | 0.27 |
+| `whole_book_reads_gate_test.dart`, 記一筆's five reads after a save | 19.3–33.1 ms | 2.5–2.9 ms | 0.139 | 0.28 |
+| all eight whole-book reads after a save | 36.9–62.2 ms | 3.3–5.8 ms | 0.142 | 0.27 |
+
+The two whole-book rows were measured again after the month counts
+were kept in small mutable records rather than nested Dart records (a
+merge of 37 months of 300 merchants went from about 9 ms to 0.8 ms),
+five runs at load 2.8–3.2, PSI 3.8–13%; the first five (composer worst
+0.227, all eight 0.136) set 0.45 and 0.27; the composer's limit is now
+twice the new worst, the eight's is kept (never loosened).
 | `integrity_gate_test.dart`, the check at open (warm) | 17.6–20.5 ms | 3.7–6.1 ms | 0.295 | 0.6 |
 | `trade_run_gate_test.dart`, 200 trades of an import checked | 2,572–2,816 ms | 148–165 ms | 0.063 | 0.13 |
 

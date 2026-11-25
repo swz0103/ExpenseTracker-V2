@@ -55,41 +55,44 @@ final class MonthTallies {
     }
   }
 
+  /// [part] of each month's counts as of [today] put together, by name.
+  Map<String, _Seen> _merged(
+    DateTime today,
+    Map<String, _Seen> Function(_Tally tally) part,
+  ) {
+    final merged = <String, _Seen>{};
+    for (final tally in _months(today)) {
+      for (final MapEntry(:key, :value) in part(tally).entries) {
+        final had = merged[key];
+        if (had == null) {
+          merged[key] = value.copy();
+        } else {
+          had.join(value);
+        }
+      }
+    }
+    return merged;
+  }
+
+  /// The names of [merged] in the order first written.
+  static List<String> _inOrder(Map<String, _Seen> merged) =>
+      merged.keys.toList()..sort((a, b) => merged[a]!.compareTo(merged[b]!));
+
   /// The last day each account was used on, as the one an entry is of or
   /// the one it moves money to, among the entries that count [today]; in
   /// the order each was first used.
   Map<String, DateTime> lastUsedOn(DateTime today) {
-    final merged = <String, (_At, DateTime)>{};
-    for (final tally in _months(today)) {
-      for (final MapEntry(key: id, value: (first, last))
-          in tally.lastUsed.entries) {
-        final had = merged[id];
-        merged[id] = had == null
-            ? (first, last)
-            : (_earlier(first, had.$1), last.isAfter(had.$2) ? last : had.$2);
-      }
-    }
+    final merged = _merged(today, (t) => t.lastUsed);
     return Map.unmodifiable({
-      for (final id in _inOrder(merged, (v) => v.$1)) id: merged[id]!.$2,
+      for (final id in _inOrder(merged)) id: merged[id]!.last!,
     });
   }
 
   /// Every merchant written, in the order first written, with how many
   /// entries that count [today] name it.
   Map<String, int> merchantUses(DateTime today) {
-    final merged = <String, (_At, int)>{};
-    for (final tally in _months(today)) {
-      for (final MapEntry(key: name, value: (first, uses))
-          in tally.merchants.entries) {
-        final had = merged[name];
-        merged[name] = had == null
-            ? (first, uses)
-            : (_earlier(first, had.$1), had.$2 + uses);
-      }
-    }
-    return {
-      for (final name in _inOrder(merged, (v) => v.$1)) name: merged[name]!.$2,
-    };
+    final merged = _merged(today, (t) => t.merchants);
+    return {for (final name in _inOrder(merged)) name: merged[name]!.count};
   }
 
   /// The latest spending at each merchant that counts [today]: of the
@@ -106,76 +109,83 @@ final class MonthTallies {
   /// Every tag on an entry that counts [today], with how many carry it and
   /// their spending, in the order first carried.
   List<(String, int, int)> tagUses(DateTime today) {
-    final merged = <String, (_At, int, int)>{};
-    for (final tally in _months(today)) {
-      for (final MapEntry(key: tag, value: (first, uses, spent))
-          in tally.tags.entries) {
-        final had = merged[tag];
-        merged[tag] = had == null
-            ? (first, uses, spent)
-            : (_earlier(first, had.$1), had.$2 + uses, had.$3 + spent);
-      }
-    }
+    final merged = _merged(today, (t) => t.tags);
     return [
-      for (final tag in _inOrder(merged, (v) => v.$1))
-        (tag, merged[tag]!.$2, merged[tag]!.$3),
+      for (final tag in _inOrder(merged))
+        (tag, merged[tag]!.count, merged[tag]!.sum),
     ];
   }
 
   /// Every tag written, on any entry, in the order first written.
-  List<String> tagsWritten(DateTime today) {
-    final merged = <String, _At>{};
-    for (final tally in _months(today)) {
-      for (final MapEntry(key: tag, value: first) in tally.known.entries) {
-        final had = merged[tag];
-        merged[tag] = had == null ? first : _earlier(first, had);
-      }
-    }
-    return _inOrder(merged, (v) => v);
-  }
+  List<String> tagsWritten(DateTime today) =>
+      _inOrder(_merged(today, (t) => t.known));
 
   /// Spending by merchant among the entries that count [today], with how
   /// many times each was paid: each merchant as a read of the months,
   /// oldest first and each in its own order, first finds it.
   List<(String, int, int)> merchantSpending(DateTime today) {
-    final amounts = <String, int>{};
-    final counts = <String, int>{};
+    final merged = <String, _Seen>{};
     for (final tally in _months(today)) {
-      for (final MapEntry(key: name, value: (amount, count))
-          in tally.spending.entries) {
-        amounts[name] = (amounts[name] ?? 0) + amount;
-        counts[name] = (counts[name] ?? 0) + count;
+      for (final MapEntry(:key, :value) in tally.spending.entries) {
+        final had = merged[key];
+        if (had == null) {
+          merged[key] = value.copy();
+        } else {
+          had.join(value);
+        }
       }
     }
     return [
-      for (final MapEntry(:key, :value) in amounts.entries)
-        (key, counts[key] ?? 0, value),
+      for (final MapEntry(:key, :value) in merged.entries)
+        (key, value.count, value.sum),
     ];
   }
-
-  /// The keys of [merged] by where each was first written ([firstOf]).
-  static List<String> _inOrder<V>(
-    Map<String, V> merged,
-    _At Function(V value) firstOf,
-  ) => merged.keys.toList()
-    ..sort(
-      (a, b) => _compare(firstOf(merged[a] as V), firstOf(merged[b] as V)),
-    );
 }
 
-/// Where a name was met in one pass over the entries in the order
-/// written: the entry's place ([EntryReader.orderOf]), then where in the
-/// entry (its account before the one it moves money to, its tags in
-/// turn).
-typedef _At = (int, int);
+/// A name met in the entries: where first, in one pass over them in the
+/// order written (the entry's place, [EntryReader.orderOf], then where in
+/// the entry: its account before the one it moves money to, its tags in
+/// turn), how many times, their sum and the latest day.
+final class _Seen {
+  _Seen(this.place, this.index);
 
-int _compare(_At a, _At b) {
-  final byPlace = a.$1.compareTo(b.$1);
-  return byPlace != 0 ? byPlace : a.$2.compareTo(b.$2);
+  int place;
+  int index;
+  var count = 0;
+  var sum = 0;
+  DateTime? last;
+
+  /// Notes one more, met at [place] and [index].
+  void meet(int place, int index) {
+    if (place < this.place || (place == this.place && index < this.index)) {
+      this.place = place;
+      this.index = index;
+    }
+  }
+
+  void day(DateTime date) {
+    final had = last;
+    if (had == null || date.isAfter(had)) last = date;
+  }
+
+  _Seen copy() => _Seen(place, index)
+    ..count = count
+    ..sum = sum
+    ..last = last;
+
+  /// Takes [other]'s in as well.
+  void join(_Seen other) {
+    meet(other.place, other.index);
+    count += other.count;
+    sum += other.sum;
+    if (other.last case final date?) day(date);
+  }
+
+  int compareTo(_Seen other) {
+    final byPlace = place.compareTo(other.place);
+    return byPlace != 0 ? byPlace : index.compareTo(other.index);
+  }
 }
-
-/// The earlier of [a] and [b].
-_At _earlier(_At a, _At b) => _compare(a, b) <= 0 ? a : b;
 
 /// One month's counts, each worked out on its first read: of the entries
 /// that count on [today], or of all of them when none is later than any
@@ -197,40 +207,33 @@ final class _Tally {
     for (final e in _month) _entries.orderOf(e.id),
   ];
 
+  /// [found]'s [name], met at [i] (and [index] within the entry).
+  _Seen _meet(Map<String, _Seen> found, String name, int i, int index) {
+    final had = found[name];
+    if (had == null) return found[name] = _Seen(_places[i], index);
+    return had..meet(_places[i], index);
+  }
+
   /// Each account's first use and last day.
-  late final Map<String, (_At, DateTime)> lastUsed = () {
-    final found = <String, (_At, DateTime)>{};
+  late final Map<String, _Seen> lastUsed = () {
+    final found = <String, _Seen>{};
     for (var i = 0; i < _month.length; i++) {
       final e = _month[i];
       if (!_counts(e)) continue;
-      void use(String id, _At first) {
-        final had = found[id];
-        found[id] = had == null
-            ? (first, e.date)
-            : (
-                _earlier(first, had.$1),
-                e.date.isAfter(had.$2) ? e.date : had.$2,
-              );
-      }
-
-      use(e.account, (_places[i], 0));
-      if (e.to case final to?) use(to, (_places[i], 1));
+      _meet(found, e.account, i, 0).day(e.date);
+      if (e.to case final to?) _meet(found, to, i, 1).day(e.date);
     }
     return found;
   }();
 
   /// Each merchant's first place, of every entry, and its uses counted.
-  late final Map<String, (_At, int)> merchants = () {
-    final found = <String, (_At, int)>{};
+  late final Map<String, _Seen> merchants = () {
+    final found = <String, _Seen>{};
     for (var i = 0; i < _month.length; i++) {
       final e = _month[i];
       if (e.merchant.isEmpty) continue;
-      final use = _counts(e) ? 1 : 0;
-      final at = (_places[i], 0);
-      final had = found[e.merchant];
-      found[e.merchant] = had == null
-          ? (at, use)
-          : (_earlier(at, had.$1), had.$2 + use);
+      final seen = _meet(found, e.merchant, i, 0);
+      if (_counts(e)) seen.count++;
     }
     return found;
   }();
@@ -244,30 +247,27 @@ final class _Tally {
   };
 
   /// Each tag's first use, uses and spending, of the entries counted.
-  late final Map<String, (_At, int, int)> tags = () {
-    final found = <String, (_At, int, int)>{};
+  late final Map<String, _Seen> tags = () {
+    final found = <String, _Seen>{};
     for (var i = 0; i < _month.length; i++) {
       final e = _month[i];
       if (e.tags.isEmpty || !_counts(e)) continue;
-      for (final (k, tag) in e.tags.indexed) {
-        final at = (_places[i], k);
-        final had = found[tag];
-        found[tag] = had == null
-            ? (at, 1, e.spending)
-            : (_earlier(at, had.$1), had.$2 + 1, had.$3 + e.spending);
+      for (var k = 0; k < e.tags.length; k++) {
+        _meet(found, e.tags[k], i, k)
+          ..count += 1
+          ..sum += e.spending;
       }
     }
     return found;
   }();
 
   /// Each tag's first use, of every entry.
-  late final Map<String, _At> known = () {
-    final found = <String, _At>{};
+  late final Map<String, _Seen> known = () {
+    final found = <String, _Seen>{};
     for (var i = 0; i < _month.length; i++) {
-      for (final (k, tag) in _month[i].tags.indexed) {
-        final at = (_places[i], k);
-        final had = found[tag];
-        found[tag] = had == null ? at : _earlier(at, had);
+      final tags = _month[i].tags;
+      for (var k = 0; k < tags.length; k++) {
+        _meet(found, tags[k], i, k);
       }
     }
     return found;
@@ -275,15 +275,14 @@ final class _Tally {
 
   /// Spending and payments at each merchant, of the entries counted, in
   /// the order the month lists them.
-  late final Map<String, (int, int)> spending = () {
-    final found = <String, (int, int)>{};
+  late final Map<String, _Seen> spending = () {
+    final found = <String, _Seen>{};
     for (final e in _month) {
       if (e.type != EntryType.expense || e.merchant.isEmpty) continue;
       if (!_counts(e)) continue;
-      final had = found[e.merchant];
-      found[e.merchant] = had == null
-          ? (e.spending, 1)
-          : (had.$1 + e.spending, had.$2 + 1);
+      (found[e.merchant] ??= _Seen(0, 0))
+        ..count += 1
+        ..sum += e.spending;
     }
     return found;
   }();
