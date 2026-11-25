@@ -11,8 +11,9 @@ import '../../../core/messages/key_failures.dart';
 import '../../../core/messages/key_messages.dart';
 import '../../../core/messages/lock_messages.dart';
 import '../../../core/messages/problem_messages.dart';
-import '../../../core/widgets/diagnostics_button.dart';
 import '../../../core/widgets/diagnostics_export.dart';
+import '../../../../design_system/display/amount.dart' show megabytes;
+import '../../../../design_system/display/date.dart';
 import '../model/unlock_countdown.dart';
 import 'views/backup_choosers.dart';
 import 'views/lock_parts.dart';
@@ -22,7 +23,6 @@ import 'views/unlock_view.dart';
 import 'views/welcome_view.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
-import '../../../../design_system/display/date.dart';
 
 /// The first screen of the phone app. A new ledger starts with one tap,
 /// without a password (one can be set later in settings), or from a
@@ -42,9 +42,7 @@ class LockScreen extends StatefulWidget {
   /// The file picker and Google Drive, on a phone.
   final RestoreSources sources;
 
-  /// Saves the diagnostics, offered as 匯出診斷 under a failure that sends
-  /// the person to them (review 31): no settings can be reached from
-  /// here. None where nothing can be saved.
+  /// Saves 匯出診斷 under a failure that sends to it (review 31).
   final SaveText? diagnostics;
 
   @override
@@ -420,13 +418,10 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   /// A backup on Drive as the chooser names it: when saved, and its size.
-  static String _driveLabel(DriveFile file) {
-    final at = file.modified.toLocal();
-    final size = file.size == 0
-        ? ''
-        : ' · ${(file.size / (1024 * 1024)).toStringAsFixed(1)} MB';
-    return '${formatYMdHm(at)}$size';
-  }
+  static String _driveLabel(DriveFile file) => [
+    formatYMdHm(file.modified.toLocal()),
+    if (file.size > 0) megabytes(file.size),
+  ].join(' · ');
 
   /// Says [problem] on the form, until the person types or tries again.
   void _fail(String problem) {
@@ -502,13 +497,8 @@ class _LockScreenState extends State<LockScreen> {
   });
 
   @override
-  Widget build(BuildContext context) => switch (widget.diagnostics) {
-    final save? => DiagnosticsExport(
-      export: (context) => exportDiagnostics(context, save),
-      child: _view(),
-    ),
-    null => _view(),
-  };
+  Widget build(BuildContext context) =>
+      offerDiagnostics(widget.diagnostics, _view());
 
   Widget _view() {
     if (_welcome) {

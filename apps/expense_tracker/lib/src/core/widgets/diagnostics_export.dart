@@ -6,6 +6,7 @@ import '../ledger/persistence/quarantine.dart';
 import '../messages/diagnostics_messages.dart';
 import '../messages/loading_messages.dart';
 import '../messages/problem_messages.dart';
+import 'diagnostics_button.dart';
 
 /// Saves [text] as a file named [name] where the person chooses; false
 /// when they cancel.
@@ -39,3 +40,12 @@ Future<void> exportDiagnostics(
     if (context.mounted) showNote(context, describeProblem(error));
   }
 }
+
+/// [child] with [save] offered as 匯出診斷 under its failure lines
+/// ([DiagnosticsButton]); [child] alone where nothing can be saved.
+Widget offerDiagnostics(SaveText? save, Widget child) => save == null
+    ? child
+    : DiagnosticsExport(
+        export: (context) => exportDiagnostics(context, save),
+        child: child,
+      );

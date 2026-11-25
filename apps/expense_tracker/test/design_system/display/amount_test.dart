@@ -151,4 +151,11 @@ void main() {
       expect(shortAmount(100000), '10萬');
     });
   });
+
+  test('a file size in MiB to one decimal', () {
+    // 1,572,864 = 1.5 × 1,048,576.
+    expect(megabytes(1572864), '1.5 MB');
+    // 100,000 / 1,048,576 = 0.095… → 0.1.
+    expect(megabytes(100000), '0.1 MB');
+  });
 }

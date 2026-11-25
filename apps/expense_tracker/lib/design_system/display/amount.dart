@@ -144,6 +144,9 @@ String countOf(int count, CountUnit unit) =>
 /// grouped: `128.5`, `1,045`, `23.45`. Never rounds away a real tick.
 String stockPrice(double price) => trimmedDecimals(price, 2);
 
+/// A file's size in MiB to one decimal, as 1.5 MB.
+String megabytes(int bytes) => '${fixedDecimals(bytes / (1024 * 1024), 1)} MB';
+
 /// A price on a chart's axis, a tick rather than a close: one decimal
 /// under 100 (`23.5`), whole above (`129`).
 String priceTick(double price) => fixedDecimals(price, price < 100 ? 1 : 0);
