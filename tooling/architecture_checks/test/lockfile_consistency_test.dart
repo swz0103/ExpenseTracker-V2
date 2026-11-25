@@ -16,7 +16,7 @@ void main() {
     // Packages sit one level down, or two under a grouping folder such as
     // packages/ledger.
     final dirs = [
-      for (final top in ['packages', 'infrastructure', 'tooling'])
+      for (final top in ['packages', 'modules', 'infrastructure', 'tooling'])
         for (final dir in Directory(p.join(root, top)).listSync())
           if (dir is Directory) ...[
             dir,

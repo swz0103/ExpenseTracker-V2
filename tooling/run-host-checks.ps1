@@ -21,6 +21,8 @@ $checks = @(
     @{ Path = 'modules/loans'; Dirs = @('lib', 'test'); Coverage = $true },
     @{ Path = 'packages/ledger/postings'; Dirs = @('lib', 'test'); Coverage = $true },
     @{ Path = 'packages/ledger/trade_costs'; Dirs = @('lib', 'test'); Coverage = $true },
+    # The screens' contribution points: a Flutter package without timing gates.
+    @{ Path = 'packages/shell'; Dirs = @('lib', 'test'); Flutter = $true; NoTiming = $true; Coverage = $true },
     @{ Path = 'infrastructure/storage'; Dirs = @('lib', 'bin', 'test'); Workers = @('bin/crash_worker.dart'); Coverage = $true },
     @{ Path = 'infrastructure/vault'; Dirs = @('lib', 'test'); Coverage = $true },
     @{ Path = 'infrastructure/market'; Dirs = @('lib', 'test'); Coverage = $true },
@@ -100,7 +102,7 @@ foreach ($check in $selected) {
         # tooling/architecture_checks/bin/check_coverage.dart.
         if ($check.ContainsKey('Coverage')) { $testArguments += @('--coverage-path=coverage/lcov.info') }
         Invoke-CheckCommand $driver $testArguments
-        if ($isFlutter) {
+        if ($isFlutter -and -not $check.ContainsKey('NoTiming')) {
             # The timing gates, one file at a time and without coverage
             # (which slows code and distorts the ratios they judge); on a
             # host too busy to judge they fail under CI, saying so, and are

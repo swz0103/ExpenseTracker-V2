@@ -163,6 +163,7 @@ jobs:
         shell: pwsh
         run: |
           flutter config --no-analytics
+          ./tooling/run-host-checks.ps1 -Package packages/shell
           ./tooling/run-host-checks.ps1 -Package apps/expense_tracker
       - name: Status and coverage by class and function
         # From the coverage the tests above wrote: the 現況 figures of
@@ -175,7 +176,7 @@ jobs:
           (cd ../../tooling/architecture_checks && dart pub get --enforce-lockfile)
           dart run ../../tooling/architecture_checks/bin/status.dart
           dart run ../../tooling/architecture_checks/bin/declaration_coverage.dart
-          dart run ../../tooling/architecture_checks/bin/check_coverage.dart apps/expense_tracker
+          dart run ../../tooling/architecture_checks/bin/check_coverage.dart apps/expense_tracker packages/shell
       - name: Screenshots
         # Every page, light and dark, at 360 dp (tool/screenshots), kept
         # with the run to look at a page without a phone.

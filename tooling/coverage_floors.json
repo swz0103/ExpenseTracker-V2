@@ -6,6 +6,7 @@
   "modules/loans": 99,
   "packages/ledger/postings": 99,
   "packages/ledger/trade_costs": 99,
+  "packages/shell": 97,
   "infrastructure/storage": 93,
   "infrastructure/vault": 96,
   "infrastructure/market": 85,
