@@ -1,5 +1,10 @@
 import 'package:core/foundation_values.dart' show BusinessDate, YearMonth;
 import 'package:core/time/utc_days.dart' show dayOf, monthStart;
+
+import '../../../core/formatting/words.dart';
+import '../../../core/design_system/findable.dart';
+import '../../../core/formatting/setting_topic.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -35,6 +40,12 @@ class ImportExportSection extends StatelessWidget {
   /// Saves files and reads them; without it exports are copied instead.
   final BackupManager? backupManager;
 
+  // What search finds here (N8), each on its card below.
+  static const export = SettingTopic('匯出紀錄', words: ['匯出', 'CSV', 'Excel']);
+  static const importCsv = SettingTopic('匯入 CSV', words: ['CSV', '匯入']);
+  static const invoices = SettingTopic('電子發票', words: [Words.invoice, '載具']);
+  static const topics = [export, importCsv, invoices];
+
   @override
   Widget build(BuildContext context) {
     final backupManager = this.backupManager;
@@ -42,45 +53,49 @@ class ImportExportSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const RuleHead('匯出'),
-        ColorCard(
-          color: SettingsColors.csv,
-          label: '匯出 CSV',
-          onTap: () => showSheet<void>(
-            context,
-            (_) => _ExportSheet(ledger: ledger, backupManager: backupManager),
-          ),
-          child: Row(
-            children: [
-              const SquareIcon(Glyph.upload, SettingsColors.csv, size: 50),
-              const SizedBox(width: Space.s4),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '匯出 CSV',
-                      style: TextStyle(
-                        fontSize: TextSize.heading,
-                        fontWeight: FontWeight.w800,
-                        color: deepOf(SettingsColors.csv),
+        Findable(
+          topic: export,
+          child: ColorCard(
+            color: SettingsColors.csv,
+            label: '匯出 CSV',
+            onTap: () => showSheet<void>(
+              context,
+              (_) => _ExportSheet(ledger: ledger, backupManager: backupManager),
+            ),
+            child: Row(
+              children: [
+                const SquareIcon(Glyph.upload, SettingsColors.csv, size: 50),
+                const SizedBox(width: Space.s4),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '匯出 CSV',
+                        style: TextStyle(
+                          fontSize: TextSize.heading,
+                          fontWeight: FontWeight.w800,
+                          color: deepOf(SettingsColors.csv),
+                        ),
                       ),
-                    ),
-                    OneLine(
-                      '一個月或全部，選好再匯出',
-                      style: TextStyle(
-                        fontSize: TextSize.small,
-                        color: deepOf(SettingsColors.csv),
+                      OneLine(
+                        '一個月或全部，選好再匯出',
+                        style: TextStyle(
+                          fontSize: TextSize.small,
+                          color: deepOf(SettingsColors.csv),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         const RuleHead('匯入'),
         CardGrid([
           SettingCard(
+            topic: importCsv,
             glyph: Glyph.records,
             color: SettingsColors.importExport,
             title: 'CSV 檔案',
@@ -89,6 +104,7 @@ class ImportExportSection extends StatelessWidget {
                 importInto(context, ledger, readFile: backupManager?.readFile),
           ),
           SettingCard(
+            topic: invoices,
             glyph: Glyph.scan,
             color: SettingsColors.invoice,
             title: '電子發票',

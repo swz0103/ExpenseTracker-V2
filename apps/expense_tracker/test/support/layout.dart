@@ -36,8 +36,9 @@ abstract final class Layout {
       'time',
       'navigation',
     ],
-    // Opening pages and flows: Nav, AppRoutes, openFullScreen.
-    'navigation': ['ledger', 'platform'],
+    // Opening pages and flows: Nav, AppRoutes, openFullScreen; a page of
+    // the settings opened on the setting a search found (its words).
+    'navigation': ['ledger', 'platform', 'formatting'],
   };
 
   /// The design system: where colours, type sizes and buttons are named.

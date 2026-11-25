@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../backup/model/backup_manager.dart';
+import '../../../core/formatting/setting_topic.dart';
 import '../../../core/design_system/dialogs.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
@@ -33,6 +34,36 @@ class SecuritySection extends StatefulWidget {
 
   /// Where the auto-lock choice is kept.
   final Preferences? preferences;
+
+  // What search finds here (N8), each on its card in the state's build.
+  static const password = SettingTopic('密碼', words: ['變更密碼', '設定密碼']);
+  static const fingerprint = SettingTopic(
+    LockWords.fingerprint,
+    // Exception to glossary: search words: 指紋 finds the setting too.
+    words: ['指紋', '臉部', '生物辨識'],
+  );
+  static const autoLock = SettingTopic(
+    LockWords.autoLock,
+    words: LockWords.autoLockSearch,
+  );
+  static const recovery = SettingTopic('救援碼', words: ['忘記密碼']);
+  static const passphrase = SettingTopic(KeyWords.passphrase, words: ['備份']);
+  static const hideScreen = SettingTopic(
+    LockWords.hideScreen,
+    words: ['截圖', '錄影', '隱私'],
+  );
+  static const reset = SettingTopic(KeyWords.reset, words: ['金鑰', '外流']);
+  static const lockNow = SettingTopic('現在鎖上', words: ['鎖定']);
+  static const topics = [
+    password,
+    fingerprint,
+    autoLock,
+    recovery,
+    passphrase,
+    hideScreen,
+    reset,
+    lockNow,
+  ];
 
   @override
   State<SecuritySection> createState() => _SecuritySectionState();
@@ -247,6 +278,7 @@ class _SecuritySectionState extends State<SecuritySection> {
     return CardGrid([
       if (backupManager != null) ...[
         SettingCard(
+          topic: SecuritySection.password,
           key: Keys.password,
           glyph: Glyph.key,
           color: backupManager.passwordBelowRule
@@ -264,6 +296,7 @@ class _SecuritySectionState extends State<SecuritySection> {
         // for it to stand in for.
         if (backupManager.canUseFingerprint)
           SettingCard(
+            topic: SecuritySection.fingerprint,
             key: Keys.fingerprintSwitch,
             glyph: Glyph.shield,
             color: SettingsColors.security,
@@ -281,6 +314,7 @@ class _SecuritySectionState extends State<SecuritySection> {
           ListenableBuilder(
             listenable: preferences.watch(const {PreferenceTopic.lock}),
             builder: (context, _) => SettingCard(
+              topic: SecuritySection.autoLock,
               key: Keys.autoLock,
               glyph: Glyph.hourglass,
               color: SettingsColors.security,
@@ -290,6 +324,7 @@ class _SecuritySectionState extends State<SecuritySection> {
             ),
           ),
         SettingCard(
+          topic: SecuritySection.recovery,
           glyph: Glyph.lifebuoy,
           color: SettingsColors.recovery,
           title: '救援碼',
@@ -297,6 +332,7 @@ class _SecuritySectionState extends State<SecuritySection> {
           onTap: () => _newRecovery(backupManager),
         ),
         SettingCard(
+          topic: SecuritySection.passphrase,
           key: Keys.passphrase,
           glyph: Glyph.safe,
           color: SettingsColors.backup,
@@ -309,6 +345,7 @@ class _SecuritySectionState extends State<SecuritySection> {
       ],
       if (privacy != null)
         SettingCard(
+          topic: SecuritySection.hideScreen,
           key: Keys.hideScreen,
           glyph: Glyph.eyeOff,
           color: SettingsColors.appearance,
@@ -323,6 +360,7 @@ class _SecuritySectionState extends State<SecuritySection> {
         ),
       if (backupManager != null)
         SettingCard(
+          topic: SecuritySection.reset,
           key: Keys.resetKeys,
           glyph: Glyph.shield,
           color: SettingsColors.warning,
@@ -332,6 +370,7 @@ class _SecuritySectionState extends State<SecuritySection> {
         ),
       if (backupManager != null && backupManager.hasPassword)
         SettingCard(
+          topic: SecuritySection.lockNow,
           key: Keys.lockNow,
           glyph: Glyph.lock,
           color: SettingsColors.about,

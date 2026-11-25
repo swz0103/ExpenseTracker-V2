@@ -329,12 +329,13 @@ class _AppShellState extends State<AppShell> {
       name: name,
       merchant: merchant,
     ),
-    SettingsRoute(:final part) => SettingsPage(
+    SettingsRoute(:final part, :final sought) => SettingsPage(
       key: ValueKey(page),
       ledger: ledger,
       nav: _nav,
       services: widget.services,
       part: part,
+      sought: sought,
     ),
     HoldingRoute(:final code) => HoldingPage(
       key: ValueKey(page),

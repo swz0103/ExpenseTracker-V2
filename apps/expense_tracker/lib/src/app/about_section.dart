@@ -24,6 +24,8 @@ import '../../design_system/display/date.dart';
 import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
 import '../core/platform/preferences.dart';
+import '../core/design_system/findable.dart';
+import '../core/formatting/setting_topic.dart';
 
 /// 關於: the main card says the version and how it stands against the
 /// newest (已是最新, 有新版 with 更新, or the download with its bar); two
@@ -35,6 +37,13 @@ class AboutSection extends StatelessWidget {
 
   final Ledger ledger;
   final PlatformServices services;
+
+  // What search finds here (N8), each on its card below.
+  static const version = SettingTopic('版本與更新', words: ['新版', '版本']);
+  static const updates = SettingTopic('自動檢查新版本', words: ['更新', '版本']);
+  static const diagnostics = SettingTopic('診斷', words: ['錯誤', '效能']);
+  static const sampleReset = SettingTopic('重設範例資料', words: ['範例']);
+  static const topics = [version, updates, diagnostics, sampleReset];
 
   /// The figures, then each problem kept, as text to copy or download.
   static String get _report => [
@@ -154,12 +163,16 @@ class AboutSection extends StatelessWidget {
       builder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _VersionCard(update: update),
+          Findable(
+            topic: version,
+            child: _VersionCard(update: update),
+          ),
           const SizedBox(height: Space.s3),
           CardGrid(
             [
               if (preferences != null && (update?.possible ?? false))
                 _ActionRow(
+                  topic: updates,
                   glyph: Glyph.reset,
                   color: SettingsColors.main,
                   title: '自動檢查新版本',
@@ -178,6 +191,7 @@ class AboutSection extends StatelessWidget {
                   ),
                 ),
               _ActionRow(
+                topic: diagnostics,
                 glyph: Glyph.bolt,
                 color: SettingsColors.about,
                 title: '診斷',
@@ -190,7 +204,13 @@ class AboutSection extends StatelessWidget {
           // Only the preview's made-up book can be reset.
           if (services.sample case final sample?) ...[
             const SizedBox(height: Space.s3),
-            PanelButton('重設範例資料', onTap: () => _reset(context, sample)),
+            Findable(
+              topic: sampleReset,
+              child: PanelButton(
+                '重設範例資料',
+                onTap: () => _reset(context, sample),
+              ),
+            ),
           ],
         ],
       ),
@@ -201,6 +221,7 @@ class AboutSection extends StatelessWidget {
 /// A short card with its icon, name and a control on the right.
 class _ActionRow extends StatelessWidget {
   const _ActionRow({
+    required this.topic,
     required this.glyph,
     required this.color,
     required this.title,
@@ -209,6 +230,7 @@ class _ActionRow extends StatelessWidget {
     this.trailing,
   });
 
+  final SettingTopic topic;
   final Glyph glyph;
   final Color color;
   final String title;
@@ -219,41 +241,49 @@ class _ActionRow extends StatelessWidget {
   final Widget? trailing;
 
   @override
-  Widget build(BuildContext context) => ColorCard(
-    color: color,
-    onTap: onTap,
-    radius: Radii.largeIncreased,
-    padding: const EdgeInsets.fromLTRB(Space.s3, Space.s2, Space.s2, Space.s2),
-    child: Row(
-      children: [
-        SquareIcon(glyph, color, size: 40),
-        const SizedBox(width: Space.s3),
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: TextSize.title,
-                  fontWeight: FontWeight.w800,
-                  color: deepOf(color),
-                ),
-              ),
-              if (detail case final detail?)
+  Widget build(BuildContext context) => Findable(
+    topic: topic,
+    child: ColorCard(
+      color: color,
+      onTap: onTap,
+      radius: Radii.largeIncreased,
+      padding: const EdgeInsets.fromLTRB(
+        Space.s3,
+        Space.s2,
+        Space.s2,
+        Space.s2,
+      ),
+      child: Row(
+        children: [
+          SquareIcon(glyph, color, size: 40),
+          const SizedBox(width: Space.s3),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  detail,
+                  title,
                   style: TextStyle(
-                    fontSize: TextSize.small,
+                    fontSize: TextSize.title,
+                    fontWeight: FontWeight.w800,
                     color: deepOf(color),
                   ),
                 ),
-            ],
+                if (detail case final detail?)
+                  Text(
+                    detail,
+                    style: TextStyle(
+                      fontSize: TextSize.small,
+                      color: deepOf(color),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-        ?trailing,
-      ],
+          ?trailing,
+        ],
+      ),
     ),
   );
 }

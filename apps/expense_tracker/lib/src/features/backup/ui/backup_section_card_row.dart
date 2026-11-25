@@ -107,6 +107,7 @@ class _FolderDenied extends StatelessWidget {
 /// its settings below thin rules, each with its value on the right.
 class _BackupCard extends StatelessWidget {
   const _BackupCard({
+    required this.topic,
     required this.glyph,
     required this.color,
     required this.title,
@@ -115,6 +116,7 @@ class _BackupCard extends StatelessWidget {
     required this.rows,
   });
 
+  final SettingTopic topic;
   final Glyph glyph;
   final Color color;
   final String title;
@@ -125,52 +127,55 @@ class _BackupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final change = onChanged;
-    return ColorCard(
-      controlsInside: true,
-      color: color,
-      padding: const EdgeInsets.fromLTRB(
-        Space.s4,
-        Space.s3,
-        Space.s2,
-        Space.s3,
-      ),
-      child: Column(
-        children: [
-          ToggleRow(
-            value: value,
-            onChanged: change,
-            label: title,
-            child: Row(
-              children: [
-                SquareIcon(glyph, color, size: 40),
-                const SizedBox(width: Space.s4),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: TextSize.title,
-                      fontWeight: FontWeight.w800,
-                      color: deepOf(color),
+    return Findable(
+      topic: topic,
+      child: ColorCard(
+        controlsInside: true,
+        color: color,
+        padding: const EdgeInsets.fromLTRB(
+          Space.s4,
+          Space.s3,
+          Space.s2,
+          Space.s3,
+        ),
+        child: Column(
+          children: [
+            ToggleRow(
+              value: value,
+              onChanged: change,
+              label: title,
+              child: Row(
+                children: [
+                  SquareIcon(glyph, color, size: 40),
+                  const SizedBox(width: Space.s4),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: TextSize.title,
+                        fontWeight: FontWeight.w800,
+                        color: deepOf(color),
+                      ),
                     ),
                   ),
-                ),
-                TickSwitch(
-                  value: value,
-                  color: color,
-                  label: title,
-                  onChanged: change,
-                ),
-              ],
+                  TickSwitch(
+                    value: value,
+                    color: color,
+                    label: title,
+                    onChanged: change,
+                  ),
+                ],
+              ),
             ),
-          ),
-          for (final row in rows) ...[
-            Padding(
-              padding: const EdgeInsets.only(right: Space.s2),
-              child: Divider(height: 12, color: tintOf(color, 0.4)),
-            ),
-            row,
+            for (final row in rows) ...[
+              Padding(
+                padding: const EdgeInsets.only(right: Space.s2),
+                child: Divider(height: 12, color: tintOf(color, 0.4)),
+              ),
+              row,
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
