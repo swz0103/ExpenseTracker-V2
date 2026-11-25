@@ -1,10 +1,21 @@
-part of 'account_editor.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import '../../../core/messages/trade_messages.dart';
+import 'account_editor_state.dart';
 
 /// The card on top of the form, and its first fields: the mark, the name
 /// typed straight onto it and a dot of its colour that opens the
 /// colours, over the balance.
-class _EditCard extends StatelessWidget {
-  const _EditCard({
+class AccountEditCard extends StatelessWidget {
+  const AccountEditCard({
+    super.key,
     required this.color,
     required this.icon,
     required this.kind,
@@ -126,8 +137,8 @@ const _plain = InputDecoration(
   contentPadding: EdgeInsets.symmetric(vertical: Space.s2),
 );
 
-class _Field extends StatelessWidget {
-  const _Field({
+class AccountField extends StatelessWidget {
+  const AccountField({
     super.key,
     required this.controller,
     required this.hint,
@@ -166,8 +177,13 @@ class _Field extends StatelessWidget {
 
 /// A day of the month in the closing or due day picker: a 48 dp key
 /// named for a screen reader.
-class _DayKey extends StatelessWidget {
-  const _DayKey({required this.day, required this.picked, required this.onTap});
+class AccountDayKey extends StatelessWidget {
+  const AccountDayKey({
+    super.key,
+    required this.day,
+    required this.picked,
+    required this.onTap,
+  });
 
   final int day;
   final bool picked;
@@ -204,40 +220,40 @@ const _ring = Border.fromBorderSide(
 
 /// Parts of the account form kept apart from its state's file: the
 /// account as it stands, and its own broker discount.
-extension _AccountBlocks on _AccountEditorState {
+extension AccountBlocks on AccountEditorState {
   /// The account as the form stands, for its colour and label.
-  Account get _preview => Account(
-    _old?.id ?? '',
-    _f.name.trim(),
-    _f.kind,
+  Account get previewAccount => Account(
+    oldAccount?.id ?? '',
+    accountForm.name.trim(),
+    accountForm.kind,
     0,
-    icon: _f.icon,
-    dueDay: _f.card ? _f.due : null,
-    currency: _f.foreignAllowed ? _f.currency : homeCode,
-    color: _f.color,
+    icon: accountForm.icon,
+    dueDay: accountForm.card ? accountForm.due : null,
+    currency: accountForm.foreignAllowed ? accountForm.currency : homeCode,
+    color: accountForm.color,
   );
 
   /// 券商手續費折扣 of an account that trades: its own, or empty for the
   /// phone-wide one (D7).
-  Widget _discountGroup() => FormGroup(
+  Widget discountGroup() => FormGroup(
     title: BrokerDiscountText.title,
-    child: _Field(
+    child: AccountField(
       key: Keys.accountDiscount,
-      controller: _discount,
+      controller: discountField,
       hint: BrokerDiscountText.accountHint,
       number: true,
-      error: _f.discountProblem,
+      error: accountForm.discountProblem,
     ),
   );
 }
 
 /// The account form's foot, apart from its fields.
-extension on _AccountEditorState {
+extension AccountEditorActions on AccountEditorState {
   /// 刪除, 封存 or 恢復 when changing, and 儲存; what is left under it.
-  Widget _buttons(Account? old) {
+  Widget buttons(Account? old) {
     final removable =
         old != null && !widget.ledger.accountCommands.usedOutsideTrash(old.id);
-    final problem = _problem;
+    final problem = shownProblem;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -255,7 +271,7 @@ extension on _AccountEditorState {
           children: [
             if (old != null)
               TextButton(
-                onPressed: removable ? _remove : _archive,
+                onPressed: removable ? deleteAccount : archiveAccount,
                 style: wordButton(
                   removable || !old.archived
                       ? AppColors.danger
@@ -276,7 +292,7 @@ extension on _AccountEditorState {
             const SizedBox(width: Space.s2),
             Expanded(
               child: FilledButton(
-                onPressed: _save,
+                onPressed: saveAccount,
                 style: solidButton(
                   AppColors.accent,
                   minimumSize: Size.fromHeight(46),

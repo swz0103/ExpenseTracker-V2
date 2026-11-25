@@ -1,6 +1,32 @@
-part of 'recurring_editor.dart';
+import 'package:flutter/material.dart';
 
-class _RepeatSheetState extends State<_RepeatSheet> {
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/pickers.dart';
+import '../model/recurring_schedule.dart';
+import '../model/recurring_form.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../core/messages/recurring_messages.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+
+/// 多久一次: 每天, 每週, 每月 or 每年; then the day: a grid of dates for a
+/// month, seven weekdays for a week, the twelve months and a date for a
+/// year, how many days for every few days; every how many; and the next
+/// three times.
+class RepeatSheet extends StatefulWidget {
+  const RepeatSheet({super.key, required this.form});
+
+  final RecurringForm form;
+
+  @override
+  State<RepeatSheet> createState() => _RepeatSheetState();
+}
+
+class _RepeatSheetState extends State<RepeatSheet> {
   RecurringForm get _f => widget.form;
 
   Widget _cell(String label, bool chosen, VoidCallback onTap) => Semantics(
@@ -180,8 +206,12 @@ class _RepeatSheetState extends State<_RepeatSheet> {
 
 /// 其他設定: when it starts and ends, whether it books itself when due,
 /// and whether it is paused.
-class _OtherSheet extends StatefulWidget {
-  const _OtherSheet({required this.form, required this.today});
+class RecurringOtherSheet extends StatefulWidget {
+  const RecurringOtherSheet({
+    super.key,
+    required this.form,
+    required this.today,
+  });
 
   final RecurringForm form;
 
@@ -189,10 +219,10 @@ class _OtherSheet extends StatefulWidget {
   final DateTime today;
 
   @override
-  State<_OtherSheet> createState() => _OtherSheetState();
+  State<RecurringOtherSheet> createState() => _OtherSheetState();
 }
 
-class _OtherSheetState extends State<_OtherSheet> {
+class _OtherSheetState extends State<RecurringOtherSheet> {
   RecurringForm get _f => widget.form;
 
   Future<DateTime?> _pick(String title, DateTime selected) => pickDate(

@@ -1,4 +1,20 @@
-part of 'tags_page.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/done_messages.dart';
+import '../../../core/navigation/nav.dart';
+import '../model/tag_summary.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import 'tags_page.dart';
 
 /// A tag's page or a merchant's: the big card with ⋯ (改名, 合併到…,
 /// 刪除), then its entries on a white board, each opening that entry.
@@ -152,7 +168,7 @@ class TagPage extends StatelessWidget {
             if (entries.isEmpty)
               EmptyState(
                 glyph: merchant ? Glyph.store : Glyph.ticket,
-                color: merchant ? _merchantColor : _tagColor,
+                color: merchant ? merchantColor : tagColor,
                 message: '沒有紀錄',
               )
             else ...[

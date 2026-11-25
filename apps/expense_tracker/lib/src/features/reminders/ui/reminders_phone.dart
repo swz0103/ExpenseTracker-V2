@@ -1,9 +1,28 @@
-part of 'reminders_section.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/messages/problem_messages.dart';
+import '../model/calendar_sync.dart';
+import '../model/reminder_alerts.dart';
+import '../model/reminders.dart';
+import '../../../core/messages/reminder_messages.dart';
+import '../../../core/design_system/settings_colors.dart';
+import '../../../core/diagnostics/error_log.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/formatting/words.dart';
+import '../../../core/diagnostics/error_steps.dart';
+import 'reminders_section.dart';
 
 /// The strip under the cards: green with 試一則 when the phone allows
 /// everything asked of it, gold naming what is still off with 去開.
-class _PhoneStrip extends StatelessWidget {
-  const _PhoneStrip({
+class ReminderPhoneStrip extends StatelessWidget {
+  const ReminderPhoneStrip({
+    super.key,
     required this.status,
     required this.exact,
     required this.onTest,
@@ -76,8 +95,8 @@ class _PhoneStrip extends StatelessWidget {
 }
 
 /// A small label over what it names, inside a panel.
-class _Labelled extends StatelessWidget {
-  const _Labelled(this.label, this.child);
+class ReminderLabelled extends StatelessWidget {
+  const ReminderLabelled(this.label, this.child, {super.key});
 
   final String label;
   final Widget child;
@@ -102,8 +121,13 @@ class _Labelled extends StatelessWidget {
 
 /// A tinted block with a small line over a bold one: 11/15 over 健身房
 /// 1,680.
-class _Chip extends StatelessWidget {
-  const _Chip({required this.color, required this.top, required this.bottom});
+class ReminderChip extends StatelessWidget {
+  const ReminderChip({
+    super.key,
+    required this.color,
+    required this.top,
+    required this.bottom,
+  });
 
   final Color color;
   final String top;
@@ -142,8 +166,9 @@ class _Chip extends StatelessWidget {
 
 /// A row with a name and a line under it on the left and a [TickSwitch]
 /// on the right; a tinted block of its own unless [flat].
-class _ToggleRow extends StatelessWidget {
-  const _ToggleRow({
+class ReminderToggleRow extends StatelessWidget {
+  const ReminderToggleRow({
+    super.key,
     required this.color,
     required this.title,
     required this.detail,
@@ -219,12 +244,12 @@ class _ToggleRow extends StatelessWidget {
 
 /// The Google 日曆 card's actions: linking a calendar, its details,
 /// changing it and stopping the sync.
-mixin _CalendarActions on State<RemindersSection> {
+mixin CalendarActions on State<RemindersSection> {
   /// What falls due in the ledger shown, read afresh each time.
-  ReminderBook get _book;
+  ReminderBook get reminderBook;
 
   /// Links a calendar for the due dates, or changes it.
-  Future<void> _linkCalendar(CalendarSync calendar) async {
+  Future<void> linkCalendar(CalendarSync calendar) async {
     try {
       if (!await calendar.port.access()) {
         if (mounted) showNote(context, ReminderMessages.calendarNoAccess);
@@ -289,8 +314,11 @@ mixin _CalendarActions on State<RemindersSection> {
         ),
       );
       if (picked == null || !mounted) return;
-      await calendar.choose(choices.firstWhere((c) => c.id == picked), _book);
-      final written = await calendar.sync(_book);
+      await calendar.choose(
+        choices.firstWhere((c) => c.id == picked),
+        reminderBook,
+      );
+      final written = await calendar.sync(reminderBook);
       if (!mounted) return;
       setState(() {});
       showNote(
@@ -310,8 +338,8 @@ mixin _CalendarActions on State<RemindersSection> {
     }
   }
 
-  Future<void> _forgetCalendar(CalendarSync calendar) async {
-    final cleared = await calendar.forget(_book);
+  Future<void> forgetCalendar(CalendarSync calendar) async {
+    final cleared = await calendar.forget(reminderBook);
     if (mounted) {
       showNote(
         context,
@@ -323,7 +351,7 @@ mixin _CalendarActions on State<RemindersSection> {
     if (mounted) setState(() {});
   }
 
-  void _calendarDetails(CalendarSync calendar) {
+  void calendarDetails(CalendarSync calendar) {
     const color = SettingsColors.calendar;
     showCenterPanel(
       context,
@@ -345,7 +373,7 @@ mixin _CalendarActions on State<RemindersSection> {
               padding: const EdgeInsets.symmetric(horizontal: Space.s4),
               child: Column(
                 children: [
-                  _ToggleRow(
+                  ReminderToggleRow(
                     color: color,
                     flat: true,
                     title: ReminderMessages.calendarAmounts,
@@ -354,7 +382,7 @@ mixin _CalendarActions on State<RemindersSection> {
                         : ReminderMessages.calendarAmountsOff,
                     value: calendar.amounts,
                     onChanged: (on) async {
-                      await calendar.setAmounts(on, _book);
+                      await calendar.setAmounts(on, reminderBook);
                       setState(() {});
                     },
                   ),
@@ -378,7 +406,7 @@ mixin _CalendarActions on State<RemindersSection> {
     return InkWell(
       onTap: () async {
         Navigator.of(panel).pop();
-        await _linkCalendar(calendar);
+        await linkCalendar(calendar);
       },
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 52),
@@ -410,7 +438,7 @@ mixin _CalendarActions on State<RemindersSection> {
     style: wordButton(AppColors.danger, minimumSize: Size(0, 48)),
     onPressed: () {
       Navigator.of(panel).pop();
-      _forgetCalendar(calendar);
+      forgetCalendar(calendar);
     },
     child: const Text(
       ReminderMessages.calendarStop,

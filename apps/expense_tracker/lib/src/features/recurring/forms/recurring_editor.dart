@@ -9,17 +9,13 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/calculator.dart';
 import '../../../core/widgets/pickers.dart';
-import '../model/recurring_schedule.dart';
 import '../model/recurring_form.dart';
 import 'recurring_form_widgets.dart';
-import '../../../../design_system/display/date.dart';
 import '../../../core/messages/done_messages.dart';
-import '../../../core/messages/recurring_messages.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
-
-part 'recurring_repeat.dart';
+import 'recurring_repeat.dart';
 
 /// Opens the form of a recurring item as a bottom sheet: a new one
 /// (starting [on] that day, when given), or [item] to change. Saving
@@ -128,14 +124,14 @@ class _RecurringEditorState extends State<_RecurringEditor> {
   }
 
   Future<void> _repeat() async {
-    await showSheet<void>(context, (_) => _RepeatSheet(form: _f));
+    await showSheet<void>(context, (_) => RepeatSheet(form: _f));
     if (mounted) setState(() {});
   }
 
   Future<void> _others() async {
     await showSheet<void>(
       context,
-      (_) => _OtherSheet(form: _f, today: _ledger.today),
+      (_) => RecurringOtherSheet(form: _f, today: _ledger.today),
     );
     if (mounted) setState(() {});
   }
@@ -321,17 +317,4 @@ class _RecurringEditorState extends State<_RecurringEditor> {
       ],
     );
   }
-}
-
-/// 多久一次: 每天, 每週, 每月 or 每年; then the day: a grid of dates for a
-/// month, seven weekdays for a week, the twelve months and a date for a
-/// year, how many days for every few days; every how many; and the next
-/// three times.
-class _RepeatSheet extends StatefulWidget {
-  const _RepeatSheet({required this.form});
-
-  final RecurringForm form;
-
-  @override
-  State<_RepeatSheet> createState() => _RepeatSheetState();
 }

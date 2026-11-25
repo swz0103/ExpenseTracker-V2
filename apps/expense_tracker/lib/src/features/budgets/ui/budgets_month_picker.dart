@@ -1,9 +1,23 @@
-part of 'budgets.dart';
+import 'package:core/foundation_values.dart' show YearMonth;
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import 'budgets.dart';
 
 /// A year of months, each saying how much of its budget was used: red
 /// when over, gold from nine in ten.
-class _MonthPicker extends StatefulWidget {
-  const _MonthPicker({
+class BudgetMonthPicker extends StatefulWidget {
+  const BudgetMonthPicker({
+    super.key,
     required this.ledger,
     required this.chosen,
     required this.first,
@@ -16,10 +30,10 @@ class _MonthPicker extends StatefulWidget {
   final YearMonth last;
 
   @override
-  State<_MonthPicker> createState() => _MonthPickerState();
+  State<BudgetMonthPicker> createState() => _MonthPickerState();
 }
 
-class _MonthPickerState extends State<_MonthPicker> {
+class _MonthPickerState extends State<BudgetMonthPicker> {
   late var _year = widget.chosen.year;
 
   @override
@@ -143,8 +157,8 @@ class _MonthPickerState extends State<_MonthPicker> {
 
 /// 幫哪個設額度: the spending categories without one, as squares, and the
 /// tags without one, as chips.
-class _AddLimit extends StatelessWidget {
-  const _AddLimit({required this.ledger});
+class BudgetAddLimit extends StatelessWidget {
+  const BudgetAddLimit({super.key, required this.ledger});
 
   final Ledger ledger;
 

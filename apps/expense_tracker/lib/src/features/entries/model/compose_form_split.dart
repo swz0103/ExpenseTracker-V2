@@ -1,4 +1,5 @@
-part of 'compose_form.dart';
+import '../../../core/ledger/ledger.dart';
+import 'compose_form.dart';
 
 // 拆分: an entry's parts by category, and the ends of a transfer or trade.
 

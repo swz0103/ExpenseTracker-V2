@@ -1,105 +1,130 @@
-part of 'composer.dart';
+import 'dart:async';
+
+import '../../../core/design_system/dialogs.dart';
+import '../../../../design_system/display/amount.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/ledger/trading.dart';
+import '../../../core/widgets/calculator.dart';
+import '../../../core/widgets/pickers.dart';
+import '../../../core/widgets/pickers_days.dart';
+import '../model/compose_form.dart';
+import '../../../core/messages/installment_messages.dart';
+import '../../../core/messages/invoice_messages.dart';
+import '../../../core/messages/scan_messages.dart';
+import '../../../core/platform/scan.dart';
+import '../model/invoices.dart';
+import '../model/invoice_qr.dart';
+import 'compose_widgets.dart';
+import 'holding_choices.dart';
+import '../../../core/formatting/words.dart';
+import 'composer_state.dart';
 
 // The choices the form opens: amount, day, account, category, holding,
 // merchant, tags and instalments; and what it takes in from outside, an
 // invoice scanned and a receipt photo left over.
 
-extension _Pickers on _ComposerState {
-  Future<int?> _ask(String title, int initial, {String unit = homeCode}) {
+extension ComposerPickers on ComposerState {
+  Future<int?> askAmount(String title, int initial, {String unit = homeCode}) {
     return showCalculator(
       context,
       title: title,
       initial: initial,
-      color: _color,
+      color: color,
       unit: unit,
     );
   }
 
-  Future<void> _calculate() async {
-    final value = await _ask('輸入金額', _f.amount, unit: _f.currency);
+  Future<void> typeAmount() async {
+    final value = await askAmount('輸入金額', form.amount, unit: form.currency);
     if (value == null) return;
-    _set(() {
-      _f.setAmount(value);
+    update(() {
+      form.setAmount(value);
     });
   }
 
-  Future<void> _pickDate() async {
+  Future<void> chooseDate() async {
     final marked = {
       // Exception to as-of-today: the date picker marks every day something is
       // written on.
-      for (final e in _ledger.entries.inMonth(_f.date.year, _f.date.month))
+      for (final e in composerLedger.entries.inMonth(
+        form.date.year,
+        form.date.month,
+      ))
         e.date,
     };
-    final day = await _open<DateTime>(
+    final day = await openPage<DateTime>(
       Words.date,
       (done) => DayChoices(
-        selected: _f.date,
+        selected: form.date,
         // Spending, income and transfers may be 預定, up to the write
         // rules' limit; shares change hands on the day they do (D25).
-        latest: _f.mode == ComposeMode.investment
-            ? _ledger.today
-            : latestEntryDay(_ledger.today),
-        today: _ledger.today,
+        latest: form.mode == ComposeMode.investment
+            ? composerLedger.today
+            : latestEntryDay(composerLedger.today),
+        today: composerLedger.today,
         marked: marked,
-        color: _color,
+        color: color,
         onPick: done,
       ),
     );
-    if (day != null) _set(() => _f.date = day);
+    if (day != null) update(() => form.date = day);
   }
 
   /// An open account; for a refund, one in the purchase's currency.
-  Future<String?> _pickAccount(String title, String selected) {
-    final refunded = _f.refunded;
+  Future<String?> chooseAccount(String title, String selected) {
+    final refunded = form.refunded;
     final currency = refunded == null
         ? null
-        : _ledger.account(refunded.account).currency;
-    return _open<String>(
+        : composerLedger.account(refunded.account).currency;
+    return openPage<String>(
       title,
       (done) => AccountChoices(
-        ledger: _ledger,
+        ledger: composerLedger,
         selected: selected,
         currency: currency,
-        ring: _color,
+        ring: color,
         onPick: done,
       ),
     );
   }
 
   /// A category from them all; 新增 at the end makes one and gives it.
-  Future<String?> _pickCategory(String? selected) async {
-    final income = _f.tab == ComposeMode.income;
+  Future<String?> chooseCategory(String? selected) async {
+    final income = form.tab == ComposeMode.income;
     const adding = '';
-    final picked = await _open<String>(
+    final picked = await openPage<String>(
       income ? '收入分類' : '支出分類',
       (done) => OptionGrid<String>(
         options: [
-          ...categoryOptions(_ledger, income: income),
-          if (!_viewing)
+          ...categoryOptions(composerLedger, income: income),
+          if (!viewing)
             const Option(adding, Words.add, Glyph.add, AppColors.muted),
         ],
         selected: selected,
-        ring: _color,
+        ring: color,
         onPick: done,
       ),
     );
     if (picked != adding) return picked;
-    return _newCategory();
+    return newCategory();
   }
 
-  Future<void> _pickHolding() async {
-    final picked = await _open<String>(
+  Future<void> chooseHolding() async {
+    final picked = await openPage<String>(
       '標的',
       (done) => HoldingChoices(
-        ledger: _ledger,
-        selected: _f.holding,
+        ledger: composerLedger,
+        selected: form.holding,
         onPick: done,
-        onAdd: _viewing ? null : () => done(''),
+        onAdd: viewing ? null : () => done(''),
       ),
     );
     if (picked == null) return;
     if (picked.isEmpty) return _newHolding();
-    _set(() => _f.holding = picked);
+    update(() => form.holding = picked);
   }
 
   Future<void> _newHolding() async {
@@ -107,44 +132,44 @@ extension _Pickers on _ComposerState {
     if (typed == null) return;
     final code = tidyCode(typed);
     if (code.isEmpty) return;
-    _set(() => _f.holding = code);
+    update(() => form.holding = code);
     if (!quotable(code) && mounted) {
       showNote(context, '證交所與櫃買中心沒有「$code」這個代號，市值會以成本估算');
     }
   }
 
-  Future<void> _pickMerchant() async {
-    final picked = await _open<String>(
+  Future<void> chooseMerchant() async {
+    final picked = await openPage<String>(
       Words.merchant,
       (done) => MerchantPicker(
-        known: _ledger.entryQueryService.merchants,
-        initial: _f.merchant,
+        known: composerLedger.entryQueryService.merchants,
+        initial: form.merchant,
         onDone: done,
       ),
     );
     if (picked == null) return;
-    _set(() => _f.pickMerchant(picked));
+    update(() => form.pickMerchant(picked));
   }
 
-  Future<void> _pickTags() async {
-    final picked = await _open<List<String>>(
+  Future<void> chooseTags() async {
+    final picked = await openPage<List<String>>(
       Words.tag,
       (done) => TagPicker(
-        known: _ledger.reportService.tags,
-        initial: _f.tags,
+        known: composerLedger.reportService.tags,
+        initial: form.tags,
         onDone: done,
       ),
     );
-    if (picked != null) _set(() => _f.tags = picked);
+    if (picked != null) update(() => form.tags = picked);
   }
 
-  Future<void> _pickInstallments() async {
-    final picked = await _open<int>(
+  Future<void> chooseInstallments() async {
+    final picked = await openPage<int>(
       '分期付款',
       (done) => OptionGrid<int>(
-        selected: _f.installments,
+        selected: form.installments,
         columns: 3,
-        ring: _color,
+        ring: color,
         onPick: done,
         options: [
           for (final n in installmentChoices)
@@ -157,18 +182,20 @@ extension _Pickers on _ComposerState {
         ],
       ),
     );
-    if (picked != null) _set(() => _f.installments = picked);
+    if (picked != null) update(() => form.installments = picked);
   }
 
   /// A receipt photo the camera took while the phone closed the app goes
   /// with the next new entry.
-  Future<void> _takeLeftover() async {
+  Future<void> takeLeftoverPhoto() async {
     final photos = widget.photos;
-    if (photos == null || widget.entry != null || _f.refunded != null) return;
+    if (photos == null || widget.entry != null || form.refunded != null) {
+      return;
+    }
     // One that cannot be taken back is told by the phone's side.
     final name = await photos.takeLeftover();
     if (name == null || !mounted) return;
-    _set(() => _f.receipt = name);
+    update(() => form.receipt = name);
   }
 
   /// Applies `change` while the form is still on screen: the field
@@ -178,31 +205,31 @@ extension _Pickers on _ComposerState {
   /// items and number in the note, tagged 發票, and a category guessed from
   /// the items. One already in the book is said, not filled again. When
   /// the right code cannot be read, the left one still fills the form.
-  Future<void> _scanInvoice() async {
+  Future<void> scanPaperInvoice() async {
     if (widget.scan == null) return;
     final left = await _scanCode();
     if (left == null || !mounted) return;
     var invoice = InvoiceQr.parse(left);
     if (invoice == null) {
-      _say(InvoiceMessages.notLeft);
+      sayNote(InvoiceMessages.notLeft);
       return;
     }
-    if (invoiceRecorded(_ledger.entries, invoice.date, invoice.number)) {
-      _say(InvoiceMessages.recorded(invoice.number));
+    if (invoiceRecorded(composerLedger.entries, invoice.date, invoice.number)) {
+      sayNote(InvoiceMessages.recorded(invoice.number));
       return;
     }
     if (invoice.wantsMore) {
-      _say(InvoiceMessages.scanRight);
+      sayNote(InvoiceMessages.scanRight);
       final right = await _scanCode();
       if (right != null) invoice = invoice.withRight(right);
     }
     if (!mounted) return;
     final scanned = invoice;
-    _set(() => _f.fillInvoice(scanned));
+    update(() => form.fillInvoice(scanned));
     // The right code failed: what the left one gives is filled in, and
     // the person is told the items are missing; every field stays theirs
     // to change (D30).
-    if (scanned.wantsMore) _say(InvoiceMessages.filledWithoutItems);
+    if (scanned.wantsMore) sayNote(InvoiceMessages.filledWithoutItems);
   }
 
   /// One code from the scanner; null when there is none, the person
@@ -212,16 +239,20 @@ extension _Pickers on _ComposerState {
   Future<String?> _scanCode() async {
     final scan = widget.scan;
     if (scan == null) return null;
-    final outcome = await scan(preparing: () => _say(ScanMessages.preparing));
+    final outcome = await scan(
+      preparing: () => sayNote(ScanMessages.preparing),
+    );
     // The wait is over, however it ended.
-    if (_problem == ScanMessages.preparing) _set(() => _problem = null);
+    if (shownProblem == ScanMessages.preparing) {
+      update(() => shownProblem = null);
+    }
     switch (outcome) {
       case ScanRead(:final text):
         return text;
       case ScanClosed():
         return null;
       case ScanFailed(:final failure):
-        _say(ScanMessages.failure(failure));
+        sayNote(ScanMessages.failure(failure));
         return null;
     }
   }
