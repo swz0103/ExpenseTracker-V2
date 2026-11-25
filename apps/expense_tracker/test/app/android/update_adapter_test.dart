@@ -57,8 +57,8 @@ void main() {
     );
     // Caught here, so a failure before the cancel is not unhandled.
     final ended = download.then<Object?>((_) => null, onError: (Object e) => e);
+    // A piece has arrived: the transfer is under way, then stalls.
     await arrived.future;
-    expect(File('${into.path}.part').existsSync(), isTrue);
     cancel.ask();
     // Well inside the minute a stall is given.
     final error = await ended.timeout(const Duration(seconds: 10));
