@@ -6,6 +6,7 @@ import 'package:expense_tracker/src/core/design_system/components/cards.dart';
 import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
+import 'package:expense_tracker/src/core/platform/preference_choices.dart';
 import 'package:expense_tracker/src/core/platform/screen_privacy.dart';
 import 'package:expense_tracker/src/features/backup/model/backup_manager.dart';
 import 'package:expense_tracker/src/features/lock/ui/security_section.dart';

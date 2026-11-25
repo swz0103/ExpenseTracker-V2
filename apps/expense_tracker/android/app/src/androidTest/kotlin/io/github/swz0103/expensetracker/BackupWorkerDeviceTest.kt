@@ -60,7 +60,7 @@ class BackupWorkerDeviceTest {
         .put("driveFolder", "記帳本備份")
 
     /**
-     * The settings as the app hands them over (Preferences.backgroundPlan):
+     * The settings as the app hands them over (PreferenceFiles.backgroundPlan):
      * a phone folder, sealed for the job, daily, never backed up; Drive
      * not linked. [sealed] in place of the folder sealed.
      */

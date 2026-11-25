@@ -6,7 +6,7 @@ import 'package:vault/ledger_vault.dart' show OpenVault;
 import '../diagnostics/error_log.dart';
 import 'away_clock.dart';
 import 'errands.dart';
-import 'preferences.dart';
+import 'preference_choices.dart';
 import 'quick_action.dart';
 import 'startup.dart';
 

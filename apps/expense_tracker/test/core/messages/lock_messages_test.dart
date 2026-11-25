@@ -1,5 +1,5 @@
 import 'package:expense_tracker/src/core/messages/lock_messages.dart';
-import 'package:expense_tracker/src/core/platform/preferences.dart';
+import 'package:expense_tracker/src/core/platform/preference_choices.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

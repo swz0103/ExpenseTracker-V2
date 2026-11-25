@@ -4,7 +4,7 @@ import 'package:expense_tracker/src/core/navigation/nav.dart';
 import 'package:expense_tracker/src/core/platform/app_lifecycle.dart';
 import 'package:expense_tracker/src/core/platform/away_clock.dart';
 import 'package:expense_tracker/src/core/platform/lock_gate.dart';
-import 'package:expense_tracker/src/core/platform/preferences.dart';
+import 'package:expense_tracker/src/core/platform/preference_choices.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_test/flutter_test.dart';

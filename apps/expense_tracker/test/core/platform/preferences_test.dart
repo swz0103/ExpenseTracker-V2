@@ -8,6 +8,8 @@ import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/platform/memory_keystore.dart';
 import 'package:expense_tracker/src/features/reminders/model/reminder_alerts.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
+import 'package:expense_tracker/src/core/platform/preference_files.dart';
+import 'package:expense_tracker/src/core/platform/preference_choices.dart';
 import 'package:expense_tracker/src/core/platform/quick_action.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -577,7 +579,7 @@ void main() {
           utf8.decode(
             await MemoryKeystore.instance.unwrap(
               sealed,
-              utf8.encode(Preferences.folderContext),
+              utf8.encode(PreferenceFiles.folderContext),
             ),
           ),
           'content://tree/backups',

@@ -8,6 +8,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/messages/key_messages.dart';
 import '../../../core/messages/lock_messages.dart';
 import '../../../core/platform/preferences.dart';
+import '../../../core/platform/preference_choices.dart';
 import '../../../core/messages/problem_messages.dart';
 import '../../../core/platform/screen_privacy.dart';
 import '../../../core/design_system/recovery_code.dart';

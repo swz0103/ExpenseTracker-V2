@@ -6,6 +6,7 @@ import '../core/design_system/feedback.dart';
 import '../core/design_system/haptics.dart';
 import '../core/design_system/theme.dart';
 import '../core/platform/preferences.dart';
+import '../core/platform/preference_choices.dart';
 import '../core/widgets/privacy_cover.dart';
 
 /// The app shell: the theme, light or dark, the scrolling and [home].

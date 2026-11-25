@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:expense_tracker/src/core/platform/preferences.dart';
+import 'package:expense_tracker/src/core/platform/preference_files.dart';
 import 'package:expense_tracker/src/features/backup/model/backup_rules.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -64,7 +64,7 @@ void main() {
   test('PRIV-1: the jobs read the settings the app hands them '
       '(background.json), not the settings file, and each key they read is '
       'one handed over', () {
-    final handed = Preferences.backgroundPlan(
+    final handed = PreferenceFiles.backgroundPlan(
       updateChecks: true,
       drive: (photosOnWifi: true, at: DateTime.utc(2026, 10, 28), revision: 1),
       phone: (
@@ -111,7 +111,7 @@ void main() {
     // The folder opens with what the app sealed it for.
     expect(
       File('$kotlin/QuickSeal.kt').readAsStringSync(),
-      contains('const val FOLDER_CONTEXT = "${Preferences.folderContext}"'),
+      contains('const val FOLDER_CONTEXT = "${PreferenceFiles.folderContext}"'),
     );
   });
 }

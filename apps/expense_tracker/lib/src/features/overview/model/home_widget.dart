@@ -13,6 +13,7 @@ import 'package:core/foundation_values.dart'
 
 import '../../../core/ledger/ledger.dart';
 import '../../../core/platform/preferences.dart';
+import '../../../core/platform/preference_choices.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/messages/widget_messages.dart';
 

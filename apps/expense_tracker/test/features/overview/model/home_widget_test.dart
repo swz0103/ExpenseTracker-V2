@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
+import 'package:expense_tracker/src/core/platform/preference_choices.dart';
 import 'package:expense_tracker/src/features/overview/model/home_widget.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:expense_tracker/src/features/overview/ui/overview.dart'

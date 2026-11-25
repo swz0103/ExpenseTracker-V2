@@ -4,6 +4,7 @@ import '../../core/ledger/ledger.dart';
 import '../../core/design_system/app_mark.dart';
 import '../../core/design_system/theme.dart';
 import '../../core/platform/preferences.dart';
+import '../../core/platform/preference_choices.dart';
 import '../../core/platform/quick_action.dart';
 import '../../features/lock/ui/views/lock_parts.dart';
 import '../../features/lock/ui/views/unlock_view.dart';

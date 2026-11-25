@@ -18,7 +18,7 @@ internal object QuickSeal {
     private const val KEYSTORE = "AndroidKeyStore"
     private const val ALIAS = "ledger-quick-key"
 
-    /** What the app seals the backup folder for (`Preferences.folderContext`). */
+    /** What the app seals the backup folder for (`PreferenceFiles.folderContext`). */
     const val FOLDER_CONTEXT = "expense_tracker/backup-folder"
 
     /** [data] sealed, with [context] bound in as AES-GCM associated data ([DeviceKeyBlob]). */

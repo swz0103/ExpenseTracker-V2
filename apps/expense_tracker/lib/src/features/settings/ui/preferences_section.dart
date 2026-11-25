@@ -7,6 +7,7 @@ import '../../overview/forms/overview_editor.dart';
 import '../../overview/forms/widget_face.dart';
 import '../../../core/messages/trade_messages.dart';
 import '../../../core/platform/preferences.dart';
+import '../../../core/platform/preference_choices.dart';
 import '../../../core/design_system/settings_colors.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';

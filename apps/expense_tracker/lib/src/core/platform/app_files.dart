@@ -22,7 +22,7 @@ abstract final class AppFiles {
   static const preferencesSealed = 'preferences.sealed';
 
   /// What the background jobs need of the settings, and no more
-  /// (`Preferences.backgroundPlan`; BackupWorker.kt, UpdateWorker.kt).
+  /// (`PreferenceFiles.backgroundPlan`; BackupWorker.kt, UpdateWorker.kt).
   static const background = 'background.json';
 
   /// What the home-screen widget shows (`HomeWidget`).

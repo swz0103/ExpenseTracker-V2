@@ -1,6 +1,6 @@
 import '../formatting/setting_topic.dart';
 import 'key_messages.dart' show KeyWords;
-import '../platform/preferences.dart' show AutoLock;
+import '../platform/preference_choices.dart' show AutoLock;
 
 /// The words of the lock: the wait after wrong passwords, the fingerprint,
 /// auto-lock and hiding the screens.

@@ -91,7 +91,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
     private fun deliver(): Boolean {
         val files = applicationContext.filesDir
         val outbox = File(files, AppFiles.OUTBOX)
-        // What the app handed over of its settings (Preferences.backgroundPlan).
+        // What the app handed over of its settings (PreferenceFiles.backgroundPlan).
         val settings = read(File(files, AppFiles.BACKGROUND)) ?: return false
         val ready = read(File(outbox, AppFiles.OUTBOX_READY)) ?: return false
         val backup = File(outbox, ready.optString("file"))

@@ -1,12 +1,4 @@
-// Exception to file length: each setting, the part (topic) a change to it
-// tells, and how it is kept (plain, sealed, handed to the background jobs)
-// are written together, over fields private to this file; a setting added
-// in one of those places and not the others is lost or leaks unseen.
-
-import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:core/foundation_values.dart' show NameSalt, PublicId;
 import 'package:flutter/foundation.dart';
@@ -16,81 +8,10 @@ import 'package:vault/backup_security.dart' show DeviceKeyWrapper;
 
 import '../formatting/json_fields.dart';
 import '../ledger/trading.dart' show defaultBrokerDiscount;
-import '../diagnostics/error_log.dart';
-import '../diagnostics/error_steps.dart';
 import 'app_files.dart';
 import 'memory_keystore.dart';
-
-/// Light or dark colours.
-enum Appearance {
-  system('跟著手機'),
-  light('淺色'),
-  dark('深色');
-
-  const Appearance(this.label);
-
-  final String label;
-}
-
-/// 震動: none, Android's light ticks, or a step heavier (標準).
-enum Vibration {
-  off('關'),
-  light('輕'),
-  standard('標準');
-
-  const Vibration(this.label);
-
-  final String label;
-}
-
-/// What the home-screen widget 本月概況 shows: nothing of the ledger, the
-/// month's spending and what is left of the budget, or only the share of
-/// the budget used.
-enum WidgetFigures {
-  off('不顯示數字'),
-  amounts('顯示金額'),
-  percent('只顯示百分比');
-
-  const WidgetFigures(this.label);
-
-  final String label;
-}
-
-/// 自動上鎖: how long the app may be off the screen before a ledger with a
-/// password asks for it again. The one table of the choices; [standard]
-/// until the person picks another.
-enum AutoLock {
-  immediately('立即', Duration.zero),
-  oneMinute('1 分鐘', Duration(minutes: 1)),
-  fiveMinutes('5 分鐘', Duration(minutes: 5)),
-  fifteenMinutes('15 分鐘', Duration(minutes: 15)),
-  never('不自動上鎖', null);
-
-  const AutoLock(this.label, this.after);
-
-  final String label;
-
-  /// How long away locks the ledger; null for never while the app stays
-  /// open (a closed app always asks again).
-  final Duration? after;
-
-  /// The choice a ledger has until another is made.
-  static const standard = fiveMinutes;
-
-  /// The least time away that locks the ledger while the app itself sent
-  /// the person elsewhere for a moment (the camera for a receipt, a file
-  /// chooser, Google's sign-in), so a shorter choice does not close the
-  /// form being filled in.
-  static const errand = Duration(minutes: 5);
-
-  /// How long away locks the ledger under this choice; [onErrand] when
-  /// the app itself sent the person away. Null for never.
-  Duration? limit({required bool onErrand}) {
-    final after = this.after;
-    if (after == null) return null;
-    return onErrand && after < errand ? errand : after;
-  }
-}
+import 'preference_choices.dart';
+import 'preference_files.dart';
 
 /// The parts of [Preferences] that can be followed on their own
 /// ([Preferences.watch]): a change tells only the part it is in, so a
@@ -145,9 +66,11 @@ enum PreferenceTopic {
 /// changes close together in one write ([saved]).
 final class Preferences {
   /// Kept in memory only, as in the preview and most tests.
-  Preferences() : _file = null, _keystore = MemoryKeystore.instance;
+  Preferences() : _files = null;
 
-  Preferences._(this._file, this._keystore);
+  Preferences._(File file, DeviceKeyWrapper keystore) {
+    _files = PreferenceFiles(file, keystore, _kept);
+  }
 
   /// The preferences kept in [file] (and the sealed part beside it),
   /// sealed with [keystore]; the defaults when there are none, and for a
@@ -164,102 +87,27 @@ final class Preferences {
     return preferences;
   }
 
-  final File? _file;
-  final DeviceKeyWrapper _keystore;
-
-  /// What the private part is sealed for; a blob sealed for another use
-  /// does not open as it.
-  static final _privateContext = utf8.encode('expense_tracker/preferences');
-
-  /// What the phone folder is sealed for in [AppFiles.background]; the
-  /// background job opens it with the same (`QuickSeal.FOLDER_CONTEXT`).
-  static const folderContext = 'expense_tracker/backup-folder';
-
-  File? get _sealedFile => switch (_file) {
-    final file? => File('${file.parent.path}/${AppFiles.preferencesSealed}'),
-    null => null,
-  };
-
-  File? get _backgroundFile => switch (_file) {
-    final file? => File('${file.parent.path}/${AppFiles.background}'),
-    null => null,
-  };
+  /// Where the preferences are kept; null in memory only.
+  late final PreferenceFiles? _files;
 
   Future<void> _read() async {
-    final file = _file!;
+    final files = _files!;
     var again = false;
-    var unread = false;
-    try {
-      if (await file.exists()) {
-        final json = JsonFields.decode(await file.readAsString());
+    final read = await files.read(
+      plain: (json) {
         _readPlain(json);
         // An older version kept these in the plain file: sealed now.
         again = _readPrivate(json);
-      }
-    } on Object catch (error, stack) {
-      // An unreadable file leaves the defaults, and is not written over
-      // until a setting is changed.
-      unread = true;
-      ErrorLog.instance.record(ErrorSteps.preferencesRead, error, stack);
-    }
-    final sealed = _sealedFile!;
-    try {
-      if (await sealed.exists()) {
-        final bytes = await sealed.readAsBytes();
-        final open = await _unwrapped(bytes);
-        _readPrivate(JsonFields.decode(utf8.decode(open)));
-        _privateWritten = _privateText();
-      }
-    } on Object catch (error, stack) {
-      // A key gone (the phone's Keystore reset) leaves what the plain
-      // file had, or nothing: the folder is chosen again. The sealed file
-      // stays until the person chooses the account or the folder anew,
-      // so a Keystore that only failed this once opens it at the next
-      // start.
-      _sealedUnread = true;
-      ErrorLog.instance.record(ErrorSteps.preferencesRead, error, stack);
-    }
+      },
+      sealed: _readPrivate,
+    );
     if (_phoneFolder != null && _phoneFolderId == null) {
       _phoneFolderId = PublicId.generate().value;
       again = true;
     }
-    await _clearHalfWritten();
-    if (unread) return;
-    if (again || !await _backgroundFile!.exists()) _save();
-  }
-
-  /// [sealed] opened by the Keystore, asked twice: one busy at the start
-  /// often opens it a moment later. The second refusal is thrown.
-  Future<List<int>> _unwrapped(List<int> sealed) async {
-    for (var tries = 2; ; tries--) {
-      try {
-        return await _keystore.unwrap(sealed, _privateContext);
-      } on Object {
-        if (tries == 1) rethrow;
-      }
-    }
-  }
-
-  /// Copies a stop part way through a write left beside the files.
-  Future<void> _clearHalfWritten() async {
-    final names = [
-      for (final kept in [_file!, _sealedFile!, _backgroundFile!])
-        '${kept.uri.pathSegments.last}.',
-    ];
-    try {
-      final folder = _file.parent;
-      if (!await folder.exists()) return;
-      await for (final entry in folder.list()) {
-        final name = entry.uri.pathSegments.last;
-        if (entry is File &&
-            name.endsWith('.new') &&
-            names.any(name.startsWith)) {
-          await entry.delete();
-        }
-      }
-    } on Object catch (error, stack) {
-      ErrorLog.instance.record(ErrorSteps.preferencesWrite, error, stack);
-    }
+    await files.clearHalfWritten();
+    if (!read) return;
+    if (again || await files.backgroundMissing()) _save();
   }
 
   void _readPlain(JsonFields json) {
@@ -312,7 +160,7 @@ final class Preferences {
 
   /// The private fields in [json]; true when it had any.
   bool _readPrivate(JsonFields json) {
-    final had = _privateKeys.any(json.json.containsKey);
+    final had = _privateFields.keys.any(json.json.containsKey);
     if (json.json.containsKey('driveAccount')) {
       _driveAccount = json.text('driveAccount');
     }
@@ -334,14 +182,14 @@ final class Preferences {
 
   /// The fields that could say who the person is: never in the plain
   /// file once sealed.
-  static const _privateKeys = [
-    'driveAccount',
-    'phoneFolder',
-    'phoneFolderName',
-    'phoneFolderId',
-    'budgetAlerted',
-    'noticeSalt',
-  ];
+  Map<String, Object?> get _privateFields => {
+    'driveAccount': _driveAccount,
+    'phoneFolder': _phoneFolder,
+    'phoneFolderName': _phoneFolderName,
+    'phoneFolderId': _phoneFolderId,
+    'budgetAlerted': _budgetAlerted.toList(),
+    'noticeSalt': _noticeSalt?.value,
+  };
 
   // ---- following ----
 
@@ -670,237 +518,74 @@ final class Preferences {
 
   // ---- keeping ----
 
-  /// The write under way; null when none is.
-  Future<void>? _saving;
-
-  /// A change came while [_saving] was under way: written after it.
-  var _again = false;
-
-  /// The private part as last sealed, so an unchanged one is not sealed
-  /// again; the folder as last sealed for the background job, and the
-  /// background file as last written.
-  String? _privateWritten;
-
-  /// The sealed file did not open at the start: left as it is until the
-  /// person chooses the account or the folder ([_privateChosen]), and then
-  /// written over, a value cleared too, so that it never comes back.
-  var _sealedUnread = false;
-
   /// The account or the folder was chosen (or cleared) since the start.
   var _privateChosen = false;
-  (String, String)? _folderSealed;
-  String? _backgroundWritten;
 
   /// Done once every change so far is written (or could not be): before
   /// the app is left, so the background jobs read what was chosen.
-  Future<void> get saved => _saving ?? Future<void>.value();
+  Future<void> get saved => _files?.saved ?? Future<void>.value();
 
-  void _save() {
-    if (_file == null) return;
-    if (_saving != null) {
-      _again = true;
-      return;
-    }
-    _saving = _write().whenComplete(() => _saving = null);
-  }
+  void _save() => _files?.save();
 
-  Future<void> _write() async {
-    // Changes made together, in the same turn, go in one write.
-    await Future<void>.delayed(Duration.zero);
-    do {
-      _again = false;
-      try {
-        await _writeOnce();
-      } on Object catch (error, stack) {
-        // Kept in memory for this run; the next change tries again.
-        ErrorLog.instance.record(ErrorSteps.preferencesWrite, error, stack);
-      }
-    } while (_again);
-  }
-
-  Map<String, Object?> _private() => {
-    'driveAccount': _driveAccount,
-    'phoneFolder': _phoneFolder,
-    'phoneFolderName': _phoneFolderName,
-    'phoneFolderId': _phoneFolderId,
-    'budgetAlerted': _budgetAlerted.toList(),
-    'noticeSalt': _noticeSalt?.value,
-  };
-
-  String _privateText() => jsonEncode(_private());
-
-  /// Nothing private is kept: no sealed part is needed.
-  bool get _noPrivate =>
-      _driveAccount == null &&
-      _phoneFolder == null &&
-      _budgetAlerted.isEmpty &&
-      _noticeSalt == null;
-
-  Future<void> _writeOnce() async {
-    final file = _file!;
-    await file.parent.create(recursive: true);
-    // The sealed part first: a stop between the two leaves the plain file
-    // as it was, private fields and all, never neither.
-    final sealedOk = await _writeSealed();
-    await _replace(
-      file,
-      utf8.encode(
-        jsonEncode({
-          'appearance': _appearance.name,
-          'vibration': _vibration.name,
-          'dueAlerts': _dueAlerts,
-          'dailyNudge': _dailyNudge,
-          'nudgeHour': _nudgeHour,
-          'started': _started,
-          'widgetShown': _widgetShown,
-          'driveLinked': _driveLinked,
-          'drivePhotos': _drivePhotos,
-          'photosOnWifi': _photosOnWifi,
-          'googleBackup': _googleBackup,
-          'driveBackedUp': _driveBackedUp?.toUtc().toIso8601String(),
-          'driveRevision': _driveRevision,
-          'nudgeMinute': _nudgeMinute,
-          'exactReminders': _exactReminders,
-          'phoneDaily': _phoneDaily,
-          'phoneBackedUp': _phoneBackedUp?.toUtc().toIso8601String(),
-          'phoneRevision': _phoneRevision,
-          'overview': _overview,
-          'widgetFigures': _widgetFigures.name,
-          'updateChecks': _updateChecks,
-          'budgetAlerts': _budgetAlerts,
-          'updateCheckedAt': _updateCheckedAt?.toUtc().toIso8601String(),
-          'updateLaterUntil': _updateLaterUntil?.toUtc().toIso8601String(),
-          'updateSkipped': _updateSkipped,
-          'brokerDiscount': _brokerDiscount,
-          'autoLock': _autoLock.name,
-          // Not sealed this time (the Keystore refused): kept plain, as
-          // before, rather than lost; sealed at the next change.
-          if (!sealedOk) ..._private(),
-        }),
-      ),
-    );
-    await _writeBackground();
-  }
-
-  /// Seals the private part into its file when it changed; false when it
-  /// could not be sealed.
-  Future<bool> _writeSealed() async {
-    final sealed = _sealedFile!;
-    final text = _privateText();
-    if (text == _privateWritten) return true;
-    // Nothing chosen since the sealed file did not open: it stays, and
-    // what is private now is kept plain beside it for this turn.
-    if (_sealedUnread && !_privateChosen) return _noPrivate;
-    try {
-      if (_noPrivate) {
-        _sealedUnread = false;
-        if (await sealed.exists()) await sealed.delete();
-      } else {
-        _sealedUnread = false;
-        await _replace(
-          sealed,
-          await _keystore.wrap(utf8.encode(text), _privateContext),
-        );
-      }
-      _privateWritten = text;
-      return true;
-    } on Object catch (error, stack) {
-      ErrorLog.instance.record(ErrorSteps.preferencesWrite, error, stack);
-      return false;
-    }
-  }
-
-  /// Hands the background jobs what they need, and no more
-  /// ([AppFiles.background]): whether to look for a newer version; Drive
-  /// linked, on Wi-Fi only with the photos, and its last backup; the
-  /// phone's folder (sealed, with its id), its rhythm and its last backup.
-  /// Times are milliseconds since 1970.
-  Future<void> _writeBackground() async {
+  /// What the files keep of the preferences now ([PreferenceFiles]).
+  KeptPreferences _kept() {
     final folder = _phoneFolder;
-    String? sealedFolder;
-    if (folder != null) {
-      final kept = _folderSealed;
-      if (kept != null && kept.$1 == folder) {
-        sealedFolder = kept.$2;
-      } else {
-        sealedFolder = base64.encode(
-          await _keystore.wrap(utf8.encode(folder), utf8.encode(folderContext)),
-        );
-        _folderSealed = (folder, sealedFolder);
-      }
-    }
-    final text = jsonEncode(
-      backgroundPlan(
-        updateChecks: _updateChecks,
-        drive: _driveLinked
-            ? (
-                photosOnWifi: _photosOnWifi,
-                at: _driveBackedUp,
-                revision: _driveRevision,
-              )
-            : null,
-        phone: sealedFolder == null
-            ? null
-            : (
-                folder: sealedFolder,
-                id: _phoneFolderId!,
-                daily: _phoneDaily,
-                at: _phoneBackedUp,
-                revision: _phoneRevision,
-              ),
-      ),
+    return KeptPreferences(
+      plain: {
+        'appearance': _appearance.name,
+        'vibration': _vibration.name,
+        'dueAlerts': _dueAlerts,
+        'dailyNudge': _dailyNudge,
+        'nudgeHour': _nudgeHour,
+        'started': _started,
+        'widgetShown': _widgetShown,
+        'driveLinked': _driveLinked,
+        'drivePhotos': _drivePhotos,
+        'photosOnWifi': _photosOnWifi,
+        'googleBackup': _googleBackup,
+        'driveBackedUp': _driveBackedUp?.toUtc().toIso8601String(),
+        'driveRevision': _driveRevision,
+        'nudgeMinute': _nudgeMinute,
+        'exactReminders': _exactReminders,
+        'phoneDaily': _phoneDaily,
+        'phoneBackedUp': _phoneBackedUp?.toUtc().toIso8601String(),
+        'phoneRevision': _phoneRevision,
+        'overview': _overview,
+        'widgetFigures': _widgetFigures.name,
+        'updateChecks': _updateChecks,
+        'budgetAlerts': _budgetAlerts,
+        'updateCheckedAt': _updateCheckedAt?.toUtc().toIso8601String(),
+        'updateLaterUntil': _updateLaterUntil?.toUtc().toIso8601String(),
+        'updateSkipped': _updateSkipped,
+        'brokerDiscount': _brokerDiscount,
+        'autoLock': _autoLock.name,
+      },
+      private: _privateFields,
+      noPrivate:
+          _driveAccount == null &&
+          _phoneFolder == null &&
+          _budgetAlerted.isEmpty &&
+          _noticeSalt == null,
+      privateChosen: _privateChosen,
+      updateChecks: _updateChecks,
+      drive: _driveLinked
+          ? (
+              photosOnWifi: _photosOnWifi,
+              at: _driveBackedUp,
+              revision: _driveRevision,
+            )
+          : null,
+      phone: folder == null
+          ? null
+          : (
+              folder: folder,
+              id: _phoneFolderId!,
+              daily: _phoneDaily,
+              at: _phoneBackedUp,
+              revision: _phoneRevision,
+            ),
     );
-    if (text == _backgroundWritten) return;
-    await _replace(_backgroundFile!, utf8.encode(text));
-    _backgroundWritten = text;
   }
-
-  /// What the background jobs are handed ([AppFiles.background]); the
-  /// keys `BackupWorker.kt` and `UpdateWorker.kt` read.
-  @visibleForTesting
-  static Map<String, Object?> backgroundPlan({
-    required bool updateChecks,
-    required ({bool photosOnWifi, DateTime? at, int? revision})? drive,
-    required ({
-      String folder,
-      String id,
-      bool daily,
-      DateTime? at,
-      int? revision,
-    })?
-    phone,
-  }) => {
-    'v': 1,
-    'updateChecks': updateChecks,
-    'drive': switch (drive) {
-      null => null,
-      final d => {
-        'photosOnWifi': d.photosOnWifi,
-        'at': d.at?.millisecondsSinceEpoch,
-        'revision': d.revision,
-      },
-    },
-    'phone': switch (phone) {
-      null => null,
-      final p => {
-        'folder': p.folder,
-        'id': p.id,
-        'daily': p.daily,
-        'at': p.at?.millisecondsSinceEpoch,
-        'revision': p.revision,
-      },
-    },
-  };
-
-  /// Written beside, then renamed over: a stop part way leaves the old
-  /// file whole, never half a new one. By the I/O threads, flushed there.
-  static Future<void> _replace(File file, List<int> bytes) async {
-    final next = File('${file.path}.${_random.nextInt(1 << 30)}.new');
-    await next.writeAsBytes(bytes, flush: true);
-    await next.rename(file.path);
-  }
-
-  static final _random = Random.secure();
 }
 
 /// One part of [Preferences] to follow.
