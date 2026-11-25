@@ -139,7 +139,8 @@ void main() {
   });
 
   test('review 36: an entry dated beyond the year ahead is counted, and the '
-      'settlement is dated on its day, which the write rules refuse', () {
+      'settlement is dated on its day, which the write rules let it be as a '
+      'settlement only (D121)', () {
     var today = DateTime.utc(2026, 10, 4);
     final ledger = Ledger(
       today: today,
@@ -172,6 +173,14 @@ void main() {
     final left = AccountForm.settlement(ledger, ledger.account('bank'), 'cash');
     expect((left.amount, left.date), (4200, DateTime.utc(2026, 10, 9)));
     expect(() => ledger.entryCommands.add(left), throwsA(isA<RecordRefused>()));
+    // Of another account, it is not a settlement of it.
+    expect(
+      () => ledger.entryCommands.addSettlement(left, 'other'),
+      throwsA(isA<RecordRefused>()),
+    );
+    ledger.entryCommands.addSettlement(left, 'bank');
+    expect(ledger.entries.byId(left.id)?.date, DateTime.utc(2026, 10, 9));
+    expect(ledger.balanceService.finalBalance('bank'), 0);
   });
 
   test(

@@ -38,17 +38,21 @@ final class EntryValidator {
   /// refund do not count against it. An import, and a command that replays
   /// the trades after, checks the shares together ([holdings] false);
   /// [opening] are accounts an import brings, not in the book yet.
+  /// [settling] names the account [e] settles before it is archived,
+  /// which lets it be dated through that account's last entry (D121).
   RecordIssue? validate(
     Entry e, {
     Entry? replacing,
     bool holdings = true,
     Iterable<Account> opening = const [],
+    String? settling,
   }) {
     for (final issue in issues(
       e,
       replacing: replacing,
       holdings: holdings,
       opening: opening,
+      settling: settling,
     )) {
       if (issue.isError) return issue;
     }
@@ -62,6 +66,7 @@ final class EntryValidator {
     Entry? replacing,
     bool holdings = true,
     Iterable<Account> opening = const [],
+    String? settling,
   }) {
     AccountFacts? facts(String? id) {
       if (id == null) return null;
@@ -95,6 +100,10 @@ final class EntryValidator {
             ? _balanceAfter(e, replacing)
             : null,
         today: _today?.call(),
+        settlesThrough:
+            settling != null && (e.account == settling || e.to == settling)
+            ? _balances.lastDayAhead(settling)
+            : null,
       ),
     );
   }

@@ -161,7 +161,8 @@ void main() {
     });
 
     test('review 36: lent money dated 400 days ahead, beyond the year an '
-        'entry may now be dated on, is still owed and not archived', () {
+        'entry may now be dated on, is still owed, and archived once settled on '
+        'its day (D121)', () {
       final l = ledgerOf(
         today: day(2026, 10, 4),
         accounts: const [
@@ -192,6 +193,20 @@ void main() {
         ),
       );
       expect(l.account('ann').archived, isFalse);
+      // Settled on that day, beyond the year ahead (D121), then archived.
+      final back = entryOf(
+        'back',
+        day(2027, 11, 8),
+        EntryType.transfer,
+        5000,
+        'ann',
+        to: 'bank',
+      );
+      expect(() => l.entryCommands.add(back), throwsA(isA<RecordRefused>()));
+      l.entryCommands.addSettlement(back, 'ann');
+      expect(l.balanceService.finalBalance('ann'), 0);
+      expect(l.accountCommands.setArchived('ann', archived: true), isNotNull);
+      expect(l.account('ann').archived, isTrue);
     });
   });
 }

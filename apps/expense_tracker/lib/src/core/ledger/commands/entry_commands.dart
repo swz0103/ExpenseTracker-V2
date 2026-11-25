@@ -83,6 +83,13 @@ final class EntryCommands {
   void add(Entry entry, {String? receipt}) =>
       save([entry], receipt: receipt, receiptOn: entry.id);
 
+  /// Adds [settlement], the transfer that settles [account] before it is
+  /// archived: dated on the day of [account]'s last entry, which it may
+  /// be however far ahead (D120, D121), the one entry the write rules let
+  /// beyond the year ahead.
+  void addSettlement(Entry settlement, String account) =>
+      save([settlement], settling: account);
+
   /// Adds every one of [entries] at once, with the [accounts] and
   /// [categories] they bring, as an import does: all of it is kept
   /// together, or none. The [Undo] takes it back again (D82): the
@@ -243,6 +250,7 @@ final class EntryCommands {
     Iterable<String> replacing = const [],
     String? receipt,
     String? receiptOn,
+    String? settling,
   }) {
     final was = {...replacing};
     // An entry deleted while its form was open is not brought back as a
@@ -251,7 +259,7 @@ final class EntryCommands {
       throw RecordRefused(const [EntryDeleted()]);
     }
     entries = _kept(entries);
-    _check(entries, replacing: was);
+    _check(entries, replacing: was, settling: settling);
     final ids = {for (final e in entries) e.id};
     final gone = {...was}..removeAll(ids);
     // Each change made one entry at a time, which the entries' indexes
@@ -891,11 +899,14 @@ final class EntryCommands {
   /// Refuses [entries] with a [RecordRefused] when the write rules find
   /// any wrong: each checked in place of the entry of its id that the
   /// ledger holds when [replacing] names it, with the accounts [opening]
-  /// brings. Shares are checked by replaying the trades afterwards.
+  /// brings, [settling] the account they settle before it is archived
+  /// ([addSettlement]). Shares are checked by replaying the trades
+  /// afterwards.
   void _check(
     Iterable<Entry> entries, {
     Iterable<String> replacing = const [],
     Iterable<Account> opening = const [],
+    String? settling,
   }) {
     final replaced = {...replacing};
     final errors = [
@@ -904,6 +915,7 @@ final class EntryCommands {
           e,
           replacing: replaced.contains(e.id) ? _entries.byId(e.id) : null,
           opening: opening,
+          settling: settling,
         ),
     ];
     if (errors.isNotEmpty) throw RecordRefused(errors);
@@ -914,6 +926,7 @@ final class EntryCommands {
     Entry e, {
     Entry? replacing,
     Iterable<Account> opening = const [],
+    String? settling,
   }) {
     final errors = [
       for (final issue in _validator.issues(
@@ -921,6 +934,7 @@ final class EntryCommands {
         replacing: replacing,
         holdings: false,
         opening: opening,
+        settling: settling,
       ))
         if (issue.isError) issue,
     ];

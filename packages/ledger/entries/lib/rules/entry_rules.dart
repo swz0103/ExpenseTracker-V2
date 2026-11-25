@@ -40,6 +40,7 @@ final class EntryFacts {
     this.refunded,
     this.balanceAfter,
     this.today,
+    this.settlesThrough,
   });
 
   /// The account the entry is paid from or into; null when the book has
@@ -68,6 +69,14 @@ final class EntryFacts {
   /// The day the entry is written on, for how far ahead it may be dated
   /// (D25); null leaves its day unchecked, as for a record read back.
   final DateTime? today;
+
+  /// For the transfer that settles an account before it is archived: the
+  /// day of that account's last entry, however far ahead (D120). The one
+  /// exemption from how far ahead an entry may be dated (D121): a
+  /// settlement may be dated through this day, beyond [latestEntryDay],
+  /// so that an account with an entry dated beyond it can still be
+  /// settled and archived. Null for every other entry.
+  final DateTime? settlesThrough;
 }
 
 /// What a refund needs of the spending it gives back.
@@ -106,7 +115,12 @@ List<RecordIssue> entryIssues(Entry e, EntryFacts facts) {
 
   if (!_isMidnight(e.date)) found.add(const DateNotMidnight());
   final today = facts.today;
-  if (today != null && e.date.isAfter(latestEntryDay(today))) {
+  final settles = facts.settlesThrough;
+  final settlementInReach =
+      transfer && settles != null && !e.date.isAfter(settles);
+  if (today != null &&
+      e.date.isAfter(latestEntryDay(today)) &&
+      !settlementInReach) {
     found.add(const DateTooFarAhead(maxDaysAhead));
   } else if (today != null && e.isInvestment && isPlanned(e, today)) {
     found.add(const InvestmentPlanned());

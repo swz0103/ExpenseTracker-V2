@@ -61,4 +61,38 @@ void main() {
       isEmpty,
     );
   });
+
+  test('a settlement before archiving may be dated beyond the limit, '
+      'through the settled account\'s last day, and nothing else (D121)', () {
+    final far = DateTime.utc(2027, 12, 29);
+    Entry transfer(DateTime day) => Entry(
+      id: 's',
+      date: day,
+      type: EntryType.transfer,
+      amount: 100,
+      account: 'ann',
+      to: 'bank',
+    );
+    List<Type> issues(Entry e, {DateTime? settles}) => [
+      for (final i in entryIssues(
+        e,
+        EntryFacts(
+          account: const AccountFacts(AccountKind.receivable),
+          to: const AccountFacts(AccountKind.bank),
+          today: today,
+          settlesThrough: settles,
+        ),
+      ))
+        i.runtimeType,
+    ];
+    // 2026-11-24 + 400 days = 2027-12-29, beyond 2027-11-24.
+    expect(issues(transfer(far), settles: far), isEmpty);
+    expect(issues(transfer(far)), [DateTooFarAhead]);
+    // Not beyond the settled account's last day.
+    expect(issues(transfer(DateTime.utc(2027, 12, 30)), settles: far), [
+      DateTooFarAhead,
+    ]);
+    // Only a transfer settles.
+    expect(issues(on(far), settles: far), [DateTooFarAhead]);
+  });
 }
