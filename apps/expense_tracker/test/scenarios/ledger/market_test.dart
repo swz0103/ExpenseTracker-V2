@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
-import 'package:expense_tracker/src/core/ledger/persistence/book_opening.dart'
+import 'package:expense_tracker/src/core/ledger/persistence/market_rows.dart'
     show marketShelf;
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';

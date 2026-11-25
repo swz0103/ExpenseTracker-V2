@@ -25,6 +25,7 @@ import 'package:storage/storage.dart';
 
 import 'book_migrations.dart';
 import 'book_opening.dart';
+import 'market_rows.dart';
 import 'damage_report.dart';
 import 'journal_keeper.dart';
 import 'journal_rebuild.dart';

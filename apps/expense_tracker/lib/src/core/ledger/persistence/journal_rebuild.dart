@@ -9,6 +9,7 @@ import '../journal/replay.dart';
 import '../models/models.dart';
 import '../../diagnostics/error_log.dart';
 import 'book_opening.dart';
+import 'market_rows.dart';
 import 'write_batch.dart' show Collection;
 
 /// How many records are posted and written at a time when the whole book

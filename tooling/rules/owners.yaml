@@ -48,6 +48,7 @@ items:
       # the row as kept, a close with its fetch day (D123), the months
       # older than marketDaysKeptWhole folded into a row each (review 39).
       - apps/expense_tracker/lib/src/core/ledger/persistence/codec/market_days.dart
+      - apps/expense_tracker/lib/src/core/ledger/persistence/market_rows.dart
     target: packages/core/lib/fx/
     status: owned
     guard:

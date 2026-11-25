@@ -5,7 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:core/foundation_values.dart' show BusinessDate;
-import 'package:expense_tracker/src/core/ledger/persistence/book_opening.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/market_rows.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/codec/market_days.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart' show StoredRow;
