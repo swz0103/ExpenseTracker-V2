@@ -49,6 +49,20 @@ final class _Reader {
   var _id = '';
   var _skipped = 0;
 
+  /// The entries whose worth at home is an estimate ([Import.estimated]).
+  final _estimated = <String, FoundOn>{};
+
+  /// [amount] of [currency] in whole NT\$ at the rate of [day] (D58,
+  /// D123); the line's entry noted as estimated when today's rate stands
+  /// in for a day gone by.
+  int? _atRateOf(int amount, String currency, DateTime day) {
+    final found = book.marketData.rateOn(currency, day)?.found;
+    if (found != null && found.isTodays && day.isBefore(book.today)) {
+      _estimated[_id] = found;
+    }
+    return book.marketData.toHomeOn(amount, currency, day);
+  }
+
   void skip(int line, String why) {
     _skipped++;
     _problems.add('第 $line 行：$why');
@@ -294,9 +308,7 @@ final class _Reader {
                 ) ??
                 0
           : 0,
-      home: from.foreign
-          ? home ?? book.marketData.toHomeOn(amount, from.currency, day)
-          : null,
+      home: from.foreign ? home ?? _atRateOf(amount, from.currency, day) : null,
     );
   }
 
@@ -364,10 +376,7 @@ final class _Reader {
       if (typed != null && left != null && typed > left) {
         return refundHomeWords(left);
       }
-      home =
-          typed ??
-          share.home ??
-          book.marketData.toHomeOn(amount, from.currency, day);
+      home = typed ?? share.home ?? _atRateOf(amount, from.currency, day);
     }
     return Entry(
       id: _id,
@@ -527,6 +536,7 @@ final class _Reader {
           if (cats.contains(c.name)) c,
       ],
       problems: _problems,
+      estimated: {for (final e in kept) e.id: ?_estimated[e.id]},
     );
   }
 }

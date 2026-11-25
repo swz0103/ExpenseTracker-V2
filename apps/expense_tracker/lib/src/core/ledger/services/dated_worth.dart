@@ -1,5 +1,4 @@
 import 'package:core/money/price.dart' show timesPrice;
-import 'package:core/fx/dated_figures.dart' show FoundOn;
 
 import '../repositories/holding_repository.dart';
 import '../repositories/market_data_repository.dart';
@@ -19,7 +18,7 @@ int? datedWorth({
   required int counted,
 }) {
   final close = market.closeOn(code, day);
-  if (close == null || close.found == FoundOn.today) return null;
+  if (close == null || close.found.isTodays) return null;
   final of = close.of;
   if (of == null || of == market.history.closes.latestOf(code)) return null;
   return timesPrice(

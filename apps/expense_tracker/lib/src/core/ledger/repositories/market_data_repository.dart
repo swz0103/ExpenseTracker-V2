@@ -2,6 +2,7 @@ import 'package:core/foundation_values.dart'
     show BoardSide, Currency, valuationSide;
 import 'package:core/time/calendar_day.dart';
 import 'package:core/fx/dated_figures.dart' show FigureOn, MarketHistory;
+import 'package:domain/investments.dart' show doubtfulMoveKeptDays;
 
 import '../models/models.dart'
     show homeCode, rateScale, roundedBigQuotient, scaledRate;
@@ -61,7 +62,8 @@ abstract interface class MarketDataReader {
 
   /// [currency]'s rate on the [side] of the board for [day], by the one
   /// rule (`DatedFigures.on`, D58): that day's board, else the nearest
-  /// earlier day's, else today's; null without any.
+  /// earlier day's no more than [doubtfulMoveKeptDays] older (D123), else
+  /// today's; null without any.
   FigureOn? rateOn(
     String currency,
     DateTime day, {
@@ -69,7 +71,8 @@ abstract interface class MarketDataReader {
   });
 
   /// [code]'s close for [day], by the same rule: that day's, else the
-  /// nearest earlier day's, else the latest kept; null without any.
+  /// nearest earlier day's no more than [doubtfulMoveKeptDays] older,
+  /// else the latest kept; null without any.
   FigureOn? closeOn(String code, DateTime day);
 
   /// [toHome] at the buying rate for [day] ([rateOn]).
@@ -129,11 +132,15 @@ final class MarketDataRepository implements MarketDataReader {
           BoardSide.buying => _rates[currency],
           BoardSide.selling => _sellRates[currency],
         },
+        earlierWithinDays: doubtfulMoveKeptDays,
       );
 
   @override
-  FigureOn? closeOn(String code, DateTime day) =>
-      _history.closes.on(code, BusinessDate.of(day));
+  FigureOn? closeOn(String code, DateTime day) => _history.closes.on(
+    code,
+    BusinessDate.of(day),
+    earlierWithinDays: doubtfulMoveKeptDays,
+  );
 
   @override
   int? toHomeOn(int minor, String currency, DateTime day) =>

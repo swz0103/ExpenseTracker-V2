@@ -179,6 +179,42 @@ void main() {
       expect(market.closeOn('0050', DateTime.utc(2026, 9, 2)), isNull);
     });
 
+    test('D123: an earlier day more than doubtfulMoveKeptDays older is '
+        'not taken; today\'s stands in', () {
+      // Selling: 9/1 to 10/1 is 30 days, taken; to 10/2 is 31, not.
+      expect(
+        market.rateOn(
+          'USD',
+          DateTime.utc(2026, 10, 1),
+          side: BoardSide.selling,
+        ),
+        (figure: 30.5, of: d(9, 1), found: FoundOn.earlierDay),
+      );
+      expect(
+        market.rateOn(
+          'USD',
+          DateTime.utc(2026, 10, 2),
+          side: BoardSide.selling,
+        ),
+        (figure: 32.5, of: null, found: FoundOn.todayEarlierTooOld),
+      );
+      // US$100 owed on 10/2 at today's 32.5: -3,250.
+      expect(
+        market.valueAtHomeOn(-10000, 'USD', DateTime.utc(2026, 10, 2)),
+        -3250,
+      );
+      // A close: 9/1's on 10/1; on 10/2 the latest kept stands in.
+      expect(
+        market.closeOn('2330', DateTime.utc(2026, 10, 1))?.found,
+        FoundOn.earlierDay,
+      );
+      expect(market.closeOn('2330', DateTime.utc(2026, 10, 2)), (
+        figure: 950.0,
+        of: d(9, 1),
+        found: FoundOn.todayEarlierTooOld,
+      ));
+    });
+
     test('amounts at the rates of a day', () {
       final sep = DateTime.utc(2026, 9, 15);
       // US$100.00 at 30.0: 3,000; owed, at 30.5: -3,050.

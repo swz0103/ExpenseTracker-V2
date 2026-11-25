@@ -1,5 +1,6 @@
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/design_system/keys.dart';
+import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -42,5 +43,32 @@ void main() {
     expect(ledger.accounts.all, hasLength(accounts));
     expect(ledger.categories.all, hasLength(categories));
     expect(ledger.trash.all, isEmpty);
+  });
+
+  testWidgets('R5/D123: a row worth at home at today\'s rate says so', (
+    tester,
+  ) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async => call.method == 'Clipboard.getData'
+          ? <String, Object?>{
+              'text': '日期,類型,金額,帳戶,分類\n2020-01-02,支出,10,美元,飲食日常\n',
+            }
+          : null,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    final ledger = demoLedger()
+      ..accountCommands.addAccount(
+        const Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
+      );
+    await show(tester, 360, 1, book: ledger);
+    await go(tester, ['更多', '設定', '匯入與匯出', 'CSV 檔案', '貼上']);
+    // No board kept on or before 2020-01-02: today's rate stands in.
+    expect(find.text('飲食日常 · 台幣金額以今日匯率估算'), findsOneWidget);
   });
 }

@@ -94,11 +94,13 @@ void main() {
     );
     // 9/20: 9/1's close; the 2,000 held after the split are 1,000 of
     // 9/1's shares: 1,000 x 960 = 960,000. US$ at 9/14's buying rate,
-    // 1,000 x 30.5 = 30,500, and 8/3's selling rate.
+    // 1,000 x 30.5 = 30,500. 8/3's selling rate is 48 days older than
+    // 9/20, more than doubtfulMoveKeptDays (30, D123): today's 32.5
+    // stands in, 100 x 32.5 = 3,250.
     expect(l.balanceService.netWorth(on(9, 20)).invested, 960000);
     expect(
       l.balanceService.netWorthAt(on(9, 20)),
-      100000 + 960000 + 30500 - 3150,
+      100000 + 960000 + 30500 - 3250,
     );
     // 10/31: the latest close: as the holdings show it today,
     // 2,000 x 500 = 1,000,000; US$ 1,000 x 32 = 32,000, 100 x 32.5 = 3,250.
@@ -122,6 +124,10 @@ void main() {
     expect(worth(on(8, 5), 1000), 950000);
     expect(worth(on(9, 20), 2000), 960000);
     expect(worth(on(10, 30), 2000), isNull);
+    // 10/2: 9/1's close is 31 days older, more than doubtfulMoveKeptDays
+    // (30, D123): not taken; today's price values the shares.
+    expect(worth(on(10, 1), 2000), 960000);
+    expect(worth(on(10, 2), 2000), isNull);
     // A stock with no close kept at all.
     expect(
       datedWorth(

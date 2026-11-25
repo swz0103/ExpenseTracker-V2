@@ -9,9 +9,11 @@ import 'package:domain/data_exchange.dart'
         homeAmountColumn;
 
 import 'package:ledger_entries/model.dart' show maxDaysAhead;
+import 'package:core/fx/dated_figures.dart' show FoundOn;
 
 import '../../../design_system/display/amount.dart' show groupDigits;
 import '../formatting/words.dart';
+import 'amount_messages.dart' show boardTooOldWords;
 
 /// Why a day of an imported file is not taken (D93).
 String dayProblemWords(DayProblem problem) => switch (problem) {
@@ -32,6 +34,15 @@ String invoiceRefusalWords(InvoiceRefusal why) => switch (why) {
   InvoiceRefusal.voided => '已作廢',
   InvoiceRefusal.repeated => importAlreadyWords,
 };
+
+/// Under an imported row whose worth in NT\$ is worked out at today's
+/// rate (R5): none of its day or before it is kept ([FoundOn.today]),
+/// or the nearest is too old to take ([FoundOn.todayEarlierTooOld],
+/// D123).
+String importEstimatedWords(FoundOn found) =>
+    found == FoundOn.todayEarlierTooOld
+    ? '$boardTooOldWords；台幣金額以今日匯率估算'
+    : '台幣金額以今日匯率估算';
 
 /// An amount of an imported line that is not one.
 const importAmountWords = '金額看不懂';

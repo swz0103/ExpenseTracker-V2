@@ -67,6 +67,21 @@ void main() {
         ),
         startsWith('「房租」9/5 沒有自動入帳：'),
       );
+      // D123: a board kept, but too old to take, is said.
+      expect(
+        heldLine(
+          HeldBooking(
+            rent,
+            days.sublist(0, 1),
+            refusal: const MissingHomeAmount(),
+            boardTooOld: true,
+          ),
+        ),
+        allOf(
+          startsWith('「房租」9/5 沒有自動入帳：還沒有匯率'),
+          endsWith('（最近的牌價早於當日 30 天以上，不採用）'),
+        ),
+      );
     });
 
     test('the question and its body', () {

@@ -461,6 +461,12 @@ class _ImportPageState extends State<_ImportPage> {
   Widget _row(Entry e, int i) {
     final ledger = widget.ledger;
     final ticked = !_left.contains(i);
+    // Its category, and whether its worth at home is an estimate (D123).
+    final detail = [
+      if (e.category.isNotEmpty) e.category,
+      if (_found?.estimated[e.id] case final found?)
+        importEstimatedWords(found),
+    ];
     return QuoteRow(
       onTap: () => _toggle(i),
       lead: TickSwitch(
@@ -478,7 +484,7 @@ class _ImportPageState extends State<_ImportPage> {
         else
           e.title,
       ].join(' · '),
-      detail: e.category.isEmpty ? null : e.category,
+      detail: detail.isEmpty ? null : detail.join(' · '),
       trailing: RowFigure(
         entryAmount(e, currency: ledger.account(e.account).currency),
         spoken: entrySpoken(e, currency: ledger.account(e.account).currency),

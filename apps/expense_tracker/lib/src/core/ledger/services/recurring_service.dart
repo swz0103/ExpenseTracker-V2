@@ -247,10 +247,9 @@ final class RecurringService {
   /// without, for the person to fill in (R5), and the automatic booking
   /// leaves it to them.
   Entry booking(Recurring item, {DateTime? day}) {
-    final pending = day ?? pendingDate(item) ?? _today();
-    final date = pending.isAfter(_today()) ? _today() : pending;
+    final date = _bookedOn(item, day);
     final currency = _accounts.resolve(item.account).currency;
-    final rate = currency == homeCode ? null : _market.rateOn(currency, date);
+    final rate = rateFound(item, day: day);
     return Entry(
       id: '',
       date: date,
@@ -261,11 +260,29 @@ final class RecurringService {
       note: item.name,
       recurring: item.id,
       merchant: item.merchant,
-      home: switch (rate?.found) {
+      home: switch (rate) {
         null => null,
-        FoundOn.today when date != _today() => null,
+        final found when found.isTodays && date != _today() => null,
         _ => _market.toHomeOn(item.amount, currency, date),
       },
     );
+  }
+
+  /// How the rate [booking] works [item] out at on [day] was found
+  /// (`MarketDataReader.rateOn`, D58, D123); null for an item in NT\$ or
+  /// without any rate. [FoundOn.todayEarlierTooOld] for a day gone by
+  /// whose nearest earlier board is too old to take: the booking is left
+  /// without its worth at home, and why is said.
+  FoundOn? rateFound(Recurring item, {DateTime? day}) {
+    final currency = _accounts.resolve(item.account).currency;
+    if (currency == homeCode) return null;
+    return _market.rateOn(currency, _bookedOn(item, day))?.found;
+  }
+
+  /// The day [booking] books [item] on: [day], else its pending day, else
+  /// today, never after today.
+  DateTime _bookedOn(Recurring item, DateTime? day) {
+    final pending = day ?? pendingDate(item) ?? _today();
+    return pending.isAfter(_today()) ? _today() : pending;
   }
 }
