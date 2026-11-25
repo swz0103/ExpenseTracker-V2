@@ -169,23 +169,30 @@ typedef ReadBook = ({DecodedBook book, OpeningWorked worked});
 /// accounts, categories and entries from the rows as the book opens them
 /// ([decodeBook]), leaves out those set aside as it opened ([aside],
 /// `shelf/id`), and posts them with [start], the stocks held from the
-/// start ([postBook]). Made here, at the top level, so the closure
-/// carries only what it is given.
-Future<PostedBook> Function(List<KeptRow>, AddPart) postingWork({
+/// start ([postBook]). The entries are read a page at a time and each
+/// decoded as it comes, its row let go (`ApartStore.kept`): read whole
+/// first, the bodies and JSON of a large book stayed alive while the
+/// rest was read, and the collections copying them held the screen.
+/// Made here, at the top level, so the closure carries only what it is
+/// given.
+Future<PostedBook> Function(ReadKept, AddPart) postingWork({
   required Set<String> aside,
   required List<Holding> start,
-}) =>
-    (rows, add) async => postBook(
-      decodeBook(
-        shelvesOf([
-          for (final r in rows)
-            if (!aside.contains('${r.shelf}/${r.id}'))
-              StoredRow(r.seq, r.shelf, r.id, r.body),
-        ]),
-      ),
-      add,
-      start,
-    );
+}) => (rows, add) async {
+  Iterable<StoredRow> kept(List<String> shelves) =>
+      rows(shelves)
+          .where((r) => !aside.contains('${r.shelf}/${r.id}'))
+          .map((r) => StoredRow(r.seq, r.shelf, r.id, r.body));
+  return postBook(
+    decodeBook(
+      shelvesOf(kept([Collection.account.name, Collection.category.name])),
+      // Gone through once, as they are decoded.
+      entryRows: kept([Collection.entry.name]),
+    ),
+    add,
+    start,
+  );
+};
 
 /// Posts the entries of [book] with [start], the stocks held from the
 /// start, into parts handed to [add] as each is done: those in no stream
