@@ -7,7 +7,7 @@ import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_sour
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
 
-/// D119: what an undo puts back (a budget, a recurring item, an account,
+/// D119 (`WriteBatch.putBack`): what an undo puts back (a budget, a recurring item, an account,
 /// a category) is back in its own place in the order kept, so it stands
 /// there still once the app is opened again, not last.
 void main() {

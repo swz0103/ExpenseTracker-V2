@@ -137,10 +137,12 @@ final class EntryValidator {
     // so no change leaves a later sale short.
     for (final code in _entries.holdingCodes) {
       if (changed.containsKey(code)) continue;
+      // Exception to as-of-today: the whole timeline, as above.
       if (!_holdings.holdsWithKept(_entries.ofHolding(code))) return false;
     }
     for (final MapEntry(key: code, value: added) in changed.entries) {
       final trades = [
+        // Exception to as-of-today: the whole timeline, as above.
         for (final e in _entries.ofHolding(code))
           if (replacing == null || e.id != replacing.id) e,
         ...added,

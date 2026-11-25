@@ -9,7 +9,10 @@ import '../core/messages/problem_messages.dart';
 /// above each opening of the ledger, so a lock and an unlock do not tell
 /// a standing fault again (review 31).
 final class QuietFailures {
-  QuietFailures(this._say);
+  /// [book] says which book is open: it changes when a restore or a key
+  /// reset puts another in place (`Startup.bookChanges`), not at a plain
+  /// unlock.
+  QuietFailures(this._say, {int Function()? book}) : _bookNow = book;
 
   /// Shows a note, waiting its turn behind any other: true once it was on
   /// screen to be read (`queueNote`).
@@ -27,6 +30,7 @@ final class QuietFailures {
   /// one another note took the place of is said again at the step's next
   /// failure.
   void failed(QuietStep step) {
+    _follow();
     if (_told.contains(step) || _saying.containsKey(step)) return;
     final note = _saying[step] = Object();
     final book = _book;
@@ -35,20 +39,27 @@ final class QuietFailures {
         // A note dropped meanwhile ([dropWaiting]) is not this one.
         if (_saying[step] == note) _saying.remove(step);
         // Read about the book before, it tells nothing of this one.
+        _follow();
         if (shown && (!step.perBook || book == _book)) _told.add(step);
       }),
     );
   }
 
-  /// Which book the notes are about; counts the books put in place.
-  var _book = 0;
+  final int Function()? _bookNow;
 
-  /// A restore or a key reset put another book in place of the one open
-  /// (review 33): what was told of the book before ([QuietStep.perBook])
-  /// is told again of this one. What is told of the run stays told; a
-  /// plain unlock opens the same book and does not come here.
-  void newBook() {
-    _book++;
+  /// Which book the notes are about.
+  int? _book;
+
+  /// Once a restore or a key reset put another book in place of the one
+  /// the notes were about (review 33), what was told of the book before
+  /// ([QuietStep.perBook]) is told again of this one. What is told of the
+  /// run stays told; a plain unlock opens the same book.
+  void _follow() {
+    final now = _bookNow?.call();
+    if (now == _book) return;
+    final first = _book == null;
+    _book = now;
+    if (first) return;
     _told.removeWhere((step) => step.perBook);
     _saying.removeWhere((step, _) => step.perBook);
   }

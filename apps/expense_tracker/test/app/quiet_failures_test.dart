@@ -81,12 +81,13 @@ void main() {
       '(review 33)', () async {
     final said = <QuietStep>[];
     final shown = <Completer<bool>>[];
+    var book = 1;
     final quiet = QuietFailures((note) {
       said.add(QuietStep.values.firstWhere((s) => s.note == note));
       final read = Completer<bool>();
       shown.add(read);
       return read.future;
-    });
+    }, book: () => book);
     for (final step in QuietStep.values) {
       quiet.failed(step);
     }
@@ -102,7 +103,7 @@ void main() {
     expect(said, hasLength(QuietStep.values.length));
 
     said.clear();
-    quiet.newBook();
+    book++;
     for (final step in QuietStep.values) {
       quiet.failed(step);
     }
@@ -114,7 +115,7 @@ void main() {
     ]);
     // These four are on screen when yet another book takes their place:
     // read, they still say nothing of it.
-    quiet.newBook();
+    book++;
     for (final read in shown.skip(QuietStep.values.length)) {
       read.complete(true);
     }
