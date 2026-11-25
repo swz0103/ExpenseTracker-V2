@@ -129,6 +129,9 @@ abstract final class Keys {
       ValueKey('security:auto-lock:$name');
   static const hideScreen = ValueKey('security:hide-screen');
 
+  /// The [index]th of the items chooseOne (dialogs.dart) offers, from 0.
+  static Key choice(int index) => ValueKey('choice:$index');
+
   /// The screen asking for a new password after the recovery code: its
   /// button, and the way to choose no password.
   static const newPassword = ValueKey('keys:new-password');

@@ -15,6 +15,9 @@ abstract final class LockWords {
   /// The backup chosen could not be downloaded.
   static const notDownloaded = '無法下載備份';
 
+  /// Above the backups on Google Drive, to restore one.
+  static const pickDriveBackup = '要還原哪一份備份';
+
   /// What the lock screen says while a wait after wrong tries is on, the
   /// time left counted down: 輸入錯誤太多次，請等 4 分 30 秒再試.
   static String waitFor(Duration wait) => '輸入錯誤太多次，請等 ${span(wait)}再試';

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:architecture_checks/app_syntax.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -73,9 +74,12 @@ void main() {
   });
 
   test('panels that ask or tell come from the design system (WP-E)', () {
-    // One look for every question and notice: confirm, askText, tell, a
-    // DialogBlock or a DialogFrame from core/design_system/dialogs.dart,
-    // opened by its showPanel; never a dialog of a screen's own.
+    // One look for every question, notice and choice: confirm, askText,
+    // tell, chooseOne, pickTime, pickDateRange, a DialogBlock or a
+    // DialogFrame from core/design_system, opened by its showPanel or
+    // showSheet; never a dialog, sheet, picker or menu of a screen's own.
+    // Every reference counts, a tear-off (`builder: AlertDialog.new`) as
+    // much as a call (review 39 #5).
     const raw = {
       'AlertDialog',
       'SimpleDialog',
@@ -85,16 +89,51 @@ void main() {
       'showAdaptiveDialog',
       'showGeneralDialog',
       'showCupertinoDialog',
+      'showModalBottomSheet',
+      'showBottomSheet',
+      'showCupertinoModalPopup',
+      'CupertinoActionSheet',
+      'showDatePicker',
+      'showTimePicker',
+      'showDateRangePicker',
+      'DatePickerDialog',
+      'TimePickerDialog',
+      'DateRangePickerDialog',
+      'showAboutDialog',
+      'AboutDialog',
+      'showMenu',
     };
     final faults = where((s) => !s.path.startsWith(designSystem), (s) sync* {
-      for (final call in Calls.of(s.unit)) {
-        if (raw.contains(callOf(call)!.$1)) {
-          yield '${s.path}:${s.lineOf(call)}: use confirm, askText, tell or '
-              'DialogBlock (core/design_system/dialogs.dart)';
+      for (final (name, node) in _Names.of(s.unit)) {
+        if (raw.contains(name)) {
+          yield '${s.path}:${s.lineOf(node)}: $name; use confirm, askText, '
+              'tell, chooseOne or DialogBlock (core/design_system)';
         }
       }
     });
     expect(faults, isEmpty, reason: faults.join('\n'));
+  });
+
+  test('the panel rule sees a tear-off and a sheet, not a word in a '
+      'comment or a string (review 39 #5)', () {
+    final unit = AppSource('x.dart', '''
+// showModalBottomSheet in a comment
+final a = 'showMenu';
+final b = Builder(builder: AlertDialog.new);
+void c(BuildContext context) => showModalBottomSheet(context: context);
+Widget d() => CupertinoActionSheet();
+''').unit;
+    expect(
+      [for (final (name, _) in _Names.of(unit)) name],
+      containsAll([
+        'AlertDialog',
+        'showModalBottomSheet',
+        'CupertinoActionSheet',
+      ]),
+    );
+    expect([
+      for (final (name, _) in _Names.of(unit)) name,
+    ], isNot(contains('showMenu')));
   });
 
   test('how much larger the phone draws words is asked in one place', () {
@@ -241,4 +280,25 @@ void main() {
     );
     expect(faults, isEmpty, reason: faults.join('\n'));
   });
+}
+
+/// Every name a unit refers to: identifiers and types, each with where it
+/// is; never a word in a comment or a string.
+final class _Names extends RecursiveAstVisitor<void> {
+  final found = <(String, AstNode)>[];
+
+  @override
+  void visitSimpleIdentifier(SimpleIdentifier node) {
+    found.add((node.name, node));
+    super.visitSimpleIdentifier(node);
+  }
+
+  @override
+  void visitNamedType(NamedType node) {
+    found.add((node.name.lexeme, node));
+    super.visitNamedType(node);
+  }
+
+  static List<(String, AstNode)> of(CompilationUnit unit) =>
+      (_Names()..visitCompilationUnit(unit)).found;
 }

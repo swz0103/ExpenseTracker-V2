@@ -226,6 +226,87 @@ Future<void> tell(BuildContext context, String title, String body) =>
       ),
     );
 
+/// Asks which one of [items] under a short [title]: each a wide row
+/// named by [label], [detail] under it when given, the words scrolling
+/// when there are many, and 取消 under them; null when none is chosen.
+Future<T?> chooseOne<T>(
+  BuildContext context,
+  List<T> items, {
+  required String title,
+  required String Function(T item) label,
+  String Function(T item)? detail,
+}) => showPanel<T>(
+  context,
+  (context) => DialogBlock(
+    title: title,
+    content: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (i, item) in items.indexed) ...[
+          if (i > 0) const SizedBox(height: Space.s2),
+          _ItemChoice(
+            key: Keys.choice(i),
+            label: label(item),
+            detail: detail?.call(item),
+            onTap: () => Navigator.of(context).pop(item),
+          ),
+        ],
+      ],
+    ),
+    choices: [
+      DialogChoice(
+        Words.cancel,
+        key: Keys.confirmCancel,
+        onTap: () => Navigator.of(context).pop(),
+      ),
+    ],
+  ),
+);
+
+/// One item [chooseOne] offers: its [label] and, under it, [detail], on
+/// the grey of a [DialogChoice].
+class _ItemChoice extends StatelessWidget {
+  const _ItemChoice({
+    super.key,
+    required this.label,
+    required this.detail,
+    required this.onTap,
+  });
+
+  final String label;
+  final String? detail;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: AppColors.surface,
+    borderRadius: BorderRadius.circular(Radii.large),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(Radii.large),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.s4,
+          vertical: Space.s3,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: TextSize.body,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (detail case final detail?) Text(detail, style: mutedSmall),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 /// Asks for a line of text under a short [title], [body] saying what it
 /// is for when given; null when cancelled or left empty. 取消 and 完成, as
 /// [confirm]'s, and the keyboard's own done too.

@@ -189,4 +189,51 @@ void main() {
       AppColors.muted,
     );
   });
+
+  /// A page whose button asks [chooseOne] among three backups, answering
+  /// into [answers].
+  Widget chooser(List<String?> answers) => MaterialApp(
+    home: Scaffold(
+      body: Builder(
+        builder: (context) => Center(
+          child: TextButton(
+            key: const ValueKey('ask'),
+            onPressed: () async => answers.add(
+              await chooseOne(
+                context,
+                ['一月', '二月', '三月'],
+                title: '要還原哪一份備份',
+                label: (item) => item,
+                detail: (item) => '$item.backup',
+              ),
+            ),
+            child: const Text('ask'),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  testWidgets('chooseOne is a design-system panel: the items with their '
+      'details, the one tapped chosen, 取消 for none (review 39 #5)', (
+    tester,
+  ) async {
+    final answers = <String?>[];
+    await tester.pumpWidget(chooser(answers));
+    await tester.tap(find.byKey(const ValueKey('ask')));
+    await tester.pumpAndSettle();
+    expect(find.byType(DialogBlock), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.text('二月.backup'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.choice(1)));
+    await tester.pumpAndSettle();
+    expect(answers, ['二月']);
+
+    await tester.tap(find.byKey(const ValueKey('ask')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Keys.confirmCancel));
+    await tester.pumpAndSettle();
+    expect(answers, ['二月', null]);
+    expect(find.byType(DialogBlock), findsNothing);
+  });
 }
