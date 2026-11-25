@@ -42,6 +42,25 @@ void main() {
     ]);
   });
 
+  test('each missing account of an entry is found once, its own first', () {
+    final book = Book(
+      entries: [
+        entry('both', type: EntryType.transfer, account: 'x', to: 'y'),
+        entry('same', type: EntryType.transfer, account: 'z', to: 'z'),
+      ],
+    );
+    final problems = IntegrityService(
+      entries: book.entries,
+      accounts: book.accounts,
+      recurring: book.recurring,
+      trash: TrashRepository(const []),
+    ).problems();
+    expect(
+      [for (final p in problems) '${p.id} ${(p as MissingAccount).account}'],
+      ['both x', 'both y', 'same z'],
+    );
+  });
+
   test('the trash and recurring items are looked over too', () {
     final book = Book(
       recurring: const [
