@@ -3,6 +3,7 @@ package io.github.swz0103.expensetracker
 import android.content.BroadcastReceiver
 import android.util.Log
 import java.util.concurrent.Executor
+import java.util.concurrent.ThreadPoolExecutor
 
 /**
  * How a receiver does its Keystore and file work: off the main thread,
@@ -13,12 +14,22 @@ import java.util.concurrent.Executor
 internal object ReceiverWork {
     private const val TAG = "ReceiverWork"
 
-    /** Runs [work] for [receiver] on [OffMain.POOL]. */
+    /** The most threads [POOL] keeps working at once. */
+    const val MOST_THREADS = 2
+
+    /**
+     * The receivers' own threads, apart from the handlers' [OffMain.POOL]
+     * (review 34): a handler's long file or photo work never queues an
+     * alarm's short work past what goAsync allows a broadcast.
+     */
+    val POOL: ThreadPoolExecutor = OffMain.bounded(MOST_THREADS)
+
+    /** Runs [work] for [receiver] on [POOL]. */
     fun of(receiver: BroadcastReceiver, work: () -> Unit) {
         // Null when the receiver is called directly rather than by a
         // broadcast (a device test): the work then runs in place.
         val pending: BroadcastReceiver.PendingResult? = receiver.goAsync()
-        run(pending?.let { it::finish }, OffMain.POOL, work) {
+        run(pending?.let { it::finish }, POOL, work) {
             Log.w(TAG, "receiver work failed: ${it.javaClass.simpleName}")
         }
     }

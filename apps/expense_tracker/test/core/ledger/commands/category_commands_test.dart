@@ -121,6 +121,31 @@ void main() {
       );
     });
 
+    test('R34: leaves a budget set again since as it is', () {
+      final l = book(budgets: const [Budget('飲食', 5000), Budget('交通', 2000)]);
+      final merged = l.categoryCommands.mergeCategory('飲食', '交通');
+      l.budgetCommands.setBudget('交通', 9000);
+      (merged as Merged).undo();
+      // 飲食 is as the merge left it (none), so it comes back; 交通 was
+      // set since, so it keeps 9000 instead of going back to 2000.
+      expect(
+        [for (final b in l.budgets.all) (b.category, b.limit)],
+        [('飲食', 5000), ('交通', 9000)],
+      );
+    });
+
+    test('R34: leaves a budget taken away since as it is', () {
+      final l = book(budgets: const [Budget('飲食', 5000)]);
+      final merged = l.categoryCommands.mergeCategory('飲食', '交通');
+      l.budgetCommands.removeBudget('交通');
+      (merged as Merged).undo();
+      // The 交通 budget the merge made is gone already; 飲食's came back.
+      expect(
+        [for (final b in l.budgets.all) (b.category, b.limit)],
+        [('飲食', 5000)],
+      );
+    });
+
     test('leaves an entry changed again since as it is', () {
       final l = book();
       final merged = l.categoryCommands.mergeCategory('飲食', '交通');

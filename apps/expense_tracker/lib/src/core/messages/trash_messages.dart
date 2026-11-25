@@ -27,3 +27,9 @@ String? trashedNamingNote(int count) =>
 String stayedInTrashNote(int count) =>
     '${countOf(count, CountUnit.entries)}沒有復原：用到已封存的帳戶，或退款的原消費不在帳本。'
     '它們留在「最近刪除」，可以在那裡逐筆放回。';
+
+/// Why an undo of an import left [count] of its entries in the book: each
+/// was changed since, or a refund kept in the book refunds it.
+String stayedInBookNote(int count) =>
+    '${countOf(count, CountUnit.entries)}沒有復原：匯入後改過，或有退款用到它。'
+    '它們留在帳本裡，需要的話可以自己刪除。';

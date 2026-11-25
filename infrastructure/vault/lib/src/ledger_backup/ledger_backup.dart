@@ -6,40 +6,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:storage/storage.dart';
 import 'package:vault/backup_security.dart';
 
-/// Why a backup could not be read or restored. Never carries key material
-/// or ledger content.
-enum BackupProblem {
-  /// Not a backup file, or a truncated or reordered one.
-  invalidFormat,
-
-  /// Written by a newer app.
-  unsupportedVersion,
-
-  /// The keys do not open this backup, or its content was altered.
-  authenticationFailed,
-
-  /// The target ledger already has data.
-  targetNotEmpty,
-
-  /// The content decrypted but is not a ledger the app can read.
-  invalidContent,
-
-  /// Larger than any backup is ([LedgerBackup.maxBackupBytes]): refused
-  /// before it is read, and never written.
-  tooLarge,
-}
-
-final class BackupException implements Exception {
-  const BackupException(this.problem, [this.detail = '']);
-
-  final BackupProblem problem;
-
-  /// A non-secret hint for diagnostics, such as a record's shelf.
-  final String detail;
-
-  @override
-  String toString() => 'BackupException(${problem.name} $detail)';
-}
+import '../problems.dart';
 
 /// The authenticated facts about a backup. They are readable before any
 /// key is entered, and every chunk is bound to them, so a restore can warn

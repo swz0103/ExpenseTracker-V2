@@ -75,10 +75,10 @@ internal class OffMain(
         const val MOST_THREADS = 4
 
         /**
-         * The threads all work off the main thread shares (the handlers'
-         * and the receivers', [ReceiverWork]): at most [MOST_THREADS], each
-         * going when idle, rather than a new thread for every call
-         * (review 32).
+         * The threads the handlers' work off the main thread shares: at
+         * most [MOST_THREADS], each going when idle, rather than a new
+         * thread for every call (review 32). The receivers have their own
+         * ([ReceiverWork.POOL]).
          */
         val POOL: ThreadPoolExecutor = bounded(MOST_THREADS)
 

@@ -79,13 +79,18 @@ void main() {
     await notifier.postBudgets(reminderBookOf(ledger));
     expect([for (final a in port.posted) a.title], ['「飲食」預算已用 85%']);
     expect(port.posted.single.text, '還剩 150');
+    expect(
+      port.posted.single.tag,
+      'budget:96c2539e-3dd4-5a29-becf-9344600ca2a9',
+    );
     // Not again while it stays there.
     ledger.entryCommands.add(spend('c', 50));
     await notifier.postBudgets(reminderBookOf(ledger));
     expect(port.posted, hasLength(1));
     expect(
       wantedTags(reminderBookOf(ledger), preferences),
-      contains('budget:飲食'),
+      // The budget by an id, never its name (review 34): NameId of 飲食.
+      contains('budget:96c2539e-3dd4-5a29-becf-9344600ca2a9'),
     );
 
     ledger.entryCommands.add(spend('d', 200));

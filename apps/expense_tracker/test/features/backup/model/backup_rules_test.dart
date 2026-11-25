@@ -43,7 +43,6 @@ void main() {
       'phonePrefix': '記帳本-abc123-',
       'suffix': '.etbk',
       'driveFolder': '記帳本備份',
-      'folderDenied': '沒有這個資料夾的存取權，請重新選擇',
     });
     // BackupWorker.kt reads each into BackupPlan.Handed, and reads no other.
     final worker = File('$kotlin/BackupWorker.kt').readAsStringSync();

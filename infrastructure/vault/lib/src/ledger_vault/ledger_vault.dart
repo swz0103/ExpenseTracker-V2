@@ -4,35 +4,7 @@ import 'dart:math' show max;
 import 'package:storage/storage.dart';
 import 'package:vault/backup_security.dart';
 
-enum VaultProblem {
-  /// [LedgerVault.create] found a ledger already on this device.
-  alreadyExists,
-
-  /// No ledger on this device yet.
-  missing,
-
-  /// The keyring file cannot be read.
-  damagedKeyring,
-
-  /// A keyring for another ledger was offered.
-  otherLedger,
-
-  /// A restored database failed its checks; nothing was kept.
-  damagedRestore,
-
-  /// The keyring is here but the ledger's database is gone: opening would
-  /// start an empty ledger as if nothing had been kept, so it is refused.
-  missingDatabase,
-}
-
-final class VaultException implements Exception {
-  const VaultException(this.problem);
-
-  final VaultProblem problem;
-
-  @override
-  String toString() => 'VaultException(${problem.name})';
-}
+import '../problems.dart';
 
 /// An unlocked ledger: its keys and its open database.
 final class OpenVault {

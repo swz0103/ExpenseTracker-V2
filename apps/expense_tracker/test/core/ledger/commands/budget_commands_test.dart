@@ -28,6 +28,17 @@ void main() {
     );
   });
 
+  test('R34: the undo leaves a budget set on it since as it is', () {
+    final l = book();
+    final undo = l.budgetCommands.removeBudget('交通')!;
+    l.budgetCommands.setBudget('交通', 5000);
+    undo();
+    expect(
+      [for (final b in l.budgets.all) (b.category, b.limit)],
+      [('飲食', 5000), ('#家用', 800), ('交通', 5000)],
+    );
+  });
+
   test('nothing to take away gives no undo', () {
     expect(book().budgetCommands.removeBudget('娛樂'), isNull);
   });
