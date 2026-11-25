@@ -413,7 +413,7 @@ items:
     status: owned
     guard:
       - packages/domain/test/data_exchange/columns_test.dart
-      - apps/expense_tracker/test/features/import_export/model/import_round_trip_test.dart
+      - apps/expense_tracker/test/scenarios/import_export/round_trip_test.dart
   # Work package N4: one reader of the ministry's e-invoice files, the
   # consumption CSV and a carrier's M and D lines.
   - id: e-invoice-files

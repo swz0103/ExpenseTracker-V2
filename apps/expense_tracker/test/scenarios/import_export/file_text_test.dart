@@ -4,7 +4,7 @@ import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/features/backup/model/backup_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../support/places.dart';
+import '../../support/places.dart';
 
 /// The preview's backups, choosing [file] when a file is asked for.
 final class _Choosing implements BackupManager {

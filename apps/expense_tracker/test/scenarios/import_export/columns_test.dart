@@ -6,7 +6,7 @@ import 'package:expense_tracker/src/features/import_export/ui/import_page.dart'
     show importBookOf;
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../baseline/baseline_ledger.dart';
+import '../../baseline/baseline_ledger.dart';
 
 const _accounts = [
   Account('bank', '銀行', AccountKind.bank, 0),

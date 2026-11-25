@@ -7,7 +7,7 @@ import 'package:expense_tracker/src/features/import_export/ui/import_page.dart'
     show importBookOf;
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../baseline/baseline_ledger.dart';
+import '../../baseline/baseline_ledger.dart';
 
 /// N4: books made at random (seeded) and written out with [toCsv], read
 /// back into a book of the same accounts, categories and recurring items
