@@ -237,6 +237,14 @@ final class Ledger extends ChangeNotifier {
   /// Answers worked out once per change of what they rest on.
   final _cache = QueryCache();
 
+  /// What [make] works out, kept under [key] until a topic of [reads]
+  /// changes: for a model outside the ledger whose answers rest on the
+  /// records (such as the investments' returns), kept as the ledger's own
+  /// are. [key] holds every argument the answer depends on, the day
+  /// included; hiding the amounts keeps it.
+  T remember<T>(Object key, T Function() make, {required Set<Topic> reads}) =>
+      _cache.remember(key, make, reads: reads);
+
   /// Counts and announces the changes of each topic.
   final _topics = TopicNotifier();
 

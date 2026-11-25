@@ -1,7 +1,13 @@
+import 'dart:math';
+
+import 'package:core/percent/percent.dart' show divideRounded;
+import 'package:core/time/utc_days.dart' show monthsAfter, yearBefore;
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/features/investments/model/returns.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../../support/fuzz.dart';
 
 /// Keeps nothing.
 final class _Nowhere implements LedgerDataSource {
@@ -127,6 +133,185 @@ void main() {
     ]);
     expect(returnsOf(older).payingMonths('0056'), [3]);
   });
+
+  test('each answer is worked out once and kept', () {
+    final returns = returnsOf(
+      book([
+        trade('b', DateTime.utc(2025, 9, 1), EntryType.buy, 36000, shares: 10),
+        trade('d', DateTime.utc(2026, 1, 15), EntryType.dividend, 100),
+      ]),
+    );
+    expect(
+      identical(returns.expectedDividends(), returns.expectedDividends()),
+      isTrue,
+    );
+    expect(
+      identical(returns.payingMonths('0056'), returns.payingMonths('0056')),
+      isTrue,
+    );
+    expect(returns.rate(), returns.rate());
+  });
+
+  // Review 32 1.1: the answers now come from each stock's own trades,
+  // kept; they must be those worked out from every entry, as before.
+  for (var seed = 0; seed < fuzzSeeds; seed++) {
+    test('the same answers as worked out from every entry ($seed)', () {
+      final r = Random(seed);
+      const codes = ['0056', '2330', '2412'];
+      final today = DateTime.utc(2026, 10, 20);
+      var serial = 0;
+      DateTime someDay() => today.subtract(Duration(days: r.nextInt(800) - 20));
+      final entries = <Entry>[];
+      for (var i = 0; i < 60; i++) {
+        final code = codes[r.nextInt(codes.length)];
+        final kind = r.nextInt(8);
+        entries.add(
+          kind == 0
+              ? Entry(
+                  id: 'e${serial++}',
+                  date: someDay(),
+                  type: EntryType.expense,
+                  amount: 1 + r.nextInt(500),
+                  account: 'bank',
+                  category: '飲食',
+                )
+              : Entry(
+                  id: 't${serial++}',
+                  date: someDay(),
+                  type: switch (kind) {
+                    1 || 2 || 3 => EntryType.buy,
+                    4 => EntryType.sell,
+                    _ => EntryType.dividend,
+                  },
+                  amount: 100 + r.nextInt(50000),
+                  account: 'bank',
+                  category: '投資',
+                  holding: code,
+                  shares: switch (kind) {
+                    1 || 2 || 3 => 100 + r.nextInt(2000),
+                    4 => 1 + r.nextInt(300),
+                    // A stock dividend now and then.
+                    _ => r.nextInt(6) == 0 ? 1 + r.nextInt(50) : 0,
+                  },
+                  fee: r.nextInt(30),
+                  tax: kind == 4 ? r.nextInt(30) : 0,
+                ),
+        );
+      }
+      final ledger = book(entries, today: today);
+      final kept = returnsOf(ledger);
+      final before = _Before(ledger);
+      expect(kept.rate(), before.rate(), reason: 'all');
+      expect(kept.expectedDividends(), before.expectedDividends());
+      for (final code in [...codes, 'none']) {
+        expect(
+          kept.rate(code: code),
+          before.rate(code: code),
+          reason: code,
+        );
+        expect(kept.nextDividend(code), before.nextDividend(code));
+        expect(kept.payingMonths(code), before.payingMonths(code));
+        for (var k = 0; k < 5; k++) {
+          final day = someDay();
+          expect(
+            kept.sharesBefore(code, day),
+            before.sharesBefore(code, day),
+            reason: '$code $day',
+          );
+        }
+      }
+    });
+  }
+}
+
+/// The answers as worked out before review 32 1.1, from every entry each
+/// time: what the kept ones must equal.
+final class _Before {
+  _Before(this.ledger);
+
+  final Ledger ledger;
+
+  DateTime get today => ledger.today;
+
+  List<Entry> tradesOf(String code) => [
+    for (final e in ledger.entries.all)
+      if (e.holding == code) e,
+  ]..sort(newestFirst(ledger.entries));
+
+  double? rate({String? code}) {
+    final codes = code == null
+        ? {
+            for (final e in countedOn(ledger.entries.all, today))
+              if (e.isInvestment) e.holding,
+          }
+        : {code};
+    for (final c in codes) {
+      if (c == null) continue;
+      if (ledger.holdings.lotsOf(c).any((l) => l.isOpening)) return null;
+    }
+    final flows = <(DateTime, int)>[
+      for (final e in countedOn(ledger.entries.all, today))
+        if (e.isInvestment && codes.contains(e.holding))
+          if (e.settlement case final cash when cash != 0) (e.date, cash),
+    ];
+    final held = [
+      for (final h in ledger.holdings.all)
+        if (codes.contains(h.code)) h.value,
+    ].fold(0, (sum, v) => sum + v);
+    if (held > 0) flows.add((today, held));
+    return xirr(flows);
+  }
+
+  int sharesBefore(String code, DateTime day) {
+    var shares = ledger.holdings.byCode(code)?.shares ?? 0;
+    for (final e in countedOn(tradesOf(code), today)) {
+      if (e.date.isBefore(day)) continue;
+      shares -= switch (e.type) {
+        EntryType.buy => e.shares,
+        EntryType.sell => -e.shares,
+        EntryType.dividend => e.shares,
+        _ => 0,
+      };
+    }
+    return shares;
+  }
+
+  List<DividendGuess> expectedDividends() {
+    final since = yearBefore(today);
+    final found = <DividendGuess>[];
+    for (final h in ledger.holdings.all) {
+      if (h.shares <= 0) continue;
+      for (final e in tradesOf(h.code)) {
+        if (e.type != EntryType.dividend || e.isReduction) continue;
+        if (e.dividendNet <= 0 || !e.date.isAfter(since)) continue;
+        final then = sharesBefore(h.code, e.date);
+        if (then <= 0) continue;
+        final next = DateTime.utc(e.date.year + 1, e.date.month);
+        found.add((
+          code: h.code,
+          name: h.name,
+          month: next,
+          amount: divideRounded(e.dividendNet * h.shares, then),
+        ));
+      }
+    }
+    return found..sort((a, b) => a.month.compareTo(b.month));
+  }
+
+  DividendGuess? nextDividend(String code) =>
+      expectedDividends().where((g) => g.code == code).firstOrNull;
+
+  List<int> payingMonths(String code) {
+    final since = monthsAfter(today, -24);
+    return {
+      for (final e in tradesOf(code))
+        if (e.type == EntryType.dividend &&
+            !e.isReduction &&
+            e.dividendNet > 0 &&
+            e.date.isAfter(since))
+          e.date.month,
+    }.toList()..sort();
+  }
 }
 
 /// [ledger]'s returns, from the parts the model reads.
