@@ -109,7 +109,7 @@
     "apps/expense_tracker/lib/src/features/import_export/model/import_export.dart": 2,
     "apps/expense_tracker/lib/src/features/import_export/model/import_reader.dart": 33,
     "apps/expense_tracker/lib/src/features/import_export/ui/import_export_section.dart": 33,
-    "apps/expense_tracker/lib/src/features/import_export/ui/import_page.dart": 26,
+    "apps/expense_tracker/lib/src/features/import_export/ui/import_page.dart": 25,
     "apps/expense_tracker/lib/src/features/investments/model/market_feed.dart": 1,
     "apps/expense_tracker/lib/src/features/investments/ui/holding_bento.dart": 23,
     "apps/expense_tracker/lib/src/features/investments/ui/holding_page.dart": 22,
