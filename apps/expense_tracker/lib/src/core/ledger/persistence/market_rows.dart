@@ -35,10 +35,11 @@ typedef Market = ({
 /// Throws for a row that cannot be read.
 Market marketFrom(List<StoredRow> rows) => _marketFrom(rows, {});
 
-/// The closes and board last fetched, from [rows] of [marketShelf], each
-/// row read once: one that cannot be read is left out, [report] told
-/// what reading it threw (a close or rate kept that cannot be read is
-/// fetched again). Without [history], the day rows are not read at all,
+/// The closes and board last fetched, from [rows] of [marketShelf]: each
+/// day row read once, each of the few latest rows (the closes, the
+/// board) read alone to be checked, then with the others; one that
+/// cannot be read is left out, [report] told what reading it threw (a
+/// close or rate kept that cannot be read is fetched again). Without [history], the day rows are not read at all,
 /// for a reader that needs only the latest figures (review 39: they are
 /// most of the rows).
 Market readMarket(
