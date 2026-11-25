@@ -67,7 +67,7 @@ String problemNote(String what, Object error) =>
 enum QuietStep {
   /// The recurring items marked to book themselves, and what was
   /// confirmed on a notification.
-  autoBooking('到期的定期交易沒有自動入帳'),
+  autoBooking('到期的定期交易沒有自動入帳', perBook: true),
 
   /// The backup left for the background job, or what it delivered.
   backgroundBackup('背景備份沒有完成'),
@@ -80,19 +80,23 @@ enum QuietStep {
 
   /// The check, as the book opens, that no record names another the book
   /// no longer has: it found some, or could not finish.
-  integrityCheck('帳本健檢沒有通過'),
+  integrityCheck('帳本健檢沒有通過', perBook: true),
 
   /// The photo the camera took while the phone closed the app, taken
   /// back for the next new entry.
-  leftoverPhoto('相機拍的收據照片沒有找回'),
+  leftoverPhoto('相機拍的收據照片沒有找回', perBook: true),
 
   /// Deleting the receipt photos no entry keeps any more.
-  receiptSweep('不再使用的收據照片沒有清除');
+  receiptSweep('不再使用的收據照片沒有清除', perBook: true);
 
-  const QuietStep(this.what);
+  const QuietStep(this.what, {this.perBook = false});
 
   /// What did not happen.
   final String what;
+
+  /// A fact about the book open, not about the run: told again once a
+  /// restore or a key reset puts another book in its place (review 33).
+  final bool perBook;
 
   /// The note the person reads.
   String get note => failureNote(what);

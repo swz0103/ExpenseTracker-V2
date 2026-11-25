@@ -120,6 +120,8 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _generation = _gate.generation;
+    _book = widget.startup.bookChanges;
+    widget.startup.addListener(_newBook);
     _gate.addListener(_follow);
     widget.quick?.addListener(_asked);
     _asked();
@@ -129,11 +131,24 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
   @override
   void dispose() {
     widget.quick?.removeListener(_asked);
+    widget.startup.removeListener(_newBook);
     WidgetsBinding.instance.removeObserver(this);
     _gate
       ..removeListener(_follow)
       ..dispose();
     super.dispose();
+  }
+
+  /// The book the run's notes are about ([Startup.bookChanges]).
+  var _book = 0;
+
+  /// A restore or a key reset put another book in place: what was told
+  /// about the one before is told again of it (review 33).
+  void _newBook() {
+    final book = widget.startup.bookChanges;
+    if (book == _book) return;
+    _book = book;
+    _run.quiet.newBook();
   }
 
   /// A session ended or began: every route of the one before goes.
