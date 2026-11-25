@@ -333,7 +333,7 @@ void main() {
       expect(
         csv,
         '\u{FEFF}日期,類型,金額,帳戶,轉入帳戶,分類,商家,標籤,備註,代號,股數,'
-        '手續費,稅,分期,轉入金額,台幣金額,成本算法\r\n',
+        '手續費,稅,分期,轉入金額,台幣金額,成本算法,當沖,標記,編號,退款對象,群組,定期\r\n',
       );
     });
     test('an expense with merchant, tags and note is one line', () {
@@ -351,7 +351,7 @@ void main() {
         ),
       ]);
       final lines = toCsv(ledger.accounts, ledger.entries.all).split('\r\n');
-      expect(lines[1], '2026-03-05,支出,120,銀行,,飲食,早餐店,家用、早餐,蛋餅,,,,,,,,');
+      expect(lines[1], '2026-03-05,支出,120,銀行,,飲食,早餐店,家用、早餐,蛋餅,,,,,,,,,,,x,,,');
     });
     test('a split is written as name=amount parts', () {
       final ledger = book([
@@ -366,7 +366,7 @@ void main() {
         ),
       ]);
       final lines = toCsv(ledger.accounts, ledger.entries.all).split('\r\n');
-      expect(lines[1], '2026-03-05,支出,300,銀行,,飲食=200;居家=100,,,,,,,,,,,');
+      expect(lines[1], '2026-03-05,支出,300,銀行,,飲食=200;居家=100,,,,,,,,,,,,,,x,,,');
     });
     test('a transfer carries its fee and receiving account', () {
       final ledger = book([
@@ -381,7 +381,7 @@ void main() {
         ),
       ]);
       final lines = toCsv(ledger.accounts, ledger.entries.all).split('\r\n');
-      expect(lines[1], '2026-03-05,轉帳,500,銀行,現金,,,,,,,15,,,,,');
+      expect(lines[1], '2026-03-05,轉帳,500,銀行,現金,,,,,,,15,,,,,,,,x,,,');
     });
     test('lines are written oldest first', () {
       final ledger = book([

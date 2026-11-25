@@ -536,6 +536,8 @@ class _BigChoice extends StatelessWidget {
 /// What an import reads from [ledger].
 ImportBook importBookOf(Ledger ledger) => ImportBook(
   accounts: ledger.accounts,
+  recurring: ledger.recurring,
+  inTrash: {for (final t in ledger.trash.all) t.entry.id}.contains,
   categories: ledger.categories,
   entries: ledger.entries,
   entryQueryService: ledger.entryQueryService,

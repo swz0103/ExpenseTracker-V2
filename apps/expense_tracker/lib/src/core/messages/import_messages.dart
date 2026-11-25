@@ -1,5 +1,10 @@
 import 'package:domain/data_exchange.dart'
-    show DayProblem, InvoiceRefusal, earliestImportYear, homeAmountColumn;
+    show
+        DayProblem,
+        ExchangeColumn,
+        InvoiceRefusal,
+        earliestImportYear,
+        homeAmountColumn;
 
 import 'package:ledger_entries/model.dart' show maxDaysAhead;
 
@@ -18,7 +23,36 @@ String dayProblemWords(DayProblem problem) => switch (problem) {
 String invoiceRefusalWords(InvoiceRefusal why) => switch (why) {
   InvoiceRefusal.rowsDisagree => '同一張發票的日期或商家前後不一致',
   InvoiceRefusal.tooEarly => dayProblemWords(DayProblem.tooEarly),
+  InvoiceRefusal.unreadableDay => dayProblemWords(DayProblem.unreadable),
+  InvoiceRefusal.shortYear => dayProblemWords(DayProblem.shortYear),
+  InvoiceRefusal.tooLate => dayProblemWords(DayProblem.tooLate),
+  InvoiceRefusal.badAmount => importAmountWords,
+  InvoiceRefusal.voided => '已作廢',
+  InvoiceRefusal.repeated => importAlreadyWords,
 };
+
+/// An amount of an imported line that is not one.
+const importAmountWords = '金額看不懂';
+
+/// An invoice of an imported file already recorded.
+const importAlreadyWords = '已經記過';
+
+/// A CSV whose first line lacks a column every file must have: the
+/// required columns named ([ExchangeColumn.required]).
+final importHeaderWords =
+    '第一行要有${[for (final c in ExchangeColumn.values)
+      if (c.required) '「${c.name}」'].join('和')}欄位';
+
+/// A line of a CSV whose 編號 ([id]) an earlier line of the file has.
+String importRepeatedIdWords(String id) =>
+    '檔案裡已經有「${ExchangeColumn.id.name}」是 $id 的一筆';
+
+/// A line of a CSV whose 當沖 cell says neither yes nor no.
+final importDayTradeWords = '「${ExchangeColumn.dayTrade.name}」看不懂，請填「是」或留空';
+
+/// A line of a CSV whose 標記 cell names no mark.
+String importMarkWords(String words) =>
+    '不認得的「${ExchangeColumn.mark.name}」「$words」';
 
 /// A row of a foreign account with no rate to value it by and no worth
 /// at home written: the file's own column is named.

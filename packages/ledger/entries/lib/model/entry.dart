@@ -289,6 +289,42 @@ final class Entry {
     mark: mark,
   );
 
+  /// This entry with what ties it to others and what marks it as given:
+  /// its [group], the [recurring] item it books, its [mark] and whether
+  /// it is a [dayTrade], each replaced, as a file read back writes them.
+  Entry withLinks({
+    String? group,
+    String? recurring,
+    EntryMark? mark,
+    bool dayTrade = false,
+  }) => Entry(
+    id: id,
+    date: date,
+    type: type,
+    amount: amount,
+    account: account,
+    category: category,
+    note: note,
+    to: to,
+    holding: holding,
+    shares: shares,
+    recurring: recurring,
+    merchant: merchant,
+    tags: tags,
+    parts: parts,
+    fee: fee,
+    tax: tax,
+    refundOf: refundOf,
+    installments: installments,
+    average: average,
+    split: split,
+    home: home,
+    received: received,
+    group: group,
+    dayTrade: dayTrade,
+    mark: mark,
+  );
+
   /// This entry under another [id], as the store knows it after an edit.
   Entry withId(String id) => _with(id: id);
 

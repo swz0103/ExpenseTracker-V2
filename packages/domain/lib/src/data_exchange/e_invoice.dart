@@ -1,11 +1,13 @@
 import 'package:core/foundation_values.dart';
 import 'package:core/money/typed_text.dart' show plainText;
 
+import 'cells.dart' show AmountCell;
 import 'csv.dart';
 import 'import_day.dart';
 
-/// One e-invoice from the Ministry of Finance's consumption download
-/// (財政部電子發票整合服務平台「消費明細」CSV), its line items added up.
+/// One e-invoice of a Ministry of Finance download: the consumption CSV
+/// (財政部電子發票整合服務平台「消費明細」), its line items added up, or
+/// a carrier's M line with its D lines.
 final class EInvoice {
   EInvoice({
     required this.number,
@@ -13,6 +15,7 @@ final class EInvoice {
     required this.seller,
     required this.amount,
     required List<String> items,
+    this.line = 1,
   }) : items = List.unmodifiable(items);
 
   /// Unique per invoice, such as `AB12345678`; use it to skip invoices
@@ -24,8 +27,11 @@ final class EInvoice {
   /// The invoice total in NT$.
   final Money amount;
 
-  /// Item names in order, each once.
+  /// Item names in order: each once in the CSV, as the D lines list them.
   final List<String> items;
+
+  /// The line of the file it starts on.
+  final int line;
 }
 
 /// The invoices in [text] that can be booked, oldest first
@@ -40,10 +46,34 @@ enum InvoiceRefusal {
 
   /// Dated before the earliest year an import takes (D93).
   tooEarly,
+
+  /// Its date is no date of the calendar (M lines).
+  unreadableDay,
+
+  /// Its year has one or two digits (D93; M lines).
+  shortYear,
+
+  /// Dated after the last day an entry may be (M lines).
+  tooLate,
+
+  /// Its total is not an amount above zero (M lines).
+  badAmount,
+
+  /// Voided (作廢; M lines: the CSV leaves a voided invoice out unnamed).
+  voided,
+
+  /// Its number came earlier in the file (M lines).
+  repeated,
 }
 
-/// An invoice of the file left out, the [line] it starts on, and why.
-typedef RefusedInvoice = ({String number, int line, InvoiceRefusal why});
+/// An invoice of the file left out, the [line] it starts on, and why;
+/// [seller] names it where the file gives it no number.
+typedef RefusedInvoice = ({
+  String number,
+  String seller,
+  int line,
+  InvoiceRefusal why,
+});
 
 /// What a ministry file holds: the [invoices] to book, oldest first, and
 /// those left out with why ([refused]), in the order they come.
@@ -51,6 +81,90 @@ typedef EInvoiceFile = ({
   List<EInvoice> invoices,
   List<RefusedInvoice> refused,
 });
+
+/// The invoices of a ministry file [text] of either kind: the
+/// consumption CSV, which has a 發票號碼 column ([readEInvoices]), or a
+/// carrier's M and D lines ([readInvoiceLines], [latest] the last day an
+/// invoice may be dated). The one reader of e-invoice files.
+EInvoiceFile readInvoiceFile(String text, {BusinessDate? latest}) =>
+    text.contains(_numberColumn)
+    ? readEInvoices(text)
+    : readInvoiceLines(text, latest: latest);
+
+/// The invoices of a carrier's M lines (載具名稱|載具號碼|日期|統編|店名|
+/// 發票號碼|總金額|狀態), each with the items of its D lines
+/// (D|發票號碼|金額|品名), oldest first. Each M line is read on its own:
+/// one that cannot be read, is voided, or repeats a number already read
+/// is left out, named, and the rest are read. Its day is read by the
+/// import's one rule ([readImportDay]); [latest] is the last it may be.
+EInvoiceFile readInvoiceLines(String text, {BusinessDate? latest}) {
+  final items = <String, List<String>>{};
+  final heads = <(int, List<String>)>[];
+  for (final (i, raw) in text.split('\n').indexed) {
+    final cells = [for (final c in raw.trim().split('|')) plainText(c).trim()];
+    if (cells.first == 'M' && cells.length >= 8) heads.add((i + 1, cells));
+    if (cells.first == 'D' && cells.length >= 4) {
+      (items[cells[1]] ??= []).add(cells[3]);
+    }
+  }
+  final twd = Currency.of('TWD');
+  final invoices = <EInvoice>[];
+  final refused = <RefusedInvoice>[];
+  final numbers = <String>{};
+  for (final (line, cells) in heads) {
+    final day = readImportDay(cells[3], latest: latest);
+    final seller = cells[5];
+    final number = cells[6];
+    final total = const AmountCell().read(cells[7], twd.code).minorOrNull;
+    final why = switch (day) {
+      DayRefused(:final problem) => _dayRefusal(problem),
+      _ when total == null || total <= 0 => InvoiceRefusal.badAmount,
+      _ when cells.length > 8 && cells[8].contains(_void) =>
+        InvoiceRefusal.voided,
+      _ when number.isNotEmpty && numbers.contains(number) =>
+        InvoiceRefusal.repeated,
+      _ => null,
+    };
+    if (why != null) {
+      refused.add((number: number, seller: seller, line: line, why: why));
+      continue;
+    }
+    if (day case DayRead(:final date) when total != null) {
+      numbers.add(number);
+      invoices.add(
+        EInvoice(
+          number: number,
+          date: date,
+          seller: seller,
+          amount: Money(twd, BigInt.from(total)),
+          items: items[number] ?? const [],
+          line: line,
+        ),
+      );
+    }
+  }
+  return (invoices: _oldestFirst(invoices), refused: refused);
+}
+
+/// [invoices] oldest first, those of one day in the order they came.
+List<EInvoice> _oldestFirst(List<EInvoice> invoices) {
+  final placed = [...invoices.indexed]
+    ..sort((a, b) {
+      final byDay = a.$2.date.compareTo(b.$2.date);
+      return byDay != 0 ? byDay : a.$1.compareTo(b.$1);
+    });
+  return [for (final (_, invoice) in placed) invoice];
+}
+
+InvoiceRefusal _dayRefusal(DayProblem problem) => switch (problem) {
+  DayProblem.unreadable => InvoiceRefusal.unreadableDay,
+  DayProblem.shortYear => InvoiceRefusal.shortYear,
+  DayProblem.tooEarly => InvoiceRefusal.tooEarly,
+  DayProblem.tooLate => InvoiceRefusal.tooLate,
+};
+
+const _numberColumn = '發票號碼';
+const _void = '作廢';
 
 /// The invoices of the ministry's file [text]. Columns are found by
 /// their headers, not their order. The rows of one invoice number are one
@@ -72,7 +186,7 @@ EInvoiceFile readEInvoices(String text) {
   }
 
   final dateAt = column('發票日期');
-  final numberAt = column('發票號碼');
+  final numberAt = column(_numberColumn);
   final amountAt = column('消費明細_金額');
   final statusAt = column('發票狀態', required: false);
   final sellerAt = column('賣方名稱', required: false);
@@ -94,7 +208,7 @@ EInvoiceFile readEInvoices(String text) {
       dateText,
       seller,
     );
-    if (cell(row, statusAt).contains('作廢')) invoice.voided = true;
+    if (cell(row, statusAt).contains(_void)) invoice.voided = true;
     if (dateText != invoice.dateText || seller != invoice.seller) {
       invoice.disagrees = true;
     }
@@ -114,6 +228,7 @@ EInvoiceFile readEInvoices(String text) {
     if (invoice.disagrees || day is! DayRead) {
       refused.add((
         number: invoice.number,
+        seller: invoice.seller,
         line: invoice.line,
         why: invoice.disagrees
             ? InvoiceRefusal.rowsDisagree
@@ -128,11 +243,11 @@ EInvoiceFile readEInvoices(String text) {
         seller: invoice.seller,
         amount: Money.quantizeRatio(twd, invoice.millionths, million),
         items: invoice.items,
+        line: invoice.line,
       ),
     );
   }
-  result.sort((a, b) => a.date.compareTo(b.date));
-  return (invoices: result, refused: refused);
+  return (invoices: _oldestFirst(result), refused: refused);
 }
 
 final class _Invoice {
