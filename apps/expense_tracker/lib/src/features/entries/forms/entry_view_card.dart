@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/ledger/ledger.dart';
+import '../../../core/design_system/dialogs.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
@@ -15,7 +16,6 @@ import '../model/compose_form.dart';
 import '../model/entry_details.dart';
 import '../model/receipt_photos.dart';
 import 'compose_cards.dart';
-import 'receipt_square.dart';
 import 'compose_mode_look.dart';
 import '../../../core/formatting/words.dart';
 
@@ -152,7 +152,7 @@ class EntryView extends StatelessWidget {
       if (photos != null && receipt != null)
         TapArea(
           label: '查看收據',
-          onTap: () => unawaited(showReceipt(context, photos.image(receipt))),
+          onTap: () => unawaited(showImage(context, photos.image(receipt))),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(Radii.large),
             child: Image(

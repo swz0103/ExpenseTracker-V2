@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../formatting/setting_topic.dart';
 import '../platform/sync_job.dart';
 import '../ledger/ledger.dart';
 
@@ -126,21 +127,23 @@ final class TagRoute extends AppRoute {
   int get hashCode => Object.hash(TagRoute, name, merchant);
 }
 
-/// A page of 設定與資料, which returns to it.
+/// A page of 設定與資料, which returns to it; opened from a search, with
+/// the setting [sought], which the page shows and marks (N8).
 final class SettingsRoute extends AppRoute {
-  const SettingsRoute(this.part);
+  const SettingsRoute(this.part, {this.sought});
 
   final SettingsDestination part;
+  final SettingTopic? sought;
 
   @override
   AppRoute get parent => AppRoutes.settings;
 
   @override
   bool operator ==(Object other) =>
-      other is SettingsRoute && other.part == part;
+      other is SettingsRoute && other.part == part && other.sought == sought;
 
   @override
-  int get hashCode => Object.hash(SettingsRoute, part);
+  int get hashCode => Object.hash(SettingsRoute, part, sought);
 }
 
 /// A page of 定期交易, which returns to it.
@@ -176,7 +179,10 @@ abstract final class AppRoutes {
   static AppRoute debt(String id) => DebtRoute(id);
   static AppRoute tag(String name) => TagRoute(name);
   static AppRoute merchant(String name) => TagRoute(name, merchant: true);
-  static AppRoute settingsPart(SettingsDestination part) => SettingsRoute(part);
+  static AppRoute settingsPart(
+    SettingsDestination part, {
+    SettingTopic? sought,
+  }) => SettingsRoute(part, sought: sought);
   static AppRoute recurringView(RecurringView view) => RecurringRoute(view);
 }
 

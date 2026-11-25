@@ -13,6 +13,7 @@ import 'package:expense_tracker/src/app/shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:expense_tracker/src/core/widgets/swipe_actions.dart';
+import 'package:expense_tracker/src/core/formatting/words.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -338,7 +339,7 @@ void main() {
     expect(inSheet('代墊給誰'), findsOneWidget);
     await tester.tap(inSheet('代墊朋友'));
     await tester.pumpAndSettle();
-    await tester.tap(inSheet('好了（1 人）'));
+    await tester.tap(inSheet('${Words.done}（1 人）'));
     await tester.pumpAndSettle();
     // Shared evenly, one's own share counted; all of it for the friend.
     await type('金額', ['5', '0', '0']);

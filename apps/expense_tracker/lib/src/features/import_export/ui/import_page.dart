@@ -9,6 +9,7 @@ import '../../../core/widgets/entry_tile.dart';
 import '../../../core/widgets/pickers.dart';
 import '../../../core/widgets/problem_note.dart';
 import '../../../core/design_system/glyphs.dart';
+import '../../../core/formatting/words.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../model/import_export.dart';
@@ -209,7 +210,9 @@ class _ImportPageState extends State<_ImportPage> {
             const Text(duplicateRules, style: mutedSmall),
           ],
         ),
-        actions: [PanelButton('知道了', onTap: () => Navigator.of(context).pop())],
+        actions: [
+          PanelButton(Words.gotIt, onTap: () => Navigator.of(context).pop()),
+        ],
       ),
     );
   }

@@ -1,3 +1,5 @@
+import '../formatting/setting_topic.dart';
+import '../formatting/words.dart';
 import '../ledger/ledger.dart';
 import '../../../design_system/display/amount.dart';
 
@@ -33,3 +35,9 @@ String stayedInTrashNote(int count) =>
 String stayedInBookNote(int count) =>
     '${countOf(count, CountUnit.entries)}沒有復原：匯入後改過，或有退款用到它。'
     '它們留在帳本裡，需要的話可以自己刪除。';
+
+/// What search finds in TrashSection (N8): each setting's name and the other
+/// words a person may type for it, marking the card that section builds.
+abstract final class TrashTopics {
+  static const trash = SettingTopic('最近刪除', words: [Words.delete, '回收', '放回']);
+}

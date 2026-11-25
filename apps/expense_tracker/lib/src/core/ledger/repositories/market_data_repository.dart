@@ -1,5 +1,7 @@
 import 'package:core/foundation_values.dart'
     show BoardSide, Currency, valuationSide;
+import 'package:core/time/calendar_day.dart';
+import 'package:core/fx/dated_figures.dart' show FigureOn, MarketHistory;
 
 import '../models/models.dart'
     show homeCode, rateScale, roundedBigQuotient, scaledRate;
@@ -53,6 +55,33 @@ abstract interface class MarketDataReader {
   /// [amount] of [from] in the smallest unit of [to], through NT$ at
   /// [rates]; null without a rate for either.
   int? convert(int amount, String from, String to);
+
+  /// The rates and closes kept by day (D58).
+  MarketHistory get history;
+
+  /// [currency]'s rate on the [side] of the board for [day], by the one
+  /// rule (`DatedFigures.on`, D58): that day's board, else the nearest
+  /// earlier day's, else today's; null without any.
+  FigureOn? rateOn(
+    String currency,
+    DateTime day, {
+    BoardSide side = BoardSide.buying,
+  });
+
+  /// [code]'s close for [day], by the same rule: that day's, else the
+  /// nearest earlier day's, else the latest kept; null without any.
+  FigureOn? closeOn(String code, DateTime day);
+
+  /// [toHome] at the buying rate for [day] ([rateOn]).
+  int? toHomeOn(int minor, String currency, DateTime day);
+
+  /// [valueAtHome] at the rates for [day] ([rateOn]): held at the buying
+  /// rate, owed at the selling rate, the buying rate standing in for a
+  /// selling rate not known.
+  int? valueAtHomeOn(int balance, String currency, DateTime day);
+
+  /// [convert] at the buying rates for [day] ([rateOn]).
+  int? convertOn(int amount, String from, String to, DateTime day);
 }
 
 /// The rates, the day's changes and the quote days last fetched. Only
@@ -64,7 +93,9 @@ final class MarketDataRepository implements MarketDataReader {
     Map<String, double> moves = const {},
     this._quotedOn,
     Map<String, DateTime> quoteDays = const {},
-  }) : _rates = {...rates},
+    MarketHistory? history,
+  }) : _history = history ?? MarketHistory(),
+       _rates = {...rates},
        _sellRates = {...sellRates},
        _moves = {...moves},
        _quoteDays = {...quoteDays};
@@ -74,9 +105,53 @@ final class MarketDataRepository implements MarketDataReader {
   final Map<String, double> _moves;
   DateTime? _quotedOn;
   final Map<String, DateTime> _quoteDays;
+  MarketHistory _history;
 
   @override
   DateTime? get quotedOn => _quotedOn;
+
+  @override
+  MarketHistory get history => _history;
+
+  @override
+  FigureOn? rateOn(
+    String currency,
+    DateTime day, {
+    BoardSide side = BoardSide.buying,
+  }) =>
+      switch (side) {
+        BoardSide.buying => _history.buying,
+        BoardSide.selling => _history.selling,
+      }.on(
+        currency,
+        BusinessDate.of(day),
+        today: switch (side) {
+          BoardSide.buying => _rates[currency],
+          BoardSide.selling => _sellRates[currency],
+        },
+      );
+
+  @override
+  FigureOn? closeOn(String code, DateTime day) =>
+      _history.closes.on(code, BusinessDate.of(day));
+
+  @override
+  int? toHomeOn(int minor, String currency, DateTime day) =>
+      _atRate(minor, currency, rateOn(currency, day)?.figure);
+
+  @override
+  int? valueAtHomeOn(int balance, String currency, DateTime day) {
+    final buying = rateOn(currency, day)?.figure;
+    return _atRate(balance, currency, switch (valuationSide(balance)) {
+      BoardSide.buying => buying,
+      BoardSide.selling =>
+        rateOn(currency, day, side: BoardSide.selling)?.figure ?? buying,
+    });
+  }
+
+  @override
+  int? convertOn(int amount, String from, String to, DateTime day) =>
+      _converted(amount, from, to, (c) => rateOn(c, day)?.figure);
 
   @override
   Map<String, double> get rates => Map.unmodifiable(_rates);
@@ -126,10 +201,18 @@ final class MarketDataRepository implements MarketDataReader {
   }
 
   @override
-  int? convert(int amount, String from, String to) {
+  int? convert(int amount, String from, String to) =>
+      _converted(amount, from, to, (c) => _rates[c]);
+
+  int? _converted(
+    int amount,
+    String from,
+    String to,
+    double? Function(String currency) rateOf,
+  ) {
     if (from == to) return amount;
-    if (to == homeCode) return toHome(amount, from);
-    final into = _rates[to];
+    if (to == homeCode) return _atRate(amount, from, rateOf(from));
+    final into = rateOf(to);
     if (into == null || into <= 0) return null;
     // NT$ per unit of [from] (one for NT$ itself), over NT$ per unit of
     // [to], in whole numbers: amount / unit(from) × rate(from) / rate(to)
@@ -138,7 +221,7 @@ final class MarketDataRepository implements MarketDataReader {
     if (from == homeCode) {
       fromRate = BigInt.from(rateScale);
     } else {
-      final rate = _rates[from];
+      final rate = rateOf(from);
       if (rate == null) return null;
       fromRate = scaledRate(rate);
     }
@@ -158,6 +241,7 @@ final class MarketDataRepository implements MarketDataReader {
     required Map<String, double> moves,
     required DateTime? quotedOn,
     required Map<String, DateTime> quoteDays,
+    MarketHistory? history,
   }) {
     // Copied first: the maps given may be this repository's own.
     final (r, s, m, d) = (
@@ -179,6 +263,7 @@ final class MarketDataRepository implements MarketDataReader {
       ..clear()
       ..addAll(d);
     _quotedOn = quotedOn;
+    _history = history ?? MarketHistory();
   }
 
   /// Takes what [other] holds, as when the book is read again.
@@ -188,5 +273,6 @@ final class MarketDataRepository implements MarketDataReader {
     moves: other.moves,
     quotedOn: other.quotedOn,
     quoteDays: other.quoteDays,
+    history: other.history,
   );
 }

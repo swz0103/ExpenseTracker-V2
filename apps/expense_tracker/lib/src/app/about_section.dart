@@ -10,6 +10,7 @@ import '../core/design_system/glyphs.dart';
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
+import '../core/messages/flow_messages.dart';
 import '../core/messages/problem_messages.dart';
 import '../core/messages/update_messages.dart';
 import '../core/platform/update_status.dart';
@@ -23,6 +24,8 @@ import '../../design_system/display/date.dart';
 import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
 import '../core/platform/preferences.dart';
+import '../core/design_system/findable.dart';
+import '../core/formatting/setting_topic.dart';
 
 /// 關於: the main card says the version and how it stands against the
 /// newest (已是最新, 有新版 with 更新, or the download with its bar); two
@@ -34,6 +37,14 @@ class AboutSection extends StatelessWidget {
 
   final Ledger ledger;
   final PlatformServices services;
+
+  // What search finds here (N8): each topic marks its card.
+  static const topics = [
+    AboutTopics.version,
+    AboutTopics.updates,
+    AboutTopics.diagnostics,
+    AboutTopics.sampleReset,
+  ];
 
   /// The figures, then each problem kept, as text to copy or download.
   static String get _report => [
@@ -63,7 +74,13 @@ class AboutSection extends StatelessWidget {
   }
 
   Future<void> _reset(BuildContext context, Ledger Function() sample) async {
-    final ok = await confirm(context, '重設範例資料？目前的變更會清除。', '重設', danger: true);
+    final ok = await confirm(
+      context,
+      FlowWords.resetSampleAsk,
+      FlowWords.resetSample,
+      danger: true,
+      body: FlowWords.resetSampleBody,
+    );
     if (!ok) return;
     ledger.resetTo(sample());
     if (context.mounted) showNote(context, '已重設範例資料');
@@ -147,12 +164,16 @@ class AboutSection extends StatelessWidget {
       builder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _VersionCard(update: update),
+          Findable(
+            topic: AboutTopics.version,
+            child: _VersionCard(update: update),
+          ),
           const SizedBox(height: Space.s3),
           CardGrid(
             [
               if (preferences != null && (update?.possible ?? false))
                 _ActionRow(
+                  topic: AboutTopics.updates,
                   glyph: Glyph.reset,
                   color: SettingsColors.main,
                   title: '自動檢查新版本',
@@ -171,6 +192,7 @@ class AboutSection extends StatelessWidget {
                   ),
                 ),
               _ActionRow(
+                topic: AboutTopics.diagnostics,
                 glyph: Glyph.bolt,
                 color: SettingsColors.about,
                 title: '診斷',
@@ -183,7 +205,13 @@ class AboutSection extends StatelessWidget {
           // Only the preview's made-up book can be reset.
           if (services.sample case final sample?) ...[
             const SizedBox(height: Space.s3),
-            PanelButton('重設範例資料', onTap: () => _reset(context, sample)),
+            Findable(
+              topic: AboutTopics.sampleReset,
+              child: PanelButton(
+                '重設範例資料',
+                onTap: () => _reset(context, sample),
+              ),
+            ),
           ],
         ],
       ),
@@ -194,6 +222,7 @@ class AboutSection extends StatelessWidget {
 /// A short card with its icon, name and a control on the right.
 class _ActionRow extends StatelessWidget {
   const _ActionRow({
+    required this.topic,
     required this.glyph,
     required this.color,
     required this.title,
@@ -202,6 +231,7 @@ class _ActionRow extends StatelessWidget {
     this.trailing,
   });
 
+  final SettingTopic topic;
   final Glyph glyph;
   final Color color;
   final String title;
@@ -212,41 +242,49 @@ class _ActionRow extends StatelessWidget {
   final Widget? trailing;
 
   @override
-  Widget build(BuildContext context) => ColorCard(
-    color: color,
-    onTap: onTap,
-    radius: Radii.largeIncreased,
-    padding: const EdgeInsets.fromLTRB(Space.s3, Space.s2, Space.s2, Space.s2),
-    child: Row(
-      children: [
-        SquareIcon(glyph, color, size: 40),
-        const SizedBox(width: Space.s3),
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: TextSize.title,
-                  fontWeight: FontWeight.w800,
-                  color: deepOf(color),
-                ),
-              ),
-              if (detail case final detail?)
+  Widget build(BuildContext context) => Findable(
+    topic: topic,
+    child: ColorCard(
+      color: color,
+      onTap: onTap,
+      radius: Radii.largeIncreased,
+      padding: const EdgeInsets.fromLTRB(
+        Space.s3,
+        Space.s2,
+        Space.s2,
+        Space.s2,
+      ),
+      child: Row(
+        children: [
+          SquareIcon(glyph, color, size: 40),
+          const SizedBox(width: Space.s3),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  detail,
+                  title,
                   style: TextStyle(
-                    fontSize: TextSize.small,
+                    fontSize: TextSize.title,
+                    fontWeight: FontWeight.w800,
                     color: deepOf(color),
                   ),
                 ),
-            ],
+                if (detail case final detail?)
+                  Text(
+                    detail,
+                    style: TextStyle(
+                      fontSize: TextSize.small,
+                      color: deepOf(color),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-        ?trailing,
-      ],
+          ?trailing,
+        ],
+      ),
     ),
   );
 }

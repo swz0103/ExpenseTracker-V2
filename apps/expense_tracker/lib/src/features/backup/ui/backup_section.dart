@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/display/amount.dart';
+import '../../../core/design_system/findable.dart';
+import '../../../core/formatting/setting_topic.dart';
 import '../model/drive_backup.dart';
 import '../model/restore_sources.dart' show driveNote;
 import '../model/drive_sync.dart';
@@ -32,7 +34,12 @@ Future<void> restoreFromBackup(
   BuildContext context,
   BackupManager backupManager,
 ) async {
-  final ok = await confirm(context, '從備份還原？會先把目前的帳本連同照片備份一份，再換成你選的備份。', '選擇備份');
+  final ok = await confirm(
+    context,
+    BackupWords.restoreAsk,
+    BackupWords.restoreChoose,
+    body: BackupWords.restoreAskBody,
+  );
   if (!ok) return;
   try {
     await backupManager.restoreAnother();
@@ -68,6 +75,14 @@ class BackupSection extends StatefulWidget {
 
   /// Backups to a folder on the phone, on Android.
   final PhoneBackup? phone;
+
+  // What search finds here (N8): each topic marks its card.
+  static const topics = [
+    BackupTopics.drive_,
+    BackupTopics.folder,
+    BackupTopics.export,
+    BackupTopics.restore,
+  ];
 
   @override
   State<BackupSection> createState() => _BackupSectionState();
@@ -155,7 +170,13 @@ class _BackupSectionState extends State<BackupSection> {
   }
 
   Future<void> _unlinkDrive(DriveSync drive) async {
-    final ok = await confirm(context, '不再備份到 Google 雲端硬碟？已經在雲端的備份會留著。', '停止');
+    final ok = await confirm(
+      context,
+      BackupWords.driveStopAsk,
+      BackupWords.stop,
+      danger: true,
+      body: BackupWords.driveStopBody,
+    );
     if (!ok) return;
     await drive.unlink();
     if (mounted) showNote(context, '已停止雲端硬碟備份');
@@ -223,7 +244,13 @@ class _BackupSectionState extends State<BackupSection> {
   }
 
   Future<void> _stopPhone(PhoneBackup phone) async {
-    final ok = await confirm(context, '停止自動備份到手機？資料夾裡的備份會留著。', '停止');
+    final ok = await confirm(
+      context,
+      BackupWords.folderStopAsk,
+      BackupWords.stop,
+      danger: true,
+      body: BackupWords.folderStopBody,
+    );
     if (!ok) return;
     await phone.stop();
     if (mounted) showNote(context, '已停止備份到手機資料夾');
@@ -277,6 +304,7 @@ class _BackupSectionState extends State<BackupSection> {
               children: [
                 Expanded(
                   child: _Manual(
+                    topic: BackupTopics.export,
                     glyph: Glyph.upload,
                     label: '匯出一份',
                     color: SettingsColors.csv,
@@ -286,6 +314,7 @@ class _BackupSectionState extends State<BackupSection> {
                 const SizedBox(width: Space.s3),
                 Expanded(
                   child: _Manual(
+                    topic: BackupTopics.restore,
                     glyph: Glyph.download,
                     label: '還原',
                     color: SettingsColors.invoice,
@@ -326,6 +355,7 @@ class _BackupSectionState extends State<BackupSection> {
     const color = SettingsColors.backup;
     final linked = drive.linked;
     return _BackupCard(
+      topic: BackupTopics.drive_,
       glyph: Glyph.upload,
       color: color,
       title: 'Google 雲端硬碟',
@@ -390,6 +420,7 @@ class _BackupSectionState extends State<BackupSection> {
     const color = SettingsColors.folder;
     final on = phone.on;
     return _BackupCard(
+      topic: BackupTopics.folder,
       glyph: Glyph.records,
       color: color,
       title: '存到資料夾',
@@ -518,79 +549,6 @@ class BackupHero extends StatelessWidget {
           if (trailing != null) ...[
             const SizedBox(height: Space.s3),
             trailing!,
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// A way of backing up as a tinted card: its icon, name and tick, then
-/// its settings below thin rules, each with its value on the right.
-class _BackupCard extends StatelessWidget {
-  const _BackupCard({
-    required this.glyph,
-    required this.color,
-    required this.title,
-    required this.value,
-    required this.onChanged,
-    required this.rows,
-  });
-
-  final Glyph glyph;
-  final Color color;
-  final String title;
-  final bool value;
-  final ValueChanged<bool>? onChanged;
-  final List<Widget> rows;
-
-  @override
-  Widget build(BuildContext context) {
-    final change = onChanged;
-    return ColorCard(
-      controlsInside: true,
-      color: color,
-      padding: const EdgeInsets.fromLTRB(
-        Space.s4,
-        Space.s3,
-        Space.s2,
-        Space.s3,
-      ),
-      child: Column(
-        children: [
-          ToggleRow(
-            value: value,
-            onChanged: change,
-            label: title,
-            child: Row(
-              children: [
-                SquareIcon(glyph, color, size: 40),
-                const SizedBox(width: Space.s4),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: TextSize.title,
-                      fontWeight: FontWeight.w800,
-                      color: deepOf(color),
-                    ),
-                  ),
-                ),
-                TickSwitch(
-                  value: value,
-                  color: color,
-                  label: title,
-                  onChanged: change,
-                ),
-              ],
-            ),
-          ),
-          for (final row in rows) ...[
-            Padding(
-              padding: const EdgeInsets.only(right: Space.s2),
-              child: Divider(height: 12, color: tintOf(color, 0.4)),
-            ),
-            row,
           ],
         ],
       ),

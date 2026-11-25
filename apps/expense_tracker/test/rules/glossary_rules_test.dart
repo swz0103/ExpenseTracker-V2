@@ -30,6 +30,10 @@ const _variants = <String, String>{
   '還卡費|付卡費': '繳卡費',
   '繳費日': '繳款日',
   '記錄': '紀錄 (the noun; 記 to write one)',
+  // What accepts a panel or a pick is 完成 (Words.done), never a word of
+  // its own (WP-E); 確定 still opens a question.
+  "^['\"]確定['\"]\$": '完成 (Words.done)',
+  "^['\"]好了": '完成 (Words.done)',
   // A number and its unit have a space between (D81).
   '\\d折': 'a space between the number and 折, as 6 折',
 };
@@ -104,6 +108,12 @@ void main() {
       '1: 6折 → a space between the number and 折, as 6 折',
     ]);
     expect(variantsIn(["  t: '無法開啟相機',"]), isEmpty);
+    expect(variantsIn(["  PanelButton('確定',"]), [
+      '1: \'確定\' → 完成 (Words.done)',
+    ]);
+    expect(variantsIn(["  t: '確定不備份就升級？',"]), isEmpty);
+    expect(variantsIn(["  t: '好了（2 人）',"]), ["1: '好了 → 完成 (Words.done)"]);
+    expect(variantsIn(["  t: '手機設定都好了',"]), isEmpty);
     expect(
       variantsIn([
         '  // Exception to glossary: a search word.',

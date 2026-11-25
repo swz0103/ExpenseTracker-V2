@@ -34,7 +34,21 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/models/fixed_point.dart
     target: packages/core/lib/fx/
     status: scattered
-    plan: "D58: one dated FX and price table in packages/core/lib/fx; market_data_repository reads it, fixed_point keeps only the arithmetic."
+    plan: "D58's dated table is owned (fx-dated-table); left: move the conversion arithmetic of market_data_repository into packages/core/lib/fx, fixed_point keeping only the arithmetic."
+  # D58: the rates and closes of each day, and the one rule of which
+  # day's a day takes (that day's, else the nearest earlier, else
+  # today's); the app keeps them in the market rows (market_days.dart)
+  # and asks MarketDataReader.rateOn / closeOn.
+  - id: fx-dated-table
+    what: 有日期的匯率與收盤價表，以及某天用哪一天的牌價
+    layer: core
+    owner:
+      - packages/core/lib/fx/dated_figures.dart
+    target: packages/core/lib/fx/
+    status: owned
+    guard:
+      - packages/core/test/fx/dated_figures_test.dart
+      - apps/expense_tracker/test/core/ledger/services/dated_worth_test.dart
   # Decision D59: a foreign balance held is valued at the bank's buying
   # rate, one owed at its selling rate; valuationSide is the one rule,
   # MarketDataReader.valueAtHome and the journal's valuer ask it.

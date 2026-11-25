@@ -194,7 +194,7 @@ class _RangePanelState extends State<_RangePanel> {
       actions: [
         PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
         PanelButton(
-          '確定',
+          Words.done,
           color: color,
           onTap: start == null
               ? null
@@ -415,7 +415,7 @@ class _TimePanelState extends State<_TimePanel> {
       actions: [
         PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
         PanelButton(
-          '確定',
+          Words.done,
           color: color,
           onTap: () =>
               Navigator.of(context)

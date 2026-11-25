@@ -19,6 +19,15 @@ class AppearanceSection extends StatelessWidget {
 
   final Preferences preferences;
 
+  // What search finds here (N8): each topic marks its card.
+  static const topics = [
+    AppearanceTopics.look,
+    AppearanceTopics.vibration,
+    AppearanceTopics.homeWidget,
+    AppearanceTopics.blocks,
+    AppearanceTopics.discount,
+  ];
+
   /// Light, dark, or as the phone is, each as a small picture of a page.
   void _pickAppearance(BuildContext context) {
     showCenterPanel(
@@ -120,6 +129,7 @@ class AppearanceSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return CardGrid([
       SettingCard(
+        topic: AppearanceTopics.look,
         glyph: Glyph.moon,
         color: SettingsColors.appearance,
         title: '外觀',
@@ -127,6 +137,7 @@ class AppearanceSection extends StatelessWidget {
         onTap: () => _pickAppearance(context),
       ),
       SettingCard(
+        topic: AppearanceTopics.vibration,
         glyph: Glyph.vibrate,
         color: SettingsColors.haptics,
         title: '震動',
@@ -140,6 +151,7 @@ class AppearanceSection extends StatelessWidget {
         onTap: () => _pickVibration(context),
       ),
       SettingCard(
+        topic: AppearanceTopics.homeWidget,
         glyph: Glyph.overview,
         color: SettingsColors.widget,
         title: '桌面小工具',
@@ -147,6 +159,7 @@ class AppearanceSection extends StatelessWidget {
         onTap: () => _pickWidget(context),
       ),
       SettingCard(
+        topic: AppearanceTopics.blocks,
         glyph: Glyph.list,
         color: SettingsColors.sections,
         title: '總覽區塊',
@@ -154,6 +167,7 @@ class AppearanceSection extends StatelessWidget {
         onTap: () => editOverview(context, preferences),
       ),
       SettingCard(
+        topic: AppearanceTopics.discount,
         glyph: Glyph.percent,
         color: SettingsColors.brokerDiscount,
         title: BrokerDiscountText.title,

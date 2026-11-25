@@ -37,7 +37,12 @@ part 'account_editor_edit_card.dart';
 /// it has none: entries, imports and recurring items all need one.
 Future<bool> ensureAccount(BuildContext context, Ledger ledger) async {
   if (ledger.accounts.open.isNotEmpty) return true;
-  final add = await confirm(context, '先新增一個帳戶，才能記帳', '新增帳戶');
+  final add = await confirm(
+    context,
+    FlowWords.needAccount,
+    FlowWords.addAccount,
+    body: FlowWords.needAccountBody,
+  );
   if (add && context.mounted) await editAccount(context, ledger);
   return ledger.accounts.open.isNotEmpty && context.mounted;
 }

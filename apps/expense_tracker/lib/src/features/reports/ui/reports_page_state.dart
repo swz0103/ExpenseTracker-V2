@@ -346,7 +346,7 @@ class _ReportsPageState extends State<ReportsPage> {
   );
 
   /// The period's net worth at its start and end and the change, and
-  /// that past stock values are estimated at today's prices.
+  /// what past stock values are priced at (D58).
   List<Widget> _worthChange(Report report) {
     final ledger = widget.ledger;
     final change = report.worthNow - report.worthBefore;
@@ -373,7 +373,7 @@ class _ReportsPageState extends State<ReportsPage> {
       if (ledger.holdings.all.isNotEmpty)
         const Padding(
           padding: EdgeInsets.only(top: Space.s1),
-          child: Text('過去的股票市值以今日股價估算', style: mutedSmall),
+          child: Text('過去的股票市值以當天或之前最近的收盤價計算，無紀錄時用今日股價', style: mutedSmall),
         ),
     ];
   }

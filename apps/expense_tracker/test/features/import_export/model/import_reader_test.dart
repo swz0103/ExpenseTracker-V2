@@ -1,10 +1,13 @@
 import 'dart:io';
 import 'dart:math';
 
+import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:domain/data_exchange.dart';
+import 'package:core/fx/dated_figures.dart' show DatedFigures, MarketHistory;
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/codec/record_shape.dart';
+import 'package:expense_tracker/src/core/ledger/repositories/holding_repository.dart';
 import 'package:expense_tracker/src/features/import_export/model/import_export.dart';
 import 'package:expense_tracker/src/features/import_export/ui/import_page.dart'
     show importBookOf;
@@ -210,6 +213,37 @@ void main() {
       final found = read('2026-09-01,支出,100,美元戶,Shop,\n', currency: 'GBP');
       expect(found.problems, ['第 2 行：還沒有匯率，請在「台幣金額」欄填折合新台幣的金額']);
     });
+  });
+
+  test('D58: a foreign row without 台幣金額 takes the rate of its day', () {
+    final ledger = demoLedger();
+    ledger.accountCommands.addAccount(
+      const Account('usd', '美元戶', AccountKind.bank, 0, currency: 'USD'),
+    );
+    ledger.holdingCommands.setMarket(
+      holdings: (ledger.holdings as HoldingRepository).start,
+      moves: const {},
+      rates: const {'USD': 32.0},
+      history: MarketHistory(
+        buying: DatedFigures({
+          'USD': {BusinessDate(2026, 9, 1): 30.0},
+        }),
+      ),
+    );
+    final found = importCsv(
+      importBookOf(ledger),
+      '日期,類型,金額,帳戶,商家\n'
+      '2026-09-03,支出,100,美元戶,Shop\n'
+      '2026-08-03,支出,100,美元戶,Shop\n',
+      fallback: 'bank',
+    );
+    expect(found.problems, isEmpty);
+    // 9/3: 9/1's board, 100 x 30 = 3,000; 8/3, before any board kept:
+    // today's, 100 x 32 = 3,200.
+    expect(
+      {for (final e in found.entries) e.date.month: e.home},
+      {9: 3000, 8: 3200},
+    );
   });
 
   group('a refund naming its spending (review 37 1)', () {

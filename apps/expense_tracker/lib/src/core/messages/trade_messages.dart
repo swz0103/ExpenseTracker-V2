@@ -1,3 +1,5 @@
+import '../formatting/setting_topic.dart';
+
 import 'package:ledger_trade_costs/calc/charges.dart' show fullFeePerMillion;
 
 import '../../../design_system/display/amount.dart' show perMillionPercent;
@@ -60,4 +62,21 @@ String discountTyped(int? basisPoints) {
       .padLeft(4, '0')
       .replaceFirst(RegExp(r'0+$'), '');
   return '0.$digits';
+}
+
+/// What search finds in AppearanceSection (N8): each setting's name and the other
+/// words a person may type for it, marking the card that section builds.
+abstract final class AppearanceTopics {
+  static const look = SettingTopic('外觀', words: ['深色', '淺色', '主題']);
+
+  static const vibration = SettingTopic('震動', words: ['觸感']);
+
+  static const homeWidget = SettingTopic('桌面小工具', words: ['小工具', '桌面']);
+
+  static const blocks = SettingTopic('總覽區塊', words: ['排序', '隱藏']);
+
+  static const discount = SettingTopic(
+    BrokerDiscountText.title,
+    words: BrokerDiscountText.searchWords,
+  );
 }

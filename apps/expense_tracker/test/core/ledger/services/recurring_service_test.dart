@@ -1,3 +1,5 @@
+import 'package:core/foundation_values.dart' show BusinessDate;
+import 'package:core/fx/dated_figures.dart' show DatedFigures, MarketHistory;
 import 'package:expense_tracker/src/core/ledger/models/models.dart';
 import 'package:expense_tracker/src/core/ledger/services/recurring_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -302,6 +304,31 @@ void main() {
         day: DateTime.utc(2026, 10, 4),
       );
       expect(now.home, 3600);
+    });
+
+    test('D58: a foreign day gone by takes the rate kept for its day, or '
+        'the nearest earlier day\'s', () {
+      final usd = _rent.copyWith(account: 'usd');
+      final book = Book(
+        accounts: const [
+          Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
+        ],
+        rates: {'USD': 30},
+        history: MarketHistory(
+          buying: DatedFigures({
+            'USD': {BusinessDate(2026, 9, 28): 31.5},
+          }),
+        ),
+      );
+      // October 1: 9/28's board stands for it. 120 dollars x 31.5 = 3780.
+      final late = book.recurringService.booking(usd);
+      expect((late.date, late.home), (DateTime.utc(2026, 10, 1), 3780));
+      // Before any board kept: none, as before (R5).
+      final early = book.recurringService.booking(
+        usd,
+        day: DateTime.utc(2026, 9, 1),
+      );
+      expect(early.home, isNull);
     });
   });
 

@@ -78,6 +78,7 @@ class _NewPasswordViewState extends State<NewPasswordView> {
       KeyWords.noPasswordConfirm,
       KeyWords.noPasswordGo,
       danger: true,
+      body: KeyWords.noPasswordConfirmBody,
     );
     if (ok && mounted) await _run(widget.onNoPassword);
   }

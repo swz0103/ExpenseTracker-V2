@@ -1,3 +1,5 @@
+import 'package:core/fx/dated_figures.dart' show MarketHistory;
+
 import '../cache/topic.dart';
 import '../models/models.dart';
 import '../repositories/entry_repository.dart';
@@ -31,6 +33,7 @@ final class HoldingCommands {
     Map<String, double> sellRates = const {},
     DateTime? quotedOn,
     Map<String, DateTime> quoteDays = const {},
+    MarketHistory? history,
   }) {
     _market.replace(
       rates: rates,
@@ -38,6 +41,7 @@ final class HoldingCommands {
       moves: moves,
       quotedOn: quotedOn,
       quoteDays: quoteDays,
+      history: history,
     );
     _holdings
       ..replaceStart(holdings)

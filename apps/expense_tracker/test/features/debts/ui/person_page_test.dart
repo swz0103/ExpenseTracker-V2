@@ -1,7 +1,9 @@
 import 'package:expense_tracker/src/app/demo/seed.dart';
+import 'package:expense_tracker/src/core/design_system/dialogs.dart';
 import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter/material.dart';
+import 'package:expense_tracker/src/core/formatting/words.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../support/places.dart';
@@ -179,14 +181,14 @@ void main() {
   ) async {
     await open(tester);
     await go(tester, ['~更多選項', '改名']);
-    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byType(DialogBlock), findsOneWidget);
     await tester.enterText(find.byType(TextField), '小明');
     await go(tester, ['取消']);
     expect(ledger.account('lent').name, '代墊朋友');
 
     await go(tester, ['~更多選項', '改名']);
     await tester.enterText(find.byType(TextField), '  小明 ');
-    await go(tester, ['確定']);
+    await go(tester, [Words.done]);
     expect(ledger.account('lent').name, '小明');
     expect(find.text('小明'), findsWidgets);
   });

@@ -1,5 +1,23 @@
+import '../formatting/setting_topic.dart';
+
 /// The words of the backup settings, in one place.
 abstract final class BackupWords {
+  /// Asked before a restore from another backup, and its yes.
+  static const restoreAsk = '從備份還原？';
+  static const restoreAskBody = '會先把目前的帳本連同照片備份一份，再換成你選的備份';
+  static const restoreChoose = '選擇備份';
+
+  /// Asked before backups to Google Drive stop, and what stays.
+  static const driveStopAsk = '不再備份到 Google 雲端硬碟？';
+  static const driveStopBody = '已經在雲端的備份會留著';
+
+  /// Asked before backups to the phone's folder stop, and what stays.
+  static const folderStopAsk = '停止自動備份到手機？';
+  static const folderStopBody = '資料夾裡的備份會留著';
+
+  /// What stops a way of backing up: red, as it cannot be undone.
+  static const stop = '停止';
+
   /// Google Drive: the person did not allow access.
   static const driveNotAllowed = '沒有取得 Google 雲端硬碟的權限';
 
@@ -38,4 +56,19 @@ abstract final class BackupWords {
   /// (`FolderDenied`), and the button that opens the chooser again.
   static const folderDenied = '沒有這個資料夾的存取權，請重新選擇';
   static const chooseFolderAgain = '重新選擇';
+}
+
+/// What search finds in BackupSection (N8): each setting's name and the other
+/// words a person may type for it, marking the card that section builds.
+abstract final class BackupTopics {
+  static const drive_ = SettingTopic(
+    '雲端硬碟備份',
+    words: ['Google', '雲端', '收據照片', 'Wi-Fi'],
+  );
+
+  static const folder = SettingTopic('手機資料夾備份', words: ['資料夾']);
+
+  static const export = SettingTopic('匯出備份', words: ['備份檔']);
+
+  static const restore = SettingTopic('從備份還原', words: ['還原', '換手機']);
 }

@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../../core/design_system/findable.dart';
+
 import 'package:core/constants/retention.dart';
 
 import '../../../core/ledger/ledger.dart';
@@ -26,6 +29,9 @@ class TrashSection extends StatelessWidget {
   const TrashSection({super.key, required this.ledger});
 
   final Ledger ledger;
+
+  /// What search finds here (N8): the page itself.
+  static const topics = [TrashTopics.trash];
 
   /// Puts [trashed] back, first asking what stands in its way (D78): an
   /// account closed since, or a refund's purchase deleted too.
@@ -57,7 +63,10 @@ class TrashSection extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      Findable(topic: TrashTopics.trash, child: _page(context));
+
+  Widget _page(BuildContext context) {
     final trash = ledger.trash;
     if (trash.all.isEmpty) {
       return const EmptyState(

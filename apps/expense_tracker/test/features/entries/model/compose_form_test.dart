@@ -1,4 +1,5 @@
 import 'package:core/foundation_values.dart' show BusinessDate;
+import 'package:core/fx/dated_figures.dart' show DatedFigures, MarketHistory;
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/trading.dart';
@@ -799,6 +800,73 @@ void main() {
       // Changed to the whole: all of each part, the refund itself left
       // out of what was given back before.
       expect(edited.parts, [('飲食', 60), ('交通', 40)]);
+    });
+  });
+
+  group('D58: a foreign entry is worth at home what its day\'s rate makes '
+      'it', () {
+    Ledger foreign() => Ledger(
+      today: day,
+      accounts: const [
+        Account('usd', '美元', AccountKind.bank, 100000, currency: 'USD'),
+        Account('bank', '銀行', AccountKind.bank, 100000),
+      ],
+      categories: [Category('飲食', 'food', 0xFF5C9A83)],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      rates: const {'USD': 32.0},
+      history: MarketHistory(
+        buying: DatedFigures({
+          'USD': {
+            BusinessDate(2026, 9, 1): 30.0,
+            BusinessDate(2026, 10, 4): 32.0,
+          },
+        }),
+      ),
+      dataSource: _Nowhere(),
+    );
+
+    ComposeForm on(DateTime date) =>
+        ComposeForm(foreign(), type: EntryType.expense)
+          ..account = 'usd'
+          ..date = date
+          ..setAmount(10000);
+
+    test('a day with a board kept on or before it: that board, named', () {
+      final form = on(DateTime.utc(2026, 9, 3));
+      // US$100 x 30 = 3,000, at 9/1's board.
+      expect(form.homeValue, 3000);
+      expect(form.homeRateLine, '臺銀 9/1 即期買入 30');
+    });
+
+    test("today: today's board, as before", () {
+      final form = on(day);
+      expect(form.homeValue, 3200);
+      expect(form.homeRateLine, '臺銀即期買入 32');
+    });
+
+    test('before any board kept: an estimate at today\'s rate (R5)', () {
+      final form = on(DateTime.utc(2026, 8, 3));
+      expect(form.homeValue, 3200);
+      expect(form.homeRateLine, '以今日臺銀即期買入 32 估算，請改成當日金額');
+    });
+
+    test('a worth typed says no rate', () {
+      final form = on(DateTime.utc(2026, 9, 3))..home = 3100;
+      expect(form.homeValue, 3100);
+      expect(form.homeRateLine, isNull);
+    });
+
+    test('a transfer between currencies on a day gone by', () {
+      final form = ComposeForm(foreign(), type: EntryType.transfer)
+        ..account = 'usd'
+        ..to = 'bank'
+        ..date = DateTime.utc(2026, 9, 3)
+        ..setAmount(10000);
+      // US$100 at 9/1's 30: 3,000.
+      expect(form.receivedValue, 3000);
     });
   });
 }

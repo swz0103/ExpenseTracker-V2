@@ -3,12 +3,14 @@ part of 'backup_section.dart';
 /// 匯出一份 or 還原: a tinted button with an icon.
 class _Manual extends StatelessWidget {
   const _Manual({
+    required this.topic,
     required this.glyph,
     required this.label,
     required this.color,
     required this.onTap,
   });
 
+  final SettingTopic topic;
   final Glyph glyph;
   final String label;
   final Color color;
@@ -17,32 +19,35 @@ class _Manual extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ink = deepOf(color);
-    return ColorCard(
-      color: color,
-      radius: Radii.large,
-      amount: 0.18,
-      label: label,
-      onTap: onTap,
-      padding: const EdgeInsets.symmetric(
-        vertical: Space.s4,
-        horizontal: Space.s2,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          GlyphIcon(glyph, size: 20, color: ink, tinted: false),
-          const SizedBox(width: Space.s2),
-          Flexible(
-            child: OneLine(
-              label,
-              style: TextStyle(
-                fontSize: TextSize.title,
-                fontWeight: FontWeight.w800,
-                color: ink,
+    return Findable(
+      topic: topic,
+      child: ColorCard(
+        color: color,
+        radius: Radii.large,
+        amount: 0.18,
+        label: label,
+        onTap: onTap,
+        padding: const EdgeInsets.symmetric(
+          vertical: Space.s4,
+          horizontal: Space.s2,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            GlyphIcon(glyph, size: 20, color: ink, tinted: false),
+            const SizedBox(width: Space.s2),
+            Flexible(
+              child: OneLine(
+                label,
+                style: TextStyle(
+                  fontSize: TextSize.title,
+                  fontWeight: FontWeight.w800,
+                  color: ink,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

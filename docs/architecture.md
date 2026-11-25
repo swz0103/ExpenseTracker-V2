@@ -38,6 +38,7 @@ flowchart TB
   subgraph core["core/：共用"]
     widgets --> navigation & messages & platform & charts
     navigation --> platform --> ledger
+    navigation --> formatting
     messages --> ledger
     charts --> design_system --> formatting
     ledger --> diagnostics --> time
@@ -56,7 +57,7 @@ flowchart TB
 | `ledger/` | 帳本，見下一節；Flutter 只用 `foundation`（ADR-0012） | formatting、diagnostics、time |
 | `platform/` | 偏好設定、背景同步工作、開帳、隱私 | ledger、formatting、diagnostics、time |
 | `messages/` | 告訴使用者的帳本數值與問題，以及手機回覆的結果（掃描、檢查更新） | ledger、formatting、platform |
-| `navigation/` | `Nav`、`AppRoute`、`AppRoutes`、`openFullScreen` | ledger、platform |
+| `navigation/` | `Nav`、`AppRoute`、`AppRoutes`、`openFullScreen`（設定頁可帶搜尋到的 `SettingTopic`） | ledger、platform、formatting |
 | `widgets/` | 認得帳本的共用元件：紀錄列、選擇器、計算機 | 以上全部 |
 
 功能裡：`model/` 是資料與計算（不碰畫面，只拿帳本中用到的部分，ADR-0013）；`forms/` 是表單與面板，別的功能可以打開；`ui/` 是頁面，只給自己和 `app/` 用。功能之間不能互相需要（含間接）。規則的唯一來源是 `test/support/layout.dart`。

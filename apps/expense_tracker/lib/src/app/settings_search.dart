@@ -5,109 +5,56 @@ import '../core/design_system/glyphs.dart';
 import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
 import '../core/design_system/theme.dart';
-import '../core/formatting/words.dart';
-import '../core/messages/lock_messages.dart';
-import '../core/messages/trade_messages.dart';
+import '../core/formatting/setting_topic.dart';
 import '../core/navigation/nav.dart';
+import '../features/backup/ui/backup_section.dart';
+import '../features/entries/ui/trash_section.dart';
+import '../features/import_export/ui/import_export_section.dart';
+import '../features/lock/ui/security_section.dart';
+import '../features/reminders/ui/reminders_section.dart';
+import '../features/settings/ui/preferences_section.dart';
+import 'about_section.dart';
 
-/// One setting as it is looked for: its name, other words for it, and
-/// the page it is on.
-typedef SettingTopic = ({
-  String name,
-  List<String> words,
-  SettingsDestination page,
-});
+/// A setting search found, and the page it is on.
+typedef FoundSetting = ({SettingTopic topic, SettingsDestination page});
 
-/// Every setting by name, so one four taps away is found by typing a word
-/// of it. Kept beside the pages' own cards: a setting added without a line
-/// here is not found.
-const settingTopics = <SettingTopic>[
-  (name: '雲端硬碟備份', words: ['Google', '雲端'], page: SettingsDestination.backup),
-  (name: '手機資料夾備份', words: ['資料夾'], page: SettingsDestination.backup),
-  (name: '匯出備份', words: ['備份檔'], page: SettingsDestination.backup),
-  (name: '從備份還原', words: ['還原', '換手機'], page: SettingsDestination.backup),
-  (
-    name: '匯入 CSV',
-    words: ['CSV', '匯入'],
-    page: SettingsDestination.importExport,
-  ),
-  (
-    name: '匯出紀錄',
-    words: ['匯出', 'Excel'],
-    page: SettingsDestination.importExport,
-  ),
-  (
-    name: '電子發票',
-    words: [Words.invoice, '載具'],
-    page: SettingsDestination.importExport,
-  ),
-  (
-    name: '到期提醒',
-    words: ['信用卡', '定期', '通知'],
-    page: SettingsDestination.reminders,
-  ),
-  (name: '預算提醒', words: ['預算', '通知'], page: SettingsDestination.reminders),
-  (
-    name: '每日記帳提醒',
-    words: ['每天', '提醒時間', '通知'],
-    page: SettingsDestination.reminders,
-  ),
-  (name: '日曆', words: ['行事曆', '同步'], page: SettingsDestination.reminders),
-  (name: '密碼', words: ['變更密碼', '設定密碼'], page: SettingsDestination.security),
-  (name: '救援碼', words: ['忘記密碼'], page: SettingsDestination.security),
-  (
-    name: '生物辨識解鎖',
-    // Exception to glossary: search words: 指紋 finds the setting too.
-    words: ['指紋', '臉部', '生物辨識'],
-    page: SettingsDestination.security,
-  ),
-  (
-    name: LockWords.autoLock,
-    words: LockWords.autoLockSearch,
-    page: SettingsDestination.security,
-  ),
-  (name: '禁止截圖', words: ['截圖', '錄影', '隱私'], page: SettingsDestination.security),
-  (name: '外觀', words: ['深色', '淺色', '主題'], page: SettingsDestination.appearance),
-  (name: '震動', words: ['觸感'], page: SettingsDestination.appearance),
-  (name: '桌面小工具', words: ['小工具', '桌面'], page: SettingsDestination.appearance),
-  (name: '總覽區塊', words: ['排序', '隱藏'], page: SettingsDestination.appearance),
-  (
-    name: BrokerDiscountText.title,
-    words: BrokerDiscountText.searchWords,
-    page: SettingsDestination.appearance,
-  ),
-  (
-    name: '最近刪除',
-    words: [Words.delete, '回收', '放回'],
-    page: SettingsDestination.trash,
-  ),
-  (name: '自動檢查新版本', words: ['更新', '版本'], page: SettingsDestination.about),
-  (name: '診斷', words: ['錯誤', '效能'], page: SettingsDestination.about),
+/// What search finds on [page]: each section declares its settings'
+/// words beside the cards it builds (N8); settings_search_rules_test
+/// fails on a card built without one.
+List<SettingTopic> topicsOn(SettingsDestination page) => switch (page) {
+  SettingsDestination.backup => BackupSection.topics,
+  SettingsDestination.importExport => ImportExportSection.topics,
+  SettingsDestination.reminders => RemindersSection.topics,
+  SettingsDestination.security => SecuritySection.topics,
+  SettingsDestination.appearance => AppearanceSection.topics,
+  SettingsDestination.about => AboutSection.topics,
+  SettingsDestination.trash => TrashSection.topics,
+};
+
+/// Every setting, page by page, so one four taps away is found by typing
+/// a word of it.
+final List<FoundSetting> settingTopics = [
+  for (final page in SettingsDestination.values)
+    for (final topic in topicsOn(page)) (topic: topic, page: page),
 ];
 
-/// The settings whose name or other words hold [query]; none for a blank
-/// query.
-List<SettingTopic> findSettings(String query) {
-  final words = query.trim().toLowerCase();
-  if (words.isEmpty) return const [];
-  return [
-    for (final topic in settingTopics)
-      if ([
-        topic.name,
-        ...topic.words,
-      ].any((w) => w.toLowerCase().contains(words)))
-        topic,
-  ];
-}
+/// The settings whose name or other words hold [query] (SettingTopic
+/// .matches: 臺 as 台, full-width as half, any case, spaces left out);
+/// none for a blank query.
+List<FoundSetting> findSettings(String query) => [
+  for (final found in settingTopics)
+    if (found.topic.matches(query)) found,
+];
 
 /// A search box above the settings' first page: typing shows the
-/// settings found, each opening its page; cleared, the page is back.
+/// settings found, each opening its page on it; cleared, the page is
+/// back.
 class SettingsSearch extends StatefulWidget {
   const SettingsSearch({super.key, required this.child, required this.onOpen});
 
   /// The first page, shown while nothing is typed.
   final List<Widget> child;
-  final ValueChanged<SettingsDestination> onOpen;
+  final ValueChanged<FoundSetting> onOpen;
 
   @override
   State<SettingsSearch> createState() => _SettingsSearchState();
@@ -173,7 +120,7 @@ class _SettingsSearchState extends State<SettingsSearch> {
             child: Column(
               children: [
                 for (final topic in found)
-                  _Found(topic, onTap: () => widget.onOpen(topic.page)),
+                  _Found(topic, onTap: () => widget.onOpen(topic)),
               ],
             ),
           ),
@@ -186,12 +133,12 @@ class _SettingsSearchState extends State<SettingsSearch> {
 class _Found extends StatelessWidget {
   const _Found(this.topic, {required this.onTap});
 
-  final SettingTopic topic;
+  final FoundSetting topic;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => TapArea(
-    label: '${topic.name}，在${topic.page.label}',
+    label: '${topic.topic.name}，在${topic.page.label}',
     onTap: onTap,
     child: Padding(
       padding: const EdgeInsets.symmetric(
@@ -202,7 +149,7 @@ class _Found extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              topic.name,
+              topic.topic.name,
               style: const TextStyle(
                 fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,

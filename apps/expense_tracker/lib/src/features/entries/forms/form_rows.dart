@@ -7,7 +7,6 @@ import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../../design_system/display/amount.dart';
 import '../../../core/widgets/icons.dart';
-import '../../../core/messages/amount_messages.dart';
 import '../model/compose_form.dart';
 import 'choice_strip.dart';
 import 'compose_actions.dart';
@@ -89,10 +88,10 @@ final class CurrencyFields {
 
   ComposeForm get _f => _a.form;
 
-  /// The worth in NT$ of a foreign amount, at today's rate until typed.
+  /// The worth in NT$ of a foreign amount, at the rate of its day until
+  /// typed (D58).
   Widget home() {
     final value = _f.homeValue;
-    final rate = _f.ledger.marketData.rates[_f.currency];
     return Padding(
       padding: const EdgeInsets.only(top: Space.s2),
       child: FigureCard(
@@ -102,13 +101,7 @@ final class CurrencyFields {
         value: value == null ? '請輸入' : groupDigits(value),
         valueColor: value == null ? AppColors.hint : AppColors.ink,
         size: TextSize.body,
-        // A day gone by is valued at today's rate only as an estimate:
-        // no earlier day's rate is kept (R5).
-        sub: _f.home != null || rate == null
-            ? null
-            : _f.date.isBefore(_f.ledger.today)
-            ? estimatedAtTodaysRate(rate)
-            : todaysRate(rate),
+        sub: _f.homeRateLine,
         onTap: () async {
           final typed = await _a.ask(Words.homeWorth, value ?? 0);
           if (typed != null) _a.update(() => _f.home = typed);

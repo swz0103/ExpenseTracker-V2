@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/design_system/findable.dart';
+
 import '../../../core/ledger/ledger.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
@@ -42,6 +44,15 @@ class RemindersSection extends StatefulWidget {
 
   /// Opens 預算管理, where each budget's warning is set.
   final VoidCallback? onBudgets;
+
+  // What search finds here (N8): each topic marks its card.
+  static const topics = [
+    ReminderTopics.due,
+    ReminderTopics.budget,
+    ReminderTopics.daily,
+    ReminderTopics.linkCalendar,
+    ReminderTopics.phone,
+  ];
 
   @override
   State<RemindersSection> createState() => _RemindersSectionState();
@@ -354,6 +365,7 @@ class _RemindersSectionState extends State<RemindersSection>
         CardGrid([
           if (notifier != null && preferences != null) ...[
             SettingCard(
+              topic: ReminderTopics.due,
               glyph: Glyph.bell,
               color: SettingsColors.reminders,
               title: '到期提醒',
@@ -363,6 +375,7 @@ class _RemindersSectionState extends State<RemindersSection>
               onTap: () => _dueDetails(notifier),
             ),
             SettingCard(
+              topic: ReminderTopics.budget,
               glyph: Glyph.pie,
               color: SettingsColors.budget,
               title: '預算提醒',
@@ -372,6 +385,7 @@ class _RemindersSectionState extends State<RemindersSection>
               onTap: () => _budgetDetails(notifier),
             ),
             SettingCard(
+              topic: ReminderTopics.daily,
               glyph: Glyph.calendar,
               color: SettingsColors.daily,
               title: '每日記帳',
@@ -385,6 +399,7 @@ class _RemindersSectionState extends State<RemindersSection>
           ],
           if (calendar != null)
             SettingCard(
+              topic: ReminderTopics.linkCalendar,
               glyph: Glyph.calendar,
               color: SettingsColors.calendar,
               title: ReminderMessages.calendarTitle,
@@ -401,13 +416,16 @@ class _RemindersSectionState extends State<RemindersSection>
         ]),
         if (notifier != null && asked && status != null) ...[
           const SizedBox(height: Space.s3),
-          _PhoneStrip(
-            status: status,
-            exact: notifier.preferences.exactReminders,
-            onTest: () => _test(notifier),
-            onNotifications: () => _askAccess(notifier),
-            onExact: notifier.port.openExactSettings,
-            onBattery: () => _battery(notifier),
+          Findable(
+            topic: ReminderTopics.phone,
+            child: _PhoneStrip(
+              status: status,
+              exact: notifier.preferences.exactReminders,
+              onTest: () => _test(notifier),
+              onNotifications: () => _askAccess(notifier),
+              onExact: notifier.port.openExactSettings,
+              onBattery: () => _battery(notifier),
+            ),
           ),
         ],
       ],

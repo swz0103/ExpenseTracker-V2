@@ -127,6 +127,8 @@ void main() {
       'saleCost': (r) => r.saleCost('2330', 4),
       'sharesOn': (r) => r.sharesOn('2330', day),
       'inTodaysShares': (r) => r.inTodaysShares('2330', day, 10),
+      'sharesCountedOn': (r) => r.sharesCountedOn('2330', day),
+      'inSharesOf': (r) => r.inSharesOf('2330', day, 10, day),
       'everByCode': (r) => r.everByCode('2330')?.shares,
       'reshapedBy': (r) => r.reshapedBy('2330', day),
       'holdsWith': (r) => r.holdsWith([buy]),
@@ -158,6 +160,14 @@ void main() {
       'olderQuote': (r) => r.olderQuote('2330'),
       'toHome': (r) => r.toHome(100, 'USD'),
       'convert': (r) => r.convert(100, 'USD', 'TWD'),
+      'sellRates': (r) => r.sellRates,
+      'valueAtHome': (r) => r.valueAtHome(-100, 'USD'),
+      'history': (r) => r.history.isEmpty,
+      'rateOn': (r) => r.rateOn('USD', day),
+      'closeOn': (r) => r.closeOn('2330', day),
+      'toHomeOn': (r) => r.toHomeOn(100, 'USD', day),
+      'valueAtHomeOn': (r) => r.valueAtHomeOn(-100, 'USD', day),
+      'convertOn': (r) => r.convertOn(100, 'USD', 'TWD', day),
     };
     for (final MapEntry(:key, value: read) in reads.entries) {
       final (topics, answer) = traced(

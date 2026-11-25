@@ -34,6 +34,18 @@ class SecuritySection extends StatefulWidget {
   /// Where the auto-lock choice is kept.
   final Preferences? preferences;
 
+  // What search finds here (N8): each topic marks its card.
+  static const topics = [
+    SecurityTopics.password,
+    SecurityTopics.fingerprint,
+    SecurityTopics.autoLock,
+    SecurityTopics.recovery,
+    SecurityTopics.passphrase,
+    SecurityTopics.hideScreen,
+    SecurityTopics.reset,
+    SecurityTopics.lockNow,
+  ];
+
   @override
   State<SecuritySection> createState() => _SecuritySectionState();
 }
@@ -87,6 +99,8 @@ class _SecuritySectionState extends State<SecuritySection> {
       context,
       KeyWords.recoveryConfirm,
       KeyWords.replace,
+      danger: true,
+      body: KeyWords.recoveryConfirmBody,
     );
     if (!ok) return;
     try {
@@ -133,6 +147,8 @@ class _SecuritySectionState extends State<SecuritySection> {
       context,
       KeyWords.passphraseRemove,
       KeyWords.remove,
+      danger: true,
+      body: KeyWords.passphraseRemoveBody,
     );
     if (!ok) return;
     try {
@@ -243,6 +259,7 @@ class _SecuritySectionState extends State<SecuritySection> {
     return CardGrid([
       if (backupManager != null) ...[
         SettingCard(
+          topic: SecurityTopics.password,
           key: Keys.password,
           glyph: Glyph.key,
           color: backupManager.passwordBelowRule
@@ -260,6 +277,7 @@ class _SecuritySectionState extends State<SecuritySection> {
         // for it to stand in for.
         if (backupManager.canUseFingerprint)
           SettingCard(
+            topic: SecurityTopics.fingerprint,
             key: Keys.fingerprintSwitch,
             glyph: Glyph.shield,
             color: SettingsColors.security,
@@ -277,6 +295,7 @@ class _SecuritySectionState extends State<SecuritySection> {
           ListenableBuilder(
             listenable: preferences.watch(const {PreferenceTopic.lock}),
             builder: (context, _) => SettingCard(
+              topic: SecurityTopics.autoLock,
               key: Keys.autoLock,
               glyph: Glyph.hourglass,
               color: SettingsColors.security,
@@ -286,6 +305,7 @@ class _SecuritySectionState extends State<SecuritySection> {
             ),
           ),
         SettingCard(
+          topic: SecurityTopics.recovery,
           glyph: Glyph.lifebuoy,
           color: SettingsColors.recovery,
           title: '救援碼',
@@ -293,6 +313,7 @@ class _SecuritySectionState extends State<SecuritySection> {
           onTap: () => _newRecovery(backupManager),
         ),
         SettingCard(
+          topic: SecurityTopics.passphrase,
           key: Keys.passphrase,
           glyph: Glyph.safe,
           color: SettingsColors.backup,
@@ -305,6 +326,7 @@ class _SecuritySectionState extends State<SecuritySection> {
       ],
       if (privacy != null)
         SettingCard(
+          topic: SecurityTopics.hideScreen,
           key: Keys.hideScreen,
           glyph: Glyph.eyeOff,
           color: SettingsColors.appearance,
@@ -319,6 +341,7 @@ class _SecuritySectionState extends State<SecuritySection> {
         ),
       if (backupManager != null)
         SettingCard(
+          topic: SecurityTopics.reset,
           key: Keys.resetKeys,
           glyph: Glyph.shield,
           color: SettingsColors.warning,
@@ -328,6 +351,7 @@ class _SecuritySectionState extends State<SecuritySection> {
         ),
       if (backupManager != null && backupManager.hasPassword)
         SettingCard(
+          topic: SecurityTopics.lockNow,
           key: Keys.lockNow,
           glyph: Glyph.lock,
           color: SettingsColors.about,

@@ -72,6 +72,31 @@ void main() {
     expect(faults, isEmpty, reason: faults.join('\n'));
   });
 
+  test('panels that ask or tell come from the design system (WP-E)', () {
+    // One look for every question and notice: confirm, askText, tell, a
+    // DialogBlock or a DialogFrame from core/design_system/dialogs.dart,
+    // opened by its showPanel; never a dialog of a screen's own.
+    const raw = {
+      'AlertDialog',
+      'SimpleDialog',
+      'Dialog',
+      'CupertinoAlertDialog',
+      'showDialog',
+      'showAdaptiveDialog',
+      'showGeneralDialog',
+      'showCupertinoDialog',
+    };
+    final faults = where((s) => !s.path.startsWith(designSystem), (s) sync* {
+      for (final call in Calls.of(s.unit)) {
+        if (raw.contains(callOf(call)!.$1)) {
+          yield '${s.path}:${s.lineOf(call)}: use confirm, askText, tell or '
+              'DialogBlock (core/design_system/dialogs.dart)';
+        }
+      }
+    });
+    expect(faults, isEmpty, reason: faults.join('\n'));
+  });
+
   test('how much larger the phone draws words is asked in one place', () {
     // Worked out on each page it gave a different answer for Android's
     // own 200%, which is not linear.

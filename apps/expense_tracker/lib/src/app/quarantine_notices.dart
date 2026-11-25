@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import '../core/design_system/components/buttons.dart';
+import '../core/design_system/components/panels.dart';
+import '../core/design_system/dialogs.dart';
 import '../core/design_system/keys.dart';
-import '../core/design_system/theme.dart';
 import '../core/diagnostics/error_log.dart';
 import '../core/diagnostics/error_steps.dart';
 import '../core/ledger/persistence/quarantine.dart';
@@ -52,29 +52,27 @@ Future<bool> showQuarantineNotice(
   List<QuarantinedRow> rows, {
   required VoidCallback onExport,
 }) async =>
-    await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.panel,
-        title: Text(quarantineTitle(rows.length)),
-        content: Text(quarantineBody(rows)),
-        actions: [
-          TextButton(
-            key: Keys.quarantine('export'),
-            style: wordButton(AppColors.accent),
-            onPressed: onExport,
-            child: const Text(diagnosticsExport),
-          ),
-          TextButton(
-            key: Keys.quarantine('restore'),
-            style: wordButton(AppColors.accent),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(quarantineRestore),
-          ),
-          FilledButton(
+    await showPanel<bool>(
+      context,
+      (context) => DialogBlock(
+        title: quarantineTitle(rows.length),
+        body: quarantineBody(rows),
+        choices: [
+          DialogChoice(
+            quarantineContinue,
             key: Keys.quarantine('continue'),
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(quarantineContinue),
+            tone: ChoiceTone.main,
+            onTap: () => Navigator.of(context).pop(false),
+          ),
+          DialogChoice(
+            quarantineRestore,
+            key: Keys.quarantine('restore'),
+            onTap: () => Navigator.of(context).pop(true),
+          ),
+          DialogChoice(
+            diagnosticsExport,
+            key: Keys.quarantine('export'),
+            onTap: onExport,
           ),
         ],
       ),

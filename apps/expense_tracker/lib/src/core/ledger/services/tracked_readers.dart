@@ -1,3 +1,6 @@
+import 'package:core/foundation_values.dart' show BoardSide;
+import 'package:core/fx/dated_figures.dart' show FigureOn, MarketHistory;
+
 import '../cache/query_cache.dart';
 import '../cache/topic.dart';
 import '../models/models.dart';
@@ -265,6 +268,18 @@ final class TrackedHoldingReader implements HoldingReader {
   }
 
   @override
+  int sharesCountedOn(String code, DateTime day) {
+    _cache.noteReads(_topics);
+    return _inner.sharesCountedOn(code, day);
+  }
+
+  @override
+  int inSharesOf(String code, DateTime day, int shares, DateTime of) {
+    _cache.noteReads(_topics);
+    return _inner.inSharesOf(code, day, shares, of);
+  }
+
+  @override
   int inTodaysShares(String code, DateTime day, int shares) {
     _cache.noteReads(_topics);
     return _inner.inTodaysShares(code, day, shares);
@@ -409,6 +424,46 @@ final class TrackedMarketDataReader implements MarketDataReader {
   int? convert(int amount, String from, String to) {
     _cache.noteReads(_topics);
     return _inner.convert(amount, from, to);
+  }
+
+  @override
+  MarketHistory get history {
+    _cache.noteReads(_topics);
+    return _inner.history;
+  }
+
+  @override
+  FigureOn? rateOn(
+    String currency,
+    DateTime day, {
+    BoardSide side = BoardSide.buying,
+  }) {
+    _cache.noteReads(_topics);
+    return _inner.rateOn(currency, day, side: side);
+  }
+
+  @override
+  FigureOn? closeOn(String code, DateTime day) {
+    _cache.noteReads(_topics);
+    return _inner.closeOn(code, day);
+  }
+
+  @override
+  int? toHomeOn(int minor, String currency, DateTime day) {
+    _cache.noteReads(_topics);
+    return _inner.toHomeOn(minor, currency, day);
+  }
+
+  @override
+  int? valueAtHomeOn(int balance, String currency, DateTime day) {
+    _cache.noteReads(_topics);
+    return _inner.valueAtHomeOn(balance, currency, day);
+  }
+
+  @override
+  int? convertOn(int amount, String from, String to, DateTime day) {
+    _cache.noteReads(_topics);
+    return _inner.convertOn(amount, from, to, day);
   }
 }
 

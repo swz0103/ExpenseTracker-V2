@@ -1,11 +1,14 @@
 import 'dart:convert';
 
+import 'package:core/time/calendar_day.dart';
 import 'package:domain/investments.dart' show DoubtedFigure;
+import 'package:core/fx/dated_figures.dart' show MarketHistory;
 import 'package:ledger_entries/rules.dart' show namesOnLoops;
 import 'package:storage/storage.dart';
 
 import '../models/models.dart';
 import 'codec/category_refs.dart';
+import 'codec/market_days.dart';
 import 'codec/record_json.dart';
 import 'codec/record_shape.dart';
 import 'codec/row_decoding.dart';
@@ -434,6 +437,7 @@ typedef Market = ({
   Map<String, DoubtedFigure> doubtedRates,
   Map<String, DoubtedFigure> doubtedSellRates,
   DateTime? ratesOn,
+  MarketHistory history,
 });
 
 /// The closes and board last fetched, from [rows] of [marketShelf].
@@ -449,6 +453,7 @@ Market marketFrom(List<StoredRow> rows) {
   final doubtedSellRates = <String, DoubtedFigure>{};
   DateTime? quotedOn;
   DateTime? ratesOn;
+  final dayRows = <BusinessDate, String>{};
   Map<String, Object?> part(Map<String, Object?> json, String key) =>
       json[key] as Map<String, Object?>? ?? const {};
   // What the last fetch doubted (D101), kept beside the figures, each
@@ -471,6 +476,11 @@ Market marketFrom(List<StoredRow> rows) {
   }
 
   for (final row in rows) {
+    // A day's rates and closes (D58), read below.
+    if (marketDayOf(row.id) case final day?) {
+      dayRows[day] = row.body;
+      continue;
+    }
     final json = jsonDecode(row.body) as Map<String, Object?>;
     switch (row.id) {
       case 'quotes':
@@ -520,6 +530,7 @@ Market marketFrom(List<StoredRow> rows) {
     doubtedRates: doubtedRates,
     doubtedSellRates: doubtedSellRates,
     ratesOn: ratesOn,
+    history: historyFrom(dayRows),
   );
 }
 

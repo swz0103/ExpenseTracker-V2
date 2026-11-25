@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
+import 'package:expense_tracker/src/core/formatting/words.dart';
 import 'package:expense_tracker/design_system/display/date.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
@@ -253,7 +254,7 @@ void main() {
     expect(find.text('未開啟時可能延後，最多晚 1 小時'), findsOneWidget);
     await go(tester, ['提醒時間：21:00']);
     expect(find.text('每天幾點提醒'), findsOneWidget);
-    await go(tester, ['08:00', '確定']);
+    await go(tester, ['08:00', Words.done]);
     expect((preferences.nudgeHour, preferences.nudgeMinute), (8, 0));
     expect(find.text('08 : 00'), findsOneWidget);
   });

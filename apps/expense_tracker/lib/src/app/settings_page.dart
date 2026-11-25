@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../design_system/display/amount.dart';
+import '../core/design_system/findable.dart';
 import '../core/design_system/glyphs.dart';
+import '../core/formatting/setting_topic.dart';
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
@@ -33,6 +35,7 @@ class SettingsPage extends StatelessWidget {
     required this.nav,
     this.services = const PlatformServices(),
     this.part,
+    this.sought,
   });
 
   final Ledger ledger;
@@ -43,6 +46,9 @@ class SettingsPage extends StatelessWidget {
 
   /// The page shown; null for the list of them.
   final SettingsDestination? part;
+
+  /// The setting a search opened [part] on, shown and marked there.
+  final SettingTopic? sought;
 
   @override
   Widget build(BuildContext context) {
@@ -73,12 +79,15 @@ class SettingsPage extends StatelessWidget {
       ]),
       builder: (context, _) {
         final part = this.part;
-        return HeadedList(
-          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s6),
-          header: CenterHeader(part?.label ?? '設定與資料', onBack: nav.back),
-          children: part == null
-              ? [SettingsSearch(onOpen: _open, child: _index(context))]
-              : _page(context, part),
+        return FindScope(
+          sought: sought,
+          child: HeadedList(
+            padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s6),
+            header: CenterHeader(part?.label ?? '設定與資料', onBack: nav.back),
+            children: part == null
+                ? [SettingsSearch(onOpen: _find, child: _index(context))]
+                : _page(context, part),
+          ),
         );
       },
     );
@@ -86,6 +95,10 @@ class SettingsPage extends StatelessWidget {
 
   void _open(SettingsDestination part) =>
       nav.open(AppRoutes.settingsPart(part));
+
+  /// Opens the page of a setting found, on it.
+  void _find(FoundSetting found) =>
+      nav.open(AppRoutes.settingsPart(found.page, sought: found.topic));
 
   List<Widget> _index(BuildContext context) {
     return [

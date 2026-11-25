@@ -37,7 +37,12 @@ abstract final class Words {
   // Actions.
   static const cancel = '取消';
   static const delete = '刪除';
+
+  /// What accepts a panel or a pick (D81: 完成, never 確定 or 好了).
   static const done = '完成';
+
+  /// What closes a panel that only tells.
+  static const gotIt = '知道了';
   static const edit = '編輯';
   static const add = '新增';
   static const back = '返回';

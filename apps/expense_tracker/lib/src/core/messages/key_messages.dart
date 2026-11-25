@@ -20,7 +20,8 @@ abstract final class KeyWords {
   static const passwordFirstWhy = '密碼設好了。忘記密碼時，只有它能打開帳本';
   static const passwordBelowRule = '目前的密碼比現在的規定短或太簡單，仍可使用，建議變更';
 
-  static const recoveryConfirm = '換一組新的救援碼？之後的解鎖與之後的備份只認新的；已經存在的舊備份仍可用舊的救援碼打開。';
+  static const recoveryConfirm = '換一組新的救援碼？';
+  static const recoveryConfirmBody = '之後的解鎖與之後的備份只認新的；已經存在的舊備份仍可用舊的救援碼打開';
   static const replace = '更換';
   static const notReplaced = '沒有換成';
 
@@ -38,7 +39,8 @@ abstract final class KeyWords {
       '另設一組只用來打開備份的密碼（不是 App 的密碼）。設定後，之後的備份可以用它或救援碼還原。'
       '拿到備份檔的人可以一直猜，所以要比 App 的密碼長，例如用幾個不相關的詞組成一句。';
   static const passphraseSet = '已設定備份密碼，之後的備份可以用它還原';
-  static const passphraseRemove = '不再使用備份密碼？之後的備份只能用救援碼還原；已經存在的備份不受影響。';
+  static const passphraseRemove = '不再使用備份密碼？';
+  static const passphraseRemoveBody = '之後的備份只能用救援碼還原；已經存在的備份不受影響';
   static const passphraseRemoved = '已停用備份密碼';
   static const remove = '停用';
 
@@ -99,8 +101,9 @@ abstract final class KeyWords {
 
   static const newPasswordWhy = '帳本是用救援碼或備份密碼打開的，請設定新的密碼。設定好之前，原本的密碼（如果有）仍然有效。';
   static const noPassword = '改成打開 App 不需要密碼';
-  static const noPasswordConfirm =
-      '不設定密碼？之後打開 App 不需要任何驗證，拿到這支手機的人就能看到帳本。原本的密碼會失效。';
+  static const noPasswordConfirm = '不設定密碼？';
+  static const noPasswordConfirmBody =
+      '之後打開 App 不需要任何驗證，拿到這支手機的人就能看到帳本。原本的密碼會失效。';
   static const noPasswordGo = '不需要密碼';
 
   static const olderBackup = '備份比較舊';

@@ -316,7 +316,7 @@ void main() {
     final count = ledger.entries.length;
     final owed = ledger.balanceService.balance('lent');
     await open(tester);
-    await go(tester, ['代墊', '代墊朋友', '好了（1 人）']);
+    await go(tester, ['代墊', '代墊朋友', '${Words.done}（1 人）']);
     await amount(tester, '500');
     // Shared evenly, one's own half counted as spending.
     expect(find.text('記下支出'), findsOneWidget);

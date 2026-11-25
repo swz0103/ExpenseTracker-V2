@@ -1,6 +1,7 @@
 import 'package:core/money/amount_parser.dart';
 
 import '../../../design_system/display/amount.dart';
+import '../../../design_system/display/date.dart' show formatDay;
 
 /// What the person is told when what they typed or imported is not an
 /// amount: every reason's words, in one place.
@@ -40,11 +41,17 @@ abstract final class ProgressWords {
 String spokenSign(String sign) => sign == '−' ? '減' : '加';
 
 /// Under a foreign amount's worth in NT$ on a day gone by, worked out at
-/// today's [rate] until typed: an estimate, as no earlier day's rate is
-/// kept (R5). The rate is written by [exchangeRate]: 32, not 32.0 (D118).
+/// today's [rate] until typed: an estimate, as no board of that day or
+/// before it is kept (R5, D58). The rate is written by [exchangeRate]: 32, not 32.0 (D118).
 String estimatedAtTodaysRate(double rate) =>
     '以今日臺銀即期買入 ${exchangeRate(rate)} 估算，請改成當日金額';
 
 /// Under a foreign amount's worth in NT$ today: the [rate] it is worked
 /// out at, written by [exchangeRate].
 String todaysRate(double rate) => '臺銀即期買入 ${exchangeRate(rate)}';
+
+/// Under a foreign amount's worth in NT$: the [rate] of the board of
+/// [day] it is worked out at, that day's or the nearest earlier one kept
+/// (D58), its day named as [formatDay] writes it next to [today].
+String rateOfDay(double rate, DateTime day, {required DateTime today}) =>
+    '臺銀 ${formatDay(day, today: today)} 即期買入 ${exchangeRate(rate)}';
