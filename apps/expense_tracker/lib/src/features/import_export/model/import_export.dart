@@ -1,10 +1,8 @@
 // Exception to shared words: a CSV's columns and kinds are a file
 // format; they keep their spelling whatever the screens come to say.
-import 'package:core/constants/category_colors.dart';
 import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:core/money/amount_parser.dart'
     show AmountOk, AmountProblem, AmountRefused;
-import 'package:core/money/typed_text.dart' show plainText;
 import 'package:domain/data_exchange.dart';
 import 'package:flutter/foundation.dart' show compute, visibleForTesting;
 
@@ -12,10 +10,9 @@ import '../../../core/formatting/words.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/amount_messages.dart';
 import '../../../core/messages/import_messages.dart';
-import '../../../core/messages/validation_messages.dart';
 import '../../entries/model/invoices.dart';
-
-part 'import_reader.dart';
+import 'import_reader.dart';
+export 'import_reader.dart' show importInvoices;
 
 /// The parts of the book an import reads: what is there already, to
 /// leave out what it holds and to add what it lacks, and new ids
@@ -61,6 +58,16 @@ final class ImportBook {
   Account account(String id) => accounts.resolve(id);
 
   String newId() => _newId();
+
+  /// Whether the invoice [number] of [day] is in the book already, by
+  /// its number or as an invoice entry of that day, [shop] and [amount]
+  /// ([hasInvoice]).
+  bool holdsInvoice(
+    DateTime day,
+    String number, {
+    required String shop,
+    required int amount,
+  }) => hasInvoice(entries, day, number, shop: shop, amount: amount);
 }
 
 /// What an import found: the entries to add, the accounts and categories
@@ -133,7 +140,7 @@ Undo addImport(EntryCommands commands, Import found) => commands.addAll(
 );
 
 /// The kind of line [e] is written as.
-LineKind _kindOf(Entry e) => switch (e) {
+LineKind lineKindOf(Entry e) => switch (e) {
   Entry(isRefund: true) => LineKind.refund,
   Entry(type: EntryType.expense) => LineKind.expense,
   Entry(type: EntryType.income) => LineKind.income,
@@ -155,7 +162,7 @@ LineMark? _lineMark(EntryMark? mark) => switch (mark) {
 };
 
 /// The entry's mark a file's [mark] names.
-EntryMark? _entryMark(LineMark? mark) => switch (mark) {
+EntryMark? entryMarkOf(LineMark? mark) => switch (mark) {
   null => null,
   LineMark.reward => EntryMark.reward,
   LineMark.annualFee => EntryMark.annualFee,
@@ -195,7 +202,7 @@ List<String> _row(AccountReader accounts, Entry e) {
     ExchangeColumn.date => ExchangeColumn.date.cell.write(
       BusinessDate.of(e.date),
     ),
-    ExchangeColumn.kind => ExchangeColumn.kind.cell.write(_kindOf(e)),
+    ExchangeColumn.kind => ExchangeColumn.kind.cell.write(lineKindOf(e)),
     ExchangeColumn.amount => ExchangeColumn.amount.cell.write(
       e.amount,
       currency,
@@ -245,7 +252,7 @@ List<String> _row(AccountReader accounts, Entry e) {
 }
 
 /// The day [read], as a UTC midnight; null when it was refused.
-DateTime? _utcDay(ImportDay read) => switch (read) {
+DateTime? utcDayOf(ImportDay read) => switch (read) {
   DayRead(date: BusinessDate(:final year, :final month, :final day)) =>
     DateTime.utc(year, month, day),
   DayRefused() => null,
@@ -253,7 +260,7 @@ DateTime? _utcDay(ImportDay read) => switch (read) {
 
 /// The amount in [column] of a line, read by [cell], in [currency]: its
 /// minor units (null when left empty), or why it is not an amount.
-(int?, String?) _cellAmount(
+(int?, String?) readCellAmount(
   String Function(ExchangeColumn) cell,
   ExchangeColumn<AmountCell> column, [
   String currency = homeCode,
@@ -359,11 +366,53 @@ Iterable<Import?> _importing(
     yield Import(const [], rows.length, problems: [importHeaderWords]);
     return;
   }
-  final reader = _Reader(book, fallback);
+  final reader = ImportReader(book, fallback);
   for (final (:line, cells: row) in rows.skip(1)) {
     final problem = reader.read((column) => head.cell(row, column), line: line);
     if (problem != null) reader.skip(line, problem);
     yield null;
   }
   yield* reader.result();
+}
+
+/// The open NT$ account [shop] was last paid from, if any.
+String? _usualAccount(ImportBook book, String shop) {
+  final last = shop.isEmpty ? null : book.entryQueryService.lastAt(shop);
+  if (last == null) return null;
+  final account = book.account(last.account);
+  if (account.archived || account.currency != homeCode) return null;
+  if (!book.accounts.contains(account.id)) return null;
+  return account.id;
+}
+
+/// Spending at [shop] on [day] for the invoice [number], noted with its
+/// first item and how many there were.
+Entry invoiceEntry(
+  ImportBook book,
+  String account,
+  DateTime day,
+  String shop,
+  String number,
+  List<String> bought,
+  int value,
+) {
+  return Entry(
+    id: book.newId(),
+    date: day,
+    type: EntryType.expense,
+    amount: value,
+    // The account the shop was last paid from, while it is open and in
+    // NT$; the one chosen for the import otherwise.
+    account: _usualAccount(book, shop) ?? account,
+    category: guessCategory(
+      book.entryQueryService,
+      book.categories,
+      shop,
+      bought.join(' '),
+    ),
+    note: invoiceNote(bought, number),
+    merchant: shop,
+    tags: const [Words.invoice],
+    mark: EntryMark.invoice,
+  );
 }

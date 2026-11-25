@@ -3,13 +3,21 @@
 // Exception to file length: the one reader of a file's rows, each kind
 // of row (spending, refund, transfer, trade, invoice) a method of it that
 // shares its state (the rows read so far, what was refunded of each).
-part of 'import_export.dart';
+import 'package:core/constants/category_colors.dart';
+import 'package:core/foundation_values.dart' show BusinessDate;
+import 'package:core/money/typed_text.dart' show plainText;
+import 'package:domain/data_exchange.dart';
+
+import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/import_messages.dart';
+import '../../../core/messages/validation_messages.dart';
+import 'import_export.dart';
 
 /// A cell of the line being read, by its column ([ExchangeHeader.cell]).
-typedef _Cell = String Function(ExchangeColumn column);
+typedef ImportCell = String Function(ExchangeColumn column);
 
-final class _Reader {
-  _Reader(this.book, this.fallback)
+final class ImportReader {
+  ImportReader(this.book, this.fallback)
     : _names = {for (final a in book.accounts.all) plainText(a.name): a.id},
       _categoryByName = {
         for (final c in book.categories.all.reversed) plainText(c.name): c,
@@ -66,7 +74,7 @@ final class _Reader {
     if (name.isEmpty) return fallback;
     final known = _names[name];
     if (known != null) return known;
-    final kind = _kindOf(name);
+    final kind = lineKindOf(name);
     final card = kind == AccountKind.card;
     final made = Account(
       book.newId(),
@@ -80,7 +88,7 @@ final class _Reader {
     return _names[name] = made.id;
   }
 
-  static AccountKind _kindOf(String name) {
+  static AccountKind lineKindOf(String name) {
     bool has(List<String> words) => words.any(name.contains);
     if (has(['現金', '零錢'])) return AccountKind.cash;
     if (has(['悠遊', '一卡通', 'Pay', 'pay', '錢包', '支付'])) {
@@ -141,7 +149,7 @@ final class _Reader {
 
   /// Reads the [line] of the file; why it cannot be kept, or null when
   /// it was.
-  String? read(_Cell cell, {required int line}) {
+  String? read(ImportCell cell, {required int line}) {
     _line = line;
     final latest = latestEntryDay(book.today);
     final read = ExchangeColumn.date.cell.read(
@@ -161,7 +169,7 @@ final class _Reader {
       );
     }
     if (read case DayRefused(:final problem)) return dayProblemWords(problem);
-    final day = _utcDay(read)!;
+    final day = utcDayOf(read)!;
     final LineKind? named;
     switch (ExchangeColumn.kind.cell.read(cell(ExchangeColumn.kind))) {
       case KindUnknown(:final words):
@@ -186,7 +194,7 @@ final class _Reader {
     _id = id!;
     final account = _accountNamed(cell(ExchangeColumn.account));
     final from = _account(account);
-    final (value, unreadable) = _cellAmount(
+    final (value, unreadable) = readCellAmount(
       cell,
       ExchangeColumn.amount,
       from.currency,
@@ -223,7 +231,7 @@ final class _Reader {
       group: _groupNamed(cell(ExchangeColumn.group)),
       // A link to an item the book does not have is no link.
       recurring: book.recurring.byId(recurring) == null ? null : recurring,
-      mark: _entryMark(mark),
+      mark: entryMarkOf(mark),
       dayTrade: dayTrade,
     );
     // Checked as one typed in would be, with the accounts this file adds;
@@ -259,7 +267,7 @@ final class _Reader {
   }
 
   Object _cashFlow(
-    _Cell cell,
+    ImportCell cell,
     DateTime day,
     String account,
     Account from,
@@ -287,7 +295,7 @@ final class _Reader {
         ];
         category = parts.first.$1;
     }
-    final (home, homeProblem) = _cellAmount(cell, ExchangeColumn.home);
+    final (home, homeProblem) = readCellAmount(cell, ExchangeColumn.home);
     if (homeProblem != null) return homeProblem;
     final card = from.kind == AccountKind.card;
     return Entry(
@@ -321,7 +329,7 @@ final class _Reader {
   /// else its share of the purchase's worth (D62), else the amount at
   /// the rate of its day (D58).
   Object _refund(
-    _Cell cell,
+    ImportCell cell,
     DateTime day,
     String account,
     Account from,
@@ -362,7 +370,7 @@ final class _Reader {
         if (f.refundOf == original.id) f,
     ];
     final share = refundShare(original, amount, earlier: earlier);
-    final (typed, homeProblem) = _cellAmount(cell, ExchangeColumn.home);
+    final (typed, homeProblem) = readCellAmount(cell, ExchangeColumn.home);
     if (homeProblem != null) return homeProblem;
     int? home;
     if (from.foreign) {
@@ -405,7 +413,7 @@ final class _Reader {
   }
 
   Object _transfer(
-    _Cell cell,
+    ImportCell cell,
     DateTime day,
     String account,
     Account from,
@@ -417,10 +425,10 @@ final class _Reader {
     final to = _accountNamed(into);
     final target = _account(to);
     if (from.kind == AccountKind.card) return '信用卡不能轉出，請記成支出';
-    final (charged, feeProblem) = _cellAmount(cell, ExchangeColumn.fee);
+    final (charged, feeProblem) = readCellAmount(cell, ExchangeColumn.fee);
     final (received, receivedProblem) = target.currency == from.currency
         ? (null, null)
-        : _cellAmount(cell, ExchangeColumn.received, target.currency);
+        : readCellAmount(cell, ExchangeColumn.received, target.currency);
     if (feeProblem ?? receivedProblem case final why?) return why;
     final fee = charged ?? 0;
     if (target.kind == AccountKind.card && fee > 0) return '繳卡費不能有手續費';
@@ -438,7 +446,7 @@ final class _Reader {
   }
 
   Object _investment(
-    _Cell cell,
+    ImportCell cell,
     LineKind kind,
     DateTime day,
     String account,
@@ -455,11 +463,11 @@ final class _Reader {
     if (needsShares && shares <= 0) return '請填股數';
     final trade = kind == LineKind.buy || kind == LineKind.sell;
     final (fee, feeProblem) = trade
-        ? _cellAmount(cell, ExchangeColumn.fee)
+        ? readCellAmount(cell, ExchangeColumn.fee)
         : (null, null);
     final (tax, taxProblem) = kind == LineKind.cut
         ? (null, null)
-        : _cellAmount(cell, ExchangeColumn.tax);
+        : readCellAmount(cell, ExchangeColumn.tax);
     if (feeProblem ?? taxProblem case final why?) return why;
     return Entry(
       id: _id,
@@ -619,13 +627,7 @@ Import _invoices(ImportBook book, String text, {required String account}) {
     final value = invoice.amount.minorUnits.toInt();
     // The file holds each number once (readInvoiceFile).
     if (value <= 0 ||
-        hasInvoice(
-          book.entries,
-          date,
-          number,
-          shop: invoice.seller,
-          amount: value,
-        )) {
+        book.holdsInvoice(date, number, shop: invoice.seller, amount: value)) {
       final why = value <= 0 ? importAmountWords : importAlreadyWords;
       left.add((
         invoice.line,
@@ -634,7 +636,7 @@ Import _invoices(ImportBook book, String text, {required String account}) {
       continue;
     }
     entries.add(
-      _invoice(
+      invoiceEntry(
         book,
         account,
         date,
@@ -654,47 +656,5 @@ Import _invoices(ImportBook book, String text, {required String account}) {
     entries,
     left.length,
     problems: [for (final (_, (_, why)) in byLine) why],
-  );
-}
-
-/// The open NT$ account [shop] was last paid from, if any.
-String? _usualAccount(ImportBook book, String shop) {
-  final last = shop.isEmpty ? null : book.entryQueryService.lastAt(shop);
-  if (last == null) return null;
-  final account = book.account(last.account);
-  if (account.archived || account.currency != homeCode) return null;
-  if (!book.accounts.contains(account.id)) return null;
-  return account.id;
-}
-
-/// Spending at [shop] on [day] for the invoice [number], noted with its
-/// first item and how many there were.
-Entry _invoice(
-  ImportBook book,
-  String account,
-  DateTime day,
-  String shop,
-  String number,
-  List<String> bought,
-  int value,
-) {
-  return Entry(
-    id: book.newId(),
-    date: day,
-    type: EntryType.expense,
-    amount: value,
-    // The account the shop was last paid from, while it is open and in
-    // NT$; the one chosen for the import otherwise.
-    account: _usualAccount(book, shop) ?? account,
-    category: guessCategory(
-      book.entryQueryService,
-      book.categories,
-      shop,
-      bought.join(' '),
-    ),
-    note: invoiceNote(bought, number),
-    merchant: shop,
-    tags: const [Words.invoice],
-    mark: EntryMark.invoice,
   );
 }
