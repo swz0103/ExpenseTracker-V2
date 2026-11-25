@@ -38,7 +38,7 @@ internal inline fun launchOr(
 
 /**
  * The one way a handler works off the main thread (AND-07): [run] does the
- * work on a thread of its own and answers on the main thread, once, with
+ * work on a thread of the app's few ([POOL]) and answers on the main thread, once, with
  * its value, or, whatever it throws (an `OutOfMemoryError` on a huge photo
  * included), with the failure named as [ScanFault.kind] names it, which the
  * app keeps in its error log (`PlatformException.details`). Nothing thrown
@@ -68,8 +68,24 @@ internal class OffMain(
         run(work, { result.success(it) }, { result.error(code, it.message, kindOf(it)) })
 
     companion object {
-        /** A thread of its own for the work, the activity's main thread for the answer. */
-        fun of(activity: Activity) = OffMain({ Thread(it).start() }, activity::runOnUiThread)
+        /** A thread of [POOL] for the work, the activity's main thread for the answer. */
+        fun of(activity: Activity) = OffMain(POOL::execute, activity::runOnUiThread)
+
+        /** The most threads [POOL] keeps working at once; more work waits its turn. */
+        const val MOST_THREADS = 4
+
+        /**
+         * The threads all work off the main thread shares (the handlers'
+         * and the receivers', [ReceiverWork]): at most [MOST_THREADS], each
+         * going when idle, rather than a new thread for every call
+         * (review 32).
+         */
+        val POOL: ThreadPoolExecutor = bounded(MOST_THREADS)
+
+        /** At most [threads] threads, each gone after [IDLE_SECONDS] idle; work past them waits in turn. */
+        fun bounded(threads: Int): ThreadPoolExecutor =
+            ThreadPoolExecutor(threads, threads, IDLE_SECONDS, TimeUnit.SECONDS, LinkedBlockingQueue())
+                .apply { allowCoreThreadTimeOut(true) }
 
         /**
          * One thread for the work, each piece after the one before, in the
@@ -80,11 +96,10 @@ internal class OffMain(
 
         /** [serial], answering through [main]. */
         fun serial(main: (Runnable) -> Unit): OffMain {
-            val queue = ThreadPoolExecutor(0, 1, IDLE_SECONDS, TimeUnit.SECONDS, LinkedBlockingQueue())
-            return OffMain(queue::execute, main)
+            return OffMain(bounded(1)::execute, main)
         }
 
-        /** How long the thread of [serial] waits for more work before it goes. */
+        /** How long an idle thread of [POOL] or [serial] waits for more work before it goes. */
         private const val IDLE_SECONDS = 30L
 
         /** What kind of failure [error] is, as the error log keeps it. */

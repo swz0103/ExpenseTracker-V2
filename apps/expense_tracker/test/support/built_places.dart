@@ -236,7 +236,9 @@ final builtPlaces = <Place>[
             padding: const EdgeInsets.all(16),
             children: [
               ListenableBuilder(
-                listenable: preferences,
+                listenable: preferences.watch(const {
+                  PreferenceTopic.reminders,
+                }),
                 builder: (context, _) => RemindersSection(
                   ledger: reviewLedger(),
                   notifier: Notifier(ReviewPhone(status), preferences),

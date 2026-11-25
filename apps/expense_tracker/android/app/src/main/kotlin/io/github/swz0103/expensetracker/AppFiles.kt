@@ -10,7 +10,7 @@ package io.github.swz0103.expensetracker
  * names out of every other Kotlin file (test/rules/kotlin_literals_test.dart).
  */
 internal object AppFiles {
-    const val PREFERENCES = "preferences.json"
+    const val BACKGROUND = "background.json"
     const val WIDGET = "widget.json"
     const val OUTBOX = "outbox"
     const val OUTBOX_READY = "ready.json"

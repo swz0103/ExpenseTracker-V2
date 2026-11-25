@@ -46,17 +46,21 @@ class ExpenseApp extends StatefulWidget {
 }
 
 class _ExpenseAppState extends State<ExpenseApp> with WidgetsBindingObserver {
+  /// The colours and taps chosen, followed apart from the other settings.
+  Listenable? _look;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    widget.preferences?.addListener(_follow);
+    _look = widget.preferences?.watch(const {PreferenceTopic.look})
+      ?..addListener(_follow);
     _follow(first: true);
   }
 
   @override
   void dispose() {
-    widget.preferences?.removeListener(_follow);
+    _look?.removeListener(_follow);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

@@ -405,6 +405,8 @@ final class LifecycleServices {
     final outbox = _outbox;
     if (outbox == null) return;
     try {
+      // The settings the job is handed are written before it is started.
+      await preferences.saved;
       await outbox.prepare();
     } on Object catch (error) {
       ErrorLog.instance.record('背景備份', error);

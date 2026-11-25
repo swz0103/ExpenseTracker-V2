@@ -11,6 +11,7 @@ import '../core/diagnostics/error_log.dart';
 import '../core/diagnostics/error_steps.dart';
 import '../core/messages/loading_messages.dart';
 import '../core/platform/screen_privacy.dart';
+import '../core/platform/preferences.dart';
 
 /// What `main()` waits for before the first screen, each a step of its
 /// own, so a test can make each one fail (ARC-06).
@@ -21,6 +22,7 @@ final class StartSteps {
     this.keepLog,
     this.device,
     this.privacy,
+    this.preferences,
     this.started,
   });
 
@@ -39,11 +41,17 @@ final class StartSteps {
   /// them out as it starts (`MainActivity.kt`).
   final Future<ScreenPrivacy?> Function(Directory folder)? privacy;
 
+  /// The settings kept in [folder], read and opened off the UI thread.
+  /// Without them the app starts with the defaults, kept in memory only,
+  /// so the file is not written over.
+  final Future<Preferences> Function(Directory folder)? preferences;
+
   /// The app on what the steps found.
   final Widget Function(
     Directory folder,
     DeviceUnlock? device,
     ScreenPrivacy? privacy,
+    Preferences preferences,
   )
   compose;
 
@@ -79,9 +87,15 @@ Future<Widget> firstScreen(
   } on Object catch (error, stack) {
     ErrorLog.instance.record(ErrorSteps.screenPrivacy, error, stack);
   }
+  Preferences? preferences;
+  try {
+    preferences = await steps.preferences?.call(folder);
+  } on Object catch (error, stack) {
+    ErrorLog.instance.record(ErrorSteps.preferencesRead, error, stack);
+  }
   final Widget app;
   try {
-    app = steps.compose(folder, device, privacy);
+    app = steps.compose(folder, device, privacy, preferences ?? Preferences());
   } on Object catch (error, stack) {
     ErrorLog.instance.record(ErrorSteps.startScreen, error, stack);
     return _failed(error, retry);

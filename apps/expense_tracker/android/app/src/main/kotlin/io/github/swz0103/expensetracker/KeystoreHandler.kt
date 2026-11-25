@@ -152,23 +152,8 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
         result: MethodChannel.Result,
     ) {
         offMain.run(
-            {
-                val cipher = Cipher.getInstance(DeviceKeyBlob.TRANSFORMATION)
-                if (encrypt) {
-                    cipher.init(Cipher.ENCRYPT_MODE, quickKey())
-                    DeviceKeyBlob.seal(cipher, data, context)
-                } else {
-                    val iv = DeviceKeyBlob.ivOf(data)
-                    val existing = existingKey(QUICK_ALIAS)
-                    if (iv == null || existing == null) {
-                        // The sealing key is gone.
-                        null
-                    } else {
-                        cipher.init(Cipher.DECRYPT_MODE, existing, iv)
-                        DeviceKeyBlob.open(cipher, data, context)
-                    }
-                }
-            },
+            // Null when opening: the sealing key is gone.
+            { if (encrypt) QuickSeal.seal(data, context) else QuickSeal.open(data, context) },
             { output ->
                 if (output == null) {
                     result.error("key-invalidated", "The sealing key is gone.", null)
@@ -178,27 +163,6 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
             },
             { result.error("keystore", it.message, null) },
         )
-    }
-
-    /**
-     * The key that seals a ledger's key without a password, made the first
-     * time. It never leaves the phone's secure hardware, where there is
-     * one, and needs no fingerprint: the ledger opens by itself.
-     */
-    private fun quickKey(): SecretKey {
-        existingKey(QUICK_ALIAS)?.let { return it }
-        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, KEYSTORE)
-        generator.init(
-            KeyGenParameterSpec.Builder(
-                QUICK_ALIAS,
-                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
-            )
-                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .setKeySize(256)
-                .build(),
-        )
-        return generator.generateKey()
     }
 
     /** The Keystore key, if there is one. */
@@ -233,6 +197,5 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
     private companion object {
         const val KEYSTORE = "AndroidKeyStore"
         const val ALIAS = "ledger-device-key"
-        const val QUICK_ALIAS = "ledger-quick-key"
     }
 }

@@ -46,7 +46,7 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 
 ## 不打開 App 的背景備份
 
-金鑰只在帳本打開時存在，所以分兩段：離開 App（`paused`／`hidden`）時，若帳本有變更、而手機資料夾或雲端硬碟還沒有這個版本，`Outbox`（`lib/src/features/backup/model/outbox.dart`）先把加密好的備份（含照片）寫進 `filesDir/outbox/`，旁邊的 `ready.json` 記檔名、帳本版本、帳本 id 與代碼；新的會取代舊的。`BackupWorker.kt`（WorkManager 週期工作，約每 6 小時、電量不低時；重開機後 WorkManager 自己排回）照 `preferences.json` 的設定判斷是否到期（手機資料夾每天或每週、雲端硬碟每週，帳本有變才送），用與 App 相同的檔名與整理規則寫進手機資料夾（`FolderFiles.kt`），連上不計流量的網路時用不跳畫面的授權上傳雲端硬碟（`DriveUploader.kt`，`AuthorizationClient` 需要再次同意時就跳過）。結果與錯誤寫進 `outbox/delivered.json`（只有 App 會寫 `preferences.json`），App 打開或回到前景時併回設定。每個地方都有這個版本後，`outbox/` 裡的檔就刪掉。`outbox` 不進雲端備份也不隨裝置轉移。規則（到期、時間格式、檔名、只整理同一本）由 `BackupPlanTest.kt` 驗證。
+金鑰只在帳本打開時存在，所以分兩段：離開 App（`paused`／`hidden`）時，若帳本有變更、而手機資料夾或雲端硬碟還沒有這個版本，`Outbox`（`lib/src/features/backup/model/outbox.dart`）先把加密好的備份（含照片）寫進 `filesDir/outbox/`，旁邊的 `ready.json` 記檔名、帳本版本、帳本 id 與代碼；新的會取代舊的。`BackupWorker.kt`（WorkManager 週期工作，約每 6 小時、電量不低時；重開機後 WorkManager 自己排回）照 App 交給它的 `background.json`（`Preferences.backgroundPlan`：只有它需要的設定，手機資料夾以 Keystore 封存、以不透露資料夾的 id 記錄）判斷是否到期（手機資料夾每天或每週、雲端硬碟每週，帳本有變才送），用與 App 相同的檔名與整理規則寫進手機資料夾（`FolderFiles.kt`），連上不計流量的網路時用不跳畫面的授權上傳雲端硬碟（`DriveUploader.kt`，`AuthorizationClient` 需要再次同意時就跳過）。結果與錯誤（只記類型與 HTTP 狀態碼）寫進 `outbox/delivered.json`（只有 App 會寫 `background.json`），App 打開或回到前景時併回設定。每個地方都有這個版本後，`outbox/` 裡的檔就刪掉。`outbox` 不進雲端備份也不隨裝置轉移。規則（到期、檔名、只整理同一本、錯誤只記類型）由 `BackupPlanTest.kt` 驗證。
 
 ## App 內更新
 

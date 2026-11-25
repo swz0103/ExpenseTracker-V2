@@ -99,7 +99,7 @@ class _OverviewPageState extends State<OverviewPage> {
     if (preferences == null) return _page();
     // The blocks follow the order and choice kept in the preferences.
     return ListenableBuilder(
-      listenable: preferences,
+      listenable: preferences.watch(const {PreferenceTopic.overview}),
       builder: (context, _) => _page(),
     );
   }

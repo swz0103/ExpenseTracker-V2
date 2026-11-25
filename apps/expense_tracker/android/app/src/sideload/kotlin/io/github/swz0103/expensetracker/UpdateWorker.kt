@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
  * per new build; tapping it opens the app, where 關於 downloads it. Only
  * `update.json` is fetched; nothing of the ledger is read or sent.
  *
- * It follows 自動檢查新版本 in 關於 (`updateChecks` in preferences.json, which
+ * It follows 自動檢查新版本 in 關於 (`updateChecks` in background.json, which
  * only the app writes) and does nothing in a build made by hand, whose
  * version code is 1 (lib/src/features/settings/model/app_update.dart).
  */
@@ -40,9 +40,9 @@ class UpdateWorker(context: Context, params: WorkerParameters) : Worker(context,
 
     private fun look() {
         val context = applicationContext
-        val preferences = File(context.filesDir, AppFiles.PREFERENCES)
+        val settings = File(context.filesDir, AppFiles.BACKGROUND)
         val on = try {
-            !preferences.exists() || JSONObject(preferences.readText()).optBoolean("updateChecks", true)
+            !settings.exists() || JSONObject(settings.readText()).optBoolean("updateChecks", true)
         } catch (e: Exception) {
             true
         }

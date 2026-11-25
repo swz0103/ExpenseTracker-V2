@@ -252,6 +252,10 @@ final class HomeWidget {
   final File _file;
   final Preferences _preferences;
 
+  /// What the widget shows, the one setting it reads: a backup noted, or
+  /// a theme chosen, writes nothing.
+  late final _figures = _preferences.watch(const {PreferenceTopic.homeWidget});
+
   /// Tells the widget to read the file again.
   final Future<void> Function() _refresh;
 
@@ -269,14 +273,14 @@ final class HomeWidget {
   void follow(WidgetBook book) {
     _book = book;
     book.addListener(_soon);
-    _preferences.addListener(_soon);
+    _figures.addListener(_soon);
     unawaited(update());
   }
 
   void stop() {
     _timer?.cancel();
     _book?.removeListener(_soon);
-    _preferences.removeListener(_soon);
+    _figures.removeListener(_soon);
     _book = null;
   }
 

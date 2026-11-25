@@ -38,7 +38,7 @@ final class AndroidUpdatePort implements UpdatePort {
       );
       // The status first: a failure's body is not read at all.
       if (response.statusCode != 200) {
-        throw HttpException('GitHub answered ${response.statusCode}');
+        throw HttpRefused(response.statusCode);
       }
       return await BoundedHttps.text(
         response,
@@ -73,7 +73,7 @@ final class AndroidUpdatePort implements UpdatePort {
         wait: const Duration(seconds: 30),
       );
       if (response.statusCode != 200) {
-        throw HttpException('GitHub answered ${response.statusCode}');
+        throw HttpRefused(response.statusCode);
       }
       // A download that stops arriving for a minute is given up on.
       await BoundedHttps.save(

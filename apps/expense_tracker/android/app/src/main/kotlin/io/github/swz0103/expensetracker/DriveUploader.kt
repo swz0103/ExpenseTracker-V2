@@ -122,7 +122,9 @@ internal class DriveUploader(
                     )
                     continue
                 }
-                if (status !in 200..299 && status !in also) throw Refused(status, "$status ${reason(body)}")
+                // Drive's own sentence can name the account or a file: the
+                // status alone goes on (review 33).
+                if (status !in 200..299 && status !in also) throw Refused(status, "HTTP $status")
                 return Response(
                     status,
                     connection.getHeaderField("Location"),
@@ -137,12 +139,6 @@ internal class DriveUploader(
     }
 
     class NotAllowed : IOException("Google Drive access was not given.")
-
-    private fun reason(body: String): String = try {
-        JSONObject(body).optJSONObject("error")?.optString("message") ?: ""
-    } catch (e: Exception) {
-        ""
-    }
 
     private fun encode(text: String) = URLEncoder.encode(text, "UTF-8")
 

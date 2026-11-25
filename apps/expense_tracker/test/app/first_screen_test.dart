@@ -4,6 +4,7 @@ import 'package:expense_tracker/src/app/first_screen.dart';
 import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
+import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,8 +36,17 @@ void main() {
       keepLog: (f) => did.add('log ${f.path}'),
       device: (_) async => step<DeviceUnlock?>('device', null),
       privacy: (_) async => step('privacy', null),
-      compose: (f, device, privacy) =>
-          step('compose', Text('app device=$device privacy=$privacy')),
+      preferences: (_) async => step(
+        'preferences',
+        Preferences()..update(appearance: Appearance.dark),
+      ),
+      compose: (f, device, privacy, preferences) => step(
+        'compose',
+        Text(
+          'app device=$device privacy=$privacy '
+          'look=${preferences.appearance.name}',
+        ),
+      ),
       started: (f) => did.add('started ${f.path}'),
     );
   }
@@ -49,12 +59,13 @@ void main() {
 
   test('all well: each step once, in order, then the app', () async {
     final screen = await start(steps());
-    expect((screen as Text).data, 'app device=null privacy=null');
+    expect((screen as Text).data, 'app device=null privacy=null look=dark');
     expect(did, [
       'folder',
       'log /data/user/0/app/files',
       'device',
       'privacy',
+      'preferences',
       'compose',
       'started /data/user/0/app/files',
     ]);
@@ -100,7 +111,7 @@ void main() {
   test('the fingerprint cannot be asked about: noted, and the app starts '
       'without it', () async {
     final screen = await start(steps(fail: {'device'}));
-    expect((screen as Text).data, 'app device=null privacy=null');
+    expect((screen as Text).data, 'app device=null privacy=null look=dark');
     expect(newest(), '啟動：生物辨識解鎖：StateError: Bad state: device broke');
     expect(did.last, 'started /data/user/0/app/files');
   });
@@ -108,12 +119,20 @@ void main() {
   test('the screen privacy cannot be set: noted, and the app starts '
       'without it', () async {
     final screen = await start(steps(fail: {'privacy'}));
-    expect((screen as Text).data, 'app device=null privacy=null');
+    expect((screen as Text).data, 'app device=null privacy=null look=dark');
     expect(newest(), '螢幕隱私：StateError: Bad state: privacy broke');
     expect(did.last, 'started /data/user/0/app/files');
   });
 
-  test('the app cannot be put together: the failure page, and nothing '
+  test('the settings cannot be opened: noted, and the app starts with the '
+      'defaults', () async {
+    final screen = await start(steps(fail: {'preferences'}));
+    expect((screen as Text).data, 'app device=null privacy=null look=system');
+    expect(newest(), '讀取設定：StateError: Bad state: preferences broke');
+    expect(did.last, 'started /data/user/0/app/files');
+  });
+
+  test('the app cannot be put together: the failure page, and nothing'
       'started beside it', () async {
     final screen = await start(steps(fail: {'compose'}));
     expect(screen, isA<StartFailedApp>());

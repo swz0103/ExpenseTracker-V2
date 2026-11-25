@@ -16,6 +16,8 @@ void main() {
     // Literal: a change here strands every file written under the old name.
     expect(AppFiles.all, {
       'PREFERENCES': 'preferences.json',
+      'PREFERENCES_SEALED': 'preferences.sealed',
+      'BACKGROUND': 'background.json',
       'WIDGET': 'widget.json',
       'RECEIPTS': 'receipts',
       'BACKUPS': 'backups',
@@ -42,9 +44,10 @@ void main() {
       for (final m in RegExp(r'const val (\w+) = "([^"]*)"').allMatches(kotlin))
         m[1]!: m[2]!,
     };
-    // The names the Android side reads or writes itself.
+    // The names the Android side reads or writes itself: not the
+    // settings, only what the app hands the background jobs of them.
     expect(names.keys.toSet(), {
-      'PREFERENCES',
+      'BACKGROUND',
       'WIDGET',
       'OUTBOX',
       'OUTBOX_READY',

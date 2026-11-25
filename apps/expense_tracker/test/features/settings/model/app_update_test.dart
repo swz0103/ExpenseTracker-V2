@@ -237,21 +237,21 @@ void main() {
         expect(await failing(), (
           UpdateFailure.offline,
           '連不上 GitHub，請稍後再試',
-          '檢查更新：SocketException: SocketException: offline',
+          '檢查更新：SocketException',
         ));
         port.fails = TimeoutException('slow');
         expect((await failing()).$1, UpdateFailure.offline);
-        port.fails = const HttpException('GitHub answered 404');
+        port.fails = HttpRefused(404);
         expect(await failing(), (
           UpdateFailure.refused,
           'GitHub 現在沒有提供更新資訊，請稍後再試',
-          '檢查更新：HttpException: HttpException: GitHub answered #',
+          '檢查更新：HttpRefused: HTTP 404',
         ));
         port.fails = const FormatException('odd');
         expect(await failing(), (
           UpdateFailure.checkUnforeseen,
           '檢查更新時發生未預期的錯誤，已記在診斷，請稍後再試',
-          '檢查更新：FormatException: FormatException: odd',
+          '檢查更新：FormatException',
         ));
         port
           ..fails = null
@@ -259,8 +259,7 @@ void main() {
         expect(await failing(), (
           UpdateFailure.unreadableFeed,
           '更新資訊看不懂',
-          '檢查更新：FormatException: FormatException: update.json is not an '
-              'update feed',
+          '檢查更新：_UnreadableFeed: update.json is not an update feed',
         ));
         // Working again, the failure is gone.
         port.info = '{"build":186,"version":"2.0.0","sha256":"$_sha","size":3}';

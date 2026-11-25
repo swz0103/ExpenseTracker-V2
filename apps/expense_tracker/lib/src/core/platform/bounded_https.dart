@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../diagnostics/app_fault.dart';
+
 /// An answer longer than the request allows: a broken or hostile server's,
 /// refused before it fills the phone's memory or storage.
 final class AnswerTooLarge extends HttpException {
@@ -11,6 +13,17 @@ final class AnswerTooLarge extends HttpException {
 
   /// The most the request allowed, in bytes.
   final int limit;
+}
+
+/// A server that answered with [status] where the request wants 200: the
+/// error log keeps the status, never the server's words or the address.
+final class HttpRefused extends HttpException implements AppFault {
+  HttpRefused(this.status) : super('HTTP $status');
+
+  final int status;
+
+  @override
+  String toString() => 'HTTP $status';
 }
 
 /// A redirect the request does not allow: to plain `http`, to a host it

@@ -185,9 +185,11 @@ final class Outbox {
     if (delivered == null) return const [];
     final phone = _delivery(delivered['phone']);
     final folder = _preferences.phoneFolder;
+    // The job notes the folder by its id; an earlier version wrote the folder
+    // itself, read still so a delivery noted then is not sent again.
     if (phone != null &&
         folder != null &&
-        phone.uri == folder &&
+        (phone.folder == _preferences.phoneFolderId || phone.uri == folder) &&
         _newer(phone.at, _preferences.phoneBackedUp)) {
       _preferences.phoneBackup(phone.at, phone.revision);
     }
@@ -216,7 +218,9 @@ final class Outbox {
   /// The newest problem of each place already reported, this run.
   final _seen = <String, int>{};
 
-  ({DateTime at, int revision, String uri})? _delivery(Object? json) {
+  ({DateTime at, int revision, String uri, String? folder})? _delivery(
+    Object? json,
+  ) {
     if (json is! Map<String, Object?>) return null;
     final at = json['at'];
     final revision = json['revision'];
@@ -227,6 +231,7 @@ final class Outbox {
       at: DateTime.fromMillisecondsSinceEpoch(at, isUtc: true),
       revision: revision,
       uri: JsonFields(json).text('uri') ?? '',
+      folder: JsonFields(json).text('folder'),
     );
   }
 

@@ -294,6 +294,10 @@ final class Notifier {
   final NotifyPort port;
   final Preferences preferences;
 
+  /// The reminders chosen, the one part of the settings the plan reads: a
+  /// backup noted in the background, or a theme chosen, plans nothing.
+  late final _chosen = preferences.watch(const {PreferenceTopic.reminders});
+
   ReminderBook? _following;
   CoalescedRun? _run;
 
@@ -306,7 +310,7 @@ final class Notifier {
     _given = null;
     final run = _run = CoalescedRun(sync);
     book.addListener(run.ask);
-    preferences.addListener(run.ask);
+    _chosen.addListener(run.ask);
     unawaited(sync());
   }
 
@@ -315,7 +319,7 @@ final class Notifier {
     if (run != null) {
       run.stop();
       _following?.removeListener(run.ask);
-      preferences.removeListener(run.ask);
+      _chosen.removeListener(run.ask);
     }
     _run = null;
     _following = null;

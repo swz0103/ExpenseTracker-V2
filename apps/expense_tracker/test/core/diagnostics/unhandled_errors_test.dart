@@ -65,10 +65,7 @@ void main() {
       );
       // False: not swallowed here, so Flutter reports it as unhandled.
       expect(handled, isFalse);
-      expect(
-        log.entries.single.$2,
-        '未預期的錯誤：FormatException: FormatException: x',
-      );
+      expect(log.entries.single.$2, '未預期的錯誤：FormatException');
       expect(told, isEmpty);
     });
   });
@@ -134,13 +131,13 @@ void main() {
           throw StateError('no screen');
         },
       );
-      handler.onPlatformError(const FormatException('a'), StackTrace.empty);
-      handler.onPlatformError(const FormatException('b'), StackTrace.empty);
+      handler.onPlatformError(ArgumentError('a'), StackTrace.empty);
+      handler.onPlatformError(ArgumentError('b'), StackTrace.empty);
       expect(asked, 1);
       expect(log.entries.map((e) => e.$2), [
-        '未預期的錯誤：FormatException: FormatException: b',
+        '未預期的錯誤：ArgumentError: Invalid argument(s): b',
         '未預期的錯誤：StateError: Bad state: no screen',
-        '未預期的錯誤：FormatException: FormatException: a',
+        '未預期的錯誤：ArgumentError: Invalid argument(s): a',
       ]);
     });
 

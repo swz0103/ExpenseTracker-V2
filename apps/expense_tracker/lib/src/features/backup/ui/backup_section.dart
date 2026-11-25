@@ -241,7 +241,16 @@ class _BackupSectionState extends State<BackupSection> {
     final phone = widget.phone;
     final preferences = widget.preferences;
     return ListenableBuilder(
-      listenable: Listenable.merge([?drive, ?phone, ?preferences]),
+      // What the cards show of the folder and Drive is kept in the
+      // settings: those two parts of them.
+      listenable: Listenable.merge([
+        ?drive,
+        ?phone,
+        ?preferences?.watch(const {
+          PreferenceTopic.phoneBackup,
+          PreferenceTopic.driveBackup,
+        }),
+      ]),
       builder: (context, _) {
         final folder = phone?.on ?? false;
         return Column(

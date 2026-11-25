@@ -22,6 +22,7 @@ import '../core/design_system/app_mark.dart';
 import '../../design_system/display/date.dart';
 import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
+import '../core/platform/preferences.dart';
 
 /// 關於: the main card says the version and how it stands against the
 /// newest (已是最新, 有新版 with 更新, or the download with its bar); two
@@ -139,7 +140,10 @@ class AboutSection extends StatelessWidget {
     final update = services.update;
     final preferences = services.preferences;
     return ListenableBuilder(
-      listenable: Listenable.merge([?update, ?preferences]),
+      listenable: Listenable.merge([
+        ?update,
+        ?preferences?.watch(const {PreferenceTopic.updates}),
+      ]),
       builder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

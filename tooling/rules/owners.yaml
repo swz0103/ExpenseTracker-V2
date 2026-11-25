@@ -697,7 +697,10 @@ items:
       - apps/expense_tracker/lib/src/core/platform/preferences.dart
     target: apps/expense_tracker/lib/app/settings/
     status: scattered
-    plan: "PRIV/3.3b: preferences split by topic with async coalesced writes; each feature owns its state file (review 32, 1.3 and 3.4)."
+    plan: "Left of 3.4: each feature owns its state file (drive_sync, phone_backup, reminder_alerts, app_update); PRIV-1 sealed the private part and split the topics (review 32)."
+    guard:
+      - apps/expense_tracker/test/core/platform/preferences_test.dart
+      - apps/expense_tracker/test/rules/preference_listeners_test.dart
   # The log (what is kept of an error: the redaction rule, the stack and
   # its limits, batching, rotation), the one handler of faults nobody
   # caught, and the names quiet failures are kept under.

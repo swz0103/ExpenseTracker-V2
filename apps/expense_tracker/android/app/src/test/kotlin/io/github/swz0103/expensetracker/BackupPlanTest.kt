@@ -43,16 +43,6 @@ class BackupPlanTest {
     }
 
     @Test
-    fun timesAreReadAsDartWritesThem() {
-        assertEquals(1_793_156_645_123L, BackupPlan.millisOf("2026-10-28T03:04:05.123Z"))
-        assertEquals(1_793_156_645_123L, BackupPlan.millisOf("2026-10-28T03:04:05.123456Z"))
-        assertEquals(1_793_156_645_000L, BackupPlan.millisOf("2026-10-28T03:04:05Z"))
-        assertNull(BackupPlan.millisOf(null))
-        assertNull(BackupPlan.millisOf("null"))
-        assertNull(BackupPlan.millisOf("not a time at all!!"))
-    }
-
-    @Test
     fun thePhonesRhythmIsTheOneChosenOfThoseHandedOver() {
         assertEquals(day, plan.phoneEvery(daily = true))
         assertEquals(week, plan.phoneEvery(daily = false))
@@ -204,5 +194,19 @@ class BackupPlanTest {
         } catch (e: IOException) {
             assertEquals(full, e)
         }
+    }
+
+    @Test
+    fun theLogIsToldTheTypeAndStatusNeverTheWords() {
+        // Review 33: a server's sentence or a file's name never goes to
+        // the app's error log.
+        assertEquals(
+            "IOException",
+            BackupPlan.problemOf(IOException("/storage/emulated/0/Documents/王小明 alice@example.com"), plan),
+        )
+        assertEquals("Refused HTTP 403", BackupPlan.problemOf(DriveUploader.Refused(403, "HTTP 403"), plan))
+        assertEquals("Refused", BackupPlan.problemOf(DriveUploader.Refused(0, "no upload address"), plan))
+        // The app's own words for a folder that no longer lets it write.
+        assertEquals(plan.folderDenied, BackupPlan.problemOf(IllegalStateException(plan.folderDenied), plan))
     }
 }

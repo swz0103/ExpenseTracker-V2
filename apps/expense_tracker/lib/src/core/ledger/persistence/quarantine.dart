@@ -1,3 +1,5 @@
+import '../../diagnostics/app_fault.dart';
+
 /// Why a row of the book was set aside as it opened.
 enum QuarantineReason {
   /// Not JSON, or not a record's shape at all.
@@ -85,7 +87,7 @@ final class Quarantine {
 
 /// A change would have written over, or dropped, a row set aside; the
 /// whole change is refused instead.
-final class RowSetAside implements Exception {
+final class RowSetAside implements AppFault {
   const RowSetAside(this.shelf);
 
   final String shelf;

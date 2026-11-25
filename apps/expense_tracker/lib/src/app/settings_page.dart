@@ -19,6 +19,7 @@ import 'settings_search.dart';
 import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
 import '../core/time/app_clock.dart';
+import '../core/platform/preferences.dart';
 
 /// 設定與資料: a search box for any setting by name, the main card saying
 /// when the ledger was last backed up and which ways are on (gold after
@@ -57,7 +58,16 @@ class SettingsPage extends StatelessWidget {
           Topic.budgets,
           Topic.recurring,
         }),
-        ?preferences,
+        // The cards say the look chosen, the reminders on, how the backups
+        // stand; 外觀與操作 says the widget's figures and the discount.
+        ?preferences?.watch(const {
+          PreferenceTopic.look,
+          PreferenceTopic.reminders,
+          PreferenceTopic.phoneBackup,
+          PreferenceTopic.driveBackup,
+          PreferenceTopic.homeWidget,
+          PreferenceTopic.trading,
+        }),
         ?services.drive,
         ?services.phone,
       ]),
