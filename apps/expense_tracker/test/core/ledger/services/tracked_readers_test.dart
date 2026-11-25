@@ -73,6 +73,7 @@ void main() {
       'firstDate': (r) => r.firstDate,
       'refundedTotal': (r) => r.refundedTotal('lunch'),
       'ofHolding': (r) => r.ofHolding('2330'),
+      'holdingCodes': (r) => r.holdingCodes.toList(),
     };
     for (final MapEntry(:key, value: read) in reads.entries) {
       final (topics, answer) = traced(
@@ -129,6 +130,7 @@ void main() {
       'everByCode': (r) => r.everByCode('2330')?.shares,
       'reshapedBy': (r) => r.reshapedBy('2330', day),
       'holdsWith': (r) => r.holdsWith([buy]),
+      'holdsWithKept': (r) => r.holdsWithKept(const []),
       'marketValue': (r) => r.marketValue,
       'costBasis': (r) => r.costBasis,
       'dayChange': (r) => r.dayChange,
