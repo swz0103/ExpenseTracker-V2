@@ -9,6 +9,7 @@ import 'package:core/money/amount_format.dart';
 import 'package:core/percent/percent.dart';
 
 import '../../src/core/formatting/words.dart';
+import '../../src/core/ledger/models/fixed_point.dart' show rateScale;
 
 export 'package:core/money/amount_format.dart' show groupDigits;
 export 'package:core/percent/percent.dart' show divideRounded, isOver, percent;
@@ -152,6 +153,15 @@ String priceTick(double price) => fixedDecimals(price, price < 100 ? 1 : 0);
 String countTick(int count) => count >= 1000
     ? '${figures(divideRounded(count, 100), 1, grouped: false)}k'
     : '$count';
+
+/// An exchange rate as quoted, to the steps a rate is kept in
+/// ([rateScale]), trailing zeros trimmed and not grouped: `32` for 32.0,
+/// `32.155`, `0.2105` (D118). Every rate shown is written by it.
+String exchangeRate(double rate) =>
+    trimmedDecimals(rate, _rateDecimals, grouped: false);
+
+/// The decimals of a step of [rateScale]: 6 for 1/1,000,000.
+final _rateDecimals = '$rateScale'.length - 1;
 
 /// A share price as typed into a field: `128.5`, `194.35`, `600`.
 String plainPrice(double price) => trimmedDecimals(price, 2, grouped: false);
