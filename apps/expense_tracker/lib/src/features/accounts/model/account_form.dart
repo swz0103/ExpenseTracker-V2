@@ -175,8 +175,9 @@ final class AccountForm {
   bool get loan => kind == AccountKind.loan;
 
   /// Why the account cannot be saved yet; null when it can: the ledger's
-  /// write rules, which the save asks again (a loan's rate below nothing
-  /// among them, D116), then the credit limit as typed.
+  /// write rules, which the save asks again (a loan's rate below nothing,
+  /// D116, or above 100%, D118, among them), then the rate, credit limit
+  /// and discount as typed.
   String? get problem {
     final account = build();
     final found = accountIssues(
@@ -184,13 +185,27 @@ final class AccountForm {
       closingDay: account.closingDay,
       dueDay: account.dueDay,
       limit: account.limit,
-      // As typed, with its sign: 「-2」 is refused, not kept as no rate.
-      loanRate: loan ? signedRateOf(rate) : null,
+      // As typed, with its sign and past 100%: 「-2」 and 「120」 are
+      // refused, not kept as no rate.
+      loanRate: switch (_rateRead) {
+        RateRead(:final hundredths) => hundredths,
+        _ => null,
+      },
     );
     return found.isEmpty
-        ? limitProblem ?? discountProblem
+        ? rateProblem ?? limitProblem ?? discountProblem
         : validationMessage(found.first);
   }
+
+  /// The loan's rate as typed; null when left empty or not a loan.
+  RateReading? get _rateRead =>
+      loan && rate.trim().isNotEmpty ? readRate(rate) : null;
+
+  /// What is wrong with the loan's rate as typed when it is no number:
+  /// 「abc」 is said so rather than kept as no rate (D118). Null when it
+  /// is a number or left empty.
+  String? get rateProblem =>
+      _rateRead is RateUnreadable ? loanRateUnreadable : null;
 
   /// What is wrong with the card's credit limit as typed: 80,000 and
   /// 80000.0 are 80,000, but 8萬 or 1.234,5 is not a limit, and is said

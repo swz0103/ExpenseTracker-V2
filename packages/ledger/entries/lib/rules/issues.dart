@@ -269,6 +269,14 @@ final class NegativeLoanRate extends RecordIssue {
   const NegativeLoanRate();
 }
 
+/// A loan's yearly rate above [max] hundredths of a percent, taken for a
+/// typo (D118).
+final class LoanRateTooHigh extends RecordIssue {
+  const LoanRateTooHigh(this.max);
+
+  final int max;
+}
+
 /// A statement close moved where the card's schedule cannot hold it:
 /// more than a week from its scheduled day, or not before its payment.
 final class CloseMoveRefused extends RecordIssue {

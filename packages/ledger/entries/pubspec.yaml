@@ -7,6 +7,8 @@ environment:
 dependencies:
   core:
     path: ../../core
+  ledger_loans:
+    path: ../loans
   ledger_trade_costs:
     path: ../trade_costs
 dev_dependencies:

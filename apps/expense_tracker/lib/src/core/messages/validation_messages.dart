@@ -1,6 +1,12 @@
+import 'package:ledger_loans/model/rate.dart' show rateText;
+
 import '../ledger/ledger.dart';
 import '../../../design_system/display/amount.dart';
 import '../formatting/words.dart';
+
+/// What a loan's form says when its rate as typed is no number, rather
+/// than keep it as no rate (D118).
+const loanRateUnreadable = '利率要填數字，例如 2.15';
 
 /// What the person is told when the ledger will not keep a record, or
 /// warns before keeping it: every reason's words, in one place.
@@ -50,6 +56,7 @@ String validationMessage(RecordIssue issue) => switch (issue) {
   DueDayOutOfRange() => '繳款日要在 1 到 31 日之間',
   NegativeCreditLimit() => '信用額度不能是負數',
   NegativeLoanRate() => '利率不能是負數',
+  LoanRateTooHigh(:final max) => '利率不能超過 ${rateText(max)}%，請確認是否打錯',
   CloseMoveRefused() => '結帳日只能前後調整 7 天內，而且要在繳款日之前',
   NegativeBudgetLimit() => '預算額度不能是負數',
   WarningOutOfRange() => '提醒比例要在 1% 到 100% 之間',

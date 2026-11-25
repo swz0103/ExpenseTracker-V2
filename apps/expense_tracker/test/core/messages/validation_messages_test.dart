@@ -54,6 +54,8 @@ void main() {
     const DueDayOutOfRange(): '繳款日要在 1 到 31 日之間',
     const NegativeCreditLimit(): '信用額度不能是負數',
     const NegativeLoanRate(): '利率不能是負數',
+    // 10000 hundredths of a percent is 100%.
+    const LoanRateTooHigh(10000): '利率不能超過 100%，請確認是否打錯',
     const CloseMoveRefused(): '結帳日只能前後調整 7 天內，而且要在繳款日之前',
     const NegativeBudgetLimit(): '預算額度不能是負數',
     const WarningOutOfRange(): '提醒比例要在 1% 到 100% 之間',

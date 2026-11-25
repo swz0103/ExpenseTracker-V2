@@ -108,6 +108,18 @@ void main() {
       expect(accountIssues(loanRate: 0), isEmpty);
       expect(accountShapeIssues(loanRate: 215), isEmpty);
     });
+    test('D118: a loan rate above 100% is taken for a typo and refused, '
+        'written or read back; 100% itself is kept', () {
+      // 100% is 10000 hundredths of a percent; 100.01% is 10001.
+      expect(_types(accountIssues(loanRate: 10001)), [LoanRateTooHigh]);
+      expect(_types(accountShapeIssues(loanRate: 12000)), [LoanRateTooHigh]);
+      expect(
+        accountShapeIssues(loanRate: 10001).single,
+        isA<LoanRateTooHigh>().having((i) => i.max, 'max', 10000),
+      );
+      expect(accountIssues(loanRate: 10000), isEmpty);
+      expect(accountShapeIssues(loanRate: 10000), isEmpty);
+    });
     test('read back, the name is not asked for', () {
       expect(accountShapeIssues(), isEmpty);
       expect(_types(accountShapeIssues(closingDay: 0)), [ClosingDayOutOfRange]);

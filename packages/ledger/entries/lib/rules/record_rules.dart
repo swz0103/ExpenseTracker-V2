@@ -1,3 +1,5 @@
+import 'package:ledger_loans/model/rate.dart' show maxLoanRate;
+
 import 'entry_rules.dart' show maxAmountAnyCurrency;
 import 'issues.dart';
 
@@ -37,7 +39,7 @@ List<RecordIssue> recurringShapeIssues({
 
 /// Why an account of these fields cannot be kept: no name, a card's days
 /// outside the month, a credit limit or a loan's [loanRate] below
-/// nothing. A form that does not ask for the name passes none.
+/// nothing, a loan's rate above 100%. A form that does not ask for the name passes none.
 List<RecordIssue> accountIssues({
   String? name,
   int? closingDay,
@@ -58,7 +60,7 @@ List<RecordIssue> accountIssues({
 /// elsewhere must be. Its [opening] balance, when given, may be below
 /// nothing (a debt), but no further from it than the most kept. A loan's
 /// [loanRate] (hundredths of a percent a year) is never below nothing
-/// (D116).
+/// (D116) nor above [maxLoanRate], which is taken for a typo (D118).
 List<RecordIssue> accountShapeIssues({
   int? closingDay,
   int? dueDay,
@@ -71,6 +73,8 @@ List<RecordIssue> accountShapeIssues({
   if (dueDay != null && (dueDay < 1 || dueDay > 31)) const DueDayOutOfRange(),
   if (limit != null && limit < 0) const NegativeCreditLimit(),
   if (loanRate != null && loanRate < 0) const NegativeLoanRate(),
+  if (loanRate != null && loanRate > maxLoanRate)
+    const LoanRateTooHigh(maxLoanRate),
   if ((limit != null && limit > maxAmountAnyCurrency) ||
       (opening != null && opening.abs() > maxAmountAnyCurrency))
     AmountTooLarge(maxAmountAnyCurrency),
