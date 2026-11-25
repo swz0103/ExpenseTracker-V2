@@ -314,7 +314,7 @@ void main() {
   group('the whole journal posted afresh apart', () {
     /// Two parts of a book: what the second has moves the first's money.
     Future<PostedApart<int>> work(
-      List<KeptRow> rows,
+      ReadKept rows,
       void Function(FreshPostingStore part) add,
     ) async {
       final one = FreshPostingStore()
@@ -330,7 +330,7 @@ void main() {
       add(one);
       add(two);
       return (
-        result: rows.length,
+        result: rows(const ['account', 'category', 'entry']).length,
         accounts: const [
           LedgerAccount(
             id: bank,
@@ -344,7 +344,7 @@ void main() {
     }
 
     Future<PostedApart<int>> fails(
-      List<KeptRow> rows,
+      ReadKept rows,
       void Function(FreshPostingStore part) add,
     ) async {
       add(FreshPostingStore());

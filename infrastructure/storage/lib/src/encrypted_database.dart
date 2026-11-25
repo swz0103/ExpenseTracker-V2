@@ -618,10 +618,11 @@ final class EncryptedDatabase {
       (store) async => store.write(changes, counts: counts);
 
   /// Posts the whole journal afresh on a worker isolate through this same
-  /// connection, as [writeApart] writes records. [work] is given every
-  /// account, category and entry kept (shelf, id, place, body, in the
-  /// order kept) and posts them in memory, in parts it hands to `add` as
-  /// each is done, written there and then while the rest is posted; it
+  /// connection, as [writeApart] writes records. [work] is given the
+  /// records kept, to read shelf by shelf as it needs them
+  /// ([ApartStore.kept]: shelf, id, place, body, in the order kept, a
+  /// page at a time) and posts them in memory, in parts it hands to `add`
+  /// as each is done, written there and then while the rest is posted; it
   /// answers the account tree with its result. All of it is one
   /// transaction, [mark] last in it ([SqlPostingStore.begin]), so a
   /// journal posted only in part is never taken for the records' own.
@@ -630,7 +631,7 @@ final class EncryptedDatabase {
   /// never this store.
   Future<T> postApart<T>(
     Future<PostedApart<T>> Function(
-      List<KeptRow> rows,
+      ReadKept rows,
       void Function(FreshPostingStore part) add,
     )
     work, {
@@ -641,16 +642,13 @@ final class EncryptedDatabase {
   /// carries [work] and [mark], never `this`.
   static Future<T> Function(ApartStore) _posting<T>(
     Future<PostedApart<T>> Function(
-      List<KeptRow> rows,
+      ReadKept rows,
       void Function(FreshPostingStore part) add,
     )
     work,
     JournalMark mark,
   ) =>
-      (store) => store.post(
-        (add) => work(store.kept(const ['account', 'category', 'entry']), add),
-        mark: mark,
-      );
+      (store) => store.post((add) => work(store.kept, add), mark: mark);
 
   /// Runs [work] on a worker isolate with this same connection
   /// ([ApartStore]): what it reads, writes and posts there, in as many
@@ -902,6 +900,13 @@ final class EncryptedDatabase {
   static const _notADatabase = 26;
 }
 
+/// How the work of posting afresh reads the records kept
+/// ([ApartStore.kept]): those on the shelves it names, in the order kept.
+typedef ReadKept = Iterable<KeptRow> Function(List<String> shelves);
+
+/// How many rows [ApartStore.kept] reads at a time.
+const keptPage = 1000;
+
 /// The store as work apart ([EncryptedDatabase.workApart]) has it, on its
 /// worker: the same connection, and nothing else using it meanwhile.
 final class ApartStore {
@@ -916,20 +921,35 @@ final class ApartStore {
   /// one read finds them.
   StoreSnapshot read() => EncryptedDatabase._snapshot(_db);
 
-  /// The records on [shelves], in the order kept.
-  List<KeptRow> kept(List<String> shelves) => [
-    for (final r in _db.select(
-      'SELECT shelf, id, seq, body FROM rows WHERE shelf IN '
-      '(${List.filled(shelves.length, '?').join(', ')}) ORDER BY seq',
-      shelves,
-    ))
-      (
-        shelf: r['shelf'] as String,
-        id: r['id'] as String,
-        seq: r['seq'] as int,
-        body: r['body'] as String,
-      ),
-  ];
+  /// The records on [shelves], in the order kept, read [page] rows at a
+  /// time as they are gone through: what reads each body as it comes and
+  /// lets it go keeps only a page of them alive. Read all at once, the
+  /// bodies of 100,000 entries were all kept alive while they were read,
+  /// and each collection of the worker's young objects (shared with the
+  /// screen's isolate, one isolate group) copied them, holding the screen
+  /// still. Gone through within one transaction ([post]), every page is
+  /// of the same records.
+  Iterable<KeptRow> kept(List<String> shelves, {int page = keptPage}) sync* {
+    final query =
+        'SELECT shelf, id, seq, body FROM rows WHERE shelf IN '
+        '(${List.filled(shelves.length, '?').join(', ')}) AND seq > ? '
+        'ORDER BY seq LIMIT ?';
+    // Every place is above 0 (AUTOINCREMENT, and a row put back takes a
+    // place one had).
+    for (var after = 0; ;) {
+      final rows = _db.select(query, [...shelves, after, page]);
+      for (final r in rows) {
+        yield (
+          shelf: r['shelf'] as String,
+          id: r['id'] as String,
+          seq: r['seq'] as int,
+          body: r['body'] as String,
+        );
+      }
+      if (rows.length < page) return;
+      after = rows.last['seq'] as int;
+    }
+  }
 
   /// `ok` when SQLite and SQLCipher find no damage, as
   /// [EncryptedDatabase.integrityCheck], read on the worker.

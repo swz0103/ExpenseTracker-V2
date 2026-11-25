@@ -195,6 +195,22 @@ void main() {
     store.close();
   });
 
+  test('a worker reads the records of some shelves a page at a time, in the '
+      'order kept (PERF-3)', () async {
+    final store = open()
+      ..write((w) {
+        for (var i = 0; i < 5; i++) {
+          w.put('entry', 'e$i', '$i');
+          if (i.isEven) w.put('trash', 't$i', '-');
+        }
+        w.put('category', 'c', 'c');
+      });
+    expect(keptPage, 1000);
+    // Pages of two: e0 e1 | e2 e3 | e4 c (the trash left out), then none.
+    expect(await store.workApart(_keptInTwos), 'e0 e1 e2 e3 e4 c; 6');
+    store.close();
+  });
+
   test('the page size is set as the file is opened, the one cutShort counts '
       'in', () {
     expect(EncryptedDatabase.pageSize, 4096);
@@ -909,3 +925,13 @@ Future<({int? book, int layout})> _versions(StoreSnapshot s) async =>
 
 /// The integrity check, run on the worker of a work apart.
 Future<String> _integrity(ApartStore store) async => store.integrityCheck();
+
+Future<String> _keptInTwos(ApartStore store) async {
+  final rows = store.kept(const ['entry', 'category'], page: 2).toList();
+  final seqs = [for (final r in rows) r.seq];
+  // Each place after the one before: in the order kept.
+  for (var i = 1; i < seqs.length; i++) {
+    if (seqs[i] <= seqs[i - 1]) return 'out of order';
+  }
+  return '${[for (final r in rows) r.id].join(' ')}; ${rows.length}';
+}

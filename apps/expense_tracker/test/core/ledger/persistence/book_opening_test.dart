@@ -77,6 +77,21 @@ void main() {
     final onlyTail = decodeBook(shelves, today: today, entryTail: tail);
     expect(onlyTail.entries.map((e) => e.id), ['a', 'b', 'c']);
     expect(onlyTail.aside.map((r) => r.key), order);
+    // The entries' rows handed over as they are read, a page at a time
+    // (PERF-3): each gone through once, read as the others.
+    var read = 0;
+    final streamed = decodeBook(
+      shelvesOf(rows.where((r) => r.shelf != 'entry')),
+      today: today,
+      entryRows: entryRows.map((r) {
+        read++;
+        return r;
+      }),
+    );
+    expect(read, 5);
+    expect(streamed.entries.map((e) => e.id), ['a', 'b', 'c']);
+    expect(streamed.entryPlaces, [1, 3, 5]);
+    expect(streamed.aside.map((r) => r.key), order);
   });
 
   test('a _v that is no version sets its row aside (F1)', () {
