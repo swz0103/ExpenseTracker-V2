@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/diagnostics/error_steps.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
@@ -60,7 +61,7 @@ class ReceiptSquare extends StatelessWidget {
       final name = await photos.take(camera: camera);
       if (name != null) onTaken(name);
     } on Object catch (error) {
-      ErrorLog.instance.record('收據照片', error);
+      ErrorLog.instance.record(ErrorSteps.receiptPhoto, error);
       onFailed(camera: camera);
     }
   }

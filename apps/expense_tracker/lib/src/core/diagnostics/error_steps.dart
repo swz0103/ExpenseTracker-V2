@@ -26,6 +26,9 @@ abstract final class ErrorSteps {
   /// A form put aside (暫存) could not be read back.
   static const draft = '暫存的表單';
 
+  /// A receipt photo could not be taken, taken back or kept.
+  static const receiptPhoto = '收據照片';
+
   /// The phone's copy of the market's day lists could not be read or
   /// written: the network is asked instead.
   static const marketCache = '行情快取';

@@ -8,6 +8,7 @@ import 'package:vault/backup_security.dart';
 import '../../features/entries/model/receipt_photos.dart';
 import 'platform_channel.dart';
 import '../../core/diagnostics/error_log.dart';
+import '../../core/diagnostics/error_steps.dart';
 import '../../core/messages/problem_messages.dart' show QuietStep;
 import '../../core/platform/errands.dart';
 import '../../core/time/app_clock.dart';
@@ -44,7 +45,7 @@ final class AndroidReceipts implements ReceiptPhotos {
         await platformChannel.invokeMethod<String>('takeLeftoverPhoto'),
       );
     } on Object catch (error) {
-      ErrorLog.instance.record('收據照片', error);
+      ErrorLog.instance.record(ErrorSteps.receiptPhoto, error);
       failed(QuietStep.leftoverPhoto);
       return null;
     }
