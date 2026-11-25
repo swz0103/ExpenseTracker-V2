@@ -520,6 +520,45 @@ void main() {
     expect(store.rows().last.id, 'e');
   });
 
+  test('a record taken away and put back at its place stands there again '
+      '(D119)', () {
+    final store = open();
+    store.write((w) {
+      w.put('budget', 'a', '1');
+      w.put('budget', 'b', '2');
+      w.put('budget', 'c', '3');
+    });
+    final place = store.row('budget', 'b')!.seq;
+    store.write((w) => w.drop('budget', 'b'));
+    store.write((w) => w.putAt('budget', 'b', 'back', place));
+    expect(
+      [for (final r in store.rows(shelf: 'budget')) (r.id, r.body)],
+      [('a', '1'), ('b', 'back'), ('c', '3')],
+    );
+    expect(store.row('budget', 'b')!.seq, place);
+    // Already kept: changed where it stands, as put does.
+    final c = store.row('budget', 'c')!.seq;
+    store.write((w) => w.putAt('budget', 'c', 'changed', place));
+    expect(store.row('budget', 'c')!.seq, c);
+    expect(store.row('budget', 'c')!.body, 'changed');
+    // A place another record holds: kept as new, last.
+    store.write((w) => w.apply(const RowChange.putAt('budget', 'd', '4', 1)));
+    expect(store.rows().last.id, 'd');
+    expect(store.rows().first.id, 'a');
+  });
+
+  test('a change put at a place, sent apart, stands there (D119)', () async {
+    final store = open();
+    store.write((w) {
+      w.put('recurring', 'a', '1');
+      w.put('recurring', 'b', '2');
+    });
+    final place = store.row('recurring', 'a')!.seq;
+    store.write((w) => w.drop('recurring', 'a'));
+    await store.writeApart([RowChange.putAt('recurring', 'a', 'back', place)]);
+    expect([for (final r in store.rows()) r.id], ['a', 'b']);
+  });
+
   test('a write that throws keeps nothing', () {
     final store = open();
     expect(

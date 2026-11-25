@@ -243,7 +243,7 @@ final class CategoryCommands {
         if (c.name == from || c.parent == from) c,
     ]);
     _context.changed(Topic.all);
-    _context.keep(unit.batch);
+    _context.keep(unit.putBack);
   }
 }
 

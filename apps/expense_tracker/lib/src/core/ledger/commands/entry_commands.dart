@@ -786,7 +786,7 @@ final class EntryCommands {
     unit.registerAllDirty(_entries.changeAll(book.back));
     unit.registerAllDirty(_trash.changeEntries(trash.back));
     _told.changed(Topic.all);
-    _context.keep(unit.batch);
+    _context.keep(unit.putBack);
   }
 
   /// Renames or merges a merchant across every entry, and the recurring

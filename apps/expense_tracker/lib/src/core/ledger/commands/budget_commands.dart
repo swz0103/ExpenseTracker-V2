@@ -49,7 +49,7 @@ final class BudgetCommands {
     return () {
       _budgets.putAt(index, removed);
       _context.changed(const {Topic.budgets});
-      _context.keep(WriteBatch(budgets: [removed]));
+      _context.keep(WriteBatch(budgets: [removed], putBack: true));
     };
   }
 }

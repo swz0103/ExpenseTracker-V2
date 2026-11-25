@@ -63,6 +63,16 @@ const _noted = {
   Collection.recurring,
 };
 
+/// The collections an undo puts records back into, at the place they
+/// were taken from (D119): an entry comes back from the trash, where it
+/// keeps its place by being moved (D75).
+const _putBackable = {
+  Collection.account,
+  Collection.category,
+  Collection.budget,
+  Collection.recurring,
+};
+
 /// Up to this many rows a book is read and decoded here, on the screen's
 /// isolate, as a small book takes less than a frame; above it, or when
 /// the journal is kept, on a worker ([EncryptedDatabase.workApart]).
@@ -124,6 +134,11 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       _journalDamage.tell = tell;
 
   final _journalDamage = DamageReport();
+
+  /// Where each record taken away this run stood in the order kept, by
+  /// `shelf/id`: put back by an undo ([WriteBatch.putBack]), it goes
+  /// there again (D119), as an entry back from the trash does (D75).
+  final _droppedAt = <String, int>{};
 
   void _journalFault(Object error) {
     if (EncryptedDatabase.damageIn(error)) _journalDamage(error);
@@ -593,6 +608,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       for (final _ in _fill(
         batch,
         put: w.put,
+        putAt: w.putAt,
         move: w.move,
         drop: w.drop,
         after: after,
@@ -622,6 +638,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     for (final _ in _fill(
       batch,
       put: (shelf, id, body) => changes.add(RowChange.put(shelf, id, body)),
+      putAt: (shelf, id, body, seq) =>
+          changes.add(RowChange.putAt(shelf, id, body, seq)),
       move: (from, shelf, id, body) =>
           changes.add(RowChange.move(from, shelf, id, body)),
       drop: (shelf, id) => changes.add(RowChange.drop(shelf, id)),
@@ -647,7 +665,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   /// The rows [batch] puts in place, moves and drops, handed to [put],
   /// [move] and [drop] in the order they are written, a record at a time:
   /// an entry going to the trash, or coming back from it, is moved, so it
-  /// keeps its place among the entries (D75). It yields
+  /// keeps its place among the entries (D75); a record an undo puts back
+  /// goes to [putAt] the place it was taken from (D119). It yields
   /// after each, so a caller may let the screen draw. What to note once
   /// they are kept is added to [after]. [claim] is the writer of a
   /// transaction under way, for the records that named a category by
@@ -655,6 +674,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   Iterable<void> _fill(
     WriteBatch batch, {
     required void Function(String shelf, String id, String body) put,
+    required void Function(String shelf, String id, String body, int seq) putAt,
     required void Function(String from, String shelf, String id, String body)
     move,
     required void Function(String shelf, String id) drop,
@@ -714,7 +734,11 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         Collection.entry when fromTrash.contains(id) => Collection.trash,
         _ => null,
       };
-      if (from == null) {
+      final row = '${collection.name}/$id';
+      final place = batch.putBack ? _droppedAt[row] : null;
+      if (place != null) {
+        putAt(collection.name, id, text(collection, id, json), place);
+      } else if (from == null) {
         put(collection.name, id, text(collection, id, json));
       } else {
         mayChange(from.name, id);
@@ -723,7 +747,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       if (_noted.contains(collection)) {
         drop(_gone, '${collection.name}/$id');
       }
-      after.add(() => _noteNames(collection.name, id, json));
+      after.add(() {
+        _droppedAt.remove(row);
+        _noteNames(collection.name, id, json);
+      });
     }
 
     for (final a in batch.accounts) {
@@ -770,7 +797,16 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         Collection.trash => fromTrash.contains(id),
         _ => false,
       };
-      if (!moved) drop(collection.name, id);
+      if (!moved) {
+        // Where it stood, for an undo to put it back there.
+        final seq = _putBackable.contains(collection)
+            ? _store.row(collection.name, id)?.seq
+            : null;
+        drop(collection.name, id);
+        if (seq != null) {
+          after.add(() => _droppedAt['${collection.name}/$id'] = seq);
+        }
+      }
       if (_noted.contains(collection)) {
         put(_gone, '${collection.name}/$id', jsonEncode({'at': at}));
       }

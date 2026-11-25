@@ -194,7 +194,7 @@ final class AccountCommands {
     return () {
       if (!_accounts.putAt(index, removed)) return;
       _context.changed(Topic.all);
-      _context.keep(WriteBatch(accounts: [removed]));
+      _context.keep(WriteBatch(accounts: [removed], putBack: true));
     };
   }
 

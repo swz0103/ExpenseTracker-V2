@@ -18,7 +18,15 @@ final class WriteBatch {
     this.receipts = const {},
     this.dropped = const [],
     this.drafts = const {},
+    this.putBack = false,
   });
+
+  /// Whether the change is an undo putting back what one just before took
+  /// away (D82): each record it keeps that was taken away this run goes
+  /// back to the place it stood in the order kept, so it stands there
+  /// still once the book is opened again (D119). Anything else taken away
+  /// and kept anew comes last.
+  final bool putBack;
 
   final List<Account> accounts;
   final List<Category> categories;

@@ -154,7 +154,7 @@ final class RecurringCommands {
     return () {
       _recurring.putAt(index, removed);
       _context.changed(const {Topic.recurring});
-      _context.keep(WriteBatch(recurring: [removed]));
+      _context.keep(WriteBatch(recurring: [removed], putBack: true));
     };
   }
 }
