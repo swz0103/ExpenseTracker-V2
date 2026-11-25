@@ -206,15 +206,22 @@ final class Preferences {
     try {
       if (await sealed.exists()) {
         final bytes = await sealed.readAsBytes();
-        final open = await _keystore.unwrap(bytes, _privateContext);
+        List<int> open;
+        try {
+          open = await _keystore.unwrap(bytes, _privateContext);
+        } on Object {
+          // A Keystore busy at the start often opens it a moment later.
+          open = await _keystore.unwrap(bytes, _privateContext);
+        }
         _readPrivate(JsonFields.decode(utf8.decode(open)));
         _privateWritten = _privateText();
       }
     } on Object catch (error, stack) {
       // A key gone (the phone's Keystore reset) leaves what the plain
       // file had, or nothing: the folder is chosen again. The sealed file
-      // stays until something private is kept anew, so a Keystore that
-      // only failed this once opens it at the next start.
+      // stays until the person chooses the account or the folder anew,
+      // so a Keystore that only failed this once opens it at the next
+      // start.
       _sealedUnread = true;
       ErrorLog.instance.record(ErrorSteps.preferencesRead, error, stack);
     }
@@ -449,6 +456,7 @@ final class Preferences {
 
   /// Keeps backups in the folder [uri] named [name], or stops with null.
   void phoneFolderSet(String? uri, {String name = ''}) => _change(() {
+    _privateChosen = true;
     if (uri != _phoneFolder) {
       _phoneFolderId = uri == null ? null : PublicId.generate().value;
     }
@@ -577,8 +585,10 @@ final class Preferences {
   String? _driveAccount;
 
   /// Notes the Google account Drive is linked to; null forgets it.
-  void driveAccountIs(String? account) =>
-      _change(() => _driveAccount = account);
+  void driveAccountIs(String? account) => _change(() {
+    _privateChosen = true;
+    _driveAccount = account;
+  });
 
   /// Notes a backup of the ledger at [revision] kept on Google Drive.
   void driveBackup(DateTime at, int revision) => _change(() {
@@ -641,9 +651,13 @@ final class Preferences {
   /// background file as last written.
   String? _privateWritten;
 
-  /// The sealed file did not open at the start: left as it is while
-  /// nothing private is kept in its place.
+  /// The sealed file did not open at the start: left as it is until the
+  /// person chooses the account or the folder ([_privateChosen]), and then
+  /// written over, a value cleared too, so that it never comes back.
   var _sealedUnread = false;
+
+  /// The account or the folder was chosen (or cleared) since the start.
+  var _privateChosen = false;
   (String, String)? _folderSealed;
   String? _backgroundWritten;
 
@@ -740,9 +754,13 @@ final class Preferences {
     final sealed = _sealedFile!;
     final text = _privateText();
     if (text == _privateWritten) return true;
+    // Nothing chosen since the sealed file did not open: it stays, and
+    // what is private now is kept plain beside it for this turn.
+    if (_sealedUnread && !_privateChosen) return _noPrivate;
     try {
       if (_noPrivate) {
-        if (!_sealedUnread && await sealed.exists()) await sealed.delete();
+        _sealedUnread = false;
+        if (await sealed.exists()) await sealed.delete();
       } else {
         _sealedUnread = false;
         await _replace(
