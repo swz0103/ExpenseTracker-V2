@@ -17,6 +17,9 @@ final class _Port implements UpdatePort {
   /// Holds the download after its first piece until completed.
   Completer<void>? hold;
 
+  /// Completed once a held download's first piece has arrived.
+  final arrived = Completer<void>();
+
   @override
   Future<String> fetch(Uri url) async =>
       '{"build":200,"version":"0.9.6","sha256":"$_sha","size":3,'
@@ -32,6 +35,7 @@ final class _Port implements UpdatePort {
     into.writeAsStringSync('abc');
     if (hold case final held?) {
       progress(1);
+      if (!arrived.isCompleted) arrived.complete();
       // Stopping closes the connection, which ends the wait.
       await Future.any([held.future, cancel.whenAsked]);
       if (cancel.asked) throw const SocketException('Connection closed');
@@ -132,16 +136,28 @@ void main() {
     );
     showUpdatePanel(page, update).ignore();
     await tester.pumpAndSettle();
-    await tester.runAsync(() async {
-      await tester.tap(find.byKey(Keys.install));
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-    });
+    await tester.tap(find.byKey(Keys.install));
+    // Until the first piece has arrived, however long the files take:
+    // the step itself is waited for, not a time.
+    while (!port.arrived.isCompleted) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
     await tester.pump();
     expect(find.text('下載中 33%'), findsOneWidget);
-    await tester.runAsync(() async {
-      await tester.tap(find.byKey(Keys.cancelDownload));
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-    });
+    await tester.tap(find.byKey(Keys.cancelDownload));
+    await tester.pump();
+    // Asked: 取消下載 goes at once, while the transfer stops.
+    expect(find.byKey(Keys.cancelDownload), findsNothing);
+    // Until it has stopped, however long the files take.
+    while (update.busy) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
     await tester.pumpAndSettle();
     expect(find.byKey(Keys.cancelDownload), findsNothing);
     expect(find.byKey(Keys.install), findsOneWidget);

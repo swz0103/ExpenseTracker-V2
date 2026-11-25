@@ -35,6 +35,10 @@ final class _Port implements UpdatePort {
   /// port's connection closing takes a moment.
   Completer<void>? unwind;
 
+  /// Completed once a held download's first piece has arrived, so a test
+  /// waits for that step itself rather than for time to pass.
+  var arrived = Completer<void>();
+
   /// Each transfer's end, in order.
   final events = <String>[];
   final installed = <(String, String)>[];
@@ -69,6 +73,7 @@ final class _Port implements UpdatePort {
       part.writeAsStringSync('abc');
       if (hold case final held?) {
         progress(1);
+        if (!arrived.isCompleted) arrived.complete();
         // Stopping closes the connection, which ends the wait.
         await Future.any([held.future, cancel.whenAsked]);
         if (cancel.asked) {
@@ -385,7 +390,7 @@ void main() {
     await app.check();
     final held = port.hold = Completer<void>();
     final installing = app.install();
-    await pumpEventQueue();
+    await port.arrived.future;
     // 1 of 3 bytes arrived.
     expect(app.progress, closeTo(0.333, 0.001));
     await app.cancelDownload();
@@ -409,10 +414,9 @@ void main() {
     port.hold = Completer<void>();
     final unwind = port.unwind = Completer<void>();
     final first = app.install();
-    await pumpEventQueue();
+    await port.arrived.future;
     expect(app.canCancel, isTrue);
     final cancelling = app.cancelDownload();
-    await pumpEventQueue();
     // Asked, not yet stopped: busy, 取消下載 gone, 更新 does nothing.
     expect(app.canCancel, isFalse);
     expect(app.busy, isTrue);
