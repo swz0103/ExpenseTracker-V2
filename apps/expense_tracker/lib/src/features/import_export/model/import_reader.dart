@@ -157,10 +157,23 @@ final class _Reader {
   /// it was.
   String? read(_Cell cell, {required int line}) {
     _line = line;
+    final latest = latestEntryDay(book.today);
     final read = ExchangeColumn.date.cell.read(
       cell(ExchangeColumn.date),
-      latest: BusinessDate.of(latestEntryDay(book.today)),
+      latest: BusinessDate.of(latest),
     );
+    if (read case DayRefused(problem: DayProblem.tooLate)) {
+      // A transfer the app wrote, 編號 kept, as the settlement before an
+      // account is archived may be dated beyond the limit (review 38 1).
+      final kind = ExchangeColumn.kind.cell.read(cell(ExchangeColumn.kind));
+      return importTooLateWords(
+        latest,
+        transfer:
+            kind is KindNamed &&
+            kind.kind == LineKind.transfer &&
+            cell(ExchangeColumn.id).isNotEmpty,
+      );
+    }
     if (read case DayRefused(:final problem)) return dayProblemWords(problem);
     final day = _utcDay(read)!;
     final LineKind? named;

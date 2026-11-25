@@ -105,13 +105,15 @@ class _AccountEditor extends StatefulWidget {
 /// the balance or pays the debt ([AccountForm.settlement], D120). With no
 /// such account, says so and offers to add one, or to keep [account] as
 /// it is. Told with 復原, which takes the settlement back too (D82).
-/// Whether it was archived; a refusal of the ledger is said.
+/// Whether it was archived; a refusal of the ledger is said. [left] is
+/// what is left, when the caller has just worked it out.
 Future<bool> settleAndArchive(
   BuildContext context,
   Ledger ledger,
-  Account account,
-) async {
-  final left = ledger.balanceService.finalBalance(account.id);
+  Account account, {
+  int? left,
+}) async {
+  left ??= ledger.balanceService.finalBalance(account.id);
   Entry? settlement;
   if (left != 0) {
     final into = await _settleInto(context, ledger, account, owing: left < 0);

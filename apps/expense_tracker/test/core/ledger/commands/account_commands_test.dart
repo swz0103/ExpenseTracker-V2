@@ -208,5 +208,76 @@ void main() {
       expect(l.accountCommands.setArchived('ann', archived: true), isNotNull);
       expect(l.account('ann').archived, isTrue);
     });
+
+    test('review 38 1: the settlement dated 400 days ahead is edited and '
+        'brought back from the trash on its day, but not moved to a day '
+        'that far ahead', () {
+      final l = ledgerOf(
+        today: day(2026, 10, 4),
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 100000),
+          Account('ann', '阿安', AccountKind.receivable, 0),
+        ],
+        entries: [
+          // 2026-10-04 + 400 days = 2027-11-08, beyond 2027-10-04.
+          entryOf(
+            'lend',
+            day(2027, 11, 8),
+            EntryType.transfer,
+            5000,
+            'bank',
+            to: 'ann',
+          ),
+        ],
+      );
+      final back = entryOf(
+        'back',
+        day(2027, 11, 8),
+        EntryType.transfer,
+        5000,
+        'ann',
+        to: 'bank',
+      );
+      l.entryCommands.addSettlement(back, 'ann');
+      // An edit of its note keeps its day.
+      l.entryCommands.save(
+        [back.withLabels(merchant: 'x')],
+        replacing: ['back'],
+      );
+      expect(l.entries.byId('back')!.merchant, 'x');
+      // Deleted by mistake and brought back (復原).
+      final removed = l.entryCommands.remove('back')!;
+      expect(l.entries.byId('back'), isNull);
+      expect(l.entryCommands.restore(removed), isTrue);
+      expect(l.entries.byId('back'), isNotNull);
+      expect(l.balanceService.finalBalance('ann'), 0);
+      // The lend, edited on its own day, too.
+      l.entryCommands.replaceAll([
+        l.entries.byId('lend')!.withLabels(merchant: 'y'),
+      ]);
+      expect(l.entries.byId('lend')!.merchant, 'y');
+      // A day moved, still beyond the year ahead, is refused.
+      expect(
+        () => l.entryCommands.save(
+          [
+            entryOf(
+              'back',
+              day(2027, 11, 9),
+              EntryType.transfer,
+              5000,
+              'ann',
+              to: 'bank',
+            ),
+          ],
+          replacing: ['back'],
+        ),
+        throwsA(
+          isA<RecordRefused>().having((r) => r.issues, 'issues', [
+            isA<DateTooFarAhead>(),
+          ]),
+        ),
+      );
+      expect(l.entries.byId('back')!.date, day(2027, 11, 8));
+    });
   });
 }
