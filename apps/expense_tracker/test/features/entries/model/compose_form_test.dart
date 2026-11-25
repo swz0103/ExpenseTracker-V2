@@ -853,6 +853,17 @@ void main() {
       expect(form.homeRateLine, '以今日臺銀即期買入 32 估算，請改成當日金額');
     });
 
+    test('D123: a board more than doubtfulMoveKeptDays before the day is '
+        'not taken: an estimate at today\'s rate, said why', () {
+      // 10/2 is 31 days after 9/1, the nearest board before it: today's
+      // 32, US\$100 x 32 = 3,200.
+      final form = on(DateTime.utc(2026, 10, 2));
+      expect(form.homeValue, 3200);
+      expect(form.homeRateLine, '最近的牌價早於當日 30 天以上，不採用；以今日臺銀即期買入 32 估算，請改成當日金額');
+      // 10/1, 30 days after: still 9/1's board.
+      expect(on(DateTime.utc(2026, 10, 1)).homeValue, 3000);
+    });
+
     test('a worth typed says no rate', () {
       final form = on(DateTime.utc(2026, 9, 3))..home = 3100;
       expect(form.homeValue, 3100);

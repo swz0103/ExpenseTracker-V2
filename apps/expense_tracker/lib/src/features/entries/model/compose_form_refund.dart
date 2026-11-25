@@ -28,8 +28,9 @@ extension RefundFields on ComposeForm {
   /// What is said under [homeValue] of the rate it is worked out at; null
   /// once typed, or without a rate. A board kept for the entry's day or
   /// before it is named by its day (D58), today's as today's; a day gone
-  /// by with no board kept on or before it is valued at today's rate only
-  /// as an estimate (R5).
+  /// by with no board kept on or before it, or only one more than
+  /// `doubtfulMoveKeptDays` older (D123), is valued at today's rate only
+  /// as an estimate (R5), said with why.
   String? get homeRateLine {
     if (home != null) return null;
     final today = ledger.today;
@@ -38,6 +39,10 @@ extension RefundFields on ComposeForm {
       (:final figure, found: FoundOn.today, of: _) =>
         date.isBefore(today)
             ? estimatedAtTodaysRate(figure)
+            : todaysRate(figure),
+      (:final figure, found: FoundOn.todayEarlierTooOld, of: _) =>
+        date.isBefore(today)
+            ? estimatedPastOldBoard(figure)
             : todaysRate(figure),
       (:final figure, :final of?, found: _) when of != BusinessDate.of(today) =>
         rateOfDay(figure, of.asUtcMidnight, today: today),

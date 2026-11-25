@@ -9,6 +9,7 @@ import 'dart:io';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
+import 'package:core/fx/dated_figures.dart' show FoundOn;
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/features/investments/model/market_feed.dart';
@@ -210,6 +211,40 @@ void main() {
         (DateTime.utc(2026, 8, 31), 1110.0),
         (DateTime.utc(2026, 9, 29), 1234.5),
       ]);
+    });
+
+    test('N3: fill the past days the dated table lacks, once a close is '
+        'kept', () async {
+      final (ledger, feed) = await open(_Exchanges(), held: ['2330']);
+      // Nothing kept yet: the month's closes fill no day.
+      await feed.history('2330', DateTime.utc(2026, 8));
+      expect(ledger.marketData.history.closes.isEmpty, isTrue);
+      await feed.refresh(force: true);
+      expect(
+        ledger.marketData.history.closes.latestOf('2330'),
+        BusinessDate(2026, 9, 29),
+      );
+      await feed.history('2330', DateTime.utc(2026, 8));
+      final market = ledger.marketData;
+      // 8/28 and 8/31 now kept, as fetched on 9/30 (D123); 9/29 is the
+      // daily fetch's, left as it was.
+      expect(
+        market.history.closes.exactly('2330', BusinessDate(2026, 8, 28)),
+        1100,
+      );
+      expect(market.closeOn('2330', DateTime.utc(2026, 9, 1)), (
+        figure: 1110.0,
+        of: BusinessDate(2026, 8, 31),
+        found: FoundOn.earlierDay,
+      ));
+      expect(
+        market.history.closeFetchedOn('2330', BusinessDate(2026, 8, 31)),
+        BusinessDate(2026, 9, 30),
+      );
+      expect(
+        market.history.closes.exactly('2330', BusinessDate(2026, 9, 29)),
+        1234.5,
+      );
     });
 
     test('of a finished month are kept on the phone, sealed, and not '

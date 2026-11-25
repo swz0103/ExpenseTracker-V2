@@ -179,6 +179,75 @@ void main() {
       expect(market.closeOn('0050', DateTime.utc(2026, 9, 2)), isNull);
     });
 
+    test('D123: an earlier day more than doubtfulMoveKeptDays older is '
+        'not taken; today\'s stands in', () {
+      // Selling: 9/1 to 10/1 is 30 days, taken; to 10/2 is 31, not.
+      expect(
+        market.rateOn(
+          'USD',
+          DateTime.utc(2026, 10, 1),
+          side: BoardSide.selling,
+        ),
+        (figure: 30.5, of: d(9, 1), found: FoundOn.earlierDay),
+      );
+      expect(
+        market.rateOn(
+          'USD',
+          DateTime.utc(2026, 10, 2),
+          side: BoardSide.selling,
+        ),
+        (figure: 32.5, of: null, found: FoundOn.todayEarlierTooOld),
+      );
+      // US$100 owed on 10/2 at today's 32.5: -3,250.
+      expect(
+        market.valueAtHomeOn(-10000, 'USD', DateTime.utc(2026, 10, 2)),
+        -3250,
+      );
+      // A close: 9/1's on 10/1; on 10/2 the latest kept stands in.
+      expect(
+        market.closeOn('2330', DateTime.utc(2026, 10, 1))?.found,
+        FoundOn.earlierDay,
+      );
+      expect(market.closeOn('2330', DateTime.utc(2026, 10, 2)), (
+        figure: 950.0,
+        of: d(9, 1),
+        found: FoundOn.todayEarlierTooOld,
+      ));
+    });
+
+    test('review 39: today or later, west of Taipei, is at the latest '
+        'board', () {
+      // The phone in UTC-5 on 11/24 evening: Taipei is on 11/25 and the
+      // 11/25 board is kept as the latest.
+      final west = MarketDataRepository(
+        rates: {'USD': 32.0},
+        history: MarketHistory(
+          buying: DatedFigures({
+            'USD': {d(11, 23): 30.5, d(11, 24): 31.0, d(11, 25): 32.0},
+          }),
+          closes: DatedFigures({
+            '2330': {d(11, 24): 990.0, d(11, 25): 1000.0},
+          }),
+        ),
+        today: () => DateTime.utc(2026, 11, 24),
+      );
+      final today = DateTime.utc(2026, 11, 24);
+      expect(west.rateOn('USD', today), (
+        figure: 32.0,
+        of: d(11, 25),
+        found: FoundOn.theDay,
+      ));
+      // US$100 x 32 = 3,200, as the latest values it.
+      expect(west.valueAtHomeOn(10000, 'USD', today), 3200);
+      expect(west.valueAtHome(10000, 'USD'), 3200);
+      expect(west.closeOn('2330', today)?.figure, 1000);
+      // A day gone by keeps its own board.
+      expect(west.rateOn('USD', DateTime.utc(2026, 11, 23))?.figure, 30.5);
+      // Without the phone's today known, the day asked is the day.
+      final unknown = MarketDataRepository(history: west.history);
+      expect(unknown.rateOn('USD', today)?.figure, 31.0);
+    });
+
     test('amounts at the rates of a day', () {
       final sep = DateTime.utc(2026, 9, 15);
       // US$100.00 at 30.0: 3,000; owed, at 30.5: -3,050.

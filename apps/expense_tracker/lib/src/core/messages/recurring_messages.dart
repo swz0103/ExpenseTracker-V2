@@ -1,6 +1,7 @@
 import '../ledger/ledger.dart';
 import '../../../design_system/display/amount.dart';
 import '../../../design_system/display/date.dart';
+import 'amount_messages.dart' show boardTooOldWords;
 import 'validation_messages.dart';
 
 /// The unit as it follows a count: 「天」「週」「個月」「年」.
@@ -38,7 +39,10 @@ String heldLine(HeldBooking held) {
   final first = formatMd(held.days.first);
   if (held.closed) return '「$name」的帳戶已封存，$first 起沒有自動入帳';
   if (held.refusal case final refusal?) {
-    return '「$name」$first 沒有自動入帳：${validationMessage(refusal)}';
+    final why = validationMessage(refusal);
+    return held.boardTooOld
+        ? '「$name」$first 沒有自動入帳：$why（$boardTooOldWords）'
+        : '「$name」$first 沒有自動入帳：$why';
   }
   final count = held.days.length;
   return count == 1

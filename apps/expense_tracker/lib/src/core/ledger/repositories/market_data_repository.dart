@@ -1,7 +1,9 @@
 import 'package:core/foundation_values.dart'
     show BoardSide, Currency, valuationSide;
 import 'package:core/time/calendar_day.dart';
-import 'package:core/fx/dated_figures.dart' show FigureOn, MarketHistory;
+import 'package:core/fx/dated_figures.dart'
+    show DatedFigures, FigureOn, MarketHistory;
+import 'package:domain/investments.dart' show doubtfulMoveKeptDays;
 
 import '../models/models.dart'
     show homeCode, rateScale, roundedBigQuotient, scaledRate;
@@ -61,7 +63,8 @@ abstract interface class MarketDataReader {
 
   /// [currency]'s rate on the [side] of the board for [day], by the one
   /// rule (`DatedFigures.on`, D58): that day's board, else the nearest
-  /// earlier day's, else today's; null without any.
+  /// earlier day's no more than [doubtfulMoveKeptDays] older (D123), else
+  /// today's; null without any.
   FigureOn? rateOn(
     String currency,
     DateTime day, {
@@ -69,7 +72,8 @@ abstract interface class MarketDataReader {
   });
 
   /// [code]'s close for [day], by the same rule: that day's, else the
-  /// nearest earlier day's, else the latest kept; null without any.
+  /// nearest earlier day's no more than [doubtfulMoveKeptDays] older,
+  /// else the latest kept; null without any.
   FigureOn? closeOn(String code, DateTime day);
 
   /// [toHome] at the buying rate for [day] ([rateOn]).
@@ -94,11 +98,16 @@ final class MarketDataRepository implements MarketDataReader {
     this._quotedOn,
     Map<String, DateTime> quoteDays = const {},
     MarketHistory? history,
+    this._today,
   }) : _history = history ?? MarketHistory(),
        _rates = {...rates},
        _sellRates = {...sellRates},
        _moves = {...moves},
        _quoteDays = {...quoteDays};
+
+  /// The phone's today, when known: a day not before it is valued at the
+  /// latest figure kept (review 39), as the board's day is Taipei's.
+  final DateTime Function()? _today;
 
   final Map<String, double> _rates;
   final Map<String, double> _sellRates;
@@ -118,22 +127,41 @@ final class MarketDataRepository implements MarketDataReader {
     String currency,
     DateTime day, {
     BoardSide side = BoardSide.buying,
-  }) =>
-      switch (side) {
-        BoardSide.buying => _history.buying,
-        BoardSide.selling => _history.selling,
-      }.on(
-        currency,
-        BusinessDate.of(day),
-        today: switch (side) {
-          BoardSide.buying => _rates[currency],
-          BoardSide.selling => _sellRates[currency],
-        },
-      );
+  }) {
+    final dated = switch (side) {
+      BoardSide.buying => _history.buying,
+      BoardSide.selling => _history.selling,
+    };
+    return dated.on(
+      currency,
+      _asked(dated, currency, day),
+      today: switch (side) {
+        BoardSide.buying => _rates[currency],
+        BoardSide.selling => _sellRates[currency],
+      },
+      earlierWithinDays: doubtfulMoveKeptDays,
+    );
+  }
 
   @override
-  FigureOn? closeOn(String code, DateTime day) =>
-      _history.closes.on(code, BusinessDate.of(day));
+  FigureOn? closeOn(String code, DateTime day) => _history.closes.on(
+    code,
+    _asked(_history.closes, code, day),
+    earlierWithinDays: doubtfulMoveKeptDays,
+  );
+
+  /// The day [key]'s figure is looked up for when [day] is asked: [day],
+  /// or, for the phone's today or later, the latest day kept when that
+  /// is later (review 39). The board's and the exchanges' days are
+  /// Taipei's: west of it, the phone's today may still be the day
+  /// before the latest board, which the screens' today's worth is at.
+  BusinessDate _asked(DatedFigures dated, String key, DateTime day) {
+    final asked = BusinessDate.of(day);
+    final today = _today?.call();
+    if (today == null || day.isBefore(today)) return asked;
+    final latest = dated.latestOf(key);
+    return latest != null && latest.isAfter(asked) ? latest : asked;
+  }
 
   @override
   int? toHomeOn(int minor, String currency, DateTime day) =>

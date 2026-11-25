@@ -5,6 +5,7 @@ import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:core/money/amount_parser.dart'
     show AmountOk, AmountProblem, AmountRefused;
 import 'package:core/money/typed_text.dart' show plainText;
+import 'package:core/fx/dated_figures.dart' show FoundOn;
 import 'package:domain/data_exchange.dart';
 import 'package:flutter/foundation.dart' show compute, visibleForTesting;
 
@@ -73,12 +74,19 @@ final class Import {
     this.accounts = const [],
     this.categories = const [],
     this.problems = const [],
+    this.estimated = const {},
   });
 
   final List<Entry> entries;
   final int skipped;
   final List<Account> accounts;
   final List<Category> categories;
+
+  /// The entries, by id, whose worth at home is an estimate at today's
+  /// rate (R5, D123), as their row says ([importEstimatedWords]): how
+  /// the rate was found, no board of their day or a recent day before it
+  /// being kept.
+  final Map<String, FoundOn> estimated;
 
   /// Why each line was left out, such as 「第 3 行：日期看不懂」, as
   /// 略過 N 行 lists them.
@@ -112,6 +120,7 @@ final class Import {
           if (categoriesUsed.contains(c.name)) c,
       ],
       problems: problems,
+      estimated: {for (final e in chosen) e.id: ?estimated[e.id]},
     );
   }
 }

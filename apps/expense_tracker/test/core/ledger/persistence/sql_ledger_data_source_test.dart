@@ -11,7 +11,10 @@ import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.d
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/codec/record_json.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/quarantine.dart';
 import 'package:storage/storage.dart';
+import 'package:vault/backup_security.dart';
+import 'package:vault/ledger_backup.dart';
 
 /// The screens' ledger on the real encrypted store: every change is kept
 /// as the records it touched, and comes back after closing and reopening.
@@ -464,7 +467,6 @@ void main() {
       ('entry', '{"id":"x"}'),
       ('entry', 'not json'),
       ('receipt', '../escape'),
-      ('castle', '{}'),
       ('market', '{"prices":{"2330":"high"}}'),
     ]) {
       expect(
@@ -473,6 +475,83 @@ void main() {
         reason: '$collection $body',
       );
     }
+  });
+
+  test('FIX-R41: a backup row a later version wrote is let through, to be '
+      'kept aside', () {
+    // A shelf this version does not read, whatever it holds.
+    expect(SqlLedgerDataSource.shelvesRead, isNot(contains('castle')));
+    SqlLedgerDataSource.check('castle', 'x', '{}');
+    SqlLedgerDataSource.check('castle', 'y', 'not json');
+    // A record of a later record version, on a shelf read.
+    SqlLedgerDataSource.check(
+      'entry',
+      'e',
+      '{"_v":${recordVersion + 1},"id":"e","shape":"new"}',
+    );
+    SqlLedgerDataSource.check(
+      'draft',
+      'tab',
+      '{"entry":{"_v":${recordVersion + 1},"id":"e"}}',
+    );
+  });
+
+  test('FIX-R41: a backup with rows a later version wrote restores; they '
+      'are kept aside, the rest opens', () async {
+    final opened = EncryptedDatabase.open(file, key);
+    store = opened;
+    final demo = demoLedger();
+    final entry = demo.entries.all.first;
+    opened.write(
+      (w) => w
+        ..put('entry', entry.id, jsonEncode(entryToJson(entry)))
+        ..put('entry', 'later', '{"_v":${recordVersion + 1},"id":"later"}')
+        ..put(
+          'category',
+          'cat-later',
+          '{"_v":${recordVersion + 1},"id":"cat-later"}',
+        )
+        ..put('castle', 'tower', '{"height":3}'),
+      counts: false,
+    );
+    final keys = (await KeyringCodec(
+      kdf: PasswordKdf.insecureForTests,
+    ).create('backup password')).unlocked;
+    final backup = File('${directory.path}/b.etbk');
+    await LedgerBackup.write(
+      store: opened,
+      keys: keys,
+      file: backup,
+      backupId: 'b',
+      createdAt: now,
+    );
+    final into = EncryptedDatabase.open(
+      File('${directory.path}/into.db'),
+      StorageKey.random(),
+    );
+    addTearDown(into.close);
+    // Restored as the app restores one: each row checked, then the book.
+    await LedgerBackup.restore(
+      file: backup,
+      keys: keys,
+      into: into,
+      accept: SqlLedgerDataSource.check,
+    );
+    SqlLedgerDataSource.checkRestored(into);
+    final source = SqlLedgerDataSource(into, clock: clock());
+    final ledger = await source.load();
+    expect(ledger.entries.byId(entry.id), isNotNull);
+    expect(ledger.entries.byId('later'), isNull);
+    expect(
+      source.quarantined.map((r) => (r.key, r.reason)),
+      containsAll([
+        ('entry/later', QuarantineReason.newer),
+        ('category/cat-later', QuarantineReason.newer),
+      ]),
+    );
+    // Kept as they were, the unknown shelf's row with them.
+    expect(into.row('castle', 'tower')?.body, '{"height":3}');
+    expect(into.row('entry', 'later'), isNotNull);
   });
 
   test('a malformed backup row is a FormatException naming it (DAT-13)', () {

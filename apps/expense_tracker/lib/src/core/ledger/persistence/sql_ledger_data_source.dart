@@ -25,6 +25,7 @@ import 'package:storage/storage.dart';
 
 import 'book_migrations.dart';
 import 'book_opening.dart';
+import 'market_rows.dart';
 import 'damage_report.dart';
 import 'journal_keeper.dart';
 import 'journal_rebuild.dart';
@@ -349,7 +350,19 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
     book.namesOf.forEach(_indexFound);
     _refs.fill(book.categoryNames);
-    final market = marketFrom(_readableMarket(book.market));
+    // The months long gone kept as one day row each (review 39), once
+    // and from then on as each month ages.
+    final folded = foldedMarket(
+      book.market,
+      BusinessDate.of(today),
+      report: (error) => ErrorLog.instance.record('讀取行情', error),
+    );
+    if (folded.changes.isNotEmpty) {
+      await _whenQuiet(
+        () => _store.write((w) => _apply(w, folded.changes), counts: false),
+      );
+    }
+    final market = _readMarket(folded.rows);
     final ledger = Ledger(
       today: today,
       clock: _today,
@@ -858,6 +871,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final categories = <Category>[];
     for (final j in json) {
       if (j is! Map<String, Object?>) continue;
+      // A later version's: set aside as the book opens, never read.
+      if (_newer(j)) continue;
       categories.add(
         categoryFromJson(upgradeRecord(Collection.category.name, j), refs),
       );
@@ -867,10 +882,27 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
   }
 
+  /// The shelves this version reads. A backup's row on any other is a
+  /// kind of record a later version keeps (forward compatibility): it is
+  /// restored as it is and left aside, never read or written over by
+  /// this version, and goes on in its backups.
+  static final shelvesRead = {
+    for (final c in Collection.values) c.name,
+    _market,
+    _gone,
+    _draft,
+  };
+
   /// Throws a [FormatException] naming the row, whatever its slip, for a
   /// record this app cannot read or no version of it would write
-  /// ([shapeIssues]), so a backup with one is refused, not restored.
+  /// ([shapeIssues]), so a backup with one is refused, not restored. A
+  /// row a later version wrote, on a shelf not among [shelvesRead] or of
+  /// a later record version ([NewerRecord]), is let through: the book
+  /// sets it aside as it opens, and keeps it.
   static void check(String collection, String id, String body) {
+    if (!shelvesRead.contains(collection) || _newerRow(collection, body)) {
+      return;
+    }
     try {
       _check(collection, id, body);
     } on Object catch (slip) {
@@ -878,6 +910,20 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       throw FormatException('$collection $id: $what');
     }
   }
+
+  /// Whether [body], a row of [collection], is a record of a later record
+  /// version than this one reads (for a form put aside, its entry's).
+  static bool _newerRow(String collection, String body) {
+    // Not JSON (null here) has no version to weigh: [_check] tells why.
+    final json = decodeBodies([body]).values.single;
+    if (json is! Map<String, Object?>) return false;
+    final record = collection == _draft ? json['entry'] : json;
+    return record is Map<String, Object?> && _newer(record);
+  }
+
+  /// Whether [record] is of a later record version ([NewerRecord]).
+  static bool _newer(Map<String, Object?> record) =>
+      (versionOf(record) ?? 0) > recordVersion;
 
   static void _check(String collection, String id, String body) {
     if (collection == Collection.receipt.name) {
@@ -915,11 +961,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// The rows of [rows] of the [_market] collection that can be read: a
   /// close or rate kept that cannot is fetched again, and noted.
-  static List<StoredRow> _readableMarket(List<StoredRow>? rows) =>
-      readableMarket(
-        rows,
-        report: (error) => ErrorLog.instance.record('讀取行情', error),
-      );
+  static Market _readMarket(List<StoredRow>? rows) => readMarket(
+    rows,
+    report: (error) => ErrorLog.instance.record('讀取行情', error),
+  );
 
   // Market data.
 
@@ -934,7 +979,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     MarketHistory history,
   })
   market() {
-    final kept = marketFrom(_readableMarket(_store.rows(shelf: _market)));
+    final kept = _readMarket(_store.rows(shelf: _market));
     return (
       holdings: holdingsOf(kept),
       moves: kept.moves,
@@ -966,7 +1011,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
     final boardDay = board.asOf.asUtcMidnight;
     return _whenQuiet(() {
-      final kept = marketFrom(_readableMarket(_store.rows(shelf: _market)));
+      final kept = _readMarket(_store.rows(shelf: _market));
       // A rate too far from the one kept is doubted (D95) unless there is
       // reason to take it (D101: found again, or the one kept old): the
       // one kept stays, the doubted one is kept to weigh the next fetch
@@ -1098,21 +1143,33 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// What a figure fetched for [day] is weighed against (D95, D101):
   /// the one [dated] keeps for that day or the nearest day before it
-  /// (D58), with its day, else the [latest] kept, of [latestOn].
-  static ({double? figure, DateTime? on}) _weighedAgainst(
+  /// (D58), with its day, else the [latest] kept, of [latestOn]; and the
+  /// day after whose splits it is a price of the shares before
+  /// (`sharesAfter`): its own day, or, fetched on a later day as
+  /// [fetched] names it, the day before that (D123).
+  static ({double? figure, DateTime? on, DateTime? sharesAfter})
+  _weighedAgainst(
     DatedFigures dated,
     String key,
     BusinessDate day, {
     required double? latest,
     required DateTime? latestOn,
+    Map<BusinessDate, BusinessDate> fetched = const {},
   }) => switch (dated.on(key, day)) {
     (
       :final figure,
       of: final of?,
       found: FoundOn.theDay || FoundOn.earlierDay,
     ) =>
-      (figure: figure, on: of.asUtcMidnight),
-    _ => (figure: latest, on: latestOn),
+      (
+        figure: figure,
+        on: of.asUtcMidnight,
+        sharesAfter: switch (fetched[of]) {
+          final later? => later.addDays(-1).asUtcMidnight,
+          null => of.asUtcMidnight,
+        },
+      ),
+    _ => (figure: latest, on: latestOn, sharesAfter: latestOn),
   };
 
   /// The codes the last [refreshQuotes] found no close for: not quoted
@@ -1172,6 +1229,44 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
   }
 
+  /// Keeps the closes of [code] a month report gave ([closes], oldest or
+  /// not) for the past days the dated table lacks (N3, D58): only days
+  /// before the latest close kept, each taken by the doubt rules
+  /// (`MarketDayWrites.fillPastCloses`), as fetched today (D123). Nothing
+  /// for a code with no close kept. Whether any was kept.
+  Future<bool> keepPastCloses(
+    String code,
+    Iterable<(DateTime, double)> closes, {
+    double? Function(String code, DateTime? day) reshapedBy = _neverReshaped,
+  }) async {
+    final kept = await _whenQuiet(
+      () => _readMarket(_store.rows(shelf: _market)),
+    );
+    final latest = kept.days[code];
+    if (latest == null) return false;
+    final writes = MarketDayWrites(_dated(kept));
+    final count = writes.fillPastCloses(
+      code,
+      [for (final (day, close) in closes) (BusinessDate.of(day), close)],
+      before: BusinessDate.of(latest),
+      fetchedOn: BusinessDate.of(_today()),
+      reshapedBy: (day) => reshapedBy(code, day),
+    );
+    final rows = writes.rows;
+    if (count == 0 || rows.isEmpty) return false;
+    await _whenQuiet(
+      () => _store.write(
+        (w) => writes
+            .rowsOver((id) => _store.row(_market, id)?.body, {
+              MarketSeries.closes,
+            })
+            .forEach((id, body) => w.put(_market, id, body)),
+        counts: false,
+      ),
+    );
+    return true;
+  }
+
   /// Fetches the latest close of each of [codes], for the holdings' value;
   /// one not found on TWSE is tried on TPEx. Returns whether any price
   /// changed. [reshapedBy] tells how many times the splits, stock
@@ -1184,7 +1279,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final gateway = _gateway;
     if (gateway == null) return false;
     final kept = await _whenQuiet(
-      () => marketFrom(_readableMarket(_store.rows(shelf: _market))),
+      () => _readMarket(_store.rows(shelf: _market)),
     );
     final prices = {...kept.prices};
     final moves = {...kept.moves};
@@ -1230,6 +1325,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         BusinessDate.of(day),
         latest: prices[code],
         latestOn: keptOn,
+        fetched: kept.history.closesFetched[code] ?? const {},
       );
       if (!takesFetched(
         kept: against.figure,
@@ -1239,7 +1335,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
           null => null,
         },
         doubtedBefore: doubtedBefore[code]?.figure,
-        reshapedBy: reshapedBy(code, against.on),
+        reshapedBy: reshapedBy(code, against.sharesAfter),
       )) {
         doubted.add(code);
         // Kept to weigh the next fetch by (D101), with its day.
@@ -1260,6 +1356,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         price,
         kept: prices[code],
         keptOn: keptOn == null ? null : BusinessDate.of(keptOn),
+        fetchedOn: BusinessDate.of(today),
       );
       if (quotedOn == null || day.isAfter(quotedOn)) {
         quotedOn = day;
@@ -1309,8 +1406,13 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     if (changed || dayRows.isNotEmpty) {
       await _whenQuiet(
         () => _store.write((w) {
-          // Each day's closes beside them (D58), in the same write.
-          dayRows.forEach((id, body) => w.put(_market, id, body));
+          // Each day's closes beside them (D58), in the same write, over
+          // the rows as kept now: a board kept since this read stays.
+          closesByDay
+              .rowsOver((id) => _store.row(_market, id)?.body, {
+                MarketSeries.closes,
+              })
+              .forEach((id, body) => w.put(_market, id, body));
           w.put(
             _market,
             'quotes',

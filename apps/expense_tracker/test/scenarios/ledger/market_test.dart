@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
-import 'package:expense_tracker/src/core/ledger/persistence/book_opening.dart'
+import 'package:expense_tracker/src/core/ledger/persistence/market_rows.dart'
     show marketShelf;
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
@@ -153,6 +153,14 @@ void main() {
     expect(ledger.holdings.hasQuote('2317'), isTrue);
     expect(ledger.marketData.olderQuote('2317'), DateTime.utc(2026, 9, 26));
     expect(ledger.marketData.olderQuote('2330'), isNull);
+    // D123: 2317's close of 9/26, fetched on 9/30, keeps its fetch day;
+    // 2330's of 9/29, fetched the day after, needs none.
+    final history = ledger.marketData.history;
+    expect(
+      history.closeFetchedOn('2317', BusinessDate(2026, 9, 26)),
+      BusinessDate(2026, 9, 30),
+    );
+    expect(history.closeFetchedOn('2330', BusinessDate(2026, 9, 29)), isNull);
   });
 
   group('D95: a figure fetched that cannot be right is not taken', () {
@@ -337,6 +345,35 @@ void main() {
       },
     );
 
+    test('D123: a close kept as fetched days later is weighed in the shares '
+        'of its fetch day', () async {
+      final data = await source();
+      // 9/29's close first fetched on 10/3: a price of the shares after
+      // any split dated before 10/3.
+      sourceClock.advance(const Duration(days: 3));
+      now = DateTime.utc(2026, 10, 3, 4);
+      await data.refreshQuotes(['2330', '0050']);
+      expect(
+        (await data.load()).marketData.history.closeFetchedOn(
+          '2330',
+          BusinessDate(2026, 9, 29),
+        ),
+        BusinessDate(2026, 10, 3),
+      );
+      daily = closes('1151003', '1,240.00');
+      now = now.add(const Duration(hours: 1));
+      DateTime? askedAfter;
+      await data.refreshQuotes(
+        ['2330', '0050'],
+        reshapedBy: (code, day) {
+          if (code == '2330') askedAfter = day;
+          return null;
+        },
+      );
+      // Only the splits from 10/3 on are still to come in it: after 10/2.
+      expect(askedAfter, DateTime.utc(2026, 10, 2));
+    });
+
     test('a split of one for twenty with a close garbled a hundred times is '
         'doubted (review 18)', () async {
       final data = await source();
@@ -480,6 +517,9 @@ void main() {
         expect(data.doubtfulRates, ['USD']);
         expect(dayRow('2026-10-03'), isNull);
 
+        // The book read on 10/3, the boards' days gone by (review 39: a
+        // day not before the book's today is at the latest board).
+        sourceClock.advance(const Duration(days: 3));
         final ledger = await data.load();
         final m = ledger.marketData;
         expect(m.rateOn('USD', DateTime.utc(2026, 9, 30)), (
@@ -543,6 +583,40 @@ void main() {
           );
         },
       );
+
+      test('review 39: closes and the board fetched at once share their '
+          'day\'s row, neither lost', () async {
+        final data = await source();
+        // The closes and the board both of 9/30.
+        daily = closes('1150930', '1,240.00');
+        await Future.wait([
+          data.refreshQuotes(['2330', '0050']),
+          data.refreshRates(),
+        ]);
+        expect(dayRow('2026-09-30'), {
+          'rates': {'USD': 31.835},
+          'sell': {'USD': 31.985},
+          'closes': {'2330': 1240.0, '0050': 62.75},
+        });
+      });
+
+      test('review 39: opening folds the months long gone into a row '
+          'each', () async {
+        final data = await source();
+        store.write(
+          (w) => w
+            ..put(marketShelf, 'day:2025-03-03', '{"rates":{"USD":30.1}}')
+            ..put(marketShelf, 'day:2025-03-04', '{"rates":{"USD":30.2}}'),
+          counts: false,
+        );
+        final m = (await data.load()).marketData;
+        expect(dayRow('2025-03-01'), {
+          'rates': {'USD': 30.2},
+        });
+        expect(dayRow('2025-03-03'), isNull);
+        expect(dayRow('2025-03-04'), isNull);
+        expect(m.rateOn('USD', DateTime.utc(2025, 3, 2))?.figure, 30.2);
+      });
 
       test('a book kept before D58 keeps its latest close for its day '
           'when a new one comes', () async {

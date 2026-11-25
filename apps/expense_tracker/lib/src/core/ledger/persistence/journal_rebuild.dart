@@ -9,6 +9,7 @@ import '../journal/replay.dart';
 import '../models/models.dart';
 import '../../diagnostics/error_log.dart';
 import 'book_opening.dart';
+import 'market_rows.dart';
 import 'write_batch.dart' show Collection;
 
 /// How many records are posted and written at a time when the whole book
@@ -81,7 +82,7 @@ Future<OpenedBook> Function(ApartStore) openingWork({
   }
   // Sent now, a copy, so the screens open while the book is posted.
   books.send((book: book, worked: worked));
-  final start = holdingsOf(marketFrom(readableMarket(book.market)));
+  final start = holdingsOf(readMarket(book.market, history: false));
   final posted = await store.post(
     (add) async => postBook(book, add, start),
     mark: mark,

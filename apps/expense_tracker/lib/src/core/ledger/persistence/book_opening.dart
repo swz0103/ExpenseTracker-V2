@@ -1,14 +1,9 @@
-import 'dart:convert';
-
-import 'package:core/time/calendar_day.dart';
-import 'package:domain/investments.dart' show DoubtedFigure;
-import 'package:core/fx/dated_figures.dart' show MarketHistory;
 import 'package:ledger_entries/rules.dart' show namesOnLoops;
 import 'package:storage/storage.dart';
 
 import '../models/models.dart';
 import 'codec/category_refs.dart';
-import 'codec/market_days.dart';
+import 'market_rows.dart';
 import 'codec/record_json.dart';
 import 'codec/record_shape.dart';
 import 'codec/row_decoding.dart';
@@ -18,11 +13,6 @@ import 'record_version.dart';
 import '../repositories/holding_repository.dart'
     show ReadHoldings, readHoldings;
 import 'write_batch.dart' show Collection;
-
-import 'package:core/time/utc_days.dart';
-
-/// The shelf of the closes and board last fetched.
-const marketShelf = 'market';
 
 /// The shelf noting when each record was deleted, by `collection/id`.
 const goneShelf = 'gone';
@@ -254,7 +244,7 @@ DecodedBook decodeBook(
   final holdings = today == null
       ? null
       : readHoldings(
-          holdingsOf(marketFrom(readableMarket(market))),
+          holdingsOf(readMarket(market, history: false)),
           entries,
           today,
         );
@@ -423,155 +413,6 @@ Map<String, Object?>? _record(
       return upgradeRecord(row.shelf, record);
   }
 }
-
-/// The closes and board last fetched, from the [marketShelf] rows.
-typedef Market = ({
-  Map<String, double> prices,
-  Map<String, double> moves,
-  Map<String, String> names,
-  Map<String, DateTime> days,
-  DateTime? quotedOn,
-  Map<String, double> rates,
-  Map<String, double> sellRates,
-  Map<String, DoubtedFigure> doubtedCloses,
-  Map<String, DoubtedFigure> doubtedRates,
-  Map<String, DoubtedFigure> doubtedSellRates,
-  DateTime? ratesOn,
-  MarketHistory history,
-});
-
-/// The closes and board last fetched, from [rows] of [marketShelf].
-Market marketFrom(List<StoredRow> rows) {
-  final prices = <String, double>{};
-  final moves = <String, double>{};
-  final names = <String, String>{};
-  final days = <String, DateTime>{};
-  final rates = <String, double>{};
-  final sellRates = <String, double>{};
-  final doubtedCloses = <String, DoubtedFigure>{};
-  final doubtedRates = <String, DoubtedFigure>{};
-  final doubtedSellRates = <String, DoubtedFigure>{};
-  DateTime? quotedOn;
-  DateTime? ratesOn;
-  final dayRows = <BusinessDate, String>{};
-  Map<String, Object?> part(Map<String, Object?> json, String key) =>
-      json[key] as Map<String, Object?>? ?? const {};
-  // What the last fetch doubted (D101), kept beside the figures, each
-  // with its day under [field]`On`; a row kept before has none. A doubt
-  // kept with no day (before review 25) is read as too old to weigh.
-  void doubted(
-    Map<String, Object?> json,
-    String field,
-    Map<String, DoubtedFigure> to,
-  ) {
-    final days = part(json, '${field}On');
-    for (final MapEntry(:key, :value) in part(json, field).entries) {
-      if (value is! num) throw FormatException(field);
-      if (days[key] case final String on) {
-        if (DateTime.tryParse(on) case final d?) {
-          to[key] = (figure: value.toDouble(), day: dayOf(d));
-        }
-      }
-    }
-  }
-
-  for (final row in rows) {
-    // A day's rates and closes (D58), read below.
-    if (marketDayOf(row.id) case final day?) {
-      dayRows[day] = row.body;
-      continue;
-    }
-    final json = jsonDecode(row.body) as Map<String, Object?>;
-    switch (row.id) {
-      case 'quotes':
-        for (final MapEntry(:key, :value) in part(json, 'prices').entries) {
-          prices[key] = (value! as num).toDouble();
-        }
-        for (final MapEntry(:key, :value) in part(json, 'moves').entries) {
-          moves[key] = (value! as num).toDouble();
-        }
-        for (final MapEntry(:key, :value) in part(json, 'names').entries) {
-          names[key] = value! as String;
-        }
-        for (final MapEntry(:key, :value) in part(json, 'days').entries) {
-          days[key] = DateTime.parse(value! as String);
-        }
-        if (json['on'] case final String on) quotedOn = DateTime.parse(on);
-        doubted(json, 'doubted', doubtedCloses);
-      case 'rates':
-        for (final MapEntry(:key, :value) in part(json, 'rates').entries) {
-          rates[key] = (value! as num).toDouble();
-        }
-        // The selling rates, kept since D59; a board kept before has none.
-        for (final MapEntry(:key, :value) in part(json, 'sell').entries) {
-          if (value is! num) throw const FormatException('sell');
-          sellRates[key] = value.toDouble();
-        }
-        doubted(json, 'doubted', doubtedRates);
-        doubted(json, 'doubtedSell', doubtedSellRates);
-        // The board's day: what a rate doubted is weighed by (D101); a
-        // day that cannot be read only leaves it unknown.
-        if (json['asOf'] case final String on) {
-          if (DateTime.tryParse(on) case final d?) {
-            ratesOn = dayOf(d);
-          }
-        }
-    }
-  }
-  return (
-    prices: prices,
-    moves: moves,
-    names: names,
-    days: days,
-    quotedOn: quotedOn,
-    rates: rates,
-    sellRates: sellRates,
-    doubtedCloses: doubtedCloses,
-    doubtedRates: doubtedRates,
-    doubtedSellRates: doubtedSellRates,
-    ratesOn: ratesOn,
-    history: historyFrom(dayRows),
-  );
-}
-
-/// The rows of [rows] of [marketShelf] that can be read; [report] is
-/// told what reading each other threw (a close or rate kept that cannot
-/// be read is fetched again).
-List<StoredRow> readableMarket(
-  List<StoredRow>? rows, {
-  void Function(Object error) report = _unreported,
-}) => [
-  for (final row in rows ?? const <StoredRow>[])
-    if (_marketReadable(row, report)) row,
-];
-
-void _unreported(Object error) {}
-
-bool _marketReadable(StoredRow row, void Function(Object error) report) {
-  try {
-    marketFrom([row]);
-    return true;
-  } on Object catch (error) {
-    // Told to [report]: a close or rate that cannot be read is fetched
-    // again.
-    report(error);
-    return false;
-  }
-}
-
-/// A reference price and name for each stock with a kept close: the
-/// holdings a book starts from.
-List<Holding> holdingsOf(Market market) => [
-  for (final MapEntry(key: code, value: price) in market.prices.entries)
-    Holding(
-      code,
-      market.names[code] ?? code,
-      shares: 0,
-      price: price,
-      cost: 0,
-      change: 0,
-    ),
-];
 
 /// How a category on a loop of parents is told, set aside as the book
 /// opens and refused in a backup (D103).

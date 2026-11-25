@@ -144,6 +144,53 @@ void main() {
       ),
       500,
     );
+    // D123: 9/5's close fetched on 9/12, after the split: a price of the
+    // shares after it. Only the cut is undone: 500 x 2000 / 500 = 2,000.
+    expect(
+      p.inSharesOf(
+        '2330',
+        DateTime.utc(2026, 9, 25),
+        500,
+        DateTime.utc(2026, 9, 5),
+        fetchedOn: DateTime.utc(2026, 9, 12),
+      ),
+      2000,
+    );
+    // Counted on 9/7, before the split, against that close: the split
+    // worked in, 1,000 x 2000 / 1000 = 2,000.
+    expect(
+      p.inSharesOf(
+        '2330',
+        DateTime.utc(2026, 9, 7),
+        1000,
+        DateTime.utc(2026, 9, 5),
+        fetchedOn: DateTime.utc(2026, 9, 12),
+      ),
+      2000,
+    );
+    // Fetched on the split's own day, before it took effect: a price of
+    // the shares before, so the split is undone: 2,000 on 9/15 = 1,000.
+    expect(
+      p.inSharesOf(
+        '2330',
+        DateTime.utc(2026, 9, 15),
+        2000,
+        DateTime.utc(2026, 9, 5),
+        fetchedOn: DateTime.utc(2026, 9, 10),
+      ),
+      1000,
+    );
+    // Fetched after both: neither undone, 500.
+    expect(
+      p.inSharesOf(
+        '2330',
+        DateTime.utc(2026, 9, 25),
+        500,
+        DateTime.utc(2026, 9, 5),
+        fetchedOn: DateTime.utc(2026, 9, 26),
+      ),
+      500,
+    );
   });
 
   test('D58: a reduction to nothing is not undone', () {
@@ -170,6 +217,18 @@ void main() {
         DateTime.utc(2026, 9, 2),
       ),
       4,
+    );
+    // Nor worked forward through, for a close fetched after it (D123):
+    // the 10 held on 9/3 stay 10.
+    expect(
+      p.inSharesOf(
+        '2330',
+        DateTime.utc(2026, 9, 3),
+        10,
+        DateTime.utc(2026, 9, 2),
+        fetchedOn: DateTime.utc(2026, 9, 8),
+      ),
+      10,
     );
   });
 }

@@ -1,3 +1,4 @@
+import 'package:core/fx/dated_figures.dart' show FoundOn;
 import 'package:ledger_entries/rules.dart' show RecordIssue, recurringIssues;
 
 import '../cache/topic.dart';
@@ -88,7 +89,18 @@ final class RecurringCommands {
       final closed = _closed(item);
       final refusal = closed ? null : refusalOf(item, day: day);
       if (days.length > 1 || closed || refusal != null) {
-        held.add(HeldBooking(item, days, refusal: refusal, closed: closed));
+        held.add(
+          HeldBooking(
+            item,
+            days,
+            refusal: refusal,
+            closed: closed,
+            boardTooOld:
+                refusal != null &&
+                _recurringService.rateFound(item, day: day) ==
+                    FoundOn.todayEarlierTooOld,
+          ),
+        );
         continue;
       }
       booked.add(
@@ -176,12 +188,22 @@ final class AutoBooking {
 /// cannot book by itself: its account [closed], or what the ledger would
 /// refuse ([refusal], such as no rate for a foreign day, R5).
 final class HeldBooking {
-  const HeldBooking(this.item, this.days, {this.refusal, this.closed = false});
+  const HeldBooking(
+    this.item,
+    this.days, {
+    this.refusal,
+    this.closed = false,
+    this.boardTooOld = false,
+  });
 
   final Recurring item;
   final List<DateTime> days;
   final RecordIssue? refusal;
   final bool closed;
+
+  /// Whether [refusal] is for want of a rate because the nearest board
+  /// kept before the day is too old to take (D123), not because none is.
+  final bool boardTooOld;
 
   /// Whether it is left only to be confirmed: the person may book it as
   /// it is.

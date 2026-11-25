@@ -1,4 +1,5 @@
 import 'package:core/money/amount_parser.dart';
+import 'package:domain/investments.dart' show doubtfulMoveKeptDays;
 
 import '../../../design_system/display/amount.dart';
 import '../../../design_system/display/date.dart' show formatDay;
@@ -45,6 +46,16 @@ String spokenSign(String sign) => sign == '−' ? '減' : '加';
 /// before it is kept (R5, D58). The rate is written by [exchangeRate]: 32, not 32.0 (D118).
 String estimatedAtTodaysRate(double rate) =>
     '以今日臺銀即期買入 ${exchangeRate(rate)} 估算，請改成當日金額';
+
+/// Why a day gone by is valued at today's rate though a board before it
+/// is kept: the nearest is more than [doubtfulMoveKeptDays] older (D123).
+const boardTooOldWords = '最近的牌價早於當日 $doubtfulMoveKeptDays 天以上，不採用';
+
+/// Under a foreign amount's worth in NT$ on a day gone by whose nearest
+/// earlier board is too old to take (D123): [estimatedAtTodaysRate], with
+/// why.
+String estimatedPastOldBoard(double rate) =>
+    '$boardTooOldWords；${estimatedAtTodaysRate(rate)}';
 
 /// Under a foreign amount's worth in NT$ today: the [rate] it is worked
 /// out at, written by [exchangeRate].

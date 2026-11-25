@@ -1,3 +1,5 @@
+import 'package:core/foundation_values.dart' show BusinessDate;
+import 'package:core/fx/dated_figures.dart' show DatedFigures, MarketHistory;
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -97,7 +99,52 @@ void main() {
       final held = ledger.recurringCommands.bookDue().held.single;
       expect(held.refusal, isA<MissingHomeAmount>());
       expect(held.confirmable, isFalse);
+      // No board kept at all: none too old.
+      expect(held.boardTooOld, isFalse);
       expect(ledger.entries.all, isEmpty);
+    });
+
+    test('D123: a foreign day whose nearest board is too old waits, '
+        'saying so', () {
+      Ledger withBoard(BusinessDate on) => Ledger(
+        today: today,
+        accounts: const [
+          Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
+        ],
+        categories: [Category('居家', 'home', 0xFF5B8DB0)],
+        entries: const [],
+        holdings: const [],
+        budgets: const [],
+        // Due only on 11/1.
+        recurring: [
+          Recurring(
+            id: 'rent',
+            name: '房租',
+            amount: 15000,
+            day: 1,
+            account: 'usd',
+            category: '居家',
+            auto: true,
+            start: DateTime.utc(2026, 11, 1),
+          ),
+        ],
+        rates: const {'USD': 32.0},
+        history: MarketHistory(
+          buying: DatedFigures({
+            'USD': {on: 30.0},
+          }),
+        ),
+      );
+      // 9/1 is 61 days before 11/1, more than doubtfulMoveKeptDays (30).
+      final old = withBoard(BusinessDate(2026, 9, 1));
+      final held = old.recurringCommands.bookDue().held.single;
+      expect(held.refusal, isA<MissingHomeAmount>());
+      expect(held.boardTooOld, isTrue);
+      expect(old.entries.all, isEmpty);
+      // 10/15 is 17 days before: booked by itself at 30, US\$150 = 4,500.
+      final recent = withBoard(BusinessDate(2026, 10, 15));
+      expect(recent.recurringCommands.bookDue().booked, 1);
+      expect(recent.entries.all.single.home, 4500);
     });
 
     test('AutoBooking.none books and holds nothing', () {

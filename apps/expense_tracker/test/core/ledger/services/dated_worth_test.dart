@@ -94,11 +94,13 @@ void main() {
     );
     // 9/20: 9/1's close; the 2,000 held after the split are 1,000 of
     // 9/1's shares: 1,000 x 960 = 960,000. US$ at 9/14's buying rate,
-    // 1,000 x 30.5 = 30,500, and 8/3's selling rate.
+    // 1,000 x 30.5 = 30,500. 8/3's selling rate is 48 days older than
+    // 9/20, more than doubtfulMoveKeptDays (30, D123): today's 32.5
+    // stands in, 100 x 32.5 = 3,250.
     expect(l.balanceService.netWorth(on(9, 20)).invested, 960000);
     expect(
       l.balanceService.netWorthAt(on(9, 20)),
-      100000 + 960000 + 30500 - 3150,
+      100000 + 960000 + 30500 - 3250,
     );
     // 10/31: the latest close: as the holdings show it today,
     // 2,000 x 500 = 1,000,000; US$ 1,000 x 32 = 32,000, 100 x 32.5 = 3,250.
@@ -122,6 +124,10 @@ void main() {
     expect(worth(on(8, 5), 1000), 950000);
     expect(worth(on(9, 20), 2000), 960000);
     expect(worth(on(10, 30), 2000), isNull);
+    // 10/2: 9/1's close is 31 days older, more than doubtfulMoveKeptDays
+    // (30, D123): not taken; today's price values the shares.
+    expect(worth(on(10, 1), 2000), 960000);
+    expect(worth(on(10, 2), 2000), isNull);
     // A stock with no close kept at all.
     expect(
       datedWorth(
@@ -133,6 +139,84 @@ void main() {
       ),
       isNull,
     );
+  });
+
+  test('D123: a close fetched after a split is not split again', () {
+    final base = fixture();
+    // 9/1's close as fetched on 9/20, after the 9/15 split: 480, a price
+    // of the shares since.
+    final l = Ledger(
+      today: on(10, 31),
+      accounts: base.accounts.all,
+      categories: const [],
+      entries: base.entries.all,
+      holdings: const [
+        Holding('2330', '台積電', shares: 0, price: 1000, cost: 0, change: 0),
+      ],
+      budgets: const [],
+      recurring: const [],
+      quoteDays: {'2330': on(10, 30)},
+      history: MarketHistory(
+        closes: DatedFigures({
+          '2330': {d(9, 1): 480.0, d(10, 30): 1000.0},
+        }),
+        closesFetched: {
+          '2330': {d(9, 1): d(9, 20)},
+        },
+      ),
+    );
+    int? worth(DateTime day, int counted) => datedWorth(
+      holdings: l.holdings,
+      market: l.marketData,
+      code: '2330',
+      day: day,
+      counted: counted,
+    );
+    // 9/20: the 2,000 held after the split are not halved: 2,000 x 480 =
+    // 960,000.
+    expect(worth(on(9, 20), 2000), 960000);
+    // 9/10: the 1,000 held before it are the 2,000 of the price's shares:
+    // 2,000 x 480 = 960,000.
+    expect(worth(on(9, 10), 1000), 960000);
+    // Fetched on its own day (the fixture): 9/20's 2,000 are 1,000 of
+    // 9/1's shares, 1,000 x 960 = 960,000.
+    expect(
+      datedWorth(
+        holdings: base.holdings,
+        market: base.marketData,
+        code: '2330',
+        day: on(9, 20),
+        counted: 2000,
+      ),
+      960000,
+    );
+  });
+
+  test('review 39: today\'s net worth west of Taipei is the accounts\' '
+      'worth at the latest board', () {
+    // The phone's 11/24 is Taipei's 11/25 already: 11/25's board latest.
+    final l = Ledger(
+      today: on(11, 24),
+      accounts: const [
+        Account('usd', '美元', AccountKind.bank, 100000, currency: 'USD'),
+      ],
+      categories: const [],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      rates: const {'USD': 32.0},
+      history: MarketHistory(
+        buying: DatedFigures({
+          'USD': {d(11, 24): 31.0, d(11, 25): 32.0},
+        }),
+      ),
+    );
+    final usd = l.accounts.all.single;
+    // US$1,000 x 32 = 32,000, both ways.
+    expect(l.balanceService.worthOf(usd), 32000);
+    expect(l.balanceService.worthOf(usd, until: on(11, 24)), 32000);
+    expect(l.balanceService.netWorthAt(on(11, 24)), 32000);
   });
 
   test('the journal values each day the same', () async {

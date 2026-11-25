@@ -1,4 +1,9 @@
 import 'package:core/constants/category_colors.dart';
+import 'package:core/foundation_values.dart' show BusinessDate;
+import 'package:core/fx/dated_figures.dart'
+    show DatedFigures, FoundOn, MarketHistory;
+import 'package:expense_tracker/src/core/messages/import_messages.dart'
+    show importEstimatedWords;
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/features/import_export/model/import_export.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
@@ -247,6 +252,63 @@ void main() {
     expect((entry.account, entry.amount), ('usd', 1250));
     expect(entry.home, (12.5 * 32.1).round());
     expect(toCsv(ledger.accounts, [entry]), contains(',12.50,美元,'));
+  });
+
+  test('R5/D123: a row worth at home at today\'s rate says it is an '
+      'estimate, and why', () {
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 11, 13),
+      accounts: const [
+        Account('bank', '銀行', AccountKind.bank, 0),
+        Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
+      ],
+      categories: [Category('飲食', 'food', 0xFF5C9A83)],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      rates: const {'USD': 32.0},
+      history: MarketHistory(
+        buying: DatedFigures({
+          'USD': {BusinessDate(2026, 9, 1): 30.0},
+        }),
+      ),
+    );
+    final found = importCsv(
+      importBookOf(ledger),
+      '日期,類型,金額,帳戶,分類\n'
+      '2026-10-01,支出,10,美元,飲食\n'
+      '2026-10-02,支出,10,美元,飲食\n'
+      '2026-08-01,支出,10,美元,飲食\n'
+      '2026-11-13,支出,10,美元,飲食\n',
+      fallback: 'bank',
+    );
+    final byDay = {for (final e in found.entries) e.date.day: e};
+    // 10/1: 9/1's board, 30 days before: US\$10 x 30 = 300, no note.
+    expect(byDay[1]!.home, 300);
+    expect(found.estimated[byDay[1]!.id], isNull);
+    // 10/2: 9/1's is 31 days before, too old: today's 32, 320.
+    expect(byDay[2]!.home, 320);
+    expect(found.estimated[byDay[2]!.id], FoundOn.todayEarlierTooOld);
+    expect(
+      importEstimatedWords(FoundOn.todayEarlierTooOld),
+      '最近的牌價早於當日 30 天以上，不採用；新台幣金額以今日匯率估算',
+    );
+    // 8/1: before any board kept: today's, 320.
+    expect(found.entries.firstWhere((e) => e.date.month == 8).home, 320);
+    expect(
+      found.estimated[found.entries.firstWhere((e) => e.date.month == 8).id],
+      FoundOn.today,
+    );
+    expect(importEstimatedWords(FoundOn.today), '新台幣金額以今日匯率估算');
+    // Today: today's board, no estimate.
+    expect(found.estimated[byDay[13]!.id], isNull);
+    // Kept only for the entries chosen.
+    final second = found.entries.indexOf(byDay[2]!);
+    expect(found.only({second}).estimated, {
+      byDay[2]!.id: FoundOn.todayEarlierTooOld,
+    });
+    expect(found.only(const {}).estimated, isEmpty);
   });
 
   test('stock dividends and splits grow every lot at its own cost', () {

@@ -123,6 +123,7 @@ final class Ledger extends ChangeNotifier {
          quotedOn: quotedOn,
          quoteDays: quoteDays,
          history: history,
+         today: clock ?? (() => today),
        ),
        _trash = TrashRepository(trash),
        _accounts = AccountRepository(accounts),

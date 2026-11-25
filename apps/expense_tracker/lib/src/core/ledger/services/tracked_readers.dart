@@ -274,9 +274,15 @@ final class TrackedHoldingReader implements HoldingReader {
   }
 
   @override
-  int inSharesOf(String code, DateTime day, int shares, DateTime of) {
+  int inSharesOf(
+    String code,
+    DateTime day,
+    int shares,
+    DateTime of, {
+    DateTime? fetchedOn,
+  }) {
     _cache.noteReads(_topics);
-    return _inner.inSharesOf(code, day, shares, of);
+    return _inner.inSharesOf(code, day, shares, of, fetchedOn: fetchedOn);
   }
 
   @override
