@@ -860,11 +860,18 @@ final class EncryptedDatabase {
 }
 
 /// How the work of posting afresh reads the records kept
-/// ([ApartStore.kept]): those on the shelves it names, in the order kept.
-typedef ReadKept = Iterable<KeptRow> Function(List<String> shelves);
+/// ([ApartStore.kept]): those on the shelves it names, in the order kept;
+/// [few] for shelves of few records, each read whole by its shelf.
+typedef ReadKept = Iterable<KeptRow> Function(List<String> shelves, {bool few});
 
 /// How many rows [ApartStore.kept] reads at a time.
 const keptPage = 1000;
+
+/// How [ApartStore.kept] reads a shelf of few records whole: by its
+/// shelf, through the index of `UNIQUE (shelf, id)`, rather than through
+/// every record in the order kept, which a large book's entries fill
+/// (review 36 #2).
+const keptShelfQuery = 'SELECT shelf, id, seq, body FROM rows WHERE shelf = ?';
 
 /// The store as work apart ([EncryptedDatabase.workApart]) has it, on its
 /// worker: the same connection, and nothing else using it meanwhile.
@@ -887,8 +894,29 @@ final class ApartStore {
   /// and each collection of the worker's young objects (shared with the
   /// screen's isolate, one isolate group) copied them, holding the screen
   /// still. Gone through within one transaction ([post]), every page is
-  /// of the same records.
-  Iterable<KeptRow> kept(List<String> shelves, {int page = keptPage}) sync* {
+  /// of the same records. Shelves of [few] records, such as the accounts
+  /// and categories, are each read whole by their shelf instead
+  /// ([keptShelfQuery]): paged through the order kept, each page went
+  /// through the entries between them.
+  Iterable<KeptRow> kept(
+    List<String> shelves, {
+    int page = keptPage,
+    bool few = false,
+  }) sync* {
+    if (few) {
+      final rows = [
+        for (final shelf in shelves)
+          for (final r in _db.select(keptShelfQuery, [shelf]))
+            (
+              shelf: r['shelf'] as String,
+              id: r['id'] as String,
+              seq: r['seq'] as int,
+              body: r['body'] as String,
+            ),
+      ]..sort((a, b) => a.seq.compareTo(b.seq));
+      yield* rows;
+      return;
+    }
     final query =
         'SELECT shelf, id, seq, body FROM rows WHERE shelf IN '
         '(${List.filled(shelves.length, '?').join(', ')}) AND seq > ? '

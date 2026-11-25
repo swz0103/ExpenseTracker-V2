@@ -179,13 +179,15 @@ Future<PostedBook> Function(ReadKept, AddPart) postingWork({
   required Set<String> aside,
   required List<Holding> start,
 }) => (rows, add) async {
-  Iterable<StoredRow> kept(List<String> shelves) =>
-      rows(shelves)
+  Iterable<StoredRow> kept(List<String> shelves, {bool few = false}) =>
+      rows(shelves, few: few)
           .where((r) => !aside.contains('${r.shelf}/${r.id}'))
           .map((r) => StoredRow(r.seq, r.shelf, r.id, r.body));
   return postBook(
     decodeBook(
-      shelvesOf(kept([Collection.account.name, Collection.category.name])),
+      shelvesOf(
+        kept([Collection.account.name, Collection.category.name], few: true),
+      ),
       // Gone through once, as they are decoded.
       entryRows: kept([Collection.entry.name]),
     ),
