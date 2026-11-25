@@ -22,10 +22,6 @@ abstract class SyncJob extends ChangeNotifier {
   bool get busy => _busy;
   var _busy = false;
 
-  /// When it last worked.
-  DateTime? get lastSuccess => _lastSuccess;
-  DateTime? _lastSuccess;
-
   /// Why the last run did not work, in words for the person; null when
   /// it did.
   String? get problem => _problem;
@@ -60,7 +56,6 @@ abstract class SyncJob extends ChangeNotifier {
     try {
       _problem = await work();
       _failed = false;
-      _lastSuccess = _clock();
     } on Object catch (error) {
       ErrorLog.instance.record(label, error);
       _problem = failure;

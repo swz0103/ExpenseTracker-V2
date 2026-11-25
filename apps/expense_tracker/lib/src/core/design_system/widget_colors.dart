@@ -18,7 +18,6 @@ abstract final class WidgetColors {
   static const dot = Shade(0xFFD5DAD7, 0xFF55626A);
   static const expense = Shade(0xFF9F4535, 0xFFE0A495);
   static const income = Shade(0xFF276B58, 0xFF84BDA8);
-  static const rule = Shade(0xFFE1E4E0, 0xFF46535A);
   static const onButton = Shade(0xFFFFFFFF, 0xFF0F1A1F);
   static const expenseTint = Shade(0xFFF3E3DF, 0xFF4B3B39);
   static const incomeTint = Shade(0xFFDCEBE5, 0xFF2E4741);

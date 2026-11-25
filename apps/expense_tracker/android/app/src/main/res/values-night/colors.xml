@@ -13,7 +13,6 @@
     <color name="widget_dot">#55626A</color>
     <color name="widget_expense">#E0A495</color>
     <color name="widget_income">#84BDA8</color>
-    <color name="widget_rule">#46535A</color>
     <color name="widget_on_button">#0F1A1F</color>
     <color name="widget_expense_tint">#4B3B39</color>
     <color name="widget_income_tint">#2E4741</color>

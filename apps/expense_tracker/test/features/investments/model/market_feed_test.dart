@@ -165,7 +165,6 @@ void main() {
     expect(ledger.holding('2330')!.price, 1234.5);
     expect(ledger.holding('2330')!.value, 12345);
     expect(feed.problem, isNull);
-    expect(feed.lastSuccess, _now);
     expect(feed.busy, isFalse);
   });
 

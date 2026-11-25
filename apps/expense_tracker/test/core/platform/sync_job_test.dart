@@ -33,7 +33,6 @@ void main() {
     now = now.add(const Duration(minutes: 21));
     await probe.refresh();
     expect(probe.runs, 3);
-    expect(probe.lastSuccess, now);
     expect(probe.problem, isNull);
   });
 
@@ -46,7 +45,6 @@ void main() {
       await probe.refresh(force: true);
       expect(probe.problem, isNotNull);
       expect(probe.failed, isTrue);
-      expect(probe.lastSuccess, isNull);
       probe
         ..fails = false
         ..says = '0050X 抓不到收盤價';
