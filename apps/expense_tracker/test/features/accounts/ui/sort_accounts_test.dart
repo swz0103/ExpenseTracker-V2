@@ -1,6 +1,7 @@
 import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
+import 'package:expense_tracker/src/features/accounts/ui/sort_accounts.dart';
 import 'package:expense_tracker/src/features/accounts/ui/accounts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

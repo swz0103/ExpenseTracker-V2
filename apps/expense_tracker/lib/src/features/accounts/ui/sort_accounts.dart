@@ -1,4 +1,30 @@
-part of 'accounts.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/design_system/haptics.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import 'accounts.dart';
+
+/// 排序帳戶: the cards laid flat, each dragged by its handle. Nothing is
+/// kept until 完成.
+class SortAccountsPage extends StatefulWidget {
+  const SortAccountsPage({super.key, required this.ledger});
+
+  final Ledger ledger;
+
+  @override
+  State<SortAccountsPage> createState() => _SortAccountsPageState();
+}
+
+/// How 排序帳戶 lines the cards up: by hand, the most money first, or
+/// the one used last first.
+enum _SortBy { hand, balance, recent }
 
 class _SortAccountsPageState extends State<SortAccountsPage> {
   late final _order = walletAccounts(widget.ledger);

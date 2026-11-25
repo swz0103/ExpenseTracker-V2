@@ -5,24 +5,20 @@ import 'package:flutter/material.dart';
 import '../../../../design_system/display/amount.dart';
 import '../forms/account_editor.dart';
 import '../../../core/design_system/glyphs.dart';
-import '../../../core/design_system/haptics.dart';
-import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/navigation/nav.dart';
-import 'account_card.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
-import '../../../core/design_system/motion.dart';
 import '../../../core/formatting/words.dart';
 import '../../../core/messages/flow_messages.dart';
 
 import 'package:core/time/utc_days.dart';
 
-part 'sort_accounts.dart';
-part 'wallet.dart';
+import 'sort_accounts.dart';
+import 'wallet.dart';
 
 /// The kinds 我的帳戶 holds, in the order 依類型重新排 puts them. Money
 /// paid for someone and loans have a page of their own.
@@ -137,7 +133,7 @@ class _AccountsPageState extends State<AccountsPage> {
             if (accounts.isEmpty)
               const Text(FlowWords.noAccountsYet, style: mutedSmall)
             else
-              _Wallet(
+              Wallet(
                 ledger: ledger,
                 accounts: accounts,
                 index: index,
@@ -260,21 +256,6 @@ class _MadeOf extends StatelessWidget {
     );
   }
 }
-
-/// 排序帳戶: the cards laid flat, each dragged by its handle. Nothing is
-/// kept until 完成.
-class SortAccountsPage extends StatefulWidget {
-  const SortAccountsPage({super.key, required this.ledger});
-
-  final Ledger ledger;
-
-  @override
-  State<SortAccountsPage> createState() => _SortAccountsPageState();
-}
-
-/// How 排序帳戶 lines the cards up: by hand, the most money first, or
-/// the one used last first.
-enum _SortBy { hand, balance, recent }
 
 /// Each of [values]' share of a bar, every one at least [least] of it so
 /// even a small sum shows; the rest is shared among the larger ones by
