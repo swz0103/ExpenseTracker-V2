@@ -9,6 +9,10 @@
 #   status  owned      exactly the listed owner implements it today
 #           scattered  implemented in several places today
 #           planned    does not exist yet
+#   guard   (optional) what keeps it single: rule ids of tooling/rules
+#           (B9-...) or test files (paths from the repo root); every owner
+#           a work package touches names one
+#   plan    (scattered only, required) one line: how it becomes owned
 #
 # Statuses were set by reading the file names and a few call sites, not by
 # a full audit; where unsure they say `scattered`.
@@ -30,6 +34,7 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/models/fixed_point.dart
     target: packages/core/lib/fx/
     status: scattered
+    plan: "D58: one dated FX and price table in packages/core/lib/fx; market_data_repository reads it, fixed_point keeps only the arithmetic."
   # Decision D59: a foreign balance held is valued at the bank's buying
   # rate, one owed at its selling rate; valuationSide is the one rule,
   # MarketDataReader.valueAtHome and the journal's valuer ask it.
@@ -134,6 +139,7 @@ items:
       - packages/core/lib/src/foundation_values/identity.dart
     target: packages/core/lib/identity/
     status: scattered
+    plan: "PublicId and the typed ids move to packages/core/lib/identity; new ids are typed (BASE2), string ids converted as each package is touched."
   - id: shared-constants
     what: 共用常數（保留天數、上限）
     layer: core
@@ -191,6 +197,7 @@ items:
       - packages/ledger/entries/lib/model/entry.dart
     target: packages/ledger/entries/lib/rules/
     status: scattered
+    plan: "One table of which entry types count as spending or income (refunds included) in packages/ledger/entries/lib/rules, read by reports, budgets and the widget."
   - id: balance-net-worth
     what: 餘額與淨資產
     layer: ledger
@@ -199,6 +206,7 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/portfolio.dart
     target: packages/ledger/accounts/lib/calc/ + packages/ledger/net_worth/lib/calc/
     status: scattered
+    plan: "netWorth(day) is the one walk (N2): delete BalanceService.assets/cardDebt/loanDebt (review 32, 4.1) and put the portfolio valuation behind it."
   # Decision D24: T+2 counts the exchanges' open days: core's official
   # calendar less the market's own closures (a dated table).
   - id: market-days-settlement-date
@@ -274,6 +282,7 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/card_cycle.dart
     target: packages/ledger/installments/lib/calc/ + packages/ledger/card_cycles/lib/calc/
     status: scattered
+    plan: "card_cycle.dart's cycle maths moves into packages/domain credit_cards beside card_billing.dart; the app keeps only the reads."
   # Work package 2.0: the journal of postings beside the records. The
   # kernel is pure and knows no kind of record; the postings package says
   # how each of today's records posts; the file keeps the derived tables.
@@ -362,6 +371,7 @@ items:
       - apps/expense_tracker/lib/src/features/budgets/model/budget_month.dart
     target: packages/ledger/budgets/lib/calc/
     status: scattered
+    plan: "BudgetService (spentAgainst, a new overAfter) is the one rule; shell._overBudget goes (review 32, 3.1) and budget_month.dart only composes."
   - id: recurring-due
     what: 定期項目哪幾期到期
     layer: ledger
@@ -370,6 +380,7 @@ items:
       - apps/expense_tracker/lib/src/features/recurring/model/recurring_schedule.dart
     target: packages/ledger/recurring/lib/calc/
     status: scattered
+    plan: "recurring_schedule.dart's due periods move into recurring_service (then packages/ledger/recurring); the editor asks it."
   - id: duplicate-detection
     what: 重複判斷（匯入、發票、定期對手動）
     layer: ledger
@@ -379,6 +390,7 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/services/recurring_service.dart
     target: packages/ledger/csv_exchange/lib/rules/ + packages/ledger/e_invoice/lib/rules/ + packages/ledger/recurring/lib/rules/
     status: scattered
+    plan: "One duplicate test (day, amount, account, merchant) in packages/domain, used by import_reader, invoices and recurring_service."
   # Decision D93: the one rule for a day read from an imported file
   # (CSV lines, e-invoice M lines and the ministry's CSV).
   - id: import-dates
@@ -395,6 +407,7 @@ items:
       - apps/expense_tracker/lib/src/features/accounts/ui/sort_accounts.dart
     target: packages/ledger/accounts/lib/rules/
     status: scattered
+    plan: "sort_accounts.dart's rule moves into the accounts model (packages/ledger/accounts/lib/rules); pages only call it."
   - id: reminder-content
     what: 該提醒什麼
     layer: ledger
@@ -403,6 +416,7 @@ items:
       - apps/expense_tracker/lib/src/features/reminders/model/reminder_alerts.dart
     target: packages/ledger/reminders/lib/calc/
     status: scattered
+    plan: "reminders.dart decides what is due; reminder_alerts.dart only words and times it: its remaining checks move to reminders.dart."
 
   # ---- app ----
   - id: ledger-writes
@@ -412,6 +426,7 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/commands
     target: apps/expense_tracker/lib/app/commands/
     status: scattered
+    plan: "Every write through EntryCommands.save (1.4); the undo bookkeeping leaves entry_commands.dart before D82 (review 32, 3.2)."
   - id: ledger-reads
     what: 讀取與彙總
     layer: app
@@ -420,6 +435,7 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/services/report_service.dart
     target: apps/expense_tracker/lib/app/queries/
     status: scattered
+    plan: "entry_query_service splits by topic behind QueryCache readers (PERF-2); report_service keeps only the report shapes."
   - id: cache-invalidation
     what: 快取何時失效
     layer: app
@@ -459,6 +475,9 @@ items:
       - apps/expense_tracker/lib/src/features/overview/model/home_widget.dart
     target: apps/expense_tracker/lib/app/coordinators/
     status: owned
+    guard:
+      - apps/expense_tracker/test/features/overview/model/home_widget_test.dart
+      - apps/expense_tracker/test/scenarios/app/widget_words_test.dart
   # The order (lock decision first, one backup per leave) is AppLifecycle's;
   # what runs on each is LifecycleServices' (work package 3.3).
   - id: lifecycle
@@ -482,6 +501,9 @@ items:
       - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/ReminderGrace.kt
     target: apps/expense_tracker/lib/app/coordinators/reminders/
     status: owned
+    guard:
+      - apps/expense_tracker/test/core/messages/native_messages_test.dart
+      - apps/expense_tracker/test/app/android/notification_adapter_test.dart
   # One table: each kind's channel and grace window, the plan's horizon,
   # the hour a due date is told, how late an inexact alarm may come. The
   # most alerts (ReminderTiming.most) go to the phone with each plan; the
@@ -502,6 +524,8 @@ items:
       - apps/expense_tracker/lib/src/features/reminders/model/calendar_sync.dart
     target: apps/expense_tracker/lib/app/coordinators/reminders/
     status: owned
+    guard:
+      - apps/expense_tracker/test/core/messages/native_messages_test.dart
   # Every backup file is written one after another by the backup manager;
   # the backups of a leave run one at a time (OneAtATime); the outbox
   # answers a second prepare with the first (work package 3.3, F65).
@@ -542,6 +566,7 @@ items:
       - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/MarketWorker.kt
     target: apps/expense_tracker/lib/app/coordinators/market/
     status: scattered
+    plan: "MarketWorker.kt is handed the hosts and the size limit by market_feed.dart (review 2 K4) and keeps no rule of its own; the repository only stores."
   # Review 22 finding 5: the update feed and Drive follow a redirect only
   # to https and read a body only up to a limit, through one helper.
   - id: app-https-limits
@@ -588,6 +613,7 @@ items:
       - apps/expense_tracker/lib/src/features/entries/ui/trash_section.dart
     target: apps/expense_tracker/lib/app/commands/
     status: scattered
+    plan: "D82: one undo/confirm rule and type (WP-A); trash_section and the three delete-and-復原 copies (review 32, 2.4) use it."
   # D75/D76: each entry's place in the order written, kept while it is in
   # the trash, and the one tie-break of every list (newestFirst).
   - id: entry-order
@@ -605,6 +631,8 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/models/category.dart
     target: packages/ledger/entries/lib/model/
     status: owned
+    guard:
+      - apps/expense_tracker/test/core/ledger/models/category_test.dart
   # The transfers the screens and forms open or write: TransferDrafts.
   - id: transfer-drafts
     what: 轉帳草稿（轉出、代墊、收回、還款、繳卡費）
@@ -630,6 +658,7 @@ items:
       - apps/expense_tracker/lib/src/app/shell.dart
     target: apps/expense_tracker/lib/app/navigation/
     status: scattered
+    plan: "Quick actions and widget taps resolve through nav.dart's one table; shell.dart only hosts."
   - id: permission-prompts
     what: 權限詢問
     layer: app
@@ -643,6 +672,7 @@ items:
       - apps/expense_tracker/lib/src/core/platform/preferences.dart
     target: apps/expense_tracker/lib/app/settings/
     status: scattered
+    plan: "PRIV/3.3b: preferences split by topic with async coalesced writes; each feature owns its state file (review 32, 1.3 and 3.4)."
   # The log (what is kept of an error: the redaction rule, the stack and
   # its limits, batching, rotation), the one handler of faults nobody
   # caught, and the names quiet failures are kept under.
@@ -696,6 +726,7 @@ items:
       - apps/expense_tracker/lib/src/core/design_system/widget_colors.dart
     target: apps/expense_tracker/lib/design_system/tokens/
     status: scattered
+    plan: "DS-1: colour tokens into lib/design_system/tokens; settings_colors and widget_colors derived from theme.dart's scale."
   # appFont: the theme, canvas text and the preview frame take it; rule B5.
   - id: app-font
     what: 字型（Nunito 與中文後備字型）
@@ -713,6 +744,7 @@ items:
       - apps/expense_tracker/lib/src/core/design_system/shape.dart
     target: apps/expense_tracker/lib/design_system/tokens/
     status: scattered
+    plan: "DS-1: one token file for type, spacing and touch size under lib/design_system/tokens; unused Space steps pruned (review 32, 4.5)."
   - id: dialogs-sheets-pickers
     what: 對話框、面板、選擇器、計算機、清單列
     layer: design_system
@@ -724,6 +756,7 @@ items:
       - apps/expense_tracker/lib/src/core/widgets/entry_tile.dart
     target: apps/expense_tracker/lib/design_system/components/
     status: scattered
+    plan: "WP-E: every dialog through dialogs.dart (the raw AlertDialogs of review 32 go); pickers and panels move to lib/design_system/components."
   # core/widgets/shown_amounts.dart only passes a book's 隱藏金額 switch
   # (core/ledger/amount_visibility.dart) on to display/.
   - id: amount-display
@@ -756,6 +789,7 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/repositories/draft_repository.dart
     target: apps/expense_tracker/lib/design_system/forms/
     status: scattered
+    plan: "form_frame.dart owns every form's back, draft and error behaviour (D83-D85); draft_repository only stores."
   - id: empty-error-states
     what: 空白與錯誤狀態的畫面
     layer: design_system
@@ -764,6 +798,7 @@ items:
       - apps/expense_tracker/lib/src/core/widgets/problem_note.dart
     target: apps/expense_tracker/lib/design_system/components/
     status: scattered
+    plan: "One empty/error block in feedback.dart, problem_note its variant (with the FIX-R32 notes)."
   - id: all-text
     what: 所有文字
     layer: design_system
@@ -771,6 +806,10 @@ items:
       - apps/expense_tracker/lib/src/core/messages
     target: apps/expense_tracker/lib/design_system/text/
     status: scattered
+    guard:
+      - B9-text-literals
+      - apps/expense_tracker/test/rules/kotlin_literals_test.dart
+    plan: "Every word in core/messages (rule B9 ratchet; the Kotlin side through NativeWords, kotlin_literals_test); moves to lib/design_system/text with DS-1."
   - id: icons-haptics-motion
     what: 圖示、震動、動畫時間
     layer: design_system
@@ -780,6 +819,7 @@ items:
       - apps/expense_tracker/lib/src/core/design_system/motion.dart
     target: apps/expense_tracker/lib/design_system/icons/ + apps/expense_tracker/lib/design_system/tokens/
     status: scattered
+    plan: "DS-1: icons, haptics and motion tokens into lib/design_system; which save earns the heavier knock is asked of BudgetService (review 32, 3.1)."
 
   # ---- data ----
   - id: data-format-migration
@@ -819,9 +859,12 @@ items:
     owner:
       - infrastructure/vault/lib/src/ledger_backup/ledger_backup.dart
       - infrastructure/vault/lib/src/backup_security/file_box.dart
-      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/BackupPlan.kt
+      - apps/expense_tracker/lib/src/features/backup/model/backup_rules.dart
     target: infrastructure/vault/lib/
-    status: scattered
+    status: owned
+    guard:
+      - apps/expense_tracker/test/features/backup/model/backup_rules_test.dart
+      - apps/expense_tracker/test/rules/kotlin_literals_test.dart
   # FileBox.receipts / FileBox.inbox and LedgerInbox.keyName: the app
   # seals photos and the vault seals them again on a password change.
   - id: vault-box-names
@@ -840,6 +883,10 @@ items:
       - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/ChannelHandler.kt
     target: infrastructure/platform/lib/
     status: scattered
+    guard:
+      - apps/expense_tracker/test/scenarios/app/channel_test.dart
+      - apps/expense_tracker/test/core/messages/native_messages_test.dart
+    plan: "Method names and argument keys in one table on each side (Kotlin constants checked by channel_test), then infrastructure/platform."
   - id: build-flavor
     what: 這個版本能不能自己更新（sideload 或 play）
     layer: app
@@ -847,3 +894,53 @@ items:
       - apps/expense_tracker/lib/src/core/platform/distribution.dart
     target: apps/expense_tracker/lib/app/coordinators/
     status: owned
+
+  # ---- single sources across Dart and Kotlin (ONE-2, NAT-1) ----
+  # The backups' keep, rhythms and names: the background job is handed
+  # them with each backup (ready.json) and keeps none (review 32, 2.1).
+  - id: backup-rules
+    what: 備份保留幾份、多久一次、檔名與雲端資料夾名稱
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/backup/model/backup_rules.dart
+    target: apps/expense_tracker/lib/app/coordinators/backup/
+    status: owned
+    guard:
+      - apps/expense_tracker/test/features/backup/model/backup_rules_test.dart
+      - apps/expense_tracker/test/rules/kotlin_literals_test.dart
+  # The app's private file and folder names; AppFiles.kt mirrors those the
+  # Android side needs before the app runs (review 32, 2.2).
+  - id: app-file-names
+    what: App 自己的檔案與資料夾名稱
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/app_files.dart
+    target: infrastructure/platform/lib/
+    status: owned
+    guard:
+      - apps/expense_tracker/test/core/platform/app_files_test.dart
+      - apps/expense_tracker/test/rules/kotlin_literals_test.dart
+  # The colour a new category takes, however it is made (review 32, 2.3).
+  - id: category-colors
+    what: 新分類的顏色
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/models/category.dart
+    target: packages/ledger/entries/lib/model/
+    status: owned
+    guard:
+      - apps/expense_tracker/test/core/ledger/models/category_test.dart
+  # The words the Kotlin side shows: handed over with each call, with
+  # fallbacks in NativeWords.kt only where the app cannot run (NAT-1).
+  - id: native-words
+    what: Android 端顯示的文字（通知、生物辨識、桌面小工具、剪貼簿）
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/messages/native_messages.dart
+      - apps/expense_tracker/lib/src/core/messages/widget_messages.dart
+    target: apps/expense_tracker/lib/design_system/text/
+    status: owned
+    guard:
+      - apps/expense_tracker/test/core/messages/native_messages_test.dart
+      - apps/expense_tracker/test/scenarios/app/widget_words_test.dart
+      - apps/expense_tracker/test/rules/kotlin_literals_test.dart

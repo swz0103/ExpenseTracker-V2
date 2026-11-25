@@ -6,6 +6,7 @@ import 'reminder_rules.dart';
 import 'reminders.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
+import '../../../core/messages/reminder_messages.dart';
 
 /// A calendar on the phone, such as one synced with Google Calendar.
 final class CalendarChoice {
@@ -176,7 +177,7 @@ final class CalendarSync {
   /// events, before its key: how the phone's side (`CalendarBridge.kt`)
   /// tells them from the person's own. Events already in calendars carry
   /// it, so it never changes.
-  static const mark = '記帳本#';
+  static const mark = ReminderMessages.calendarMark;
 
   /// How long each event lasts in the calendar.
   static const eventLength = Duration(minutes: 30);

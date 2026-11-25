@@ -15,6 +15,11 @@ abstract final class ReminderMessages {
 
   /// The test notification 試一則 sends.
   static const testTitle = '測試通知';
+
+  /// What starts the last line of each event the app writes into a
+  /// calendar, before its key (`CalendarSync.mark`); the person sees it
+  /// there, and the events already written carry it.
+  static const calendarMark = '記帳本#';
   static const testText = '提醒會像這樣出現。';
 
   /// The daily nudge.

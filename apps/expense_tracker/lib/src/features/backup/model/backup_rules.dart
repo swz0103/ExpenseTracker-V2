@@ -26,10 +26,10 @@ abstract final class BackupRules {
       daily ? BackupRules.daily : weekly;
 
   /// The folder on Google Drive the backups go into.
-  static const driveFolder = '記帳本備份';
+  static const driveFolder = BackupWords.driveFolder;
 
   /// The start and end of the names of the backups in the phone's folder.
-  static const _prefix = '記帳本-';
+  static const _prefix = BackupWords.phoneNameStart;
   static const suffix = '.etbk';
 
   /// A short mark of [ledger] in its backups' names, so the folder can

@@ -32,4 +32,10 @@ abstract final class BackupWords {
   /// the person took the permission back. Said by the app and by the
   /// background job, which is handed these words (`BackupRules.handover`).
   static const folderDenied = '沒有這個資料夾的存取權，請重新選擇';
+
+  /// The folder on Google Drive the backups go into, and how the names of
+  /// the backups in the phone's folder start: the person sees both, and
+  /// the backups already there carry them (`BackupRules`).
+  static const driveFolder = '記帳本備份';
+  static const phoneNameStart = '記帳本-';
 }
