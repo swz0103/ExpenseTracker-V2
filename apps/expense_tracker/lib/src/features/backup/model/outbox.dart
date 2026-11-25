@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:math';
 
 import '../../../core/platform/preferences.dart';
-import 'phone_backup.dart';
+import 'backup_rules.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/time/app_clock.dart';
 import '../../../core/formatting/json_fields.dart';
@@ -99,6 +99,9 @@ final class Outbox {
     if (ready != null &&
         ready['ledger'] == _ledger &&
         ready['revision'] == revision) {
+      // One written by a version that handed over no plan is handed this
+      // one's, so the job can deliver it.
+      if (ready['v'] != _version) await _handOver(ready);
       return false;
     }
     final phoneHas =
@@ -116,15 +119,19 @@ final class Outbox {
     final driveFile = phone && drive && !photos
         ? await _write(_folder, withPhotos: false)
         : null;
+    final at = _clock();
     await _save(_ready, {
-      'v': 1,
+      'v': _version,
       'file': file.uri.pathSegments.last,
       'driveFile': ?driveFile?.uri.pathSegments.last,
       'drivePhotos': photos,
       'revision': revision,
       'ledger': _ledger,
-      'mark': PhoneBackup.markOf(_ledger),
-      'at': _clock().toUtc().millisecondsSinceEpoch,
+      'mark': BackupRules.markOf(_ledger),
+      'at': at.toUtc().millisecondsSinceEpoch,
+      // The job keeps no rule of its own; the file is named by the
+      // phone's clock, as the app's own backups there are.
+      'plan': BackupRules.handover(BackupRules.markOf(_ledger), at),
     });
     // The one waiting before is replaced: only the newest is delivered.
     for (final old in _folder.listSync()) {
@@ -136,6 +143,25 @@ final class Outbox {
       }
     }
     return true;
+  }
+
+  /// What `ready.json` is: from 2 on, it carries the plan the job follows
+  /// ([BackupRules.handover]).
+  static const _version = 2;
+
+  /// Writes [ready] again with this version's plan, taken for the time
+  /// its backup was written.
+  Future<void> _handOver(Map<String, Object?> ready) async {
+    final written = ready['at'];
+    // On the phone's clock, as the backup was named when written.
+    final at = written is int
+        ? DateTime.fromMillisecondsSinceEpoch(written)
+        : _clock();
+    await _save(_ready, {
+      ...ready,
+      'v': _version,
+      'plan': BackupRules.handover(BackupRules.markOf(_ledger), at),
+    });
   }
 
   /// Takes away the backup waiting for the job, and what says it is

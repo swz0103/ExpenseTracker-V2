@@ -13,6 +13,7 @@ import '../../../core/time/app_clock.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
 import '../../../core/platform/app_files.dart';
+import 'backup_rules.dart';
 
 /// The keys and backups of the open encrypted ledger.
 final class EncryptedBackupManager implements BackupManager {
@@ -302,8 +303,8 @@ final class EncryptedBackupManager implements BackupManager {
   /// ledger changed since, then keeps only the newest [keep]. Returns the
   /// new backup's path, or null when none was due.
   Future<String?> backUpIfDue({
-    Duration every = const Duration(days: 7),
-    int keep = 5,
+    Duration every = BackupRules.own,
+    int keep = BackupRules.keep,
   }) async {
     final files = _backups();
     if (files.isNotEmpty) {

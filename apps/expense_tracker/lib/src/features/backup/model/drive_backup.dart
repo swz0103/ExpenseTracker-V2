@@ -6,6 +6,7 @@ import '../../../core/diagnostics/error_log.dart';
 import '../../../core/platform/bounded_https.dart';
 import '../../../core/formatting/json_fields.dart';
 import '../../../core/diagnostics/error_steps.dart';
+import 'backup_rules.dart';
 
 /// One HTTP exchange with Google Drive: the status, the headers (lower
 /// case) and, unless it was saved to a file, the body.
@@ -188,7 +189,9 @@ final class DriveBackup {
   final Future<String?> Function({required bool interactive}) _token;
   final Future<void> Function(String token) _forget;
 
-  static const folderName = '記帳本備份';
+  /// The folder the backups go into ([BackupRules.driveFolder]), by the
+  /// name the screens say it.
+  static const folderName = BackupRules.driveFolder;
   static const _folderType = 'application/vnd.google-apps.folder';
   static const _api = 'https://www.googleapis.com/drive/v3/files';
   static const _upload = 'https://www.googleapis.com/upload/drive/v3/files';
@@ -436,7 +439,7 @@ final class DriveBackup {
     required String ledger,
     int? epoch,
     bool interactive = true,
-    int keep = 5,
+    int keep = BackupRules.keep,
   }) async {
     final folder = await _folderId(interactive: interactive);
     final name = file.uri.pathSegments.last;

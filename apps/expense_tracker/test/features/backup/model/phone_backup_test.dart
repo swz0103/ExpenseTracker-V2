@@ -93,7 +93,8 @@ void main() {
     final ours =
         folder.files.keys.where((n) => n.startsWith('記帳本-ledger-')).toList()
           ..sort();
-    expect(ours, hasLength(PhoneBackup.keep));
+    // BackupRules.keep: the newest five stay.
+    expect(ours, hasLength(5));
     expect(ours.last, phone.nameAt(now));
     expect(folder.files['相片.jpg'], 'mine');
     expect(folder.files['記帳本-other-20260101-0900.etbk'], 'other');

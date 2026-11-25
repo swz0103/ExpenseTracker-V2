@@ -62,6 +62,25 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         if (e is BackgroundWork.Stopped || e is InterruptedException) throw e
     }
 
+    /** The rules the app handed over with the backup; null from an app that handed none. */
+    private fun handed(json: JSONObject?): BackupPlan.Handed? = try {
+        json?.let {
+            BackupPlan.Handed(
+                keep = it.getInt("keep"),
+                daily = it.getLong("daily"),
+                weekly = it.getLong("weekly"),
+                drive = it.getLong("drive"),
+                phoneName = it.getString("phoneName"),
+                phonePrefix = it.getString("phonePrefix"),
+                suffix = it.getString("suffix"),
+                driveFolder = it.getString("driveFolder"),
+                folderDenied = it.getString("folderDenied"),
+            )
+        }
+    } catch (e: Exception) {
+        null
+    }
+
     private fun read(file: File): JSONObject? = try {
         if (file.exists()) JSONObject(file.readText()) else null
     } catch (e: Exception) {
@@ -76,13 +95,15 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         val ready = read(File(outbox, AppFiles.OUTBOX_READY)) ?: return false
         val backup = File(outbox, ready.optString("file"))
         if (ready.optString("file").isEmpty() || !backup.exists()) return false
+        // Without the app's rules nothing is delivered: the app hands them
+        // over again when next opened (Outbox.prepare).
+        val plan = handed(ready.optJSONObject("plan")) ?: return false
         // Drive's own copy without the photos, when the folder takes them.
         val driveBackup = ready.optString("driveFile").ifEmpty { null }
             ?.let { File(outbox, it) }?.takeIf { it.exists() } ?: backup
         val photos = ready.optBoolean("drivePhotos", true)
         val revision = ready.getInt("revision")
         val ledger = ready.getString("ledger")
-        val mark = ready.optString("mark")
         val kept = read(File(outbox, AppFiles.OUTBOX_DELIVERED))
         val delivered = kept ?: JSONObject()
         val problems = delivered.optJSONObject("problems") ?: JSONObject()
@@ -119,11 +140,11 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         fun toPhone() {
             if (folder == null || preferences.isNull("phoneFolder")) return
             val (at, made) = last("phone", "phoneBackedUp", "phoneRevision", folder)
-            val every = if (preferences.optBoolean("phoneDaily")) BackupPlan.DAY else 7 * BackupPlan.DAY
+            val every = plan.phoneEvery(preferences.optBoolean("phoneDaily"))
             if (BackupPlan.due(now, at, made, revision, every)) {
                 stopIfAsked()
                 try {
-                    toFolder(Uri.parse(folder), backup, mark, ready.optLong("at", now))
+                    toFolder(Uri.parse(folder), backup, plan)
                     delivered.put("phone", entry(now, revision, ledger).put("uri", folder))
                     problems.remove("phone")
                 } catch (e: Exception) {
@@ -141,14 +162,14 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
             val (at, made) = last("drive", "driveBackedUp", "driveRevision", null)
             // The same key as Preferences.photosOnWifiKey; on unless turned off.
             val onWifi = preferences.optBoolean("photosOnWifi", true)
-            if (!BackupPlan.due(now, at, made, revision, BackupPlan.DAY)) {
+            if (!BackupPlan.due(now, at, made, revision, plan.drive)) {
                 driveHas = made == revision
             } else if (photos && onWifi && !unmetered()) {
                 driveHas = false
             } else {
                 stopIfAsked()
                 try {
-                    DriveUploader(applicationContext) { isStopped }
+                    DriveUploader(applicationContext, plan) { isStopped }
                         .upload(driveBackup, ledger, UploadSession.In(File(outbox, UploadSession.FILE)))
                     delivered.put("drive", entry(now, revision, ledger))
                     problems.remove("drive")
@@ -191,14 +212,12 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
     }
 
     /** Writes the backup into the folder and keeps the newest of this ledger. */
-    private fun toFolder(tree: Uri, backup: File, mark: String, at: Long) {
+    private fun toFolder(tree: Uri, backup: File, plan: BackupPlan.Handed) {
         val resolver = applicationContext.contentResolver
-        if (!FolderFiles.allowed(resolver, tree)) {
-            throw IllegalStateException("沒有這個資料夾的存取權，請重新選擇")
-        }
-        FolderFiles.write(resolver, tree, backup, BackupPlan.phoneName(mark, at)) { isStopped }
+        if (!FolderFiles.allowed(resolver, tree)) throw IllegalStateException(plan.folderDenied)
+        FolderFiles.write(resolver, tree, backup, plan.phoneName) { isStopped }
         val listed = FolderFiles.list(resolver, tree)
-        val old = BackupPlan.beyondKept(listed.map { it["name"] as String }, mark).toSet()
+        val old = BackupPlan.beyondKept(listed.map { it["name"] as String }, plan).toSet()
         for (file in listed) {
             if ((file["name"] as String) in old) FolderFiles.delete(resolver, tree, file["id"] as String)
         }

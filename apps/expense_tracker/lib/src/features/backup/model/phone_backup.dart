@@ -1,5 +1,3 @@
-import 'package:core/foundation_values.dart' show BusinessDate, twoDigits;
-
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +6,8 @@ import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
 import '../../../core/time/app_clock.dart';
+import '../../../core/messages/backup_messages.dart';
+import 'backup_rules.dart';
 
 /// The folder chosen cannot be kept: Android gave no lasting permission
 /// for it, as for the storage's top or 下載 since Android 11.
@@ -52,7 +52,8 @@ abstract interface class FolderPort {
 /// Backups to a folder on the phone, such as one in Documents that the
 /// phone's own backup or a computer can copy: chosen once, then written
 /// daily or weekly when the ledger changed, each with the receipt photos.
-/// The newest [keep] are kept; the app only touches its own files there.
+/// The newest [BackupRules.keep] are kept; the app only touches its own
+/// files there.
 final class PhoneBackup extends ChangeNotifier {
   PhoneBackup(
     this._folder,
@@ -61,7 +62,7 @@ final class PhoneBackup extends ChangeNotifier {
     required this._revision,
     required String ledger,
     DateTime Function()? clock,
-  }) : _mark = markOf(ledger),
+  }) : _mark = BackupRules.markOf(ledger),
        _clock = clock ?? AppClock.now;
 
   final FolderPort _folder;
@@ -70,24 +71,8 @@ final class PhoneBackup extends ChangeNotifier {
   final int Function() _revision;
   final DateTime Function() _clock;
 
-  /// A short mark of the ledger in its backups' names, so the folder can
-  /// hold another ledger's backups (such as one restored in its place)
-  /// and only this ledger's are ever deleted.
+  /// The ledger's mark in its backups' names ([BackupRules.markOf]).
   final String _mark;
-
-  /// The mark of [ledger] in its backups' names; the background worker
-  /// (BackupWorker.kt) is given it in the outbox.
-  static String markOf(String ledger) {
-    final plain = ledger.replaceAll(RegExp('[^A-Za-z0-9]'), '');
-    return plain.length > 6 ? plain.substring(0, 6) : plain;
-  }
-
-  /// How many backups stay in the folder.
-  static const keep = 5;
-
-  /// The start and end of the names of the app's backups there.
-  static const _prefix = '記帳本-';
-  static const _suffix = '.etbk';
 
   bool get on => _preferences.phoneFolder != null;
   String get folderName => _preferences.phoneFolderName;
@@ -133,7 +118,7 @@ final class PhoneBackup extends ChangeNotifier {
   Future<bool> backUpIfDue() async {
     if (!on || _busy) return false;
     final last = backedUp;
-    final every = daily ? const Duration(days: 1) : const Duration(days: 7);
+    final every = BackupRules.phoneEvery(daily: daily);
     if (last != null &&
         (_clock().difference(last) < every ||
             _preferences.phoneRevision == _revision())) {
@@ -153,10 +138,7 @@ final class PhoneBackup extends ChangeNotifier {
   }
 
   /// The name of this ledger's backup taken at [at]: sorts by time.
-  String nameAt(DateTime at) {
-    return '$_prefix$_mark-${BusinessDate.of(at).compact}'
-        '-${twoDigits(at.hour)}${twoDigits(at.minute)}$_suffix';
-  }
+  String nameAt(DateTime at) => BackupRules.phoneName(_mark, at);
 
   Future<void> _write() async {
     final uri = _preferences.phoneFolder;
@@ -165,7 +147,7 @@ final class PhoneBackup extends ChangeNotifier {
     notifyListeners();
     try {
       if (!await _folder.allowed(uri)) {
-        throw StateError('沒有這個資料夾的存取權，請重新選擇');
+        throw StateError(BackupWords.folderDenied);
       }
       final at = _clock();
       final revision = _revision();
@@ -228,17 +210,18 @@ final class PhoneBackup extends ChangeNotifier {
   /// This ledger's backups in the folder, newest first.
   Future<List<FolderFile>> _ours(String uri) async => [
     for (final file in await _folder.list(uri))
-      if (file.name.startsWith('$_prefix$_mark-') &&
-          file.name.endsWith(_suffix))
+      if (file.name.startsWith(BackupRules.phonePrefix(_mark)) &&
+          file.name.endsWith(BackupRules.suffix))
         file,
   ]..sort((a, b) => b.name.compareTo(a.name));
 
-  /// Deletes this ledger's backups beyond the newest [keep]; other files
+  /// Deletes this ledger's backups beyond the newest [BackupRules.keep];
+  /// other files
   /// in the folder, another ledger's backups among them, are never
   /// touched.
   Future<void> _prune(String uri) async {
     final ours = await _ours(uri);
-    for (final old in ours.skip(keep)) {
+    for (final old in ours.skip(BackupRules.keep)) {
       await _folder.delete(uri, old.id);
     }
   }

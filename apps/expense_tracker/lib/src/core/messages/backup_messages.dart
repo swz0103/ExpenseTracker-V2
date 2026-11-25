@@ -27,4 +27,9 @@ abstract final class BackupWords {
   /// turning it off means.
   static const photosOnWifi = '只用 Wi-Fi 上傳照片';
   static const photosOnWifiOff = '關閉時行動網路也會上傳，可能用掉較多流量';
+
+  /// The phone's folder chosen for backups no longer lets the app write:
+  /// the person took the permission back. Said by the app and by the
+  /// background job, which is handed these words (`BackupRules.handover`).
+  static const folderDenied = '沒有這個資料夾的存取權，請重新選擇';
 }

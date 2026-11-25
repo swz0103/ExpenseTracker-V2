@@ -19,12 +19,15 @@ import java.util.concurrent.TimeUnit
  * Uploads a backup to the folder 記帳本備份 on Google Drive from the
  * background job (BackupWorker.kt), as DriveBackup.upload does in the app
  * (drive_backup.dart): the same folder, the same mark of the ledger, the
- * newest five of that ledger kept and older ones moved to the Drive trash.
+ * newest the app keeps of that ledger kept and older ones moved to the
+ * Drive trash, all as the app hands them over ([BackupPlan.Handed]).
  * It never shows Google's screens: without access already given, it does
  * nothing.
  */
 internal class DriveUploader(
     private val context: Context,
+    /** The app's rules: the folder's name, how many stay, the names' end. */
+    private val plan: BackupPlan.Handed,
     /** Whether WorkManager stopped the run: checked before each part of an upload. */
     private val stopped: () -> Boolean = { false },
 ) {
@@ -147,7 +150,7 @@ internal class DriveUploader(
 
     /** The folder's id, made when there is none. */
     private fun folder(): String {
-        val query = "name='${quote(FOLDER)}' and mimeType='$FOLDER_TYPE' and trashed=false"
+        val query = "name='${quote(plan.driveFolder)}' and mimeType='$FOLDER_TYPE' and trashed=false"
         val found = send("GET", "$API?q=${encode(query)}&fields=${encode("files(id)")}&spaces=drive")
         val files = JSONObject(found.body).optJSONArray("files") ?: JSONArray()
         if (files.length() > 0) return files.getJSONObject(0).getString("id")
@@ -155,14 +158,14 @@ internal class DriveUploader(
             "POST",
             "$API?fields=id",
             mapOf("Content-Type" to "application/json; charset=utf-8"),
-            JSONObject().put("name", FOLDER).put("mimeType", FOLDER_TYPE).toString(),
+            JSONObject().put("name", plan.driveFolder).put("mimeType", FOLDER_TYPE).toString(),
         )
         return JSONObject(made.body).getString("id")
     }
 
     /**
      * Uploads [file] into the folder marked as a backup of [ledger], then
-     * moves that ledger's backups beyond the newest [BackupPlan.KEEP] to
+     * moves that ledger's backups beyond the newest [BackupPlan.Handed.keep] to
      * the Drive trash; pruning is best effort. An upload cut short is kept
      * in [sessions] and goes on from where Drive says it stopped the next
      * time the same file is uploaded, rather than from the start (AND-05).
@@ -263,9 +266,9 @@ internal class DriveUploader(
         val files = JSONObject(listed.body).optJSONArray("files") ?: JSONArray()
         val ours = (0 until files.length())
             .map { files.getJSONObject(it) }
-            .filter { it.optString("name").endsWith(".etbk") }
+            .filter { it.optString("name").endsWith(plan.suffix) }
             .sortedByDescending { it.optString("modifiedTime") }
-        for (old in ours.drop(BackupPlan.KEEP)) {
+        for (old in ours.drop(plan.keep)) {
             try {
                 send(
                     "PATCH",
@@ -293,7 +296,6 @@ internal class DriveUploader(
         }
 
         private const val DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file"
-        private const val FOLDER = "記帳本備份"
         private const val FOLDER_TYPE = "application/vnd.google-apps.folder"
         private const val API = "https://www.googleapis.com/drive/v3/files"
         private const val UPLOAD = "https://www.googleapis.com/upload/drive/v3/files"
