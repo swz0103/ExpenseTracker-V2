@@ -330,34 +330,42 @@ final class MarketDayWrites {
   Map<String, String> rowsOver(
     String? Function(String id) stored,
     Set<MarketSeries> owned,
-  ) => {
-    for (final MapEntry(key: id, value: body) in rows.entries)
-      id: _over(stored(id), body, owned),
-  };
-
-  static String _over(String? stored, String written, Set<MarketSeries> owned) {
-    final kept = stored == null ? null : decodeBodies([stored]).values.single;
-    if (kept is! Map<String, Object?>) return written;
-    final mine = jsonDecode(written) as Map<String, Object?>;
+  ) {
     final fields = {
       for (final series in owned) series.field,
       if (owned.contains(MarketSeries.closes)) fetchedField,
     };
-    return jsonEncode({
-      for (final MapEntry(:key, :value) in kept.entries)
-        if (!fields.contains(key)) key: value,
-      for (final MapEntry(:key, :value) in mine.entries)
-        if (fields.contains(key)) key: value,
-    });
+    return {
+      for (final day in _touched)
+        marketDayId(day): switch (_stored(stored(marketDayId(day)))) {
+          null => _body(day),
+          final kept => jsonEncode({
+            for (final MapEntry(:key, :value) in kept.entries)
+              if (!fields.contains(key)) key: value,
+            for (final MapEntry(:key, :value) in _json(day).entries)
+              if (fields.contains(key)) key: value,
+          }),
+        },
+    };
   }
 
-  String _body(BusinessDate day) => jsonEncode({
+  static Map<String, Object?>? _stored(String? body) => switch (body) {
+    null => null,
+    final body => switch (decodeBodies([body]).values.single) {
+      final Map<String, Object?> json => json,
+      _ => null,
+    },
+  };
+
+  String _body(BusinessDate day) => jsonEncode(_json(day));
+
+  Map<String, Object> _json(BusinessDate day) => {
     for (final series in MarketSeries.values)
       if (_onDay(series, day) case final figures when figures.isNotEmpty)
         series.field: figures,
     if (_fetchedOnDay(day) case final fetched when fetched.isNotEmpty)
       fetchedField: fetched,
-  });
+  };
 
   Map<String, String> _fetchedOnDay(BusinessDate day) => {
     for (final MapEntry(:key, :value) in _fetched.entries)
