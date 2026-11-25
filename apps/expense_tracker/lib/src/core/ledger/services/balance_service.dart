@@ -11,7 +11,6 @@ import '../repositories/market_data_repository.dart';
 
 import 'package:core/foundation_values.dart' show BusinessDate, startOfWeek;
 import 'package:core/time/utc_days.dart';
-import 'package:ledger_entries/model.dart' show latestEntryDay;
 
 /// Balances and worth: each account's on any day, what is owned and owed
 /// in all, and how an account moved week by week.
