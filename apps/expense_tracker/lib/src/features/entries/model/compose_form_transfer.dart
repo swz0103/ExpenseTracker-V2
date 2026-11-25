@@ -1,4 +1,4 @@
-part of 'compose_form.dart';
+import 'compose_form.dart';
 
 // A transfer: its two ends, and what each holds once it is made.
 

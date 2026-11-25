@@ -1,4 +1,6 @@
-part of 'compose_form.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/formatting/words.dart';
+import 'compose_form.dart';
 
 // 代墊 and 對方還錢: whom an entry was paid for, and what each owes.
 
@@ -13,9 +15,9 @@ extension Lending on ComposeForm {
       mode = ComposeMode.expense;
       back = false;
       lent = [(other, entry.amount)];
-      _lentWhole = true;
-      _lentIds[other] = entry.id;
-      _ids.add(entry.id);
+      lentWhole = true;
+      keptLentIds[other] = entry.id;
+      keptIds.add(entry.id);
       final common = categoryChoices();
       category = common.isEmpty ? '' : common.first;
     } else if (ledger.account(entry.account).kind == AccountKind.receivable) {
@@ -47,11 +49,11 @@ extension Lending on ComposeForm {
       category = common.isEmpty ? '' : common.first;
       merchant = '';
     }
-    _group = entry.group;
-    _ownId = own.isEmpty ? null : own.first.id;
-    _ids.addAll([for (final m in members) m.id]);
+    keptGroup = entry.group;
+    keptOwnId = own.isEmpty ? null : own.first.id;
+    keptIds.addAll([for (final m in members) m.id]);
     for (final m in others) {
-      _lentIds[m.to!] = m.id;
+      keptLentIds[m.to!] = m.id;
     }
     lent = [for (final m in others) (m.to!, m.amount)];
     amount = members.fold(0, (sum, m) => sum + m.amount);
@@ -59,7 +61,7 @@ extension Lending on ComposeForm {
 
   /// The ids of the entries the form was opened from: one, or all those
   /// written as one with it.
-  Set<String> get openedIds => {..._ids, ?editing?.id};
+  Set<String> get openedIds => {...keptIds, ?editing?.id};
 
   /// Starts paying for [people] in this spending, or changes who: the
   /// amount is shared evenly, one's own share counted too, the rest of a
@@ -70,7 +72,7 @@ extension Lending on ComposeForm {
       return;
     }
     parts = null;
-    _lentWhole = false;
+    lentWhole = false;
     final share = amount ~/ (people.length + 1);
     lent = [for (final p in people) (p, share)];
   }
@@ -79,7 +81,7 @@ extension Lending on ComposeForm {
   void setLent(int index, int value) {
     final now = lent;
     if (now == null) return;
-    _lentWhole = false;
+    lentWhole = false;
     lent = [
       for (final (i, p) in now.indexed)
         if (i == index) (p.$1, value) else p,
@@ -89,7 +91,7 @@ extension Lending on ComposeForm {
   /// Back to a spending all one's own.
   void stopLending() {
     lent = null;
-    _lentWhole = false;
+    lentWhole = false;
   }
 
   /// Paying for others in a spending.

@@ -1,4 +1,12 @@
-part of 'compose_form.dart';
+import 'package:core/foundation_values.dart'
+    show BusinessDate, BusinessDayAnswer;
+import 'package:ledger_trade_costs/calc/settlement.dart';
+import 'package:ledger_trade_costs/model/trade_values.dart' show TradeKind;
+
+import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/validation_messages.dart';
+import '../../../core/ledger/trading.dart';
+import 'compose_form.dart';
 
 // A buy or sale of shares: what the shares sold cost, and when it settles;
 // and how a dividend changes the shares held.
@@ -11,7 +19,7 @@ extension TradeFields on ComposeForm {
   /// The broker's fee and tax the ledger's Taiwan rules suggest for the
   /// trade being written.
   (int, int) get suggested =>
-      _suggestedFor(type, holding ?? '', amount, shares, date, dayTrade);
+      suggestedFor(type, holding ?? '', amount, shares, date, dayTrade);
 
   /// The broker's discount a trade from or into [account] is charged at:
   /// the account's own, else the phone-wide [brokerDiscount] (D7).
@@ -21,7 +29,7 @@ extension TradeFields on ComposeForm {
   /// The fee and tax the rules suggest for a [kind] of [shares] of [code]
   /// for [amount] on [day], at the [tradeDiscount]; a [dayTrade] sale at
   /// the day-trade tax rate.
-  (int, int) _suggestedFor(
+  (int, int) suggestedFor(
     EntryType kind,
     String code,
     int amount,
@@ -74,9 +82,9 @@ extension TradeFields on ComposeForm {
       // The holdings the book starts from change with the market.
       ledger.revisionOf(Topic.market),
     );
-    if (key == _saleCostKey) return _saleCost;
-    _saleCostKey = key;
-    return _saleCost = ledger.holdings.saleCostWith(
+    if (key == keptSaleCostKey) return keptSaleCost;
+    keptSaleCostKey = key;
+    return keptSaleCost = ledger.holdings.saleCostWith(
       tradesBefore(code),
       code,
       shares,
@@ -150,9 +158,9 @@ extension SaveWarning on ComposeForm {
   String? get warning {
     final made = buildAll();
     final key = '${ledger.revision}|${made.map(_fields).join('|')}';
-    if (key == _warnedFor) return _warned;
-    _warnedFor = key;
-    return _warned = _warningOf(made);
+    if (key == keptWarningFor) return keptWarning;
+    keptWarningFor = key;
+    return keptWarning = _warningOf(made);
   }
 
   String? _warningOf(List<Entry> made) {
