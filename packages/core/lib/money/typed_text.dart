@@ -4,7 +4,7 @@
 /// reads through (the broker discount, D86); an amount does not:
 /// `parseAmount` refuses full-width digits as not a number. Words read
 /// from outside the app: control characters and invisible marks taken
-/// out ([plainText]).
+/// out ([plainText]). Words a search compares: [searchKey].
 library;
 
 /// The first and last full-width form of a printable ASCII character:
@@ -29,6 +29,22 @@ String halfWidth(String text) => String.fromCharCodes([
     else
       c,
 ]);
+
+/// [text] as a search compares it: full-width forms in ASCII
+/// ([halfWidth]), letters in lower case, 臺 written 台, and no spaces at
+/// all, so `ＧＯＯＧＬＥ`, `google` and `Goo gle` find the same, and `臺灣`
+/// finds `台灣`. Both what is typed and what is looked through are read
+/// through it.
+String searchKey(String text) => halfWidth(
+  text,
+).toLowerCase().replaceAll(_variantTai, _tai).replaceAll(_spaces, '');
+
+/// 臺 (U+81FA) and the 台 (U+53F0) everyday writing uses for it.
+const _variantTai = '臺';
+const _tai = '台';
+
+/// Any white space, the ideographic space made plain before.
+final _spaces = RegExp(r'\s+');
 
 /// [text] without what cannot be seen or kept as words: the control
 /// characters (NUL and the rest of C0, DEL and C1) but tab, line feed

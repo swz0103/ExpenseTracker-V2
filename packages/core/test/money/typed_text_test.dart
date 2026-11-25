@@ -11,6 +11,18 @@ void main() {
     expect(halfWidth(''), '');
   });
 
+  test('a search key folds width, case, 臺 and spaces (N8)', () {
+    expect(searchKey('ＧＯＯＧＬＥ'), 'google');
+    expect(searchKey('Goo gle'), 'google');
+    expect(searchKey('臺灣'), '台灣');
+    expect(searchKey('新臺幣'), '新台幣');
+    // The ideographic space and a tab go as a plain one does.
+    expect(searchKey('匯入　CSV\t檔'), '匯入csv檔');
+    expect(searchKey('ＣＳＶ'), 'csv');
+    expect(searchKey('  '), '');
+    expect(searchKey(''), '');
+  });
+
   test('outside words lose what cannot be seen (R12)', () {
     expect(plainText('a\u0000b'), 'ab');
     expect(plainText('現金​'), '現金');
