@@ -32,6 +32,11 @@ void main() {
     await tester.tap(find.byType(SettingCard).last);
     await tester.pumpAndSettle();
     expect(find.text('2.8 折'), findsOneWidget);
+    // Every choice offered, in its rows (review 16).
+    for (final choice in ['不打折', '5 折', '3.8 折', '2 折']) {
+      expect(find.text(choice), findsOneWidget, reason: choice);
+    }
+    expect(find.text('6 折'), findsWidgets);
     final secondRow = find.byType(Segments).at(1);
     await tester.tap(
       find

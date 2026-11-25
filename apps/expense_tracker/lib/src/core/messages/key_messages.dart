@@ -1,3 +1,5 @@
+import 'problem_messages.dart' show failureNote;
+
 /// The words of the key settings and the screens about keys.
 abstract final class KeyWords {
   /// The heading of the chooser of ledgers kept before a restore.
@@ -21,7 +23,10 @@ abstract final class KeyWords {
   static const recoveryConfirm = '換一組新的救援碼？之後的解鎖與之後的備份只認新的；已經存在的舊備份仍可用舊的救援碼打開。';
   static const replace = '更換';
   static const notReplaced = '沒有換成';
-  static const notDone = '沒有完成，請再試一次';
+
+  /// A key step that failed for a reason not foreseen, recorded in the
+  /// ErrorLog by the caller: with where its details are (D84).
+  static final notDone = failureNote('沒有完成，請再試一次');
 
   /// The diagnostics heading of a failed unlock or restore not foreseen.
   static const unforeseenHeading = '還原備份';

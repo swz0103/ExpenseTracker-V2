@@ -1,6 +1,8 @@
 // ENT-04: what the calculator shows is what it keeps. A sum that is not
 // an amount says why, and 完成 waits instead of keeping another amount.
 import 'package:expense_tracker/src/core/design_system/keys.dart';
+import 'package:expense_tracker/src/core/design_system/theme.dart'
+    show AppColors;
 import 'package:expense_tracker/src/core/formatting/words.dart';
 import 'package:expense_tracker/src/core/widgets/calculator.dart';
 import 'package:flutter/material.dart';
@@ -56,11 +58,27 @@ void main() {
         : (found.evaluate().single.widget as Text).data;
   }
 
+  /// Whether 完成 is greyed out: drawn in the plain key's colours and
+  /// read as not enabled (review 16).
+  bool doneGreyed(WidgetTester tester) {
+    final key = find.byKey(Keys.calc(Words.done));
+    final material = tester.widget<Material>(
+      find.descendant(of: key, matching: find.byType(Material)).first,
+    );
+    final semantics = tester.widget<Semantics>(
+      find.descendant(of: key, matching: find.byType(Semantics)).first,
+    );
+    final greyed = material.color == AppColors.tile;
+    expect(semantics.properties.enabled, !greyed);
+    return greyed;
+  }
+
   testWidgets('5÷0 says so and does not clear the amount to 0', (tester) async {
     final (kept, closed) = await press(tester, ['C', '5', '÷', '0']);
     expect(closed, isFalse);
     expect(kept, isNull);
     expect(problem(), '不能除以 0');
+    expect(doneGreyed(tester), isTrue);
   });
 
   testWidgets('12−20 shows −8 and is not kept as 0', (tester) async {
@@ -69,6 +87,12 @@ void main() {
     expect(kept, isNull);
     expect(find.text('−8'), findsOneWidget);
     expect(problem(), '金額不能小於 0');
+    expect(doneGreyed(tester), isTrue);
+    // Taken back to an amount, 完成 is offered again.
+    await tester.tap(find.byKey(Keys.calc('⌫')));
+    await tester.pump();
+    expect(problem(), isNull);
+    expect(doneGreyed(tester), isFalse);
   });
 
   testWidgets('1,234,567,890 is shown as typed and not cut to 999,999,999', (
@@ -82,6 +106,7 @@ void main() {
     expect(kept, isNull);
     expect(find.text('1,234,567,890'), findsOneWidget);
     expect(problem(), '金額不能超過 999,999,999');
+    expect(doneGreyed(tester), isTrue);
   });
 
   testWidgets('an amount is kept as shown', (tester) async {

@@ -21,6 +21,18 @@ void main() {
     expect(rateOf(''), isNull);
   });
 
+  test('D116: a rate typed below nothing keeps its sign, for the write '
+      'rules to refuse', () {
+    expect(signedRateOf('-2.15'), -215);
+    expect(signedRateOf(' -1 '), -100);
+    expect(signedRateOf('2.15'), 215);
+    // -0 is no interest, not a rate below nothing.
+    expect(signedRateOf('-0'), 0);
+    expect(signedRateOf('-'), isNull);
+    expect(signedRateOf('-abc'), isNull);
+    expect(signedRateOf('--1'), isNull);
+  });
+
   test('rates as shown', () {
     expect(rateText(215), '2.15');
     expect(rateText(205), '2.05');

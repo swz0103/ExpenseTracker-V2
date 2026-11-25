@@ -154,7 +154,8 @@ void main() {
   testWidgets('a save that fails says so', (tester) async {
     await open(tester, backups: _SavingBackupManager(fails: true));
     await export(tester, monthCount());
-    expect(find.textContaining('下載失敗：'), findsOneWidget);
+    // A StateError is nothing the person can act on: failureNote's words.
+    expect(find.text('下載失敗，可在診斷匯出詳細資料'), findsOneWidget);
   });
 
   testWidgets('匯入 offers a CSV file and e-invoices', (tester) async {

@@ -391,6 +391,37 @@ void main() {
       expect(ledger.account('card').closingDay, 25);
     });
 
+    test('D116: addAccount and updateAccount refuse a loan rate below '
+        'nothing', () {
+      final ledger = _book();
+      const loan = Account(
+        'loan',
+        '房貸',
+        AccountKind.loan,
+        -1000,
+        loan: LoanTerms(rate: -100),
+      );
+      expect(
+        () => ledger.accountCommands.addAccount(loan),
+        throwsA(_refused(NegativeLoanRate)),
+      );
+      expect(ledger.accounts.byId('loan'), isNull);
+      ledger.accountCommands.addAccount(
+        const Account(
+          'loan',
+          '房貸',
+          AccountKind.loan,
+          -1000,
+          loan: LoanTerms(rate: 200),
+        ),
+      );
+      expect(
+        () => ledger.accountCommands.updateAccount(loan),
+        throwsA(_refused(NegativeLoanRate)),
+      );
+      expect(ledger.account('loan').loan?.rate, 200);
+    });
+
     test('moveClose refuses a close moved more than a week', () {
       final ledger = _book();
       expect(

@@ -293,7 +293,7 @@ void main() {
       ..fails = const FileSystemException('disk full');
     await show(tester, backupManager);
     await change(tester, ['old secret', 'new secret', 'new secret']);
-    expect(find.text('沒有完成，請再試一次'), findsOneWidget);
+    expect(find.text('沒有完成，請再試一次，可在診斷匯出詳細資料'), findsOneWidget);
     expect(backupManager.password, 'old secret');
   });
 

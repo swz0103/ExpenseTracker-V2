@@ -39,7 +39,8 @@ final _monthly = BigInt.from(120000);
 
 /// Every month of [amount] borrowed at [rate] (hundredths of a percent a
 /// year) over [months], paid back by [repay]: the one schedule every loan
-/// figure comes from. Null while something is missing; a missing rate is
+/// figure comes from. Null while something is missing, or for a rate
+/// below nothing, which the write rules refuse (D116); a missing rate is
 /// no interest.
 ///
 /// Each month's interest is what is still owed x the monthly rate,
@@ -65,6 +66,7 @@ List<LoanPeriod>? loanSchedule({
 }) {
   if (amount == null || amount <= 0) return null;
   if (months == null || months <= 0) return null;
+  if (rate != null && rate < 0) return null;
   final yearly = BigInt.from(rate ?? 0);
   int interestOn(int owed, [int forMonths = 1]) => roundedQuotient(
     BigInt.from(owed) * yearly * BigInt.from(forMonths),

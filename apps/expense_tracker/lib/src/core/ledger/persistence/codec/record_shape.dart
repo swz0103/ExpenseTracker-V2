@@ -35,8 +35,8 @@ String? shapeProblem(List<RecordIssue> issues) =>
 /// What is wrong with [record], read back from elsewhere such as a
 /// backup, or as the book opens, that no version of the app would have
 /// written and the ledger could not work with: a recurring item every 0
-/// months or on day 40, a card closing on day 0, a negative amount or
-/// limit, an amount or shares beyond the most kept, a sale of fewer than
+/// months or on day 40, a card closing on day 0, a negative amount,
+/// limit or loan rate, an amount or shares beyond the most kept, a sale of fewer than
 /// no shares, a transfer to nowhere. The shape rules of package
 /// ledger_entries; an old record a newer write rule would refuse, such as
 /// an amount of nothing, still reads. None for a record of another kind.
@@ -47,6 +47,7 @@ List<RecordIssue> shapeIssues(Object record) => switch (record) {
     dueDay: a.dueDay,
     limit: a.limit,
     opening: a.opening,
+    loanRate: a.loan?.rate,
   ),
   Entry e => entryShapeIssues(e),
   Trashed t => entryShapeIssues(t.entry),

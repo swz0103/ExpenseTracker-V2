@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:expense_tracker/src/core/messages/key_failures.dart'
+    show describeUnlockFailure;
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -281,15 +283,22 @@ void startupKeyTests() {
       }
       final cut = File('${source.path}/cut.etbk')
         ..writeAsBytesSync(bytes.sublist(0, last));
-      await expectLater(
-        phone.restore(cut.path, code, recovery: true),
-        throwsA(
-          isA<BackupException>().having(
-            (e) => e.problem,
-            'problem',
-            BackupProblem.invalidFormat,
-          ),
+      final refused = await phone
+          .restore(cut.path, code, recovery: true)
+          .then<Object?>((_) => null, onError: (Object error) => error);
+      expect(
+        refused,
+        isA<BackupException>().having(
+          (e) => e.problem,
+          'problem',
+          BackupProblem.invalidFormat,
         ),
+      );
+      // What the restore form then says (review 16: a refused restore end
+      // to end).
+      expect(
+        describeUnlockFailure(refused!, recovery: true),
+        '這個檔案不是完整的記帳本備份，可能已損毀或沒有下載完',
       );
       expect(mine.readAsStringSync(), 'mine');
       expect(

@@ -371,8 +371,9 @@ class _EntriesPageState extends State<EntriesPage> {
     ];
   }
 
-  /// Nothing to list: none written yet, with 記一筆; or none the search
-  /// and filters let through, with 清除篩選 (D85).
+  /// Nothing to list: none written yet, or none this month in a book
+  /// that has others (D117), with 記一筆; or none the search and filters
+  /// let through, with 清除篩選 (D85).
   Widget _empty(bool narrowed) => narrowed
       ? EmptyState(
           glyph: Glyph.search,
@@ -385,7 +386,9 @@ class _EntriesPageState extends State<EntriesPage> {
       : EmptyState(
           glyph: Glyph.records,
           color: AppColors.accent,
-          message: FlowWords.noEntriesYet,
+          message: widget.ledger.entries.isEmpty
+              ? FlowWords.noEntriesYet
+              : FlowWords.noEntriesThisMonth,
           action: FlowWords.addEntry,
           actionKey: Keys.emptyAction('entries'),
           onAction: () => unawaited(widget.nav.compose()),

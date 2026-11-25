@@ -30,6 +30,22 @@ void main() {
     dataSource: _Nowhere(),
   );
 
+  test('D117: the values a form holds tell a choice taken back from a '
+      'change', () {
+    final form = RecurringForm(book());
+    final opened = form.fields;
+    form
+      ..amount = 300
+      ..auto = true;
+    expect(form.fields, isNot(opened));
+    form
+      ..amount = 0
+      ..auto = false;
+    expect(form.fields, opened);
+    form.end = DateTime.utc(2027, 1, 1);
+    expect(form.fields, isNot(opened));
+  });
+
   test(
     'a new item needs an amount; without a name it takes the category\'s',
     () {
