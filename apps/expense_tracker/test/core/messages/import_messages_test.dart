@@ -13,6 +13,18 @@ void main() {
     expect(dayProblemWords(DayProblem.tooEarly), '日期早於 1950 年');
   });
 
+  test('a day beyond the limit names the last day; a transfer, that it is '
+      'not brought back so (review 38 1)', () {
+    expect(
+      importTooLateWords(DateTime.utc(2027, 10, 4), transfer: false),
+      '日期晚於 2027/10/4，最多只能排到 365 天後',
+    );
+    expect(
+      importTooLateWords(DateTime.utc(2027, 10, 4), transfer: true),
+      '日期晚於 2027/10/4，最多只能排到 365 天後；這類轉帳（例如封存前的結清）不能用匯入帶回',
+    );
+  });
+
   test('each reason an invoice is left out has its words', () {
     expect(
       invoiceRefusalWords(InvoiceRefusal.rowsDisagree),

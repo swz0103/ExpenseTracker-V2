@@ -136,6 +136,27 @@ void main() {
     expect(ledger.accounts.all, hasLength(before));
   });
 
+  test('a transfer with its 編號 dated beyond the limit, as the settlement '
+      'before archiving, is refused saying it is not brought back so '
+      '(review 38 1)', () {
+    final found = importCsv(
+      importBookOf(demoLedger()),
+      // Exception to glossary: the file format's columns.
+      '日期,類型,金額,帳戶,轉入帳戶,編號\n'
+      '2027-11-08,轉帳,5000,隨身現金,銀行,back\n'
+      '2027-11-08,轉帳,5000,隨身現金,銀行,\n'
+      '2027-11-08,支出,5000,隨身現金,,e1\n',
+      fallback: 'bank',
+    );
+    // The demo book's today 2026-10-04 + 365 days = 2027-10-04.
+    expect(found.problems, [
+      '第 2 行：日期晚於 2027/10/4，最多只能排到 365 天後；這類轉帳（例如封存前的結清）不能用匯入帶回',
+      '第 3 行：日期晚於 2027/10/4，最多只能排到 365 天後',
+      '第 4 行：日期晚於 2027/10/4，最多只能排到 365 天後',
+    ]);
+    expect(found.entries, isEmpty);
+  });
+
   group('a refund on a foreign account (r13 F2)', () {
     // Exception to glossary: the file format's column, kept so files written before read back.
     const head = '日期,類型,金額,帳戶,商家,台幣金額\n';
@@ -181,7 +202,8 @@ void main() {
     test('a day later than an entry may be dated is refused (r13 F6)', () {
       // ROC 999/1/1 is the year 2910.
       final found = read('999/1/1,支出,100,美元戶,Shop,3210\n');
-      expect(found.problems, ['第 2 行：日期最多只能排到 365 天後']);
+      // The demo book's today 2026-10-04 + 365 days = 2027-10-04.
+      expect(found.problems, ['第 2 行：日期晚於 2027/10/4，最多只能排到 365 天後']);
     });
 
     test('with no rate and no worth written, the column is named', () {

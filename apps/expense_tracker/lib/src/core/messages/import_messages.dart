@@ -9,6 +9,7 @@ import 'package:domain/data_exchange.dart'
 import 'package:ledger_entries/model.dart' show maxDaysAhead;
 
 import '../../../design_system/display/amount.dart' show groupDigits;
+import '../../../design_system/display/date.dart' show formatYMd;
 import '../formatting/words.dart';
 
 /// Why a day of an imported file is not taken (D93).
@@ -18,6 +19,15 @@ String dayProblemWords(DayProblem problem) => switch (problem) {
   DayProblem.tooEarly => '日期早於 $earliestImportYear 年',
   DayProblem.tooLate => '日期最多只能排到 $maxDaysAhead 天後',
 };
+
+/// Why a line of an imported file dated after [latest], the last day an
+/// entry may be dated on (D25), is not taken; [transfer] when it is a
+/// transfer with its 編號, as the app writes the settlement before an
+/// account is archived, which may be dated beyond it (D121) but is not
+/// brought back this way (review 38 1).
+String importTooLateWords(DateTime latest, {required bool transfer}) =>
+    '日期晚於 ${formatYMd(latest)}，最多只能排到 $maxDaysAhead 天後'
+    '${transfer ? '；這類轉帳（例如封存前的結清）不能用匯入帶回' : ''}';
 
 /// Why an invoice of the ministry's file is left out.
 String invoiceRefusalWords(InvoiceRefusal why) => switch (why) {
