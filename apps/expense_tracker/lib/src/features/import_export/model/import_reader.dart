@@ -132,10 +132,11 @@ final class _Reader {
   /// one otherwise, the same for every line of the file that writes it.
   String? _groupNamed(String written) {
     if (written.isEmpty) return null;
-    return _groupOf[written] ??=
-        book.entries.inGroup(written).isEmpty && !book.groupInTrash(written)
-        ? written
-        : book.newId();
+    // Exception to as-of-today: a group of any day is one not to join.
+    final taken = book.entries.inGroup(written).isNotEmpty;
+    return _groupOf[written] ??= taken || book.groupInTrash(written)
+        ? book.newId()
+        : written;
   }
 
   /// Reads the [line] of the file; why it cannot be kept, or null when
