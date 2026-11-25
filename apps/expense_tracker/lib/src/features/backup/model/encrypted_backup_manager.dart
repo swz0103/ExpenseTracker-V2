@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:core/foundation_values.dart';
+import 'package:domain/data_exchange.dart' show FileText, readFileText;
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
@@ -149,12 +150,12 @@ final class EncryptedBackupManager implements BackupManager {
       handOver(_exports, name, bytes, _export);
 
   @override
-  Future<String?> readFile() async {
+  Future<FileText?> readFile() async {
     final path = await _pick?.call();
     if (path == null) return null;
     final file = File(path);
     try {
-      return await file.readAsString();
+      return readFileText(await file.readAsBytes());
     } finally {
       if (file.existsSync()) await file.delete();
     }

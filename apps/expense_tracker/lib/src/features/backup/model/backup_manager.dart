@@ -1,3 +1,5 @@
+import 'package:domain/data_exchange.dart' show FileText;
+
 import '../../../core/diagnostics/app_fault.dart';
 
 /// A change of the keys refused, with [message] to tell the person: the
@@ -37,8 +39,9 @@ abstract interface class BackupManager {
   Future<bool> exportBytes(String name, List<int> bytes);
 
   /// Lets the person choose a text file, such as a CSV to import, and
-  /// returns its text; null when they cancel or there is no file picker.
-  Future<String?> readFile();
+  /// returns its text as `readFileText` reads it (UTF-8 or Big5), or that
+  /// it cannot be read; null when they cancel or there is no file picker.
+  Future<FileText?> readFile();
 
   /// When a backup was last handed over by hand ([exportBackup]); null
   /// before the first.

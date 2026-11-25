@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:core/money/amount_format.dart' show roundHalfAwayFromZero;
+import 'package:domain/data_exchange.dart' show FileText;
 
 import '../../core/platform/sync_job.dart';
 import '../../core/ledger/ledger.dart';
@@ -50,7 +51,7 @@ final class DemoBackupManager implements BackupManager {
   DateTime? get googleTakenAt => null;
 
   @override
-  Future<String?> readFile() async => null;
+  Future<FileText?> readFile() async => null;
 
   @override
   bool get hasPassword => _password;

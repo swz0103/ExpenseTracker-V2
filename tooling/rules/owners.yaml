@@ -400,6 +400,42 @@ items:
       - packages/domain/lib/src/data_exchange/import_day.dart
     target: packages/domain/lib/src/data_exchange/
     status: owned
+  # Work package N4: the app's CSV columns (name, what a cell holds and
+  # how it is read and written, required or not) are one enum; the
+  # header, toCsv and the import reader all come from it.
+  - id: csv-columns
+    what: 匯出入 CSV 的欄位（名稱、型別、必填、讀法與寫法）
+    layer: data
+    owner:
+      - packages/domain/lib/src/data_exchange/columns.dart
+      - packages/domain/lib/src/data_exchange/cells.dart
+    target: packages/domain/lib/src/data_exchange/
+    status: owned
+    guard:
+      - packages/domain/test/data_exchange/columns_test.dart
+      - apps/expense_tracker/test/scenarios/import_export/round_trip_test.dart
+  # Work package N4: one reader of the ministry's e-invoice files, the
+  # consumption CSV and a carrier's M and D lines.
+  - id: e-invoice-files
+    what: 電子發票檔案的讀法（消費明細 CSV、M／D 行）
+    layer: data
+    owner:
+      - packages/domain/lib/src/data_exchange/e_invoice.dart
+    target: packages/domain/lib/src/data_exchange/
+    status: owned
+    guard:
+      - packages/domain/test/data_exchange/e_invoice_test.dart
+  # Work package N4: how the bytes of a file to import become text
+  # (UTF-8 with or without a byte order mark, else Big5).
+  - id: import-text-encoding
+    what: 匯入檔的文字編碼（UTF-8、Big5）
+    layer: data
+    owner:
+      - packages/domain/lib/src/data_exchange/file_text.dart
+    target: packages/domain/lib/src/data_exchange/
+    status: owned
+    guard:
+      - packages/domain/test/data_exchange/file_text_test.dart
   - id: default-account-ordering
     what: 預設帳戶與排序規則
     layer: ledger

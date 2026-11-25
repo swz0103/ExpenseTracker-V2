@@ -90,6 +90,25 @@ void main() {
       expect(e.withId('z').id, 'z');
       expect(e.title, '餐飲');
     });
+    test('links and a mark replaced, the rest kept', () {
+      final e = _entry(EntryType.sell).inGroup('old');
+      final linked = e.withLinks(
+        group: 'g',
+        recurring: 'r',
+        mark: EntryMark.invoice,
+        dayTrade: true,
+      );
+      expect(
+        (linked.group, linked.recurring, linked.mark, linked.dayTrade),
+        ('g', 'r', EntryMark.invoice, true),
+      );
+      expect((linked.id, linked.type, linked.amount), (e.id, e.type, e.amount));
+      final bare = linked.withLinks();
+      expect(
+        (bare.group, bare.recurring, bare.mark, bare.dayTrade),
+        (null, null, null, false),
+      );
+    });
   });
 
   test('a mark is kept through a copy (D52)', () {

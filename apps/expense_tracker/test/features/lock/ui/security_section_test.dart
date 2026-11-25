@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:domain/data_exchange.dart' show FileText;
+
 import 'package:expense_tracker/src/core/design_system/components/cards.dart';
 import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
@@ -40,7 +42,7 @@ final class _StubBackupManager implements BackupManager {
   Future<bool> exportFile(String name, String text) async => true;
 
   @override
-  Future<String?> readFile() async => null;
+  Future<FileText?> readFile() async => null;
 
   @override
   Future<bool> exportBytes(String name, List<int> bytes) async => true;
