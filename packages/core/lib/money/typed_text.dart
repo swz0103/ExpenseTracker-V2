@@ -30,16 +30,36 @@ String halfWidth(String text) => String.fromCharCodes([
       c,
 ]);
 
-/// [text] as a search compares it: full-width forms in ASCII
-/// ([halfWidth]), letters in lower case, 臺 written 台, and no spaces at
-/// all, so `ＧＯＯＧＬＥ`, `google` and `Goo gle` find the same, and `臺灣`
-/// finds `台灣`. Both what is typed and what is looked through are read
-/// through it.
-String searchKey(String text) =>
-    halfWidth(text)
-        .toLowerCase()
-        .replaceAll(_variantTai, _tai)
-        .replaceAll(_spaces, '');
+/// [text] as a search compares it: what cannot be seen taken out
+/// ([plainText], so a word pasted from the web with a zero-width space
+/// in it still finds), full-width forms in ASCII ([halfWidth]), the
+/// Chinese marks in theirs ([_marks]: `。` a `.`, `、` a `,`, `「」` a `"`),
+/// letters in lower case, 臺 written 台, and no spaces at all, so
+/// `ＧＯＯＧＬＥ`, `google` and `Goo gle` find the same, and `臺灣` finds
+/// `台灣`. Both what is typed and what is looked through are read through
+/// it (review 39 #6).
+String searchKey(String text) => String.fromCharCodes([
+  for (final c in halfWidth(plainText(text)).runes) _marks[c] ?? c,
+]).toLowerCase().replaceAll(_variantTai, _tai).replaceAll(_spaces, '');
+
+/// The Chinese and Japanese marks with an ASCII mark of the same use, and
+/// that mark, for [searchKey]: the full stop `。` and its half-width `｡`,
+/// the enumeration comma `、` and `､`, the corner brackets `「」『』` and
+/// the half-width `｢｣`, the wave dash `〜` (the full-width tilde `～` is
+/// [halfWidth]'s).
+const _marks = {
+  0x3002: 0x2E, // 。
+  0xFF61: 0x2E, // ｡
+  0x3001: 0x2C, // 、
+  0xFF64: 0x2C, // ､
+  0x300C: 0x22, // 「
+  0x300D: 0x22, // 」
+  0x300E: 0x22, // 『
+  0x300F: 0x22, // 』
+  0xFF62: 0x22, // ｢
+  0xFF63: 0x22, // ｣
+  0x301C: 0x7E, // 〜
+};
 
 /// 臺 (U+81FA) and the 台 (U+53F0) everyday writing uses for it.
 const _variantTai = '臺';

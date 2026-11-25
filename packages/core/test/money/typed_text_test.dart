@@ -23,6 +23,25 @@ void main() {
     expect(searchKey(''), '');
   });
 
+  test('a search key leaves out what cannot be seen and reads the Chinese '
+      'marks as their ASCII ones (review 39 #6)', () {
+    // a, a zero-width space (U+200B), b: two letters, as plainText.
+    expect(searchKey('a\u200Bb'), 'ab');
+    expect(searchKey('\uFEFF現金\u200E'), '現金');
+    // 。 and its half-width ｡ a full stop, 、 and ､ a comma.
+    expect(searchKey('v1。2'), 'v1.2');
+    expect(searchKey('v1｡2'), 'v1.2');
+    expect(searchKey('股票、基金'), '股票,基金');
+    expect(searchKey('股票､基金'), '股票,基金');
+    // The corner brackets, full and half width, a straight quote.
+    expect(searchKey('「發票」『載具』｢QR｣'), '"發票""載具""qr"');
+    // The wave dash as the full-width tilde already was.
+    expect(searchKey('1〜3'), '1~3');
+    expect(searchKey('1～3'), '1~3');
+    // Typed and looked through alike: 。 finds a ., a pasted name finds.
+    expect(searchKey('匯入。csv'), searchKey('匯入.CSV'));
+  });
+
   test('outside words lose what cannot be seen (R12)', () {
     expect(plainText('a\u0000b'), 'ab');
     expect(plainText('現金​'), '現金');

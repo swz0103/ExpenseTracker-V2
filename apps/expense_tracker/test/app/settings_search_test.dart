@@ -113,6 +113,11 @@ void main() {
     expect([for (final t in findSettings('ＧＯＯＧＬＥ')) t.topic.name], ['雲端硬碟備份']);
     expect([for (final t in findSettings('匯入csv')) t.topic.name], ['匯入 CSV']);
     expect([for (final t in findSettings('最近 刪除')) t.topic.name], ['最近刪除']);
+    // Pasted from the web with a zero-width space in it (review 39 #6).
+    expect(
+      [for (final t in findSettings('最近\u200B刪除')) t.topic.name],
+      ['最近刪除'],
+    );
   });
 
   /// What the screen reader is told to say, as it is told.
