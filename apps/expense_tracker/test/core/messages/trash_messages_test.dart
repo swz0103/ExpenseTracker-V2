@@ -22,4 +22,10 @@ void main() {
     expect(stayedInTrashNote(2), said);
     expect(describeProblem(StayedInTrash(2)), said);
   });
+
+  test('R34: an import undo that leaves entries says how many and why', () {
+    const said = '2 筆沒有復原：匯入後改過，或有退款用到它。它們留在帳本裡，需要的話可以自己刪除。';
+    expect(stayedInBookNote(2), said);
+    expect(describeProblem(StayedInBook(2)), said);
+  });
 }

@@ -118,21 +118,39 @@ final class EntryCommands {
     );
     final added = entries;
     return () => _told.quietly(() {
-      if (!takeBack([for (final e in added) e.id])) return;
+      if (!takeBack(added)) return;
       _dropUnnamed(opened, named);
     });
   }
 
-  /// Takes the entries of [ids] the book holds out of it, not to the
-  /// trash, as one change: what taking back their adding does. False,
-  /// with nothing changed, when none is held, or when it would leave a
-  /// later sale short of shares (told through [CommandContext.problem]).
-  bool takeBack(Iterable<String> ids) => _told.quietly(() {
-    final found = [
-      for (final id in {...ids}) ?_entries.byId(id),
-    ];
-    if (found.isEmpty) return false;
-    final removed = _entries.removeEach(found);
+  /// Takes [added] out of the book, not to the trash, as one change: what
+  /// taking back their adding does. An entry goes only while the book
+  /// holds that very one (a change since leaves it, as [EntryImages]
+  /// does), and while no refund left in the book names it as its
+  /// purchase; how many of [added] stay in the book for that is told
+  /// through [CommandContext.problem] as a [StayedInBook]. False, with
+  /// nothing changed, when none goes, or when it would leave a later
+  /// sale short of shares (told the same way).
+  bool takeBack(Iterable<Entry> added) => _told.quietly(() {
+    final held = {
+      for (final e in added)
+        if (_entries.byId(e.id) case final now?) e.id: (e, now),
+    };
+    final going = {
+      for (final MapEntry(key: id, value: (e, now)) in held.entries)
+        if (identical(e, now)) id,
+    };
+    // A refund the book keeps keeps its purchase.
+    going.removeAll([
+      for (final id in going)
+        if (_entries.refundsOf(id).any((r) => !going.contains(r.id))) id,
+    ]);
+    final stayed = held.length - going.length;
+    if (going.isEmpty) {
+      if (stayed > 0) _told.report(StayedInBook(stayed));
+      return false;
+    }
+    final removed = _entries.removeEach([for (final id in going) held[id]!.$1]);
     if (!_tryReplay(() {
       for (final (i, e) in removed) {
         _entries.insert(i, e);
@@ -145,6 +163,7 @@ final class EntryCommands {
         dropped: [for (final (_, e) in removed) (Collection.entry, e.id)],
       ),
     );
+    if (stayed > 0) _told.report(StayedInBook(stayed));
     return true;
   });
 

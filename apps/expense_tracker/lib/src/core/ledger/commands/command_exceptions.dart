@@ -66,6 +66,20 @@ final class StayedInTrash extends LedgerProblem {
   String toString() => 'StayedInTrash($count)';
 }
 
+/// An undo of an import left [count] of its entries in the book: each
+/// was changed since, or a refund the book keeps names it as its
+/// purchase, so taking it away would lose that change or leave the refund
+/// without what it refunds.
+final class StayedInBook extends LedgerProblem {
+  StayedInBook(this.count);
+
+  /// How many entries stayed.
+  final int count;
+
+  @override
+  String toString() => 'StayedInBook($count)';
+}
+
 /// After a change could not be kept, the book could not be read back
 /// either; what the screens show may differ from what is kept.
 final class ReloadFailed extends LedgerProblem implements CarriedFault {

@@ -4,7 +4,13 @@ import 'package:flutter/services.dart';
 import '../ledger/persistence/ledger_data_source.dart';
 import '../ledger/persistence/quarantine.dart' show RowSetAside;
 import '../ledger/ledger.dart'
-    show KeepFailed, NameTaken, RecordRefused, ReloadFailed, StayedInTrash;
+    show
+        KeepFailed,
+        NameTaken,
+        RecordRefused,
+        ReloadFailed,
+        StayedInBook,
+        StayedInTrash;
 import 'trash_messages.dart';
 import 'validation_messages.dart';
 
@@ -41,6 +47,7 @@ String? actionableProblem(Object error) => switch (error) {
   ReloadFailed() => '帳本無法重新讀取，請重新打開 App；畫面上的內容可能與已儲存的不同',
   RecordRefused(:final first) => validationMessage(first),
   StayedInTrash(:final count) => stayedInTrashNote(count),
+  StayedInBook(:final count) => stayedInBookNote(count),
   NameTaken() => '這個分類名稱已經有了，或是保留給「全部支出」「轉帳」等用途',
   MoneyException(code: MoneyError.precision) => '金額的小數位數太多',
   MoneyException() => '請輸入有效的金額',
