@@ -165,13 +165,8 @@ extension _Pickers on _ComposerState {
   Future<void> _takeLeftover() async {
     final photos = widget.photos;
     if (photos == null || widget.entry != null || _f.refunded != null) return;
-    final String? name;
-    try {
-      name = await photos.takeLeftover();
-    } on Object catch (error) {
-      ErrorLog.instance.record('收據照片', error);
-      return;
-    }
+    // One that cannot be taken back is told by the phone's side.
+    final name = await photos.takeLeftover();
     if (name == null || !mounted) return;
     _set(() => _f.receipt = name);
   }

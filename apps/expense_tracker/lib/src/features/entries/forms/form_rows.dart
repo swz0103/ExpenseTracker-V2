@@ -108,7 +108,7 @@ final class CurrencyFields {
             ? null
             : _f.date.isBefore(_f.ledger.today)
             ? estimatedAtTodaysRate(rate)
-            : '臺銀即期買入 $rate',
+            : todaysRate(rate),
         onTap: () async {
           final typed = await _a.ask(Words.homeWorth, value ?? 0);
           if (typed != null) _a.update(() => _f.home = typed);

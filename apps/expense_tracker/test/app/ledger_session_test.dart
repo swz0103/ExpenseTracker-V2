@@ -171,10 +171,15 @@ void main() {
       category: '居家',
     );
     final ledger = book(entries: [orphan, orphan.withId('e2')]);
-    final notes = logged(
-      () => LedgerSession(load: () async => ledger).checkIntegrity(ledger),
-    );
+    final told = <QuietStep>[];
+    final session = LedgerSession(load: () async => ledger, failed: told.add);
+    final notes = logged(() => session.checkIntegrity(ledger));
     expect(notes.where((n) => n.contains('帳本健檢')), hasLength(1));
+    // Review 31: and the person hears of it (D84).
+    expect(told, [QuietStep.integrityCheck]);
+    told.clear();
+    session.checkIntegrity(book());
+    expect(told, isEmpty, reason: 'a whole book is not told of');
   });
 
   group('the inbox while the ledger stays open', () {

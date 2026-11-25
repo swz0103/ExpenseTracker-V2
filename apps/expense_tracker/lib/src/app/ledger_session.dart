@@ -72,7 +72,8 @@ final class LedgerSession {
   });
 
   /// Told when booking by itself fails, from the inbox or what fell due,
-  /// so the person hears of it once (D84); none in tests that do not ask.
+  /// and when the check as it opens finds the book not whole, so the
+  /// person hears of it once (D84); none in tests that do not ask.
   final void Function(QuietStep step)? failed;
 
   /// Reads the book from where it is kept.
@@ -180,19 +181,21 @@ final class LedgerSession {
   /// Notes in the diagnostics log each kind of record that names another
   /// the book no longer has, once: the sums still add up, but the book is
   /// not as it was written. A check that cannot finish does not keep the
-  /// book from opening.
+  /// book from opening. Either is told ([QuietStep.integrityCheck]).
   void checkIntegrity(Ledger ledger) {
     final List<IntegrityProblem> found;
     try {
       found = ledger.integrityService.problems();
     } on Object catch (error) {
       ErrorLog.instance.record('帳本健檢', error);
+      failed?.call(QuietStep.integrityCheck);
       return;
     }
     final kinds = {for (final problem in found) '$problem': problem};
     for (final problem in kinds.values) {
       ErrorLog.instance.record('帳本健檢', problem);
     }
+    if (kinds.isNotEmpty) failed?.call(QuietStep.integrityCheck);
   }
 
   /// Books the recurring items marked to book themselves whose day has

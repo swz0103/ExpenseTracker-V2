@@ -26,6 +26,7 @@ void main() {
     );
     await show(tester, 360, 1, height: 1600, book: ledger);
     await go(tester, ['更多', '定期交易', '入帳']);
-    expect(find.text('以今日臺銀即期買入 32.0 估算，請改成當日金額'), findsOneWidget);
+    // D118: USD at 32.0 is written 32.
+    expect(find.text('以今日臺銀即期買入 32 估算，請改成當日金額'), findsOneWidget);
   });
 }

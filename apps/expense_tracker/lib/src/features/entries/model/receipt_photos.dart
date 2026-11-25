@@ -7,7 +7,9 @@ abstract interface class ReceiptPhotos {
   Future<String?> take({required bool camera});
 
   /// A photo the camera took while the phone closed the app, kept the
-  /// same way as one [take] returns; null when there is none.
+  /// same way as one [take] returns; null when there is none, or when it
+  /// could not be taken back, which the phone's side records and tells
+  /// by itself (D84): this does not throw.
   Future<String?> takeLeftover();
 
   ImageProvider image(String name);

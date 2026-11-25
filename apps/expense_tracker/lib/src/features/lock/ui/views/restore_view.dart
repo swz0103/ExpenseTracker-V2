@@ -4,6 +4,7 @@ import '../../../../core/design_system/theme.dart';
 import '../../../../core/design_system/design_system.dart';
 import 'lock_parts.dart';
 import '../../../../core/formatting/words.dart';
+import '../../../../core/messages/key_messages.dart';
 
 /// Restoring a ledger from a backup: the file, then what opens it, as
 /// the backup chosen says ([hint]): its recovery code or backup
@@ -23,7 +24,7 @@ class RestoreView extends StatelessWidget {
     this.problem,
     this.about,
     this.onPickKept,
-    this.hint = '輸入備份檔的位置，和那個帳本的密碼或救援碼。',
+    this.hint = KeyWords.restoreHint,
     this.codeLabel = '救援碼',
   });
 

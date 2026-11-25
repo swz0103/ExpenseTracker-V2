@@ -41,6 +41,10 @@ abstract final class Keys {
   /// export.
   static Key loadFailed(String what) => ValueKey('load-failed:$what');
 
+  /// 匯出診斷 under a failure line of the lock or welcome views (review
+  /// 31).
+  static const exportDiagnostics = ValueKey('diagnostics:export');
+
   /// A way out of a book held back from its upgrade because the copy
   /// before it could not be kept: retry, export, or go on without it.
   static Key upgradeHeld(String what) => ValueKey('upgrade-held:$what');

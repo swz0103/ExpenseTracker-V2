@@ -15,7 +15,7 @@ abstract final class ReminderMessages {
 
   /// The test notification 試一則 sends.
   static const testTitle = '測試通知';
-  static const testText = '提醒會像這樣出現。';
+  static const testText = '提醒會像這樣出現';
 
   /// The daily nudge.
   static const nudgeTitle = '今天記帳了嗎？';

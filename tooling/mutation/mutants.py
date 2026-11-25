@@ -177,13 +177,17 @@ M('loans',LP,'BigInt.from(owed) * yearly * BigInt.from(forMonths),','BigInt.from
 M('loans',LP,'owed -= principal;','owed -= interest;') if False else None
 RA = 'packages/ledger/loans/lib/model/rate.dart'
 M('loans',RA,'(next >= 5 ? 1 : 0)','(next > 5 ? 1 : 0)')
-M('loans',RA,'hundredths > 10000 ? null','hundredths >= 10000 ? null')
+M('loans',RA,'hundredths <= maxLoanRate =>','hundredths < maxLoanRate =>')
 M('loans',RA,'whole * 100 + kept','whole * 10 + kept')
 M('loans',RA,'cents % 10 == 0','cents % 5 == 0')
-M('loans',RA,"|| !typed.contains(RegExp(r'\\d'))",'|| false')
+M('loans',RA,"|| !text.contains(RegExp(r'\\d'))",'|| false')
 M('loans',RA,'decimals.length > 2 ? int.parse(decimals[2]) : 0','decimals.length > 3 ? int.parse(decimals[2]) : 0')
 M('loans',RA,"padLeft(2, '0')}'","padLeft(1, '0')}'")
 M('loans',RA,'if (cents == 0) return','if (cents == 1) return')
+# D118: a rate past 100% and a rate below nothing are read as typed.
+M('loans',RA,'when hundredths >= 0 &&','when hundredths >= -1 &&')
+M('loans',RA,'RateRead(negative ? -hundredths : hundredths)','RateRead(hundredths)')
+M('loans',RA,"wholeDigits.length > '$_wholeCap'.length","wholeDigits.length > 3")
 
 # ---------------- entries ----------------
 PL = 'packages/ledger/entries/lib/model/planned.dart'
@@ -265,6 +269,7 @@ M('entries',EN,'type == EntryType.dividend && !isReduction ? settlement : 0;','t
 M('entries',EN,'if (spending == 0) return const [];','if (spending <= 0) return const [];')
 M('entries',EN,'bool get _splitCounts => parts.isNotEmpty && home == null;','bool get _splitCounts => parts.isNotEmpty;')
 M('entries',EN,'EntryType.dividend when isReduction => TradeKind.capitalReturn,','')
+M('entries',RR,'loanRate != null && loanRate > maxLoanRate','loanRate != null && loanRate >= maxLoanRate')
 
 # ---------------- domain ----------------
 LM = 'packages/domain/lib/src/investments/lot_math.dart'

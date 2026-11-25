@@ -6,6 +6,10 @@ void main() {
     "R5: a day gone by valued at today's rate is said to be an estimate",
     () {
       expect(estimatedAtTodaysRate(32.5), '以今日臺銀即期買入 32.5 估算，請改成當日金額');
+      // D118: a whole rate has no trailing .0.
+      expect(estimatedAtTodaysRate(32.0), '以今日臺銀即期買入 32 估算，請改成當日金額');
+      expect(todaysRate(32.0), '臺銀即期買入 32');
+      expect(todaysRate(0.2105), '臺銀即期買入 0.2105');
     },
   );
 }

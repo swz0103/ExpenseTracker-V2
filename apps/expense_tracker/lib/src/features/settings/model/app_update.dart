@@ -122,17 +122,36 @@ const maxUpdateInfoBytes = 64 * 1024;
 abstract interface class UpdatePort {
   Future<String> fetch(Uri url);
 
-  /// Saves [url] into [into], saying how much has arrived.
+  /// Saves [url] into [into], saying how much has arrived. When [cancel]
+  /// is asked, the transfer stops at once, even while nothing arrives
+  /// (the connection is closed), and what had arrived is deleted; it
+  /// returns or throws only once it has stopped.
   Future<void> download(
     Uri url,
     File into,
-    void Function(int received) progress,
-  );
+    void Function(int received) progress, {
+    required DownloadCancel cancel,
+  });
 
   /// Checks [apk] (its size, [sha256], its package name, version code and
   /// signing certificate against the running app's) and opens Android's
   /// installer with it.
   Future<UpdateInstall> install(File apk, String sha256);
+}
+
+/// Asks a download under way to stop ([UpdatePort.download]).
+final class DownloadCancel {
+  final _asked = Completer<void>();
+
+  /// Whether stopping was asked.
+  bool get asked => _asked.isCompleted;
+
+  /// Completes when stopping is asked.
+  Future<void> get whenAsked => _asked.future;
+
+  void ask() {
+    if (!asked) _asked.complete();
+  }
 }
 
 /// Newer versions of the app, from the release the APKs are published on:
@@ -285,15 +304,29 @@ final class AppUpdate extends ChangeNotifier {
   /// 略過這一版: offered again on its own only when a newer build comes.
   void skip(UpdateInfo info) => _preferences.updateLater(skip: info.build);
 
-  /// Asked to stop the download under way ([cancelDownload]); null when
-  /// none is.
-  Completer<void>? _stop;
+  /// Stops the download under way ([cancelDownload]); null when none is,
+  /// and once the file has arrived and is being handed to the installer.
+  DownloadCancel? _cancel;
 
-  /// Stops the download under way (D85): [install] returns null at once
-  /// with no [failure], what had arrived deleted.
-  void cancelDownload() {
-    final stop = _stop;
-    if (stop != null && !stop.isCompleted) stop.complete();
+  /// Completes when the [install] under way has ended.
+  Completer<void>? _ended;
+
+  /// Whether the download under way can still be stopped: 取消下載 shows
+  /// only then, not once it is asked nor once the file is complete.
+  bool get canCancel => !(_cancel?.asked ?? true);
+
+  /// Stops the download under way (D85): the transfer is told to stop,
+  /// and this completes once it has, what had arrived deleted, [install]
+  /// returned null with no [failure] and [busy] false. Only then can the
+  /// download be started again, so two never write one file (review 31).
+  /// Once the file is complete and handed to the installer, it is too
+  /// late: nothing is stopped.
+  Future<void> cancelDownload() async {
+    final cancel = _cancel;
+    if (cancel == null || cancel.asked) return _ended?.future;
+    cancel.ask();
+    notifyListeners();
+    await _ended?.future;
   }
 
   /// Downloads the newer build, checks it and hands it to Android's
@@ -314,36 +347,31 @@ final class AppUpdate extends ChangeNotifier {
     }
     final folder = Directory('${_cache.path}/updates');
     final apk = File('${folder.path}/ExpenseTracker-${info.build}.apk');
+    final ended = _ended = Completer<void>();
+    final cancel = _cancel = DownloadCancel();
     try {
       await folder.create(recursive: true);
       if (!apk.existsSync() || apk.lengthSync() != info.size) {
-        final stop = _stop = Completer<void>();
-        // Cancelled: the transfer stops at its next piece, and this does
-        // not wait for it; what it fails with then is the stop's.
-        await Future.any([
-          _port
-              .download(apkUrl(info.version), apk, (received) {
-                if (stop.isCompleted) throw const _DownloadCancelled();
-                // More than update.json says it weighs: stopped, not saved.
-                if (received > info.size) throw const _OversizedDownload();
-                _progress = info.size == 0
-                    ? 0
-                    : (received / info.size).clamp(0, 1).toDouble();
-                notifyListeners();
-              })
-              .catchError((Object error, StackTrace stack) {
-                if (!stop.isCompleted) {
-                  Error.throwWithStackTrace(error, stack);
-                }
-              }),
-          stop.future,
-        ]);
-        if (stop.isCompleted) {
-          // The person stopped it: nothing went wrong, nothing to say.
-          if (apk.existsSync()) await apk.delete();
-          return null;
-        }
+        // Waited for to its end, cancelled or not: a new download starts
+        // only once this one has stopped writing.
+        await _port.download(apkUrl(info.version), apk, (received) {
+          if (cancel.asked) throw const _DownloadCancelled();
+          // More than update.json says it weighs: stopped, not saved.
+          if (received > info.size) throw const _OversizedDownload();
+          _progress = info.size == 0
+              ? 0
+              : (received / info.size).clamp(0, 1).toDouble();
+          notifyListeners();
+        }, cancel: cancel);
       }
+      if (cancel.asked) {
+        // The person stopped it: nothing went wrong, nothing to say.
+        if (apk.existsSync()) await apk.delete();
+        return null;
+      }
+      // Complete: too late to stop, 取消下載 goes.
+      _cancel = null;
+      notifyListeners();
       final outcome = await _port.install(apk, info.sha256);
       if (outcome == UpdateInstall.damaged) {
         _failure = UpdateFailure.damaged;
@@ -351,15 +379,19 @@ final class AppUpdate extends ChangeNotifier {
         _failure = UpdateFailure.notThisApp;
       }
       return outcome;
-    } on _OversizedDownload {
-      ErrorLog.instance.record(
-        UpdateMessages.downloadStep,
-        UpdateMessages.grewPastSize,
-      );
-      _failure = UpdateFailure.grewPastSize;
-      if (apk.existsSync()) await apk.delete();
-      return null;
     } on Object catch (error, stack) {
+      if (apk.existsSync()) await apk.delete();
+      // Stopped as asked: whatever the transfer ended with is the stop's,
+      // and nothing went wrong.
+      if (cancel.asked) return null;
+      if (error is _OversizedDownload) {
+        ErrorLog.instance.record(
+          UpdateMessages.downloadStep,
+          UpdateMessages.grewPastSize,
+        );
+        _failure = UpdateFailure.grewPastSize;
+        return null;
+      }
       ErrorLog.instance.record(UpdateMessages.downloadStep, error, stack);
       // A cap or a redirect refused is not the network: said before the
       // IOException they are.
@@ -369,12 +401,12 @@ final class AppUpdate extends ChangeNotifier {
         IOException() || TimeoutException() => UpdateFailure.downloadCut,
         _ => UpdateFailure.installUnforeseen,
       };
-      if (apk.existsSync()) await apk.delete();
       return null;
     } finally {
-      _stop = null;
+      _cancel = null;
       _progress = null;
       notifyListeners();
+      ended.complete();
     }
   }
 }

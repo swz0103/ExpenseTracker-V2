@@ -13,8 +13,10 @@ import 'ledger_session.dart';
 import 'lifecycle_services.dart';
 import 'load_failed_page.dart';
 import 'quarantine_notices.dart';
+import 'quiet_failures.dart';
 import 'upgrade_held_page.dart';
 import '../features/backup/model/encrypted_backup_manager.dart';
+import '../features/backup/model/hand_over.dart';
 import '../features/backup/model/old_key_backups.dart';
 import '../features/backup/model/outbox.dart';
 import '../features/backup/ui/old_key_backups_offer.dart';
@@ -22,7 +24,6 @@ import '../core/ledger/persistence/quarantine.dart';
 import '../core/design_system/design_system.dart';
 import '../core/diagnostics/error_log.dart';
 import '../core/messages/loading_messages.dart';
-import '../core/messages/problem_messages.dart';
 import '../features/backup/ui/backup_section.dart' show restoreFromBackup;
 import '../core/ledger/ledger.dart';
 import '../features/recurring/ui/held_bookings.dart';
@@ -39,6 +40,7 @@ import '../core/platform/errands.dart';
 import '../core/navigation/nav.dart' show AppRoute;
 import '../core/platform/lock_gate.dart';
 import '../core/platform/quick_action.dart';
+import '../core/widgets/diagnostics_export.dart';
 import '../core/widgets/lock_cover.dart';
 import '../core/design_system/recovery_code.dart';
 import 'shell.dart';
@@ -105,6 +107,14 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
   /// The session that navigator belongs to.
   var _generation = 0;
 
+  /// What the services remember for the whole run, however often the app
+  /// locks (review 31); its notes wait their turn, said only while open.
+  late final _run = ServicesRun(
+    QuietFailures(
+      (note) async => widget.startup.state is Ready && await queueNote(note),
+    ),
+  );
+
   @override
   void initState() {
     super.initState();
@@ -134,6 +144,7 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
       // A note of the session before (it may name an amount) lives above
       // the navigator, in the app's one messenger: it goes too.
       appMessenger.currentState?.clearSnackBars();
+      _run.quiet.dropWaiting();
       _hideScreen();
     }
     setState(() {});
@@ -198,6 +209,7 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
             preferences: widget.preferences,
             gate: _gate,
             lifecycle: _lifecycle,
+            run: _run,
             leave: widget.leave,
           ),
           Damaged() => DamagedBookPage.of(startup),
@@ -212,6 +224,9 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
                     deliveredRevision: _deliveredRevision,
                   )
                 : RestoreSources(deliveredRevision: _deliveredRevision),
+            diagnostics: Platform.isAndroid
+                ? textHandOver(startup.directory, androidExportFile)
+                : null,
           ),
         },
       ),
@@ -229,6 +244,7 @@ class OpenedLedger extends StatefulWidget {
     required this.preferences,
     required this.gate,
     required this.lifecycle,
+    required this.run,
     this.privacy,
     this.leave,
   });
@@ -243,6 +259,9 @@ class OpenedLedger extends StatefulWidget {
 
   /// Tells this opening of the ledger when the app leaves and comes back.
   final AppLifecycle lifecycle;
+
+  /// What the services remember for the whole run of the app.
+  final ServicesRun run;
 
   /// Puts the app in the background without closing it.
   final Future<void> Function()? leave;
@@ -269,6 +288,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     offerUpdate: (update) async {
       if (mounted) await showUpdatePanel(context, update);
     },
+    run: widget.run,
   );
 
   /// Opening the book: load, inbox, health check, what is due.
@@ -323,24 +343,12 @@ class _OpenedLedgerState extends State<OpenedLedger>
   Future<void> _exportReport({
     List<QuarantinedRow> rows = const [],
     Object? failure,
-  }) async {
-    try {
-      final saved = await _services.backupManager.exportFile(
-        openingReportName,
-        openingReport(
-          rows: rows,
-          // Exception to error words: into the exported diagnostics file,
-          // not onto the screen.
-          failure: failure == null ? null : ErrorLog.describe(failure),
-          log: ErrorLog.instance.text,
-        ),
-      );
-      if (mounted && saved) showNote(context, quarantineExported);
-    } on Object catch (error) {
-      ErrorLog.instance.record(loadFailedExport, error);
-      if (mounted) showNote(context, describeProblem(error));
-    }
-  }
+  }) => exportDiagnostics(
+    context,
+    _services.backupManager.exportFile,
+    rows: rows,
+    failure: failure,
+  );
 
   /// Tells how many rows were set aside ([rows]), with a way to report
   /// them (every row set aside, [all]), to restore a backup, or to go on

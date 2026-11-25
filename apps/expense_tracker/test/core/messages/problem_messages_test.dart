@@ -34,16 +34,21 @@ void main() {
   test('a refusal the person can act on says what to do', () {
     expect(
       problemNote('匯出失敗', PlatformException(code: 'busy')),
-      '匯出失敗：上一個檔案還在處理，請稍候再試。',
+      '匯出失敗：上一個檔案還在處理，請稍候再試',
     );
     expect(describeProblem(const NameTaken()), startsWith('這個分類名稱已經有了'));
     expect(
       describeProblem(const MoneyException(MoneyError.precision)),
-      '金額的小數位數太多。',
+      '金額的小數位數太多',
     );
   });
 
   test('failureNote joins with a comma', () {
     expect(failureNote('沒有存成圖片'), '沒有存成圖片，可在診斷匯出詳細資料');
+  });
+
+  test('endSentence closes a sentence once, for another to follow (D81)', () {
+    expect(endSentence('帳本無法寫入'), '帳本無法寫入。');
+    expect(endSentence('沒有復原。它們留在「最近刪除」。'), '沒有復原。它們留在「最近刪除」。');
   });
 }

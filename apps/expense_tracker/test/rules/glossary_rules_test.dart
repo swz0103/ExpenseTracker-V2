@@ -58,6 +58,38 @@ List<String> variantsIn(List<String> lines) {
   return found;
 }
 
+/// A run of string literals with only white space between, as Dart joins
+/// them into one string.
+final _joined = RegExp("(?:(?:${_literal.pattern})\\s*)+");
+
+/// D81: a sentence of its own carries no 。, and several in one string end
+/// each with it (a question ends with its ？). The strings of [source]
+/// that break this, each as `line: string`, from 1; a string continued on
+/// the next line is read as one.
+List<String> sentenceEndsIn(String source) {
+  final lines = source.split('\n');
+  final code = [
+    for (final line in lines) line.trimLeft().startsWith('//') ? '' : line,
+  ].join('\n');
+  final found = <String>[];
+  for (final run in _joined.allMatches(code)) {
+    final text = _literal
+        .allMatches(run[0]!)
+        .map((m) => m[0]!.substring(1, m[0]!.length - 1))
+        .join()
+        // A sentence endSentence closes ends there.
+        .replaceAll(RegExp(r'\$\{endSentence\([^}]*\)\}'), '。');
+    final single =
+        text.endsWith('。') &&
+        !text.substring(0, text.length - 1).contains(RegExp('[。？！]'));
+    if (!single && !text.contains('。。')) continue;
+    final line = '\n'.allMatches(code.substring(0, run.start)).length;
+    if (excusedAt(lines, line, 'sentence ends')) continue;
+    found.add('${line + 1}: $text');
+  }
+  return found;
+}
+
 /// Files the rule leaves to another work package for now, with why.
 const _elsewhere = <String>{};
 
@@ -79,6 +111,38 @@ void main() {
       ]),
       isEmpty,
     );
+  });
+
+  test('the sentence-end finder reads a string as Dart joins it', () {
+    expect(sentenceEndsIn("  a = '請稍候再試。';"), ['1: 請稍候再試。']);
+    expect(sentenceEndsIn("  a = '請稍候再試';"), isEmpty);
+    expect(sentenceEndsIn("  a = '沒有復原。它們留著。';"), isEmpty);
+    expect(sentenceEndsIn("  a = '要還原嗎？會先備份。';"), isEmpty);
+    expect(sentenceEndsIn("  a = '已記下。。';"), ['1: 已記下。。']);
+    expect(sentenceEndsIn(r"  a = '${endSentence(x)}還沒有升級。';"), isEmpty);
+    expect(sentenceEndsIn("  a = '第一句，'\n      '還是同一句。';"), ['1: 第一句，還是同一句。']);
+    expect(sentenceEndsIn("  a = '第一句。'\n      '第二句。';"), isEmpty);
+    expect(sentenceEndsIn("  // '在註解裡。'"), isEmpty);
+    expect(
+      sentenceEndsIn("  // Exception to sentence ends: a quote.\n  a = '照抄。';"),
+      isEmpty,
+    );
+  });
+
+  test('the message catalogues end sentences by one rule (D81, review 31)', () {
+    final found = <String>[];
+    for (final f in Directory('lib/src/core/messages').listSync()) {
+      if (f is! File || !f.path.endsWith('.dart')) continue;
+      for (final hit in sentenceEndsIn(f.readAsStringSync())) {
+        found.add('${f.path}:$hit');
+      }
+    }
+    if (found.isNotEmpty) {
+      fail(
+        'A sentence of its own ends without 。, several each with it '
+        '(D81):\n${found.join('\n')}',
+      );
+    }
   });
 
   test('what the person reads uses one word for one thing (D81)', () {

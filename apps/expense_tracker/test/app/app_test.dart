@@ -16,11 +16,11 @@ void main() {
   test('refused changes are explained in words', () {
     expect(
       describeProblem(const MoneyException(MoneyError.precision)),
-      '金額的小數位數太多。',
+      '金額的小數位數太多',
     );
     expect(
       describeProblem(DataSourceException(StateError('closed'))),
-      '帳本無法寫入，請重新打開 App 再試。',
+      '帳本無法寫入，請重新打開 App 再試',
     );
     expect(describeProblem(StateError('x')), '沒有完成這個動作，可在診斷匯出詳細資料');
   });

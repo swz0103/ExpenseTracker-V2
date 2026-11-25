@@ -59,6 +59,16 @@ void main() {
     expect(priceMove(12), '12.00');
   });
 
+  test('D118: an exchange rate as quoted, with no trailing .0', () {
+    expect(exchangeRate(32.0), '32');
+    expect(exchangeRate(32.155), '32.155');
+    expect(exchangeRate(0.2105), '0.2105');
+    // Kept to 1/1,000,000: 32.1234567 rounds to 32.123457.
+    expect(exchangeRate(32.1234567), '32.123457');
+    // Not grouped: 1,234.5 is written 1234.5.
+    expect(exchangeRate(1234.5), '1234.5');
+  });
+
   group('RPT-06: percentages, one rounding', () {
     test('signed with one decimal', () {
       // 9 / 1,000 = 0.9%, once shown as 0% by a truncation.
@@ -150,5 +160,12 @@ void main() {
       expect(shortAmount(99999), '99,999');
       expect(shortAmount(100000), '10萬');
     });
+  });
+
+  test('a file size in MiB to one decimal', () {
+    // 1,572,864 = 1.5 × 1,048,576.
+    expect(megabytes(1572864), '1.5 MB');
+    // 100,000 / 1,048,576 = 0.095… → 0.1.
+    expect(megabytes(100000), '0.1 MB');
   });
 }
