@@ -465,12 +465,6 @@ final class ComposeForm {
   /// A transfer between accounts kept in different currencies.
   bool get crossing => type == EntryType.transfer && currency != toCurrency;
 
-  /// [received], else the amount at the rates of its day (D58: that
-  /// day's board, else the nearest earlier day's, else today's).
-  int? get receivedValue =>
-      received ??
-      ledger.marketData.convertOn(amount, currency, toCurrency, date);
-
   /// The premium withheld from the cash dividend being written.
   int get withheld => premium ?? dividendPremium(amount, date);
 

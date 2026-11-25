@@ -534,26 +534,6 @@ Market marketFrom(List<StoredRow> rows) {
   );
 }
 
-/// The dated rates and closes of [market] (D58): its day rows, with the
-/// latest board and closes on their days where the rows do not already
-/// give them, as for a book kept before D58, whose only days are those.
-MarketHistory datedMarket(Market market) {
-  final writes = MarketDayWrites(market.history);
-  void latest(MarketSeries series, Map<String, double> figures, DateTime? on) {
-    if (on == null) return;
-    for (final MapEntry(:key, :value) in figures.entries) {
-      writes.keep(series, key, BusinessDate.of(on), value);
-    }
-  }
-
-  latest(MarketSeries.buying, market.rates, market.ratesOn);
-  latest(MarketSeries.selling, market.sellRates, market.ratesOn);
-  for (final MapEntry(:key, :value) in market.prices.entries) {
-    latest(MarketSeries.closes, {key: value}, market.days[key]);
-  }
-  return writes.history;
-}
-
 /// The rows of [rows] of [marketShelf] that can be read; [report] is
 /// told what reading each other threw (a close or rate kept that cannot
 /// be read is fetched again).

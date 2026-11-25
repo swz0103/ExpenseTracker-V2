@@ -138,3 +138,32 @@ final class MarketDayWrites {
       key: ?value[day],
   };
 }
+
+/// The dated rates and closes of a book (D58): its day rows' [history],
+/// with the latest board ([rates], [sellRates], of [ratesOn]) and closes
+/// ([prices], each of its day in [days]) on their days where the rows do
+/// not already give them, as for a book kept before D58, whose only days
+/// are those.
+MarketHistory datedMarket({
+  required MarketHistory history,
+  required Map<String, double> rates,
+  required Map<String, double> sellRates,
+  required DateTime? ratesOn,
+  required Map<String, double> prices,
+  required Map<String, DateTime> days,
+}) {
+  final writes = MarketDayWrites(history);
+  void latest(MarketSeries series, Map<String, double> figures, DateTime? on) {
+    if (on == null) return;
+    for (final MapEntry(:key, :value) in figures.entries) {
+      writes.keep(series, key, BusinessDate.of(on), value);
+    }
+  }
+
+  latest(MarketSeries.buying, rates, ratesOn);
+  latest(MarketSeries.selling, sellRates, ratesOn);
+  for (final MapEntry(:key, :value) in prices.entries) {
+    latest(MarketSeries.closes, {key: value}, days[key]);
+  }
+  return writes.history;
+}

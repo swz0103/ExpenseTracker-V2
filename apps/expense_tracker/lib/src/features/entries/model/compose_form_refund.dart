@@ -19,6 +19,12 @@ extension RefundFields on ComposeForm {
     return ledger.marketData.toHomeOn(amount, currency, date);
   }
 
+  /// [received], else the amount at the rates of its day (D58: that
+  /// day's board, else the nearest earlier day's, else today's).
+  int? get receivedValue =>
+      received ??
+      ledger.marketData.convertOn(amount, currency, toCurrency, date);
+
   /// What is said under [homeValue] of the rate it is worked out at; null
   /// once typed, or without a rate. A board kept for the entry's day or
   /// before it is named by its day (D58), today's as today's; a day gone

@@ -365,7 +365,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       moves: market.moves,
       quotedOn: market.quotedOn,
       quoteDays: market.days,
-      history: datedMarket(market),
+      history: _dated(market),
       trash: book.trash,
       receipts: book.receipts,
       drafts: book.drafts,
@@ -942,7 +942,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       sellRates: kept.sellRates,
       quotedOn: kept.quotedOn,
       days: kept.days,
-      history: datedMarket(kept),
+      history: _dated(kept),
     );
   }
 
@@ -972,7 +972,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       // one kept stays, the doubted one is kept to weigh the next fetch
       // by, and the doubt is noted; buying and selling alike (D59).
       final doubted = <String>{};
-      final dated = datedMarket(kept);
+      final dated = _dated(kept);
       final days = MarketDayWrites(kept.history);
       final onBoard = BusinessDate.of(boardDay);
       (Map<String, double>, Map<String, DoubtedFigure>) sane(
@@ -1086,6 +1086,16 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     });
   }
 
+  /// The dated rates and closes of [market] (`datedMarket`, D58).
+  static MarketHistory _dated(Market market) => datedMarket(
+    history: market.history,
+    rates: market.rates,
+    sellRates: market.sellRates,
+    ratesOn: market.ratesOn,
+    prices: market.prices,
+    days: market.days,
+  );
+
   /// What a figure fetched for [day] is weighed against (D95, D101):
   /// the one [dated] keeps for that day or the nearest day before it
   /// (D58), with its day, else the [latest] kept, of [latestOn].
@@ -1180,7 +1190,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final moves = {...kept.moves};
     final names = {...kept.names};
     final days = {...kept.days};
-    final dated = datedMarket(kept).closes;
+    final dated = _dated(kept).closes;
     final closesByDay = MarketDayWrites(kept.history);
     final today = _today();
     // A doubt too old to weigh a fetch by is let go of (review 25).

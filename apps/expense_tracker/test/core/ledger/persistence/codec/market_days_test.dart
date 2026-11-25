@@ -8,6 +8,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart' show StoredRow;
 
 /// D58: a day's rates and closes in one market row, `day:` and the day.
+MarketHistory datedOf(Market market) => datedMarket(
+  history: market.history,
+  rates: market.rates,
+  sellRates: market.sellRates,
+  ratesOn: market.ratesOn,
+  prices: market.prices,
+  days: market.days,
+);
+
 void main() {
   BusinessDate d(int m, int day) => BusinessDate(2026, m, day);
 
@@ -110,7 +119,7 @@ void main() {
         }),
       ]);
       expect(market.history.isEmpty, isTrue);
-      final dated = datedMarket(market);
+      final dated = datedOf(market);
       expect(dated.buying.on('USD', d(3, 10)), (
         figure: 31.9,
         of: d(3, 9),
@@ -123,7 +132,7 @@ void main() {
     });
 
     test('a board of no known day is in no day\'s row', () {
-      final dated = datedMarket(
+      final dated = datedOf(
         marketFrom([
           row('rates', {
             'rates': {'USD': 31.9},
@@ -143,7 +152,7 @@ void main() {
           'rates': {'USD': 31.9},
         }),
       ]);
-      final dated = datedMarket(market);
+      final dated = datedOf(market);
       // 3/2's stands for 3/9: not added again.
       expect(dated.buying.figures['USD'], {d(3, 2): 31.9});
     });
