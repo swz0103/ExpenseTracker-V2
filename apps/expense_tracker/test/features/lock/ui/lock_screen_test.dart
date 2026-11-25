@@ -71,8 +71,13 @@ void main() {
   setUp(saved.clear);
 
   /// Lets the real work behind a tap (files, key derivation) finish.
+  /// While the screen shows its work under way ([BusyMark]), it is waited
+  /// for to its end however long it takes, as a loaded machine can make
+  /// it: what [done] asks about is then decided by that work, not by how
+  /// fast it ran. Otherwise about 5 s.
   Future<void> settle(WidgetTester tester, bool Function() done) async {
-    for (var i = 0; i < 50 && !done(); i++) {
+    bool busy() => find.byType(BusyMark).evaluate().isNotEmpty;
+    for (var i = 0; !done() && (i < 50 || busy()); i++) {
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 100)),
       );
