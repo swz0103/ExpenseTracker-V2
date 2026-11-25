@@ -1,3 +1,4 @@
+import 'package:domain/investments.dart' show MarketHistory;
 import 'package:expense_tracker/src/core/ledger/cache/query_cache.dart';
 import 'package:expense_tracker/src/core/ledger/models/models.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/account_repository.dart';
@@ -63,12 +64,17 @@ final class Book {
     List<Budget> budgets = const [],
     Map<String, double> rates = const {},
     Map<String, double> sellRates = const {},
+    MarketHistory? history,
   }) : entries = EntryRepository(entries),
        accounts = AccountRepository(accounts),
        categories = CategoryRepository(categories),
        recurring = RecurringRepository(recurring),
        budgetRepository = BudgetRepository(budgets),
-       market = MarketDataRepository(rates: rates, sellRates: sellRates) {
+       market = MarketDataRepository(
+         rates: rates,
+         sellRates: sellRates,
+         history: history,
+       ) {
     holdings = HoldingRepository(const [], moveOf: market.moveOf)
       ..replay(this.entries.all, today: today);
   }
