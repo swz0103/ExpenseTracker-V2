@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:vault/backup_security.dart';
 
 import '../../backup/model/drive_backup.dart';
 import '../../backup/model/restore_sources.dart';
@@ -193,24 +192,19 @@ class _LockScreenState extends State<LockScreen> {
   Future<void> _unlockWithDevice() async {
     setState(() {
       _busy = true;
-      _problem = null;
+      // The opening's own words (a full phone) stay said (review 30).
+      if (_problem != describeLocked(widget.startup.state)) _problem = null;
     });
     try {
       final opened = await widget.startup.unlockWithDevice();
       // Turned down for the password: the person's choice, so nothing is
       // said and nothing noted.
       if (!opened && mounted) setState(() => _busy = false);
-    } on KeyringException catch (error) {
-      // Said to the person below, by its kind. A phone not yet enrolled is
-      // expected; any other failure of the fingerprint's key is kept too.
-      final notYet = error.error == KeyringError.unknownDevice;
-      if (!notYet) {
-        ErrorLog.instance.record(LockWords.fingerprintHeading, error);
-      }
-      _fail(notYet ? LockWords.fingerprintNotYet : LockWords.fingerprintFailed);
     } on Object catch (error) {
-      ErrorLog.instance.record(LockWords.fingerprintHeading, error);
-      _fail(LockWords.fingerprintStopped);
+      // Said to the person by its kind; a fault of the fingerprint is kept.
+      final (:words, :kept) = describeDeviceFailure(error);
+      if (kept) ErrorLog.instance.record(LockWords.fingerprintHeading, error);
+      _fail(words);
     }
   }
 
@@ -313,7 +307,7 @@ class _LockScreenState extends State<LockScreen> {
     } on Object catch (error) {
       // Said to the person by its kind, in words; a wrong secret is
       // expected and not kept, anything unforeseen is.
-      final said = describeUnlockFailure(error, recovery: recovery);
+      final said = describeTry(error, recovery: recovery, restore: _restoring);
       if (said == null) {
         ErrorLog.instance.record(KeyWords.unforeseenHeading, error);
       }

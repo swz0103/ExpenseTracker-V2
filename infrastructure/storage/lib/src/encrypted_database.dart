@@ -256,12 +256,18 @@ final class EncryptedDatabase {
   /// whatever [written] does: should it throw (a disk full), the write
   /// still stands, the error goes to [writtenFailed], and [written] is
   /// told again after the next write.
+  ///
+  /// [pageLimit] caps the file, once its tables are made, at that many
+  /// pages (`max_page_count`), or at what it holds if more: a write past
+  /// it is refused as on a full device (SQLITE_FULL). Tests use it to
+  /// fill a database; the app leaves it null.
   factory EncryptedDatabase.open(
     File file,
     StorageKey key, {
     bool keyVouched = false,
     void Function()? written,
     void Function(Object error, StackTrace stack)? writtenFailed,
+    int? pageLimit,
   }) {
     assert(_layout.length == schema, 'schema is the number of layout steps');
     assert(serialized, 'SQLite is built without threads: no work apart');
@@ -270,6 +276,10 @@ final class EncryptedDatabase {
     try {
       _configure(db, key, keyVouched: keyVouched);
       _guarded(() => _create(db));
+      // Never below what the file already holds (SQLite's own rule).
+      if (pageLimit != null) {
+        db.execute('PRAGMA max_page_count = $pageLimit');
+      }
       return EncryptedDatabase._(db, written, writtenFailed);
     } catch (_) {
       db.close();

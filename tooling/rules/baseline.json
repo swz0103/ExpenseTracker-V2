@@ -15,7 +15,6 @@
     "apps/expense_tracker/lib/src/features/backup/model/encrypted_backup_manager.dart": 2,
     "apps/expense_tracker/lib/src/features/entries/model/compose_draft.dart": 1,
     "apps/expense_tracker/lib/src/features/investments/model/market_feed.dart": 2,
-    "apps/expense_tracker/lib/src/features/lock/ui/lock_screen.dart": 1,
     "apps/expense_tracker/lib/src/features/reminders/model/inbox_apply.dart": 1
   },
   "A4-pure-calc": {},

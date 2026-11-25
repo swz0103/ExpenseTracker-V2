@@ -393,6 +393,52 @@ void main() {
       expect(vault.damagedCopies(), hasLength(1));
     });
 
+    test('a staging database the disk fills (SQLITE_FULL) is not counted '
+        'against salvageTries either: a fourth try is still made '
+        '(review 30)', () async {
+      // The staging database may hold 16 pages of 4096 bytes; the book
+      // holds 200 records of 1000 characters, about 50 pages.
+      final capped = LedgerVault(
+        vault.directory,
+        codec: codec,
+        stagingPageLimit: 16,
+      );
+      final (open, _) = await capped.create(password);
+      for (var i = 0; i < 200; i++) {
+        open.store.write((w) => w.put('note', '$i', 'x' * 1000));
+      }
+      open.close();
+      await capped.noteJournalDamaged();
+      final before = capped.databaseFile.readAsBytesSync();
+      // The first: tried from the damage report, refused by SQLite itself.
+      final first = await capped.salvage(await keysNow());
+      expect(
+        first,
+        isA<SalvageNotMade>()
+            .having((f) => f.error, 'error', isA<SqliteException>())
+            .having((f) => isNoSpace(f.error), 'no space', isTrue)
+            .having((f) => f.gaveUp, 'gaveUp', isFalse),
+      );
+      // The second, third and fourth: openings, each refused for want of
+      // room, never given up although salvageTries is 3.
+      for (var i = 0; i < 3; i++) {
+        await expectLater(
+          capped.unlockWithPassword(password),
+          throwsA(predicate<Object>(isNoSpace, 'no space')),
+        );
+      }
+      expect(capped.databaseFile.readAsBytesSync(), before);
+      expect(capped.damagedCopies(), isEmpty, reason: 'nothing set aside');
+      expect(
+        await capped.salvage(await keysNow()),
+        isA<SalvageNotMade>().having((f) => f.gaveUp, 'gaveUp', isFalse),
+      );
+      // With room again (no cap): made again and opened, all 200 kept.
+      final opened = await vault.unlockWithPassword(password);
+      addTearDown(opened.close);
+      expect(opened.store.count, 200);
+    });
+
     test('a note that cannot be let go of on opening is told to '
         'noteFailed, and the book opens (review 29)', () async {
       await withJournal();

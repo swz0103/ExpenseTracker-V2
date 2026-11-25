@@ -146,12 +146,85 @@ final class CalendarByHand extends FileRule {
 
 /// `isBefore`, `isAfter`, `isAtSameMomentAs` or `compareTo` with a local
 /// midnight on either side: `DateTime(y, m)` or `DateTime(y, m, d)`
-/// written there, or a local variable that one was put in.
+/// written there, or a local variable that one was put in, while that
+/// name is in scope: a block or function left forgets it, and a
+/// parameter, loop variable or later declaration or assignment of the
+/// name that is not a local midnight shadows it (review 30).
 final class _LocalMidnightsCompared extends RecursiveAstVisitor<void> {
   final found = <MethodInvocation>[];
 
-  /// Local variables, by name, that hold a local midnight.
+  /// Local variables, by name, that hold a local midnight here.
   final _held = <String>{};
+
+  /// Visits a scope: what it declares is forgotten once it is left.
+  void _scoped(void Function() visit) {
+    final outer = Set.of(_held);
+    try {
+      visit();
+    } finally {
+      _held
+        ..clear()
+        ..addAll(outer);
+    }
+  }
+
+  /// A function's own parameters shadow the names they share.
+  void _shadow(FormalParameterList? parameters) {
+    for (final p in parameters?.parameters ?? const <FormalParameter>[]) {
+      if (p.name case final name?) _held.remove(name.lexeme);
+    }
+  }
+
+  @override
+  void visitBlock(Block node) => _scoped(() => super.visitBlock(node));
+
+  @override
+  void visitFunctionExpression(FunctionExpression node) => _scoped(() {
+    _shadow(node.parameters);
+    super.visitFunctionExpression(node);
+  });
+
+  @override
+  void visitMethodDeclaration(MethodDeclaration node) => _scoped(() {
+    _shadow(node.parameters);
+    super.visitMethodDeclaration(node);
+  });
+
+  @override
+  void visitConstructorDeclaration(ConstructorDeclaration node) => _scoped(() {
+    _shadow(node.parameters);
+    super.visitConstructorDeclaration(node);
+  });
+
+  @override
+  void visitForStatement(ForStatement node) => _scoped(() {
+    if (node.forLoopParts case ForEachPartsWithDeclaration(
+      :final loopVariable,
+    )) {
+      _held.remove(loopVariable.name.lexeme);
+    }
+    super.visitForStatement(node);
+  });
+
+  @override
+  void visitCatchClause(CatchClause node) => _scoped(() {
+    for (final p in [node.exceptionParameter, node.stackTraceParameter]) {
+      if (p != null) _held.remove(p.name.lexeme);
+    }
+    super.visitCatchClause(node);
+  });
+
+  @override
+  void visitAssignmentExpression(AssignmentExpression node) {
+    if (node.leftHandSide case SimpleIdentifier(:final name)) {
+      if (node.operator.lexeme == '=' && _isLocalMidnight(node.rightHandSide)) {
+        _held.add(name);
+      } else {
+        _held.remove(name);
+      }
+    }
+    super.visitAssignmentExpression(node);
+  }
 
   static const _comparisons = {
     'isBefore',
@@ -185,7 +258,11 @@ final class _LocalMidnightsCompared extends RecursiveAstVisitor<void> {
   @override
   void visitVariableDeclarationStatement(VariableDeclarationStatement node) {
     for (final v in node.variables.variables) {
-      if (_isLocalMidnight(v.initializer)) _held.add(v.name.lexeme);
+      if (_isLocalMidnight(v.initializer)) {
+        _held.add(v.name.lexeme);
+      } else {
+        _held.remove(v.name.lexeme);
+      }
     }
     super.visitVariableDeclarationStatement(node);
   }
