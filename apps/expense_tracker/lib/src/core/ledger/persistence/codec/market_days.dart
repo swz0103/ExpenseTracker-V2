@@ -5,6 +5,8 @@ import 'package:core/fx/dated_figures.dart'
     show DatedFigures, FoundOn, MarketHistory;
 import 'package:domain/investments.dart' show takesFetched;
 
+import 'row_decoding.dart' show decodeBodies;
+
 /// How the row of the rates and closes of one day is named among the
 /// market rows (D58): this, then the day, `day:2026-03-09`.
 const marketDayPrefix = 'day:';
@@ -229,6 +231,36 @@ final class MarketDayWrites {
   Map<String, String> get rows => {
     for (final day in _touched) marketDayId(day): _body(day),
   };
+
+  /// [rows], each laid over the row kept now ([stored], by id): the
+  /// fields of the [owned] series (with the closes, their fetch days)
+  /// as this writes them, the rest as kept. A fetch whose read went
+  /// before another fetch's write keeps what that one wrote (review 39:
+  /// the closes and the board of a day share its row). A row kept that
+  /// cannot be read is written over.
+  Map<String, String> rowsOver(
+    String? Function(String id) stored,
+    Set<MarketSeries> owned,
+  ) => {
+    for (final MapEntry(key: id, value: body) in rows.entries)
+      id: _over(stored(id), body, owned),
+  };
+
+  static String _over(String? stored, String written, Set<MarketSeries> owned) {
+    final kept = stored == null ? null : decodeBodies([stored]).values.single;
+    if (kept is! Map<String, Object?>) return written;
+    final mine = jsonDecode(written) as Map<String, Object?>;
+    final fields = {
+      for (final series in owned) series.field,
+      if (owned.contains(MarketSeries.closes)) fetchedField,
+    };
+    return jsonEncode({
+      for (final MapEntry(:key, :value) in kept.entries)
+        if (!fields.contains(key)) key: value,
+      for (final MapEntry(:key, :value) in mine.entries)
+        if (fields.contains(key)) key: value,
+    });
+  }
 
   String _body(BusinessDate day) => jsonEncode({
     for (final series in MarketSeries.values)

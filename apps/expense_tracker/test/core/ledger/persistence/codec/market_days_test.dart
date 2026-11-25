@@ -190,6 +190,35 @@ void main() {
     });
   });
 
+  test('review 39: a row written over the one kept now keeps its other '
+      'series', () {
+    final writes = MarketDayWrites(MarketHistory())
+      ..keep(MarketSeries.closes, '2330', d(9, 30), 1240, fetchedOn: d(10, 3));
+    final kept = {
+      'day:2026-09-30': '{"rates":{"USD":31.8},"closes":{"2330":1}}',
+    };
+    expect(
+      jsonDecode(
+        writes.rowsOver((id) => kept[id], {
+          MarketSeries.closes,
+        })['day:2026-09-30']!,
+      ),
+      {
+        'rates': {'USD': 31.8},
+        'closes': {'2330': 1240.0},
+        'fetched': {'2330': '2026-10-03'},
+      },
+    );
+    // None kept, or one that cannot be read: as written.
+    for (final stored in [null, 'not json', '[1]']) {
+      expect(
+        writes.rowsOver((_) => stored, {MarketSeries.closes}),
+        writes.rows,
+        reason: stored,
+      );
+    }
+  });
+
   group('N3: a month report fills the past days', () {
     // 2330 kept on 9/1 at 960 and 9/29 at 1,000.
     MarketDayWrites kept() => MarketDayWrites(

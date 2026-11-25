@@ -581,6 +581,22 @@ void main() {
         },
       );
 
+      test('review 39: closes and the board fetched at once share their '
+          'day\'s row, neither lost', () async {
+        final data = await source();
+        // The closes and the board both of 9/30.
+        daily = closes('1150930', '1,240.00');
+        await Future.wait([
+          data.refreshQuotes(['2330', '0050']),
+          data.refreshRates(),
+        ]);
+        expect(dayRow('2026-09-30'), {
+          'rates': {'USD': 31.835},
+          'sell': {'USD': 31.985},
+          'closes': {'2330': 1240.0, '0050': 62.75},
+        });
+      });
+
       test('a book kept before D58 keeps its latest close for its day '
           'when a new one comes', () async {
         final data = await source();

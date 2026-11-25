@@ -1244,7 +1244,11 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     if (count == 0 || rows.isEmpty) return false;
     await _whenQuiet(
       () => _store.write(
-        (w) => rows.forEach((id, body) => w.put(_market, id, body)),
+        (w) => writes
+            .rowsOver((id) => _store.row(_market, id)?.body, {
+              MarketSeries.closes,
+            })
+            .forEach((id, body) => w.put(_market, id, body)),
         counts: false,
       ),
     );
@@ -1390,8 +1394,13 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     if (changed || dayRows.isNotEmpty) {
       await _whenQuiet(
         () => _store.write((w) {
-          // Each day's closes beside them (D58), in the same write.
-          dayRows.forEach((id, body) => w.put(_market, id, body));
+          // Each day's closes beside them (D58), in the same write, over
+          // the rows as kept now: a board kept since this read stays.
+          closesByDay
+              .rowsOver((id) => _store.row(_market, id)?.body, {
+                MarketSeries.closes,
+              })
+              .forEach((id, body) => w.put(_market, id, body));
           w.put(
             _market,
             'quotes',
