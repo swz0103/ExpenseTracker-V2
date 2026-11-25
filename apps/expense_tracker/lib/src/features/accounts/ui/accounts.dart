@@ -257,6 +257,21 @@ class _MadeOf extends StatelessWidget {
   }
 }
 
+/// 排序帳戶: the cards laid flat, each dragged by its handle. Nothing is
+/// kept until 完成.
+class SortAccountsPage extends StatefulWidget {
+  const SortAccountsPage({super.key, required this.ledger});
+
+  final Ledger ledger;
+
+  @override
+  State<SortAccountsPage> createState() => SortAccountsPageState();
+}
+
+/// How 排序帳戶 lines the cards up: by hand, the most money first, or
+/// the one used last first.
+enum SortAccountsBy { hand, balance, recent }
+
 /// Each of [values]' share of a bar, every one at least [least] of it so
 /// even a small sum shows; the rest is shared among the larger ones by
 /// size.

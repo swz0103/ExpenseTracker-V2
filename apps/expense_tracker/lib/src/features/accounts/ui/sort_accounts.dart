@@ -4,49 +4,33 @@ import '../../../core/design_system/haptics.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
-import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 import 'accounts.dart';
 
-/// 排序帳戶: the cards laid flat, each dragged by its handle. Nothing is
-/// kept until 完成.
-class SortAccountsPage extends StatefulWidget {
-  const SortAccountsPage({super.key, required this.ledger});
-
-  final Ledger ledger;
-
-  @override
-  State<SortAccountsPage> createState() => _SortAccountsPageState();
-}
-
-/// How 排序帳戶 lines the cards up: by hand, the most money first, or
-/// the one used last first.
-enum _SortBy { hand, balance, recent }
-
-class _SortAccountsPageState extends State<SortAccountsPage> {
+class SortAccountsPageState extends State<SortAccountsPage> {
   late final _order = walletAccounts(widget.ledger);
-  var _by = _SortBy.hand;
+  var _by = SortAccountsBy.hand;
 
-  void _sortBy(_SortBy by) {
+  void _sortBy(SortAccountsBy by) {
     final ledger = widget.ledger;
     Haptics.selection();
     setState(() {
       _by = by;
       switch (by) {
-        case _SortBy.hand:
+        case SortAccountsBy.hand:
           _order
             ..clear()
             ..addAll(walletAccounts(ledger));
-        case _SortBy.balance:
+        case SortAccountsBy.balance:
           _order.sort(
             (a, b) => ledger.balanceService
                 .worthOf(b)
                 .compareTo(ledger.balanceService.worthOf(a)),
           );
-        case _SortBy.recent:
+        case SortAccountsBy.recent:
           final last = ledger.entryQueryService.lastUsedOn;
           final never = DateTime.utc(1);
           _order.sort(
@@ -85,7 +69,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
       ),
       onTap: () {
         _byKind();
-        setState(() => _by = _SortBy.hand);
+        setState(() => _by = SortAccountsBy.hand);
       },
       // 48 dp to tap, with the padding.
       child: ConstrainedBox(
@@ -212,9 +196,9 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
     child: Row(
       children: [
         for (final (i, (by, label)) in const [
-          (_SortBy.hand, '手動'),
-          (_SortBy.balance, '餘額'),
-          (_SortBy.recent, '最近使用'),
+          (SortAccountsBy.hand, '手動'),
+          (SortAccountsBy.balance, '餘額'),
+          (SortAccountsBy.recent, '最近使用'),
         ].indexed) ...[
           if (i > 0) const SizedBox(width: Space.s2),
           Expanded(
@@ -259,7 +243,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
         Haptics.selection();
         setState(() {
           _order.insert(to, _order.removeAt(from));
-          _by = _SortBy.hand;
+          _by = SortAccountsBy.hand;
         });
       },
       footer: _byKindButton(),
