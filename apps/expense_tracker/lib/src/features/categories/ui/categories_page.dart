@@ -1,6 +1,8 @@
+import 'package:core/constants/category_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../forms/category_editor.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/haptics.dart';
@@ -8,6 +10,7 @@ import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/done_messages.dart';
 import '../../../core/navigation/nav.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
@@ -29,7 +32,7 @@ class CategoriesPage extends StatefulWidget {
 }
 
 class _CategoriesPageState extends State<CategoriesPage> {
-  static const _colors = AppColors.categoryColors;
+  static final _colors = AppColors.categoryColors;
 
   var _income = false;
 
@@ -50,7 +53,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
       initial: Category(
         '',
         _income ? 'income' : 'other',
-        _colors[count % _colors.length].toARGB32(),
+        nextCategoryColor(count),
         income: _income,
       ),
       colors: _colors,
@@ -106,7 +109,8 @@ class _CategoriesPageState extends State<CategoriesPage> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // The categories alone.
+      listenable: ledger.watch(const {Topic.categories}),
       builder: (context, _) {
         final archived = [
           for (final c in ledger.categories.all)
@@ -215,10 +219,15 @@ class _CategoriesPageState extends State<CategoriesPage> {
             ),
           ),
           tooltip: '恢復「${c.name}」',
-          onPressed: () => ledger.categoryCommands.updateCategory(
-            c.name,
-            c.copyWith(archived: false),
-          ),
+          onPressed: () {
+            final undo = ledger.categoryCommands.setArchived(
+              c.name,
+              archived: false,
+            );
+            if (undo != null) {
+              showUndo(context, DoneWords.unarchived(c.name), undo);
+            }
+          },
         ),
     ],
   );
@@ -261,7 +270,7 @@ class _Kind extends StatelessWidget {
     final ink = chosen ? chosenInk(color) : AppColors.muted;
     return ReadAsButton(
       selected: chosen,
-      label: '$label $count 個',
+      label: '$label ${countOf(count, CountUnit.pieces)}',
       onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -411,7 +420,9 @@ class _Tile extends StatelessWidget {
       amount: plain ? 0.25 : 0.2,
       radius: Radii.largeIncreased,
       onTap: onTap,
-      label: count > 0 ? '$label，$count 個子分類' : label,
+      label: count > 0
+          ? '$label，${countOf(count, CountUnit.pieces)}子分類'
+          : label,
       padding: const EdgeInsets.fromLTRB(
         Space.s2,
         Space.s4,

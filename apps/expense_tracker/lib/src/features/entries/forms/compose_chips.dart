@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/ledger/ledger.dart';
 import '../../../core/design_system/glyphs.dart';
-import '../../../core/formatting/dates.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/design_system/shape.dart';

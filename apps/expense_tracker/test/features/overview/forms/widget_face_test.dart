@@ -78,13 +78,12 @@ void main() {
     expect(pace.left, closeTo(full * 0.65 - 2, 0.01));
   });
 
-  testWidgets('with no figures chosen, the card says where to choose them', (
-    tester,
-  ) async {
+  testWidgets('with no figure to show, the card says amounts are hidden '
+      'and that a tap opens the app (F42)', (tester) async {
     await put(tester, const WidgetFace(snapshot: null));
     expect(find.text('記帳本'), findsOneWidget);
-    expect(find.text('本月概況'), findsOneWidget);
-    expect(find.text('到 設定 › 外觀 選擇要顯示的數字'), findsOneWidget);
+    expect(find.text('已隱藏金額'), findsOneWidget);
+    expect(find.text('點此打開'), findsOneWidget);
     expect(find.text('本週'), findsNothing, reason: 'no week kept');
     expect(find.byType(Positioned), findsNothing, reason: 'no budget bar');
   });
@@ -152,8 +151,11 @@ void main() {
     expect(find.text('10 月支出'), findsOneWidget);
     expect(find.text('已用 62%'), findsOneWidget);
 
+    // One row high: the same two lines, and the two buttons as ever.
     await put(tester, const WidgetRow(snapshot: null));
-    expect(find.text('記帳本'), findsOneWidget);
-    expect(find.text('本月概況'), findsOneWidget);
+    expect(find.text('已隱藏金額'), findsOneWidget);
+    expect(find.text('點此打開'), findsOneWidget);
+    expect(find.text('−'), findsOneWidget);
+    expect(find.text('＋'), findsOneWidget);
   });
 }

@@ -4,7 +4,7 @@ import '../../../core/charts/waterfall.dart';
 import '../forms/account_editor.dart';
 import '../forms/reconcile_sheet.dart';
 import 'account_action.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
@@ -13,7 +13,7 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/entry_tile.dart';
 import '../../../core/navigation/nav.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 
@@ -39,7 +39,12 @@ class _AccountPageState extends State<AccountPage> {
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
     return ListenableBuilder(
-      listenable: ledger,
+      // The account, its balance and entries, their categories' icons.
+      listenable: ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.categories,
+      }),
       builder: (context, _) {
         // Gone by another way, such as a restore: nothing to show.
         if (!ledger.accounts.contains(widget.accountId)) {
@@ -106,21 +111,10 @@ class _AccountPageState extends State<AccountPage> {
 
 /// What flowed into and out of [account] this month, as its money.
 (String, String) monthFlow(Ledger ledger, Account account) {
-  final today = ledger.today;
-  var inflow = 0;
-  var outflow = 0;
-  for (final e in ledger.entries.inMonth(today.year, today.month)) {
-    if (e.account != account.id && e.to != account.id) continue;
-    final change = ledger.balanceService.effect(e, account.id);
-    if (change > 0) {
-      inflow += change;
-    } else {
-      outflow -= change;
-    }
-  }
+  final flow = ledger.balanceService.flowOf(account.id, ledger.today);
   return (
-    ledger.moneyIn(inflow, account.currency),
-    ledger.moneyIn(outflow, account.currency),
+    ledger.moneyIn(flow.inflow, account.currency),
+    ledger.moneyIn(flow.outflow, account.currency),
   );
 }
 
@@ -145,10 +139,6 @@ class AccountBody extends StatefulWidget {
 }
 
 class _AccountBodyState extends State<AccountBody> {
-  /// 繳卡費 for a card, 轉帳 for any other account.
-  static String _moveWord(Account account) =>
-      account.kind == AccountKind.card ? '繳卡費' : Words.transfer;
-
   var _week = 3;
   late var _month = (widget.ledger.today.year, widget.ledger.today.month);
 
@@ -167,25 +157,12 @@ class _AccountBodyState extends State<AccountBody> {
     );
   }
 
-  /// Opens the composer on a transfer out of [account], or for a card a
-  /// payment into it from the main account.
-  void _move(Account account) {
-    final ledger = widget.ledger;
-    final main = ledger.accounts.main;
-    final card = account.kind == AccountKind.card;
-    widget.nav.compose(
-      type: EntryType.transfer,
-      draft: Entry(
-        id: '',
-        date: ledger.today,
-        type: EntryType.transfer,
-        amount: card ? ledger.statementService.statementDue(account) : 0,
-        account: card || main == account.id ? main : account.id,
-        category: transferCategory,
-        to: card || main == account.id ? account.id : main,
-      ),
-    );
-  }
+  /// Opens the composer on a transfer out of [account]. A card has a page
+  /// of its own, which pays its statement.
+  void _move(Account account) => widget.nav.compose(
+    type: EntryType.transfer,
+    draft: widget.ledger.transferDrafts.move(account.id),
+  );
 
   /// How much [entries] of one day changed the account's balance.
   int _dayChange(List<Entry> entries) => entries.fold<int>(
@@ -203,6 +180,8 @@ class _AccountBodyState extends State<AccountBody> {
     final today = ledger.today;
     final (year, month) = _month;
     final entries = [
+      // Exception to as-of-today: the month's list shows 預定 entries marked;
+      // nothing is summed.
       for (final e in ledger.entries.inMonth(year, month))
         if (e.account == account.id || e.to == account.id) e,
     ]..sort((a, b) => b.date.compareTo(a.date));
@@ -216,7 +195,6 @@ class _AccountBodyState extends State<AccountBody> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _AccountActions(
-          moveWord: _moveWord(account),
           onRecord: () => _record(account),
           onMove: () => _move(account),
           onReconcile: reconcilable
@@ -266,18 +244,15 @@ class _AccountBodyState extends State<AccountBody> {
   }
 }
 
-/// The row of what is done with an account: 記一筆, a transfer or card
-/// payment, and 對帳 when [onReconcile] is given.
+/// The row of what is done with an account: 記一筆, a transfer, and 對帳
+/// when [onReconcile] is given.
 class _AccountActions extends StatelessWidget {
   const _AccountActions({
-    required this.moveWord,
     required this.onRecord,
     required this.onMove,
     required this.onReconcile,
   });
 
-  /// The word for the transfer action: 繳卡費 or 轉帳.
-  final String moveWord;
   final VoidCallback onRecord;
   final VoidCallback onMove;
 
@@ -302,7 +277,7 @@ class _AccountActions extends StatelessWidget {
           Expanded(
             child: AccountAction(
               icon: Glyph.transfer,
-              label: moveWord,
+              label: Words.transfer,
               onTap: onMove,
             ),
           ),

@@ -47,7 +47,7 @@ void main() {
     // Read through JsonFields (core/formatting/json_fields.dart) instead:
     // a cast throws a TypeError for one field of the wrong kind and takes
     // the rest down with it. What is left is the ledger's own rows.
-    const most = 18;
+    const most = 12;
     final casts = found((_) => true, Casts());
     expect(casts.length, lessThanOrEqualTo(most), reason: casts.join('\n'));
     expect(casts.length, most, reason: 'fewer now: lower `most`');
@@ -59,7 +59,7 @@ void main() {
     // ledger.dart): it says what it uses, and a test gives it only that.
     // Only the features count: the app's own files put the ledger
     // together and hand it out (lib/app_syntax.dart).
-    const most = 58;
+    const most = 57;
     final whole = wholeLedgerFiles(units);
     expect(whole.length, lessThanOrEqualTo(most), reason: 'take the part');
     expect(whole.length, most, reason: 'fewer now: lower `most`');

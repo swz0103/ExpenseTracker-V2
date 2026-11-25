@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../glyphs.dart';
 import '../theme.dart';
 import '../components.dart';
@@ -38,6 +39,49 @@ class QuoteBoard extends StatelessWidget {
   }
 }
 
+/// One row of a [QuoteBoard] drawn on its own slice of the board: the
+/// [first] with the board's top corners, the [last] with its bottom ones,
+/// a thin rule above each but the first. For a board as long as the book
+/// is, built a row at a time as it comes on screen (a lazy `HeadedList`).
+class QuoteSlice extends StatelessWidget {
+  const QuoteSlice({
+    super.key,
+    required this.first,
+    required this.last,
+    required this.child,
+  });
+
+  final bool first;
+  final bool last;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    const round = Radius.circular(Radii.largeIncreased);
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.group,
+        borderRadius: BorderRadius.vertical(
+          top: first ? round : Radius.zero,
+          bottom: last ? round : Radius.zero,
+        ),
+      ),
+      clipBehavior: first || last ? Clip.antiAlias : Clip.hardEdge,
+      child: Material(
+        type: MaterialType.transparency,
+        child: first
+            ? child
+            : Column(
+                children: [
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  child,
+                ],
+              ),
+      ),
+    );
+  }
+}
+
 /// One row of a [QuoteBoard].
 class QuoteRow extends StatelessWidget {
   const QuoteRow({
@@ -45,6 +89,8 @@ class QuoteRow extends StatelessWidget {
     required this.title,
     this.lead,
     this.detail,
+    this.detailAmount,
+    this.hidden = false,
     this.trailing,
     this.onTap,
   });
@@ -52,6 +98,11 @@ class QuoteRow extends StatelessWidget {
   final Widget? lead;
   final String title;
   final String? detail;
+
+  /// An amount with a sign written in [detail], read out with its
+  /// direction in words rather than the sign; hidden while [hidden].
+  final int? detailAmount;
+  final bool hidden;
   final Widget? trailing;
   final VoidCallback? onTap;
 
@@ -71,7 +122,14 @@ class QuoteRow extends StatelessWidget {
         if (detail != null)
           Padding(
             padding: const EdgeInsets.only(top: Space.half),
-            child: OneLine(detail!, style: mutedSmall),
+            child: OneLine(
+              detail!,
+              style: mutedSmall,
+              semanticsLabel: switch (detailAmount) {
+                final amount? => readOut(detail!, amount, hidden: hidden),
+                null => null,
+              },
+            ),
           ),
       ],
     );
@@ -102,14 +160,24 @@ class QuoteRow extends StatelessWidget {
 
 /// A big figure on the right of a [QuoteRow].
 class RowFigure extends StatelessWidget {
-  const RowFigure(this.text, {super.key, this.color = AppColors.ink});
+  const RowFigure(
+    this.text, {
+    super.key,
+    this.color = AppColors.ink,
+    this.spoken,
+  });
 
   final String text;
   final Color color;
 
+  /// What a screen reader says for an amount: its direction in words
+  /// (`spokenAmount`), never the sign alone.
+  final String? spoken;
+
   @override
   Widget build(BuildContext context) => Text(
     text,
+    semanticsLabel: spoken,
     style: TextStyle(
       fontSize: TextSize.title,
       fontWeight: FontWeight.w800,
@@ -201,7 +269,11 @@ class EmptyState extends StatelessWidget {
     required this.message,
     this.action,
     this.onAction,
+    this.actionKey,
   });
+
+  /// The button's key, for the page's tests.
+  final Key? actionKey;
 
   final Glyph glyph;
   final Color color;
@@ -239,6 +311,7 @@ class EmptyState extends StatelessWidget {
           if (action != null && act != null) ...[
             const SizedBox(height: Space.s4),
             FilledButton(
+              key: actionKey,
               onPressed: act,
               style: FilledButton.styleFrom(
                 backgroundColor: color,

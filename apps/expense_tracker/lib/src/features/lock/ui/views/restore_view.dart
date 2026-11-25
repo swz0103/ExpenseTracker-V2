@@ -4,9 +4,11 @@ import '../../../../core/design_system/theme.dart';
 import '../../../../core/design_system/design_system.dart';
 import 'lock_parts.dart';
 import '../../../../core/formatting/words.dart';
+import '../../../../core/messages/key_messages.dart';
 
-/// Restoring a ledger from a backup: the file, then that ledger's
-/// password or recovery code.
+/// Restoring a ledger from a backup: the file, then what opens it, as
+/// the backup chosen says ([hint]): its recovery code or backup
+/// passphrase, or for an older backup its ledger's password too.
 class RestoreView extends StatelessWidget {
   const RestoreView({
     super.key,
@@ -15,13 +17,15 @@ class RestoreView extends StatelessWidget {
     required this.recovery,
     required this.busy,
     required this.onSubmit,
-    required this.onToggleRecovery,
+    this.onToggleRecovery,
     this.onPickFile,
     this.onPickDrive,
     this.onBack,
     this.problem,
     this.about,
     this.onPickKept,
+    this.hint = KeyWords.restoreHint,
+    this.codeLabel = '救援碼',
   });
 
   /// The backup's path: typed, or filled in by [onPickFile].
@@ -32,7 +36,16 @@ class RestoreView extends StatelessWidget {
   final bool recovery;
   final bool busy;
   final VoidCallback onSubmit;
-  final VoidCallback onToggleRecovery;
+
+  /// Between the password and the recovery code; none when the backup
+  /// chosen has no password to open it with.
+  final VoidCallback? onToggleRecovery;
+
+  /// What the form asks for, said under its title.
+  final String hint;
+
+  /// The words in the field for the recovery code, such as 救援碼或備份密碼.
+  final String codeLabel;
 
   /// Opens the system's file chooser; none where the path is typed.
   final VoidCallback? onPickFile;
@@ -58,7 +71,7 @@ class RestoreView extends StatelessWidget {
     final back = onBack;
     return LockForm(
       title: '從備份還原',
-      hint: '輸入備份檔的位置，和那個帳本的密碼或救援碼。',
+      hint: hint,
       fields: [
         if (pick != null)
           FilledButton(
@@ -93,18 +106,19 @@ class RestoreView extends StatelessWidget {
           ),
         PasswordField(
           controller: secret,
-          hint: recovery ? '救援碼' : '密碼',
-          hidden: !recovery,
+          hint: recovery ? codeLabel : '密碼',
           boxed: true,
           onSubmitted: onSubmit,
         ),
       ],
       action: '還原',
+      actionKey: Keys.restoreGo,
       busy: busy,
       onSubmit: onSubmit,
       problem: problem,
       extras: [
-        LockLink(recovery ? '改用密碼' : '忘記密碼？用救援碼', onToggleRecovery, busy: busy),
+        if (onToggleRecovery case final toggle?)
+          LockLink(recovery ? '改用密碼' : '忘記密碼？用救援碼', toggle, busy: busy),
         if (back != null)
           LockLink(Words.back, back, busy: busy, key: Keys.back),
       ],

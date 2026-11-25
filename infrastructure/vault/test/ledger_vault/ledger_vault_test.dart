@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:sqlite3/sqlite3.dart';
@@ -50,6 +51,32 @@ void main() {
   void keepOne(OpenVault open) =>
       open.store.write((w) => w.put('account', 'cash', '{"name":"現金"}'));
 
+  test('a closed ledger reopens with the keys it was open with', () async {
+    final (open, _) = await vault.create(password);
+    keepOne(open);
+    final keys = open.keys;
+    open.close();
+    final again = await vault.reopen(keys);
+    addTearDown(again.close);
+    expect(again.store.rows().single.id, 'cash');
+    expect(again.keys, same(keys));
+  });
+
+  test('keys of another ledger do not reopen this one', () async {
+    final (open, _) = await vault.create(password);
+    open.close();
+    final other = LedgerVault(
+      Directory('${directory.path}/other'),
+      codec: codec,
+    );
+    final (theirs, _) = await other.create(password);
+    theirs.close();
+    await expectLater(
+      vault.reopen(theirs.keys),
+      fails(VaultProblem.otherLedger),
+    );
+  });
+
   test('a new ledger reopens with the password or recovery code', () async {
     expect(vault.exists, isFalse);
     await expectLater(
@@ -98,6 +125,492 @@ void main() {
       expect(vault.keyringFile.existsSync(), isTrue, reason: 'keys kept');
     },
   );
+
+  group('a damaged database (D94)', () {
+    const damaged = StorageUnavailable(StorageProblem.damaged);
+
+    setUp(() {
+      vault = LedgerVault(
+        Directory('${directory.path}/ledger'),
+        codec: codec,
+        now: () => DateTime.utc(2026, 11, 24, 9, 58, 50),
+      );
+    });
+
+    Future<String> made() async {
+      final (open, recovery) = await vault.create(password);
+      keepOne(open);
+      open.close();
+      return recovery;
+    }
+
+    test('of no bytes is set aside, told, never opened empty', () async {
+      await made();
+      vault.databaseFile.writeAsBytesSync(const []);
+      await expectLater(vault.unlockWithPassword(password), throwsA(damaged));
+      expect(vault.databaseFile.existsSync(), isFalse);
+      final aside = vault.damagedCopies().single;
+      expect(
+        aside.uri.pathSegments.last,
+        'ledger-damaged-n000001-2026-11-24T09-58-50.000Z.db',
+      );
+      expect(aside.lengthSync(), 0, reason: 'kept as it was');
+      // Asked again, it is still damaged: no empty book in its place.
+      await expectLater(vault.unlockWithPassword(password), throwsA(damaged));
+      expect(vault.databaseFile.existsSync(), isFalse);
+      expect(vault.keyringFile.existsSync(), isTrue, reason: 'keys kept');
+    });
+
+    test('a first page damaged is damage, not a wrong key', () async {
+      final recovery = await made();
+      final bytes = vault.databaseFile.readAsBytesSync();
+      bytes[100] ^= 0x01;
+      vault.databaseFile.writeAsBytesSync(bytes);
+      await expectLater(vault.unlockWithRecovery(recovery), throwsA(damaged));
+      expect(vault.damagedCopies().single.readAsBytesSync(), bytes);
+    });
+
+    test('a wrong password is still a wrong password', () async {
+      await made();
+      await expectLater(
+        vault.unlockWithPassword('wrong password here'),
+        throwsA(wrongSecret),
+      );
+      expect(vault.damagedCopies(), isEmpty);
+    });
+
+    test('a restore puts a backup where the damaged one was', () async {
+      await made();
+      vault.databaseFile.writeAsBytesSync(const []);
+      await expectLater(vault.unlockWithPassword(password), throwsA(damaged));
+      final keys = await codec.unlockWithPassword(
+        Keyring.parse(vault.keyringFile.readAsStringSync()),
+        password,
+      );
+      final restored = await vault.restore(
+        keys,
+        (staging) async =>
+            staging.write((w) => w.put('account', 'bank', '{"name":"銀行"}')),
+        replacing: true,
+      );
+      addTearDown(restored.close);
+      expect(restored.store.rows().single.id, 'bank');
+      // The damaged one is still kept aside.
+      expect(vault.damagedCopies(), hasLength(1));
+    });
+
+    Future<UnlockedKeyring> keysNow() => codec.unlockWithPassword(
+      Keyring.parse(vault.keyringFile.readAsStringSync()),
+      password,
+    );
+
+    /// Spoils the page a table [named] starts on, as a bad sector would.
+    Future<void> spoil(String named) async {
+      final keys = await keysNow();
+      final raw = sqlite3.open(vault.databaseFile.path)
+        ..execute('PRAGMA key = "x\'${StorageKey(keys.databaseKey).hex}\'"');
+      final root =
+          raw.select('SELECT rootpage FROM sqlite_master WHERE name = ?', [
+                named,
+              ]).single['rootpage']
+              as int;
+      raw.close();
+      final bytes = vault.databaseFile.readAsBytesSync();
+      // Bytes inside the page, past its header: 4096 x (page - 1) + 200.
+      for (var i = 0; i < 64; i++) {
+        bytes[EncryptedDatabase.pageSize * (root - 1) + 200 + i] ^= 0x5a;
+      }
+      vault.databaseFile.writeAsBytesSync(bytes);
+    }
+
+    /// A ledger with records and a posting of its journal beside them.
+    Future<void> withJournal() async {
+      final (open, _) = await vault.create(password);
+      keepOne(open);
+      open.close();
+      final keys = await keysNow();
+      sqlite3.open(vault.databaseFile.path)
+        ..execute('PRAGMA key = "x\'${StorageKey(keys.databaseKey).hex}\'"')
+        ..execute(
+          "INSERT INTO posting VALUES (1, 0, 1, 'TWD', 5, 0, 0, '', "
+          '20260101, 1)',
+        )
+        ..close();
+    }
+
+    test('two set aside at the same moment are both kept, in order', () async {
+      await made();
+      final first = await vault.setAsideDamaged();
+      // Another file in its place, set aside at the same moment.
+      vault.databaseFile.writeAsBytesSync(const [1]);
+      final second = await vault.setAsideDamaged();
+      expect(
+        first!.uri.pathSegments.last,
+        'ledger-damaged-n000001-2026-11-24T09-58-50.000Z.db',
+      );
+      expect(
+        second!.uri.pathSegments.last,
+        'ledger-damaged-n000002-2026-11-24T09-58-50.000Z.db',
+      );
+      expect(vault.damagedCopies(), [
+        isA<File>().having((f) => f.path, 'path', first.path),
+        isA<File>().having((f) => f.path, 'path', second.path),
+      ]);
+    });
+
+    test('a restore keeps the newest two copies set aside, no more', () async {
+      expect(LedgerVault.keptDamagedCopies, 2);
+      await made();
+      for (var i = 0; i < 3; i++) {
+        vault.databaseFile.writeAsBytesSync(const []);
+        await expectLater(vault.unlockWithPassword(password), throwsA(damaged));
+        (await vault.restore(
+          await keysNow(),
+          (staging) async => staging.write((w) => w.put('a', 'b', '{}')),
+          replacing: true,
+        )).close();
+      }
+      // Three set aside; the oldest let go at the third restore.
+      expect(
+        [for (final f in vault.damagedCopies()) f.uri.pathSegments.last],
+        [
+          'ledger-damaged-n000002-2026-11-24T09-58-50.000Z.db',
+          'ledger-damaged-n000003-2026-11-24T09-58-50.000Z.db',
+        ],
+      );
+    });
+
+    test(
+      'a first launch cut short before any record opens as a new book',
+      () async {
+        final (open, _) = await vault.create(password);
+        open.close();
+        // As a phone stopped mid-setup leaves it: no bytes, nothing kept.
+        vault.databaseFile.writeAsBytesSync(const []);
+        final opened = await vault.unlockWithPassword(password);
+        addTearDown(opened.close);
+        expect(opened.store.count, 0);
+        expect(vault.damagedCopies(), isEmpty);
+      },
+    );
+
+    test('a book made again that fails before it is put in place leaves '
+        'the file as it was, to be made again later (D113)', () async {
+      await withJournal();
+      await vault.noteJournalDamaged();
+      final before = vault.databaseFile.readAsBytesSync();
+      // The new keys cannot be written, as on a full disk: a folder in
+      // their place.
+      final pending = Directory('${vault.directory.path}/keyring.json.new')
+        ..createSync();
+      final failed = await vault.salvage(await keysNow());
+      expect(
+        failed,
+        isA<SalvageNotMade>().having(
+          (f) => f.error,
+          'error',
+          isA<FileSystemException>(),
+        ),
+      );
+      expect(vault.databaseFile.readAsBytesSync(), before);
+      expect(vault.damagedCopies(), isEmpty, reason: 'nothing set aside');
+      // Still noted: the next opening makes it again, and fails as this.
+      expect(
+        File('${vault.directory.path}/journal.damaged').existsSync(),
+        isTrue,
+      );
+      await expectLater(
+        vault.unlockWithPassword(password),
+        throwsA(isA<FileSystemException>()),
+      );
+      expect(vault.databaseFile.readAsBytesSync(), before);
+      // Room again: the next opening makes it again and opens it.
+      pending.deleteSync();
+      final opened = await vault.unlockWithPassword(password);
+      addTearDown(opened.close);
+      expect(opened.store.rows().single.id, 'cash');
+      expect(vault.damagedCopies(), hasLength(1));
+    });
+
+    test('making it again that keeps failing before it is put in place '
+        'gives up after salvageTries in a launch, the book set aside as '
+        'damaged (review 28)', () async {
+      await withJournal();
+      await vault.noteJournalDamaged();
+      final before = vault.databaseFile.readAsBytesSync();
+      Directory('${vault.directory.path}/keyring.json.new').createSync();
+      expect(LedgerVault.salvageTries, 3);
+      // The first: tried from the damage report, kept as it was.
+      expect(
+        await vault.salvage(await keysNow()),
+        isA<SalvageNotMade>().having((f) => f.gaveUp, 'gaveUp', isFalse),
+      );
+      // The second: an opening, which fails as it did.
+      await expectLater(
+        vault.unlockWithPassword(password),
+        throwsA(isA<FileSystemException>()),
+      );
+      expect(vault.databaseFile.readAsBytesSync(), before);
+      expect(vault.damagedCopies(), isEmpty);
+      // The third: given up, the book set aside and the opening damaged.
+      await expectLater(
+        vault.unlockWithPassword(password),
+        throwsA(const StorageUnavailable(StorageProblem.damaged)),
+      );
+      expect(vault.databaseFile.existsSync(), isFalse);
+      expect(vault.damagedCopies().single.readAsBytesSync(), before);
+    });
+
+    test('a disk full is not counted against salvageTries: a fourth try, '
+        'once there is room, opens the book (review 29)', () async {
+      await withJournal();
+      await vault.noteJournalDamaged();
+      final before = vault.databaseFile.readAsBytesSync();
+      Future<T> full<T>(Future<T> Function() run) =>
+          IOOverrides.runWithIOOverrides(run, _NoRoom());
+      // The first: tried from the damage report.
+      final first = await full(() async => vault.salvage(await keysNow()));
+      expect(
+        first,
+        isA<SalvageNotMade>()
+            .having((f) => isNoSpace(f.error), 'no space', isTrue)
+            .having((f) => f.gaveUp, 'gaveUp', isFalse),
+      );
+      // The second and third: openings, each failing for want of room as
+      // the first did, never given up (salvageTries is 3).
+      for (var i = 0; i < 2; i++) {
+        await expectLater(
+          full(() => vault.unlockWithPassword(password)),
+          throwsA(predicate<Object>(isNoSpace, 'no space')),
+        );
+      }
+      expect(vault.databaseFile.readAsBytesSync(), before);
+      expect(vault.damagedCopies(), isEmpty, reason: 'nothing set aside');
+      // The fourth, with room again: made again and opened.
+      final opened = await vault.unlockWithPassword(password);
+      addTearDown(opened.close);
+      expect(opened.store.rows().single.id, 'cash');
+      expect(vault.damagedCopies(), hasLength(1));
+    });
+
+    test('a staging database the disk fills (SQLITE_FULL) is not counted '
+        'against salvageTries either: a fourth try is still made '
+        '(review 30)', () async {
+      // The staging database may hold 16 pages of 4096 bytes; the book
+      // holds 200 records of 1000 characters, about 50 pages.
+      final capped = LedgerVault(
+        vault.directory,
+        codec: codec,
+        stagingPageLimit: 16,
+      );
+      final (open, _) = await capped.create(password);
+      for (var i = 0; i < 200; i++) {
+        open.store.write((w) => w.put('note', '$i', 'x' * 1000));
+      }
+      open.close();
+      await capped.noteJournalDamaged();
+      final before = capped.databaseFile.readAsBytesSync();
+      // The first: tried from the damage report, refused by SQLite itself.
+      final first = await capped.salvage(await keysNow());
+      expect(
+        first,
+        isA<SalvageNotMade>()
+            .having((f) => f.error, 'error', isA<SqliteException>())
+            .having((f) => isNoSpace(f.error), 'no space', isTrue)
+            .having((f) => f.gaveUp, 'gaveUp', isFalse),
+      );
+      // The second, third and fourth: openings, each refused for want of
+      // room, never given up although salvageTries is 3.
+      for (var i = 0; i < 3; i++) {
+        await expectLater(
+          capped.unlockWithPassword(password),
+          throwsA(predicate<Object>(isNoSpace, 'no space')),
+        );
+      }
+      expect(capped.databaseFile.readAsBytesSync(), before);
+      expect(capped.damagedCopies(), isEmpty, reason: 'nothing set aside');
+      expect(
+        await capped.salvage(await keysNow()),
+        isA<SalvageNotMade>().having((f) => f.gaveUp, 'gaveUp', isFalse),
+      );
+      // With room again (no cap): made again and opened, all 200 kept.
+      final opened = await vault.unlockWithPassword(password);
+      addTearDown(opened.close);
+      expect(opened.store.count, 200);
+    });
+
+    test('a note that cannot be let go of on opening is told to '
+        'noteFailed, and the book opens (review 29)', () async {
+      await withJournal();
+      await vault.noteJournalDamaged();
+      final told = <(KeptNote, Object)>[];
+      final noting = LedgerVault(
+        vault.directory,
+        codec: codec,
+        noteFailed: (note, error, _) => told.add((note, error)),
+      );
+      final opened = await IOOverrides.runWithIOOverrides(
+        () => noting.unlockWithPassword(password),
+        _StuckNote(),
+      );
+      addTearDown(opened.close);
+      expect(opened.store.rows().single.id, 'cash');
+      expect(told.single.$1, KeptNote.journalDamaged);
+      expect(told.single.$2, isA<FileSystemException>());
+    });
+
+    test('a note that cannot be let go of once the book is made again '
+        'still says Salvaged, and the book opens (review 28)', () async {
+      await withJournal();
+      await vault.noteJournalDamaged();
+      final made = await IOOverrides.runWithIOOverrides(
+        () async => vault.salvage(await keysNow()),
+        _StuckNote(),
+      );
+      expect(
+        made,
+        isA<Salvaged>().having(
+          (s) => s.noteKept?.$1,
+          'noteKept',
+          isA<FileSystemException>(),
+        ),
+      );
+      // Still noted: the next opening makes it again, which costs nothing.
+      expect(
+        File('${vault.directory.path}/journal.damaged').existsSync(),
+        isTrue,
+      );
+      final opened = await vault.unlockWithPassword(password);
+      addTearDown(opened.close);
+      expect(opened.store.rows().single.id, 'cash');
+    });
+
+    test('a journal found damaged is made again from the records, which '
+        'are all kept (D102)', () async {
+      await withJournal();
+      await spoil('posting');
+      final spoiled = vault.databaseFile.readAsBytesSync();
+      await vault.noteJournalDamaged();
+      final opened = await vault.unlockWithPassword(password);
+      addTearDown(opened.close);
+      expect(opened.store.rows().single.id, 'cash');
+      expect(opened.store.journal.postingCount, 0, reason: 'posted afresh');
+      expect(opened.store.integrityCheck(), 'ok');
+      // The old file kept as it was, to send for a look (review 18).
+      expect(vault.damagedCopies().single.readAsBytesSync(), spoiled);
+    });
+
+    test(
+      'a book made again stands at the revision it had (review 26)',
+      () async {
+        final (open, _) = await vault.create(password);
+        for (var i = 0; i < 4; i++) {
+          open.store.write((w) => w.put('entry', 'n$i', '{}'));
+        }
+        expect(open.store.revision, 4);
+        open.close();
+        expect(await vault.salvage(await keysNow()), isA<Salvaged>());
+        final opened = await vault.unlockWithPassword(password);
+        addTearDown(opened.close);
+        // The same book under the same keys: still 4, not 1.
+        expect(opened.store.revision, 4);
+      },
+    );
+
+    test('books made again keep the newest two old files once the last '
+        'has opened, and every one set aside since the book last opened '
+        '(review 18, review 25)', () async {
+      await withJournal();
+      for (var i = 0; i < 3; i++) {
+        expect(await vault.salvage(await keysNow()), isA<Salvaged>());
+      }
+      // Not one let go before the book made again has opened.
+      expect(vault.damagedCopies(), hasLength(3));
+      (await vault.unlockWithPassword(password)).close();
+      // All three were set aside since the book last opened: kept.
+      expect(vault.damagedCopies(), hasLength(3));
+      expect(await vault.salvage(await keysNow()), isA<Salvaged>());
+      final opened = await vault.unlockWithPassword(password);
+      addTearDown(opened.close);
+      expect(opened.store.rows().single.id, 'cash');
+      // Four; the two oldest, set aside before the last opening, let go.
+      expect(
+        [for (final f in vault.damagedCopies()) f.uri.pathSegments.last],
+        [
+          'ledger-damaged-n000003-2026-11-24T09-58-50.000Z.db',
+          'ledger-damaged-n000004-2026-11-24T09-58-50.000Z.db',
+        ],
+      );
+    });
+
+    test('the clock set back never lets go of the newest copy: copies go '
+        'by their number, not their time (review 25)', () async {
+      var at = DateTime.utc(2026, 11, 24, 10);
+      vault = LedgerVault(
+        Directory('${directory.path}/ledger'),
+        codec: codec,
+        now: () => at,
+      );
+      await withJournal();
+      Future<void> salvageAt(DateTime time) async {
+        at = time;
+        expect(await vault.salvage(await keysNow()), isA<Salvaged>());
+        (await vault.unlockWithPassword(password)).close();
+      }
+
+      await salvageAt(DateTime.utc(2026, 11, 24, 10));
+      await salvageAt(DateTime.utc(2026, 11, 24, 11));
+      // The phone's clock set back a day: the copy is still the newest.
+      await salvageAt(DateTime.utc(2026, 11, 23, 9));
+      expect(
+        [for (final f in vault.damagedCopies()) f.uri.pathSegments.last],
+        [
+          'ledger-damaged-n000002-2026-11-24T11-00-00.000Z.db',
+          'ledger-damaged-n000003-2026-11-23T09-00-00.000Z.db',
+        ],
+      );
+    });
+
+    test('copies named before numbers come first, and the next is '
+        'numbered after the highest (review 25)', () async {
+      await made();
+      final named = Directory('${directory.path}/ledger');
+      for (final old in [
+        'ledger-damaged-2026-11-20T08-00-00.000Z.db',
+        'ledger-damaged-2026-11-20T08-00-00.000Z~002.db',
+        'ledger-damaged-n000007-2026-11-21T08-00-00.000Z.db',
+      ]) {
+        File('${named.path}/$old').writeAsBytesSync(const [1]);
+      }
+      final aside = await vault.setAsideDamaged();
+      expect(
+        aside!.uri.pathSegments.last,
+        'ledger-damaged-n000008-2026-11-24T09-58-50.000Z.db',
+      );
+      expect(
+        [for (final f in vault.damagedCopies()) f.uri.pathSegments.last],
+        [
+          'ledger-damaged-2026-11-20T08-00-00.000Z.db',
+          'ledger-damaged-2026-11-20T08-00-00.000Z~002.db',
+          'ledger-damaged-n000007-2026-11-21T08-00-00.000Z.db',
+          'ledger-damaged-n000008-2026-11-24T09-58-50.000Z.db',
+        ],
+      );
+    });
+
+    test('records that cannot be read are not made again: damage', () async {
+      await withJournal();
+      await spoil('rows');
+      final before = vault.databaseFile.readAsBytesSync();
+      expect(await vault.salvage(await keysNow()), isA<SalvageUnreadable>());
+      expect(vault.databaseFile.readAsBytesSync(), before);
+    });
+
+    test('nothing to set aside when there is no database', () async {
+      expect(await vault.setAsideDamaged(), isNull);
+      expect(vault.damagedCopies(), isEmpty);
+    });
+  });
 
   test('a changed password is saved; another ledger is refused', () async {
     final (open, _) = await vault.create(password);
@@ -179,6 +692,39 @@ void main() {
     await expectLater(vault.adopt(header), fails(VaultProblem.alreadyExists));
   });
 
+  test('a ledger adopted leaves no note of a journal found damaged before '
+      'it (review 18)', () async {
+    final source = LedgerVault(
+      Directory('${directory.path}/source'),
+      codec: codec,
+    );
+    final (open, _) = await source.create(password);
+    open.close();
+    await vault.noteJournalDamaged();
+    final marker = File('${vault.directory.path}/journal.damaged');
+    expect(marker.existsSync(), isTrue);
+    (await vault.adopt(open.keys)).close();
+    expect(marker.existsSync(), isFalse);
+  });
+
+  test('a write is kept when its note cannot be written; the failure is '
+      'told (review 18)', () async {
+    final failed = <(KeptNote, Object)>[];
+    final noting = LedgerVault(
+      Directory('${directory.path}/noting'),
+      codec: codec,
+      noteFailed: (note, error, _) => failed.add((note, error)),
+    );
+    final (open, _) = await noting.create(password);
+    addTearDown(open.close);
+    // A folder where the note goes: it cannot be written.
+    Directory('${noting.directory.path}/ledger.db.kept').createSync();
+    keepOne(open);
+    expect(open.store.rows().single.id, 'cash');
+    expect(failed.single.$1, KeptNote.recordsKept);
+    expect(failed.single.$2, isA<FileSystemException>());
+  });
+
   test('a ledger of the old format is set aside for a new one', () async {
     final (open, _) = await vault.create(password);
     keepOne(open);
@@ -194,6 +740,30 @@ void main() {
     addTearDown(again.close);
     expect(again.store.count, 0);
     expect(File('${vault.directory.path}/ledger-v2.db').existsSync(), isTrue);
+  });
+
+  test('the databases kept beside the ledger are listed and taken away '
+      'one by one, never the ledger itself (review 22 finding 2)', () async {
+    final (open, _) = await vault.create(password);
+    addTearDown(open.close);
+    final dir = vault.directory.path;
+    final damaged = File('$dir/ledger-damaged-2026-11-01T08-00-00.000Z.db')
+      ..writeAsStringSync('old pages');
+    File('${damaged.path}-wal').writeAsStringSync('old log');
+    final oldFormat = File('$dir/ledger-v2.db')..writeAsStringSync('v2');
+    expect(
+      [for (final f in open.keptDatabases()) f.path],
+      [damaged.path, oldFormat.path],
+    );
+    await open.deleteKept(damaged);
+    expect(damaged.existsSync(), isFalse);
+    expect(File('${damaged.path}-wal').existsSync(), isFalse);
+    expect([for (final f in open.keptDatabases()) f.path], [oldFormat.path]);
+    await expectLater(
+      open.deleteKept(vault.databaseFile),
+      throwsA(isA<ArgumentError>()),
+    );
+    expect(vault.databaseFile.existsSync(), isTrue);
   });
 
   group('restore', () {
@@ -262,7 +832,7 @@ void main() {
         kept.close();
         expect(
           before.directory.listSync().map((f) => f.uri.pathSegments.last),
-          unorderedEquals(['keyring.json', 'ledger.db']),
+          unorderedEquals(['keyring.json', 'ledger.db', 'ledger.db.kept']),
         );
 
         // The old database gone, or the copy in its place: the new ledger.
@@ -283,7 +853,81 @@ void main() {
       expect(target.exists, isTrue);
       final files = target.directory.listSync();
       final names = files.map((file) => file.uri.pathSegments.last);
-      expect(names, unorderedEquals(['keyring.json', 'ledger.db']));
+      expect(
+        names,
+        unorderedEquals(['keyring.json', 'ledger.db', 'ledger.db.kept']),
+      );
+    });
+
+    test('a restored book goes on, one further, from the higher of the '
+        'revision it was filled to and the one before it (D115)', () async {
+      // Filled with one counted write: 1; nothing known before: 1 + 1.
+      final fresh = await target.restore(
+        source.keys,
+        (staging) async => staging.write((w) => w.put('entry', 'e', '{}')),
+      );
+      expect(fresh.store.revision, 2);
+      fresh.close();
+      // Filled to 9 (the backup's), the ledger before at 4: 9 + 1.
+      final behind = await target.restore(
+        source.keys,
+        (staging) async =>
+            staging.write((w) => w.continueRevision(9), counts: false),
+        replacing: true,
+        revisionBefore: 4,
+      );
+      expect(behind.store.revision, 10);
+      behind.close();
+      // Filled to 9, the ledger before at 30: 30 + 1.
+      final ahead = await target.restore(
+        source.keys,
+        (staging) async =>
+            staging.write((w) => w.continueRevision(9), counts: false),
+        replacing: true,
+        revisionBefore: 30,
+      );
+      addTearDown(ahead.close);
+      expect(ahead.store.revision, 31);
+      ahead.store.write((w) => w.put('entry', 'after', '{}'));
+      expect(ahead.store.revision, 32);
+    });
+
+    test('a restore over the same book goes on from the one it replaces, '
+        'read with the backup\'s keys; another book\'s is not read '
+        '(review 28)', () async {
+      final here = await target.restore(
+        source.keys,
+        (staging) async =>
+            staging.write((w) => w.continueRevision(57), counts: false),
+      );
+      expect(here.store.revision, 58);
+      here.close();
+      // An older backup of it, filled to 3, nothing told before: the book
+      // it replaces stood at 58, so 58 + 1.
+      final older = await target.restore(
+        source.keys,
+        (staging) async =>
+            staging.write((w) => w.continueRevision(3), counts: false),
+        replacing: true,
+      );
+      expect(older.store.revision, 59);
+      older.close();
+      // Another book's backup: its keys do not open the one here, so only
+      // its own 3 counts: 3 + 1.
+      final other = LedgerVault(
+        Directory('${directory.path}/other'),
+        codec: codec,
+      );
+      final (theirs, _) = await other.create(password);
+      theirs.close();
+      final replaced = await target.restore(
+        theirs.keys,
+        (staging) async =>
+            staging.write((w) => w.continueRevision(3), counts: false),
+        replacing: true,
+      );
+      addTearDown(replaced.close);
+      expect(replaced.store.revision, 4);
     });
 
     test('a failure part way leaves no ledger and can be retried', () async {
@@ -342,4 +986,84 @@ void main() {
       );
     });
   });
+}
+
+/// Files as they are, but the new keys cannot be written: no space left
+/// on the device (ENOSPC, 28).
+final class _NoRoom extends IOOverrides {
+  @override
+  File createFile(String path) {
+    final file = super.createFile(path);
+    return path.endsWith('/keyring.json.new') ? _Full(file) : file;
+  }
+}
+
+final class _Full implements File {
+  _Full(this._file);
+
+  final File _file;
+
+  @override
+  String get path => _file.path;
+
+  @override
+  Future<bool> exists() => _file.exists();
+
+  @override
+  bool existsSync() => _file.existsSync();
+
+  @override
+  Future<FileSystemEntity> delete({bool recursive = false}) =>
+      _file.delete(recursive: recursive);
+
+  @override
+  Future<File> writeAsString(
+    String contents, {
+    FileMode mode = FileMode.write,
+    Encoding encoding = utf8,
+    bool flush = false,
+  }) => Future.error(
+    FileSystemException(
+      'write',
+      path,
+      const OSError('No space left on device', 28),
+    ),
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnsupportedError('not needed here');
+}
+
+/// Files as they are, but the note of a damaged journal cannot be let go
+/// of, as on storage gone read-only.
+final class _StuckNote extends IOOverrides {
+  @override
+  File createFile(String path) {
+    final file = super.createFile(path);
+    return path.endsWith('/journal.damaged') ? _Undeletable(file) : file;
+  }
+}
+
+final class _Undeletable implements File {
+  _Undeletable(this._file);
+
+  final File _file;
+
+  @override
+  String get path => _file.path;
+
+  @override
+  Future<bool> exists() => _file.exists();
+
+  @override
+  bool existsSync() => _file.existsSync();
+
+  @override
+  Future<FileSystemEntity> delete({bool recursive = false}) =>
+      Future.error(FileSystemException('read-only', path));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnsupportedError('not needed here');
 }

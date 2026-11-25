@@ -1,3 +1,6 @@
+@Tags(['timing'])
+library;
+
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter/foundation.dart' show debugPrint;

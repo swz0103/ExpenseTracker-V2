@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
+import '../../core/platform/errands.dart';
 import '../../features/backup/model/phone_backup.dart';
 import 'platform_channel.dart';
 import '../../core/formatting/json_fields.dart';
@@ -15,8 +16,9 @@ final class AndroidFolder implements FolderPort {
   Future<({String uri, String name})?> pick() async {
     final Map<String, Object?>? picked;
     try {
-      picked = await platformChannel.invokeMapMethod<String, Object?>(
-        'pickFolder',
+      // The folder chooser is a trip out of the app.
+      picked = await Errands.run(
+        () => platformChannel.invokeMapMethod<String, Object?>('pickFolder'),
       );
     } on PlatformException catch (error) {
       if (error.code == 'rejected') throw const FolderRejected();
@@ -63,6 +65,15 @@ final class AndroidFolder implements FolderPort {
         'path': file.path,
         'name': name,
       });
+
+  @override
+  Future<List<int>> head(String uri, String id, int bytes) async =>
+      await platformChannel.invokeMethod<Uint8List>('readFolderHead', {
+        'uri': uri,
+        'id': id,
+        'bytes': bytes,
+      }) ??
+      const [];
 
   @override
   Future<void> delete(String uri, String id) => platformChannel

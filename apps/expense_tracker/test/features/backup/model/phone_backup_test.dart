@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:expense_tracker/src/core/platform/preferences.dart';
+import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
 import 'package:expense_tracker/src/features/backup/model/phone_backup.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -92,7 +93,8 @@ void main() {
     final ours =
         folder.files.keys.where((n) => n.startsWith('記帳本-ledger-')).toList()
           ..sort();
-    expect(ours, hasLength(PhoneBackup.keep));
+    // BackupRules.keep: the newest five stay.
+    expect(ours, hasLength(5));
     expect(ours.last, phone.nameAt(now));
     expect(folder.files['相片.jpg'], 'mine');
     expect(folder.files['記帳本-other-20260101-0900.etbk'], 'other');
@@ -109,6 +111,36 @@ void main() {
     expect(phone.busy, isFalse);
   });
 
+  test('R37: a folder that refuses is noted as denied, by a backup or a '
+      'check, until a folder is chosen', () async {
+    final phone = backup();
+    await phone.choose();
+    expect(phone.denied, isFalse);
+    folder.allowedNow = false;
+    // The background job's refusal: found by asking the folder.
+    await phone.check();
+    expect(phone.denied, isTrue);
+    folder.allowedNow = true;
+    await phone.check();
+    expect(phone.denied, isFalse);
+    folder.allowedNow = false;
+    now = now.add(const Duration(days: 8));
+    revision = 2;
+    expect(await phone.backUpIfDue(), isFalse);
+    expect(phone.denied, isTrue);
+    // Chosen again, the chooser grants the folder anew.
+    folder.allowedNow = true;
+    await phone.choose();
+    expect(phone.denied, isFalse);
+    // Stopped, nothing is said of a folder.
+    folder.allowedNow = false;
+    await phone.check();
+    await phone.stop();
+    expect(phone.denied, isFalse);
+    await phone.check();
+    expect(phone.denied, isFalse);
+  });
+
   test('stopping gives the folder back and keeps its backups', () async {
     final phone = backup();
     await phone.choose();
@@ -116,5 +148,61 @@ void main() {
     expect(phone.on, isFalse);
     expect(folder.allowedNow, isFalse);
     expect(folder.files, hasLength(1));
+  });
+
+  test('the backups written before a reset of the keys are found by the '
+      'time in their names, in its minute by when they were written, and '
+      'deleted only when asked (review 22 finding 2)', () async {
+    folder.files['相片.jpg'] = 'mine';
+    folder.files['記帳本-other-20260101-0900.etbk'] = 'other';
+    final phone = backup();
+    await phone.choose(); // 2026-10-27 09:00
+    now = DateTime(2026, 10, 28, 10, 30);
+    revision = 2;
+    await phone.backUpNow();
+    final first = phone.nameAt(DateTime(2026, 10, 27, 9));
+    final second = phone.nameAt(now);
+    expect(first, '記帳本-ledger-20261027-0900.etbk');
+    expect(second, '記帳本-ledger-20261028-1030.etbk');
+    // Reset at 10:30:40, in the minute of the second backup.
+    final reset = DateTime(2026, 10, 28, 10, 30, 40);
+    folder.modifiedAt[second] = DateTime(2026, 10, 28, 10, 30, 50);
+    expect(
+      [
+        for (final f in await phone.writtenBefore(
+          reset,
+          epoch: 2,
+          head: EncryptedBackupManager.head,
+        ))
+          f.name,
+      ],
+      [first],
+    );
+    folder.modifiedAt[second] = DateTime(2026, 10, 28, 10, 30, 20);
+    final old = await phone.writtenBefore(
+      reset,
+      epoch: 2,
+      head: EncryptedBackupManager.head,
+    );
+    expect([for (final f in old) f.name], [second, first]);
+    // Nothing went until asked.
+    expect(folder.files, hasLength(4));
+    for (final file in old) {
+      await phone.remove(file.id);
+    }
+    expect(folder.files.keys.toSet(), {
+      '相片.jpg',
+      '記帳本-other-20260101-0900.etbk',
+    });
+    // With no folder chosen there is nothing to list.
+    await phone.stop();
+    expect(
+      await phone.writtenBefore(
+        reset,
+        epoch: 2,
+        head: EncryptedBackupManager.head,
+      ),
+      isEmpty,
+    );
   });
 }

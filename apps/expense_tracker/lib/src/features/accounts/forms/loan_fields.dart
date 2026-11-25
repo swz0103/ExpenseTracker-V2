@@ -1,12 +1,31 @@
-part of 'account_editor.dart';
+import 'package:core/money/amount_parser.dart' show parseAmount;
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/calculator.dart';
+import '../../../core/widgets/pickers.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import 'loan_cards.dart';
+import 'loan_blocks.dart';
+import 'account_editor_state.dart';
+import 'account_editor_edit_card.dart';
 
 // The loan's form as cards: the loan itself on top, typed onto, with its
 // rate, months and day as blocks; what it costs a month and in all; how
 // it is paid back; and the accounts it is paid from and went into.
 
-extension on _AccountEditorState {
-  List<Widget> _loanFields(Account? old) {
-    final color = nameColor(_f.name.trim().isEmpty ? '貸款' : _f.name.trim());
+extension LoanFields on AccountEditorState {
+  List<Widget> loanFields(Account? old) {
+    final color = nameColor(
+      accountForm.name.trim().isEmpty ? '貸款' : accountForm.name.trim(),
+    );
     return [
       Text(
         old == null ? '新增貸款' : '編輯貸款',
@@ -21,16 +40,16 @@ extension on _AccountEditorState {
       const SizedBox(height: Space.s2),
       LoanEstimate(
         ledger: widget.ledger,
-        plan: _f.plan,
-        repay: _f.repay,
+        plan: accountForm.plan,
+        repay: accountForm.repay,
         color: color,
       ),
       const SizedBox(height: Space.s2),
       _repayChoice(color),
       const SizedBox(height: Space.s2),
       _loanAccounts(old),
-      _counted,
-      _buttons(old),
+      countedRow,
+      buttons(old),
     ];
   }
 
@@ -38,23 +57,27 @@ extension on _AccountEditorState {
   /// months and day, each opening its own picker.
   Widget _loanCard(Account? old, Color color) {
     String money(int? v) => v == null ? '0' : groupDigits(v);
-    final principal = _f.typedPrincipal;
-    final owed = minorOf(_f.balance, homeCode);
+    final principal = accountForm.typedPrincipal;
+    final owed = accountForm.typedOwed;
     return LoanCard(
       color: color,
-      name: _name,
+      name: nameField,
       principal: money(principal),
       owed: owed == null ? (old == null ? '同本金' : '0') : groupDigits(owed),
-      rate: _f.rate.trim().isEmpty ? '—' : '${_f.rate.trim()}%',
-      months: _f.typedMonths == null ? '—' : '${_f.typedMonths} 期',
-      day: '${_f.due} 日',
-      onPrincipal: () => _amount(_principal, '本金'),
-      onOwed: () => _amount(_balance, '目前尚欠'),
+      rate: accountForm.rate.trim().isEmpty
+          ? '—'
+          : '${accountForm.rate.trim()}%',
+      months: accountForm.typedMonths == null
+          ? '—'
+          : countOf(accountForm.typedMonths!, CountUnit.periods),
+      day: '${accountForm.due} 日',
+      onPrincipal: () => _amount(principalField, '本金'),
+      onOwed: () => _amount(balanceField, '目前尚欠'),
       onRate: () => _number(
         title: '年利率',
         glyph: Glyph.gauge,
         color: color,
-        controller: _rate,
+        controller: rateField,
         suffix: '%',
         picks: const ['1.5', '2', '2.5', '3', '5', '8'],
       ),
@@ -62,14 +85,14 @@ extension on _AccountEditorState {
         title: '期數',
         glyph: Glyph.hourglass,
         color: color,
-        controller: _months,
+        controller: monthsField,
         suffix: '期',
         picks: const ['12', '24', '36', '60', '84', '120', '240', '360'],
         label: (v) => int.parse(v) % 12 == 0 && int.parse(v) >= 24
             ? '${int.parse(v) ~/ 12} 年'
             : '$v 期',
       ),
-      onDay: () => _pickDay(false),
+      onDay: () => pickDay(false),
     );
   }
 
@@ -77,8 +100,8 @@ extension on _AccountEditorState {
   /// and went into.
   Widget _loanAccounts(Account? old) {
     final ledger = widget.ledger;
-    final payFrom = _f.payFrom;
-    final fund = _f.fundInto;
+    final payFrom = accountForm.payFrom;
+    final fund = accountForm.fundInto;
     final payer = payFrom != null && ledger.accounts.contains(payFrom)
         ? ledger.account(payFrom)
         : null;
@@ -88,7 +111,7 @@ extension on _AccountEditorState {
     return Row(
       children: [
         Expanded(
-          child: _AccountBlock(
+          child: AccountBlock(
             label: '從哪扣款',
             account: payer,
             empty: '不指定',
@@ -98,11 +121,11 @@ extension on _AccountEditorState {
         if (old == null) ...[
           const SizedBox(width: Space.s2),
           Expanded(
-            child: _AccountBlock(
+            child: AccountBlock(
               label: '撥款到',
               account: into,
               empty: '只記欠款',
-              onTap: _pickFund,
+              onTap: pickFund,
             ),
           ),
         ],
@@ -125,8 +148,8 @@ extension on _AccountEditorState {
           color,
         ),
     ],
-    selected: _f.repay.index,
-    onChanged: (i) => _set(() => _f.repay = LoanRepay.values[i]),
+    selected: accountForm.repay.index,
+    onChanged: (i) => setFields(() => accountForm.repay = LoanRepay.values[i]),
   );
 
   /// Opens the calculator on [controller]'s amount.
@@ -134,7 +157,7 @@ extension on _AccountEditorState {
     final value = await showCalculator(
       context,
       title: title,
-      initial: int.tryParse(controller.text.replaceAll(',', '')) ?? 0,
+      initial: parseAmount(controller.text, scale: 0).minorOrNull ?? 0,
       color: AppColors.accent,
     );
     if (value != null) controller.text = '$value';
@@ -171,7 +194,7 @@ extension on _AccountEditorState {
     final picked = await pickOption<String>(
       context,
       title: '從哪扣款',
-      selected: _f.payFrom ?? '',
+      selected: accountForm.payFrom ?? '',
       columns: 3,
       options: [
         const Option('', '不指定', Glyph.other, AppColors.faint),
@@ -183,7 +206,7 @@ extension on _AccountEditorState {
       ],
     );
     if (picked == null || !mounted) return;
-    _set(() => _f.payFrom = picked.isEmpty ? null : picked);
+    setFields(() => accountForm.payFrom = picked.isEmpty ? null : picked);
   }
 }
 

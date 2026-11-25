@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../model/tag_summary.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 
@@ -18,9 +19,13 @@ class TagSummaryHeading extends StatelessWidget {
     required this.project,
     required this.recent,
     required this.menu,
+    required this.today,
   });
 
   final TagSummary project;
+
+  /// Today, so the days carry their years outside this one.
+  final DateTime today;
 
   /// The cover of 標籤與商家: 最近 and the tag's name.
   final bool recent;
@@ -30,10 +35,9 @@ class TagSummaryHeading extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = nameColor(project.tag);
     final ink = deepOf(color);
-    String day(DateTime d) => formatMd(d);
     final days = project.from == project.to
-        ? day(project.from)
-        : '${day(project.from)} – ${day(project.to)} · ${project.days} 天';
+        ? formatDay(project.from, today: today)
+        : '${formatDayRange(project.from, project.to, today: today)} · ${countOf(project.days, CountUnit.days)}';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -164,7 +168,7 @@ class TagCategoryShares extends StatelessWidget {
                   ),
                   const SizedBox(width: Space.s2),
                   Text(
-                    '$name ${amount * 100 ~/ spent}%',
+                    '$name ${wholePercent(amount, spent)}',
                     style: TextStyle(
                       fontSize: TextSize.small,
                       fontWeight: FontWeight.w700,

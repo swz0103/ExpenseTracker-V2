@@ -1,8 +1,11 @@
 package io.github.swz0103.expensetracker
 
+import android.accounts.Account
 import android.content.ContentProviderOperation
 import android.content.ContentResolver
+import android.content.ContentUris
 import android.content.ContentValues
+import android.os.Bundle
 import android.provider.CalendarContract
 import android.provider.CalendarContract.Calendars
 import android.provider.CalendarContract.Events
@@ -11,13 +14,15 @@ import java.util.TimeZone
 
 /**
  * Writes the ledger's due dates into a calendar the person picks, such as
- * their Google Calendar, so its own reminders tell them. The app's events
- * carry [MARK] in their description; a sync replaces the ones still to
- * come and leaves past ones alone.
+ * their Google Calendar, so its own reminders tell them. The app decides
+ * which events there should be and what changes (calendar_sync.dart);
+ * this reads the app's events back and makes the changes it is given.
+ * The app's events carry a mark and their key on the last line of their
+ * description, which is how they are told apart from the person's own;
+ * the app hands the mark over with each call (`CalendarSync.mark`), and
+ * how long an event lasts with the changes (`CalendarSync.eventLength`).
  */
 object CalendarBridge {
-    private const val MARK = "記帳本#"
-    private const val MINUTE = 60_000L
     /** Below the provider's 500 operations per transaction, with room to spare. */
     private const val MAX_OPERATIONS = 450
 
@@ -45,72 +50,159 @@ object CalendarBridge {
         return found
     }
 
+    /** A description as written: the note, then the [mark] and the key. */
+    fun describe(note: String, key: String, mark: String): String = "$note\n$mark$key"
+
     /**
-     * Replaces the app's events from [from] on in [calendar] with [events]:
-     * each has a key, title, note, start (milliseconds) and minutes to remind
-     * before it. Returns how many were written.
-     *
-     * The removal and the new events go in one batch with no yield points,
-     * which the calendar provider applies in one transaction: a failure
-     * part way leaves the calendar as it was, rather than without its
-     * events or with them twice. The provider refuses a batch of 500
-     * operations or more without a yield point, and a yield point would
-     * commit what came before it, so instead the batch is kept under
-     * [MAX_OPERATIONS]: [events] come soonest first, and those that do not
-     * fit (the furthest away) are left out until a later sync, when they
-     * are nearer and the earlier ones have passed.
+     * The note and key of an app's event from its [description]; null for
+     * an event that is not the app's (no mark starting its last line).
      */
-    fun replace(
+    fun split(description: String?, mark: String): Pair<String, String>? {
+        if (description == null) return null
+        val at = description.lastIndexOf("\n$mark")
+        if (at < 0) return null
+        val key = description.substring(at + 1 + mark.length)
+        if (key.contains('\n')) return null
+        return description.substring(0, at) to key
+    }
+
+    /**
+     * The app's events in [calendar] from [from] (milliseconds) on: the
+     * calendar's id, key, title, note, start and minutes of reminders.
+     */
+    fun events(resolver: ContentResolver, calendar: Long, from: Long, mark: String): List<Map<String, Any>> {
+        val found = mutableListOf<Map<String, Any>>()
+        resolver.query(
+            Events.CONTENT_URI,
+            arrayOf(Events._ID, Events.TITLE, Events.DESCRIPTION, Events.DTSTART),
+            // Only the app's own events, not one deleted and waiting to sync.
+            "${Events.CALENDAR_ID} = ? AND ${Events.DTSTART} >= ? AND " +
+                "${Events.DELETED} = 0 AND ${Events.DESCRIPTION} LIKE ?",
+            arrayOf(calendar.toString(), from.toString(), "%\n$mark%"),
+            null,
+        )?.use { row ->
+            while (row.moveToNext()) {
+                val (note, key) = split(row.getString(2), mark) ?: continue
+                val id = row.getLong(0)
+                found.add(
+                    mapOf(
+                        "id" to id,
+                        "key" to key,
+                        "title" to (row.getString(1) ?: ""),
+                        "note" to note,
+                        "start" to row.getLong(3),
+                        "remind" to remindersOf(resolver, id),
+                    ),
+                )
+            }
+        }
+        return found
+    }
+
+    private fun remindersOf(resolver: ContentResolver, event: Long): List<Int> {
+        val minutes = mutableListOf<Int>()
+        Reminders.query(resolver, event, arrayOf(Reminders.MINUTES))?.use { row ->
+            while (row.moveToNext()) minutes.add(row.getInt(0))
+        }
+        return minutes
+    }
+
+    /** How the app's events are written: the mark and how long each lasts (milliseconds). */
+    class Shape(val mark: String, val length: Long)
+
+    private fun values(calendar: Long, event: Map<String, Any?>, start: Long, minutes: List<Int>, shape: Shape) =
+        ContentValues().apply {
+            put(Events.CALENDAR_ID, calendar)
+            put(Events.TITLE, event["title"] as? String ?: "")
+            put(Events.DESCRIPTION, describe(event["note"] as? String ?: "", "${event["key"]}", shape.mark))
+            put(Events.DTSTART, start)
+            put(Events.DTEND, start + shape.length)
+            put(Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
+            // Only an event with reminders rings.
+            put(Events.HAS_ALARM, if (minutes.isEmpty()) 0 else 1)
+        }
+
+    private fun minutesOf(event: Map<String, Any?>): List<Int> =
+        (event["remind"] as? List<*>)?.mapNotNull { (it as? Number)?.toInt() } ?: listOf(0)
+
+    private fun reminder(minutes: Int): ContentValues = ContentValues().apply {
+        put(Reminders.MINUTES, minutes)
+        put(Reminders.METHOD, Reminders.METHOD_ALERT)
+    }
+
+    /**
+     * Makes the changes the app worked out in [calendar]: takes away the
+     * events [delete], changes [update] in place (their reminders written
+     * again) and writes [insert]. Returns how many of [insert] were
+     * written.
+     *
+     * All go in one batch with no yield points, which the calendar
+     * provider applies in one transaction: a failure part way leaves the
+     * calendar as it was. The provider refuses a batch of 500 operations
+     * or more without a yield point, so the batch is kept under
+     * [MAX_OPERATIONS]: what does not fit (the furthest new events, as the
+     * app sends them soonest first) waits for a later sync. Then the
+     * calendar is asked to sync at once, so an event taken away leaves
+     * the person's other devices soon too.
+     */
+    fun apply(
         resolver: ContentResolver,
         calendar: Long,
-        from: Long,
-        events: List<Map<String, Any?>>,
+        insert: List<Map<String, Any?>>,
+        update: List<Map<String, Any?>>,
+        delete: List<Long>,
+        shape: Shape,
     ): Int {
         val ops = ArrayList<ContentProviderOperation>()
-        // Only the app's own events: the mark starts the last line of the
-        // description, as written below, not anywhere in someone's note.
-        ops.add(
-            ContentProviderOperation.newDelete(Events.CONTENT_URI)
-                .withSelection(
-                    "${Events.CALENDAR_ID} = ? AND ${Events.DTSTART} >= ? AND " +
-                        "${Events.DESCRIPTION} LIKE ? AND ${Events.DESCRIPTION} NOT LIKE ?",
-                    arrayOf(calendar.toString(), from.toString(), "%\n$MARK%", "%\n$MARK%\n%"),
-                )
-                .build(),
-        )
-        var written = 0
-        for (event in events) {
-            val start = (event["start"] as? Number)?.toLong() ?: continue
-            val minutes = (event["remind"] as? List<*>)?.mapNotNull { (it as? Number)?.toInt() }
-                ?: listOf(0)
-            // One insert for the event and one per reminder; stop before the
-            // batch grows too large for one transaction.
-            if (ops.size + 1 + minutes.size > MAX_OPERATIONS) break
-            val values = ContentValues().apply {
-                put(Events.CALENDAR_ID, calendar)
-                put(Events.TITLE, event["title"] as? String ?: "")
-                put(Events.DESCRIPTION, "${event["note"] as? String ?: ""}\n$MARK${event["key"]}")
-                put(Events.DTSTART, start)
-                put(Events.DTEND, start + 30 * MINUTE)
-                put(Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
-                // Only an event with reminders rings.
-                put(Events.HAS_ALARM, if (minutes.isEmpty()) 0 else 1)
-            }
-            val eventAt = ops.size
+        for (id in delete) {
+            if (ops.size + 1 > MAX_OPERATIONS) break
             ops.add(
-                ContentProviderOperation.newInsert(Events.CONTENT_URI)
-                    .withValues(values)
+                ContentProviderOperation
+                    .newDelete(ContentUris.withAppendedId(Events.CONTENT_URI, id))
+                    .build(),
+            )
+        }
+        for (event in update) {
+            val id = (event["id"] as? Number)?.toLong() ?: continue
+            val start = (event["start"] as? Number)?.toLong() ?: continue
+            val minutes = minutesOf(event)
+            if (ops.size + 2 + minutes.size > MAX_OPERATIONS) break
+            ops.add(
+                ContentProviderOperation
+                    .newUpdate(ContentUris.withAppendedId(Events.CONTENT_URI, id))
+                    .withValues(values(calendar, event, start, minutes, shape))
+                    .build(),
+            )
+            ops.add(
+                ContentProviderOperation.newDelete(Reminders.CONTENT_URI)
+                    .withSelection("${Reminders.EVENT_ID} = ?", arrayOf(id.toString()))
                     .build(),
             )
             for (before in minutes) {
                 ops.add(
                     ContentProviderOperation.newInsert(Reminders.CONTENT_URI)
-                        .withValues(
-                            ContentValues().apply {
-                                put(Reminders.MINUTES, before)
-                                put(Reminders.METHOD, Reminders.METHOD_ALERT)
-                            },
-                        )
+                        .withValues(reminder(before).apply { put(Reminders.EVENT_ID, id) })
+                        .build(),
+                )
+            }
+        }
+        var written = 0
+        for (event in insert) {
+            val start = (event["start"] as? Number)?.toLong() ?: continue
+            val minutes = minutesOf(event)
+            // One insert for the event and one per reminder; stop before the
+            // batch grows too large for one transaction.
+            if (ops.size + 1 + minutes.size > MAX_OPERATIONS) break
+            val eventAt = ops.size
+            ops.add(
+                ContentProviderOperation.newInsert(Events.CONTENT_URI)
+                    .withValues(values(calendar, event, start, minutes, shape))
+                    .build(),
+            )
+            for (before in minutes) {
+                ops.add(
+                    ContentProviderOperation.newInsert(Reminders.CONTENT_URI)
+                        .withValues(reminder(before))
                         // The id of the event inserted just before.
                         .withValueBackReference(Reminders.EVENT_ID, eventAt)
                         .build(),
@@ -118,7 +210,40 @@ object CalendarBridge {
             }
             written++
         }
+        if (ops.isEmpty()) return 0
         resolver.applyBatch(CalendarContract.AUTHORITY, ops)
+        requestSync(resolver, calendar)
         return written
+    }
+
+    /**
+     * Asks the account [calendar] syncs with to sync now, rather than at
+     * its next turn; a calendar kept only on the phone has none to ask.
+     */
+    private fun requestSync(resolver: ContentResolver, calendar: Long) {
+        try {
+            resolver.query(
+                ContentUris.withAppendedId(Calendars.CONTENT_URI, calendar),
+                arrayOf(Calendars.ACCOUNT_NAME, Calendars.ACCOUNT_TYPE),
+                null,
+                null,
+                null,
+            )?.use { row ->
+                if (!row.moveToFirst()) return
+                val name = row.getString(0) ?: return
+                val type = row.getString(1) ?: return
+                if (type == CalendarContract.ACCOUNT_TYPE_LOCAL) return
+                ContentResolver.requestSync(
+                    Account(name, type),
+                    CalendarContract.AUTHORITY,
+                    Bundle().apply {
+                        putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true)
+                        putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true)
+                    },
+                )
+            }
+        } catch (e: Exception) {
+            // The events are written; they reach the cloud at the next sync.
+        }
     }
 }

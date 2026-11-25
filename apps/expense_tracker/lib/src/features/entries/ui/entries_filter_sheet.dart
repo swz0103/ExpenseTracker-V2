@@ -1,15 +1,19 @@
+import 'package:core/money/amount_parser.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/amount_messages.dart';
 import '../../../core/widgets/pickers.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
+
+import 'package:core/time/utc_days.dart';
 
 /// Kinds the record list can be narrowed to.
 enum KindFilter {
@@ -54,7 +58,8 @@ final class EntryFilter {
   /// A span of days in place of the month; null shows the month.
   final DateTimeRange? range;
 
-  /// The smallest and largest amount shown; null for no bound.
+  /// The bounds, in NT\$ as reports count an entry ([Entry.worth]); null
+  /// for no bound.
   final int? least;
   final int? most;
 
@@ -118,24 +123,21 @@ final class EntryFilter {
     final category = this.category;
     if (!kind.shows(e)) return false;
     if (range != null) {
-      final day = _utcDay(e.date);
-      if (day.isBefore(_utcDay(range.start)) ||
-          day.isAfter(_utcDay(range.end))) {
+      final day = dayOf(e.date);
+      if (day.isBefore(dayOf(range.start)) || day.isAfter(dayOf(range.end))) {
         return false;
       }
     }
-    if (least != null && e.amount < least) return false;
-    if (most != null && e.amount > most) return false;
+    if (least != null && e.worth < least) return false;
+    if (most != null && e.worth > most) return false;
     if (account != null && e.account != account && e.to != account) {
       return false;
     }
+    // Under the category: its subcategories and split parts included
+    // (D54), as budgets and reports count it.
     return category == null ||
-        e.category == category ||
-        ledger.category(e.category).parent == category ||
-        e.parts.any((p) => p.$1 == category);
+        entryIsUnder(e, category, (name) => ledger.category(name).parent);
   }
-
-  static DateTime _utcDay(DateTime d) => DateTime.utc(d.year, d.month, d.day);
 
   /// The chosen days as words, such as 9/1–10/4.
   static String rangeLabel(DateTimeRange range) =>
@@ -192,15 +194,19 @@ class _FilterSheetState extends State<_FilterSheet> {
   late var _range = widget.initial.range;
   late final _least = TextEditingController(
     text: widget.initial.least?.toString() ?? '',
-  );
+  )..addListener(() => setState(() {}));
   late final _most = TextEditingController(
     text: widget.initial.most?.toString() ?? '',
-  );
+  )..addListener(() => setState(() {}));
 
-  DateTime get _today {
-    final t = widget.ledger.today;
-    return DateTime(t.year, t.month, t.day);
-  }
+  /// A bound as typed, in whole NT\$, and why it is not one ([_problem]).
+  static AmountResult _bound(TextEditingController c) =>
+      parseAmount(c.text, scale: 0);
+  static String? _problem(TextEditingController c) => typedProblem(_bound(c));
+
+  /// Today as a UTC midnight, so the quick spans step by calendar days
+  /// whatever the phone's daylight saving does.
+  DateTime get _today => dayOf(widget.ledger.today);
 
   @override
   void dispose() {
@@ -247,7 +253,7 @@ class _FilterSheetState extends State<_FilterSheet> {
   Future<void> _pickRange() async {
     final picked = await pickDateRange(
       context,
-      first: DateTime(2000),
+      first: DateTime.utc(2000),
       last: _today,
       initial: _range,
       title: '日期區間',
@@ -293,14 +299,15 @@ class _FilterSheetState extends State<_FilterSheet> {
   }
 
   void _apply() {
+    if (_problem(_least) != null || _problem(_most) != null) return;
     Navigator.of(context).pop(
       EntryFilter(
         kind: _kind,
         account: _account,
         category: _category,
         range: _range,
-        least: int.tryParse(_least.text.trim()),
-        most: int.tryParse(_most.text.trim()),
+        least: _bound(_least).minorOrNull,
+        most: _bound(_most).minorOrNull,
       ),
     );
   }
@@ -336,12 +343,16 @@ class _FilterSheetState extends State<_FilterSheet> {
           const _Heading(Words.amount),
           Row(
             children: [
-              Expanded(child: _AmountField(_least, '最少')),
+              Expanded(
+                child: _AmountField(_least, '最少', error: _problem(_least)),
+              ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: Space.s2),
                 child: Text('–', style: mutedText),
               ),
-              Expanded(child: _AmountField(_most, '最多')),
+              Expanded(
+                child: _AmountField(_most, '最多', error: _problem(_most)),
+              ),
             ],
           ),
           const SizedBox(height: Space.s4),
@@ -555,12 +566,13 @@ class _ChoiceRow extends StatelessWidget {
   }
 }
 
-/// A bound for the amount filter, digits only.
+/// A bound for the amount filter, digits only, with what is wrong with it.
 class _AmountField extends StatelessWidget {
-  const _AmountField(this.controller, this.hint);
+  const _AmountField(this.controller, this.hint, {this.error});
 
   final TextEditingController controller;
   final String hint;
+  final String? error;
 
   @override
   Widget build(BuildContext context) => TextField(
@@ -568,6 +580,7 @@ class _AmountField extends StatelessWidget {
     keyboardType: TextInputType.number,
     decoration: InputDecoration(
       hintText: hint,
+      errorText: error,
       isDense: true,
       filled: true,
       fillColor: AppColors.surface,

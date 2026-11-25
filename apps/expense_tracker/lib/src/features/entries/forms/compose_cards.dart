@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
@@ -107,51 +107,54 @@ class PickCard extends StatelessWidget {
   final Glyph icon;
   final String label;
   final String value;
-  final VoidCallback onTap;
+
+  /// What pressing it does; none while the entry is only looked at, when
+  /// it is read out as its words, not as a button that cannot be pressed.
+  final VoidCallback? onTap;
   final Color valueColor;
 
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(Radii.large);
-    return ReadAsButton(
-      label: '$label：$value',
-      onTap: onTap,
-      child: Material(
-        color: AppColors.group,
+    final card = Material(
+      color: AppColors.group,
+      borderRadius: radius,
+      child: InkWell(
         borderRadius: radius,
-        child: InkWell(
-          borderRadius: radius,
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 56),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Space.s3,
-                vertical: Space.s2,
-              ),
-              child: Row(
-                children: [
-                  SquareIcon(icon, AppColors.accent, size: 30),
-                  const SizedBox(width: Space.s2),
-                  Expanded(
-                    child: Text(
-                      value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: TextSize.title,
-                        fontWeight: FontWeight.w700,
-                        color: valueColor,
-                      ),
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 56),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.s3,
+              vertical: Space.s2,
+            ),
+            child: Row(
+              children: [
+                SquareIcon(icon, AppColors.accent, size: 30),
+                const SizedBox(width: Space.s2),
+                Expanded(
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: TextSize.title,
+                      fontWeight: FontWeight.w700,
+                      color: valueColor,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
+    final said = '$label：$value';
+    return onTap == null
+        ? Semantics(label: said, excludeSemantics: true, child: card)
+        : ReadAsButton(label: said, onTap: onTap, child: card);
   }
 }
 

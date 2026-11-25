@@ -1,6 +1,8 @@
+import 'package:core/fx/dated_figures.dart' show MarketHistory;
 import 'package:expense_tracker/src/core/ledger/cache/query_cache.dart';
 import 'package:expense_tracker/src/core/ledger/models/models.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/account_repository.dart';
+import 'package:expense_tracker/src/core/ledger/repositories/budget_repository.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/category_repository.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/entry_repository.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/holding_repository.dart';
@@ -59,20 +61,29 @@ final class Book {
     ],
     List<Category> categories = const [],
     List<Recurring> recurring = const [],
+    List<Budget> budgets = const [],
     Map<String, double> rates = const {},
+    Map<String, double> sellRates = const {},
+    MarketHistory? history,
   }) : entries = EntryRepository(entries),
        accounts = AccountRepository(accounts),
        categories = CategoryRepository(categories),
        recurring = RecurringRepository(recurring),
-       market = MarketDataRepository(rates: rates) {
+       budgetRepository = BudgetRepository(budgets),
+       market = MarketDataRepository(
+         rates: rates,
+         sellRates: sellRates,
+         history: history,
+       ) {
     holdings = HoldingRepository(const [], moveOf: market.moveOf)
-      ..replay(this.entries.all);
+      ..replay(this.entries.all, today: today);
   }
 
   final EntryRepository entries;
   final AccountRepository accounts;
   final CategoryRepository categories;
   final RecurringRepository recurring;
+  final BudgetRepository budgetRepository;
   final MarketDataRepository market;
   late final HoldingRepository holdings;
   final cache = QueryCache();
@@ -99,6 +110,7 @@ final class Book {
     entries: entries,
     accounts: accounts,
     categories: categories,
+    balances: balances,
     cache: cache,
     today: _today,
   );
@@ -110,6 +122,8 @@ final class Book {
   );
   late final budgets = BudgetService(
     entries: entries,
+    categories: categories,
+    budgets: budgetRepository,
     reportService: reports,
     today: _today,
   );
@@ -126,5 +140,6 @@ final class Book {
     accounts: accounts,
     holdings: holdings,
     entryQueryService: queries,
+    balanceService: balances,
   );
 }

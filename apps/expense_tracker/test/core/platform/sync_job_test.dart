@@ -33,7 +33,6 @@ void main() {
     now = now.add(const Duration(minutes: 21));
     await probe.refresh();
     expect(probe.runs, 3);
-    expect(probe.lastSuccess, now);
     expect(probe.problem, isNull);
   });
 
@@ -45,17 +44,33 @@ void main() {
       probe.fails = true;
       await probe.refresh(force: true);
       expect(probe.problem, isNotNull);
-      expect(probe.lastSuccess, isNull);
+      expect(probe.failed, isTrue);
       probe
         ..fails = false
         ..says = '0050X 抓不到收盤價';
       await probe.refresh(force: true);
       expect(probe.problem, '0050X 抓不到收盤價');
+      expect(probe.failed, isFalse, reason: 'it answered, with a problem');
       probe.says = null;
       await probe.refresh(force: true);
       expect(probe.problem, isNull);
     },
   );
+
+  test('a connector let go while at work, as when the ledger locks, ends '
+      'quietly', () async {
+    final now = DateTime.utc(2026, 10, 27, 9);
+    final probe = _Probe(() => now);
+    var told = 0;
+    probe.addListener(() => told++);
+    final run = probe.refresh();
+    expect(told, 1, reason: 'at work');
+    probe.dispose();
+    // Throws in debug builds were it to tell a listener now.
+    await run;
+    expect(told, 1);
+    expect(probe.runs, 1);
+  });
 
   test('codes are tidied the way the exchanges write them', () {
     expect(tidyCode(' 2330.tw '), '2330');

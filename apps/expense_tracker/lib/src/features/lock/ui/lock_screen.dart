@@ -2,19 +2,30 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:vault/backup_security.dart';
 
 import '../../backup/model/drive_backup.dart';
 import '../../backup/model/restore_sources.dart';
 import '../../../core/platform/startup.dart';
-import '../model/unlock_failure.dart';
+import '../../../core/platform/startup_state.dart';
+import '../../../core/design_system/dialogs.dart';
+import '../../../core/messages/key_failures.dart';
+import '../../../core/messages/key_messages.dart';
+import '../../../core/messages/lock_messages.dart';
+import '../../../core/messages/problem_messages.dart';
+import '../../../core/widgets/diagnostics_export.dart';
+import '../../../../design_system/display/amount.dart' show megabytes;
+import '../../../../design_system/display/date.dart';
+import '../model/picked_copy.dart';
+import '../model/unlock_countdown.dart';
+import 'views/backup_choosers.dart';
 import 'views/lock_parts.dart';
 import 'views/recovery_view.dart';
 import 'views/restore_view.dart';
 import 'views/unlock_view.dart';
 import 'views/welcome_view.dart';
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../core/diagnostics/error_steps.dart';
+import '../../../core/platform/app_files.dart';
 
 /// The first screen of the phone app. A new ledger starts with one tap,
 /// without a password (one can be set later in settings), or from a
@@ -26,12 +37,16 @@ class LockScreen extends StatefulWidget {
     super.key,
     required this.startup,
     this.sources = const RestoreSources(),
+    this.diagnostics,
   });
 
   final Startup startup;
 
   /// The file picker and Google Drive, on a phone.
   final RestoreSources sources;
+
+  /// Saves 匯出診斷 under a failure that sends to it (review 31).
+  final SaveText? diagnostics;
 
   @override
   State<LockScreen> createState() => _LockScreenState();
@@ -49,7 +64,7 @@ class _LockScreenState extends State<LockScreen> {
   /// once, without the opening again.
   var _cameBack = false;
   var _busy = false;
-  String? _problem;
+  late String? _problem = describeLocked(widget.startup.state);
 
   /// The opening animation, on a ledger with a password when the app has
   /// just started; the password form comes after it.
@@ -91,6 +106,14 @@ class _LockScreenState extends State<LockScreen> {
   /// When the chosen backup was taken and what it holds.
   String? _about;
 
+  /// What the chosen backup says of itself, before any key; null until
+  /// one that can be read is chosen.
+  BackupFacts? _chosen;
+
+  /// A backup without the password's slot (all since version 4) opens
+  /// only with its recovery code or backup passphrase.
+  bool get _codeOnly => _restoring && _chosen?.keyring.hasPassword == false;
+
   /// The backup Android brought back, offered on the welcome.
   ({DateTime at, int rows})? _found;
 
@@ -103,7 +126,7 @@ class _LockScreenState extends State<LockScreen> {
   /// Asks for the password or recovery code of the backup Android
   /// brought back.
   Future<void> _restoreFound() async {
-    final path = widget.startup.cloudCopy.path;
+    final path = widget.startup.folder.cloudCopy.path;
     setState(() {
       _restoring = true;
       _cameBack = true;
@@ -113,25 +136,52 @@ class _LockScreenState extends State<LockScreen> {
     await _describe(path);
   }
 
+  /// The wait after too many wrong tries, counted down on the form.
+  late final _countdown = UnlockCountdown(
+    ask: widget.startup.unlockWait,
+    limited: () => _limited,
+    changed: (wait) {
+      if (!mounted) return;
+      // The wait says why nothing can be typed: what was wrong goes.
+      setState(() => _problem = wait > Duration.zero ? null : _problem);
+    },
+  );
+
+  /// Whether the password or the code of this phone's own ledger is asked
+  /// for: what the attempt limit slows down (a backup's secret is not).
+  bool get _limited => widget.startup.state is Locked && !_restoring && !_quiet;
+
+  /// What was typed when [_problem] was said: typing something else
+  /// takes the words away.
+  String? _problemAt;
+
+  /// A problem said stays only until the person types again.
+  void _typed() {
+    final text = _password.text;
+    if (_problem == null || text.isEmpty || text == _problemAt) return;
+    setState(() => _problem = null);
+  }
+
   @override
   void initState() {
     super.initState();
+    _password.addListener(_typed);
     // Asked for in settings: restore a backup in place of this ledger.
     _restoring = widget.startup.takeRestore();
     if (_welcome) unawaited(_lookForBroughtBack());
+    unawaited(_countdown.refresh());
     if (_restoring || _welcome) return;
     // The opening plays once per start, with a password or without.
     final opening = widget.startup.takeOpening();
     if (_quiet) {
-      // Opened once the opening animation has played (see build).
+      // Opened at once, while the opening plays: it never holds it up.
       _busy = true;
+      unawaited(_openQuietly());
       return;
     }
-    if (opening) {
-      // The fingerprint is asked for once it has played (see _opened).
-      _splash = true;
-      return;
-    }
+    // The password form follows the opening (see _opened); the
+    // fingerprint is asked for at once, over the opening when it plays.
+    _splash = opening;
     if (_biometric && _askFirst) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_unlockWithDevice());
@@ -144,39 +194,37 @@ class _LockScreenState extends State<LockScreen> {
   Future<void> _unlockWithDevice() async {
     setState(() {
       _busy = true;
-      _problem = null;
+      // The opening's own words (a full phone) stay said (review 30).
+      if (_problem != describeLocked(widget.startup.state)) _problem = null;
     });
     try {
-      await widget.startup.unlockWithDevice();
-    } on KeyringException catch (error) {
-      // Said to the person below, by its kind.
-      _fail(
-        error.error == KeyringError.unknownDevice
-            ? '先用密碼打開一次，之後就能用指紋解鎖'
-            : '指紋解鎖失敗，請改用密碼',
-      );
+      final opened = await widget.startup.unlockWithDevice();
+      // Turned down for the password: the person's choice, so nothing is
+      // said and nothing noted.
+      if (!opened && mounted) setState(() => _busy = false);
     } on Object catch (error) {
-      ErrorLog.instance.record('指紋解鎖', error);
-      _fail('指紋解鎖已取消，可以改用密碼');
+      // Said to the person by its kind; a fault of the fingerprint is kept.
+      final (:words, :kept) = describeDeviceFailure(error);
+      if (kept) ErrorLog.instance.record(LockWords.fingerprintHeading, error);
+      _fail(words);
     }
   }
 
-  /// The opening has played: the password form, and the fingerprint
-  /// asked for when it is asked first.
+  /// The opening has played: the password form; the fingerprint was
+  /// asked for as it began.
   void _opened() {
     setState(() {
       _splash = false;
       _arrive = true;
     });
-    if (_biometric && _askFirst) unawaited(_unlockWithDevice());
   }
 
   Future<void> _openQuietly() async {
     try {
       await widget.startup.openQuietly();
     } on Object catch (error) {
-      ErrorLog.instance.record('開啟帳本', error);
-      _fail('無法開啟帳本（${ErrorLog.describe(error)}）');
+      ErrorLog.instance.record('打開帳本', error);
+      _fail(describeNoSpace(error) ?? problemNote(LockWords.notOpened, error));
     }
   }
 
@@ -190,56 +238,77 @@ class _LockScreenState extends State<LockScreen> {
       await widget.startup.setUpWithoutPassword();
     } on Object catch (error) {
       ErrorLog.instance.record('建立帳本', error);
-      _fail('無法建立帳本（${ErrorLog.describe(error)}）');
+      _fail(problemNote(LockWords.notCreated, error));
     }
   }
 
   @override
   void dispose() {
+    _countdown.close();
     _password.dispose();
     _file.dispose();
     _forgetPicked();
     super.dispose();
   }
 
-  /// Deletes the copy of the chosen backup once it is not needed: after
-  /// it was restored, or when this screen goes. A failed restore keeps it
-  /// for another try; the next start deletes one left behind.
+  /// Deletes the copy of the chosen backup once it is not needed
+  /// ([forgetPickedCopy]); a failed restore keeps it for another try.
   void _forgetPicked() {
     final picked = _picked;
     _picked = null;
-    if (picked == null) return;
-    try {
-      final file = File(picked);
-      if (file.existsSync()) file.deleteSync();
-    } on FileSystemException {
-      // Deleted at the next start.
-    }
+    if (picked != null) forgetPickedCopy(picked);
   }
 
   Future<void> _submit() async {
     final secret = _password.text;
+    final startup = widget.startup;
+    final recovery = _recovery || _codeOnly;
+    // Replacing this phone's ledger with less: both are shown, and the
+    // restore goes on only once confirmed.
+    final current = startup.replacedLedger;
+    final chosen = _chosen;
+    if (_restoring &&
+        current != null &&
+        chosen != null &&
+        backupIsOlder(chosen, current)) {
+      final ok = await confirm(
+        context,
+        KeyWords.olderBackup,
+        KeyWords.restoreAnyway,
+        danger: true,
+        body: olderBackupWarning(chosen, current),
+      );
+      if (!ok || !mounted) return;
+    }
     setState(() {
       _busy = true;
       _problem = null;
     });
-    final startup = widget.startup;
     try {
       if (_restoring) {
         await startup.restore(
           _file.text.trim(),
-          _recovery ? secret.trim() : secret,
-          recovery: _recovery,
+          recovery ? secret.trim() : secret,
+          recovery: recovery,
+          revisionAtLeast: widget.sources.deliveredRevision?.call() ?? 0,
         );
         _forgetPicked();
         return;
       }
-      await (_recovery
+      await (recovery
           ? startup.unlockWithRecovery(secret.trim())
           : startup.unlockWithPassword(secret));
     } on Object catch (error) {
-      // Said to the person by its kind (unlockFailure).
-      _fail(unlockFailure(error, recovery: _recovery));
+      // Said to the person by its kind, in words; a wrong secret is
+      // expected and not kept, anything unforeseen is.
+      final said = describeTry(error, recovery: recovery, restore: _restoring);
+      if (said == null) {
+        ErrorLog.instance.record(KeyWords.unforeseenHeading, error);
+      }
+      _fail(said ?? problemNote(LockWords.notOpened, error));
+      // A wrong one may have started a wait, and one not tried for the
+      // wait says so: shown from here on, counting down.
+      await _countdown.refresh();
     }
   }
 
@@ -252,26 +321,35 @@ class _LockScreenState extends State<LockScreen> {
     if (path == null || !mounted) return;
     if (path != _picked) _forgetPicked();
     _picked = path;
-    setState(() => _file.text = path);
+    setState(() {
+      _file.text = path;
+      // Another backup: what was wrong with the one before is not said
+      // of this one.
+      _problem = null;
+    });
     await _describe(path);
   }
 
-  /// Says when the backup at [path] was taken and how many records it
-  /// holds, before its password is asked for.
+  /// Says when the backup at [path] was taken, how many records it holds
+  /// and what opens it, before that is asked for.
   Future<void> _describe(String path) async {
     String about;
+    BackupFacts? chosen;
     try {
-      final header = await widget.startup.peek(path);
-      final at = header.createdAt.toLocal();
-      String two(int n) => n.toString().padLeft(2, '0');
-      about =
-          '${formatYMd(at)} ${two(at.hour)}:${two(at.minute)}'
-          ' 的備份 · ${header.rows} 筆資料';
-    } on Object {
-      // A file that is not a backup is said so.
+      final header = await widget.startup.folder.peek(path);
+      chosen = header;
+      about = describeBackup(header);
+    } on Object catch (error) {
+      // A file that is not a backup is said so, and kept for the log.
+      ErrorLog.instance.record(ErrorSteps.backupHeader, error);
       about = '這個檔案不是記帳本的備份';
     }
-    if (mounted) setState(() => _about = about);
+    if (mounted) {
+      setState(() {
+        _about = about;
+        _chosen = chosen;
+      });
+    }
   }
 
   /// Lists the backups in 記帳本備份 on Google Drive, after Google's
@@ -293,27 +371,18 @@ class _LockScreenState extends State<LockScreen> {
         return;
       }
       setState(() => _busy = false);
-      final chosen = await showModalBottomSheet<DriveFile>(
-        context: context,
-        builder: (context) => SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              for (final file in files)
-                ListTile(
-                  title: Text(_driveLabel(file)),
-                  subtitle: Text(file.name),
-                  onTap: () => Navigator.of(context).pop(file),
-                ),
-            ],
-          ),
-        ),
+      final chosen = await chooseOne(
+        context,
+        files,
+        title: LockWords.pickDriveBackup,
+        label: _driveLabel,
+        detail: (file) => file.name,
       );
       if (chosen == null || !mounted) return;
       setState(() => _busy = true);
       _forgetPicked();
-      final into = File('${(await cache()).path}/restore.etbk');
-      await drive.download(chosen.id, into);
+      final into = File('${(await cache()).path}/${AppFiles.restoreCopy}');
+      await drive.download(chosen.id, into, size: chosen.size);
       _picked = into.path;
       if (!mounted) return;
       setState(() {
@@ -322,35 +391,21 @@ class _LockScreenState extends State<LockScreen> {
       });
       await _describe(into.path);
     } on DriveException catch (error) {
-      // Its own message is said to the person.
-      _fail(error.message);
+      ErrorLog.instance.record(ErrorSteps.backupDownload, error);
+      _fail(driveNote(error));
     } on Object catch (error) {
-      ErrorLog.instance.record('下載備份', error);
-      _fail('無法下載備份（${ErrorLog.describe(error)}）');
+      ErrorLog.instance.record(ErrorSteps.backupDownload, error);
+      _fail(problemNote(LockWords.notDownloaded, error));
     }
   }
 
   /// Chooses the ledger as it was before an earlier restore from
-  /// settings, kept on this phone: a way back from the wrong backup.
+  /// settings, kept on this phone: a way back from the wrong backup. Each
+  /// is named by when its backup was taken, as its header says.
   Future<void> _pickKept() async {
-    final kept = widget.startup.keptBeforeRestore();
-    if (kept.isEmpty) return;
-    final chosen = await showModalBottomSheet<File>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            const ListTile(title: Text('還原前自動留下的帳本')),
-            for (final file in kept)
-              ListTile(
-                title: Text(_fileLabel(file)),
-                onTap: () => Navigator.of(context).pop(file),
-              ),
-          ],
-        ),
-      ),
-    );
+    final kept = await widget.startup.folder.keptLedgers();
+    if (kept.isEmpty || !mounted) return;
+    final chosen = await chooseKeptLedger(context, kept);
     if (chosen == null || !mounted) return;
     // Not a copy in the cache: kept as it is.
     _forgetPicked();
@@ -358,27 +413,19 @@ class _LockScreenState extends State<LockScreen> {
     await _describe(chosen.path);
   }
 
-  static String _fileLabel(File file) {
-    final at = file.lastModifiedSync();
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${formatYMd(at)} ${two(at.hour)}:${two(at.minute)} 留下';
-  }
+  /// A backup on Drive as the chooser names it: when saved, and its size.
+  static String _driveLabel(DriveFile file) => [
+    formatYMdHm(file.modified.toLocal()),
+    if (file.size > 0) megabytes(file.size),
+  ].join(' · ');
 
-  static String _driveLabel(DriveFile file) {
-    final at = file.modified.toLocal();
-    String two(int n) => n.toString().padLeft(2, '0');
-    final size = file.size == 0
-        ? ''
-        : ' · ${(file.size / (1024 * 1024)).toStringAsFixed(1)} MB';
-    return '${formatYMd(at)} '
-        '${two(at.hour)}:${two(at.minute)}$size';
-  }
-
+  /// Says [problem] on the form, until the person types or tries again.
   void _fail(String problem) {
     if (!mounted) return;
     setState(() {
       _busy = false;
       _problem = problem;
+      _problemAt = _password.text;
     });
   }
 
@@ -391,14 +438,33 @@ class _LockScreenState extends State<LockScreen> {
           _problem = null;
         })
       : _restoring
-      ? _keepLedger
+      ? () => unawaited(_keepLedger())
       : null;
 
-  /// Restoring from settings given up: back to this ledger, which opens
-  /// by itself when it has no password.
-  void _keepLedger() {
+  /// Restoring from settings given up: back to this ledger. It opens
+  /// again by itself, where the person left it, with the keys it was open
+  /// with a moment ago; only when the app locked meanwhile (they are let
+  /// go then) is the password asked for.
+  Future<void> _keepLedger() async {
     _forgetPicked();
+    final startup = widget.startup;
+    if (startup.canResume) {
+      setState(() {
+        _busy = true;
+        _problem = null;
+      });
+      try {
+        await startup.cancelRestore();
+        return;
+      } on Object catch (error) {
+        // Asked for as usual below.
+        ErrorLog.instance.record(LockWords.cancelRestoreHeading, error);
+        startup.lock();
+        if (!mounted) return;
+      }
+    }
     setState(() {
+      _busy = false;
       _restoring = false;
       _recovery = false;
       _problem = null;
@@ -406,9 +472,17 @@ class _LockScreenState extends State<LockScreen> {
       _file.clear();
       _password.clear();
     });
-    // A ledger without a password opens after the opening animation.
+    // A ledger without a password opens by itself, the opening shown.
     if (_quiet) setState(() => _busy = true);
+    if (_quiet) unawaited(_openQuietly());
+    await _countdown.refresh();
   }
+
+  /// What the form says while the wait after wrong tries is on, counting
+  /// down; null when the secret may be typed.
+  String? get _waiting => _countdown.wait > Duration.zero
+      ? LockWords.waitFor(_countdown.wait)
+      : null;
 
   /// Between the password and the recovery code.
   void _toggleRecovery() => setState(() {
@@ -419,7 +493,10 @@ class _LockScreenState extends State<LockScreen> {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      offerDiagnostics(widget.diagnostics, _view());
+
+  Widget _view() {
     if (_welcome) {
       return WelcomeView(
         busy: _busy,
@@ -436,43 +513,60 @@ class _LockScreenState extends State<LockScreen> {
       );
     }
     if (_quiet && _problem == null) {
-      return LockSplash(onDone: () => unawaited(_openQuietly()));
+      return const LockSplash();
     }
     if (_splash) return LockSplash(onDone: _opened);
     final Widget form;
     if (_restoring) {
+      final chosen = _chosen;
       form = RestoreView(
         file: _file,
         secret: _password,
-        recovery: _recovery,
+        recovery: _recovery || _codeOnly,
         busy: _busy,
         problem: _problem,
         onSubmit: _submit,
-        onToggleRecovery: _toggleRecovery,
+        onToggleRecovery: _codeOnly ? null : _toggleRecovery,
+        hint: chosen == null ? KeyWords.restoreHint : restoreNeeds(chosen),
+        codeLabel: chosen?.keyring.hasPassphrase ?? false
+            ? KeyWords.recoveryOrPassphrase
+            : KeyWords.recoveryCode,
         onPickFile: widget.sources.pickFile == null ? null : _pickBackup,
         onPickDrive: widget.sources.drive == null ? null : _pickDrive,
         onBack: _back,
         about: _about,
         onPickKept:
             widget.startup.state is Locked &&
-                widget.startup.keptBeforeRestore().isNotEmpty
+                widget.startup.folder.keptBeforeRestore().isNotEmpty
             ? _pickKept
             : null,
       );
     } else if (_recovery) {
+      final passphrase = switch (widget.startup.state) {
+        Locked(:final passphrase) => passphrase,
+        _ => false,
+      };
       form = RecoveryView(
         code: _password,
         busy: _busy,
         problem: _problem,
+        waiting: _waiting,
         onSubmit: _submit,
         onPassword: _toggleRecovery,
         onBack: _back,
+        hint: passphrase
+            ? KeyWords.recoveryOrPassphraseHint
+            : KeyWords.recoveryHint,
+        codeLabel: passphrase
+            ? KeyWords.recoveryOrPassphrase
+            : KeyWords.recoveryCode,
       );
     } else {
       form = UnlockView(
         password: _password,
         busy: _busy,
         problem: _problem,
+        waiting: _waiting,
         onSubmit: _submit,
         onRecovery: _toggleRecovery,
         onDevice: _biometric ? _unlockWithDevice : null,
@@ -486,7 +580,7 @@ class _LockScreenState extends State<LockScreen> {
       onPopInvokedWithResult: (popped, _) {
         if (popped) return;
         if (widget.startup.state is Locked) {
-          _keepLedger();
+          unawaited(_keepLedger());
           return;
         }
         setState(() {

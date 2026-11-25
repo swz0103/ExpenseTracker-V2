@@ -13,6 +13,7 @@ import 'package:expense_tracker/src/app/shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:expense_tracker/src/core/widgets/swipe_actions.dart';
+import 'package:expense_tracker/src/core/formatting/words.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -101,7 +102,7 @@ void main() {
           shares: 50,
         ),
       ),
-      throwsStateError,
+      throwsA(isA<RecordRefused>()),
     );
     expect(ledger.holding('2603')!.shares, 3);
     final removed = ledger.entryCommands.remove('buy')!;
@@ -338,7 +339,7 @@ void main() {
     expect(inSheet('代墊給誰'), findsOneWidget);
     await tester.tap(inSheet('代墊朋友'));
     await tester.pumpAndSettle();
-    await tester.tap(inSheet('好了（1 人）'));
+    await tester.tap(inSheet('${Words.done}（1 人）'));
     await tester.pumpAndSettle();
     // Shared evenly, one's own share counted; all of it for the friend.
     await type('金額', ['5', '0', '0']);
@@ -369,7 +370,9 @@ void main() {
     expect(ledger.reportService.income(2026, 10), 52000);
   });
 
-  testWidgets('a deleted entry can be restored', (tester) async {
+  testWidgets('a deleted entry can be restored: not asked first (D82)', (
+    tester,
+  ) async {
     final ledger = await show(tester);
     await tester.tap(find.byKey(Keys.tab('紀錄')));
     await tester.pumpAndSettle();
@@ -377,8 +380,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(Keys.discard));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(Keys.confirm));
-    await tester.pumpAndSettle();
+    expect(find.byKey(Keys.confirm), findsNothing);
     expect(ledger.reportService.expense(2026, 10), 17519 - 200);
     await tester.tap(find.byKey(Keys.snack('復原')));
     await tester.pumpAndSettle();

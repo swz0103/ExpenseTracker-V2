@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/messages/amount_messages.dart';
 import '../forms/account_editor.dart';
 import '../forms/reconcile_sheet.dart';
 import '../model/card_summary.dart';
 import 'account_action.dart';
 import '../../../core/widgets/pickers.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../core/widgets/problem_note.dart';
+import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
@@ -14,7 +17,7 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/entry_tile.dart';
 import '../../../core/navigation/nav.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
@@ -46,18 +49,23 @@ class CardPage extends StatelessWidget {
       latest: scheduled.add(const Duration(days: 7)),
       marked: {scheduled},
     );
-    if (picked == null) return;
-    if (picked.difference(scheduled).inDays.abs() > 7) {
-      if (context.mounted) showNote(context, '結帳日最多只能前後移動 7 天');
-      return;
-    }
-    ledger.accountCommands.moveClose(card.card.id, scheduled, picked);
+    if (picked == null || !context.mounted) return;
+    // A day the card cannot close on is said as the ledger refuses it.
+    refusalShown(
+      context,
+      () => ledger.accountCommands.moveClose(card.card.id, scheduled, picked),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // The card, its statements and charges, their categories' icons.
+      listenable: ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.categories,
+      }),
       builder: (context, _) {
         // Gone by another way, such as a restore: nothing to show.
         if (!ledger.accounts.contains(accountId)) {
@@ -100,6 +108,7 @@ class CardPage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: Space.s2),
               child: FigureCard(
+                key: Keys.moveClose,
                 color: Palette.violet,
                 icon: Glyph.calendar,
                 label: '下次結帳',
@@ -123,17 +132,17 @@ class CardPage extends StatelessWidget {
   /// The last statement, what is owed on it and 繳卡款.
   Widget _statement(CardSummary card) {
     final owed = card.owed;
-    final left = card.daysLeft;
     final payment = card.payment;
     return HeroFigure(
       icon: Glyph.card,
       label: '本期帳單 · ${_day(card.start)}–${_day(card.end)}',
-      trailing: Pill(owed == 0 ? '已繳清' : '已出帳'),
+      trailing: Pill(owed == 0 ? StatusWords.paid : StatusWords.billed),
       value: ledger.money(owed),
       valueColor: owed > 0 ? AppColors.negative : AppColors.positive,
-      sub: owed == 0
-          ? '這期已繳清'
-          : '繳款截止 ${_day(card.due)}（${left < 0 ? '已逾期' : '還有 $left 天'}）',
+      sub: cardBillWords(
+        card.billStatus,
+        postponed: postponedTo(card.due, card.payBy),
+      ),
       child: payment == null
           ? null
           : Padding(
@@ -188,13 +197,16 @@ class CardPage extends StatelessWidget {
       FigureCard(
         color: Palette.orange,
         icon: Glyph.calendar,
-        label: '本期未出帳',
+        label: '本期${StatusWords.notBilled}',
         value: ledger.money(card.spentSince),
-        sub: '第 ${card.daysGone} / ${card.cycleDays} 天',
+        sub: '第 ${card.daysGone} / ${countOf(card.cycleDays, CountUnit.days)}',
         child: Padding(
           padding: const EdgeInsets.only(top: Space.s2),
           child: LinearProgressIndicator(
             value: card.cycleDays == 0 ? 0 : card.daysGone / card.cycleDays,
+            // Read as words and a percent, not a bare number first.
+            semanticsLabel: ProgressWords.cycleGone,
+            semanticsValue: wholePercent(card.daysGone, card.cycleDays),
             minHeight: 6,
             borderRadius: BorderRadius.circular(Radii.extraSmall),
             color: markOf(AppColors.accent),
@@ -223,6 +235,8 @@ class CardPage extends StatelessWidget {
                   children: [
                     LinearProgressIndicator(
                       value: used,
+                      semanticsLabel: ProgressWords.limitUsed,
+                      semanticsValue: ratioWholePercent(used),
                       minHeight: 6,
                       borderRadius: BorderRadius.circular(Radii.extraSmall),
                       color: markOf(
@@ -245,9 +259,9 @@ class CardPage extends StatelessWidget {
       color: AppColors.positive,
       icon: Glyph.sparkle,
       label: '今年回饋',
-      value: ledger.money(card.taggedThisYear('回饋', EntryType.income)),
+      value: ledger.money(card.markedThisYear(EntryMark.reward)),
       valueColor: AppColors.positive,
-      sub: '本期 ${ledger.money(card.taggedSinceClose('回饋', EntryType.income))}',
+      sub: '本期 ${ledger.money(card.markedSinceClose(EntryMark.reward))}',
       trailing: const GlyphIcon(Glyph.add, size: 16),
       onTap: () => nav.compose(
         type: EntryType.income,
@@ -258,7 +272,7 @@ class CardPage extends StatelessWidget {
       color: AppColors.negative,
       icon: Glyph.ticket,
       label: '今年年費',
-      value: ledger.money(card.taggedThisYear('年費', EntryType.expense)),
+      value: ledger.money(card.markedThisYear(EntryMark.annualFee)),
       trailing: const GlyphIcon(Glyph.add, size: 16),
       onTap: () => nav.compose(
         type: EntryType.expense,
@@ -271,7 +285,10 @@ class CardPage extends StatelessWidget {
   List<Widget> _plans(CardSummary card) => [
     SectionTitle(
       '分期中',
-      trailing: Text('${card.plans.length} 筆', style: mutedSmall),
+      trailing: Text(
+        countOf(card.plans.length, CountUnit.entries),
+        style: mutedSmall,
+      ),
     ),
     GroupBox(
       padding: const EdgeInsets.symmetric(
@@ -295,7 +312,7 @@ class CardPage extends StatelessWidget {
   /// The entries since the close.
   List<Widget> _unbilled(CardSummary card) => [
     SectionTitle(
-      '本期未出帳',
+      '本期${StatusWords.notBilled}',
       trailing: Text(
         '${_day(card.end.add(const Duration(days: 1)))} 起',
         style: mutedSmall,
@@ -381,6 +398,8 @@ class CardPage extends StatelessWidget {
                 const SizedBox(height: Space.s2),
                 LinearProgressIndicator(
                   value: periods / e.installments,
+                  semanticsLabel: ProgressWords.instalmentsPaid,
+                  semanticsValue: wholePercent(periods, e.installments),
                   minHeight: 5,
                   borderRadius: BorderRadius.circular(Radii.extraSmall),
                   color: markOf(shownColor(Color(category.color))),
@@ -388,7 +407,7 @@ class CardPage extends StatelessWidget {
                 ),
                 const SizedBox(height: Space.s1),
                 Text(
-                  '第 $periods / ${e.installments} 期 · '
+                  '第 $periods / ${countOf(e.installments, CountUnit.periods)} · '
                   '剩 ${ledger.money(left)}',
                   style: mutedSmall,
                 ),

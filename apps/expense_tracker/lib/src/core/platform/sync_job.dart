@@ -22,14 +22,15 @@ abstract class SyncJob extends ChangeNotifier {
   bool get busy => _busy;
   var _busy = false;
 
-  /// When it last worked.
-  DateTime? get lastSuccess => _lastSuccess;
-  DateTime? _lastSuccess;
-
   /// Why the last run did not work, in words for the person; null when
   /// it did.
   String? get problem => _problem;
   String? _problem;
+
+  /// Whether the last run threw, rather than answering with a [problem]
+  /// of its own: nothing came back at all.
+  bool get failed => _failed;
+  var _failed = false;
 
   DateTime? _lastTry;
 
@@ -54,14 +55,25 @@ abstract class SyncJob extends ChangeNotifier {
     notifyListeners();
     try {
       _problem = await work();
-      _lastSuccess = _clock();
+      _failed = false;
     } on Object catch (error) {
       ErrorLog.instance.record(label, error);
       _problem = failure;
+      _failed = true;
     } finally {
       _busy = false;
-      notifyListeners();
+      // Let go while at work (the ledger locked): no one is told.
+      if (!_gone) notifyListeners();
     }
+  }
+
+  /// Let go: a try under way ends without telling anyone.
+  var _gone = false;
+
+  @override
+  void dispose() {
+    _gone = true;
+    super.dispose();
   }
 }
 

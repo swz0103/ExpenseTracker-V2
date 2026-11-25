@@ -5,7 +5,7 @@ import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/theme.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/widgets/icons.dart';
 import '../model/compose_form.dart';
 import 'choice_strip.dart';
@@ -88,22 +88,22 @@ final class CurrencyFields {
 
   ComposeForm get _f => _a.form;
 
-  /// The worth in NT$ of a foreign amount, at today's rate until typed.
+  /// The worth in NT$ of a foreign amount, at the rate of its day until
+  /// typed (D58).
   Widget home() {
     final value = _f.homeValue;
-    final rate = _f.ledger.marketData.rates[_f.currency];
     return Padding(
       padding: const EdgeInsets.only(top: Space.s2),
       child: FigureCard(
         color: _a.color,
         icon: Glyph.coins,
-        label: '折合台幣',
+        label: Words.homeWorth,
         value: value == null ? '請輸入' : groupDigits(value),
         valueColor: value == null ? AppColors.hint : AppColors.ink,
         size: TextSize.body,
-        sub: _f.home != null || rate == null ? null : '臺銀即期買入 $rate',
+        sub: _f.homeRateLine,
         onTap: () async {
-          final typed = await _a.ask('折合台幣', value ?? 0);
+          final typed = await _a.ask(Words.homeWorth, value ?? 0);
           if (typed != null) _a.update(() => _f.home = typed);
         },
       ),

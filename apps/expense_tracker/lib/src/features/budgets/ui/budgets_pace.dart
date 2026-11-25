@@ -1,14 +1,26 @@
-part of 'budgets.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/messages/amount_messages.dart';
+import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
 
 /// Two white cards: what can be spent a day and where the month is
 /// heading; for a past month, what was spent a day and against the
 /// budget.
-class _Pace extends StatelessWidget {
-  const _Pace({
+class BudgetPaceCard extends StatelessWidget {
+  const BudgetPaceCard({
+    super.key,
     required this.ledger,
     required this.year,
     required this.month,
-    required this.current,
     required this.spent,
     required this.total,
   });
@@ -16,59 +28,56 @@ class _Pace extends StatelessWidget {
   final Ledger ledger;
   final int year;
   final int month;
-  final bool current;
   final int spent;
   final int total;
 
   @override
   Widget build(BuildContext context) {
-    final (passed, days) = ledger.budgetService.daysGone(year, month);
     String money(int v) => ledger.orDots(groupDigits(v));
-    if (!current) {
-      final saved = total - spent;
-      return CardGrid(gap: 10, [
-        _Figure(
-          glyph: Glyph.cash,
-          color: AppColors.positive,
-          label: '平均每天花',
-          value: money(spent ~/ days),
-          sub: '$month 月 $days 天',
-        ),
-        _Figure(
-          glyph: Glyph.calendar,
-          color: AppColors.accent,
-          label: '跟預算比',
-          value: '${saved >= 0 ? '省' : '超'} ${money(saved.abs())}',
-          valueColor: saved >= 0 ? AppColors.accent : AppColors.negative,
-          sub: '用了 ${spent * 100 ~/ total}%',
-        ),
-      ]);
+    switch (ledger.budgetService.pace(spent, total, year, month)) {
+      case PastPace(:final days, :final perDay, :final saved):
+        return CardGrid(gap: 10, [
+          _Figure(
+            glyph: Glyph.cash,
+            color: AppColors.positive,
+            label: '平均每天花',
+            value: money(perDay),
+            sub: '$month 月 ${countOf(days, CountUnit.days)}',
+          ),
+          _Figure(
+            glyph: Glyph.calendar,
+            color: AppColors.accent,
+            label: '跟預算比',
+            value: '${saved >= 0 ? '省' : '超'} ${money(saved.abs())}',
+            valueColor: saved >= 0 ? AppColors.accent : AppColors.negative,
+            sub: '用了 ${wholePercent(spent, total)}',
+          ),
+        ]);
+      case final CurrentPace pace:
+        final heading = pace.forecast;
+        final over = pace.overBudget;
+        return CardGrid(gap: 10, [
+          _Figure(
+            glyph: Glyph.cash,
+            color: AppColors.positive,
+            label: '每天可以花',
+            value: money(pace.perDay),
+            sub: '剩 ${countOf(pace.daysLeft, CountUnit.days)}',
+          ),
+          _Figure(
+            glyph: Glyph.calendar,
+            color: over ? AppColors.negative : AppColors.accent,
+            label: '月底預估',
+            value: heading == null ? '—' : money(heading),
+            valueColor: over ? AppColors.negative : null,
+            sub: heading == null
+                ? '第 ${BudgetService.forecastFrom} 天起估算'
+                : over
+                ? '會超 ${money(heading - total)}'
+                : '約剩 ${money(total - heading)}',
+          ),
+        ]);
     }
-    final left = total - spent;
-    final remaining = days - passed + 1;
-    final heading = ledger.budgetService.forecast(spent, year, month);
-    final over = heading > total;
-    return CardGrid(gap: 10, [
-      _Figure(
-        glyph: Glyph.cash,
-        color: AppColors.positive,
-        label: '每天可以花',
-        value: left > 0 ? money(left ~/ remaining) : '0',
-        sub: '剩 $remaining 天',
-      ),
-      _Figure(
-        glyph: Glyph.calendar,
-        color: over ? AppColors.negative : AppColors.accent,
-        label: '月底預估',
-        value: passed >= 7 ? money(heading) : '—',
-        valueColor: over && passed >= 7 ? AppColors.negative : null,
-        sub: passed < 7
-            ? '第 7 天起估算'
-            : over
-            ? '會超 ${money(heading - total)}'
-            : '約剩 ${money(total - heading)}',
-      ),
-    ]);
   }
 }
 
@@ -144,8 +153,9 @@ class _Figure extends StatelessWidget {
 /// A category's or tag's allowance as a square: a small ring of the share
 /// used around its icon, 超支 or 快用完, its name, what is left or over,
 /// and used against the allowance.
-class _Limit extends StatelessWidget {
-  const _Limit({
+class BudgetLimit extends StatelessWidget {
+  const BudgetLimit({
+    super.key,
     required this.ledger,
     required this.budget,
     required this.used,
@@ -166,17 +176,22 @@ class _Limit extends StatelessWidget {
     final shade = category?.color;
     final color = shownColor(shade == null ? AppColors.accent : Color(shade));
     final glyph = tag ? Glyph.tag : iconFor(category!.icon);
-    final left = limit - used;
-    final over = left < 0;
-    final near = !over && limit > 0 && used * 100 >= limit * budget.warning;
-    final tone = over ? AppColors.negative : (near ? _nearColor : color);
+    final status = budgetStatus(
+      spent: used,
+      limit: limit,
+      warningPercent: budget.warning,
+    );
+    final look = budgetLook(status);
+    final figure = budgetFigure(status);
     final share = limit == 0 ? 0.0 : (used / limit).clamp(0.0, 1.0);
     final ink = deepOf(color);
+    // The badge is the one mark of 快用完 and 超支: the square keeps its
+    // category's colour and the figure is written as it is.
     return ColorCard(
-      color: over ? AppColors.negative : (near ? _nearColor : color),
+      color: color,
       amount: 0.18,
       onTap: onTap,
-      label: '${budget.category}，${over ? '超支' : '剩'} ${left.abs()}',
+      label: '${budget.category}，${budgetLead(status)} $figure',
       padding: const EdgeInsets.fromLTRB(
         Space.s3,
         Space.s2,
@@ -188,9 +203,9 @@ class _Limit extends StatelessWidget {
         children: [
           _LimitHead(
             share: share,
-            tone: tone,
+            tone: color,
             glyph: glyph,
-            alert: over ? '超支' : (near ? '快用完' : null),
+            alert: status is BudgetWithin ? null : look,
           ),
           const SizedBox(height: Space.s2),
           Text(
@@ -200,18 +215,20 @@ class _Limit extends StatelessWidget {
             style: TextStyle(
               fontSize: TextSize.body,
               fontWeight: FontWeight.w800,
-              color: over ? deepOf(AppColors.negative) : ink,
+              color: ink,
             ),
           ),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              '${over ? '超' : '剩'} ${ledger.orDots(groupDigits(left.abs()))}',
-              style: TextStyle(
+              status is BudgetOver
+                  ? ledger.orDots(groupDigits(figure))
+                  : '${StatusWords.left} ${ledger.orDots(groupDigits(figure))}',
+              style: const TextStyle(
                 fontSize: TextSize.heading,
                 fontWeight: FontWeight.w800,
-                color: over ? AppColors.negative : AppColors.ink,
+                color: AppColors.ink,
               ),
             ),
           ),
@@ -226,7 +243,7 @@ class _Limit extends StatelessWidget {
   }
 }
 
-/// The top of a [_Limit] square: the ring of [share] used around its
+/// The top of a [BudgetLimit] square: the ring of [share] used around its
 /// [glyph], and [alert] (超支 or 快用完) in the corner when there is one.
 class _LimitHead extends StatelessWidget {
   const _LimitHead({
@@ -239,7 +256,7 @@ class _LimitHead extends StatelessWidget {
   final double share;
   final Color tone;
   final Glyph glyph;
-  final String? alert;
+  final StatusLook? alert;
 
   @override
   Widget build(BuildContext context) {
@@ -254,6 +271,8 @@ class _LimitHead extends StatelessWidget {
             children: [
               CircularProgressIndicator(
                 value: share,
+                semanticsLabel: ProgressWords.used,
+                semanticsValue: ratioWholePercent(share),
                 strokeWidth: 4,
                 strokeCap: StrokeCap.round,
                 color: markOf(tone),
@@ -264,26 +283,7 @@ class _LimitHead extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        if (alert != null)
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Space.s2,
-              vertical: Space.half,
-            ),
-            decoration: BoxDecoration(
-              color: tone,
-              borderRadius: BorderRadius.circular(Radii.small),
-            ),
-            child: Text(
-              alert,
-              textScaler: TextScaler.noScaling,
-              style: const TextStyle(
-                fontSize: TextSize.caption,
-                fontWeight: FontWeight.w800,
-                color: AppColors.onAccent,
-              ),
-            ),
-          ),
+        if (alert != null) StatusBadge(alert),
       ],
     );
   }

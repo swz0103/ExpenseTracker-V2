@@ -4,6 +4,8 @@ import 'package:expense_tracker/src/features/reports/model/report.dart';
 import 'package:expense_tracker/src/features/reports/model/report_period.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../../baseline/baseline_ledger.dart';
+
 void main() {
   final ledger = demoLedger();
   final period = ReportPeriod.range(
@@ -20,6 +22,7 @@ void main() {
     entries: ledger.entries,
     reports: ledger.reportService,
     balances: ledger.balanceService,
+    categories: ledger.categories,
     today: ledger.today,
   );
 
@@ -45,7 +48,13 @@ void main() {
     final name = inSeptember
         .firstWhere((e) => e.type == EntryType.expense)
         .category;
-    final (under, total) = Report.spentUnder(name, ledger.entries, period);
+    final (under, total) = Report.spentUnder(
+      name,
+      ledger.entries,
+      period,
+      ledger.today,
+      ledger.categories,
+    );
     final expected = [
       for (final e in inSeptember)
         for (final (category, amount) in e.spendingParts)
@@ -58,9 +67,167 @@ void main() {
     }
   });
 
+  group('F34: the average per month', () {
+    final book = ledgerOf(
+      today: DateTime.utc(2026, 10, 9),
+      categories: [Category('飲食', 'food', 0xFF5C9A83)],
+      entries: [
+        entryOf(
+          'a',
+          DateTime.utc(2026, 8, 10),
+          EntryType.expense,
+          1000,
+          'bank',
+        ),
+        entryOf(
+          's',
+          DateTime.utc(2026, 9, 10),
+          EntryType.expense,
+          2001,
+          'bank',
+        ),
+        entryOf('o', DateTime.utc(2026, 10, 5), EntryType.expense, 500, 'bank'),
+      ],
+    );
+    Report of(ReportPeriod p) => Report.of(
+      p,
+      entries: book.entries,
+      reports: book.reportService,
+      balances: book.balanceService,
+      categories: book.categories,
+      today: book.today,
+    );
+
+    test('counts whole months only, rounded half away from zero', () {
+      // August and September are over: (1,000 + 2,001) / 2 = 1,500.5,
+      // rounded to 1,501. October is under way and left out; counted as
+      // a whole month and truncated it was 3,501 / 3 = 1,167.
+      final r = of(
+        ReportPeriod.range(
+          DateTime.utc(2026, 8, 1),
+          DateTime.utc(2026, 10, 31),
+        ),
+      );
+      expect(r.perStretch, 1501);
+    });
+
+    test('with no whole month, the month so far as it is', () {
+      // Only October, 9 days in: 500 spent so far.
+      final r = of(
+        ReportPeriod.range(
+          DateTime.utc(2026, 10, 1),
+          DateTime.utc(2026, 10, 31),
+        ),
+      );
+      expect(r.perStretch, 500);
+    });
+  });
+
   test('a category nothing was spent under has nothing', () {
-    final (under, total) = Report.spentUnder('沒有這類', ledger.entries, period);
+    final (under, total) = Report.spentUnder(
+      '沒有這類',
+      ledger.entries,
+      period,
+      ledger.today,
+      ledger.categories,
+    );
     expect(under, isEmpty);
     expect(total, 0);
+  });
+
+  group('under a category, its subcategories included (D54)', () {
+    Ledger family() => ledgerOf(
+      today: DateTime.utc(2026, 9, 30),
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 100000)],
+      categories: [
+        Category('飲食', 'food', 0xFF111111),
+        Category('早餐', 'food', 0xFF111111, parent: '飲食'),
+        Category('交通', 'car', 0xFF222222),
+        Category('其他', 'other', 0xFF333333),
+      ],
+      entries: [
+        entryOf(
+          'a',
+          DateTime.utc(2026, 9, 1),
+          EntryType.expense,
+          100,
+          'bank',
+          category: '飲食',
+        ),
+        entryOf(
+          'b',
+          DateTime.utc(2026, 9, 2),
+          EntryType.expense,
+          50,
+          'bank',
+          category: '早餐',
+        ),
+        entryOf(
+          'c',
+          DateTime.utc(2026, 9, 3),
+          EntryType.expense,
+          80,
+          'bank',
+          category: '交通',
+          parts: const [('交通', 60), ('早餐', 20)],
+        ),
+        entryOf(
+          'd',
+          DateTime.utc(2026, 9, 4),
+          EntryType.expense,
+          30,
+          'bank',
+          category: '其他',
+        ),
+      ],
+    );
+    final september = ReportPeriod.range(
+      DateTime.utc(2026, 9, 1),
+      DateTime.utc(2026, 9, 30),
+    );
+
+    test('the report counts a category with its subcategories', () {
+      final l = family();
+      final r = Report.of(
+        september,
+        entries: l.entries,
+        reports: l.reportService,
+        balances: l.balanceService,
+        categories: l.categories,
+        today: l.today,
+      );
+      // 飲食 100 + 早餐 50 + 20 = 170; 交通 60; 其他 30.
+      expect(r.spending, {'飲食': 170, '交通': 60, '其他': 30});
+      expect(r.names, ['飲食', '交通', '其他']);
+      final (under, total) = Report.spentUnder(
+        '飲食',
+        l.entries,
+        september,
+        l.today,
+        l.categories,
+      );
+      expect([for (final e in under) e.id], ['c', 'b', 'a']);
+      expect(total, 170);
+    });
+
+    test('the smallest together are a block of their own, never the '
+        'category called 其他 (D53)', () {
+      final l = family();
+      final r = Report.of(
+        september,
+        entries: l.entries,
+        reports: l.reportService,
+        balances: l.balanceService,
+        categories: l.categories,
+        today: l.today,
+      );
+      final blocks = r.blocks(1);
+      expect(blocks.first, isA<CategoryShare>());
+      final rest = blocks.last as RestShare;
+      // 交通 60 + 其他 30 = 90, 其他 one of them, not the block.
+      expect(rest.amount, 90);
+      expect(rest.names, ['交通', '其他']);
+      expect(r.blocks(3).whereType<RestShare>(), isEmpty);
+    });
   });
 }

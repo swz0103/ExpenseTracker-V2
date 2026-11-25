@@ -39,4 +39,113 @@ void main() {
       25,
     ));
   });
+
+  test('instalments are billed on the days their statements close', () {
+    // Closing on the 20th; the September statement closed on the 18th.
+    final schedule = CardSchedule(
+      closingDay: 20,
+      dueDay: 5,
+      overrides: [
+        CardCycleOverride(
+          scheduledClose: BusinessDate(2026, 9, 20),
+          closesOn: BusinessDate(2026, 9, 18),
+          dueOn: BusinessDate(2026, 10, 5),
+        ),
+      ],
+    );
+    // Bought on 9/14: the statement closing on 9/18 bills the first.
+    expect(installmentBillingDays(schedule, BusinessDate(2026, 9, 14), 3), [
+      BusinessDate(2026, 9, 18),
+      BusinessDate(2026, 10, 20),
+      BusinessDate(2026, 11, 20),
+    ]);
+    // Bought on 9/19, after the moved close: the October statement first.
+    expect(installmentBillingDays(schedule, BusinessDate(2026, 9, 19), 2), [
+      BusinessDate(2026, 10, 20),
+      BusinessDate(2026, 11, 20),
+    ]);
+  });
+
+  group('refunds of a purchase in instalments', () {
+    final schedule = [
+      (BusinessDate(2026, 9, 5), 400),
+      (BusinessDate(2026, 10, 5), 400),
+      (BusinessDate(2026, 11, 5), 400),
+    ];
+
+    test('a full refund cancels what is not billed yet, on its day', () {
+      final changes = refundedInstalments(schedule, [
+        (BusinessDate(2026, 9, 20), 1200),
+      ]);
+      // 800 not billed by 9/20: billed at once, the two later ones gone.
+      expect(changes.single, [
+        (BusinessDate(2026, 9, 20), 800),
+        (BusinessDate(2026, 10, 5), -400),
+        (BusinessDate(2026, 11, 5), -400),
+      ]);
+    });
+
+    test('a partial refund shrinks the later instalments; two halves '
+        'settle it', () {
+      final changes = refundedInstalments(schedule, [
+        (BusinessDate(2026, 9, 20), 300),
+        (BusinessDate(2026, 9, 25), 900),
+      ]);
+      // 300 of the 800 left: 500 shared over 400 and 400 -> 250 each.
+      expect(changes[0], [
+        (BusinessDate(2026, 9, 20), 300),
+        (BusinessDate(2026, 10, 5), -150),
+        (BusinessDate(2026, 11, 5), -150),
+      ]);
+      // The rest, 500, cancelled by the second.
+      expect(changes[1], [
+        (BusinessDate(2026, 9, 25), 500),
+        (BusinessDate(2026, 10, 5), -250),
+        (BusinessDate(2026, 11, 5), -250),
+      ]);
+    });
+
+    test('a refund after the last instalment cancels nothing', () {
+      expect(
+        refundedInstalments(schedule, [(BusinessDate(2026, 12, 1), 1200)]),
+        [<(BusinessDate, int)>[]],
+      );
+    });
+
+    test('refunds are worked through by day, answered in the order given', () {
+      final changes = refundedInstalments(schedule, [
+        (BusinessDate(2026, 10, 20), 400),
+        (BusinessDate(2026, 9, 20), 800),
+      ]);
+      // 9/20 first: 800 of 800 left; nothing is left for 10/20 to cancel.
+      expect(changes[0], isEmpty);
+      expect(changes[1].first, (BusinessDate(2026, 9, 20), 800));
+    });
+  });
+
+  test('nothing in instalments is nothing each month (mutation review 11)', () {
+    expect(installmentShares(0, 3), [0, 0, 0]);
+  });
+
+  test('instalments keep the closing day in effect when they start, '
+      'not today\'s (mutation review 11)', () {
+    // Closing on the 25th until the close of 2028-06-10, on the 10th
+    // since: a purchase of 2028-03-05 starts on the close of 03-25 and
+    // keeps the 25th.
+    final schedule = CardSchedule(
+      closingDay: 10,
+      dueDay: 25,
+      history: [
+        CardScheduleChange(
+          until: BusinessDate(2028, 6, 10),
+          closingDay: 25,
+          dueDay: 10,
+        ),
+      ],
+    );
+    expect(installmentStart(schedule, BusinessDate(2028, 3, 5)), (
+      BusinessDate(2028, 3, 25),
+      25,
+    ));
+  });
 }

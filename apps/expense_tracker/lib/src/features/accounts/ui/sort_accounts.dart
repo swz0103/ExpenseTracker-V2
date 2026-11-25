@@ -1,33 +1,37 @@
-part of 'accounts.dart';
+import 'package:flutter/material.dart';
 
-class _SortAccountsPageState extends State<SortAccountsPage> {
+import '../../../core/design_system/haptics.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import 'accounts.dart';
+
+class SortAccountsPageState extends State<SortAccountsPage> {
   late final _order = walletAccounts(widget.ledger);
-  var _by = _SortBy.hand;
+  var _by = SortAccountsBy.hand;
 
-  void _sortBy(_SortBy by) {
+  void _sortBy(SortAccountsBy by) {
     final ledger = widget.ledger;
     Haptics.selection();
     setState(() {
       _by = by;
       switch (by) {
-        case _SortBy.hand:
+        case SortAccountsBy.hand:
           _order
             ..clear()
             ..addAll(walletAccounts(ledger));
-        case _SortBy.balance:
+        case SortAccountsBy.balance:
           _order.sort(
             (a, b) => ledger.balanceService
                 .worthOf(b)
                 .compareTo(ledger.balanceService.worthOf(a)),
           );
-        case _SortBy.recent:
-          final last = <String, DateTime>{};
-          for (final e in ledger.entries.all) {
-            for (final id in [e.account, ?e.to]) {
-              final seen = last[id];
-              if (seen == null || e.date.isAfter(seen)) last[id] = e.date;
-            }
-          }
+        case SortAccountsBy.recent:
+          final last = ledger.entryQueryService.lastUsedOn;
           final never = DateTime.utc(1);
           _order.sort(
             (a, b) => (last[b.id] ?? never).compareTo(last[a.id] ?? never),
@@ -65,7 +69,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
       ),
       onTap: () {
         _byKind();
-        setState(() => _by = _SortBy.hand);
+        setState(() => _by = SortAccountsBy.hand);
       },
       // 48 dp to tap, with the padding.
       child: ConstrainedBox(
@@ -192,9 +196,9 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
     child: Row(
       children: [
         for (final (i, (by, label)) in const [
-          (_SortBy.hand, '手動'),
-          (_SortBy.balance, '餘額'),
-          (_SortBy.recent, '最近使用'),
+          (SortAccountsBy.hand, '手動'),
+          (SortAccountsBy.balance, '餘額'),
+          (SortAccountsBy.recent, '最近使用'),
         ].indexed) ...[
           if (i > 0) const SizedBox(width: Space.s2),
           Expanded(
@@ -239,7 +243,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
         Haptics.selection();
         setState(() {
           _order.insert(to, _order.removeAt(from));
-          _by = _SortBy.hand;
+          _by = SortAccountsBy.hand;
         });
       },
       footer: _byKindButton(),

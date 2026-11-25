@@ -1,24 +1,33 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../features/entries/forms/composer.dart';
-import '../core/formatting/figures.dart';
+import '../../design_system/display/amount.dart';
 import '../core/design_system/glyphs.dart';
 import '../core/design_system/haptics.dart';
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
+import '../core/ledger/trading.dart' show defaultBrokerDiscount;
+import '../core/widgets/entry_tile.dart' show deleteEntries;
 import '../core/widgets/problem_note.dart';
 import '../core/platform/quick_action.dart';
 import '../core/widgets/tour.dart';
-import '../features/settings/model/platform_services.dart';
+import 'platform_services.dart';
+import '../features/accounts/forms/account_editor.dart'
+    show editLoan, settleAndArchive;
+import '../features/accounts/forms/reconcile_sheet.dart';
 import '../features/accounts/ui/account_page.dart';
 import '../features/accounts/ui/accounts.dart';
 import '../features/budgets/ui/budgets.dart';
 import '../features/accounts/ui/card_page.dart';
 import '../features/categories/ui/categories_page.dart';
 import '../features/debts/ui/debts_page.dart';
+import '../features/debts/ui/person_page.dart';
 import '../features/investments/ui/holding_page.dart';
 import '../features/investments/ui/investments.dart';
+import '../features/tags/ui/tag_page.dart';
 import '../features/tags/ui/tags_page.dart';
 import '../features/entries/ui/entries_page.dart';
 import 'more_page.dart';
@@ -31,6 +40,7 @@ import '../core/widgets/shown_amounts.dart';
 import '../core/design_system/spacing.dart';
 import '../core/design_system/motion.dart';
 import '../core/formatting/words.dart';
+import 'between_frames.dart';
 
 enum _Tab { overview, ledger, accounts, more }
 
@@ -60,7 +70,10 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   var _tab = _Tab.overview;
-  AppRoute? _page;
+
+  /// The page over the tabs. A ledger reopened after a restore was given
+  /// up starts on the page the person left from.
+  late AppRoute? _page = widget.services.takeReturn?.call();
   late var _touring = widget.tour;
 
   /// The places the tour lights.
@@ -115,12 +128,20 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     widget.ledger.problem.addListener(_report);
     widget.services.quick?.addListener(_quickAction);
-    // An action the app was opened with waits for the first frame.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _quickAction());
+    // An action the app was opened with waits for the first frame; so
+    // does answering every stock's holdings, a step between frames, which
+    // the first sale save would otherwise pay for (PERF-3).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _quickAction();
+      unawaited(widget.ledger.entryValidator.prepare(_betweenFrames.next));
+    });
   }
+
+  final _betweenFrames = BetweenFrames();
 
   @override
   void dispose() {
+    _betweenFrames.stop();
     widget.services.quick?.removeListener(_quickAction);
     widget.ledger.problem.removeListener(_report);
     super.dispose();
@@ -175,6 +196,8 @@ class _AppShellState extends State<AppShell> {
       refundOf: refundOf,
       photos: widget.services.receipts,
       scan: widget.services.scanQr,
+      brokerDiscount:
+          widget.services.preferences?.brokerDiscount ?? defaultBrokerDiscount,
     );
     if (result == null || !mounted) return;
     final (outcome, saved) = result;
@@ -183,23 +206,11 @@ class _AppShellState extends State<AppShell> {
       return;
     }
     if (outcome == ComposeOutcome.deleted) {
-      Haptics.medium();
-      // An entry written as one with others goes with them.
-      final removed = ledger.entryCommands.removeAll([
-        for (final e in ledger.entryQueryService.groupOf(saved)) e.id,
-      ]);
-      if (removed.isEmpty) return;
-      showNote(
-        context,
-        '已刪除「${saved.title}」'
-        '${saved.recurring == null ? '' : '，這一期跳過'}',
-        action: '復原',
-        onAction: () => ledger.entryCommands.restoreAll(removed),
-      );
+      deleteEntries(context, ledger, [saved]);
       return;
     }
     // A firmer knock when this put a budget over its allowance.
-    if (_overBudget(saved)) {
+    if (ledger.budgetService.overAfter(saved)) {
       Haptics.medium();
     } else {
       Haptics.light();
@@ -219,10 +230,13 @@ class _AppShellState extends State<AppShell> {
                       ?.realized ??
                   0) -
               (realizedBefore[sold] ?? 0);
+    final note =
+        '${entry == null ? '已記下' : '已更新'}'
+        '${made == null || made == 0 ? '' : ' · 已實現 ${ledger.orDots(signed(made))}'}';
     showNote(
       context,
-      '${entry == null ? '已記下' : '已更新'}'
-      '${made == null || made == 0 ? '' : ' · 已實現 ${ledger.orDots(signed(made))}'}',
+      note,
+      spoken: made == null ? null : ledger.readAloud(note, made),
       action: again ? '再記一筆' : '查看',
       onAction: again
           ? () => _compose(type: saved.type, draft: _again(saved))
@@ -257,7 +271,11 @@ class _AppShellState extends State<AppShell> {
   Widget _morePage(Ledger ledger, MoreDestination page) => switch (page) {
     MoreDestination.reports => ReportsPage(ledger: ledger, nav: _nav),
     MoreDestination.investments => InvestmentsPage(ledger: ledger, nav: _nav),
-    MoreDestination.debts => DebtsPage(ledger: ledger, nav: _nav),
+    MoreDestination.debts => DebtsPage(
+      ledger: ledger,
+      nav: _nav,
+      addLoan: (context) => editLoan(context, ledger),
+    ),
     MoreDestination.budgets => BudgetsPage(ledger: ledger, nav: _nav),
     MoreDestination.recurring => RecurringPage(ledger: ledger, nav: _nav),
     MoreDestination.categories => CategoriesPage(ledger: ledger, nav: _nav),
@@ -294,10 +312,24 @@ class _AppShellState extends State<AppShell> {
     // wherever they are opened from.
     AccountRoute(:final id) || DebtRoute(:final id)
         when ledger.account(id).kind == AccountKind.receivable =>
-      PersonPage(key: ValueKey(page), ledger: ledger, nav: _nav, personId: id),
+      PersonPage(
+        key: ValueKey(page),
+        ledger: ledger,
+        nav: _nav,
+        personId: id,
+        settle: (context, person, left) =>
+            settleAndArchive(context, ledger, person, left: left),
+      ),
     AccountRoute(:final id) || DebtRoute(:final id)
         when ledger.account(id).kind == AccountKind.loan =>
-      LoanPage(key: ValueKey(page), ledger: ledger, nav: _nav, loanId: id),
+      LoanPage(
+        key: ValueKey(page),
+        ledger: ledger,
+        nav: _nav,
+        loanId: id,
+        edit: (context, loan) => editLoan(context, ledger, loan: loan),
+        reconcile: (context, loan) => reconcileAccount(context, ledger, loan),
+      ),
     DebtRoute() => _gone(),
     AccountRoute(:final id) =>
       ledger.account(id).kind == AccountKind.card
@@ -320,12 +352,13 @@ class _AppShellState extends State<AppShell> {
       name: name,
       merchant: merchant,
     ),
-    SettingsRoute(:final part) => SettingsPage(
+    SettingsRoute(:final part, :final sought) => SettingsPage(
       key: ValueKey(page),
       ledger: ledger,
       nav: _nav,
       services: widget.services,
       part: part,
+      sought: sought,
     ),
     HoldingRoute(:final code) => HoldingPage(
       key: ValueKey(page),
@@ -343,35 +376,23 @@ class _AppShellState extends State<AppShell> {
     SectionRoute(:final section) => _morePage(ledger, section),
   };
 
-  /// Whether [saved] left a budget it counts against over its allowance
-  /// for that month.
-  bool _overBudget(Entry saved) {
-    if (saved.type != EntryType.expense) return false;
-    final ledger = widget.ledger;
-    final (year, month) = (saved.date.year, saved.date.month);
-    for (final budget in ledger.budgets.all) {
-      final allowed = ledger.budgetService.allowance(budget, year, month);
-      if (allowed > 0 &&
-          ledger.budgetService.spentAgainst(budget, year, month) > allowed) {
-        final names = {
-          saved.category,
-          ...saved.spendingParts.map((p) => p.$1),
-          ...saved.tags,
-        };
-        if (budget.category == allSpending || names.contains(budget.category)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
   @override
   Widget build(BuildContext context) {
+    widget.services.onPlace?.call(_page);
+    // Back on the first screen (總覽, no page open) leaves the app as the
+    // home button does, on a phone: it stays open behind, so coming back
+    // within the auto-lock time needs no unlocking. Where the app cannot
+    // be put behind, back closes it.
+    final first = _page == null && _tab == _Tab.overview;
+    final leave = widget.services.leave;
     return PopScope(
-      canPop: _page == null && _tab == _Tab.overview,
+      canPop: first && leave == null,
       onPopInvokedWithResult: (popped, _) {
         if (popped) return;
+        if (first) {
+          leave?.call().ignore();
+          return;
+        }
         setState(() {
           if (_page != null) {
             _page = _parent;

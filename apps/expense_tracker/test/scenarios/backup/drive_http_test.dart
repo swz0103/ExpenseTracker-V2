@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:expense_tracker/src/core/platform/bounded_https.dart';
 import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
+import 'package:expense_tracker/src/features/backup/model/restore_sources.dart'
+    show driveNote;
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/fake_drive.dart';
@@ -67,13 +70,15 @@ final class _Offline implements DriveHttp {
     String? text,
     File? file,
     File? saveTo,
+    int? saveLimit,
   }) async => throw const SocketException('Network is unreachable');
 }
 
 void main() {
   late Directory directory;
   late _Server server;
-  const http = IoDriveHttp();
+  // 4 GiB, as the app gives it (LedgerBackup.maxBackupBytes).
+  const http = IoDriveHttp(saveLimit: 4 * 1024 * 1024 * 1024);
 
   setUp(() async {
     directory = Directory.systemTemp.createTempSync('drive-http-');
@@ -111,6 +116,41 @@ void main() {
       );
     });
 
+    test('an answer past the limit is refused (review 22 finding 5)', () async {
+      server.reply = (status: 200, body: 'x' * 100, headers: const {});
+      // 100 bytes against a 64-byte limit.
+      await expectLater(
+        const IoDriveHttp(
+          saveLimit: 64,
+          answerLimit: 64,
+        ).send('GET', server.url('/files')),
+        throwsA(isA<AnswerTooLarge>()),
+      );
+      final into = File('${directory.path}/download.etbk');
+      await expectLater(
+        http.send('GET', server.url('/files/f1'), saveTo: into, saveLimit: 64),
+        throwsA(isA<AnswerTooLarge>()),
+      );
+      // A request allowing more than any backup (4 GiB + 1) is refused
+      // before it is sent.
+      final asked = server.asked.length;
+      await expectLater(
+        http.send(
+          'GET',
+          server.url('/files/f1'),
+          saveTo: into,
+          saveLimit: 4 * 1024 * 1024 * 1024 + 1,
+        ),
+        throwsA(isA<AnswerTooLarge>()),
+      );
+      expect(server.asked, hasLength(asked));
+      // A body saved with no limit given is a mistake of the caller.
+      await expectLater(
+        http.send('GET', server.url('/files/f1'), saveTo: into),
+        throwsArgumentError,
+      );
+    });
+
     test('sends a file as it is', () async {
       final file = File('${directory.path}/backup.etbk')
         ..writeAsBytesSync(List.generate(5000, (i) => i % 251));
@@ -127,7 +167,13 @@ void main() {
     test('a download is written to the file, an error is not', () async {
       final into = File('${directory.path}/restore.etbk');
       server.reply = (status: 200, body: 'the backup', headers: const {});
-      final ok = await http.send('GET', server.url('/files/f1'), saveTo: into);
+      // 10 bytes, exactly the limit.
+      final ok = await http.send(
+        'GET',
+        server.url('/files/f1'),
+        saveTo: into,
+        saveLimit: 10,
+      );
       expect(ok.ok, isTrue);
       expect(into.readAsStringSync(), 'the backup');
 
@@ -137,6 +183,7 @@ void main() {
         'GET',
         server.url('/files/f2'),
         saveTo: into,
+        saveLimit: 10,
       );
       expect(missing.ok, isFalse);
       expect(missing.body, '{"error":{}}');
@@ -157,23 +204,44 @@ void main() {
         throwsA(
           isA<DriveException>()
               .having((e) => e.problem, 'problem', DriveProblem.offline)
-              .having((e) => e.message, 'message', '連不上 Google，請稍後再試'),
+              .having(driveNote, 'as said', '連不上 Google，請稍後再試'),
         ),
       );
     });
 
-    test('a refusal carries Drive\'s own reason', () async {
-      final refusing = _Refusing(403, '{"error":{"message":"Rate limit"}}');
+    test('an answer past its cap or a redirect refused is Drive refusing, '
+        'not the phone offline (review 27 finding 4)', () async {
+      for (final error in [
+        AnswerTooLarge(64, Uri.parse('https://www.googleapis.com/x')),
+        RedirectRefused(Uri.parse('https://elsewhere.example/x')),
+      ]) {
+        await expectLater(
+          drive(_Throwing(error)).list(),
+          throwsA(
+            isA<DriveException>().having(
+              (e) => e.problem,
+              'problem',
+              DriveProblem.refused,
+            ),
+          ),
+        );
+      }
+    });
+
+    test('a refusal carries Drive\'s own reason for the log, never for '
+        'the screen', () async {
+      final refusing = _Refusing(
+        403,
+        '{"error":{"message":"Rate limit for alice@example.com",'
+        '"errors":[{"reason":"rateLimitExceeded"}]}}',
+      );
       await expectLater(
         drive(refusing).list(),
         throwsA(
           isA<DriveException>()
               .having((e) => e.status, 'status', 403)
-              .having(
-                (e) => e.message,
-                'message',
-                'Google 雲端硬碟沒有接受（403 Rate limit）',
-              ),
+              .having((e) => e.detail, 'detail', 'HTTP 403 rateLimitExceeded')
+              .having(driveNote, 'as said', 'Google 雲端硬碟沒有接受這次的要求，可在診斷匯出詳細資料'),
         ),
       );
     });
@@ -201,11 +269,7 @@ void main() {
       await expectLater(
         drive(_Refusing(500, 'Server Error')).list(),
         throwsA(
-          isA<DriveException>().having(
-            (e) => e.message,
-            'message',
-            'Google 雲端硬碟沒有接受（500 ）',
-          ),
+          isA<DriveException>().having((e) => e.detail, 'detail', 'HTTP 500'),
         ),
       );
     });
@@ -221,7 +285,7 @@ void main() {
         throwsA(
           isA<DriveException>()
               .having((e) => e.problem, 'problem', DriveProblem.notAllowed)
-              .having((e) => e.message, 'message', '沒有取得 Google 雲端硬碟的權限'),
+              .having(driveNote, 'as said', '沒有取得 Google 雲端硬碟的權限'),
         ),
       );
       expect(
@@ -256,5 +320,24 @@ final class _Refusing implements DriveHttp {
     String? text,
     File? file,
     File? saveTo,
+    int? saveLimit,
   }) async => DriveResponse(status, body: body);
+}
+
+/// Fails every request with [error].
+final class _Throwing implements DriveHttp {
+  _Throwing(this.error);
+
+  final Exception error;
+
+  @override
+  Future<DriveResponse> send(
+    String method,
+    Uri url, {
+    Map<String, String> headers = const {},
+    String? text,
+    File? file,
+    File? saveTo,
+    int? saveLimit,
+  }) async => throw error;
 }

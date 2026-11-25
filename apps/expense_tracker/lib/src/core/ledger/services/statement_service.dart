@@ -1,3 +1,7 @@
+import 'package:core/foundation_values.dart'
+    show BusinessDate, BusinessDayAnswer, taiwanHolidays;
+import 'package:domain/credit_cards.dart' show CardBillStatus, cardBillStatus;
+
 import '../cache/query_cache.dart';
 import 'tracked_readers.dart';
 import '../card_cycle.dart';
@@ -54,10 +58,24 @@ final class StatementService {
         return (start, end, due);
       }, reads: _cardTopics);
 
+  /// Where the last statement of [card] stands today, as
+  /// [cardBillStatus] decides it: the one answer every screen shows.
+  CardBillStatus billStatus(Account card) {
+    final (_, _, due) = statement(card);
+    final today = _today();
+    return cardBillStatus(
+      owed: statementDue(card),
+      dueOn: BusinessDate.of(due),
+      payBy: payByOf(due).value,
+      today: BusinessDate.of(today),
+    );
+  }
+
   /// What is still to pay on the last statement of [card]: what it owed
-  /// when the statement closed, less what was paid in since.
+  /// when the statement closed, less what was paid in since and by
+  /// today: a 預定 payment pays the bill only once its day comes (D25).
   int statementDue(Account card) => _cache.remember(
-    ('due', card.id, closedBy),
+    ('due', card.id, closedBy, _today()),
     () => _statementDue(card),
     reads: _cardTopics,
   );
@@ -65,7 +83,7 @@ final class StatementService {
   int _statementDue(Account card) {
     final (_, end, _) = statement(card);
     var paid = 0;
-    for (final e in _entries.all) {
+    for (final e in countedOn(_after(card, end), _today())) {
       if (e.type == EntryType.transfer &&
           e.to == card.id &&
           e.date.isAfter(end)) {
@@ -76,9 +94,10 @@ final class StatementService {
   }
 
   /// Purchases on [card] since its last statement closed, and the
-  /// refunds and rewards credited against them.
+  /// refunds and rewards credited against them, that count today
+  /// ([countsOn]): a 預定 purchase joins on its day (D25).
   List<Entry> unbilled(Account card) => _cache.remember(
-    ('unbilled', card.id, closedBy),
+    ('unbilled', card.id, closedBy, _today()),
     () => _unbilled(card),
     reads: _cardTopics,
   );
@@ -90,22 +109,51 @@ final class StatementService {
       EntryType.expense => e.installments < 2,
       _ => false,
     };
-    return [
-      for (final e in _entries.all)
-        if (e.account == card.id && posted(e) && e.date.isAfter(end)) e,
-    ]..sort((a, b) => b.date.compareTo(a.date));
+    // In the order written before the sort, as a pass over the book
+    // found them.
+    return _entries.written([
+      for (final e in countedOn(_after(card, end), _today()))
+        if (e.account == card.id && posted(e)) e,
+    ])..sort((a, b) => b.date.compareTo(a.date));
   }
 
-  /// Purchases on [card] still being paid in instalments.
+  /// The entries paid from or into [card] after [end]: from the index
+  /// the entries keep by account, the days before found by a search.
+  List<Entry> _after(Account card, DateTime end) {
+    // Exception to as-of-today: each caller takes them through countedOn.
+    final entries = _entries.ofAccount(card.id);
+    var low = 0;
+    var high = entries.length;
+    while (low < high) {
+      final middle = (low + high) >> 1;
+      if (entries[middle].date.isAfter(end)) {
+        high = middle;
+      } else {
+        low = middle + 1;
+      }
+    }
+    return entries.sublist(low);
+  }
+
+  /// Purchases on [card] still being paid in instalments, of those that
+  /// count today: a 預定 purchase is paid in nothing yet, one its refunds
+  /// settled is paid.
   List<Entry> instalmentsOn(Account card) => _cache.remember(
     reads: _cardTopics,
-    ('instalments', card.id, closedBy),
-    () => [
-      for (final e in _entries.all)
+    ('instalments', card.id, closedBy, _today()),
+    // In the order written, as a pass over the book found them.
+    () => _entries.written([
+      for (final e in countedOn(_entries.ofAccount(card.id), _today()))
         if (e.account == card.id &&
             e.installments > 1 &&
-            billedPeriods(e, closedBy) < e.installments)
+            _balances.stillToBill(e) > 0)
           e,
-    ],
+    ]),
   );
 }
+
+/// When a statement due on [due] can be paid by: [due], or the next
+/// business day on Taiwan's calendar when it falls on a day off (banks
+/// take payment then without a late fee). Late is counted from here.
+BusinessDayAnswer<BusinessDate> payByOf(DateTime due) =>
+    taiwanHolidays.onOrAfter(BusinessDate.of(due));

@@ -1,17 +1,24 @@
+import 'package:domain/data_exchange.dart'
+    show FileText, TextRead, TextUnreadable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../../accounts/forms/account_editor.dart';
 import '../../../core/widgets/entry_tile.dart';
 import '../../../core/widgets/pickers.dart';
+import '../../../core/widgets/problem_note.dart';
 import '../../../core/design_system/glyphs.dart';
+import '../../../core/formatting/words.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../model/import_export.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/done_messages.dart';
+import '../../../core/messages/import_messages.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 
@@ -27,7 +34,7 @@ Future<void> importInto(
   BuildContext context,
   Ledger ledger, {
   bool invoices = false,
-  Future<String?> Function()? readFile,
+  Future<FileText?> Function()? readFile,
 }) async {
   if (!await ensureAccount(context, ledger) || !context.mounted) return;
   await openFullScreen<void>(
@@ -50,7 +57,7 @@ class _ImportPage extends StatefulWidget {
 
   final Ledger ledger;
   final bool invoices;
-  final Future<String?> Function()? readFile;
+  final Future<FileText?> Function()? readFile;
 
   @override
   State<_ImportPage> createState() => _ImportPageState();
@@ -80,13 +87,20 @@ class _ImportPageState extends State<_ImportPage> {
     return (home.isEmpty ? open : home).first.id;
   }
 
-  void _read() {
+  /// Which read is the latest: one finished after a later one began is
+  /// not shown.
+  var _reading = 0;
+
+  Future<void> _read() async {
     final ledger = widget.ledger;
+    final reading = ++_reading;
+    final found = widget.invoices
+        ? importInvoices(importBookOf(ledger), _text, account: _account)
+        : await importCsvApart(importBookOf(ledger), _text, fallback: _account);
+    if (!mounted || reading != _reading) return;
     setState(() {
       _left.clear();
-      _found = widget.invoices
-          ? importInvoices(importBookOf(ledger), _text, account: _account)
-          : importCsv(importBookOf(ledger), _text, fallback: _account);
+      _found = found;
     });
   }
 
@@ -99,22 +113,27 @@ class _ImportPageState extends State<_ImportPage> {
       return;
     }
     _text = text;
-    _read();
+    await _read();
   }
 
   /// Reads a file the person chooses.
-  Future<void> _pickFile(Future<String?> Function() readFile) async {
-    final String? text;
+  Future<void> _pickFile(Future<FileText?> Function() readFile) async {
+    final FileText? read;
     try {
-      text = await readFile();
+      read = await readFile();
     } on Object catch (error) {
       ErrorLog.instance.record('讀取匯入檔', error);
-      if (mounted) showNote(context, '讀不到這個檔案，請確認是 UTF-8 的文字檔');
+      if (mounted) showNote(context, importUnreadableFileWords);
       return;
     }
-    if (text == null || !mounted) return;
-    _text = text;
-    _read();
+    if (read == null || !mounted) return;
+    switch (read) {
+      case TextUnreadable():
+        showNote(context, importUnreadableFileWords);
+      case TextRead(:final text):
+        _text = text;
+        await _read();
+    }
   }
 
   Future<void> _pickAccount() async {
@@ -132,7 +151,7 @@ class _ImportPageState extends State<_ImportPage> {
     );
     if (picked == null || !mounted) return;
     _account = picked;
-    _read();
+    await _read();
   }
 
   /// What is ticked of what was read.
@@ -148,8 +167,17 @@ class _ImportPageState extends State<_ImportPage> {
   void _add() {
     final chosen = _chosen;
     if (chosen == null || chosen.entries.isEmpty) return;
-    addImport(widget.ledger.entryCommands, chosen);
-    showNote(context, '已匯入 ${chosen.entries.length} 筆紀錄');
+    // What the ledger refuses, such as a sale of shares not held by then,
+    // is said here and nothing is added.
+    late final Undo undo;
+    if (!refusalShown(
+      context,
+      () => undo = addImport(widget.ledger.entryCommands, chosen),
+    )) {
+      return;
+    }
+    // Told with 復原, which takes the import back, not asked first (D82).
+    showUndo(context, DoneWords.imported(chosen.entries.length), undo);
     Navigator.of(context).pop();
   }
 
@@ -182,7 +210,9 @@ class _ImportPageState extends State<_ImportPage> {
             const Text(duplicateRules, style: mutedSmall),
           ],
         ),
-        actions: [PanelButton('知道了', onTap: () => Navigator.of(context).pop())],
+        actions: [
+          PanelButton(Words.gotIt, onTap: () => Navigator.of(context).pop()),
+        ],
       ),
     );
   }
@@ -256,9 +286,7 @@ class _ImportPageState extends State<_ImportPage> {
         ),
         const SizedBox(height: Space.s3),
         Text(
-          widget.invoices
-              ? '財政部「消費明細」的 CSV 或載具的 M／D 行都可以，記過的發票不會重複。'
-              : '本 App 匯出的 CSV 可以完整匯回；沒有的帳戶與分類會自動新增。',
+          widget.invoices ? importInvoicesHint : importCsvHint,
           style: mutedSmall,
         ),
       ],
@@ -337,7 +365,7 @@ class _ImportPageState extends State<_ImportPage> {
                   ),
                 ),
                 Text(
-                  '${found.entries.length} 筆',
+                  countOf(found.entries.length, CountUnit.entries),
                   style: const TextStyle(
                     fontSize: TextSize.figure,
                     fontWeight: FontWeight.w800,
@@ -433,6 +461,12 @@ class _ImportPageState extends State<_ImportPage> {
   Widget _row(Entry e, int i) {
     final ledger = widget.ledger;
     final ticked = !_left.contains(i);
+    // Its category, and whether its worth at home is an estimate (D123).
+    final detail = [
+      if (e.category.isNotEmpty) e.category,
+      if (_found?.estimated[e.id] case final found?)
+        importEstimatedWords(found),
+    ];
     return QuoteRow(
       onTap: () => _toggle(i),
       lead: TickSwitch(
@@ -450,9 +484,10 @@ class _ImportPageState extends State<_ImportPage> {
         else
           e.title,
       ].join(' · '),
-      detail: e.category.isEmpty ? null : e.category,
+      detail: detail.isEmpty ? null : detail.join(' · '),
       trailing: RowFigure(
         entryAmount(e, currency: ledger.account(e.account).currency),
+        spoken: entrySpoken(e, currency: ledger.account(e.account).currency),
         color: ticked ? entryTone(e) : AppColors.faint,
       ),
     );
@@ -469,7 +504,7 @@ class _ImportPageState extends State<_ImportPage> {
         Space.s4,
       ),
       child: PanelButton(
-        count == 0 ? '沒有勾選的紀錄' : '匯入 $count 筆',
+        count == 0 ? '沒有勾選的紀錄' : '匯入 ${countOf(count, CountUnit.entries)}',
         color: count == 0 ? null : _color,
         onTap: count == 0 ? null : _add,
       ),
@@ -514,13 +549,25 @@ class _BigChoice extends StatelessWidget {
   );
 }
 
-/// What an import reads from [ledger].
-ImportBook importBookOf(Ledger ledger) => ImportBook(
-  accounts: ledger.accounts,
-  categories: ledger.categories,
-  entries: ledger.entries,
-  entryQueryService: ledger.entryQueryService,
-  entryValidator: ledger.entryValidator,
-  marketData: ledger.marketData,
-  newId: ledger.newId,
-);
+/// What an import reads from [ledger], its trash walked once.
+ImportBook importBookOf(Ledger ledger) {
+  final ids = <String>{};
+  final groups = <String>{};
+  for (final t in ledger.trash.all) {
+    ids.add(t.entry.id);
+    if (t.entry.group case final group?) groups.add(group);
+  }
+  return ImportBook(
+    accounts: ledger.accounts,
+    recurring: ledger.recurring,
+    inTrash: ids.contains,
+    groupInTrash: groups.contains,
+    categories: ledger.categories,
+    entries: ledger.entries,
+    entryQueryService: ledger.entryQueryService,
+    entryValidator: ledger.entryValidator,
+    marketData: ledger.marketData,
+    today: ledger.today,
+    newId: ledger.newId,
+  );
+}

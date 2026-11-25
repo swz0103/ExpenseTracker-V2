@@ -1,6 +1,31 @@
-part of 'reports.dart';
+import 'dart:ui' as ui;
 
-class _ReportsPageState extends State<ReportsPage> {
+import 'package:flutter/material.dart';
+
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
+
+import '../../../core/charts/period_charts.dart';
+import '../../../../design_system/display/amount.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/entry_tile.dart';
+import 'compare_section.dart';
+import '../model/report.dart';
+import '../model/report_period.dart';
+import 'report_blocks.dart';
+import 'report_habits.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/diagnostics/error_log.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import '../../../core/messages/problem_messages.dart';
+import 'reports.dart';
+
+class ReportsPageState extends State<ReportsPage> {
   late var _period = ReportPeriod.of(ReportSpan.year, widget.ledger.today);
   int? _stretch;
 
@@ -46,7 +71,7 @@ class _ReportsPageState extends State<ReportsPage> {
       if (saved && mounted) showNote(context, '已存成圖片');
     } on Object catch (error) {
       ErrorLog.instance.record('存成圖片', error);
-      if (mounted) showNote(context, '沒有存成圖片：${ErrorLog.describe(error)}');
+      if (mounted) showNote(context, problemNote('沒有存成圖片', error));
     }
   }
 
@@ -56,7 +81,7 @@ class _ReportsPageState extends State<ReportsPage> {
     final kept = _report;
     if (kept != null && _reportFor == key) return kept;
     _reportFor = key;
-    return _report = _reportOf(ledger, _period);
+    return _report = reportOf(ledger, _period);
   }
 
   /// Moves to [period]; the stretch and category picked in the last one
@@ -96,7 +121,14 @@ class _ReportsPageState extends State<ReportsPage> {
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
     return ListenableBuilder(
-      listenable: ledger,
+      // Sums of the entries, by account and category, with holdings valued at
+      // market prices.
+      listenable: ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.categories,
+        Topic.market,
+      }),
       builder: (context, _) {
         final report = _current;
         final period = _period;
@@ -192,6 +224,7 @@ class _ReportsPageState extends State<ReportsPage> {
         : buckets[selected];
     return switch (_tab) {
       0 => Sections([
+        ?reportPlannedRow(ledger, report),
         for (final w in _flow(
           report,
           buckets,
@@ -205,7 +238,7 @@ class _ReportsPageState extends State<ReportsPage> {
       1 => Sections([
         if (biggest != null && expense > 0)
           TitleRow(
-            '最大分類 $biggest ${report.spending[biggest]! * 100 ~/ expense}%',
+            '最大分類 $biggest ${wholePercent(report.spending[biggest]!, expense)}',
             trailing: const Text('點分類看紀錄', style: mutedSmall),
           ),
         section(null, _mix(report)),
@@ -338,7 +371,7 @@ class _ReportsPageState extends State<ReportsPage> {
   );
 
   /// The period's net worth at its start and end and the change, and
-  /// that past stock values are estimated at today's prices.
+  /// what past stock values are priced at (D58).
   List<Widget> _worthChange(Report report) {
     final ledger = widget.ledger;
     final change = report.worthNow - report.worthBefore;
@@ -354,6 +387,7 @@ class _ReportsPageState extends State<ReportsPage> {
           ),
           Text(
             ledger.orDots(signed(change)),
+            semanticsLabel: ledger.spoken(change),
             style: TextStyle(
               fontWeight: FontWeight.w800,
               color: AppColors.ofChange(change),
@@ -364,7 +398,7 @@ class _ReportsPageState extends State<ReportsPage> {
       if (ledger.holdings.all.isNotEmpty)
         const Padding(
           padding: EdgeInsets.only(top: Space.s1),
-          child: Text('過去的股票市值以今日股價估算', style: mutedSmall),
+          child: Text('過去的股票市值以當天或之前最近的收盤價計算，無紀錄時用今日股價', style: mutedSmall),
         ),
     ];
   }
@@ -397,9 +431,12 @@ class _ReportsPageState extends State<ReportsPage> {
         '存下',
         income <= 0
             ? ledger.moneySigned(kept)
-            : '${ledger.moneySigned(kept)}（收入的 ${(kept * 100 / income).round()}%）',
+            : '${ledger.moneySigned(kept)}（收入的 ${wholePercent(kept, income)}）',
       ),
-      ('記帳', '${report.days} 天、${report.count} 筆'),
+      (
+        '記帳',
+        '${countOf(report.days, CountUnit.days)}、${countOf(report.count, CountUnit.entries)}',
+      ),
       if (busiest != null)
         ('花最多的月份', '${busiest.label} 月 ${ledger.money(busiest.expense)}'),
       if (biggest != null)
@@ -408,7 +445,8 @@ class _ReportsPageState extends State<ReportsPage> {
           '${formatMd(biggest.date)} ${biggest.title} '
               '${ledger.money(biggest.spending)}',
         ),
-      if (merchant != null) ('最常去', '${merchant.$1}（${merchant.$2} 次）'),
+      if (merchant != null)
+        ('最常去', '${merchant.$1}（${countOf(merchant.$2, CountUnit.times)}）'),
     ];
     return [
       const TitleRow('年度總結'),
@@ -451,7 +489,15 @@ class _ReportsPageState extends State<ReportsPage> {
   List<Widget> _mix(Report report) {
     if (report.names.isEmpty) return const [];
     return [
-      LayoutBuilder(builder: (context, box) => _treemap(context, box, report)),
+      LayoutBuilder(
+        builder: (context, box) => reportTreemap(
+          context,
+          box,
+          widget.ledger,
+          report,
+          onCategory: _showCategory,
+        ),
+      ),
       const Padding(
         padding: EdgeInsets.only(top: Space.s2, left: Space.s1),
         child: Text('▲▼ 是跟去年同期比', style: mutedSmall),
@@ -459,88 +505,10 @@ class _ReportsPageState extends State<ReportsPage> {
     ];
   }
 
-  /// The [count] largest categories of [report], with what each spent a
-  /// year before, and the rest together as 其他.
-  static List<(String, int, int?)> _blocksOf(Report report, int count) {
-    final names = report.names;
-    final spending = report.spending;
-    final rest = names
-        .skip(count)
-        .fold(0, (sum, n) => sum + (spending[n] ?? 0));
-    return [
-      for (final n in names.take(count))
-        (n, spending[n] ?? 0, report.lastSpending[n]),
-      if (rest > 0) ('其他', rest, null),
-    ];
-  }
-
-  /// The categories of [report] as blocks sized by what they spent, [box]
-  /// wide. As many of the largest as get a block big enough to read, the
-  /// rest together: on a small phone or with large text, fewer blocks.
-  Widget _treemap(BuildContext context, BoxConstraints box, Report report) {
-    final names = report.names;
-    final ledger = widget.ledger;
-    final spending = report.spending;
-    final expense = report.expense;
-    final scale = textGrowth(context);
-    final width = box.maxWidth;
-    // What a block needs: its name with the share over its amount.
-    final minWidth = 84 * scale;
-    final minHeight = 56 * scale;
-    final base = width * 0.82;
-    var height = base;
-    var blocks = _blocksOf(report, names.length);
-    var rects = <Rect>[];
-    // Taller first, then fewer blocks: a category merged into 其他
-    // only when no height up to half again more makes room for it.
-    search:
-    for (var count = min(7, names.length); count >= 1; count--) {
-      blocks = _blocksOf(report, count);
-      for (final stretch in const [1.0, 1.2, 1.4, 1.6]) {
-        height = base * stretch;
-        rects = treemapLayout([
-          for (final b in blocks) b.$2,
-        ], Rect.fromLTWH(0, 0, width, height));
-        if (rects.every(
-          (r) => r.width - 8 >= minWidth && r.height - 8 >= minHeight,
-        )) {
-          break search;
-        }
-      }
-    }
-    return SizedBox(
-      height: height,
-      child: Stack(
-        children: [
-          for (final (i, (name, amount, last)) in blocks.indexed)
-            if (i < rects.length)
-              Positioned.fromRect(
-                rect: rects[i].deflate(4),
-                child: CategoryBlock(
-                  ledger: ledger,
-                  category: name == '其他' && !spending.containsKey('其他')
-                      ? _restBlock()
-                      : ledger.category(name),
-                  amount: amount,
-                  share: expense == 0 ? 0 : amount * 100 ~/ expense,
-                  change: last == null || last == 0
-                      ? null
-                      : (amount - last) * 100 ~/ last,
-                  large: i == 0,
-                  onTap: name == '其他' && !spending.containsKey('其他')
-                      ? null
-                      : () => _showCategory(name),
-                ),
-              ),
-        ],
-      ),
-    );
-  }
-
   /// The period's entries spent under [name], in a sheet; each opens.
   Future<void> _showCategory(String name) {
     final ledger = widget.ledger;
-    final (entries, total) = Report.spentUnder(name, ledger.entries, _period);
+    final (entries, total) = reportSpentUnder(ledger, name, _period);
     return showSheet<void>(
       context,
       (context) => ConstrainedBox(
@@ -560,7 +528,7 @@ class _ReportsPageState extends State<ReportsPage> {
               ),
             ),
             Text(
-              '${_period.title} · ${entries.length} 筆 · ${ledger.money(total)}',
+              '${_period.title} · ${countOf(entries.length, CountUnit.entries)} · ${ledger.money(total)}',
               textAlign: TextAlign.center,
               style: mutedSmall,
             ),

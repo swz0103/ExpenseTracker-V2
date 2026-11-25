@@ -6,6 +6,7 @@ import '../../../core/platform/preferences.dart';
 import '../model/overview_blocks.dart';
 import '../../../core/navigation/nav.dart';
 import 'sections/assets_section.dart';
+import 'sections/card_due_section.dart';
 import 'sections/daily_section.dart';
 import 'sections/flow_section.dart';
 import 'sections/market_section.dart';
@@ -98,7 +99,7 @@ class _OverviewPageState extends State<OverviewPage> {
     if (preferences == null) return _page();
     // The blocks follow the order and choice kept in the preferences.
     return ListenableBuilder(
-      listenable: preferences,
+      listenable: preferences.watch(const {PreferenceTopic.overview}),
       builder: (context, _) => _page(),
     );
   }
@@ -109,7 +110,9 @@ class _OverviewPageState extends State<OverviewPage> {
     return HeadedList(
       padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
       header: ListenableBuilder(
-        listenable: ledger,
+        // The month switch reads only the day, told with every change of the
+        // book, as with one of the entries.
+        listenable: ledger.watch(const {Topic.entries}),
         builder: (context, _) => PageHeader(
           '總覽',
           trailing: MonthSwitch(
@@ -124,6 +127,12 @@ class _OverviewPageState extends State<OverviewPage> {
           key: widget.summaryKey,
           child: SummarySection(ledger: ledger, month: _month),
         ),
+        CardDueSection(
+          changes: ledger.watch(const {Topic.entries, Topic.accounts}),
+          accounts: ledger.accounts,
+          statements: ledger.statementService,
+          nav: widget.nav,
+        ),
         for (final (:block, :shown) in blocksFrom(preferences?.overview))
           if (shown) _block(block),
       ],
@@ -133,7 +142,9 @@ class _OverviewPageState extends State<OverviewPage> {
 
 /// What the home-screen widget is written from in [ledger].
 WidgetBook widgetBookOf(Ledger ledger) => WidgetBook(
-  changes: ledger,
+  // The 隱藏金額 switch too: the widget keeps no amount while it is on.
+  changes: Listenable.merge([ledger, ledger.amounts]),
+  amountsHidden: () => ledger.amounts.hidden,
   clock: () => ledger.today,
   reportService: ledger.reportService,
   budgets: ledger.budgets,

@@ -123,12 +123,12 @@ void main() {
         item('phone', 10),
       ],
     );
-    expect(ledger.recurringCommands.bookDue(), 1);
+    expect(ledger.recurringCommands.bookDue().booked, 1);
     final rent = ledger.entries.all.single;
     expect((rent.recurring, rent.date), ('rent', DateTime.utc(2026, 10, 1)));
     expect(ledger.balanceService.balance('bank'), 49000);
     // Booked already; the gym is confirmed by hand, the phone not due.
-    expect(ledger.recurringCommands.bookDue(), 0);
+    expect(ledger.recurringCommands.bookDue().booked, 0);
     expect(ledger.recurringService.due.map((r) => r.id), ['gym']);
   });
 }

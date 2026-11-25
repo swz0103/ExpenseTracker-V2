@@ -109,7 +109,14 @@ void main() {
     );
     final ledger = book(entries: [buy, sell]);
     expect(ledger.entryCommands.remove('buy'), isNull);
-    expect(ledger.problem.value, isA<SharesShort>());
+    expect(
+      ledger.problem.value,
+      isA<RecordRefused>().having(
+        (r) => r.first,
+        'first',
+        isA<SaleExceedsHolding>().having((i) => i.later, 'later', true),
+      ),
+    );
     expect(ledger.entries.all, hasLength(2));
     expect(ledger.trash.all, isEmpty);
     await ledger.settled;
@@ -314,7 +321,7 @@ void main() {
       holding: '2330',
       shares: -10,
     );
-    expect(() => ledger.entryCommands.add(cut), throwsStateError);
+    expect(() => ledger.entryCommands.add(cut), throwsA(isA<RecordRefused>()));
     expect(ledger.entries.all, isEmpty);
     // A book that already holds one still opens, without it.
     final kept = book(entries: [cut]);

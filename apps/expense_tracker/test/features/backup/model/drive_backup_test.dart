@@ -57,6 +57,165 @@ void main() {
     );
   });
 
+  test('a download is capped at the size Drive gives for the file, and '
+      'one past it or of no size is refused, not offline, and leaves no '
+      'file (review 27 findings 2 and 4)', () async {
+    final client = drive();
+    await client.upload(backup('記帳本-1.etbk', 'one'), ledger: 'L1');
+    final id = (await client.list()).single.id;
+    final into = File('${directory.path}/restore.etbk');
+    // The answer is 3 bytes; Drive says 2.
+    http.sizeSaid[id] = '2';
+    await expectLater(
+      client.download(id, into),
+      throwsA(
+        isA<DriveException>().having(
+          (e) => e.problem,
+          'problem',
+          DriveProblem.refused,
+        ),
+      ),
+    );
+    expect(into.existsSync(), isFalse);
+    // Asked for the size first, then the body with that limit.
+    expect(
+      [for (final s in http.sent.reversed.take(2)) s.url.queryParameters],
+      [
+        {'alt': 'media'},
+        {'fields': 'size'},
+      ],
+    );
+    http.sizeSaid[id] = null;
+    await expectLater(
+      client.download(id, into),
+      throwsA(
+        isA<DriveException>()
+            .having((e) => e.problem, 'problem', DriveProblem.refused)
+            .having((e) => e.detail, 'detail', 'no size'),
+      ),
+    );
+    http.sizeSaid[id] = '3';
+    await client.download(id, into);
+    expect(into.readAsStringSync(), 'one');
+  });
+
+  test('a size already known from the listing bounds the download without '
+      'asking Drive; 0 asks as before (review 29)', () async {
+    final client = drive();
+    await client.upload(backup('記帳本-1.etbk', 'one'), ledger: 'L1');
+    final listed = (await client.list()).single;
+    final into = File('${directory.path}/restore.etbk');
+    var before = http.sent.length;
+    await client.download(listed.id, into, size: listed.size);
+    expect(into.readAsStringSync(), 'one');
+    // The body only: no size asked for.
+    expect(
+      [for (final s in http.sent.skip(before)) s.url.queryParameters],
+      [
+        {'alt': 'media'},
+      ],
+    );
+    // Known as 2 for an answer of 3 bytes: refused at that bound.
+    await expectLater(
+      client.download(listed.id, into, size: 2),
+      throwsA(
+        isA<DriveException>().having(
+          (e) => e.problem,
+          'problem',
+          DriveProblem.refused,
+        ),
+      ),
+    );
+    expect(into.existsSync(), isFalse);
+    // Not given (0): Drive is asked first.
+    before = http.sent.length;
+    await client.download(listed.id, into, size: 0);
+    expect(
+      [for (final s in http.sent.skip(before)) s.url.queryParameters],
+      [
+        {'fields': 'size'},
+        {'alt': 'media'},
+      ],
+    );
+  });
+
+  test('a backup goes only to Google\'s own upload address (SEC-13)', () async {
+    final client = drive();
+    http.uploadAt = 'https://uploads.example.org';
+    await expectLater(
+      client.upload(backup('記帳本-1.etbk', 'one'), ledger: 'L1'),
+      throwsA(
+        isA<DriveException>().having(
+          (e) => e.problem,
+          'problem',
+          DriveProblem.refused,
+        ),
+      ),
+    );
+    expect(
+      http.sent.where((s) => s.url.host == 'uploads.example.org'),
+      isEmpty,
+    );
+    expect(http.kept, isEmpty);
+    expect(
+      DriveBackup.isGoogleUpload(
+        Uri.parse('https://www.googleapis.com/upload/drive/v3/files?x=1'),
+      ),
+      isTrue,
+    );
+    for (final other in [
+      'http://www.googleapis.com/upload',
+      'https://googleapis.com.example.org/upload',
+      'https://evilgoogleapis.com/upload',
+    ]) {
+      expect(
+        DriveBackup.isGoogleUpload(Uri.parse(other)),
+        isFalse,
+        reason: other,
+      );
+    }
+  });
+
+  test('linking learns which Google account it is (F90)', () async {
+    final preferences = Preferences();
+    final sync = DriveSync(
+      drive(),
+      preferences,
+      withBackup: (use, {withPhotos = true}) =>
+          use(backup('記帳本-1.etbk', 'one')),
+      revision: () => 1,
+      ledger: 'L1',
+    );
+    addTearDown(sync.dispose);
+    expect(sync.account, isNull);
+    await sync.link();
+    expect(sync.account, 'me@example.com');
+    await sync.unlink();
+    expect(sync.account, isNull);
+  });
+
+  test('a backup sent through DriveSync is marked with the key epoch now, '
+      'listed and moved to the trash by it (D15)', () async {
+    var epoch = 1;
+    final sync = DriveSync(
+      drive(),
+      Preferences(),
+      withBackup: (use, {withPhotos = true}) =>
+          use(backup('記帳本-1.etbk', 'one')),
+      revision: () => 1,
+      ledger: 'L1',
+      epoch: () => epoch,
+    );
+    addTearDown(sync.dispose);
+    await sync.backUpNow();
+    epoch = 2;
+    await sync.backUpNow();
+    final listed = await sync.backups();
+    expect([for (final f in listed) f.epoch], ['2', '1']);
+    await sync.trash(listed.last.id);
+    expect([for (final f in await sync.backups()) f.epoch], ['2']);
+  });
+
   test("only the newest five of this ledger's backups are kept", () async {
     final client = drive();
     // Another ledger's backups, and ones from before backups were marked,
@@ -76,6 +235,29 @@ void main() {
     expect(http.files.values.where((f) => f.trashed), hasLength(2));
     // A restore lists every backup in the folder.
     expect(await client.list(), hasLength(12));
+  });
+
+  test('every page of the folder is listed, not only the first', () async {
+    final client = drive();
+    await client.upload(backup('記帳本-0.etbk', '0'), ledger: 'L1');
+    // 100 a page: 230 more makes 231, three pages (100 + 100 + 31).
+    for (var i = 0; i < 230; i++) {
+      http.seed('舊-$i.etbk', ledger: 'L1', epoch: 1);
+    }
+    expect(DriveBackup.pageSize, 100);
+    // Only the listing below: the upload's own clean-up listed too.
+    http.sent.clear();
+    final listed = await client.list(ledger: 'L1');
+    expect(listed, hasLength(231));
+    expect({for (final f in listed) f.id}, hasLength(231));
+    final asked = [
+      for (final s in http.sent)
+        if (s.method == 'GET' &&
+            s.url.path == '/drive/v3/files' &&
+            !s.url.queryParameters['q']!.contains('mimeType'))
+          s.url.queryParameters['pageToken'],
+    ];
+    expect(asked, [null, '100', '200']);
   });
 
   test('a failed cleanup does not undo the upload', () async {
@@ -128,8 +310,8 @@ void main() {
     var now = DateTime.utc(2026, 10, 1);
     var revision = 1;
     final sentPhotos = <bool>[];
-    final preferences = Preferences(
-      file: File('${directory.path}/preferences.json'),
+    final preferences = await Preferences.open(
+      File('${directory.path}/preferences.json'),
     );
     var written = 0;
     final sync = DriveSync(
@@ -172,7 +354,10 @@ void main() {
     expect(sentPhotos, [false, false, true]);
 
     // Kept for the next start.
-    final again = Preferences(file: File('${directory.path}/preferences.json'));
+    await preferences.saved;
+    final again = await Preferences.open(
+      File('${directory.path}/preferences.json'),
+    );
     expect(again.driveLinked, isTrue);
     expect(again.drivePhotos, isTrue);
     expect(again.driveRevision, 3);
@@ -195,8 +380,8 @@ void main() {
   test(
     'a second ledger screen does not send a backup while one goes up',
     () async {
-      final preferences = Preferences(
-        file: File('${directory.path}/preferences.json'),
+      final preferences = await Preferences.open(
+        File('${directory.path}/preferences.json'),
       );
       final hold = Completer<void>();
       DriveSync make() => DriveSync(
@@ -231,8 +416,8 @@ void main() {
 
   test('a backup with the photos waits for Wi-Fi; the ledger alone does '
       'not', () async {
-    final preferences = Preferences(
-      file: File('${directory.path}/preferences.json'),
+    final preferences = await Preferences.open(
+      File('${directory.path}/preferences.json'),
     );
     var wifi = false;
     final sync = DriveSync(

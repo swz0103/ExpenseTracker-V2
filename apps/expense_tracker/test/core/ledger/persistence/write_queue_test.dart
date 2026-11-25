@@ -29,9 +29,13 @@ final class _Source implements LedgerDataSource {
     kept.add([for (final e in batch.entries) e.id].join(','));
   }
 
+  /// Held by a test to make [load] take time.
+  Completer<void>? loadHold;
+
   @override
   Future<Ledger> load() async {
     loads++;
+    await loadHold?.future;
     if (failLoad) throw const DataSourceException('unreadable');
     return fresh;
   }
@@ -119,16 +123,43 @@ void main() {
     expect(reloaded, hasLength(1));
   });
 
-  test('a change made while the book is read is not lost', () async {
-    source.failNext = 1;
-    queue.enqueue(one('1'));
-    // Enqueued before the first has finished: its own turn comes first,
-    // so the read-back waits until it has been kept as well.
-    queue.enqueue(one('2'));
-    await queue.settled;
-    expect(source.kept, ['2']);
-    expect(source.loads, 1);
-  });
+  test(
+    'a change queued behind a refused one is kept before the read-back',
+    () async {
+      source.failNext = 1;
+      queue.enqueue(one('1'));
+      // Enqueued before the first has finished: its own turn comes first,
+      // so the read-back waits until it has been kept as well.
+      queue.enqueue(one('2'));
+      await queue.settled;
+      expect(source.kept, ['2']);
+      expect(source.loads, 1);
+    },
+  );
+
+  test(
+    'a change made while the book is being read back brings another read',
+    () async {
+      // DAT-02: 1 is refused, so the book is read back; 2 is made while
+      // that read is still going. The read is dropped as older than 2, so
+      // once 2 is kept the book must be read again: the screens still
+      // show 1, which never reached the data source.
+      final reading = Completer<void>();
+      source.loadHold = reading;
+      source.failNext = 1;
+      queue.enqueue(one('1'));
+      // Let 1 be refused and the read-back begin.
+      await pumpEventQueue();
+      expect(source.loads, 1);
+      queue.enqueue(one('2'));
+      reading.complete();
+      source.loadHold = null;
+      await queue.settled;
+      expect(source.kept, ['2']);
+      expect(source.loads, 2);
+      expect(reloaded, [fresh]);
+    },
+  );
 
   test('a book that cannot be read back is reported and tried again', () async {
     source.failNext = 1;
@@ -172,5 +203,18 @@ void main() {
     queue.enqueue(one('2'));
     await queue.settled;
     expect(source.kept, ['2']);
+  });
+
+  test('the refusals are counted, so a wait can tell whether all was '
+      'kept', () async {
+    expect(queue.refused, 0);
+    queue.enqueue(one('1'));
+    await queue.settled;
+    expect(queue.refused, 0);
+    source.failNext = 1;
+    queue.enqueue(one('2'));
+    queue.enqueue(one('3'));
+    await queue.settled;
+    expect(queue.refused, 1);
   });
 }

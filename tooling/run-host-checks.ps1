@@ -16,6 +16,13 @@ $checks = @(
     @{ Path = 'tooling/rules'; Dirs = @('bin', 'lib', 'test') },
     @{ Path = 'packages/core'; Dirs = @('lib', 'test'); Coverage = $true },
     @{ Path = 'packages/domain'; Dirs = @('lib', 'test'); Coverage = $true },
+    @{ Path = 'packages/kernel'; Dirs = @('lib', 'test'); Coverage = $true },
+    @{ Path = 'packages/ledger/entries'; Dirs = @('lib', 'test'); Coverage = $true },
+    @{ Path = 'modules/loans'; Dirs = @('lib', 'test'); Coverage = $true },
+    @{ Path = 'packages/ledger/postings'; Dirs = @('lib', 'test'); Coverage = $true },
+    @{ Path = 'packages/ledger/trade_costs'; Dirs = @('lib', 'test'); Coverage = $true },
+    # The screens' contribution points: a Flutter package without timing gates.
+    @{ Path = 'packages/shell'; Dirs = @('lib', 'test'); Flutter = $true; NoTiming = $true; Coverage = $true },
     @{ Path = 'infrastructure/storage'; Dirs = @('lib', 'bin', 'test'); Workers = @('bin/crash_worker.dart'); Coverage = $true },
     @{ Path = 'infrastructure/vault'; Dirs = @('lib', 'test'); Coverage = $true },
     @{ Path = 'infrastructure/market'; Dirs = @('lib', 'test'); Coverage = $true },
@@ -41,6 +48,10 @@ function Invoke-CheckCommand {
         throw "$Executable $($Arguments -join ' ') failed with exit code $LASTEXITCODE."
     }
 }
+
+# Packages whose timing gates could not be judged here (the host too busy):
+# skipped, not passed, and named in the last line.
+$inconclusive = @()
 
 # Sequential execution avoids native worker/DLL locks on Windows.
 foreach ($check in $selected) {
@@ -83,14 +94,35 @@ foreach ($check in $selected) {
         }
         $testArguments = @('test', '--reporter', 'expanded')
         # The app's coverage is read by class and function afterwards
-        # (tooling/architecture_checks/bin/declaration_coverage.dart).
-        if ($isFlutter) { $testArguments += @('--concurrency=1', '--coverage') }
+        # (tooling/architecture_checks/bin/declaration_coverage.dart). Its
+        # timing gates (tag `timing`, dart_test.yaml) are left to the step
+        # below, so the rest runs at the default concurrency.
+        if ($isFlutter) { $testArguments += @('--exclude-tags', 'timing', '--coverage') }
         # Line coverage per package, held to tooling/coverage_floors.json by
         # tooling/architecture_checks/bin/check_coverage.dart.
         if ($check.ContainsKey('Coverage')) { $testArguments += @('--coverage-path=coverage/lcov.info') }
         Invoke-CheckCommand $driver $testArguments
+        if ($isFlutter -and -not $check.ContainsKey('NoTiming')) {
+            # The timing gates, one file at a time and without coverage
+            # (which slows code and distorts the ratios they judge); on a
+            # host too busy to judge they fail under CI, saying so, and are
+            # skipped loudly elsewhere (test/support/held.dart).
+            $timingArguments = @('test', '--reporter', 'expanded', '--tags', 'timing', '--concurrency=1')
+            # Shown as it runs, and kept to look for INCONCLUSIVE after.
+            $timingOutput = @(& $driver @timingArguments | ForEach-Object { Write-Host $_; "$_" })
+            if ($LASTEXITCODE -ne 0) {
+                throw "$driver $($timingArguments -join ' ') failed with exit code $LASTEXITCODE."
+            }
+            if (@($timingOutput | Where-Object { $_ -match 'INCONCLUSIVE' }).Count -gt 0) {
+                $inconclusive += $check.Path
+            }
+        }
     } finally {
         Pop-Location
     }
 }
-Write-Host "Passed all selected host checks ($($selected.Count) packages). Device and cloud gates are separate."
+if ($inconclusive.Count -gt 0) {
+    Write-Host "INCONCLUSIVE: the timing gates of $($inconclusive -join ', ') were skipped, the host too busy to judge them; every other selected host check passed ($($selected.Count) packages). Run them again on a quiet machine: flutter test --tags timing --concurrency=1"
+} else {
+    Write-Host "Passed all selected host checks ($($selected.Count) packages). Device and cloud gates are separate."
+}

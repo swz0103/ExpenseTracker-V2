@@ -1,5 +1,9 @@
-import '../../formatting/amounts.dart';
+import 'package:core/foundation_values.dart' show Currency;
+import 'package:core/money/amount_format.dart' as amount_format show figures;
+
 import '../cache/query_cache.dart';
+import '../cache/topic.dart';
+import 'month_tallies.dart';
 import 'tracked_readers.dart';
 import '../models/models.dart';
 import '../repositories/account_repository.dart';
@@ -18,6 +22,9 @@ final class EntryQueryService {
        _accounts = TrackedAccountReader(accounts, _cache);
 
   final EntryReader _entries;
+
+  /// The whole-book counts, a month at a time.
+  late final _tallies = MonthTallies(_entries);
   final AccountReader _accounts;
   final QueryCache _cache;
   final DateTime Function() _today;
@@ -33,43 +40,92 @@ final class EntryQueryService {
     ...e.tags,
   ].join('\n').toLowerCase();
 
+  /// The last day each account was used on, as the one an entry is of or
+  /// the one it moves money to, among the entries that count today; an
+  /// account never used is not in it. Worked out once per change of the
+  /// entries and per day.
+  Map<String, DateTime> get lastUsedOn => _cache.remember((
+    'lastUsedOn',
+    _today(),
+  ), () => _tallies.lastUsedOn(_today()));
+
   /// Entries of any month whose note, merchant, category or tags hold
   /// [words], or whose amount is [words]; newest first.
-  List<Entry> search(String words) =>
-      _cache.remember(('search', words), () => _search(words));
+  List<Entry> search(String words) => _cache.remember(
+    ('search', words),
+    () => _search(words),
+    reads: const {Topic.entries, Topic.accounts},
+  );
+
+  /// The words last searched for and what they found.
+  (String, List<Entry>)? _last;
+
+  /// Each month's search text, kept with the month's list it was made
+  /// from: a change makes a new list of the months it touches only, so a
+  /// search after a save works out the text of those months alone.
+  static final _texts = Expando<_MonthText>('searchText');
 
   List<Entry> _search(String words) {
     final lower = words.toLowerCase();
-    // Each entry's words, lower-cased once per change.
-    final texts = _cache.remember(
-      'searchText',
-      () => [for (final e in _entries.all) _wordsOf(e)],
-    );
-    // Each account's currency, looked up once rather than per entry.
-    final currencies = {for (final a in _accounts.all) a.id: a.currency};
-    final found = [
-      for (final (i, e) in _entries.all.indexed)
-        if (texts[i].contains(lower) ||
-            '${e.amount}' == words ||
-            plainIn(e.amount, currencies[e.account] ?? homeCode) == words)
-          (i, e),
-    ];
-    found.sort((a, b) {
-      final byDate = b.$2.date.compareTo(a.$2.date);
-      return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
-    });
-    return [for (final (_, e) in found) e];
+    final last = _last;
+    final List<Entry> found;
+    if (last != null &&
+        _cache.readsOf(('search', last.$1)) != null &&
+        lower.contains(last.$1.toLowerCase()) &&
+        !_amountLike.hasMatch(words)) {
+      // Typing on, with nothing changed since: whatever text holds the
+      // longer words holds the words before, and these cannot be an
+      // amount, so what they find is among what those found.
+      found = [
+        for (final e in last.$2)
+          if (_wordsOf(e).contains(lower)) e,
+      ];
+    } else {
+      // Each account's currency, looked up once rather than per entry.
+      final currencies = {for (final a in _accounts.all) a.id: a.currency};
+      final scales = [
+        for (final MapEntry(:key, :value) in currencies.entries)
+          '$key:${Currency.scaleOf(value)}',
+      ].join('\n');
+      final amount = _amountLike.hasMatch(words);
+      found = [];
+      // Exception to as-of-today: a search runs over every entry written.
+      // Newest month first, each newest first: the order shown.
+      for (final month in _entries.newestMonths) {
+        final text = _texts[month] ??= _MonthText(month);
+        final texts = text.words;
+        if (!amount) {
+          for (var i = 0; i < month.length; i++) {
+            if (texts[i].contains(lower)) found.add(month[i]);
+          }
+          continue;
+        }
+        final (plain, figures) = text.amounts(currencies, scales);
+        for (var i = 0; i < month.length; i++) {
+          if (texts[i].contains(lower) ||
+              plain[i] == words ||
+              figures[i] == words) {
+            found.add(month[i]);
+          }
+        }
+      }
+    }
+    _last = (words, found);
+    return found;
   }
 
-  /// Known merchants, most used first.
-  List<String> get merchants => _cache.remember('merchants', _merchants);
+  /// Words that could be an amount as written, in whole or with decimals.
+  static final _amountLike = RegExp(r'^[\d.,\-−]*$');
+
+  /// Known merchants, most used first: a 預定 entry is a use once its
+  /// day comes ([countsOn]), and its merchant is known from the start.
+  List<String> get merchants =>
+      _cache.remember(('merchants', _today()), _merchants);
 
   List<String> _merchants() {
-    final counts = <String, int>{};
-    for (final e in _entries.all) {
-      if (e.merchant.isEmpty) continue;
-      counts[e.merchant] = (counts[e.merchant] ?? 0) + 1;
-    }
+    // Every merchant written is offered to pick, in the order first
+    // written; only the uses that count are counted.
+    final counts = _tallies.merchantUses(_today());
     return counts.keys.toList()
       ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
   }
@@ -77,101 +133,104 @@ final class EntryQueryService {
   /// The category last used with [merchant], if any.
   String? categoryAt(String merchant) => lastAt(merchant)?.category;
 
-  /// The latest spending at [merchant], if any: what a new entry there
-  /// starts from (its category and account).
-  Entry? lastAt(String merchant) => _cache.remember('lastAt', () {
-    final latest = <String, Entry>{};
-    for (final e in _entries.all) {
-      if (e.merchant.isEmpty || e.type != EntryType.expense) continue;
-      final kept = latest[e.merchant];
-      if (kept == null || !e.date.isBefore(kept.date)) latest[e.merchant] = e;
+  /// The latest spending at [merchant] that counts today ([countsOn]), if
+  /// any: what a new entry there starts from (its category and account).
+  /// A 預定 entry is not the latest until its day.
+  Entry? lastAt(String merchant) => _cache.remember((
+    'lastAt',
+    _today(),
+  ), () => _tallies.latestSpending(_today()))[merchant];
+
+  /// How far back what was done lately reaches: [usual], [usualTransfers].
+  static const _recent = Duration(days: 90);
+
+  /// The entries that count today from [_recent] ago, alike under [keyOf]
+  /// (null leaves one out) at least [least] times, the most often first,
+  /// at most [most]: each as its latest, of the latest day the last
+  /// written. Read from the months they fall in, not the whole book; as
+  /// often, in the order each was first written.
+  List<Entry> _alike<K extends Object>(
+    K? Function(Entry e) keyOf, {
+    required int least,
+    required int most,
+  }) {
+    final today = _today();
+    final found = <K, _Alike>{};
+    for (final (e, place) in _tallies.lately(today.subtract(_recent), today)) {
+      final key = keyOf(e);
+      if (key == null) continue;
+      final kept = found[key];
+      if (kept == null) {
+        found[key] = _Alike(e, place);
+      } else {
+        kept.add(e, place);
+      }
     }
-    return latest;
-  })[merchant];
+    final keys = [
+      for (final MapEntry(:key, :value) in found.entries)
+        if (value.count >= least) key,
+    ]..sort((a, b) => found[a]!.first.compareTo(found[b]!.first));
+    keys.sort((a, b) => found[b]!.count.compareTo(found[a]!.count));
+    return [for (final key in keys.take(most)) found[key]!.latest];
+  }
 
   /// Spending recorded alike at least three times in the last 90 days
   /// (the same category, merchant and account), the most often first, at
   /// most [most]: each as its latest entry, which 記一筆 offers to start
   /// from with one tap.
   ///
-  /// With [income], income instead, refunds left out.
+  /// With [income], income instead, refunds left out. Only entries that
+  /// count today ([countsOn]): a 預定 entry is not recent.
   List<Entry> usual({int most = 6, bool income = false}) =>
       _cache.remember(('usual', _today(), most, income), () {
-        final since = _today().subtract(const Duration(days: 90));
-        final counts = <(String, String, String), int>{};
-        final latest = <(String, String, String), Entry>{};
         final kind = income ? EntryType.income : EntryType.expense;
-        for (final e in _entries.all) {
-          if (e.type != kind ||
-              e.refundOf != null ||
-              e.date.isBefore(since) ||
-              e.parts.isNotEmpty ||
-              e.installments > 1 ||
-              e.home != null) {
-            continue;
-          }
-          final key = (e.category, e.merchant, e.account);
-          counts[key] = (counts[key] ?? 0) + 1;
-          final kept = latest[key];
-          if (kept == null || !e.date.isBefore(kept.date)) latest[key] = e;
-        }
-        final keys = [
-          for (final MapEntry(:key, :value) in counts.entries)
-            if (value >= 3) key,
-        ]..sort((a, b) => counts[b]!.compareTo(counts[a]!));
-        return [for (final key in keys.take(most)) latest[key]!];
+        return _alike(
+          (e) =>
+              e.type != kind ||
+                  e.refundOf != null ||
+                  e.parts.isNotEmpty ||
+                  e.installments > 1 ||
+                  e.home != null
+              ? null
+              : (e.category, e.merchant, e.account),
+          least: 3,
+          most: most,
+        );
       });
 
   /// Transfers made alike again and again lately, the most made first:
   /// the same two accounts and amount, two times or more in 90 days.
-  /// Money lent and paid back has its own tab and is left out.
-  List<Entry> usualTransfers({int most = 4}) =>
-      _cache.remember(('usualTransfers', _today(), most), () {
-        final since = _today().subtract(const Duration(days: 90));
-        final counts = <(String, String, int), int>{};
-        final latest = <(String, String, int), Entry>{};
-        for (final e in _entries.all) {
-          final to = e.to;
-          if (e.type != EntryType.transfer ||
-              to == null ||
-              e.date.isBefore(since) ||
-              _accounts.resolve(e.account).kind == AccountKind.receivable ||
-              _accounts.resolve(to).kind == AccountKind.receivable) {
-            continue;
-          }
-          final key = (e.account, to, e.amount);
-          counts[key] = (counts[key] ?? 0) + 1;
-          final kept = latest[key];
-          if (kept == null || !e.date.isBefore(kept.date)) latest[key] = e;
-        }
-        final keys = [
-          for (final MapEntry(:key, :value) in counts.entries)
-            if (value >= 2) key,
-        ]..sort((a, b) => counts[b]!.compareTo(counts[a]!));
-        return [for (final key in keys.take(most)) latest[key]!];
-      });
+  /// Money lent and paid back has its own tab and is left out, and so is
+  /// a 預定 transfer ([countsOn]), which is not recent.
+  List<Entry> usualTransfers({int most = 4}) => _cache.remember(
+    ('usualTransfers', _today(), most),
+    () => _alike(
+      (e) => switch (e.to) {
+        final to?
+            when e.type == EntryType.transfer &&
+                _accounts.resolve(e.account).kind != AccountKind.receivable &&
+                _accounts.resolve(to).kind != AccountKind.receivable =>
+          (e.account, to, e.amount),
+        _ => null,
+      },
+      least: 2,
+      most: most,
+    ),
+  );
 
   /// Every entry written as one with [entry]: a spending first, then
   /// what was paid in it for others; [entry] alone when it has no group.
   List<Entry> groupOf(Entry entry) {
     final group = entry.group;
     if (group == null) return [entry];
-    final all = _cache.remember('groups', () {
-      final groups = <String, List<Entry>>{};
-      for (final e in _entries.all) {
-        final key = e.group;
-        if (key != null) (groups[key] ??= []).add(e);
-      }
-      for (final members in groups.values) {
-        members.sort(
-          (a, b) => (a.type == EntryType.expense ? 0 : 1).compareTo(
-            b.type == EntryType.expense ? 0 : 1,
-          ),
-        );
-      }
-      return groups;
-    });
-    return all[group] ?? [entry];
+    // Exception to as-of-today: a group's members are looked up, 預定 or not.
+    final members = _entries.inGroup(group);
+    if (members.isEmpty) return [entry];
+    return [...members]..sort(
+      (a, b) => (a.type == EntryType.expense ? 0 : 1).compareTo(
+        b.type == EntryType.expense ? 0 : 1,
+      ),
+    );
   }
 
   /// The entry that stands for its group in a list: the spending, or the
@@ -183,10 +242,25 @@ final class EntryQueryService {
       entry.group != null && groupLead(entry).id != entry.id;
 
   /// Every trade and dividend of [code], newest first.
-  List<Entry> tradesOf(String code) => [
-    for (final e in _entries.all)
-      if (e.holding == code) e,
-  ]..sort((a, b) => b.date.compareTo(a.date));
+  List<Entry> tradesOf(String code) =>
+      // Exception to as-of-today: a holding's list shows every trade, 預定
+      // ones marked.
+      [...tradesInBookOrder(code)]..sort(newestFirst(_entries));
+
+  /// Every entry of [code] (its trades and dividends) in the order the
+  /// book keeps them, which is how a replay orders those of one day:
+  /// read from the stock's index, which follows each change.
+  List<Entry> tradesInBookOrder(String code) =>
+      // Exception to as-of-today: every one written; the caller takes
+      // them through countedOn.
+      _entries.ofHolding(code);
+
+  /// The spending [refund] gives back, while the book holds it; null for
+  /// an entry that is not a refund, or none.
+  Entry? originalOf(Entry? refund) => switch (refund?.refundOf) {
+    final String id => _entries.byId(id),
+    null => null,
+  };
 
   /// How much of [original] has been refunded.
   int refunded(Entry original) => original.amount - refundable(original);
@@ -194,4 +268,62 @@ final class EntryQueryService {
   /// How much of [original] is left to refund.
   int refundable(Entry original) =>
       original.amount - _entries.refundedTotal(original.id);
+}
+
+/// Entries found alike: how many, the latest (of the latest day, the last
+/// written) and where the first of them was written.
+final class _Alike {
+  _Alike(this.latest, int place) : _latestPlace = place, first = place;
+
+  var count = 1;
+  Entry latest;
+  int _latestPlace;
+  int first;
+
+  void add(Entry e, int place) {
+    count++;
+    if (e.date.isAfter(latest.date) ||
+        (e.date == latest.date && place > _latestPlace)) {
+      latest = e;
+      _latestPlace = place;
+    }
+    if (place < first) first = place;
+  }
+}
+
+/// A month's entries as a search reads them, in the month's order: each
+/// one's words lower-cased, and, once words that could be an amount are
+/// searched for, its amount written plainly and in its currency's
+/// figures; worked out once for the month's list.
+final class _MonthText {
+  _MonthText(this._month)
+    : words = [for (final e in _month) EntryQueryService._wordsOf(e)];
+
+  final List<Entry> _month;
+  final List<String> words;
+
+  /// Each amount, plainly and in figures, with the accounts' currencies'
+  /// scales they were written in.
+  (String, List<String>, List<String>)? _amounts;
+
+  /// Each entry's amount, plainly and in its currency's figures, as
+  /// [scales] (each account's) write them.
+  (List<String>, List<String>) amounts(
+    Map<String, String> currencies,
+    String scales,
+  ) {
+    final kept = _amounts;
+    if (kept != null && kept.$1 == scales) return (kept.$2, kept.$3);
+    final plain = [for (final e in _month) '${e.amount}'];
+    final figures = [
+      for (final e in _month)
+        amount_format.figures(
+          e.amount,
+          Currency.scaleOf(currencies[e.account] ?? homeCode),
+          grouped: false,
+        ),
+    ];
+    _amounts = (scales, plain, figures);
+    return (plain, figures);
+  }
 }

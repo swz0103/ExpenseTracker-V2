@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../design_system/theme.dart';
+import '../diagnostics/error_log.dart';
+import '../diagnostics/error_steps.dart';
 
 /// Blurs everything the app shows, sheets and dialogs included, while it
 /// is off the screen, so the recent apps list shows no amount. Put above
@@ -46,8 +48,9 @@ class _PrivacyCoverState extends State<PrivacyCover>
           _covered = false;
         });
       }
-    } on Object {
+    } on Object catch (error, stack) {
       // Kept blurring: the safe way when the phone cannot say.
+      ErrorLog.instance.record(ErrorSteps.screenPrivacy, error, stack);
     }
   }
 

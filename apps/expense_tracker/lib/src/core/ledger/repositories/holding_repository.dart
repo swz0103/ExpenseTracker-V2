@@ -1,7 +1,26 @@
+import 'package:core/money/price.dart' show timesPrice;
+import 'package:domain/investments.dart' show HoldingStatus, holdingStatus;
+
 import 'dart:collection';
 
 import '../models/models.dart';
 import '../portfolio.dart';
+
+/// The holdings split by [holdingStatus]: the one filter every list and
+/// count of holdings uses.
+extension HoldingsByStatus on HoldingReader {
+  /// The stocks with shares still held.
+  List<Holding> get held => [
+    for (final h in all)
+      if (holdingStatus(h.shares) == HoldingStatus.held) h,
+  ];
+
+  /// The stocks sold to the last share, kept for their history.
+  List<Holding> get soldOut => [
+    for (final h in all)
+      if (holdingStatus(h.shares) == HoldingStatus.soldOut) h,
+  ];
+}
 
 /// What the screens and queries may ask of the holdings.
 abstract interface class HoldingReader {
@@ -12,6 +31,11 @@ abstract interface class HoldingReader {
 
   /// The holding of [code]; null when none is held or quoted.
   Holding? byCode(String code);
+
+  /// Every stock held from the start or traded, as the trades leave it,
+  /// those [all] does not list included: what the journal's postings are
+  /// compared with.
+  List<Holding> get every;
 
   /// Whether [code] has a fetched close, rather than the price it was last
   /// bought at standing in for one.
@@ -27,9 +51,53 @@ abstract interface class HoldingReader {
   /// The shares of [code] held at the end of [day], in today's shares.
   int sharesOn(String code, DateTime day);
 
+  /// [shares] of [code] as held at the end of [day], in today's shares:
+  /// scaled by the splits and reductions since, as [sharesOn] is.
+  int inTodaysShares(String code, DateTime day, int shares);
+
+  /// The shares of [code] held at the end of [day], as counted that day.
+  int sharesCountedOn(String code, DateTime day);
+
+  /// [shares] of [code] as counted at the end of [day], in the shares of
+  /// the earlier day [of], whose close values them (D58): the splits and
+  /// reductions after [of] up to [day] undone; those before the later
+  /// day the close was [fetchedOn], when it was, counted as in it (D123).
+  int inSharesOf(
+    String code,
+    DateTime day,
+    int shares,
+    DateTime of, {
+    DateTime? fetchedOn,
+  });
+
+  /// How many times the shares of [code] were multiplied by the splits,
+  /// stock dividends and capital reductions the book holds after [day]
+  /// (all, with no day); null when it holds none (D101).
+  double? reshapedBy(String code, DateTime? day);
+
+  /// The stock [code] as the trades leave it, sold out or not: what a
+  /// day it was held is valued by (D105); null when never held.
+  Holding? everByCode(String code);
+
+  /// What selling [shares] of [code] would cost after the trades of
+  /// [entries] alone, from the starting positions: the lots held then,
+  /// not today. Null when fewer shares were held.
+  int? saleCostWith(
+    List<Entry> entries,
+    String code,
+    int shares, {
+    bool average = false,
+  });
+
   /// Whether [entries] can be the book's: none of their trades sells more
   /// shares than are held by then.
   bool holdsWith(List<Entry> entries);
+
+  /// [holdsWith] of [kept], a list never changed once made (a stock's
+  /// entries as `EntryReader.ofHolding` hands them out): answered once
+  /// for each such list, until the starting positions change or a book
+  /// is read again.
+  bool holdsWithKept(List<Entry> kept);
 
   /// What the holdings are worth at their reference closes.
   int get marketValue;
@@ -51,13 +119,20 @@ abstract interface class HoldingReader {
 /// and the holdings replayed from them and the trades. The screens see a
 /// [HoldingReader].
 final class HoldingRepository implements HoldingReader {
-  /// [_moveOf] gives a stock's change per share on its last trading day;
-  /// the holdings are replayed by [replay] before they are first read.
-  HoldingRepository(Iterable<Holding> start, {required this._moveOf})
-    : _start = [...start];
+  /// [_moveOf] gives a stock's change per share on its last trading day
+  /// and [_quoteDayOf] that day, so shares bought after it are not counted
+  /// in its change; the holdings are replayed by [replay] before they are
+  /// first read.
+  HoldingRepository(
+    Iterable<Holding> start, {
+    required this._moveOf,
+    DateTime? Function(String code)? quoteDayOf,
+  }) : _start = [...start],
+       _quoteDayOf = quoteDayOf ?? ((_) => null);
 
   final List<Holding> _start;
   final double? Function(String code) _moveOf;
+  final DateTime? Function(String code) _quoteDayOf;
   Portfolio? _portfolio;
   List<Holding>? _withChanges;
 
@@ -68,16 +143,26 @@ final class HoldingRepository implements HoldingReader {
   List<Holding> get start => List.unmodifiable(_start);
 
   @override
+  List<Holding> get every => _replayed.every;
+
+  @override
   List<Holding> get all => UnmodifiableListView(
     // Built anew rather than changed, so a view handed out stays as it was.
     _withChanges ??= [
       for (final h in _replayed.holdings)
         if (_moveOf(h.code) case final move?)
-          h.withChange(timesPrice(h.shares, move))
+          h.withChange(timesPrice(_sharesOnQuoteDay(h), move))
         else
           h,
     ],
   );
+
+  /// The shares of [h] held at the end of its quote's trading day: those
+  /// bought later did not move with it.
+  int _sharesOnQuoteDay(Holding h) => switch (_quoteDayOf(h.code)) {
+    final day? => _replayed.sharesOn(h.code, day),
+    null => h.shares,
+  };
 
   @override
   Holding? byCode(String code) {
@@ -108,6 +193,10 @@ final class HoldingRepository implements HoldingReader {
   @override
   List<Lot> lotsOf(String code) => _replayed.lotsOf(code);
 
+  /// The trades the holdings leave out, by id: sales and reductions an
+  /// older version let take more shares than were held.
+  List<String> get leftOut => _replayed.leftOut;
+
   @override
   int saleCost(String code, int shares, {bool average = false}) =>
       _replayed.saleCost(code, shares, average: average);
@@ -116,22 +205,109 @@ final class HoldingRepository implements HoldingReader {
   int sharesOn(String code, DateTime day) => _replayed.sharesOn(code, day);
 
   @override
-  bool holdsWith(List<Entry> entries) {
-    try {
-      Portfolio.replay(_start, entries);
-      return true;
-    } on StateError {
-      // A book that would leave a sale short of shares is refused.
-      return false;
+  int inTodaysShares(String code, DateTime day, int shares) =>
+      _replayed.inTodaysShares(code, day, shares);
+
+  @override
+  int sharesCountedOn(String code, DateTime day) =>
+      _replayed.sharesCountedOn(code, day);
+
+  @override
+  int inSharesOf(
+    String code,
+    DateTime day,
+    int shares,
+    DateTime of, {
+    DateTime? fetchedOn,
+  }) => _replayed.inSharesOf(code, day, shares, of, fetchedOn: fetchedOn);
+
+  @override
+  double? reshapedBy(String code, DateTime? day) =>
+      _replayed.reshapedBy(code, day);
+
+  @override
+  Holding? everByCode(String code) {
+    for (final h in every) {
+      if (h.code == code) return h;
     }
+    return null;
+  }
+
+  @override
+  int? saleCostWith(
+    List<Entry> entries,
+    String code,
+    int shares, {
+    bool average = false,
+  }) {
+    final then = Portfolio.replay(_start, entries, lenient: true);
+    var held = 0;
+    for (final h in then.holdings) {
+      if (h.code == code) held = h.shares;
+    }
+    if (shares > held) return null;
+    return then.saleCost(code, shares, average: average);
+  }
+
+  @override
+  bool holdsWith(List<Entry> entries) => _newlyShort(entries) == null;
+
+  @override
+  bool holdsWithKept(List<Entry> kept) => _kept[kept] ??= holdsWith(kept);
+
+  /// What [holdsWithKept] answered, by list.
+  var _kept = Expando<bool>();
+
+  /// The trades an old book let take more shares than were held, left out
+  /// as it was read ([replay] with `lenient`): kept as they are, never
+  /// held against a later change (D47). Any other short trade is.
+  final _tolerated = <String>{};
+
+  /// The first trade of [entries], in date order, short of shares that
+  /// the book did not already hold short as it was read; null when none.
+  Entry? _newlyShort(List<Entry> entries) {
+    final short = Portfolio.replay(_start, entries, lenient: true).leftOut;
+    for (final id in short) {
+      if (!_tolerated.contains(id)) {
+        return entries.firstWhere((e) => e.id == id);
+      }
+    }
+    return null;
   }
 
   /// Works the holdings out again from the starting positions and the
-  /// trades of [entries]. An oversold trade throws a [StateError] and
-  /// leaves the holdings as they were; with [lenient], as for a book just
-  /// read, it is left out instead.
-  void replay(List<Entry> entries, {bool lenient = false}) {
-    _portfolio = Portfolio.replay(_start, entries, lenient: lenient);
+  /// trades of [entries] that count on [today] ([countsOn]): a trade an
+  /// old book dated later, written before such trades were refused (D70),
+  /// joins on its day, when the ledger's day check replays again. An oversold
+  /// trade throws a [StateError] and leaves the holdings as they were,
+  /// one dated later included, so no change leaves a later sale short;
+  /// with [lenient], as for a book just read, it is left out instead, and
+  /// stays left out by every later replay ([_tolerated]): a change beside
+  /// it is held only to the trades it makes short itself.
+  void replay(
+    List<Entry> entries, {
+    required DateTime today,
+    bool lenient = false,
+  }) {
+    if (lenient) return adopt(readHoldings(_start, entries, today));
+    if (_newlyShort(entries) case final short?) {
+      // Every trade, the later ones too, must hold together; an old
+      // book's short trade, left out as it was read, stays left out.
+      throw OversoldTrade(short);
+    }
+    final counted = countedOn(entries, today).toList();
+    _portfolio = Portfolio.replay(_start, counted, lenient: true);
+    _withChanges = null;
+  }
+
+  /// Takes [read] as the holdings: a book read elsewhere ([readHoldings],
+  /// on the book's worker as it opens, D51), as [replay] with `lenient`.
+  void adopt(ReadHoldings read) {
+    _tolerated
+      ..clear()
+      ..addAll(read.tolerated);
+    _kept = Expando<bool>();
+    _portfolio = read.portfolio;
     _withChanges = null;
   }
 
@@ -142,6 +318,35 @@ final class HoldingRepository implements HoldingReader {
     _start
       ..clear()
       ..addAll(copy);
+    _kept = Expando<bool>();
     _withChanges = null;
   }
+}
+
+/// The holdings of a book just read, the trades it held short, and those
+/// it could not work in at all ([Portfolio.faulty]), with what they threw.
+typedef ReadHoldings = ({
+  Portfolio portfolio,
+  Set<String> tolerated,
+  Map<String, Object> faulty,
+});
+
+/// The holdings of a book just read: replayed from [start] and the trades
+/// of [entries] that count on [today], every short trade left out; and
+/// those, kept as they are from then on ([HoldingRepository.adopt]). Pure
+/// values, so the book's worker works them out as it opens (D51).
+ReadHoldings readHoldings(
+  List<Holding> start,
+  List<Entry> entries,
+  DateTime today,
+) {
+  final all = Portfolio.replay(start, entries, lenient: true);
+  final counted = countedOn(entries, today).toList();
+  return (
+    portfolio: counted.length == entries.length
+        ? all
+        : Portfolio.replay(start, counted, lenient: true),
+    tolerated: {...all.leftOut},
+    faulty: all.faulty,
+  );
 }

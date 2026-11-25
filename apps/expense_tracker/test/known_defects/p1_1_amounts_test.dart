@@ -1,4 +1,5 @@
 // Work package 1.1: one amount type for parsing, showing and reading out.
+// Fixed in 1.1; kept as regression tests of the findings.
 import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/widgets/entry_tile.dart';
@@ -11,14 +12,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../baseline/baseline_ledger.dart';
 import '../support/places.dart';
-import 'known_defect.dart';
 
 void main() {
   testWidgets(
     'F107: a spending row is read out as spending, not by its minus sign',
     (tester) async {
       final handle = tester.ensureSemantics();
-      addTearDown(handle.dispose);
       final ledger = ledgerOf(
         today: day(2026, 10, 4),
         accounts: const [Account('bank', '銀行', AccountKind.bank, 100000)],
@@ -43,8 +42,8 @@ void main() {
       );
       // A screen reader says it is spending, and how much.
       expect(find.bySemanticsLabel(RegExp('支出.*1,844')), findsWidgets);
+      handle.dispose();
     },
-    skip: knownDefect('F107', '1.1') != null,
   );
 
   test('IMP-04: an amount written as .5 does not abort the whole import', () {
@@ -60,7 +59,7 @@ void main() {
     );
     // The good line is read, whatever becomes of the odd one.
     expect(found!.entries.map((e) => e.amount), contains(40));
-  }, skip: knownDefect('IMP-04', '1.1'));
+  });
 
   testWidgets(
     'F78: a month spent 0.3% over its total budget says 超支, not 100%',
@@ -89,7 +88,6 @@ void main() {
       ];
       expect(texts[texts.lastIndexOf('11 月') + 1], '超支');
     },
-    skip: knownDefect('F78', '1.1') != null,
   );
 
   test(
@@ -102,6 +100,5 @@ void main() {
         ..limit = '80,000';
       expect(form.build().limit, 80000);
     },
-    skip: knownDefect('ACC-05', '1.1'),
   );
 }

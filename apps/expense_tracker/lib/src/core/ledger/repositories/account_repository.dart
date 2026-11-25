@@ -117,12 +117,25 @@ final class AccountRepository implements AccountReader {
   }
 
   /// Takes away the account [id] and returns it; null when there is none.
-  Account? remove(String id) {
+  Account? remove(String id) => removeAt(id)?.$2;
+
+  /// Takes away the account [id] and returns it with where it stood; null
+  /// when there is none.
+  (int, Account)? removeAt(String id) {
     final index = _items.indexWhere((a) => a.id == id);
     if (index < 0) return null;
     final removed = _items.removeAt(index);
     _changed();
-    return removed;
+    return (index, removed);
+  }
+
+  /// Puts [account] back at [index] (or last, when the list is shorter
+  /// now); false, changing nothing, when the book holds its id again.
+  bool putAt(int index, Account account) {
+    if (contains(account.id)) return false;
+    _items.insert(index.clamp(0, _items.length), account);
+    _changed();
+    return true;
   }
 
   /// Takes the accounts of [accounts], in their order, as when the book

@@ -2,10 +2,16 @@
 // page's state, across accounts, categories, entries and commands
 // (ADR-0013).
 
+import '../../../../design_system/display/status_messages.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/recurring_messages.dart';
-import '../../../core/formatting/dates.dart';
-import 'recurring_schedule.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../core/messages/validation_messages.dart';
+
+import 'dart:math' show min;
+
+import 'package:core/time/month_arithmetic.dart' show daysInMonth;
+import 'package:core/time/utc_days.dart';
 
 /// What the form of a recurring item holds while it is filled in: a new
 /// item, or the changes to [old]. The screen only shows it.
@@ -21,10 +27,30 @@ final class RecurringForm {
       active = old?.active ?? true,
       auto = old?.auto ?? false {
     category = old?.category ?? _firstCategory(false);
-    start = on ?? _firstDay();
+    _from = _opened = on ?? _firstDay();
+    day = old?.day ?? _from.day;
+    _yearDay = _from.day;
   }
 
   final Ledger ledger;
+
+  /// Every value as typed or chosen, to tell whether the form changed
+  /// since it opened (D83, D117): a choice made and taken back is no
+  /// change.
+  List<Object?> get fields => [
+    name,
+    income,
+    amount,
+    category,
+    account,
+    unit,
+    every,
+    start,
+    day,
+    end,
+    active,
+    auto,
+  ];
 
   /// The item being changed; null for a new one.
   final Recurring? old;
@@ -36,7 +62,38 @@ final class RecurringForm {
   String account;
   RepeatUnit unit;
   int every;
-  late DateTime start;
+
+  /// From when it falls due; a new item from the day it is made (R1).
+  DateTime get start => _from;
+  late DateTime _from;
+
+  /// Moving the start of an item whose day of the month is chosen keeps
+  /// that day (F82); a new item's follows the start until one is chosen.
+  set start(DateTime value) {
+    _yearDay = value.day;
+    _move(value);
+  }
+
+  /// Moves the start without choosing [_yearDay] again.
+  void _move(DateTime value) {
+    _from = value;
+    if (old == null && !_dayChosen) day = value.day;
+  }
+
+  /// The day of the month a yearly item is held from: the start's as the
+  /// form opened or as last chosen, not as [setMonthOfYear] shortened it
+  /// for a shorter month (review 29).
+  late int _yearDay;
+
+  /// The day of the month a monthly item falls due, set by
+  /// [setDayOfMonth].
+  late int day;
+
+  /// Whether [setDayOfMonth] chose [day].
+  var _dayChosen = false;
+
+  /// The start the form opened with.
+  late final DateTime _opened;
   DateTime? end;
   bool active;
 
@@ -62,15 +119,16 @@ final class RecurringForm {
   /// The currency of the account it is paid from or into.
   String get currency => ledger.account(account).currency;
 
-  /// The categories offered under the card: the usual ones of its side,
-  /// with the one chosen first in place of the last when it is not among
-  /// them, so the choice is always in sight.
+  /// The categories offered under the card: the five of its side used
+  /// most lately ([ReportService.categoriesByUse], as the composer offers
+  /// them), with the one chosen first in place of the last when it is not
+  /// among them, so the choice is always in sight.
   List<Category> get categoryChoices {
-    final usual = usualCategories(
-      ledger.categories,
-      ledger.entries,
-      income: income,
-    );
+    final usual = [
+      for (final name
+          in ledger.reportService.categoriesByUse(income: income).take(5))
+        ledger.category(name),
+    ];
     if (category.isNotEmpty &&
         usual.isNotEmpty &&
         !usual.any((c) => c.name == category)) {
@@ -88,7 +146,7 @@ final class RecurringForm {
     '${formatMd(start)} 起',
     auto ? '到期自動入帳' : '手動入帳',
     if (end case final end?) '到 ${formatMd(end)}',
-    if (!active) '已暫停',
+    if (!active) StatusWords.paused,
   ];
 
   /// Moves between spending and income, with that side's first category.
@@ -112,15 +170,31 @@ final class RecurringForm {
   /// Paid on day [day] of the month: the start moves to the first such
   /// day on or after it (a 31st waits for a month that has one).
   void setDayOfMonth(int day) {
+    this.day = day;
+    _yearDay = day;
+    _dayChosen = true;
     for (var k = 0; k < 12; k++) {
-      final month = DateTime.utc(start.year, start.month + k);
+      final month = monthStart(start, k);
       final candidate = DateTime.utc(month.year, month.month, day);
       if (candidate.month != month.month) continue;
       if (!candidate.isBefore(start) || k > 0) {
-        start = candidate;
+        _from = candidate;
         return;
       }
     }
+  }
+
+  /// Paid each year in [month]: on the day chosen ([_yearDay]), held to
+  /// the month's last day, the first such on or after the start. That
+  /// day stays what each year is held from (reviews 28, 29): from 31
+  /// March 2027, February is 28 February 2027, before the start, so 29
+  /// February 2028; March after it is 31 March 2028, never the 29th
+  /// carried on.
+  void setMonthOfYear(int month) {
+    DateTime inYear(int year) =>
+        DateTime.utc(year, month, min(_yearDay, daysInMonth(year, month)));
+    final first = inYear(start.year);
+    _move(first.isBefore(dayOf(start)) ? inYear(start.year + 1) : first);
   }
 
   /// Paid on [weekday] (1 Monday … 7 Sunday): the start moves to the
@@ -130,10 +204,36 @@ final class RecurringForm {
     start = DateTime.utc(start.year, start.month, start.day + ahead);
   }
 
-  /// Why the item cannot be saved yet; null when it can.
+  /// Why the item cannot be saved yet; null when it can: the ledger's
+  /// write rules, which the save asks again.
   String? get problem {
-    if (amount <= 0) return '請輸入金額';
-    return null;
+    final found = recurringIssues(
+      amount: amount,
+      every: every,
+      day: _day,
+      start: start,
+      end: end,
+    );
+    return found.isEmpty ? null : validationMessage(found.first);
+  }
+
+  /// The day of the month it is kept falling due on: [day] for a monthly
+  /// item, the start's for the rest.
+  int get _day => unit == RepeatUnit.month ? day : start.day;
+
+  /// The start it is kept with: none for an item from before items had
+  /// one whose rhythm was left as it was, so saving it unchanged does not
+  /// move its days (R1).
+  DateTime? get _keptStart {
+    final item = old;
+    final untouched =
+        item != null &&
+        item.start == null &&
+        start == _opened &&
+        unit == item.unit &&
+        every == item.every &&
+        day == item.day;
+    return untouched ? null : start;
   }
 
   /// The item as the form now stands.
@@ -142,18 +242,19 @@ final class RecurringForm {
     // Left without a name, it is called by its category.
     name: name.trim().isEmpty ? category : name.trim(),
     amount: amount,
-    day: start.day,
+    day: _day,
     account: account,
     category: category,
     active: active,
     unit: unit,
     every: every,
-    start: start,
+    start: _keptStart,
     end: end,
     income: income,
     merchant: old?.merchant ?? '',
     auto: auto,
     skipped: old?.skipped ?? const {},
+    openFrom: old?.openFrom,
   );
 
   /// How often it comes, such as 每月 5 日.
@@ -162,7 +263,7 @@ final class RecurringForm {
       id: '',
       name: '',
       amount: 0,
-      day: start.day,
+      day: _day,
       account: '',
       category: '',
       unit: unit,

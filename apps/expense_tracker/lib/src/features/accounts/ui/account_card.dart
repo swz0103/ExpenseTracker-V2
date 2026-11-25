@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/status.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
@@ -20,7 +21,7 @@ const cardStripHeight = 60.0;
 (double, double) cardHeights(BuildContext context) {
   final grow = textGrowth(context) - 1;
   final more = grow > 0 ? grow : 0.0;
-  return (cardStripHeight + 26 * more, frontCardHeight + 80 * more);
+  return (cardStripHeight + 26 * more, frontCardHeight + 100 * more);
 }
 
 /// The kind of an account as its card writes it.
@@ -33,17 +34,10 @@ String cardKindLabel(Account account) => switch (account.kind) {
   AccountKind.receivable => Words.lend,
 };
 
-/// What [account] spent this month: everything that left it.
-int spentThisMonth(Ledger ledger, Account account) {
-  final today = ledger.today;
-  var out = 0;
-  for (final e in ledger.entries.inMonth(today.year, today.month)) {
-    if (e.account != account.id && e.to != account.id) continue;
-    final change = ledger.balanceService.effect(e, account.id);
-    if (change < 0) out -= change;
-  }
-  return out;
-}
+/// What [account] spent this month, as the reports count 支出: spending
+/// less refunds, with transfer fees; not money that only moved (D20).
+int spentThisMonth(Ledger ledger, Account account) => ledger.reportService
+    .expense(ledger.today.year, ledger.today.month, account: account.id);
 
 /// The face of an account's card: one tint, its own or its kind's, with the name,
 /// one large figure and one line under it. Behind the front card only
@@ -185,7 +179,10 @@ class AccountCard extends StatelessWidget {
         return (
           '本期應繳',
           ledger.money(ledger.statementService.statementDue(account)),
-          '${formatMd(due)} 繳款',
+          cardBillWords(
+            ledger.statementService.billStatus(account),
+            postponed: postponedTo(due, payByOf(due)),
+          ),
         );
       case AccountKind.loan:
         return ('尚欠', ledger.money(-balance), '');
@@ -248,10 +245,14 @@ class _Figure extends StatelessWidget {
             ],
           ),
         ),
+        // A long note, such as a bill's moved due day and days left,
+        // wraps beside the figure rather than running off the card.
         if (note.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(left: Space.s2, bottom: Space.s1),
-            child: Text(note, style: mutedSmall),
+          Flexible(
+            child: Padding(
+              padding: const EdgeInsets.only(left: Space.s2, bottom: Space.s1),
+              child: Text(note, style: mutedSmall, textAlign: TextAlign.end),
+            ),
           ),
       ],
     );

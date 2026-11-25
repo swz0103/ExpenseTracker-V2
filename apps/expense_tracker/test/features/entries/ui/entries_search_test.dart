@@ -32,7 +32,7 @@ void main() {
     expect(find.text(KindFilter.expense.label), findsOneWidget);
 
     // The pills come in order: kind, account, category.
-    await tester.tap(find.bySemanticsLabel('移除篩選').at(1));
+    await tester.tap(find.bySemanticsLabel('清除這個篩選').at(1));
     await tester.pump();
     expect(filter.account, isNull);
     expect(filter.category, '飲食日常', reason: 'only that one is taken off');
@@ -52,6 +52,6 @@ void main() {
         ),
       ),
     );
-    expect(find.bySemanticsLabel('移除篩選'), findsNothing);
+    expect(find.bySemanticsLabel('清除這個篩選'), findsNothing);
   });
 }

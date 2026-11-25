@@ -32,7 +32,7 @@ dart run tooling/rules/bin/check.dart --update
 `--allow-growth`，並在 PR 說明原因。
 
 路徑設定全部在 `lib/src/config.dart`；搬動程式碼時只改那一個檔案。
-`owners.yaml` 是「單一來源」登記表（規則 B1）：46 項各自今天由誰負責、目標位置在哪、
+`owners.yaml` 是「單一來源」登記表（規則 B1）：59 項各自今天由誰負責、目標位置在哪、
 狀態是 `owned`／`scattered`／`planned`。
 
 ## 規則一覽
@@ -41,12 +41,15 @@ dart run tooling/rules/bin/check.dart --update
 | --- | --- |
 | `A2-feature-isolation` | 一個功能（`features/X`）引用另一個功能（`features/Y`）的檔案 |
 | `A3-ui-no-data` | 功能的畫面碼直接引用 storage、vault、market，或 `app/android`、`core/ledger/persistence` |
-| `A4-pure-calc` | `packages/core`、`packages/domain` 引用 Flutter、`dart:io`／`ui`／`ffi`，或讀時鐘、`Random` |
+| `A4-pure-calc` | `packages/core`、`packages/domain`、`packages/ledger/*` 引用 Flutter、`dart:io`／`ui`／`ffi`，或讀時鐘、`Random` |
 | `B2-number-format` | 在格式化層之外自己 `toStringAsFixed`、`int.parse` 等處理數字 |
 | `B3-clock` | 在時間層與啟動點之外呼叫 `DateTime.now()`，或手寫 `padLeft(2, '0')` 補零 |
+| `B4-calendar-by-hand` | 在 `packages/core/lib/time` 之外自己算日期：`DateTime.utc(d.year, d.month, d.day)` 取日、`DateTime.utc(y, m + 1, 0)` 月底、`DateTime.utc(y, m ± n)` 跨月、`year * 12` 月份差（改用 `dayOf`、`monthEnd`、`monthStart`／`monthStarts`、`monthIndex`） |
+| `B5-owned-values` | 有唯一負責者的值寫在負責者以外（清單在 `config.dart` 的 `ownedValues`：字型 `Nunito`、`APP_BUILD`、年份上限 9999） |
+| `B7-status-words` | 狀態用詞（已逾期、超支、已賣光、已入帳、已略過、已結清…，清單在 `config.dart` 的 `statusWords`）寫在狀態呈現檔 `design_system/display/status.dart`／`status_messages.dart` 以外 |
 | `B9-text-literals` | 在功能與 `app/` 裡直接寫中文字串，而不是放進 `core/messages` |
 | `D2-no-part` | 使用 `part`／`part of` 把一個函式庫拆成多個檔 |
 | `E1-catch-handled` | `catch` 之後既沒重拋、也沒記錄，把錯誤吞掉 |
-| `C1-tests-exist` | core／domain 的檔案、或某個功能，完全沒有對應的測試檔 |
+| `C1-tests-exist` | core／domain 的檔案、`packages/ledger/*/lib` 的每個檔案、或某個功能，完全沒有對應的測試檔 |
 
 每條規則的已知誤判寫在原始碼開頭的註解（`lib/src/rules/`）。

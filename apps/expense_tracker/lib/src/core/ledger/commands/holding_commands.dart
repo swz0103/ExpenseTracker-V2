@@ -1,3 +1,5 @@
+import 'package:core/fx/dated_figures.dart' show MarketHistory;
+
 import '../cache/topic.dart';
 import '../models/models.dart';
 import '../repositories/entry_repository.dart';
@@ -22,23 +24,28 @@ final class HoldingCommands {
   final EntryRepository _entries;
 
   /// Takes new closing prices and rates: the stocks' reference prices and
-  /// names in [holdings], each day's change in [moves].
+  /// names in [holdings], each day's change in [moves], the board's
+  /// buying [rates] and [sellRates].
   void setMarket({
     required List<Holding> holdings,
     required Map<String, double> moves,
     required Map<String, double> rates,
+    Map<String, double> sellRates = const {},
     DateTime? quotedOn,
     Map<String, DateTime> quoteDays = const {},
+    MarketHistory? history,
   }) {
     _market.replace(
       rates: rates,
+      sellRates: sellRates,
       moves: moves,
       quotedOn: quotedOn,
       quoteDays: quoteDays,
+      history: history,
     );
     _holdings
       ..replaceStart(holdings)
-      ..replay(_entries.all, lenient: true);
+      ..replay(_entries.all, today: _context.today, lenient: true);
     _context.changed(const {Topic.market});
   }
 }

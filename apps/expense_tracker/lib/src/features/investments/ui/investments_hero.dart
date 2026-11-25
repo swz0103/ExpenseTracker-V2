@@ -1,10 +1,21 @@
-part of 'investments.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import 'investments.dart';
 
 /// 市值 big with today's move beside the label, and under a rule three
 /// even columns, thin lines between: unrealized, realized, and the
 /// yearly return, each a label, a figure and one short line.
-class _InvestHero extends StatelessWidget {
-  const _InvestHero({required this.ledger});
+class InvestHero extends StatelessWidget {
+  const InvestHero({super.key, required this.ledger});
 
   final Ledger ledger;
 
@@ -22,12 +33,14 @@ class _InvestHero extends StatelessWidget {
         ledger.orDots(signed(gain)),
         AppColors.ofMarket(gain),
         percentOf(gain, cost),
+        spoken: ledger.spoken(gain),
       ),
       _HeroFigure(
         '已實現',
         ledger.orDots(signed(ledger.holdings.realizedGain)),
         AppColors.ofMarket(ledger.holdings.realizedGain),
         '已賣出',
+        spoken: ledger.spoken(ledger.holdings.realizedGain),
       ),
       _HeroFigure(
         '年化',
@@ -69,10 +82,13 @@ class _InvestHero extends StatelessWidget {
                   height: 1.15,
                 ),
               ),
-              if (ledger.marketData.quotedOn != null)
+              if (ledger.marketData.quotedOn case final quoted?)
                 Pill(
-                  '今日 ${ledger.orDots(signed(day))}'
+                  '${tradingDayWord(quoted, today: ledger.today)} '
+                  '${ledger.orDots(signed(day))}'
                   '${before == 0 ? '' : ' · ${percentOf(day, before)}'}',
+                  amount: day,
+                  hidden: ledger.amounts.hidden,
                   color: AppColors.ofMarket(day),
                 ),
             ],
@@ -87,10 +103,19 @@ class _InvestHero extends StatelessWidget {
 
 /// One of the hero's three figures: a label, the figure and one short line.
 class _HeroFigure extends StatelessWidget {
-  const _HeroFigure(this.label, this.figure, this.color, this.sub);
+  const _HeroFigure(
+    this.label,
+    this.figure,
+    this.color,
+    this.sub, {
+    this.spoken,
+  });
 
   final String label;
   final String figure;
+
+  /// What a screen reader says for [figure]: its direction in words.
+  final String? spoken;
   final Color color;
   final String sub;
 
@@ -108,6 +133,7 @@ class _HeroFigure extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               figure,
+              semanticsLabel: spoken,
               style: TextStyle(
                 fontSize: TextSize.title,
                 fontWeight: FontWeight.w800,
@@ -164,8 +190,9 @@ class _HeroFigures extends StatelessWidget {
 
 /// A holding on the quote board: its name, then its code, shares and gain;
 /// the close big and today's move on a solid block.
-class _HoldingRow extends StatelessWidget {
-  const _HoldingRow({
+class HoldingRow extends StatelessWidget {
+  const HoldingRow({
+    super.key,
     required this.ledger,
     required this.held,
     required this.onTap,
@@ -190,10 +217,12 @@ class _HoldingRow extends StatelessWidget {
           '${held.name.isEmpty ? '' : '${held.code} · '}'
           '${ledger.orDots(groupDigits(held.shares))} 股 · 損益 '
           '${ledger.orDots(signed(held.gain))}',
+      detailAmount: held.gain,
+      hidden: ledger.amounts.hidden,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          RowFigure(held.price.toStringAsFixed(held.price < 100 ? 2 : 0)),
+          RowFigure(stockPrice(held.price)),
           const SizedBox(width: Space.s2),
           Container(
             width: 72,
@@ -219,7 +248,7 @@ class _HoldingRow extends StatelessWidget {
                 ),
                 if (quoted)
                   Text(
-                    '${up ? '▲' : '▼'}${perShare.abs().toStringAsFixed(2)}',
+                    '${up ? '▲' : '▼'}${priceMove(perShare)}',
                     textScaler: TextScaler.noScaling,
                     style: TextStyle(
                       fontSize: TextSize.tiny,

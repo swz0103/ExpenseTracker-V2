@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Android's own backup takes one file of the app: files/cloud/, the
      ledger without its photos, encrypted with its password or recovery
-     code (Startup.cloudCopy). It goes to the person's Google account and
+     code (LedgerFolder.cloudCopy). It goes to the person's Google account and
      to a new phone; nothing else does, not the ledger itself, its key or
      the settings. Brought back, the welcome offers it; the ledger is
      never replaced unasked. Android 11 and earlier: backup_rules.xml. -->

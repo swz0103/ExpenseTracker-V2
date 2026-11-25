@@ -30,6 +30,22 @@ void main() {
     dataSource: _Nowhere(),
   );
 
+  test('D117: the values a form holds tell a choice taken back from a '
+      'change', () {
+    final form = RecurringForm(book());
+    final opened = form.fields;
+    form
+      ..amount = 300
+      ..auto = true;
+    expect(form.fields, isNot(opened));
+    form
+      ..amount = 0
+      ..auto = false;
+    expect(form.fields, opened);
+    form.end = DateTime.utc(2027, 1, 1);
+    expect(form.fields, isNot(opened));
+  });
+
   test(
     'a new item needs an amount; without a name it takes the category\'s',
     () {
@@ -63,6 +79,13 @@ void main() {
     },
   );
 
+  test('an end before the start is refused, in the rule\'s words', () {
+    final form = RecurringForm(book())..amount = 500;
+    form.end = form.start.subtract(const Duration(days: 1));
+    expect(form.problem, '結束日不能早於開始日');
+    expect(form.save(), isFalse);
+  });
+
   test('payments are at least one step apart', () {
     final form = RecurringForm(book())..step(-1);
     expect(form.every, 1);
@@ -82,6 +105,43 @@ void main() {
     // November has no 31st: December's.
     form.setDayOfMonth(31);
     expect(form.start, DateTime.utc(2026, 12, 31));
+  });
+
+  test('R28: a yearly month picked holds the start\'s day to each year\'s '
+      'month', () {
+    final form = RecurringForm(book())..start = DateTime.utc(2027, 3, 31);
+    // February 2027 has 28 days: 28 Feb 2027 is before 31 Mar 2027, so
+    // the next February, 2028, which has 29: the 31st held to the 29th.
+    form.setMonthOfYear(2);
+    expect(form.start, DateTime.utc(2028, 2, 29));
+    // From 15 Mar 2027: April's 15th is after it, January's before.
+    form.start = DateTime.utc(2027, 3, 15);
+    form.setMonthOfYear(4);
+    expect(form.start, DateTime.utc(2027, 4, 15));
+    form.start = DateTime.utc(2027, 3, 15);
+    form.setMonthOfYear(1);
+    expect(form.start, DateTime.utc(2028, 1, 15));
+    // From 31 Jan 2027, the same year's April: the 31st held to the 30th.
+    form.start = DateTime.utc(2027, 1, 31);
+    form.setMonthOfYear(4);
+    expect(form.start, DateTime.utc(2027, 4, 30));
+  });
+
+  test('months tried one after another keep the day chosen (review 29)', () {
+    final form = RecurringForm(book())..start = DateTime.utc(2027, 3, 31);
+    form.setMonthOfYear(2);
+    // As above: the 31st held to 29 Feb 2028.
+    expect(form.start, DateTime.utc(2028, 2, 29));
+    form.setMonthOfYear(3);
+    // March 2028 has 31 days; 31 Mar 2028 is after 29 Feb 2028.
+    expect(form.start, DateTime.utc(2028, 3, 31));
+    form.setMonthOfYear(4);
+    // April has 30 days: the 31st held to 30 Apr 2028.
+    expect(form.start, DateTime.utc(2028, 4, 30));
+    // A day picked on the calendar is the one held from then on.
+    form.start = DateTime.utc(2028, 4, 15);
+    form.setMonthOfYear(5);
+    expect(form.start, DateTime.utc(2028, 5, 15));
   });
 
   test('the weekday moves the start to the next such day', () {
@@ -130,5 +190,41 @@ void main() {
       ..end = DateTime.utc(2027, 3, 5)
       ..active = false;
     expect(form.notes, ['10/5 起', '到期自動入帳', '到 3/5', '已暫停']);
+  });
+
+  group('CORR-2', () {
+    test('R1: an item from before starts, saved unchanged, keeps no start '
+        'and so its days', () {
+      final ledger = book();
+      const old = Recurring(
+        id: 'old',
+        name: '房租',
+        amount: 9000,
+        day: 25,
+        account: 'bank',
+        category: '居家',
+      );
+      ledger.recurringCommands.saveRecurring(old);
+      expect(RecurringForm(ledger, old: old).save(), isTrue);
+      final kept = ledger.recurring.all.single;
+      expect((kept.start, kept.day), (null, 25));
+      // Changing its rhythm gives it the start shown.
+      final form = RecurringForm(ledger, old: kept)..step(1);
+      expect(form.save(), isTrue);
+      expect(ledger.recurring.all.single.start, DateTime.utc(2026, 10, 25));
+    });
+
+    test("F82: moving a new item's start moves its day until a day is "
+        'chosen', () {
+      final form = RecurringForm(book());
+      form.start = DateTime.utc(2026, 10, 20);
+      expect(form.day, 20);
+      form.setDayOfMonth(10);
+      // The 10th after the 20th: November 10.
+      expect((form.day, form.start), (10, DateTime.utc(2026, 11, 10)));
+      form.start = DateTime.utc(2026, 12, 1);
+      expect(form.day, 10);
+      expect(form.rhythm, '每月 10 日');
+    });
   });
 }

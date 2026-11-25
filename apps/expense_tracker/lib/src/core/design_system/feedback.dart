@@ -2,9 +2,15 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../formatting/words.dart';
 import 'theme.dart';
 import 'keys.dart';
 import 'shape.dart';
+
+/// The app's one place for notes at the bottom (`MaterialApp`'s
+/// `scaffoldMessengerKey`), so one can be shown from where there is no
+/// screen at hand: [showNoteAnywhere].
+final appMessenger = GlobalKey<ScaffoldMessengerState>();
 
 /// Short feedback at the bottom, with an optional action.
 void showNote(
@@ -12,29 +18,74 @@ void showNote(
   String message, {
   String? action,
   VoidCallback? onAction,
+  String? spoken,
+}) => _note(
+  ScaffoldMessenger.of(context),
+  message,
+  action: action,
+  onAction: onAction,
+  spoken: spoken,
+);
+
+/// Tells [done], a change just made that can be taken back, with
+/// 復原 to run [undo] (D82): the one way such a change is told. A change
+/// told this way is not asked about first; one that cannot be undone is
+/// asked first (`confirm`) and then told with [showNote].
+void showUndo(BuildContext context, String done, VoidCallback undo) =>
+    showNote(context, done, action: Words.undo, onAction: undo);
+
+/// [showNote] from code that has no screen of its own, such as what
+/// answers a fault nobody caught: said over whatever screen is open.
+/// False when the app has nowhere to say it yet.
+bool showNoteAnywhere(String message) {
+  final messenger = appMessenger.currentState;
+  if (messenger == null) return false;
+  _note(messenger, message);
+  return true;
+}
+
+/// A note that waits its turn behind the one showing instead of taking
+/// its place (review 31), said over whatever screen is open. True once it
+/// was on screen to be read: it went by itself or was swiped away; false
+/// when another note took its place first, or the app has nowhere to say
+/// it yet.
+Future<bool> queueNote(String message) async {
+  final messenger = appMessenger.currentState;
+  if (messenger == null) return false;
+  final reason = await _note(messenger, message, replace: false).closed;
+  return reason != SnackBarClosedReason.hide &&
+      reason != SnackBarClosedReason.remove;
+}
+
+ScaffoldFeatureController<SnackBar, SnackBarClosedReason> _note(
+  ScaffoldMessengerState messenger,
+  String message, {
+  String? action,
+  VoidCallback? onAction,
+  String? spoken,
+  bool replace = true,
 }) {
   final act = onAction;
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: Text(message),
-        // A note with an action (復原) would stay until swiped away; every
-        // note goes by itself, a little later when it offers one.
-        persist: false,
-        // Exception to motion: how long the note stays to be read, not a
-        // movement; reduced motion must not make it vanish.
-        duration: Duration(seconds: act == null ? 3 : 5),
-        action: action == null || act == null
-            ? null
-            : SnackBarAction(
-                key: Keys.snack(action),
-                label: action,
-                textColor: Shade.dark ? AppColors.accent : AppColors.selected,
-                onPressed: act,
-              ),
-      ),
-    );
+  if (replace) messenger.hideCurrentSnackBar();
+  return messenger.showSnackBar(
+    SnackBar(
+      content: Text(message, semanticsLabel: spoken),
+      // A note with an action (復原) would stay until swiped away; every
+      // note goes by itself, a little later when it offers one.
+      persist: false,
+      // Exception to motion: how long the note stays to be read, not a
+      // movement; reduced motion must not make it vanish.
+      duration: Duration(seconds: act == null ? 3 : 5),
+      action: action == null || act == null
+          ? null
+          : SnackBarAction(
+              key: Keys.snack(action),
+              label: action,
+              textColor: Shade.dark ? AppColors.accent : AppColors.selected,
+              onPressed: act,
+            ),
+    ),
+  );
 }
 
 /// Opens [builder] in a sheet from the bottom of the screen, full width,
@@ -65,42 +116,76 @@ Future<T?> showSheet<T>(
   bool capHeight = false,
   double? height,
 }) {
-  return showModalBottomSheet<T>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: handle,
-    backgroundColor: AppColors.panel,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(
-        top: Radius.circular(Radii.largeIncreased),
+  // As showModalBottomSheet pushes it, as a [SheetRoute] so a form that
+  // keeps its edits (EditGuard) can bring the sheet back up after a swipe.
+  final navigator = Navigator.of(context);
+  final words = MaterialLocalizations.of(context);
+  return navigator.push(
+    SheetRoute<T>(
+      capturedThemes: InheritedTheme.capture(
+        from: context,
+        to: navigator.context,
       ),
-    ),
-    builder: (context) {
-      final share = height;
-      final screen = MediaQuery.sizeOf(context).height;
-      final inset = MediaQuery.viewInsetsOf(context).bottom;
-      final child = Padding(
-        padding: EdgeInsets.only(bottom: inset),
-        child: share == null
-            ? builder(context)
-            : SizedBox(
-                height: math.max(
-                  0.0,
-                  math.min(screen * share, screen * 0.9 - inset),
-                ),
-                child: builder(context),
-              ),
-      );
-      if (!capHeight || share != null) return child;
-      return ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+      isScrollControlled: true,
+      barrierLabel: words.scrimLabel,
+      barrierOnTapHint: words.scrimOnTapHint(words.bottomSheetLabel),
+      modalBarrierColor: Theme.of(context).bottomSheetTheme.modalBarrierColor,
+      useSafeArea: true,
+      showDragHandle: handle,
+      backgroundColor: AppColors.panel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(Radii.largeIncreased),
         ),
-        child: child,
-      );
-    },
+      ),
+      builder: (context) {
+        final share = height;
+        final screen = MediaQuery.sizeOf(context).height;
+        final inset = MediaQuery.viewInsetsOf(context).bottom;
+        final child = Padding(
+          padding: EdgeInsets.only(bottom: inset),
+          child: share == null
+              ? builder(context)
+              : SizedBox(
+                  height: math.max(
+                    0.0,
+                    math.min(screen * share, screen * 0.9 - inset),
+                  ),
+                  child: builder(context),
+                ),
+        );
+        if (!capHeight || share != null) return child;
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+          ),
+          child: child,
+        );
+      },
+    ),
   );
+}
+
+/// The route [showSheet] opens: a bottom sheet that can be brought back
+/// up ([riseAgain]) when a swipe that would close it was answered with
+/// 繼續編輯 (EditGuard).
+class SheetRoute<T> extends ModalBottomSheetRoute<T> {
+  SheetRoute({
+    required super.builder,
+    required super.isScrollControlled,
+    super.capturedThemes,
+    super.barrierLabel,
+    super.barrierOnTapHint,
+    super.modalBarrierColor,
+    super.useSafeArea,
+    super.showDragHandle,
+    super.backgroundColor,
+    super.shape,
+  });
+
+  /// Slides the sheet back to where it stood, a swipe having taken it
+  /// down while it stays open.
+  void riseAgain() => controller?.forward();
 }
 
 /// The share of the screen the pickers 記一筆 opens take, all alike so

@@ -42,7 +42,7 @@ void main() {
 
   test('removing gives back what was removed, or null', () {
     final items = RecurringRepository([_item('rent'), _item('phone')]);
-    expect(items.remove('rent')!.id, 'rent');
+    expect(items.remove('rent')!.$2.id, 'rent');
     expect(items.remove('rent'), isNull);
     expect(_ids(items), ['phone']);
   });
@@ -77,5 +77,15 @@ void main() {
     expect(_ids(items), ['a', 'b']);
     items.replaceWith(items.all);
     expect(_ids(items), ['a', 'b']);
+  });
+
+  test('an item put back takes its place again, once', () {
+    final items = RecurringRepository([_item('rent'), _item('phone')]);
+    final (at, removed) = items.remove('rent')!;
+    items.putAt(at, removed);
+    items.putAt(at, removed);
+    expect(_ids(items), ['rent', 'phone']);
+    items.putAt(9, _item('gym'));
+    expect(_ids(items), ['rent', 'phone', 'gym']);
   });
 }

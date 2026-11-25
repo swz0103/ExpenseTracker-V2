@@ -2,23 +2,23 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../forms/account_editor.dart';
 import '../../../core/design_system/glyphs.dart';
-import '../../../core/design_system/haptics.dart';
-import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/navigation/nav.dart';
-import 'account_card.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
-import '../../../core/design_system/motion.dart';
 import '../../../core/formatting/words.dart';
+import '../../../core/messages/flow_messages.dart';
 
-part 'sort_accounts.dart';
-part 'wallet.dart';
+import 'package:core/time/utc_days.dart';
+
+import 'sort_accounts.dart';
+import 'wallet.dart';
 
 /// The kinds 我的帳戶 holds, in the order 依類型重新排 puts them. Money
 /// paid for someone and loans have a page of their own.
@@ -75,7 +75,13 @@ class _AccountsPageState extends State<AccountsPage> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // Balances and net worth, foreign accounts and holdings valued at the
+      // market.
+      listenable: ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.market,
+      }),
       builder: (context, _) {
         final accounts = walletAccounts(ledger);
         final archived = [
@@ -119,12 +125,15 @@ class _AccountsPageState extends State<AccountsPage> {
               ),
             SectionTitle(
               Words.account,
-              trailing: Text('${accounts.length} 個', style: mutedSmall),
+              trailing: Text(
+                countOf(accounts.length, CountUnit.pieces),
+                style: mutedSmall,
+              ),
             ),
             if (accounts.isEmpty)
-              const Text('還沒有帳戶，按右上的新增開始。', style: mutedSmall)
+              const Text(FlowWords.noAccountsYet, style: mutedSmall)
             else
-              _Wallet(
+              Wallet(
                 ledger: ledger,
                 accounts: accounts,
                 index: index,
@@ -161,29 +170,17 @@ class _NetWorth extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final invest = ledger.holdings.marketValue;
-    var lent = 0;
-    for (final a in ledger.accounts.all) {
-      if (a.kind == AccountKind.receivable && a.inNetWorth) {
-        final worth = ledger.balanceService.worthOf(a);
-        if (worth > 0) lent += worth;
-      }
-    }
-    final debt =
-        ledger.balanceService.cardDebt + ledger.balanceService.loanDebt;
-    final saved = ledger.balanceService.assets - invest - lent;
-    final net = ledger.balanceService.assets - debt;
     final today = ledger.today;
+    final worth = ledger.balanceService.netWorth(today);
+    final net = worth.net;
     final moved =
         net -
-        ledger.balanceService.netWorthAt(
-          DateTime.utc(today.year, today.month, 0),
-        );
+        ledger.balanceService.netWorthAt(monthEnd(today.year, today.month - 1));
     final parts = [
-      ('存款', saved, AppColors.bank),
-      (Words.investment, invest, AppColors.holdings),
-      (Words.lend, lent, AppColors.receivable),
-      ('負債', debt, AppColors.card),
+      ('資產', worth.saved, AppColors.bank),
+      (Words.investment, worth.invested, AppColors.holdings),
+      (Words.lend, worth.lent, AppColors.receivable),
+      ('負債', worth.owed, AppColors.card),
     ];
     final shown = [
       for (final p in parts)
@@ -268,12 +265,12 @@ class SortAccountsPage extends StatefulWidget {
   final Ledger ledger;
 
   @override
-  State<SortAccountsPage> createState() => _SortAccountsPageState();
+  State<SortAccountsPage> createState() => SortAccountsPageState();
 }
 
 /// How 排序帳戶 lines the cards up: by hand, the most money first, or
 /// the one used last first.
-enum _SortBy { hand, balance, recent }
+enum SortAccountsBy { hand, balance, recent }
 
 /// Each of [values]' share of a bar, every one at least [least] of it so
 /// even a small sum shows; the rest is shared among the larger ones by

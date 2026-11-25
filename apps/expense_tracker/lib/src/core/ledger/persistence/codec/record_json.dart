@@ -1,8 +1,11 @@
 import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
+import 'package:ledger_trade_costs/calc/broker_discount.dart'
+    show BrokerDiscountRange;
 
 import '../../models/models.dart';
 import 'category_refs.dart';
+import 'same_values.dart';
 
 // The ledger's records as JSON, as the data source keeps them and a backup
 // carries them. Each reader takes what its writer wrote and fills in the
@@ -27,6 +30,7 @@ Map<String, Object?> accountToJson(Account a) => {
   'months': ?a.loan?.months,
   'repay': ?a.loan?.repay?.name,
   'payFrom': ?a.loan?.payFrom,
+  'brokerDiscount': ?a.brokerDiscount,
   if (a.closes.isNotEmpty)
     'closes': {
       for (final MapEntry(:key, :value) in a.closes.entries)
@@ -58,6 +62,14 @@ LoanTerms? _loanTerms(Map<String, Object?> json) {
   return terms.isEmpty ? null : terms;
 }
 
+/// An account's own broker discount; null when none is kept, or when
+/// what is kept is no discount a fee is charged at, which then takes the
+/// phone-wide one (a book of a later version, or a damaged one).
+int? _discount(Object? value) => switch (_maybe(value)) {
+  final int points when BrokerDiscountRange.holds(points) => points,
+  _ => null,
+};
+
 Account accountFromJson(Map<String, Object?> json) => _read(
   () => Account(
     _need(json, 'id'),
@@ -75,6 +87,7 @@ Account accountFromJson(Map<String, Object?> json) => _read(
     place: _maybe(json['place']),
     color: _maybe(json['color']),
     loan: _loanTerms(json),
+    brokerDiscount: _discount(json['brokerDiscount']),
     closes: {
       for (final MapEntry(:key, :value)
           in (_object(json, 'closes') ?? const {}).entries)
@@ -155,49 +168,90 @@ Map<String, Object?> entryToJson(Entry e, [CategoryRefs? refs]) => {
   if (e.installments != 0) 'installments': e.installments,
   if (e.average) 'average': true,
   if (e.split) 'split': true,
+  if (e.dayTrade) 'dayTrade': true,
   'home': ?e.home,
   'received': ?e.received,
   'group': ?e.group,
+  'mark': ?e.mark?.name,
 };
 
-/// The entry [entryToJson] wrote.
-Entry entryFromJson(Map<String, Object?> json, [CategoryRefs? refs]) => _read(
+/// An entry from its record, as [entryToJson] wrote it. With [same], the
+/// values entries repeat (accounts, categories kept by name, merchants,
+/// stocks, tags, short notes, days) are
+/// shared with the entries read before through it ([SameValues]), as the
+/// book opens.
+Entry entryFromJson(
+  Map<String, Object?> json, [
+  CategoryRefs? refs,
+  SameValues? same,
+]) => _read(
   () => Entry(
     id: _need(json, 'id'),
-    date: _date(_need(json, 'date')),
+    date: switch (_need(json, 'date')) {
+      final day when same != null => same.day(day, _date),
+      final day => _date(day),
+    },
     type: EntryType.values.byName(_need(json, 'type')),
     amount: _int(json['amount']),
-    account: _need(json, 'account'),
-    category: _refName(json, 'category', refs) ?? '',
-    note: _text(json, 'note') ?? '',
-    to: _text(json, 'to'),
-    holding: _text(json, 'holding'),
+    account: _same(same, _need(json, 'account')),
+    category: _same(same, _refName(json, 'category', refs) ?? ''),
+    note: switch (_text(json, 'note')) {
+      null => '',
+      final note => same == null ? note : same.note(note),
+    },
+    to: _sameOrNone(same, _text(json, 'to')),
+    holding: _sameOrNone(same, _text(json, 'holding')),
     shares: _int(json['shares']),
-    recurring: _text(json, 'recurring'),
-    merchant: _text(json, 'merchant') ?? '',
-    tags: [for (final t in _list(json, 'tags') ?? const []) t! as String],
-    parts: [
-      for (final p in _list(json, 'parts') ?? const [])
-        if (p case {'amount': final int amount} when p is Map<String, Object?>)
-          (
-            _refName(p, 'name', refs, idKey: 'categoryId') ??
-                (throw const FormatException('parts')),
-            amount,
-          )
-        else
-          throw const FormatException('parts'),
-    ],
+    recurring: _sameOrNone(same, _text(json, 'recurring')),
+    merchant: _same(same, _text(json, 'merchant') ?? ''),
+    // None shares one empty list: a book's every entry comes through
+    // here, most with neither, and each list made is one more object kept
+    // and handed from the worker the book is read on.
+    tags: switch (_list(json, 'tags')) {
+      null => const [],
+      final tags => [for (final t in tags) _same(same, t! as String)],
+    },
+    parts: switch (_list(json, 'parts')) {
+      null => const [],
+      final parts => [
+        for (final p in parts)
+          if (p case {'amount': final int amount}
+              when p is Map<String, Object?>)
+            (
+              _refName(p, 'name', refs, idKey: 'categoryId') ??
+                  (throw const FormatException('parts')),
+              amount,
+            )
+          else
+            throw const FormatException('parts'),
+      ],
+    },
     fee: _int(json['fee']),
     tax: _int(json['tax']),
     refundOf: _text(json, 'refundOf'),
     installments: _int(json['installments']),
     average: json['average'] == true,
     split: json['split'] == true,
+    // Only a sale is a day trade: an older version that kept the field
+    // of a sale it changed into something else left it behind.
+    dayTrade: json['dayTrade'] == true && json['type'] == EntryType.sell.name,
     home: _maybe(json['home']),
     received: _maybe(json['received']),
     group: _text(json, 'group'),
+    // A mark a later version knows and this one does not reads as none.
+    mark: _marks[json['mark']],
   ),
 );
+
+/// Each entry mark by its name, looked up once (not a map made for each
+/// entry read).
+final _marks = EntryMark.values.asNameMap();
+
+String _same(SameValues? same, String text) =>
+    same == null ? text : same.text(text);
+
+String? _sameOrNone(SameValues? same, String? text) =>
+    text == null || same == null ? text : same.text(text);
 
 Map<String, Object?> budgetToJson(Budget b, [CategoryRefs? refs]) => {
   ..._ref('category', b.category, refs),
@@ -237,6 +291,7 @@ Map<String, Object?> recurringToJson(Recurring r, [CategoryRefs? refs]) => {
   if (r.auto) 'auto': true,
   if (r.skipped.isNotEmpty)
     'skipped': [for (final d in r.skipped.toList()..sort()) _day(d)],
+  if (r.openFrom case final from?) 'openFrom': _day(from),
 };
 
 Recurring recurringFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
@@ -266,21 +321,33 @@ Recurring recurringFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
           for (final day in _list(json, 'skipped') ?? const [])
             _date(_words(day)),
         },
+        openFrom: switch (json['openFrom']) {
+          final String day => _date(day),
+          _ => null,
+        },
       ),
     );
 
 Map<String, Object?> trashedToJson(Trashed t, [CategoryRefs? refs]) => {
   'on': _day(t.on),
   'entry': entryToJson(t.entry, refs),
+  if (t.letGo case final day?) 'letGo': _day(day),
 };
 
-Trashed trashedFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
-    _read(
-      () => Trashed(
-        entryFromJson(_needObject(json, 'entry'), refs),
-        _date(_need(json, 'on')),
-      ),
-    );
+Trashed trashedFromJson(
+  Map<String, Object?> json, [
+  CategoryRefs? refs,
+  SameValues? same,
+]) => _read(
+  () => Trashed(
+    entryFromJson(_needObject(json, 'entry'), refs, same),
+    _date(_need(json, 'on')),
+    letGo: switch (json['letGo']) {
+      final String day => _date(day),
+      _ => null,
+    },
+  ),
+);
 
 /// A category named [name] as it is kept under [key]: by its id, under
 /// `${key}Id` (or [idKey]), when [refs] knows it, else by the name.
@@ -376,5 +443,5 @@ String _day(DateTime d) => BusinessDate(d.year, d.month, d.day).toString();
 
 DateTime _date(String text) {
   final day = BusinessDate.parse(text);
-  return DateTime.utc(day.year, day.month, day.day);
+  return day.asUtcMidnight;
 }

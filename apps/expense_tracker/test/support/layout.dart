@@ -20,8 +20,11 @@ abstract final class Layout {
     'charts': ['design_system', 'formatting'],
     'ledger': ['formatting', 'diagnostics', 'time'],
     'platform': ['ledger', 'formatting', 'diagnostics', 'time'],
-    // What the person is told of the ledger's values, in one place.
-    'messages': ['ledger', 'formatting'],
+    // What the person is told, in one place: of the ledger's values, and
+    // of what the phone answered (a scan, the look for a newer version),
+    // whose outcomes platform names. Platform uses no words, so the two
+    // cannot come to need each other.
+    'messages': ['ledger', 'formatting', 'platform'],
     'widgets': [
       'messages',
       'design_system',
@@ -33,8 +36,9 @@ abstract final class Layout {
       'time',
       'navigation',
     ],
-    // Opening pages and flows: Nav, AppRoutes, openFullScreen.
-    'navigation': ['ledger', 'platform'],
+    // Opening pages and flows: Nav, AppRoutes, openFullScreen; a page of
+    // the settings opened on the setting a search found (its words).
+    'navigation': ['ledger', 'platform', 'formatting'],
   };
 
   /// The design system: where colours, type sizes and buttons are named.
@@ -66,6 +70,9 @@ abstract final class Layout {
     'cache/',
     'repositories/',
     'services/',
+    // The journal of postings beside the records: what the records are
+    // as intents, posted afresh, and checked against the services.
+    'journal/',
     'commands/',
   ];
   static const ledgerHelpers = [

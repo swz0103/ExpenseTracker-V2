@@ -15,6 +15,9 @@ import io.flutter.plugin.common.MethodChannel
 class CalendarHandler(private val activity: FragmentActivity) : ChannelHandler {
     private var pendingCalendar: MethodChannel.Result? = null
 
+    /** A calendar provider can be slow: every query and change runs off the main thread. */
+    private val offMain = OffMain.of(activity)
+
     /** Asks once for the calendar. */
     private val askCalendar =
         activity.registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
@@ -43,27 +46,41 @@ class CalendarHandler(private val activity: FragmentActivity) : ChannelHandler {
                 if (!granted()) {
                     result.error("no-access", "Calendar access was not given.", null)
                 } else {
-                    result.success(CalendarBridge.calendars(activity.contentResolver))
+                    offMain.answer(result, "calendar") { CalendarBridge.calendars(activity.contentResolver) }
                 }
             }
-            "replaceCalendarEvents" -> {
+            "calendarEvents" -> {
                 val calendar = (call.argument<Any>("calendar") as? Number)?.toLong()
                 val from = (call.argument<Any>("from") as? Number)?.toLong()
-                val events = call.argument<List<Map<String, Any?>>>("events")
+                val mark = call.argument<String>("mark")
                 if (!granted()) {
                     result.error("no-access", "Calendar access was not given.", null)
-                } else if (calendar == null || from == null || events == null) {
-                    result.error("bad-arguments", "calendar, from and events are required", null)
+                } else if (calendar == null || from == null || mark.isNullOrEmpty()) {
+                    result.error("bad-arguments", "calendar, from and mark are required", null)
                 } else {
-                    // Off the main thread: a calendar provider can be slow.
-                    Thread {
-                        try {
-                            val written = CalendarBridge.replace(activity.contentResolver, calendar, from, events)
-                            activity.runOnUiThread { result.success(written) }
-                        } catch (e: Exception) {
-                            activity.runOnUiThread { result.error("calendar", e.message, null) }
-                        }
-                    }.start()
+                    offMain.answer(result, "calendar") {
+                        CalendarBridge.events(activity.contentResolver, calendar, from, mark)
+                    }
+                }
+            }
+            "applyCalendarChanges" -> {
+                val calendar = (call.argument<Any>("calendar") as? Number)?.toLong()
+                val insert = call.argument<List<Map<String, Any?>>>("insert")
+                val update = call.argument<List<Map<String, Any?>>>("update")
+                val delete = call.argument<List<Any?>>("delete")?.mapNotNull { (it as? Number)?.toLong() }
+                val mark = call.argument<String>("mark")
+                val length = (call.argument<Any>("length") as? Number)?.toLong()
+                if (!granted()) {
+                    result.error("no-access", "Calendar access was not given.", null)
+                } else if (calendar == null || insert == null || update == null || delete == null ||
+                    mark.isNullOrEmpty() || length == null
+                ) {
+                    result.error("bad-arguments", "calendar, insert, update, delete, mark and length are required", null)
+                } else {
+                    val shape = CalendarBridge.Shape(mark, length)
+                    offMain.answer(result, "calendar") {
+                        CalendarBridge.apply(activity.contentResolver, calendar, insert, update, delete, shape)
+                    }
                 }
             }
             else -> return false

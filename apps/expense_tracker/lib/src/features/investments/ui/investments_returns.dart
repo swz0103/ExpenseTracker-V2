@@ -1,18 +1,32 @@
-part of 'investments.dart';
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/paint.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../model/dividend_outlook.dart';
+import 'investments.dart';
 
 /// 預計配息: the next twelve months as bars, each stacked by holding, the
 /// monthly average dashed across; a tap on a month lists what it holds.
 /// Guessed from the past year's dividends and the shares held now.
-class _Returns extends StatefulWidget {
-  const _Returns({required this.ledger});
+class InvestReturns extends StatefulWidget {
+  const InvestReturns({super.key, required this.ledger});
 
   final Ledger ledger;
 
   @override
-  State<_Returns> createState() => _ReturnsState();
+  State<InvestReturns> createState() => _ReturnsState();
 }
 
-class _ReturnsState extends State<_Returns> {
+class _ReturnsState extends State<InvestReturns> {
   int? _picked;
 
   /// Holdings' colours in the stacks, by how much each pays.
@@ -236,4 +250,160 @@ class _MonthChips extends StatelessWidget {
           ),
     ],
   );
+}
+
+/// A grey pill with words, and a square of [color] before them.
+class _Chip extends StatelessWidget {
+  const _Chip(this.label, {this.color, this.bold = false});
+
+  final String label;
+  final Color? color;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    final mark = color;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s3,
+        vertical: Space.s2,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(Radii.medium),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (mark != null) ...[
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: mark,
+                borderRadius: BorderRadius.circular(Radii.extraSmall),
+              ),
+            ),
+            const SizedBox(width: Space.s2),
+          ],
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: TextSize.body,
+                fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Twelve stacked bars with their sums above, a dot for an empty month,
+/// the picked month on a band, and the average dashed across.
+class _StackPainter extends CustomPainter {
+  _StackPainter({
+    required this.stacks,
+    required this.sums,
+    required this.average,
+    required this.picked,
+    required this.hidden,
+    required this.words,
+    required this.rule,
+    required this.band,
+  });
+
+  final List<List<(int, Color)>> stacks;
+  final List<int> sums;
+  final double average;
+  final int picked;
+  final bool hidden;
+  final Color words;
+  final Color rule;
+  final Color band;
+
+  static String _short(int v) => countTick(v);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final column = size.width / stacks.length;
+    final bar = min(column * 0.62, 26.0);
+    // Room above the tallest bar for its sum, inside the band.
+    final top = 20.0;
+    final high = sums.fold(1, max);
+    double h(int v) => v / high * (size.height - top);
+    if (picked >= 0) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(picked * column + 2, 0, column - 4, size.height),
+          const Radius.circular(Radii.small),
+        ),
+        Paint()..color = band,
+      );
+    }
+    for (final (k, stack) in stacks.indexed) {
+      final cx = k * column + column / 2;
+      if (stack.isEmpty) {
+        canvas.drawCircle(
+          Offset(cx, size.height - 3),
+          2.5,
+          Paint()..color = rule,
+        );
+        continue;
+      }
+      var y = size.height;
+      for (final (i, (value, color)) in stack.indexed) {
+        final height = max(h(value), 3.0);
+        final rect = Rect.fromLTWH(cx - bar / 2, y - height, bar, height);
+        final last = i == stack.length - 1;
+        canvas.drawRRect(
+          RRect.fromRectAndCorners(
+            rect,
+            topLeft: last ? const Radius.circular(Radii.small) : Radius.zero,
+            topRight: last ? const Radius.circular(Radii.small) : Radius.zero,
+            bottomLeft: i == 0
+                ? const Radius.circular(Radii.small)
+                : Radius.zero,
+            bottomRight: i == 0
+                ? const Radius.circular(Radii.small)
+                : Radius.zero,
+          ),
+          Paint()..color = color,
+        );
+        y -= height + 1.5;
+      }
+      if (!hidden) {
+        // Inside its own column, the chosen one's band included: a long
+        // sum such as 12.5k is set smaller rather than run over the edge.
+        TextStyle style(double size) => TextStyle(
+          fontSize: size,
+          fontWeight: FontWeight.w700,
+          color: words,
+        );
+        var text = layoutText(_short(sums[k]), style(TextSize.tiny));
+        final room = column - 6;
+        if (text.width > room) {
+          text = layoutText(
+            _short(sums[k]),
+            style(TextSize.tiny * room / text.width),
+          );
+        }
+        final ty = max(2.0, y - text.height - 2);
+        text.paint(canvas, Offset(cx - text.width / 2, ty));
+      }
+    }
+    final ay = size.height - h(average.round());
+    final dash = Paint()
+      ..color = words
+      ..strokeWidth = 1;
+    for (var x = 0.0; x < size.width; x += 8) {
+      canvas.drawLine(Offset(x, ay), Offset(min(x + 4, size.width), ay), dash);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_StackPainter old) =>
+      old.picked != picked || old.sums != sums || old.hidden != hidden;
 }

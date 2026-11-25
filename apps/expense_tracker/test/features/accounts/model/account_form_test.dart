@@ -27,6 +27,37 @@ void main() {
     dataSource: _Nowhere(),
   );
 
+  test('a blank name is said, in the words of the rule (F68)', () {
+    final form = AccountForm(book())..name = '   ';
+    expect(form.problem, '請輸入帳戶名稱');
+    expect(form.save(), isFalse);
+  });
+
+  group('ACC-05: a credit limit is read with the one parser', () {
+    AccountForm card(String limit) => AccountForm(book())
+      ..kind = AccountKind.card
+      ..name = '卡'
+      ..limit = limit;
+
+    test('80,000 and 80000.0 are 80,000', () {
+      expect(card('80,000').build().limit, 80000);
+      expect(card('80000.0').build().limit, 80000);
+      expect(card('80,000').limitProblem, isNull);
+    });
+    test('left empty, there is no limit and nothing is wrong', () {
+      expect(card('').build().limit, isNull);
+      expect(card('').limitProblem, isNull);
+      expect(card('').problem, isNull);
+    });
+    test('what is not a limit is said so, and is not saved as none', () {
+      final form = card('8萬');
+      expect(form.limitProblem, '不是有效的金額');
+      expect(form.problem, '不是有效的金額');
+      expect(form.save(), isFalse);
+      expect(card('80000.5').limitProblem, '小數位數比這個幣別多');
+    });
+  });
+
   test('a new account needs a name and opens at the balance typed', () {
     final ledger = book();
     final form = AccountForm(ledger);
@@ -76,6 +107,82 @@ void main() {
     expect((owed.account, owed.to, owed.amount), ('bank', 'card', 1200));
   });
 
+  test('settling with nothing dated ahead is dated today', () {
+    final ledger = book();
+    final left = AccountForm.settlement(ledger, ledger.account('bank'), 'x');
+    expect(left.date, DateTime.utc(2026, 10, 4));
+  });
+
+  test('settling counts what is dated ahead, and is dated on the last '
+      'entry dated ahead (D120)', () {
+    final ledger = book();
+    ledger.entryCommands.add(
+      Entry(
+        id: 'later',
+        date: DateTime.utc(2026, 10, 10),
+        type: EntryType.expense,
+        amount: 800,
+        account: 'bank',
+        category: '飲食',
+      ),
+    );
+    ledger.accountCommands.addAccount(
+      const Account('cash', '現金', AccountKind.cash, 0),
+    );
+    final left = AccountForm.settlement(ledger, ledger.account('bank'), 'cash');
+    // 5000 - 800 once 2026-10-10 has come; planned for that day, so
+    // today's balance stays 5000 rather than 5000 - 4200 = 800.
+    expect((left.amount, left.date), (4200, DateTime.utc(2026, 10, 10)));
+    ledger.entryCommands.add(left);
+    expect(ledger.balanceService.balance('bank'), 5000);
+    expect(ledger.balanceService.finalBalance('bank'), 0);
+  });
+
+  test('review 36: an entry dated beyond the year ahead is counted, and the '
+      'settlement is dated on its day, which the write rules let it be as a '
+      'settlement only (D121)', () {
+    var today = DateTime.utc(2026, 10, 4);
+    final ledger = Ledger(
+      today: today,
+      clock: () => today,
+      accounts: const [
+        Account('bank', '銀行', AccountKind.bank, 5000),
+        Account('cash', '現金', AccountKind.cash, 0),
+      ],
+      categories: [],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      dataSource: _Nowhere(),
+    );
+    // Written while the clock was right; then it went back a year, as
+    // one set forward and corrected does.
+    ledger.entryCommands.add(
+      Entry(
+        id: 'far',
+        date: DateTime.utc(2026, 10, 9),
+        type: EntryType.expense,
+        amount: 800,
+        account: 'bank',
+        category: '飲食',
+      ),
+    );
+    today = DateTime.utc(2025, 10, 1);
+    // 2025-10-01 + 365 days = 2026-10-01, before 2026-10-09.
+    final left = AccountForm.settlement(ledger, ledger.account('bank'), 'cash');
+    expect((left.amount, left.date), (4200, DateTime.utc(2026, 10, 9)));
+    expect(() => ledger.entryCommands.add(left), throwsA(isA<RecordRefused>()));
+    // Of another account, it is not a settlement of it.
+    expect(
+      () => ledger.entryCommands.addSettlement(left, 'other'),
+      throwsA(isA<RecordRefused>()),
+    );
+    ledger.entryCommands.addSettlement(left, 'bank');
+    expect(ledger.entries.byId(left.id)?.date, DateTime.utc(2026, 10, 9));
+    expect(ledger.balanceService.finalBalance('bank'), 0);
+  });
+
   test(
     'a new account comes after the placed ones; a change keeps its place',
     () {
@@ -122,6 +229,115 @@ void main() {
     },
   );
 
+  group('D116: a loan rate below nothing is refused', () {
+    AccountForm loan(Ledger ledger, String rate, {Account? old}) =>
+        AccountForm(ledger, old: old)
+          ..kind = AccountKind.loan
+          ..name = '房貸'
+          ..principal = '1,000,000'
+          ..months = '240'
+          ..rate = rate;
+
+    test('entered, it is said and nothing is kept', () {
+      final ledger = book();
+      final form = loan(ledger, '-2');
+      expect(form.problem, '利率不能是負數');
+      expect(form.save(), isFalse);
+      expect(ledger.accounts.all.map((a) => a.id), ['bank', 'card']);
+    });
+
+    test('edited, the loan keeps the rate it had', () {
+      final ledger = book();
+      expect(loan(ledger, '2').save(), isTrue);
+      final kept = ledger.accounts.all.last;
+      final form = loan(ledger, '-1.5', old: kept);
+      expect(form.problem, '利率不能是負數');
+      expect(form.save(), isFalse);
+      expect(ledger.accounts.all.last.loan?.rate, 200);
+    });
+
+    test('-0 is no interest, and is kept', () {
+      expect(loan(book(), '-0').problem, isNull);
+    });
+  });
+
+  group('D118: a loan rate that is no number, or above 100%, is refused', () {
+    AccountForm loan(Ledger ledger, String rate, {Account? old}) =>
+        AccountForm(ledger, old: old)
+          ..kind = AccountKind.loan
+          ..name = '信貸'
+          ..principal = '100,000'
+          ..months = '12'
+          ..rate = rate;
+
+    test('text that is no number is said so, not kept as no rate', () {
+      final ledger = book();
+      for (final typed in ['abc', '2,5', '.', '2%%']) {
+        final form = loan(ledger, typed);
+        expect(form.problem, '利率要填數字，例如 2.15', reason: typed);
+        expect(form.rateProblem, '利率要填數字，例如 2.15', reason: typed);
+        expect(form.save(), isFalse, reason: typed);
+      }
+      expect(ledger.accounts.all.map((a) => a.id), ['bank', 'card']);
+    });
+
+    test('above 100% is taken for a typo; edited, the loan keeps its rate', () {
+      final ledger = book();
+      final form = loan(ledger, '120');
+      expect(form.problem, '利率不能超過 100%，請確認是否打錯');
+      expect(form.rateProblem, isNull);
+      expect(form.save(), isFalse);
+      expect(ledger.accounts.all.map((a) => a.id), ['bank', 'card']);
+      expect(loan(ledger, '2').save(), isTrue);
+      final kept = ledger.accounts.all.last;
+      final edit = loan(ledger, '100.01', old: kept);
+      expect(edit.problem, '利率不能超過 100%，請確認是否打錯');
+      expect(edit.save(), isFalse);
+      // 2% is 200 hundredths of a percent.
+      expect(ledger.accounts.all.last.loan?.rate, 200);
+    });
+
+    test('review 33: a rate too small to keep is said, not kept as no '
+        'interest; one below nothing by however little is below nothing', () {
+      final ledger = book();
+      final small = loan(ledger, '0.004');
+      expect(small.problem, '利率最小是 0.01%');
+      expect(small.rateProblem, '利率最小是 0.01%');
+      expect(small.save(), isFalse);
+      final below = loan(ledger, '-0.004');
+      expect(below.problem, '利率不能是負數');
+      expect(below.save(), isFalse);
+      expect(ledger.accounts.all.map((a) => a.id), ['bank', 'card']);
+    });
+
+    test('review 33: a percent sign and full-width digits are read', () {
+      final ledger = book();
+      for (final typed in ['2.15%', '2.15 %', '２.１５', '２．１５％']) {
+        final form = loan(ledger, typed);
+        expect(form.problem, isNull, reason: typed);
+        // 2.15% is 215 hundredths of a percent.
+        expect(form.typedRate, 215, reason: typed);
+      }
+      expect(loan(ledger, '2.15%').save(), isTrue);
+      expect(ledger.accounts.all.last.loan?.rate, 215);
+    });
+
+    test('100% itself, and a rate left empty, are kept', () {
+      final ledger = book();
+      expect(loan(ledger, '100').problem, isNull);
+      expect(loan(ledger, '  ').problem, isNull);
+      expect(loan(ledger, '').rateProblem, isNull);
+    });
+
+    test('a card is not asked for a rate', () {
+      final form = AccountForm(book())
+        ..kind = AccountKind.card
+        ..name = '卡'
+        ..rate = 'abc';
+      expect(form.rateProblem, isNull);
+    });
+  });
+
   test('a loan keeps its terms, and owes its amount when nothing else is '
       'typed', () {
     final ledger = book();
@@ -163,5 +379,47 @@ void main() {
       ..color = null;
     expect(edit.save(), isTrue);
     expect(ledger.accounts.all.last.color, isNull);
+  });
+
+  group('D7: an account keeps its own broker discount', () {
+    AccountForm bank(String discount) =>
+        AccountForm(book(), old: book().account('bank'))..discount = discount;
+
+    test('typed as a share or in 折, kept in basis points', () {
+      expect(bank('0.6').build().brokerDiscount, 6000);
+      expect(bank('2.8 折').build().brokerDiscount, 2800);
+      expect(bank('2.8 折').problem, isNull);
+    });
+    test('left empty, the phone-wide one is taken', () {
+      expect(bank('').build().brokerDiscount, isNull);
+      expect(bank('').problem, isNull);
+    });
+    test('outside the range or not a number, it is said and not saved', () {
+      expect(bank('6').discountProblem, '折扣要大於 0、最多 1（不打折），例如 6 折或 0.6');
+      expect(bank('0').problem, '折扣要大於 0、最多 1（不打折），例如 6 折或 0.6');
+      expect(bank('六折').problem, '看不懂這個折扣，請寫成 6 折或 0.6');
+      expect(bank('6').save(), isFalse);
+    });
+    test('0.6 折 is refused with the two ways; ６折 is 6 折 (D86)', () {
+      expect(bank('0.6折').problem, '看不懂這個折扣，請寫成 6 折或 0.6');
+      expect(bank('0.6折').save(), isFalse);
+      expect(bank('６折').build().brokerDiscount, 6000);
+      expect(bank('０．６').problem, isNull);
+    });
+    test('saved, and shown again as typed', () {
+      final ledger = book();
+      final form = AccountForm(ledger, old: ledger.account('bank'))
+        ..discount = '0.28';
+      expect(form.save(), isTrue);
+      expect(ledger.account('bank').brokerDiscount, 2800);
+      expect(AccountForm(ledger, old: ledger.account('bank')).discount, '0.28');
+    });
+    test('a card, a loan or a person keeps none', () {
+      final card = AccountForm(book(), old: book().account('card'))
+        ..discount = '0.6';
+      expect(card.trades, isFalse);
+      expect(card.build().brokerDiscount, isNull);
+      expect(card.discountProblem, isNull);
+    });
   });
 }

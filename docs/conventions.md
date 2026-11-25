@@ -28,6 +28,11 @@
 
 - 每個 `catch` 做三件事之一：用 `ErrorLog.instance.record('做什麼', error)` 記下、重新拋出，或在區塊第一行用註解說明為何什麼都不用做（`error_rules_test`）。
 - 不把例外原樣放進給人看的訊息；要附上原因時用 `ErrorLog.describe(error)`，它去掉路徑、引號內的字和數字。
+- `record` 第三個參數是堆疊（`catch (error, stack)`）；沒給時用 `Error` 自己的堆疊，再沒有就記下呼叫 `record` 的位置。堆疊只留程式的函式名與原始檔行號，上限是 `ErrorLog.maxFrames`、`ErrorLog.maxStackChars`。
+- `record` 不做檔案工作：先留在記憶體，最多 `ErrorLog.flushDelay` 後一批寫入（離開 App、發生未處理錯誤時立刻寫）。同一個錯誤連續發生只記一筆加次數。
+- 預期中的失敗不用例外：回傳 sealed 的結果型別（例如 `ScanOutcome`、`UpdateStatus`），由 `core/messages` 轉成給人看的話。
+- 沒人接住的錯誤由 `UnhandledErrors` 統一處理：開發與測試照樣顯示；正式版記下後用一則提示告訴使用者（最多每 `UnhandledErrors.noteGap` 一次）。
+- 失敗後照常繼續的步驟（讀不到設定用預設值、快取重抓）也要記下，名稱放在 `ErrorSteps`。
 
 ### 大小與拆分
 
@@ -113,5 +118,5 @@
 - commit 訊息用英文：第一行說做了什麼，空一行後條列重點。
 - 一個 PR 一件事（一批回饋或一次整理）；PR 說明列出改了什麼、怎麼驗證。
 - 合併到 main 後 CI 自動建置、簽章、發布；App 內更新會讀到新版。
-- 發布到 main 後，CI 自動為新版本打標籤 `v<版本>`，打在該版第一次發布的組建上，之後不移動；下一版發布時連同它的 release 一起刪掉，GitHub 上只留最新一版（`android.yml`）。
+- 發布到 main 後，CI 自動為新版本打標籤 `v<版本>`，打在該版第一次發布的組建上，之後不移動；舊版本的 release 與標籤都保留（`android.yml`）。
 - 每個次版號留一份它寫出的帳本與備份：`MAKE_FIXTURES=1 flutter test test/scenarios/ledger/persistence/old_books_test.dart`，產生的檔案進版控後不再改（[ADR-0010](adr/0010-data-that-lasts.md)）。少了這一份，`old_books_test` 失敗。

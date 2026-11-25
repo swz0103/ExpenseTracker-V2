@@ -10,18 +10,18 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final cause = Exception('disk full');
   final problems = <LedgerProblem>[
-    const SharesShort(),
     const NameTaken(),
     KeepFailed(cause),
     ReloadFailed(cause),
+    RecordRefused(const [MissingDestination(), SameAccountTransfer()]),
   ];
 
   test('each problem names itself in the log, with its cause', () {
     expect(problems.map((p) => '$p'), [
-      'SharesShort',
       'NameTaken',
       'KeepFailed(Exception: disk full)',
       'ReloadFailed(Exception: disk full)',
+      'RecordRefused(MissingDestination, SameAccountTransfer)',
     ]);
   });
 
@@ -37,5 +37,11 @@ void main() {
     final words = problems.map(describeProblem).toSet();
     expect(words, hasLength(problems.length));
     expect(describeProblem(ReloadFailed(cause)), contains('重新打開 App'));
+    // A refused record says its first reason, as the form would.
+    expect(describeProblem(problems.last), '請選擇轉入帳戶');
+  });
+
+  test('a refusal carries at least one reason', () {
+    expect(() => RecordRefused(const []), throwsArgumentError);
   });
 }

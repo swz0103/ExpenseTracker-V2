@@ -4,6 +4,10 @@ import '../models/models.dart';
 import '../repositories/account_repository.dart';
 import '../repositories/category_repository.dart';
 import '../repositories/entry_repository.dart';
+import 'balance_service.dart';
+import 'month_tallies.dart';
+
+import 'package:core/time/utc_days.dart';
 
 /// Sums the screens show: a month's or any stretch of days' income and
 /// spending, by category, merchant and tag, and what a person still owes.
@@ -12,6 +16,7 @@ final class ReportService {
     required EntryReader entries,
     required AccountReader accounts,
     required CategoryReader categories,
+    required this._balances,
     required this._cache,
     required this._today,
   }) : _entries = TrackedEntryReader(entries, _cache),
@@ -19,35 +24,65 @@ final class ReportService {
        _categories = TrackedCategoryReader(categories, _cache);
 
   final EntryReader _entries;
+
+  /// The whole-book counts, a month at a time.
+  late final _tallies = MonthTallies(_entries);
   final AccountReader _accounts;
   final CategoryReader _categories;
+  final BalanceService _balances;
   final QueryCache _cache;
   final DateTime Function() _today;
 
+  /// The entries of [year]/[month] that count today ([countsOn]): a
+  /// 預定 entry, dated later, counts once its day comes (D25).
+  Iterable<Entry> _inMonth(int year, int month) =>
+      countedOn(_entries.inMonth(year, month), _today());
+
   /// Income of a month, dividends included.
   int income(int year, int month) =>
-      _entries.inMonth(year, month).fold(0, (total, e) => total + e.earning);
+      _inMonth(year, month).fold(0, (total, e) => total + e.earning);
 
-  /// Spending of a month, less refunds, with transfer fees.
-  int expense(int year, int month, {int? untilDay}) => _entries
-      .inMonth(year, month)
-      .where((e) => untilDay == null || e.date.day <= untilDay)
-      .fold(0, (total, e) => total + e.spending);
+  /// Spending of a month, less refunds, with transfer fees; with
+  /// [account], only what was spent from it, as its card says (D20):
+  /// transfers out, card payments and money lent are not spending.
+  int expense(int year, int month, {int? untilDay, String? account}) =>
+      _inMonth(year, month)
+          .where((e) => untilDay == null || e.date.day <= untilDay)
+          .where((e) => account == null || e.account == account)
+          .fold(0, (total, e) => total + e.spending);
+
+  /// What [entries] earned and spent, of those that count today
+  /// ([countedOn]): the sums of a list as shown, where a 預定 entry is
+  /// listed, marked, and counted once its day comes (D25).
+  ({int income, int expense}) totalsOf(Iterable<Entry> entries) {
+    var income = 0;
+    var expense = 0;
+    for (final e in countedOn(entries, _today())) {
+      income += e.earning;
+      expense += e.spending;
+    }
+    return (income: income, expense: expense);
+  }
 
   int dividends(int year, int month) =>
-      _entries.inMonth(year, month).fold(0, (sum, e) => sum + e.dividendNet);
+      _inMonth(year, month).fold(0, (sum, e) => sum + e.dividendNet);
 
-  int spentOn(DateTime day) =>
-      _entries.onDay(day).fold(0, (total, e) => total + e.spending);
+  int spentOn(DateTime day) => countedOn(
+    _entries.onDay(day),
+    _today(),
+  ).fold(0, (total, e) => total + e.spending);
+
+  /// The entries from [from] to [to], both counted, that count today
+  /// ([countsOn]).
+  Iterable<Entry> _between(DateTime from, DateTime to) =>
+      countedOn(_allBetween(from, to), _today());
 
   /// The entries from [from] to [to], both counted, read a month at a
   /// time from the month index rather than through every entry.
-  Iterable<Entry> _between(DateTime from, DateTime to) sync* {
-    for (
-      var m = DateTime.utc(from.year, from.month);
-      !m.isAfter(to);
-      m = DateTime.utc(m.year, m.month + 1)
-    ) {
+  Iterable<Entry> _allBetween(DateTime from, DateTime to) sync* {
+    for (final m in monthStarts(from, to)) {
+      // Exception to as-of-today: read only through _between, which takes it
+      // through countedOn.
       for (final e in _entries.inMonth(m.year, m.month)) {
         if (!e.date.isBefore(from) && !e.date.isAfter(to)) yield e;
       }
@@ -113,84 +148,105 @@ final class ReportService {
   /// The day of the first entry, where the book starts.
   DateTime get firstDay => _entries.firstDate ?? _today();
 
-  /// What [person] still owes, payment by payment: each sum paid for
-  /// them, with what is left of it once what they paid back is taken off
-  /// the oldest first, after what they owed from the start; those paid
-  /// off are left out. Newest first.
+  /// What [person] still owes, payment by payment: each entry that
+  /// raised their account's balance (a sum paid for them, as it arrived
+  /// in the account's currency), with what is left of it once whatever
+  /// lowered the balance (what they paid back, anything else kept on the
+  /// account) is taken off the oldest first, after what they owed from
+  /// the start; those paid off are left out. Newest first. Each entry
+  /// counts what it does to the balance ([BalanceService.effect]), so
+  /// what is listed adds up to the balance whenever it is owed and the
+  /// account started at nothing.
   List<(Entry, int)> owedBy(String person) =>
-      _cache.remember(('owedBy', person), () {
+      _cache.remember(('owedBy', person, _today()), () {
         final moves = [
-          for (final e in _entries.all)
-            if (e.type == EntryType.transfer &&
-                (e.to == person || e.account == person))
-              e,
-        ]..sort((a, b) => a.date.compareTo(b.date));
+          for (final e in _balances.entriesOf(person).reversed)
+            if (countsOn(e.date, _today())) e,
+        ];
         // What they owed from the start is paid back before anything lent.
         var back = -_accounts.resolve(person).opening;
-        final lent = <Entry>[];
+        final lent = <(Entry, int)>[];
         for (final e in moves) {
-          if (e.to == person) {
-            lent.add(e);
+          final change = _balances.effect(e, person);
+          if (change > 0) {
+            lent.add((e, change));
           } else {
-            back += e.amount;
+            back -= change;
           }
         }
         final owed = <(Entry, int)>[];
-        for (final e in lent) {
+        for (final (e, amount) in lent) {
           final taken = back <= 0
               ? 0
-              : back < e.amount
+              : back < amount
               ? back
-              : e.amount;
+              : amount;
           back -= taken;
-          if (e.amount > taken) owed.add((e, e.amount - taken));
+          if (amount > taken) owed.add((e, amount - taken));
         }
         return owed.reversed.toList();
       });
 
   /// Every tag with how many entries carry it and their spending, most
-  /// used first.
+  /// used first: of the entries that count today ([countsOn]), so a 預定
+  /// entry joins on its day (D71), as the budgets by tag count it.
   List<(String, int, int)> get tagStats =>
-      _cache.remember('tagStats', _tagStats);
+      _cache.remember(('tagStats', _today()), _tagStats);
 
-  List<(String, int, int)> _tagStats() {
-    final counts = <String, int>{};
-    final sums = <String, int>{};
-    for (final e in _entries.all) {
-      for (final tag in e.tags) {
-        counts[tag] = (counts[tag] ?? 0) + 1;
-        sums[tag] = (sums[tag] ?? 0) + e.spending;
-      }
-    }
-    return [
-      for (final MapEntry(:key, :value) in counts.entries)
-        (key, value, sums[key] ?? 0),
-    ]..sort((a, b) => b.$2.compareTo(a.$2));
-  }
+  List<(String, int, int)> _tagStats() =>
+      _tallies.tagUses(_today())..sort((a, b) => b.$2.compareTo(a.$2));
 
   /// Every merchant with how many entries name it and their spending,
-  /// most used first.
-  List<(String, int, int)> get merchantStats =>
-      merchantsBetween(firstDay, _today())
-        ..sort((a, b) => b.$2.compareTo(a.$2));
+  /// most used first: worked out once per change of the entries. Those
+  /// used alike, by spending, largest first ([merchantsBetween] from the
+  /// first day to today).
+  List<(String, int, int)> get merchantStats => _cache.remember(
+    ('merchantStats', _today()),
+    () => List.unmodifiable(
+      _tallies.merchantSpending(_today())
+        ..sort((a, b) => b.$3.compareTo(a.$3))
+        ..sort((a, b) => b.$2.compareTo(a.$2)),
+    ),
+  );
 
-  /// Every tag in use, most used first.
-  List<String> get tags => [for (final (tag, _, _) in tagStats) tag];
+  /// Every tag in use, most used first ([tagStats]), then those only on
+  /// 預定 entries: the names offered to pick from.
+  List<String> get tags => _cache.remember(('tags', _today()), () {
+    final used = [for (final (tag, _, _) in tagStats) tag];
+    final counted = used.toSet();
+    // A tag only on a 預定 entry is still one to pick, in the order
+    // first written.
+    return [
+      ...used,
+      for (final tag in _tallies.tagsWritten(_today()))
+        if (!counted.contains(tag)) tag,
+    ];
+  });
 
   /// Open spending or [income] categories, the most used over this month
-  /// and the last first, so a new entry starts on the likely one.
-  List<String> categoriesByUse({required bool income}) {
-    final type = income ? EntryType.income : EntryType.expense;
-    final counts = <String, int>{};
-    for (final back in const [0, 1]) {
-      final month = DateTime.utc(_today().year, _today().month - back);
-      for (final e in _entries.inMonth(month.year, month.month)) {
-        if (e.type == type) counts[e.category] = (counts[e.category] ?? 0) + 1;
-      }
-    }
-    final names = [
-      for (final c in _categories.forEntries(income: income)) c.name,
-    ];
-    return names..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0));
-  }
+  /// and the last first, so a new entry or recurring item starts on the
+  /// likely one; a 預定 entry is a use once its day comes. Worked out once
+  /// a day per change of the entries or categories.
+  List<String> categoriesByUse({required bool income}) =>
+      _cache.remember(('categoriesByUse', income, _today()), () {
+        final type = income ? EntryType.income : EntryType.expense;
+        final counts = <String, int>{};
+        for (final back in const [0, 1]) {
+          final month = monthStart(_today(), -back);
+          for (final e in countedOn(
+            _entries.inMonth(month.year, month.month),
+            _today(),
+          )) {
+            if (e.type == type) {
+              counts[e.category] = (counts[e.category] ?? 0) + 1;
+            }
+          }
+        }
+        final names = [
+          for (final c in _categories.forEntries(income: income)) c.name,
+        ];
+        return List<String>.unmodifiable(
+          names..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0)),
+        );
+      });
 }

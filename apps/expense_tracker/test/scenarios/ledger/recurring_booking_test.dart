@@ -46,22 +46,33 @@ void main() {
       if (e.recurring == rentId) e.date,
   ]..sort();
 
-  test('months missed while away are all booked, not only last month', () {
+  test('months missed while away are listed first, then booked each on '
+      'its day once confirmed (D61)', () {
     // Opened in June, July and August, then not until 11/13.
     final ledger = book(
       today: DateTime.utc(2026, 11, 13),
       entries: [booked(6), booked(7), booked(8)],
     );
-    expect(ledger.recurringCommands.bookDue(), 3);
+    final due = ledger.recurringCommands.bookDue();
+    expect(due.booked, 0, reason: 'more than one period: asked first');
+    final held = due.held.single;
+    expect(held.item.id, rentId);
+    expect(held.confirmable, isTrue);
+    expect(held.days, [
+      for (final m in [9, 10, 11]) DateTime.utc(2026, m, 1),
+    ]);
+    expect(ledger.recurringCommands.bookDays(held.item, held.days), 3);
     expect(rentDays(ledger), [
       for (final m in [6, 7, 8, 9, 10, 11]) DateTime.utc(2026, m, 1),
     ]);
-    expect(ledger.recurringCommands.bookDue(), 0, reason: 'booked once only');
+    final again = ledger.recurringCommands.bookDue();
+    expect(again.booked, 0, reason: 'booked once only');
+    expect(again.held, isEmpty);
   });
 
   test('a new item books this month only, not every month since it began', () {
     final ledger = book(today: DateTime.utc(2026, 11, 13), entries: const []);
-    expect(ledger.recurringCommands.bookDue(), 1);
+    expect(ledger.recurringCommands.bookDue().booked, 1);
     expect(rentDays(ledger), [DateTime.utc(2026, 11, 1)]);
   });
 
@@ -70,11 +81,11 @@ void main() {
       today: DateTime.utc(2026, 11, 13),
       entries: [booked(10), booked(11)],
     );
-    expect(ledger.recurringCommands.bookDue(), 0);
+    expect(ledger.recurringCommands.bookDue().booked, 0);
     ledger.entryCommands.remove('r11');
     expect(ledger.recurring.all.single.skipped, {DateTime.utc(2026, 11, 1)});
     expect(
-      ledger.recurringCommands.bookDue(),
+      ledger.recurringCommands.bookDue().booked,
       0,
       reason: 'deleted stays deleted',
     );
@@ -91,7 +102,7 @@ void main() {
     expect(ledger.entryCommands.restoreAll(removed), isTrue);
     expect(ledger.recurring.all.single.skipped, isEmpty);
     expect(
-      ledger.recurringCommands.bookDue(),
+      ledger.recurringCommands.bookDue().booked,
       0,
       reason: 'November is back, booked',
     );
@@ -101,7 +112,11 @@ void main() {
       ledger.recurring.all.single,
       DateTime.utc(2026, 11, 1),
     );
-    expect(ledger.recurringCommands.bookDue(), 1, reason: '恢復: booked again');
+    expect(
+      ledger.recurringCommands.bookDue().booked,
+      1,
+      reason: '恢復: booked again',
+    );
     expect(rentDays(ledger).last, DateTime.utc(2026, 11, 1));
   });
 

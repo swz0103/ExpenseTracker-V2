@@ -10,15 +10,68 @@ flowchart TB
   vault["infrastructure/vault<br/>金鑰、開帳、加密備份"]
   storage["infrastructure/storage<br/>SQLCipher，一筆一列 JSON"]
   market["infrastructure/market<br/>收盤價、匯率"]
-  domain["packages/domain<br/>純計算：成本、費稅、帳期、貸款、CSV、發票"]
+  domain["packages/domain<br/>純計算：成本、費稅、帳期、CSV、發票"]
+  shell["packages/shell<br/>畫面的擴充點"]
+  loans["modules/loans<br/>貸款與代墊模組"]
+  postings["packages/ledger/postings<br/>各種紀錄怎麼記成分錄"]
+  kernel["packages/kernel<br/>分錄核心：寫入路徑、讀取加總"]
   core["packages/core<br/>金額、日期、匯率、ID、時鐘"]
-  app --> vault & market & domain & core
+  app --> vault & market & domain & postings & core & shell & loans
+  loans --> kernel
+  shell --> kernel
   vault --> storage
+  storage --> kernel
+  postings --> kernel & domain
   market --> core
+  kernel --> core
   domain --> core
 ```
 
-`packages/*` 是純 Dart、不碰平台；不需要帳本狀態的計算一律放 `domain`，App 只呼叫。
+`packages/*` 是純 Dart、不碰平台（`packages/shell` 例外：它宣告畫面的擴充點，是 Flutter 套件）；不需要帳本狀態的計算一律放 `domain`，App 只呼叫。套件之間誰可以列誰，由 `tooling/architecture_checks/test/package_dependencies_test.dart` 的表決定。
+
+## 模組（階段 4）
+
+依目標架構 3.1 第五節，功能逐個搬成模組。每個模組是一個套件：
+
+| 部分 | 內容 | 規則 |
+| --- | --- | --- |
+| `modules/<名稱>/lib/calc/`（與 `lib/model/`） | 純計算 | 不碰 Flutter、平台、時鐘（規則 A4） |
+| `modules/<名稱>/lib/feature/` | 模組加到擴充點的東西，一個 `install(Contributions)` | 只經擴充點被 App 取用 |
+| `modules/<名稱>/test/` | 每個 `lib/` 檔都有測試（規則 C1a） | — |
+
+相依宣告只能列核心（`packages/core`、`packages/kernel`、`packages/ledger/*`）與 `packages/shell`，**不能列別的模組**；核心套件也不能列模組。App 只在組裝點 `lib/src/app/modules.dart` 提到模組的 `feature/`。這些都由 `package_dependencies_test.dart` 守住。套件名稱沿用原來的 `ledger_<名稱>`，搬家時所有 import 不變（基準測試一行不改）。
+
+**擴充點**（`kernel` 的 `Contributions`：`on(point).add(owner, item)`）：
+
+| 擴充點 | 宣告在 | 誰讀 |
+| --- | --- | --- |
+| `valuers`：股價、匯率估值 | `packages/kernel` | 分錄的淨值 |
+| `sheetClaims`：資產負債行，模組認領帳戶、核心估值；沒人認領的落在「未認領」行，各行加總等於淨值，同一帳戶被兩個模組認領會被比對抓到 | `packages/kernel` | 比對（`checkParity` 的 `sheetRow`、`sheetClaims`） |
+| `ShellPoints.settings`：設定與搜尋項目（`SettingTopic`） | `packages/shell` | 設定頁（待 FIX-R42 落地後改讀） |
+| `ShellPoints.overview`：總覽區塊 | `packages/shell` | 總覽 |
+| `ShellPoints.composerKinds`、`composerFields`：記帳表單的種類與欄位（做法 D：`Slot`、`Draft`、修訂者） | `packages/shell` | 記帳表單 |
+| `entryMarks`、`editors`、`importColumns`、`formDefaults`、`reminders`、`integrity`、`backupSections`、`budgetScopes` | `packages/shell` | 已宣告，第一個使用者出現時定形 |
+
+**搬一個模組的步驟**：
+1. 先在原處修掉這個區域已知的錯數字，並加一個會抓到它的測試。
+2. 把純計算 `git mv` 到 `modules/<名稱>/lib/calc`，套件名不變；核心若用到它的常數，常數搬進核心（例：`maxLoanRate` 進 `ledger_entries` 的寫入規則）。
+3. 在 `lib/feature/` 寫 `install`，把模組的東西加到擴充點；在 `app/modules.dart` 加一行。
+4. 每個數字由比對守住：`checkParity` 在每本歷代測試帳本、示範帳本、刁鑽帳本上 0 個不同（模組認領的資產負債行也比對）。
+5. 畫面還讀 `Ledger`、用 App 的設計系統時，頁面先留在 `features/`，從外殼注入跨功能的動作（例：`DebtsPage.addLoan`）；等畫面改讀分錄、設計系統成為套件（階段 5）後再搬。
+6. 更新 `tooling/`（規則路徑、覆蓋率下限、CI 清單）與這一節。
+
+**接下來的順序與各自需要的擴充點**：
+
+| 順序 | 模組 | 需要的擴充點 |
+| --- | --- | --- |
+| 1（已開始） | `loans`：貸款與代墊 | `sheetClaims`（已用）；設定與搜尋、更多頁入口與路由、記帳表單的還款欄位（待定） |
+| 2 | `cards`：信用卡帳期、分期、帳單 | 修訂者（分期）、`composerFields`、`sheetClaims`（未出帳分期）、`reminders`（繳款日）、`entryMarks` |
+| 3 | `investments`：持股、買賣、股利 | `valuers`、`sheetClaims`、`composerKinds`（買進、賣出、股利）、`editors`（分割、減資）、`formDefaults`（手續費與稅）、`overview` |
+| 4 | `recurring`：定期交易 | `reminders`、`backupSections`、`settings`、`overview` |
+| 5 | `budgets`：預算 | `budgetScopes`、`reminders`、`overview`、`backupSections` |
+| 6 | `reports`：報表 | `overview`、`settings` |
+| 7 | `import_export`：匯入匯出 | `importColumns`、`backupSections`、`settings` |
+
 
 ## App 內部分層
 
@@ -33,6 +86,7 @@ flowchart TB
   subgraph core["core/：共用"]
     widgets --> navigation & messages & platform & charts
     navigation --> platform --> ledger
+    navigation --> formatting
     messages --> ledger
     charts --> design_system --> formatting
     ledger --> diagnostics --> time
@@ -45,13 +99,13 @@ flowchart TB
 | --- | --- | --- |
 | `formatting/` | 金額、日期、共用詞彙 `Words`、`JsonFields`；純函式 | — |
 | `time/` | `AppClock`：讀時間的唯一地方 | — |
-| `diagnostics/` | `ErrorLog`（去識別化）、`PerformanceMonitor` | time |
+| `diagnostics/` | `ErrorLog`（去識別化、堆疊、批次寫入）、`UnhandledErrors`（未處理錯誤）、`ErrorSteps`、`PerformanceMonitor` | time |
 | `design_system/` | 顏色 `AppColors`、字級、圖示、動態、面板；`components/` 不知道帳本 | formatting |
 | `charts/` | 圖表 | design_system、formatting |
 | `ledger/` | 帳本，見下一節；Flutter 只用 `foundation`（ADR-0012） | formatting、diagnostics、time |
 | `platform/` | 偏好設定、背景同步工作、開帳、隱私 | ledger、formatting、diagnostics、time |
-| `messages/` | 告訴使用者的帳本數值與問題 | ledger、formatting |
-| `navigation/` | `Nav`、`AppRoute`、`AppRoutes`、`openFullScreen` | ledger、platform |
+| `messages/` | 告訴使用者的帳本數值與問題，以及手機回覆的結果（掃描、檢查更新） | ledger、formatting、platform |
+| `navigation/` | `Nav`、`AppRoute`、`AppRoutes`、`openFullScreen`（設定頁可帶搜尋到的 `SettingTopic`） | ledger、platform、formatting |
 | `widgets/` | 認得帳本的共用元件：紀錄列、選擇器、計算機 | 以上全部 |
 
 功能裡：`model/` 是資料與計算（不碰畫面，只拿帳本中用到的部分，ADR-0013）；`forms/` 是表單與面板，別的功能可以打開；`ui/` 是頁面，只給自己和 `app/` 用。功能之間不能互相需要（含間接）。規則的唯一來源是 `test/support/layout.dart`。
@@ -78,12 +132,15 @@ flowchart LR
 | `services/` | 只讀、跨 Repository 的計算，經 `QueryCache` 記住答案 | balance statement report entryQuery budget recurring · entryValidator |
 | `commands/` | 寫入；跨 Repository 的修改用 `UnitOfWork` 一次交出 | entry account category budget recurring holding attachment |
 | `cache/` | `Topic`（資料主題）、`TopicNotifier`、`QueryCache`（讀了哪些主題自動追蹤，主題變了才作廢） | — |
-| `persistence/` | `WriteBatch`、`UnitOfWork`、`WriteQueue`、`SqlLedgerDataSource`、紀錄版本與升級、一型別一檔的 JSON | — |
+| `journal/` | 分錄（工作包 2.0）：紀錄對應成意圖（`BookMapping`，舊資料形狀 `OldShape`）、整本重放（`replayBook`）、與現行數字比對（`checkParity`）、需要使用者檢視的舊形狀紀錄（`recordsNeedingReview`，D47） | models、cache、repositories、services |
+| `persistence/` | `WriteBatch`、`UnitOfWork`、`WriteQueue`、`SqlLedgerDataSource`、紀錄版本與升級、一型別一檔的 JSON；`JournalKeeper` 讓分錄跟著紀錄 | — |
 | `ledger.dart` | 只做組合與通知：`today` `newId` `watch(topics)` `settled` `problem` `amounts` | — |
 
-依賴只往下：models ← cache ← repositories ← services ← commands；不用 `part`。
+依賴只往下：models ← cache ← repositories ← services ← journal ← commands；不用 `part`。
 
 **一筆寫入怎麼走**：`entryCommands.add(e)` → `entries.add` → `holdings.replay`（股數不夠就還原並丟出）→ `CommandContext` 通知 `Topic.entries` 等主題、交出 `WriteBatch` → `WriteQueue` 依序 `keep` 成資料庫一個交易。畫面先生效；寫入失敗時 `problem` 變成 `KeepFailed`，佇列清空後整本重讀，畫面回到實際存下的狀態。
+
+**分錄跟著紀錄（2.0）**：紀錄仍是唯一真相、寫入仍走上面那條路；分錄是由紀錄算出、可整批重建的索引，存在同一個加密檔的衍生資料表（`posting`、`month_sum`…，不進備份）。開帳時若分錄不是由這一版規則、這一個 `revision` 算出（例如舊版 App 寫過紀錄，D49），就在 worker isolate 上整本重放（開帳時與讀帳同一趟：`book_opening.dart`、`journal_rebuild.dart`、`EncryptedDatabase.workApart`，D51），畫面所在的 isolate 只等待；分類帳戶以分類代號為準（D88），股數與 App 同精度（D87）；每次 `keep` 之後，`JournalKeeper` 把變動的紀錄記成分錄，再在背景比對畫面上的數字（餘額、每月收支與分類、持股、卡費、各幣別為零），不同就寫進診斷紀錄（只寫哪種數字，不寫金額）。畫面還沒有讀分錄。
 
 **一次讀取怎麼走**：`balanceService.balance(id)` 先查 `QueryCache`；沒有時計算，計算中讀過的 `Reader` 自動回報主題（`entries`、`accounts`）。之後只有這些主題變動才重算；改預算不會讓餘額重算。
 
@@ -114,7 +171,7 @@ flowchart LR
 | --- | --- |
 | 上市收盤 | 證交所 `STOCK_DAY_ALL`，缺時 `STOCK_DAY` 月報 |
 | 上櫃收盤 | 櫃買中心每日收盤 |
-| 走勢圖 | 證交所、櫃買月報，讀過的月份存在 `prices/` |
+| 走勢圖 | 證交所、櫃買月報（請求帶股票代號），讀過的月份以帳本金鑰封存在 `prices.sealed`（`PriceMonths`），金鑰不符（還原、重設金鑰後）就刪掉重抓 |
 | 匯率 | 臺灣銀行牌告 CSV；`FxRate` 存整數比例，最後才取位 |
 
 不做盤中行情：正式來源要付費簽約。

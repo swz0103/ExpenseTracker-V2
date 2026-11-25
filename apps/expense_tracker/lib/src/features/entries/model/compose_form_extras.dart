@@ -1,4 +1,4 @@
-part of 'compose_form.dart';
+import 'compose_form.dart';
 
 // The merchant and tags at the foot of the form.
 

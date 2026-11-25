@@ -90,9 +90,9 @@ void main() {
     tester,
   ) async {
     await _show(tester, square(_Photos(), receipt: 'r1.etr'));
-    await tester.tap(find.byTooltip('移除收據'));
+    await tester.tap(find.byTooltip('刪除收據'));
     expect(said, ['removed']);
     await _show(tester, square(_Photos(), receipt: 'r1.etr', removable: false));
-    expect(find.byTooltip('移除收據'), findsNothing);
+    expect(find.byTooltip('刪除收據'), findsNothing);
   });
 }

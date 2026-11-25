@@ -58,4 +58,38 @@ void main() {
     expect(outcome.review[1], contains('已刪除'));
     expect(outcome.review[2], contains('1 則'));
   });
+
+  test('a confirmation the ledger refuses is listed, not booked', () {
+    // US\$5.00 monthly on the 5th, no rate known: no NT\$ amount (LOG-02).
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 10, 12),
+      accounts: const [
+        Account('usd', '美元', AccountKind.bank, 10000, currency: 'USD'),
+      ],
+      categories: [Category('居家', 'home', 0xFF5B8DB0)],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: [
+        Recurring(
+          id: 'sub',
+          name: '訂閱',
+          amount: 500,
+          day: 5,
+          account: 'usd',
+          category: '居家',
+          start: DateTime.utc(2026, 10, 5),
+        ),
+      ],
+    );
+    final outcome = applyInbox(
+      recurring: ledger.recurring,
+      service: ledger.recurringService,
+      commands: ledger.recurringCommands,
+      [confirm('sub', '2026-10-05')],
+    );
+    expect(outcome.booked, 0);
+    expect(ledger.entries.all, isEmpty);
+    expect(outcome.review, ['「訂閱」10/5 沒有入帳：還沒有匯率，請輸入折合新台幣的金額']);
+  });
 }

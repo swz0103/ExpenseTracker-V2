@@ -7,7 +7,9 @@ import '../../../../core/design_system/keys.dart';
 import '../../../../core/design_system/shape.dart';
 import '../../../../core/design_system/spacing.dart';
 import '../../../../core/design_system/motion.dart';
+import '../../../../core/design_system/password_field.dart' show SecretKeyboard;
 import '../../../../core/formatting/words.dart';
+import '../../../../core/widgets/diagnostics_button.dart';
 
 /// Opening a ledger with its password, on the welcome's ground: the mark
 /// and the name, the password as dots that fill in as it is typed (the
@@ -27,8 +29,14 @@ class UnlockView extends StatefulWidget {
     this.onDevice,
     this.onBack,
     this.problem,
+    this.waiting,
     this.arrive = false,
   });
+
+  /// Said in place of [problem] while the password may not be typed: the
+  /// wait after too many wrong ones, counting down. The fingerprint and
+  /// the recovery link stay as they are.
+  final String? waiting;
 
   final TextEditingController password;
   final bool busy;
@@ -62,11 +70,15 @@ class _UnlockViewState extends State<UnlockView>
     duration: Motion.long4,
   );
 
-  /// How many dots stand in for nothing typed yet.
-  static const _room = 6;
-
   /// The most dots shown; a longer password keeps the row this wide.
   static const _most = 14;
+
+  /// A dot with its gap, wide.
+  static const _dotSlot = 11.0 + 13.0;
+
+  /// What a screen reader is told, once, when a wait begins and when it
+  /// ends: the countdown itself changes every second and is not read out.
+  String _said = '';
 
   @override
   void initState() {
@@ -97,6 +109,21 @@ class _UnlockViewState extends State<UnlockView>
       widget.password.clear();
       _type();
     }
+    // The wait began: what was typed goes. It ended: the keyboard is
+    // back for the next try.
+    if (widget.waiting != null && old.waiting == null) {
+      widget.password.clear();
+      _focus.unfocus();
+      _said = widget.waiting!;
+    } else if (widget.waiting == null && old.waiting != null) {
+      _said = '可以再輸入密碼了';
+      _type();
+    } else if (widget.problem != null && old.problem != widget.problem) {
+      _said = widget.problem!;
+    } else if (widget.problem == null && old.problem != null) {
+      // Cleared, so the same words said again are read again.
+      _said = '';
+    }
   }
 
   @override
@@ -108,18 +135,34 @@ class _UnlockViewState extends State<UnlockView>
 
   /// Brings the keyboard up for the password.
   void _type() {
-    if (mounted && !widget.busy) _focus.requestFocus();
+    if (mounted && !widget.busy && widget.waiting == null) {
+      _focus.requestFocus();
+    }
   }
 
   void _submit() {
-    if (widget.busy || widget.password.text.isEmpty) return;
+    if (widget.busy || widget.waiting != null) return;
+    if (widget.password.text.isEmpty) return;
     widget.onSubmit();
   }
 
   /// The group's fixed parts, top to bottom, so the mark's place is known
   /// before it is laid out (it moves there from the middle).
   static const _mark = 72.0;
-  static const _height = _mark + 14 + 32 + 22 + 20 + 34 + 58 + 6 + 44;
+  static const _nameBox = 32.0;
+  static const _problemBox = 34.0;
+  static const _height =
+      _mark + 14 + _nameBox + 22 + 20 + _problemBox + 58 + 6 + Space.target;
+
+  /// [_height] with the words' boxes grown for the text size, and the
+  /// room of 匯出診斷 when it shows under the problem.
+  double _heightFor(double scale) =>
+      _height +
+      (scale - 1) * (_nameBox + _problemBox + Space.target) +
+      (DiagnosticsButton.shows(context, _sendable) ? Space.target * scale : 0);
+
+  /// The problem 匯出診斷 may show under: none while the wait is said.
+  String? get _sendable => widget.waiting == null ? widget.problem : null;
 
   @override
   Widget build(BuildContext context) {
@@ -140,6 +183,8 @@ class _UnlockViewState extends State<UnlockView>
     final screen = MediaQuery.sizeOf(context);
     final inset = MediaQuery.paddingOf(context);
     final back = widget.onBack;
+    final scale = textGrowth(context);
+    final height = _heightFor(scale < 1 ? 1 : scale);
     return Stack(
       children: [
         Positioned.fill(
@@ -160,13 +205,13 @@ class _UnlockViewState extends State<UnlockView>
         SafeArea(
           child: LayoutBuilder(
             builder: (context, box) {
-              final top = ((box.maxHeight - _height) / 2).clamp(0.0, 1e9);
+              final top = ((box.maxHeight - height) / 2).clamp(0.0, 1e9);
               // From the middle of the screen, where the opening drew it.
               final markY = inset.top + top + _mark / 2;
               final from = screen.height / 2 - markY;
               return SingleChildScrollView(
                 child: SizedBox(
-                  height: box.maxHeight < _height ? _height : box.maxHeight,
+                  height: box.maxHeight < height ? height : box.maxHeight,
                   child: Stack(
                     children: [
                       _halo(move, box, top),
@@ -227,8 +272,8 @@ class _UnlockViewState extends State<UnlockView>
           offset: Offset(0, from * (1 - move)),
           child: Transform.scale(
             scale: grow + (1 - grow) * move,
-            child: Semantics(
-              label: '記帳本',
+            // The name under it says it; the mark is not read as well.
+            child: ExcludeSemantics(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(Radii.large),
                 child: const AppMark(size: _mark),
@@ -269,8 +314,8 @@ class _UnlockViewState extends State<UnlockView>
     ),
   );
 
-  Widget _name() => const SizedBox(
-    height: 32,
+  Widget _name() => ConstrainedBox(
+    constraints: BoxConstraints(minHeight: _nameBox),
     child: Text(
       '記帳本',
       style: TextStyle(
@@ -281,66 +326,85 @@ class _UnlockViewState extends State<UnlockView>
     ),
   );
 
-  /// The password as dots: filled for each letter typed, hollow for the
-  /// room left; a tap brings the keyboard back.
-  Widget _dots() => GestureDetector(
-    behavior: HitTestBehavior.opaque,
-    onTap: _type,
-    child: SizedBox(
-      height: 20,
-      width: double.infinity,
-      child: ListenableBuilder(
-        listenable: widget.password,
-        builder: (context, _) {
-          final typed = widget.password.text.length;
-          final filled = typed > _most ? _most : typed;
-          final hollow = filled >= _most
-              ? 0
-              : filled >= _room
-              ? 1
-              : _room - filled;
-          final wrong = widget.problem != null && typed == 0;
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (var i = 0; i < filled + hollow; i++)
-                Container(
-                  width: 11,
-                  height: 11,
-                  margin: const EdgeInsets.symmetric(horizontal: 6.5),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: i < filled ? AppColors.accent : null,
-                    border: i < filled
-                        ? null
-                        : Border.all(
-                            color: wrong
-                                ? AppColors.danger
-                                : AppColors.accentRule,
-                            width: 1.6,
-                          ),
-                  ),
-                ),
-            ],
-          );
-        },
+  /// The password as dots: filled for each letter typed, then one hollow
+  /// for the next. No row of hollow dots stands for a length, so none is
+  /// suggested; a tap brings the keyboard back.
+  Widget _dots() => ExcludeSemantics(
+    // The password field is what a screen reader finds; the dots show it.
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _type,
+      child: SizedBox(
+        height: 20,
+        width: double.infinity,
+        child: LayoutBuilder(
+          builder: (context, box) => _dotRow(
+            // Fewer dots on a narrow screen, so the row always fits.
+            ((box.maxWidth / _dotSlot).floor() - 1).clamp(1, _most),
+          ),
+        ),
       ),
     ),
   );
 
-  Widget _problem() {
-    final text = widget.problem;
-    return SizedBox(
-      height: 34,
+  Widget _dotRow(int most) => ListenableBuilder(
+    listenable: widget.password,
+    builder: (context, _) {
+      final typed = widget.password.text.length;
+      final filled = typed > most ? most : typed;
+      final hollow = filled >= most ? 0 : 1;
+      final wrong = widget.problem != null && typed == 0;
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (var i = 0; i < filled + hollow; i++)
+            Container(
+              width: 11,
+              height: 11,
+              margin: const EdgeInsets.symmetric(horizontal: 6.5),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: i < filled ? AppColors.accent : null,
+                border: i < filled
+                    ? null
+                    : Border.all(
+                        color: wrong ? AppColors.danger : AppColors.accentRule,
+                        width: 1.6,
+                      ),
+              ),
+            ),
+        ],
+      );
+    },
+  );
+
+  Widget _problem() =>
+      Column(children: [_problemLine(), DiagnosticsButton(_sendable)]);
+
+  Widget _problemLine() {
+    final waiting = widget.waiting;
+    final text = waiting ?? widget.problem;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: _problemBox),
       child: Center(
         child: text == null || text.isEmpty
-            ? null
-            : Text(
-                text,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: TextSize.small,
-                  color: AppColors.danger,
+            // Read out when it changes: a wrong password, and the wait at
+            // its start and its end; the second-by-second countdown below
+            // is shown but not read.
+            ? Semantics(liveRegion: true, label: _said, child: const SizedBox())
+            : Semantics(
+                liveRegion: true,
+                label: _said,
+                child: ExcludeSemantics(
+                  child: Text(
+                    text,
+                    key: waiting == null ? null : Keys.unlockWait,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: TextSize.small,
+                      color: AppColors.danger,
+                    ),
+                  ),
                 ),
               ),
       ),
@@ -368,6 +432,7 @@ class _UnlockViewState extends State<UnlockView>
                 shape: const CircleBorder(),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
+                  key: Keys.fingerprint,
                   onTap: device,
                   child: const SizedBox.square(
                     dimension: 58,
@@ -375,7 +440,7 @@ class _UnlockViewState extends State<UnlockView>
                       Icons.fingerprint,
                       size: 30,
                       color: AppColors.accent,
-                      semanticLabel: '用指紋或臉部解鎖',
+                      semanticLabel: '用生物辨識解鎖',
                     ),
                   ),
                 ),
@@ -384,10 +449,11 @@ class _UnlockViewState extends State<UnlockView>
     );
   }
 
-  Widget _forgot() => SizedBox(
-    height: 44,
+  Widget _forgot() => ConstrainedBox(
+    constraints: const BoxConstraints(minHeight: Space.target),
     child: Center(
       child: TextButton(
+        key: Keys.forgot,
         onPressed: widget.busy ? null : widget.onRecovery,
         style: wordButton(
           AppColors.muted,
@@ -402,6 +468,8 @@ class _UnlockViewState extends State<UnlockView>
   /// show what is in it.
   Widget _field() => Opacity(
     opacity: 0,
+    // Still in the semantics tree: it is the password field to TalkBack.
+    alwaysIncludeSemantics: true,
     child: SizedBox(
       width: 1,
       height: 1,
@@ -411,13 +479,14 @@ class _UnlockViewState extends State<UnlockView>
           controller: widget.password,
           focusNode: _focus,
           obscureText: true,
-          enableSuggestions: false,
-          autocorrect: false,
-          keyboardType: TextInputType.visiblePassword,
+          enableSuggestions: SecretKeyboard.suggestions,
+          autocorrect: SecretKeyboard.autocorrect,
+          enableIMEPersonalizedLearning: SecretKeyboard.personalizedLearning,
+          keyboardType: SecretKeyboard.type,
           textInputAction: TextInputAction.go,
           showCursor: false,
           enableInteractiveSelection: false,
-          readOnly: widget.busy,
+          readOnly: widget.busy || widget.waiting != null,
           onSubmitted: (_) => _submit(),
         ),
       ),

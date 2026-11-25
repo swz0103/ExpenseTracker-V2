@@ -1,8 +1,12 @@
 import 'dart:math';
 
+import 'package:core/percent/percent.dart' show divideRounded;
+
 import '../../../core/ledger/ledger.dart';
 import 'report_period.dart';
-import '../../../core/formatting/dates.dart';
+
+import 'package:core/foundation_values.dart' show BusinessDate, weekdayIndex;
+import 'package:core/time/utc_days.dart';
 
 // The figures of one period, worked out once for every tab.
 
@@ -44,6 +48,7 @@ final class Report {
     required this.days,
     required this.biggestSpend,
     required this.weekdays,
+    required this.planned,
   });
 
   factory Report.of(
@@ -51,13 +56,22 @@ final class Report {
     required EntryReader entries,
     required ReportService reports,
     required BalanceService balances,
+    required CategoryReader categories,
     required DateTime today,
   }) {
+    String? parentOf(String name) => categories.byName(name).parent;
     final from = period.from;
     final to = period.to;
     final until = to.isAfter(today) ? today : to;
     final stretches = period.stretches;
-    final inPeriod = entriesBetween(entries, from, to);
+    // Only what counts today: a 預定 entry is shown apart (D25).
+    // Exception to as-of-today: split at once into what counts and what is 預定.
+    final all = entriesBetween(entries, from, to);
+    final inPeriod = countedOn(all, today).toList();
+    final planned = [
+      for (final e in all)
+        if (isPlanned(e, today)) e,
+    ];
     final tally = _tally(inPeriod);
     final expense = tally.expense;
     final before = _yearAgo(entries, from, until);
@@ -67,17 +81,25 @@ final class Report {
         if (a.isAfter(today))
           StretchSum(label, 0, 0, ahead: true)
         else
-          _bucket(label, entriesBetween(entries, a, b)),
+          _bucket(label, countedOn(entriesBetween(entries, a, b), today)),
     ];
     final passed = [
       for (final (i, b) in buckets.indexed)
         if (!b.ahead) i,
     ];
     final peak = _peakOf(buckets, passed);
+    // The average counts whole stretches only: the month (or week) still
+    // running would pull it down as if it were a whole one.
+    final whole = [
+      for (final (i, (_, _, end)) in stretches.indexed)
+        if (end.isBefore(today)) buckets[i].expense,
+    ];
     // The ledger's own sum keeps the categories in the order it always
-    // has, so equal amounts keep their places.
-    final spending = reports.spendingBetween(from, to);
-    final lastSpending = _spendingOf(before);
+    // has, so equal amounts keep their places. Each category counts with
+    // its subcategories (D54), as the budgets and the filter count it,
+    // so a block opens on the entries it sums.
+    final spending = byTopCategory(reports.spendingBetween(from, to), parentOf);
+    final lastSpending = byTopCategory(_spendingOf(before), parentOf);
     final names = spending.keys.toList()
       ..sort((a, b) => spending[b]!.compareTo(spending[a]!));
 
@@ -90,7 +112,11 @@ final class Report {
       lastExpense: lastExpense,
       buckets: buckets,
       peak: peak,
-      perStretch: passed.isEmpty ? 0 : expense ~/ passed.length,
+      perStretch: whole.isNotEmpty
+          ? divideRounded(whole.fold(0, (sum, x) => sum + x), whole.length)
+          : passed.isEmpty
+          ? 0
+          : expense,
       worthBefore: balances.netWorthAt(from.subtract(const Duration(days: 1))),
       worthNow: balances.netWorthAt(until),
       worth: [
@@ -112,6 +138,7 @@ final class Report {
       days: tally.days,
       biggestSpend: tally.biggest,
       weekdays: tally.weekdays,
+      planned: planned,
     );
   }
 
@@ -127,6 +154,10 @@ final class Report {
 
   /// The stretch that spent the most, of those begun.
   final int? peak;
+
+  /// Spending per stretch over the stretches already over, rounded half
+  /// away from zero; while none is over, what the one under way has
+  /// spent so far.
   final int perStretch;
   final int worthBefore;
   final int worthNow;
@@ -156,12 +187,25 @@ final class Report {
   /// Spending on each day of the week, Sunday first.
   final List<int> weekdays;
 
-  /// The same day a year earlier, the 29th of February becoming the 28th.
-  static DateTime _yearBefore(DateTime day) => DateTime.utc(
-    day.year - 1,
-    day.month,
-    min(day.day, DateTime.utc(day.year - 1, day.month + 1, 0).day),
-  );
+  /// The period's 預定 entries, dated after today: in none of the sums
+  /// above until their day comes, shown apart (D25).
+  final List<Entry> planned;
+
+  /// What the [planned] entries will spend, as the sums count it.
+  int get plannedSpending => planned.fold(0, (sum, e) => sum + e.spending);
+
+  /// The [count] largest categories, each with what it spent a year
+  /// before, and the rest together in one [RestShare]: a block with its
+  /// own identity, never one of the categories (D53).
+  List<ReportShare> blocks(int count) {
+    final rest = names.skip(count).toList();
+    final restAmount = rest.fold(0, (sum, n) => sum + (spending[n] ?? 0));
+    return [
+      for (final n in names.take(count))
+        CategoryShare(n, spending[n] ?? 0, lastSpending[n]),
+      if (restAmount > 0) RestShare(restAmount, rest),
+    ];
+  }
 
   /// The entries from [from] to [to], read from those months only.
   static List<Entry> entriesBetween(
@@ -169,31 +213,34 @@ final class Report {
     DateTime from,
     DateTime to,
   ) => [
-    for (
-      var m = DateTime.utc(from.year, from.month);
-      !m.isAfter(to);
-      m = DateTime.utc(m.year, m.month + 1)
-    )
+    for (final m in monthStarts(from, to))
+      // Exception to as-of-today: the one reader of a stretch; each caller
+      // takes it through countedOn.
       for (final e in entries.inMonth(m.year, m.month))
         if (!e.date.isBefore(from) && !e.date.isAfter(to)) e,
   ];
 
   /// The entries of [period] spent (in whole or in part) under the
-  /// category [name], latest first, and how much of them was.
+  /// category [name], its subcategories included (D54), latest first,
+  /// and how much of them was.
   static (List<Entry>, int) spentUnder(
     String name,
     EntryReader entries,
     ReportPeriod period,
+    DateTime today,
+    CategoryReader categories,
   ) {
+    String? parentOf(String n) => categories.byName(n).parent;
     final under = [
-      for (final e in entriesBetween(entries, period.from, period.to))
-        if (e.spendingParts.any((p) => p.$1 == name)) e,
+      for (final e in countedOn(
+        entriesBetween(entries, period.from, period.to),
+        today,
+      ))
+        if (e.spendingParts.any((p) => isUnder(p.$1, name, parentOf))) e,
     ]..sort((a, b) => b.date.compareTo(a.date));
     var total = 0;
     for (final e in under) {
-      for (final (category, amount) in e.spendingParts) {
-        if (category == name) total += amount;
-      }
+      total += spendingUnder(e, name, parentOf);
     }
     return (under, total);
   }
@@ -211,7 +258,7 @@ final class Report {
     for (final e in inPeriod) {
       income += e.earning;
       expense += e.spending;
-      weekdays[weekdayIndex(e.date)] += e.spending;
+      weekdays[weekdayIndex(BusinessDate.of(e.date))] += e.spending;
       dividends += e.dividendNet;
       days.add(e.date);
       if (e.type == EntryType.expense &&
@@ -243,9 +290,10 @@ final class Report {
     EntryReader entries,
     DateTime from,
     DateTime to,
-  ) => entriesBetween(entries, _yearBefore(from), _yearBefore(to));
+    // Exception to as-of-today: a year before days up to today: none is 預定.
+  ) => entriesBetween(entries, yearBefore(from), yearBefore(to));
 
-  static StretchSum _bucket(String label, List<Entry> entries) {
+  static StretchSum _bucket(String label, Iterable<Entry> entries) {
     var income = 0;
     var expense = 0;
     for (final e in entries) {
@@ -276,3 +324,27 @@ typedef _Tally = ({
   int days,
   List<int> weekdays,
 });
+
+/// One block of the report's categories ([Report.blocks]).
+sealed class ReportShare {
+  const ReportShare(this.amount);
+
+  /// What it spent.
+  final int amount;
+}
+
+/// A category's block, with what it spent a year before ([last], null
+/// when nothing).
+final class CategoryShare extends ReportShare {
+  const CategoryShare(this.name, super.amount, this.last);
+
+  final String name;
+  final int? last;
+}
+
+/// The smallest categories together, [names].
+final class RestShare extends ReportShare {
+  const RestShare(super.amount, this.names);
+
+  final List<String> names;
+}

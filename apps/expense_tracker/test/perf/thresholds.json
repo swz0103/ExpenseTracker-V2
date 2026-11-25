@@ -16,5 +16,7 @@
   "100k_save.average_frame_build_time_millis": 13,
   "memory_mb": 470,
   "10k_memory_mb": 580,
-  "100k_memory_mb": 950
+  "100k_memory_mb": 950,
+  "100k_journal_rebuild_ms": 7500,
+  "100k_journal_rebuild_held_ms": 60
 }

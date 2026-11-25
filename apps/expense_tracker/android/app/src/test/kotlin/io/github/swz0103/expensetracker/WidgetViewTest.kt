@@ -42,8 +42,32 @@ class WidgetViewTest {
     }
 
     @Test
-    fun withoutASnapshotItSaysWhereToTurnFiguresOn() {
-        assertEquals(null, WidgetView.of(null, "2026-10").progress)
+    fun theBudgetStateTheAppWroteIsKept() {
+        val over = snapshot.copy(detail = "超支 2,345", shortLabel = "10 月超支", state = "over")
+        assertEquals("over", WidgetView.of(over, "2026-10").state)
+        assertEquals("", WidgetView.of(snapshot, "2026-10").state)
+    }
+
+    @Test
+    fun withoutASnapshotItSaysAmountsAreHiddenAndATapOpensTheApp() {
+        assertEquals(
+            WidgetView.Shown(
+                "記帳本", "已隱藏金額", "點此打開", null,
+                shortLabel = "已隱藏金額", shortFigure = "點此打開",
+            ),
+            WidgetView.of(null, "2026-10", "2026-10-20"),
+        )
+    }
+
+    @Test
+    fun withoutASnapshotNoFigureBarOrWeekIsDrawn() {
+        val shown = WidgetView.of(null, "2026-10")
+        assertEquals(null, shown.progress)
+        assertEquals(null, shown.pace)
+        assertEquals(null, shown.week)
+        assertEquals("", shown.budget)
+        assertEquals("", shown.weekTotal)
+        assertEquals("", shown.state)
     }
 
     @Test
@@ -53,38 +77,49 @@ class WidgetViewTest {
         assertEquals(100, shown.pace)
     }
 
-    // Written on Tuesday 2026-10-20: Sunday and Monday nothing, Tuesday the most.
-    private val written = snapshot.copy(date = "2026-10-20")
+    // Written on Tuesday 2026-10-20: Sunday and Monday nothing, Tuesday
+    // the most. The days ahead as the app worked them out (home_widget.dart).
+    private val written = snapshot.copy(
+        date = "2026-10-20",
+        ahead = mapOf(
+            "2026-10-22" to WidgetView.Ahead(listOf(0, 0, 100, 0, 0, -1, -1), 4, 71, "12,345"),
+            "2026-10-28" to WidgetView.Ahead(listOf(0, 0, 0, 0, -1, -1, -1), 3, 90, "0"),
+        ),
+        stale = WidgetView.Stale("本月概況", "—", "打開 App 更新本月數字"),
+    )
 
     @Test
-    fun daysCountFromSunday() {
-        assertEquals(2, WidgetView.Day(2026, 10, 20).weekday)
-        assertEquals(0, WidgetView.Day(2026, 11, 1).weekday)
-        assertEquals(6, WidgetView.Day(2026, 10, 31).weekday)
-        assertEquals(20381L, WidgetView.Day(2025, 10, 20).epoch)
-    }
-
-    @Test
-    fun laterThatWeekTheDaysSinceAreEmpty() {
-        val shown = WidgetView.of(written, "2026-10", WidgetView.Day(2026, 10, 22))
+    fun laterThatWeekTheDayAheadIsShown() {
+        val shown = WidgetView.of(written, "2026-10", "2026-10-22")
         assertEquals(listOf(0, 0, 100, 0, 0, -1, -1), shown.week)
         assertEquals(4, shown.today)
         assertEquals("12,345", shown.weekTotal)
         assertEquals(71, shown.pace)
+        // The figures stay as written.
+        assertEquals("12,345", shown.figure)
     }
 
     @Test
-    fun aNewWeekStartsEmpty() {
-        val shown = WidgetView.of(written, "2026-10", WidgetView.Day(2026, 10, 28))
+    fun aNewWeekIsTheAppsToo() {
+        val shown = WidgetView.of(written, "2026-10", "2026-10-28")
         assertEquals(listOf(0, 0, 0, 0, -1, -1, -1), shown.week)
         assertEquals(3, shown.today)
         assertEquals("0", shown.weekTotal)
     }
 
     @Test
-    fun theSameDayOrABackwardClockChangesNothing() {
-        assertEquals(week, WidgetView.of(written, "2026-10", WidgetView.Day(2026, 10, 20)).week)
-        assertEquals(week, WidgetView.of(written, "2026-10", WidgetView.Day(2026, 10, 19)).week)
-        assertEquals(week, WidgetView.of(snapshot, "2026-10", WidgetView.Day(2026, 10, 22)).week)
+    fun aDayTheAppDidNotWorkOutShowsTheSnapshotAsWritten() {
+        assertEquals(week, WidgetView.of(written, "2026-10", "2026-10-20").week)
+        assertEquals(week, WidgetView.of(written, "2026-10", "2026-10-19").week)
+        assertEquals(week, WidgetView.of(snapshot, "2026-10", "2026-10-22").week)
+        assertEquals(65, WidgetView.of(snapshot, "2026-10", "2026-10-22").pace)
+    }
+
+    @Test
+    fun anOlderMonthSaysWhatTheAppGaveIt() {
+        val shown = WidgetView.of(written.copy(stale = WidgetView.Stale("A", "B", "C")), "2026-11")
+        assertEquals("A", shown.title)
+        assertEquals("B", shown.figure)
+        assertEquals("C", shown.detail)
     }
 }

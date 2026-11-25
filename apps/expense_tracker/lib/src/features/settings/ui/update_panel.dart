@@ -1,10 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../../core/messages/amount_messages.dart';
+import '../../../core/messages/update_messages.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/theme.dart';
 import '../model/app_update.dart';
 import '../../../core/design_system/components/buttons.dart';
 import '../../../core/design_system/keys.dart';
 import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/components/panels.dart';
+import '../../../core/design_system/dialogs.dart';
 import '../../../core/design_system/spacing.dart';
 
 /// A newer version: its name and what it changes in a few lines, with
@@ -16,14 +23,13 @@ import '../../../core/design_system/spacing.dart';
 Future<void> showUpdatePanel(BuildContext context, AppUpdate update) async {
   final info = update.newer;
   if (info == null) return;
-  await showDialog<void>(
-    context: context,
-    barrierColor: AppColors.scrim,
-    barrierDismissible: false,
-    builder: (context) => PopScope(
+  await showPanel<void>(
+    context,
+    (context) => PopScope(
       canPop: false,
       child: _UpdatePanel(update: update, info: info),
     ),
+    dismissible: false,
   );
 }
 
@@ -51,69 +57,56 @@ class _UpdatePanelState extends State<_UpdatePanel> {
       case UpdateInstall.needsPermission:
         setState(() => _problem = '請允許「記帳本」安裝應用程式，回來後再按一次更新');
       case UpdateInstall.damaged:
-      case null:
+      case UpdateInstall.rejected:
         setState(() => _problem = widget.update.problem ?? '下載失敗，請稍後再試');
+      case null:
+        // Cancelled, or nothing to install: only a failure is said.
+        setState(() => _problem = widget.update.problem);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final info = widget.info;
-    return Dialog(
-      backgroundColor: AppColors.paper,
-      insetPadding: const EdgeInsets.symmetric(
-        horizontal: Space.s6,
-        vertical: Space.s6,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(Radii.extraLarge),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          Space.s6,
-          Space.s6,
-          Space.s6,
-          Space.s5,
-        ),
-        child: ListenableBuilder(
-          listenable: widget.update,
-          builder: (context, _) {
-            final progress = widget.update.progress;
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  '新版 ${info.name}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: TextSize.heading,
-                    fontWeight: FontWeight.w800,
-                  ),
+    return DialogFrame(
+      child: ListenableBuilder(
+        listenable: widget.update,
+        builder: (context, _) {
+          final progress = widget.update.progress;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '新版 ${info.name}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: TextSize.heading,
+                  fontWeight: FontWeight.w800,
                 ),
-                const SizedBox(height: Space.s4),
-                ..._notes(info),
-                if (_problem case final problem?)
-                  Padding(
-                    padding: const EdgeInsets.only(top: Space.s2),
-                    child: Text(
-                      problem,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: TextSize.body,
-                        color: AppColors.negative,
-                      ),
+              ),
+              const SizedBox(height: Space.s4),
+              ..._notes(info),
+              if (_problem case final problem?)
+                Padding(
+                  padding: const EdgeInsets.only(top: Space.s2),
+                  child: Text(
+                    problem,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: TextSize.body,
+                      color: AppColors.negative,
                     ),
                   ),
-                const SizedBox(height: Space.s4),
-                if (progress != null)
-                  ..._download(progress)
-                else
-                  ..._choices(info),
-              ],
-            );
-          },
-        ),
+                ),
+              const SizedBox(height: Space.s4),
+              if (progress != null)
+                ..._download(progress)
+              else
+                ..._choices(info),
+            ],
+          );
+        },
       ),
     );
   }
@@ -147,12 +140,15 @@ class _UpdatePanelState extends State<_UpdatePanel> {
       const Text('修正與改進', textAlign: TextAlign.center, style: mutedBody),
   ];
 
-  /// The download under way: a bar filling and 下載中 with how far.
+  /// The download under way: a bar filling and 下載中 with how far, and
+  /// 取消下載 while it can still be stopped.
   List<Widget> _download(double progress) => [
     ClipRRect(
       borderRadius: BorderRadius.circular(Radii.extraSmall),
       child: LinearProgressIndicator(
         value: progress,
+        semanticsLabel: ProgressWords.downloading,
+        semanticsValue: ratioWholePercent(progress),
         minHeight: 8,
         color: markOf(AppColors.accent),
         backgroundColor: AppColors.surface,
@@ -160,18 +156,29 @@ class _UpdatePanelState extends State<_UpdatePanel> {
     ),
     const SizedBox(height: Space.s2),
     Text(
-      '下載中 ${(progress * 100).round()}%',
+      '下載中 ${ratioWholePercent(progress)}',
       textAlign: TextAlign.center,
       style: mutedBody,
     ),
+    // Gone once asked, and once the file is complete and handed to the
+    // installer: too late to stop then (review 31).
+    if (widget.update.canCancel) ...[
+      const SizedBox(height: Space.s2),
+      TextButton(
+        key: Keys.cancelDownload,
+        style: wordButton(AppColors.muted),
+        onPressed: () => unawaited(widget.update.cancelDownload()),
+        child: const Text(UpdateMessages.cancelDownload),
+      ),
+    ],
   ];
 
   /// 更新, and 晚一點再說 and 略過這一版 side by side under it.
   List<Widget> _choices(UpdateInfo info) => [
-    _Choice(
+    DialogChoice(
       '更新',
       key: Keys.install,
-      color: AppColors.positive,
+      tone: ChoiceTone.main,
       onTap: widget.update.busy ? null : _install,
     ),
     const SizedBox(height: Space.s2),
@@ -202,29 +209,4 @@ class _UpdatePanelState extends State<_UpdatePanel> {
       ],
     ),
   ];
-}
-
-class _Choice extends StatelessWidget {
-  const _Choice(this.label, {super.key, required this.color, this.onTap});
-
-  final String label;
-  final Color color;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton(
-      onPressed: onTap,
-      style: solidButton(
-        color,
-        minimumSize: Size(0, 52),
-        radius: Radii.large,
-        words: appFont.copyWith(
-          fontSize: TextSize.title,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-      child: Text(label),
-    );
-  }
 }

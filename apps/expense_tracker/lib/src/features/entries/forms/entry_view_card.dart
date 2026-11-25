@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/ledger/ledger.dart';
+import '../../../core/design_system/dialogs.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
@@ -10,11 +11,11 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/widgets/entry_tile.dart' show entrySpoken;
 import '../model/compose_form.dart';
 import '../model/entry_details.dart';
 import '../model/receipt_photos.dart';
 import 'compose_cards.dart';
-import 'receipt_square.dart';
 import 'compose_mode_look.dart';
 import '../../../core/formatting/words.dart';
 
@@ -91,6 +92,11 @@ class EntryViewCard extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               '${entrySign(e.type)}${ledger.moneyIn(e.amount, currency)}',
+              semanticsLabel: entrySpoken(
+                e,
+                currency: currency,
+                hidden: ledger.amounts.hidden,
+              ),
               style: TextStyle(
                 fontSize: TextSize.big,
                 fontWeight: FontWeight.w800,
@@ -136,12 +142,17 @@ class EntryView extends StatelessWidget {
     final photos = this.photos;
     final receipt = this.receipt;
     final cells = <Widget>[
-      for (final (label, value) in entryDetails(ledger.accounts, e, title))
+      for (final (label, value) in entryDetails(
+        ledger.accounts,
+        e,
+        title,
+        today: ledger.today,
+      ))
         ViewFieldTile(label: label, value: value),
       if (photos != null && receipt != null)
         TapArea(
           label: '查看收據',
-          onTap: () => unawaited(showReceipt(context, photos.image(receipt))),
+          onTap: () => unawaited(showImage(context, photos.image(receipt))),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(Radii.large),
             child: Image(

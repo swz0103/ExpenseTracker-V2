@@ -21,7 +21,22 @@ final class FileBox {
 
   final SecretKey _key;
 
-  /// The box for files of [purpose], such as `receipts`.
+  /// The purpose receipt photos are sealed under, by the app as it keeps
+  /// them and by the vault as a password change seals them again.
+  static const receipts = 'receipts';
+
+  /// The purpose the inbox's private key ([LedgerInbox.keyName]) is
+  /// sealed under.
+  static const inbox = 'inbox';
+
+  /// The purpose the app's cache of daily closes is sealed under: which
+  /// stocks a chart was opened for says what the ledger holds. Not sealed
+  /// again on a reset of the keys: the app lets it go and fetches again.
+  static const prices = 'prices';
+
+  /// The box for files of [purpose], such as [receipts]. A box opens only
+  /// what one of the same purpose sealed, so every side names it by these
+  /// constants.
   static Future<FileBox> derive(UnlockedKeyring keys, String purpose) async {
     final key = await Hkdf(hmac: Hmac.sha256(), outputLength: 32).deriveKey(
       secretKey: SecretKey(keys.databaseKey),

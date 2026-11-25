@@ -1,8 +1,12 @@
+import 'package:ledger_entries/rules.dart' show budgetIssues;
+
 import '../cache/topic.dart';
 import '../models/models.dart';
 import '../persistence/write_batch.dart';
 import '../repositories/budget_repository.dart';
 import 'command_context.dart';
+import 'command_exceptions.dart';
+import 'undo.dart';
 
 /// Writes the budgets.
 final class BudgetCommands {
@@ -14,8 +18,12 @@ final class BudgetCommands {
   final CommandContext _context;
   final BudgetRepository _budgets;
 
+  /// Sets the budget on [category]; a limit below nothing or a warning
+  /// share outside 1% to 100% throws a [RecordRefused].
   void setBudget(String category, int limit, {int? warning, bool? carry}) {
     final old = _budgets.forCategory(category);
+    final issues = budgetIssues(limit: limit, warning: warning ?? old.warning);
+    if (issues.isNotEmpty) throw RecordRefused(issues);
     final budget = Budget(
       category,
       limit,
@@ -29,9 +37,21 @@ final class BudgetCommands {
     _context.keep(WriteBatch(budgets: [budget]));
   }
 
-  void removeBudget(String category) {
+  /// Takes away the budget on [category]; the [Undo] puts it back where
+  /// it stood, as it was (D82), unless a budget was set on it since.
+  /// Null when there is none.
+  Undo? removeBudget(String category) {
+    final before = _budgets.all;
+    if (!before.any((b) => b.category == category)) return null;
     _budgets.remove(category);
+    final after = _budgets.all;
     _context.changed(const {Topic.budgets});
     _context.keep(WriteBatch(dropped: [(Collection.budget, category)]));
+    return () {
+      final (:put, dropped: _) = _budgets.restore(before, after, {category});
+      if (put.isEmpty) return;
+      _context.changed(const {Topic.budgets});
+      _context.keep(WriteBatch(budgets: put, putBack: true));
+    };
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../formatting/figures.dart';
+import '../../../design_system/display/amount.dart';
 import '../design_system/glyphs.dart';
 import '../design_system/haptics.dart';
 import 'icons.dart';
@@ -9,9 +9,12 @@ import '../design_system/design_system.dart';
 import '../ledger/ledger.dart';
 import 'swipe_actions.dart';
 import 'shown_amounts.dart';
-import '../formatting/dates.dart';
+import '../../../design_system/display/date.dart';
 import '../design_system/spacing.dart';
 import '../formatting/words.dart';
+import '../messages/done_messages.dart';
+import '../../../design_system/display/status_messages.dart';
+import '../../../design_system/display/amount_text.dart';
 
 /// The icon of an entry: its category's, or transfer and trade marks.
 (Glyph, Color) entryMark(Ledger ledger, Entry e) {
@@ -59,10 +62,37 @@ Color entryTone(Entry e) => e.isRefund ? AppColors.muted : entryColor(e.type);
 String recurringAmount(Ledger ledger, Recurring item) =>
     amountIn(item.amount, ledger.account(item.account).currency);
 
+/// How [e]'s amount reads: spending (−) for spending and buys, nothing
+/// for a transfer, a refund (+, read 退款) for spending given back,
+/// income (+) for the rest.
+AmountSense entrySense(Entry e) => switch (e.type) {
+  EntryType.expense || EntryType.buy => AmountSense.spending,
+  EntryType.transfer => AmountSense.plain,
+  _ when e.isRefund => AmountSense.refund,
+  _ => AmountSense.income,
+};
+
+/// What a screen reader says for [entryAmount]: 支出 200 元, 收入 52,000
+/// 元, 退款 300 元; 金額已隱藏 while [hidden].
+String entrySpoken(
+  Entry e, {
+  String currency = homeCode,
+  bool hidden = false,
+}) => spokenAmount(
+  e.amount,
+  currency: currency,
+  sense: entrySense(e),
+  hidden: hidden,
+);
+
 /// `−200`, `+52,000`, or a plain amount for transfers, in the [currency]
-/// of the entry's account.
+/// of the entry's account. A trade or dividend shows what reached or left
+/// the account (`Entry.settlement`), fee, tax and premium counted.
 String entryAmount(Entry e, {String currency = homeCode}) {
-  final amount = amountIn(e.amount, currency);
+  final amount = amountIn(
+    e.isInvestment ? e.settlement.abs() : e.amount,
+    currency,
+  );
   return switch (e.type) {
     EntryType.expense || EntryType.buy => '−$amount',
     EntryType.transfer => amount,
@@ -72,25 +102,45 @@ String entryAmount(Entry e, {String currency = homeCode}) {
 
 /// 「飲食日常 · 隨身現金」, or the two accounts of a transfer.
 String entryDetail(Ledger ledger, Entry e) {
+  final detail = _detailOf(ledger, e);
+  // A 預定 entry says so first: it counts nowhere until its day (D25).
+  return isPlanned(e, ledger.today)
+      ? '${StatusWords.planned} · $detail'
+      : detail;
+}
+
+/// [entryDetail] as a screen reader says it: a refund without its ↩ and
+/// with its original after a comma, 退款，原：午餐; the rest as shown.
+String entryDetailSpoken(Ledger ledger, Entry e) {
+  final detail = _detailOf(ledger, e, spoken: true);
+  return isPlanned(e, ledger.today) ? '${StatusWords.planned}，$detail' : detail;
+}
+
+String _detailOf(Ledger ledger, Entry e, {bool spoken = false}) {
   final account = ledger.account(e.account).name;
-  final shares = '${e.holding} · ${e.shares} 股';
+  final shares = '${e.holding} · ${countOf(e.shares, CountUnit.shares)}';
   final category = e.parts.length > 1
       ? '${e.category} 等 ${e.parts.length} 類'
       : e.category;
   return switch (e.type) {
     EntryType.transfer => '$account → ${ledger.account(e.to ?? '').name}',
     EntryType.buy || EntryType.sell => '$shares · $account',
-    EntryType.dividend when e.shares < 0 => '${e.holding} · 減資 ${-e.shares} 股',
+    EntryType.dividend when e.shares < 0 =>
+      '${e.holding} · 減資 ${countOf(-e.shares, CountUnit.shares)}',
     EntryType.dividend when e.shares > 0 =>
-      '${e.holding} · ${e.split ? '分割' : '配股'} ${e.shares} 股',
+      '${e.holding} · ${e.split ? '分割' : '配股'} ${countOf(e.shares, CountUnit.shares)}',
     _ when e.isRefund => switch (ledger.entries.byId(e.refundOf!)) {
-      final original? => '↩ 退款 · 原：${original.title}',
-      null => '↩ 退款 · $account',
+      final original? =>
+        spoken
+            ? '${Words.refund}，原：${original.title}'
+            : '↩ ${Words.refund} · 原：${original.title}',
+      null =>
+        spoken ? '${Words.refund}，$account' : '↩ ${Words.refund} · $account',
     },
     _ => [
       if (e.merchant.isNotEmpty) e.merchant,
       category,
-      if (e.installments > 1) '${e.installments} 期',
+      if (e.installments > 1) countOf(e.installments, CountUnit.periods),
       account,
     ].join(' · '),
   };
@@ -140,6 +190,23 @@ class EntryTile extends StatelessWidget {
           ? entryAmount(entry, currency: currency)
           : '−${amountIn(entry.amount - back, currency)}',
     );
+    final spoken = group.length > 1
+        ? ledger.spoken(
+            whole - back,
+            currency: currency,
+            sense: AmountSense.spending,
+          )
+        : back == 0
+        ? ledger.spoken(
+            entry.amount,
+            currency: currency,
+            sense: entrySense(entry),
+          )
+        : ledger.spoken(
+            entry.amount - back,
+            currency: currency,
+            sense: AmountSense.spending,
+          );
     final forOthers = group.length < 2
         ? null
         : '代墊 ${[for (final m in lent) '${ledger.account(m.to ?? m.account).name} ${ledger.orDots(groupDigits(m.amount))}'].join('、')}';
@@ -156,7 +223,7 @@ class EntryTile extends StatelessWidget {
               const SizedBox(width: Space.s3),
               Expanded(child: _words(forOthers)),
               const SizedBox(width: Space.s2),
-              _amount(shown, back, currency),
+              _amount(shown, spoken, back, currency),
             ],
           ),
         ),
@@ -178,11 +245,15 @@ class EntryTile extends StatelessWidget {
           fontWeight: FontWeight.w500,
         ),
       ),
-      Text(
-        entryDetail(ledger, entry),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: mutedSmall,
+      Semantics(
+        label: entryDetailSpoken(ledger, entry),
+        excludeSemantics: true,
+        child: Text(
+          entryDetail(ledger, entry),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: mutedSmall,
+        ),
       ),
       if (forOthers != null)
         Text(
@@ -198,26 +269,28 @@ class EntryTile extends StatelessWidget {
     ],
   );
 
-  /// The amount [shown] in the entry's colour, and under it how much was
-  /// given [back] in [currency], if any.
-  Widget _amount(String shown, int back, String currency) => Column(
-    crossAxisAlignment: CrossAxisAlignment.end,
-    children: [
-      Text(
-        shown,
-        style: TextStyle(
-          fontSize: TextSize.title,
-          fontWeight: FontWeight.w500,
-          color: entryTone(entry),
-        ),
-      ),
-      if (back > 0)
-        Text(
-          ledger.orDots('已退 ${amountIn(back, currency)}'),
-          style: mutedSmall,
-        ),
-    ],
-  );
+  /// The amount [shown] in the entry's colour, read out as [spoken], and
+  /// under it how much was given [back] in [currency], if any.
+  Widget _amount(String shown, String spoken, int back, String currency) =>
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          AmountText(
+            shown,
+            spoken: spoken,
+            style: TextStyle(
+              fontSize: TextSize.title,
+              fontWeight: FontWeight.w500,
+              color: entryTone(entry),
+            ),
+          ),
+          if (back > 0)
+            Text(
+              ledger.orDots('已退 ${amountIn(back, currency)}'),
+              style: mutedSmall,
+            ),
+        ],
+      );
 }
 
 /// An entry as a list row that slides open to 編輯 and 刪除; a delete can
@@ -254,7 +327,7 @@ class EntryRow extends StatelessWidget {
         SwipeAction(
           Words.delete,
           AppColors.danger,
-          () => removeEntry(context, ledger, entry),
+          () => deleteEntries(context, ledger, [entry]).isNotEmpty,
         ),
       ],
       child: GestureDetector(
@@ -271,22 +344,35 @@ class EntryRow extends StatelessWidget {
   }
 }
 
-/// Deletes [entry], leaving a note to undo it; false when the book
-/// refuses (it would oversell shares), which it says itself.
-bool removeEntry(BuildContext context, Ledger ledger, Entry entry) {
+/// Deletes [entries] as one change, each with the entries written as one
+/// with it (an entry's group goes with it), and tells it with 復原 (D82):
+/// the one way an entry is deleted, from its form, a swipe or a pick of
+/// many; it is not asked first. Returns what was deleted; none when the
+/// book refuses (a later sale would be short of shares), which it says
+/// itself.
+List<Entry> deleteEntries(
+  BuildContext context,
+  Ledger ledger,
+  Iterable<Entry> entries,
+) {
+  final picked = [...entries];
+  final removed = ledger.entryCommands.removeAll({
+    for (final e in picked)
+      for (final m in ledger.entryQueryService.groupOf(e)) m.id,
+  });
+  if (removed.isEmpty) return removed;
   Haptics.medium();
-  // An entry written as one with others goes with them.
-  final removed = ledger.entryCommands.removeAll([
-    for (final e in ledger.entryQueryService.groupOf(entry)) e.id,
-  ]);
-  if (removed.isEmpty) return false;
-  showNote(
+  final one = picked.length == 1 ? picked.single : null;
+  showUndo(
     context,
-    '已刪除「${entry.title}」',
-    action: '復原',
-    onAction: () => ledger.entryCommands.restoreAll(removed),
+    one == null
+        ? DoneWords.deletedEntries(removed.length)
+        : one.recurring == null
+        ? DoneWords.deleted(one.title)
+        : DoneWords.deletedBooking(one.title),
+    () => ledger.entryCommands.restoreAll(removed),
   );
-  return true;
+  return removed;
 }
 
 /// A date line over a group of entries.

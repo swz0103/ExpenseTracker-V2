@@ -1,51 +1,64 @@
 // Exception to ledger words: a new book's first categories and accounts
 // are written as data, and the diagnostics log is labelled in words.
+// Exception to file length: this is the one place rows are read from and
+// written to the store; what it notes of them as it reads (rows set
+// aside, unknown fields, records naming a category by name) is checked
+// on every write, and split across files those notes would have to be
+// public. The pure parts live in codec/ and book_migrations.dart.
 
+import 'dart:async' show FutureOr;
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:isolate';
 
 import 'package:core/app_core.dart';
+import 'package:core/constants/retention.dart';
 import 'package:core/foundation_values.dart';
+import 'package:core/money/amount_parser.dart' show parseDecimal;
 import 'package:flutter/foundation.dart' show mapEquals;
+import 'package:domain/investments.dart'
+    show DoubtedFigure, doubtsStanding, takesFetched;
+import 'package:core/fx/dated_figures.dart'
+    show DatedFigures, FoundOn, MarketHistory;
 import 'package:market/market_data.dart';
 import 'package:storage/storage.dart';
+import 'package:kernel/kernel.dart' show Contributions;
 
+import 'book_migrations.dart';
+import 'book_opening.dart';
+import 'market_rows.dart';
+import 'damage_report.dart';
+import 'journal_keeper.dart';
+import 'journal_rebuild.dart';
 import 'ledger_data_source.dart';
+import '../journal/replay.dart' show KeptEntry, ReplayReport;
 import '../ledger.dart';
-import 'category_id_migration.dart';
 import 'codec/category_refs.dart';
+import 'codec/market_days.dart';
+import 'codec/record_fields.dart';
+import 'codec/row_decoding.dart';
+import 'quarantine.dart';
 import 'record_version.dart';
+import 'upgrade_backup.dart';
 import 'codec/record_json.dart';
+import 'codec/record_shape.dart';
 import '../../diagnostics/performance_monitor.dart';
 import '../../diagnostics/error_log.dart';
-
-/// The categories a new ledger starts with, with their marks and colours.
-const _starters = [
-  ('居家生活', 'home', 0xFF5C9A83, false),
-  ('飲食日常', 'food', 0xFFD08B5B, false),
-  ('交通通勤', 'travel', 0xFF5B8DB0, false),
-  ('購物休閒', 'bag', 0xFF8E7CC0, false),
-  ('訂閱服務', 'subscription', 0xFFC9A34A, false),
-  ('其他支出', 'other', 0xFFB07A8C, false),
-  ('薪資收入', 'salary', 0xFF2F7A65, true),
-  (dividendCategory, 'dividend', 0xFF5A6FA8, true),
-  ('其他收入', 'income', 0xFF4E8A9A, true),
-];
-
-/// How long a deleted entry is kept to be restored.
-const _keptInTrash = Duration(days: 30);
+import '../../diagnostics/error_steps.dart';
+import '../../diagnostics/app_fault.dart';
 
 /// The collection of the last closing prices and rate board, kept so holdings
 /// and foreign accounts are valued offline.
-const _market = 'market';
+const _market = marketShelf;
 
-/// When each record was deleted, by `collection/id`, so a deletion can be told
-/// from a record never kept (for a later sync); dropped when the id is
-/// kept again.
-const _gone = 'gone';
+/// When each record was deleted, by `collection/id`, so a deletion can be
+/// told from a record never kept (for a later sync); dropped when the id
+/// is kept again, and once [trashRetention] has passed. Nothing reads them
+/// but a backup's check.
+const _gone = goneShelf;
 
 /// Forms put aside in the composer, by tab ([WriteBatch.drafts]).
-const _draft = 'draft';
+const _draft = draftShelf;
 
 /// The collections whose deletions are noted in [_gone].
 const _noted = {
@@ -56,53 +69,206 @@ const _noted = {
   Collection.recurring,
 };
 
-List<Object?> _decodeAll(List<String> bodies) => [
-  for (final body in bodies) jsonDecode(body),
-];
+/// The collections an undo puts records back into, at the place they
+/// were taken from (D119): an entry comes back from the trash, where it
+/// keeps its place by being moved (D75).
+const _putBackable = {
+  Collection.account,
+  Collection.category,
+  Collection.budget,
+  Collection.recurring,
+};
 
-/// [_decodeAll] on a worker isolate. Kept out of the methods of the data
-/// source: a closure made beside one that uses `this` carries it along,
-/// and the database cannot be sent to another isolate.
-Future<List<Object?>> _decodeApartFrom(List<String> bodies) =>
-    Isolate.run(() => _decodeAll(bodies));
-
-/// Above this many rows the JSON is decoded on a worker isolate, so the
-/// screen does not freeze while a large book opens.
+/// Up to this many rows a book is read and decoded here, on the screen's
+/// isolate, as a small book takes less than a frame; above it, or when
+/// the journal is kept, on a worker ([EncryptedDatabase.workApart]).
 const _decodeApart = 2000;
 
 /// How many rows a book is read at a time when it opens.
 const readPage = 5000;
 
+/// From this many records a change is written on a worker isolate
+/// ([EncryptedDatabase.writeApart]): a merchant renamed on every entry,
+/// categories merged, an import. Fewer, it is written at once, as a
+/// single save is (well under a frame: storage's README).
+const writeApartFrom = 500;
+
 /// The book kept in the encrypted ledger: each of the screens' records a
 /// row of JSON, written as the [Ledger] hands over each change.
+///
+/// Opening reads row by row: a row this version cannot read is set aside
+/// ([quarantined]), kept on disk as it is and never written over, and
+/// the rest of the book opens. A book kept by an earlier version is first
+/// brought up (book_migrations.dart), only once [beforeUpgrade] has kept a
+/// copy of it ([bringUp]).
 final class SqlLedgerDataSource implements LedgerDataSource {
   SqlLedgerDataSource(
     this._store, {
     this._clock = const SystemClock(),
     MarketDataGateway? market,
     this._readPage = readPage,
+    this._writeApartFrom = writeApartFrom,
+    this.beforeUpgrade,
+    this.keepsJournal = false,
+    this._modules = _noModules,
   }) : _gateway = market;
 
+  /// The modules' contributions the journal's reader takes in
+  /// ([JournalKeeper]); the app's composition root gives them.
+  final void Function(Contributions contributions) _modules;
+
+  static void _noModules(Contributions contributions) {}
+
+  /// Whether the journal of postings is kept beside the records and
+  /// checked against them (journal_keeper.dart): as the app opens its
+  /// book; tests that do not look at it leave it out.
+  final bool keepsJournal;
+
+  /// The journal kept beside the records, when [keepsJournal].
+  late final journal = JournalKeeper(
+    store: _store.journal,
+    revision: () => _store.revision,
+    entrySeqs: _entrySeqs,
+    recordOf: _keptEntry,
+    isOpen: () => _store.isOpen,
+    busy: () => _store.busyApart,
+    quiet: _quiet,
+    postApart: _postJournalApart,
+    fault: _journalFault,
+    modules: _modules,
+  );
+
+  /// Told when a page of the journal's tables is found damaged (D102):
+  /// the connection is of no more use, and the database is to be made
+  /// again from its records. Answers whether the report was acted on;
+  /// once it was, it is not told again this session ([DamageReport]).
+  Future<bool> Function(Object error)? get onJournalDamaged =>
+      _journalDamage.tell;
+  set onJournalDamaged(Future<bool> Function(Object error)? tell) =>
+      _journalDamage.tell = tell;
+
+  final _journalDamage = DamageReport();
+
+  /// Where each record taken away this run stood in the order kept, by
+  /// `shelf/id`: put back by an undo ([WriteBatch.putBack]), it goes
+  /// there again (D119), as an entry back from the trash does (D75).
+  final _droppedAt = <String, int>{};
+
+  void _journalFault(Object error) {
+    if (EncryptedDatabase.damageIn(error)) _journalDamage(error);
+  }
+
+  /// The whole journal posted afresh on a worker isolate (D51): from the
+  /// records as kept, those set aside as the book opened left out, the
+  /// mark of the records' revision kept last.
+  Future<ReplayReport> _postJournalApart(List<Holding> start) async {
+    return _whenQuiet(
+      () => _store.postApart(
+        postingWork(
+          aside: {for (final r in _aside.rows) '${r.shelf}/${r.id}'},
+          start: start,
+        ),
+        mark: (rules: journalRules, revision: _store.revision),
+      ),
+    );
+  }
+
+  /// Where each entry kept stands, by id, read from the store: only
+  /// when the journal is posted afresh on this isolate (no worker).
+  Map<String, int> _entrySeqs() => {
+    for (final row in _store.rows(shelf: Collection.entry.name))
+      row.id: row.seq,
+  };
+
+  /// The entry kept as [id] and its place; null when there is none or
+  /// it cannot be read (a row set aside has no postings).
+  KeptEntry? _keptEntry(String id) {
+    final row = _store.row(Collection.entry.name, id);
+    if (row == null || _aside.holds(row.shelf, row.id)) return null;
+    final json = readableRecord(row.body);
+    if (json == null) return null;
+    try {
+      final entry = entryFromJson(upgradeRecord(row.shelf, json), _refs);
+      return (entry: entry, seq: row.seq);
+    } on Object catch (error) {
+      ErrorLog.instance.record(ErrorSteps.journalUpdate, error);
+      return null;
+    }
+  }
+
   final EncryptedDatabase _store;
+
+  /// The app's one clock, handed over where the app is put together.
   final Clock _clock;
 
   /// How many rows are read at a time when the book opens.
   final int _readPage;
 
+  /// From how many records a change is written apart ([writeApartFrom]).
+  final int _writeApartFrom;
+
   /// Where closing prices and rates come from; none in tests.
   final MarketDataGateway? _gateway;
 
+  /// Keeps a copy of the book as it is, before a book kept by an earlier
+  /// version is brought up; none in tests. A copy that cannot be kept
+  /// keeps the book from being brought up (D19): [bringUp] says why, and
+  /// [load] refuses the book until the person decides.
+  final Future<UpgradeBackup> Function()? beforeUpgrade;
+
   /// Which category each id stands for, as the records are read and kept.
   final _refs = CategoryRefs();
+
+  /// The rows set aside the last time the book was opened, in the order
+  /// they are kept.
+  List<QuarantinedRow> get quarantined => _aside.rows;
+  final _aside = Quarantine();
+
+  /// The fields this version does not know of the record kept as [id] of
+  /// [collection], to be written back with it; null when none. Read from
+  /// the row about to be written over, at write time rather than as the
+  /// book opens: few records are written, every record is read. An
+  /// entry's go with it to the trash and back, so an entry's are looked
+  /// for in its trash row too, and a trash row's entry in the entry row.
+  Map<String, Object?>? _unknownOf(Collection collection, String id) {
+    Map<String, Object?>? kept(Collection c) =>
+        switch (_store.row(c.name, id)) {
+          final row? => readableRecord(row.body),
+          null => null,
+        };
+    switch (collection) {
+      case Collection.entry:
+        final json =
+            kept(Collection.entry) ??
+            switch (kept(Collection.trash)?['entry']) {
+              final Map<String, Object?> entry => entry,
+              _ => null,
+            };
+        return json == null ? null : unknownFields(collection.name, json);
+      case Collection.trash:
+        final trash = kept(Collection.trash);
+        final entry = switch (trash?['entry']) {
+          final Map<String, Object?> entry => entry,
+          _ => kept(Collection.entry),
+        };
+        final inner = entry == null
+            ? null
+            : unknownFields(Collection.entry.name, entry);
+        return {
+          ...?(trash == null ? null : unknownFields(collection.name, trash)),
+          'entry': ?inner,
+        };
+      case _:
+        final json = kept(collection);
+        return json == null ? null : unknownFields(collection.name, json);
+    }
+  }
 
   /// The exchanges, for a holding's daily closes; none in tests and the
   /// preview.
   MarketDataGateway? get gateway => _gateway;
 
-  DateTime _today() {
-    final day = _clock.today();
-    return DateTime.utc(day.year, day.month, day.day);
-  }
+  DateTime _today() => _clock.today().asUtcMidnight;
 
   @override
   Future<Ledger> load() => PerformanceMonitor.instance.timeLoad(() async {
@@ -130,135 +296,441 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     return collections;
   }
 
-  /// The record of each row of [collections] but the receipts, decoded
-  /// and brought up to the current version.
-  Future<Map<StoredRow, Map<String, Object?>>> _records(
-    Map<String, List<StoredRow>> collections,
-  ) async {
-    final records = [
-      for (final collection in Collection.values)
-        if (collection != Collection.receipt) ...?collections[collection.name],
-    ];
-    final bodies = [for (final row in records) row.body];
-    final decoded = bodies.length > _decodeApart
-        ? await _decodeApartFrom(bodies)
-        : _decodeAll(bodies);
-    return <StoredRow, Map<String, Object?>>{
-      for (final (i, row) in records.indexed)
-        row: upgradeRecord(row.shelf, decoded[i]! as Map<String, Object?>),
-    };
-  }
-
-  /// Drops the entries of [trash] put there before [from], and their
-  /// receipts, from the store.
-  void _dropExpired(List<Trashed> trash, DateTime from) {
-    final expired = [
-      for (final t in trash)
-        if (t.on.isBefore(from)) t.entry.id,
-    ];
-    if (expired.isEmpty) return;
-    _store.write((w) {
-      for (final id in expired) {
-        w
-          ..drop(Collection.trash.name, id)
-          ..drop(Collection.receipt.name, id);
-      }
-    });
+  /// Brings the book up to this version before it is read: a new one is
+  /// given its first records, one kept by an earlier version goes through
+  /// the steps it lacks, once [beforeUpgrade] has kept a copy of it, or
+  /// without one when the person chose [withoutBackup]. A book that was
+  /// opened before is never given records again, even when the person
+  /// removed every account.
+  ///
+  /// The copy that could not be kept, the book left as it was; null once
+  /// the book is at this version (or later).
+  Future<UpgradeBackupFailed?> bringUp({bool withoutBackup = false}) async {
+    switch (await _whenQuiet(() => standingOf(_store))) {
+      case BookStanding.fresh:
+        await _whenQuiet(_start);
+      case BookStanding.behind:
+        if (!withoutBackup) {
+          if (await beforeUpgrade?.call() case final UpgradeBackupFailed no) {
+            return no;
+          }
+        }
+        await _whenQuiet(() => bringUpBook(_store));
+      case BookStanding.current || BookStanding.ahead:
+        break;
+    }
+    return null;
   }
 
   Future<Ledger> _load() async {
-    _start();
-    giveCategoriesIds(_store);
-    final collections = await _shelves();
-    final json = await _records(collections);
-    List<T> read<T>(
-      Collection collection,
-      T Function(Map<String, Object?>) from,
-    ) => [
-      for (final row in collections[collection.name] ?? const <StoredRow>[])
-        from(json[row]!),
-    ];
-    // What each category id stands for first: a category's parent and every
-    // other record name theirs through it.
-    _refs.fill([
-      for (final row
-          in collections[Collection.category.name] ?? const <StoredRow>[])
-        if (json[row]! case {'id': final String id, 'name': final String name})
-          (id, name),
-    ]);
-    final categories = read(
-      Collection.category,
-      (j) => categoryFromJson(j, _refs),
-    );
-    final market = _marketFrom(collections[_market] ?? const []);
+    final watch = Stopwatch()..start();
+    _aside.clear();
+    _named.clear();
+    _namesOf.clear();
+    // Never read a book left behind: the copy before its upgrade was not
+    // kept, and the person has not chosen to go on without it.
+    if (await bringUp() case final no?) throw UpgradeHeld(no);
     final today = _today();
-    final trash = read(Collection.trash, (j) => trashedFromJson(j, _refs));
-    final from = today.subtract(_keptInTrash);
-    _dropExpired(trash, from);
-    return Ledger(
+    final trashFrom = today.subtract(trashRetention);
+    final Future<ReplayReport?>? posting;
+    final DecodedBook book;
+    OpeningWorked? worked;
+    if (keepsJournal || _store.count > _decodeApart) {
+      (:book, :worked, posting: posting) = await _openApart(today, trashFrom);
+      if (worked.helperFault case final fault?) {
+        // The book opened all the same, only later: its second worker's
+        // half was decoded on the first.
+        ErrorLog.instance.record(ErrorSteps.openingHelper, StateError(fault));
+      }
+    } else {
+      posting = null;
+      book = decodeBook(await _shelves(), trashFrom: trashFrom, today: today);
+      if (book.expired.isNotEmpty) {
+        await _whenQuiet(
+          () => _store.write(
+            (w) => _apply(w, book.expired),
+            counts: book.expiredCounts,
+          ),
+        );
+      }
+    }
+    for (final row in book.aside) {
+      _aside.adopt(row);
+    }
+    book.namesOf.forEach(_indexFound);
+    _refs.fill(book.categoryNames);
+    // The book's market already has the months long gone as one day row
+    // each (review 39), folded on its worker; the fold is kept later,
+    // never waited on here (PERF-4).
+    final market = _readMarket(book.market);
+    _keepFold(book.marketFolds);
+    final ledger = Ledger(
       today: today,
       clock: _today,
-      accounts: read(Collection.account, accountFromJson),
-      categories: categories,
-      entries: read(Collection.entry, (j) => entryFromJson(j, _refs)),
-      holdings: _holdingsOf(market),
-      budgets: read(Collection.budget, (j) => budgetFromJson(j, _refs)),
-      recurring: read(Collection.recurring, (j) => recurringFromJson(j, _refs)),
+      accounts: book.accounts,
+      categories: book.categories,
+      entries: book.entries,
+      entryPlaces: book.entryPlaces,
+      holdings: holdingsOf(market),
+      budgets: book.budgets,
+      recurring: book.recurring,
       rates: market.rates,
+      sellRates: market.sellRates,
       moves: market.moves,
       quotedOn: market.quotedOn,
       quoteDays: market.days,
-      trash: [
-        for (final t in trash.reversed)
-          if (!t.on.isBefore(from)) t,
-      ],
-      receipts: {
-        for (final row
-            in collections[Collection.receipt.name] ?? const <StoredRow>[])
-          row.id: row.body,
-      },
-      drafts: {
-        for (final row in collections[_draft] ?? const <StoredRow>[])
-          row.id: row.body,
-      },
+      history: _dated(market),
+      trash: book.trash,
+      receipts: book.receipts,
+      drafts: book.drafts,
+      readHoldings: book.holdings,
       dataSource: this,
     );
+    if (!_aside.isEmpty) {
+      ErrorLog.instance.record(
+        ErrorSteps.bookOpen,
+        StateError('${_aside.rows.length} rows set aside'),
+      );
+    }
+    if (keepsJournal) journal.open(ledger, posted: posting);
+    lastOpening = (
+      us: watch.elapsedMicroseconds,
+      workerUs: worked?.us,
+      split: worked?.split ?? false,
+    );
+    return ledger;
   }
 
-  /// Gives a ledger that has none its first categories, and a cash and a
-  /// bank account, so the first entry can be written at once.
+  /// Keeps [fold], the months long gone of the market folded into a row
+  /// each (`foldedMarket`), once no other isolate uses the store: after
+  /// the opening, never on its way (PERF-4), as a posting of the whole
+  /// book afresh can hold the store for seconds. The rows changed since
+  /// it was worked out, it is left to the next opening
+  /// (`foldStillApplies`). Done when it is kept or left ([folding]).
+  void _keepFold(({List<RowChange> changes, Map<String, String> from}) fold) {
+    if (fold.changes.isEmpty) return;
+    folding =
+        _whenQuiet(() {
+          if (!foldStillApplies(fold.from, _store.rows(shelf: _market))) return;
+          _store.write((w) => _apply(w, fold.changes), counts: false);
+        }).catchError((Object error) {
+          // The fold is only a smaller table: the next opening tries again.
+          ErrorLog.instance.record('讀取行情', error);
+        });
+  }
+
+  /// Done once the market's fold the last [load] found is kept or left
+  /// ([_keepFold]); at once when it found none.
+  Future<void> folding = Future.value();
+
+  /// How long the last [load] took, and how much of it the book's worker
+  /// spent reading it (null when it was read here, a small book), in
+  /// microseconds: what is left is starting the worker, handing the book
+  /// back and making the ledger of it, the part the screen's isolate
+  /// waits on or does (open_gate_test.dart); and whether the worker had
+  /// half of the entries decoded on a second one (`openingWork`). Null
+  /// before a load.
+  ({int us, int? workerUs, bool split})? lastOpening;
+
+  /// Reads and decodes the book on a worker isolate, which drops what has
+  /// expired ([DecodedBook.expired]) and hands the book here as soon as it
+  /// is read; when the journal is kept, it then posts the whole book
+  /// afresh there unless the journal is the records' own (decision D51:
+  /// the book decoded once, for the screens and the journal). The book,
+  /// how long the worker took to read it, and what posting it found (null
+  /// when nothing was posted).
+  Future<
+    ({DecodedBook book, OpeningWorked worked, Future<ReplayReport?>? posting})
+  >
+  _openApart(DateTime today, DateTime trashFrom) async {
+    final books = ReceivePort();
+    try {
+      // Taken in the turn the store is found free; the work itself runs on.
+      late final Future<OpenedBook> work;
+      await _whenQuiet(() {
+        work = _store.workApart(
+          openingWork(
+            books: books.sendPort,
+            today: today,
+            trashFrom: trashFrom,
+            rules: keepsJournal ? journalRules : null,
+            // A second worker only where there is a core beside the
+            // worker's: the screen's isolate only waits for the book
+            // meanwhile.
+            split: Platform.numberOfProcessors > 1,
+          ),
+        );
+      });
+      // The book comes back whole when nothing is posted; else it is sent
+      // as soon as it is read, and posted on. A fault before either is the
+      // opening's.
+      final first = await Future.any<Object?>([books.first, work]);
+      return switch (first) {
+        (book: final DecodedBook book, :final OpeningWorked worked) => (
+          book: book,
+          worked: worked,
+          posting: work.then((opened) => opened.posted),
+        ),
+        (
+          book: final DecodedBook book,
+          posted: _,
+          :final OpeningWorked worked,
+        ) =>
+          (
+            book: book,
+            worked: worked,
+            posting: keepsJournal ? Future<ReplayReport?>.value() : null,
+          ),
+        _ => throw StateError('the book was not read'),
+      };
+    } finally {
+      books.close();
+    }
+  }
+
+  /// Applies [changes] through [w].
+  static void _apply(RowWriter w, List<RowChange> changes) =>
+      changes.forEach(w.apply);
+
+  /// Gives a ledger just made its first categories, and a cash and a bank
+  /// account, so the first entry can be written at once; and notes that
+  /// it is at this version, in the same write.
   void _start() {
-    final noCategories = _store.rows(shelf: Collection.category.name).isEmpty;
-    final noAccounts = _store.rows(shelf: Collection.account.name).isEmpty;
-    if (!noCategories && !noAccounts) return;
     _write(
       WriteBatch(
-        categories: [
-          if (noCategories)
-            for (final (name, icon, color, income) in _starters)
-              Category(name, icon, color, income: income),
-        ],
+        categories: starterCategories(),
         accounts: [
-          if (noAccounts) ...[
-            Account(PublicId.generate().value, '現金', AccountKind.cash, 0),
-            Account(PublicId.generate().value, '銀行帳戶', AccountKind.bank, 0),
-          ],
+          Account(PublicId.generate().value, '現金', AccountKind.cash, 0),
+          Account(PublicId.generate().value, '銀行帳戶', AccountKind.bank, 0),
         ],
       ),
+      also: markCurrent,
     );
   }
 
   @override
   Future<void> keep(WriteBatch batch) async {
     try {
-      _write(batch);
+      // A category made or renamed reads the records naming it as the
+      // change is written (_claimName): such a change is written at once.
+      if (_sizeOf(batch) >= _writeApartFrom && _claimed(batch).isEmpty) {
+        await _writeApart(batch);
+      } else {
+        // A backup reading the book on a worker holds the store for that
+        // read (D41): the change is written once it is done, never into
+        // the middle of it, and before another can start.
+        await _whenQuiet(() => _write(batch));
+      }
     } on Object catch (error) {
       throw DataSourceException(error);
     }
+    if (keepsJournal) journal.kept(batch);
   }
 
-  void _write(WriteBatch batch) {
+  static int _sizeOf(WriteBatch batch) =>
+      batch.accounts.length +
+      batch.categories.length +
+      batch.entries.length +
+      batch.budgets.length +
+      batch.recurring.length +
+      batch.trash.length +
+      batch.receipts.length +
+      batch.dropped.length +
+      batch.drafts.length;
+
+  /// Done once no other isolate uses the store (a write apart, a
+  /// backup's read, a posting afresh). The journal's keeper waits with it
+  /// and asks [EncryptedDatabase.busyApart] again in the same turn as it
+  /// works; every write here goes through [_whenQuiet].
+  Future<void> _quiet() async {
+    while (_store.busyApart) {
+      await _store.idle;
+    }
+  }
+
+  /// Runs [then] once no other isolate uses the store (a write apart, or
+  /// a backup's read), in the same turn as the last look at it: nothing,
+  /// a backup starting included, comes between the look and [then] (D41).
+  /// The one way a change of the open book reaches the store.
+  Future<T> _whenQuiet<T>(FutureOr<T> Function() then) async {
+    while (_store.busyApart) {
+      await _store.idle;
+    }
+    // [then] starts here, in this turn; a write apart is awaited whole.
+    return await then();
+  }
+
+  /// The categories of [batch] whose name stands for them from now on,
+  /// newly made or renamed, by that name: the records kept naming it by
+  /// name are to name it by id ([_claimName]).
+  Map<String, String> _claimed(WriteBatch batch) => {
+    for (final c in batch.categories)
+      if (_refs.idOf(c.name) != c.id) c.name: c.id,
+  };
+
+  /// The records kept naming a category by name, by that name; and the
+  /// names each of them names so, by `collection/key`. Few or none: a
+  /// record names a category by name only while no category has it.
+  final _named = <String, Set<String>>{};
+  final _namesOf = <String, Set<String>>{};
+
+  /// The names [_indexNames] finds in a record, gathered by [_collectName].
+  final _collected = <String>{};
+  late final _collectName = _collect;
+  String? _collect(String name) {
+    _collected.add(name);
+    return null;
+  }
+
+  /// Notes the categories [json], the record kept as [id] of [shelf],
+  /// names by name; none when it is dropped (null).
+  void _noteNames(String shelf, String id, Map<String, Object?>? json) {
+    final key = '$shelf/$id';
+    for (final name in _namesOf.remove(key) ?? const <String>{}) {
+      final keys = _named[name]!..remove(key);
+      if (keys.isEmpty) _named.remove(name);
+    }
+    if (json != null) _indexNames(shelf, id, json);
+  }
+
+  /// Adds what [json] names by name to [_named], as the book is read.
+  void _indexNames(String shelf, String id, Map<String, Object?> json) {
+    // One collector for every record, not a closure made for each.
+    namesToIds(shelf, json, _collectName);
+    if (_collected.isEmpty) return;
+    final found = {..._collected};
+    _collected.clear();
+    _indexFound('$shelf/$id', found);
+  }
+
+  /// Notes that the record [key] (`shelf/id`) names [names] by name.
+  void _indexFound(String key, Set<String> names) {
+    _namesOf[key] = names;
+    for (final name in names) {
+      (_named[name] ??= {}).add(key);
+    }
+  }
+
+  /// Each record kept naming [name] by name names it by [id] instead, so
+  /// a later rename reaches it (DAT-05); what to note once the write is
+  /// kept is added to [after].
+  void _claimName(
+    RowWriter w,
+    String name,
+    String id,
+    List<void Function()> after,
+  ) {
+    for (final key in List.of(_named[name] ?? const <String>{})) {
+      final slash = key.indexOf('/');
+      final shelf = key.substring(0, slash);
+      final row = _store.row(shelf, key.substring(slash + 1));
+      if (row == null || _aside.holds(row.shelf, row.id)) continue;
+      final json = readableRecord(row.body);
+      if (json == null) continue;
+      final byId = namesToIds(shelf, json, (n) => n == name ? id : null);
+      if (byId == null) continue;
+      var kept = row.id;
+      if (shelf == Collection.budget.name) {
+        kept = budgetKeyAfter(_store, row, byId);
+        if (kept != row.id) w.drop(shelf, row.id);
+      }
+      w.put(shelf, kept, jsonEncode(byId));
+      after.add(() {
+        _noteNames(shelf, row.id, null);
+        _noteNames(shelf, kept, byId);
+      });
+    }
+  }
+
+  /// Writes [batch] at once, in one transaction, with what [also] adds.
+  void _write(WriteBatch batch, {void Function(RowWriter writer)? also}) {
+    final after = <void Function()>[];
+    _store.write((w) {
+      for (final _ in _fill(
+        batch,
+        put: w.put,
+        putAt: w.putAt,
+        move: w.move,
+        drop: w.drop,
+        after: after,
+        claim: w,
+      )) {}
+      also?.call(w);
+    }, counts: !batch.onlyDrafts);
+    for (final note in after) {
+      note();
+    }
+  }
+
+  /// Writes [batch] on a worker isolate (DAT-03): its rows are made here a
+  /// slice at a time, the screen drawn between slices ([_slice]), then
+  /// kept in one transaction apart; what this notes of them follows once
+  /// they are kept, a slice at a time too.
+  Future<void> _writeApart(WriteBatch batch) async {
+    final changes = <RowChange>[];
+    final after = <void Function()>[];
+    final watch = Stopwatch()..start();
+    Future<void> breathe() async {
+      if (watch.elapsed < _slice) return;
+      await Future<void>.delayed(Duration.zero);
+      watch.reset();
+    }
+
+    final rows = _fill(
+      batch,
+      put: (shelf, id, body) => changes.add(RowChange.put(shelf, id, body)),
+      putAt: (shelf, id, body, seq) =>
+          changes.add(RowChange.putAt(shelf, id, body, seq)),
+      move: (from, shelf, id, body) =>
+          changes.add(RowChange.move(from, shelf, id, body)),
+      drop: (shelf, id) => changes.add(RowChange.drop(shelf, id)),
+      after: after,
+    ).iterator;
+    // A record's rows are made from what the store keeps of it (its
+    // unknown fields, where it stood), so each is made while no worker
+    // has the store, in the turn of the last look at it: a backup's read
+    // or a posting under way is waited for, not failed on.
+    while (_store.busyApart
+        ? await _whenQuiet(rows.moveNext)
+        : rows.moveNext()) {
+      await breathe();
+    }
+    await _whenQuiet(
+      () => _store.writeApart(changes, counts: !batch.onlyDrafts),
+    );
+    for (final note in after) {
+      note();
+      await breathe();
+    }
+  }
+
+  /// The longest the screen is kept waiting while the rows of a change
+  /// written apart are made: half a frame at 60 frames a second.
+  // Exception to the motion scale: a share of a frame's time, not a
+  // movement.
+  static const _slice = Duration(milliseconds: 8);
+
+  /// The rows [batch] puts in place, moves and drops, handed to [put],
+  /// [move] and [drop] in the order they are written, a record at a time:
+  /// an entry going to the trash, or coming back from it, is moved, so it
+  /// keeps its place among the entries (D75); a record an undo puts back
+  /// goes to [putAt] the place it was taken from (D119). It yields
+  /// after each, so a caller may let the screen draw. What to note once
+  /// they are kept is added to [after]. [claim] is the writer of a
+  /// transaction under way, for the records that named a category by
+  /// name; none when the batch claims none ([keep] writes those at once).
+  Iterable<void> _fill(
+    WriteBatch batch, {
+    required void Function(String shelf, String id, String body) put,
+    required void Function(String shelf, String id, String body, int seq) putAt,
+    required void Function(String from, String shelf, String id, String body)
+    move,
+    required void Function(String shelf, String id) drop,
+    required List<void Function()> after,
+    RowWriter? claim,
+  }) sync* {
     final at = _clock.now().value.millisecondsSinceEpoch;
+    final claimed = _claimed(batch);
     // A category, as the rest of the batch names it, first; and what a
     // dropped budget was kept under, before its category goes.
     for (final c in batch.categories) {
@@ -268,66 +740,215 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       for (final (collection, key) in batch.dropped)
         if (collection == Collection.budget) key: _refs.idOf(key) ?? key,
     };
-    String text(Map<String, Object?> json) =>
-        jsonEncode({...json, '_v': recordVersion, '_at': at});
-    _store.write((w) {
-      void keep(Collection collection, String id, Map<String, Object?> json) {
-        w.put(collection.name, id, text(json));
-        if (_noted.contains(collection)) {
-          w.drop(_gone, '${collection.name}/$id');
-        }
+    String text(Collection collection, String id, Map<String, Object?> json) {
+      final unknown = _unknownOf(collection, id);
+      if (unknown?.remove('entry') case final Map<String, Object?> inner) {
+        json = {
+          ...json,
+          'entry': {...inner, ...json['entry']! as Map<String, Object?>},
+        };
       }
+      return jsonEncode({...?unknown, ...json, '_v': recordVersion, '_at': at});
+    }
 
-      for (final a in batch.accounts) {
-        keep(Collection.account, a.id, accountToJson(a));
+    void mayChange(String shelf, String id) {
+      if (_aside.holds(shelf, id)) {
+        throw RowSetAside(shelf);
       }
-      for (final c in batch.categories) {
-        keep(Collection.category, c.id, categoryToJson(c, _refs));
+    }
+
+    // An entry dropped and kept in the trash in the same change goes
+    // there, and one kept again and dropped from the trash comes back.
+    final droppedFrom = <Collection, Set<String>>{};
+    for (final (collection, key) in batch.dropped) {
+      (droppedFrom[collection] ??= {}).add(key);
+    }
+    final toTrash = {
+      for (final t in batch.trash)
+        if (droppedFrom[Collection.entry]?.contains(t.entry.id) ?? false)
+          t.entry.id,
+    };
+    final fromTrash = {
+      for (final e in batch.entries)
+        if (droppedFrom[Collection.trash]?.contains(e.id) ?? false) e.id,
+    };
+
+    // What the data source notes of the rows written, once they are kept:
+    // nothing of a write that throws.
+    void keep(Collection collection, String id, Map<String, Object?> json) {
+      mayChange(collection.name, id);
+      final from = switch (collection) {
+        Collection.trash when toTrash.contains(id) => Collection.entry,
+        Collection.entry when fromTrash.contains(id) => Collection.trash,
+        _ => null,
+      };
+      final row = '${collection.name}/$id';
+      final place = batch.putBack ? _droppedAt[row] : null;
+      if (place != null) {
+        putAt(collection.name, id, text(collection, id, json), place);
+      } else if (from == null) {
+        put(collection.name, id, text(collection, id, json));
+      } else {
+        mayChange(from.name, id);
+        move(from.name, collection.name, id, text(collection, id, json));
       }
-      for (final e in batch.entries) {
-        keep(Collection.entry, e.id, entryToJson(e, _refs));
+      if (_noted.contains(collection)) {
+        drop(_gone, '${collection.name}/$id');
       }
-      for (final b in batch.budgets) {
-        keep(
-          Collection.budget,
-          _refs.idOf(b.category) ?? b.category,
-          budgetToJson(b, _refs),
-        );
+      after.add(() {
+        _droppedAt.remove(row);
+        _noteNames(collection.name, id, json);
+      });
+    }
+
+    for (final a in batch.accounts) {
+      keep(Collection.account, a.id, accountToJson(a));
+      yield null;
+    }
+    for (final c in batch.categories) {
+      keep(Collection.category, c.id, categoryToJson(c, _refs));
+      yield null;
+    }
+    for (final e in batch.entries) {
+      keep(Collection.entry, e.id, entryToJson(e, _refs));
+      yield null;
+    }
+    for (final b in batch.budgets) {
+      keep(
+        Collection.budget,
+        _refs.idOf(b.category) ?? b.category,
+        budgetToJson(b, _refs),
+      );
+      yield null;
+    }
+    for (final r in batch.recurring) {
+      keep(Collection.recurring, r.id, recurringToJson(r, _refs));
+      yield null;
+    }
+    for (final t in batch.trash) {
+      keep(Collection.trash, t.entry.id, trashedToJson(t, _refs));
+      yield null;
+    }
+    for (final MapEntry(key: id, value: file) in batch.receipts.entries) {
+      if (file == null) {
+        drop(Collection.receipt.name, id);
+      } else {
+        put(Collection.receipt.name, id, file);
       }
-      for (final r in batch.recurring) {
-        keep(Collection.recurring, r.id, recurringToJson(r, _refs));
-      }
-      for (final t in batch.trash) {
-        keep(Collection.trash, t.entry.id, trashedToJson(t, _refs));
-      }
-      for (final MapEntry(key: id, value: file) in batch.receipts.entries) {
-        if (file == null) {
-          w.drop(Collection.receipt.name, id);
-        } else {
-          w.put(Collection.receipt.name, id, file);
+      yield null;
+    }
+    for (final (collection, name) in batch.dropped) {
+      final id = collection == Collection.budget ? budgetKeys[name]! : name;
+      mayChange(collection.name, id);
+      final moved = switch (collection) {
+        Collection.entry => toTrash.contains(id),
+        Collection.trash => fromTrash.contains(id),
+        _ => false,
+      };
+      if (!moved) {
+        // Where it stood, for an undo to put it back there.
+        final seq = _putBackable.contains(collection)
+            ? _store.row(collection.name, id)?.seq
+            : null;
+        drop(collection.name, id);
+        if (seq != null) {
+          after.add(() => _droppedAt['${collection.name}/$id'] = seq);
         }
       }
-      for (final (collection, name) in batch.dropped) {
-        final id = collection == Collection.budget ? budgetKeys[name]! : name;
-        w.drop(collection.name, id);
-        if (_noted.contains(collection)) {
-          w.put(_gone, '${collection.name}/$id', jsonEncode({'at': at}));
-        }
-        if (collection == Collection.category) _refs.remove(id);
+      if (_noted.contains(collection)) {
+        put(_gone, '${collection.name}/$id', jsonEncode({'at': at}));
       }
-      for (final MapEntry(key: tab, value: json) in batch.drafts.entries) {
-        if (json == null) {
-          w.drop(_draft, tab);
-        } else {
-          w.put(_draft, tab, json);
-        }
+      if (collection == Collection.category) _refs.remove(id);
+      after.add(() => _noteNames(collection.name, id, null));
+      yield null;
+    }
+    for (final MapEntry(key: tab, value: json) in batch.drafts.entries) {
+      if (json == null) {
+        drop(_draft, tab);
+      } else {
+        put(_draft, tab, json);
       }
-    }, counts: !batch.onlyDrafts);
+      yield null;
+    }
+    if (claimed.isNotEmpty) {
+      // Only a write at once claims: keep() sends no claiming batch apart.
+      final w = claim!;
+      for (final MapEntry(key: name, value: id) in claimed.entries) {
+        _claimName(w, name, id, after);
+      }
+    }
   }
 
-  /// Throws a [FormatException] for a record this app cannot read, so a
-  /// backup with one is refused rather than restored.
+  /// Throws a [FormatException] for a book restored into [staging] whose
+  /// categories are on a loop of parents (D103): records that each read
+  /// alone ([check]) but no book could be made of.
+  static void checkRestored(EncryptedDatabase staging) {
+    final rows = staging.rows(shelf: Collection.category.name);
+    final json = decodeBodies([for (final r in rows) r.body]).values;
+    final refs = CategoryRefs()
+      ..fill([
+        for (final j in json)
+          if (j case {'id': final String id, 'name': final String name})
+            (id, name),
+      ]);
+    final categories = <Category>[];
+    for (final j in json) {
+      if (j is! Map<String, Object?>) continue;
+      // A later version's: set aside as the book opens, never read.
+      if (_newer(j)) continue;
+      categories.add(
+        categoryFromJson(upgradeRecord(Collection.category.name, j), refs),
+      );
+    }
+    if (categoriesOnLoops(categories).isNotEmpty) {
+      throw const FormatException(parentLoopProblem);
+    }
+  }
+
+  /// The shelves this version reads. A backup's row on any other is a
+  /// kind of record a later version keeps (forward compatibility): it is
+  /// restored as it is and left aside, never read or written over by
+  /// this version, and goes on in its backups.
+  static final shelvesRead = {
+    for (final c in Collection.values) c.name,
+    _market,
+    _gone,
+    _draft,
+  };
+
+  /// Throws a [FormatException] naming the row, whatever its slip, for a
+  /// record this app cannot read or no version of it would write
+  /// ([shapeIssues]), so a backup with one is refused, not restored. A
+  /// row a later version wrote, on a shelf not among [shelvesRead] or of
+  /// a later record version ([NewerRecord]), is let through: the book
+  /// sets it aside as it opens, and keeps it.
   static void check(String collection, String id, String body) {
+    if (!shelvesRead.contains(collection) || _newerRow(collection, body)) {
+      return;
+    }
+    try {
+      _check(collection, id, body);
+    } on Object catch (slip) {
+      final what = slip is FormatException ? slip.message : slip.runtimeType;
+      throw FormatException('$collection $id: $what');
+    }
+  }
+
+  /// Whether [body], a row of [collection], is a record of a later record
+  /// version than this one reads (for a form put aside, its entry's).
+  static bool _newerRow(String collection, String body) {
+    // Not JSON (null here) has no version to weigh: [_check] tells why.
+    final json = decodeBodies([body]).values.single;
+    if (json is! Map<String, Object?>) return false;
+    final record = collection == _draft ? json['entry'] : json;
+    return record is Map<String, Object?> && _newer(record);
+  }
+
+  /// Whether [record] is of a later record version ([NewerRecord]).
+  static bool _newer(Map<String, Object?> record) =>
+      (versionOf(record) ?? 0) > recordVersion;
+
+  static void _check(String collection, String id, String body) {
     if (collection == Collection.receipt.name) {
       if (!RegExp(r'^[\w.-]+$').hasMatch(body)) {
         throw const FormatException('receipt');
@@ -351,29 +972,22 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       return;
     }
     if (collection == _market) {
-      if (id != 'quotes' && id != 'rates') throw FormatException(id);
-      _marketFrom([StoredRow(0, collection, id, body)]);
+      // The latest closes, the latest board, or a day's of both (D58).
+      if (id != 'quotes' && id != 'rates' && marketDayOf(id) == null) {
+        throw FormatException(id);
+      }
+      marketFrom([StoredRow(0, collection, id, body)]);
       return;
     }
-    // Out of context, a category's id is as good as its name.
-    final refs = CategoryRefs.lenient();
-    final reader = switch (Collection.values.asNameMap()[collection]) {
-      Collection.account => accountFromJson,
-      Collection.category => (Map<String, Object?> j) => categoryFromJson(
-        j,
-        refs,
-      ),
-      Collection.entry => (Map<String, Object?> j) => entryFromJson(j, refs),
-      Collection.budget => (Map<String, Object?> j) => budgetFromJson(j, refs),
-      Collection.recurring => (Map<String, Object?> j) => recurringFromJson(
-        j,
-        refs,
-      ),
-      Collection.trash => (Map<String, Object?> j) => trashedFromJson(j, refs),
-      _ => throw FormatException('Unknown collection $collection'),
-    };
-    reader(upgradeRecord(collection, json));
+    checkRecord(collection, upgradeRecord(collection, json));
   }
+
+  /// The rows of [rows] of the [_market] collection that can be read: a
+  /// close or rate kept that cannot is fetched again, and noted.
+  static Market _readMarket(List<StoredRow>? rows) => readMarket(
+    rows,
+    report: (error) => ErrorLog.instance.record('讀取行情', error),
+  );
 
   // Market data.
 
@@ -382,49 +996,236 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     List<Holding> holdings,
     Map<String, double> moves,
     Map<String, double> rates,
+    Map<String, double> sellRates,
     DateTime? quotedOn,
     Map<String, DateTime> days,
+    MarketHistory history,
   })
   market() {
-    final kept = _marketFrom(_store.rows(shelf: _market));
+    final kept = _readMarket(_store.rows(shelf: _market));
     return (
-      holdings: _holdingsOf(kept),
+      holdings: holdingsOf(kept),
       moves: kept.moves,
       rates: kept.rates,
+      sellRates: kept.sellRates,
       quotedOn: kept.quotedOn,
       days: kept.days,
+      history: _dated(kept),
     );
   }
 
-  /// Fetches 臺灣銀行's board: the spot buying rate of each currency, what
-  /// a foreign balance is worth in NT$. Returns whether any rate changed.
+  /// Fetches 臺灣銀行's board: the spot buying and selling rate of each
+  /// currency, what a foreign balance held and owed is worth in NT$
+  /// (D59). Returns whether any rate changed.
   Future<bool> refreshRates() async {
     final gateway = _gateway;
     if (gateway == null) return false;
     final board = (await gateway.bankRates()).value;
     if (board == null) return false;
-    final fetched = <String, double>{};
+    final quoted = <String, double>{};
+    final quotedSelling = <String, double>{};
     for (final MapEntry(key: code, value: row) in board.rates.entries) {
-      final rate = row.valuation;
-      if (rate != null) fetched[code] = rate.numerator / rate.denominator;
+      if (row.rateFor(BoardSide.buying) case final rate?) {
+        quoted[code] = rate.numerator / rate.denominator;
+      }
+      if (row.rateFor(BoardSide.selling) case final rate?) {
+        quotedSelling[code] = rate.numerator / rate.denominator;
+      }
     }
-    final kept = _marketFrom(_store.rows(shelf: _market));
-    if (fetched.isEmpty || mapEquals(fetched, kept.rates)) return false;
-    // Fetched, not changed by the person: no new backup is due for it.
-    _store.write(
-      (w) => w.put(
-        _market,
-        'rates',
-        jsonEncode({'asOf': '${board.asOf}', 'rates': fetched}),
-      ),
-      counts: false,
-    );
-    return true;
+    final boardDay = board.asOf.asUtcMidnight;
+    return _whenQuiet(() {
+      final kept = _readMarket(_store.rows(shelf: _market));
+      // A rate too far from the one kept is doubted (D95) unless there is
+      // reason to take it (D101: found again, or the one kept old): the
+      // one kept stays, the doubted one is kept to weigh the next fetch
+      // by, and the doubt is noted; buying and selling alike (D59).
+      final doubted = <String>{};
+      final dated = _dated(kept);
+      final days = MarketDayWrites(kept.history);
+      final onBoard = BusinessDate.of(boardDay);
+      (Map<String, double>, Map<String, DoubtedFigure>) sane(
+        MarketSeries series,
+        Map<String, double> quotes,
+        Map<String, double> before,
+        Map<String, DoubtedFigure> doubtedBefore,
+      ) {
+        final taken = <String, double>{};
+        // As for closes: a doubt of a code not on this board is kept to
+        // weigh its next fetch by (review 18), until it is too old to
+        // (review 25).
+        final held = doubtsStanding(doubtedBefore, boardDay);
+        for (final MapEntry(key: code, value: rate) in quotes.entries) {
+          final was = before[code];
+          // Weighed against the rate kept for the board's day, or the
+          // nearest day before it (D58), else the latest kept.
+          final against = _weighedAgainst(
+            series.of(dated),
+            code,
+            onBoard,
+            latest: was,
+            latestOn: kept.ratesOn,
+          );
+          if (takesFetched(
+            kept: against.figure,
+            fetched: rate,
+            keptDaysAgo: switch (against.on) {
+              final on? => boardDay.difference(on).inDays,
+              null => null,
+            },
+            doubtedBefore: held[code]?.figure,
+          )) {
+            taken[code] = rate;
+            held.remove(code);
+            // Kept for the board's day (D58); the rate it replaces is
+            // kept for its own day first.
+            days.keep(
+              series,
+              code,
+              onBoard,
+              rate,
+              kept: was,
+              keptOn: switch (kept.ratesOn) {
+                final on? => BusinessDate.of(on),
+                null => null,
+              },
+            );
+          } else {
+            doubted.add(code);
+            if (rate.isFinite && rate > 0) {
+              held[code] = (figure: rate, day: boardDay);
+            }
+            if (was != null) taken[code] = was;
+          }
+        }
+        return (taken, held);
+      }
+
+      final (fetched, heldBuying) = sane(
+        MarketSeries.buying,
+        quoted,
+        kept.rates,
+        kept.doubtedRates,
+      );
+      final (selling, heldSelling) = sane(
+        MarketSeries.selling,
+        quotedSelling,
+        kept.sellRates,
+        kept.doubtedSellRates,
+      );
+      doubtfulRates = List.unmodifiable(doubted);
+      if (doubted.isNotEmpty) {
+        ErrorLog.instance.record(
+          ErrorSteps.doubtfulQuote,
+          StateError('rates of ${doubted.join(', ')} set aside'),
+        );
+      }
+      final ratesMoved =
+          !mapEquals(fetched, kept.rates) ||
+          !mapEquals(selling, kept.sellRates);
+      final dayRows = days.rows;
+      if (fetched.isEmpty ||
+          (!ratesMoved &&
+              dayRows.isEmpty &&
+              mapEquals(heldBuying, kept.doubtedRates) &&
+              mapEquals(heldSelling, kept.doubtedSellRates))) {
+        return false;
+      }
+      // Fetched, not changed by the person: no new backup is due for it.
+      // The board's day moves only with a rate taken: the day the rates
+      // kept are of.
+      // Each day's rates beside them (D58), in the same write.
+      _store.write((w) {
+        w.put(
+          _market,
+          'rates',
+          jsonEncode({
+            'asOf': ratesMoved || kept.ratesOn == null
+                ? '${board.asOf}'
+                : '${BusinessDate.of(kept.ratesOn!)}',
+            'rates': fetched,
+            'sell': selling,
+            ..._doubtsJson('doubted', heldBuying),
+            ..._doubtsJson('doubtedSell', heldSelling),
+          }),
+        );
+        dayRows.forEach((id, body) => w.put(_market, id, body));
+      }, counts: false);
+      return ratesMoved;
+    });
   }
+
+  /// The dated rates and closes of [market] (`datedMarket`, D58).
+  static MarketHistory _dated(Market market) => datedMarket(
+    history: market.history,
+    rates: market.rates,
+    sellRates: market.sellRates,
+    ratesOn: market.ratesOn,
+    prices: market.prices,
+    days: market.days,
+  );
+
+  /// What a figure fetched for [day] is weighed against (D95, D101):
+  /// the one [dated] keeps for that day or the nearest day before it
+  /// (D58), with its day, else the [latest] kept, of [latestOn]; and the
+  /// day after whose splits it is a price of the shares before
+  /// (`sharesAfter`): its own day, or, fetched on a later day as
+  /// [fetched] names it, the day before that (D123).
+  static ({double? figure, DateTime? on, DateTime? sharesAfter})
+  _weighedAgainst(
+    DatedFigures dated,
+    String key,
+    BusinessDate day, {
+    required double? latest,
+    required DateTime? latestOn,
+    Map<BusinessDate, BusinessDate> fetched = const {},
+  }) => switch (dated.on(key, day)) {
+    (
+      :final figure,
+      of: final of?,
+      found: FoundOn.theDay || FoundOn.earlierDay,
+    ) =>
+      (
+        figure: figure,
+        on: of.asUtcMidnight,
+        sharesAfter: switch (fetched[of]) {
+          final later? => later.addDays(-1).asUtcMidnight,
+          null => of.asUtcMidnight,
+        },
+      ),
+    _ => (figure: latest, on: latestOn, sharesAfter: latestOn),
+  };
 
   /// The codes the last [refreshQuotes] found no close for: not quoted
   /// by either exchange, or out of reach.
   List<String> unquoted = const [];
+
+  static double? _neverReshaped(String code, DateTime? day) => null;
+
+  /// [doubts] as kept in a market row: the figures under [field], their
+  /// days under [field]`On` (marketFrom); nothing when there are none.
+  static Map<String, Object> _doubtsJson(
+    String field,
+    Map<String, DoubtedFigure> doubts,
+  ) => {
+    if (doubts.isNotEmpty) ...{
+      field: {
+        for (final MapEntry(:key, :value) in doubts.entries) key: value.figure,
+      },
+      '${field}On': {
+        for (final MapEntry(:key, :value) in doubts.entries)
+          key: value.day.toIso8601String(),
+      },
+    },
+  };
+
+  /// The codes whose close the last [refreshQuotes] doubted (D95): more
+  /// than `doubtfulMoveFactor` times away from the one kept. The one kept
+  /// stays, with its day, so the holding shows its older close.
+  List<String> doubtfulCloses = const [];
+
+  /// The currencies whose rate the last [refreshRates] doubted (D95); the
+  /// rate kept stays.
+  List<String> doubtfulRates = const [];
 
   /// The latest close of [code] from [gateway], TWSE first, or null when
   /// none is found; [prices] are the closes kept from before.
@@ -451,20 +1252,71 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
   }
 
+  /// Keeps the closes of [code] a month report gave ([closes], oldest or
+  /// not) for the past days the dated table lacks (N3, D58): only days
+  /// before the latest close kept, each taken by the doubt rules
+  /// (`MarketDayWrites.fillPastCloses`), as fetched today (D123). Nothing
+  /// for a code with no close kept. Whether any was kept.
+  Future<bool> keepPastCloses(
+    String code,
+    Iterable<(DateTime, double)> closes, {
+    double? Function(String code, DateTime? day) reshapedBy = _neverReshaped,
+  }) async {
+    final kept = await _whenQuiet(
+      () => _readMarket(_store.rows(shelf: _market)),
+    );
+    final latest = kept.days[code];
+    if (latest == null) return false;
+    final writes = MarketDayWrites(_dated(kept));
+    final count = writes.fillPastCloses(
+      code,
+      [for (final (day, close) in closes) (BusinessDate.of(day), close)],
+      before: BusinessDate.of(latest),
+      fetchedOn: BusinessDate.of(_today()),
+      reshapedBy: (day) => reshapedBy(code, day),
+    );
+    final rows = writes.rows;
+    if (count == 0 || rows.isEmpty) return false;
+    await _whenQuiet(
+      () => _store.write(
+        (w) => writes
+            .rowsOver((id) => _store.row(_market, id)?.body, {
+              MarketSeries.closes,
+            })
+            .forEach((id, body) => w.put(_market, id, body)),
+        counts: false,
+      ),
+    );
+    return true;
+  }
+
   /// Fetches the latest close of each of [codes], for the holdings' value;
   /// one not found on TWSE is tried on TPEx. Returns whether any price
-  /// changed.
-  Future<bool> refreshQuotes(Iterable<String> codes) async {
+  /// changed. [reshapedBy] tells how many times the splits, stock
+  /// dividends and reductions the book holds of a stock after a day
+  /// multiplied its shares, null for none (D101).
+  Future<bool> refreshQuotes(
+    Iterable<String> codes, {
+    double? Function(String code, DateTime? day) reshapedBy = _neverReshaped,
+  }) async {
     final gateway = _gateway;
     if (gateway == null) return false;
-    final kept = _marketFrom(_store.rows(shelf: _market));
+    final kept = await _whenQuiet(
+      () => _readMarket(_store.rows(shelf: _market)),
+    );
     final prices = {...kept.prices};
     final moves = {...kept.moves};
     final names = {...kept.names};
     final days = {...kept.days};
+    final dated = _dated(kept).closes;
+    final closesByDay = MarketDayWrites(kept.history);
+    final today = _today();
+    // A doubt too old to weigh a fetch by is let go of (review 25).
+    final doubtedBefore = doubtsStanding(kept.doubtedCloses, today);
     var quotedOn = kept.quotedOn;
-    var changed = false;
+    var changed = doubtedBefore.length != kept.doubtedCloses.length;
     final missed = <String>[];
+    final doubted = <String>[];
     // Every code asked at once: the exchanges' day lists are fetched once
     // and shared, and a code looked for on TPEx or in the month report
     // does not hold up the others.
@@ -474,15 +1326,60 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     ]);
     for (final (i, code) in asked.indexed) {
       final close = closes[i];
-      final price = close == null ? null : double.tryParse(close.decimalPrice);
+      final price = close == null ? null : parseDecimal(close.decimalPrice);
       if (close == null || price == null) {
         missed.add(code);
         continue;
       }
-      final day = DateTime.utc(
-        close.asOf.year,
-        close.asOf.month,
-        close.asOf.day,
+      final day = close.asOf.asUtcMidnight;
+      // A close dated after today is no close; one too far from the one
+      // kept is doubted (D95). Either way the one kept stays, with its
+      // day, and the day the holdings are quoted on does not move for it.
+      if (day.isAfter(today)) {
+        missed.add(code);
+        continue;
+      }
+      final keptOn = days[code];
+      // Weighed against the close kept for its day, or the nearest day
+      // before it (D58), else the latest kept.
+      final against = _weighedAgainst(
+        dated,
+        code,
+        BusinessDate.of(day),
+        latest: prices[code],
+        latestOn: keptOn,
+        fetched: kept.history.closesFetched[code] ?? const {},
+      );
+      if (!takesFetched(
+        kept: against.figure,
+        fetched: price,
+        keptDaysAgo: switch (against.on) {
+          final on? => day.difference(on).inDays,
+          null => null,
+        },
+        doubtedBefore: doubtedBefore[code]?.figure,
+        reshapedBy: reshapedBy(code, against.sharesAfter),
+      )) {
+        doubted.add(code);
+        // Kept to weigh the next fetch by (D101), with its day.
+        final doubt = (figure: price, day: day);
+        if (doubtedBefore[code] != doubt && price.isFinite && price > 0) {
+          doubtedBefore[code] = doubt;
+          changed = true;
+        }
+        continue;
+      }
+      if (doubtedBefore.remove(code) != null) changed = true;
+      // Kept for its day (D58); the close it replaces is kept for its own
+      // day first.
+      closesByDay.keep(
+        MarketSeries.closes,
+        code,
+        BusinessDate.of(day),
+        price,
+        kept: prices[code],
+        keptOn: keptOn == null ? null : BusinessDate.of(keptOn),
+        fetchedOn: BusinessDate.of(today),
       );
       if (quotedOn == null || day.isAfter(quotedOn)) {
         quotedOn = day;
@@ -492,7 +1389,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         days[code] = day;
         changed = true;
       }
-      final move = double.tryParse(close.decimalChange ?? '');
+      final move = parseDecimal(close.decimalChange ?? '');
       final name = close.name;
       if (prices[code] == price &&
           moves[code] == move &&
@@ -509,90 +1406,65 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       changed = true;
     }
     unquoted = List.unmodifiable(missed);
-    if (changed) {
-      _store.write(
-        (w) => w.put(
-          _market,
-          'quotes',
-          jsonEncode({
-            'prices': prices,
-            'moves': moves,
-            'names': names,
-            'days': {
-              for (final MapEntry(:key, :value) in days.entries)
-                key: value.toIso8601String(),
-            },
-            'on': ?quotedOn?.toIso8601String(),
-          }),
-        ),
-        counts: false,
+    doubtfulCloses = List.unmodifiable(doubted);
+    if (doubted.isNotEmpty) {
+      ErrorLog.instance.record(
+        ErrorSteps.doubtfulQuote,
+        StateError('closes of ${doubted.join(', ')} set aside'),
+      );
+    }
+    // A day kept from before that is after today (written by an earlier
+    // version) is let go of: the holdings are quoted on no day ahead.
+    if (quotedOn != null && quotedOn.isAfter(today)) {
+      quotedOn = null;
+      for (final day in days.values) {
+        if (!day.isAfter(today) &&
+            (quotedOn == null || day.isAfter(quotedOn))) {
+          quotedOn = day;
+        }
+      }
+      changed = true;
+    }
+    final dayRows = closesByDay.rows;
+    if (changed || dayRows.isNotEmpty) {
+      await _whenQuiet(
+        () => _store.write((w) {
+          // Each day's closes beside them (D58), in the same write, over
+          // the rows as kept now: a board kept since this read stays.
+          closesByDay
+              .rowsOver((id) => _store.row(_market, id)?.body, {
+                MarketSeries.closes,
+              })
+              .forEach((id, body) => w.put(_market, id, body));
+          w.put(
+            _market,
+            'quotes',
+            jsonEncode({
+              'prices': prices,
+              'moves': moves,
+              'names': names,
+              'days': {
+                for (final MapEntry(:key, :value) in days.entries)
+                  key: value.toIso8601String(),
+              },
+              'on': ?quotedOn?.toIso8601String(),
+              ..._doubtsJson('doubted', doubtedBefore),
+            }),
+          );
+        }, counts: false),
       );
     }
     return changed;
   }
 }
 
-typedef _Market = ({
-  Map<String, double> prices,
-  Map<String, double> moves,
-  Map<String, String> names,
-  Map<String, DateTime> days,
-  DateTime? quotedOn,
-  Map<String, double> rates,
-});
+/// A book kept by an earlier version was not opened: the copy kept before
+/// bringing it up could not be written ([SqlLedgerDataSource.bringUp]).
+final class UpgradeHeld implements AppFault {
+  const UpgradeHeld(this.failure);
 
-/// The closes and board last fetched, from the [_market] collection.
-_Market _marketFrom(List<StoredRow> rows) {
-  final prices = <String, double>{};
-  final moves = <String, double>{};
-  final names = <String, String>{};
-  final days = <String, DateTime>{};
-  final rates = <String, double>{};
-  DateTime? quotedOn;
-  Map<String, Object?> part(Map<String, Object?> json, String key) =>
-      json[key] as Map<String, Object?>? ?? const {};
-  for (final row in rows) {
-    final json = jsonDecode(row.body) as Map<String, Object?>;
-    switch (row.id) {
-      case 'quotes':
-        for (final MapEntry(:key, :value) in part(json, 'prices').entries) {
-          prices[key] = (value! as num).toDouble();
-        }
-        for (final MapEntry(:key, :value) in part(json, 'moves').entries) {
-          moves[key] = (value! as num).toDouble();
-        }
-        for (final MapEntry(:key, :value) in part(json, 'names').entries) {
-          names[key] = value! as String;
-        }
-        for (final MapEntry(:key, :value) in part(json, 'days').entries) {
-          days[key] = DateTime.parse(value! as String);
-        }
-        if (json['on'] case final String on) quotedOn = DateTime.parse(on);
-      case 'rates':
-        for (final MapEntry(:key, :value) in part(json, 'rates').entries) {
-          rates[key] = (value! as num).toDouble();
-        }
-    }
-  }
-  return (
-    prices: prices,
-    moves: moves,
-    names: names,
-    days: days,
-    quotedOn: quotedOn,
-    rates: rates,
-  );
+  final UpgradeBackupFailed failure;
+
+  @override
+  String toString() => 'UpgradeHeld(${failure.problem.name})';
 }
-
-/// A reference price and name for each stock with a kept close.
-List<Holding> _holdingsOf(_Market market) => [
-  for (final MapEntry(key: code, value: price) in market.prices.entries)
-    Holding(
-      code,
-      market.names[code] ?? code,
-      shares: 0,
-      price: price,
-      cost: 0,
-      change: 0,
-    ),
-];

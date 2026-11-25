@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 
 import '../../../core/charts/donut.dart';
 
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
@@ -42,8 +42,8 @@ List<Widget> highlightsSection(Ledger ledger, Report report) {
         value: merchant?.$1 ?? '—',
         sub: merchant == null
             ? ''
-            : '${merchant.$2} 次 · 每次約 '
-                  '${ledger.orDots(groupDigits(merchant.$3 ~/ merchant.$2))}',
+            : '${countOf(merchant.$2, CountUnit.times)} · 每次約 '
+                  '${ledger.orDots(groupDigits(divideRounded(merchant.$3, merchant.$2)))}',
       ),
     ]),
   ];
@@ -130,8 +130,8 @@ Widget _merchantRow(Ledger ledger, int i, String name, int count, int amount) =>
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
                 Text(
-                  '$count 次 · 每次約 '
-                  '${ledger.orDots(groupDigits(amount ~/ count))}',
+                  '${countOf(count, CountUnit.times)} · 每次約 '
+                  '${ledger.orDots(groupDigits(divideRounded(amount, count)))}',
                   style: mutedCaption,
                 ),
               ],
@@ -275,7 +275,8 @@ List<Widget> tagsSection(Ledger ledger, Report report) {
                   ),
                 ),
               ),
-              if (counts[tag] case final n?) Text('$n 筆', style: mutedCaption),
+              if (counts[tag] case final n?)
+                Text(countOf(n, CountUnit.entries), style: mutedCaption),
             ],
           ),
         ),

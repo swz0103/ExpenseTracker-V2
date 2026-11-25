@@ -1,3 +1,6 @@
+import 'package:core/foundation_values.dart' show BoardSide;
+import 'package:core/fx/dated_figures.dart' show FigureOn, MarketHistory;
+
 import '../cache/query_cache.dart';
 import '../cache/topic.dart';
 import '../models/models.dart';
@@ -67,6 +70,12 @@ final class TrackedEntryReader implements EntryReader {
   }
 
   @override
+  int orderOf(String id) {
+    _cache.noteReads(_topics);
+    return _inner.orderOf(id);
+  }
+
+  @override
   Iterable<Entry> get byDate {
     _cache.noteReads(_topics);
     return _inner.byDate;
@@ -82,6 +91,48 @@ final class TrackedEntryReader implements EntryReader {
   int refundedTotal(String id) {
     _cache.noteReads(_topics);
     return _inner.refundedTotal(id);
+  }
+
+  @override
+  List<Entry> refundsOf(String id) {
+    _cache.noteReads(_topics);
+    return _inner.refundsOf(id);
+  }
+
+  @override
+  Iterable<List<Entry>> get newestMonths {
+    _cache.noteReads(_topics);
+    return _inner.newestMonths;
+  }
+
+  @override
+  List<Entry> ofAccount(String account) {
+    _cache.noteReads(_topics);
+    return _inner.ofAccount(account);
+  }
+
+  @override
+  List<Entry> inGroup(String group) {
+    _cache.noteReads(_topics);
+    return _inner.inGroup(group);
+  }
+
+  @override
+  List<Entry> written(Iterable<Entry> some) {
+    _cache.noteReads(_topics);
+    return _inner.written(some);
+  }
+
+  @override
+  List<Entry> ofHolding(String code) {
+    _cache.noteReads(_topics);
+    return _inner.ofHolding(code);
+  }
+
+  @override
+  Iterable<String> get holdingCodes {
+    _cache.noteReads(_topics);
+    return _inner.holdingCodes;
   }
 }
 
@@ -187,6 +238,12 @@ final class TrackedHoldingReader implements HoldingReader {
   }
 
   @override
+  List<Holding> get every {
+    _cache.noteReads(_topics);
+    return _inner.every;
+  }
+
+  @override
   bool hasQuote(String code) {
     _cache.noteReads(_topics);
     return _inner.hasQuote(code);
@@ -211,9 +268,62 @@ final class TrackedHoldingReader implements HoldingReader {
   }
 
   @override
+  int sharesCountedOn(String code, DateTime day) {
+    _cache.noteReads(_topics);
+    return _inner.sharesCountedOn(code, day);
+  }
+
+  @override
+  int inSharesOf(
+    String code,
+    DateTime day,
+    int shares,
+    DateTime of, {
+    DateTime? fetchedOn,
+  }) {
+    _cache.noteReads(_topics);
+    return _inner.inSharesOf(code, day, shares, of, fetchedOn: fetchedOn);
+  }
+
+  @override
+  int inTodaysShares(String code, DateTime day, int shares) {
+    _cache.noteReads(_topics);
+    return _inner.inTodaysShares(code, day, shares);
+  }
+
+  @override
+  double? reshapedBy(String code, DateTime? day) {
+    _cache.noteReads(_topics);
+    return _inner.reshapedBy(code, day);
+  }
+
+  @override
+  Holding? everByCode(String code) {
+    _cache.noteReads(_topics);
+    return _inner.everByCode(code);
+  }
+
+  @override
+  int? saleCostWith(
+    List<Entry> entries,
+    String code,
+    int shares, {
+    bool average = false,
+  }) {
+    _cache.noteReads(_topics);
+    return _inner.saleCostWith(entries, code, shares, average: average);
+  }
+
+  @override
   bool holdsWith(List<Entry> entries) {
     _cache.noteReads(_topics);
     return _inner.holdsWith(entries);
+  }
+
+  @override
+  bool holdsWithKept(List<Entry> kept) {
+    _cache.noteReads(_topics);
+    return _inner.holdsWithKept(kept);
   }
 
   @override
@@ -269,6 +379,12 @@ final class TrackedMarketDataReader implements MarketDataReader {
   }
 
   @override
+  Map<String, double> get sellRates {
+    _cache.noteReads(_topics);
+    return _inner.sellRates;
+  }
+
+  @override
   Map<String, double> get moves {
     _cache.noteReads(_topics);
     return _inner.moves;
@@ -305,9 +421,55 @@ final class TrackedMarketDataReader implements MarketDataReader {
   }
 
   @override
+  int? valueAtHome(int balance, String currency) {
+    _cache.noteReads(_topics);
+    return _inner.valueAtHome(balance, currency);
+  }
+
+  @override
   int? convert(int amount, String from, String to) {
     _cache.noteReads(_topics);
     return _inner.convert(amount, from, to);
+  }
+
+  @override
+  MarketHistory get history {
+    _cache.noteReads(_topics);
+    return _inner.history;
+  }
+
+  @override
+  FigureOn? rateOn(
+    String currency,
+    DateTime day, {
+    BoardSide side = BoardSide.buying,
+  }) {
+    _cache.noteReads(_topics);
+    return _inner.rateOn(currency, day, side: side);
+  }
+
+  @override
+  FigureOn? closeOn(String code, DateTime day) {
+    _cache.noteReads(_topics);
+    return _inner.closeOn(code, day);
+  }
+
+  @override
+  int? toHomeOn(int minor, String currency, DateTime day) {
+    _cache.noteReads(_topics);
+    return _inner.toHomeOn(minor, currency, day);
+  }
+
+  @override
+  int? valueAtHomeOn(int balance, String currency, DateTime day) {
+    _cache.noteReads(_topics);
+    return _inner.valueAtHomeOn(balance, currency, day);
+  }
+
+  @override
+  int? convertOn(int amount, String from, String to, DateTime day) {
+    _cache.noteReads(_topics);
+    return _inner.convertOn(amount, from, to, day);
   }
 }
 

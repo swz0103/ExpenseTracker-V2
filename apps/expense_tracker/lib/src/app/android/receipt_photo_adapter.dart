@@ -7,28 +7,50 @@ import 'package:vault/backup_security.dart';
 
 import '../../features/entries/model/receipt_photos.dart';
 import 'platform_channel.dart';
+import '../../core/diagnostics/error_log.dart';
+import '../../core/diagnostics/error_steps.dart';
+import '../../core/messages/problem_messages.dart' show QuietStep;
+import '../../core/platform/errands.dart';
 import '../../core/time/app_clock.dart';
+import '../../core/platform/app_files.dart';
 
 /// Receipt photos in the app's private `receipts` folder, each sealed
 /// with the ledger's [FileBox], so a photo is as private as the ledger.
 /// The phone makes a photo smaller first (`MainActivity.kt`). Photos kept
 /// before sealing (`.jpg`) still show.
 final class AndroidReceipts implements ReceiptPhotos {
-  const AndroidReceipts(this.directory, this.box);
+  const AndroidReceipts(this.directory, this.box, {required this.failed});
 
   final Directory directory;
   final FileBox box;
 
-  Directory get _folder => Directory('${directory.path}/receipts');
+  /// Told when the photo the camera left could not be taken back
+  /// (QuietFailures, D84).
+  final void Function(QuietStep step) failed;
+
+  Directory get _folder => Directory('${directory.path}/${AppFiles.receipts}');
 
   @override
   Future<String?> take({required bool camera}) async => _seal(
-    await platformChannel.invokeMethod<String>('takePhoto', {'camera': camera}),
+    // The camera and the album are trips out of the app.
+    await Errands.run(
+      () =>
+          platformChannel.invokeMethod<String>('takePhoto', {'camera': camera}),
+    ),
   );
 
   @override
-  Future<String?> takeLeftover() async =>
-      _seal(await platformChannel.invokeMethod<String>('takeLeftoverPhoto'));
+  Future<String?> takeLeftover() async {
+    try {
+      return await _seal(
+        await platformChannel.invokeMethod<String>('takeLeftoverPhoto'),
+      );
+    } on Object catch (error) {
+      ErrorLog.instance.record(ErrorSteps.receiptPhoto, error);
+      failed(QuietStep.leftoverPhoto);
+      return null;
+    }
+  }
 
   /// Seals the photo made ready at [ready] into the receipts folder and
   /// deletes the plain copy.

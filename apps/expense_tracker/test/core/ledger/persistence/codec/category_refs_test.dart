@@ -6,12 +6,60 @@ Category _category(String id, String name) =>
     Category(name, 'food', 0xFF000000, id: id);
 
 void main() {
+  group('namesToIds', () {
+    String? idOf(String name) => const {'飲食': 'a', '交通': 'b'}[name];
+
+    test('names a known category by id, everything else kept', () {
+      expect(
+        namesToIds('entry', {
+          'id': 'e',
+          'category': '飲食',
+          'mood': 'happy',
+          'parts': [
+            {'name': '交通', 'amount': 1},
+            {'name': '寵物', 'amount': 2},
+          ],
+        }, idOf),
+        {
+          'id': 'e',
+          'categoryId': 'a',
+          'mood': 'happy',
+          'parts': [
+            {'categoryId': 'b', 'amount': 1},
+            {'name': '寵物', 'amount': 2},
+          ],
+        },
+      );
+      expect(
+        namesToIds('trash', {
+          'on': '2026-10-01',
+          'entry': {'id': 'e', 'category': '交通'},
+        }, idOf),
+        {
+          'on': '2026-10-01',
+          'entry': {'id': 'e', 'categoryId': 'b'},
+        },
+      );
+      expect(namesToIds('category', {'parent': '飲食'}, idOf), {'parentId': 'a'});
+      expect(namesToIds('budget', {'category': '交通', 'limit': 9}, idOf), {
+        'limit': 9,
+        'categoryId': 'b',
+      });
+    });
+
+    test('is null when nothing is named by a known name', () {
+      expect(namesToIds('entry', {'category': '寵物'}, idOf), isNull);
+      expect(namesToIds('entry', {'categoryId': 'a'}, idOf), isNull);
+      expect(namesToIds('recurring', {'category': 3}, idOf), isNull);
+      expect(namesToIds('account', {'category': '飲食'}, idOf), isNull);
+      expect(namesToIds('trash', {'entry': 'odd'}, idOf), isNull);
+    });
+  });
+
   test('an id and a name find each other', () {
     final refs = CategoryRefs([_category('a', '飲食'), _category('b', '交通')]);
     expect(refs.idOf('飲食'), 'a');
     expect(refs.nameOf('b'), '交通');
-    expect(refs.knows('a'), isTrue);
-    expect(refs.knows('z'), isFalse);
   });
 
   test(
@@ -35,7 +83,7 @@ void main() {
     final refs = CategoryRefs([_category('a', '飲食')]);
     refs.remove('a');
     expect(refs.idOf('飲食'), isNull);
-    expect(refs.knows('a'), isFalse);
+    expect(refs.nameOf('a'), 'a');
     refs.remove('a'); // twice is fine
   });
 
@@ -49,9 +97,8 @@ void main() {
     expect(refs.idOf('Z'), isNull);
   });
 
-  test('lenient refs know every id and name it as itself', () {
-    final refs = CategoryRefs.lenient();
-    expect(refs.knows('anything'), isTrue);
+  test('refs of no categories name every id as itself', () {
+    final refs = CategoryRefs();
     expect(refs.nameOf('anything'), 'anything');
     expect(refs.idOf('name'), isNull);
   });

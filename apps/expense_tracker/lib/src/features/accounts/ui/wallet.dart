@@ -1,4 +1,14 @@
-part of 'accounts.dart';
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+
+import '../../../core/design_system/haptics.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import 'account_card.dart';
+import '../../../core/design_system/motion.dart';
+import '../../../core/formatting/words.dart';
 
 /// The accounts as one stack of cards: the top strip of each, and the one
 /// at [index] whole in front, at the bottom. A tap on a card behind
@@ -10,8 +20,9 @@ part of 'accounts.dart';
 /// runs on with the finger's speed and stops on a card, with a tick for
 /// each card that passes. 完成, or a tap on the middle card, puts that
 /// card in front and lays the stack down again.
-class _Wallet extends StatefulWidget {
-  const _Wallet({
+class Wallet extends StatefulWidget {
+  const Wallet({
+    super.key,
     required this.ledger,
     required this.accounts,
     required this.index,
@@ -26,10 +37,10 @@ class _Wallet extends StatefulWidget {
   final ValueChanged<Account> onOpen;
 
   @override
-  State<_Wallet> createState() => _WalletState();
+  State<Wallet> createState() => _WalletState();
 }
 
-class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
+class _WalletState extends State<Wallet> with SingleTickerProviderStateMixin {
   /// Where the drum stands, in cards: 2.0 is the third account facing out.
   late final _spin = AnimationController.unbounded(vsync: this)
     ..addListener(_ticked);

@@ -4,6 +4,8 @@ import 'package:expense_tracker/src/core/ledger/models/models.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/entry_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../../support/fuzz/repository_fuzz.dart';
+
 Entry _entry(
   String id,
   DateTime date, {
@@ -24,6 +26,8 @@ DateTime _day(int month, int day) => DateTime.utc(2026, month, day);
 List<String> _ids(Iterable<Entry> entries) => [for (final e in entries) e.id];
 
 void main() {
+  repositoryFuzz();
+
   test('an empty repository answers with nothing', () {
     final entries = EntryRepository();
     expect(entries.isEmpty, isTrue);
@@ -455,6 +459,167 @@ void main() {
     });
   }
 
+  group('accounts, groups, refunds and written order follow too', () {
+    // Ordered the slow way from the plain list.
+    List<(int, Entry)> byDay(List<Entry> plain, {required bool newest}) =>
+        [...plain.indexed]..sort((a, b) {
+          final byDate = a.$2.date.compareTo(b.$2.date);
+          final order = byDate != 0 ? byDate : a.$1.compareTo(b.$1);
+          return newest ? -order : order;
+        });
+
+    for (final seed in [2, 3, 11, 42, 99, 314]) {
+      test('they answer like a list worked through the slow way ($seed)', () {
+        final random = Random(seed);
+        final entries = EntryRepository();
+        final plain = <Entry>[];
+        var serial = 0;
+        const accounts = ['a', 'b', 'c'];
+
+        Entry make({String? id, DateTime? date}) {
+          final transfer = random.nextInt(4) == 0;
+          return Entry(
+            id: id ?? 'e${serial++}',
+            date: date ?? _day(1 + random.nextInt(3), 1 + random.nextInt(4)),
+            type: transfer ? EntryType.transfer : EntryType.expense,
+            amount: 10 + random.nextInt(90),
+            account: accounts[random.nextInt(3)],
+            to: transfer ? accounts[random.nextInt(3)] : null,
+            refundOf: plain.isNotEmpty && random.nextInt(5) == 0
+                ? plain[random.nextInt(plain.length)].id
+                : null,
+            group: random.nextInt(4) == 0 ? 'g${random.nextInt(4)}' : null,
+          );
+        }
+
+        void compare(String step) {
+          expect(_ids(entries.all), _ids(plain), reason: step);
+          expect(
+            [for (final month in entries.newestMonths) ..._ids(month)],
+            [for (final (_, e) in byDay(plain, newest: true)) e.id],
+            reason: '$step newest months',
+          );
+          for (final account in [...accounts, 'none']) {
+            expect(_ids(entries.ofAccount(account)), [
+              for (final (_, e) in byDay(plain, newest: false))
+                if (e.account == account || e.to == account) e.id,
+            ], reason: '$step account $account');
+          }
+          for (var g = 0; g < 4; g++) {
+            expect(_ids(entries.inGroup('g$g')), [
+              for (final e in plain)
+                if (e.group == 'g$g') e.id,
+            ], reason: '$step group g$g');
+          }
+          for (final e in plain) {
+            expect(_ids(entries.refundsOf(e.id)), [
+              for (final r in plain)
+                if (r.refundOf == e.id) r.id,
+            ], reason: '$step refunds of ${e.id}');
+          }
+          final some = [
+            for (final e in plain.reversed)
+              if (random.nextBool()) e,
+          ];
+          expect(_ids(entries.written(some)), [
+            for (final e in plain)
+              if (some.contains(e)) e.id,
+          ], reason: '$step written');
+        }
+
+        for (var step = 0; step < 250; step++) {
+          final label = 'seed $seed step $step';
+          switch (random.nextInt(9)) {
+            case 0 || 1:
+              final e = make();
+              entries.add(e);
+              plain.add(e);
+            case 2:
+              final at = random.nextInt(plain.length + 1);
+              final e = make();
+              entries.insert(at, e);
+              plain.insert(at, e);
+            case 3 when plain.isNotEmpty:
+              // The same entry moved to another day.
+              final at = random.nextInt(plain.length);
+              final e = make(id: plain[at].id);
+              entries[at] = e;
+              plain[at] = e;
+            case 4 when plain.isNotEmpty:
+              // The same entry changed on its own day.
+              final at = random.nextInt(plain.length);
+              final e = make(id: plain[at].id, date: plain[at].date);
+              entries[at] = e;
+              plain[at] = e;
+            case 5 when plain.isNotEmpty:
+              final gone = {
+                for (var i = 0; i < 1 + random.nextInt(12); i++)
+                  plain[random.nextInt(plain.length)],
+              };
+              final removed = entries.removeEach(gone);
+              final wanted = [
+                for (final (i, e) in plain.indexed)
+                  if (gone.contains(e)) (i, e),
+              ];
+              expect(removed, wanted, reason: label);
+              plain.removeWhere(gone.contains);
+              // Put back where they were, as an undo does, now and then.
+              if (random.nextBool()) {
+                for (final (i, e) in removed) {
+                  entries.insert(i, e);
+                  plain.insert(i, e);
+                }
+              }
+            case 6 when plain.isNotEmpty:
+              final at = random.nextInt(plain.length);
+              expect(entries.removeAt(at), plain.removeAt(at));
+            case 7:
+              final batch = [for (var i = 0; i < 3; i++) make()];
+              entries.addAll(batch);
+              plain.addAll(batch);
+            case 8 when plain.length > 1:
+              final day = plain[random.nextInt(plain.length)].date;
+              entries.removeWhere((e) => e.date == day);
+              plain.removeWhere((e) => e.date == day);
+          }
+          compare(label);
+        }
+      });
+    }
+
+    test('a delete, an undo and a date move keep every index', () {
+      Entry on(String id, String account, DateTime date) => Entry(
+        id: id,
+        date: date,
+        type: EntryType.expense,
+        amount: 100,
+        account: account,
+      );
+      final entries = EntryRepository([
+        for (var i = 0; i < 300; i++)
+          on('e$i', i.isEven ? 'a' : 'b', _day(1 + i % 6, 1 + i % 20)),
+      ]);
+      entries.inMonth(2026, 1);
+      entries.ofAccount('a');
+      entries.byId('e0');
+      final a = entries.versionOf('a');
+      final months = entries.inMonth(2026, 1);
+
+      // Odd entries are on b: a's version is not moved by them, and the
+      // months they are not in are the very lists handed out before.
+      final removed = entries.removeEach([entries[1], entries[13]]);
+      expect(removed.map((r) => r.$1), [1, 13]);
+      for (final (i, e) in removed) {
+        entries.insert(i, e);
+      }
+      entries[25] = on('e25', 'b', _day(6, 28));
+      expect(entries.versionOf('a'), a, reason: 'nothing of a changed');
+      expect(entries.inMonth(2026, 1), same(months));
+      expect(_ids(entries.onDay(_day(6, 28))), ['e25']);
+      expect(entries.ofAccount('b').last.id, 'e25');
+    });
+  });
+
   test('an account\'s version moves with its own entries only', () {
     Entry at(String id, String account, {String? to}) => Entry(
       id: id,
@@ -497,9 +662,71 @@ void main() {
     final before = {
       for (final k in ['a', 'b', 'c', 'd']) k: entries.versionOf(k),
     };
-    entries.removeWhere((e) => false);
+    // (More added at once than are followed one by one.)
+    entries.addAll([for (var i = 0; i < 65; i++) at('m$i', 'z')]);
     for (final MapEntry(:key, :value) in before.entries) {
       expect(entries.versionOf(key), isNot(value), reason: key);
     }
+  });
+
+  group('order written', () {
+    test('D75: each entry keeps its place, read as kept or in turn', () {
+      final kept = EntryRepository(
+        [_entry('a', _day(10, 1)), _entry('b', _day(10, 1))],
+        {'a': 10, 'b': 20},
+      );
+      expect((kept.orderOf('a'), kept.orderOf('b')), (10, 20));
+      kept.add(_entry('c', _day(10, 1)));
+      // After the last kept: 20 + 1.
+      expect(kept.orderOf('c'), 21);
+      final plain = EntryRepository([_entry('x', _day(10, 1))]);
+      expect(plain.orderOf('x'), 0);
+    });
+
+    test('D75: an entry taken away comes back to its own place', () {
+      final entries = EntryRepository([
+        for (final id in ['a', 'b', 'c', 'd']) _entry(id, _day(10, 1)),
+      ]);
+      final b = entries.removeAt(1);
+      entries.add(_entry('e', _day(10, 1)));
+      entries.restoreAt(b, entries.orderOf('b'));
+      expect(_ids(entries.all), ['a', 'b', 'c', 'd', 'e']);
+      expect(_ids(entries.onDay(_day(10, 1))), ['e', 'd', 'c', 'b', 'a']);
+      // The place after every other: last, the newest of its day.
+      final e = entries.removeAt(4);
+      entries.restoreAt(e, 4);
+      expect(_ids(entries.onDay(_day(10, 1))).first, 'e');
+      // No place known: last.
+      entries.restoreAt(_entry('f', _day(10, 1)), null);
+      expect(entries.all.last.id, 'f');
+    });
+
+    test('D75: a place held in the trash is never given to a new entry', () {
+      final entries = EntryRepository([_entry('a', _day(10, 1))]);
+      entries.reserve(7, id: 'trashed');
+      expect(entries.orderOf('trashed'), 7);
+      entries.add(_entry('b', _day(10, 1)));
+      expect(entries.orderOf('b'), 8);
+      final copy = EntryRepository()..replaceWith(entries);
+      expect(_ids(copy.all), ['a', 'b']);
+      expect(copy.orderOf('b'), 8);
+    });
+
+    test('D76: newest first by day, then the later written first', () {
+      final entries = EntryRepository(
+        [
+          _entry('early', _day(10, 2)),
+          _entry('late', _day(10, 2)),
+          _entry('old', _day(10, 1)),
+        ],
+        {'early': 1, 'late': 2, 'old': 3},
+      );
+      final shuffled = [entries.all[0], entries.all[2], entries.all[1]];
+      expect(_ids(shuffled..sort(newestFirst(entries))), [
+        'late',
+        'early',
+        'old',
+      ]);
+    });
   });
 }

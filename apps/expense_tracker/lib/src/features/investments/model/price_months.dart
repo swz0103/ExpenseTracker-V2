@@ -1,0 +1,169 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+
+import 'package:core/time/utc_days.dart';
+
+import '../../../core/diagnostics/error_log.dart';
+import '../../../core/diagnostics/error_steps.dart';
+import '../../../core/formatting/json_fields.dart';
+
+/// One stock's finished months of daily closes, by `yyyy-mm`, and whether
+/// it is traded over the counter (TPEx).
+typedef CodeMonths = ({bool otc, Map<String, List<(DateTime, double)>> months});
+
+/// The finished months of daily closes kept on the phone for the charts,
+/// in one file sealed with the ledger's key (the vault's `FileBox` of
+/// purpose `prices`, whose [seal] and [open] the app hands in): which
+/// stocks a chart was opened for, and since when, says what the ledger
+/// holds, so neither the codes nor the months are left in the clear.
+///
+/// A file this ledger's key does not open (another ledger's after a
+/// restore, or the old keys' after a reset) or that is damaged is taken
+/// away when first read ([settle] as the ledger opens); its months are
+/// fetched again. One the phone could not read at all (an IO error) is
+/// kept and not written over this run: its months are fetched for now,
+/// and it is read again next run.
+final class PriceMonths {
+  PriceMonths(this.directory, {required this.seal, required this.open});
+
+  /// The ledger's directory.
+  final Directory directory;
+
+  /// Seals bytes under a name, which is bound into the sealing.
+  final Future<List<int>> Function(String name, List<int> plain) seal;
+
+  /// Opens what [seal] sealed under the same name; throws for anything
+  /// else, such as a file another key sealed.
+  final Future<List<int>> Function(String name, List<int> sealed) open;
+
+  /// The sealed file's name, also bound into its sealing.
+  static const name = 'prices.sealed';
+
+  File get _file => File('${directory.path}/$name');
+
+  /// Where versions before the file was sealed kept one plain file per
+  /// stock code, named by it.
+  Directory get _plain => Directory('${directory.path}/prices');
+
+  /// What [read] found, read once a run.
+  Future<Map<String, CodeMonths>>? _read;
+
+  /// The [write]s, one after another.
+  Future<void> _writing = Future.value();
+
+  /// The file is there but could not be read this run: kept, and not
+  /// written over.
+  var _unread = false;
+
+  /// As the ledger opens: takes away the plain folder of older versions,
+  /// and a sealed file this ledger's key does not open.
+  Future<void> settle() async {
+    try {
+      if (_plain.existsSync()) await _plain.delete(recursive: true);
+    } on Object catch (error, stack) {
+      ErrorLog.instance.record(ErrorSteps.priceHistory, error, stack);
+    }
+    await read();
+  }
+
+  /// Every stock's months kept; none when there is no file, or one that
+  /// does not open, which is then deleted, or one that cannot be read,
+  /// which is kept.
+  Future<Map<String, CodeMonths>> read() => _read ??= _open();
+
+  Future<Map<String, CodeMonths>> _open() async {
+    final file = _file;
+    if (!file.existsSync()) return {};
+    final List<int> sealed;
+    try {
+      sealed = await file.readAsBytes();
+    } on Object catch (error, stack) {
+      // The phone could not read it, which says nothing of what it holds.
+      ErrorLog.instance.record(ErrorSteps.priceHistory, error, stack);
+      _unread = true;
+      return {};
+    }
+    try {
+      final plain = await open(name, sealed);
+      final json = JsonFields.decode(utf8.decode(plain));
+      final codes = json.need<Map<String, Object?>>('codes');
+      return {
+        for (final MapEntry(:key, :value) in codes.entries)
+          key: _code(JsonFields.of(value)),
+      };
+    } on Object catch (error, stack) {
+      // Not this ledger's key, or damaged: fetched again.
+      ErrorLog.instance.record(ErrorSteps.priceHistory, error, stack);
+      try {
+        await file.delete();
+      } on Object catch (error, stack) {
+        ErrorLog.instance.record(ErrorSteps.priceHistory, error, stack);
+      }
+      return {};
+    }
+  }
+
+  static CodeMonths _code(JsonFields json) {
+    final months = json.need<Map<String, Object?>>('months');
+    return (
+      otc: json.flag('otc') ?? false,
+      months: {
+        for (final MapEntry(:key, :value) in months.entries)
+          key: [
+            for (final row in value is List ? value : const [])
+              if (row case [final String day, final num close])
+                // UTC midnight, as fetched closes are: a day read back
+                // otherwise is local, and neither a buy's day nor the
+                // span's first day would match it.
+                (dayOf(DateTime.parse(day)), close.toDouble())
+              else
+                throw const FormatException('A close is a day and a price'),
+          ],
+      },
+    );
+  }
+
+  /// Keeps [codes], all of them, sealed: written beside, then renamed
+  /// over, so a cut-short write leaves the last whole one. A failure is
+  /// noted; the months stay in memory for this run. Nothing is written
+  /// while a file that could not be read is kept ([read]).
+  Future<void> write(Map<String, CodeMonths> codes) =>
+      _writing = _writing.then((_) => _write(codes));
+
+  Future<void> _write(Map<String, CodeMonths> codes) async {
+    await read();
+    if (_unread) return;
+    final file = _file;
+    final next = File('${file.path}.${Random.secure().nextInt(1 << 30)}.new');
+    try {
+      final plain = utf8.encode(
+        jsonEncode({
+          'codes': {
+            for (final MapEntry(:key, :value) in codes.entries)
+              key: {
+                'otc': value.otc,
+                'months': {
+                  for (final MapEntry(:key, :value) in value.months.entries)
+                    key: [
+                      for (final (day, price) in value)
+                        [day.toIso8601String().substring(0, 10), price],
+                    ],
+                },
+              },
+          },
+        }),
+      );
+      await directory.create(recursive: true);
+      await next.writeAsBytes(await seal(name, plain), flush: true);
+      await next.rename(file.path);
+    } on Object catch (error, stack) {
+      ErrorLog.instance.record(ErrorSteps.priceHistory, error, stack);
+      try {
+        if (next.existsSync()) await next.delete();
+      } on Object catch (error, stack) {
+        ErrorLog.instance.record(ErrorSteps.priceHistory, error, stack);
+      }
+    }
+  }
+}

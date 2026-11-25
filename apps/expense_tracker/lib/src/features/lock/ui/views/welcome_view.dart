@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../design_system/display/amount.dart';
 import '../../../../core/design_system/glyphs.dart';
 import '../../../../core/design_system/theme.dart';
 import 'lock_parts.dart';
 import '../../../../core/design_system/components/buttons.dart';
 import '../../../../core/design_system/keys.dart';
-import '../../../../core/formatting/dates.dart';
+import '../../../../../design_system/display/date.dart';
 import '../../../../core/design_system/spacing.dart';
 import '../../../../core/design_system/shape.dart';
 import '../../../../core/design_system/motion.dart';
@@ -236,8 +237,10 @@ class _WelcomeViewState extends State<WelcomeView>
                     ),
             ),
             const SizedBox(height: Space.s2),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            // Wraps under the question when the text is large.
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Text('已經有帳本？', style: mutedText),
                 TextButton(
@@ -281,8 +284,10 @@ class _WelcomeViewState extends State<WelcomeView>
               onTap: widget.onRestoreFound,
             ),
             const SizedBox(height: Space.s2),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            // Wraps under the question when the text is large.
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Text('或', style: mutedText),
                 TextButton(
@@ -328,11 +333,6 @@ class _FoundBackupPill extends StatelessWidget {
   final VoidCallback? onTap;
 
   /// 1234 as 1,234.
-  static String _grouped(int n) => n.toString().replaceAllMapped(
-    RegExp(r'\B(?=(\d{3})+(?!\d))'),
-    (_) => ',',
-  );
-
   /// What the backup is: 還原 and its date, then how many records.
   Widget _summary() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -345,7 +345,7 @@ class _FoundBackupPill extends StatelessWidget {
           fontWeight: FontWeight.w700,
         ),
       ),
-      Text('${_grouped(rows)} 筆紀錄', style: mutedCaption),
+      Text('${countOf(rows, CountUnit.entries)}紀錄', style: mutedCaption),
     ],
   );
 

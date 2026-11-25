@@ -1,22 +1,8 @@
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
-import 'package:domain/loans.dart' show LoanRepay;
+import 'package:ledger_entries/model.dart' show AccountKind, homeCode;
+import 'package:ledger_loans/calc/loan_plan.dart' show LoanRepay;
 
-export 'package:domain/loans.dart' show LoanRepay;
-
-/// The code of the currency the books are kept in: NT$.
-const homeCode = 'TWD';
-
-enum AccountKind {
-  cash,
-  bank,
-  wallet,
-  card,
-  loan,
-  receivable;
-
-  /// Kinds whose balance is owed rather than held.
-  bool get isDebt => this == card || this == loan;
-}
+export 'package:ledger_loans/calc/loan_plan.dart' show LoanRepay;
 
 final class Account {
   const Account(
@@ -37,6 +23,7 @@ final class Account {
     this.place,
     this.color,
     this.loan,
+    this.brokerDiscount,
   });
 
   final String id;
@@ -46,6 +33,12 @@ final class Account {
 
   /// A loan's terms; null for any other account, or a loan without them.
   final LoanTerms? loan;
+
+  /// The broker's discount on the fee of a trade paid from or into this
+  /// account, in basis points of the full fee (6000 for 6折), within
+  /// `BrokerDiscountRange`; null takes the phone-wide preference 券商手續費
+  /// 折扣 (D7).
+  final int? brokerDiscount;
   final String name;
   final AccountKind kind;
 
@@ -107,6 +100,7 @@ final class Account {
     int? principal,
     int? place,
     int? color,
+    int? brokerDiscount,
   }) => Account(
     id,
     name ?? this.name,
@@ -125,6 +119,7 @@ final class Account {
     place: place ?? this.place,
     color: color ?? this.color,
     loan: loan,
+    brokerDiscount: brokerDiscount ?? this.brokerDiscount,
   );
 }
 

@@ -13,6 +13,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -43,6 +44,9 @@ class ReminderAlarmsDeviceTest {
         PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
     )
 
+    @Before
+    fun channels() = Reminders.ensureChannels(context, listOf(mapOf("id" to CHANNEL, "name" to "到期提醒")))
+
     @After
     fun clear() {
         Reminders.replace(context, emptyList())
@@ -67,25 +71,113 @@ class ReminderAlarmsDeviceTest {
     }
 
     @Test
+    fun asManyAlertsAsTheAppAsksAreArmedAndTheRestCounted() {
+        val tomorrow = System.currentTimeMillis() + 86_400_000L
+        val left = Reminders.replace(
+            context,
+            (0 until 3).map { mapOf("at" to tomorrow + it * 60_000L, "title" to "扣款", "tag" to "due:$it") },
+            most = 2,
+        )
+        // Three given, two asked for: 3 - 2 = 1 left out, and told.
+        assertEquals(1, left)
+        assertNotNull(alarm(0))
+        assertNotNull(alarm(1))
+        assertNull(alarm(2))
+    }
+
+    @Test
     fun anAlarmGoingOffShowsTheSealedWords() {
+        // Due a moment from now, within a day's grace: the alarm going off
+        // once its time has come posts it (one going off early is set
+        // again, ReminderGrace.step).
+        val due = System.currentTimeMillis() + 1_500L
         Reminders.replace(
             context,
             listOf(
                 mapOf(
-                    "at" to System.currentTimeMillis() + 86_400_000L,
+                    "at" to due,
+                    "id" to "due:card:test",
+                    "grace" to 86_400_000L,
+                    "channel" to CHANNEL,
                     "title" to "繳卡費 12,800",
                     "text" to "日常信用卡",
                     "tag" to "due:card",
                 ),
             ),
         )
+        while (System.currentTimeMillis() <= due) Thread.sleep(100)
         // As the alarm would: only the alert's number comes with it.
         ReminderReceiver().onReceive(
             context,
             Intent(context, ReminderReceiver::class.java).putExtra(Reminders.EXTRA_ID, 0),
         )
-        val shown = manager.activeNotifications.single { it.tag == "due:card" }
+        val shown = manager.settled { all -> all.any { it.tag == "due:card" } }.single { it.tag == "due:card" }
         assertEquals("繳卡費 12,800", shown.notification.extras.getString("android.title"))
         assertEquals("日常信用卡", shown.notification.extras.getString("android.text"))
+    }
+
+    @Test
+    fun anAlarmOnTheMinuteHasAnInexactTwinTakenAwayWithIt() {
+        val tomorrow = System.currentTimeMillis() + 86_400_000L
+        Reminders.replace(
+            context,
+            listOf(mapOf("at" to tomorrow, "title" to "繳卡費", "tag" to "due:card")),
+            exact = true,
+        )
+        assertNotNull(alarm(0))
+        // The twin exists only while alarms on the minute are allowed.
+        if (Reminders.exactAllowed(context)) {
+            assertNotNull(alarm(ReminderAlarms.twinCode(0)))
+        } else {
+            assertNull(alarm(ReminderAlarms.twinCode(0)))
+        }
+        // Asked for inexact alarms: no twin.
+        Reminders.replace(
+            context,
+            listOf(mapOf("at" to tomorrow, "title" to "繳卡費", "tag" to "due:card")),
+        )
+        assertNotNull(alarm(0))
+        assertNull(alarm(ReminderAlarms.twinCode(0)))
+        Reminders.replace(context, emptyList())
+        assertNull(alarm(0))
+        assertNull(alarm(ReminderAlarms.twinCode(0)))
+    }
+
+    @Test
+    fun bothAlarmsOfAPairGoingOffPostOnce() {
+        val due = System.currentTimeMillis() + 1_500L
+        Reminders.replace(
+            context,
+            listOf(
+                mapOf(
+                    "at" to due,
+                    "id" to "due:card:pair",
+                    "grace" to 86_400_000L,
+                    "channel" to CHANNEL,
+                    "title" to "繳卡費 12,800",
+                    "text" to "日常信用卡",
+                    "tag" to "due:card",
+                ),
+            ),
+            exact = true,
+        )
+        while (System.currentTimeMillis() <= due) Thread.sleep(100)
+        val wentOff = Intent(context, ReminderReceiver::class.java).putExtra(Reminders.EXTRA_ID, 0)
+        // The alarm on the minute, then its twin: both carry the same number.
+        ReminderReceiver().onReceive(context, wentOff)
+        manager.cancelAll()
+        ReminderReceiver().onReceive(context, wentOff)
+        // The second found it posted: nothing shows again, the cancel
+        // applied and no second post arriving late.
+        val shown = manager.settled(steady = 500) { all -> all.none { it.tag == "due:card" } }
+        assertEquals(0, shown.count { it.tag == "due:card" })
+        // And both alarms are gone.
+        assertNull(alarm(0))
+        assertNull(alarm(ReminderAlarms.twinCode(0)))
+    }
+
+    private companion object {
+        /** The channel of due reminders, as the app names it. */
+        const val CHANNEL = "due"
     }
 }

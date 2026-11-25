@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
@@ -61,6 +62,11 @@ class OriginalEntryTile extends StatelessWidget {
           ),
           Text(
             '−${ledger.moneyIn(entry.amount, currency)}',
+            semanticsLabel: ledger.spoken(
+              entry.amount,
+              currency: currency,
+              sense: AmountSense.spending,
+            ),
             style: const TextStyle(
               fontSize: TextSize.title,
               fontWeight: FontWeight.w700,
@@ -202,6 +208,7 @@ class AmountHero extends StatelessWidget {
     this.sub,
     this.under,
     this.empty = false,
+    this.spoken,
   });
 
   final String label;
@@ -209,9 +216,13 @@ class AmountHero extends StatelessWidget {
   final String value;
   final Color color;
 
-  /// Nothing typed yet: the 0 waits in the quiet colour of words still to
-  /// be filled in, so it is not read as an amount.
+  /// Nothing typed yet: the 0 waits in the faint colour of a placeholder,
+  /// as the unit beside it, so it is not taken for an amount.
   final bool empty;
+
+  /// What a screen reader says for [value] when it is an amount with a
+  /// sign: its direction in words (支出 200 元).
+  final String? spoken;
   final VoidCallback? onTap;
   final String? sub;
   final Widget? under;
@@ -247,7 +258,7 @@ class AmountHero extends StatelessWidget {
             fontSize: TextSize.hero,
             fontWeight: FontWeight.w700,
             height: 1.1,
-            color: empty ? AppColors.hint : color,
+            color: empty ? AppColors.faint : color,
           ),
         ),
       ],
@@ -265,7 +276,7 @@ class AmountHero extends StatelessWidget {
               child: Semantics(
                 button: tap != null,
                 label: label,
-                value: value,
+                value: spoken ?? value,
                 onTap: tap,
                 excludeSemantics: true,
                 child: GestureDetector(

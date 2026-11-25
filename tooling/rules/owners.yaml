@@ -9,6 +9,10 @@
 #   status  owned      exactly the listed owner implements it today
 #           scattered  implemented in several places today
 #           planned    does not exist yet
+#   guard   (optional) what keeps it single: rule ids of tooling/rules
+#           (B9-...) or test files (paths from the repo root); every owner
+#           a work package touches names one
+#   plan    (scattered only, required) one line: how it becomes owned
 #
 # Statuses were set by reading the file names and a few call sites, not by
 # a full audit; where unsure they say `scattered`.
@@ -18,52 +22,136 @@ items:
     what: 金額的解析、進位、正負
     layer: core
     owner:
-      - packages/core/lib/src/foundation_values/money.dart
-      - apps/expense_tracker/lib/src/core/ledger/models/fixed_point.dart
-      - apps/expense_tracker/lib/src/core/formatting/amounts.dart
+      - packages/core/lib/money/
     target: packages/core/lib/money/
-    status: scattered
+    status: owned
   - id: currency-fx
     what: 幣別與匯率換算（含用哪一天的匯率）
     layer: core
     owner:
       - packages/core/lib/src/foundation_values/fx.dart
       - apps/expense_tracker/lib/src/core/ledger/repositories/market_data_repository.dart
+      - apps/expense_tracker/lib/src/core/ledger/models/fixed_point.dart
     target: packages/core/lib/fx/
     status: scattered
+    plan: "D58's dated table is owned (fx-dated-table); left: move the conversion arithmetic of market_data_repository into packages/core/lib/fx, fixed_point keeping only the arithmetic."
+  # D58: the rates and closes of each day, and the one rule of which
+  # day's a day takes (that day's, else the nearest earlier, else
+  # today's); the app keeps them in the market rows (market_days.dart)
+  # and asks MarketDataReader.rateOn / closeOn.
+  - id: fx-dated-table
+    what: 有日期的匯率與收盤價表，以及某天用哪一天的牌價
+    layer: core
+    owner:
+      - packages/core/lib/fx/dated_figures.dart
+      # How the app keeps it in the market rows: a row a day, written over
+      # the row as kept, a close with its fetch day (D123), the months
+      # older than marketDaysKeptWhole folded into a row each (review 39).
+      - apps/expense_tracker/lib/src/core/ledger/persistence/codec/market_days.dart
+      - apps/expense_tracker/lib/src/core/ledger/persistence/market_rows.dart
+    target: packages/core/lib/fx/
+    status: owned
+    guard:
+      - packages/core/test/fx/dated_figures_test.dart
+      - apps/expense_tracker/test/core/ledger/services/dated_worth_test.dart
+      - apps/expense_tracker/test/core/ledger/persistence/codec/market_days_test.dart
+  # Decision D59: a foreign balance held is valued at the bank's buying
+  # rate, one owed at its selling rate; valuationSide is the one rule,
+  # MarketDataReader.valueAtHome and the journal's valuer ask it.
+  - id: fx-valuation-side
+    what: 外幣餘額用銀行買入價或賣出價估值
+    layer: core
+    owner:
+      - packages/core/lib/src/foundation_values/fx.dart
+    target: packages/core/lib/fx/
+    status: owned
   - id: ratio-rounding
     what: 百分比與比例的進位
     layer: core
     owner:
-      - apps/expense_tracker/lib/src/core/formatting/figures.dart
+      - packages/core/lib/percent/
     target: packages/core/lib/percent/
-    status: scattered
+    status: owned
+  # Reports and budgets keep their own periods (a quarter, a chosen run
+  # of months) but count months and days with core's YearMonth.
+  # Full-width digits and signs typed on a Chinese keyboard, read as
+  # ASCII by the parsers that take them (D86).
+  - id: typed-full-width
+    what: 全形數字與符號的讀取
+    layer: core
+    owner:
+      - packages/core/lib/money/typed_text.dart
+    target: packages/core/lib/money/
+    status: owned
   - id: dates-periods
     what: 日期、年月、期間範圍
     layer: core
     owner:
-      - packages/core/lib/src/foundation_values/time.dart
-      - apps/expense_tracker/lib/src/core/formatting/dates.dart
-      - apps/expense_tracker/lib/src/features/reports/model/report_period.dart
-      - apps/expense_tracker/lib/src/features/budgets/model/budget_month.dart
+      - packages/core/lib/time/
     target: packages/core/lib/time/
-    status: scattered
+    status: owned
+  # The app holds the one clock at its composition level
+  # (core/time/app_clock.dart) and asks core's Clock for "today".
   - id: clock-now
     what: 「今天」與現在時間
     layer: core
     owner:
-      - packages/core/lib/src/app_core/clock.dart
+      - packages/core/lib/time/clock.dart
       - apps/expense_tracker/lib/src/core/time/app_clock.dart
     target: packages/core/lib/time/
-    status: scattered
+    status: owned
   - id: holidays-business-days
     what: 假日與營業日順延
     layer: core
     owner:
-      - packages/core/lib/src/foundation_values/time.dart
-      - packages/core/lib/src/app_core/clock.dart
+      - packages/core/lib/time/holidays/
     target: packages/core/lib/time/
-    status: scattered
+    status: owned
+  # Decision D33: a guard test fails holidayTableLeadDays (60) before the
+  # office or market table runs out, naming the file to extend.
+  - id: holiday-table-coverage
+    what: 假日表涵蓋期限檢查（到期前 60 天）
+    layer: core
+    owner:
+      - packages/core/lib/time/holidays/coverage.dart
+    target: packages/core/lib/time/
+    status: owned
+  # A day held as the app holds days: a DateTime at UTC midnight (dayOf).
+  # Rule B4 keeps hand-made copies out.
+  - id: utc-day
+    what: 把時刻或日期取成「那一天」（UTC 午夜）
+    layer: core
+    owner:
+      - packages/core/lib/time/utc_days.dart
+    target: packages/core/lib/time/
+    status: owned
+  # Month ends, steps and counts (monthEnd, monthStart, monthStarts,
+  # monthIndex, shiftMonth; a day moved by months held to the month's
+  # last day: addMonthsClamped, monthsAfter); rule B4.
+  - id: month-arithmetic
+    what: 月底、前後幾個月、逐月、相差幾個月
+    layer: core
+    owner:
+      - packages/core/lib/time/month_arithmetic.dart
+      - packages/core/lib/time/utc_days.dart
+    target: packages/core/lib/time/
+    status: owned
+  # Reports' 去年同期: 29 February becomes the 28th.
+  - id: same-day-last-year
+    what: 去年的同一天（2/29 變 2/28）
+    layer: core
+    owner:
+      - packages/core/lib/time/utc_days.dart
+    target: packages/core/lib/time/
+    status: owned
+  # minYear/maxYear; rule B5 keeps 9999 out of other files.
+  - id: calendar-year-range
+    what: 日期的年份範圍（1 到 9999 年）
+    layer: core
+    owner:
+      - packages/core/lib/time/month_arithmetic.dart
+    target: packages/core/lib/time/
+    status: owned
   - id: identifiers
     what: 識別碼
     layer: core
@@ -71,29 +159,65 @@ items:
       - packages/core/lib/src/foundation_values/identity.dart
     target: packages/core/lib/identity/
     status: scattered
+    plan: "PublicId and the typed ids move to packages/core/lib/identity; new ids are typed (BASE2), string ids converted as each package is touched."
   - id: shared-constants
     what: 共用常數（保留天數、上限）
     layer: core
-    owner: []
+    owner:
+      - packages/core/lib/constants/
     target: packages/core/lib/constants/
-    status: planned
+    status: owned
 
   # ---- ledger ----
   - id: data-validity
     what: 資料是否合法
     layer: ledger
     owner:
-      - apps/expense_tracker/lib/src/core/ledger/services/entry_validator.dart
-      - apps/expense_tracker/lib/src/core/ledger/services/integrity_service.dart
+      - packages/ledger/entries/lib/rules
     target: packages/ledger/entries/lib/rules/
-    status: scattered
+    status: owned
+  # Decision D25: an entry dated after today is 預定; every "as of today"
+  # sum (balances, net worth, budgets, overview, reports, card bills) asks
+  # countsOn, and maxDaysAhead is the one limit for dating ahead. The tags
+  # and merchants, a card's sums, the usual ones and the holdings too
+  # (D71); apps/expense_tracker/test/rules/as_of_today_rules_test.dart
+  # finds a read of the entries in lib that goes past countedOn.
+  - id: as-of-today
+    what: 「截至今天」是否計入（預定紀錄）與可預定的天數上限
+    layer: ledger
+    owner:
+      - packages/ledger/entries/lib/model/planned.dart
+    target: packages/ledger/entries/lib/model/
+    status: owned
+  # Decision D52: cashback, an annual fee and an e-invoice are known by
+  # Entry.mark (EntryMark), never by a tag's words; book step 4 gave the
+  # entries tagged so their mark. D54: "under category X" is
+  # category_rules.dart's isUnder alone (budgets, reports, the filter).
+  - id: entry-marks-and-category-membership
+    what: 回饋、年費、發票的種類與「某分類底下」的定義
+    layer: ledger
+    owner:
+      - packages/ledger/entries/lib/model/entry.dart
+      - packages/ledger/entries/lib/rules/category_rules.dart
+    target: packages/ledger/entries/lib/
+    status: owned
+  # D62, D65: what a refund gives back of its purchase (worth, split,
+  # tags) is refundShare alone; the composer and the CSV import ask it.
+  - id: refund-share
+    what: 退款沖回原消費的台幣金額、分攤與標籤
+    layer: ledger
+    owner:
+      - packages/ledger/entries/lib/rules/refund_rules.dart
+    target: packages/ledger/entries/lib/rules/
+    status: owned
   - id: income-expense-kinds
     what: 什麼算「支出」「收入」
     layer: ledger
     owner:
-      - apps/expense_tracker/lib/src/core/ledger/models/entry.dart
+      - packages/ledger/entries/lib/model/entry.dart
     target: packages/ledger/entries/lib/rules/
     status: scattered
+    plan: "One table of which entry types count as spending or income (refunds included) in packages/ledger/entries/lib/rules, read by reports, budgets and the widget."
   - id: balance-net-worth
     what: 餘額與淨資產
     layer: ledger
@@ -102,32 +226,165 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/portfolio.dart
     target: packages/ledger/accounts/lib/calc/ + packages/ledger/net_worth/lib/calc/
     status: scattered
+    plan: "netWorth(day) is the one walk (N2): delete BalanceService.assets/cardDebt/loanDebt (review 32, 4.1) and put the portfolio valuation behind it."
+  # Decision D24: T+2 counts the exchanges' open days: core's official
+  # calendar less the market's own closures (a dated table).
+  - id: market-days-settlement-date
+    what: 股市開休市日與交割日（T+2）
+    layer: ledger
+    owner:
+      - packages/ledger/trade_costs/lib/rules/taiwan_market_days.dart
+      - packages/ledger/trade_costs/lib/calc/settlement.dart
+    target: packages/ledger/trade_costs/lib/
+    status: owned
+  # Decision D7: a broker discount is checked against one range,
+  # BrokerDiscountRange; each account may keep its own. D86: 0.6折 is
+  # refused, full-width digits read through core's halfWidth.
+  - id: broker-discount-range
+    what: 券商手續費折扣的範圍與輸入
+    layer: ledger
+    owner:
+      - packages/ledger/trade_costs/lib/calc/broker_discount.dart
+    target: packages/ledger/trade_costs/lib/calc/
+    status: owned
+  # Decision D6: a sale may be a day trade (Entry.dayTrade, model and
+  # commands only, no field on screen yet); its tax is the dated table's
+  # one day-trade rate, TaiwanRates.dayTradeTax.
+  - id: day-trade-tax
+    what: 當日沖銷的標記與證交稅率
+    layer: ledger
+    owner:
+      - packages/ledger/trade_costs/lib/rules/taiwan_rates.dart
+      - packages/ledger/entries/lib/model/entry.dart
+    target: packages/ledger/trade_costs/lib/
+    status: owned
+  # The full fee's rate is one constant, fullFeePerMillion (charges.dart),
+  # which the fee and the setting's words both read.
   - id: fees-tax-settlement
     what: 手續費、稅、交割金額
     layer: ledger
     owner:
-      - packages/domain/lib/src/investments/taiwan.dart
-      - apps/expense_tracker/lib/src/core/ledger/trading.dart
+      - packages/ledger/trade_costs/lib
     target: packages/ledger/trade_costs/lib/calc/
-    status: scattered
+    status: owned
+  # Decision D4: every loan figure (a month's payment, the last month, the
+  # interest over the term) is read off `loanSchedule`; the rounding of a
+  # month's interest is the one constant `loanInterestRounding`.
+  - id: loan-schedule
+    what: 貸款攤還表（每月利息、本金、餘額與進位方式）
+    layer: ledger
+    owner:
+      - modules/loans/lib/calc/loan_plan.dart
+    target: modules/loans/lib/calc/
+    status: owned
+  # D116/D118: a loan's rate as typed is read by `readRate` alone (a
+  # number with its sign, or unreadable); the highest rate kept is the one
+  # constant `maxLoanRate`, the write rules' (ledger_entries), which the
+  # loans module reads (a module depends on the core, never the reverse).
+  - id: loan-rate
+    what: 貸款利率的讀法與上限
+    layer: ledger
+    owner:
+      - modules/loans/lib/model/rate.dart
+      - packages/ledger/entries/lib/rules/record_rules.dart
+    target: modules/loans/lib/model/
+    status: owned
+  # 2.0: the day each instalment is billed is domain's
+  # installmentBillingDays alone; the card cycle and the journal's
+  # instalments amender both ask it. The cycle itself is still in two.
+  # What a refund cancels of a purchase in instalments is domain's
+  # refundedInstalments alone (the card cycle's cancelledBy, the journal's
+  # cancelled-instalments amender).
   - id: installments-billing-cycle
     what: 分期排程與帳單週期
     layer: ledger
     owner:
       - packages/domain/lib/src/credit_cards/installments.dart
       - packages/domain/lib/src/credit_cards/card_billing.dart
-      - packages/domain/lib/src/loans/loan_plan.dart
       - apps/expense_tracker/lib/src/core/ledger/card_cycle.dart
     target: packages/ledger/installments/lib/calc/ + packages/ledger/card_cycles/lib/calc/
     status: scattered
+    plan: "card_cycle.dart's cycle maths moves into packages/domain credit_cards beside card_billing.dart; the app keeps only the reads."
+  # Work package 2.0: the journal of postings beside the records. The
+  # kernel is pure and knows no kind of record; the postings package says
+  # how each of today's records posts; the file keeps the derived tables.
+  - id: journal-write-path
+    what: 分錄的唯一寫入路徑、不變式（每筆每幣別為零、帳戶幣別）、串的重算、寫入結果型別
+    layer: ledger
+    owner:
+      - packages/kernel/lib/journal/
+    target: packages/kernel/lib/journal/
+    status: owned
+  # Account classes, the report flags (inNetWorth, inFlowReports) and the
+  # quantity scale: 10^-12 of a unit, the app's own lot precision, exact
+  # (decision D87, in place of D48's rounding).
+  - id: journal-accounts-scale
+    what: 帳戶類別、是否計入淨值／收支、數量刻度（與 App 相同精度，不進位）
+    layer: ledger
+    owner:
+      - packages/kernel/lib/model/accounts.dart
+      - packages/kernel/lib/model/quantity.dart
+    target: packages/kernel/lib/model/
+    status: owned
+  # Each kind's posting rule, the two amenders (foreign value,
+  # instalments), and the one vocabulary of accounts, tags, streams,
+  # slots and refusal words.
+  - id: posting-rules
+    what: 每種紀錄如何記成分錄（含外幣、分期修訂）與帳戶命名
+    layer: ledger
+    owner:
+      - packages/ledger/postings/lib/
+    target: modules/<名稱>/calc/
+    status: owned
+  - id: journal-tables
+    what: 分錄資料表與每月合計（衍生、可重建、不進備份）
+    layer: data
+    owner:
+      - infrastructure/storage/lib/src/journal_store.dart
+    target: infrastructure/storage/lib/
+    status: owned
+  # ENOSPC / ERROR_DISK_FULL told from other failures (review 29): the
+  # copy before an upgrade and the book made again both ask it.
+  - id: no-space
+    what: 手機空間不足的判斷（寫入失敗是因為沒有空間）
+    layer: data
+    owner:
+      - infrastructure/storage/lib/src/no_space.dart
+    target: infrastructure/storage/lib/
+    status: owned
+  # Today's records as intents, the old shapes each posted in a recorded
+  # form, posting afresh (on worker isolates at first opening, D51), the
+  # rules version and the parity check.
+  - id: journal-replay-parity
+    what: 現行紀錄重放成分錄、舊資料形狀、規則版本、與現行數字的比對
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/journal/
+      - apps/expense_tracker/lib/src/core/ledger/persistence/journal_keeper.dart
+      - apps/expense_tracker/lib/src/core/ledger/persistence/journal_rebuild.dart
+    target: apps/expense_tracker/lib/src/core/ledger/journal/
+    status: owned
+  # Decision D47: the records of the old shapes are posted as before and
+  # never changed silently; which need the person's look, one sealed
+  # reason per shape (Ledger.recordsNeedingReview). No screen yet.
+  - id: records-needing-review
+    what: 需要使用者檢視的舊形狀紀錄（每種形狀一個理由）
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/journal/review.dart
+    target: apps/expense_tracker/lib/src/core/ledger/journal/
+    status: owned
   - id: status-flags
     what: 逾期、超支、已清倉等狀態
     layer: ledger
     owner:
-      - apps/expense_tracker/lib/src/features/budgets/ui/budgets_pace.dart
-      - apps/expense_tracker/lib/src/features/accounts/model/card_summary.dart
+      - packages/domain/lib/src/credit_cards/card_rules.dart
+      - packages/domain/lib/src/investments/holding_rules.dart
+      - apps/expense_tracker/lib/src/core/ledger/rules/
     target: packages/ledger/*/lib/rules/
-    status: scattered
+    status: owned
+  # Decision D64: the month-end forecast and the pace 預算 shows are
+  # BudgetService.forecast and .pace; the page only shows them.
   - id: budget-limits-rollover
     what: 預算額度與結轉
     layer: ledger
@@ -136,6 +393,7 @@ items:
       - apps/expense_tracker/lib/src/features/budgets/model/budget_month.dart
     target: packages/ledger/budgets/lib/calc/
     status: scattered
+    plan: "BudgetService (spentAgainst, a new overAfter) is the one rule; shell._overBudget goes (review 32, 3.1) and budget_month.dart only composes."
   - id: recurring-due
     what: 定期項目哪幾期到期
     layer: ledger
@@ -144,6 +402,7 @@ items:
       - apps/expense_tracker/lib/src/features/recurring/model/recurring_schedule.dart
     target: packages/ledger/recurring/lib/calc/
     status: scattered
+    plan: "recurring_schedule.dart's due periods move into recurring_service (then packages/ledger/recurring); the editor asks it."
   - id: duplicate-detection
     what: 重複判斷（匯入、發票、定期對手動）
     layer: ledger
@@ -153,6 +412,52 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/services/recurring_service.dart
     target: packages/ledger/csv_exchange/lib/rules/ + packages/ledger/e_invoice/lib/rules/ + packages/ledger/recurring/lib/rules/
     status: scattered
+    plan: "One duplicate test (day, amount, account, merchant) in packages/domain, used by import_reader, invoices and recurring_service."
+  # Decision D93: the one rule for a day read from an imported file
+  # (CSV lines, e-invoice M lines and the ministry's CSV).
+  - id: import-dates
+    what: 匯入日期的年份規則（西元、民國、最早年份）
+    layer: ledger
+    owner:
+      - packages/domain/lib/src/data_exchange/import_day.dart
+    target: packages/domain/lib/src/data_exchange/
+    status: owned
+  # Work package N4: the app's CSV columns (name, what a cell holds and
+  # how it is read and written, required or not) are one enum; the
+  # header, toCsv and the import reader all come from it.
+  - id: csv-columns
+    what: 匯出入 CSV 的欄位（名稱、型別、必填、讀法與寫法）
+    layer: data
+    owner:
+      - packages/domain/lib/src/data_exchange/columns.dart
+      - packages/domain/lib/src/data_exchange/cells.dart
+    target: packages/domain/lib/src/data_exchange/
+    status: owned
+    guard:
+      - packages/domain/test/data_exchange/columns_test.dart
+      - apps/expense_tracker/test/scenarios/import_export/round_trip_test.dart
+  # Work package N4: one reader of the ministry's e-invoice files, the
+  # consumption CSV and a carrier's M and D lines.
+  - id: e-invoice-files
+    what: 電子發票檔案的讀法（消費明細 CSV、M／D 行）
+    layer: data
+    owner:
+      - packages/domain/lib/src/data_exchange/e_invoice.dart
+    target: packages/domain/lib/src/data_exchange/
+    status: owned
+    guard:
+      - packages/domain/test/data_exchange/e_invoice_test.dart
+  # Work package N4: how the bytes of a file to import become text
+  # (UTF-8 with or without a byte order mark, else Big5).
+  - id: import-text-encoding
+    what: 匯入檔的文字編碼（UTF-8、Big5）
+    layer: data
+    owner:
+      - packages/domain/lib/src/data_exchange/file_text.dart
+    target: packages/domain/lib/src/data_exchange/
+    status: owned
+    guard:
+      - packages/domain/test/data_exchange/file_text_test.dart
   - id: default-account-ordering
     what: 預設帳戶與排序規則
     layer: ledger
@@ -160,6 +465,7 @@ items:
       - apps/expense_tracker/lib/src/features/accounts/ui/sort_accounts.dart
     target: packages/ledger/accounts/lib/rules/
     status: scattered
+    plan: "sort_accounts.dart's rule moves into the accounts model (packages/ledger/accounts/lib/rules); pages only call it."
   - id: reminder-content
     what: 該提醒什麼
     layer: ledger
@@ -168,6 +474,7 @@ items:
       - apps/expense_tracker/lib/src/features/reminders/model/reminder_alerts.dart
     target: packages/ledger/reminders/lib/calc/
     status: scattered
+    plan: "reminders.dart decides what is due; reminder_alerts.dart only words and times it: its remaining checks move to reminders.dart."
 
   # ---- app ----
   - id: ledger-writes
@@ -177,6 +484,7 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/commands
     target: apps/expense_tracker/lib/app/commands/
     status: scattered
+    plan: "Every write through EntryCommands.save (1.4); the shared bookkeeping of what a refusal undoes is entry_bookkeeping.dart (TIDY-1B, review 32 3.2)."
   - id: ledger-reads
     what: 讀取與彙總
     layer: app
@@ -185,6 +493,7 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/services/report_service.dart
     target: apps/expense_tracker/lib/app/queries/
     status: scattered
+    plan: "entry_query_service splits by topic behind QueryCache readers (PERF-2); report_service keeps only the report shapes."
   - id: cache-invalidation
     what: 快取何時失效
     layer: app
@@ -192,41 +501,120 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/cache
     target: apps/expense_tracker/lib/app/queries/
     status: owned
+  # The one gate above every screen (work package 3.1): whether the
+  # ledger may be seen, the cover while away, the way every shortcut,
+  # widget tap and notification takes, and screenshots while locked.
   - id: screen-lock
-    what: 畫面能不能顯示（鎖定）
+    what: 畫面能不能顯示（鎖定閘門、離開時遮蓋、外部入口先解鎖）
     layer: app
     owner:
+      - apps/expense_tracker/lib/src/core/platform/lock_gate.dart
+      - apps/expense_tracker/lib/src/core/widgets/lock_cover.dart
       - apps/expense_tracker/lib/src/features/lock/ui/lock_screen.dart
       - apps/expense_tracker/lib/src/core/platform/screen_privacy.dart
       - apps/expense_tracker/lib/src/core/platform/away_clock.dart
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/LockHandler.kt
     target: apps/expense_tracker/lib/app/coordinators/lock/
-    status: scattered
+    status: owned
+  # The choices of 自動上鎖 and the one that holds until another is made.
+  - id: auto-lock-choices
+    what: 自動上鎖的時間選項與預設
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/preference_choices.dart
+    target: apps/expense_tracker/lib/app/settings/
+    status: owned
+  # What the home-screen widget may show of the ledger; the snapshot is
+  # written from it and Kotlin only draws what it is given.
+  - id: widget-privacy
+    what: 桌面小工具可顯示的內容（不顯示數字／百分比／金額）
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/overview/model/home_widget.dart
+    target: apps/expense_tracker/lib/app/coordinators/
+    status: owned
+    guard:
+      - apps/expense_tracker/test/features/overview/model/home_widget_test.dart
+      - apps/expense_tracker/test/scenarios/app/widget_words_test.dart
+  # The order (lock decision first, one backup per leave) is AppLifecycle's;
+  # what runs on each is LifecycleServices' (work package 3.3).
   - id: lifecycle
     what: 進背景、回前景做什麼
     layer: app
     owner:
+      - apps/expense_tracker/lib/src/core/platform/app_lifecycle.dart
       - apps/expense_tracker/lib/src/app/lifecycle_services.dart
     target: apps/expense_tracker/lib/app/coordinators/lifecycle/
-    status: scattered
+    status: owned
+  # Dart writes the whole plan (reminder_alerts.dart: planFor), the
+  # adapter hands it over, and the phone only keeps it, re-arms it and
+  # applies each alert's grace (Reminders.kt, ReminderGrace.kt).
   - id: reminder-scheduling
     what: 向系統排程提醒
     layer: app
     owner:
-      - apps/expense_tracker/lib/src/app/android/notification_adapter.dart
       - apps/expense_tracker/lib/src/features/reminders/model/reminder_alerts.dart
+      - apps/expense_tracker/lib/src/app/android/notification_adapter.dart
       - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/Reminders.kt
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/ReminderGrace.kt
     target: apps/expense_tracker/lib/app/coordinators/reminders/
-    status: scattered
+    status: owned
+    guard:
+      - apps/expense_tracker/test/core/messages/native_messages_test.dart
+      - apps/expense_tracker/test/app/android/notification_adapter_test.dart
+  # One table: each kind's channel and grace window, the plan's horizon,
+  # the hour a due date is told, how late an inexact alarm may come. The
+  # most alerts (ReminderTiming.most) go to the phone with each plan; the
+  # phone only guards Android's limit (ReminderAlarms.armable).
+  - id: reminder-timing
+    what: 提醒的頻道、寬限時間、排程天數與時刻
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/reminders/model/reminder_rules.dart
+    target: apps/expense_tracker/lib/app/coordinators/reminders/
+    status: owned
+  # The calendar's events are worked out and diffed by key in Dart; the
+  # phone reads them back and applies the changes it is given.
+  - id: calendar-sync
+    what: 日曆事件的增刪改與是否寫入金額
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/reminders/model/calendar_sync.dart
+    target: apps/expense_tracker/lib/app/coordinators/reminders/
+    status: owned
+    guard:
+      - apps/expense_tracker/test/core/messages/native_messages_test.dart
+  # Every backup file is written one after another by the backup manager;
+  # the backups of a leave run one at a time (OneAtATime); the outbox
+  # answers a second prepare with the first (work package 3.3, F65).
   - id: backup-write-mutex
     what: 備份的寫入與互斥
     layer: app
     owner:
-      - apps/expense_tracker/lib/src/features/backup/model/backup_manager.dart
       - apps/expense_tracker/lib/src/features/backup/model/encrypted_backup_manager.dart
+      - apps/expense_tracker/lib/src/core/platform/one_at_a_time.dart
       - apps/expense_tracker/lib/src/features/backup/model/outbox.dart
       - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/BackupPlan.kt
     target: apps/expense_tracker/lib/app/coordinators/backup/
-    status: scattered
+    status: owned
+  # The network, battery and back-off of both background jobs; whether a
+  # backup with photos waits for Wi-Fi is the person's (photosOnWifi).
+  - id: background-work-cost
+    what: 背景工作的網路、電量與重試
+    layer: app
+    owner:
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/BackgroundWork.kt
+      - apps/expense_tracker/lib/src/core/platform/preference_files.dart
+    target: apps/expense_tracker/android/
+    status: owned
+  # Native work off the main thread, answered on it, every failure caught.
+  - id: native-off-main
+    what: Android 背景執行與回到主執行緒
+    layer: app
+    owner:
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/ChannelHandler.kt
+    target: apps/expense_tracker/android/
+    status: owned
   - id: market-refresh
     what: 行情與匯率的更新與失敗處理
     layer: app
@@ -236,15 +624,115 @@ items:
       - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/MarketWorker.kt
     target: apps/expense_tracker/lib/app/coordinators/market/
     status: scattered
+    plan: "MarketWorker.kt is handed the hosts and the size limit by market_feed.dart (review 2 K4) and keeps no rule of its own; the repository only stores."
+  # Review 22 finding 5: the update feed and Drive follow a redirect only
+  # to https and read a body only up to a limit, through one helper.
+  - id: app-https-limits
+    what: 更新檢查與雲端硬碟連線的轉址與大小上限
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/bounded_https.dart
+    target: apps/expense_tracker/lib/src/core/platform/
+    status: owned
+  # How a secret field sets up the keyboard (review 22 finding 4).
+  - id: secret-keyboard
+    what: 密碼、救援碼欄位的鍵盤設定（不學習、不建議）
+    layer: design_system
+    owner:
+      - apps/expense_tracker/lib/src/core/design_system/password_field.dart
+    target: apps/expense_tracker/lib/src/core/design_system/
+    status: owned
+  # Review 22 finding 3: the chart's months of closes, sealed.
+  - id: price-month-cache
+    what: 走勢圖月收盤價的快取（以帳本金鑰封存）
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/investments/model/price_months.dart
+    target: apps/expense_tracker/lib/src/features/investments/model/
+    status: owned
+  # Decision D95: a close or rate fetched more than one named factor
+  # away from the one kept is doubted and set aside; the gateway refuses
+  # a close dated after today. D101: taken all the same when found again,
+  # when the one kept is older than one named number of days, or when the
+  # book holds a split or reduction of the stock since.
+  - id: market-sanity
+    what: 行情合理性（可疑倍數、未來日期）
+    layer: ledger
+    owner:
+      - packages/domain/lib/src/investments/market_sanity.dart
+    target: packages/domain/lib/src/investments/
+    status: owned
   - id: trash-undo
     what: 刪除、復原與垃圾桶
     layer: app
     owner:
       - apps/expense_tracker/lib/src/core/ledger/repositories/trash_repository.dart
       - apps/expense_tracker/lib/src/core/ledger/models/trashed.dart
+      - apps/expense_tracker/lib/src/core/ledger/commands/trash_commands.dart
       - apps/expense_tracker/lib/src/features/entries/ui/trash_section.dart
     target: apps/expense_tracker/lib/app/commands/
     status: scattered
+    plan: "Undo now has one owner (undo-confirm, D82); fold the trash's own restore paths in trash_commands and trash_section into it."
+  # D82: what can be undone is told with 復原 (showUndo) from the Undo its
+  # command gives back; what cannot is asked first. Entries are deleted
+  # by deleteEntries alone.
+  - id: undo-confirm
+    what: 能復原的不先問、事後給「復原」；不能復原的才先確認
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/commands/undo.dart
+      - apps/expense_tracker/lib/src/core/design_system/feedback.dart
+      - apps/expense_tracker/lib/src/core/widgets/entry_tile.dart
+    target: apps/expense_tracker/lib/app/commands/
+    status: owned
+    guard:
+      - apps/expense_tracker/test/rules/undo_rules_test.dart
+  # Review 32 finding 8: which budgets an entry counts against (D54
+  # subcategories, #tag) and whether a save put one over.
+  - id: budget-touched
+    what: 一筆紀錄算進哪些預算、存檔後是否超支
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/services/budget_service.dart
+    target: packages/ledger/budgets/lib/calc/
+    status: owned
+    guard:
+      - apps/expense_tracker/test/core/ledger/services/budget_service_test.dart
+  # D75/D76: each entry's place in the order written, kept while it is in
+  # the trash, and the one tie-break of every list (newestFirst).
+  - id: entry-order
+    what: 紀錄的先後順序（同日排序、救回原位）
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/repositories/entry_repository.dart
+    target: packages/ledger/entries/lib/rules/
+    status: owned
+  # A new book's categories and the demo book's: starterCategories().
+  - id: starter-categories
+    what: 新帳本的預設分類（名稱、圖示、顏色）
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/models/category.dart
+    target: packages/ledger/entries/lib/model/
+    status: owned
+    guard:
+      - apps/expense_tracker/test/core/ledger/models/category_test.dart
+  # The transfers the screens and forms open or write: TransferDrafts.
+  - id: transfer-drafts
+    what: 轉帳草稿（轉出、代墊、收回、還款、繳卡費）
+    layer: ledger
+    owner:
+      - packages/ledger/entries/lib/model/transfer_drafts.dart
+    target: packages/ledger/entries/lib/model/
+    status: owned
+  # D80: a transfer's category as read and as saved.
+  - id: transfer-category
+    what: 轉帳的分類
+    layer: ledger
+    owner:
+      - packages/ledger/entries/lib/model/entry.dart
+    target: packages/ledger/entries/lib/model/
+    status: owned
   - id: navigation-entrypoints
     what: 導覽與快速動作的入口
     layer: app
@@ -254,6 +742,7 @@ items:
       - apps/expense_tracker/lib/src/app/shell.dart
     target: apps/expense_tracker/lib/app/navigation/
     status: scattered
+    plan: "Quick actions and widget taps resolve through nav.dart's one table; shell.dart only hosts."
   - id: permission-prompts
     what: 權限詢問
     layer: app
@@ -265,14 +754,53 @@ items:
     layer: app
     owner:
       - apps/expense_tracker/lib/src/core/platform/preferences.dart
+      - apps/expense_tracker/lib/src/core/platform/preference_files.dart
     target: apps/expense_tracker/lib/app/settings/
     status: scattered
+    plan: "Left of 3.4: each feature owns its state file (drive_sync, phone_backup, reminder_alerts, app_update); PRIV-1 sealed the private part and split the topics (review 32)."
+    guard:
+      - apps/expense_tracker/test/core/platform/preferences_test.dart
+      - apps/expense_tracker/test/rules/preference_listeners_test.dart
+  # The log (what is kept of an error: the redaction rule, the stack and
+  # its limits, batching, rotation), the one handler of faults nobody
+  # caught, and the names quiet failures are kept under.
   - id: error-log
-    what: 錯誤紀錄與回報
+    what: 錯誤紀錄與回報（去識別化規則、堆疊上限、批次寫入、未處理錯誤）
     layer: app
     owner:
       - apps/expense_tracker/lib/src/core/diagnostics/error_log.dart
+      - apps/expense_tracker/lib/src/core/diagnostics/unhandled_errors.dart
+      - apps/expense_tracker/lib/src/core/diagnostics/error_steps.dart
     target: apps/expense_tracker/lib/app/diagnostics/
+    status: owned
+  # How the build stands against the newest one (the states and why a
+  # look failed) and the words for each.
+  - id: update-status
+    what: 檢查更新的狀態與說法
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/update_status.dart
+      - apps/expense_tracker/lib/src/core/messages/update_messages.dart
+    target: apps/expense_tracker/lib/app/coordinators/
+    status: owned
+  # The APP_BUILD define, read once as currentBuild; rule B5.
+  - id: build-number
+    what: 這個版本的組建編號
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/settings/model/app_update.dart
+    target: apps/expense_tracker/lib/app/coordinators/
+    status: owned
+  # What a scan came to (read, closed, failed and why), the words for
+  # each, and the reason names the phone gives.
+  - id: scan-outcome
+    what: 掃描器的結果、失敗原因與說法
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/scan.dart
+      - apps/expense_tracker/lib/src/core/messages/scan_messages.dart
+      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/ScanFault.kt
+    target: apps/expense_tracker/lib/app/coordinators/
     status: owned
 
   # ---- design_system ----
@@ -286,6 +814,15 @@ items:
       - apps/expense_tracker/lib/src/core/design_system/widget_colors.dart
     target: apps/expense_tracker/lib/design_system/tokens/
     status: scattered
+    plan: "DS-1: colour tokens into lib/design_system/tokens; settings_colors and widget_colors derived from theme.dart's scale."
+  # appFont: the theme, canvas text and the preview frame take it; rule B5.
+  - id: app-font
+    what: 字型（Nunito 與中文後備字型）
+    layer: design_system
+    owner:
+      - apps/expense_tracker/lib/src/core/design_system/theme.dart
+    target: apps/expense_tracker/lib/design_system/tokens/
+    status: owned
   - id: type-spacing-touch
     what: 字級、間距、觸控高度
     layer: design_system
@@ -295,6 +832,7 @@ items:
       - apps/expense_tracker/lib/src/core/design_system/shape.dart
     target: apps/expense_tracker/lib/design_system/tokens/
     status: scattered
+    plan: "DS-1: one token file for type, spacing and touch size under lib/design_system/tokens; unused Space steps pruned (review 32, 4.5)."
   - id: dialogs-sheets-pickers
     what: 對話框、面板、選擇器、計算機、清單列
     layer: design_system
@@ -306,30 +844,31 @@ items:
       - apps/expense_tracker/lib/src/core/widgets/entry_tile.dart
     target: apps/expense_tracker/lib/design_system/components/
     status: scattered
+    plan: "WP-E: every dialog through dialogs.dart (the raw AlertDialogs of review 32 go); pickers and panels move to lib/design_system/components."
+  # core/widgets/shown_amounts.dart only passes a book's 隱藏金額 switch
+  # (core/ledger/amount_visibility.dart) on to display/.
   - id: amount-display
     what: 金額怎麼顯示、怎麼念
     layer: design_system
     owner:
-      - apps/expense_tracker/lib/src/core/formatting/amounts.dart
-      - apps/expense_tracker/lib/src/core/widgets/shown_amounts.dart
-      - apps/expense_tracker/lib/src/core/ledger/amount_visibility.dart
+      - apps/expense_tracker/lib/design_system/display/
     target: apps/expense_tracker/lib/design_system/display/
-    status: scattered
+    status: owned
   - id: date-display
     what: 日期怎麼顯示
     layer: design_system
     owner:
-      - apps/expense_tracker/lib/src/core/formatting/dates.dart
+      - apps/expense_tracker/lib/design_system/display/date.dart
     target: apps/expense_tracker/lib/design_system/display/
-    status: scattered
+    status: owned
   - id: status-badges
     what: 狀態徽章的用詞與顏色
     layer: design_system
     owner:
-      - apps/expense_tracker/lib/src/core/design_system/components/marks.dart
-      - apps/expense_tracker/lib/src/core/widgets/problem_note.dart
+      - apps/expense_tracker/lib/design_system/display/status.dart
+      - apps/expense_tracker/lib/design_system/display/status_messages.dart
     target: apps/expense_tracker/lib/design_system/display/
-    status: scattered
+    status: owned
   - id: form-behaviour
     what: 表單的草稿、返回、錯誤、鍵盤
     layer: design_system
@@ -338,6 +877,7 @@ items:
       - apps/expense_tracker/lib/src/core/ledger/repositories/draft_repository.dart
     target: apps/expense_tracker/lib/design_system/forms/
     status: scattered
+    plan: "form_frame.dart owns every form's back, draft and error behaviour (D83-D85); draft_repository only stores."
   - id: empty-error-states
     what: 空白與錯誤狀態的畫面
     layer: design_system
@@ -346,6 +886,7 @@ items:
       - apps/expense_tracker/lib/src/core/widgets/problem_note.dart
     target: apps/expense_tracker/lib/design_system/components/
     status: scattered
+    plan: "One empty/error block in feedback.dart, problem_note its variant (with the FIX-R32 notes)."
   - id: all-text
     what: 所有文字
     layer: design_system
@@ -353,6 +894,10 @@ items:
       - apps/expense_tracker/lib/src/core/messages
     target: apps/expense_tracker/lib/design_system/text/
     status: scattered
+    guard:
+      - B9-text-literals
+      - apps/expense_tracker/test/rules/kotlin_literals_test.dart
+    plan: "Every word in core/messages (rule B9 ratchet; the Kotlin side through NativeWords, kotlin_literals_test); moves to lib/design_system/text with DS-1."
   - id: icons-haptics-motion
     what: 圖示、震動、動畫時間
     layer: design_system
@@ -362,34 +907,62 @@ items:
       - apps/expense_tracker/lib/src/core/design_system/motion.dart
     target: apps/expense_tracker/lib/design_system/icons/ + apps/expense_tracker/lib/design_system/tokens/
     status: scattered
+    plan: "DS-1: icons, haptics and motion tokens into lib/design_system; which save earns the heavier knock is asked of BudgetService (review 32, 3.1)."
 
   # ---- data ----
   - id: data-format-migration
     what: 資料格式與版本遷移
     layer: data
     owner:
+      # the table layout and its ladder of steps
+      - infrastructure/storage/lib/src/layout.dart
+      # a row's version; the book's version and its ladder of steps
       - apps/expense_tracker/lib/src/core/ledger/persistence/record_version.dart
-      - apps/expense_tracker/lib/src/core/ledger/persistence/category_id_migration.dart
+      - apps/expense_tracker/lib/src/core/ledger/persistence/book_migrations.dart
+      # each record's JSON, its fields, how it names a category
       - apps/expense_tracker/lib/src/core/ledger/persistence/codec
     target: infrastructure/storage/lib/
-    status: scattered
+    status: owned
+  # How wrong passwords and recovery codes are slowed down: the one
+  # table; the count is kept beside the keyring by the app.
+  - id: unlock-attempt-limit
+    what: 密碼與救援碼輸錯後的等待時間表
+    layer: data
+    owner:
+      - infrastructure/vault/lib/src/backup_security/attempt_policy.dart
+      - apps/expense_tracker/lib/src/core/platform/unlock_attempts.dart
+    target: infrastructure/vault/lib/
+    status: owned
   - id: password-key-derivation
     what: 密碼政策與金鑰推導
     layer: data
     owner:
+      - infrastructure/vault/lib/src/backup_security/password_policy.dart
       - infrastructure/vault/lib/src/backup_security/keyring.dart
-      - infrastructure/vault/lib/src/ledger_vault/ledger_vault.dart
     target: infrastructure/vault/lib/
-    status: scattered
+    status: owned
   - id: backup-format-names
     what: 備份格式與檔名
     layer: data
     owner:
       - infrastructure/vault/lib/src/ledger_backup/ledger_backup.dart
       - infrastructure/vault/lib/src/backup_security/file_box.dart
-      - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/BackupPlan.kt
+      - apps/expense_tracker/lib/src/features/backup/model/backup_rules.dart
     target: infrastructure/vault/lib/
-    status: scattered
+    status: owned
+    guard:
+      - apps/expense_tracker/test/features/backup/model/backup_rules_test.dart
+      - apps/expense_tracker/test/rules/kotlin_literals_test.dart
+  # FileBox.receipts / FileBox.inbox and LedgerInbox.keyName: the app
+  # seals photos and the vault seals them again on a password change.
+  - id: vault-box-names
+    what: 收據照片與收件匣金鑰的封存名稱
+    layer: data
+    owner:
+      - infrastructure/vault/lib/src/backup_security/file_box.dart
+      - infrastructure/vault/lib/src/backup_security/inbox.dart
+    target: infrastructure/vault/lib/
+    status: owned
   - id: channel-contract
     what: Dart 與 Kotlin 的通道契約
     layer: data
@@ -398,3 +971,65 @@ items:
       - apps/expense_tracker/android/app/src/main/kotlin/io/github/swz0103/expensetracker/ChannelHandler.kt
     target: infrastructure/platform/lib/
     status: scattered
+    guard:
+      - apps/expense_tracker/test/scenarios/app/channel_test.dart
+      - apps/expense_tracker/test/core/messages/native_messages_test.dart
+    plan: "Method names and argument keys in one table on each side (Kotlin constants checked by channel_test), then infrastructure/platform."
+  - id: build-flavor
+    what: 這個版本能不能自己更新（sideload 或 play）
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/distribution.dart
+    target: apps/expense_tracker/lib/app/coordinators/
+    status: owned
+
+  # ---- single sources across Dart and Kotlin (ONE-2, NAT-1) ----
+  # The backups' keep, rhythms and names: the background job is handed
+  # them with each backup (ready.json) and keeps none (review 32, 2.1).
+  - id: backup-rules
+    what: 備份保留幾份、多久一次、檔名與雲端資料夾名稱
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/features/backup/model/backup_rules.dart
+    target: apps/expense_tracker/lib/app/coordinators/backup/
+    status: owned
+    guard:
+      - apps/expense_tracker/test/features/backup/model/backup_rules_test.dart
+      - apps/expense_tracker/test/rules/kotlin_literals_test.dart
+  # The app's private file and folder names; AppFiles.kt mirrors those the
+  # Android side needs before the app runs (review 32, 2.2).
+  - id: app-file-names
+    what: App 自己的檔案與資料夾名稱
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/platform/app_files.dart
+    target: infrastructure/platform/lib/
+    status: owned
+    guard:
+      - apps/expense_tracker/test/core/platform/app_files_test.dart
+      - apps/expense_tracker/test/rules/kotlin_literals_test.dart
+  # The colour a new category takes, however it is made (review 32, 2.3).
+  - id: category-colors
+    what: 新分類的顏色
+    layer: core
+    owner:
+      - packages/core/lib/constants/category_colors.dart
+    target: packages/core/lib/constants/
+    status: owned
+    guard:
+      - packages/core/test/constants/category_colors_test.dart
+      - apps/expense_tracker/test/core/ledger/models/category_test.dart
+  # The words the Kotlin side shows: handed over with each call, with
+  # fallbacks in NativeWords.kt only where the app cannot run (NAT-1).
+  - id: native-words
+    what: Android 端顯示的文字（通知、生物辨識、桌面小工具、剪貼簿）
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/messages/native_messages.dart
+      - apps/expense_tracker/lib/src/core/messages/widget_messages.dart
+    target: apps/expense_tracker/lib/design_system/text/
+    status: owned
+    guard:
+      - apps/expense_tracker/test/core/messages/native_messages_test.dart
+      - apps/expense_tracker/test/scenarios/app/widget_words_test.dart
+      - apps/expense_tracker/test/rules/kotlin_literals_test.dart

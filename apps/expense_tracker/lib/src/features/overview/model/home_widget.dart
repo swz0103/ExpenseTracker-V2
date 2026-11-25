@@ -5,11 +5,19 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart' show Listenable, VoidCallback;
 
-import '../../../core/formatting/amounts.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
+
+import 'package:core/foundation_values.dart'
+    show BusinessDate, YearMonth, startOfWeek, weekdayIndex;
+
 import '../../../core/ledger/ledger.dart';
 import '../../../core/platform/preferences.dart';
+import '../../../core/platform/preference_choices.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/messages/widget_messages.dart';
+
+import 'package:core/time/utc_days.dart';
 
 /// The parts of the ledger the home-screen widget is written from, its
 /// clock, and its changes to follow
@@ -21,10 +29,18 @@ final class WidgetBook implements Listenable {
     required this.reportService,
     required this.budgets,
     required this.budgetService,
+    this._amountsHidden,
   });
 
   final Listenable _changes;
   final DateTime Function() _clock;
+
+  /// The app's 隱藏金額 switch, read each time; never hidden when none.
+  final bool Function()? _amountsHidden;
+
+  /// Whether amounts are hidden in the app now: the widget then keeps
+  /// none either.
+  bool get amountsHidden => _amountsHidden?.call() ?? false;
   final ReportService reportService;
   final BudgetReader budgets;
   final BudgetService budgetService;
@@ -45,34 +61,68 @@ final class WidgetBook implements Listenable {
 /// [WidgetFigures.percent] no amount is kept at all: the share of the
 /// month's total budget used, and this week's days only as heights.
 ///
+/// This is the one place that decides what leaves the encrypted book for
+/// the home screen, which anyone holding the phone sees, locked or not:
+/// nothing until the person chose a level ([WidgetFigures]), amounts only
+/// under [WidgetFigures.amounts], and none of them while amounts are
+/// hidden in the app ([WidgetBook.amountsHidden]). Whatever is not
+/// allowed is never written, so it is not on disk in plain form; the
+/// widget draws what is written and decides nothing.
+///
 /// `budget` and `detail` sit under the budget bar, left and right;
 /// `pace` is how far through the month today is, a mark on that bar;
 /// `week` is each day from Sunday as a share of the week's largest day,
 /// -1 for days still to come; `shortLabel` and `shortFigure` are what the
-/// widget shows when made small; `date` is the day it was written, so the
-/// widget can move the week on by itself when the app is not opened.
+/// widget shows when made small; `date` is the day it was written.
+///
+/// The widget decides nothing (NAT-1): `ahead` holds, for each later day
+/// of the month, the week, today's place in it, the pace and the week's
+/// total as they stand that day with nothing more recorded, so the
+/// widget moves on by itself while the app is not opened; `stale` holds
+/// the words it shows once the month is over.
 Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
   if (figures == WidgetFigures.off) return null;
+  if (figures == WidgetFigures.amounts && book.amountsHidden) return null;
   final today = book.today;
   final m = today.month;
-  String two(int n) => n.toString().padLeft(2, '0');
-  final month = '${today.year}-${two(m)}';
-  final date = '$month-${two(today.day)}';
+  final month = YearMonth(today.year, m).toString();
+  final date = BusinessDate.of(today).toString();
   final spent = book.reportService.expense(today.year, m);
-  final allowance = _monthAllowance(book, today);
+  final whole = _wholeBudget(book);
+  final allowance = whole == null
+      ? null
+      : book.budgetService.allowance(whole, today.year, today.month);
   final hasBudget = allowance != null && allowance > 0;
-  final used = hasBudget ? (spent * 100 / allowance).round() : null;
-  final days = DateTime.utc(today.year, m + 1, 0).day;
-  final pace = hasBudget ? (today.day * 100 / days).round() : null;
+  // Decided by the budget rules, worded by the status presentation: the
+  // widget shows these words and colours by `state`.
+  final status = hasBudget
+      ? budgetStatus(
+          spent: spent,
+          limit: allowance,
+          warningPercent: whole!.warning,
+        )
+      : null;
+  final over = status is BudgetOver;
+  final state = status == null ? '' : budgetLook(status).id;
+  final used = hasBudget ? percent(spent, allowance) : null;
+  final days = monthEnd(today.year, m).day;
+  final pace = hasBudget ? percent(today.day, days) : null;
   // The same days as 總覽's week, from Sunday.
-  final first = startOfWeek(today);
+  final first = startOfWeek(BusinessDate.of(today)).asUtcMidnight;
   final daySpent = [
     for (var i = 0; i < 7; i++)
       book.reportService.spentOn(first.add(Duration(days: i))),
   ];
-  final weekday = weekdayIndex(today);
+  final weekday = weekdayIndex(BusinessDate.of(today));
   final week = _weekHeights(daySpent, weekday);
   const noBudget = '沒有設定每月總預算';
+  final weekTotal = figures == WidgetFigures.amounts
+      ? groupDigits(daySpent.fold(0, (a, b) => a + b))
+      : '';
+  final shared = {
+    'ahead': _ahead(today, week: week, weekTotal: weekTotal, paced: hasBudget),
+    'stale': widgetStaleFace,
+  };
   return switch (figures) {
     WidgetFigures.amounts => {
       'v': 2,
@@ -81,24 +131,24 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
       'title': '$m 月支出',
       'figure': groupDigits(spent),
       'budget': hasBudget ? '預算 ${groupDigits(allowance)}' : '',
-      'detail': !hasBudget
+      'detail': status == null
           ? noBudget
-          : spent <= allowance
-          ? '剩 ${groupDigits(allowance - spent)}'
-          : '超支 ${groupDigits(spent - allowance)}',
+          : '${budgetLead(status)} ${groupDigits(budgetFigure(status))}',
+      'state': state,
       'progress': used?.clamp(0, 100),
       'pace': pace,
       'week': week,
-      'weekTotal': groupDigits(daySpent.fold(0, (a, b) => a + b)),
+      'weekTotal': weekTotal,
       'today': weekday,
-      'shortLabel': !hasBudget
+      'shortLabel': status == null
           ? '$m 月支出'
-          : spent <= allowance
-          ? '$m 月預算剩'
-          : '$m 月超支',
-      'shortFigure': !hasBudget
+          : over
+          ? '$m 月${StatusWords.over}'
+          : '$m 月預算剩',
+      'shortFigure': status == null
           ? groupDigits(spent)
-          : groupDigits((allowance - spent).abs()),
+          : groupDigits(budgetFigure(status)),
+      ...shared,
     },
     WidgetFigures.percent => {
       'v': 2,
@@ -107,7 +157,12 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
       'title': '$m 月預算',
       'figure': used == null ? '—' : '已用 $used%',
       'budget': '',
-      'detail': used == null ? noBudget : '',
+      'detail': used == null
+          ? noBudget
+          : over
+          ? StatusWords.over
+          : '',
+      'state': state,
       'progress': used?.clamp(0, 100),
       'pace': pace,
       'week': week,
@@ -115,21 +170,56 @@ Map<String, Object?>? widgetSnapshot(WidgetBook book, WidgetFigures figures) {
       'today': weekday,
       'shortLabel': '$m 月預算',
       'shortFigure': used == null ? '—' : '已用 $used%',
+      ...shared,
     },
     WidgetFigures.off => null,
   };
 }
 
-/// What the month's total budget allows by [today], or null when no
-/// total budget is set.
-int? _monthAllowance(WidgetBook book, DateTime today) {
+/// Each day of [today]'s month after it, by its date, as the widget shows
+/// it that day when nothing more is recorded: the days since have nothing
+/// spent, a new week starts empty (its total nothing), and the pace mark
+/// (only with a budget, [paced]) moves to that day.
+Map<String, Object?> _ahead(
+  DateTime today, {
+  required List<int> week,
+  required String weekTotal,
+  required bool paced,
+}) {
+  final written = BusinessDate.of(today);
+  final writtenDay = weekdayIndex(written);
+  final writtenWeek = startOfWeek(written);
+  final last = monthEnd(today.year, today.month).day;
+  final start = written.asUtcMidnight;
+  final ahead = <String, Object?>{};
+  for (var n = 1; today.day + n <= last; n++) {
+    final day = BusinessDate.of(start.add(Duration(days: n)));
+    final at = weekdayIndex(day);
+    final sameWeek = startOfWeek(day) == writtenWeek;
+    ahead[day.toString()] = {
+      'week': [
+        for (var i = 0; i < 7; i++)
+          i > at
+              ? -1
+              : !sameWeek || i > writtenDay
+              ? 0
+              : week[i],
+      ],
+      'today': at,
+      'pace': paced ? percent(today.day + n, last) : null,
+      'weekTotal': sameWeek || weekTotal.isEmpty ? weekTotal : groupDigits(0),
+    };
+  }
+  return ahead;
+}
+
+/// The budget for all spending, or null when no total budget is set.
+Budget? _wholeBudget(WidgetBook book) {
   Budget? total;
   for (final b in book.budgets.all) {
     if (b.category == allSpending && b.limit > 0) total = b;
   }
-  return total == null
-      ? null
-      : book.budgetService.allowance(total, today.year, today.month);
+  return total;
 }
 
 /// Each day of [daySpent] as a share of the week's largest day, -1 for
@@ -142,14 +232,16 @@ List<int> _weekHeights(List<int> daySpent, int weekday) {
           ? -1
           : most <= 0
           ? 0
-          : (max(daySpent[i], 0) * 100 / most).round(),
+          : percent(max(daySpent[i], 0), most),
   ];
 }
 
 /// Keeps the widget's snapshot (`widget.json` beside the book) up to
 /// date while the book is open, and asks the widget to show it again;
-/// the widget reads only that file, so it shows the figures while the
-/// book is locked. With no figures chosen the file is removed.
+/// the widget reads only that file, so it shows the figures the person
+/// chose to show while the book is locked too. With no figures to show
+/// ([widgetSnapshot] gives none) the file is removed, and the widget says
+/// amounts are hidden.
 final class HomeWidget {
   HomeWidget(
     this._file,
@@ -160,6 +252,10 @@ final class HomeWidget {
 
   final File _file;
   final Preferences _preferences;
+
+  /// What the widget shows, the one setting it reads: a backup noted, or
+  /// a theme chosen, writes nothing.
+  late final _figures = _preferences.watch(const {PreferenceTopic.homeWidget});
 
   /// Tells the widget to read the file again.
   final Future<void> Function() _refresh;
@@ -178,14 +274,14 @@ final class HomeWidget {
   void follow(WidgetBook book) {
     _book = book;
     book.addListener(_soon);
-    _preferences.addListener(_soon);
+    _figures.addListener(_soon);
     unawaited(update());
   }
 
   void stop() {
     _timer?.cancel();
     _book?.removeListener(_soon);
-    _preferences.removeListener(_soon);
+    _figures.removeListener(_soon);
     _book = null;
   }
 

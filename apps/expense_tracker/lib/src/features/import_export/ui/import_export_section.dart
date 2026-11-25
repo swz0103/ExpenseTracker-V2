@@ -1,8 +1,15 @@
+import 'package:core/foundation_values.dart' show BusinessDate, YearMonth;
+import 'package:core/time/utc_days.dart' show dayOf, monthStart;
+
+import '../../../core/messages/import_messages.dart';
+
+import '../../../core/design_system/findable.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../backup/model/backup_manager.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
@@ -13,7 +20,7 @@ import '../../../core/messages/problem_messages.dart';
 import 'import_page.dart';
 import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 
@@ -33,6 +40,13 @@ class ImportExportSection extends StatelessWidget {
   /// Saves files and reads them; without it exports are copied instead.
   final BackupManager? backupManager;
 
+  // What search finds here (N8): each topic marks its card.
+  static const topics = [
+    ImportExportTopics.export,
+    ImportExportTopics.importCsv,
+    ImportExportTopics.invoices,
+  ];
+
   @override
   Widget build(BuildContext context) {
     final backupManager = this.backupManager;
@@ -40,45 +54,49 @@ class ImportExportSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const RuleHead('匯出'),
-        ColorCard(
-          color: SettingsColors.csv,
-          label: '匯出 CSV',
-          onTap: () => showSheet<void>(
-            context,
-            (_) => _ExportSheet(ledger: ledger, backupManager: backupManager),
-          ),
-          child: Row(
-            children: [
-              const SquareIcon(Glyph.upload, SettingsColors.csv, size: 50),
-              const SizedBox(width: Space.s4),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '匯出 CSV',
-                      style: TextStyle(
-                        fontSize: TextSize.heading,
-                        fontWeight: FontWeight.w800,
-                        color: deepOf(SettingsColors.csv),
+        Findable(
+          topic: ImportExportTopics.export,
+          child: ColorCard(
+            color: SettingsColors.csv,
+            label: '匯出 CSV',
+            onTap: () => showSheet<void>(
+              context,
+              (_) => _ExportSheet(ledger: ledger, backupManager: backupManager),
+            ),
+            child: Row(
+              children: [
+                const SquareIcon(Glyph.upload, SettingsColors.csv, size: 50),
+                const SizedBox(width: Space.s4),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '匯出 CSV',
+                        style: TextStyle(
+                          fontSize: TextSize.heading,
+                          fontWeight: FontWeight.w800,
+                          color: deepOf(SettingsColors.csv),
+                        ),
                       ),
-                    ),
-                    OneLine(
-                      '一個月或全部，選好再匯出',
-                      style: TextStyle(
-                        fontSize: TextSize.small,
-                        color: deepOf(SettingsColors.csv),
+                      OneLine(
+                        '一個月或全部，選好再匯出',
+                        style: TextStyle(
+                          fontSize: TextSize.small,
+                          color: deepOf(SettingsColors.csv),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         const RuleHead('匯入'),
         CardGrid([
           SettingCard(
+            topic: ImportExportTopics.importCsv,
             glyph: Glyph.records,
             color: SettingsColors.importExport,
             title: 'CSV 檔案',
@@ -87,6 +105,7 @@ class ImportExportSection extends StatelessWidget {
                 importInto(context, ledger, readFile: backupManager?.readFile),
           ),
           SettingCard(
+            topic: ImportExportTopics.invoices,
             glyph: Glyph.scan,
             color: SettingsColors.invoice,
             title: '電子發票',
@@ -124,7 +143,7 @@ class _ExportSheetState extends State<_ExportSheet> {
   static const _color = SettingsColors.csv;
 
   var _span = _Span.month;
-  late DateTime _from = DateTime(_today.year, _today.month);
+  late DateTime _from = monthStart(_today);
   late DateTime _to = _today;
 
   Ledger get _ledger => widget.ledger;
@@ -133,19 +152,25 @@ class _ExportSheetState extends State<_ExportSheet> {
   /// The entries [span] covers, oldest first as the ledger keeps them.
   List<Entry> _entries(_Span span) {
     final t = _today;
+    // Days, not instants: the entry's, [from]'s and [to]'s own fields.
     bool within(DateTime d, DateTime from, DateTime to) {
-      final day = DateTime(d.year, d.month, d.day);
-      return !day.isBefore(from) && !day.isAfter(to);
+      final day = dayOf(d);
+      return !day.isBefore(dayOf(from)) && !day.isAfter(dayOf(to));
     }
 
+    // An export takes every entry written, 預定 ones too.
     return switch (span) {
+      // Exception to as-of-today: an export.
       _Span.month => _ledger.entries.inMonth(t.year, t.month),
       _Span.year => [
+        // Exception to as-of-today: an export.
         for (final e in _ledger.entries.all)
           if (e.date.year == t.year) e,
       ],
+      // Exception to as-of-today: an export.
       _Span.all => _ledger.entries.all.toList(),
       _Span.custom => [
+        // Exception to as-of-today: an export.
         for (final e in _ledger.entries.all)
           if (within(e.date, _from, _to)) e,
       ],
@@ -153,11 +178,10 @@ class _ExportSheetState extends State<_ExportSheet> {
   }
 
   String _name(_Span span) {
-    String day(DateTime d) =>
-        '${d.year}${'${d.month}'.padLeft(2, '0')}${'${d.day}'.padLeft(2, '0')}';
+    String day(DateTime d) => BusinessDate.of(d).compact;
     final t = _today;
     return switch (span) {
-      _Span.month => '記帳本-${t.year}-${'${t.month}'.padLeft(2, '0')}.csv',
+      _Span.month => '記帳本-${YearMonth.of(t)}.csv',
       _Span.year => '記帳本-${t.year}.csv',
       _Span.all => '記帳本-全部.csv',
       _Span.custom => '記帳本-${day(_from)}-${day(_to)}.csv',
@@ -167,7 +191,7 @@ class _ExportSheetState extends State<_ExportSheet> {
   Future<void> _export() async {
     final entries = _entries(_span);
     final text = toCsv(_ledger.accounts, entries);
-    final what = ' ${entries.length} 筆紀錄的 CSV';
+    final what = ' ${countOf(entries.length, CountUnit.entries)}紀錄的 CSV';
     final backupManager = widget.backupManager;
     final messenger = ScaffoldMessenger.maybeOf(context);
     Navigator.of(context).pop();
@@ -183,7 +207,7 @@ class _ExportSheetState extends State<_ExportSheet> {
       if (saved) note('已下載$what');
     } on Object catch (error) {
       ErrorLog.instance.record('下載匯出檔', error);
-      note('下載失敗：${describeProblem(error)}');
+      note(problemNote('下載失敗', error));
     }
   }
 

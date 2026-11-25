@@ -5,6 +5,7 @@ import 'package:expense_tracker/src/core/ledger/commands/command_exceptions.dart
 import 'package:expense_tracker/src/core/ledger/commands/entry_commands.dart';
 import 'package:expense_tracker/src/core/ledger/commands/recurring_commands.dart';
 import 'package:expense_tracker/src/core/ledger/models/models.dart';
+import 'package:ledger_entries/rules.dart' show SaleExceedsHolding;
 import 'package:expense_tracker/src/core/ledger/persistence/write_batch.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/budget_repository.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/receipt_repository.dart';
@@ -58,10 +59,10 @@ final class _Writes {
   late final recurring = RecurringCommands(
     context: context,
     recurringRepository: book.recurring,
-    entryRepository: book.entries,
     accounts: book.accounts,
     recurringService: book.recurringService,
     entryCommands: entries,
+    entryValidator: book.validator,
   );
 }
 
@@ -104,7 +105,7 @@ void main() {
       final w = _Writes(Book(entries: [_trade('buy', EntryType.buy, 5)]));
       expect(
         () => w.entries.add(_trade('sell', EntryType.sell, 9, day: 2)),
-        throwsStateError,
+        throwsA(isA<RecordRefused>()),
       );
       expect(w.book.entries.all.map((e) => e.id), ['buy']);
       expect(w.book.holdings.byCode('2330')?.shares, 5);
@@ -121,7 +122,14 @@ void main() {
         ),
       );
       expect(w.entries.remove('buy'), isNull);
-      expect(w.context.problem.value, isA<SharesShort>());
+      expect(
+        w.context.problem.value,
+        isA<RecordRefused>().having(
+          (r) => r.first,
+          'first',
+          isA<SaleExceedsHolding>().having((i) => i.later, 'later', true),
+        ),
+      );
       expect(w.book.entries.length, 2);
       expect(w.trash.all, isEmpty);
     });
@@ -206,7 +214,8 @@ void main() {
       expect(w.book.categories.all, hasLength(1));
     });
 
-    test('a merge moves every use and drops the category and its budget', () {
+    test('a merge moves every use and the budget, and drops the category '
+        '(D60)', () {
       final w = _Writes(
         Book(
           categories: [
@@ -219,21 +228,26 @@ void main() {
       );
       w.categories.mergeCategory('吃飯', '飲食');
       expect(w.book.entries.byId('a')!.category, '飲食');
-      expect(w.budgets.all, isEmpty);
+      // The budget of 吃飯 is now 飲食's.
+      expect(
+        [for (final b in w.budgets.all) (b.category, b.limit)],
+        [('飲食', 100)],
+      );
       final batch = w.context.batches.single;
       expect(batch.entries.single.id, 'a');
       expect(batch.dropped.toSet(), {
         (Collection.budget, '吃飯'),
         (Collection.category, 'c2'),
       });
+      expect([for (final b in batch.budgets) b.category], ['飲食']);
     });
   });
 
   group('RecurringCommands', () {
     test('an automatic item books each day that came, once', () {
       final w = _Writes(Book(recurring: [_rent]));
-      expect(w.recurring.bookDue(), 1);
-      expect(w.recurring.bookDue(), 0);
+      expect(w.recurring.bookDue().booked, 1);
+      expect(w.recurring.bookDue().booked, 0);
       final booked = w.book.entries.all.single;
       expect(
         (booked.recurring, booked.date),
@@ -243,7 +257,7 @@ void main() {
 
     test('an item whose account is gone books nothing', () {
       final gone = _rent.copyWith(account: 'closed');
-      expect(_Writes(Book(recurring: [gone])).recurring.bookDue(), 0);
+      expect(_Writes(Book(recurring: [gone])).recurring.bookDue().booked, 0);
     });
   });
 }

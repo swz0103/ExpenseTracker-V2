@@ -1,7 +1,8 @@
 // Broker fee, transaction tax, dividend premium and settlement day: every
 // expected figure is worked out by hand in the comment beside it.
 import 'package:core/foundation_values.dart';
-import 'package:domain/investments.dart';
+import 'package:ledger_trade_costs/calc/charges.dart';
+import 'package:ledger_trade_costs/model/trade_values.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/trading.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -234,17 +235,21 @@ void main() {
   });
 
   group('settlement is two open days after the trade (T+2)', () {
-    test('a Wednesday trade settles on Friday', () {
-      // 2026-10-07 is a Wednesday; +2 weekdays = Friday 2026-10-09.
-      expect(settlementDay(day(2026, 10, 7)), day(2026, 10, 9));
+    DateTime settles(DateTime traded) =>
+        settlementDay(traded).value.asUtcMidnight;
+    test('a Wednesday trade before a holiday settles on Monday', () {
+      // Decision D24: public holidays are skipped. 2026-10-07 is a
+      // Wednesday; Thu 10-08 is day 1, Fri 10-09 is 補假 and then the
+      // weekend, so Mon 10-12 is day 2.
+      expect(settles(day(2026, 10, 7)), day(2026, 10, 12));
     });
     test('a Friday trade settles on Tuesday', () {
       // Fri 2026-10-02: Mon 10-05 is day 1, Tue 10-06 day 2.
-      expect(settlementDay(day(2026, 10, 2)), day(2026, 10, 6));
+      expect(settles(day(2026, 10, 2)), day(2026, 10, 6));
     });
     test('a Thursday trade settles on Monday', () {
       // Thu 2026-10-01: Fri 10-02 day 1, Mon 10-05 day 2.
-      expect(settlementDay(day(2026, 10, 1)), day(2026, 10, 5));
+      expect(settles(day(2026, 10, 1)), day(2026, 10, 5));
     });
   });
 }

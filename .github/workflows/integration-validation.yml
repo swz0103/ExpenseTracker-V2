@@ -91,6 +91,11 @@ jobs:
             'tooling/rules',
             'packages/core',
             'packages/domain',
+            'packages/kernel',
+            'packages/ledger/entries',
+            'modules/loans',
+            'packages/ledger/postings',
+            'packages/ledger/trade_costs',
             'infrastructure/storage',
             'infrastructure/vault',
             'infrastructure/market'
@@ -108,8 +113,11 @@ jobs:
         # package) must not fall below tooling/coverage_floors.json.
         run: |
           dart run tooling/architecture_checks/bin/check_coverage.dart \
-            packages/core packages/domain infrastructure/storage \
-            infrastructure/vault infrastructure/market
+            packages/core packages/domain packages/kernel \
+            packages/ledger/entries \
+            modules/loans packages/ledger/postings \
+            packages/ledger/trade_costs \
+            infrastructure/storage infrastructure/vault infrastructure/market
 
   flutter-host:
     runs-on: ubuntu-latest
@@ -135,9 +143,27 @@ jobs:
           flutter config --no-analytics
           flutter pub get --enforce-lockfile
           flutter test test/baseline test/known_defects
-      - shell: pwsh
+      - name: Day ranges in other time zones
+        # The runner keeps UTC, where a local midnight and a UTC midnight
+        # are the same instant; a day compared as an instant only goes
+        # wrong east of UTC (Taipei) or across a change of the clocks
+        # (New York).
+        working-directory: apps/expense_tracker
+        run: |
+          for zone in Asia/Taipei America/New_York; do
+            TZ=$zone flutter test \
+              test/features/import_export/ui/import_export_section_test.dart \
+              test/features/entries/ui/entries_filter_sheet_test.dart
+          done
+      - name: Host checks, then the timing gates on their own
+        # The suite without the timing gates at the default concurrency
+        # (with coverage), then `flutter test --tags timing
+        # --concurrency=1` without coverage: mandatory, and a host too busy
+        # to judge them fails it here (CI is set), saying so.
+        shell: pwsh
         run: |
           flutter config --no-analytics
+          ./tooling/run-host-checks.ps1 -Package packages/shell
           ./tooling/run-host-checks.ps1 -Package apps/expense_tracker
       - name: Status and coverage by class and function
         # From the coverage the tests above wrote: the 現況 figures of
@@ -150,7 +176,7 @@ jobs:
           (cd ../../tooling/architecture_checks && dart pub get --enforce-lockfile)
           dart run ../../tooling/architecture_checks/bin/status.dart
           dart run ../../tooling/architecture_checks/bin/declaration_coverage.dart
-          dart run ../../tooling/architecture_checks/bin/check_coverage.dart apps/expense_tracker
+          dart run ../../tooling/architecture_checks/bin/check_coverage.dart apps/expense_tracker packages/shell
       - name: Screenshots
         # Every page, light and dark, at 360 dp (tool/screenshots), kept
         # with the run to look at a page without a phone.

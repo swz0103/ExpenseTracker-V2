@@ -7,6 +7,7 @@ export 'android/platform_channel.dart';
 export 'android/drive_adapter.dart';
 export 'android/file_adapter.dart';
 export 'android/keystore_adapter.dart';
+export 'android/lock_adapter.dart';
 export 'android/network_adapter.dart';
 export 'android/notification_adapter.dart';
 export 'android/receipt_photo_adapter.dart';

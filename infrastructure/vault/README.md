@@ -7,12 +7,16 @@
 金鑰階層（ADR-0001）：
 
 ```
-主密碼（NFC 正規化 → Argon2id）─┐
-救援碼 ETR1-XXXX-…（32 bytes）──┼─ 包裝 → 主金鑰（隨機 32 bytes）─┬─ 包裝 → 資料庫金鑰（SQLCipher，終身不變）
-裝置金鑰（Keystore＋生物辨識）──┘                                └─ 包裝 → 備份金鑰 epoch 1..n
+主密碼（NFC 正規化 → Argon2id）──┐
+備份密碼（選用，同上）───────────┤
+救援碼 ETR1-XXXX-…（32 bytes）───┼─ 包裝 → 主金鑰（隨機 32 bytes）─┬─ 包裝 → 資料庫金鑰（SQLCipher）
+裝置金鑰（Keystore＋生物辨識）───┘                                └─ 包裝 → 備份金鑰 epoch 1..n
 ```
 
-- 改密碼、換救援碼、加減裝置只重寫對應的 slot，不碰資料。
+- 密碼政策只有一處：App 密碼用 `PasswordPolicy.standard`（暫定：至少 8 個字、不能全是數字；待擁有者決定），備份密碼用較嚴的 `PasswordPolicy.passphrase`（至少 12 個字、不能全是數字）。只有「設定」時檢查；以前設的較短密碼或備份密碼仍可解鎖、還原。
+- 備份密碼跟著每一份備份的明文標頭走，拿到檔案的人可以離線一直猜，所以它的 slot 用較重的 Argon2id 參數 `PasswordKdf.passphrase`（64 MiB、2 輪，參數 id `argon2id-v19-m65536-t2-p1-k32`）。量測：開發 VM 上純 Dart AOT 0.6–0.75 秒（App 密碼的 19 MiB、2 輪是 0.17–0.27 秒），中階手機約 3 倍，約 2 秒；只在設定備份密碼與用它打開備份時跑。64 MiB、3 輪在 VM 上約 0.9–1.0 秒、手機約 3 秒，超過約 1 秒的目標太多，所以取 2 輪。slot 自帶參數 id，以前用 App 密碼參數設的備份密碼仍打得開。
+- 改密碼、換救援碼、設定備份密碼、加減裝置只重寫對應的 slot，不碰資料；舊的 keyring（例如舊備份裡的）配舊密碼仍能打開舊的金鑰。
+- `UnlockedKeyring.reset` 換掉全部金鑰：新的主金鑰與資料庫金鑰、舊 epoch 以新主金鑰重新包裝並新增一個 epoch、新的救援碼；裝置與備份密碼要重新設定。`LedgerVault.resetKeys` 把資料庫逐筆複製到以新金鑰加密的新檔、收據照片與 inbox 金鑰重新封裝，與還原相同的暫存 → 檢查 → 換入流程。
 - 備份金鑰輪替會新增 epoch；舊 epoch 仍可解開舊備份。
 - 每個密文的 AAD 綁定 keyring id 與用途，搬移或交換 slot 會解密失敗。
 - Argon2id 參數只由程式決定，檔案內的 policy id 必須完全相符；`PasswordKdf.insecureForTests` 寫出的 keyring 正式版不會接受。
@@ -24,14 +28,16 @@
 - 第一次設定時建立 keyring；救援碼只回傳一次，不寫入任何檔案。
 - 可用密碼、救援碼或裝置金鑰（Android Keystore）解鎖。裝置金鑰遺失時，密碼仍能打開。
 - keyring 一律先寫成 `.new` 再改名覆蓋，當機時留下的不是舊的就是新的。第一次設定時寫到一半的檔案不算帳本，可以重新設定。
-- `restore`：還原備份時先寫到暫存資料庫並通過 SQLite 完整性檢查，接著寫好新的 `keyring.json.new`，再換上資料庫，最後才把 keyring 改名就位。下次打開時（`_settle`）依留下的檔案收尾：暫存與資料庫都在就丟掉暫存，只剩暫存就換上，新 keyring 完整就採用；任何一步之間當機都開得回一本完整的帳本。
+- `restore`：還原備份時先寫到暫存資料庫並通過 SQLite 完整性檢查，備份帶的收據照片寫到 `files.restore/`；接著寫好新的 `keyring.json.new`，再換上資料庫、把暫存的檔案逐一換入（被換掉的先移到 `files.replaced/`），最後才把 keyring 改名就位。下次打開時（`_settle`）依留下的檔案收尾：暫存與資料庫都在就丟掉暫存（連同暫存的檔案），只剩暫存就換上，新 keyring 完整就把檔案換完並採用；任何一步之間當機都開得回一本完整、照片也屬於它的帳本。
 - `OpenVault.updateKeys`：換密碼、加裝置、輪替備份金鑰後存回。
 
-備份格式 v3：帳本的每一筆資料（`EncryptedDatabase` 的每一列）分塊、gzip、用 keyring 的備份金鑰以 AES-256-GCM 加密，之後可附帶收據照片等檔案。
+備份格式 v5：帳本的每一筆資料（`EncryptedDatabase` 的每一列）分塊、gzip、用 keyring 的備份金鑰以 AES-256-GCM 加密，之後可附帶收據照片等檔案。v3、v4 仍可讀取（`test/ledger_backup/fixtures/v4.etbk` 是 v4 寫的備份）。
 
-- 檔案開頭是明文標頭：備份 ID、時間、帳本的 `revision`、筆數、keyring（已包裝）、備份金鑰 epoch。每週備份用 `revision` 判斷帳本有沒有變動。
+- 檔案開頭是明文標頭：備份 ID、時間、帳本的 `revision`、筆數、keyring（`Keyring.exported`：不含 App 密碼與裝置的 slot，只能用救援碼或備份密碼打開；v3 還帶著密碼 slot）、備份金鑰 epoch；v5 起還有帳本版本（`book`）與 layout（`layout`）。每個版本的標頭欄位固定，多一個少一個都拒絕。每週備份用 `revision` 判斷帳本有沒有變動；`revision` 小於 0 的標頭拒絕。只讀檔案開頭的位元組時用 `LedgerBackup.headerOf`（`headerReach` 以內必含標頭），例如手機資料夾裡的備份。
+- 寫入與讀取用同一個區塊上限（`maxFrame`）：資料依大小分塊，大檔案切成多段（`more`），寫得出來的備份一定讀得回來。
 - 每一塊的 AAD 綁定標頭雜湊與塊的順序，換塊、刪塊、截斷、改標頭都會被拒絕。
-- 擷取時一次讀出全部資料，備份是同一個時間點的帳本。
+- 擷取時用 `readApart` 在背景 isolate 一次讀出全部資料，接著在同一個 isolate 壓縮加密，備份是同一個時間點的帳本，畫面不停頓（D41）。
+- 還原時把標頭的帳本版本寫回，同版本的備份還原後不會再跑一次升級，也不會多存一份升級前備份（D26）；layout 比這版新的備份拒絕還原（`unsupportedVersion`）。
 - 還原時 `accept` 先看每一筆，App 讀不懂的一筆會讓還原失敗（`invalidContent`），不會換上一本打不開的帳。
 - 錯誤一律回報為 `BackupProblem`：格式錯、版本較新、驗證失敗、目標非空、內容無效。
 

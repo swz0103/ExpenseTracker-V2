@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import '../core/design_system/feedback.dart';
 import '../core/design_system/haptics.dart';
 import '../core/design_system/theme.dart';
 import '../core/platform/preferences.dart';
+import '../core/platform/preference_choices.dart';
 import '../core/widgets/privacy_cover.dart';
 
 /// The app shell: the theme, light or dark, the scrolling and [home].
@@ -16,9 +18,15 @@ class ExpenseApp extends StatefulWidget {
     this.preferences,
     this.cover = false,
     this.systemHides,
+    this.navigatorKey,
   });
 
   final Widget? home;
+
+  /// The key of the navigator every route, sheet and dialog lives in. A
+  /// new key replaces the navigator and all of them at once, as the lock
+  /// gate does when a ledger closes.
+  final GlobalKey<NavigatorState>? navigatorKey;
 
   /// Wraps every route, as the web preview's phone frame does.
   final TransitionBuilder? frame;
@@ -39,17 +47,21 @@ class ExpenseApp extends StatefulWidget {
 }
 
 class _ExpenseAppState extends State<ExpenseApp> with WidgetsBindingObserver {
+  /// The colours and taps chosen, followed apart from the other settings.
+  Listenable? _look;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    widget.preferences?.addListener(_follow);
+    _look = widget.preferences?.watch(const {PreferenceTopic.look})
+      ?..addListener(_follow);
     _follow(first: true);
   }
 
   @override
   void dispose() {
-    widget.preferences?.removeListener(_follow);
+    _look?.removeListener(_follow);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -89,6 +101,8 @@ class _ExpenseAppState extends State<ExpenseApp> with WidgetsBindingObserver {
       value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
       child: MaterialApp(
         title: '記帳本',
+        navigatorKey: widget.navigatorKey,
+        scaffoldMessengerKey: appMessenger,
         debugShowCheckedModeBanner: false,
         // Every word the framework shows is Traditional Chinese, as the
         // app's own are.

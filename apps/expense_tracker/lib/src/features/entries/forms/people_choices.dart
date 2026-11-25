@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
+import '../../../core/formatting/words.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
@@ -86,7 +88,9 @@ class _PeopleChoicesState extends State<PeopleChoices> {
                   )
                 : solidButton(widget.color, radius: Radii.large),
             child: Text(
-              _picked.isEmpty ? '不代墊' : '好了（${_picked.length} 人）',
+              _picked.isEmpty
+                  ? '不代墊'
+                  : '${Words.done}（${countOf(_picked.length, CountUnit.people)}）',
               style: const TextStyle(
                 fontSize: TextSize.title,
                 fontWeight: FontWeight.w700,

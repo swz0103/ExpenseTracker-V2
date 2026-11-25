@@ -1,96 +1,161 @@
-part of 'account_editor.dart';
+import 'package:core/foundation_values.dart' show Currency;
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 
-class _AccountEditorState extends State<_AccountEditor> {
-  late final _old = widget.account;
+import '../../../core/design_system/dialogs.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/pickers.dart';
+import '../model/account_form.dart';
+import '../ui/account_card.dart' show cardKindLabel;
+import '../ui/accounts.dart' show walletKinds;
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import '../../../core/messages/done_messages.dart';
+import '../../../core/messages/trash_messages.dart';
+import 'account_editor.dart';
+import 'loan_fields.dart';
+import 'account_editor_edit_card.dart';
+
+class AccountEditorState extends State<AccountEditor> {
+  late final oldAccount = widget.account;
 
   /// The fields and what saving does.
-  late final _f = AccountForm(widget.ledger, old: _old)
-    ..kind = _old?.kind ?? widget.kind ?? AccountKind.bank;
-  late final TextEditingController _principal = TextEditingController(
-    text: _f.principal,
-  )..addListener(() => setState(() => _f.principal = _principal.text));
+  late final accountForm = AccountForm(widget.ledger, old: oldAccount)
+    ..kind = oldAccount?.kind ?? widget.kind ?? AccountKind.bank;
+
+  /// The fields as the form opened, to ask before leaving changes (D83).
+  late final List<Object?> _opened;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.currency case final currency? when oldAccount == null) {
+      accountForm.currency = currency;
+    }
+    _opened = accountForm.fields;
+  }
+
+  late final TextEditingController principalField =
+      TextEditingController(text: accountForm.principal)..addListener(
+        () => setState(() => accountForm.principal = principalField.text),
+      );
 
   /// A loan's form: no kinds, marks or currencies, but what was borrowed
   /// and, for a new one, where the money went.
-  bool get _loanForm => _f.kind == AccountKind.loan;
+  bool get _loanForm => accountForm.kind == AccountKind.loan;
   // The card on top shows what is typed as it is typed.
-  late final TextEditingController _name = TextEditingController(text: _f.name)
-    ..addListener(() => setState(() => _f.name = _name.text));
-  late final TextEditingController _balance = TextEditingController(
-    text: _f.balance,
-  )..addListener(() => setState(() => _f.balance = _balance.text));
-  late final TextEditingController _limit = TextEditingController(
-    text: _f.limit,
-  )..addListener(() => _f.limit = _limit.text);
+  late final TextEditingController nameField =
+      TextEditingController(text: accountForm.name)..addListener(
+        () => setState(() {
+          accountForm.name = nameField.text;
+          shownProblem = null;
+        }),
+      );
 
-  late final TextEditingController _rate = TextEditingController(text: _f.rate)
-    ..addListener(() => setState(() => _f.rate = _rate.text));
-  late final TextEditingController _months = TextEditingController(
-    text: _f.months,
-  )..addListener(() => setState(() => _f.months = _months.text));
+  /// Why 儲存 did nothing, said above it.
+  String? shownProblem;
+  late final TextEditingController balanceField = TextEditingController(
+    text: accountForm.balance,
+  )..addListener(() => setState(() => accountForm.balance = balanceField.text));
+  late final TextEditingController _limit = TextEditingController(
+    text: accountForm.limit,
+  )..addListener(() => setState(() => accountForm.limit = _limit.text));
+
+  late final TextEditingController discountField =
+      TextEditingController(text: accountForm.discount)..addListener(
+        () => setState(() => accountForm.discount = discountField.text),
+      );
+
+  late final TextEditingController rateField = TextEditingController(
+    text: accountForm.rate,
+  )..addListener(() => setState(() => accountForm.rate = rateField.text));
+  late final TextEditingController monthsField = TextEditingController(
+    text: accountForm.months,
+  )..addListener(() => setState(() => accountForm.months = monthsField.text));
 
   /// The currencies offered in the row; the rest open from 更多.
   static const _common = [homeCode, 'USD', 'JPY', 'EUR', 'CNY'];
 
   /// Lets the loan's fields in the part file set state.
-  void _set(VoidCallback change) => setState(change);
+  void setFields(VoidCallback change) => setState(change);
 
   @override
   void dispose() {
-    _name.dispose();
-    _balance.dispose();
-    _principal.dispose();
+    nameField.dispose();
+    balanceField.dispose();
+    principalField.dispose();
     _limit.dispose();
-    _rate.dispose();
-    _months.dispose();
+    discountField.dispose();
+    rateField.dispose();
+    monthsField.dispose();
     super.dispose();
   }
 
-  void _save() {
-    if (_f.save()) Navigator.of(context).pop();
+  void saveAccount() {
+    final problem = accountForm.problem;
+    if (problem != null) {
+      setState(() => shownProblem = problem);
+      return;
+    }
+    if (accountForm.save()) EditGuard.close(context);
   }
 
-  /// Archives the account, or brings it back. One with money left is
-  /// settled first: its balance moves to the account picked.
-  Future<void> _archive() async {
-    final old = _old;
+  /// Archives the account, or brings it back, told with 復原 (D82). One
+  /// with money left is settled first ([settleAndArchive]): its balance
+  /// moves to the account picked, and 復原 takes that back too.
+  Future<void> archiveAccount() async {
+    final old = oldAccount;
     if (old == null) return;
     final ledger = widget.ledger;
-    final left = ledger.balanceService.balance(old.id);
-    if (!old.archived && left != 0) {
-      final into = await pickOption<String>(
-        context,
-        title: left > 0 ? '餘額轉到哪個帳戶' : '由哪個帳戶結清欠款',
-        selected: null,
-        columns: 3,
-        options: accountOptions(
-          ledger,
-          currency: old.currency,
-          where: (a) => a.id != old.id && !a.kind.isDebt,
-        ),
-      );
-      if (into == null) return;
-      ledger.entryCommands.add(AccountForm.settlement(ledger, old, into));
+    if (!old.archived) {
+      if (await settleAndArchive(context, ledger, old) && mounted) {
+        EditGuard.close(context, true);
+      }
+      return;
     }
-    ledger.accountCommands.updateAccount(old.copyWith(archived: !old.archived));
-    if (mounted) Navigator.of(context).pop(!old.archived);
+    final undo = ledger.accountCommands.setArchived(old.id, archived: false);
+    if (undo != null) showUndo(context, DoneWords.unarchived(old.name), undo);
+    EditGuard.close(context, false);
   }
 
-  Future<void> _remove() async {
-    final old = _old;
+  /// Deletes the account. Nothing in the trash naming it: not asked
+  /// first, told with 復原 (D82). Deleted entries in the trash that name
+  /// it go for good with it, which cannot be undone: asked first (D78).
+  Future<void> deleteAccount() async {
+    final old = oldAccount;
     if (old == null) return;
-    final ok = await confirm(
-      context,
-      '刪除「${old.name}」？',
-      Words.delete,
-      danger: true,
-    );
-    if (!ok || !mounted) return;
-    widget.ledger.accountCommands.removeAccount(old.id);
-    Navigator.of(context).pop(true);
+    final ledger = widget.ledger;
+    final commands = ledger.accountCommands;
+    final trashed = commands.trashedNaming(old.id);
+    if (trashed.isNotEmpty) {
+      final ok = await confirm(
+        context,
+        '刪除「${old.name}」？',
+        Words.delete,
+        danger: true,
+        body: trashedNamingNote(trashed.length),
+      );
+      if (!ok || !mounted) return;
+      ledger.entryCommands.discardTrashed(trashed);
+    }
+    final undo = commands.removeAccount(old.id);
+    if (undo != null) {
+      if (trashed.isEmpty) {
+        showUndo(context, DoneWords.deleted(old.name), undo);
+      } else {
+        showNote(context, DoneWords.deleted(old.name));
+      }
+    }
+    EditGuard.close(context, true);
   }
 
-  Future<void> _pickDay(bool closing) async {
+  Future<void> pickDay(bool closing) async {
     final picked = await showSheet<int>(
       context,
       (context) => Padding(
@@ -113,9 +178,11 @@ class _AccountEditorState extends State<_AccountEditor> {
               crossAxisSpacing: 6,
               children: [
                 for (var day = 1; day <= 28; day++)
-                  _DayKey(
+                  AccountDayKey(
                     day: day,
-                    picked: day == (closing ? _f.closing : _f.due),
+                    picked:
+                        day ==
+                        (closing ? accountForm.closing : accountForm.due),
                     onTap: () => Navigator.of(context).pop(day),
                   ),
               ],
@@ -127,9 +194,9 @@ class _AccountEditorState extends State<_AccountEditor> {
     if (picked == null) return;
     setState(() {
       if (closing) {
-        _f.closing = picked;
+        accountForm.closing = picked;
       } else {
-        _f.due = picked;
+        accountForm.due = picked;
       }
     });
   }
@@ -137,7 +204,7 @@ class _AccountEditorState extends State<_AccountEditor> {
   /// The kinds the form offers: those of 我的帳戶, and the account's own
   /// when it is of another.
   List<AccountKind> get _kinds {
-    final old = _old;
+    final old = oldAccount;
     return [
       ...walletKinds,
       if (old != null && !walletKinds.contains(old.kind)) old.kind,
@@ -147,24 +214,12 @@ class _AccountEditorState extends State<_AccountEditor> {
   /// The six marks shown for the kind, with the account's own in the
   /// last place when it is not one of them.
   List<String> get _usual {
-    final usual = usualAccountIcons(_f.kind);
-    final own = _f.icon;
+    final usual = usualAccountIcons(accountForm.kind);
+    final own = accountForm.icon;
     if (usual.isEmpty) return own == null ? const [] : [own];
     if (own == null || usual.contains(own)) return usual;
     return [...usual.take(usual.length - 1), own];
   }
-
-  /// The account as the form stands, for its colour and label.
-  Account get _preview => Account(
-    _old?.id ?? '',
-    _f.name.trim(),
-    _f.kind,
-    0,
-    icon: _f.icon,
-    dueDay: _f.card ? _f.due : null,
-    currency: _f.foreignAllowed ? _f.currency : homeCode,
-    color: _f.color,
-  );
 
   /// A centre panel of colours: the kind's own first, then the others.
   Future<void> _pickColor() async {
@@ -172,7 +227,7 @@ class _AccountEditorState extends State<_AccountEditor> {
       context,
       (context) => CenterPanel(
         glyph: Glyph.sparkle,
-        color: accountColor(_preview),
+        color: accountColor(previewAccount),
         title: '卡片顏色',
         // 48 dp to tap each, 56 apart as the 44 dp dots were.
         body: Wrap(
@@ -181,15 +236,15 @@ class _AccountEditorState extends State<_AccountEditor> {
           alignment: WrapAlignment.center,
           children: [
             SwatchButton(
-              color: accountKindColor(_f.kind),
+              color: accountKindColor(accountForm.kind),
               label: '預設',
-              selected: _f.color == null,
+              selected: accountForm.color == null,
               onTap: () => Navigator.of(context).pop(-1),
             ),
             for (final c in AppColors.categoryColors)
               SwatchButton(
                 color: shownColor(c),
-                selected: _f.color == c.toARGB32(),
+                selected: accountForm.color == c.toARGB32(),
                 onTap: () => Navigator.of(context).pop(c.toARGB32()),
               ),
           ],
@@ -200,7 +255,7 @@ class _AccountEditorState extends State<_AccountEditor> {
       ),
     );
     if (picked == null || !mounted) return;
-    setState(() => _f.color = picked == -1 ? null : picked);
+    setState(() => accountForm.color = picked == -1 ? null : picked);
   }
 
   /// Every currency in a panel, for those not in the row.
@@ -208,18 +263,20 @@ class _AccountEditorState extends State<_AccountEditor> {
     final picked = await pickOption<String>(
       context,
       title: '幣別',
-      selected: _f.currency,
+      selected: accountForm.currency,
       options: [
         for (final code in Currency.supported)
-          Option(code, code, Glyph.exchange, accountColor(_preview)),
+          Option(code, code, Glyph.exchange, accountColor(previewAccount)),
       ],
     );
-    if (picked != null && mounted) setState(() => _f.currency = picked);
+    if (picked != null && mounted) {
+      setState(() => accountForm.currency = picked);
+    }
   }
 
   Future<void> _moreIcons() async {
-    final color = accountColor(_preview);
-    final shown = _f.icon ?? kindIcon(_f.kind).name;
+    final color = accountColor(previewAccount);
+    final shown = accountForm.icon ?? kindIcon(accountForm.kind).name;
     final picked = await showSheet<String>(
       context,
       (context) => SingleChildScrollView(
@@ -274,15 +331,15 @@ class _AccountEditorState extends State<_AccountEditor> {
         ),
       ),
     );
-    if (picked != null && mounted) setState(() => _f.icon = picked);
+    if (picked != null && mounted) setState(() => accountForm.icon = picked);
   }
 
-  Future<void> _pickFund() async {
+  Future<void> pickFund() async {
     final ledger = widget.ledger;
     final picked = await pickOption<String>(
       context,
       title: '撥款到',
-      selected: _f.fundInto ?? '',
+      selected: accountForm.fundInto ?? '',
       columns: 3,
       options: [
         const Option('', '不入帳', Glyph.loan, AppColors.investment),
@@ -294,63 +351,16 @@ class _AccountEditorState extends State<_AccountEditor> {
       ],
     );
     if (picked == null || !mounted) return;
-    setState(() => _f.fundInto = picked.isEmpty ? null : picked);
-  }
-
-  /// 刪除, 封存 or 恢復 when changing, and 儲存; what is left under it.
-  Widget _buttons(Account? old) {
-    final removable =
-        old != null && !widget.ledger.accountCommands.isUsed(old.id);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: Space.s4),
-        Row(
-          children: [
-            if (old != null)
-              TextButton(
-                onPressed: removable ? _remove : _archive,
-                style: wordButton(
-                  removable || !old.archived
-                      ? AppColors.danger
-                      : AppColors.accent,
-                  minimumSize: Size(64, 46),
-                ),
-                child: Text(
-                  removable
-                      ? Words.delete
-                      : old.archived
-                      ? '恢復'
-                      : widget.ledger.balanceService.balance(old.id) == 0
-                      ? '封存'
-                      : '結清封存',
-                ),
-              ),
-            const SizedBox(width: Space.s2),
-            Expanded(
-              child: FilledButton(
-                onPressed: _save,
-                style: solidButton(
-                  AppColors.accent,
-                  minimumSize: Size.fromHeight(46),
-                  radius: Radii.medium,
-                ),
-                child: const Text('儲存'),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
+    setState(() => accountForm.fundInto = picked.isEmpty ? null : picked);
   }
 
   /// 算進負債與淨資產, or 計入資產與淨資產, as a whole row.
-  Widget get _counted {
+  Widget get countedRow {
     final label = _loanForm ? '算進負債與淨資產' : '計入資產與淨資產';
     return FormGroup(
       child: ToggleRow(
-        value: _f.counted,
-        onChanged: (on) => setState(() => _f.counted = on),
+        value: accountForm.counted,
+        onChanged: (on) => setState(() => accountForm.counted = on),
         label: label,
         child: Row(
           children: [
@@ -361,9 +371,9 @@ class _AccountEditorState extends State<_AccountEditor> {
               ),
             ),
             TickSwitch(
-              value: _f.counted,
+              value: accountForm.counted,
               label: label,
-              onChanged: (on) => setState(() => _f.counted = on),
+              onChanged: (on) => setState(() => accountForm.counted = on),
             ),
           ],
         ),
@@ -373,7 +383,7 @@ class _AccountEditorState extends State<_AccountEditor> {
 
   /// 圖示: the marks most used for its kind, and 更多 for every one.
   Widget _iconGroup(Color color) {
-    final shownIcon = _f.icon ?? kindIcon(_f.kind).name;
+    final shownIcon = accountForm.icon ?? kindIcon(accountForm.kind).name;
     return FormGroup(
       title: '圖示',
       child: Row(
@@ -381,13 +391,13 @@ class _AccountEditorState extends State<_AccountEditor> {
           for (final key in _usual)
             Expanded(
               child: IconChoiceButton(
-                icon: accountMark(key) ?? kindIcon(_f.kind),
+                icon: accountMark(key) ?? kindIcon(accountForm.kind),
                 label: '圖示：${accountIconName(key)}',
                 color: color,
                 selected: key == shownIcon,
                 size: 40,
                 background: AppColors.white,
-                onTap: () => setState(() => _f.icon = key),
+                onTap: () => setState(() => accountForm.icon = key),
               ),
             ),
           Expanded(
@@ -439,9 +449,9 @@ class _AccountEditorState extends State<_AccountEditor> {
                   AccountKind.wallet => '支付',
                   _ => groupName(kind),
                 },
-                selected: kind == _f.kind,
+                selected: kind == accountForm.kind,
                 background: AppColors.white,
-                onTap: () => setState(() => _f.kind = kind),
+                onTap: () => setState(() => accountForm.kind = kind),
               ),
             ),
           ],
@@ -460,13 +470,13 @@ class _AccountEditorState extends State<_AccountEditor> {
           children: [
             for (final code in [
               ..._common,
-              if (!_common.contains(_f.currency)) _f.currency,
+              if (!_common.contains(accountForm.currency)) accountForm.currency,
             ]) ...[
               ChoicePill(
-                label: code == homeCode ? '台幣' : code,
-                selected: code == _f.currency,
+                label: code == homeCode ? '新台幣' : code,
+                selected: code == accountForm.currency,
                 background: AppColors.white,
-                onTap: () => setState(() => _f.currency = code),
+                onTap: () => setState(() => accountForm.currency = code),
               ),
               const SizedBox(width: Space.s2),
             ],
@@ -489,17 +499,17 @@ class _AccountEditorState extends State<_AccountEditor> {
         color: AppColors.card,
         icon: Glyph.calendar,
         label: '結帳日',
-        value: '每月 ${_f.closing} 日',
+        value: '每月 ${accountForm.closing} 日',
         size: TextSize.body,
-        onTap: () => _pickDay(true),
+        onTap: () => pickDay(true),
       ),
       FigureCard(
         color: AppColors.card,
         icon: Glyph.calendar,
         label: '繳款日',
-        value: '每月 ${_f.due} 日',
+        value: '每月 ${accountForm.due} 日',
         size: TextSize.body,
-        onTap: () => _pickDay(false),
+        onTap: () => pickDay(false),
       ),
     ]);
   }
@@ -516,26 +526,32 @@ class _AccountEditorState extends State<_AccountEditor> {
         ),
       ),
       const SizedBox(height: Space.s3),
-      _EditCard(
+      AccountEditCard(
         color: color,
-        icon: accountIcon(_preview),
-        kind: cardKindLabel(_preview),
-        name: _name,
-        balance: _balance,
-        balanceLabel: _f.kind.isDebt ? '目前欠款' : '目前餘額',
+        icon: accountIcon(previewAccount),
+        kind: cardKindLabel(previewAccount),
+        name: nameField,
+        balance: balanceField,
+        balanceLabel: accountForm.kind.isDebt ? '目前欠款' : '目前餘額',
         onColor: _pickColor,
       ),
       _kindGroup(),
       _iconGroup(color),
-      if (old == null && _f.foreignAllowed) _currencyGroup(),
-      if (_f.kind == AccountKind.card) _cardDays(),
-      if (_f.kind == AccountKind.card)
+      if (old == null && accountForm.foreignAllowed) _currencyGroup(),
+      if (accountForm.kind == AccountKind.card) _cardDays(),
+      if (accountForm.kind == AccountKind.card)
         FormGroup(
           title: '信用額度',
-          child: _Field(controller: _limit, hint: '額度', number: true),
+          child: AccountField(
+            controller: _limit,
+            hint: '額度',
+            number: true,
+            error: accountForm.limitProblem,
+          ),
         ),
-      _counted,
-      _buttons(old),
+      if (accountForm.trades) discountGroup(),
+      countedRow,
+      buttons(old),
       if (old != null)
         Padding(
           padding: const EdgeInsets.only(top: Space.s2),
@@ -550,15 +566,18 @@ class _AccountEditorState extends State<_AccountEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final old = _old;
-    final color = accountColor(_preview);
-    return SingleChildScrollView(
-      physics: const FitScrollPhysics(16),
-      padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: _loanForm ? _loanFields(old) : _accountFields(old, color),
+    final old = oldAccount;
+    final color = accountColor(previewAccount);
+    return EditGuard(
+      changed: !listEquals(accountForm.fields, _opened),
+      child: SingleChildScrollView(
+        physics: const FitScrollPhysics(16),
+        padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: _loanForm ? loanFields(old) : _accountFields(old, color),
+        ),
       ),
     );
   }

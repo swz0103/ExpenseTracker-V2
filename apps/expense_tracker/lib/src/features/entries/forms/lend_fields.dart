@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../model/compose_form.dart';
 import 'compose_actions.dart';

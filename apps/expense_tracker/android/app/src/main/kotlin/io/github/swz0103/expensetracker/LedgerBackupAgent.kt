@@ -19,9 +19,7 @@ import java.io.File
 class LedgerBackupAgent : BackupAgent() {
     override fun onFullBackup(data: FullBackupDataOutput) {
         super.onFullBackup(data)
-        val toDevice = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
-            (data.transportFlags and FLAG_DEVICE_TO_DEVICE_TRANSFER) != 0
-        if (toDevice) return
+        if (!forAccount(Build.VERSION.SDK_INT, data.transportFlags)) return
         try {
             File(filesDir, TAKEN).writeText(System.currentTimeMillis().toString())
         } catch (_: Exception) {
@@ -44,5 +42,20 @@ class LedgerBackupAgent : BackupAgent() {
 
     companion object {
         const val TAKEN = "google-backup-taken"
+
+        /**
+         * The one folder Android's backup takes, as res/xml names it for
+         * every Android version: the app writes its copy there as
+         * `記帳本.etbk` (LedgerFolder.cloudCopy), only ever by a rename (F65).
+         */
+        const val FOLDER = "cloud/"
+
+        /**
+         * Whether a backup with [transportFlags], on Android [sdk], goes to
+         * the person's Google account, not to a new phone by cable or
+         * Wi-Fi (told apart since Android 9).
+         */
+        fun forAccount(sdk: Int, transportFlags: Int): Boolean =
+            sdk < Build.VERSION_CODES.P || (transportFlags and FLAG_DEVICE_TO_DEVICE_TRANSFER) == 0
     }
 }

@@ -1,6 +1,6 @@
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/design_system/keys.dart';
-import 'package:expense_tracker/src/core/formatting/dates.dart';
+import 'package:expense_tracker/design_system/display/date.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,7 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../../support/places.dart';
 
 /// A tag's page and a merchant's in the demo book, with a second tag
-/// #旅行 added: their entries, and 改名, 合併到… and 移除 from the ⋯,
+/// #旅行 added: their entries, and 改名, 合併到… and 刪除 from the ⋯ (each
+/// told with 復原, not asked first: D82),
 /// each kept on the entries themselves.
 void main() {
   setUpAll(loadFonts);
@@ -76,6 +77,28 @@ void main() {
     expect(find.byKey(Keys.discard), findsOneWidget, reason: 'the entry');
   });
 
+  testWidgets('a tag\'s categories are each said as a whole percent of '
+      'what it spent (review 16: percent call sites)', (tester) async {
+    ledger = book()
+      ..entryCommands.add(
+        Entry(
+          id: 'trip-3',
+          date: DateTime.utc(2026, 9, 21),
+          type: EntryType.expense,
+          amount: 1100,
+          account: 'bank',
+          category: '居家生活',
+          tags: const ['旅行'],
+        ),
+      );
+    await show(tester, 390, 1, book: ledger);
+    await go(tester, ['更多', '標籤與商家', '#旅行']);
+    // 2,400 + 900 = 3,300 on 交通通勤 and 1,100 on 居家生活, of 4,400:
+    // 75% and 25%.
+    expect(find.text('交通通勤 75%'), findsOneWidget);
+    expect(find.text('居家生活 25%'), findsOneWidget);
+  });
+
   testWidgets('改名 a tag moves its entries to the new name, a # typed '
       'before it left out', (tester) async {
     await open(tester, ['#旅行']);
@@ -86,30 +109,29 @@ void main() {
     expect(find.text('#出遊'), findsWidgets, reason: 'its page now');
   });
 
-  testWidgets('改名 to a tag already used asks first, and merges on 合併', (
+  testWidgets('改名 to a tag already used merges at once, with 復原 (D82)', (
     tester,
   ) async {
     await open(tester, ['#旅行']);
-    final both = {...tagged('旅行'), ...tagged('家用')};
+    final trips = tagged('旅行');
+    final home = tagged('家用');
     await rename(tester, '家用');
-    expect(find.text('合併到 #家用？'), findsOneWidget);
-    expect(find.text('旅行 的 2 筆紀錄會改成 #家用，#旅行 就不見了。'), findsOneWidget);
-    await tester.tap(find.byKey(Keys.confirm));
-    await tester.pumpAndSettle();
+    expect(find.byKey(Keys.confirm), findsNothing);
     expect(tagged('旅行'), isEmpty);
-    expect(tagged('家用'), both);
+    expect(tagged('家用'), {...trips, ...home});
+    expect(find.text('已把「#旅行」合併到「#家用」'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.snack('復原')));
+    await tester.pumpAndSettle();
+    expect(tagged('旅行'), trips);
+    expect(tagged('家用'), home);
   });
 
-  testWidgets('改名 to a tag already used, then 取消, changes nothing; nor '
-      'does the same name', (tester) async {
+  testWidgets('改名 to the same name changes nothing', (tester) async {
     await open(tester, ['#旅行']);
     final trips = tagged('旅行');
-    await rename(tester, '家用');
-    await go(tester, ['取消']);
-    expect(tagged('旅行'), trips);
     await rename(tester, '旅行');
     expect(tagged('旅行'), trips);
-    expect(find.text('合併到 #旅行？'), findsNothing);
+    expect(find.byKey(Keys.snack('復原')), findsNothing);
   });
 
   testWidgets('合併到… picks another tag and moves the entries there', (
@@ -120,27 +142,27 @@ void main() {
     await go(tester, ['~更多選項', '合併到…']);
     expect(find.text('合併到'), findsOneWidget);
     await go(tester, ['^#旅行']);
-    expect(find.textContaining('合併到 #旅行？'), findsOneWidget);
-    await tester.tap(find.byKey(Keys.confirm));
-    await tester.pumpAndSettle();
+    expect(find.byKey(Keys.confirm), findsNothing);
     expect(tagged('家用'), isEmpty);
     expect(tagged('旅行'), both);
     expect(find.text('#旅行'), findsWidgets, reason: 'opened on the one kept');
+    expect(find.text('已把「#家用」合併到「#旅行」'), findsOneWidget);
   });
 
-  testWidgets('移除標籤 takes the tag off its entries and keeps them', (
-    tester,
-  ) async {
+  testWidgets('刪除標籤 takes the tag off its entries and keeps them; 復原 '
+      'puts it back', (tester) async {
     await open(tester, ['#旅行']);
+    final trips = tagged('旅行');
     final count = ledger.entries.all.length;
-    await go(tester, ['~更多選項', '移除標籤']);
-    expect(find.text('移除 #旅行？'), findsOneWidget);
-    expect(find.text('2 筆紀錄會拿掉這個標籤，紀錄本身保留。'), findsOneWidget);
-    await tester.tap(find.byKey(Keys.confirm));
-    await tester.pumpAndSettle();
+    await go(tester, ['~更多選項', '刪除標籤']);
+    expect(find.byKey(Keys.confirm), findsNothing);
     expect(tagged('旅行'), isEmpty);
     expect(ledger.entries.all.length, count);
     expect(find.text('紀錄 · 2 筆'), findsNothing, reason: 'back on 標籤');
+    expect(find.text('已刪除「#旅行」'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.snack('復原')));
+    await tester.pumpAndSettle();
+    expect(tagged('旅行'), trips);
   });
 
   testWidgets('a merchant\'s page says how often, when last and first', (
@@ -158,30 +180,30 @@ void main() {
     expect(find.text('紀錄'), findsWidgets);
   });
 
-  testWidgets('改名 a merchant to another merges them once agreed', (
-    tester,
-  ) async {
+  testWidgets('改名 a merchant to another merges them at once', (tester) async {
     await open(tester, ['商家', '星巴克']);
     final both = {...at('星巴克'), ...at('家樂福')};
     await rename(tester, '家樂福');
-    expect(find.textContaining('合併到 家樂福？'), findsOneWidget);
-    await tester.tap(find.byKey(Keys.confirm));
-    await tester.pumpAndSettle();
+    expect(find.byKey(Keys.confirm), findsNothing);
     expect(at('星巴克'), isEmpty);
     expect(at('家樂福'), both);
+    expect(find.text('已把「星巴克」合併到「家樂福」'), findsOneWidget);
   });
 
-  testWidgets('移除商家 takes the merchant off its entries', (tester) async {
+  testWidgets('刪除商家 takes the merchant off its entries; 復原 puts it '
+      'back', (tester) async {
     await open(tester, ['商家', 'Apple']);
-    await go(tester, ['~更多選項', '移除商家']);
-    expect(find.text('移除 Apple？'), findsOneWidget);
-    expect(find.text('1 筆紀錄會拿掉這個商家，紀錄本身保留。'), findsOneWidget);
-    await tester.tap(find.byKey(Keys.confirm));
-    await tester.pumpAndSettle();
+    final apple = at('Apple');
+    await go(tester, ['~更多選項', '刪除商家']);
+    expect(find.byKey(Keys.confirm), findsNothing);
     expect(at('Apple'), isEmpty);
     expect(
       ledger.entries.all.where((e) => e.note == 'iPhone 17'),
       hasLength(1),
     );
+    expect(find.text('已刪除「Apple」'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.snack('復原')));
+    await tester.pumpAndSettle();
+    expect(at('Apple'), apple);
   });
 }

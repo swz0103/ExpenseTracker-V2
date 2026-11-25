@@ -1,4 +1,12 @@
-part of 'compose_form.dart';
+import 'package:core/foundation_values.dart'
+    show BusinessDate, BusinessDayAnswer;
+import 'package:ledger_trade_costs/calc/settlement.dart';
+import 'package:ledger_trade_costs/model/trade_values.dart' show TradeKind;
+
+import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/validation_messages.dart';
+import '../../../core/ledger/trading.dart';
+import 'compose_form.dart';
 
 // A buy or sale of shares: what the shares sold cost, and when it settles;
 // and how a dividend changes the shares held.
@@ -8,19 +16,118 @@ part of 'compose_form.dart';
 enum ShareChange { none, stockDividend, split, capitalReduction }
 
 extension TradeFields on ComposeForm {
+  /// The broker's fee and tax the ledger's Taiwan rules suggest for the
+  /// trade being written.
+  (int, int) get suggested =>
+      suggestedFor(type, holding ?? '', amount, shares, date, dayTrade);
+
+  /// The broker's discount a trade from or into [account] is charged at:
+  /// the account's own, else the phone-wide [brokerDiscount] (D7).
+  int get tradeDiscount =>
+      ledger.accounts.byId(account)?.brokerDiscount ?? brokerDiscount;
+
+  /// The fee and tax the rules suggest for a [kind] of [shares] of [code]
+  /// for [amount] on [day], at the [tradeDiscount]; a [dayTrade] sale at
+  /// the day-trade tax rate.
+  (int, int) suggestedFor(
+    EntryType kind,
+    String code,
+    int amount,
+    int shares,
+    DateTime day,
+    bool dayTrade,
+  ) {
+    final tax = kind == EntryType.sell
+        ? saleTax(code, amount, shares, day, dayTrade: dayTrade)
+        : 0;
+    return (brokerFee(amount, shares, discount: tradeDiscount), tax);
+  }
+
+  /// The trade's fee and tax: as typed, else as suggested.
+  (int, int) get charges {
+    if (type != EntryType.buy && type != EntryType.sell) return (0, 0);
+    final (fee, tax) = suggested;
+    return (tradeFee ?? fee, tradeTax ?? tax);
+  }
+
+  /// What a trade settles at, by the same rule as the saved entry
+  /// (`settlementAmount`): paid for a buy with its fee, received for a
+  /// sale less fee and tax; as a size, without its sign.
+  int get settlement {
+    final (fee, tax) = charges;
+    final kind = trade == EntryType.sell ? TradeKind.sell : TradeKind.buy;
+    return settlementAmount(kind, gross: amount, fee: fee, tax: tax).abs();
+  }
+
   /// What the shares being sold cost, by the method chosen ([average] or
-  /// first in, first out); null for a buy, before a holding is chosen, and
-  /// for more shares than are held, which no cost answers.
+  /// first in, first out), from the lots held on the sale's day: the
+  /// stock's trades up to then ([tradesBefore]), the sale being changed
+  /// left out. Null for a buy, before a holding is chosen, and for more
+  /// shares than were held then, which no cost answers.
+  ///
+  /// Worked out again only when what it rests on changes (the stock, the
+  /// shares, the method, the day, the book's entries and holdings, or
+  /// today), not on every keystroke elsewhere in the form.
   int? get saleCost {
     final code = holding;
     if (trade != EntryType.sell || code == null) return null;
-    final held = ledger.holding(code);
-    if (held == null || shares > held.shares) return null;
-    return ledger.holdings.saleCost(code, shares, average: average);
+    final key = (
+      code,
+      shares,
+      average,
+      date,
+      editing?.id,
+      ledger.today,
+      ledger.revisionOf(Topic.entries),
+      // The holdings the book starts from change with the market.
+      ledger.revisionOf(Topic.market),
+    );
+    if (key == keptSaleCostKey) return keptSaleCost;
+    keptSaleCostKey = key;
+    return keptSaleCost = ledger.holdings.saleCostWith(
+      tradesBefore(code),
+      code,
+      shares,
+      average: average,
+    );
   }
 
-  /// The day the trade settles: two weekdays after it (T+2).
-  DateTime get settles => settlementDay(date);
+  /// The book's trades of [code] before the one being written: those of
+  /// earlier days and, on its day, those written before it; the entry
+  /// being changed is left out, and so is all that follows it on its day.
+  /// A stock's lots are worked out from its own trades alone, so the
+  /// other stocks' are left out too.
+  List<Entry> tradesBefore(String code) {
+    final changed = editing;
+    final before = <Entry>[];
+    var past = false;
+    // The stock's own entries, in the book's order, when the entry being
+    // changed is one of them (or none is): where it stands among them is
+    // all that decides which of its day come before. Otherwise every
+    // entry, to find where it stands.
+    final source = changed == null || changed.holding == code
+        ? ledger.entryQueryService.tradesInBookOrder(code)
+        // Exception to as-of-today: taken through countedOn just below.
+        : ledger.entries.all;
+    // A trade is dated today at the latest (D70): one an old book dated
+    // later is not before it, as the holdings do not count it yet.
+    for (final e in countedOn(source, ledger.today)) {
+      if (changed != null && e.id == changed.id) {
+        past = true;
+        continue;
+      }
+      if (e.holding != code || e.date.isAfter(date)) continue;
+      // On the day itself, a new entry comes after all; one changed keeps
+      // its place, unless it moved to another day.
+      if (past && changed!.date == date && e.date == date) continue;
+      before.add(e);
+    }
+    return before;
+  }
+
+  /// The day the trade settles: two exchange days after it (T+2),
+  /// holidays skipped where the calendar knows the year.
+  BusinessDayAnswer<BusinessDate> get settles => settlementDay(date);
 
   /// How the dividend being written changes the shares held.
   ShareChange get shareChangeKind => !shareChange
@@ -38,4 +145,63 @@ extension TradeFields on ComposeForm {
     reduce = kind == ShareChange.capitalReduction;
     if (kind == ShareChange.none) shares = 0;
   }
+}
+
+/// What the ledger says before a trade is kept, such as a cash account
+/// left below nothing by buying shares (F24).
+extension SaveWarning on ComposeForm {
+  /// What the ledger says before keeping the entry, which may still be
+  /// kept, such as a cash account left below nothing by buying shares;
+  /// null when nothing, or while the entry would be refused. Worked out
+  /// once per change of the entry or the book, not on every frame that
+  /// shows it.
+  String? get warning {
+    final made = buildAll();
+    final key = '${ledger.revision}|${made.map(_fields).join('|')}';
+    if (key == keptWarningFor) return keptWarning;
+    keptWarningFor = key;
+    return keptWarning = _warningOf(made);
+  }
+
+  String? _warningOf(List<Entry> made) {
+    RecordIssue? said;
+    for (final e in made) {
+      final was = ledger.entries.byId(e.id);
+      // The shares a sale takes are the save's to check, by replaying the
+      // trades; no warning rests on them.
+      for (final issue in ledger.entryValidator.issues(
+        e,
+        replacing: was,
+        holdings: false,
+      )) {
+        if (issue.isError) return null;
+        said ??= issue;
+      }
+    }
+    return said == null ? null : validationMessage(said);
+  }
+
+  /// Every field of [e] but its id, which a new entry draws afresh each
+  /// time it is built.
+  static String _fields(Entry e) => (
+    e.date,
+    e.type,
+    e.amount,
+    e.account,
+    e.category,
+    e.to,
+    e.holding,
+    e.shares,
+    e.parts,
+    e.fee,
+    e.tax,
+    e.refundOf,
+    e.installments,
+    e.average,
+    e.dayTrade,
+    e.split,
+    e.home,
+    e.received,
+    e.group,
+  ).toString();
 }

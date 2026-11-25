@@ -2,8 +2,11 @@ import 'dart:convert';
 
 import 'package:vault/backup_security.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../../design_system/display/status_messages.dart';
+import '../../../core/messages/recurring_messages.dart';
 
 /// What the inbox brought when the ledger opened: how many items were
 /// booked, and what could not be, for the person to look at.
@@ -13,7 +16,9 @@ typedef InboxOutcome = ({int booked, List<String> review});
 /// 「確認入帳」 books its recurring item when that day is the one still
 /// due, the same as confirming it on the page; one booked since (by hand
 /// or by itself) is let go. Anything else is not guessed at but listed:
-/// an item deleted, paused or with an earlier day still unbooked, and
+/// an item deleted, paused or with an earlier day still unbooked, a
+/// booking the ledger refuses (such as one in another currency with no
+/// rate yet), and
 /// requests that cannot be read (sealed for a ledger restored over).
 InboxOutcome applyInbox(
   List<InboxItem> items, {
@@ -42,20 +47,29 @@ InboxOutcome applyInbox(
       continue;
     }
     if (!found.active) {
-      review.add('「${found.name}」已暫停，$label 的確認沒有入帳');
+      review.add('「${found.name}」${StatusWords.paused}，$label 的確認沒有入帳');
       continue;
     }
-    final pending = service.pendingDate(found);
-    if (pending == day) {
-      commands.confirm(found);
+    // The day confirmed is booked on that day (D66), if it is still open.
+    final open = service.unpostedDates(found, from: day, to: day).isNotEmpty;
+    final refusal = open ? commands.refusalOf(found, day: day) : null;
+    if (refusal != null) {
+      // Booked as the ledger keeps it, or not at all: told, not guessed.
+      review.add(inboxRefused(found.name, label, refusal));
+    } else if (open) {
+      commands.confirm(found, day: day);
       booked++;
-    } else if (pending != null && pending.isBefore(day)) {
+    }
+    // Otherwise that day is booked already, or let go.
+    final pending = service.pendingDate(found);
+    if (pending != null && pending.isBefore(day)) {
       review.add('「${found.name}」還有 ${formatMd(pending)} 那期沒入帳，請到定期交易確認');
     }
-    // Otherwise that day is booked already.
   }
   if (unreadable > 0) {
-    review.add('有 $unreadable 則通知上的確認無法讀取（可能是換帳本前留下的），已略過');
+    review.add(
+      '有 ${countOf(unreadable, CountUnit.notes)}通知上的確認無法讀取（可能是換帳本前留下的），${StatusWords.skipped}',
+    );
   }
   return (booked: booked, review: review);
 }
@@ -79,8 +93,9 @@ InboxOutcome applyInbox(
         int.parse(match[3]!),
       ),
     );
-  } on Object {
-    // A line that is not a time is left out.
+  } on FormatException {
+    // A line that cannot be read is left out, and counted for the person
+    // (`unreadable` above).
     return null;
   }
 }

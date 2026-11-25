@@ -1,9 +1,23 @@
-part of 'budgets.dart';
+import 'package:core/foundation_values.dart' show YearMonth;
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import 'budgets.dart';
 
 /// A year of months, each saying how much of its budget was used: red
 /// when over, gold from nine in ten.
-class _MonthPicker extends StatefulWidget {
-  const _MonthPicker({
+class BudgetMonthPicker extends StatefulWidget {
+  const BudgetMonthPicker({
+    super.key,
     required this.ledger,
     required this.chosen,
     required this.first,
@@ -11,16 +25,16 @@ class _MonthPicker extends StatefulWidget {
   });
 
   final Ledger ledger;
-  final (int, int) chosen;
-  final (int, int) first;
-  final (int, int) last;
+  final YearMonth chosen;
+  final YearMonth first;
+  final YearMonth last;
 
   @override
-  State<_MonthPicker> createState() => _MonthPickerState();
+  State<BudgetMonthPicker> createState() => _MonthPickerState();
 }
 
-class _MonthPickerState extends State<_MonthPicker> {
-  late var _year = widget.chosen.$1;
+class _MonthPickerState extends State<BudgetMonthPicker> {
+  late var _year = widget.chosen.year;
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +59,7 @@ class _MonthPickerState extends State<_MonthPicker> {
         children: [
           Row(
             children: [
-              arrow(Glyph.back, '前一年', _year > widget.first.$1, -1),
+              arrow(Glyph.back, '前一年', _year > widget.first.year, -1),
               Expanded(
                 child: Text(
                   '$_year',
@@ -56,7 +70,7 @@ class _MonthPickerState extends State<_MonthPicker> {
                   ),
                 ),
               ),
-              arrow(Glyph.next, '下一年', _year < widget.last.$1, 1),
+              arrow(Glyph.next, '下一年', _year < widget.last.year, 1),
             ],
           ),
           const SizedBox(height: Space.s4),
@@ -65,7 +79,7 @@ class _MonthPickerState extends State<_MonthPicker> {
           ]),
           const SizedBox(height: Space.s3),
           const Text(
-            '每個月下面寫用了幾成；超支紅、九成以上金色',
+            '每個月下面寫用了幾成；${StatusWords.over}紅、到警示比例金色',
             textAlign: TextAlign.center,
             style: mutedSmall,
           ),
@@ -75,22 +89,23 @@ class _MonthPickerState extends State<_MonthPicker> {
   }
 
   Widget _monthCell(BuildContext context, int m) {
-    const key = BudgetMonths.key;
+    final month = YearMonth(_year, m);
     final on =
-        key((_year, m)) >= key(widget.first) &&
-        key((_year, m)) <= key(widget.last);
-    final sums = budgetMonthOf(widget.ledger, (_year, m));
+        month.compareTo(widget.first) >= 0 && month.compareTo(widget.last) <= 0;
+    final sums = budgetMonthOf(widget.ledger, month);
     final total = sums.total;
-    final share = total == 0 ? null : sums.spent * 100 ~/ total;
-    final chosen = (_year, m) == widget.chosen;
-    final tone = share == null
-        ? AppColors.muted
-        : share > 100
-        ? AppColors.negative
-        : share >= 90
-        ? AppColors.goldText
-        : AppColors.muted;
-    final pick = on ? () => Navigator.of(context).pop((_year, m)) : null;
+    // Over and near are decided by the budget rules on the amounts:
+    // 50,174 of 50,000 is over, though its rounded share is 100%.
+    final status = total == 0 ? null : sums.status;
+    final over = status is BudgetOver;
+    final share = total == 0 ? null : percent(sums.spent, total);
+    final chosen = month == widget.chosen;
+    final tone = switch (status) {
+      BudgetOver() => AppColors.negative,
+      BudgetNear() => AppColors.goldText,
+      _ => AppColors.muted,
+    };
+    final pick = on ? () => Navigator.of(context).pop(month) : null;
     return ReadAsButton(
       selected: chosen,
       enabled: on,
@@ -122,8 +137,8 @@ class _MonthPickerState extends State<_MonthPicker> {
                 Text(
                   !on || share == null
                       ? ' '
-                      : share > 100
-                      ? '超支'
+                      : over
+                      ? StatusWords.over
                       : '$share%',
                   style: TextStyle(
                     fontSize: TextSize.small,
@@ -142,8 +157,8 @@ class _MonthPickerState extends State<_MonthPicker> {
 
 /// 幫哪個設額度: the spending categories without one, as squares, and the
 /// tags without one, as chips.
-class _AddLimit extends StatelessWidget {
-  const _AddLimit({required this.ledger});
+class BudgetAddLimit extends StatelessWidget {
+  const BudgetAddLimit({super.key, required this.ledger});
 
   final Ledger ledger;
 

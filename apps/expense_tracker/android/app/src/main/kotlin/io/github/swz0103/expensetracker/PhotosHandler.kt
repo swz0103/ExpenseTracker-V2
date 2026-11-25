@@ -22,7 +22,7 @@ class PhotosHandler(private val activity: FragmentActivity) : ChannelHandler {
 
     /** Where the camera writes before the photo is made smaller. */
     private val cameraFile: File
-        get() = File(activity.cacheDir, "camera").apply { mkdirs() }.resolve("receipt.jpg")
+        get() = File(activity.cacheDir, AppFiles.CAMERA).apply { mkdirs() }.resolve(AppFiles.CAMERA_PHOTO)
 
     /**
      * A photo taken while the phone closed the app to make room: nothing
@@ -30,7 +30,7 @@ class PhotosHandler(private val activity: FragmentActivity) : ChannelHandler {
      * handed over by `takeLeftoverPhoto` when 記一筆 opens again.
      */
     private val leftover: File
-        get() = File(activity.cacheDir, "receipt-leftover.jpg")
+        get() = File(activity.cacheDir, AppFiles.RECEIPT_LEFTOVER)
 
     private val takePicture =
         activity.registerForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
@@ -84,9 +84,9 @@ class PhotosHandler(private val activity: FragmentActivity) : ChannelHandler {
      * into the private `receipts` folder and deletes this copy. Off the
      * main thread.
      */
-    private fun keepPhoto(source: Uri, into: File = File(activity.cacheDir, "receipt-ready.jpg")) {
-        Thread {
-            try {
+    private fun keepPhoto(source: Uri, into: File = File(activity.cacheDir, AppFiles.RECEIPT_READY)) {
+        OffMain.of(activity).run(
+            work = {
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 activity.contentResolver.openInputStream(source)?.use {
                     BitmapFactory.decodeStream(it, null, bounds)
@@ -114,16 +114,16 @@ class PhotosHandler(private val activity: FragmentActivity) : ChannelHandler {
                 val ready = into
                 ready.outputStream().use { photo.compress(Bitmap.CompressFormat.JPEG, 82, it) }
                 cameraFile.delete()
-                activity.runOnUiThread { finishPhoto(ready.absolutePath) }
-            } catch (e: Throwable) {
-                // Any failure, running out of memory on a huge photo
-                // included, ends the request, so takePhoto is not left busy.
-                activity.runOnUiThread {
-                    val result = pendingPhoto
-                    pendingPhoto = null
-                    result?.error("photo", e.message, null)
-                }
-            }
-        }.start()
+                ready.absolutePath
+            },
+            done = ::finishPhoto,
+            // Any failure, running out of memory on a huge photo included,
+            // ends the request, so takePhoto is not left busy.
+            failed = { e ->
+                val result = pendingPhoto
+                pendingPhoto = null
+                result?.error("photo", e.message, OffMain.kindOf(e))
+            },
+        )
     }
 }

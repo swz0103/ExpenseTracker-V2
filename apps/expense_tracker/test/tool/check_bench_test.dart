@@ -56,4 +56,13 @@ void main() {
       expect(entry.value as num, greaterThan(0), reason: entry.key);
     }
   });
+
+  test('the first-open journal rebuild at 100k is gated, time and hold', () {
+    final limits = jsonDecode(
+      File('test/perf/thresholds.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    // Written by integration_test/bench_test.dart as `key('journal_...')`.
+    expect(limits, contains('100k_journal_rebuild_ms'));
+    expect(limits, contains('100k_journal_rebuild_held_ms'));
+  });
 }

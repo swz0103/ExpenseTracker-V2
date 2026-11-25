@@ -7,6 +7,8 @@ Trashed _trashed(
   String account = 'a',
   String? to,
   String note = '',
+  int? order,
+  DateTime? on,
 }) => Trashed(
   Entry(
     id: id,
@@ -17,23 +19,35 @@ Trashed _trashed(
     to: to,
     note: note,
   ),
-  DateTime.utc(2026, 10, 4),
+  on ?? DateTime.utc(2026, 10, 4),
+  order: order,
 );
 
 List<String> _ids(TrashRepository t) => [for (final x in t.all) x.entry.id];
 
 void main() {
-  test('the last deleted comes first', () {
+  test('the last day deleted comes first; within a day the latest '
+      'written entry first, as the book keeps it', () {
     final trash = TrashRepository();
-    trash.put(_trashed('a'));
-    trash.put(_trashed('b'));
-    expect(_ids(trash), ['b', 'a']);
+    trash.put(_trashed('a', order: 5));
+    trash.put(_trashed('b', order: 2));
+    trash.put(_trashed('c', order: 1, on: DateTime.utc(2026, 10, 5)));
+    expect(_ids(trash), ['c', 'a', 'b']);
   });
 
-  test('several deleted at once: the last of them first, before the older', () {
-    final trash = TrashRepository([_trashed('old')]);
-    trash.putAll([_trashed('x'), _trashed('y'), _trashed('z')]);
-    expect(_ids(trash), ['z', 'y', 'x', 'old']);
+  test('several deleted at once each take their place', () {
+    final trash = TrashRepository([_trashed('old', order: 3)]);
+    trash.putAll([
+      _trashed('x', order: 1),
+      _trashed('y', order: 4),
+      _trashed('z', order: 2),
+    ]);
+    expect(_ids(trash), ['y', 'old', 'z', 'x']);
+    expect(
+      trashOrder(_trashed('n'), _trashed('m', order: 0)),
+      greaterThan(0),
+      reason: 'one with no known place last',
+    );
   });
 
   test('entries put back by id leave the trash', () {

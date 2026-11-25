@@ -1,10 +1,21 @@
-part of 'account_editor.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import '../../../core/messages/trade_messages.dart';
+import 'account_editor_state.dart';
 
 /// The card on top of the form, and its first fields: the mark, the name
 /// typed straight onto it and a dot of its colour that opens the
 /// colours, over the balance.
-class _EditCard extends StatelessWidget {
-  const _EditCard({
+class AccountEditCard extends StatelessWidget {
+  const AccountEditCard({
+    super.key,
     required this.color,
     required this.icon,
     required this.kind,
@@ -126,16 +137,21 @@ const _plain = InputDecoration(
   contentPadding: EdgeInsets.symmetric(vertical: Space.s2),
 );
 
-class _Field extends StatelessWidget {
-  const _Field({
+class AccountField extends StatelessWidget {
+  const AccountField({
+    super.key,
     required this.controller,
     required this.hint,
     this.number = false,
+    this.error,
   });
 
   final TextEditingController controller;
   final String hint;
   final bool number;
+
+  /// What is wrong with what was typed, shown under the field.
+  final String? error;
 
   @override
   Widget build(BuildContext context) {
@@ -146,6 +162,7 @@ class _Field extends StatelessWidget {
           : TextInputType.text,
       decoration: InputDecoration(
         hintText: hint,
+        errorText: error,
         isDense: true,
         filled: true,
         fillColor: AppColors.white,
@@ -160,8 +177,13 @@ class _Field extends StatelessWidget {
 
 /// A day of the month in the closing or due day picker: a 48 dp key
 /// named for a screen reader.
-class _DayKey extends StatelessWidget {
-  const _DayKey({required this.day, required this.picked, required this.onTap});
+class AccountDayKey extends StatelessWidget {
+  const AccountDayKey({
+    super.key,
+    required this.day,
+    required this.picked,
+    required this.onTap,
+  });
 
   final int day;
   final bool picked;
@@ -195,3 +217,93 @@ class _DayKey extends StatelessWidget {
 const _ring = Border.fromBorderSide(
   BorderSide(color: AppColors.white, width: 3),
 );
+
+/// Parts of the account form kept apart from its state's file: the
+/// account as it stands, and its own broker discount.
+extension AccountBlocks on AccountEditorState {
+  /// The account as the form stands, for its colour and label.
+  Account get previewAccount => Account(
+    oldAccount?.id ?? '',
+    accountForm.name.trim(),
+    accountForm.kind,
+    0,
+    icon: accountForm.icon,
+    dueDay: accountForm.card ? accountForm.due : null,
+    currency: accountForm.foreignAllowed ? accountForm.currency : homeCode,
+    color: accountForm.color,
+  );
+
+  /// 券商手續費折扣 of an account that trades: its own, or empty for the
+  /// phone-wide one (D7).
+  Widget discountGroup() => FormGroup(
+    title: BrokerDiscountText.title,
+    child: AccountField(
+      key: Keys.accountDiscount,
+      controller: discountField,
+      hint: BrokerDiscountText.accountHint,
+      number: true,
+      error: accountForm.discountProblem,
+    ),
+  );
+}
+
+/// The account form's foot, apart from its fields.
+extension AccountEditorActions on AccountEditorState {
+  /// 刪除, 封存 or 恢復 when changing, and 儲存; what is left under it.
+  Widget buttons(Account? old) {
+    final removable =
+        old != null && !widget.ledger.accountCommands.usedOutsideTrash(old.id);
+    final problem = shownProblem;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (problem != null)
+          Padding(
+            padding: const EdgeInsets.only(top: Space.s3),
+            child: Text(
+              problem,
+              textAlign: TextAlign.center,
+              style: dangerText,
+            ),
+          ),
+        const SizedBox(height: Space.s4),
+        Row(
+          children: [
+            if (old != null)
+              TextButton(
+                onPressed: removable ? deleteAccount : archiveAccount,
+                style: wordButton(
+                  removable || !old.archived
+                      ? AppColors.danger
+                      : AppColors.accent,
+                  minimumSize: Size(64, 46),
+                ),
+                child: Text(
+                  removable
+                      ? Words.delete
+                      : old.archived
+                      ? Words.unarchive
+                      : widget.ledger.balanceService.balance(old.id) == 0
+                      ? Words.archive
+                      : Words.settleArchive,
+                ),
+              ),
+            const CancelButton(word: true),
+            const SizedBox(width: Space.s2),
+            Expanded(
+              child: FilledButton(
+                onPressed: saveAccount,
+                style: solidButton(
+                  AppColors.accent,
+                  minimumSize: Size.fromHeight(46),
+                  radius: Radii.medium,
+                ),
+                child: const Text(Words.save),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}

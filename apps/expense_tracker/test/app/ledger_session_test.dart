@@ -1,9 +1,14 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:expense_tracker/src/app/ledger_session.dart';
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/quarantine.dart';
+import 'package:expense_tracker/src/core/messages/problem_messages.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/upgrade_backup.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 
@@ -60,12 +65,51 @@ void main() {
     return [for (final (_, text) in all.take(all.length - before)) text];
   }
 
+  group('bringing the book up first (D19)', () {
+    final full = UpgradeBackupFailed.of(
+      const FileSystemException('', '', OSError('No space left', 28)),
+    );
+
+    test('nothing to bring up: nothing held', () async {
+      final session = LedgerSession(load: () async => book());
+      expect(await session.prepare(), isNull);
+    });
+
+    test('held while the copy is not kept; on without it when asked', () async {
+      final asked = <bool>[];
+      final session = LedgerSession(
+        load: () async => book(),
+        bringUp: ({required withoutBackup}) async {
+          asked.add(withoutBackup);
+          return withoutBackup ? null : full;
+        },
+      );
+      expect(await session.prepare(), same(full));
+      expect(await session.prepare(), same(full));
+      expect(await session.prepare(withoutBackup: true), isNull);
+      expect(asked, [false, false, true]);
+    });
+  });
+
   test('without an inbox the book opens with nothing to tell', () async {
     final ledger = book();
     final start = await LedgerSession(load: () async => ledger).open();
     expect(start.ledger, same(ledger));
     expect(start.inbox, isNull);
     expect(start.booked, 0);
+  });
+
+  test('the rows set aside as the book loaded are told', () async {
+    final ledger = book();
+    const aside = [
+      QuarantinedRow('entry', 'e9', QuarantineReason.newer, version: 3),
+    ];
+    final start = await LedgerSession(
+      load: () async => ledger,
+      quarantined: () => aside,
+    ).open();
+    expect(start.ledger, same(ledger));
+    expect(start.quarantined, aside);
   });
 
   test('the inbox books its confirmations and is emptied', () async {
@@ -94,11 +138,14 @@ void main() {
       'and books what is due', () async {
     final ledger = book(recurring: [item('rent', 5, auto: true)]);
     final before = ErrorLog.instance.entries.length;
+    final told = <QuietStep>[];
     final start = await LedgerSession(
       load: () async => ledger,
       inbox: () async => throw StateError('sealed for another ledger'),
+      failed: told.add,
     ).open();
     expect(start.inbox, isNull);
+    expect(told, [QuietStep.autoBooking], reason: 'D84: told, not quiet');
     expect(start.booked, 1);
     expect(ErrorLog.instance.entries.length, before + 1);
     expect(ErrorLog.instance.entries.first.$2, contains('收件匣'));
@@ -109,9 +156,9 @@ void main() {
       recurring: [item('rent', 5, auto: true), item('gym', 20, auto: true)],
     );
     final session = LedgerSession(load: () async => ledger);
-    expect(session.bookDue(ledger), 1);
+    expect(session.bookDue(ledger).booked, 1);
     // Booked once: coming back the same day books nothing more.
-    expect(session.bookDue(ledger), 0);
+    expect(session.bookDue(ledger).booked, 0);
   });
 
   test('a record naming an account the book lacks is logged once a kind', () {
@@ -124,9 +171,161 @@ void main() {
       category: '居家',
     );
     final ledger = book(entries: [orphan, orphan.withId('e2')]);
-    final notes = logged(
-      () => LedgerSession(load: () async => ledger).checkIntegrity(ledger),
-    );
+    final told = <QuietStep>[];
+    final session = LedgerSession(load: () async => ledger, failed: told.add);
+    final notes = logged(() => session.checkIntegrity(ledger));
     expect(notes.where((n) => n.contains('帳本健檢')), hasLength(1));
+    // Review 31: and the person hears of it (D84).
+    expect(told, [QuietStep.integrityCheck]);
+    told.clear();
+    session.checkIntegrity(book());
+    expect(told, isEmpty, reason: 'a whole book is not told of');
   });
+
+  group('the inbox while the ledger stays open', () {
+    /// What happened, in order: each change kept, each item taken out.
+    late List<String> steps;
+    late _Disk disk;
+
+    Ledger kept() => Ledger(
+      today: today,
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 50000)],
+      categories: [Category('居家', 'home', 0xFF5B8DB0)],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: [item('rent', 5)],
+      dataSource: disk,
+    );
+
+    (Future<InboxSource> Function(), List<String>) logged(
+      List<InboxItem> items, {
+      bool removeFails = false,
+    }) {
+      final removed = <String>[];
+      return (
+        () async => (
+          read: () async => [
+            for (final i in items)
+              if (!removed.contains(i.name)) i,
+          ],
+          remove: (String name) async {
+            if (removeFails) throw const FileSystemLike('app stopped');
+            steps.add('removed $name');
+            removed.add(name);
+          },
+        ),
+        removed,
+      );
+    }
+
+    setUp(() {
+      steps = [];
+      disk = _Disk(steps, () => kept());
+    });
+
+    test('REM-01: coming back books what was confirmed on a notification '
+        'meanwhile', () async {
+      final ledger = kept();
+      final (open, removed) = logged([confirm('rent', '2026-10-05')]);
+      final back = await LedgerSession(
+        load: () async => ledger,
+        inbox: open,
+      ).resume(ledger);
+      expect(back.inbox?.booked, 1);
+      expect(ledger.entries.all.single.recurring, 'rent');
+      expect(removed, ['rent-2026-10-05.json']);
+    });
+
+    test(
+      'REM-02: an item is taken out only once its booking is kept',
+      () async {
+        final ledger = kept();
+        final (open, _) = logged([confirm('rent', '2026-10-05')]);
+        await LedgerSession(
+          load: () async => ledger,
+          inbox: open,
+        ).resume(ledger);
+        expect(steps, ['kept rent', 'removed rent-2026-10-05.json']);
+      },
+    );
+
+    test('REM-02: a booking the book refuses leaves the item, booked once '
+        'when next read', () async {
+      final ledger = kept();
+      final (open, removed) = logged([confirm('rent', '2026-10-05')]);
+      final session = LedgerSession(load: () async => ledger, inbox: open);
+      disk.failNext = 1;
+      final refused = await session.resume(ledger);
+      expect(refused.inbox, isNull);
+      expect(removed, isEmpty);
+      // The book was read back without the booking.
+      expect(ledger.entries.all, isEmpty);
+
+      final again = await session.resume(ledger);
+      expect(again.inbox?.booked, 1);
+      expect(removed, ['rent-2026-10-05.json']);
+      expect([for (final e in ledger.entries.all) e.recurring], ['rent']);
+    });
+
+    test('REM-02: stopped after the booking was kept and before the item '
+        'was taken out, the next read books nothing twice', () async {
+      final ledger = kept();
+      final items = [confirm('rent', '2026-10-05')];
+      final (stopped, _) = logged(items, removeFails: true);
+      await LedgerSession(load: () async => ledger, inbox: stopped).open();
+      expect(ledger.entries.all, hasLength(1));
+
+      final (open, removed) = logged(items);
+      final start = await LedgerSession(
+        load: () async => ledger,
+        inbox: open,
+      ).open();
+      expect(start.inbox?.booked, 0);
+      expect(removed, ['rent-2026-10-05.json']);
+      expect(ledger.entries.all, hasLength(1));
+    });
+
+    test('two reads at once take each item once', () async {
+      final ledger = kept();
+      final (open, removed) = logged([confirm('rent', '2026-10-05')]);
+      final session = LedgerSession(load: () async => ledger, inbox: open);
+      final both = await Future.wait([
+        session.readInbox(ledger),
+        session.readInbox(ledger),
+      ]);
+      expect([for (final o in both) o?.booked], [1, null]);
+      expect(removed, ['rent-2026-10-05.json']);
+      expect(ledger.entries.all, hasLength(1));
+    });
+  });
+}
+
+/// A failure of the phone's files, as when the app is stopped.
+final class FileSystemLike implements Exception {
+  const FileSystemLike(this.message);
+  final String message;
+}
+
+/// Where the ledger keeps its changes: notes each in [steps], refuses the
+/// next [failNext], and reads back a book as [load] makes it.
+final class _Disk implements LedgerDataSource {
+  _Disk(this.steps, this._fresh);
+
+  final List<String> steps;
+  final Ledger Function() _fresh;
+  var failNext = 0;
+
+  @override
+  Future<void> keep(WriteBatch batch) async {
+    await Future<void>.delayed(Duration.zero);
+    if (failNext > 0) {
+      failNext--;
+      throw const DataSourceException('disk full');
+    }
+    steps.add('kept ${[for (final e in batch.entries) e.recurring].join(',')}');
+  }
+
+  @override
+  Future<Ledger> load() async => _fresh();
 }

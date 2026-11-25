@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../../../core/charts/bar_scale.dart';
-import '../../../../core/formatting/figures.dart';
+import '../../../../../design_system/display/amount.dart';
 import '../../../../core/design_system/glyphs.dart';
 import '../../../../core/design_system/theme.dart';
 import '../../../../core/design_system/design_system.dart';
@@ -11,7 +11,7 @@ import '../../../../core/ledger/ledger.dart';
 import '../../../../core/navigation/nav.dart';
 import '../../../../core/widgets/entry_tile.dart' show holdingLabel;
 import '../../../../core/widgets/shown_amounts.dart';
-import '../../../../core/formatting/dates.dart';
+import '../../../../../design_system/display/date.dart';
 import '../../../../core/design_system/shape.dart';
 import '../../../../core/design_system/spacing.dart';
 
@@ -49,12 +49,13 @@ class _MarketSectionState extends State<MarketSection> {
 
   List<Widget> _market() {
     final ledger = widget.ledger;
-    final holdings = ledger.holdings;
-    if (holdings.all.isEmpty) return const [];
+    // Only the stocks still held: one sold out is no longer a holding.
+    final held = ledger.holdings.held;
+    if (held.isEmpty) return const [];
     final change = ledger.holdings.dayChange;
     final before = ledger.holdings.marketValue - change;
-    final largest = holdings.all.fold(0, (m, h) => max(m, h.change.abs()));
-    final anyLoss = holdings.all.any((h) => h.change < 0);
+    final largest = held.fold(0, (m, h) => max(m, h.change.abs()));
+    final anyLoss = held.any((h) => h.change < 0);
     final code = _holding;
     final picked = code == null ? null : ledger.holding(code);
     final tone = AppColors.ofMarket(change);
@@ -82,6 +83,7 @@ class _MarketSectionState extends State<MarketSection> {
             color: ToolColors.investments,
             label: '當日損益',
             value: ledger.moneySigned(change),
+            spokenValue: ledger.spoken(change),
             valueColor: tone,
             sub: '當日 ${percentOf(change, before)}',
           ),
@@ -90,13 +92,13 @@ class _MarketSectionState extends State<MarketSection> {
           color: ToolColors.investments,
           label: '持股市值',
           value: ledger.money(ledger.holdings.marketValue),
-          sub: '${holdings.all.length} 檔',
+          sub: countOf(held.length, CountUnit.stocks),
           onTap: () => widget.nav.open(AppRoutes.investments),
         ),
       ]),
       const SizedBox(height: Space.s2),
-      for (final h in holdings.all)
-        _moveRow(h, largest, anyLoss ? 0.5 : 0, bar: holdings.all.length > 1),
+      for (final h in held)
+        _moveRow(h, largest, anyLoss ? 0.5 : 0, bar: held.length > 1),
       if (picked != null)
         Padding(
           padding: const EdgeInsets.only(top: Space.s2),
@@ -116,6 +118,13 @@ class _MarketSectionState extends State<MarketSection> {
                   text: ledger.orDots(
                     '${signed(picked.gain)}'
                     '（${percentOf(picked.gain, picked.cost)}）',
+                  ),
+                  semanticsLabel: ledger.readAloud(
+                    ledger.orDots(
+                      '${signed(picked.gain)}'
+                      '（${percentOf(picked.gain, picked.cost)}）',
+                    ),
+                    picked.gain,
                   ),
                   style: TextStyle(color: AppColors.ofMarket(picked.gain)),
                 ),
@@ -174,6 +183,7 @@ class _MarketSectionState extends State<MarketSection> {
               width: 50 * textGrowth(context),
               child: Text(
                 quoted ? widget.ledger.moneySigned(h.change) : '—',
+                semanticsLabel: quoted ? widget.ledger.spoken(h.change) : null,
                 textAlign: TextAlign.end,
                 style: TextStyle(
                   fontSize: TextSize.small,

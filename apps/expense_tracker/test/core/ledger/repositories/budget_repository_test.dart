@@ -66,4 +66,49 @@ void main() {
     budgets.replaceWith(budgets.all);
     expect(_of(budgets), [('交通', 50), ('#家用', 80)]);
   });
+
+  test('restore puts a budget back in its place, or the last', () {
+    final before = [Budget('飲食', 100), Budget('#家用', 80), Budget('交通', 50)];
+    final budgets = BudgetRepository([Budget('飲食', 100), Budget('交通', 50)]);
+    budgets.restore(before, budgets.all, {'#家用'});
+    expect(_of(budgets), [('飲食', 100), ('#家用', 80), ('交通', 50)]);
+    final wide = [Budget('a', 1), Budget('b', 2), Budget('c', 3), before[0]];
+    final short = BudgetRepository([Budget('#家用', 80)]);
+    short.restore(wide, short.all, {'飲食'});
+    expect(_of(short), [('#家用', 80), ('飲食', 100)]);
+  });
+
+  test('restore sets back only the budgets named, each in its place', () {
+    final before = [Budget('飲食', 100), Budget('交通', 50), Budget('#家用', 80)];
+    final budgets = BudgetRepository([
+      Budget('交通', 70),
+      Budget('#家用', 80),
+      Budget('#新', 10),
+      Budget('娛樂', 5),
+    ]);
+    final (:put, :dropped) = budgets.restore(before, budgets.all, {
+      '交通',
+      '#新',
+      '飲食',
+    });
+    expect(_of(budgets), [('飲食', 100), ('交通', 50), ('#家用', 80), ('娛樂', 5)]);
+    expect([for (final b in put) b.category], ['飲食', '交通']);
+    expect(dropped, ['#新']);
+  });
+
+  test('R34: restore leaves a key changed since the change as it is', () {
+    final before = [Budget('飲食', 100), Budget('交通', 50)];
+    final budgets = BudgetRepository([Budget('交通', 70), Budget('#新', 10)]);
+    final after = budgets.all;
+    // Since the change: 交通 set again, #新 taken away and set again,
+    // 飲食 set where the change had taken it away.
+    budgets
+      ..put(Budget('交通', 90))
+      ..put(Budget('#新', 20))
+      ..put(Budget('飲食', 30));
+    final (:put, :dropped) = budgets.restore(before, after, {'交通', '#新', '飲食'});
+    expect(_of(budgets), [('交通', 90), ('#新', 20), ('飲食', 30)]);
+    expect(put, isEmpty);
+    expect(dropped, isEmpty);
+  });
 }

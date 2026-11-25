@@ -300,7 +300,7 @@ void main() {
         () => ledger.entryCommands.add(
           sell('x', day(2026, 3, 1), 300000, 2001, 255, 900),
         ),
-        throwsStateError,
+        throwsA(isA<RecordRefused>()),
       );
       expect(ledger.entries.all.map((e) => e.id), ['a', 'b']);
       expect(ledger.holding('2330')!.shares, 2000);

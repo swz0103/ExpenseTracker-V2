@@ -2,17 +2,20 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../../../../design_system/display/amount.dart';
 import '../../../../core/design_system/theme.dart';
 import '../../../../core/design_system/design_system.dart';
 import '../../../../core/ledger/ledger.dart';
 import '../../../../core/widgets/entry_tile.dart';
 import '../../../../core/navigation/nav.dart';
 import '../../../../core/widgets/shown_amounts.dart';
-import '../../../../core/formatting/dates.dart';
+import '../../../../../design_system/display/date.dart';
 import '../../../../core/design_system/shape.dart';
 import '../../../../core/design_system/spacing.dart';
 import '../../../../core/design_system/motion.dart';
 import '../../../../core/formatting/words.dart';
+
+import 'package:core/time/utc_days.dart';
 
 /// 每日紀錄: a week of days with marks for what each holds, and the chosen
 /// day's entries three to a row, six at a time.
@@ -52,7 +55,7 @@ class _DailySectionState extends State<DailySection> {
     }
     // Another month was chosen above: the same day of that month, or its
     // last, and never a day still to come.
-    final last = DateTime.utc(year, month + 1, 0).day;
+    final last = monthEnd(year, month).day;
     var day = DateTime.utc(year, month, min(_day.day, last));
     final today = widget.ledger.today;
     if (day.isAfter(today)) day = today;
@@ -116,6 +119,8 @@ class _DailySectionState extends State<DailySection> {
     for (var d = 0; d < 7; d++) {
       weekSpent += ledger.reportService.spentOn(first.add(Duration(days: d)));
     }
+    // Exception to as-of-today: the day's list shows 預定 entries marked; its
+    // sums go through spentOn.
     final entries = ledger.entries.onDay(_day);
     final atToday = !last.isBefore(ledger.today);
     final from = '${first.month} / ${first.day}';
@@ -208,7 +213,7 @@ class _DailySectionState extends State<DailySection> {
         ),
       ),
       const SizedBox(width: Space.s2),
-      Text('$count 筆', style: mutedSmall),
+      Text(countOf(count, CountUnit.entries), style: mutedSmall),
       const Spacer(),
       // Shrinks a little rather than overflows when the phone's text
       // is large; with its largest, on a line of its own.
@@ -259,6 +264,8 @@ class _WeekStrip extends StatelessWidget {
     final picked = day == selected;
     final future = day.isAfter(ledger.today);
     final outside = day.month != month;
+    // Exception to as-of-today: a day's dots show what is written on it, 預定 or
+    // not.
     final kinds = {for (final e in ledger.entries.onDay(day)) e.type};
     final dots = [
       if (kinds.contains(EntryType.expense)) AppColors.negative,
@@ -369,10 +376,12 @@ class _DayCards extends StatelessWidget {
     if (entries.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: Space.s2),
-        child: Row(
+        // The button goes under the words when the text is large.
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             const Text('這天沒有紀錄', style: mutedText),
-            const Spacer(),
             TextButton(
               onPressed: onAdd,
               style: wordButton(AppColors.accent),
@@ -400,7 +409,11 @@ class _DayCards extends StatelessWidget {
     final (icon, mark) = entryMark(ledger, e);
     final tone = entryTone(e);
     final currency = ledger.account(e.account).currency;
-    final amount = ledger.orDots(entryAmount(e, currency: currency));
+    final amount = entrySpoken(
+      e,
+      currency: currency,
+      hidden: ledger.amounts.hidden,
+    );
     return SizedBox(
       width: 84,
       child: ColorCard(

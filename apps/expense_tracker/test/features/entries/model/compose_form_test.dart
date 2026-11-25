@@ -1,3 +1,5 @@
+import 'package:core/foundation_values.dart' show BusinessDate;
+import 'package:core/fx/dated_figures.dart' show DatedFigures, MarketHistory;
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/trading.dart';
@@ -70,6 +72,150 @@ void main() {
     },
   );
 
+  test("a trade's fee is suggested at the broker's discount given", () {
+    final form = ComposeForm(book(), type: EntryType.buy, brokerDiscount: 2800)
+      ..holding = '2330';
+    form
+      ..setShares(1000)
+      ..setPrice(100);
+    // 100,000 x 0.001425 = 142.5; x 0.28 = 39.9 -> 39.
+    expect(form.charges, (39, 0));
+    // Without one, 6折: 142.5 x 0.6 = 85.5 -> 85.
+    final usual = ComposeForm(book(), type: EntryType.buy)..holding = '2330';
+    usual
+      ..setShares(1000)
+      ..setPrice(100);
+    expect(usual.charges, (85, 0));
+  });
+
+  test("D7: a trade's fee is suggested at its account's own discount", () {
+    final ledger = book();
+    ledger.accountCommands.updateAccount(
+      ledger.account('bank').copyWith(brokerDiscount: 2800),
+    );
+    final form = ComposeForm(ledger, type: EntryType.buy)..holding = '2330';
+    form
+      ..setShares(1000)
+      ..setPrice(100);
+    // 100,000 x 0.001425 = 142.5; x 0.28 = 39.9 -> 39, not the 6折 85.
+    expect(form.account, 'bank');
+    expect(form.tradeDiscount, 2800);
+    expect(form.charges, (39, 0));
+    // Paid from cash, which keeps none: the phone-wide 6折, 85.
+    form.account = 'cash';
+    expect(form.tradeDiscount, 6000);
+    expect(form.charges, (85, 0));
+  });
+
+  test('D6: a day-trade sale changed keeps the flag and its tax rate', () {
+    // 1000 shares sold for 100,000 the day they were bought: tax at the
+    // day-trade rate 0.15% = 150, fee at 6折 = 85.
+    final sold = Entry(
+      id: 's',
+      date: day,
+      type: EntryType.sell,
+      amount: 100000,
+      account: 'bank',
+      category: investmentCategory,
+      holding: '2330',
+      shares: 1000,
+      fee: 85,
+      tax: 150,
+      dayTrade: true,
+    );
+    final form = ComposeForm(book(), type: EntryType.sell, editing: sold);
+    expect(form.dayTrade, isTrue);
+    // Kept as suggested, so read as untouched: it follows the price.
+    expect(form.tradeTax, isNull);
+    expect(form.charges, (85, 150));
+    form.setPrice(200);
+    // 200,000 x 0.15% = 300.
+    expect(form.charges.$2, 300);
+    expect(form.build().dayTrade, isTrue);
+    // A sale that is not one is taxed at 0.3%: 100,000 x 0.3% = 300.
+    final plain = ComposeForm(book(), type: EntryType.sell)
+      ..holding = '2330'
+      ..setShares(1000)
+      ..setPrice(100);
+    expect(plain.charges.$2, 300);
+    expect(plain.build().dayTrade, isFalse);
+  });
+
+  test('a fee typed stays when the shares change; one untouched follows', () {
+    // 1000 shares at 100 = 100,000; fee 85 as suggested at 6折, so the
+    // saved entry reads as untouched.
+    final bought = Entry(
+      id: 'b',
+      date: day,
+      type: EntryType.buy,
+      amount: 100000,
+      account: 'bank',
+      holding: '2330',
+      shares: 1000,
+      fee: 85,
+    );
+    final untouched = ComposeForm(book(), type: EntryType.buy, editing: bought)
+      ..setShares(2000);
+    // 200,000 x 0.000855 = 171.
+    expect(untouched.build().fee, 171);
+    // A fee of 50 was typed from the broker's slip: it stays.
+    final slip = Entry(
+      id: 'b',
+      date: day,
+      type: EntryType.buy,
+      amount: 100000,
+      account: 'bank',
+      holding: '2330',
+      shares: 1000,
+      fee: 50,
+    );
+    final typed = ComposeForm(book(), type: EntryType.buy, editing: slip)
+      ..setShares(2000);
+    expect(typed.build().fee, 50);
+    // Typed now, it stays through a change of price as well.
+    untouched
+      ..tradeFee = 120
+      ..setPrice(110);
+    expect(untouched.build().fee, 120);
+  });
+
+  test('a back-dated sale is costed from the lots of its day', () {
+    Entry buy(String id, DateTime on, int amount) => Entry(
+      id: id,
+      date: on,
+      type: EntryType.buy,
+      amount: amount,
+      account: 'bank',
+      holding: '2330',
+      shares: 1000,
+    );
+    final ledger = Ledger(
+      today: day,
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 1000000)],
+      categories: const [],
+      entries: [
+        buy('b1', DateTime.utc(2026, 1, 5), 100000),
+        buy('b2', DateTime.utc(2026, 3, 5), 200000),
+      ],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      dataSource: _Nowhere(),
+    );
+    final form = ComposeForm(ledger, type: EntryType.sell)
+      ..holding = '2330'
+      ..average = true
+      ..setShares(1000);
+    // Today both lots: 300,000 for 2000 shares, 1000 of them 150,000.
+    expect(form.saleCost, 150000);
+    // On Feb 1 only the first lot was held: 1000 shares cost 100,000.
+    form.date = DateTime.utc(2026, 2, 1);
+    expect(form.saleCost, 100000);
+    // 1500 shares were more than held then.
+    form.setShares(1500);
+    expect(form.saleCost, isNull);
+  });
+
   test('a split must add up to the amount', () {
     final form = ComposeForm(book(), type: EntryType.expense)
       ..setAmount(300)
@@ -84,6 +230,52 @@ void main() {
     form.evenly();
     expect(form.parts, [('飲食', 150), ('居家', 150)]);
     expect(form.build().parts, hasLength(2));
+  });
+
+  test('a split part of nothing is refused (F56)', () {
+    // 300 + 0: everything shared out, then one more part with nothing.
+    final form = ComposeForm(book(), type: EntryType.expense)
+      ..setAmount(300)
+      ..category = '飲食'
+      ..toggleSplit()
+      ..addPart('居家');
+    expect(form.parts, [('飲食', 300), ('居家', 0)]);
+    expect(form.problem, '拆分的每一項金額都要大於 0');
+  });
+
+  test('a split of one part must still add up to the amount', () {
+    final form = ComposeForm(book(), type: EntryType.expense)
+      ..setAmount(300)
+      ..category = '飲食'
+      ..toggleSplit()
+      ..setAmount(500);
+    // 500 − 300 = 200.
+    expect(form.problem, '拆分的金額要等於總額（差 200）');
+  });
+
+  test('buying shares past the cash held warns, and may still be saved', () {
+    final ledger = book();
+    final form = ComposeForm(ledger, type: EntryType.buy)
+      ..holding = '2330'
+      ..account = 'cash'
+      ..tradeFee = 20;
+    form
+      ..setShares(10)
+      ..setPrice(300);
+    // 2,000 − (3,000 + 20) = −1,020.
+    expect(form.problem, isNull);
+    expect(form.warning, '扣款後餘額為負（-1,020）');
+    ledger.entryCommands.save(form.buildAll());
+    expect(ledger.balanceService.balance('cash'), -1020);
+    // Within what is held, nothing to say.
+    final paid = ComposeForm(ledger, type: EntryType.buy)
+      ..holding = '2330'
+      ..account = 'bank'
+      ..tradeFee = 20;
+    paid
+      ..setShares(10)
+      ..setPrice(300);
+    expect(paid.warning, isNull);
   });
 
   test('lending needs someone to lend to', () {
@@ -235,7 +427,7 @@ void main() {
     );
     expect(again.lent, [('ann', 600), ('bo', 600)]);
     again.setLent(1, 300);
-    ledger.entryCommands.replaceGroup(again.buildAll(), again.openedIds);
+    ledger.entryCommands.save(again.buildAll(), replacing: again.openedIds);
     expect(ledger.balanceService.balance('bo'), 300);
     expect(ledger.reportService.expense(2026, 10), 900);
     expect(ledger.entryQueryService.groupOf(made.first), hasLength(3));
@@ -408,9 +600,12 @@ void main() {
       ..trade = EntryType.sell
       ..holding = null;
     expect(form.saleCost, isNull);
-    // Settled two weekdays on: Friday's trade on Tuesday.
+    // Settled two exchange days on: Friday's trade on Tuesday.
     form.date = DateTime.utc(2026, 10, 2);
-    expect(form.settles, DateTime.utc(2026, 10, 6));
+    expect(form.settles.value, BusinessDate(2026, 10, 6));
+    // Wed 10-07: Fri 10-09 is 補假, so Mon 10-12 (decision D24).
+    form.date = DateTime.utc(2026, 10, 7);
+    expect(form.settles.value, BusinessDate(2026, 10, 12));
   });
 
   test('a dividend changes the shares held one way at a time', () {
@@ -498,5 +693,191 @@ void main() {
     final bo = form.addPerson(' 小博 ')!;
     expect((bo.name, bo.kind), ('小博', AccountKind.receivable));
     expect(ledger.accounts.contains(bo.id), isTrue);
+  });
+
+  group('a refund mirrors its purchase (D62, D65)', () {
+    Ledger refunding(Entry purchase, {List<Account> accounts = const []}) =>
+        Ledger(
+          today: day,
+          accounts: [
+            const Account('bank', '銀行', AccountKind.bank, 100000),
+            ...accounts,
+          ],
+          categories: [
+            Category('飲食', 'food', 0xFF5C9A83),
+            Category('交通', 'car', 0xFF5B8DB0),
+          ],
+          entries: [purchase],
+          holdings: const [],
+          budgets: const [],
+          recurring: const [],
+        );
+
+    test('1,001 NT\$ of a US\$ purchase refunded in three equal parts sums '
+        'to 1,001, and the month nets to nothing', () {
+      final l = refunding(
+        Entry(
+          id: 'x',
+          date: DateTime.utc(2026, 10, 1),
+          type: EntryType.expense,
+          amount: 300,
+          account: 'usd',
+          category: '飲食',
+          home: 1001,
+        ),
+        accounts: const [
+          Account('usd', '美元', AccountKind.bank, 100000, currency: 'USD'),
+        ],
+      );
+      final homes = <int?>[];
+      for (var i = 0; i < 3; i++) {
+        final form = ComposeForm(
+          l,
+          type: EntryType.income,
+          refunded: l.entries.byId('x'),
+        )..setAmount(100);
+        final refund = form.build();
+        homes.add(refund.home);
+        l.entryCommands.add(refund);
+      }
+      // 1001 x 100/300 = 333.67 -> 334; 667 x 100/200 = 333.5 -> 334;
+      // the last takes the rest, 1001 - 668 = 333.
+      expect(homes, [334, 334, 333]);
+      expect(l.reportService.expense(2026, 10), 0);
+    });
+
+    test('a split purchase tagged 旅遊 refunded in full leaves no category '
+        'and no tag total behind', () {
+      final l = refunding(
+        Entry(
+          id: 'a',
+          date: DateTime.utc(2026, 9, 1),
+          type: EntryType.expense,
+          amount: 100,
+          account: 'bank',
+          category: '飲食',
+          parts: const [('飲食', 60), ('交通', 40)],
+          tags: const ['旅遊'],
+        ),
+      );
+      final refund = ComposeForm(
+        l,
+        type: EntryType.income,
+        refunded: l.entries.byId('a'),
+      ).build();
+      expect(refund.parts, [('飲食', 60), ('交通', 40)]);
+      expect(refund.tags, ['旅遊']);
+      l.entryCommands.add(refund);
+      final from = DateTime.utc(2026, 9, 1);
+      final to = DateTime.utc(2026, 10, 31);
+      expect(l.reportService.spendingBetween(from, to), {'飲食': 0, '交通': 0});
+      expect(l.reportService.tagsBetween(from, to), [('旅遊', 0)]);
+    });
+
+    test('editing a refund shares again from what the others left', () {
+      final l = refunding(
+        Entry(
+          id: 'a',
+          date: DateTime.utc(2026, 9, 1),
+          type: EntryType.expense,
+          amount: 100,
+          account: 'bank',
+          category: '飲食',
+          parts: const [('飲食', 60), ('交通', 40)],
+        ),
+      );
+      final first = (ComposeForm(
+        l,
+        type: EntryType.income,
+        refunded: l.entries.byId('a'),
+      )..setAmount(50)).build();
+      l.entryCommands.add(first);
+      final edited = (ComposeForm(
+        l,
+        type: EntryType.income,
+        editing: l.entries.byId(first.id),
+      )..setAmount(100)).build();
+      // Changed to the whole: all of each part, the refund itself left
+      // out of what was given back before.
+      expect(edited.parts, [('飲食', 60), ('交通', 40)]);
+    });
+  });
+
+  group('D58: a foreign entry is worth at home what its day\'s rate makes '
+      'it', () {
+    Ledger foreign() => Ledger(
+      today: day,
+      accounts: const [
+        Account('usd', '美元', AccountKind.bank, 100000, currency: 'USD'),
+        Account('bank', '銀行', AccountKind.bank, 100000),
+      ],
+      categories: [Category('飲食', 'food', 0xFF5C9A83)],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      rates: const {'USD': 32.0},
+      history: MarketHistory(
+        buying: DatedFigures({
+          'USD': {
+            BusinessDate(2026, 9, 1): 30.0,
+            BusinessDate(2026, 10, 4): 32.0,
+          },
+        }),
+      ),
+      dataSource: _Nowhere(),
+    );
+
+    ComposeForm on(DateTime date) =>
+        ComposeForm(foreign(), type: EntryType.expense)
+          ..account = 'usd'
+          ..date = date
+          ..setAmount(10000);
+
+    test('a day with a board kept on or before it: that board, named', () {
+      final form = on(DateTime.utc(2026, 9, 3));
+      // US$100 x 30 = 3,000, at 9/1's board.
+      expect(form.homeValue, 3000);
+      expect(form.homeRateLine, '臺銀 9/1 即期買入 30');
+    });
+
+    test("today: today's board, as before", () {
+      final form = on(day);
+      expect(form.homeValue, 3200);
+      expect(form.homeRateLine, '臺銀即期買入 32');
+    });
+
+    test('before any board kept: an estimate at today\'s rate (R5)', () {
+      final form = on(DateTime.utc(2026, 8, 3));
+      expect(form.homeValue, 3200);
+      expect(form.homeRateLine, '以今日臺銀即期買入 32 估算，請改成當日金額');
+    });
+
+    test('D123: a board more than doubtfulMoveKeptDays before the day is '
+        'not taken: an estimate at today\'s rate, said why', () {
+      // 10/2 is 31 days after 9/1, the nearest board before it: today's
+      // 32, US\$100 x 32 = 3,200.
+      final form = on(DateTime.utc(2026, 10, 2));
+      expect(form.homeValue, 3200);
+      expect(form.homeRateLine, '最近的牌價早於當日 30 天以上，不採用；以今日臺銀即期買入 32 估算，請改成當日金額');
+      // 10/1, 30 days after: still 9/1's board.
+      expect(on(DateTime.utc(2026, 10, 1)).homeValue, 3000);
+    });
+
+    test('a worth typed says no rate', () {
+      final form = on(DateTime.utc(2026, 9, 3))..home = 3100;
+      expect(form.homeValue, 3100);
+      expect(form.homeRateLine, isNull);
+    });
+
+    test('a transfer between currencies on a day gone by', () {
+      final form = ComposeForm(foreign(), type: EntryType.transfer)
+        ..account = 'usd'
+        ..to = 'bank'
+        ..date = DateTime.utc(2026, 9, 3)
+        ..setAmount(10000);
+      // US$100 at 9/1's 30: 3,000.
+      expect(form.receivedValue, 3000);
+    });
   });
 }

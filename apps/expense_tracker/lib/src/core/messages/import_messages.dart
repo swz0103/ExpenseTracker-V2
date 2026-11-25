@@ -1,0 +1,120 @@
+import 'package:shell/setting_topic.dart';
+
+import 'package:domain/data_exchange.dart'
+    show
+        DayProblem,
+        ExchangeColumn,
+        InvoiceRefusal,
+        earliestImportYear,
+        homeAmountColumn;
+
+import 'package:ledger_entries/model.dart' show maxDaysAhead;
+import 'package:core/fx/dated_figures.dart' show FoundOn;
+
+import '../../../design_system/display/amount.dart' show groupDigits;
+import '../../../design_system/display/date.dart' show formatYMd;
+import '../formatting/words.dart';
+import 'amount_messages.dart' show boardTooOldWords;
+
+/// Why a day of an imported file is not taken (D93).
+String dayProblemWords(DayProblem problem) => switch (problem) {
+  DayProblem.unreadable => '日期看不懂',
+  DayProblem.shortYear => '年份只有兩位數，請寫成西元四位數（例如 2026）或民國三位數（例如 115）',
+  DayProblem.tooEarly => '日期早於 $earliestImportYear 年',
+  DayProblem.tooLate => '日期最多只能排到 $maxDaysAhead 天後',
+};
+
+/// Why a line of an imported file dated after [latest], the last day an
+/// entry may be dated on (D25), is not taken; [transfer] when it is a
+/// transfer with its 編號, as the app writes the settlement before an
+/// account is archived, which may be dated beyond it (D121) but is not
+/// brought back this way (review 38 1).
+String importTooLateWords(DateTime latest, {required bool transfer}) =>
+    '日期晚於 ${formatYMd(latest)}，最多只能排到 $maxDaysAhead 天後'
+    '${transfer ? '；這類轉帳（例如封存前的結清）不能用匯入帶回' : ''}';
+
+/// Why an invoice of the ministry's file is left out.
+String invoiceRefusalWords(InvoiceRefusal why) => switch (why) {
+  InvoiceRefusal.rowsDisagree => '同一張發票的日期或商家前後不一致',
+  InvoiceRefusal.tooEarly => dayProblemWords(DayProblem.tooEarly),
+  InvoiceRefusal.unreadableDay => dayProblemWords(DayProblem.unreadable),
+  InvoiceRefusal.shortYear => dayProblemWords(DayProblem.shortYear),
+  InvoiceRefusal.tooLate => dayProblemWords(DayProblem.tooLate),
+  InvoiceRefusal.badAmount => importAmountWords,
+  InvoiceRefusal.voided => '已作廢',
+  InvoiceRefusal.repeated => importAlreadyWords,
+};
+
+/// Under an imported row whose worth in NT\$ is worked out at today's
+/// rate (R5): none of its day or before it is kept ([FoundOn.today]),
+/// or the nearest is too old to take ([FoundOn.todayEarlierTooOld],
+/// D123).
+String importEstimatedWords(FoundOn found) =>
+    found == FoundOn.todayEarlierTooOld
+    ? '$boardTooOldWords；新台幣金額以今日匯率估算'
+    : '新台幣金額以今日匯率估算';
+
+/// An amount of an imported line that is not one.
+const importAmountWords = '金額看不懂';
+
+/// An invoice of an imported file already recorded.
+const importAlreadyWords = '已經記過';
+
+/// A CSV whose first line lacks a column every file must have: the
+/// required columns named ([ExchangeColumn.required]).
+final importHeaderWords =
+    '第一行要有${[for (final c in ExchangeColumn.values)
+      if (c.required) '「${c.name}」'].join('和')}欄位';
+
+/// A line of a CSV whose 編號 ([id]) an earlier line of the file has.
+String importRepeatedIdWords(String id) =>
+    '檔案裡已經有「${ExchangeColumn.id.name}」是 $id 的一筆';
+
+/// A refund line with no spending it can give back: none named or found
+/// with that much left.
+const importNoOriginalWords = '找不到可以退款的原支出';
+
+/// A refund whose 退款對象 ([id]) is spending its account cannot take
+/// back, [why] being the write rule that says so.
+String importRefundTargetWords(String id, String why) =>
+    '「${ExchangeColumn.refundOf.name}」$id：$why';
+
+/// A line of a CSV whose 當沖 cell says neither yes nor no.
+final importDayTradeWords = '「${ExchangeColumn.dayTrade.name}」看不懂，請填「是」或留空';
+
+/// A line of a CSV whose 標記 cell names no mark.
+String importMarkWords(String words) =>
+    '不認得的「${ExchangeColumn.mark.name}」「$words」';
+
+/// A row of a foreign account with no rate to value it by and no worth
+/// at home written: the file's own column is named.
+const importMissingHomeWords =
+    '還沒有匯率，請在「$homeAmountColumn」欄填${Words.homeWorth}的金額';
+
+/// A refund's worth at home written not above zero (no [left]), or
+/// larger than what of its purchase's worth is not yet given back
+/// ([left]).
+String refundHomeWords(int? left) => switch (left) {
+  null => '「$homeAmountColumn」要大於 0',
+  <= 0 => '原支出的「$homeAmountColumn」已經全部退完',
+  _ => '「$homeAmountColumn」超過原支出還可退的 ${groupDigits(left)}',
+};
+
+/// A file chosen to import that cannot be read as text.
+const importUnreadableFileWords = '讀不到這個檔案，請確認是 UTF-8 或 Big5 的文字檔';
+
+/// What 匯入 says it reads, under its example: e-invoices.
+const importInvoicesHint = '財政部「消費明細」的 CSV 或載具的 M／D 行都可以，記過的發票不會重複';
+
+/// What 匯入 says it reads, under its example: a CSV.
+const importCsvHint = '本 App 匯出的 CSV 可以完整匯回；沒有的帳戶與分類會自動新增';
+
+/// What search finds in ImportExportSection (N8): each setting's name and the other
+/// words a person may type for it, marking the card that section builds.
+abstract final class ImportExportTopics {
+  static const export = SettingTopic('匯出紀錄', words: ['匯出', 'CSV', 'Excel']);
+
+  static const importCsv = SettingTopic('匯入 CSV', words: ['CSV', '匯入']);
+
+  static const invoices = SettingTopic('電子發票', words: [Words.invoice, '載具']);
+}

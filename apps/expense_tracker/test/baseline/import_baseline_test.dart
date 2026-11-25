@@ -20,14 +20,21 @@ Ledger book([List<Entry> entries = const []]) => ledgerOf(
   entries: entries,
 );
 
+/// The day [text] writes by the import's one rule (D93), as a UTC
+/// midnight; null when it is refused.
+DateTime? readDay(String text) => switch (readImportDay(text)) {
+  DayRead(:final date) => day(date.year, date.month, date.day),
+  DayRefused() => null,
+};
+
 Import read(Ledger ledger, String text) =>
     importCsv(importBookOf(ledger), text, fallback: 'bank');
 
 void main() {
   group('byte order mark and line ends', () {
     test('a file starting with a BOM reads like one without', () {
-      final plain = parseCsv('日期,備註\n2026-03-05,午餐\n');
-      final bom = parseCsv('\u{FEFF}日期,備註\n2026-03-05,午餐\n');
+      final plain = readCsv('日期,備註\n2026-03-05,午餐\n');
+      final bom = readCsv('\u{FEFF}日期,備註\n2026-03-05,午餐\n');
       expect(bom, [
         ['日期', '備註'],
         ['2026-03-05', '午餐'],
@@ -44,11 +51,11 @@ void main() {
       expect(found.skipped, 0);
     });
     test('CRLF and LF lines read the same', () {
-      expect(parseCsv('a,b\r\n1,2\r\n'), [
+      expect(readCsv('a,b\r\n1,2\r\n'), [
         ['a', 'b'],
         ['1', '2'],
       ]);
-      expect(parseCsv('a,b\n1,2\n'), parseCsv('a,b\r\n1,2\r\n'));
+      expect(readCsv('a,b\n1,2\n'), readCsv('a,b\r\n1,2\r\n'));
     });
     test('written files start with a BOM and end lines with CRLF', () {
       expect(
@@ -115,15 +122,15 @@ void main() {
 
   group('formula-injection guard, reading', () {
     test('the guard quote is taken off again', () {
-      expect(parseCsv("'=SUM(A1)\n"), [
+      expect(readCsv("'=SUM(A1)\n"), [
         ['=SUM(A1)'],
       ]);
-      expect(parseCsv("''=x\n"), [
+      expect(readCsv("''=x\n"), [
         ["'=x"],
       ]);
     });
     test('an ordinary leading quote is kept as written', () {
-      expect(parseCsv("'hello\n"), [
+      expect(readCsv("'hello\n"), [
         ["'hello"],
       ]);
     });
@@ -231,12 +238,6 @@ void main() {
       expect(found.entries, isEmpty);
       expect(found.problems, ['第 3 行的引號看不懂，整個檔案沒有匯入']);
     });
-    test('an unclosed quote is read to the end', () {
-      expect(parseCsv('日期,備註\n2026-03-05,"沒有收尾'), [
-        ['日期', '備註'],
-        ['2026-03-05', '沒有收尾'],
-      ]);
-    });
     test('a sale of shares not held is left out, with the reason', () {
       final found = read(
         book(),
@@ -333,7 +334,7 @@ void main() {
       expect(
         csv,
         '\u{FEFF}日期,類型,金額,帳戶,轉入帳戶,分類,商家,標籤,備註,代號,股數,'
-        '手續費,稅,分期,轉入金額,台幣金額,成本算法\r\n',
+        '手續費,稅,分期,轉入金額,台幣金額,成本算法,當沖,標記,編號,退款對象,群組,定期\r\n',
       );
     });
     test('an expense with merchant, tags and note is one line', () {
@@ -351,7 +352,7 @@ void main() {
         ),
       ]);
       final lines = toCsv(ledger.accounts, ledger.entries.all).split('\r\n');
-      expect(lines[1], '2026-03-05,支出,120,銀行,,飲食,早餐店,家用、早餐,蛋餅,,,,,,,,');
+      expect(lines[1], '2026-03-05,支出,120,銀行,,飲食,早餐店,家用、早餐,蛋餅,,,,,,,,,,,x,,,');
     });
     test('a split is written as name=amount parts', () {
       final ledger = book([
@@ -366,7 +367,7 @@ void main() {
         ),
       ]);
       final lines = toCsv(ledger.accounts, ledger.entries.all).split('\r\n');
-      expect(lines[1], '2026-03-05,支出,300,銀行,,飲食=200;居家=100,,,,,,,,,,,');
+      expect(lines[1], '2026-03-05,支出,300,銀行,,飲食=200;居家=100,,,,,,,,,,,,,,x,,,');
     });
     test('a transfer carries its fee and receiving account', () {
       final ledger = book([
@@ -381,7 +382,7 @@ void main() {
         ),
       ]);
       final lines = toCsv(ledger.accounts, ledger.entries.all).split('\r\n');
-      expect(lines[1], '2026-03-05,轉帳,500,銀行,現金,,,,,,,15,,,,,');
+      expect(lines[1], '2026-03-05,轉帳,500,銀行,現金,,,,,,,15,,,,,,,,x,,,');
     });
     test('lines are written oldest first', () {
       final ledger = book([

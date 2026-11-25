@@ -19,11 +19,18 @@ import java.util.concurrent.TimeUnit
  * Uploads a backup to the folder 記帳本備份 on Google Drive from the
  * background job (BackupWorker.kt), as DriveBackup.upload does in the app
  * (drive_backup.dart): the same folder, the same mark of the ledger, the
- * newest five of that ledger kept and older ones moved to the Drive trash.
+ * newest the app keeps of that ledger kept and older ones moved to the
+ * Drive trash, all as the app hands them over ([BackupPlan.Handed]).
  * It never shows Google's screens: without access already given, it does
  * nothing.
  */
-internal class DriveUploader(private val context: Context) {
+internal class DriveUploader(
+    private val context: Context,
+    /** The app's rules: the folder's name, how many stay, the names' end. */
+    private val plan: BackupPlan.Handed,
+    /** Whether WorkManager stopped the run: checked before each part of an upload. */
+    private val stopped: () -> Boolean = { false },
+) {
     class Refused(val status: Int, message: String) : IOException(message)
 
     private var token: String? = null
@@ -44,7 +51,7 @@ internal class DriveUploader(private val context: Context) {
         return token
     }
 
-    private class Response(val status: Int, val location: String?, val body: String)
+    private class Response(val status: Int, val location: String?, val range: String?, val body: String)
 
     /**
      * Sends a request with the access token; once more with a fresh token
@@ -56,6 +63,9 @@ internal class DriveUploader(private val context: Context) {
         headers: Map<String, String> = emptyMap(),
         text: String? = null,
         file: File? = null,
+        from: Long = 0,
+        length: Long = 0,
+        also: Set<Int> = emptySet(),
     ): Response {
         for (attempt in 0..1) {
             val bearer = access() ?: throw NotAllowed()
@@ -63,6 +73,9 @@ internal class DriveUploader(private val context: Context) {
             try {
                 connection.connectTimeout = 20_000
                 connection.readTimeout = 300_000
+                // A redirect would carry the token and the backup on to
+                // wherever it points: none is followed.
+                connection.instanceFollowRedirects = false
                 // HttpURLConnection has no PATCH; Google takes the override.
                 if (method == "PATCH") {
                     connection.requestMethod = "POST"
@@ -75,8 +88,19 @@ internal class DriveUploader(private val context: Context) {
                 when {
                     file != null -> {
                         connection.doOutput = true
-                        connection.setFixedLengthStreamingMode(file.length())
-                        connection.outputStream.use { out -> file.inputStream().use { it.copyTo(out) } }
+                        connection.setFixedLengthStreamingMode(length)
+                        connection.outputStream.use { out ->
+                            file.inputStream().use { input ->
+                                ResumableUpload.skip(input, from)
+                                ResumableUpload.copy(input, out, length)
+                            }
+                        }
+                    }
+                    method == "PUT" -> {
+                        // A status query of an upload: no body.
+                        connection.doOutput = true
+                        connection.setFixedLengthStreamingMode(0)
+                        connection.outputStream.close()
                     }
                     text != null -> {
                         val bytes = text.toByteArray(Charsets.UTF_8)
@@ -98,8 +122,15 @@ internal class DriveUploader(private val context: Context) {
                     )
                     continue
                 }
-                if (status !in 200..299) throw Refused(status, "$status ${reason(body)}")
-                return Response(status, connection.getHeaderField("Location"), body)
+                // Drive's own sentence can name the account or a file: the
+                // status alone goes on (review 33).
+                if (status !in 200..299 && status !in also) throw Refused(status, "HTTP $status")
+                return Response(
+                    status,
+                    connection.getHeaderField("Location"),
+                    connection.getHeaderField("Range"),
+                    body,
+                )
             } finally {
                 connection.disconnect()
             }
@@ -109,19 +140,13 @@ internal class DriveUploader(private val context: Context) {
 
     class NotAllowed : IOException("Google Drive access was not given.")
 
-    private fun reason(body: String): String = try {
-        JSONObject(body).optJSONObject("error")?.optString("message") ?: ""
-    } catch (e: Exception) {
-        ""
-    }
-
     private fun encode(text: String) = URLEncoder.encode(text, "UTF-8")
 
     private fun quote(text: String) = text.replace("\\", "\\\\").replace("'", "\\'")
 
     /** The folder's id, made when there is none. */
     private fun folder(): String {
-        val query = "name='${quote(FOLDER)}' and mimeType='$FOLDER_TYPE' and trashed=false"
+        val query = "name='${quote(plan.driveFolder)}' and mimeType='$FOLDER_TYPE' and trashed=false"
         val found = send("GET", "$API?q=${encode(query)}&fields=${encode("files(id)")}&spaces=drive")
         val files = JSONObject(found.body).optJSONArray("files") ?: JSONArray()
         if (files.length() > 0) return files.getJSONObject(0).getString("id")
@@ -129,18 +154,82 @@ internal class DriveUploader(private val context: Context) {
             "POST",
             "$API?fields=id",
             mapOf("Content-Type" to "application/json; charset=utf-8"),
-            JSONObject().put("name", FOLDER).put("mimeType", FOLDER_TYPE).toString(),
+            JSONObject().put("name", plan.driveFolder).put("mimeType", FOLDER_TYPE).toString(),
         )
         return JSONObject(made.body).getString("id")
     }
 
     /**
      * Uploads [file] into the folder marked as a backup of [ledger], then
-     * moves that ledger's backups beyond the newest [BackupPlan.KEEP] to
-     * the Drive trash; pruning is best effort.
+     * moves that ledger's backups beyond the newest [BackupPlan.Handed.keep] to
+     * the Drive trash; pruning is best effort. An upload cut short is kept
+     * in [sessions] and goes on from where Drive says it stopped the next
+     * time the same file is uploaded, rather than from the start (AND-05).
      */
-    fun upload(file: File, ledger: String) {
+    fun upload(file: File, ledger: String, sessions: UploadSession.Store) {
         val parent = folder()
+        val size = file.length()
+        var location: String? = null
+        var from = 0L
+        val saved = sessions.read()?.takeIf { it.fits(file) && isGoogleUpload(it.location) }
+        if (saved != null) {
+            // Asks how much Drive has: 308 with the bytes it holds, or 2xx
+            // when it has it all; an upload it no longer knows starts anew.
+            val asked = try {
+                send(
+                    "PUT",
+                    saved.location,
+                    mapOf("Content-Range" to ResumableUpload.query(size)),
+                    also = setOf(ResumableUpload.INCOMPLETE),
+                )
+            } catch (e: Refused) {
+                if (e.status != 404 && e.status != 410) throw e
+                null
+            }
+            when (asked?.status) {
+                null -> sessions.clear()
+                ResumableUpload.INCOMPLETE -> {
+                    location = saved.location
+                    from = ResumableUpload.nextByte(asked.range)
+                }
+                else -> {
+                    sessions.clear()
+                    prune(parent, ledger)
+                    return
+                }
+            }
+        }
+        if (stopped()) throw BackgroundWork.Stopped()
+        val target = location ?: start(file, ledger, parent).also {
+            sessions.write(UploadSession(it, file.name, size))
+        }
+        // In parts, each a request of its own, so a run WorkManager stops
+        // ends between two; the next goes on from what Drive holds.
+        ResumableUpload.inParts(from, size, stopped) { first, last ->
+            val answer = send(
+                "PUT",
+                target,
+                mapOf(
+                    "Content-Type" to "application/octet-stream",
+                    "Content-Range" to ResumableUpload.part(first, last, size),
+                ),
+                file = file,
+                from = first,
+                length = last - first + 1,
+                also = setOf(ResumableUpload.INCOMPLETE),
+            )
+            if (answer.status == ResumableUpload.INCOMPLETE) ResumableUpload.nextByte(answer.range) else null
+        }
+        sessions.clear()
+        try {
+            prune(parent, ledger)
+        } catch (e: IOException) {
+            // Tried again after the next upload.
+        }
+    }
+
+    /** Asks Drive for an upload address of [file] into [parent]. */
+    private fun start(file: File, ledger: String, parent: String): String {
         val start = send(
             "POST",
             "$UPLOAD?uploadType=resumable&fields=id",
@@ -157,12 +246,9 @@ internal class DriveUploader(private val context: Context) {
                 .toString(),
         )
         val location = start.location ?: throw Refused(0, "no upload address")
-        send("PUT", location, mapOf("Content-Type" to "application/octet-stream"), file = file)
-        try {
-            prune(parent, ledger)
-        } catch (e: IOException) {
-            // Tried again after the next upload.
-        }
+        // The backup and the token go only to Google's own upload host.
+        if (!isGoogleUpload(location)) throw Refused(0, "upload address")
+        return location
     }
 
     private fun prune(parent: String, ledger: String) {
@@ -176,9 +262,9 @@ internal class DriveUploader(private val context: Context) {
         val files = JSONObject(listed.body).optJSONArray("files") ?: JSONArray()
         val ours = (0 until files.length())
             .map { files.getJSONObject(it) }
-            .filter { it.optString("name").endsWith(".etbk") }
+            .filter { it.optString("name").endsWith(plan.suffix) }
             .sortedByDescending { it.optString("modifiedTime") }
-        for (old in ours.drop(BackupPlan.KEEP)) {
+        for (old in ours.drop(plan.keep)) {
             try {
                 send(
                     "PATCH",
@@ -192,11 +278,22 @@ internal class DriveUploader(private val context: Context) {
         }
     }
 
-    private companion object {
-        const val DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file"
-        const val FOLDER = "記帳本備份"
-        const val FOLDER_TYPE = "application/vnd.google-apps.folder"
-        const val API = "https://www.googleapis.com/drive/v3/files"
-        const val UPLOAD = "https://www.googleapis.com/upload/drive/v3/files"
+    internal companion object {
+        /** Whether [location] is Google's own upload address, over HTTPS. */
+        fun isGoogleUpload(location: String): Boolean {
+            val uri = try {
+                java.net.URI(location)
+            } catch (e: Exception) {
+                return false
+            }
+            val host = uri.host?.lowercase() ?: return false
+            return uri.scheme == "https" &&
+                (host == "googleapis.com" || host.endsWith(".googleapis.com"))
+        }
+
+        private const val DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file"
+        private const val FOLDER_TYPE = "application/vnd.google-apps.folder"
+        private const val API = "https://www.googleapis.com/drive/v3/files"
+        private const val UPLOAD = "https://www.googleapis.com/upload/drive/v3/files"
     }
 }

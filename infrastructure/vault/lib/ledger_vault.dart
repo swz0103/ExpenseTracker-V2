@@ -2,3 +2,4 @@
 library;
 
 export 'src/ledger_vault/ledger_vault.dart';
+export 'src/problems.dart' show VaultProblem, VaultException;

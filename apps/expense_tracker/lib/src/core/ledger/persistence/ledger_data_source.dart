@@ -1,5 +1,6 @@
 import '../ledger.dart';
 import 'write_batch.dart';
+import '../../diagnostics/app_fault.dart';
 
 export 'write_batch.dart';
 
@@ -17,9 +18,10 @@ abstract interface class LedgerDataSource {
 
 /// The [LedgerDataSource] could not keep a change: its file is closed, locked or
 /// cannot be written.
-final class DataSourceException implements Exception {
+final class DataSourceException implements CarriedFault {
   const DataSourceException(this.cause);
 
+  @override
   final Object cause;
 
   @override

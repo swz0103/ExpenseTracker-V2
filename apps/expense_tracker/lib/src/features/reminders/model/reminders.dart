@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart' show Listenable, VoidCallback;
 
-import '../../../core/formatting/amounts.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
+import 'reminder_rules.dart';
 
 /// A day the ledger wants remembered, as a calendar shows it: recurring
 /// items falling due and card payments.
@@ -47,6 +48,18 @@ final class Reminder {
   );
 }
 
+/// The topics of the ledger what falls due rests on: entries (a booking,
+/// a card's spending and payments, what was recorded today), accounts,
+/// categories (budgets are named by them), budgets and recurring items.
+/// Not the market: a new closing price changes no reminder.
+const reminderTopics = {
+  Topic.entries,
+  Topic.accounts,
+  Topic.categories,
+  Topic.budgets,
+  Topic.recurring,
+};
+
 /// The parts of the ledger what falls due is read from, its clock, and
 /// its changes to follow: what the calendar and the notifications sync
 /// from (docs/adr/0013-models-take-what-they-use.md).
@@ -63,6 +76,7 @@ final class ReminderBook implements Listenable {
     required this.budgetService,
   });
 
+  /// Changes of [reminderTopics] only.
   final Listenable _changes;
   final DateTime Function() _clock;
   final RecurringReader recurring;
@@ -86,46 +100,55 @@ final class ReminderBook implements Listenable {
 
   Account account(String id) => accounts.resolve(id);
 
-  /// What falls due in the next [days] days, soonest first: each unbooked
-  /// day of an active recurring item, and each card's payment still owed.
-  List<Reminder> reminders({int days = 60}) {
+  /// The first day of the one window what falls due is read in, for the
+  /// notifications and the calendar alike (D68): as far back as a day
+  /// still unbooked is told ([ReminderKind.due]'s grace), so an overdue
+  /// day is in both, or in neither.
+  DateTime get windowStart => today.subtract(ReminderKind.due.grace);
+
+  /// What falls due in the window from [windowStart] to the horizon: what
+  /// the notifications are about and what the calendar holds.
+  List<Reminder> dueReminders() => reminders(since: windowStart);
+
+  /// What falls due from [since] (today unless given) to [days] days
+  /// from today, soonest first: each day of an active recurring item the
+  /// recurring service counts as not yet booked (a day let go is not),
+  /// and each card's payment still owed.
+  List<Reminder> reminders({
+    int days = ReminderTiming.horizonDays,
+    DateTime? since,
+  }) {
+    final first = since ?? today;
     final last = today.add(Duration(days: days));
-    bool ahead(DateTime d) => !d.isBefore(today) && !d.isAfter(last);
+    bool within(DateTime d) => !d.isBefore(first) && !d.isAfter(last);
     String key(String kind, String id, DateTime d) =>
         '$kind:$id:${d.year}-${d.month}-${d.day}';
     final found = <Reminder>[];
     for (final r in recurring.all) {
-      if (!r.active) continue;
+      final unposted = recurringService.unpostedDates(r, from: first, to: last);
+      if (unposted.isEmpty) continue;
       final currency = account(r.account).currency;
       final amount = currency == homeCode
           ? groupDigits(r.amount)
           : '$currency ${plainIn(r.amount, currency)}';
-      final booked = recurringService
-          .confirmationsIn(r, today.year, today.month)
-          .length;
-      for (var k = 0; k * 31 <= days + 31; k++) {
-        final month = DateTime.utc(today.year, today.month + k);
-        final dates = r.datesIn(month.year, month.month);
-        for (final d in k == 0 ? dates.skip(booked) : dates) {
-          if (!ahead(d)) continue;
-          found.add(
-            Reminder(
-              key: key('r', r.id, d),
-              day: d,
-              title: '${r.income ? '入帳' : '扣款'}：${r.name} $amount',
-              bare: '${r.income ? '入帳' : '扣款'}：${r.name}',
-              note: '定期交易，扣款帳戶：${account(r.account).name}',
-              recurring: r.id,
-            ),
-          );
-        }
+      for (final d in unposted) {
+        found.add(
+          Reminder(
+            key: key('r', r.id, d),
+            day: d,
+            title: '${r.income ? '入帳' : '扣款'}：${r.name} $amount',
+            bare: '${r.income ? '入帳' : '扣款'}：${r.name}',
+            note: '定期交易，扣款帳戶：${account(r.account).name}',
+            recurring: r.id,
+          ),
+        );
       }
     }
     for (final card in accounts.all) {
       if (card.kind != AccountKind.card || card.archived) continue;
       final (_, end, due) = statementService.statement(card);
       final owed = statementService.statementDue(card);
-      if (owed <= 0 || !ahead(due)) continue;
+      if (owed <= 0 || !within(due)) continue;
       found.add(
         Reminder(
           key: key('c', card.id, end),
@@ -133,7 +156,7 @@ final class ReminderBook implements Listenable {
           title: '繳卡費：${card.name} ${groupDigits(owed)}',
           bare: '繳卡費：${card.name}',
           note: '${formatMd(end)} 結帳的帳單',
-          daysAhead: 2,
+          daysAhead: ReminderTiming.cardWarnDays,
         ),
       );
     }

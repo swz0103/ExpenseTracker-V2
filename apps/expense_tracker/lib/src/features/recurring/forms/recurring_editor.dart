@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 
-import '../../../core/design_system/dialogs.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
@@ -9,16 +9,13 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/widgets/calculator.dart';
 import '../../../core/widgets/pickers.dart';
-import '../model/recurring_schedule.dart';
 import '../model/recurring_form.dart';
 import 'recurring_form_widgets.dart';
-import '../../../core/formatting/dates.dart';
-import '../../../core/messages/recurring_messages.dart';
+import '../../../core/messages/done_messages.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
-
-part 'recurring_repeat.dart';
+import 'recurring_repeat.dart';
 
 /// Opens the form of a recurring item as a bottom sheet: a new one
 /// (starting [on] that day, when given), or [item] to change. Saving
@@ -59,6 +56,17 @@ class _RecurringEditorState extends State<_RecurringEditor> {
     ..addListener(() => _f.name = _name.text);
   String? _problem;
 
+  /// The values as the form opened: leaving asks first only when one
+  /// now differs (D83, D117), not because a choice was made and taken
+  /// back.
+  late final List<Object?> _opened;
+
+  @override
+  void initState() {
+    super.initState();
+    _opened = _f.fields;
+  }
+
   Ledger get _ledger => widget.ledger;
 
   @override
@@ -69,25 +77,20 @@ class _RecurringEditorState extends State<_RecurringEditor> {
 
   void _save() {
     if (_f.save()) {
-      Navigator.of(context).pop();
+      EditGuard.close(context);
     } else {
       setState(() => _problem = _f.problem);
     }
   }
 
-  Future<void> _remove() async {
+  /// Deletes the item, what it booked kept; told with 復原, not asked
+  /// first (D82).
+  void _remove() {
     final item = widget.item;
     if (item == null) return;
-    final ok = await confirm(
-      context,
-      '刪除「${item.name}」？',
-      Words.delete,
-      danger: true,
-      body: '已記的紀錄會保留。',
-    );
-    if (!ok || !mounted) return;
-    _ledger.recurringCommands.removeRecurring(item.id);
-    Navigator.of(context).pop();
+    final undo = _ledger.recurringCommands.removeRecurring(item.id);
+    if (undo != null) showUndo(context, DoneWords.deleted(item.name), undo);
+    EditGuard.close(context);
   }
 
   Future<void> _amount() async {
@@ -121,14 +124,14 @@ class _RecurringEditorState extends State<_RecurringEditor> {
   }
 
   Future<void> _repeat() async {
-    await showSheet<void>(context, (_) => _RepeatSheet(form: _f));
+    await showSheet<void>(context, (_) => RepeatSheet(form: _f));
     if (mounted) setState(() {});
   }
 
   Future<void> _others() async {
     await showSheet<void>(
       context,
-      (_) => _OtherSheet(form: _f, today: _ledger.today),
+      (_) => RecurringOtherSheet(form: _f, today: _ledger.today),
     );
     if (mounted) setState(() {});
   }
@@ -136,6 +139,15 @@ class _RecurringEditorState extends State<_RecurringEditor> {
   @override
   Widget build(BuildContext context) {
     final editing = widget.item != null;
+    return ListenableBuilder(
+      listenable: _name,
+      builder: (context, form) =>
+          EditGuard(changed: !listEquals(_f.fields, _opened), child: form!),
+      child: _form(editing),
+    );
+  }
+
+  Widget _form(bool editing) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
       child: Column(
@@ -163,16 +175,25 @@ class _RecurringEditorState extends State<_RecurringEditor> {
           const SizedBox(height: Space.s2),
           OtherSettingsStrip(notes: _f.notes, onTap: _others),
           const SizedBox(height: Space.s4),
-          PanelButton(
-            editing
-                ? '儲存'
-                : _f.income
-                ? '儲存固定收入'
-                : '儲存固定支出',
-            color: editing
-                ? AppColors.accent
-                : (_f.income ? AppColors.positive : AppColors.negative),
-            onTap: _save,
+          Row(
+            children: [
+              const Expanded(child: CancelButton()),
+              const SizedBox(width: Space.s2),
+              Expanded(
+                flex: 2,
+                child: PanelButton(
+                  editing
+                      ? Words.save
+                      : _f.income
+                      ? '儲存固定收入'
+                      : '儲存固定支出',
+                  color: editing
+                      ? AppColors.accent
+                      : (_f.income ? AppColors.positive : AppColors.negative),
+                  onTap: _save,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -296,17 +317,4 @@ class _RecurringEditorState extends State<_RecurringEditor> {
       ],
     );
   }
-}
-
-/// 多久一次: 每天, 每週, 每月 or 每年; then the day: a grid of dates for a
-/// month, seven weekdays for a week, the twelve months and a date for a
-/// year, how many days for every few days; every how many; and the next
-/// three times.
-class _RepeatSheet extends StatefulWidget {
-  const _RepeatSheet({required this.form});
-
-  final RecurringForm form;
-
-  @override
-  State<_RepeatSheet> createState() => _RepeatSheetState();
 }

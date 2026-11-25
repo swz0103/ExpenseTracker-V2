@@ -5,18 +5,29 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../overview/forms/overview_editor.dart';
 import '../../overview/forms/widget_face.dart';
+import '../../../core/messages/trade_messages.dart';
 import '../../../core/platform/preferences.dart';
+import '../../../core/platform/preference_choices.dart';
 import '../../../core/design_system/settings_colors.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 
-/// 外觀與操作: four cards: light or dark, the small vibrations (關, 輕 or
-/// 標準), what the
-/// home-screen widget shows, and the overview's blocks.
+/// 外觀與操作: five cards: light or dark, the small vibrations (關, 輕 or
+/// 標準), what the home-screen widget shows, the overview's blocks, and
+/// the broker's discount a trade's fee is suggested at.
 class AppearanceSection extends StatelessWidget {
   const AppearanceSection({super.key, required this.preferences});
 
   final Preferences preferences;
+
+  // What search finds here (N8): each topic marks its card.
+  static const topics = [
+    AppearanceTopics.look,
+    AppearanceTopics.vibration,
+    AppearanceTopics.homeWidget,
+    AppearanceTopics.blocks,
+    AppearanceTopics.discount,
+  ];
 
   /// Light, dark, or as the phone is, each as a small picture of a page.
   void _pickAppearance(BuildContext context) {
@@ -26,7 +37,7 @@ class AppearanceSection extends StatelessWidget {
       color: SettingsColors.appearance,
       title: '外觀',
       body: (context) => ListenableBuilder(
-        listenable: preferences,
+        listenable: preferences.watch(const {PreferenceTopic.look}),
         builder: (context, _) => Row(
           children: [
             for (final (i, a) in const [
@@ -58,7 +69,7 @@ class AppearanceSection extends StatelessWidget {
       title: '震動',
       detail: '標準比輕重一級',
       body: (context) => ListenableBuilder(
-        listenable: preferences,
+        listenable: preferences.watch(const {PreferenceTopic.look}),
         builder: (context, _) => Segments(
           labels: [for (final v in Vibration.values) v.label],
           selected: preferences.vibration.index,
@@ -76,12 +87,40 @@ class AppearanceSection extends StatelessWidget {
       glyph: Glyph.overview,
       color: SettingsColors.widget,
       title: '桌面小工具',
-      detail: '桌面上任何人都看得到',
+      detail: '桌面上任何人都看得到，帳本鎖定時也一樣',
       body: (context) => ListenableBuilder(
-        listenable: preferences,
+        listenable: preferences.watch(const {PreferenceTopic.homeWidget}),
         builder: (context, _) => _WidgetChoices(
           current: preferences.widgetFigures,
           onPick: (f) => preferences.update(widgetFigures: f),
+        ),
+      ),
+    );
+  }
+
+  /// The broker's discount the fee of a trade is suggested at, from the
+  /// usual ones, in two rows.
+  void _pickDiscount(BuildContext context) {
+    showCenterPanel(
+      context,
+      glyph: Glyph.percent,
+      color: SettingsColors.brokerDiscount,
+      title: BrokerDiscountText.title,
+      detail: BrokerDiscountText.detail,
+      body: (context) => ListenableBuilder(
+        listenable: preferences.watch(const {PreferenceTopic.trading}),
+        builder: (context, _) => Column(
+          children: [
+            for (final (i, row) in BrokerDiscountText.rows.indexed) ...[
+              if (i > 0) const SizedBox(height: Space.s2),
+              Segments(
+                labels: [for (final d in row) discountName(d)],
+                selected: row.indexOf(preferences.brokerDiscount),
+                selectedColor: SettingsColors.brokerDiscount,
+                onChanged: (k) => preferences.update(brokerDiscount: row[k]),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -91,6 +130,7 @@ class AppearanceSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return CardGrid([
       SettingCard(
+        topic: AppearanceTopics.look,
         glyph: Glyph.moon,
         color: SettingsColors.appearance,
         title: '外觀',
@@ -98,6 +138,7 @@ class AppearanceSection extends StatelessWidget {
         onTap: () => _pickAppearance(context),
       ),
       SettingCard(
+        topic: AppearanceTopics.vibration,
         glyph: Glyph.vibrate,
         color: SettingsColors.haptics,
         title: '震動',
@@ -111,6 +152,7 @@ class AppearanceSection extends StatelessWidget {
         onTap: () => _pickVibration(context),
       ),
       SettingCard(
+        topic: AppearanceTopics.homeWidget,
         glyph: Glyph.overview,
         color: SettingsColors.widget,
         title: '桌面小工具',
@@ -118,11 +160,20 @@ class AppearanceSection extends StatelessWidget {
         onTap: () => _pickWidget(context),
       ),
       SettingCard(
+        topic: AppearanceTopics.blocks,
         glyph: Glyph.list,
         color: SettingsColors.sections,
         title: '總覽區塊',
         detail: '排序、隱藏',
         onTap: () => editOverview(context, preferences),
+      ),
+      SettingCard(
+        topic: AppearanceTopics.discount,
+        glyph: Glyph.percent,
+        color: SettingsColors.brokerDiscount,
+        title: BrokerDiscountText.title,
+        detail: discountName(preferences.brokerDiscount),
+        onTap: () => _pickDiscount(context),
       ),
     ]);
   }

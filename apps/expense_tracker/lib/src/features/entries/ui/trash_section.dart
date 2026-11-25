@@ -1,21 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../../core/design_system/findable.dart';
+
+import 'package:core/constants/retention.dart';
+
 import '../../../core/ledger/ledger.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
+import '../../../core/design_system/dialogs.dart' show confirm;
 import '../../../core/messages/problem_messages.dart';
+import '../../../core/messages/trash_messages.dart';
 import '../../../core/widgets/entry_tile.dart';
 import '../../../core/design_system/settings_colors.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/shape.dart';
-
-/// How long a deleted entry is kept before it is gone for good.
-const _keptDays = 30;
 
 /// 最近刪除: how many there are and how long they are kept, then each
 /// deleted entry under the day it was for, with how many days it has
@@ -25,9 +30,30 @@ class TrashSection extends StatelessWidget {
 
   final Ledger ledger;
 
-  void _restore(BuildContext context, Trashed trashed) {
+  /// What search finds here (N8): the page itself.
+  static const topics = [TrashTopics.trash];
+
+  /// Puts [trashed] back, first asking what stands in its way (D78): an
+  /// account closed since, or a refund's purchase deleted too.
+  Future<void> _restore(BuildContext context, Trashed trashed) async {
+    // Every question is worked out first and asked in turn; nothing is
+    // changed until all are agreed.
+    final holds = ledger.entryCommands.holdsOf(trashed);
+    var reopen = false;
+    var withOriginal = false;
+    for (final hold in holds) {
+      final (title, action, body) = restoreQuestion(hold);
+      final ok = await confirm(context, title, action, body: body);
+      if (!ok || !context.mounted) return;
+      reopen = reopen || hold is ClosedAccounts;
+      withOriginal = withOriginal || hold is OriginalInTrash;
+    }
     try {
-      if (ledger.entryCommands.restoreTrashed(trashed)) {
+      if (ledger.entryCommands.restoreTrashed(
+        trashed,
+        reopen: reopen,
+        withOriginal: withOriginal,
+      )) {
         showNote(context, '已放回「${trashed.entry.title}」');
       }
     } on Object catch (error) {
@@ -37,7 +63,10 @@ class TrashSection extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      Findable(topic: TrashTopics.trash, child: _page(context));
+
+  Widget _page(BuildContext context) {
     final trash = ledger.trash;
     if (trash.all.isEmpty) {
       return const EmptyState(
@@ -49,7 +78,11 @@ class TrashSection extends StatelessWidget {
     final today = ledger.today;
     // Grouped by the day each entry was for, latest day first.
     final days = groupByDay(
-      [...trash.all]..sort((a, b) => b.entry.date.compareTo(a.entry.date)),
+      [...trash.all]..sort((a, b) {
+        final byDay = b.entry.date.compareTo(a.entry.date);
+        // Within a day, the later written first (D76).
+        return byDay != 0 ? byDay : (b.order ?? 0).compareTo(a.order ?? 0);
+      }),
       (t) => t.entry.date,
     );
     return Column(
@@ -65,14 +98,14 @@ class TrashSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${trash.all.length} 筆',
+                    countOf(trash.all.length, CountUnit.entries),
                     style: const TextStyle(
                       fontSize: TextSize.figure,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   Text(
-                    '保留 $_keptDays 天',
+                    '保留 ${countOf(trashRetentionDays, CountUnit.days)}',
                     style: TextStyle(
                       fontSize: TextSize.body,
                       color: deepOf(SettingsColors.trash),
@@ -109,7 +142,7 @@ class TrashSection extends StatelessWidget {
   Widget _row(BuildContext context, Trashed t, DateTime today) {
     final e = t.entry;
     final (glyph, color) = entryMark(ledger, e);
-    final left = _keptDays - today.difference(t.on).inDays;
+    final left = trashRetentionDays - today.difference(t.on).inDays;
     final account = ledger.account(e.account).name;
     return QuoteRow(
       lead: SquareIcon(glyph, color, size: 44),
@@ -120,7 +153,7 @@ class TrashSection extends StatelessWidget {
       detail: [
         if (e.category.isNotEmpty) e.category,
         account,
-        '還剩 ${left.clamp(0, _keptDays)} 天',
+        '還剩 ${countOf(left.clamp(0, trashRetentionDays), CountUnit.days)}',
       ].join(' · '),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -128,7 +161,7 @@ class TrashSection extends StatelessWidget {
           RowFigure(ledger.orDots(groupDigits(e.amount))),
           const SizedBox(width: Space.s2),
           FilledButton(
-            onPressed: () => _restore(context, t),
+            onPressed: () => unawaited(_restore(context, t)),
             style: solidButton(
               AppColors.selected,
               ink: AppColors.accent,

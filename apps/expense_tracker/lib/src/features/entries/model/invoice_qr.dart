@@ -1,5 +1,10 @@
 import 'dart:convert';
 
+import 'package:core/foundation_values.dart' show rocYearOffset;
+
+import '../../../core/messages/invoice_messages.dart';
+import 'invoices.dart';
+
 /// One item on a paper e-invoice: its name, how many, and the unit price.
 typedef InvoiceItem = ({String name, double count, double price});
 
@@ -69,13 +74,13 @@ final class InvoiceQr {
   static InvoiceQr? parse(String code) {
     if (code.length < 77) return null;
     final number = code.substring(0, 10);
-    if (!RegExp(r'^[A-Z]{2}\d{8}$').hasMatch(number)) return null;
+    if (!RegExp('^$invoiceNumberShape\$').hasMatch(number)) return null;
     final rocYear = int.tryParse(code.substring(10, 13));
     final month = int.tryParse(code.substring(13, 15));
     final day = int.tryParse(code.substring(15, 17));
     if (rocYear == null || month == null || day == null) return null;
     if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-    final date = DateTime.utc(rocYear + 1911, month, day);
+    final date = DateTime.utc(rocYear + rocYearOffset, month, day);
     if (date.month != month) return null;
     final total = int.tryParse(code.substring(29, 37), radix: 16);
     if (total == null || total <= 0) return null;
@@ -126,9 +131,14 @@ final class InvoiceQr {
   }
 
   /// 「乾電池 等 3 項 發票 AB12345678」, as an imported invoice's note.
-  String get note {
-    final what = items.isEmpty ? '' : items.first.name;
-    final more = items.length > 1 ? ' 等 ${items.length} 項' : '';
-    return '$what$more 發票 $number'.trim();
-  }
+  /// While items are still on the right code, which could not be read
+  /// ([wantsMore]), it names the seller and says the items are missing:
+  /// 「乾電池 發票 AB12345678 · 統編 12345678 · 品項未讀到」 (D30).
+  String get note => invoiceNote(
+    [for (final item in items) item.name],
+    number,
+    tail: wantsMore
+        ? ' · ${InvoiceMessages.seller} $seller · ${InvoiceMessages.itemsUnread}'
+        : '',
+  );
 }

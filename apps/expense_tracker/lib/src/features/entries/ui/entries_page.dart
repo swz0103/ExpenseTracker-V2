@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../../../core/widgets/pickers.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/haptics.dart';
@@ -17,6 +18,10 @@ import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
+import '../../../core/messages/flow_messages.dart';
+
+import 'package:core/time/utc_days.dart';
+import 'package:core/time/month_arithmetic.dart';
 
 /// 收支紀錄: the month's income against spending, then every entry by
 /// day, with search and filters; 設定 exports it.
@@ -84,9 +89,9 @@ class _EntriesPageState extends State<EntriesPage> {
     });
   }
 
+  /// The picked entries still in the ledger, each looked up by its id.
   List<Entry> get _pickedEntries => [
-    for (final e in widget.ledger.entries.all)
-      if (_picked.contains(e.id)) e,
+    for (final id in _picked) ?widget.ledger.entries.byId(id),
   ];
 
   /// Says how many of the picked entries a change reached, and ends the
@@ -97,8 +102,8 @@ class _EntriesPageState extends State<EntriesPage> {
     showNote(
       context,
       changed == total
-          ? '已$what $changed 筆'
-          : '已$what $changed 筆，其餘 ${total - changed} 筆不適用',
+          ? '已$what ${countOf(changed, CountUnit.entries)}'
+          : '已$what ${countOf(changed, CountUnit.entries)}，其餘 ${countOf(total - changed, CountUnit.entries)}不適用',
     );
   }
 
@@ -134,23 +139,41 @@ class _EntriesPageState extends State<EntriesPage> {
   /// of them. When the ledger refuses (a later sale would be short of
   /// shares) nothing is taken, the ledger says why, and the picks stay.
   void _removePicked() {
-    final ledger = widget.ledger;
-    // Entries written as one go with the one standing for them.
-    final removed = ledger.entryCommands.removeAll({
-      for (final e in _pickedEntries)
-        for (final m in ledger.entryQueryService.groupOf(e)) m.id,
-    });
-    if (removed.isEmpty) {
-      if (_pickedEntries.isEmpty) setState(_picked.clear);
+    final picked = _pickedEntries;
+    if (picked.isEmpty) {
+      setState(_picked.clear);
       return;
     }
+    if (deleteEntries(context, widget.ledger, picked).isEmpty) return;
     setState(_picked.clear);
-    showNote(
-      context,
-      '已刪除 ${removed.length} 筆',
-      action: '復原',
-      onAction: () => ledger.entryCommands.restoreAll(removed),
+  }
+
+  /// What the list shows, kept until the month, the filter, the search,
+  /// the day or what it rests on changes: a frame after 隱藏金額 or a
+  /// change elsewhere in the book builds only the lines on screen.
+  _Shown? _kept;
+
+  /// What the page rests on: the entries, and the accounts and categories
+  /// their lines name.
+  static const _topics = {Topic.entries, Topic.accounts, Topic.categories};
+
+  late final _changes = widget.ledger.watch(_topics);
+
+  _Shown _shownNow() {
+    final ledger = widget.ledger;
+    final key = (
+      _month,
+      _filter,
+      _words,
+      ledger.today,
+      ledger.revisionOf(Topic.entries),
+      ledger.revisionOf(Topic.accounts),
+      ledger.revisionOf(Topic.categories),
     );
+    final kept = _kept;
+    if (kept != null && kept.key == key) return kept;
+    final shown = _shown();
+    return _kept = _Shown(key, shown, ledger.reportService.totalsOf(shown));
   }
 
   /// The month's entries, the chosen days', or every month's that match
@@ -167,14 +190,17 @@ class _EntriesPageState extends State<EntriesPage> {
       source = ledger.entryQueryService.search(words);
     } else if (range != null) {
       source = [
-        for (
-          var m = DateTime.utc(range.end.year, range.end.month);
-          !m.isBefore(DateTime.utc(range.start.year, range.start.month));
-          m = DateTime.utc(m.year, m.month - 1)
-        )
+        for (final m in monthStarts(
+          range.start,
+          monthStart(range.end),
+        ).toList().reversed)
+          // Exception to as-of-today: the list shows 預定 entries marked; its
+          // totals go through countedOn.
           ...ledger.entries.inMonth(m.year, m.month),
       ];
     } else {
+      // Exception to as-of-today: the list shows 預定 entries marked; its totals
+      // go through countedOn.
       source = ledger.entries.inMonth(year, month);
     }
     return [
@@ -192,26 +218,11 @@ class _EntriesPageState extends State<EntriesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final ledger = widget.ledger;
     return ListenableBuilder(
-      listenable: ledger,
+      listenable: _changes,
       builder: (context, _) {
-        final shown = _shown();
-        // The list as lines: each day's heading, then its entries on one
-        // card. Only the lines on screen are built.
-        final items = <_Item>[];
-        DateTime? day;
-        var group = <Entry>[];
-        for (final e in shown) {
-          if (e.date != day) {
-            day = e.date;
-            group = [];
-            items
-              ..add(_Heading(e.date))
-              ..add(_Group(group));
-          }
-          group.add(e);
-        }
+        final shown = _shownNow();
+        final lines = shown.lines;
         // The title and month stay on top; the rest scrolls under them.
         final [title, ...head] = _head(shown);
         return Column(
@@ -231,6 +242,8 @@ class _EntriesPageState extends State<EntriesPage> {
                   if (speed.abs() < 300) return;
                   _stepMonth(speed < 0 ? 1 : -1);
                 },
+                // One line per heading and per entry: only the lines on
+                // screen are built, however many a day holds.
                 child: ListView.builder(
                   padding: const EdgeInsets.fromLTRB(
                     Space.s5,
@@ -238,9 +251,9 @@ class _EntriesPageState extends State<EntriesPage> {
                     Space.s5,
                     Space.s4,
                   ),
-                  itemCount: head.length + items.length,
+                  itemCount: head.length + lines.length,
                   itemBuilder: (context, i) =>
-                      i < head.length ? head[i] : _line(items[i - head.length]),
+                      i < head.length ? head[i] : _line(lines[i - head.length]),
                 ),
               ),
             ),
@@ -253,10 +266,10 @@ class _EntriesPageState extends State<EntriesPage> {
   /// Moves [by] months, never past this one.
   void _stepMonth(int by) {
     final today = widget.ledger.today;
-    final date = DateTime.utc(_month.$1, _month.$2 + by);
-    if (date.year * 12 + date.month > today.year * 12 + today.month) return;
+    final (year, month) = shiftMonth(_month.$1, _month.$2, by);
+    if (monthIndex(year, month) > monthIndex(today.year, today.month)) return;
     Haptics.selection();
-    setState(() => _month = (date.year, date.month));
+    setState(() => _month = (year, month));
   }
 
   /// The search box's look: a white pill with a magnifier, and a clear
@@ -290,14 +303,12 @@ class _EntriesPageState extends State<EntriesPage> {
 
   /// What sits above the entries: the title and month, the month's sums
   /// or what to do with the picked entries, search and the filters on.
-  List<Widget> _head(List<Entry> shown) {
+  List<Widget> _head(_Shown shown) {
     final ledger = widget.ledger;
     final (_, month) = _month;
     final filter = _filter;
     final words = _words;
     final searching = words.isNotEmpty;
-    final income = shown.fold(0, (sum, e) => sum + e.earning);
-    final expense = shown.fold(0, (sum, e) => sum + e.spending);
     final account = filter.account;
     return [
       PageHeader(
@@ -326,8 +337,8 @@ class _EntriesPageState extends State<EntriesPage> {
                   final range? => '${EntryFilter.rangeLabel(range)} 結餘',
                   null => '$month 月結餘',
                 },
-          income: income,
-          expense: expense,
+          income: shown.income,
+          expense: shown.expense,
           rate: false,
           size: 28,
         ),
@@ -346,27 +357,49 @@ class _EntriesPageState extends State<EntriesPage> {
           accountName: account == null ? null : ledger.account(account).name,
           onChange: (change) => setState(() => _filter = change(_filter)),
         ),
-      if (shown.isEmpty)
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: Space.s10),
-          child: Center(child: Text('沒有符合的紀錄', style: mutedText)),
-        ),
+      if (shown.lines.isEmpty) _empty(searching || filter.count > 0),
     ];
   }
 
-  /// A line of the list: a day's heading with what was spent, or the
-  /// day's entries on a white card.
-  Widget _line(_Item item) => switch (item) {
+  /// Nothing to list: none written yet, or none this month in a book
+  /// that has others (D117), with 記一筆; or none the search and filters
+  /// let through, with 清除篩選 (D85).
+  Widget _empty(bool narrowed) => narrowed
+      ? EmptyState(
+          glyph: Glyph.search,
+          color: AppColors.accent,
+          message: FlowWords.noMatches,
+          action: FlowWords.clearFilters,
+          actionKey: Keys.emptyAction('entries'),
+          onAction: _clearAll,
+        )
+      : EmptyState(
+          glyph: Glyph.records,
+          color: AppColors.accent,
+          message: widget.ledger.entries.isEmpty
+              ? FlowWords.noEntriesYet
+              : FlowWords.noEntriesThisMonth,
+          action: FlowWords.addEntry,
+          actionKey: Keys.emptyAction('entries'),
+          onAction: () => unawaited(widget.nav.compose()),
+        );
+
+  /// Takes the search and every filter away.
+  void _clearAll() {
+    _clearSearch();
+    setState(() => _filter = const EntryFilter());
+  }
+
+  /// A line of the list: a day's heading with what was spent, or one of
+  /// the day's entries, a slice of the day's card.
+  Widget _line(_Line line) => switch (line) {
     _Heading(:final day) => _heading(day),
-    _Group(:final entries) => GroupBox(
+    _Row(:final entry, :final first, :final last) => GroupBox(
       // None: a row's 編輯 and 刪除 reach the card's edges.
       padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          for (final (i, e) in entries.indexed)
-            _tile(e, last: i == entries.length - 1),
-        ],
-      ),
+      top: first,
+      bottom: last,
+      child: _tile(entry, last: last),
     ),
   };
 
@@ -406,21 +439,50 @@ class _EntriesPageState extends State<EntriesPage> {
   }
 }
 
+/// What the record list shows for one month, filter, search and day,
+/// with the [key] they make: the entries, as lines, and their sums.
+final class _Shown {
+  _Shown(this.key, List<Entry> shown, ({int income, int expense}) totals)
+    : lines = _linesOf(shown),
+      income = totals.income,
+      expense = totals.expense;
+
+  final Record key;
+  final List<_Line> lines;
+  final int income;
+  final int expense;
+
+  /// Each day's heading, then its entries, newest first, one line each.
+  static List<_Line> _linesOf(List<Entry> shown) => [
+    for (final (i, e) in shown.indexed) ...[
+      if (i == 0 || shown[i - 1].date != e.date) _Heading(e.date),
+      _Row(
+        e,
+        first: i == 0 || shown[i - 1].date != e.date,
+        last: i == shown.length - 1 || shown[i + 1].date != e.date,
+      ),
+    ],
+  ];
+}
+
 /// One line of the record list.
-sealed class _Item {}
+sealed class _Line {}
 
 /// A day's date and what was spent on it.
-final class _Heading extends _Item {
+final class _Heading extends _Line {
   _Heading(this.day);
 
   final DateTime day;
 }
 
-/// The day's entries, newest first, on one card.
-final class _Group extends _Item {
-  _Group(this.entries);
+/// One of a day's entries: a slice of the day's card, the [first] with
+/// its top corners and the [last] with its bottom ones.
+final class _Row extends _Line {
+  _Row(this.entry, {required this.first, required this.last});
 
-  final List<Entry> entries;
+  final Entry entry;
+  final bool first;
+  final bool last;
 }
 
 /// What can be done to the picked entries at once.
@@ -456,7 +518,7 @@ class _PickBar extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '已選 $count 筆 · 點紀錄可加選或取消',
+                  '已選 ${countOf(count, CountUnit.entries)} · 點紀錄可加選或取消',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),

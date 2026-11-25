@@ -7,14 +7,8 @@
 main.dart::_clearLeftovers
 main.dart::main
 main_preview.dart::main
-src/app/android/calendar_adapter.dart::AndroidCalendar
 src/app/android/folder_adapter.dart::AndroidFolder
 src/app/android/keystore_adapter.dart::androidDeviceUnlock
-src/app/android/notification_adapter.dart::AndroidNotifications
-src/app/android/receipt_photo_adapter.dart::AndroidReceipts
-src/app/android/update_adapter.dart::AndroidUpdatePort
-src/app/bootstrap.dart::VaultRoot
-src/app/bootstrap.dart::_OpenedLedgerState
 src/app/demo/launch.dart::_AppIcon
 src/app/demo/launch.dart::_HomeHandle
 src/app/demo/launch.dart::_HomeScreen
@@ -25,5 +19,4 @@ src/core/design_system/phone_frame.dart::_HomeBar
 src/core/design_system/phone_frame.dart::_StatusBar
 src/core/design_system/phone_frame.dart::_StatusIcons
 src/features/budgets/ui/budgets.dart::_NoBudget
-src/features/investments/ui/holding_page.dart::_SoldOut
-src/features/recurring/ui/recurring_lists.dart::_Paused
+src/features/recurring/ui/recurring_lists.dart::RecurringPaused

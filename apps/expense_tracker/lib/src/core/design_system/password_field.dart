@@ -6,11 +6,23 @@ import 'theme.dart';
 import 'shape.dart';
 import 'spacing.dart';
 
-/// A field for a password, a recovery code or a backup's path: no
-/// autocorrect and no suggestions, so the keyboard neither changes what
-/// is typed nor learns it. The words are hidden unless [hidden] is off,
-/// as for a recovery code, which is read off paper; hidden words have an
-/// eye at the right to show them while typing, and to hide them again.
+/// How the keyboard treats a secret typed into any field: no
+/// autocorrect, no suggestions, nothing learned into its personal
+/// dictionary (which some keyboards sync to the cloud), and the password
+/// layout. The one place these are set: [PasswordField] and the lock
+/// screen's field both take them.
+abstract final class SecretKeyboard {
+  static const type = TextInputType.visiblePassword;
+  static const autocorrect = false;
+  static const suggestions = false;
+  static const personalizedLearning = false;
+}
+
+/// A field for a password, a recovery code, a backup passphrase or a
+/// backup's path, set up as [SecretKeyboard] says, so the keyboard neither
+/// changes what is typed nor learns it. The words are hidden unless
+/// [hidden] is off, as for a file path; hidden words have an eye at the
+/// right to show them while typing, and to hide them again.
 class PasswordField extends StatefulWidget {
   const PasswordField({
     super.key,
@@ -20,7 +32,12 @@ class PasswordField extends StatefulWidget {
     this.onSubmitted,
     this.boxed = false,
     this.plain = false,
+    this.enabled = true,
   });
+
+  /// Whether it can be typed into; not while the lock screen makes the
+  /// person wait.
+  final bool enabled;
 
   final TextEditingController controller;
   final String hint;
@@ -54,9 +71,12 @@ class _PasswordFieldState extends State<PasswordField> {
     final submit = widget.onSubmitted;
     final field = TextField(
       controller: widget.controller,
+      enabled: widget.enabled,
       obscureText: hidden && !_shown,
-      autocorrect: false,
-      enableSuggestions: false,
+      autocorrect: SecretKeyboard.autocorrect,
+      enableSuggestions: SecretKeyboard.suggestions,
+      enableIMEPersonalizedLearning: SecretKeyboard.personalizedLearning,
+      keyboardType: SecretKeyboard.type,
       onSubmitted: submit == null ? null : (_) => submit(),
       style: plain
           ? const TextStyle(fontSize: TextSize.heading, letterSpacing: 2)

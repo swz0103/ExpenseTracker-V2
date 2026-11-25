@@ -3,7 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/platform/bounded_https.dart';
 import '../../../core/formatting/json_fields.dart';
+import '../../../core/diagnostics/error_steps.dart';
+import 'backup_rules.dart';
+import '../../../core/diagnostics/app_fault.dart';
 
 /// One HTTP exchange with Google Drive: the status, the headers (lower
 /// case) and, unless it was saved to a file, the body.
@@ -20,7 +24,8 @@ final class DriveResponse {
 /// Sends requests to Google; [IoDriveHttp] on the phone, a fake in tests.
 abstract interface class DriveHttp {
   /// Sends [method] to [url]. The body is [text], or the bytes of [file];
-  /// with [saveTo] a successful body is written there instead of returned.
+  /// with [saveTo] a successful body is written there instead of returned,
+  /// refused past [saveLimit] bytes (required with [saveTo]).
   Future<DriveResponse> send(
     String method,
     Uri url, {
@@ -28,12 +33,35 @@ abstract interface class DriveHttp {
     String? text,
     File? file,
     File? saveTo,
+    int? saveLimit,
   });
 }
 
-/// [DriveHttp] over dart:io.
+/// [DriveHttp] over dart:io, through [BoundedHttps]: a redirect is
+/// followed only to `https`, an answer's words are read up to
+/// [answerLimit] and a saved body up to the limit its request gives,
+/// which may not pass [saveLimit].
 final class IoDriveHttp implements DriveHttp {
-  const IoDriveHttp();
+  const IoDriveHttp({
+    required this.saveLimit,
+    this.answerLimit = maxAnswerBytes,
+  });
+
+  /// The most any body saved to a file may weigh: no backup is larger
+  /// (`LedgerBackup.maxBackupBytes`, given by the app). A request that
+  /// allows more is refused before it is sent.
+  final int saveLimit;
+
+  /// The most a JSON answer from Drive may weigh: a page of
+  /// [DriveBackup.pageSize] backups is some tens of kilobytes.
+  static const maxAnswerBytes = 1024 * 1024;
+
+  /// The most an answer read as words may weigh, in bytes.
+  final int answerLimit;
+
+  /// Any `https` address: Drive's own hosts move; the token goes only to
+  /// the origin first asked ([BoundedHttps.open]).
+  static bool _https(Uri to) => true;
 
   @override
   Future<DriveResponse> send(
@@ -43,25 +71,35 @@ final class IoDriveHttp implements DriveHttp {
     String? text,
     File? file,
     File? saveTo,
+    int? saveLimit,
   }) async {
+    if (saveTo != null) {
+      final allowed = saveLimit ?? (throw ArgumentError.notNull('saveLimit'));
+      if (allowed > this.saveLimit) throw AnswerTooLarge(this.saveLimit, url);
+    }
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 20)
       ..idleTimeout = const Duration(seconds: 20);
     try {
-      final request = await client.openUrl(method, url);
-      headers.forEach(request.headers.set);
-      if (file != null) {
-        request.contentLength = await file.length();
-        await request.addStream(file.openRead());
-      } else if (text != null) {
-        final bytes = utf8.encode(text);
-        request.contentLength = bytes.length;
-        request.add(bytes);
-      } else {
-        request.contentLength = 0;
-      }
-      final response = await request.close().timeout(
-        const Duration(minutes: 5),
+      final response = await BoundedHttps.open(
+        client,
+        method,
+        url,
+        allowed: _https,
+        headers: headers,
+        wait: const Duration(minutes: 5),
+        send: (request) async {
+          if (file != null) {
+            request.contentLength = await file.length();
+            await request.addStream(file.openRead());
+          } else if (text != null) {
+            final bytes = utf8.encode(text);
+            request.contentLength = bytes.length;
+            request.add(bytes);
+          } else {
+            request.contentLength = 0;
+          }
+        },
       );
       final found = <String, String>{};
       response.headers.forEach((name, values) {
@@ -69,24 +107,22 @@ final class IoDriveHttp implements DriveHttp {
       });
       final ok = response.statusCode >= 200 && response.statusCode < 300;
       if (saveTo != null && ok) {
-        final sink = saveTo.openWrite();
-        try {
-          // A body that stops arriving for a minute is given up on.
-          await sink.addStream(
-            response.timeout(
-              const Duration(minutes: 1),
-              onTimeout: (sink) => sink.addError(
-                const HttpException('The download stopped arriving.'),
-              ),
-            ),
-          );
-          await sink.flush();
-        } finally {
-          await sink.close();
-        }
+        // A body that stops arriving for a minute is given up on.
+        await BoundedHttps.save(
+          response,
+          saveTo,
+          saveLimit!,
+          uri: url,
+          stall: const Duration(minutes: 1),
+        );
         return DriveResponse(response.statusCode, headers: found);
       }
-      final body = await response.transform(utf8.decoder).join();
+      final body = await BoundedHttps.text(
+        response,
+        answerLimit,
+        uri: url,
+        stall: const Duration(minutes: 1),
+      );
       return DriveResponse(response.statusCode, headers: found, body: body);
     } finally {
       client.close(force: true);
@@ -96,7 +132,7 @@ final class IoDriveHttp implements DriveHttp {
 
 /// A backup kept on Google Drive.
 final class DriveFile {
-  const DriveFile(this.id, this.name, this.modified, this.size);
+  const DriveFile(this.id, this.name, this.modified, this.size, {this.epoch});
 
   final String id;
   final String name;
@@ -104,6 +140,11 @@ final class DriveFile {
 
   /// Bytes; 0 when Google did not say.
   final int size;
+
+  /// The backup key epoch it was sealed with, as marked when it went up
+  /// (its digits, as Drive keeps them); null for one sent before backups
+  /// were so marked.
+  final String? epoch;
 }
 
 /// Why talking to Google Drive stopped.
@@ -122,7 +163,12 @@ enum DriveProblem {
   refused,
 }
 
-final class DriveException implements Exception {
+/// A Drive request that failed: [problem] says how, for the words a
+/// screen shows (`driveNote`); [detail] is what the app can say of it for
+/// the error log, never shown: Drive's status and its reason's code, a
+/// field missing, the type of what failed; never Drive's own sentence,
+/// which can name the account or a file.
+final class DriveException implements AppFault {
   const DriveException(this.problem, [this.detail, this.status]);
 
   final DriveProblem problem;
@@ -130,14 +176,6 @@ final class DriveException implements Exception {
 
   /// Drive's HTTP status, when it answered.
   final int? status;
-
-  /// What to tell the person.
-  String get message => switch (problem) {
-    DriveProblem.notAllowed => '沒有取得 Google 雲端硬碟的權限',
-    DriveProblem.offline => '連不上 Google，請稍後再試',
-    DriveProblem.noAnswer => 'Google 沒有回應，請再試一次',
-    DriveProblem.refused => 'Google 雲端硬碟沒有接受（${detail ?? ''}）',
-  };
 
   @override
   String toString() =>
@@ -154,10 +192,13 @@ final class DriveBackup {
   final Future<String?> Function({required bool interactive}) _token;
   final Future<void> Function(String token) _forget;
 
-  static const folderName = '記帳本備份';
+  /// The folder the backups go into ([BackupRules.driveFolder]), by the
+  /// name the screens say it.
+  static const folderName = BackupRules.driveFolder;
   static const _folderType = 'application/vnd.google-apps.folder';
   static const _api = 'https://www.googleapis.com/drive/v3/files';
   static const _upload = 'https://www.googleapis.com/upload/drive/v3/files';
+  static const _about = 'https://www.googleapis.com/drive/v3/about';
 
   /// How long Google's sign-in may take with its screens shown, as the
   /// person picks an account; and without them.
@@ -192,8 +233,9 @@ final class DriveBackup {
         headers: {'content-type': 'application/x-www-form-urlencoded'},
         text: 'token=${Uri.encodeQueryComponent(token)}',
       );
-    } on Object {
+    } on Object catch (error, stack) {
       // Revoked later from the Google account's settings, if wanted.
+      ErrorLog.instance.record(ErrorSteps.driveRevoke, error, stack);
     }
     await _forget(token);
   }
@@ -221,6 +263,7 @@ final class DriveBackup {
     String? text,
     File? file,
     File? saveTo,
+    int? saveLimit,
   }) async {
     for (var attempt = 0; ; attempt++) {
       final token = await _access(interactive: interactive);
@@ -234,7 +277,13 @@ final class DriveBackup {
           text: text,
           file: file,
           saveTo: saveTo,
+          saveLimit: saveLimit,
         );
+      } on AnswerTooLarge catch (error) {
+        // Not the network: what came was larger than it may be.
+        throw DriveException(DriveProblem.refused, ErrorLog.describe(error));
+      } on RedirectRefused catch (error) {
+        throw DriveException(DriveProblem.refused, ErrorLog.describe(error));
       } on IOException catch (error) {
         throw DriveException(DriveProblem.offline, ErrorLog.describe(error));
       } on TimeoutException catch (error) {
@@ -248,7 +297,7 @@ final class DriveBackup {
       if (!response.ok) {
         throw DriveException(
           DriveProblem.refused,
-          '${response.status} ${_reason(response.body)}',
+          detailOf(response.status, response.body),
           response.status,
         );
       }
@@ -256,10 +305,23 @@ final class DriveBackup {
     }
   }
 
+  /// What the error log keeps of Drive refusing a request with [status]
+  /// and [body]: the status and the code of Drive's reason, never its
+  /// sentence ([DriveException.detail]).
+  static String detailOf(int status, String body) =>
+      'HTTP $status ${_reason(body)}'.trim();
+
+  /// The code of Drive's reason in [body] (`storageQuotaExceeded`,
+  /// `insufficientPermissions`), a word of Google's own; empty for none.
   static String _reason(String body) {
     try {
-      return JsonFields.decode(body).object('error')?.text('message') ?? '';
-    } on Object {
+      final reasons = JsonFields.decode(body).object('error')?.json['errors'];
+      final first = reasons is List && reasons.isNotEmpty
+          ? reasons.first
+          : null;
+      final reason = first is Map<String, Object?> ? first['reason'] : null;
+      return reason is String && _code.hasMatch(reason) ? reason : '';
+    } on FormatException {
       // A body that is not JSON has no message.
       return '';
     }
@@ -271,7 +333,8 @@ final class DriveBackup {
     try {
       return JsonFields.decode(response.body);
     } on FormatException catch (error) {
-      throw DriveException(DriveProblem.refused, error.message);
+      // Its words can quote the body: the type alone.
+      throw DriveException(DriveProblem.refused, ErrorLog.describe(error));
     }
   }
 
@@ -283,6 +346,9 @@ final class DriveBackup {
       throw DriveException(DriveProblem.refused, error.message);
     }
   }
+
+  /// A reason's code as Google writes it: one word of letters.
+  static final _code = RegExp(r'^[A-Za-z]{1,64}$');
 
   static String _quote(String text) =>
       text.replaceAll(r'\', r'\\').replaceAll("'", r"\'");
@@ -318,29 +384,47 @@ final class DriveBackup {
     return _folder = _need<String>(_answer(made), 'id');
   }
 
-  /// The backups in the folder, newest first; with [ledger], only those
-  /// of that ledger.
+  /// How many backups Drive is asked for at a time; the rest come a page
+  /// after another ([list]).
+  static const pageSize = 100;
+
+  /// The most pages [list] reads: [pageSize] × 50 = 5,000 backups, far
+  /// past any folder, so a Drive that keeps answering with more cannot
+  /// hold it forever.
+  static const _mostPages = 50;
+
+  /// The backups in the folder, newest first, every page of them; with
+  /// [ledger], only those of that ledger.
   Future<List<DriveFile>> list({
     bool interactive = true,
     String? ledger,
   }) async {
     final folder = await _folderId(interactive: interactive);
-    final response = await _send(
-      'GET',
-      Uri.parse(_api).replace(
-        queryParameters: {
-          'q':
-              "'${_quote(folder)}' in parents and trashed=false"
-              '${ledger == null ? '' : " and appProperties has { key='ledger' and value='${_quote(ledger)}' }"}',
-          'fields': 'files(id,name,size,modifiedTime)',
-          'orderBy': 'modifiedTime desc',
-          'pageSize': '100',
-          'spaces': 'drive',
-        },
-      ),
-      interactive: interactive,
-    );
-    final files = _answer(response).objects('files') ?? const [];
+    final files = <JsonFields>[];
+    String? page;
+    for (var read = 0; read < _mostPages; read++) {
+      final response = await _send(
+        'GET',
+        Uri.parse(_api).replace(
+          queryParameters: {
+            'q':
+                "'${_quote(folder)}' in parents and trashed=false"
+                '${ledger == null ? '' : " and appProperties has { key='ledger' and value='${_quote(ledger)}' }"}',
+            'fields':
+                'nextPageToken,files(id,name,size,modifiedTime,appProperties)',
+            'orderBy': 'modifiedTime desc',
+            'pageSize': '$pageSize',
+            'spaces': 'drive',
+            'pageToken': ?page,
+          },
+        ),
+        interactive: interactive,
+      );
+      final answer = _answer(response);
+      files.addAll(answer.objects('files') ?? const []);
+      page = answer.text('nextPageToken');
+      if (page == null || page.isEmpty) break;
+    }
     return [
       for (final row in files)
         if ((row.text('name') ?? '').endsWith('.etbk'))
@@ -349,13 +433,23 @@ final class DriveBackup {
             _need<String>(row, 'name'),
             DateTime.tryParse(row.text('modifiedTime') ?? '') ??
                 DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-            // Drive writes sizes as words.
-            int.tryParse(row.text('size') ?? '') ?? row.whole('size') ?? 0,
+            _size(row) ?? 0,
+            epoch: row.object('appProperties')?.text(epochProperty),
           ),
     ]..sort((a, b) => b.modified.compareTo(a.modified));
   }
 
-  /// Uploads [file] into the folder, marked as a backup of [ledger], then
+  /// The size in bytes [json] gives; null when it gives none. Drive
+  /// writes sizes as words.
+  static int? _size(JsonFields json) =>
+      int.tryParse(json.text('size') ?? '') ?? json.whole('size');
+
+  /// The property a backup goes up marked with: the backup key epoch it
+  /// was sealed with, so those of keys since replaced can be found (D15).
+  static const epochProperty = 'epoch';
+
+  /// Uploads [file] into the folder, marked as a backup of [ledger] and
+  /// with the key [epoch] it was sealed with ([epochProperty]), then
   /// moves that ledger's older backups beyond the newest [keep] to the
   /// Drive trash. Backups of other ledgers, and those made before backups
   /// were marked, are never touched. Pruning is best effort: the upload
@@ -363,8 +457,9 @@ final class DriveBackup {
   Future<void> upload(
     File file, {
     required String ledger,
+    int? epoch,
     bool interactive = true,
-    int keep = 5,
+    int keep = BackupRules.keep,
   }) async {
     final folder = await _folderId(interactive: interactive);
     final name = file.uri.pathSegments.last;
@@ -383,16 +478,24 @@ final class DriveBackup {
         'name': name,
         'parents': [folder],
         'mimeType': 'application/octet-stream',
-        'appProperties': {'ledger': ledger},
+        'appProperties': {
+          'ledger': ledger,
+          if (epoch != null) epochProperty: '$epoch',
+        },
       }),
     );
     final location = start.headers['location'];
     if (location == null) {
       throw const DriveException(DriveProblem.refused, 'no upload address');
     }
+    final target = Uri.tryParse(location);
+    if (target == null || !isGoogleUpload(target)) {
+      // Never sent elsewhere, with the token, whatever answered.
+      throw const DriveException(DriveProblem.refused, 'upload address');
+    }
     await _send(
       'PUT',
-      Uri.parse(location),
+      target,
       interactive: interactive,
       headers: {'content-type': 'application/octet-stream'},
       file: file,
@@ -400,16 +503,17 @@ final class DriveBackup {
     try {
       final kept = await list(interactive: interactive, ledger: ledger);
       for (final old in kept.skip(keep)) {
-        await _trash(old.id, interactive: interactive);
+        await trash(old.id, interactive: interactive);
       }
-    } on DriveException {
+    } on DriveException catch (error) {
       // Tried again after the next upload.
+      ErrorLog.instance.record(ErrorSteps.driveTrim, error);
     }
   }
 
   /// Moves [id] to the Drive trash, where it stays restorable for 30 days;
   /// one already gone is fine.
-  Future<void> _trash(String id, {required bool interactive}) async {
+  Future<void> trash(String id, {bool interactive = true}) async {
     try {
       await _send(
         'PATCH',
@@ -424,16 +528,62 @@ final class DriveBackup {
     }
   }
 
-  /// Saves the backup [id] into [into].
-  Future<void> download(String id, File into, {bool interactive = true}) async {
+  /// The address of the Google account Drive is linked to; null when
+  /// Drive does not say.
+  Future<String?> account({bool interactive = true}) async {
+    final response = await _send(
+      'GET',
+      Uri.parse(_about)
+          .replace(queryParameters: {'fields': 'user(emailAddress)'}),
+      interactive: interactive,
+    );
+    final user = _answer(response).object('user');
+    final address = user?.text('emailAddress');
+    return address == null || address.isEmpty ? null : address;
+  }
+
+  /// Whether [location], where Drive says to send a backup's bytes, is
+  /// Google's own over HTTPS: the backup and the access token go only
+  /// there.
+  static bool isGoogleUpload(Uri location) {
+    final host = location.host.toLowerCase();
+    return location.scheme == 'https' &&
+        (host == 'googleapis.com' || host.endsWith('.googleapis.com'));
+  }
+
+  /// Saves the backup [id] into [into]: no more than the size Drive
+  /// gives for it, so a broken or hostile answer cannot fill the phone. A
+  /// file whose size Drive does not give is refused, and one larger than
+  /// any backup is refused by [DriveHttp] before it is asked for. A
+  /// [size] already known, as the listing gives it ([DriveFile.size]), is
+  /// that bound; Drive is asked only when it is not known or nothing
+  /// (review 29).
+  Future<void> download(
+    String id,
+    File into, {
+    int? size,
+    bool interactive = true,
+  }) async {
+    final address = Uri.parse('$_api/${Uri.encodeComponent(id)}');
+    if (size == null || size <= 0) {
+      final about = await _send(
+        'GET',
+        address.replace(queryParameters: {'fields': 'size'}),
+        interactive: interactive,
+      );
+      size = _size(_answer(about));
+    }
+    if (size == null || size < 0) {
+      throw const DriveException(DriveProblem.refused, 'no size');
+    }
     await into.parent.create(recursive: true);
     try {
       await _send(
         'GET',
-        Uri.parse('$_api/${Uri.encodeComponent(id)}')
-            .replace(queryParameters: {'alt': 'media'}),
+        address.replace(queryParameters: {'alt': 'media'}),
         interactive: interactive,
         saveTo: into,
+        saveLimit: size,
       );
     } on Object {
       if (into.existsSync()) await into.delete();

@@ -10,6 +10,7 @@ import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/features/entries/ui/entries_filter_sheet.dart';
 import 'package:flutter/material.dart';
+import 'package:expense_tracker/src/core/formatting/words.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../support/places.dart';
@@ -63,6 +64,22 @@ void main() {
     expect(filter.amountLabel, '金額 100–5,000');
   });
 
+  testWidgets('ENT-09: bounds are read as typed, and one that is not an '
+      'amount is said so, not dropped', (tester) async {
+    final got = await open(tester);
+    await tester.enterText(find.byType(TextField).first, '1,000');
+    await tester.enterText(find.byType(TextField).last, '12.5');
+    await tester.pump();
+    expect(find.text('小數位數比這個幣別多'), findsOneWidget);
+    await go(tester, ['套用']);
+    // Still open: nothing applied with the upper bound silently unset.
+    expect(got, isEmpty);
+    await tester.enterText(find.byType(TextField).last, '5,000');
+    await tester.pump();
+    await go(tester, ['套用']);
+    expect((got.single!.least, got.single!.most), (1000, 5000));
+  });
+
   testWidgets('the account and category chosen are shown and can be put '
       'back to all', (tester) async {
     final got = await open(
@@ -82,8 +99,28 @@ void main() {
     final got = await open(tester);
     await go(tester, ['近 7 天', '套用']);
     final range = got.single!.range!;
-    expect(range.end, DateTime(2026, 10, 4));
-    expect(range.start, DateTime(2026, 9, 28));
+    expect(range.end, DateTime.utc(2026, 10, 4));
+    expect(range.start, DateTime.utc(2026, 9, 28));
+  });
+
+  // Run under TZ=America/New_York by CI as well: clocks went forward on
+  // Sunday 8 March 2026, so a local midnight less six days of hours
+  // fell on 3 March 23:00.
+  testWidgets('近 7 天 and 近 30 天 step by calendar days across a change '
+      'of the clocks', (tester) async {
+    ledger = demoLedger(today: DateTime.utc(2026, 3, 10));
+    final got = await open(tester);
+    await go(tester, ['近 7 天', '套用']);
+    // 10 March less 6 days = 4 March.
+    expect(got.single!.range!.start, DateTime.utc(2026, 3, 4));
+    expect(got.single!.range!.end, DateTime.utc(2026, 3, 10));
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await go(tester, ['近 30 天', '套用']);
+    // 10 March less 9 days is 1 March; 20 more back in a 28-day
+    // February is 9 February.
+    expect(got.last!.range!.start, DateTime.utc(2026, 2, 9));
   });
 
   testWidgets('a quick span opened again is shown chosen, and 依月份 lets it '
@@ -111,13 +148,13 @@ void main() {
     tester,
   ) async {
     final got = await open(tester);
-    await go(tester, ['自訂', '上月', '確定']);
+    await go(tester, ['自訂', '上月', Words.done]);
     expect(find.text('9/1–9/30'), findsOneWidget);
     await go(tester, ['套用']);
     final range = got.single!.range!;
     expect(
       (range.start, range.end),
-      (DateTime(2026, 9), DateTime(2026, 9, 30)),
+      (DateTime.utc(2026, 9), DateTime.utc(2026, 9, 30)),
     );
     expect(EntryFilter.rangeLabel(range), '9/1–9/30');
   });
@@ -219,6 +256,24 @@ void main() {
       expect(const EntryFilter().amountLabel, '');
     });
 
+    test('ENT-09: a foreign entry is compared by its worth in NT\$', () {
+      final ledger = demoLedger();
+      const filter = EntryFilter(most: 5000);
+      // US$80.00 is 8,000 cents but NT$2,560 at 32: under NT$5,000.
+      final dollars = Entry(
+        id: 'usd',
+        date: day,
+        type: EntryType.expense,
+        amount: 8000,
+        account: 'usd',
+        category: '居家生活',
+        home: 2560,
+      );
+      expect(filter.shows(ledger, dollars), isTrue);
+      // ...and not over NT$3,000, though 8,000 cents is.
+      expect(const EntryFilter(least: 3000).shows(ledger, dollars), isFalse);
+    });
+
     test('money into its account as well as out of it', () {
       final ledger = demoLedger();
       const filter = EntryFilter(account: 'cash');
@@ -259,5 +314,31 @@ void main() {
       expect(full.withoutAmounts().boundsAmount, isFalse);
       expect(full.withKind(KindFilter.all).count, 4);
     });
+  });
+
+  test('a split part in a subcategory of the one filtered to (D54)', () {
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 10, 4),
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 0)],
+      categories: [
+        Category('飲食', 'food', 0xFF111111),
+        Category('早餐', 'food', 0xFF111111, parent: '飲食'),
+      ],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+    const filter = EntryFilter(category: '飲食');
+    final split = Entry(
+      id: 'x',
+      date: DateTime.utc(2026, 10, 4),
+      type: EntryType.expense,
+      amount: 100,
+      account: 'bank',
+      category: '交通',
+      parts: const [('交通', 60), ('早餐', 40)],
+    );
+    expect(filter.shows(ledger, split), isTrue);
   });
 }

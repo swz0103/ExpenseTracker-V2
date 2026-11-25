@@ -63,15 +63,6 @@ void main() {
       expect(make(RecordingContext(day)).receiptFiles, {'a.jpg', 'd.jpg'});
     });
 
-    test('a photo set is kept and shown; the same again is nothing', () {
-      final context = RecordingContext(day);
-      final commands = make(context);
-      commands.setReceipt('e1', 'b.jpg');
-      commands.setReceipt('e1', 'b.jpg');
-      expect(context.signals, 1);
-      expect(context.batches.single.receipts, {'e1': 'b.jpg'});
-    });
-
     test('a form put aside is kept but no sum changes', () {
       final context = RecordingContext(day);
       make(context).setDraft('income', '{}');
@@ -97,7 +88,7 @@ void main() {
         ),
       ]);
       final holdings = HoldingRepository(const [], moveOf: market.moveOf)
-        ..replay(entries.all);
+        ..replay(entries.all, today: day);
       HoldingCommands(
         context: context,
         marketRepository: market,

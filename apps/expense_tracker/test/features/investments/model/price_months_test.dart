@@ -1,0 +1,181 @@
+/// Review 22 finding 3: the chart's months of closes are kept sealed with
+/// the ledger's key, in one file that names no stock; a file another key
+/// sealed (after a restore or a reset) or the plain folder of an older
+/// version is taken away as the ledger opens.
+library;
+
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:expense_tracker/src/features/investments/model/price_months.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:vault/backup_security.dart';
+
+void main() {
+  late Directory directory;
+  late FileBox box;
+  late FileBox otherBox;
+
+  setUp(() async {
+    directory = Directory.systemTemp.createTempSync('price-months-');
+    final codec = KeyringCodec(kdf: PasswordKdf.insecureForTests);
+    box = await FileBox.derive(
+      (await codec.create('first ledger')).unlocked,
+      FileBox.prices,
+    );
+    otherBox = await FileBox.derive(
+      (await codec.create('other ledger')).unlocked,
+      FileBox.prices,
+    );
+  });
+  tearDown(() => directory.deleteSync(recursive: true));
+
+  File sealed() => File('${directory.path}/${PriceMonths.name}');
+
+  final august = <String, CodeMonths>{
+    '2330': (
+      otc: false,
+      months: {
+        '2026-08': [(DateTime.utc(2026, 8, 28), 1100.0)],
+      },
+    ),
+    '6488': (otc: true, months: {'2026-08': <(DateTime, double)>[]}),
+  };
+
+  test('written sealed, read back as written', () async {
+    await PriceMonths(directory, seal: box.seal, open: box.open).write(august);
+    expect(latin1.decode(sealed().readAsBytesSync()), isNot(contains('2330')));
+    final read = await PriceMonths(
+      directory,
+      seal: box.seal,
+      open: box.open,
+    ).read();
+    expect(read.keys, ['2330', '6488']);
+    expect(read['2330']!.otc, isFalse);
+    expect(read['2330']!.months, {
+      '2026-08': [(DateTime.utc(2026, 8, 28), 1100.0)],
+    });
+    expect(read['6488']!.otc, isTrue);
+    // Nothing left beside it.
+    expect(directory.listSync(), hasLength(1));
+  });
+
+  test('a file another key sealed goes as the ledger opens', () async {
+    await PriceMonths(
+      directory,
+      seal: otherBox.seal,
+      open: otherBox.open,
+    ).write(august);
+    expect(sealed().existsSync(), isTrue);
+    final months = PriceMonths(directory, seal: box.seal, open: box.open);
+    await months.settle();
+    expect(sealed().existsSync(), isFalse);
+    expect(await months.read(), isEmpty);
+  });
+
+  test('the plain files of an older version go as the ledger opens, and a '
+      'file this key sealed stays', () async {
+    final plain = Directory('${directory.path}/prices')..createSync();
+    File('${plain.path}/2330.json').writeAsStringSync('{"months":{}}');
+    await PriceMonths(directory, seal: box.seal, open: box.open).write(august);
+    await PriceMonths(directory, seal: box.seal, open: box.open).settle();
+    expect(plain.existsSync(), isFalse);
+    expect(sealed().existsSync(), isTrue);
+  });
+
+  test('writes go one after another, the last kept', () async {
+    final months = PriceMonths(directory, seal: box.seal, open: box.open);
+    final only2330 = {'2330': august['2330']!};
+    await Future.wait([months.write(only2330), months.write(august)]);
+    expect(
+      (await PriceMonths(
+        directory,
+        seal: box.seal,
+        open: box.open,
+      ).read()).keys,
+      ['2330', '6488'],
+    );
+  });
+
+  test('a close that is not a day and a price makes the file unreadable, '
+      'and it goes', () async {
+    sealed().writeAsBytesSync(
+      await box.seal(
+        PriceMonths.name,
+        utf8.encode(
+          jsonEncode({
+            'codes': {
+              '2330': {
+                'otc': false,
+                'months': {
+                  '2026-08': [
+                    ['2026-08-28'],
+                  ],
+                },
+              },
+            },
+          }),
+        ),
+      ),
+    );
+    expect(
+      await PriceMonths(directory, seal: box.seal, open: box.open).read(),
+      isEmpty,
+    );
+    expect(sealed().existsSync(), isFalse);
+  });
+
+  test('a file the phone cannot read is kept, and not written over this '
+      'run; it is read again the next (review 27 finding 6)', () async {
+    await PriceMonths(directory, seal: box.seal, open: box.open).write(august);
+    final before = sealed().readAsBytesSync();
+    final months = PriceMonths(directory, seal: box.seal, open: box.open);
+    // Reading the file fails as a locked or failing disk would.
+    final read = await IOOverrides.runZoned(() async {
+      await months.settle();
+      return months.read();
+    }, createFile: (path) => _Unreadable(path));
+    expect(read, isEmpty);
+    expect(sealed().readAsBytesSync(), before);
+    // The months fetched again this run are kept in memory only.
+    await months.write({'2330': august['2330']!});
+    expect(sealed().readAsBytesSync(), before);
+    expect(directory.listSync(), hasLength(1));
+    // The next run reads it whole.
+    expect(
+      (await PriceMonths(
+        directory,
+        seal: box.seal,
+        open: box.open,
+      ).read()).keys,
+      ['2330', '6488'],
+    );
+  });
+
+  test('with nothing kept there is nothing to read', () async {
+    final months = PriceMonths(directory, seal: box.seal, open: box.open);
+    await months.settle();
+    expect(await months.read(), isEmpty);
+  });
+}
+
+/// A file that is there and cannot be read; anything else done to it is a
+/// failure of the test.
+final class _Unreadable implements File {
+  _Unreadable(this.path);
+
+  @override
+  final String path;
+
+  @override
+  bool existsSync() => true;
+
+  @override
+  Future<Uint8List> readAsBytes() async =>
+      throw FileSystemException('Input/output error', path);
+
+  @override
+  Object? noSuchMethod(Invocation invocation) =>
+      fail('Not to be touched: ${invocation.memberName}');
+}

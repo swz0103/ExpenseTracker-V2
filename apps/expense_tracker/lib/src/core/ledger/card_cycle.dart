@@ -18,8 +18,19 @@ extension CardBilling on Account {
   /// keeps them.
   CardSchedule get schedule => _schedules[this] ??= _scheduleOf(this);
 
+  /// Whether the statement scheduled to close on [scheduled] may close on
+  /// [closesOn] instead: a close the schedule has, moved a week at most
+  /// and still before the payment.
+  bool canMoveClose(DateTime scheduled, DateTime closesOn) =>
+      _override(schedule, scheduled, closesOn) != null;
+
   /// The last statement closing on or before [day].
   DateTime closingOn(DateTime day) => _utc(schedule.lastCloseOn(_day(day)));
+
+  /// The first statement close after [end], as it may have been moved:
+  /// the close of the cycle that starts the day after [end].
+  DateTime closeAfter(DateTime end) =>
+      _utc(schedule.cycleFor(_day(end.add(const Duration(days: 1)))).closesOn);
 
   /// The statement whose last day is [end]: its first day and when it
   /// must be paid.
@@ -58,26 +69,77 @@ extension CardBilling on Account {
     final count = e.installments;
     if (count < 2) return [(e.date, e.amount)];
     final shares = installmentShares(e.amount, count).toList();
-    final (first, closingDay) = installmentStart(schedule, _day(e.date));
     return [
-      for (final (k, close) in installmentCloses(
-        first,
-        closingDay,
+      for (final (k, day) in installmentBillingDays(
+        schedule,
+        _day(e.date),
         count,
       ).indexed)
-        (_utc(schedule.datesOf(close).$1), shares[k]),
+        (_utc(day), shares[k]),
     ];
+  }
+
+  /// What [refund], paid back on this card, changes of what the card is
+  /// billed for [purchase], the purchase in instalments it gives back,
+  /// [refunds] being every refund of it: domain's
+  /// `refundedInstalments`, the one rule (more billed positive; it comes
+  /// to nothing). Empty for a refund of anything else, or kept on
+  /// another account: it cancels no instalment of this card.
+  List<(DateTime, int)> cancelledBy(
+    Entry refund,
+    Entry purchase,
+    List<Entry> refunds,
+  ) {
+    if (!_cancels(refund, purchase)) return const [];
+    final mine = [
+      for (final r in refunds)
+        if (_cancels(r, purchase)) r,
+    ];
+    final at = mine.indexWhere((r) => r.id == refund.id);
+    if (at < 0) return const [];
+    final changes = refundedInstalments(
+      [for (final (day, share) in billingSteps(purchase)) (_day(day), share)],
+      [for (final r in mine) (_day(r.date), r.amount)],
+    );
+    return [for (final (day, change) in changes[at]) (_utc(day), change)];
+  }
+
+  bool _cancels(Entry refund, Entry purchase) =>
+      purchase.type == EntryType.expense &&
+      purchase.installments > 1 &&
+      purchase.account == id &&
+      refund.account == id &&
+      refund.type == EntryType.income &&
+      refund.refundOf == purchase.id;
+
+  /// What of [purchase] is still to be billed after the end of [at], its
+  /// [refunds] dated by then having cancelled what they did.
+  int stillToBill(Entry purchase, List<Entry> refunds, DateTime at) {
+    var left = 0;
+    for (final (day, share) in billingSteps(purchase)) {
+      if (day.isAfter(at)) left += share;
+    }
+    for (final r in refunds) {
+      if (r.date.isAfter(at)) continue;
+      for (final (day, change) in cancelledBy(r, purchase, refunds)) {
+        if (day.isAfter(at)) left += change;
+      }
+    }
+    return left;
   }
 
   /// How many instalments of [e] have been billed by [at]: those whose
   /// statement has closed, on the ledger's own instalment schedule.
   int billedPeriods(Entry e, DateTime at) {
     if (e.installments < 1) return 0;
-    final (first, closingDay) = installmentStart(schedule, _day(e.date));
     final until = _day(at);
     var periods = 0;
-    for (final close in installmentCloses(first, closingDay, e.installments)) {
-      if (schedule.datesOf(close).$1.compareTo(until) > 0) break;
+    for (final day in installmentBillingDays(
+      schedule,
+      _day(e.date),
+      e.installments,
+    )) {
+      if (day.compareTo(until) > 0) break;
       periods++;
     }
     return periods;
@@ -108,27 +170,11 @@ CardSchedule _scheduleOf(Account a) {
       if (keep == 0) rethrow;
     }
   }
-  final overrides = <CardCycleOverride>[];
-  for (final MapEntry(key: scheduled, value: closesOn) in a.closes.entries) {
-    try {
-      final close = _day(scheduled);
-      final override = CardCycleOverride(
-        scheduledClose: close,
-        closesOn: _day(closesOn),
-        dueOn: plain.datesOf(close).$2,
-      );
-      CardSchedule(
-        closingDay: plain.closingDay,
-        dueDay: plain.dueDay,
-        history: plain.history,
-        overrides: [override],
-      );
-      overrides.add(override);
-    } on CreditCardException {
-      // A change the card's schedule refuses is left out.
-      continue;
-    }
-  }
+  // A change the card's schedule refuses is left out.
+  final overrides = [
+    for (final MapEntry(key: scheduled, value: closesOn) in a.closes.entries)
+      ?_override(plain, scheduled, closesOn),
+  ];
   return overrides.isEmpty
       ? plain
       : CardSchedule(
@@ -139,6 +185,33 @@ CardSchedule _scheduleOf(Account a) {
         );
 }
 
+/// The statement of [plain] scheduled to close on [scheduled] closing on
+/// [closesOn] instead; null when the schedule cannot hold it.
+CardCycleOverride? _override(
+  CardSchedule plain,
+  DateTime scheduled,
+  DateTime closesOn,
+) {
+  try {
+    final close = _day(scheduled);
+    final override = CardCycleOverride(
+      scheduledClose: close,
+      closesOn: _day(closesOn),
+      dueOn: plain.datesOf(close).$2,
+    );
+    CardSchedule(
+      closingDay: plain.closingDay,
+      dueDay: plain.dueDay,
+      history: plain.history,
+      overrides: [override],
+    );
+    return override;
+  } on CreditCardException {
+    // A close the schedule cannot hold: none.
+    return null;
+  }
+}
+
 BusinessDate _day(DateTime d) => BusinessDate(d.year, d.month, d.day);
 
-DateTime _utc(BusinessDate d) => DateTime.utc(d.year, d.month, d.day);
+DateTime _utc(BusinessDate d) => d.asUtcMidnight;

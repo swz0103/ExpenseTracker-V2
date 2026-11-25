@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:expense_tracker/src/core/platform/bounded_https.dart';
 import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -8,12 +9,15 @@ typedef DriveSent = ({String method, Uri url, Map<String, String> headers});
 
 /// A file kept on the fake Drive.
 final class DriveRow {
-  DriveRow(this.name, this.bytes, this.at, this.ledger);
+  DriveRow(this.name, this.bytes, this.at, this.ledger, {this.epoch});
 
   final String name;
   final List<int> bytes;
   final DateTime at;
   final String? ledger;
+
+  /// The key epoch it went up marked with; null when unmarked.
+  final String? epoch;
   var trashed = false;
 }
 
@@ -23,7 +27,7 @@ final class FakeDrive implements DriveHttp {
   final sent = <DriveSent>[];
   final files = <String, DriveRow>{};
   final revoked = <String>[];
-  final _sessions = <String, String?>{};
+  final _sessions = <String, Map<String, Object?>?>{};
   String? folder;
   var _next = 0;
   var _clock = DateTime.utc(2026, 10, 1);
@@ -34,13 +38,29 @@ final class FakeDrive implements DriveHttp {
   /// Moving files to the trash fails.
   var trashFails = false;
 
+  /// The Google account Drive says it is; null when it says none.
+  String? account = 'me@example.com';
+
+  /// Where Drive says to send a backup's bytes.
+  var uploadAt = 'https://www.googleapis.com';
+
+  /// The size Drive says for a file, by id, in place of its real one;
+  /// null for none said.
+  final sizeSaid = <String, String?>{};
+
   /// Files that are not in the trash.
   Iterable<DriveRow> get kept => files.values.where((f) => !f.trashed);
 
   /// Puts a backup on Drive as another ledger or an older version did.
-  void seed(String name, {String? ledger}) {
+  void seed(String name, {String? ledger, int? epoch}) {
     _clock = _clock.add(const Duration(minutes: 1));
-    files['s${_next++}'] = DriveRow(name, const [1], _clock, ledger);
+    files['s${_next++}'] = DriveRow(
+      name,
+      const [1],
+      _clock,
+      ledger,
+      epoch: epoch == null ? null : '$epoch',
+    );
   }
 
   @override
@@ -51,6 +71,7 @@ final class FakeDrive implements DriveHttp {
     String? text,
     File? file,
     File? saveTo,
+    int? saveLimit,
   }) async {
     sent.add((method: method, url: url, headers: headers));
     if (url.host == 'oauth2.googleapis.com') {
@@ -62,6 +83,11 @@ final class FakeDrive implements DriveHttp {
       return const DriveResponse(401);
     }
     final path = url.path;
+    if (method == 'GET' && path == '/drive/v3/about') {
+      return _json({
+        if (account case final address?) 'user': {'emailAddress': address},
+      });
+    }
     if (method == 'GET' && path == '/drive/v3/files') {
       final q = url.queryParameters['q']!;
       if (q.contains('mimeType')) {
@@ -80,9 +106,22 @@ final class FakeDrive implements DriveHttp {
               'name': row.name,
               'size': '${row.bytes.length}',
               'modifiedTime': row.at.toIso8601String(),
+              if (row.epoch case final epoch?)
+                'appProperties': {
+                  'ledger': ?row.ledger,
+                  DriveBackup.epochProperty: epoch,
+                },
             },
       ];
-      return _json({'files': rows});
+      // A page of pageSize rows from pageToken on, as Drive gives them.
+      final size = int.tryParse(url.queryParameters['pageSize'] ?? '');
+      if (size == null) return _json({'files': rows});
+      final from = int.tryParse(url.queryParameters['pageToken'] ?? '') ?? 0;
+      final to = from + size < rows.length ? from + size : rows.length;
+      return _json({
+        'files': rows.sublist(from, to),
+        if (to < rows.length) 'nextPageToken': '$to',
+      });
     }
     if (method == 'POST' && path == '/drive/v3/files') {
       final body = jsonDecode(text!) as Map<String, Object?>;
@@ -94,14 +133,12 @@ final class FakeDrive implements DriveHttp {
       final body = jsonDecode(text!) as Map<String, Object?>;
       expect(body['parents'], [folder]);
       final id = 'f${_next++}';
-      _sessions[id] =
-          (body['appProperties'] as Map<String, Object?>?)?['ledger']
-              as String?;
+      _sessions[id] = body['appProperties'] as Map<String, Object?>?;
       return DriveResponse(
         200,
         headers: {
           'location':
-              'https://www.googleapis.com/upload/session/$id?name='
+              '$uploadAt/upload/session/$id?name='
               '${Uri.encodeComponent(body['name']! as String)}',
         },
       );
@@ -113,7 +150,8 @@ final class FakeDrive implements DriveHttp {
         url.queryParameters['name']!,
         await file!.readAsBytes(),
         _clock,
-        _sessions[id],
+        _sessions[id]?['ledger'] as String?,
+        epoch: _sessions[id]?[DriveBackup.epochProperty] as String?,
       );
       return _json({'id': id});
     }
@@ -128,9 +166,22 @@ final class FakeDrive implements DriveHttp {
     if (method == 'DELETE') {
       fail('Backups go to the trash; nothing is deleted for good.');
     }
+    if (method == 'GET' && url.queryParameters['fields'] == 'size') {
+      final id = path.split('/').last;
+      final found = files[id];
+      if (found == null) return const DriveResponse(404);
+      final size = sizeSaid.containsKey(id)
+          ? sizeSaid[id]
+          : '${found.bytes.length}';
+      return _json({'size': ?size});
+    }
     if (method == 'GET' && url.queryParameters['alt'] == 'media') {
       final found = files[path.split('/').last];
       if (found == null) return const DriveResponse(404);
+      // As IoDriveHttp: past the limit, refused.
+      if (found.bytes.length > saveLimit!) {
+        throw AnswerTooLarge(saveLimit, url);
+      }
       await saveTo!.writeAsBytes(found.bytes);
       return const DriveResponse(200);
     }

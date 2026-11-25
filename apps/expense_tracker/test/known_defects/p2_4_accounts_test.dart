@@ -39,7 +39,6 @@ void main() {
       // Still owed 5,000, so the person must stay visible.
       expect(ledger.account('ann').archived, isFalse);
     },
-    skip: knownDefect('DEB-01', '2.4'),
   );
 
   test('ACC-01: a reconciliation adjustment is not spending or income', () {

@@ -1,8 +1,23 @@
-part of 'debts_page.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/messages/amount_messages.dart';
+import '../../../../design_system/display/amount.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/design_system/spacing.dart';
+import '../model/debts.dart';
 
 /// How much of a loan is paid, as a ring with the share in the middle.
-class _PaidRing extends StatelessWidget {
-  const _PaidRing({required this.share, required this.color, this.size = 64});
+class PaidRing extends StatelessWidget {
+  const PaidRing({
+    super.key,
+    required this.share,
+    required this.color,
+    this.size = 64,
+  });
 
   final double share;
   final Color color;
@@ -16,6 +31,9 @@ class _PaidRing extends StatelessWidget {
       children: [
         CircularProgressIndicator(
           value: share,
+          // Read once, as words and a percent: 已還 1%, not 1, 1%.
+          semanticsLabel: ProgressWords.repaid,
+          semanticsValue: ratioWholePercent(share),
           strokeWidth: size / 9,
           strokeCap: StrokeCap.round,
           color: markOf(color),
@@ -23,7 +41,8 @@ class _PaidRing extends StatelessWidget {
         ),
         Center(
           child: Text(
-            '${(share * 100).round()}%',
+            ratioWholePercent(share),
+            semanticsLabel: '',
             textScaler: TextScaler.noScaling,
             style: TextStyle(
               fontSize: size / 4,
@@ -39,8 +58,9 @@ class _PaidRing extends StatelessWidget {
 
 /// A loan: how much is paid as a ring, its name and amount taken out,
 /// and what is left, on its colour's tint.
-class _LoanCard extends StatelessWidget {
-  const _LoanCard({
+class DebtLoanCard extends StatelessWidget {
+  const DebtLoanCard({
+    super.key,
     required this.ledger,
     required this.loan,
     required this.onTap,
@@ -68,7 +88,7 @@ class _LoanCard extends StatelessWidget {
         loan.name,
         if (principal != null) '原借 ${ledger.orDots(groupDigits(principal))}',
         '尚欠 $owed',
-        if (share != null) '已還 ${(share * 100).round()}%',
+        if (share != null) '已還 ${ratioWholePercent(share)}',
       ].join('，'),
       padding: const EdgeInsets.fromLTRB(
         Space.s4,
@@ -79,7 +99,7 @@ class _LoanCard extends StatelessWidget {
       child: Row(
         children: [
           if (share != null)
-            _PaidRing(share: share, color: color)
+            PaidRing(share: share, color: color)
           else
             SquareIcon(Glyph.loan, color, size: 52),
           const SizedBox(width: Space.s4),

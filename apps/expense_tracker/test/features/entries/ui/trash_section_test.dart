@@ -1,5 +1,7 @@
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
+import 'package:expense_tracker/src/core/design_system/keys.dart';
+import 'package:expense_tracker/src/core/messages/trash_messages.dart';
 import 'package:expense_tracker/src/features/entries/ui/trash_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -51,6 +53,39 @@ void main() {
     expect(ledger.entries.length, count);
     expect(find.text('已放回「${entry.title}」'), findsOneWidget);
     expect(find.text('沒有刪除的紀錄'), findsOneWidget);
+  });
+
+  testWidgets('D78: 放回 onto an account closed since asks first, and '
+      'opens it again when told to', (tester) async {
+    final ledger = demoLedger();
+    final entry = anExpense(ledger);
+    ledger.entryCommands.remove(entry.id);
+    final account = ledger.account(entry.account);
+    ledger.accountCommands.updateAccount(account.copyWith(archived: true));
+    await show(tester, ledger);
+
+    await go(tester, ['放回']);
+    expect(find.text('「${account.name}」已封存'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.confirm));
+    await tester.pumpAndSettle();
+    expect(ledger.entries.byId(entry.id), isNotNull);
+    expect(ledger.account(entry.account).archived, isFalse);
+  });
+
+  test('D78: what is asked before putting back what stands in the way', () {
+    final spend = Trashed(
+      Entry(
+        id: 'o',
+        date: DateTime.utc(2026, 10, 1),
+        type: EntryType.expense,
+        amount: 100,
+        account: 'bank',
+        note: '鞋子',
+      ),
+      DateTime.utc(2026, 10, 2),
+    );
+    expect(restoreQuestion(OriginalInTrash(spend)).$3, contains('「鞋子」'));
+    expect(restoreQuestion(const OriginalGone()).$1, '原消費已永久刪除');
   });
 
   testWidgets('the days left count down and never go below zero', (

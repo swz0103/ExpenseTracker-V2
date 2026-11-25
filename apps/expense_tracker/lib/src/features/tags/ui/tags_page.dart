@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/design_system/dialogs.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
-import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
@@ -11,16 +9,13 @@ import '../../../core/navigation/nav.dart';
 import '../model/tag_summary.dart';
 import 'tag_summary_blocks.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../core/formatting/dates.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 
-part 'tag_page.dart';
-
 /// The colours of the two halves of 標籤與商家.
-const _tagColor = Palette.gold;
-const _merchantColor = Palette.orange;
+const tagColor = Palette.gold;
+const merchantColor = Palette.orange;
 
 /// 標籤與商家: 標籤 and 商家 on two big segments. Tags: a cover for the
 /// tag of the latest entry (its days, total, a day's spending and its
@@ -53,7 +48,8 @@ class _TagsPageState extends State<TagsPage> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // Tags and merchants of the entries, categories' colours.
+      listenable: ledger.watch(const {Topic.entries, Topic.categories}),
       builder: (context, _) {
         final tags = ledger.reportService.tagStats;
         final merchants = ledger.reportService.merchantStats;
@@ -68,7 +64,7 @@ class _TagsPageState extends State<TagsPage> {
                     glyph: Glyph.ticket,
                     label: Words.tag,
                     count: tags.length,
-                    color: _tagColor,
+                    color: tagColor,
                     chosen: !_merchants,
                     onTap: () => setState(() => _merchants = false),
                   ),
@@ -79,7 +75,7 @@ class _TagsPageState extends State<TagsPage> {
                     glyph: Glyph.store,
                     label: Words.merchant,
                     count: merchants.length,
-                    color: _merchantColor,
+                    color: merchantColor,
                     chosen: _merchants,
                     onTap: () => setState(() => _merchants = true),
                   ),
@@ -95,15 +91,15 @@ class _TagsPageState extends State<TagsPage> {
   }
 
   List<Widget> _tagList() {
-    final latest = latestTag(ledger.entries);
+    final latest = latestTag(ledger.entries, ledger.today);
     final project = latest == null
         ? null
-        : tagSummaryOf(ledger.entries, latest);
+        : tagSummaryOf(ledger.entries, latest, ledger.today);
     if (project == null) {
       return const [
         EmptyState(
           glyph: Glyph.ticket,
-          color: _tagColor,
+          color: tagColor,
           message: '記帳時在「標籤」加上 #名稱，\n同一趟旅行或計畫的花費就會收在這裡',
         ),
       ];
@@ -165,7 +161,7 @@ class _TagsPageState extends State<TagsPage> {
   Widget _merchantCard(String name, int count) => ColorCard(
     color: nameColor(name),
     radius: Radii.large,
-    label: '$name，$count 次',
+    label: '$name，${countOf(count, CountUnit.times)}',
     onTap: () => widget.nav.open(AppRoutes.merchant(name)),
     padding: const EdgeInsets.symmetric(
       horizontal: Space.s4,
@@ -188,7 +184,7 @@ class _TagsPageState extends State<TagsPage> {
           ),
           const SizedBox(width: Space.s2),
           Text(
-            '$count 次',
+            countOf(count, CountUnit.times),
             style: TextStyle(
               fontSize: TextSize.caption,
               color: deepOf(nameColor(name)),
@@ -204,7 +200,7 @@ class _TagsPageState extends State<TagsPage> {
       return const [
         EmptyState(
           glyph: Glyph.store,
-          color: _merchantColor,
+          color: merchantColor,
           message: '記帳時填上「商家」，\n最常去的店就會排在這裡',
         ),
       ];
@@ -244,8 +240,9 @@ class _TagsPageState extends State<TagsPage> {
       if (rest.isNotEmpty) ...[
         const SectionTitle('其他'),
         // Two to a row, each as wide as the other, so long and short
-        // names line up.
-        CardGrid(gap: 8, [
+        // names line up; a row of the list each, built as it comes on
+        // screen.
+        ...CardGrid.rowsOf(gap: 8, [
           for (final (name, count, _) in rest) _merchantCard(name, count),
         ]),
       ],
@@ -276,7 +273,7 @@ class _Half extends StatelessWidget {
     final ink = chosen ? chosenInk(color) : deepOf(color);
     return ReadAsButton(
       selected: chosen,
-      label: '$label $count 個',
+      label: '$label ${countOf(count, CountUnit.pieces)}',
       onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -344,7 +341,7 @@ class _Step extends StatelessWidget {
   Widget build(BuildContext context) {
     final ink = deepOf(color);
     return ReadAsButton(
-      label: '$name，去過 $count 次',
+      label: '$name，去過 ${countOf(count, CountUnit.times)}',
       onTap: onTap,
       child: GestureDetector(
         onTap: onTap,
@@ -450,7 +447,12 @@ class TagSummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TagSummaryHeading(project: project, recent: recent, menu: menu),
+          TagSummaryHeading(
+            project: project,
+            recent: recent,
+            menu: menu,
+            today: ledger.today,
+          ),
           const SizedBox(height: Space.s2),
           Text(
             ledger.orDots(groupDigits(spent)),
@@ -461,7 +463,7 @@ class TagSummaryCard extends StatelessWidget {
           ),
           Text(
             '${project.days > 1 ? '每天約 ${ledger.orDots(groupDigits(project.perDay))} · ' : ''}'
-            '${project.entries.length} 筆',
+            '${countOf(project.entries.length, CountUnit.entries)}',
             style: TextStyle(
               fontSize: TextSize.body,
               fontWeight: FontWeight.w700,

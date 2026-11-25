@@ -30,9 +30,13 @@ final class _Keys implements BackupManager {
   var restores = 0;
 
   @override
+  DateTime? exportedAt;
+
+  @override
   Future<bool> exportBackup() async {
     exports++;
     if (exportFails case final error?) throw error;
+    if (saves) exportedAt = DateTime.now();
     return saves;
   }
 
@@ -176,13 +180,26 @@ void main() {
       expect(find.text('已匯出備份檔'), findsOneWidget);
     });
 
+    testWidgets('after an export the page no longer says 還沒有備份 (F46)', (
+      tester,
+    ) async {
+      keys.hasPassword = true;
+      await open(tester);
+      expect(find.text('還沒有備份'), findsOneWidget);
+      await tap(tester, '匯出一份');
+      expect(find.text('還沒有備份'), findsNothing);
+      expect(find.textContaining('上次 今天 '), findsOneWidget);
+      // No automatic backup is on, which it still says.
+      expect(find.text('沒有自動備份'), findsOneWidget);
+    });
+
     testWidgets('a failure is said', (tester) async {
       keys
         ..hasPassword = true
         ..exportFails = const FileSystemException('disk full');
       await open(tester);
       await tap(tester, '匯出一份');
-      expect(find.textContaining('匯出失敗：'), findsOneWidget);
+      expect(find.text('匯出失敗，可在診斷匯出詳細資料'), findsOneWidget);
     });
   });
 
@@ -203,7 +220,7 @@ void main() {
       await open(tester);
       await tap(tester, '還原');
       await tap(tester, '選擇備份');
-      expect(find.textContaining('沒有開始還原：'), findsOneWidget);
+      expect(find.text('沒有開始還原，可在診斷匯出詳細資料'), findsOneWidget);
     });
   });
 
@@ -220,6 +237,9 @@ void main() {
       expect(find.text('上次備份'), findsWidgets);
       expect(find.textContaining('今天'), findsWidgets);
       expect(find.text('沒有自動備份'), findsNothing);
+      // Which Google account it goes to (F90).
+      expect(find.text('帳號'), findsOneWidget);
+      expect(find.text('me@example.com'), findsOneWidget);
 
       // Stopping asks first, and leaves what is on Drive.
       await tester.tap(tick('Google 雲端硬碟'));
@@ -228,6 +248,42 @@ void main() {
       expect(sync.linked, isFalse);
       expect(find.text('已停止雲端硬碟備份'), findsOneWidget);
       expect(find.text('沒有自動備份'), findsOneWidget);
+    });
+
+    testWidgets('with the photos, backups wait for Wi-Fi unless the person '
+        'turns that off (AND-05)', (tester) async {
+      preferences.update(driveLinked: true, drivePhotos: true);
+      var onWifi = false;
+      var sent = 0;
+      final sync = DriveSync(
+        DriveBackup(
+          FakeDrive(),
+          token: ({required interactive}) async => 'token',
+          forget: (_) async {},
+        ),
+        preferences,
+        withBackup: (use, {withPhotos = true}) async {
+          sent++;
+          await withBackup(use);
+        },
+        revision: () => 1,
+        ledger: 'L1',
+        unmetered: () async => onWifi,
+      );
+      addTearDown(sync.dispose);
+      await open(tester, drive: sync);
+      expect(find.text('連 Wi-Fi 時一起備份'), findsOneWidget);
+      // On mobile data: waits.
+      expect(await tester.runAsync(sync.backUpIfDue), isFalse);
+      expect(sent, 0);
+
+      await tester.tap(find.byKey(Keys.photosOnWifi));
+      await tester.pump();
+      expect(preferences.photosOnWifi, isFalse);
+      expect(find.text('任何網路都一起備份'), findsOneWidget);
+      // Now it goes on mobile data too.
+      expect(await tester.runAsync(sync.backUpIfDue), isTrue);
+      expect(sent, 1);
     });
 
     testWidgets('a sign-in turned down links nothing', (tester) async {
@@ -283,6 +339,26 @@ void main() {
       await tap(tester, '重新選');
       expect(backup.on, isTrue);
       expect(find.textContaining('已備份到「備份」'), findsOneWidget);
+    });
+
+    testWidgets('R37: a folder that refuses is said on its card with '
+        '重新選擇; choosing a folder takes it away', (tester) async {
+      final folder = FakeFolder();
+      final backup = phone(folder);
+      addTearDown(backup.dispose);
+      await tester.runAsync(backup.choose);
+      folder.allowedNow = false;
+      await open(tester, phone: backup);
+      await settle(tester);
+      expect(find.text('沒有這個資料夾的存取權，請重新選擇'), findsOneWidget);
+      expect(find.text('重新選擇'), findsOneWidget);
+      folder.allowedNow = true;
+      await tester.tap(find.byKey(Keys.chooseFolderAgain));
+      await settle(tester);
+      await tap(tester, '選資料夾');
+      expect(find.text('已備份到「備份」，之後每週自動備份'), findsOneWidget);
+      expect(find.text('沒有這個資料夾的存取權，請重新選擇'), findsNothing);
+      expect(backup.denied, isFalse);
     });
 
     testWidgets('取消 at the rules opens no chooser', (tester) async {

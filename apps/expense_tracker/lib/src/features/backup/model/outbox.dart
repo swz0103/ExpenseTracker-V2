@@ -2,11 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import '../../../core/diagnostics/app_fault.dart';
+import '../../../core/diagnostics/error_steps.dart';
 import '../../../core/platform/preferences.dart';
-import 'phone_backup.dart';
+import 'backup_rules.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/time/app_clock.dart';
 import '../../../core/formatting/json_fields.dart';
+import '../../../core/platform/app_files.dart';
 
 /// Backups that reach the phone's folder and Google Drive without the app
 /// being opened. The ledger's key is only in the open app, so the backup
@@ -45,23 +48,51 @@ final class Outbox {
   final DateTime Function() _clock;
 
   static Directory folderOf(Directory directory) =>
-      Directory('${directory.path}/outbox');
+      Directory('${directory.path}/${AppFiles.outbox}');
+
+  /// The highest revision a backup of the ledger in [directory] is known
+  /// to have been delivered or to wait at: the folder's and Drive's as
+  /// [preferences] note them, what the job noted in `delivered.json`
+  /// that the app has not read back yet, and the backup waiting in
+  /// `ready.json`; 0 when none says. Read without the ledger's keys, of
+  /// any ledger: a restore goes on from above it, so no delivery passes
+  /// for the book restored (review 28).
+  static int deliveredRevision(Directory directory, Preferences preferences) {
+    final folder = folderOf(directory);
+    int? revisionIn(Object? json) => switch (json) {
+      {'revision': final int revision} => revision,
+      _ => null,
+    };
+    final delivered = _read(File('${folder.path}/${AppFiles.outboxDelivered}'));
+    return [
+      preferences.phoneRevision,
+      preferences.driveRevision,
+      revisionIn(delivered?['phone']),
+      revisionIn(delivered?['drive']),
+      revisionIn(_read(File('${folder.path}/${AppFiles.outboxReady}'))),
+    ].nonNulls.fold(0, max);
+  }
 
   Directory get _folder => folderOf(directory);
-  File get _ready => File('${_folder.path}/ready.json');
-  File get _delivered => File('${_folder.path}/delivered.json');
+  File get _ready => File('${_folder.path}/${AppFiles.outboxReady}');
+  File get _delivered => File('${_folder.path}/${AppFiles.outboxDelivered}');
 
   /// Somewhere to deliver to: a folder on the phone, or Google Drive.
   bool get wanted =>
       _preferences.phoneFolder != null || _preferences.driveLinked;
 
-  var _busy = false;
+  /// The [prepare] under way: asked for again meanwhile, it is the answer,
+  /// so two never write at once (ARC-05).
+  Future<bool>? _preparing;
 
   /// Writes the backup for the job to deliver when the ledger changed
   /// since the one waiting and a place to deliver to does not hold this
   /// revision yet; starts or stops the job. True when one was written.
-  Future<bool> prepare() async {
-    if (_busy) return false;
+  /// Asked for while one is under way, it answers with that one.
+  Future<bool> prepare() =>
+      _preparing ??= _prepare().whenComplete(() => _preparing = null);
+
+  Future<bool> _prepare() async {
     final on = wanted;
     await _schedule?.call(on: on);
     if (!on) return false;
@@ -70,6 +101,9 @@ final class Outbox {
     if (ready != null &&
         ready['ledger'] == _ledger &&
         ready['revision'] == revision) {
+      // One written by a version that handed over no plan is handed this
+      // one's, so the job can deliver it.
+      if (ready['v'] != _version) await _handOver(ready);
       return false;
     }
     final phoneHas =
@@ -78,39 +112,69 @@ final class Outbox {
     final driveHas =
         !_preferences.driveLinked || _preferences.driveRevision == revision;
     if (phoneHas && driveHas) return false;
-    _busy = true;
-    try {
-      // The phone's folder always takes the photos; Drive only when asked,
-      // and then it gets its own copy without them.
-      final phone = _preferences.phoneFolder != null;
-      final drive = _preferences.driveLinked;
-      final photos = _preferences.drivePhotos;
-      final file = await _write(_folder, withPhotos: phone || photos);
-      final driveFile = phone && drive && !photos
-          ? await _write(_folder, withPhotos: false)
-          : null;
-      await _save(_ready, {
-        'v': 1,
-        'file': file.uri.pathSegments.last,
-        'driveFile': ?driveFile?.uri.pathSegments.last,
-        'drivePhotos': photos,
-        'revision': revision,
-        'ledger': _ledger,
-        'mark': PhoneBackup.markOf(_ledger),
-        'at': _clock().toUtc().millisecondsSinceEpoch,
-      });
-      // The one waiting before is replaced: only the newest is delivered.
-      for (final old in _folder.listSync()) {
-        if (old is File &&
-            old.path.endsWith('.etbk') &&
-            old.path != file.path &&
-            old.path != driveFile?.path) {
-          await old.delete();
-        }
+    // The phone's folder always takes the photos; Drive only when asked,
+    // and then it gets its own copy without them.
+    final phone = _preferences.phoneFolder != null;
+    final drive = _preferences.driveLinked;
+    final photos = _preferences.drivePhotos;
+    final file = await _write(_folder, withPhotos: phone || photos);
+    final driveFile = phone && drive && !photos
+        ? await _write(_folder, withPhotos: false)
+        : null;
+    final at = _clock();
+    await _save(_ready, {
+      'v': _version,
+      'file': file.uri.pathSegments.last,
+      'driveFile': ?driveFile?.uri.pathSegments.last,
+      'drivePhotos': photos,
+      'revision': revision,
+      'ledger': _ledger,
+      'mark': BackupRules.markOf(_ledger),
+      'at': at.toUtc().millisecondsSinceEpoch,
+      // The job keeps no rule of its own; the file is named by the
+      // phone's clock, as the app's own backups there are.
+      'plan': BackupRules.handover(BackupRules.markOf(_ledger), at),
+    });
+    // The one waiting before is replaced: only the newest is delivered.
+    for (final old in _folder.listSync()) {
+      if (old is File &&
+          old.path.endsWith('.etbk') &&
+          old.path != file.path &&
+          old.path != driveFile?.path) {
+        await old.delete();
       }
-      return true;
-    } finally {
-      _busy = false;
+    }
+    return true;
+  }
+
+  /// What `ready.json` is: from 2 on, it carries the plan the job follows
+  /// ([BackupRules.handover]).
+  static const _version = 2;
+
+  /// Writes [ready] again with this version's plan, taken for the time
+  /// its backup was written.
+  Future<void> _handOver(Map<String, Object?> ready) async {
+    final written = ready['at'];
+    // On the phone's clock, as the backup was named when written.
+    final at = written is int
+        ? DateTime.fromMillisecondsSinceEpoch(written)
+        : _clock();
+    await _save(_ready, {
+      ...ready,
+      'v': _version,
+      'plan': BackupRules.handover(BackupRules.markOf(_ledger), at),
+    });
+  }
+
+  /// Takes away the backup waiting for the job, and what says it is
+  /// ready: after a reset of the keys it is sealed with the old ones. The
+  /// next [prepare] writes one with the new keys when one is wanted.
+  Future<void> empty() async {
+    final folder = _folder;
+    if (!folder.existsSync()) return;
+    if (_ready.existsSync()) await _ready.delete();
+    for (final old in folder.listSync()) {
+      if (old is File && old.path.endsWith('.etbk')) await old.delete();
     }
   }
 
@@ -118,14 +182,16 @@ final class Outbox {
   /// closed, so the settings show it and the app does not send the same
   /// backup again. Returns what went wrong there since last asked, to be
   /// logged.
-  List<String> collect() {
+  List<DeliveryFailed> collect() {
     final delivered = _read(_delivered);
     if (delivered == null) return const [];
     final phone = _delivery(delivered['phone']);
     final folder = _preferences.phoneFolder;
+    // The job notes the folder by its id; an earlier version wrote the folder
+    // itself, read still so a delivery noted then is not sent again.
     if (phone != null &&
         folder != null &&
-        phone.uri == folder &&
+        (phone.folder == _preferences.phoneFolderId || phone.uri == folder) &&
         _newer(phone.at, _preferences.phoneBackedUp)) {
       _preferences.phoneBackup(phone.at, phone.revision);
     }
@@ -135,17 +201,18 @@ final class Outbox {
         _newer(drive.at, _preferences.driveBackedUp)) {
       _preferences.driveBackup(drive.at, drive.revision);
     }
-    final problems = <String>[];
+    final problems = <DeliveryFailed>[];
     final failed = delivered['problems'];
     if (failed is Map<String, Object?>) {
       for (final MapEntry(:key, :value) in failed.entries) {
         if (value is! Map<String, Object?>) continue;
         final at = value['at'];
         final message = value['message'];
-        if (at is! int || message is! String) continue;
+        final place = DeliveryPlace.named(key);
+        if (at is! int || message is! String || place == null) continue;
         if (at <= (_seen[key] ?? 0)) continue;
         _seen[key] = at;
-        problems.add('${key == 'drive' ? '雲端硬碟' : '手機資料夾'}：$message');
+        problems.add(DeliveryFailed(place, message));
       }
     }
     return problems;
@@ -154,7 +221,9 @@ final class Outbox {
   /// The newest problem of each place already reported, this run.
   final _seen = <String, int>{};
 
-  ({DateTime at, int revision, String uri})? _delivery(Object? json) {
+  ({DateTime at, int revision, String uri, String? folder})? _delivery(
+    Object? json,
+  ) {
     if (json is! Map<String, Object?>) return null;
     final at = json['at'];
     final revision = json['revision'];
@@ -165,6 +234,7 @@ final class Outbox {
       at: DateTime.fromMillisecondsSinceEpoch(at, isUtc: true),
       revision: revision,
       uri: JsonFields(json).text('uri') ?? '',
+      folder: JsonFields(json).text('folder'),
     );
   }
 
@@ -189,4 +259,45 @@ final class Outbox {
     await next.writeAsString(jsonEncode(json), flush: true);
     await next.rename(file.path);
   }
+}
+
+/// Where the background job delivers a backup, by the name it notes it
+/// under in `delivered.json`.
+enum DeliveryPlace {
+  phone('手機資料夾'),
+  drive('雲端硬碟');
+
+  const DeliveryPlace(this.label);
+
+  /// What the error log calls it.
+  final String label;
+
+  /// The place the job notes as [name]; null for one it does not have.
+  static DeliveryPlace? named(String name) =>
+      values.where((p) => p.name == name).firstOrNull;
+}
+
+/// The background job could not deliver to [place]: [code] is what it
+/// handed over (BackupPlan.problemOf), a code in plain ASCII such as
+/// `FolderDenied`, `Refused HTTP 403` or a failure's type, never words; a
+/// code of anything else is kept as `Unknown`.
+final class DeliveryFailed implements AppFault {
+  DeliveryFailed(this.place, String code)
+    : code = _code.hasMatch(code) ? code : unknown;
+
+  /// What a code not of the job's kind is kept as.
+  static const unknown = 'Unknown';
+
+  // A type's name or the job's own words: letters first, then letters,
+  // digits and spaces.
+  static final _code = RegExp(r'^[A-Za-z][A-Za-z0-9 ]{0,59}$');
+
+  final DeliveryPlace place;
+  final String code;
+
+  /// What the error log keeps it under: the step and the place.
+  String get step => '${ErrorSteps.backgroundBackup} ${place.label}';
+
+  @override
+  String toString() => 'DeliveryFailed(${place.name} $code)';
 }

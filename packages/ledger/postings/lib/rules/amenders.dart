@@ -1,0 +1,142 @@
+import 'package:domain/credit_cards.dart';
+import 'package:kernel/kernel.dart';
+
+import '../calc/conversion.dart';
+import '../model/intents.dart';
+import '../model/vocabulary.dart';
+
+// The two amenders: owners that rewrite the lines of another owner's
+// intent, driven by a value kept with it. A spending stays a spending
+// whatever its account; a foreign value and instalments amend it.
+
+/// Restates every line not in its account's currency (or a category's
+/// line not in the book's) by the [ForeignValue] kept under [Slots.fx],
+/// the far side on the currency trading account; refuses such lines
+/// without one, and a value with nothing to restate.
+final fxAmender = Amender(
+  slot: Slots.fx,
+  owner: Owners.fx,
+  order: AmenderOrder.fx,
+  amend: (a) => switch (a.value) {
+    final ForeignValue? value => restate(
+      a.lines,
+      accounts: a.context.accounts,
+      home: homeCurrency,
+      value: value,
+      trading: Fixed.currencyTrading,
+      slot: Slots.fx,
+    ),
+    _ => Refused(Refusals.fxBadValue, Slots.fx),
+  },
+);
+
+/// When each instalment of a purchase on [account] is billed, by the
+/// account's own schedule: data the posting rules read, not a setting.
+/// Null for an account with none.
+typedef ScheduleOf = CardSchedule? Function(AccountId account);
+
+/// Spreads the one undated credit on a money account over the statements
+/// that bill it, by the number of instalments kept under
+/// [Slots.instalments]: the spending is whole on its day, what the
+/// account owes grows statement by statement, the rest waiting on the
+/// account's pending instalments.
+Amender instalmentsAmender(ScheduleOf scheduleOf) => Amender(
+  slot: Slots.instalments,
+  owner: Owners.cards,
+  order: AmenderOrder.instalments,
+  amend: (a) => _instalments(a, scheduleOf),
+  streams: (touched, value, accounts) => [
+    if (value != null)
+      for (final account in touched)
+        if (accounts[account]?.currency != null) Streams.instalments(account),
+  ],
+);
+
+/// Bills what a refund cancels of a purchase in instalments on its card,
+/// out of the account's pending instalments, on the days kept with the
+/// refund under [Slots.cancelledInstalments] (domain's
+/// `refundedInstalments`, worked out where the refund is mapped): so a
+/// purchase refunded in full leaves its card owing nothing at once.
+final cancelledInstalmentsAmender = Amender(
+  slot: Slots.cancelledInstalments,
+  owner: Owners.cards,
+  order: AmenderOrder.cancelledInstalments,
+  amend: _cancelled,
+  // In the card's instalments stream: a change of the purchase, or of an
+  // earlier refund of it, posts the refund again.
+  streams: (touched, value, accounts) => [
+    if (value != null)
+      for (final account in touched)
+        if (accounts[account]?.currency != null) Streams.instalments(account),
+  ],
+);
+
+Posted _cancelled(Amendment a) {
+  final value = a.value;
+  if (value == null) return Lines(a.lines);
+  if (value is! List<(Day, int)>) {
+    return const Refused(
+      Refusals.cancelledBadValue,
+      Slots.cancelledInstalments,
+    );
+  }
+  final money = [
+    for (final line in a.lines)
+      if (line.date == null &&
+          line.amount > 0 &&
+          (a.context.accounts[line.account]?.cls.isBalanceSheet ?? false))
+        line,
+  ];
+  if (money.length != 1) {
+    return const Refused(
+      Refusals.cancelledNotOneAccount,
+      Slots.cancelledInstalments,
+    );
+  }
+  final line = money.single;
+  final pending = pendingInstalments(line.account);
+  return Lines([
+    ...a.lines,
+    for (final (day, billed) in value) ...[
+      Line(pending, billed, line.currency, date: day),
+      Line(line.account, -billed, line.currency, date: day),
+    ],
+  ]);
+}
+
+Posted _instalments(Amendment a, ScheduleOf scheduleOf) {
+  final value = a.value;
+  if (value == null) return Lines(a.lines);
+  if (value is! int || value < 2) {
+    return const Refused(Refusals.instalmentsCount, Slots.instalments);
+  }
+  final credits = [
+    for (final (i, line) in a.lines.indexed)
+      if (line.date == null &&
+          line.amount < 0 &&
+          (a.context.accounts[line.account]?.cls.isBalanceSheet ?? false))
+        i,
+  ];
+  if (credits.length != 1) {
+    return const Refused(Refusals.instalmentsNotOneAccount, Slots.instalments);
+  }
+  final at = credits.single;
+  final line = a.lines[at];
+  final schedule = scheduleOf(line.account);
+  if (schedule == null) {
+    return const Refused(Refusals.instalmentsNoSchedule, Slots.instalments);
+  }
+  final pending = pendingInstalments(line.account);
+  final amount = -line.amount;
+  final shares = installmentShares(amount, value);
+  final days = installmentBillingDays(schedule, a.intent.date.date, value);
+  return Lines([
+    for (final (i, l) in a.lines.indexed)
+      if (i != at) l,
+    Line(pending, -amount, line.currency),
+    for (final (k, day) in days.indexed) ...[
+      Line(pending, shares[k], line.currency, date: Day.of(day)),
+      Line(line.account, -shares[k], line.currency, date: Day.of(day)),
+    ],
+  ]);
+}

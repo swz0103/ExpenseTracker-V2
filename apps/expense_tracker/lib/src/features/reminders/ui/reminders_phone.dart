@@ -1,9 +1,28 @@
-part of 'reminders_section.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/messages/problem_messages.dart';
+import '../model/calendar_sync.dart';
+import '../model/reminder_alerts.dart';
+import '../model/reminders.dart';
+import '../../../core/messages/reminder_messages.dart';
+import '../../../core/design_system/settings_colors.dart';
+import '../../../core/diagnostics/error_log.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/formatting/words.dart';
+import '../../../core/diagnostics/error_steps.dart';
+import 'reminders_section.dart';
 
 /// The strip under the cards: green with 試一則 when the phone allows
 /// everything asked of it, gold naming what is still off with 去開.
-class _PhoneStrip extends StatelessWidget {
-  const _PhoneStrip({
+class ReminderPhoneStrip extends StatelessWidget {
+  const ReminderPhoneStrip({
+    super.key,
     required this.status,
     required this.exact,
     required this.onTest,
@@ -76,8 +95,8 @@ class _PhoneStrip extends StatelessWidget {
 }
 
 /// A small label over what it names, inside a panel.
-class _Labelled extends StatelessWidget {
-  const _Labelled(this.label, this.child);
+class ReminderLabelled extends StatelessWidget {
+  const ReminderLabelled(this.label, this.child, {super.key});
 
   final String label;
   final Widget child;
@@ -102,8 +121,13 @@ class _Labelled extends StatelessWidget {
 
 /// A tinted block with a small line over a bold one: 11/15 over 健身房
 /// 1,680.
-class _Chip extends StatelessWidget {
-  const _Chip({required this.color, required this.top, required this.bottom});
+class ReminderChip extends StatelessWidget {
+  const ReminderChip({
+    super.key,
+    required this.color,
+    required this.top,
+    required this.bottom,
+  });
 
   final Color color;
   final String top;
@@ -142,8 +166,9 @@ class _Chip extends StatelessWidget {
 
 /// A row with a name and a line under it on the left and a [TickSwitch]
 /// on the right; a tinted block of its own unless [flat].
-class _ToggleRow extends StatelessWidget {
-  const _ToggleRow({
+class ReminderToggleRow extends StatelessWidget {
+  const ReminderToggleRow({
+    super.key,
     required this.color,
     required this.title,
     required this.detail,
@@ -215,4 +240,209 @@ class _ToggleRow extends StatelessWidget {
       child: whole,
     );
   }
+}
+
+/// The Google 日曆 card's actions: linking a calendar, its details,
+/// changing it and stopping the sync.
+mixin CalendarActions on State<RemindersSection> {
+  /// What falls due in the ledger shown, read afresh each time.
+  ReminderBook get reminderBook;
+
+  /// Links a calendar for the due dates, or changes it.
+  Future<void> linkCalendar(CalendarSync calendar) async {
+    try {
+      if (!await calendar.port.access()) {
+        if (mounted) showNote(context, ReminderMessages.calendarNoAccess);
+        return;
+      }
+      final choices = await calendar.port.calendars();
+      if (!mounted) return;
+      if (choices.isEmpty) {
+        showNote(context, ReminderMessages.calendarNone);
+        return;
+      }
+      final chosen = calendar.chosen?.$1;
+      final picked = await showPanel<int>(
+        context,
+        (context) => CenterPanel(
+          glyph: Glyph.calendar,
+          color: SettingsColors.calendar,
+          title: ReminderMessages.calendarPick,
+          body: Column(
+            children: [
+              for (final c in choices)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Space.s2),
+                  child: ColorCard(
+                    color: SettingsColors.calendar,
+                    amount: c.id == chosen ? 0.32 : 0.14,
+                    radius: Radii.large,
+                    label: c.name,
+                    onTap: () => Navigator.of(context).pop(c.id),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                c.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              if (c.account.isNotEmpty)
+                                Text(c.account, style: mutedSmall),
+                            ],
+                          ),
+                        ),
+                        if (c.id == chosen)
+                          const GlyphIcon(
+                            Glyph.check,
+                            size: 20,
+                            color: SettingsColors.calendar,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
+          ],
+        ),
+      );
+      if (picked == null || !mounted) return;
+      await calendar.choose(
+        choices.firstWhere((c) => c.id == picked),
+        reminderBook,
+      );
+      final written = await calendar.sync(reminderBook);
+      if (!mounted) return;
+      setState(() {});
+      showNote(
+        context,
+        written == null
+            ? ReminderMessages.calendarNotSynced
+            : ReminderMessages.calendarWritten(written),
+      );
+    } on Object catch (error) {
+      ErrorLog.instance.record(ErrorSteps.calendarSync, error);
+      if (mounted) {
+        showNote(
+          context,
+          problemNote(ReminderMessages.calendarUnreachable, error),
+        );
+      }
+    }
+  }
+
+  Future<void> forgetCalendar(CalendarSync calendar) async {
+    final cleared = await calendar.forget(reminderBook);
+    if (mounted) {
+      showNote(
+        context,
+        cleared
+            ? ReminderMessages.calendarCleared
+            : ReminderMessages.calendarLeft,
+      );
+    }
+    if (mounted) setState(() {});
+  }
+
+  void calendarDetails(CalendarSync calendar) {
+    const color = SettingsColors.calendar;
+    showCenterPanel(
+      context,
+      glyph: Glyph.calendar,
+      color: color,
+      title: ReminderMessages.calendarTitle,
+      detail: switch (calendar.chosen) {
+        (_, final name)? => ReminderMessages.calendarSyncedTo(name),
+        null => ReminderMessages.calendarAbout,
+      },
+      body: (context) => StatefulBuilder(
+        builder: (context, setState) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ColorCard(
+              color: color,
+              amount: 0.16,
+              radius: Radii.large,
+              padding: const EdgeInsets.symmetric(horizontal: Space.s4),
+              child: Column(
+                children: [
+                  ReminderToggleRow(
+                    color: color,
+                    flat: true,
+                    title: ReminderMessages.calendarAmounts,
+                    detail: calendar.amounts
+                        ? ReminderMessages.calendarAmountsOn
+                        : ReminderMessages.calendarAmountsOff,
+                    value: calendar.amounts,
+                    onChanged: (on) async {
+                      await calendar.setAmounts(on, reminderBook);
+                      setState(() {});
+                    },
+                  ),
+                  const Divider(height: 1),
+                  _changeCalendar(context, calendar),
+                ],
+              ),
+            ),
+            const SizedBox(height: Space.s2),
+            _stopSync(context, calendar),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 換日曆 with the calendar now chosen: closes the [panel] and asks
+  /// for another.
+  Widget _changeCalendar(BuildContext panel, CalendarSync calendar) {
+    const color = SettingsColors.calendar;
+    return InkWell(
+      onTap: () async {
+        Navigator.of(panel).pop();
+        await linkCalendar(calendar);
+      },
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 52),
+        child: Row(
+          children: [
+            Text(
+              ReminderMessages.calendarChange,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: deepOf(color),
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${calendar.chosen?.$2 ?? ''} ›',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: deepOf(color),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 不再同步: closes the [panel] and stops writing to the calendar.
+  Widget _stopSync(BuildContext panel, CalendarSync calendar) => TextButton(
+    style: wordButton(AppColors.danger, minimumSize: Size(0, 48)),
+    onPressed: () {
+      Navigator.of(panel).pop();
+      forgetCalendar(calendar);
+    },
+    child: const Text(
+      ReminderMessages.calendarStop,
+      style: TextStyle(fontWeight: FontWeight.w700),
+    ),
+  );
 }

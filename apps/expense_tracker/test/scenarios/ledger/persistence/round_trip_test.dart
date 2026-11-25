@@ -108,7 +108,7 @@ void main() {
             final old = pick(entries);
             try {
               live.entryCommands.replace(spend(old.id), receipt: null);
-            } on StateError {
+            } on RecordRefused {
               // Replacing a purchase a later sale needs is refused.
             }
           case 4 when entries.isNotEmpty:
@@ -148,7 +148,12 @@ void main() {
               r.nextInt(9000),
             );
           case 15:
-            live.accountCommands.removeAccount(pick(live.accounts.all).id);
+            // The three the entries are written to stay: an entry into an
+            // account the book does not have is refused (LOG-03).
+            final gone = pick(live.accounts.all).id;
+            if (!const {'bank', 'cash', 'card'}.contains(gone)) {
+              live.accountCommands.removeAccount(gone);
+            }
           case 16:
             live.accountCommands.placeAccounts([
               for (final a in live.accounts.all.reversed) a.id,
@@ -205,7 +210,7 @@ void main() {
             // A spending paid partly for someone, written as one group.
             final group = 'g${serial++}';
             final paid = spend('e${serial++}');
-            live.entryCommands.replaceGroup(
+            live.entryCommands.save(
               [
                 Entry(
                   id: paid.id,
@@ -227,7 +232,6 @@ void main() {
                   group: group,
                 ),
               ],
-              const [],
               receipt: r.nextBool() ? '$group.etr' : null,
               receiptOn: paid.id,
             );
@@ -238,10 +242,14 @@ void main() {
               DateTime.utc(2026, 10, 18 + r.nextInt(4)),
             );
           case 26 when entries.isNotEmpty:
-            live.attachmentCommands.setReceipt(
-              pick(entries).id,
-              r.nextBool() ? 'p${serial++}.etr' : null,
-            );
+            try {
+              live.entryCommands.replace(
+                pick(entries),
+                receipt: r.nextBool() ? 'p${serial++}.etr' : null,
+              );
+            } on RecordRefused {
+              // As in case 3.
+            }
           case 27 when live.recurring.all.isNotEmpty:
             final it = pick(live.recurring.all);
             if (it.skipped.isNotEmpty) {
@@ -261,7 +269,7 @@ void main() {
                   shares: 1 + r.nextInt(5),
                 ),
               );
-            } on StateError {
+            } on RecordRefused {
               // A sale of shares not held is refused; nothing is kept.
             }
           case 23:
@@ -276,7 +284,7 @@ void main() {
           // write the store could not keep is what must not happen.
           expect(
             live.problem.value,
-            anyOf(isNull, isA<SharesShort>(), isA<NameTaken>()),
+            anyOf(isNull, isA<RecordRefused>(), isA<NameTaken>()),
             reason: 'step $step',
           );
           final kept = bookRecords(live);

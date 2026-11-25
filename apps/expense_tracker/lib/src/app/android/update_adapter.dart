@@ -1,11 +1,15 @@
-import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
+import '../../core/platform/bounded_https.dart';
 import '../../features/settings/model/app_update.dart';
 import 'platform_channel.dart';
 
 /// [UpdatePort] on the phone: dart:io for the two files, and Android's
-/// installer through `UpdateHandler.kt`, which checks the SHA-256 first.
+/// installer through `UpdateHandler.kt`, which checks the file first (size,
+/// SHA-256, package name, version code, signing certificate). Only the
+/// sideload build has that handler; the play build never makes this port
+/// (distribution.dart).
 final class AndroidUpdatePort implements UpdatePort {
   const AndroidUpdatePort();
 
@@ -14,19 +18,34 @@ final class AndroidUpdatePort implements UpdatePort {
     ..idleTimeout = const Duration(seconds: 20)
     ..userAgent = 'ExpenseTracker';
 
+  /// Where GitHub may send the update's two files on: its own hosts,
+  /// over `https` ([BoundedHttps.open] refuses any other redirect).
+  static bool _github(Uri to) =>
+      to.host == 'github.com' ||
+      to.host.endsWith('.github.com') ||
+      to.host.endsWith('.githubusercontent.com');
+
   @override
   Future<String> fetch(Uri url) async {
     final client = _client();
     try {
-      final request = await client.getUrl(url);
-      final response = await request.close().timeout(
-        const Duration(seconds: 30),
+      final response = await BoundedHttps.open(
+        client,
+        'GET',
+        url,
+        allowed: _github,
+        wait: const Duration(seconds: 30),
       );
-      final body = await response.transform(utf8.decoder).join();
+      // The status first: a failure's body is not read at all.
       if (response.statusCode != 200) {
-        throw HttpException('GitHub answered ${response.statusCode}');
+        throw HttpRefused(response.statusCode);
       }
-      return body;
+      return await BoundedHttps.text(
+        response,
+        maxUpdateInfoBytes,
+        uri: url,
+        stall: const Duration(seconds: 30),
+      );
     } finally {
       client.close(force: true);
     }
@@ -36,33 +55,35 @@ final class AndroidUpdatePort implements UpdatePort {
   Future<void> download(
     Uri url,
     File into,
-    void Function(int received) progress,
-  ) async {
+    void Function(int received) progress, {
+    required DownloadCancel cancel,
+  }) async {
     final client = _client();
     final part = File('${into.path}.part');
+    // Stopping closes the connection: a transfer waiting on a stalled
+    // network ends now, not at its stall's minute (review 31).
+    unawaited(cancel.whenAsked.then((_) => client.close(force: true)));
     try {
-      final request = await client.getUrl(url);
-      final response = await request.close().timeout(
-        const Duration(seconds: 30),
+      if (cancel.asked) throw const HttpException('Download cancelled');
+      final response = await BoundedHttps.open(
+        client,
+        'GET',
+        url,
+        allowed: _github,
+        wait: const Duration(seconds: 30),
       );
       if (response.statusCode != 200) {
-        throw HttpException('GitHub answered ${response.statusCode}');
+        throw HttpRefused(response.statusCode);
       }
-      final sink = part.openWrite();
-      var received = 0;
-      try {
-        // A download that stops arriving for a minute is given up on.
-        await for (final chunk in response.timeout(
-          const Duration(minutes: 1),
-        )) {
-          sink.add(chunk);
-          received += chunk.length;
-          progress(received);
-        }
-        await sink.flush();
-      } finally {
-        await sink.close();
-      }
+      // A download that stops arriving for a minute is given up on.
+      await BoundedHttps.save(
+        response,
+        part,
+        maxApkBytes,
+        uri: url,
+        stall: const Duration(minutes: 1),
+        progress: progress,
+      );
       await part.rename(into.path);
     } finally {
       client.close(force: true);
@@ -75,6 +96,7 @@ final class AndroidUpdatePort implements UpdatePort {
     final outcome = await platformChannel.invokeMethod<String>('installApk', {
       'path': apk.path,
       'sha256': sha256,
+      'maxBytes': maxApkBytes,
     });
     return UpdateInstall.values.firstWhere(
       (o) => o.name == outcome,

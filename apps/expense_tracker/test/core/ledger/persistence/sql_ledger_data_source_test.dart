@@ -11,7 +11,10 @@ import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.d
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/codec/record_json.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/quarantine.dart';
 import 'package:storage/storage.dart';
+import 'package:vault/backup_security.dart';
+import 'package:vault/ledger_backup.dart';
 
 /// The screens' ledger on the real encrypted store: every change is kept
 /// as the records it touched, and comes back after closing and reopening.
@@ -55,6 +58,30 @@ void main() {
     'budgets': [for (final b in l.budgets.all) budgetToJson(b)],
     'recurring': [for (final r in l.recurring.all) recurringToJson(r)],
   };
+
+  test('an opening is timed, the worker part when one reads it', () async {
+    final opened = EncryptedDatabase.open(file, key);
+    store = opened;
+    final here = SqlLedgerDataSource(opened, clock: clock());
+    expect(here.lastOpening, isNull);
+    await here.load();
+    // A small book is read on this isolate: no worker's part.
+    expect(here.lastOpening!.us, greaterThan(0));
+    expect(here.lastOpening!.workerUs, isNull);
+    // The journal kept: read on a worker, which takes part of the time.
+    final apart = SqlLedgerDataSource(
+      opened,
+      clock: clock(),
+      keepsJournal: true,
+    );
+    await apart.load();
+    await apart.journal.settled;
+    final (:us, :workerUs, :split) = apart.lastOpening!;
+    // A small book: no second worker.
+    expect(split, isFalse);
+    expect(workerUs, isNotNull);
+    expect(workerUs, lessThanOrEqualTo(us));
+  });
 
   test('a new ledger starts with categories and two accounts', () async {
     final ledger = await reopen();
@@ -165,7 +192,10 @@ void main() {
       ..accountCommands.updateAccount(
         ledger.account(card.id).copyWith(closingDay: 5, dueDay: 20),
       )
-      ..attachmentCommands.setReceipt(lunch.id, 'lunch.etr');
+      ..entryCommands.replace(
+        ledger.entries.byId(lunch.id)!,
+        receipt: 'lunch.etr',
+      );
     ledger = await reopen(ledger);
     final renamed = ledger.entries.all.single;
     expect((renamed.category, renamed.merchant), ('吃', '全聯福利中心'));
@@ -199,6 +229,192 @@ void main() {
     expect(ledger.budgets.all, isEmpty);
     expect(ledger.recurring.all, isEmpty);
     expect(ledger.entries.all.single.category, '其他支出');
+  });
+
+  test('every undo (D82) is kept: the book reads back as before', () async {
+    var ledger = await reopen();
+    final cash = ledger.accounts.all.first;
+    final spare = Account(ledger.newId(), '零用', AccountKind.cash, 0);
+    ledger
+      ..accountCommands.addAccount(spare)
+      ..entryCommands.add(
+        Entry(
+          id: ledger.newId(),
+          date: DateTime.utc(2026, 10, 2),
+          type: EntryType.expense,
+          amount: 120,
+          account: cash.id,
+          category: '飲食日常',
+          merchant: '全聯',
+          tags: const ['家用'],
+        ),
+      )
+      ..budgetCommands.setBudget('飲食日常', 8000)
+      ..budgetCommands.setBudget('#家用', 3000)
+      ..recurringCommands.saveRecurring(
+        Recurring(
+          id: ledger.newId(),
+          name: '房租',
+          amount: 12000,
+          day: 5,
+          account: cash.id,
+          category: '飲食日常',
+          merchant: '全聯',
+        ),
+      );
+    ledger = await reopen(ledger);
+    final undos = <Undo Function(Ledger)>[
+      (l) => (l.categoryCommands.mergeCategory('飲食日常', '其他支出') as Merged).undo,
+      (l) => l.entryCommands.renameTag('家用', ''),
+      (l) => l.entryCommands.renameMerchant('全聯', '家樂福'),
+      (l) => l.budgetCommands.removeBudget('#家用')!,
+      (l) => l.recurringCommands.removeRecurring(l.recurring.all.single.id)!,
+      (l) => l.accountCommands.removeAccount(spare.id)!,
+      (l) => l.accountCommands.setArchived(spare.id, archived: true)!,
+      (l) => l.categoryCommands.setArchived('居家生活', archived: true)!,
+    ];
+    // Every record, each list in the order of its rows' JSON: a record
+    // put back is kept again as new, so it reads back after those kept
+    // since (the order on screen in the session is checked as is).
+    String rows(Ledger l) => jsonEncode({
+      for (final MapEntry(:key, :value) in recordsOf(l).entries)
+        key: [for (final r in value! as List) jsonEncode(r)]..sort(),
+    });
+    final sorted = rows(ledger);
+    for (final (i, made) in undos.indexed) {
+      final before = jsonEncode(recordsOf(ledger));
+      final undo = made(ledger);
+      expect(jsonEncode(recordsOf(ledger)), isNot(before), reason: '#$i');
+      undo();
+      expect(jsonEncode(recordsOf(ledger)), before, reason: '#$i undone');
+      ledger = await reopen(ledger);
+      expect(rows(ledger), sorted, reason: '#$i kept');
+    }
+  });
+
+  test('a change written apart keeps the same rows as one written at once '
+      '(DAT-03)', () async {
+    // Two books on the same clock: one writes every change apart (from
+    // one record), the other every change at once.
+    final apart = EncryptedDatabase.open(file, key);
+    final other = EncryptedDatabase.open(
+      File('${directory.path}/other.db'),
+      key,
+    );
+    addTearDown(apart.close);
+    addTearDown(other.close);
+    final sources = [
+      SqlLedgerDataSource(apart, clock: clock(), writeApartFrom: 1),
+      SqlLedgerDataSource(other, clock: clock(), writeApartFrom: 1 << 30),
+    ];
+    for (final s in sources) {
+      await s.load();
+    }
+    // Ids of their own: the starting accounts and categories of each book
+    // are made with new ids, so only these rows are compared.
+    const account = Account('wallet', '零錢', AccountKind.cash, 0);
+    Entry lunch(int i) => Entry(
+      id: 'e$i',
+      date: DateTime.utc(2026, 10, 1 + i),
+      type: EntryType.expense,
+      amount: 100 + i,
+      account: account.id,
+      category: '午餐',
+      merchant: '全聯',
+    );
+    final batches = [
+      WriteBatch(
+        accounts: [account],
+        entries: [for (var i = 0; i < 3; i++) lunch(i)],
+        receipts: {'e0': 'e0.etr'},
+        drafts: {'expense': '{"amount":"12"}'},
+      ),
+      WriteBatch(
+        entries: [lunch(1).withLabels(merchant: '全聯福利中心')],
+        trash: [Trashed(lunch(2), DateTime.utc(2026, 10, 4))],
+        dropped: [(Collection.entry, 'e2')],
+        receipts: {'e0': null},
+        drafts: {'expense': null},
+      ),
+    ];
+    for (final batch in batches) {
+      for (final s in sources) {
+        await s.keep(batch);
+      }
+    }
+    List<(String, String, String)> rows(EncryptedDatabase db) => [
+      for (final r in db.rows())
+        if (r.shelf != 'category' && (r.shelf != 'account' || r.id == 'wallet'))
+          (r.shelf, r.id, r.body),
+    ];
+    expect(rows(apart), rows(other));
+    // The wallet, e0 and e1, e2 in the trash and the note of its going;
+    // the photo and the form put aside were taken away again.
+    expect(
+      [for (final (shelf, id, _) in rows(apart)) '$shelf/$id'],
+      ['account/wallet', 'entry/e0', 'entry/e1', 'trash/e2', 'gone/entry/e2'],
+    );
+    // A new book's first write, then the two changes.
+    expect((apart.revision, other.revision), (3, 3));
+    expect(apart.busyApart, isFalse);
+  });
+
+  test('a change kept while a backup reads the book waits for the read, '
+      'and is kept after it (D41)', () async {
+    final s = EncryptedDatabase.open(file, key);
+    store = s;
+    final source = SqlLedgerDataSource(s, clock: clock());
+    final ledger = await source.load();
+    s.write((w) {
+      for (var i = 0; i < 20000; i++) {
+        w.put('price', 'p$i', '{}');
+      }
+    }, counts: false);
+    final before = s.revision;
+    final reading = s.readApart(_rowsRead);
+    expect(s.busyApart, isTrue);
+    // As the screens keep a change: one record, written at once.
+    final keeping = source.keep(
+      WriteBatch(accounts: [Account('wallet', '零錢', AccountKind.cash, 0)]),
+    );
+    final read = await reading;
+    await keeping;
+    expect(ledger.problem.value, isNull);
+    // What the backup read is the book before the change.
+    expect(read.revision, before);
+    expect(read.ids, isNot(contains('wallet')));
+    // The change is kept after it.
+    expect(s.revision, before + 1);
+    expect(s.row('account', 'wallet'), isNotNull);
+  });
+
+  test('a backup starting the moment the last one ends does not come '
+      'between the wait and the write (D41)', () async {
+    final s = EncryptedDatabase.open(file, key);
+    store = s;
+    final source = SqlLedgerDataSource(s, clock: clock());
+    final ledger = await source.load();
+    final before = s.revision;
+    final first = s.readApart(_rowsRead);
+    // The change waits for the first read to end.
+    final keeping = source.keep(
+      WriteBatch(accounts: [Account('wallet', '零錢', AccountKind.cash, 0)]),
+    );
+    // A second backup starts as soon as the first is done, in the turn
+    // after the change's own wait saw the store free: where it once
+    // found the store taken as it went to write, and the change was lost.
+    Future<({int revision, Set<String> ids})>? second;
+    unawaited(s.idle.then((_) => second = s.readApart(_rowsRead)));
+    await first;
+    await keeping;
+    expect(ledger.problem.value, isNull);
+    // The change was written as the store was seen free, so the second
+    // read is one state of the book: the one with the change.
+    final read = await second!;
+    expect(read.ids, contains('wallet'));
+    expect(read.revision, before + 1);
+    expect(s.revision, before + 1);
+    expect(s.row('account', 'wallet'), isNotNull);
   });
 
   test('a deleted entry is kept 30 days', () async {
@@ -251,15 +467,148 @@ void main() {
       ('entry', '{"id":"x"}'),
       ('entry', 'not json'),
       ('receipt', '../escape'),
-      ('castle', '{}'),
       ('market', '{"prices":{"2330":"high"}}'),
     ]) {
       expect(
         () => SqlLedgerDataSource.check(collection, 'x', body),
-        throwsA(anyOf(isA<FormatException>(), isA<TypeError>())),
+        throwsA(isA<FormatException>()),
         reason: '$collection $body',
       );
     }
+  });
+
+  test('FIX-R41: a backup row a later version wrote is let through, to be '
+      'kept aside', () {
+    // A shelf this version does not read, whatever it holds.
+    expect(SqlLedgerDataSource.shelvesRead, isNot(contains('castle')));
+    SqlLedgerDataSource.check('castle', 'x', '{}');
+    SqlLedgerDataSource.check('castle', 'y', 'not json');
+    // A record of a later record version, on a shelf read.
+    SqlLedgerDataSource.check(
+      'entry',
+      'e',
+      '{"_v":${recordVersion + 1},"id":"e","shape":"new"}',
+    );
+    SqlLedgerDataSource.check(
+      'draft',
+      'tab',
+      '{"entry":{"_v":${recordVersion + 1},"id":"e"}}',
+    );
+  });
+
+  test('FIX-R41: a backup with rows a later version wrote restores; they '
+      'are kept aside, the rest opens', () async {
+    final opened = EncryptedDatabase.open(file, key);
+    store = opened;
+    final demo = demoLedger();
+    final entry = demo.entries.all.first;
+    opened.write(
+      (w) => w
+        ..put('entry', entry.id, jsonEncode(entryToJson(entry)))
+        ..put('entry', 'later', '{"_v":${recordVersion + 1},"id":"later"}')
+        ..put(
+          'category',
+          'cat-later',
+          '{"_v":${recordVersion + 1},"id":"cat-later"}',
+        )
+        ..put('castle', 'tower', '{"height":3}'),
+      counts: false,
+    );
+    final keys = (await KeyringCodec(
+      kdf: PasswordKdf.insecureForTests,
+    ).create('backup password')).unlocked;
+    final backup = File('${directory.path}/b.etbk');
+    await LedgerBackup.write(
+      store: opened,
+      keys: keys,
+      file: backup,
+      backupId: 'b',
+      createdAt: now,
+    );
+    final into = EncryptedDatabase.open(
+      File('${directory.path}/into.db'),
+      StorageKey.random(),
+    );
+    addTearDown(into.close);
+    // Restored as the app restores one: each row checked, then the book.
+    await LedgerBackup.restore(
+      file: backup,
+      keys: keys,
+      into: into,
+      accept: SqlLedgerDataSource.check,
+    );
+    SqlLedgerDataSource.checkRestored(into);
+    final source = SqlLedgerDataSource(into, clock: clock());
+    final ledger = await source.load();
+    expect(ledger.entries.byId(entry.id), isNotNull);
+    expect(ledger.entries.byId('later'), isNull);
+    expect(
+      source.quarantined.map((r) => (r.key, r.reason)),
+      containsAll([
+        ('entry/later', QuarantineReason.newer),
+        ('category/cat-later', QuarantineReason.newer),
+      ]),
+    );
+    // Kept as they were, the unknown shelf's row with them.
+    expect(into.row('castle', 'tower')?.body, '{"height":3}');
+    expect(into.row('entry', 'later'), isNotNull);
+  });
+
+  test('a malformed backup row is a FormatException naming it (DAT-13)', () {
+    final cases = {
+      // A version that is no number, or no finite one.
+      'entry': [
+        '{"_v":"2","id":"e","date":"2026-10-04","type":"expense","amount":1,"account":"a"}',
+        '{"_v":1e400,"id":"e","date":"2026-10-04","type":"expense","amount":1,"account":"a"}',
+        '{"id":"e","date":"2026-10-04","type":"expense","amount":-5,"account":"a"}',
+        '{"id":"e","date":"2026-10-04","type":"transfer","amount":5,"account":"a"}',
+        '{"id":"e","date":"2026-10-04","type":"expense","amount":"5","account":"a"}',
+      ],
+      'recurring': [
+        '{"id":"r","name":"r","amount":1,"day":1,"account":"a","category":"c","every":0}',
+        '{"id":"r","name":"r","amount":1,"day":40,"account":"a","category":"c"}',
+        '{"id":"r","name":"r","amount":-1,"day":1,"account":"a","category":"c"}',
+      ],
+      'account': [
+        '{"id":"k","name":"k","kind":"card","opening":0,"closingDay":0}',
+        '{"id":"k","name":"k","kind":"card","opening":0,"dueDay":32}',
+      ],
+      'budget': [
+        '{"category":"c","limit":-1}',
+        '{"category":"c","limit":1,"warning":0}',
+      ],
+    };
+    for (final MapEntry(key: collection, value: bodies) in cases.entries) {
+      for (final body in bodies) {
+        expect(
+          () => SqlLedgerDataSource.check(collection, 'row1', body),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              startsWith('$collection row1: '),
+            ),
+          ),
+          reason: body,
+        );
+      }
+    }
+  });
+
+  test('an old row the write rules would refuse still restores', () {
+    // An amount of nothing, a foreign spending without its NT$ worth, an
+    // end before the start: kept by older versions, read as they are.
+    SqlLedgerDataSource.check(
+      'entry',
+      'e',
+      '{"id":"e","date":"2026-10-04","type":"expense","amount":0,"account":"usd"}',
+    );
+    SqlLedgerDataSource.check(
+      'recurring',
+      'r',
+      '{"id":"r","name":"r","amount":0,"day":5,"account":"a","category":"c",'
+          '"start":"2026-05-01","end":"2026-04-01"}',
+    );
   });
 
   test('rows carry their version; deletions are noted and forgotten', () async {
@@ -386,3 +735,8 @@ void main() {
     },
   );
 }
+
+/// What a backup's read found: its revision and the ids of the records,
+/// on the worker (sent there: no store along).
+Future<({int revision, Set<String> ids})> _rowsRead(StoreSnapshot s) async =>
+    (revision: s.revision, ids: {for (final r in s.rows) r.id});

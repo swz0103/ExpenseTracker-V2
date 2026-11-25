@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../../design_system/display/amount.dart';
+import '../core/design_system/findable.dart';
 import '../core/design_system/glyphs.dart';
+
+import 'package:shell/setting_topic.dart';
+
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
 import '../core/navigation/nav.dart';
-import '../features/settings/model/platform_services.dart';
+import 'platform_services.dart';
 import '../features/backup/ui/backup_section.dart';
 import '../features/import_export/ui/import_export_section.dart';
 import '../features/settings/ui/preferences_section.dart';
@@ -18,6 +23,7 @@ import 'settings_search.dart';
 import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
 import '../core/time/app_clock.dart';
+import '../core/platform/preferences.dart';
 
 /// 設定與資料: a search box for any setting by name, the main card saying
 /// when the ledger was last backed up and which ways are on (gold after
@@ -31,6 +37,7 @@ class SettingsPage extends StatelessWidget {
     required this.nav,
     this.services = const PlatformServices(),
     this.part,
+    this.sought,
   });
 
   final Ledger ledger;
@@ -42,24 +49,53 @@ class SettingsPage extends StatelessWidget {
   /// The page shown; null for the list of them.
   final SettingsDestination? part;
 
+  /// The setting a search opened [part] on, shown and marked there.
+  final SettingTopic? sought;
+
   @override
   Widget build(BuildContext context) {
     final preferences = services.preferences;
     return ListenableBuilder(
+      // The sections count entries, accounts, categories and the trash, so
+      // every topic of the records; the prices (market) change nothing here.
       listenable: Listenable.merge([
-        ledger,
-        ?preferences,
+        ledger.watch(const {
+          Topic.entries,
+          Topic.accounts,
+          Topic.categories,
+          Topic.budgets,
+          Topic.recurring,
+        }),
+        // The cards say the look chosen, the reminders on, how the backups
+        // stand; 外觀與操作 says the widget's figures and the discount.
+        ?preferences?.watch(const {
+          PreferenceTopic.look,
+          PreferenceTopic.reminders,
+          PreferenceTopic.phoneBackup,
+          PreferenceTopic.driveBackup,
+          PreferenceTopic.homeWidget,
+          PreferenceTopic.trading,
+        }),
         ?services.drive,
         ?services.phone,
       ]),
       builder: (context, _) {
         final part = this.part;
-        return HeadedList(
-          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s6),
-          header: CenterHeader(part?.label ?? '設定與資料', onBack: nav.back),
-          children: part == null
-              ? [SettingsSearch(onOpen: _open, child: _index(context))]
-              : _page(context, part),
+        return FindScope(
+          sought: sought,
+          child: HeadedList(
+            padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s6),
+            header: CenterHeader(part?.label ?? '設定與資料', onBack: nav.back),
+            children: part == null
+                ? [
+                    SettingsSearch(
+                      onOpen: _find,
+                      services: services,
+                      child: _index(context),
+                    ),
+                  ]
+                : _page(context, part),
+          ),
         );
       },
     );
@@ -67,6 +103,10 @@ class SettingsPage extends StatelessWidget {
 
   void _open(SettingsDestination part) =>
       nav.open(AppRoutes.settingsPart(part));
+
+  /// Opens the page of a setting found, on it.
+  void _find(FoundSetting found) =>
+      nav.open(AppRoutes.settingsPart(found.page, sought: found.topic));
 
   List<Widget> _index(BuildContext context) {
     return [
@@ -177,7 +217,7 @@ class SettingsPage extends StatelessWidget {
         title: '最近刪除',
         detail: ledger.trash.all.isEmpty
             ? '沒有'
-            : '${ledger.trash.all.length} 筆可放回',
+            : '${countOf(ledger.trash.all.length, CountUnit.entries)}可放回',
         onTap: () => _open(SettingsDestination.trash),
       ),
       _Row(
@@ -237,6 +277,7 @@ class SettingsPage extends StatelessWidget {
         SecuritySection(
           backupManager: backupManager,
           privacy: services.privacy,
+          preferences: preferences,
         ),
       ],
       SettingsDestination.appearance => [

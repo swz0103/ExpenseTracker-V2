@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import '../../../../core/design_system/app_mark.dart';
 import '../../../../core/design_system/theme.dart';
 import '../../../../core/design_system/components/buttons.dart';
+import '../../../../core/design_system/keys.dart';
 import '../../../../core/design_system/shape.dart';
 import '../../../../core/design_system/spacing.dart';
+import '../../../../core/widgets/diagnostics_button.dart';
 
 /// The page every lock screen form sits on: the mark, a [title], a
 /// [hint] under it, the [fields] on a tinted block, what went wrong, the
@@ -21,8 +23,14 @@ class LockForm extends StatelessWidget {
     required this.busy,
     required this.onSubmit,
     this.problem,
+    this.waiting,
     this.extras = const [],
+    this.actionKey,
   });
+
+  /// Said in place of [problem] while the form may not be sent: the wait
+  /// after too many wrong tries. The main button is off meanwhile.
+  final String? waiting;
 
   final String title;
   final String hint;
@@ -36,6 +44,9 @@ class LockForm extends StatelessWidget {
   final VoidCallback onSubmit;
   final String? problem;
   final List<Widget> extras;
+
+  /// The main button's key, for tests.
+  final Key? actionKey;
 
   @override
   Widget build(BuildContext context) {
@@ -69,10 +80,14 @@ class LockForm extends StatelessWidget {
             ],
           ),
         ),
-        ProblemLine(problem),
+        if (waiting case final waiting?)
+          ProblemLine(waiting, key: Keys.unlockWait)
+        else
+          ProblemLine(problem),
         const SizedBox(height: Space.s4),
         FilledButton(
-          onPressed: busy ? null : onSubmit,
+          key: actionKey,
+          onPressed: busy || waiting != null ? null : onSubmit,
           style: solidButton(
             AppColors.accent,
             minimumSize: Size.fromHeight(48),
@@ -115,8 +130,9 @@ class LockPage extends StatelessWidget {
   }
 }
 
-/// What went wrong, in the danger colour under the fields; nothing when
-/// [problem] is null or empty.
+/// What went wrong, in the danger colour under the fields, with 匯出診斷
+/// under it when it sends the person to the diagnostics
+/// ([DiagnosticsButton]); nothing when [problem] is null or empty.
 class ProblemLine extends StatelessWidget {
   const ProblemLine(this.problem, {super.key});
 
@@ -128,7 +144,13 @@ class ProblemLine extends StatelessWidget {
     if (text == null || text.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: Space.s2),
-      child: Text(text, textAlign: TextAlign.center, style: dangerText),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(text, textAlign: TextAlign.center, style: dangerText),
+          Center(child: DiagnosticsButton(text)),
+        ],
+      ),
     );
   }
 }

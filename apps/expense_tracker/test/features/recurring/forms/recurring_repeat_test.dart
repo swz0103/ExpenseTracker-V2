@@ -80,6 +80,17 @@ void main() {
     expect((start.month, start.day), (2, DateTime.utc(start.year, 3, 0).day));
   });
 
+  testWidgets('R26: February picked after its day in a leap year moves to '
+      'the next February, on its last day', (tester) async {
+    ledger = demoLedger(today: DateTime.utc(2028, 10, 4));
+    netflix = ledger.recurring.all.firstWhere((r) => r.name == 'Netflix');
+    await open(tester);
+    // 31 of a month in 2028, then February: 29 Feb 2028 is before the
+    // start, so the next February, 2029, which has 28 days.
+    await go(tester, ['重複', '每年', '31', '2', '完成', '儲存']);
+    expect(kept().start, DateTime.utc(2029, 2, 28));
+  });
+
   testWidgets('a monthly item is kept on the day picked; a daily one on none', (
     tester,
   ) async {

@@ -23,14 +23,10 @@ final class _Port implements NotifyPort {
   Future<bool> access() async => true;
 
   @override
-  Future<void> schedule(
-    List<Alert> alerts, {
-    bool exact = false,
-    Set<String>? wanted,
-  }) async {}
+  Future<void> schedule(ReminderPlan plan) async {}
 
   @override
-  Future<void> test({bool exact = false}) async {}
+  Future<void> test({required bool exact}) async {}
 
   @override
   Future<void> post(Alert alert, int id) async => posted.add(alert);
@@ -71,7 +67,7 @@ void main() {
 
   test('a budget warns once at its share and once when used up', () async {
     final ledger = book();
-    final preferences = Preferences();
+    final preferences = Preferences()..update(budgetAlerts: true);
     final port = _Port();
     final notifier = Notifier(port, preferences);
 
@@ -83,14 +79,20 @@ void main() {
     await notifier.postBudgets(reminderBookOf(ledger));
     expect([for (final a in port.posted) a.title], ['「飲食」預算已用 85%']);
     expect(port.posted.single.text, '還剩 150');
+    // The budget by an id, never its name (review 34), under this
+    // install's salt (R37): another install's tag for 飲食 is another.
+    final tag = port.posted.single.tag;
+    expect(tag, matches(RegExp(r'^budget:[0-9a-f-]{36}$')));
+    final elsewhere = Preferences()..update(budgetAlerts: true);
+    expect(
+      budgetCrossings(reminderBookOf(ledger), elsewhere).single.tag,
+      isNot(tag),
+    );
     // Not again while it stays there.
     ledger.entryCommands.add(spend('c', 50));
     await notifier.postBudgets(reminderBookOf(ledger));
     expect(port.posted, hasLength(1));
-    expect(
-      wantedTags(reminderBookOf(ledger), preferences),
-      contains('budget:飲食'),
-    );
+    expect(wantedTags(reminderBookOf(ledger), preferences), contains(tag));
 
     ledger.entryCommands.add(spend('d', 200));
     await notifier.postBudgets(reminderBookOf(ledger));

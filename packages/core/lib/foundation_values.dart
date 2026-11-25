@@ -1,4 +1,4 @@
-export 'src/foundation_values/money.dart';
+export 'money/money.dart';
 export 'src/foundation_values/identity.dart';
-export 'src/foundation_values/time.dart';
+export 'time/time.dart' hide Clock, SystemClock, FixedClock, untilNextMidnight;
 export 'src/foundation_values/fx.dart';

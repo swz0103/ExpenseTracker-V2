@@ -3,6 +3,7 @@ import '../repositories/account_repository.dart';
 import '../repositories/entry_repository.dart';
 import '../repositories/recurring_repository.dart';
 import '../repositories/trash_repository.dart';
+import '../../diagnostics/app_fault.dart';
 
 /// Where a record naming something the book no longer has was found.
 enum RecordKind { entry, trash, recurring }
@@ -13,7 +14,7 @@ enum RecordKind { entry, trash, recurring }
 ///
 /// What it says is only its kind, never a name, an amount or an id, so it
 /// can go to the diagnostics log as it is.
-sealed class IntegrityProblem implements Exception {
+sealed class IntegrityProblem implements AppFault {
   const IntegrityProblem(this.kind, this.id);
 
   /// Which kind of record names what is missing.
@@ -64,26 +65,42 @@ final class IntegrityService {
 
   /// Every problem found, entries first, then the trash, then recurring
   /// items.
-  List<IntegrityProblem> problems() => [
-    for (final e in _entries.all) ..._ofEntry(e, RecordKind.entry),
-    for (final t in _trash.all) ..._ofEntry(t.entry, RecordKind.trash),
-    for (final r in _recurring.all)
-      if (!_accounts.contains(r.account))
-        MissingAccount(RecordKind.recurring, r.id, r.account),
-  ];
-
-  Iterable<IntegrityProblem> _ofEntry(Entry e, RecordKind kind) sync* {
-    for (final account in {e.account, ?e.to}) {
-      if (!_accounts.contains(account)) {
-        yield MissingAccount(kind, e.id, account);
+  List<IntegrityProblem> problems() {
+    final found = <IntegrityProblem>[];
+    // Exception to as-of-today: the integrity check reads every entry written.
+    for (final e in _entries.all) {
+      _check(e, RecordKind.entry, found);
+    }
+    for (final t in _trash.all) {
+      _check(t.entry, RecordKind.trash, found);
+    }
+    for (final r in _recurring.all) {
+      if (!_accounts.contains(r.account)) {
+        found.add(MissingAccount(RecordKind.recurring, r.id, r.account));
       }
+    }
+    return found;
+  }
+
+  /// Adds to [found] what [e] names that the book lacks: its account, then
+  /// the one it moves money to, each once, then the entry it refunds.
+  /// Read for every entry as the book opens, so nothing is made for an
+  /// entry that names nothing missing (review 32 1.4).
+  void _check(Entry e, RecordKind kind, List<IntegrityProblem> found) {
+    final account = e.account;
+    if (!_accounts.contains(account)) {
+      found.add(MissingAccount(kind, e.id, account));
+    }
+    final to = e.to;
+    if (to != null && to != account && !_accounts.contains(to)) {
+      found.add(MissingAccount(kind, e.id, to));
     }
     final original = e.refundOf;
     // A refund in the trash may name an original deleted with it.
     if (original != null &&
         kind == RecordKind.entry &&
         _entries.byId(original) == null) {
-      yield MissingRefundOriginal(kind, e.id, original);
+      found.add(MissingRefundOriginal(kind, e.id, original));
     }
   }
 }

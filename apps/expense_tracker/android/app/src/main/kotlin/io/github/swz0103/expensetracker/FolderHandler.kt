@@ -27,17 +27,21 @@ class FolderHandler(private val activity: FragmentActivity) : ChannelHandler {
                 result.success(null)
                 return@registerForActivityResult
             }
-            try {
-                activity.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-                )
-                result.success(mapOf("uri" to uri.toString(), "name" to nameOf(uri)))
-            } catch (e: Exception) {
+            // The permission and the folder's name ask the documents
+            // provider, which can be slow: off the main thread.
+            offMain.run(
+                {
+                    activity.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                    )
+                    mapOf("uri" to uri.toString(), "name" to nameOf(uri))
+                },
+                { result.success(it) },
                 // Android keeps no permission for some places, such as the
                 // storage's top or Download since Android 11.
-                result.error("rejected", e.message, null)
-            }
+                { result.error("rejected", it.message, null) },
+            )
         }
 
     /** Where the chooser opens: Documents on the phone's own storage. */
@@ -64,16 +68,10 @@ class FolderHandler(private val activity: FragmentActivity) : ChannelHandler {
     }
 
     /** Runs [work] off the main thread and answers [result] on it. */
-    private fun background(result: MethodChannel.Result, work: () -> Any?) {
-        Thread {
-            try {
-                val value = work()
-                activity.runOnUiThread { result.success(value) }
-            } catch (e: Exception) {
-                activity.runOnUiThread { result.error("folder", e.message, null) }
-            }
-        }.start()
-    }
+    private fun background(result: MethodChannel.Result, work: () -> Any?) =
+        offMain.answer(result, "folder", work)
+
+    private val offMain = OffMain.of(activity)
 
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         val tree = call.argument<String>("uri")?.let(Uri::parse)
@@ -111,6 +109,15 @@ class FolderHandler(private val activity: FragmentActivity) : ChannelHandler {
                         FolderFiles.write(activity.contentResolver, tree, File(path), name)
                         null
                     }
+                }
+            }
+            "readFolderHead" -> {
+                val id = call.argument<String>("id")
+                val bytes = call.argument<Int>("bytes")
+                if (tree == null || id == null || bytes == null) {
+                    result.error("bad-arguments", "uri, id and bytes are required", null)
+                } else {
+                    background(result) { FolderFiles.head(activity.contentResolver, tree, id, bytes) }
                 }
             }
             "deleteInFolder" -> {

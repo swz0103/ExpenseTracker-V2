@@ -103,6 +103,27 @@ void main() {
     expect(outcomes.single!.$1, ComposeOutcome.saved);
   });
 
+  testWidgets('F03: the untouched 0 waits faint; a typed amount is not, '
+      'and is read out as spending', (tester) async {
+    await open(tester);
+    Color? colour(String figure) =>
+        tester.widget<Text>(find.text(figure)).style?.color;
+    // Nothing typed: the placeholder's faint colour, in light and dark.
+    expect(colour('0'), AppColors.faint);
+    await amount(tester, '120');
+    expect(colour('−120'), isNot(AppColors.faint));
+    // Read as 金額, 支出 120 元: the direction in words, not the sign.
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Semantics &&
+            w.properties.label == '金額' &&
+            w.properties.value == '支出 120 元',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('a spending split over categories keeps each part', (
     tester,
   ) async {
@@ -221,16 +242,15 @@ void main() {
     expect(outcomes.single!.$1, ComposeOutcome.saved);
   });
 
-  testWidgets('an entry looked at is deleted once agreed', (tester) async {
+  testWidgets('an entry looked at is deleted without asking: its note '
+      'offers 復原 (D82)', (tester) async {
     final lunch = ledger.entries.all.firstWhere(
       (e) => e.type == EntryType.expense,
     );
     await open(tester, entry: lunch);
     await tester.tap(find.byKey(Keys.discard));
     await tester.pumpAndSettle();
-    expect(find.text('刪除這一筆？'), findsOneWidget);
-    await tester.tap(find.byKey(Keys.confirm));
-    await tester.pumpAndSettle();
+    expect(find.byKey(Keys.confirm), findsNothing);
     expect(outcomes.single!.$1, ComposeOutcome.deleted);
     expect(outcomes.single!.$2.id, lunch.id);
   });
@@ -296,7 +316,7 @@ void main() {
     final count = ledger.entries.length;
     final owed = ledger.balanceService.balance('lent');
     await open(tester);
-    await go(tester, ['代墊', '代墊朋友', '好了（1 人）']);
+    await go(tester, ['代墊', '代墊朋友', '${Words.done}（1 人）']);
     await amount(tester, '500');
     // Shared evenly, one's own half counted as spending.
     expect(find.text('記下支出'), findsOneWidget);
@@ -321,5 +341,44 @@ void main() {
     // It opens at all they owe.
     expect(ledger.balanceService.balance('lent'), 0);
     expect(owed, greaterThan(0));
+  });
+
+  testWidgets('D83: 取消 leaves an untouched form at once; one written in '
+      'asks 要捨棄修改嗎？ first, and 繼續編輯 keeps it', (tester) async {
+    await open(tester);
+    await tester.tap(find.byKey(Keys.cancelEdit));
+    await tester.pumpAndSettle();
+    expect(find.text('要捨棄修改嗎？'), findsNothing);
+    expect(outcomes, [null]);
+
+    final count = ledger.entries.length;
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await amount(tester, '120');
+    await tester.tap(find.byKey(Keys.cancelEdit));
+    await tester.pumpAndSettle();
+    expect(find.text('要捨棄修改嗎？'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.confirmCancel));
+    await tester.pumpAndSettle();
+    // Still there, as written: saved as usual.
+    await save(tester);
+    expect(added(count).single.amount, 120);
+    expect(outcomes.last!.$1, ComposeOutcome.saved);
+  });
+
+  testWidgets('D83: back on a form written in asks, and 捨棄 drops it', (
+    tester,
+  ) async {
+    final count = ledger.entries.length;
+    await open(tester);
+    await amount(tester, '75');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('要捨棄修改嗎？'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.confirm));
+    await tester.pumpAndSettle();
+    expect(find.byType(Composer), findsNothing);
+    expect(ledger.entries.length, count);
+    expect(outcomes, [null]);
   });
 }

@@ -1,4 +1,20 @@
-part of 'recurring_page.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/problem_note.dart';
+import '../../../core/navigation/nav.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import '../../../core/messages/recurring_messages.dart' show pausedHint;
+import 'recurring_rows.dart';
+import 'recurring_page.dart';
 
 // 管理固定項目, 訂閱與固定支出 and 已暫停.
 
@@ -26,8 +42,9 @@ class _SubPage extends StatelessWidget {
 
 /// 管理固定項目: every active item as a square, 支出 then 收入, each
 /// side with how many and what they come to a month.
-class _Manage extends StatelessWidget {
-  const _Manage({
+class RecurringManage extends StatelessWidget {
+  const RecurringManage({
+    super.key,
     required this.ledger,
     required this.nav,
     required this.onEdit,
@@ -40,7 +57,15 @@ class _Manage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // The items, what they booked, their accounts and categories, and the
+      // rates their yearly cost is valued at.
+      listenable: ledger.watch(const {
+        Topic.recurring,
+        Topic.entries,
+        Topic.accounts,
+        Topic.categories,
+        Topic.market,
+      }),
       builder: (context, _) {
         final today = ledger.today;
         List<Widget> side(bool income) {
@@ -49,6 +74,9 @@ class _Manage extends StatelessWidget {
               if (r.active && r.income == income) r,
           ];
           if (items.isEmpty) return const [];
+          // What this month's dates come to: a yearly item counts only in
+          // the month it falls, so the total is this month's (本月合計),
+          // not a monthly average.
           var monthly = 0;
           for (final r in items) {
             monthly +=
@@ -69,10 +97,15 @@ class _Manage extends StatelessWidget {
                     income ? Words.income : Words.expense,
                     style: _sectionTitle,
                   ),
-                  const Spacer(),
-                  Text(
-                    '${items.length} 項 · 每月 ${ledger.orDots(groupDigits(monthly))}',
-                    style: mutedSmall,
+                  const SizedBox(width: Space.s2),
+                  // Wraps under itself at large text rather than running
+                  // past the edge.
+                  Expanded(
+                    child: Text(
+                      '${items.length} 項 · 本月合計 ${ledger.orDots(groupDigits(monthly))}',
+                      textAlign: TextAlign.end,
+                      style: mutedSmall,
+                    ),
                   ),
                 ],
               ),
@@ -104,11 +137,17 @@ class _Manage extends StatelessWidget {
 /// 訂閱與固定支出: what the fixed spending comes to a year and a month,
 /// a bar of each item's share, and each item's year, month and share,
 /// the dearest first.
-class _Subscriptions extends StatelessWidget {
-  const _Subscriptions({required this.ledger, required this.nav});
+class RecurringSubscriptions extends StatelessWidget {
+  const RecurringSubscriptions({
+    super.key,
+    required this.ledger,
+    required this.nav,
+    required this.onEdit,
+  });
 
   final Ledger ledger;
   final Nav nav;
+  final Future<void> Function({Recurring? item, DateTime? on}) onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -121,7 +160,7 @@ class _Subscriptions extends StatelessWidget {
         if (rows.isEmpty)
           const EmptyState(
             glyph: Glyph.subscription,
-            color: _recurringColor,
+            color: recurringColor,
             message: '還沒有固定支出',
           )
         else ...[
@@ -145,11 +184,11 @@ class _Subscriptions extends StatelessWidget {
             RecurringRow(
               ledger: ledger,
               item: item,
-              onTap: () {},
+              onTap: () => onEdit(item: item),
               lines: [
                 '一年 ${ledger.orDots(groupDigits(yearly))}',
-                '每月 ${ledger.orDots(groupDigits(yearly ~/ 12))} · '
-                    '佔 ${yearly * 100 ~/ total}%',
+                '每月 ${ledger.orDots(groupDigits(divideRounded(yearly, 12)))} · '
+                    '佔 ${wholePercent(yearly, total)}',
               ],
             ),
             const SizedBox(height: Space.s2),
@@ -199,8 +238,9 @@ class _Subscriptions extends StatelessWidget {
 }
 
 /// 已暫停: what pausing means, then each paused item in grey with 恢復.
-class _Paused extends StatelessWidget {
-  const _Paused({
+class RecurringPaused extends StatelessWidget {
+  const RecurringPaused({
+    super.key,
     required this.ledger,
     required this.nav,
     required this.onEdit,
@@ -213,7 +253,14 @@ class _Paused extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // As the active items above.
+      listenable: ledger.watch(const {
+        Topic.recurring,
+        Topic.entries,
+        Topic.accounts,
+        Topic.categories,
+        Topic.market,
+      }),
       builder: (context, _) {
         final paused = [
           for (final r in ledger.recurring.all)
@@ -221,16 +268,16 @@ class _Paused extends StatelessWidget {
         ];
         return _SubPage(
           nav: nav,
-          title: '已暫停',
+          title: StatusWords.paused,
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(Space.s1, 0, Space.s1, Space.s4),
-              child: Text('暫停的項目不會出現在月曆上，也不算進每月固定支出。', style: mutedSmall),
+              child: Text(pausedHint, style: mutedSmall),
             ),
             if (paused.isEmpty)
               const EmptyState(
                 glyph: Glyph.cycleCalendar,
-                color: _recurringColor,
+                color: recurringColor,
                 message: '沒有暫停的項目',
               )
             else
@@ -241,8 +288,11 @@ class _Paused extends StatelessWidget {
                   grey: true,
                   onTap: () => onEdit(item: r),
                   trailing: FilledButton(
-                    onPressed: () => ledger.recurringCommands.saveRecurring(
-                      r.copyWith(active: true),
+                    onPressed: () => refusalShown(
+                      context,
+                      () => ledger.recurringCommands.saveRecurring(
+                        r.copyWith(active: true),
+                      ),
                     ),
                     style: solidButton(
                       AppColors.white,
@@ -252,7 +302,7 @@ class _Paused extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: Space.s3),
                     ),
                     child: const Text(
-                      '恢復',
+                      Words.unarchive,
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),

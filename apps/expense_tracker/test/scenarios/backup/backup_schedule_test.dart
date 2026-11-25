@@ -5,6 +5,7 @@ import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,6 +40,8 @@ void main() {
     };
     ledger = await SqlLedgerDataSource(vault.store, clock: clock).load();
     backups = EncryptedBackupManager(startup, vault);
+    // Backups carry no app password: one that opens them is set apart.
+    await backups.setBackupPassphrase('correct horse battery');
   });
 
   tearDown(() {
@@ -56,7 +59,7 @@ void main() {
   }
 
   List<String> kept() => [
-    for (final f in Directory(backups.backupFolder).listSync())
+    for (final f in Directory('${startup.directory.path}/backups').listSync())
       f.uri.pathSegments.last,
   ]..sort();
 
@@ -102,7 +105,7 @@ void main() {
       await backups.backUpIfDue();
     }
     // As the phone stopping the app part way leaves it: newest by name.
-    File('${backups.backupFolder}/記帳本-20991231-000000000.etbk.part')
+    File('${startup.directory.path}/backups/記帳本-20991231-000000000.etbk.part')
         .writeAsStringSync('cut short');
     await change();
     clock.advance(const Duration(days: 8));
@@ -114,7 +117,9 @@ void main() {
     expect(whole, hasLength(5));
     for (final name in whole) {
       // Every one kept opens.
-      await LedgerBackup.readHeader(File('${backups.backupFolder}/$name'));
+      await LedgerBackup.readHeader(
+        File('${startup.directory.path}/backups/$name'),
+      );
     }
   });
 
@@ -155,7 +160,7 @@ void main() {
 
   test('before a restore the two kept last stay, and what Android brought '
       'back is never let go', () async {
-    final folder = startup.beforeRestore..createSync(recursive: true);
+    final folder = startup.folder.beforeRestore..createSync(recursive: true);
     final brought = File('${folder.path}/brought-back-1.etbk')
       ..writeAsStringSync('from Android');
     brought.setLastModifiedSync(DateTime(2020));
@@ -224,7 +229,7 @@ void main() {
       final bytes = File(path).readAsBytesSync();
       // The header names its version after the magic and frame length.
       final text = String.fromCharCodes(bytes);
-      final at = text.indexOf('"version":3');
+      final at = text.indexOf('"version":5');
       expect(at, greaterThan(0));
       bytes[at + '"version":'.length] = '9'.codeUnitAt(0);
       File(path).writeAsBytesSync(bytes);

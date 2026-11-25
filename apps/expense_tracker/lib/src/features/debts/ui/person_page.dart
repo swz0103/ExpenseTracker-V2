@@ -1,4 +1,29 @@
-part of 'debts_page.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/navigation/nav.dart';
+import '../../../core/design_system/dialogs.dart';
+
+import 'package:ledger_loans/calc/loan_plan.dart';
+
+import '../../../core/widgets/icons.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import '../model/debts.dart';
+import '../../../core/messages/done_messages.dart';
+import '../../../core/messages/flow_messages.dart';
+import '../../../core/messages/trash_messages.dart';
+import '../../../core/messages/validation_messages.dart';
+import 'debts_page.dart';
+import 'debts_loan_card.dart';
 
 /// The page of one person paid for: what they owe and for how long, 幫忙付
 /// and 收回 (all that is owed, which can be changed), each sum still owed
@@ -9,28 +34,30 @@ class PersonPage extends StatelessWidget {
     required this.ledger,
     required this.nav,
     required this.personId,
+    required this.settle,
   });
 
   final Ledger ledger;
   final Nav nav;
   final String personId;
 
+  /// Settles what is left with the person and archives them, as the
+  /// account form does; true when archived. Given by the app.
+  final Future<bool> Function(BuildContext context, Account person, int left)
+  settle;
+
   /// Opens the composer on money paid for [person] from the main account
   /// ([lend]), or on money paid back, all that is owed by default.
   void _move(Account person, {required bool lend}) {
-    final main = ledger.accounts.main;
-    final owed = ledger.balanceService.balance(person.id);
+    final drafts = ledger.transferDrafts;
     nav.compose(
       type: EntryType.transfer,
-      draft: Entry(
-        id: '',
-        date: ledger.today,
-        type: EntryType.transfer,
-        amount: lend || owed < 0 ? 0 : owed,
-        account: lend ? main : person.id,
-        category: transferCategory,
-        to: lend ? person.id : main,
-      ),
+      draft: lend
+          ? drafts.lend(person.id)
+          : drafts.payBack(
+              person.id,
+              owed: ledger.balanceService.balance(person.id),
+            ),
     );
   }
 
@@ -51,20 +78,51 @@ class PersonPage extends StatelessWidget {
     ledger.accountCommands.updateAccount(person.copyWith(name: name));
   }
 
+  /// Deletes [person]: one with dealings kept is archived instead, so
+  /// what was written stays. Either is told with 復原 and not asked first
+  /// (D82), unless deleted entries in the trash still name them: those go
+  /// for good with them, which cannot be undone, so it is asked (D78).
+  /// One who still owes money, or is owed it, once what is dated ahead
+  /// has come, is not archived as they are (DEB-01): asked whether to
+  /// settle first, as the account form does ([settle], review
+  /// 35); kept, the page stays.
   Future<void> _delete(BuildContext context, Account person) async {
-    final used = ledger.accountCommands.isUsed(person.id);
-    final ok = await confirm(
-      context,
-      '刪除「${person.name}」？',
-      Words.delete,
-      danger: true,
-      body: used ? '已記的紀錄會保留，這個人收起來不再出現。' : null,
-    );
-    if (!ok) return;
-    if (used) {
-      ledger.accountCommands.updateAccount(person.copyWith(archived: true));
-    } else {
-      ledger.accountCommands.removeAccount(person.id);
+    if (ledger.accountCommands.usedOutsideTrash(person.id)) {
+      final left = ledger.balanceService.finalBalance(person.id);
+      if (left != 0) {
+        final settle = await confirm(
+          context,
+          validationMessage(const ArchivedOwing()),
+          Words.settleArchive,
+          body: SettleWords.owingBody(person.name),
+          cancel: SettleWords.keep,
+        );
+        if (!settle || !context.mounted) return;
+      }
+      if (await settle(context, person, left)) {
+        nav.back();
+      }
+      return;
+    }
+    final trashed = ledger.accountCommands.trashedNaming(person.id);
+    if (trashed.isNotEmpty) {
+      final ok = await confirm(
+        context,
+        '刪除「${person.name}」？',
+        Words.delete,
+        danger: true,
+        body: trashedNamingNote(trashed.length),
+      );
+      if (!ok || !context.mounted) return;
+      ledger.entryCommands.discardTrashed(trashed);
+    }
+    final undo = ledger.accountCommands.removeAccount(person.id);
+    if (undo != null) {
+      if (trashed.isEmpty) {
+        showUndo(context, DoneWords.deleted(person.name), undo);
+      } else {
+        showNote(context, DoneWords.deleted(person.name));
+      }
     }
     nav.back();
   }
@@ -72,7 +130,12 @@ class PersonPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // The person's balance and dealings, their categories' icons.
+      listenable: ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.categories,
+      }),
       builder: (context, _) {
         if (!ledger.accounts.contains(personId)) {
           WidgetsBinding.instance.addPostFrameCallback((_) => nav.back());
@@ -81,46 +144,54 @@ class PersonPage extends StatelessWidget {
         final person = ledger.account(personId);
         final balance = ledger.balanceService.balance(person.id);
         final owed = ledger.reportService.owedBy(person.id);
-        final entries = [
-          for (final e in ledger.entries.all)
-            if (e.account == person.id || e.to == person.id) e,
-        ]..sort((a, b) => b.date.compareTo(a.date));
+        final entries = ledger.balanceService.entriesOf(person.id);
         final color = nameColor(person.name);
         final oldest = owed.isEmpty ? null : owed.last.$1.date;
-        return HeadedList(
+        final left = {for (final (lent, left) in owed) lent.id: left};
+        // Rows built as they come on screen: a person's dealings can be
+        // as many as the book holds.
+        return HeadedList.lazy(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(person.name, onBack: nav.back),
-          children: [
-            _DebtHero(
-              color: color,
-              lead: _Initial(person.name, size: 60),
-              label: balance < 0 ? '你欠${person.name}' : '還欠你',
-              value: ledger.orDots(groupDigits(balance.abs())),
-              lines: [
-                if (oldest == null)
-                  '沒有待收回的'
-                else
-                  '${owed.length} 筆還沒收回 · 最久 ${_days(ledger, oldest)} 天',
-              ],
-              menu: DotsMenu([
-                DotsItem(Glyph.edit, '改名', () => _rename(context, person)),
-                DotsItem(
-                  Glyph.trash,
-                  Words.delete,
-                  () => _delete(context, person),
-                  danger: true,
-                ),
-              ]),
-            ),
-            const SizedBox(height: Space.s3),
-            _actions(person, balance, color),
-            if (owed.isNotEmpty)
-              ..._board('還沒收回', [
-                for (final (e, left) in owed) _owedRow(e, left),
-              ]),
-            ..._board('往來紀錄', [
-              for (final e in entries) _movementRow(e, person.id, color),
+          runs: [
+            LineRun.each([
+              DebtHero(
+                color: color,
+                lead: PersonInitial(person.name, size: 60),
+                label: balance < 0 ? '你欠${person.name}' : '還欠你',
+                // In the person's own currency (review 41).
+                value: ledger.moneyIn(balance.abs(), person.currency),
+                lines: [
+                  if (oldest == null)
+                    '沒有待收回的'
+                  else
+                    '${countOf(owed.length, CountUnit.entries)}還沒收回 · 最久 ${countOf(daysSince(ledger.today, oldest), CountUnit.days)}',
+                ],
+                menu: DotsMenu([
+                  DotsItem(Glyph.edit, '改名', () => _rename(context, person)),
+                  DotsItem(
+                    Glyph.trash,
+                    // One with dealings is archived (封存), not deleted.
+                    entries.isEmpty ? Words.delete : Words.archive,
+                    () => _delete(context, person),
+                    danger: true,
+                  ),
+                ]),
+              ),
+              const SizedBox(height: Space.s3),
+              _actions(person, balance, color),
             ]),
+            if (owed.isNotEmpty)
+              ...debtBoardRuns(
+                '還沒收回',
+                owed.length,
+                (i) => _owedRow(owed[i].$1, owed[i].$2, person),
+              ),
+            ...debtBoardRuns(
+              '往來紀錄',
+              entries.length,
+              (i) => _movementRow(entries[i], person, color, left),
+            ),
           ],
         );
       },
@@ -132,7 +203,7 @@ class PersonPage extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: _Action(
+          child: DebtAction(
             glyph: Glyph.add,
             label: '幫忙付',
             color: color,
@@ -141,7 +212,7 @@ class PersonPage extends StatelessWidget {
         ),
         const SizedBox(width: Space.s3),
         Expanded(
-          child: _Action(
+          child: DebtAction(
             glyph: Glyph.check,
             label: '收回',
             color: color,
@@ -153,30 +224,55 @@ class PersonPage extends StatelessWidget {
     );
   }
 
+  /// What [e] put on [person]'s account, in the person's currency: for a
+  /// sum paid over from another currency, what arrived (review 41), the
+  /// scale what is left of it is in.
+  int _lent(Entry e, Account person) =>
+      ledger.balanceService.effect(e, person.id);
+
   /// A sum paid for the person and not yet paid back: what it was for,
-  /// its day, and how long it has waited.
-  Widget _owedRow(Entry e, int left) {
+  /// its day, and how long it has waited, in the person's currency.
+  Widget _owedRow(Entry e, int left, Account person) {
+    final lent = _lent(e, person);
     return QuoteRow(
       onTap: () => nav.showEntry(ledger.entryQueryService.groupLead(e)),
       title: _what(e),
-      detail:
-          '${formatMd(e.date)}'
-          '${left < e.amount ? ' · 共 ${ledger.orDots(groupDigits(e.amount))}' : ''}',
+      detail: switch (advanceStatus(amount: lent, left: left)) {
+        AdvanceStatus.partlySettled =>
+          '${formatMd(e.date)} · '
+              '${advanceLook(AdvanceStatus.partlySettled).words} · '
+              '共 ${ledger.moneyIn(lent, person.currency)}',
+        _ => formatMd(e.date),
+      },
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _DaysTag(_days(ledger, e.date)),
+          _DaysTag(daysSince(ledger.today, e.date)),
           const SizedBox(width: Space.s3),
-          RowFigure(ledger.orDots(groupDigits(left))),
+          RowFigure(ledger.moneyIn(left, person.currency)),
         ],
       ),
     );
   }
 
   /// One movement with the person: paid back in green with a minus, paid
-  /// for with a ＋.
-  Widget _movementRow(Entry e, String person, Color color) {
-    final back = e.account == person;
+  /// for with a ＋; each in the currency of the account it was paid from
+  /// (review 41: a sum paid in NT\$ for a person kept in US\$ says NT\$).
+  Widget _movementRow(
+    Entry e,
+    Account person,
+    Color color,
+    Map<String, int> stillOwed,
+  ) {
+    final back = e.account == person.id;
+    final currency = ledger.account(e.account).currency;
+    // A sum paid for them says where it stands: 未收回, 部分收回 or
+    // 已結清, as the advance rules decide, in the person's currency.
+    final status = back
+        ? null
+        : advanceLook(
+            advanceStatus(amount: _lent(e, person), left: stillOwed[e.id] ?? 0),
+          );
     return QuoteRow(
       onTap: () => nav.showEntry(ledger.entryQueryService.groupLead(e)),
       lead: SquareIcon(
@@ -185,11 +281,18 @@ class PersonPage extends StatelessWidget {
         size: 40,
       ),
       title: back ? '收回' : _what(e),
-      detail: formatMd(e.date),
+      detail: status == null
+          ? formatMd(e.date)
+          : '${formatMd(e.date)} · ${status.words}',
       trailing: RowFigure(
         back
-            ? '−${ledger.orDots(groupDigits(e.amount))}'
-            : ledger.orDots(groupDigits(e.amount)),
+            ? '−${ledger.moneyIn(e.amount, currency)}'
+            : ledger.moneyIn(e.amount, currency),
+        spoken: ledger.spoken(
+          back ? -e.amount : e.amount,
+          currency: currency,
+          sense: AmountSense.plain,
+        ),
         color: back ? AppColors.positive : AppColors.ink,
       ),
     );
@@ -215,7 +318,7 @@ class _DaysTag extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.small),
       ),
       child: Text(
-        '$days 天',
+        countOf(days, CountUnit.days),
         textScaler: TextScaler.noScaling,
         style: TextStyle(
           fontSize: TextSize.caption,
@@ -236,16 +339,26 @@ class LoanPage extends StatelessWidget {
     required this.ledger,
     required this.nav,
     required this.loanId,
+    required this.edit,
+    required this.reconcile,
   });
 
   final Ledger ledger;
   final Nav nav;
   final String loanId;
 
+  /// Opens the loan's form from 編輯; true when it was deleted or
+  /// archived there. The accounts' form, given by the app.
+  final Future<bool> Function(BuildContext context, Account loan) edit;
+
+  /// Opens 對帳 for the loan: the accounts' sheet, given by the app.
+  final Future<void> Function(BuildContext context, Account loan) reconcile;
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // The loan's terms, balance and payments.
+      listenable: ledger.watch(const {Topic.entries, Topic.accounts}),
       builder: (context, _) {
         if (!ledger.accounts.contains(loanId)) {
           WidgetsBinding.instance.addPostFrameCallback((_) => nav.back());
@@ -255,39 +368,37 @@ class LoanPage extends StatelessWidget {
         final owed = owedOn(ledger.balanceService, loan);
         final share = paidShare(ledger.balanceService, loan);
         final color = nameColor(loan.name);
-        final entries = [
-          for (final e in ledger.entries.all)
-            if (e.account == loan.id || e.to == loan.id) e,
-        ]..sort((a, b) => b.date.compareTo(a.date));
-        return HeadedList(
+        final entries = ledger.balanceService.entriesOf(loan.id);
+        // Rows built as they come on screen, however many payments.
+        return HeadedList.lazy(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(loan.name, onBack: nav.back),
-          children: [
-            _DebtHero(
-              color: color,
-              lead: share == null
-                  ? SquareIcon(Glyph.loan, color, size: 60)
-                  : _PaidRing(share: share, color: color, size: 96),
-              label: '尚欠',
-              value: ledger.orDots(groupDigits(owed)),
-              lines: _lines(loan, owed),
-              menu: DotsMenu([
-                DotsItem(Glyph.edit, Words.edit, () async {
-                  final gone = await editLoan(context, ledger, loan: loan);
-                  if (gone) nav.back();
-                }),
-                DotsItem(
-                  Glyph.check,
-                  '對帳',
-                  () => reconcileAccount(context, ledger, loan),
-                ),
-              ]),
-            ),
-            const SizedBox(height: Space.s3),
-            _payButton(loan, color),
-            ..._board('還款紀錄', [
-              for (final e in entries) _paymentRow(e, loan, color),
+          runs: [
+            LineRun.each([
+              DebtHero(
+                color: color,
+                lead: share == null
+                    ? SquareIcon(Glyph.loan, color, size: 60)
+                    : PaidRing(share: share, color: color, size: 96),
+                label: '尚欠',
+                value: ledger.orDots(groupDigits(owed)),
+                lines: _lines(loan, owed),
+                menu: DotsMenu([
+                  DotsItem(Glyph.edit, Words.edit, () async {
+                    final gone = await edit(context, loan);
+                    if (gone) nav.back();
+                  }),
+                  DotsItem(Glyph.check, '對帳', () => reconcile(context, loan)),
+                ]),
+              ),
+              const SizedBox(height: Space.s3),
+              _payButton(loan, color),
             ]),
+            ...debtBoardRuns(
+              '還款紀錄',
+              entries.length,
+              (i) => _paymentRow(entries[i], loan, color),
+            ),
           ],
         );
       },
@@ -317,22 +428,14 @@ class LoanPage extends StatelessWidget {
 
   /// 記一筆還款: opens the composer on a payment into [loan].
   Widget _payButton(Account loan, Color color) {
-    return _Action(
+    return DebtAction(
       glyph: Glyph.add,
       label: '記一筆還款',
       color: color,
       solid: true,
       onTap: () => nav.compose(
         type: EntryType.transfer,
-        draft: Entry(
-          id: '',
-          date: ledger.today,
-          type: EntryType.transfer,
-          amount: 0,
-          account: ledger.accounts.main,
-          category: transferCategory,
-          to: loan.id,
-        ),
+        draft: ledger.transferDrafts.payInto(loan.id),
       ),
     );
   }

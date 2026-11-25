@@ -1,6 +1,6 @@
 import '../../core/ledger/ledger.dart';
 
-part 'seed_history.dart';
+import 'seed_history.dart';
 
 /// The preview's made-up book as of 2026-10-04, the same fixture as the
 /// approved web preview (v114): six months of salary, rent and everyday
@@ -8,7 +8,7 @@ part 'seed_history.dart';
 /// holdings, with fifteen plainer months before them for the reports.
 // Exception to function length: the demo book's records, one or two
 // lines each; data, not steps to follow.
-Ledger demoLedger() {
+Ledger demoLedger({DateTime? today}) {
   final entries = <Entry>[];
   var serial = 0;
   void add(
@@ -45,7 +45,7 @@ Ledger demoLedger() {
   }
 
   const spend = EntryType.expense;
-  final bankBefore = _history(add);
+  final bankBefore = seedHistory(add);
   for (var m = 4; m <= 9; m++) {
     add(m, 1, EntryType.income, 52000, 'bank', '薪資收入', '每月薪資');
     add(m, 1, spend, 12500, 'bank', '居家生活', '$m月房租');
@@ -204,7 +204,7 @@ Ledger demoLedger() {
   ]);
 
   return Ledger(
-    today: DateTime.utc(2026, 10, 4),
+    today: today ?? DateTime.utc(2026, 10, 4),
     // Closing prices of the Friday before.
     quotedOn: DateTime.utc(2026, 10, 2),
     // A sample of 臺灣銀行's board, so a foreign account can be tried.
@@ -216,7 +216,7 @@ Ledger demoLedger() {
         'digital',
         '數位帳戶',
         AccountKind.bank,
-        80000 - _toDigital * _historyMonths,
+        80000 - seedToDigital * seedHistoryMonths,
         icon: 'phone',
       ),
       const Account(
@@ -232,7 +232,7 @@ Ledger demoLedger() {
         'savings',
         '儲蓄帳戶',
         AccountKind.bank,
-        125000 - _toSavings * _historyMonths,
+        125000 - seedToSavings * seedHistoryMonths,
         icon: 'safe',
       ),
       const Account(
@@ -289,17 +289,7 @@ Ledger demoLedger() {
         icon: 'heart',
       ),
     ],
-    categories: [
-      Category('居家生活', 'home', 0xFF5C9A83),
-      Category('飲食日常', 'food', 0xFFD08B5B),
-      Category('交通通勤', 'travel', 0xFF5B8DB0),
-      Category('購物休閒', 'bag', 0xFF8E7CC0),
-      Category('訂閱服務', 'subscription', 0xFFC9A34A),
-      Category('其他支出', 'other', 0xFFB07A8C),
-      Category('薪資收入', 'salary', 0xFF2F7A65, income: true),
-      Category('股息收入', 'dividend', 0xFF5A6FA8, income: true),
-      Category('其他收入', 'income', 0xFF4E8A9A, income: true),
-    ],
+    categories: starterCategories(),
     entries: entries,
     holdings: const [
       Holding(
@@ -456,25 +446,3 @@ Ledger demoLedger() {
     ],
   );
 }
-
-/// How many months [_history] writes: January 2025 to March 2026.
-const _historyMonths = 15;
-
-/// What each of those months moves to savings and the digital account.
-const _toSavings = 8000;
-const _toDigital = 5000;
-
-typedef _Add = void Function(
-  int month,
-  int day,
-  EntryType type,
-  int amount,
-  String account,
-  String category,
-  String note, {
-  int year,
-  String? to,
-  String? recurring,
-  String merchant,
-  List<String> tags,
-});

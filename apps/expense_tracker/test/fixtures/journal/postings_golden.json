@@ -1,0 +1,54 @@
+{
+  "books": {
+    "0.17.0": {
+      "journalRules": 3,
+      "printShape": 2,
+      "print": "af63d5f59563bf89"
+    },
+    "0.18.0": {
+      "journalRules": 3,
+      "printShape": 2,
+      "print": "50493dc9049652e5"
+    },
+    "0.18.1": {
+      "journalRules": 3,
+      "printShape": 2,
+      "print": "175a3bb16e4d568f"
+    },
+    "0.18.2": {
+      "journalRules": 3,
+      "printShape": 2,
+      "print": "f3cd90ea4d8d26d9"
+    },
+    "0.18.3": {
+      "journalRules": 3,
+      "printShape": 2,
+      "print": "dbd343dd3e3c3ce2"
+    },
+    "0.19.0": {
+      "journalRules": 3,
+      "printShape": 2,
+      "print": "2f0f5956a19a939a"
+    },
+    "0.20.0": {
+      "journalRules": 3,
+      "printShape": 2,
+      "print": "6e32b89db3e41f3d"
+    },
+    "0.21.0": {
+      "journalRules": 3,
+      "printShape": 2,
+      "print": "9cf3be241682ac67"
+    },
+    "0.22.0": {
+      "journalRules": 3,
+      "printShape": 2,
+      "print": "a3cdd24e82b2a51e"
+    },
+    "awkward": {
+      "journalRules": 3,
+      "printShape": 2,
+      "print": "90f11106c8f826c9"
+    }
+  }
+}

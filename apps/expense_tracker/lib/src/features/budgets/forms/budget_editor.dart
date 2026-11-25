@@ -1,3 +1,4 @@
+import 'package:core/foundation_values.dart' show YearMonth;
 import 'package:flutter/material.dart';
 
 import '../../../core/ledger/ledger.dart';
@@ -6,7 +7,9 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../core/formatting/words.dart';
+import '../../../core/messages/done_messages.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/widgets/calculator.dart';
 import '../../../core/widgets/icons.dart';
 import '../../../core/widgets/shown_amounts.dart';
@@ -62,68 +65,84 @@ class _BudgetEditorState extends State<_BudgetEditor> {
     final shade = category?.color;
     final color = shade == null ? AppColors.accent : Color(shade);
     final today = ledger.today;
-    final used = budgetMonthOf(ledger, (
-      today.year,
-      today.month,
-    )).spentOn(widget.budget);
+    final used = budgetMonthOf(
+      ledger,
+      YearMonth.of(today),
+    ).spentOn(widget.budget);
     final ink = deepOf(color);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s5),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(Space.s4),
-            decoration: BoxDecoration(
-              color: tintOf(color, 0.24),
-              borderRadius: BorderRadius.circular(Radii.largeIncreased),
+    final budget = widget.budget;
+    return EditGuard(
+      changed:
+          _limit != budget.limit ||
+          _warning != budget.warning ||
+          _carry != budget.carry,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s5),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(Space.s4),
+              decoration: BoxDecoration(
+                color: tintOf(color, 0.24),
+                borderRadius: BorderRadius.circular(Radii.largeIncreased),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _head(category, color),
+                  const SizedBox(height: Space.s4),
+                  _allowance(ink),
+                  const SizedBox(height: Space.s2),
+                  _UsageBar(
+                    used: used,
+                    limit: _limit,
+                    warning: _warning,
+                    color: color,
+                  ),
+                  const SizedBox(height: Space.s2),
+                  _usage(used, ink),
+                ],
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            const SizedBox(height: Space.s4),
+            const Text(
+              '用到幾成時提醒',
+              style: TextStyle(
+                fontSize: TextSize.body,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: Space.s2),
+            _warningChoices(),
+            const SizedBox(height: Space.s3),
+            _carrySwitch(),
+            const SizedBox(height: Space.s4),
+            Row(
               children: [
-                _head(category, color),
-                const SizedBox(height: Space.s4),
-                _allowance(ink),
-                const SizedBox(height: Space.s2),
-                _UsageBar(
-                  used: used,
-                  limit: _limit,
-                  warning: _warning,
-                  color: color,
+                const Expanded(child: CancelButton()),
+                const SizedBox(width: Space.s2),
+                Expanded(
+                  flex: 2,
+                  child: PanelButton(
+                    Words.save,
+                    color: AppColors.accent,
+                    onTap: () {
+                      ledger.budgetCommands.setBudget(
+                        name,
+                        _limit,
+                        warning: _warning,
+                        carry: _carry,
+                      );
+                      EditGuard.close(context);
+                    },
+                  ),
                 ),
-                const SizedBox(height: Space.s2),
-                _usage(used, ink),
               ],
             ),
-          ),
-          const SizedBox(height: Space.s4),
-          const Text(
-            '用到幾成時提醒',
-            style: TextStyle(
-              fontSize: TextSize.body,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: Space.s2),
-          _warningChoices(),
-          const SizedBox(height: Space.s3),
-          _carrySwitch(),
-          const SizedBox(height: Space.s4),
-          PanelButton(
-            '儲存',
-            color: AppColors.accent,
-            onTap: () {
-              ledger.budgetCommands.setBudget(
-                name,
-                _limit,
-                warning: _warning,
-                carry: _carry,
-              );
-              Navigator.of(context).pop();
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -168,10 +187,14 @@ class _BudgetEditorState extends State<_BudgetEditor> {
             color: AppColors.white,
             borderRadius: BorderRadius.circular(Radii.large),
             child: IconButton(
-              tooltip: '移除額度',
+              tooltip: '刪除額度',
+              // Told with 復原, not asked first (D82).
               onPressed: () {
-                widget.ledger.budgetCommands.removeBudget(name);
-                Navigator.of(context).pop();
+                final undo = widget.ledger.budgetCommands.removeBudget(name);
+                if (undo != null) {
+                  showUndo(context, DoneWords.budgetDeleted(name), undo);
+                }
+                EditGuard.close(context);
               },
               icon: const GlyphIcon(
                 Glyph.trash,

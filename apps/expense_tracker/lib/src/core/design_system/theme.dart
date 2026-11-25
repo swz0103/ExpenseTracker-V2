@@ -4,6 +4,8 @@ import 'package:flutter/rendering.dart';
 import 'type.dart';
 import 'shape.dart';
 
+import 'package:core/constants/category_colors.dart';
+
 export 'type.dart';
 
 /// A colour with a light and a dark value, read when painted: the whole
@@ -249,21 +251,11 @@ abstract final class AppColors {
   ];
 
   /// The colours a category may be given, in the order new ones take
-  /// them. Plain colours, not [Shade]s: the one chosen is kept with the
-  /// category, the same in both modes.
-  static const categoryColors = [
-    Color(0xFF5B8DB0),
-    Color(0xFFD08B5B),
-    Color(0xFF5C9A83),
-    Color(0xFF8E7CC0),
-    Color(0xFFC9A34A),
-    Color(0xFFB07A8C),
-    Color(0xFF4E8A9A),
-    Color(0xFFA0866A),
-    Color(0xFF7686B8),
-    Color(0xFF9AA35E),
-    Color(0xFF6E9C93),
-    Color(0xFFB08AA6),
+  /// them ([categoryColorValues], the one list). Plain colours, not
+  /// [Shade]s: the one chosen is kept with the category, the same in both
+  /// modes.
+  static final categoryColors = [
+    for (final value in categoryColorValues) Color(value),
   ];
 
   /// The lift under tiles: just off the paper. None on the dark theme,
@@ -430,6 +422,8 @@ const darkFillContrast = 3.6;
 
 /// The app's own fonts, for a style that replaces the theme's own, as a
 /// button's `textStyle` does: without them the phone draws its own font.
+/// The one place the font stack is named; the theme, canvas text and the
+/// preview's frame take it from here.
 const appFont = TextStyle(
   fontFamily: 'Nunito',
   fontFamilyFallback: ['NotoSansTC'],
@@ -462,8 +456,8 @@ ThemeData appTheme() {
     brightness: dark ? Brightness.dark : Brightness.light,
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.paper,
-    fontFamily: 'Nunito',
-    fontFamilyFallback: const ['NotoSansTC'],
+    fontFamily: appFont.fontFamily,
+    fontFamilyFallback: appFont.fontFamilyFallback,
     useMaterial3: true,
     // A soft ripple in the accent under the finger, so every tap is felt.
     splashFactory: InkRipple.splashFactory,
@@ -477,9 +471,7 @@ ThemeData appTheme() {
       behavior: SnackBarBehavior.floating,
       backgroundColor: dark ? AppColors.surface : AppColors.ink,
       // Named outright: this style replaces the theme's, font included.
-      contentTextStyle: TextStyle(
-        fontFamily: 'Nunito',
-        fontFamilyFallback: const ['NotoSansTC'],
+      contentTextStyle: appFont.copyWith(
         fontSize: TextSize.body,
         color: dark ? AppColors.ink : AppColors.white,
       ),

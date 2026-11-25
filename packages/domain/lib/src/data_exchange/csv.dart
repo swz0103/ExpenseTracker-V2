@@ -7,17 +7,29 @@ final class CsvFormatException extends FormatException {
   final bool unclosed;
 }
 
+/// One record of a CSV file: its [cells], and the [line] of the file
+/// (from 1, as an editor counts them) it starts on.
+typedef CsvRecord = ({int line, List<String> cells});
+
+/// The cells of each record of [input] ([readCsvRecords]).
+List<List<String>> readCsv(String input) => [
+  for (final record in readCsvRecords(input)) record.cells,
+];
+
 /// One CSV record per line, RFC 4180 quoting; blank lines are skipped and a
 /// leading byte order mark is ignored. The `'` [writeCsv] puts before
-/// words a spreadsheet would run as a formula is taken off again.
+/// words a spreadsheet would run as a formula is taken off again. Each
+/// record keeps the line it starts on, counting the blank lines left out
+/// and the line breaks inside quoted words, so what is said of it names
+/// the line the person sees.
 ///
 /// A quote inside a field that does not start with one is part of the
 /// words (`5"` for five inches), as spreadsheets read it. Words after a
 /// closing quote, such as `"ab"c`, are refused rather than guessed at, and
 /// so is a quote never closed: [CsvFormatException] names the line.
-List<List<String>> readCsv(String input) {
+List<CsvRecord> readCsvRecords(String input) {
   final text = input.startsWith(_bom) ? input.substring(1) : input;
-  final rows = <List<String>>[];
+  final rows = <CsvRecord>[];
   var row = <String>[];
   final field = StringBuffer();
   var quoted = false;
@@ -25,6 +37,8 @@ List<List<String>> readCsv(String input) {
   var closed = false;
   var line = 1;
   var opened = 1;
+  // The line the record being read starts on.
+  var starts = 1;
   void endField() {
     final cell = field.toString();
     row.add(_guarded.hasMatch(cell) ? cell.substring(1) : cell);
@@ -33,7 +47,9 @@ List<List<String>> readCsv(String input) {
 
   void endRow() {
     endField();
-    if (row.any((cell) => cell.isNotEmpty)) rows.add(row);
+    if (row.any((cell) => cell.isNotEmpty)) {
+      rows.add((line: starts, cells: row));
+    }
     row = <String>[];
   }
 
@@ -58,6 +74,7 @@ List<List<String>> readCsv(String input) {
       closed = false;
       endRow();
       line++;
+      starts = line;
     } else if (closed) {
       // Spaces after the quote are no words.
       if (char != ' ' && char != '\t') {

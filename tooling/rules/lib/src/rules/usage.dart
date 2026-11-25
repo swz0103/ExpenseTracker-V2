@@ -207,6 +207,85 @@ final class _Literals extends RecursiveAstVisitor<void> {
   }
 }
 
+/// Whether the fixed text of [node] holds one of [words].
+bool _holdsAny(StringLiteral node, List<String> words) => switch (node) {
+  SimpleStringLiteral() => words.any(node.value.contains),
+  StringInterpolation() => node.elements.any(
+    (e) => e is InterpolationString && words.any(e.value.contains),
+  ),
+  AdjacentStrings() => node.strings.any((s) => _holdsAny(s, words)),
+};
+
+final class _StatusLiterals extends RecursiveAstVisitor<void> {
+  _StatusLiterals(this.file, this.id);
+
+  final SourceFile file;
+  final String id;
+  final found = <Violation>[];
+
+  void _count(StringLiteral node) {
+    if (_holdsAny(node, statusWords)) {
+      found.add(
+        Violation(
+          id,
+          file.path,
+          file.lineOfNode(node),
+          'status word written outside the status presentation',
+        ),
+      );
+    }
+  }
+
+  @override
+  void visitSimpleStringLiteral(SimpleStringLiteral node) => _count(node);
+
+  @override
+  void visitStringInterpolation(StringInterpolation node) {
+    _count(node);
+    for (final e in node.elements) {
+      if (e is InterpolationExpression) e.expression.accept(this);
+    }
+  }
+
+  @override
+  void visitAdjacentStrings(AdjacentStrings node) {
+    if (_holdsAny(node, statusWords)) {
+      _count(node);
+      return;
+    }
+    super.visitAdjacentStrings(node);
+  }
+}
+
+/// B7: each status (已逾期, 超支, 已賣光, 已入帳 …) has one wording, in the
+/// status presentation; a screen that writes the word itself has decided
+/// or worded the state on its own. The words are [statusWords].
+///
+/// Known noise: a word used in another sense (略過 N 行 is not a
+/// recurring period) is flagged too; it then takes its word from the
+/// presentation all the same, or stays in the baseline with a reason.
+final class StatusWordLiterals extends FileRule {
+  const StatusWordLiterals();
+
+  @override
+  String get id => 'B7-status-words';
+
+  @override
+  String get purpose =>
+      'a status word written outside the status presentation file';
+
+  @override
+  bool appliesTo(SourceFile file) =>
+      file.isUnderAny(statusWordScopes) && !file.isUnderAny(statusWordOwners);
+
+  @override
+  List<Violation> checkFile(SourceFile file) {
+    final visitor = _StatusLiterals(file, id);
+    file.unit.accept(visitor);
+    return visitor.found;
+  }
+}
+
 /// B9: user-facing text lives in the message catalogue; a Chinese literal
 /// in a feature or the shell is a string that should be there.
 ///

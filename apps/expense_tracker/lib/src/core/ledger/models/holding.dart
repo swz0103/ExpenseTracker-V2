@@ -1,6 +1,5 @@
 import 'package:domain/investments.dart' show unitsPerShare;
-
-import 'fixed_point.dart';
+import 'package:core/money/price.dart' show timesPrice;
 
 final class Holding {
   const Holding(

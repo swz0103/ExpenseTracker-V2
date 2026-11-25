@@ -1,11 +1,10 @@
-// Work package 3.3: what runs when the app leaves the screen.
+// Work package 3.3: what runs when the app leaves the screen. Fixed in 3.3;
+// kept as a regression test of ARC-05.
 import 'dart:io';
 
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/backup/model/outbox.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'known_defect.dart';
 
 void main() {
   test(
@@ -34,6 +33,5 @@ void main() {
       await Future.wait([box.prepare(), box.prepare()]);
       expect(written, 1);
     },
-    skip: knownDefect('ARC-05', '3.3'),
   );
 }

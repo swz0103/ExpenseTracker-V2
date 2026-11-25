@@ -1,6 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
+import 'package:expense_tracker/src/core/platform/bounded_https.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
+import 'package:expense_tracker/src/core/platform/update_status.dart';
 import 'package:expense_tracker/src/features/settings/model/app_update.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,10 +16,31 @@ final class _Port implements UpdatePort {
       '{"build":190,"version":"2.0.0","commit":"8af812b",'
       '"sha256":"$_sha","size":3}';
   Exception? fails;
+
+  /// What the download fails with; null when it works.
+  Exception? downloadFails;
   var fetched = 0;
   var downloads = 0;
   Uri? downloadedFrom;
   var outcome = UpdateInstall.started;
+
+  /// The size the fake download reports as received.
+  var reports = 3;
+
+  /// Holds the download after its first piece until completed, as a
+  /// stalled network does.
+  Completer<void>? hold;
+
+  /// Holds a cancelled download's unwinding until completed: the real
+  /// port's connection closing takes a moment.
+  Completer<void>? unwind;
+
+  /// Completed once a held download's first piece has arrived, so a test
+  /// waits for that step itself rather than for time to pass.
+  var arrived = Completer<void>();
+
+  /// Each transfer's end, in order.
+  final events = <String>[];
   final installed = <(String, String)>[];
 
   @override
@@ -35,12 +60,36 @@ final class _Port implements UpdatePort {
   Future<void> download(
     Uri url,
     File into,
-    void Function(int received) progress,
-  ) async {
-    downloads++;
+    void Function(int received) progress, {
+    required DownloadCancel cancel,
+  }) async {
+    final n = ++downloads;
+    if (downloadFails case final error?) throw error;
     downloadedFrom = url;
-    into.writeAsStringSync('abc');
-    progress(3);
+    // As AndroidUpdatePort: written to a part file, renamed when whole,
+    // the part deleted however it ends.
+    final part = File('${into.path}.part');
+    try {
+      part.writeAsStringSync('abc');
+      if (hold case final held?) {
+        progress(1);
+        if (!arrived.isCompleted) arrived.complete();
+        // Stopping closes the connection, which ends the wait.
+        await Future.any([held.future, cancel.whenAsked]);
+        if (cancel.asked) {
+          await unwind?.future;
+          throw const SocketException('Connection closed');
+        }
+      }
+      progress(reports);
+      await part.rename(into.path);
+      events.add('download $n done');
+    } finally {
+      if (part.existsSync()) {
+        part.deleteSync();
+        events.add('download $n deleted its part');
+      }
+    }
   }
 
   @override
@@ -145,6 +194,131 @@ void main() {
     expect(app.problem, '連不上 GitHub，請稍後再試');
   });
 
+  // F102: there is always one answer to give, and a failure says why in
+  // words rather than as the error's own text.
+  group('how the build stands', () {
+    test('not looked, looking, then the newest', () async {
+      final app = update(build: 190);
+      expect(app.status, isA<UpdateNotLooked>());
+      final seen = <UpdateStatus>[];
+      app.addListener(() => seen.add(app.status));
+      await app.check();
+      expect(seen.first, isA<UpdateChecking>());
+      expect(seen.last, isA<UpdateCurrent>());
+      expect(app.status, isA<UpdateCurrent>());
+    });
+
+    test('a newer version, by its number', () async {
+      final app = update();
+      await app.check();
+      expect((app.status as UpdateAvailable).version, '2.0.0');
+    });
+
+    test('a build made by hand', () {
+      expect(update(build: 0).status, isA<UpdateHandBuilt>());
+    });
+
+    test(
+      'each way of failing is told apart and kept in the error log',
+      () async {
+        final app = update();
+        Future<(UpdateFailure, String?, String)> failing() async {
+          final before = ErrorLog.instance.count;
+          expect(await app.check(), isNull);
+          expect(ErrorLog.instance.count, before + 1);
+          return (
+            (app.status as UpdateFailed).failure,
+            app.problem,
+            ErrorLog.instance.entries.first.$2,
+          );
+        }
+
+        port.fails = const SocketException('offline');
+        expect(await failing(), (
+          UpdateFailure.offline,
+          '連不上 GitHub，請稍後再試',
+          '檢查更新：SocketException',
+        ));
+        port.fails = TimeoutException('slow');
+        expect((await failing()).$1, UpdateFailure.offline);
+        port.fails = HttpRefused(404);
+        expect(await failing(), (
+          UpdateFailure.refused,
+          'GitHub 現在沒有提供更新資訊，請稍後再試',
+          '檢查更新：HttpRefused: HTTP 404',
+        ));
+        port.fails = const FormatException('odd');
+        expect(await failing(), (
+          UpdateFailure.checkUnforeseen,
+          '檢查更新時發生未預期的錯誤，已記在診斷，請稍後再試',
+          '檢查更新：FormatException',
+        ));
+        port
+          ..fails = null
+          ..info = '<html>not found</html>';
+        expect(await failing(), (
+          UpdateFailure.unreadableFeed,
+          '更新資訊看不懂',
+          '檢查更新：_UnreadableFeed: update.json is not an update feed',
+        ));
+        // Working again, the failure is gone.
+        port.info = '{"build":186,"version":"2.0.0","sha256":"$_sha","size":3}';
+        await app.check();
+        expect(app.status, isA<UpdateCurrent>());
+        expect(app.problem, isNull);
+      },
+    );
+
+    test('a download cut short says so, and the newer version still '
+        'stands', () async {
+      final app = update();
+      await app.check();
+      port.downloadFails = const SocketException('cut');
+      expect(await app.install(), isNull);
+      expect(app.failure, UpdateFailure.downloadCut);
+      expect(app.problem, '下載中斷，請稍後再試');
+      expect(app.status, isA<UpdateAvailable>());
+      port.downloadFails = const FormatException('odd');
+      expect(await app.install(), isNull);
+      expect(app.failure, UpdateFailure.installUnforeseen);
+      expect(app.problem, '更新時發生未預期的錯誤，已記在診斷，請稍後再試');
+    });
+
+    test('an answer past the cap or a redirect refused is not said as the '
+        'network, looking or downloading (review 27 finding 4)', () async {
+      final app = update();
+      final apk = Uri.parse('https://github.com/x.apk');
+      port.fails = AnswerTooLarge(65536, apk);
+      expect(await app.check(), isNull);
+      expect(app.failure, UpdateFailure.refused);
+      port.fails = RedirectRefused(Uri.parse('https://elsewhere.example/'));
+      expect(await app.check(), isNull);
+      expect(app.failure, UpdateFailure.refused);
+      port.fails = null;
+      await app.check();
+      port.downloadFails = AnswerTooLarge(157286400, apk);
+      expect(await app.install(), isNull);
+      expect(app.failure, UpdateFailure.grewPastSize);
+      expect(app.problem, '下載的檔案比預期大，已中止');
+      port.downloadFails = RedirectRefused(
+        Uri.parse('https://elsewhere.example/x.apk'),
+      );
+      expect(await app.install(), isNull);
+      expect(app.failure, UpdateFailure.refused);
+      expect(app.status, isA<UpdateAvailable>());
+    });
+
+    test('while it downloads, how far it is', () async {
+      final app = update();
+      await app.check();
+      final seen = <UpdateStatus>[];
+      app.addListener(() => seen.add(app.status));
+      await app.install();
+      // 3 of 3 bytes arrived: all of it.
+      expect(seen.whereType<UpdateDownloading>().last.share, 1);
+    });
+  });
+
   test(
     'the newer build is downloaded once and handed over with its hash',
     () async {
@@ -173,5 +347,105 @@ void main() {
     port.outcome = UpdateInstall.damaged;
     expect(await app.install(), UpdateInstall.damaged);
     expect(app.problem, '下載的檔案不完整，請再試一次');
+  });
+
+  test('an update that is not this app says so', () async {
+    final app = update();
+    await app.check();
+    port.outcome = UpdateInstall.rejected;
+    expect(await app.install(), UpdateInstall.rejected);
+    expect(app.problem, contains('不會安裝'));
+  });
+
+  test('an update of an absurd size is not downloaded', () async {
+    // 157286400 = 150 * 1024 * 1024; the feed says one byte more.
+    expect(maxApkBytes, 157286400);
+    port.info =
+        '{"build":190,"version":"2.0.0","sha256":"$_sha","size":157286401}';
+    final app = update();
+    await app.check();
+    expect(await app.install(), isNull);
+    expect(port.downloads, 0);
+    expect(app.problem, '更新檔大小不合理，已取消下載');
+  });
+
+  test('a download that grows past its announced size is stopped', () async {
+    final app = update();
+    await app.check();
+    // update.json says 3 bytes; the stream reports 4.
+    port.reports = 4;
+    expect(await app.install(), isNull);
+    expect(port.installed, isEmpty);
+    expect(app.problem, '下載的檔案比預期大，已中止');
+    expect(
+      File('${cache.path}/updates/ExpenseTracker-190.apk').existsSync(),
+      isFalse,
+    );
+  });
+
+  test('D85: a download under way can be cancelled: nothing is installed '
+      'and nothing is said to have gone wrong', () async {
+    final app = update();
+    await app.check();
+    final held = port.hold = Completer<void>();
+    final installing = app.install();
+    await port.arrived.future;
+    // 1 of 3 bytes arrived.
+    expect(app.progress, closeTo(0.333, 0.001));
+    await app.cancelDownload();
+    expect(await installing, isNull);
+    expect(app.problem, isNull);
+    expect(app.progress, isNull);
+    expect(port.installed, isEmpty);
+    expect(port.events, ['download 1 deleted its part']);
+    held.complete();
+    await pumpEventQueue();
+    expect(port.installed, isEmpty);
+    // And it can be started again.
+    port.hold = null;
+    expect(await app.install(), UpdateInstall.started);
+  });
+
+  test('review 31: cancelled while the network stalls, 更新 again waits '
+      'for the first transfer to stop, and the retry is installed', () async {
+    final app = update();
+    await app.check();
+    port.hold = Completer<void>();
+    final unwind = port.unwind = Completer<void>();
+    final first = app.install();
+    await port.arrived.future;
+    expect(app.canCancel, isTrue);
+    final cancelling = app.cancelDownload();
+    // Asked, not yet stopped: busy, 取消下載 gone, 更新 does nothing.
+    expect(app.canCancel, isFalse);
+    expect(app.busy, isTrue);
+    expect(await app.install(), isNull);
+    expect(port.downloads, 1, reason: 'never two transfers on one file');
+    unwind.complete();
+    await cancelling;
+    expect(await first, isNull);
+    expect(app.busy, isFalse);
+    expect(app.problem, isNull);
+    // The network is back: the retry downloads whole and is installed.
+    port.hold = null;
+    expect(await app.install(), UpdateInstall.started);
+    expect(port.downloads, 2);
+    expect(port.events, ['download 1 deleted its part', 'download 2 done']);
+    expect(port.installed, [('ExpenseTracker-190.apk', _sha)]);
+  });
+
+  test('review 31: once the file is complete, 取消下載 goes and stops '
+      'nothing: the installer opens', () async {
+    final app = update();
+    await app.check();
+    final canCancel = <bool>[];
+    app.addListener(() => canCancel.add(app.canCancel));
+    expect(await app.install(), UpdateInstall.started);
+    // While downloading it could be stopped; complete, it could not.
+    expect(canCancel, containsAllInOrder([true, false]));
+    expect(canCancel.last, isFalse);
+    // Nothing under way: asking stops nothing.
+    await app.cancelDownload();
+    expect(port.installed, hasLength(1));
   });
 }

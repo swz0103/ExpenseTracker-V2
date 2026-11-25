@@ -1,50 +1,18 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/navigation/nav.dart';
-import '../../../core/design_system/dialogs.dart';
-import '../../accounts/forms/account_editor.dart';
-import '../../accounts/forms/reconcile_sheet.dart';
-
-import 'package:domain/loans.dart';
-
-import '../../../core/widgets/icons.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../core/formatting/dates.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 import '../model/debts.dart';
-
-part 'person_page.dart';
-part 'debts_loan_card.dart';
-
-/// The people paid for, most owed first, open ones only.
-List<Account> peopleOwing(Ledger ledger) =>
-    [
-      for (final a in ledger.accounts.open)
-        if (a.kind == AccountKind.receivable) a,
-    ]..sort(
-      (a, b) => ledger.balanceService
-          .balance(b.id)
-          .compareTo(ledger.balanceService.balance(a.id)),
-    );
-
-/// The open loans.
-List<Account> openLoans(Ledger ledger) => [
-  for (final a in ledger.accounts.open)
-    if (a.kind == AccountKind.loan) a,
-];
-
-/// Whole days since [day].
-int _days(Ledger ledger, DateTime day) {
-  final days = ledger.today.difference(day).inDays;
-  return days < 0 ? 0 : days;
-}
+import '../../../core/messages/flow_messages.dart';
+import 'debts_loan_card.dart';
 
 /// The first letter of a name, for its circle.
 String _initial(String name) {
@@ -57,21 +25,36 @@ String _initial(String name) {
 /// sum lent and a mortgage do not add up to anything); then a square for
 /// each person, and a card for each loan with how much is paid as a ring.
 class DebtsPage extends StatelessWidget {
-  const DebtsPage({super.key, required this.ledger, required this.nav});
+  const DebtsPage({
+    super.key,
+    required this.ledger,
+    required this.nav,
+    required this.addLoan,
+  });
 
   final Ledger ledger;
   final Nav nav;
 
+  /// Opens the form of a new loan from 新增貸款: the accounts' form,
+  /// given by the app.
+  final Future<void> Function(BuildContext context) addLoan;
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // Balances of people and loans, foreign ones valued at the rates.
+      listenable: ledger.watch(const {
+        Topic.entries,
+        Topic.accounts,
+        Topic.market,
+      }),
       builder: (context, _) {
-        final people = peopleOwing(ledger);
-        final loans = openLoans(ledger);
+        final people = peopleOwing(ledger.accounts, ledger.balanceService);
+        final loans = openLoans(ledger.accounts);
         final balances = ledger.balanceService;
-        final lent = people.fold(0, (sum, a) => sum + owedFrom(balances, a));
-        final borrowed = loans.fold(0, (sum, a) => sum + owedOn(balances, a));
+        // In NT$: people and loans kept in other currencies at home.
+        final lent = owedByPeople(ledger.accounts, ledger.balanceService);
+        final borrowed = owedOnAll(balances, loans);
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(
@@ -81,7 +64,7 @@ class DebtsPage extends StatelessWidget {
               HeaderButton(
                 glyph: Glyph.add,
                 label: '新增貸款',
-                onTap: () => editLoan(context, ledger),
+                onTap: () => addLoan(context),
               ),
             ],
           ),
@@ -100,10 +83,7 @@ class DebtsPage extends StatelessWidget {
                   horizontal: Space.s1,
                   vertical: Space.s2,
                 ),
-                child: Text(
-                  '記一筆支出時按「代墊」選人，幫忙付的錢就會記在這裡，收回時在收入選「對方還錢」。',
-                  style: mutedSmall,
-                ),
+                child: Text(FlowWords.noPeopleYet, style: mutedSmall),
               )
             else
               CardGrid(columns: 3, gap: 10, [
@@ -121,12 +101,12 @@ class DebtsPage extends StatelessWidget {
                   horizontal: Space.s1,
                   vertical: Space.s2,
                 ),
-                child: Text('房貸、信貸或車貸，按右上的＋新增。', style: mutedSmall),
+                child: Text(FlowWords.noLoansYet, style: mutedSmall),
               ),
             for (final loan in loans)
               Padding(
                 padding: const EdgeInsets.only(bottom: Space.s2),
-                child: _LoanCard(
+                child: DebtLoanCard(
                   ledger: ledger,
                   loan: loan,
                   onTap: () => nav.open(AppRoutes.debt(loan.id)),
@@ -202,7 +182,7 @@ class _BothWays extends StatelessWidget {
               child: half(
                 '別人欠你',
                 ledger.orDots(groupDigits(lent)),
-                '$people 人',
+                countOf(people, CountUnit.people),
                 lent > 0 ? AppColors.positive : AppColors.ink,
               ),
             ),
@@ -211,7 +191,7 @@ class _BothWays extends StatelessWidget {
               child: half(
                 '你還欠',
                 ledger.orDots(groupDigits(borrowed)),
-                '$loans 筆貸款',
+                '${countOf(loans, CountUnit.entries)}貸款',
                 AppColors.ink,
               ),
             ),
@@ -223,8 +203,8 @@ class _BothWays extends StatelessWidget {
 }
 
 /// The first letter of a name in a solid circle of its colour.
-class _Initial extends StatelessWidget {
-  const _Initial(this.name, {this.size = 46});
+class PersonInitial extends StatelessWidget {
+  const PersonInitial(this.name, {super.key, this.size = 46});
 
   final String name;
   final double size;
@@ -266,10 +246,14 @@ class _PersonSquare extends StatelessWidget {
     final oldest = owed.isEmpty ? null : owed.last.$1.date;
     final color = nameColor(person.name);
     final ink = deepOf(color);
-    final amount = ledger.orDots(
-      groupDigits(owedFrom(ledger.balanceService, person)),
+    // In the person's own currency (review 41): US\$125 is not 12,500.
+    final amount = ledger.moneyIn(
+      owedFrom(ledger.balanceService, person),
+      person.currency,
     );
-    final age = oldest == null ? '沒有欠款' : '最久 ${_days(ledger, oldest)} 天';
+    final age = oldest == null
+        ? '沒有欠款'
+        : '最久 ${countOf(daysSince(ledger.today, oldest), CountUnit.days)}';
     return ColorCard(
       color: color,
       radius: Radii.largeIncreased,
@@ -284,7 +268,7 @@ class _PersonSquare extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _Initial(person.name),
+          PersonInitial(person.name),
           const SizedBox(height: Space.s2),
           Text(
             person.name,
@@ -319,8 +303,9 @@ class _PersonSquare extends StatelessWidget {
 
 /// A big card in [color]: [lead] on the left, then a small label, the
 /// figure and a line, with the ⋯ menu in the corner.
-class _DebtHero extends StatelessWidget {
-  const _DebtHero({
+class DebtHero extends StatelessWidget {
+  const DebtHero({
+    super.key,
     required this.color,
     required this.lead,
     required this.label,
@@ -393,7 +378,7 @@ class _DebtHero extends StatelessWidget {
   }
 }
 
-/// The words of [_DebtHero]: [label] over the large [value], then each
+/// The words of [DebtHero]: [label] over the large [value], then each
 /// of [lines], in [ink].
 class _HeroWords extends StatelessWidget {
   const _HeroWords({
@@ -447,8 +432,9 @@ class _HeroWords extends StatelessWidget {
 }
 
 /// A wide button with an icon: tinted, or solid in [color] when [solid].
-class _Action extends StatelessWidget {
-  const _Action({
+class DebtAction extends StatelessWidget {
+  const DebtAction({
+    super.key,
     required this.glyph,
     required this.label,
     required this.color,
@@ -497,18 +483,26 @@ class _Action extends StatelessWidget {
   }
 }
 
-/// A small heading over a white board, or a line when it is empty.
-List<Widget> _board(
+/// A small heading over a grey board of [count] rows, each [row] built
+/// as it comes on screen on a slice of the board, or a line when it is
+/// empty: lines of a lazy [HeadedList].
+List<LineRun> debtBoardRuns(
   String title,
-  List<Widget> rows, {
+  int count,
+  Widget Function(int i) row, {
   String empty = '還沒有紀錄',
 }) => [
-  RuleHead(title),
-  if (rows.isEmpty)
-    Padding(
-      padding: const EdgeInsets.symmetric(horizontal: Space.s1),
-      child: Text(empty, style: mutedSmall),
+  LineRun.one(RuleHead(title)),
+  if (count == 0)
+    LineRun.one(
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Space.s1),
+        child: Text(empty, style: mutedSmall),
+      ),
     )
   else
-    QuoteBoard(rows),
+    LineRun(
+      count,
+      (i) => QuoteSlice(first: i == 0, last: i == count - 1, child: row(i)),
+    ),
 ];

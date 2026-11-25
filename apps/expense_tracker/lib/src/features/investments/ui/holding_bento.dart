@@ -1,4 +1,23 @@
-part of 'holding_page.dart';
+// Exception to file length: the bento and its price chart read the same
+// holding and closes. Reading its signed amounts aloud took it past a
+// screenful; splitting it is left to the holding page's own rework.
+import 'dart:math';
+
+import 'package:core/time/utc_days.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../core/design_system/paint.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/navigation/nav.dart';
+import 'investments.dart' show returnsOf, yearlyRate;
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import 'holding_page.dart';
 
 /// A block of the holding's bento: a label, a big figure and a line or
 /// two, on [color]'s tint.
@@ -8,12 +27,24 @@ class _Bento extends StatelessWidget {
     required this.label,
     required this.value,
     required this.lines,
+    this.amounts = const [],
+    this.hidden = false,
   });
 
   final Color color;
   final String label;
   final String value;
   final List<String> lines;
+
+  /// The amount with a sign in [value], then in each of [lines] (null
+  /// for none), read out in words ([readOut]); hidden while [hidden].
+  final List<int?> amounts;
+  final bool hidden;
+
+  String? _said(String text, int i) => switch (amounts.elementAtOrNull(i)) {
+    final a? => readOut(text, a, hidden: hidden),
+    null => null,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -43,15 +74,17 @@ class _Bento extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               value,
+              semanticsLabel: _said(value, 0),
               style: const TextStyle(
                 fontSize: TextSize.large,
                 fontWeight: FontWeight.w800,
               ),
             ),
           ),
-          for (final line in lines)
+          for (final (i, line) in lines.indexed)
             Text(
               line,
+              semanticsLabel: _said(line, i + 1),
               style: TextStyle(fontSize: TextSize.caption, color: ink),
             ),
         ],
@@ -62,7 +95,7 @@ class _Bento extends StatelessWidget {
 
 /// The holding's bento: what [held] made and what it is worth now side by
 /// side, over its 股息.
-Widget _bento(Ledger ledger, String code, Holding held, bool quoted) {
+Widget holdingBento(Ledger ledger, String code, Holding held, bool quoted) {
   final tone = AppColors.ofMarket(held.gain);
   final returns = returnsOf(ledger);
   final rate = returns.rate(code: code);
@@ -75,6 +108,8 @@ Widget _bento(Ledger ledger, String code, Holding held, bool quoted) {
           color: tone,
           label: held.gain < 0 ? '賠了' : '賺了',
           value: ledger.orDots(signed(held.gain)),
+          amounts: [held.gain],
+          hidden: ledger.amounts.hidden,
           lines: [
             '${percentOf(held.gain, held.cost)}'
                 '${rate == null ? '' : ' · 年化 ${yearlyRate(rate)}'}',
@@ -89,10 +124,12 @@ Widget _bento(Ledger ledger, String code, Holding held, bool quoted) {
                 '成本 ${ledger.orDots(groupDigits(held.cost))}',
             if (quoted) '今天 ${ledger.orDots(signed(held.change))}',
           ],
+          amounts: [null, null, if (quoted) held.change],
+          hidden: ledger.amounts.hidden,
         ),
       ]),
       const SizedBox(height: Space.s2),
-      _DividendCard(
+      HoldingDividendCard(
         ledger: ledger,
         total: held.dividends,
         next: next,
@@ -109,8 +146,9 @@ Widget _bento(Ledger ledger, String code, Holding held, bool quoted) {
 /// reads the day and close under it; on a buy, that buy: when, how many
 /// at what price, and how it stands now. The closes come from the
 /// exchanges through [Nav.market], kept on the phone once read.
-class _PriceChart extends StatefulWidget {
-  const _PriceChart({
+class HoldingPriceChart extends StatefulWidget {
+  const HoldingPriceChart({
+    super.key,
     required this.ledger,
     required this.nav,
     required this.code,
@@ -125,10 +163,10 @@ class _PriceChart extends StatefulWidget {
   final List<Entry> buys;
 
   @override
-  State<_PriceChart> createState() => _PriceChartState();
+  State<HoldingPriceChart> createState() => _PriceChartState();
 }
 
-class _PriceChartState extends State<_PriceChart> {
+class _PriceChartState extends State<HoldingPriceChart> {
   var _range = 3;
   List<(DateTime, double)>? _closes;
   int? _touched;
@@ -147,9 +185,9 @@ class _PriceChartState extends State<_PriceChart> {
               .map((e) => e.date)
               .reduce((a, b) => a.isBefore(b) ? a : b);
     return switch (_range) {
-      0 => DateTime.utc(today.year, today.month - 1, today.day),
-      1 => DateTime.utc(today.year, today.month - 3, today.day),
-      2 => DateTime.utc(today.year - 1, today.month, today.day),
+      0 => monthsAfter(today, -1),
+      1 => monthsAfter(today, -3),
+      2 => yearBefore(today),
       _ => first,
     };
   }
@@ -178,9 +216,7 @@ class _PriceChartState extends State<_PriceChart> {
     });
   }
 
-  static DateTime _day(DateTime d) => DateTime.utc(d.year, d.month, d.day);
-
-  String _price(double p) => p.toStringAsFixed(p < 100 ? 2 : 0);
+  String _price(double p) => stockPrice(p);
 
   /// The line itself, at least two closes: a touch reads the close under
   /// the finger, or a buy within its reach.
@@ -193,7 +229,7 @@ class _PriceChartState extends State<_PriceChart> {
     builder: (context, box) {
       final plot = box.maxWidth - _gutter;
       final scale = _Scale.of(closes, widget.average, _height);
-      final buys = {for (final e in widget.buys) _day(e.date): e};
+      final buys = {for (final e in widget.buys) dayOf(e.date): e};
       // Red when the span closed higher than it began, green when lower.
       final tone = AppColors.ofMarket(closes.last.$2 - closes.first.$2);
       void touch(Offset at) {
@@ -235,7 +271,7 @@ class _PriceChartState extends State<_PriceChart> {
               average: widget.average,
               price: price,
               buys: buys.keys.toSet(),
-              chosen: buy == null ? null : _day(buy.date),
+              chosen: buy == null ? null : dayOf(buy.date),
               touched: touched,
               line: markOf(tone),
               fill: tintOf(markOf(tone), 0.25),
@@ -255,7 +291,7 @@ class _PriceChartState extends State<_PriceChart> {
   Widget _change(double from, double to, String prefix) {
     final up = to >= from;
     return Text(
-      '$prefix${up ? '+' : ''}${((to - from) * 100 / from).toStringAsFixed(1)}%',
+      '$prefix${ratioPercent((to - from) / from)}',
       style: TextStyle(
         fontWeight: FontWeight.w800,
         color: up ? AppColors.rise : AppColors.fall,
@@ -463,7 +499,7 @@ class _LinePainter extends CustomPainter {
   final Color words;
   final Color onTag;
 
-  String _label(double v) => v.toStringAsFixed(v < 100 ? 1 : 0);
+  String _label(double v) => priceTick(v);
 
   @override
   void paint(Canvas canvas, Size size) {

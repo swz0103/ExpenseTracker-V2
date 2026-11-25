@@ -1,16 +1,34 @@
 import 'dart:convert';
 
+import 'package:core/foundation_values.dart' show BusinessDate;
+
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ledger/persistence/codec/record_json.dart';
 import 'compose_form.dart';
+import '../../../core/diagnostics/error_log.dart';
+import '../../../core/diagnostics/error_steps.dart';
 
 /// A form put aside with 暫存: the entry as it stood and the receipt
 /// photo chosen for it, which is not part of the entry until it is saved.
 final class ComposeDraft {
-  const ComposeDraft(this.entry, this.receipt, [this.lent]);
+  const ComposeDraft(this.entry, this.receipt, [this.lent, this.savedOn]);
 
   final Entry entry;
   final String? receipt;
+
+  /// The day it was put aside; null for a draft kept before this was.
+  final DateTime? savedOn;
+
+  /// The day the form opens on [today]: a draft dated the day it was put
+  /// aside was left on 今天, so it follows today; a day picked otherwise
+  /// stays.
+  DateTime dateOn(DateTime today) {
+    final saved = savedOn;
+    if (saved == null) return entry.date;
+    return BusinessDate.of(entry.date) == BusinessDate.of(saved)
+        ? today
+        : entry.date;
+  }
 
   /// What was paid in the spending for others, by person.
   final List<(String, int)>? lent;
@@ -19,6 +37,7 @@ final class ComposeDraft {
   String toJson() => jsonEncode({
     'entry': entryToJson(entry),
     'receipt': ?receipt,
+    if (savedOn case final day?) 'savedOn': BusinessDate.of(day).toString(),
     if (lent case final shares?)
       'lent': [
         for (final (p, a) in shares) [p, a],
@@ -47,11 +66,16 @@ final class ComposeDraft {
             ],
             _ => null,
           },
+          switch (map['savedOn']) {
+            final String day => BusinessDate.parse(day).asUtcMidnight,
+            _ => null,
+          },
         );
       }
       return null;
-    } on Object {
+    } on Object catch (error, stack) {
       // A form that cannot be read is left out.
+      ErrorLog.instance.record(ErrorSteps.draft, error, stack);
       return null;
     }
   }
@@ -72,4 +96,19 @@ final class ComposeDrafts {
       _commands.setDraft(tab.name, draft.toJson());
 
   void remove(ComposeMode tab) => _commands.setDraft(tab.name, null);
+}
+
+/// What [form] holds, as text to tell whether it changed since it opened
+/// (D83): the entry without the ids each building gives anew, its photo
+/// and what it paid for others.
+String formPrint(ComposeForm form) {
+  final entry = entryToJson(form.build())..remove('id');
+  return jsonEncode([
+    entry,
+    form.receipt,
+    [
+      for (final (person, share) in form.lent ?? const <(String, int)>[])
+        [person, share],
+    ],
+  ]);
 }

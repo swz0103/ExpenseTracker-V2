@@ -70,9 +70,14 @@ final class BankRate {
   final FxRate? spotBuy;
   final FxRate? spotSell;
 
-  /// What the bank pays for this currency in an account: the value of a
-  /// foreign-currency balance in NT$.
-  FxRate? get valuation => spotBuy ?? cashBuy;
+  /// The board's rate on [side] for money in an account: the spot rate,
+  /// or the cash rate where the bank quotes no spot one. What values a
+  /// foreign balance in NT\$ (the side by core's `valuationSide`): the
+  /// buying rate for what is held, the selling rate for what is owed.
+  FxRate? rateFor(BoardSide side) => switch (side) {
+    BoardSide.buying => spotBuy ?? cashBuy,
+    BoardSide.selling => spotSell ?? cashSell,
+  };
 }
 
 /// The day's board, one row per quoted currency.
@@ -179,7 +184,8 @@ final class MarketDataGateway {
   final _failedAt = <Uri, DateTime>{};
   final _pending = <Uri, Future<_Fetch>>{};
 
-  /// The latest close of a TWSE or TPEx stock or ETF traded in NT$.
+  /// The latest close of a TWSE or TPEx stock or ETF traded in NT$; one
+  /// dated after today is refused as failed (D95).
   Future<MarketResult<StockClose>> stockClose(Listing instrument) async {
     final (uri, codeKey, priceKey, nameKey) = switch (instrument.market) {
       'TWSE' => (twseUri, 'Code', 'ClosingPrice', 'Name'),
@@ -207,6 +213,11 @@ final class MarketDataGateway {
         return const MarketResult(MarketState.missing, reason: 'No trade');
       }
       final asOf = _rocDate(row['Date']);
+      // A close dated after today is no close (D95): never taken, so it
+      // cannot move the day the holdings are quoted on.
+      if (_ahead(asOf)) {
+        return const MarketResult(MarketState.failed, reason: 'Future date');
+      }
       final name = row[nameKey];
       final close = StockClose(
         symbol: instrument.symbol,
@@ -241,10 +252,8 @@ final class MarketDataGateway {
     final today = _taipeiDate(_clock());
     MarketResult<StockClose>? last;
     for (var back = 0; back < 2; back++) {
-      final month = DateTime.utc(today.year, today.month - back);
-      final fetched = await _fetch(
-        twseHistoryUri(symbol, month.year, month.month),
-      );
+      final (year, month) = shiftMonth(today.year, today.month, -back);
+      final fetched = await _fetch(twseHistoryUri(symbol, year, month));
       final snapshot = fetched.snapshot;
       if (snapshot == null) {
         last = MarketResult(fetched.state, reason: fetched.reason);
@@ -270,8 +279,9 @@ final class MarketDataGateway {
   }
 
   /// Every trading day's close of [symbol] in [year]/[month], oldest
-  /// first: from TWSE's month report, or TPEx's when [otc]. Missing when
-  /// the exchange has no such stock or no trade that month.
+  /// first, none dated after today: from TWSE's month report, or TPEx's
+  /// when [otc]. Missing when the exchange has no such stock or no trade
+  /// that month.
   Future<MarketResult<List<DayClose>>> monthCloses(
     String symbol,
     int year,
@@ -294,7 +304,11 @@ final class MarketDataGateway {
       return MarketResult(fetched.state, reason: fetched.reason);
     }
     try {
-      final closes = monthReportCloses(snapshot.decoded);
+      final closes = [
+        // A day after today is no trading day yet (D95).
+        for (final close in monthReportCloses(snapshot.decoded))
+          if (!_ahead(close.date)) close,
+      ];
       return MarketResult(
         closes.isEmpty ? MarketState.missing : MarketState.available,
         value: closes,
@@ -330,10 +344,13 @@ final class MarketDataGateway {
       }
       final price = _positiveDecimal(row[closeAt]);
       if (price == null) continue;
+      final asOf = _rocSlashDate(row[dayAt]);
+      // A day after today is no trading day yet (D95).
+      if (_ahead(asOf)) continue;
       return StockClose(
         symbol: symbol,
         decimalPrice: price,
-        asOf: _rocSlashDate(row[dayAt]),
+        asOf: asOf,
         fetchedAt: snapshot.fetchedAt,
         decimalChange: changeAt < 0 ? null : _signedDecimal(row[changeAt]),
       );
@@ -357,6 +374,9 @@ final class MarketDataGateway {
       return const MarketResult(MarketState.failed, reason: 'Bad rate');
     }
   }
+
+  /// Whether [day] is after today in Taipei.
+  bool _ahead(BusinessDate day) => day.compareTo(_taipeiDate(_clock())) > 0;
 
   bool _old(BusinessDate asOf) {
     final today = _taipeiDate(_clock());
@@ -527,7 +547,7 @@ BusinessDate _taipeiDate(DateTime instant) {
 }
 
 int _epochDay(BusinessDate date) {
-  final instant = DateTime.utc(date.year, date.month, date.day);
+  final instant = date.asUtcMidnight;
   return instant.millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
 }
 
@@ -548,7 +568,7 @@ BusinessDate _rocSlashDate(Object? value) {
       : null;
   if (match == null) throw const FormatException('Invalid ROC date');
   return BusinessDate(
-    int.parse(match[1]!) + 1911,
+    int.parse(match[1]!) + rocYearOffset,
     int.parse(match[2]!),
     int.parse(match[3]!),
   );
@@ -559,7 +579,7 @@ BusinessDate _rocDate(Object? value) {
     throw const FormatException('Invalid ROC date');
   }
   return BusinessDate(
-    int.parse(value.substring(0, 3)) + 1911,
+    int.parse(value.substring(0, 3)) + rocYearOffset,
     int.parse(value.substring(3, 5)),
     int.parse(value.substring(5, 7)),
   );

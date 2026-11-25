@@ -14,6 +14,10 @@ abstract interface class CommandContext {
   /// The last change refused, for the screens to report.
   ValueNotifier<LedgerProblem?> get problem;
 
+  /// Tells the screens of a change refused, through [problem], when no
+  /// one asked for it who could be told otherwise: an undo, the trash.
+  void report(LedgerProblem refused);
+
   /// A new id for a record.
   String newId();
 

@@ -1,20 +1,32 @@
 package io.github.swz0103.expensetracker
 
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Locale
-import java.util.TimeZone
-
 /**
- * The rules the background job (BackupWorker.kt) follows, the same as the
- * app's own (phone_backup.dart, drive_sync.dart); kept apart from Android
- * so they are tested on their own.
+ * How the background job (BackupWorker.kt) decides; kept apart from
+ * Android so it is tested on its own. The rules themselves (how many
+ * stay, how often, the names) are the app's (backup_rules.dart): the app
+ * hands them over with each backup, as [Handed], and this side keeps none.
  */
 internal object BackupPlan {
-    const val DAY = 24L * 60 * 60 * 1000
-
-    /** How many of a ledger's backups stay in the phone's folder and on Drive. */
-    const val KEEP = 5
+    /**
+     * The rules handed over with a backup (`plan` in the outbox's
+     * ready.json, `BackupRules.handover`): how many backups stay, the
+     * phone folder's two rhythms and Drive's (milliseconds), the name this
+     * backup takes in the phone's folder and how this ledger's names start
+     * and end there, and the Drive folder's name.
+     */
+    data class Handed(
+        val keep: Int,
+        val daily: Long,
+        val weekly: Long,
+        val drive: Long,
+        val phoneName: String,
+        val phonePrefix: String,
+        val suffix: String,
+        val driveFolder: String,
+    ) {
+        /** The phone folder's rhythm the person chose. */
+        fun phoneEvery(daily: Boolean): Long = if (daily) this.daily else weekly
+    }
 
     /**
      * Whether a backup of [revision] is due at [now]: none was made yet,
@@ -25,42 +37,80 @@ internal object BackupPlan {
         last == null || (now - last >= every && lastRevision != revision)
 
     /**
-     * Milliseconds of a time as Dart writes it in preferences.json
-     * (`2026-10-28T03:04:05.123Z`, in UTC); null when there is none.
+     * Delivers to [places] in turn, writing down what was noted ([noted])
+     * with [write] after each and however the run ends: a run stopped (or
+     * failing) at a later place still keeps that an earlier one received
+     * the backup, so it is not copied there again (review 26). It is
+     * written only when it changed since the last write, [written] being
+     * what is there already (null for nothing): a run that delivers
+     * nothing writes nothing (review 28). A failure to write down after a
+     * place that already failed, or was stopped, never takes that one's
+     * place: it is added to it as suppressed, so a stop still ends the
+     * run as a stop (review 28).
      */
-    fun millisOf(text: String?): Long? {
-        if (text == null || text.length < 19) return null
-        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ROOT)
-        format.timeZone = TimeZone.getTimeZone("UTC")
-        val whole = try {
-            format.parse(text.substring(0, 19))?.time
-        } catch (e: java.text.ParseException) {
-            null
-        } ?: return null
-        val fraction = Regex("^\\.(\\d{1,3})").find(text.substring(19))?.groupValues?.get(1)
-        return whole + (fraction?.padEnd(3, '0')?.toLong() ?: 0)
+    fun inTurn(
+        places: List<() -> Unit>,
+        noted: () -> String,
+        written: String?,
+        write: (String) -> Unit,
+    ) {
+        var last = written
+        fun keep() {
+            val now = noted()
+            if (now == last) return
+            write(now)
+            last = now
+        }
+        var failure: Throwable? = null
+        try {
+            for (place in places) {
+                place()
+                keep()
+            }
+        } catch (e: Throwable) {
+            failure = e
+            throw e
+        } finally {
+            try {
+                keep()
+            } catch (e: Exception) {
+                val first = failure ?: throw e
+                if (first !== e) first.addSuppressed(e)
+            }
+        }
+    }
+
+    /** The phone's folder no longer lets the app write, or no longer opens: one to choose again. */
+    class FolderDenied : IllegalStateException(FOLDER_DENIED)
+
+    /** The code of [FolderDenied]; the app has the words for it (BackgroundProblem). */
+    const val FOLDER_DENIED = "FolderDenied"
+
+    /** The code of a failure with no name of its own to give. */
+    const val UNKNOWN = "Unknown"
+
+    /**
+     * What the app's error log is told of a failure, as a code in plain
+     * ASCII: [FOLDER_DENIED] for the folder refusing, Drive's status when
+     * Drive refused, and otherwise the failure's type alone. Never its
+     * message, which can quote a server or name a file or an account
+     * (review 33); the app turns none of it into words of its own.
+     */
+    fun problemOf(cause: Throwable): String = when {
+        cause is FolderDenied -> FOLDER_DENIED
+        cause is DriveUploader.Refused && cause.status > 0 -> "Refused HTTP ${cause.status}"
+        else -> cause.javaClass.simpleName
+            .filter { it in 'A'..'Z' || it in 'a'..'z' || it in '0'..'9' }
+            .ifEmpty { UNKNOWN }
     }
 
     /**
-     * The name of a backup of the ledger marked [mark] taken at [at] in
-     * the phone's folder: `記帳本-<mark>-YYYYMMDD-HHMM.etbk`, as
-     * PhoneBackup.nameAt writes it.
+     * Of the names in the phone's folder, this ledger's ([Handed.phonePrefix]
+     * and [Handed.suffix]) beyond the newest [Handed.keep]; other files,
+     * and other ledgers' backups, are never among them.
      */
-    fun phoneName(mark: String, at: Long, zone: TimeZone = TimeZone.getDefault()): String {
-        val time = Calendar.getInstance(zone).apply { timeInMillis = at }
-        fun two(n: Int) = n.toString().padStart(2, '0')
-        return "記帳本-$mark-${time.get(Calendar.YEAR)}${two(time.get(Calendar.MONTH) + 1)}" +
-            "${two(time.get(Calendar.DAY_OF_MONTH))}-${two(time.get(Calendar.HOUR_OF_DAY))}" +
-            "${two(time.get(Calendar.MINUTE))}.etbk"
-    }
-
-    /**
-     * Of the names in the phone's folder, those of the ledger marked
-     * [mark] beyond the newest [KEEP]; other files, and other ledgers'
-     * backups, are never among them.
-     */
-    fun beyondKept(names: List<String>, mark: String): List<String> =
-        names.filter { it.startsWith("記帳本-$mark-") && it.endsWith(".etbk") }
+    fun beyondKept(names: List<String>, plan: Handed): List<String> =
+        names.filter { it.startsWith(plan.phonePrefix) && it.endsWith(plan.suffix) }
             .sortedDescending()
-            .drop(KEEP)
+            .drop(plan.keep)
 }

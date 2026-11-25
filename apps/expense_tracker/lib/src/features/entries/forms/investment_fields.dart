@@ -5,8 +5,8 @@ import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
-import '../../../core/formatting/dates.dart';
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../../design_system/display/amount.dart';
 import '../../../core/widgets/calculator.dart';
 import '../model/compose_form.dart';
 import 'compose_actions.dart';
@@ -73,9 +73,7 @@ final class InvestmentFields {
           TradeFigureCard(
             icon: Glyph.coins,
             label: '成交價',
-            value: _f.price == _f.price.roundToDouble()
-                ? '${_f.price.round()}'
-                : _f.price.toStringAsFixed(2),
+            value: plainPrice(_f.price),
             current: _f.shares > 0 && _f.price == 0,
             onTap: () async {
               final value = await showPriceCalculator(
@@ -103,7 +101,10 @@ final class InvestmentFields {
     final suggested = _f.suggested;
     final sell = _f.trade == EntryType.sell;
     final settles = _f.settlement;
-    final cost = _f.saleCost;
+    final open = _f.more || _a.viewing;
+    // What the shares cost shows only with the fold open: closed, it is
+    // not worked out.
+    final cost = open ? _f.saleCost : null;
     final settled = _f.settles;
     final method = _f.average ? '平均成本' : '先進先出';
     return FieldsFold(
@@ -115,7 +116,7 @@ final class InvestmentFields {
         if (sell) method,
         if (_a.note.text.trim().isNotEmpty) _a.note.text.trim(),
       ].join(' · '),
-      open: _f.more || _a.viewing,
+      open: open,
       body: [
         // What it settles at, as a sum: the trade, then the fee and tax
         // taken off a sale or added to a buy; the charges can be changed.
@@ -141,9 +142,12 @@ final class InvestmentFields {
             child: TradeOutcomeCard(
               title: cost == null ? '交割' : '已實現損益',
               sub: cost == null
-                  ? formatMd(settled)
-                  : '成本 ${groupDigits(cost)} · 交割 ${formatMd(settled)}',
+                  ? settlesOn(settled)
+                  : '成本 ${groupDigits(cost)} · 交割 ${settlesOn(settled)}',
               value: cost == null ? null : signed(settles - cost),
+              spokenValue: cost == null
+                  ? null
+                  : spokenAmount(settles - cost, sense: AmountSense.signed),
               color: cost == null
                   ? AppColors.positive
                   : AppColors.ofMarket(settles - cost),

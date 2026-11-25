@@ -218,9 +218,13 @@ void main() {
               item(r.nextBool() ? 'rent' : 'phone'),
             );
           case 12:
-            live.recurringCommands.confirm(
-              live.recurring.all[r.nextInt(live.recurring.all.length)],
-            );
+            final due =
+                live.recurring.all[r.nextInt(live.recurring.all.length)];
+            // A US$ item with no rate yet is not booked: the ledger refuses
+            // it (LOG-02).
+            if (live.recurringCommands.refusalOf(due) == null) {
+              live.recurringCommands.confirm(due);
+            }
           case 13:
             live.holdingCommands.setMarket(
               holdings: const [],

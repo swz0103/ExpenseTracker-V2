@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/backup/model/outbox.dart';
+import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -61,13 +62,24 @@ void main() {
     expect(await box.prepare(), isTrue);
     expect(scheduled, [true]);
     expect(ready(), {
-      'v': 1,
+      'v': 2,
       'file': '記帳本-1.etbk',
       'drivePhotos': false,
       'revision': 1,
       'ledger': 'ledger-one',
       'mark': 'ledger',
       'at': DateTime.utc(2026, 10, 28, 9).millisecondsSinceEpoch,
+      // The rules the job follows; it keeps none of its own (review 32).
+      'plan': {
+        'keep': 5,
+        'daily': 86400000, // 24 × 60 × 60 × 1000
+        'weekly': 604800000, // 7 × 86,400,000
+        'drive': 86400000,
+        'phoneName': '記帳本-ledger-20261028-0900.etbk',
+        'phonePrefix': '記帳本-ledger-',
+        'suffix': '.etbk',
+        'driveFolder': '記帳本備份',
+      },
     });
     // Unchanged: not written again.
     expect(await box.prepare(), isFalse);
@@ -75,6 +87,22 @@ void main() {
     expect(await box.prepare(), isTrue);
     expect(backups(), ['記帳本-2.etbk']);
     expect(ready()['revision'], 2);
+  });
+
+  test('a backup left by a version that handed over no rules is handed '
+      'them, and not written again', () async {
+    preferences.phoneFolderSet('content://tree/backups', name: '備份');
+    final box = outbox();
+    expect(await box.prepare(), isTrue);
+    final old = ready()
+      ..['v'] = 1
+      ..remove('plan');
+    File('${folder().path}/ready.json').writeAsStringSync(jsonEncode(old));
+    expect(await box.prepare(), isFalse);
+    expect(written, 1);
+    expect(ready()['v'], 2);
+    expect((ready()['plan']! as Map<String, Object?>)['keep'], 5);
+    expect(ready()['file'], '記帳本-1.etbk');
   });
 
   test('a revision every place already holds is not left', () async {
@@ -116,6 +144,27 @@ void main() {
     expect(preferences.driveRevision, 1);
   });
 
+  test('the revision delivered, as a restore reads it: the highest of the '
+      'preferences, the job\'s notes and the backup waiting (review 28)', () {
+    expect(Outbox.deliveredRevision(directory, preferences), 0);
+    preferences
+      ..phoneFolderSet('content://tree/backups', name: '備份')
+      ..phoneBackup(DateTime.utc(2026, 10, 28), 40)
+      ..driveBackup(DateTime.utc(2026, 10, 28), 41);
+    expect(Outbox.deliveredRevision(directory, preferences), 41);
+    // The job delivered 57 while the app was closed, not read back yet.
+    deliver({
+      'phone': {'at': 1, 'revision': 57, 'ledger': 'ledger-one', 'uri': 'x'},
+      'drive': {'at': 1, 'revision': 50, 'ledger': 'ledger-one'},
+    });
+    expect(Outbox.deliveredRevision(directory, preferences), 57);
+    // A backup at 60 waits for the job.
+    File(
+      '${folder().path}/ready.json',
+    ).writeAsStringSync(jsonEncode({'revision': 60, 'ledger': 'ledger-one'}));
+    expect(Outbox.deliveredRevision(directory, preferences), 60);
+  });
+
   test('another ledger\'s or folder\'s delivery is not this one\'s', () async {
     preferences.phoneFolderSet('content://tree/other', name: '別的');
     final box = outbox();
@@ -143,14 +192,46 @@ void main() {
         'drive': {'at': 5, 'message': 'offline'},
       },
     });
-    expect(box.collect(), ['雲端硬碟：offline']);
+    expect(box.collect().map((p) => '$p'), ['DeliveryFailed(drive offline)']);
     expect(box.collect(), isEmpty);
     deliver({
       'problems': {
         'drive': {'at': 6, 'message': 'offline'},
       },
     });
-    expect(box.collect(), ['雲端硬碟：offline']);
+    expect(box.collect().map((p) => '$p'), ['DeliveryFailed(drive offline)']);
+  });
+
+  test('R34: a problem in the background is kept with its place, and its '
+      'code as the job handed it, never words', () async {
+    final box = outbox();
+    folder().createSync(recursive: true);
+    deliver({
+      'problems': {
+        'phone': {'at': 5, 'message': 'FolderDenied'},
+        'drive': {'at': 5, 'message': 'Refused HTTP 403'},
+        'elsewhere': {'at': 5, 'message': 'IOException'},
+      },
+    });
+    final [phone, drive] = box.collect();
+    expect((phone.step, phone.code), ('背景備份 手機資料夾', 'FolderDenied'));
+    expect((drive.step, drive.code), ('背景備份 雲端硬碟', 'Refused HTTP 403'));
+    expect(
+      ErrorLog.describe(phone),
+      'DeliveryFailed: DeliveryFailed(phone FolderDenied)',
+    );
+    expect(
+      ErrorLog.describe(drive),
+      'DeliveryFailed: DeliveryFailed(drive Refused HTTP 403)',
+    );
+    // Words where a code belongs (an older job's) are not kept.
+    deliver({
+      'problems': {
+        'phone': {'at': 6, 'message': '沒有這個資料夾的存取權，請重新選擇'},
+        'drive': {'at': 6, 'message': 'alice@example.com'},
+      },
+    });
+    expect([for (final p in box.collect()) p.code], ['Unknown', 'Unknown']);
   });
 
   test('Drive gets its own copy without the photos when the folder takes '
@@ -184,5 +265,26 @@ void main() {
       File('${folder().path}/${json['file']}').readAsStringSync(),
       'backup 1',
     );
+  });
+
+  test('emptied after a reset of the keys: the waiting backup and what '
+      'says it is ready go, even with nowhere to deliver now; what was '
+      'delivered is kept (review 22 finding 2)', () async {
+    preferences.phoneFolderSet('content://tree/backups', name: '備份');
+    final box = outbox();
+    expect(await box.prepare(), isTrue);
+    deliver({'problems': <String, Object?>{}});
+    // Delivery turned off since: the backup would otherwise stay for good.
+    preferences.phoneFolderSet(null);
+    expect(await box.prepare(), isFalse);
+    expect(backups(), ['記帳本-1.etbk']);
+    await box.empty();
+    expect(backups(), isEmpty);
+    expect(File('${folder().path}/ready.json').existsSync(), isFalse);
+    expect(File('${folder().path}/delivered.json').existsSync(), isTrue);
+    // Nothing there at all: nothing to do.
+    directory.deleteSync(recursive: true);
+    directory.createSync();
+    await box.empty();
   });
 }

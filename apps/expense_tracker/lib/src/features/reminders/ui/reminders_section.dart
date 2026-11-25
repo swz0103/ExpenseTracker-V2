@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/design_system/findable.dart';
+
 import '../../../core/ledger/ledger.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
@@ -9,15 +11,21 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/messages/problem_messages.dart';
 import '../model/calendar_sync.dart';
 import '../model/reminder_alerts.dart';
+import '../model/reminder_rules.dart';
 import '../model/reminders.dart';
+import '../../../core/messages/reminder_messages.dart';
+import '../../../core/platform/preferences.dart';
 import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/shape.dart';
-import '../../../core/formatting/words.dart';
 
-part 'reminders_phone.dart';
+import 'package:shell/setting_topic.dart';
+
+import '../../../../design_system/display/status_messages.dart';
+import '../../../core/diagnostics/error_steps.dart';
+import 'reminders_phone.dart';
 
 /// 通知與提醒: four cards (到期提醒, 預算提醒, 每日記帳, Google 日曆), the
 /// tick on each turning it on or off and a tap opening its details in the
@@ -38,16 +46,53 @@ class RemindersSection extends StatefulWidget {
   /// Opens 預算管理, where each budget's warning is set.
   final VoidCallback? onBudgets;
 
+  // What search finds here (N8): each topic marks its card.
+  static const topics = [
+    ReminderTopics.due,
+    ReminderTopics.budget,
+    ReminderTopics.daily,
+    ReminderTopics.linkCalendar,
+    ReminderTopics.phone,
+  ];
+
+  /// The [topics] whose cards the section shows with these services: the
+  /// notifications' only where the phone posts them, the calendar's only
+  /// with a calendar, the phone's strip once a notification is on (it
+  /// shows when the phone has answered, a moment after the page opens)
+  /// (review 39 #4).
+  static List<SettingTopic> offered({
+    Notifier? notifier,
+    CalendarSync? calendar,
+  }) {
+    final preferences = notifier?.preferences;
+    return [
+      if (preferences != null) ...[
+        ReminderTopics.due,
+        ReminderTopics.budget,
+        ReminderTopics.daily,
+      ],
+      if (calendar != null) ReminderTopics.linkCalendar,
+      if (preferences != null &&
+          (preferences.dueAlerts ||
+              preferences.dailyNudge ||
+              preferences.budgetAlerts))
+        ReminderTopics.phone,
+    ];
+  }
+
   @override
   State<RemindersSection> createState() => _RemindersSectionState();
 }
 
 class _RemindersSectionState extends State<RemindersSection>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, CalendarActions {
   /// What the phone allows, read again when back from its settings.
   ReminderStatus? _status;
 
   Ledger get _ledger => widget.ledger;
+
+  @override
+  ReminderBook get reminderBook => reminderBookOf(_ledger);
 
   @override
   void initState() {
@@ -73,8 +118,9 @@ class _RemindersSectionState extends State<RemindersSection>
     try {
       final status = await notifier.port.status();
       if (mounted) setState(() => _status = status);
-    } on Object {
+    } on Object catch (error, stack) {
       // A phone that cannot say shows no status.
+      ErrorLog.instance.record(ErrorSteps.notificationStatus, error, stack);
     }
   }
 
@@ -117,6 +163,7 @@ class _RemindersSectionState extends State<RemindersSection>
       ErrorLog.instance.record('通知權限', error);
       allowed = false;
     }
+    // Exception to glossary: a switch in the system settings, which is turned on (開啟).
     if (!allowed && mounted) showNote(context, '請到系統設定開啟記帳本的通知');
     await _readStatus();
   }
@@ -153,97 +200,32 @@ class _RemindersSectionState extends State<RemindersSection>
       if (mounted) showNote(context, '一分鐘後會跳出一則測試通知');
     } on Object catch (error) {
       ErrorLog.instance.record('測試通知', error);
-      if (mounted) showNote(context, '無法傳送測試通知：${ErrorLog.describe(error)}');
+      if (mounted) showNote(context, problemNote('無法傳送測試通知', error));
     }
   }
 
-  /// Links a calendar for the due dates, or changes it.
-  Future<void> _linkCalendar(CalendarSync calendar) async {
+  /// Whether a kind of notification the person turned on can come: shown
+  /// on only while the phone allows notifications as well, so a card
+  /// never says on while nothing would be posted.
+  bool _shownOn(bool asked) => asked && _status?.notifications != false;
+
+  /// 去開 for the battery: the app's own page of the system settings, and
+  /// what to choose there.
+  Future<void> _battery(Notifier notifier) async {
     try {
-      if (!await calendar.port.access()) {
-        if (mounted) showNote(context, '沒有取得日曆權限，可以到系統設定開啟');
-        return;
-      }
-      final choices = await calendar.port.calendars();
-      if (!mounted) return;
-      if (choices.isEmpty) {
-        showNote(context, '手機上沒有可寫入的日曆，請先在日曆 App 登入 Google 帳號');
-        return;
-      }
-      final chosen = calendar.chosen?.$1;
-      final picked = await showPanel<int>(
-        context,
-        (context) => CenterPanel(
-          glyph: Glyph.calendar,
-          color: SettingsColors.calendar,
-          title: '同步到哪個日曆',
-          body: Column(
-            children: [
-              for (final c in choices)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: Space.s2),
-                  child: ColorCard(
-                    color: SettingsColors.calendar,
-                    amount: c.id == chosen ? 0.32 : 0.14,
-                    radius: Radii.large,
-                    label: c.name,
-                    onTap: () => Navigator.of(context).pop(c.id),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                c.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              if (c.account.isNotEmpty)
-                                Text(c.account, style: mutedSmall),
-                            ],
-                          ),
-                        ),
-                        if (c.id == chosen)
-                          const GlyphIcon(
-                            Glyph.check,
-                            size: 20,
-                            color: SettingsColors.calendar,
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          actions: [
-            PanelButton(Words.cancel, onTap: () => Navigator.of(context).pop()),
-          ],
-        ),
-      );
-      if (picked == null || !mounted) return;
-      await calendar.choose(
-        choices.firstWhere((c) => c.id == picked),
-        reminderBookOf(_ledger),
-      );
-      final written = await calendar.sync(reminderBookOf(_ledger));
-      if (!mounted) return;
-      setState(() {});
-      showNote(context, written == null ? '日曆沒有同步成功' : '已把 $written 個到期提醒放進日曆');
+      await notifier.port.openBatterySettings();
     } on Object catch (error) {
-      ErrorLog.instance.record('日曆同步', error);
-      if (mounted) showNote(context, '日曆沒有連上：${describeProblem(error)}');
+      ErrorLog.instance.record(ErrorSteps.notificationStatus, error);
     }
+    if (mounted) showNote(context, ReminderMessages.batteryHow);
   }
 
-  Future<void> _forgetCalendar(CalendarSync calendar) async {
-    await calendar.forget(reminderBookOf(_ledger));
-    if (mounted) showNote(context, '已停止同步，之後的提醒已從日曆移除');
-    if (mounted) setState(() {});
-  }
-
-  static String _two(int n) => n.toString().padLeft(2, '0');
+  /// What the daily nudge's time can be trusted to: on the minute when
+  /// asked for and allowed, else as late as the phone may post it.
+  String _nudgeTiming(Preferences preferences) =>
+      preferences.exactReminders && _status?.exact != false
+      ? ' · 準時'
+      : ' · ${ReminderMessages.lateBy(ReminderTiming.inexactLateness)}';
 
   // The details of each card.
 
@@ -255,20 +237,20 @@ class _RemindersSectionState extends State<RemindersSection>
       color: SettingsColors.reminders,
       title: '到期提醒',
       detail: '定期扣款、卡費',
-      value: () => preferences.dueAlerts,
+      value: () => _shownOn(preferences.dueAlerts),
       onChanged: (on) => _notify(notifier, due: on),
       body: (context) {
-        final coming = reminderBookOf(_ledger)
-            .reminders(days: 30)
-            .take(4)
-            .toList();
-        return _Labelled(
+        final coming = reminderBookOf(_ledger).reminders().take(4).toList();
+        return ReminderLabelled(
           '接下來會提醒',
           coming.isEmpty
-              ? const Text('30 天內沒有到期的項目', style: mutedSmall)
+              ? Text(
+                  ReminderMessages.nothingDueWithin(ReminderTiming.horizonDays),
+                  style: mutedSmall,
+                )
               : CardGrid([
                   for (final r in coming)
-                    _Chip(
+                    ReminderChip(
                       color: SettingsColors.reminders,
                       top: formatMd(r.day),
                       bottom: r.title,
@@ -287,21 +269,21 @@ class _RemindersSectionState extends State<RemindersSection>
       glyph: Glyph.pie,
       color: SettingsColors.budget,
       title: '預算提醒',
-      detail: '用到警示比例、超支時',
-      value: () => preferences.budgetAlerts,
+      detail: '用到警示比例、${StatusWords.over}時',
+      value: () => _shownOn(preferences.budgetAlerts),
       onChanged: (on) => _notify(notifier, budget: on),
       body: (context) {
         final budgets = _ledger.budgets.all.where((b) => b.limit > 0).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Labelled(
+            ReminderLabelled(
               '現在的設定',
               budgets.isEmpty
                   ? const Text('還沒有設定預算', style: mutedSmall)
                   : CardGrid([
                       for (final b in budgets.take(4))
-                        _Chip(
+                        ReminderChip(
                           color: SettingsColors.budget,
                           top: '用到',
                           bottom:
@@ -344,10 +326,10 @@ class _RemindersSectionState extends State<RemindersSection>
       color: color,
       title: '每日記帳',
       detail: '當天沒記帳才提醒',
-      value: () => preferences.dailyNudge,
+      value: () => _shownOn(preferences.dailyNudge),
       onChanged: (on) => _notify(notifier, nudge: on),
       body: (context) => ListenableBuilder(
-        listenable: preferences,
+        listenable: preferences.watch(const {PreferenceTopic.reminders}),
         builder: (context, _) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -357,14 +339,15 @@ class _RemindersSectionState extends State<RemindersSection>
               radius: Radii.large,
               // The time too, not only what it is for.
               label:
-                  '提醒時間：${_two(preferences.nudgeHour)}:'
-                  '${_two(preferences.nudgeMinute)}',
+                  '提醒時間：${formatHm(preferences.nudgeHour, preferences.nudgeMinute)}',
               onTap: () => _pickNudgeTime(notifier),
               padding: const EdgeInsets.symmetric(vertical: Space.s4),
               child: Center(
                 child: Text(
-                  '${_two(preferences.nudgeHour)} : '
-                  '${_two(preferences.nudgeMinute)}',
+                  formatHmSpaced(
+                    preferences.nudgeHour,
+                    preferences.nudgeMinute,
+                  ),
                   style: TextStyle(
                     fontSize: TextSize.hero,
                     fontWeight: FontWeight.w800,
@@ -374,10 +357,14 @@ class _RemindersSectionState extends State<RemindersSection>
               ),
             ),
             const SizedBox(height: Space.s2),
-            _ToggleRow(
+            ReminderToggleRow(
               color: color,
               title: '準時提醒',
-              detail: '需要允許鬧鐘',
+              detail: preferences.exactReminders
+                  ? '需要允許鬧鐘'
+                  : ReminderMessages.lateWithout(
+                      ReminderTiming.inexactLateness,
+                    ),
               value: preferences.exactReminders,
               onChanged: (on) => _exact(notifier, on),
             ),
@@ -386,96 +373,6 @@ class _RemindersSectionState extends State<RemindersSection>
       ),
     );
   }
-
-  void _calendarDetails(CalendarSync calendar) {
-    const color = SettingsColors.calendar;
-    showCenterPanel(
-      context,
-      glyph: Glyph.calendar,
-      color: color,
-      title: 'Google 日曆',
-      detail: switch (calendar.chosen) {
-        (_, final name)? => '同步到「$name」',
-        null => '提醒定期扣款與卡費',
-      },
-      body: (context) => StatefulBuilder(
-        builder: (context, setState) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ColorCard(
-              color: color,
-              amount: 0.16,
-              radius: Radii.large,
-              padding: const EdgeInsets.symmetric(horizontal: Space.s4),
-              child: Column(
-                children: [
-                  _ToggleRow(
-                    color: color,
-                    flat: true,
-                    title: '寫入金額',
-                    detail: calendar.amounts ? '例：繳卡費：玉山卡 12,345' : '例：繳卡費：玉山卡',
-                    value: calendar.amounts,
-                    onChanged: (on) async {
-                      await calendar.setAmounts(on, reminderBookOf(_ledger));
-                      setState(() {});
-                    },
-                  ),
-                  const Divider(height: 1),
-                  _changeCalendar(context, calendar),
-                ],
-              ),
-            ),
-            const SizedBox(height: Space.s2),
-            _stopSync(context, calendar),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 換日曆 with the calendar now chosen: closes the [panel] and asks
-  /// for another.
-  Widget _changeCalendar(BuildContext panel, CalendarSync calendar) {
-    const color = SettingsColors.calendar;
-    return InkWell(
-      onTap: () async {
-        Navigator.of(panel).pop();
-        await _linkCalendar(calendar);
-      },
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 52),
-        child: Row(
-          children: [
-            Text(
-              '換日曆',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: deepOf(color),
-              ),
-            ),
-            const Spacer(),
-            Text(
-              '${calendar.chosen?.$2 ?? ''} ›',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: deepOf(color),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 不再同步: closes the [panel] and stops writing to the calendar.
-  Widget _stopSync(BuildContext panel, CalendarSync calendar) => TextButton(
-    style: wordButton(AppColors.danger, minimumSize: Size(0, 48)),
-    onPressed: () {
-      Navigator.of(panel).pop();
-      _forgetCalendar(calendar);
-    },
-    child: const Text('不再同步', style: TextStyle(fontWeight: FontWeight.w700)),
-  );
 
   @override
   Widget build(BuildContext context) {
@@ -494,61 +391,67 @@ class _RemindersSectionState extends State<RemindersSection>
         CardGrid([
           if (notifier != null && preferences != null) ...[
             SettingCard(
+              topic: ReminderTopics.due,
               glyph: Glyph.bell,
               color: SettingsColors.reminders,
               title: '到期提醒',
               detail: '信用卡、定期交易',
-              value: preferences.dueAlerts,
+              value: _shownOn(preferences.dueAlerts),
               onChanged: (on) => _notify(notifier, due: on),
               onTap: () => _dueDetails(notifier),
             ),
             SettingCard(
+              topic: ReminderTopics.budget,
               glyph: Glyph.pie,
               color: SettingsColors.budget,
               title: '預算提醒',
               detail: '用到幾成時',
-              value: preferences.budgetAlerts,
+              value: _shownOn(preferences.budgetAlerts),
               onChanged: (on) => _notify(notifier, budget: on),
               onTap: () => _budgetDetails(notifier),
             ),
             SettingCard(
+              topic: ReminderTopics.daily,
               glyph: Glyph.calendar,
               color: SettingsColors.daily,
               title: '每日記帳',
               detail:
-                  '每天 ${_two(preferences.nudgeHour)}:'
-                  '${_two(preferences.nudgeMinute)}'
-                  '${preferences.exactReminders ? ' · 準時' : ''}',
-              value: preferences.dailyNudge,
+                  '每天 ${formatHm(preferences.nudgeHour, preferences.nudgeMinute)}'
+                  '${_nudgeTiming(preferences)}',
+              value: _shownOn(preferences.dailyNudge),
               onChanged: (on) => _notify(notifier, nudge: on),
               onTap: () => _dailyDetails(notifier),
             ),
           ],
           if (calendar != null)
             SettingCard(
+              topic: ReminderTopics.linkCalendar,
               glyph: Glyph.calendar,
               color: SettingsColors.calendar,
-              title: 'Google 日曆',
+              title: ReminderMessages.calendarTitle,
               detail: calendar.chosen == null
-                  ? '提醒定期扣款與卡費'
+                  ? ReminderMessages.calendarAbout
                   : '已連結${calendar.amounts ? ' · 寫金額' : ''}',
               value: calendar.chosen != null,
               onChanged: (on) =>
-                  on ? _linkCalendar(calendar) : _forgetCalendar(calendar),
+                  on ? linkCalendar(calendar) : forgetCalendar(calendar),
               onTap: () => calendar.chosen == null
-                  ? _linkCalendar(calendar)
-                  : _calendarDetails(calendar),
+                  ? linkCalendar(calendar)
+                  : calendarDetails(calendar),
             ),
         ]),
         if (notifier != null && asked && status != null) ...[
           const SizedBox(height: Space.s3),
-          _PhoneStrip(
-            status: status,
-            exact: notifier.preferences.exactReminders,
-            onTest: () => _test(notifier),
-            onNotifications: () => _askAccess(notifier),
-            onExact: notifier.port.openExactSettings,
-            onBattery: notifier.port.openBatterySettings,
+          Findable(
+            topic: ReminderTopics.phone,
+            child: ReminderPhoneStrip(
+              status: status,
+              exact: notifier.preferences.exactReminders,
+              onTest: () => _test(notifier),
+              onNotifications: () => _askAccess(notifier),
+              onExact: notifier.port.openExactSettings,
+              onBattery: () => _battery(notifier),
+            ),
           ),
         ],
       ],
@@ -559,7 +462,7 @@ class _RemindersSectionState extends State<RemindersSection>
 /// What falls due in [ledger], as the calendar and the notifications
 /// follow it.
 ReminderBook reminderBookOf(Ledger ledger) => ReminderBook(
-  changes: ledger,
+  changes: ledger.watch(reminderTopics),
   clock: () => ledger.today,
   recurring: ledger.recurring,
   recurringService: ledger.recurringService,

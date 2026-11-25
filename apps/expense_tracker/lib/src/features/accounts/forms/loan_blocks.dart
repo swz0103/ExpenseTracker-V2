@@ -1,9 +1,18 @@
-part of 'account_editor.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
 
 /// An account the loan is paid from or went into, as a block: its mark
 /// and name, or what having none means.
-class _AccountBlock extends StatelessWidget {
-  const _AccountBlock({
+class AccountBlock extends StatelessWidget {
+  const AccountBlock({
+    super.key,
     required this.label,
     required this.account,
     required this.empty,

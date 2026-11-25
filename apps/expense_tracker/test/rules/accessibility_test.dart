@@ -1,3 +1,4 @@
+import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -5,6 +6,7 @@ import 'dart:ui' show Tristate;
 
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/built_places.dart';
 import '../support/places.dart';
 
 /// Every place a person reaches (places.dart), checked against Android's
@@ -14,35 +16,63 @@ import '../support/places.dart';
 /// page holds with large text is layout_*_test.dart's.
 ///
 /// [unstyled] is used by test/core/widgets/tour_test.dart too.
+/// The places with a row of seven day cells (DAY-01).
+const sevenAcross = {'總覽', '定期交易'};
+
 void main() {
   setUpAll(loadFonts);
 
-  testWidgets('tap targets are 48 dp and named on every page', (tester) async {
-    final semantics = tester.ensureSemantics();
-    final faults = <String>[];
-    for (final (name, taps) in places) {
-      await show(tester, 400, 1, height: 2600);
-      await go(tester, taps);
-      for (final words in unstyled(tester)) {
-        faults.add('$name: 「$words」 has no text style');
-      }
-      for (final words in readTwice(tester)) {
-        faults.add('$name: 「$words」 is read out twice');
-      }
-      for (final words in unpressable(tester)) {
-        faults.add('$name: 「$words」 is read as a button but cannot be pressed');
-      }
-      for (final guideline in [
-        androidTapTargetGuideline,
-        labeledTapTargetGuideline,
-      ]) {
-        final result = await guideline.evaluate(tester);
-        if (!result.passed) faults.add('$name: ${result.reason}');
-      }
+  // Android's guidelines hold on the smallest phones too, where a row
+  // of targets has the least room: 320 and 360 dp as well as 400.
+  for (final width in [320.0, 360.0, 400.0]) {
+    for (final place in allPlaces) {
+      testWidgets('${width.toInt()} dp, ${place.name}: tap targets are 48 dp '
+          'and named', (tester) async {
+        final semantics = tester.ensureSemantics();
+        final faults = <String>[];
+        await place.open(tester, Look(width, 1, height: 2600));
+        for (final words in unstyled(tester)) {
+          faults.add('「$words」 has no text style');
+        }
+        for (final words in readTwice(tester)) {
+          faults.add('「$words」 is read out twice');
+        }
+        for (final words in unpressable(tester)) {
+          faults.add('「$words」 is read as a button but cannot be pressed');
+        }
+        for (final guideline in [
+          // Seven day cells across are narrower than 48 dp on a phone under
+          // about 376 dp: the owner's open decision (known defect DAY-01).
+          if (!(width < 376 && sevenAcross.contains(place.name)))
+            androidTapTargetGuideline,
+          labeledTapTargetGuideline,
+        ]) {
+          final result = await guideline.evaluate(tester);
+          if (!result.passed) faults.add('${result.reason}');
+        }
+        semantics.dispose();
+        expect(faults, isEmpty, reason: faults.join('\n'));
+      });
     }
-    semantics.dispose();
-    expect(faults, isEmpty, reason: faults.join('\n'));
-  });
+  }
+
+  // The dark theme's words on their grounds, 4.5:1, on the places of the
+  // newer screens: the older pages' own contrast is its own work (the
+  // investment form's tabs, the pickers' day names).
+  for (final place in [
+    ...reviewPlaces.where((p) => !p.name.contains('買進')),
+    ...builtPlaces,
+  ]) {
+    testWidgets('dark, ${place.name}: words read at 4.5:1', (tester) async {
+      Shade.dark = true;
+      addTearDown(() => Shade.dark = false);
+      final semantics = tester.ensureSemantics();
+      await place.open(tester, const Look(360, 1, height: 2600));
+      final result = await textContrastGuideline.evaluate(tester);
+      semantics.dispose();
+      expect(result.passed, isTrue, reason: '${result.reason}');
+    });
+  }
 }
 
 /// Names a screen reader reads with the same words twice: a card's own

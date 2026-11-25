@@ -1,10 +1,19 @@
 // Exception to models take what they use: the account form is the page's
 // state; it reads balances and writes accounts and entries (ADR-0013).
 
-import '../../../core/formatting/amounts.dart';
-import '../../../core/ledger/ledger.dart';
+import 'package:core/foundation_values.dart' show Currency;
+import 'package:core/money/amount_parser.dart';
 
-import 'package:domain/loans.dart';
+import '../../../../design_system/display/amount.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/amount_messages.dart';
+import '../../../core/messages/validation_messages.dart';
+
+import 'package:ledger_loans/calc/loan_plan.dart';
+import 'package:ledger_loans/model/rate.dart';
+import 'package:ledger_trade_costs/calc/broker_discount.dart';
+
+import '../../../core/messages/trade_messages.dart';
 
 /// What the account form holds while it is filled in, and what saving
 /// it does to the ledger: a new account, or the changes to [old] with
@@ -25,9 +34,32 @@ final class AccountForm {
       rate = rateText(old?.loan?.rate),
       months = '${old?.loan?.months ?? ''}',
       repay = old?.loan?.repay ?? LoanRepay.even,
-      payFrom = old?.loan?.payFrom;
+      payFrom = old?.loan?.payFrom,
+      discount = discountTyped(old?.brokerDiscount);
 
   final Ledger ledger;
+
+  /// Every field as typed or chosen, to tell whether the form changed
+  /// since it opened (D83).
+  List<Object?> get fields => [
+    name,
+    balance,
+    limit,
+    kind,
+    icon,
+    closing,
+    due,
+    counted,
+    currency,
+    principal,
+    color,
+    rate,
+    months,
+    repay,
+    payFrom,
+    discount,
+    fundInto,
+  ];
 
   /// The account being changed; null for a new one.
   final Account? old;
@@ -62,6 +94,41 @@ final class AccountForm {
   String months;
   LoanRepay repay;
   String? payFrom;
+
+  /// The account's own broker discount as typed (0.6, 2.8 折); empty
+  /// takes the phone-wide one.
+  String discount;
+
+  /// Whether the account can pay for or receive a trade, and so keeps a
+  /// broker discount of its own: an account of money in NT\$, not a card,
+  /// loan or person.
+  bool get trades =>
+      !kind.isDebt &&
+      kind != AccountKind.receivable &&
+      (old?.currency ?? (foreignAllowed ? currency : homeCode)) == homeCode;
+
+  /// The discount as typed, read against `BrokerDiscountRange`.
+  DiscountReading get _discountRead => readBrokerDiscount(discount);
+
+  /// The account's own broker discount, in basis points; null when left
+  /// empty, not typed right ([discountProblem]) or not an account that
+  /// trades.
+  int? get typedDiscount => trades && discount.trim().isNotEmpty
+      ? switch (_discountRead) {
+          DiscountRead(:final basisPoints) => basisPoints,
+          _ => null,
+        }
+      : null;
+
+  /// What is wrong with the discount as typed; null when it is fine or
+  /// left empty.
+  String? get discountProblem => !trades || discount.trim().isEmpty
+      ? null
+      : switch (_discountRead) {
+          DiscountRead() => null,
+          DiscountOutOfRange() => BrokerDiscountText.outOfRange,
+          DiscountUnreadable() => BrokerDiscountText.unreadable,
+        };
 
   int? get typedRate => loan ? rateOf(rate) : null;
 
@@ -107,22 +174,76 @@ final class AccountForm {
 
   bool get loan => kind == AccountKind.loan;
 
-  /// Why the account cannot be saved yet; null when it can.
-  String? get problem => name.trim().isEmpty ? '請輸入帳戶名稱' : null;
+  /// Why the account cannot be saved yet; null when it can: the ledger's
+  /// write rules, which the save asks again (a loan's rate below nothing,
+  /// D116, or above 100%, D118, among them), then the rate, credit limit
+  /// and discount as typed.
+  String? get problem {
+    final account = build();
+    final found = accountIssues(
+      name: account.name,
+      closingDay: account.closingDay,
+      dueDay: account.dueDay,
+      limit: account.limit,
+      // As typed, with its sign and past 100%: 「-2」 and 「120」 are
+      // refused, not kept as no rate.
+      loanRate: switch (_rateRead) {
+        RateRead(:final hundredths) => hundredths,
+        _ => null,
+      },
+    );
+    return found.isEmpty
+        ? rateProblem ?? limitProblem ?? discountProblem
+        : validationMessage(found.first);
+  }
+
+  /// The loan's rate as typed; null when left empty or not a loan.
+  RateReading? get _rateRead =>
+      loan && rate.trim().isNotEmpty ? readRate(rate) : null;
+
+  /// What is wrong with the loan's rate as typed when it is no number:
+  /// 「abc」 is said so rather than kept as no rate (D118); nor is
+  /// 「0.004」, less than the least rate kept (review 33). Null when it is
+  /// a number or left empty.
+  String? get rateProblem => switch (_rateRead) {
+    RateUnreadable() => loanRateUnreadable,
+    RateTooSmall() => loanRateTooSmall,
+    _ => null,
+  };
+
+  /// What is wrong with the card's credit limit as typed: 80,000 and
+  /// 80000.0 are 80,000, but 8萬 or 1.234,5 is not a limit, and is said
+  /// so rather than kept as no limit. Null when it is fine or left empty.
+  String? get limitProblem => card ? typedProblem(_limitTyped) : null;
+
+  /// The card's credit limit as typed; null when left empty or not a
+  /// limit ([limitProblem]).
+  int? get typedLimit => card ? _limitTyped.minorOrNull : null;
+
+  AmountResult get _limitTyped =>
+      parseAmount(limit, scale: Currency.scaleOf(homeCode));
+
+  /// [text] in minor units of [code], exactly as typed; null when it is
+  /// empty or not an amount.
+  static int? _amountOf(String text, String code) =>
+      parseAmount(text, scale: Currency.scaleOf(code)).minorOrNull;
 
   /// The balance typed, in the ledger's sign; null when left empty, which
   /// keeps the balance of an account being changed.
   int? get typedBalance {
     final typed =
-        minorOf(balance, foreignAllowed ? currency : homeCode) ??
+        _amountOf(balance, foreignAllowed ? currency : homeCode) ??
         (loan && old == null ? typedPrincipal : null);
     if (typed == null) return null;
     return kind.isDebt ? -typed : typed;
   }
 
+  /// What is owed on a loan as typed, in NT\$; null when left empty.
+  int? get typedOwed => _amountOf(balance, homeCode);
+
   /// A loan's amount when taken out, from what was typed; null when left
   /// empty or not a loan.
-  int? get typedPrincipal => loan ? minorOf(principal, homeCode) : null;
+  int? get typedPrincipal => loan ? _amountOf(principal, homeCode) : null;
 
   /// The place after every placed account, so a new one comes last on
   /// 我的帳戶; null while none has been placed.
@@ -145,7 +266,7 @@ final class AccountForm {
     final terms = (
       closingDay: card ? closing : null,
       dueDay: card || loan ? due : null,
-      limit: card ? int.tryParse(limit.trim()) : null,
+      limit: typedLimit,
     );
     if (before == null) {
       return Account(
@@ -165,6 +286,7 @@ final class AccountForm {
         place: kind == AccountKind.loan || kind == AccountKind.receivable
             ? null
             : _nextPlace,
+        brokerDiscount: typedDiscount,
       );
     }
     return Account(
@@ -185,6 +307,7 @@ final class AccountForm {
       color: color,
       loan: loanTerms,
       place: before.place,
+      brokerDiscount: typedDiscount,
     );
   }
 
@@ -198,13 +321,11 @@ final class AccountForm {
       final owed = typedBalance;
       if (_funded && into != null && owed != null && owed < 0) {
         ledger.entryCommands.add(
-          Entry(
+          TransferDrafts.between(
             id: ledger.newId(),
             date: ledger.today,
-            type: EntryType.transfer,
             amount: -owed,
-            account: account.id,
-            category: transferCategory,
+            from: account.id,
             note: '${account.name}撥款',
             to: into,
           ),
@@ -221,16 +342,17 @@ final class AccountForm {
   }
 
   /// The transfer that settles [account] before it is archived: what is
-  /// left moves to [into], or a debt is paid from it.
+  /// left once what is dated ahead has come moves to [into], or a debt is
+  /// paid from it, on the day of the last entry dated ahead or today when
+  /// none is (D120).
   static Entry settlement(Ledger ledger, Account account, String into) {
-    final left = ledger.balanceService.balance(account.id);
-    return Entry(
+    final balances = ledger.balanceService;
+    final left = balances.finalBalance(account.id);
+    return TransferDrafts.between(
       id: ledger.newId(),
-      date: ledger.today,
-      type: EntryType.transfer,
+      date: balances.lastDayAhead(account.id),
       amount: left.abs(),
-      account: left > 0 ? account.id : into,
-      category: transferCategory,
+      from: left > 0 ? account.id : into,
       note: '${account.name}結清',
       to: left > 0 ? into : account.id,
     );

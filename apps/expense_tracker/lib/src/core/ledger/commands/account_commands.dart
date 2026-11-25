@@ -1,7 +1,15 @@
 import 'package:core/foundation_values.dart';
 import 'package:domain/credit_cards.dart';
+import 'package:ledger_entries/rules.dart'
+    show
+        ArchivedOwing,
+        CloseMoveRefused,
+        RecordIssue,
+        accountIssues,
+        archiveIssues;
 
 import '../cache/topic.dart';
+import '../card_cycle.dart';
 import '../models/models.dart';
 import '../persistence/write_batch.dart';
 import '../repositories/account_repository.dart';
@@ -10,11 +18,15 @@ import '../repositories/recurring_repository.dart';
 import '../repositories/trash_repository.dart';
 import '../services/balance_service.dart';
 import 'command_context.dart';
+import 'command_exceptions.dart';
+import 'undo.dart';
 
 import 'dart:math';
 
 /// Writes the accounts: adding, changing, ordering and removing them, a
-/// balance set by hand and a card's statement close moved.
+/// balance set by hand and a card's statement close moved. An account or
+/// a moved close the ledger's write rules refuse throws a [RecordRefused]
+/// before anything changes.
 final class AccountCommands {
   AccountCommands({
     required this._context,
@@ -37,15 +49,22 @@ final class AccountCommands {
   final BalanceService _balances;
 
   void addAccount(Account account) {
+    _check(account);
     _accounts.add(account);
     _context.changed(const {Topic.accounts});
     _context.keep(WriteBatch(accounts: [account]));
   }
 
-  /// Puts [account] in place of the one with the same id.
+  /// Puts [account] in place of the one with the same id. A person who
+  /// still owes money, or is owed it, is not archived ([ArchivedOwing]).
   void updateAccount(Account account) {
     final before = _accounts.byId(account.id);
     if (before == null) return addAccount(account);
+    _check(account);
+    if (account.archived && !before.archived) {
+      final issues = _archiveIssues(account);
+      if (issues.isNotEmpty) throw RecordRefused(issues);
+    }
     // A form that does not show a card's moved closes and earlier billing
     // days keeps them.
     account = account.copyWith(
@@ -71,9 +90,9 @@ final class AccountCommands {
       return after;
     }
     final day = after.closingDay ?? closing;
-    var from = DateTime.utc(_context.today.year, _context.today.month + 1, 0);
+    var from = monthEnd(_context.today.year, _context.today.month);
     for (final month in [_context.today.month, _context.today.month + 1]) {
-      final last = DateTime.utc(_context.today.year, month + 1, 0);
+      final last = monthEnd(_context.today.year, month);
       final close = DateTime.utc(last.year, last.month, min(day, last.day));
       if (close.isAfter(_context.today)) {
         from = close;
@@ -133,10 +152,33 @@ final class AccountCommands {
   void moveClose(String cardId, DateTime scheduled, DateTime closesOn) {
     final card = _accounts.byId(cardId);
     if (card == null) return;
+    if (!card.canMoveClose(scheduled, closesOn)) {
+      throw RecordRefused(const [CloseMoveRefused()]);
+    }
     final moved = card.copyWith(closes: {...card.closes, scheduled: closesOn});
     _accounts.replace(moved);
     _context.changed(Topic.all);
     _context.keep(WriteBatch(accounts: [moved]));
+  }
+
+  /// Why [account] cannot be archived as its balance will stand once
+  /// what is dated ahead has come.
+  List<RecordIssue> _archiveIssues(Account account) => archiveIssues(
+    kind: account.kind,
+    balance: _balances.finalBalance(account.id),
+  );
+
+  /// Refuses [account] with a [RecordRefused] when the write rules find
+  /// it wrong.
+  static void _check(Account account) {
+    final List<RecordIssue> issues = accountIssues(
+      name: account.name,
+      closingDay: account.closingDay,
+      dueDay: account.dueDay,
+      limit: account.limit,
+      loanRate: account.loan?.rate,
+    );
+    if (issues.isNotEmpty) throw RecordRefused(issues);
   }
 
   /// Whether anything still names account [id]: an entry, one in the
@@ -147,11 +189,45 @@ final class AccountCommands {
       _trash.mentionsAccount(id) ||
       _recurring.mentionsAccount(id);
 
-  void removeAccount(String id) {
-    if (isUsed(id)) return;
-    final removed = _accounts.remove(id);
-    if (removed == null) return;
+  /// Whether an entry in the book or a recurring item names [id]: what
+  /// keeps it from being removed, whatever the trash holds.
+  bool usedOutsideTrash(String id) =>
+      _entries.any((e) => e.account == id || e.to == id) ||
+      _recurring.mentionsAccount(id);
+
+  /// The deleted entries, still in the trash, that name [id]: they keep
+  /// it from being removed until they are emptied (D78).
+  List<Trashed> trashedNaming(String id) => _trash.mentioning(id);
+
+  /// Takes away the account [id] when nothing names it ([isUsed]); the
+  /// [Undo] puts it back where it stood (D82). Null when it is not taken.
+  Undo? removeAccount(String id) {
+    if (isUsed(id)) return null;
+    final found = _accounts.removeAt(id);
+    if (found == null) return null;
+    final (index, removed) = found;
     _context.changed(Topic.all);
     _context.keep(WriteBatch(dropped: [(Collection.account, removed.id)]));
+    return () {
+      if (!_accounts.putAt(index, removed)) return;
+      _context.changed(Topic.all);
+      _context.keep(WriteBatch(accounts: [removed], putBack: true));
+    };
+  }
+
+  /// Archives the account [id], or brings it back when [archived] is
+  /// false; the [Undo] sets it as it was (D82). Null when there is none
+  /// or it already is so.
+  Undo? setArchived(String id, {required bool archived}) {
+    final before = _accounts.byId(id);
+    if (before == null || before.archived == archived) return null;
+    updateAccount(before.copyWith(archived: archived));
+    return () {
+      final now = _accounts.byId(id);
+      if (now == null || now.archived != archived) return;
+      // Brought back and owing again since: it stays in sight.
+      if (!archived && _archiveIssues(now).isNotEmpty) return;
+      updateAccount(now.copyWith(archived: !archived));
+    };
   }
 }

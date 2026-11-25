@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../controls.dart';
+import '../findable.dart';
 import '../glyphs.dart';
 import '../haptics.dart';
 import '../theme.dart';
 import '../components.dart';
 import '../shape.dart';
 import '../spacing.dart';
+
+import 'package:shell/setting_topic.dart';
 
 // Flat tinted cards, their grid, the main card and the big segment buttons.
 
@@ -83,10 +86,12 @@ class ColorCard extends StatelessWidget {
 
 /// A setting as a card: its icon on a solid square at the top left, a
 /// [TickSwitch] (or nothing) at the top right, its name and one line of
-/// state below. A tap opens its details in a [showCenterPanel].
+/// state below. A tap opens its details in a [showCenterPanel]. Search
+/// finds it by [topic], declared where the card is built (N8).
 class SettingCard extends StatelessWidget {
   const SettingCard({
     super.key,
+    required this.topic,
     required this.glyph,
     required this.color,
     required this.title,
@@ -96,6 +101,7 @@ class SettingCard extends StatelessWidget {
     this.onTap,
   });
 
+  final SettingTopic topic;
   final Glyph glyph;
   final Color color;
   final String title;
@@ -114,47 +120,50 @@ class SettingCard extends StatelessWidget {
     final off = on == false;
     final tone = off ? AppColors.faint : color;
     final words = off ? AppColors.muted : deepOf(color);
-    return ColorCard(
-      color: tone,
-      onTap: onTap,
-      padding: const EdgeInsets.fromLTRB(
-        Space.s4,
-        Space.s4,
-        Space.s2,
-        Space.s4,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SquareIcon(glyph, tone, size: 46),
-              const Spacer(),
-              if (on != null)
-                TickSwitch(
-                  value: on,
-                  color: tone,
-                  label: title,
-                  onChanged: onChanged,
-                ),
-            ],
-          ),
-          const SizedBox(height: Space.s4),
-          OneLine(
-            title,
-            style: TextStyle(
-              fontSize: TextSize.title,
-              fontWeight: FontWeight.w700,
-              color: words,
+    return Findable(
+      topic: topic,
+      child: ColorCard(
+        color: tone,
+        onTap: onTap,
+        padding: const EdgeInsets.fromLTRB(
+          Space.s4,
+          Space.s4,
+          Space.s2,
+          Space.s4,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SquareIcon(glyph, tone, size: 46),
+                const Spacer(),
+                if (on != null)
+                  TickSwitch(
+                    value: on,
+                    color: tone,
+                    label: title,
+                    onChanged: onChanged,
+                  ),
+              ],
             ),
-          ),
-          const SizedBox(height: Space.half),
-          OneLine(
-            detail,
-            style: TextStyle(fontSize: TextSize.small, color: words),
-          ),
-        ],
+            const SizedBox(height: Space.s4),
+            OneLine(
+              title,
+              style: TextStyle(
+                fontSize: TextSize.title,
+                fontWeight: FontWeight.w700,
+                color: words,
+              ),
+            ),
+            const SizedBox(height: Space.half),
+            OneLine(
+              detail,
+              style: TextStyle(fontSize: TextSize.small, color: words),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -170,29 +179,38 @@ class CardGrid extends StatelessWidget {
   final double gap;
 
   @override
-  Widget build(BuildContext context) {
-    final rows = <Widget>[];
-    for (var i = 0; i < children.length; i += columns) {
-      final cells = <Widget>[];
-      for (var j = 0; j < columns; j++) {
-        if (j > 0) cells.add(SizedBox(width: gap));
-        final k = i + j;
-        cells.add(
-          Expanded(child: k < children.length ? children[k] : const SizedBox()),
-        );
-      }
-      if (rows.isNotEmpty) rows.add(SizedBox(height: gap));
-      rows.add(
-        IntrinsicHeight(
+  Widget build(BuildContext context) => Column(
+    children: rowsOf(children, columns: columns, gap: gap),
+  );
+
+  /// The grid's rows, each one widget with [gap] above it but the first:
+  /// in a list, a long grid (every merchant) is built a row at a time as
+  /// it comes on screen.
+  static List<Widget> rowsOf(
+    List<Widget> children, {
+    int columns = 2,
+    double gap = 12,
+  }) => [
+    for (var i = 0; i < children.length; i += columns)
+      Padding(
+        padding: EdgeInsets.only(top: i == 0 ? 0 : gap),
+        child: IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: cells,
+            children: [
+              for (var j = 0; j < columns; j++) ...[
+                if (j > 0) SizedBox(width: gap),
+                Expanded(
+                  child: i + j < children.length
+                      ? children[i + j]
+                      : const SizedBox(),
+                ),
+              ],
+            ],
           ),
         ),
-      );
-    }
-    return Column(children: rows);
-  }
+      ),
+  ];
 }
 
 /// Big buttons that switch a page between its parts, such as 持股 and

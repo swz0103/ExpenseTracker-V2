@@ -1,7 +1,23 @@
-part of 'tags_page.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/done_messages.dart';
+import '../../../core/navigation/nav.dart';
+import '../model/tag_summary.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import 'tags_page.dart';
 
 /// A tag's page or a merchant's: the big card with ⋯ (改名, 合併到…,
-/// 移除), then its entries on a white board, each opening that entry.
+/// 刪除), then its entries on a white board, each opening that entry.
 class TagPage extends StatelessWidget {
   const TagPage({
     super.key,
@@ -18,12 +34,23 @@ class TagPage extends StatelessWidget {
 
   String get _shown => merchant ? name : '#$name';
 
-  void _move(String to) {
-    if (merchant) {
-      ledger.entryCommands.renameMerchant(name, to);
-    } else {
-      ledger.entryCommands.renameTag(name, to);
-    }
+  /// Renames, merges ([to] another's name) or, with an empty [to],
+  /// deletes the tag or merchant, told with 復原 and not asked first
+  /// (D82).
+  void _move(BuildContext context, String to, {bool merge = false}) {
+    final undo = merchant
+        ? ledger.entryCommands.renameMerchant(name, to)
+        : ledger.entryCommands.renameTag(name, to);
+    final into = merchant ? to : '#$to';
+    showUndo(
+      context,
+      to.isEmpty
+          ? DoneWords.deleted(_shown)
+          : merge
+          ? DoneWords.merged(_shown, into)
+          : DoneWords.renamed(_shown, into),
+      undo,
+    );
   }
 
   List<String> _others() => [
@@ -43,25 +70,9 @@ class TagPage extends StatelessWidget {
       (_) => _RenameSheet(name: name, merchant: merchant),
     );
     if (typed == null || typed == name || !context.mounted) return;
-    if (_others().contains(typed)) {
-      final ok = await _askMerge(context, typed);
-      if (!ok) return;
-    }
-    _move(typed);
+    // A name another has merges into it.
+    _move(context, typed, merge: _others().contains(typed));
     _openOther(typed);
-  }
-
-  Future<bool> _askMerge(BuildContext context, String into) {
-    final count = merchant
-        ? visitsTo(ledger.entries, name).length
-        : tagSummaryOf(ledger.entries, name)?.entries.length ?? 0;
-    final target = merchant ? into : '#$into';
-    return confirm(
-      context,
-      '合併到 $target？',
-      '合併',
-      body: '$name 的 $count 筆紀錄會改成 $target，$_shown 就不見了。',
-    );
   }
 
   Future<void> _merge(BuildContext context) async {
@@ -116,44 +127,36 @@ class TagPage extends StatelessWidget {
       ),
     );
     if (into == null || !context.mounted) return;
-    if (!await _askMerge(context, into)) return;
-    _move(into);
+    _move(context, into, merge: true);
     _openOther(into);
   }
 
-  Future<void> _remove(BuildContext context) async {
-    final count = merchant
-        ? visitsTo(ledger.entries, name).length
-        : tagSummaryOf(ledger.entries, name)?.entries.length ?? 0;
-    final ok = await confirm(
-      context,
-      '移除 $_shown？',
-      '移除',
-      danger: true,
-      body: merchant
-          ? '$count 筆紀錄會拿掉這個商家，紀錄本身保留。'
-          : '$count 筆紀錄會拿掉這個標籤，紀錄本身保留。',
-    );
-    if (!ok) return;
-    _move('');
+  /// Takes the tag or merchant off its entries, which stay.
+  void _remove(BuildContext context) {
+    _move(context, '');
     nav.back();
   }
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // The entries of the tag or merchant, their categories' icons.
+      listenable: ledger.watch(const {Topic.entries, Topic.categories}),
       builder: (context, _) {
+        // Worked out once a build: each is a pass over the book.
+        final project = merchant
+            ? null
+            : tagSummaryOf(ledger.entries, name, ledger.today);
         final entries = merchant
             ? visitsTo(ledger.entries, name)
-            : tagSummaryOf(ledger.entries, name)?.entries ?? const <Entry>[];
+            : project?.entries ?? const <Entry>[];
         final menu = DotsMenu([
           DotsItem(Glyph.edit, '改名', () => _rename(context)),
           if (_others().isNotEmpty)
             DotsItem(Glyph.merge, '合併到…', () => _merge(context)),
           DotsItem(
             Glyph.trash,
-            merchant ? '移除商家' : '移除標籤',
+            merchant ? '刪除商家' : '刪除標籤',
             () => _remove(context),
             danger: true,
           ),
@@ -165,18 +168,14 @@ class TagPage extends StatelessWidget {
             if (entries.isEmpty)
               EmptyState(
                 glyph: merchant ? Glyph.store : Glyph.ticket,
-                color: merchant ? _merchantColor : _tagColor,
+                color: merchant ? merchantColor : tagColor,
                 message: '沒有紀錄',
               )
             else ...[
               if (merchant)
                 _VisitsCard(name: name, visits: entries, menu: menu)
               else
-                TagSummaryCard(
-                  ledger: ledger,
-                  project: tagSummaryOf(ledger.entries, name)!,
-                  menu: menu,
-                ),
+                TagSummaryCard(ledger: ledger, project: project!, menu: menu),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   Space.s2,
@@ -185,7 +184,9 @@ class TagPage extends StatelessWidget {
                   Space.s2,
                 ),
                 child: Text(
-                  merchant ? '紀錄' : '紀錄 · ${entries.length} 筆',
+                  merchant
+                      ? '紀錄'
+                      : '紀錄 · ${countOf(entries.length, CountUnit.entries)}',
                   style: const TextStyle(
                     fontSize: TextSize.body,
                     fontWeight: FontWeight.w800,
@@ -326,11 +327,18 @@ class _RenameSheetState extends State<_RenameSheet> {
 
   void _done() {
     final typed = _text.text.trim().replaceFirst(RegExp('^#'), '');
-    Navigator.of(context).pop(typed.isEmpty ? null : typed);
+    EditGuard.close(context, typed.isEmpty ? null : typed);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _text,
+    builder: (context, form) =>
+        EditGuard(changed: _text.text != widget.name, child: form!),
+    child: _form(),
+  );
+
+  Widget _form() {
     final color = nameColor(widget.name);
     final ink = deepOf(color);
     return Padding(
@@ -398,6 +406,21 @@ class _RenameSheetState extends State<_RenameSheet> {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: Space.s4),
+          Row(
+            children: [
+              const Expanded(child: CancelButton()),
+              const SizedBox(width: Space.s2),
+              Expanded(
+                flex: 2,
+                child: PanelButton(
+                  Words.done,
+                  color: AppColors.accent,
+                  onTap: _done,
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'engine.dart';
 import 'rules/imports.dart';
+import 'rules/owned.dart';
 import 'rules/structure.dart';
 import 'rules/usage.dart';
 
@@ -10,6 +11,9 @@ const List<Rule> allRules = [
   PureCalc(),
   NumberFormat(),
   ClockAndPadding(),
+  CalendarByHand(),
+  OwnedValues(),
+  StatusWordLiterals(),
   TextLiterals(),
   NoPart(),
   CatchHandled(),

@@ -71,6 +71,14 @@ final class CategoryForm {
     return null;
   }
 
+  /// Whether the form, its name typed as [name], differs from [initial]
+  /// (D83: leaving it then asks first).
+  bool changedFrom(String name) =>
+      name.trim() != initial.name ||
+      icon != initial.icon ||
+      color != initial.color ||
+      parent != initial.parent;
+
   /// The category as the form stands, named [name] (trimmed); null when
   /// it has no name.
   Category? build(String name) {

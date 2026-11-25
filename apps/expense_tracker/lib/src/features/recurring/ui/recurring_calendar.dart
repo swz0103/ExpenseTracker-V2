@@ -1,11 +1,34 @@
-part of 'recurring_page.dart';
+import 'package:core/time/utc_days.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/entry_tile.dart';
+import '../../../core/widgets/problem_note.dart';
+import '../model/recurring_schedule.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/month_grid.dart';
+import '../../../core/design_system/motion.dart';
+import '../../../core/formatting/words.dart';
+import 'recurring_rows.dart';
+
+/// The grey of a day with several items, or with all of them booked.
+const _busyDay = AppColors.surface;
 
 // The month as a calendar and the items of the day chosen.
 
 /// The month as a white calendar: day numbers on one line, a fixed slot
 /// under each for its mark, dots or tick, and 到期 under a day due.
-class _Calendar extends StatelessWidget {
-  const _Calendar({
+class RecurringCalendar extends StatelessWidget {
+  const RecurringCalendar({
+    super.key,
     required this.ledger,
     required this.year,
     required this.month,
@@ -84,12 +107,14 @@ class _Calendar extends StatelessWidget {
 
   Widget _dayCell(BuildContext context, int d, DateTime today) {
     final day = DateTime.utc(year, month, d);
-    final todayDay = DateTime.utc(today.year, today.month, today.day);
+    final todayDay = dayOf(today);
     final isToday = day == todayDay;
     final past = day.isBefore(todayDay);
     final items = plan[d] ?? const <Due>[];
     final allBooked = items.isNotEmpty && items.every((x) => x.settled);
-    final due = items.any((x) => !x.settled) && !day.isAfter(todayDay);
+    final due = items.any(
+      (x) => x.statusOn(todayDay) == RecurringPeriodStatus.due,
+    );
     final single = items.length == 1 && !allBooked;
     final (glyph, color) = single
         ? recurringMark(ledger, items.first.item)
@@ -117,7 +142,7 @@ class _Calendar extends StatelessWidget {
       selected: isChosen,
       label:
           '$month 月 $d 日'
-          '${items.isEmpty ? '' : '，${items.length} 筆${due ? '，到期' : ''}'}',
+          '${items.isEmpty ? '' : '，${countOf(items.length, CountUnit.entries)}${due ? '，${StatusWords.due}' : ''}'}',
       onTap: () => onPick(d),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -138,7 +163,7 @@ class _Calendar extends StatelessWidget {
               // cut their bottom off); a week with none takes no room for it.
               if (due)
                 const Text(
-                  '到期',
+                  StatusWords.due,
                   textScaler: TextScaler.noScaling,
                   style: TextStyle(
                     fontSize: TextSize.tiny,
@@ -260,8 +285,9 @@ class _Calendar extends StatelessWidget {
 
 /// The chosen day: its date and how far off, then its items as cards
 /// (side by side to slide through when several), or a line to add one.
-class _DayItems extends StatefulWidget {
-  const _DayItems({
+class RecurringDayItems extends StatefulWidget {
+  const RecurringDayItems({
+    super.key,
     required this.ledger,
     required this.day,
     required this.items,
@@ -274,25 +300,27 @@ class _DayItems extends StatefulWidget {
   final Ledger ledger;
   final DateTime day;
   final List<Due> items;
-  final ValueChanged<Recurring> onBook;
+
+  /// 入帳 pressed on an item's period: the item and the day it falls on.
+  final void Function(Recurring item, DateTime day) onBook;
   final ValueChanged<Recurring> onEdit;
   final ValueChanged<Entry> onOpen;
   final VoidCallback onAdd;
 
   @override
-  State<_DayItems> createState() => _DayItemsState();
+  State<RecurringDayItems> createState() => _DayItemsState();
 }
 
-class _DayItemsState extends State<_DayItems> {
+class _DayItemsState extends State<RecurringDayItems> {
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
     final today = ledger.today;
-    final todayDay = DateTime.utc(today.year, today.month, today.day);
+    final todayDay = dayOf(today);
     final day = widget.day;
     final items = widget.items;
     final away = day.difference(todayDay).inDays;
-    final allBooked = items.isNotEmpty && items.every((x) => x.settled);
+    final allSettled = items.isNotEmpty && items.every((x) => x.settled);
     final overdue = items.any((x) => !x.settled) && away < 0;
     final total = items.fold(
       0,
@@ -301,12 +329,12 @@ class _DayItemsState extends State<_DayItems> {
     final when = away == 0
         ? Words.today
         : away > 0
-        ? '$away 天後'
-        : '過了 ${-away} 天';
+        ? '${countOf(away, CountUnit.days)}後'
+        : '過了 ${countOf(-away, CountUnit.days)}';
     final right = items.isEmpty
-        ? (away > 0 ? '$away 天後' : '')
-        : allBooked
-        ? '已入帳'
+        ? (away > 0 ? '${countOf(away, CountUnit.days)}後' : '')
+        : allSettled
+        ? settledDayWords([for (final x in items) x.statusOn(todayDay)])
         : overdue
         ? when
         : items.length > 1
@@ -425,19 +453,26 @@ class _DayItemsState extends State<_DayItems> {
     final (glyph, markColor) = recurringMark(ledger, item);
     final skipped = x.skipped;
     final color = x.settled ? AppColors.faint : markColor;
-    final due = !x.settled && !x.day.isAfter(todayDay);
+    final status = x.statusOn(todayDay);
+    final due = status == RecurringPeriodStatus.due;
+    final words = recurringLook(status).words;
     final away = x.day.difference(todayDay).inDays;
     final account = ledger.account(item.account).name;
-    final line = skipped
-        ? '已跳過 · 不會再記'
-        : booked != null
-        ? '已入帳 · ${formatMd(booked.date)}'
-        : due
-        ? '$account · 到期'
-        : '$account · ${away == 0 ? Words.today : '$away 天後'}';
+    final line = switch (status) {
+      RecurringPeriodStatus.skipped => '$words · 不會再記',
+      RecurringPeriodStatus.booked => '$words · ${formatMd(booked!.date)}',
+      RecurringPeriodStatus.due => '$account · $words',
+      _ =>
+        '$account · ${away == 0 ? Words.today : '${countOf(away, CountUnit.days)}後'}',
+    };
     final amount = Text(
       '${item.income ? '+' : ''}'
       '${ledger.orDots(recurringAmount(ledger, item))}',
+      semanticsLabel: ledger.spoken(
+        item.amount,
+        currency: ledger.account(item.account).currency,
+        sense: item.income ? AmountSense.income : AmountSense.spending,
+      ),
       style: TextStyle(
         fontSize: TextSize.title,
         fontWeight: FontWeight.w800,
@@ -474,14 +509,17 @@ class _DayItemsState extends State<_DayItems> {
           amount,
           if (due) ...[
             const SizedBox(width: Space.s2),
-            _rowButton('入帳', markColor, () => widget.onBook(item)),
+            _rowButton('入帳', markColor, () => widget.onBook(item, x.day)),
           ] else if (skipped) ...[
             const SizedBox(width: Space.s2),
             _rowButton(
-              '恢復',
+              Words.unarchive,
               AppColors.white,
               ink: AppColors.accent,
-              () => ledger.recurringCommands.unskip(item, x.day),
+              () => refusalShown(
+                context,
+                () => ledger.recurringCommands.unskip(item, x.day),
+              ),
             ),
           ] else if (booked != null) ...[
             const SizedBox(width: Space.s2),
@@ -494,8 +532,13 @@ class _DayItemsState extends State<_DayItems> {
 }
 
 /// A small grey cell along the bottom: a label over a figure.
-class _Cell extends StatelessWidget {
-  const _Cell({required this.label, required this.value, this.onTap});
+class RecurringFigureCell extends StatelessWidget {
+  const RecurringFigureCell({
+    super.key,
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
 
   final String label;
   final String value;

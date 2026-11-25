@@ -1,8 +1,9 @@
+import 'package:core/foundation_values.dart' show YearMonth;
 import 'package:flutter/material.dart';
 
-import '../../../core/formatting/figures.dart';
+import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
 import '../../../core/design_system/glyphs.dart';
-import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
@@ -13,15 +14,11 @@ import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
-
-part 'budgets_pace.dart';
-part 'budgets_month_picker.dart';
+import 'budgets_pace.dart';
+import 'budgets_month_picker.dart';
 
 /// The colour of 預算管理, as on 更多.
 const _budgetColor = Palette.green;
-
-/// Gold for a budget nearly used up.
-const _nearColor = Palette.gold;
 
 /// 預算管理: the month in big words (tapped to pick another), the main
 /// card with what is left, what is used of the total and a bar of the
@@ -63,15 +60,15 @@ class _BudgetsPageState extends State<BudgetsPage> {
   Future<void> _addLimit() async {
     final picked = await showSheet<String>(
       context,
-      (_) => _AddLimit(ledger: ledger),
+      (_) => BudgetAddLimit(ledger: ledger),
     );
     if (picked != null && mounted) await _edit(picked);
   }
 
   Future<void> _pickMonth() async {
-    final picked = await showSheet<(int, int)>(
+    final picked = await showSheet<YearMonth>(
       context,
-      (_) => _MonthPicker(
+      (_) => BudgetMonthPicker(
         ledger: ledger,
         chosen: _month,
         first: _first,
@@ -128,7 +125,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
         Topic.categories,
       }),
       builder: (context, _) {
-        final (year, month) = _month;
+        final YearMonth(:year, :month) = _month;
         final shown = budgetMonthOf(ledger, _month);
         final spent = shown.spent;
         final total = shown.total;
@@ -150,11 +147,10 @@ class _BudgetsPageState extends State<BudgetsPage> {
             _monthCard(shown, year: year, month: month, current: current),
             if (total > 0) ...[
               const SizedBox(height: Space.s2),
-              _Pace(
+              BudgetPaceCard(
                 ledger: ledger,
                 year: year,
                 month: month,
-                current: current,
                 spent: spent,
                 total: total,
               ),
@@ -162,7 +158,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
             _LimitsHeading(month: month, current: current),
             CardGrid(gap: 10, [
               for (final line in shown.lines)
-                _Limit(
+                BudgetLimit(
                   ledger: ledger,
                   budget: line.budget,
                   used: line.spent,
@@ -202,7 +198,10 @@ class _LimitsHeading extends StatelessWidget {
             ),
           ),
         ),
-        Text(current ? '超支、快用完的排前面' : '$month 月', style: mutedSmall),
+        Text(
+          current ? '${StatusWords.over}、${StatusWords.near}的排前面' : '$month 月',
+          style: mutedSmall,
+        ),
       ],
     ),
   );
@@ -240,7 +239,9 @@ class _AddLimitCard extends StatelessWidget {
 }
 
 /// 「11 月 ⌄」 big on the left, tapped to pick a month; 回到本月 when
-/// another month is shown, and two round buttons to step.
+/// another month is shown, and two round buttons to step, on the right,
+/// or under the month when the line has no room for both (a narrow phone,
+/// large text).
 class _MonthRow extends StatelessWidget {
   const _MonthRow({
     required this.month,
@@ -278,7 +279,9 @@ class _MonthRow extends StatelessWidget {
         ),
       ),
     );
-    return Row(
+    return OverflowBar(
+      alignment: MainAxisAlignment.spaceBetween,
+      overflowAlignment: OverflowBarAlignment.end,
       children: [
         ReadAsButton(
           label: '$month 月，選月份',
@@ -314,23 +317,27 @@ class _MonthRow extends StatelessWidget {
             ),
           ),
         ),
-        const Spacer(),
-        if (!current)
-          TextButton(
-            onPressed: onToday,
-            style: wordButton(
-              AppColors.accent,
-              fill: AppColors.selected,
-              minimumSize: Size(0, 44),
-              radius: Radii.largeIncreased,
-            ),
-            child: const Text(
-              '回到本月',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
-        round(Glyph.back, Words.previousMonth, canBack ? onBack : null),
-        round(Glyph.next, Words.nextMonth, current ? null : onNext),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!current)
+              TextButton(
+                onPressed: onToday,
+                style: wordButton(
+                  AppColors.accent,
+                  fill: AppColors.selected,
+                  minimumSize: Size(0, 44),
+                  radius: Radii.largeIncreased,
+                ),
+                child: const Text(
+                  '回到本月',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            round(Glyph.back, Words.previousMonth, canBack ? onBack : null),
+            round(Glyph.next, Words.nextMonth, current ? null : onNext),
+          ],
+        ),
       ],
     );
   }
@@ -375,7 +382,13 @@ class _Main extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _head(left),
+          _head(
+            budgetStatus(
+              spent: spent,
+              limit: total,
+              warningPercent: whole.warning,
+            ),
+          ),
           Text.rich(
             TextSpan(
               children: [
@@ -410,8 +423,8 @@ class _Main extends StatelessWidget {
   }
 
   /// 剩 or 超支 over what is left, and the button to change the total.
-  Widget _head(int left) {
-    final over = left < 0;
+  Widget _head(BudgetStatus status) {
+    final over = status is BudgetOver;
     const ink = AppColors.accent;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -421,7 +434,7 @@ class _Main extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${current ? '本月' : '$month 月'}${over ? '超支' : '剩'}',
+                '${current ? '本月' : '$month 月'}${budgetLead(status)}',
                 style: TextStyle(
                   fontSize: TextSize.body,
                   fontWeight: FontWeight.w800,
@@ -432,7 +445,7 @@ class _Main extends StatelessWidget {
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  ledger.orDots(groupDigits(left.abs())),
+                  ledger.orDots(groupDigits(budgetFigure(status))),
                   style: TextStyle(
                     fontSize: TextSize.big,
                     fontWeight: FontWeight.w800,

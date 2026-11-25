@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../spacing.dart';
 import '../theme.dart';
 import 'colours.dart';
 
@@ -10,7 +11,7 @@ import 'colours.dart';
 ButtonStyle solidButton(
   Color fill, {
   Color? ink,
-  Size minimumSize = const Size(0, 48),
+  Size minimumSize = const Size(0, Space.target),
   double radius = 14,
   EdgeInsetsGeometry? padding,
   TextStyle? words,

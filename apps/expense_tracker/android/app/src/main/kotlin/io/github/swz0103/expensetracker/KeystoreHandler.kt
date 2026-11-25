@@ -17,24 +17,45 @@ import javax.crypto.SecretKey
 
 /**
  * A Keystore AES key that only a fingerprint or face can use, which wraps
- * the ledger key for unlocking without the password
+ * the ledger key for unlocking without the password; and a second one that
+ * needs no confirmation, which seals the key of a ledger opened without a
+ * password, so that key never lies on disk in plain form
  * (lib/src/app/android/keystore_adapter.dart).
  */
 class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
+    /**
+     * The Keystore answers over binder calls, on every password-less open:
+     * off the main thread, one at a time, so two first uses never make the
+     * sealing key twice (AND-07). The fingerprint prompt stays on it.
+     */
+    private val offMain = OffMain.serial(activity)
+
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         when (call.method) {
             "canUseBiometrics" -> result.success(
                 BiometricManager.from(activity).canAuthenticate(BIOMETRIC_STRONG) ==
                     BiometricManager.BIOMETRIC_SUCCESS,
             )
-            "hasDeviceKey" -> result.success(existingKey() != null)
+            "hasDeviceKey" -> offMain.answer(result, "keystore") { existingKey() != null }
             "wrap", "unwrap" -> {
+                val data = call.argument<ByteArray>("data")
+                val context = call.argument<ByteArray>("context")
+                // The prompt's words, as the app words them (NativeWords).
+                val title = call.argument<String>("title")
+                val password = call.argument<String>("password")
+                if (data == null || context == null || title.isNullOrEmpty() || password.isNullOrEmpty()) {
+                    result.error("bad-arguments", "data, context, title and password are required", null)
+                } else {
+                    crypt(call.method == "wrap", data, context, Prompt(title, password), result)
+                }
+            }
+            "quickWrap", "quickUnwrap" -> {
                 val data = call.argument<ByteArray>("data")
                 val context = call.argument<ByteArray>("context")
                 if (data == null || context == null) {
                     result.error("bad-arguments", "data and context are required", null)
                 } else {
-                    crypt(call.method == "wrap", data, context, result)
+                    quick(call.method == "quickWrap", data, context, result)
                 }
             }
             else -> return false
@@ -47,10 +68,14 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
      * confirms with a fingerprint or face. [context] is bound in as AES-GCM
      * associated data. A blob is the 12-byte IV followed by the ciphertext.
      */
+    /** The words of the fingerprint or face prompt: its title and the button back to the password. */
+    private class Prompt(val title: String, val password: String)
+
     private fun crypt(
         encrypt: Boolean,
         data: ByteArray,
         context: ByteArray,
+        words: Prompt,
         result: MethodChannel.Result,
     ) {
         val cipher: Cipher
@@ -108,17 +133,42 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
         }
         val prompt = BiometricPrompt(activity, ContextCompat.getMainExecutor(activity), callback)
         val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle(if (encrypt) "啟用指紋解鎖" else "解鎖記帳本")
-            .setNegativeButtonText("改用密碼")
+            .setTitle(words.title)
+            .setNegativeButtonText(words.password)
             .setAllowedAuthenticators(BIOMETRIC_STRONG)
             .build()
         prompt.authenticate(info, BiometricPrompt.CryptoObject(cipher))
     }
 
+    /**
+     * Seals [data], or opens a blob sealed so, with the key that needs no
+     * confirmation; [context] is bound in as AES-GCM associated data. The
+     * blob is the 12-byte IV followed by the ciphertext ([DeviceKeyBlob]).
+     */
+    private fun quick(
+        encrypt: Boolean,
+        data: ByteArray,
+        context: ByteArray,
+        result: MethodChannel.Result,
+    ) {
+        offMain.run(
+            // Null when opening: the sealing key is gone.
+            { if (encrypt) QuickSeal.seal(data, context) else QuickSeal.open(data, context) },
+            { output ->
+                if (output == null) {
+                    result.error("key-invalidated", "The sealing key is gone.", null)
+                } else {
+                    result.success(output)
+                }
+            },
+            { result.error("keystore", it.message, null) },
+        )
+    }
+
     /** The Keystore key, if there is one. */
-    private fun existingKey(): SecretKey? {
+    private fun existingKey(alias: String = ALIAS): SecretKey? {
         val store = KeyStore.getInstance(KEYSTORE).apply { load(null) }
-        return store.getKey(ALIAS, null) as? SecretKey
+        return store.getKey(alias, null) as? SecretKey
     }
 
     /** The Keystore key, made the first time; every use needs a confirmation. */

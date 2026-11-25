@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/display/amount.dart';
 import '../model/drive_backup.dart';
+import '../model/restore_sources.dart' show driveNote;
 import '../model/drive_sync.dart';
 import '../model/backup_manager.dart';
 import '../model/phone_backup.dart';
@@ -11,16 +13,19 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/messages/problem_messages.dart';
 import '../../../core/design_system/recovery_code.dart';
+import '../../../core/messages/backup_messages.dart';
 import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
-import '../../../core/formatting/dates.dart';
+import '../../../core/diagnostics/error_steps.dart';
+import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
-import '../../../core/design_system/shape.dart';
 import '../../../core/time/app_clock.dart';
-import '../../../core/formatting/words.dart';
 
-part 'backup_section_manual.dart';
-part 'backup_section_card_row.dart';
+import 'package:shell/setting_topic.dart';
+
+import '../../../core/formatting/words.dart';
+import 'backup_section_manual.dart';
+import 'backup_section_card_row.dart';
 
 /// Keeps a backup of this ledger, then opens the lock screen on choosing
 /// the backup to restore, from a file or Google Drive.
@@ -28,14 +33,19 @@ Future<void> restoreFromBackup(
   BuildContext context,
   BackupManager backupManager,
 ) async {
-  final ok = await confirm(context, '從備份還原？會先把目前的帳本連同照片備份一份，再換成你選的備份。', '選擇備份');
+  final ok = await confirm(
+    context,
+    BackupWords.restoreAsk,
+    BackupWords.restoreChoose,
+    body: BackupWords.restoreAskBody,
+  );
   if (!ok) return;
   try {
     await backupManager.restoreAnother();
   } on Object catch (error) {
     ErrorLog.instance.record('還原', error);
     if (context.mounted) {
-      showNote(context, '沒有開始還原：${describeProblem(error)}');
+      showNote(context, problemNote('沒有開始還原', error));
     }
   }
 }
@@ -65,11 +75,35 @@ class BackupSection extends StatefulWidget {
   /// Backups to a folder on the phone, on Android.
   final PhoneBackup? phone;
 
+  // What search finds here (N8): each topic marks its card.
+  static const topics = [
+    BackupTopics.drive_,
+    BackupTopics.folder,
+    BackupTopics.export,
+    BackupTopics.restore,
+  ];
+
+  /// The [topics] whose cards the section shows with [drive] and [phone]
+  /// (review 39 #4).
+  static List<SettingTopic> offered({DriveSync? drive, PhoneBackup? phone}) => [
+    if (drive != null) BackupTopics.drive_,
+    if (phone != null) BackupTopics.folder,
+    BackupTopics.export,
+    BackupTopics.restore,
+  ];
+
   @override
   State<BackupSection> createState() => _BackupSectionState();
 }
 
 class _BackupSectionState extends State<BackupSection> {
+  @override
+  void initState() {
+    super.initState();
+    // A folder whose permission was taken back is said on its card.
+    widget.phone?.check().ignore();
+  }
+
   /// Saves a backup outside the app. Without a password, only a recovery
   /// code opens it on another phone, so a new one is made and shown.
   Future<void> _export(BackupManager backupManager) async {
@@ -90,9 +124,11 @@ class _BackupSectionState extends State<BackupSection> {
           backupManager.hasPassword ? '已匯出備份檔' : '已匯出備份檔，還原時輸入你抄下的救援碼',
         );
       }
+      // The page says when the ledger was last backed up, this one too.
+      if (saved) setState(() {});
     } on Object catch (error) {
       ErrorLog.instance.record('匯出備份', error);
-      if (mounted) showNote(context, '匯出失敗：${describeProblem(error)}');
+      if (mounted) showNote(context, problemNote('匯出失敗', error));
     }
   }
 
@@ -113,11 +149,11 @@ class _BackupSectionState extends State<BackupSection> {
           ? '已把帳本備份到 Google 雲端硬碟，之後有變動就每天一次'
           : '沒有連結 Google 雲端硬碟';
     } on DriveException catch (error) {
-      // Its own message is said to the person.
-      note = error.message;
+      ErrorLog.instance.record(ErrorSteps.driveBackup, error);
+      note = driveNote(error);
     } on Object catch (error) {
       ErrorLog.instance.record('備份', error);
-      note = '備份失敗：${describeProblem(error)}';
+      note = problemNote('備份失敗', error);
     }
     // The code changed even when the backup did not go up: shown anyway.
     if (code != null && mounted) {
@@ -133,16 +169,22 @@ class _BackupSectionState extends State<BackupSection> {
       await drive.setPhotos(on);
       if (mounted && on) showNote(context, '已連同收據照片備份到雲端硬碟');
     } on DriveException catch (error) {
-      // Its own message is said to the person.
-      if (mounted) showNote(context, error.message);
+      ErrorLog.instance.record(ErrorSteps.driveBackup, error);
+      if (mounted) showNote(context, driveNote(error));
     } on Object catch (error) {
       ErrorLog.instance.record('備份', error);
-      if (mounted) showNote(context, '備份失敗：${describeProblem(error)}');
+      if (mounted) showNote(context, problemNote('備份失敗', error));
     }
   }
 
   Future<void> _unlinkDrive(DriveSync drive) async {
-    final ok = await confirm(context, '不再備份到 Google 雲端硬碟？已經在雲端的備份會留著。', '停止');
+    final ok = await confirm(
+      context,
+      BackupWords.driveStopAsk,
+      BackupWords.stop,
+      danger: true,
+      body: BackupWords.driveStopBody,
+    );
     if (!ok) return;
     await drive.unlink();
     if (mounted) showNote(context, '已停止雲端硬碟備份');
@@ -174,7 +216,7 @@ class _BackupSectionState extends State<BackupSection> {
         );
       } on Object catch (error) {
         ErrorLog.instance.record('手機資料夾備份', error);
-        note = '沒有備份到手機資料夾：${describeProblem(error)}';
+        note = problemNote('沒有備份到手機資料夾', error);
         go = false;
       }
       if (mounted && note != null) showNote(context, note);
@@ -210,7 +252,13 @@ class _BackupSectionState extends State<BackupSection> {
   }
 
   Future<void> _stopPhone(PhoneBackup phone) async {
-    final ok = await confirm(context, '停止自動備份到手機？資料夾裡的備份會留著。', '停止');
+    final ok = await confirm(
+      context,
+      BackupWords.folderStopAsk,
+      BackupWords.stop,
+      danger: true,
+      body: BackupWords.folderStopBody,
+    );
     if (!ok) return;
     await phone.stop();
     if (mounted) showNote(context, '已停止備份到手機資料夾');
@@ -218,16 +266,7 @@ class _BackupSectionState extends State<BackupSection> {
 
   /// 今天 21:03, 昨天 08:14, or 11/2 08:14.
   static String _when(DateTime at) {
-    final local = at.toLocal();
-    final now = AppClock.now();
-    String two(int n) => n.toString().padLeft(2, '0');
-    final time = '${two(local.hour)}:${two(local.minute)}';
-    final day = DateTime(local.year, local.month, local.day);
-    final today = DateTime(now.year, now.month, now.day);
-    final days = today.difference(day).inDays;
-    if (days == 0) return '今天 $time';
-    if (days == 1) return '昨天 $time';
-    return '${formatMd(local)} $time';
+    return formatWhen(at.toLocal(), today: AppClock.today());
   }
 
   static DateTime? _latest(Iterable<DateTime?> times) {
@@ -244,7 +283,16 @@ class _BackupSectionState extends State<BackupSection> {
     final phone = widget.phone;
     final preferences = widget.preferences;
     return ListenableBuilder(
-      listenable: Listenable.merge([?drive, ?phone, ?preferences]),
+      // What the cards show of the folder and Drive is kept in the
+      // settings: those two parts of them.
+      listenable: Listenable.merge([
+        ?drive,
+        ?phone,
+        ?preferences?.watch(const {
+          PreferenceTopic.phoneBackup,
+          PreferenceTopic.driveBackup,
+        }),
+      ]),
       builder: (context, _) {
         final folder = phone?.on ?? false;
         return Column(
@@ -263,7 +311,8 @@ class _BackupSectionState extends State<BackupSection> {
             Row(
               children: [
                 Expanded(
-                  child: _Manual(
+                  child: ManualBackup(
+                    topic: BackupTopics.export,
                     glyph: Glyph.upload,
                     label: '匯出一份',
                     color: SettingsColors.csv,
@@ -272,7 +321,8 @@ class _BackupSectionState extends State<BackupSection> {
                 ),
                 const SizedBox(width: Space.s3),
                 Expanded(
-                  child: _Manual(
+                  child: ManualBackup(
+                    topic: BackupTopics.restore,
                     glyph: Glyph.download,
                     label: '還原',
                     color: SettingsColors.invoice,
@@ -298,6 +348,7 @@ class _BackupSectionState extends State<BackupSection> {
     final latest = _latest([
       if (linked) drive?.backedUp,
       if (folder) phone?.backedUp,
+      widget.backupManager.exportedAt,
     ]);
     return BackupHero(
       at: latest,
@@ -311,7 +362,8 @@ class _BackupSectionState extends State<BackupSection> {
   Widget _driveCard(DriveSync drive) {
     const color = SettingsColors.backup;
     final linked = drive.linked;
-    return _BackupCard(
+    return BackupCard(
+      topic: BackupTopics.drive_,
       glyph: Glyph.upload,
       color: color,
       title: 'Google 雲端硬碟',
@@ -323,7 +375,13 @@ class _BackupSectionState extends State<BackupSection> {
                 : _unlinkDrive(drive),
       rows: [
         if (linked) ...[
-          _CardRow(
+          if (drive.account case final account?)
+            BackupCardRow(
+              color: color,
+              title: BackupWords.account,
+              detail: account,
+            ),
+          BackupCardRow(
             color: color,
             title: '上次備份',
             value: drive.busy
@@ -333,10 +391,14 @@ class _BackupSectionState extends State<BackupSection> {
                     null => '還沒有',
                   },
           ),
-          _CardRow(
+          BackupCardRow(
             color: color,
             title: '收據照片',
-            detail: drive.photos ? '連 Wi-Fi 時一起備份' : null,
+            detail: drive.photos
+                ? drive.photosOnWifi
+                      ? '連 Wi-Fi 時一起備份'
+                      : BackupWords.photosAnyNetwork
+                : null,
             trailing: TickSwitch(
               value: drive.photos,
               color: color,
@@ -345,6 +407,22 @@ class _BackupSectionState extends State<BackupSection> {
             ),
             onTap: drive.busy ? null : () => _drivePhotos(drive, !drive.photos),
           ),
+          // Photos make a backup large: by default it waits for Wi-Fi
+          // (AND-05), the person's choice.
+          if (drive.photos)
+            BackupCardRow(
+              color: color,
+              title: BackupWords.photosOnWifi,
+              detail: BackupWords.photosOnWifiOff,
+              trailing: TickSwitch(
+                key: Keys.photosOnWifi,
+                value: drive.photosOnWifi,
+                color: color,
+                label: BackupWords.photosOnWifi,
+                onChanged: (v) => drive.setPhotosOnWifi(v),
+              ),
+              onTap: () => drive.setPhotosOnWifi(!drive.photosOnWifi),
+            ),
         ],
       ],
     );
@@ -353,7 +431,8 @@ class _BackupSectionState extends State<BackupSection> {
   Widget _folderCard(PhoneBackup phone) {
     const color = SettingsColors.folder;
     final on = phone.on;
-    return _BackupCard(
+    return BackupCard(
+      topic: BackupTopics.folder,
       glyph: Glyph.records,
       color: color,
       title: '存到資料夾',
@@ -363,14 +442,19 @@ class _BackupSectionState extends State<BackupSection> {
           : (next) => next ? _choosePhone(phone) : _stopPhone(phone),
       rows: [
         if (on) ...[
-          _CardRow(
+          if (phone.denied)
+            FolderDeniedRow(
+              color: color,
+              onChoose: phone.busy ? null : () => _choosePhone(phone),
+            ),
+          BackupCardRow(
             color: color,
             title: '多久一次',
             detail: phone.problem != null ? '上次沒有成功' : null,
             value: phone.daily ? '每天' : '每週',
             onTap: () => phone.setDaily(!phone.daily),
           ),
-          _CardRow(
+          BackupCardRow(
             color: color,
             title: '資料夾',
             value: phone.folderName,
@@ -428,7 +512,7 @@ class BackupHero extends StatelessWidget {
         (at == null
             ? '還沒有備份'
             : stale && days != null
-            ? '已經 $days 天沒備份'
+            ? '已經 ${countOf(days, CountUnit.days)}沒備份'
             : _BackupSectionState._when(at));
     return ColorCard(
       color: color,
@@ -477,79 +561,6 @@ class BackupHero extends StatelessWidget {
           if (trailing != null) ...[
             const SizedBox(height: Space.s3),
             trailing!,
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// A way of backing up as a tinted card: its icon, name and tick, then
-/// its settings below thin rules, each with its value on the right.
-class _BackupCard extends StatelessWidget {
-  const _BackupCard({
-    required this.glyph,
-    required this.color,
-    required this.title,
-    required this.value,
-    required this.onChanged,
-    required this.rows,
-  });
-
-  final Glyph glyph;
-  final Color color;
-  final String title;
-  final bool value;
-  final ValueChanged<bool>? onChanged;
-  final List<Widget> rows;
-
-  @override
-  Widget build(BuildContext context) {
-    final change = onChanged;
-    return ColorCard(
-      controlsInside: true,
-      color: color,
-      padding: const EdgeInsets.fromLTRB(
-        Space.s4,
-        Space.s3,
-        Space.s2,
-        Space.s3,
-      ),
-      child: Column(
-        children: [
-          ToggleRow(
-            value: value,
-            onChanged: change,
-            label: title,
-            child: Row(
-              children: [
-                SquareIcon(glyph, color, size: 40),
-                const SizedBox(width: Space.s4),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: TextSize.title,
-                      fontWeight: FontWeight.w800,
-                      color: deepOf(color),
-                    ),
-                  ),
-                ),
-                TickSwitch(
-                  value: value,
-                  color: color,
-                  label: title,
-                  onChanged: change,
-                ),
-              ],
-            ),
-          ),
-          for (final row in rows) ...[
-            Padding(
-              padding: const EdgeInsets.only(right: Space.s2),
-              child: Divider(height: 12, color: tintOf(color, 0.4)),
-            ),
-            row,
           ],
         ],
       ),

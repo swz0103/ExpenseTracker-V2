@@ -4,19 +4,37 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/diagnostics/error_steps.dart';
 import '../../../core/time/app_clock.dart';
+import 'backup_rules.dart';
+import '../../../core/diagnostics/app_fault.dart';
 
 /// The folder chosen cannot be kept: Android gave no lasting permission
 /// for it, as for the storage's top or 下載 since Android 11.
-final class FolderRejected implements Exception {
+final class FolderRejected implements AppFault {
   const FolderRejected();
 
   @override
   String toString() => '這個位置不能存備份';
 }
 
+/// The phone's folder chosen for backups no longer lets the app write:
+/// the person took the permission back. The background job hands the
+/// same as its code (`BackupPlan.FOLDER_DENIED`).
+final class FolderDenied implements AppFault {
+  const FolderDenied();
+
+  @override
+  String toString() => 'FolderDenied';
+}
+
 /// A file in the chosen folder.
 typedef FolderFile = ({String id, String name, DateTime modified});
+
+/// How a backup's key epoch is read from its first bytes: how many to
+/// read (`reach`), and the epoch they name (`epochIn`, which throws when
+/// they are not a backup's start). `EncryptedBackupManager.head`.
+typedef BackupHead = ({int reach, int Function(List<int> leading) epochIn});
 
 /// A folder on the phone chosen once, which the app keeps writing into:
 /// Android's folder chooser and its documents API; a fake in tests.
@@ -35,12 +53,17 @@ abstract interface class FolderPort {
   Future<List<FolderFile>> list(String uri);
   Future<void> write(String uri, File file, String name);
   Future<void> delete(String uri, String id);
+
+  /// The first bytes of file [id], at most [bytes] of them: enough to
+  /// read a backup's header without copying the whole file.
+  Future<List<int>> head(String uri, String id, int bytes);
 }
 
 /// Backups to a folder on the phone, such as one in Documents that the
 /// phone's own backup or a computer can copy: chosen once, then written
 /// daily or weekly when the ledger changed, each with the receipt photos.
-/// The newest [keep] are kept; the app only touches its own files there.
+/// The newest [BackupRules.keep] are kept; the app only touches its own
+/// files there.
 final class PhoneBackup extends ChangeNotifier {
   PhoneBackup(
     this._folder,
@@ -49,7 +72,7 @@ final class PhoneBackup extends ChangeNotifier {
     required this._revision,
     required String ledger,
     DateTime Function()? clock,
-  }) : _mark = markOf(ledger),
+  }) : _mark = BackupRules.markOf(ledger),
        _clock = clock ?? AppClock.now;
 
   final FolderPort _folder;
@@ -58,24 +81,8 @@ final class PhoneBackup extends ChangeNotifier {
   final int Function() _revision;
   final DateTime Function() _clock;
 
-  /// A short mark of the ledger in its backups' names, so the folder can
-  /// hold another ledger's backups (such as one restored in its place)
-  /// and only this ledger's are ever deleted.
+  /// The ledger's mark in its backups' names ([BackupRules.markOf]).
   final String _mark;
-
-  /// The mark of [ledger] in its backups' names; the background worker
-  /// (BackupWorker.kt) is given it in the outbox.
-  static String markOf(String ledger) {
-    final plain = ledger.replaceAll(RegExp('[^A-Za-z0-9]'), '');
-    return plain.length > 6 ? plain.substring(0, 6) : plain;
-  }
-
-  /// How many backups stay in the folder.
-  static const keep = 5;
-
-  /// The start and end of the names of the app's backups there.
-  static const _prefix = '記帳本-';
-  static const _suffix = '.etbk';
 
   bool get on => _preferences.phoneFolder != null;
   String get folderName => _preferences.phoneFolderName;
@@ -91,12 +98,30 @@ final class PhoneBackup extends ChangeNotifier {
   String? get problem => _problem;
   String? _problem;
 
+  /// The folder chosen no longer lets the app write ([FolderDenied]), as
+  /// last found by a backup or by [check]: the settings say so and offer
+  /// to choose again, until a folder is chosen.
+  bool get denied => _denied;
+  var _denied = false;
+
+  /// Asks whether the folder chosen still lets the app write, and notes
+  /// it in [denied]: a refusal the background job met shows too.
+  Future<void> check() async {
+    final uri = _preferences.phoneFolder;
+    if (uri == null) return;
+    final refused = !await _folder.allowed(uri);
+    if (refused == _denied || _preferences.phoneFolder != uri) return;
+    _denied = refused;
+    notifyListeners();
+  }
+
   /// Asks for a folder and writes a first backup into it. False when the
   /// person cancelled.
   Future<bool> choose() async {
     final picked = await _folder.pick();
     if (picked == null) return false;
     _preferences.phoneFolderSet(picked.uri, name: picked.name);
+    _denied = false;
     await backUpNow();
     return true;
   }
@@ -106,6 +131,7 @@ final class PhoneBackup extends ChangeNotifier {
     final uri = _preferences.phoneFolder;
     _preferences.phoneFolderSet(null);
     _problem = null;
+    _denied = false;
     notifyListeners();
     if (uri != null) await _folder.forget(uri);
   }
@@ -121,7 +147,7 @@ final class PhoneBackup extends ChangeNotifier {
   Future<bool> backUpIfDue() async {
     if (!on || _busy) return false;
     final last = backedUp;
-    final every = daily ? const Duration(days: 1) : const Duration(days: 7);
+    final every = BackupRules.phoneEvery(daily: daily);
     if (last != null &&
         (_clock().difference(last) < every ||
             _preferences.phoneRevision == _revision())) {
@@ -132,6 +158,8 @@ final class PhoneBackup extends ChangeNotifier {
       return true;
     } on Object catch (error) {
       ErrorLog.instance.record('手機資料夾備份', error);
+      // Exception to error words: kept for the log; the screen says only
+      // that the last backup did not work (上次沒有成功).
       _problem = ErrorLog.describe(error);
       notifyListeners();
       return false;
@@ -139,11 +167,7 @@ final class PhoneBackup extends ChangeNotifier {
   }
 
   /// The name of this ledger's backup taken at [at]: sorts by time.
-  String nameAt(DateTime at) {
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '$_prefix$_mark-${at.year}${two(at.month)}${two(at.day)}'
-        '-${two(at.hour)}${two(at.minute)}$_suffix';
-  }
+  String nameAt(DateTime at) => BackupRules.phoneName(_mark, at);
 
   Future<void> _write() async {
     final uri = _preferences.phoneFolder;
@@ -152,8 +176,10 @@ final class PhoneBackup extends ChangeNotifier {
     notifyListeners();
     try {
       if (!await _folder.allowed(uri)) {
-        throw StateError('沒有這個資料夾的存取權，請重新選擇');
+        _denied = true;
+        throw const FolderDenied();
       }
+      _denied = false;
       final at = _clock();
       final revision = _revision();
       await _withBackup((file) => _folder.write(uri, file, nameAt(at)));
@@ -166,17 +192,67 @@ final class PhoneBackup extends ChangeNotifier {
     }
   }
 
-  /// Deletes this ledger's backups beyond the newest [keep]; other files
+  /// This ledger's backups in the folder sealed before a reset of the
+  /// keys at [at], newest first: those whose header, read by [head],
+  /// names a key epoch before [epoch]. One whose header cannot be read is
+  /// judged by the
+  /// time in its name, and in the minute of [at] by when the file was
+  /// written; a folder that gives no such time (0) keeps it out of the
+  /// list. None when no folder is chosen.
+  Future<List<FolderFile>> writtenBefore(
+    DateTime at, {
+    required int epoch,
+    required BackupHead head,
+  }) async {
+    final uri = _preferences.phoneFolder;
+    if (uri == null) return const [];
+    final then = nameAt(at);
+    return [
+      for (final file in await _ours(uri))
+        if (switch (await _epochOf(uri, file, head)) {
+          final sealed? => sealed < epoch,
+          null =>
+            file.name.compareTo(then) < 0 ||
+                (file.name == then &&
+                    file.modified.millisecondsSinceEpoch > 0 &&
+                    file.modified.isBefore(at)),
+        })
+          file,
+    ];
+  }
+
+  /// The key epoch [file]'s header names; null when it cannot be read.
+  Future<int?> _epochOf(String uri, FolderFile file, BackupHead head) async {
+    try {
+      return head.epochIn(await _folder.head(uri, file.id, head.reach));
+    } on Object catch (error) {
+      ErrorLog.instance.record(ErrorSteps.oldKeyBackups, error);
+      return null;
+    }
+  }
+
+  /// Deletes this ledger's backup [id] from the folder ([writtenBefore]).
+  Future<void> remove(String id) async {
+    final uri = _preferences.phoneFolder;
+    if (uri == null) return;
+    await _folder.delete(uri, id);
+  }
+
+  /// This ledger's backups in the folder, newest first.
+  Future<List<FolderFile>> _ours(String uri) async => [
+    for (final file in await _folder.list(uri))
+      if (file.name.startsWith(BackupRules.phonePrefix(_mark)) &&
+          file.name.endsWith(BackupRules.suffix))
+        file,
+  ]..sort((a, b) => b.name.compareTo(a.name));
+
+  /// Deletes this ledger's backups beyond the newest [BackupRules.keep];
+  /// other files
   /// in the folder, another ledger's backups among them, are never
   /// touched.
   Future<void> _prune(String uri) async {
-    final ours = [
-      for (final file in await _folder.list(uri))
-        if (file.name.startsWith('$_prefix$_mark-') &&
-            file.name.endsWith(_suffix))
-          file,
-    ]..sort((a, b) => b.name.compareTo(a.name));
-    for (final old in ours.skip(keep)) {
+    final ours = await _ours(uri);
+    for (final old in ours.skip(BackupRules.keep)) {
       await _folder.delete(uri, old.id);
     }
   }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/messages/amount_messages.dart';
+import '../../design_system/display/amount.dart';
 import '../core/diagnostics/error_log.dart';
 import '../core/diagnostics/performance_monitor.dart';
 import '../core/design_system/dialogs.dart';
@@ -8,15 +10,23 @@ import '../core/design_system/glyphs.dart';
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
+import '../core/messages/flow_messages.dart';
 import '../core/messages/problem_messages.dart';
+import '../core/messages/update_messages.dart';
+import '../core/platform/update_status.dart';
+import '../core/platform/distribution.dart';
 import '../features/settings/model/app_update.dart';
 import '../features/settings/ui/update_panel.dart';
-import '../features/settings/model/platform_services.dart';
+import 'platform_services.dart';
 import '../core/design_system/settings_colors.dart';
 import '../core/design_system/app_mark.dart';
-import '../core/formatting/dates.dart';
+import '../../design_system/display/date.dart';
 import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
+import '../core/platform/preferences.dart';
+import '../core/design_system/findable.dart';
+
+import 'package:shell/setting_topic.dart';
 
 /// 關於: the main card says the version and how it stands against the
 /// newest (已是最新, 有新版 with 更新, or the download with its bar); two
@@ -28,6 +38,25 @@ class AboutSection extends StatelessWidget {
 
   final Ledger ledger;
   final PlatformServices services;
+
+  // What search finds here (N8): each topic marks its card.
+  static const topics = [
+    AboutTopics.version,
+    AboutTopics.updates,
+    AboutTopics.diagnostics,
+    AboutTopics.sampleReset,
+  ];
+
+  /// The [topics] whose cards the section shows with [services]: 自動檢查新版本
+  /// only where the app can update itself, 重設範例資料 only in the
+  /// preview (review 39 #4).
+  static List<SettingTopic> offered(PlatformServices services) => [
+    AboutTopics.version,
+    if (services.preferences != null && (services.update?.possible ?? false))
+      AboutTopics.updates,
+    AboutTopics.diagnostics,
+    if (services.sample != null) AboutTopics.sampleReset,
+  ];
 
   /// The figures, then each problem kept, as text to copy or download.
   static String get _report => [
@@ -51,13 +80,19 @@ class AboutSection extends StatelessWidget {
     } on Object catch (error) {
       ErrorLog.instance.record('下載診斷紀錄', error);
       if (context.mounted) {
-        showNote(context, '下載失敗：${describeProblem(error)}');
+        showNote(context, problemNote('下載失敗', error));
       }
     }
   }
 
   Future<void> _reset(BuildContext context, Ledger Function() sample) async {
-    final ok = await confirm(context, '重設範例資料？目前的變更會清除。', '重設', danger: true);
+    final ok = await confirm(
+      context,
+      FlowWords.resetSampleAsk,
+      FlowWords.resetSample,
+      danger: true,
+      body: FlowWords.resetSampleBody,
+    );
     if (!ok) return;
     ledger.resetTo(sample());
     if (context.mounted) showNote(context, '已重設範例資料');
@@ -134,16 +169,23 @@ class AboutSection extends StatelessWidget {
     final update = services.update;
     final preferences = services.preferences;
     return ListenableBuilder(
-      listenable: Listenable.merge([?update, ?preferences]),
+      listenable: Listenable.merge([
+        ?update,
+        ?preferences?.watch(const {PreferenceTopic.updates}),
+      ]),
       builder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _VersionCard(update: update),
+          Findable(
+            topic: AboutTopics.version,
+            child: _VersionCard(update: update),
+          ),
           const SizedBox(height: Space.s3),
           CardGrid(
             [
               if (preferences != null && (update?.possible ?? false))
                 _ActionRow(
+                  topic: AboutTopics.updates,
                   glyph: Glyph.reset,
                   color: SettingsColors.main,
                   title: '自動檢查新版本',
@@ -162,6 +204,7 @@ class AboutSection extends StatelessWidget {
                   ),
                 ),
               _ActionRow(
+                topic: AboutTopics.diagnostics,
                 glyph: Glyph.bolt,
                 color: SettingsColors.about,
                 title: '診斷',
@@ -174,7 +217,13 @@ class AboutSection extends StatelessWidget {
           // Only the preview's made-up book can be reset.
           if (services.sample case final sample?) ...[
             const SizedBox(height: Space.s3),
-            PanelButton('重設範例資料', onTap: () => _reset(context, sample)),
+            Findable(
+              topic: AboutTopics.sampleReset,
+              child: PanelButton(
+                '重設範例資料',
+                onTap: () => _reset(context, sample),
+              ),
+            ),
           ],
         ],
       ),
@@ -185,6 +234,7 @@ class AboutSection extends StatelessWidget {
 /// A short card with its icon, name and a control on the right.
 class _ActionRow extends StatelessWidget {
   const _ActionRow({
+    required this.topic,
     required this.glyph,
     required this.color,
     required this.title,
@@ -193,6 +243,7 @@ class _ActionRow extends StatelessWidget {
     this.trailing,
   });
 
+  final SettingTopic topic;
   final Glyph glyph;
   final Color color;
   final String title;
@@ -203,41 +254,49 @@ class _ActionRow extends StatelessWidget {
   final Widget? trailing;
 
   @override
-  Widget build(BuildContext context) => ColorCard(
-    color: color,
-    onTap: onTap,
-    radius: Radii.largeIncreased,
-    padding: const EdgeInsets.fromLTRB(Space.s3, Space.s2, Space.s2, Space.s2),
-    child: Row(
-      children: [
-        SquareIcon(glyph, color, size: 40),
-        const SizedBox(width: Space.s3),
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: TextSize.title,
-                  fontWeight: FontWeight.w800,
-                  color: deepOf(color),
-                ),
-              ),
-              if (detail case final detail?)
+  Widget build(BuildContext context) => Findable(
+    topic: topic,
+    child: ColorCard(
+      color: color,
+      onTap: onTap,
+      radius: Radii.largeIncreased,
+      padding: const EdgeInsets.fromLTRB(
+        Space.s3,
+        Space.s2,
+        Space.s2,
+        Space.s2,
+      ),
+      child: Row(
+        children: [
+          SquareIcon(glyph, color, size: 40),
+          const SizedBox(width: Space.s3),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  detail,
+                  title,
                   style: TextStyle(
-                    fontSize: TextSize.small,
+                    fontSize: TextSize.title,
+                    fontWeight: FontWeight.w800,
                     color: deepOf(color),
                   ),
                 ),
-            ],
+                if (detail case final detail?)
+                  Text(
+                    detail,
+                    style: TextStyle(
+                      fontSize: TextSize.small,
+                      color: deepOf(color),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-        ?trailing,
-      ],
+          ?trailing,
+        ],
+      ),
     ),
   );
 }
@@ -267,27 +326,35 @@ class _VersionCardState extends State<_VersionCard> {
     });
   }
 
-  String _state(AppUpdate? update) {
-    if (update == null || !update.possible) return '自行建置的版本';
-    final progress = update.progress;
-    if (progress != null) return '下載中 ${(progress * 100).round()}%';
-    if (update.checking) return '檢查中…';
-    final newer = update.newer;
-    if (newer != null) {
-      return '有新版 ${newer.name}';
-    }
-    final problem = update.problem;
-    if (problem != null) return problem;
-    if (update.upToDate) return '已是最新';
-    return '點這裡檢查更新';
-  }
+  /// How the build stands when there is no [AppUpdate] to ask: the play
+  /// build has no update to speak of, and elsewhere (the preview, a
+  /// phone that is not Android) the build was made by hand.
+  static const UpdateStatus _withoutUpdate = canSelfUpdate
+      ? UpdateHandBuilt()
+      : UpdateNotOffered();
 
+  /// What the card says under the version (the play build: only that
+  /// Google Play updates it).
+  String _state(AppUpdate? update) => UpdateMessages.status(
+    update?.status ?? _withoutUpdate,
+    version: appVersion,
+  );
+
+  /// 檢查更新 always answers. With a newer version known, its panel
+  /// opens. Otherwise it looks, the card saying 檢查中… meanwhile, and
+  /// what it found is said in a note as well as on the card, since a look
+  /// that finds nothing new changes nothing there to see: the newest
+  /// version with its number, a newer one (its panel opens), or why it
+  /// could not tell.
   Future<void> _tap(BuildContext context, AppUpdate update) async {
     if (!update.possible || update.busy) return;
-    final newer = update.newer;
-    if (newer == null) {
+    if (update.newer == null) {
       await update.check();
-      return;
+      if (!context.mounted) return;
+      if (update.newer == null) {
+        showNote(context, _state(update));
+        return;
+      }
     }
     await showUpdatePanel(context, update);
   }
@@ -299,6 +366,7 @@ class _VersionCardState extends State<_VersionCard> {
     final progress = update?.progress;
     final color = newer ? AppColors.positive : SettingsColors.main;
     return ColorCard(
+      key: Keys.checkUpdate,
       color: color,
       amount: 0.2,
       onTap: update == null || !update.possible
@@ -343,6 +411,8 @@ class _VersionCardState extends State<_VersionCard> {
                       borderRadius: BorderRadius.circular(Radii.extraSmall),
                       child: LinearProgressIndicator(
                         value: progress,
+                        semanticsLabel: ProgressWords.downloading,
+                        semanticsValue: ratioWholePercent(progress),
                         minHeight: 5,
                         color: markOf(SettingsColors.main),
                         backgroundColor: AppColors.white,
@@ -372,9 +442,8 @@ class _VersionCardState extends State<_VersionCard> {
 }
 
 /// Which build this is, set by the APK build (android.yml); empty in a
-/// build made by hand and in the preview.
+/// build made by hand and in the preview. Its number is [currentBuild].
 const appVersion = String.fromEnvironment('APP_VERSION');
-const appBuild = String.fromEnvironment('APP_BUILD');
 const appCommit = String.fromEnvironment('APP_COMMIT');
 
 /// This build as 關於 says it.
@@ -382,6 +451,6 @@ String get buildLabel => appVersion.isEmpty
     ? '開發版'
     : [
         appVersion,
-        if (appBuild.isNotEmpty) '第 $appBuild 版',
+        if (currentBuild > 0) '第 $currentBuild 版',
         if (appCommit.isNotEmpty) appCommit,
       ].join(' · ');

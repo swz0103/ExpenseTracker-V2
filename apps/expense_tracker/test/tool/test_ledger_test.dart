@@ -5,6 +5,7 @@ import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_sour
 import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
 import 'package:expense_tracker/src/features/import_export/model/import_export.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
@@ -16,7 +17,7 @@ import 'package:expense_tracker/src/features/import_export/ui/import_page.dart'
 /// accounts set up first (cards with their days and limits, the foreign
 /// accounts, the car loan), with budgets and recurring items added and the
 /// old salary account archived; kept as a backup that opens with
-/// `password`. Every line must import. With
+/// `password` (its backup passphrase). Every line must import. With
 /// TEST_BACKUP_OUT set, as the APK build does, the backup is copied
 /// there to be published beside the APK.
 void main() {
@@ -58,6 +59,9 @@ void main() {
     expect(ledger.problem.value, isNull);
 
     final backupManager = EncryptedBackupManager(startup, vault);
+    // Backups carry no app password: the same words open it as its
+    // backup passphrase.
+    await backupManager.setBackupPassphrase(password);
     final backup = await backupManager.backUp();
     await backupManager.lock();
 

@@ -1,0 +1,8 @@
+# Every change is reviewed by the owner; the paths that decide what ships
+# and what is trusted are listed on their own, so that stays true if the
+# default line ever changes.
+*                                      @swz0103
+/.github/                              @swz0103
+/tooling/rules/                        @swz0103
+/apps/expense_tracker/test/baseline/   @swz0103
+/apps/expense_tracker/android/         @swz0103

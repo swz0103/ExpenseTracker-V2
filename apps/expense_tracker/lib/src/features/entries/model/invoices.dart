@@ -1,3 +1,5 @@
+import '../../../../design_system/display/amount.dart';
+import '../../../core/formatting/words.dart';
 import '../../../core/ledger/ledger.dart';
 
 // Exception to ledger words: the categories a merchant's name hints at,
@@ -34,14 +36,46 @@ String guessCategory(
   return feeCategory;
 }
 
+/// The note of an invoice entry, scanned or imported: its first item and
+/// how many there were, then the invoice [number] after [Words.invoice],
+/// then [tail]. [invoiceNumberIn] reads it back: the one pair that
+/// writes and reads the shape.
+String invoiceNote(List<String> items, String number, {String tail = ''}) {
+  final what = items.isEmpty ? '' : items.first;
+  final more = items.length > 1
+      ? ' 等 ${countOf(items.length, CountUnit.items)}'
+      : '';
+  return '$what$more ${Words.invoice} $number$tail'.trim();
+}
+
+/// The shape of an e-invoice's number: two capital letters, then eight
+/// digits (`AB12345678`), as its QR code and the ministry's file carry
+/// it. The one owner of the shape (review 18); a book migration keeps its
+/// own frozen copy (book_migrations.dart's `_invoiceNote`).
+const invoiceNumberShape = r'[A-Z]{2}\d{8}';
+
+/// The invoice number [note] names, as [invoiceNote] writes it; null for
+/// a note that names none (one edited since, or never an invoice's).
+String? invoiceNumberIn(String note) =>
+    _invoiceNumber.firstMatch(note)?.group(1);
+
+final _invoiceNumber = RegExp('(?:^| )${Words.invoice} (\\S+)');
+
 /// Whether the invoice [number] of [day] is in the book already, as an
 /// import or a scan would find it.
 bool invoiceRecorded(EntryReader entries, DateTime day, String number) =>
     hasInvoice(entries, day, number);
 
+/// Whether [note] names the invoice [number] itself: as a word of its
+/// own, never as the start of a longer number (AB1 is not in AB12).
+bool notesInvoice(String note, String number) =>
+    number.isNotEmpty &&
+    RegExp('(?<![A-Za-z0-9])${RegExp.escape(number)}(?![A-Za-z0-9])')
+        .hasMatch(note);
+
 /// Whether the invoice [number] of [day] was imported before: its number
-/// is in a note, or an invoice entry of that day, shop and [amount] is
-/// there, as when its note was edited since.
+/// is in a note ([notesInvoice]), or an invoice entry of that day, shop
+/// and [amount] is there, as when its note was edited since.
 bool hasInvoice(
   EntryReader entries,
   DateTime? day,
@@ -50,14 +84,15 @@ bool hasInvoice(
   int? amount,
 }) {
   if (day == null) return false;
+  // Exception to as-of-today: a duplicate check looks at every entry written.
   return entries
       .inMonth(day.year, day.month)
       .any(
         (e) =>
-            e.note.contains(number) ||
-            (e.tags.contains('發票') &&
+            notesInvoice(e.note, number) ||
+            (e.mark == EntryMark.invoice &&
                 // An entry still noting its own number is another invoice.
-                !e.note.contains(RegExp(r'發票 \S')) &&
+                invoiceNumberIn(e.note) == null &&
                 e.date == day &&
                 e.merchant == shop &&
                 e.amount == amount),

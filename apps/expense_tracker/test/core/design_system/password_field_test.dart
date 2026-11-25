@@ -2,8 +2,8 @@ import 'package:expense_tracker/src/core/design_system/password_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The eye beside a password shows what is typed, and hides it again; a
-/// recovery code, read off paper, is never hidden and has no eye.
+/// The eye beside a password shows what is typed, and hides it again;
+/// words never hidden, such as a file path, have no eye.
 void main() {
   Future<TextEditingController> field(
     WidgetTester tester, {
@@ -39,5 +39,17 @@ void main() {
     await field(tester, hidden: false);
     expect(obscured(tester), isFalse);
     expect(find.bySemanticsLabel('顯示密碼'), findsNothing);
+  });
+
+  testWidgets('the keyboard learns nothing typed, hidden or not '
+      '(review 22 finding 4)', (tester) async {
+    for (final hidden in [true, false]) {
+      await field(tester, hidden: hidden);
+      final typed = tester.widget<TextField>(find.byType(TextField));
+      expect(typed.enableIMEPersonalizedLearning, isFalse);
+      expect(typed.keyboardType, TextInputType.visiblePassword);
+      expect(typed.enableSuggestions, isFalse);
+      expect(typed.autocorrect, isFalse);
+    }
   });
 }

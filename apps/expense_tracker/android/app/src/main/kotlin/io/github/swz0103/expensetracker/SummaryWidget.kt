@@ -8,6 +8,7 @@ import android.os.Build
 import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.util.Calendar
@@ -18,8 +19,11 @@ import java.util.Calendar
  * it keeps only what is left of the budget and the two buttons, one row
  * high or square. It shows what the app left in widget.json
  * (lib/src/features/overview/model/home_widget.dart) and never reads the
- * ledger, so it shows it while the ledger is locked; with no figures
- * chosen in 設定 › 外觀 there is no file and it says where to turn them on.
+ * ledger. What may be shown on the home screen, locked or not, is the
+ * app's decision alone: it writes only that, and the widget draws what is
+ * written. With nothing written (no figures chosen in 設定 › 外觀, or
+ * amounts hidden in the app) it says amounts are hidden and that a tap
+ * opens the app; 支出 and 收入 open the app's composer, behind its lock.
  */
 class SummaryWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
@@ -72,6 +76,7 @@ class SummaryWidget : AppWidgetProvider() {
             views.setTextViewText(R.id.summary_figure, shown.figure)
             views.setTextViewText(R.id.summary_budget, shown.budget)
             views.setTextViewText(R.id.summary_detail, shown.detail)
+            views.setTextColor(R.id.summary_detail, stateColor(context, shown.state))
             bar(views, R.id.summary_bar, shown)
             val week = shown.week
             if (week == null) {
@@ -101,6 +106,7 @@ class SummaryWidget : AppWidgetProvider() {
         private fun compact(context: Context, shown: WidgetView.Shown, layout: Int): RemoteViews {
             val views = RemoteViews(context.packageName, layout)
             views.setTextViewText(R.id.short_label, shown.shortLabel)
+            views.setTextColor(R.id.short_label, stateColor(context, shown.state))
             views.setTextViewText(R.id.short_figure, shown.shortFigure)
             bar(views, R.id.short_bar, shown)
             views.setOnClickPendingIntent(R.id.short_body, MainActivity.opening(context, "", 3))
@@ -120,69 +126,60 @@ class SummaryWidget : AppWidgetProvider() {
             views.setInt(id, "setSecondaryProgress", shown.pace ?: 0)
         }
 
+        /**
+         * The colour of the budget's words for [state], the id the app wrote
+         * with them (status.dart): the app decides and words the state, the
+         * widget only colours it.
+         */
+        private fun stateColor(context: Context, state: String): Int = context.getColor(
+            when (state) {
+                "over" -> R.color.widget_expense
+                "near" -> R.color.widget_pace
+                else -> R.color.widget_muted
+            },
+        )
+
         private fun visible(views: RemoteViews, id: Int, shown: Boolean) =
             views.setViewVisibility(id, if (shown) View.VISIBLE else View.GONE)
 
         private fun read(context: Context): WidgetView.Snapshot? = try {
-            val file = File(context.filesDir, "widget.json")
+            val file = File(context.filesDir, AppFiles.WIDGET)
             if (!file.exists()) null else WidgetView.parse(JSONObject(file.readText()))
         } catch (e: Exception) {
             null
         }
 
+        /** This month on the phone's clock, as the snapshot names its own (2026-11). */
         private fun currentMonth(): String {
             val now = Calendar.getInstance()
             return "%04d-%02d".format(now.get(Calendar.YEAR), now.get(Calendar.MONTH) + 1)
         }
 
-        private fun today(): WidgetView.Day {
+        /** Today on the phone's clock, as the snapshot names its days ahead (2026-11-03). */
+        private fun today(): String {
             val now = Calendar.getInstance()
-            return WidgetView.Day(
-                now.get(Calendar.YEAR),
-                now.get(Calendar.MONTH) + 1,
-                now.get(Calendar.DAY_OF_MONTH),
-            )
+            return "%s-%02d".format(currentMonth(), now.get(Calendar.DAY_OF_MONTH))
         }
     }
 }
 
 /** What 本月概況 shows for a snapshot; kept apart from Android to be tested. */
 internal object WidgetView {
-    /** A day of the calendar, counted on from 1970-01-01. */
-    data class Day(val year: Int, val month: Int, val day: Int) {
-        /** Days since 1970-01-01 (Howard Hinnant's days_from_civil). */
-        val epoch: Long
-            get() {
-                val y = (if (month <= 2) year - 1 else year).toLong()
-                val era = y.floorDiv(400L)
-                val yoe = y - era * 400
-                val mp = (month + 9) % 12
-                val doy = (153 * mp + 2) / 5 + day - 1
-                val doe = yoe * 365 + yoe / 4 - yoe / 100 + doy
-                return era * 146097 + doe - 719468
-            }
+    /**
+     * A later day of the snapshot's month, as the app worked it out when
+     * it wrote the snapshot (`ahead` in widget.json): the week, today's
+     * place in it, the pace mark and the week's total that day with
+     * nothing more recorded. This side does no calendar or pace maths.
+     */
+    data class Ahead(
+        val week: List<Int>?,
+        val today: Int,
+        val pace: Int?,
+        val weekTotal: String,
+    )
 
-        /** Sunday 0 to Saturday 6, the week as the app shows it; 1970-01-01 was a Thursday. */
-        val weekday: Int get() = (epoch + 4).mod(7L).toInt()
-
-        val daysInMonth: Int
-            get() = when (month) {
-                2 -> if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) 29 else 28
-                4, 6, 9, 11 -> 30
-                else -> 31
-            }
-
-        companion object {
-            /** 2026-11-03; null when it is not one. */
-            fun parse(text: String): Day? {
-                val parts = text.split("-")
-                if (parts.size != 3) return null
-                val (y, m, d) = parts.map { it.toIntOrNull() ?: return null }
-                if (m !in 1..12 || d !in 1..31) return null
-                return Day(y, m, d)
-            }
-        }
-    }
+    /** What the widget says once the snapshot's month is over (`stale`). */
+    data class Stale(val title: String, val figure: String, val detail: String)
 
     data class Snapshot(
         val month: String,
@@ -198,6 +195,9 @@ internal object WidgetView {
         val shortLabel: String = title,
         val shortFigure: String = figure,
         val date: String = "",
+        val state: String = "",
+        val ahead: Map<String, Ahead> = emptyMap(),
+        val stale: Stale? = null,
     )
 
     data class Shown(
@@ -212,14 +212,31 @@ internal object WidgetView {
         val today: Int = -1,
         val shortLabel: String = title,
         val shortFigure: String = figure,
+        val state: String = "",
     )
 
-    /** A snapshot as the app wrote it; one from before the week was added still reads. */
+    private fun weekOf(days: JSONArray?): List<Int>? =
+        if (days == null || days.length() != 7) null else List(7) { days.optInt(it, -1) }
+
+    /** A snapshot as the app wrote it; one from before the week, the days ahead or the words were added still reads. */
     fun parse(json: JSONObject): Snapshot {
         val title = json.optString("title")
         val figure = json.optString("figure")
-        val days = json.optJSONArray("week")
-        val week = if (days == null || days.length() != 7) null else List(7) { days.optInt(it, -1) }
+        val ahead = mutableMapOf<String, Ahead>()
+        json.optJSONObject("ahead")?.let { days ->
+            for (day in days.keys()) {
+                val shown = days.optJSONObject(day) ?: continue
+                ahead[day] = Ahead(
+                    week = weekOf(shown.optJSONArray("week")),
+                    today = shown.optInt("today", -1),
+                    pace = if (shown.isNull("pace")) null else shown.optInt("pace"),
+                    weekTotal = shown.optString("weekTotal"),
+                )
+            }
+        }
+        val stale = json.optJSONObject("stale")?.let {
+            Stale(it.optString("title"), it.optString("figure"), it.optString("detail"))
+        }
         return Snapshot(
             month = json.optString("month"),
             title = title,
@@ -228,61 +245,59 @@ internal object WidgetView {
             progress = if (json.isNull("progress")) null else json.optInt("progress"),
             budget = json.optString("budget"),
             pace = if (json.isNull("pace")) null else json.optInt("pace"),
-            week = week,
+            week = weekOf(json.optJSONArray("week")),
             weekTotal = json.optString("weekTotal"),
             today = json.optInt("today", -1),
             shortLabel = json.optString("shortLabel", title),
             shortFigure = json.optString("shortFigure", figure),
             date = json.optString("date"),
+            state = json.optString("state"),
+            ahead = ahead,
+            stale = stale,
         )
     }
 
     /**
-     * The snapshot as it stands in [month]: one from an earlier month says
-     * to open the app rather than show last month's figures as this one's.
-     * On a later day than it was written ([today]), the week moves on by
-     * itself: the days since have nothing spent (nothing was recorded, or
-     * the app would have written it anew), a new week starts empty, and
-     * the gold mark of the month's pace moves to today.
+     * The snapshot as it stands in [month] on [today] (2026-11-03): one
+     * from an earlier month says to open the app rather than show last
+     * month's figures as this one's, in the words the app gave it. On a
+     * later day than it was written, the week, its total and the pace
+     * mark are those the app worked out for that day ([Snapshot.ahead]);
+     * a day it did not work out (the clock turned back) shows it as
+     * written.
      */
-    fun of(snapshot: Snapshot?, month: String, today: Day? = null): Shown {
+    fun of(snapshot: Snapshot?, month: String, today: String? = null): Shown {
+        // No snapshot: the app keeps none while no figure may be shown
+        // (none chosen, or amounts hidden in the app). The widget says so,
+        // and that a tap opens the app, rather than look empty.
         if (snapshot == null) {
-            return Shown("記帳本", "本月概況", "到 設定 › 外觀 選擇要顯示的數字", null)
+            return Shown(
+                NativeWords.WIDGET_HIDDEN_TITLE, NativeWords.WIDGET_HIDDEN, NativeWords.WIDGET_HIDDEN_OPEN, null,
+                shortLabel = NativeWords.WIDGET_HIDDEN, shortFigure = NativeWords.WIDGET_HIDDEN_OPEN,
+            )
         }
-        if (snapshot.month != month) return Shown("本月概況", "—", "打開 App 更新本月數字", null)
-        val written = Day.parse(snapshot.date)
-        var week = snapshot.week
-        var weekTotal = snapshot.weekTotal
-        var at = snapshot.today
-        var pace = snapshot.pace
-        if (today != null && written != null && today.epoch > written.epoch) {
-            val sameWeek = today.epoch - today.weekday == written.epoch - written.weekday
-            week = week?.let { days ->
-                List(7) { i ->
-                    when {
-                        i > today.weekday -> -1
-                        !sameWeek -> 0
-                        i > written.weekday -> 0
-                        else -> days[i]
-                    }
-                }
-            }
-            if (!sameWeek && weekTotal.isNotEmpty()) weekTotal = "0"
-            at = today.weekday
-            if (pace != null) pace = Math.round(today.day * 100.0 / today.daysInMonth).toInt()
+        if (snapshot.month != month) {
+            val stale = snapshot.stale ?: Stale(
+                NativeWords.WIDGET_STALE_TITLE,
+                NativeWords.WIDGET_STALE_FIGURE,
+                NativeWords.WIDGET_STALE_DETAIL,
+            )
+            return Shown(stale.title, stale.figure, stale.detail, null)
         }
+        val ahead = today?.let { snapshot.ahead[it] }
         return Shown(
             title = snapshot.title,
             figure = snapshot.figure,
             detail = snapshot.detail,
             progress = snapshot.progress?.coerceIn(0, 100),
             budget = snapshot.budget,
-            pace = pace?.coerceIn(0, 100),
-            week = week,
-            weekTotal = weekTotal,
-            today = at,
+            pace = (if (ahead != null) ahead.pace else snapshot.pace)?.coerceIn(0, 100),
+            week = if (ahead != null) ahead.week else snapshot.week,
+            weekTotal = ahead?.weekTotal ?: snapshot.weekTotal,
+            today = ahead?.today ?: snapshot.today,
             shortLabel = snapshot.shortLabel,
             shortFigure = snapshot.shortFigure,
+            state = snapshot.state,
         )
     }
 }

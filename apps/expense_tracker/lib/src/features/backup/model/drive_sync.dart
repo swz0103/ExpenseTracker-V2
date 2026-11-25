@@ -2,9 +2,12 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/diagnostics/error_log.dart';
+import '../../../core/messages/backup_messages.dart';
 import '../../../core/platform/preferences.dart';
 import 'drive_backup.dart';
 import '../../../core/time/app_clock.dart';
+import 'backup_rules.dart';
 
 /// Backups on the person's Google Drive: linked once with Google's
 /// sign-in, then sent by hand from the settings and daily by themselves
@@ -17,6 +20,7 @@ final class DriveSync extends ChangeNotifier {
     required this._withBackup,
     required this._revision,
     required this._ledger,
+    this._epoch,
     this._unmetered,
     DateTime Function()? clock,
   }) : _clock = clock ?? AppClock.now;
@@ -34,16 +38,32 @@ final class DriveSync extends ChangeNotifier {
   /// another ledger kept in the same folder.
   final String _ledger;
 
+  /// The backup key epoch the backups are sealed with now, marking each
+  /// on Drive so those of keys since replaced can be found (D15).
+  final int Function()? _epoch;
+
   /// Whether the phone is on Wi-Fi: a backup with the photos carries
   /// every one, so it waits for one rather than spend mobile data.
   final Future<bool> Function()? _unmetered;
   final DateTime Function() _clock;
 
   bool get linked => _preferences.driveLinked;
+
+  /// The Google account the backups go to; null until Drive has said.
+  String? get account => _preferences.driveAccount;
   DateTime? get backedUp => _preferences.driveBackedUp;
 
   /// The backups carry the receipt photos too.
   bool get photos => _preferences.drivePhotos;
+
+  /// Backups with the photos wait for Wi-Fi ([Preferences.photosOnWifi]).
+  bool get photosOnWifi => _preferences.photosOnWifi;
+
+  /// Lets backups with the photos go up on any network, or only on Wi-Fi.
+  void setPhotosOnWifi(bool on) {
+    _preferences.update(photosOnWifi: on);
+    notifyListeners();
+  }
 
   /// Adds the photos to the backups, sending one with them now, or
   /// leaves them out from the next one.
@@ -64,6 +84,7 @@ final class DriveSync extends ChangeNotifier {
   Future<bool> link() async {
     if (!await _drive.signIn()) return false;
     _preferences.update(driveLinked: true);
+    await _learnAccount(interactive: true);
     await backUpNow();
     return true;
   }
@@ -71,9 +92,18 @@ final class DriveSync extends ChangeNotifier {
   /// Stops sending backups; those on Drive stay there.
   Future<void> unlink() async {
     _preferences.update(driveLinked: false);
+    _preferences.driveAccountIs(null);
     await _drive.signOut();
     notifyListeners();
   }
+
+  /// This ledger's backups on Drive, newest first; never shows Google's
+  /// screens.
+  Future<List<DriveFile>> backups() =>
+      _drive.list(interactive: false, ledger: _ledger);
+
+  /// Moves the backup [id] to the Drive trash.
+  Future<void> trash(String id) => _drive.trash(id, interactive: false);
 
   /// Sends a backup now, asking Google's screens when needed.
   Future<void> backUpNow() => _send(interactive: true);
@@ -81,7 +111,7 @@ final class DriveSync extends ChangeNotifier {
   /// Sends a backup when linked, the last one is older than [every] and
   /// the ledger changed since, on Wi-Fi when it carries the photos; never
   /// shows Google's screens. True when one was sent.
-  Future<bool> backUpIfDue({Duration every = const Duration(days: 1)}) async {
+  Future<bool> backUpIfDue({Duration every = BackupRules.drive}) async {
     if (!linked || _busy) return false;
     final last = backedUp;
     if (last != null &&
@@ -90,9 +120,25 @@ final class DriveSync extends ChangeNotifier {
       return false;
     }
     final unmetered = _unmetered;
-    if (photos && unmetered != null && !await unmetered()) return false;
+    if (photos &&
+        _preferences.photosOnWifi &&
+        unmetered != null &&
+        !await unmetered()) {
+      return false;
+    }
     await _send(interactive: false);
     return true;
+  }
+
+  /// Asks Drive which account it is, so the card can say; best effort, a
+  /// failure leaves it unknown until the next backup.
+  Future<void> _learnAccount({required bool interactive}) async {
+    try {
+      final account = await _drive.account(interactive: interactive);
+      if (account != null) _preferences.driveAccountIs(account);
+    } on Object catch (error) {
+      ErrorLog.instance.record(BackupWords.accountLookup, error);
+    }
   }
 
   /// What a backup going up is doing now; null when none is.
@@ -109,9 +155,16 @@ final class DriveSync extends ChangeNotifier {
       await _withBackup((file) {
         _stage = DriveStage.uploading;
         notifyListeners();
-        return _drive.upload(file, ledger: _ledger, interactive: interactive);
+        return _drive.upload(
+          file,
+          ledger: _ledger,
+          epoch: _epoch?.call(),
+          interactive: interactive,
+        );
       }, withPhotos: photos);
       _preferences.driveBackup(_clock(), revision);
+      // Linked before the account was kept: learnt with the next backup.
+      if (account == null) await _learnAccount(interactive: interactive);
     } finally {
       // Also when Google never answers: DriveBackup gives up on its
       // sign-in after a while, so a backup is never held for good.

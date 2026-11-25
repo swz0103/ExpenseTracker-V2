@@ -1,4 +1,9 @@
-import 'package:domain/data_exchange.dart';
+import 'package:core/constants/category_colors.dart';
+import 'package:core/foundation_values.dart' show BusinessDate;
+import 'package:core/fx/dated_figures.dart'
+    show DatedFigures, FoundOn, MarketHistory;
+import 'package:expense_tracker/src/core/messages/import_messages.dart'
+    show importEstimatedWords;
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/features/import_export/model/import_export.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
@@ -6,25 +11,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:expense_tracker/src/features/import_export/ui/import_page.dart'
     show importBookOf;
 
-void main() {
-  test('CSV fields are quoted and read back', () {
-    final fields = ['午餐', 'a,b', '說"好"', '兩\n行'];
-    expect(parseCsv(writeCsv([fields])), [fields]);
-    final rows = parseCsv('\u{FEFF}日期,備註\r\n2026-03-05,"a,b ""c"""\n\n');
-    expect(rows, [
-      ['日期', '備註'],
-      ['2026-03-05', 'a,b "c"'],
-    ]);
-    expect(parseCsv('日期,備註\n2026-03-05,"沒有收尾'), [
-      ['日期', '備註'],
-      ['2026-03-05', '沒有收尾'],
-    ]);
-    expect(readDay('2026/3/5'), DateTime.utc(2026, 3, 5));
-    expect(readDay('20260305'), DateTime.utc(2026, 3, 5));
-    expect(readDay('1150305'), DateTime.utc(2026, 3, 5));
-    expect(readDay('2026-02-30'), isNull);
-  });
+import '../../../support/seeded_book.dart' show emptyBook;
 
+void main() {
   test('a file with words after a closing quote is left out, naming the '
       'line', () {
     final result = importCsv(
@@ -34,6 +23,68 @@ void main() {
     );
     expect(result.entries, isEmpty);
     expect(result.problems, ['第 3 行的引號看不懂，整個檔案沒有匯入']);
+  });
+
+  test('IMP-04: an amount that could be misread is that line\'s error, '
+      'never a guess or an exception', () {
+    final result = importCsv(
+      importBookOf(demoLedger()),
+      '日期,類型,金額\n'
+      '2026-10-01,支出,.5\n'
+      '2026-10-02,支出,99999999999999999999\n'
+      '2026-10-03,支出,"1.234,50"\n'
+      '2026-10-04,支出,12.345\n'
+      '2026-10-05,支出,1 200\n'
+      '2026-10-06,支出,"1,200"\n',
+      fallback: 'cash',
+    );
+    // Only the well-written 1,200 is read; once 1.234,50 read as 1,
+    // 12.345 as 12 and 1 200 as 1200, and .5 threw.
+    expect(result.entries.map((e) => e.amount), [1200]);
+    expect(result.problems, [
+      '第 2 行：金額看不懂：不是有效的金額',
+      '第 3 行：金額看不懂：金額不能超過 999,999,999',
+      '第 4 行：金額看不懂：看不出是哪個數字，請寫成 1,234.50 這樣',
+      '第 5 行：金額看不懂：看不出是哪個數字，請寫成 1,234.50 這樣',
+      '第 6 行：金額看不懂：不是有效的金額',
+    ]);
+  });
+
+  test('every amount column is read as strictly as 金額: a fee, a tax, '
+      'what a transfer brings in and the NT\$ worth, each said by its '
+      'column (review 16: CSV per column)', () {
+    final result = importCsv(
+      importBookOf(emptyBook()),
+      '日期,類型,金額,帳戶,轉入帳戶,代號,股數,手續費,稅,轉入金額,台幣金額\n'
+      '2026-10-01,轉帳,500,銀行,現金,,,.5,,,\n'
+      '2026-10-02,轉帳,3200,銀行,美元戶,,,,,1 200,\n'
+      '2026-10-03,買進,50000,銀行,,2330,100,1 200,,,\n'
+      '2026-10-04,股息,1000,銀行,,2330,,,.5,,\n'
+      '2026-10-05,支出,10,美元戶,,,,,,,.5\n'
+      '2026-10-06,轉帳,500,銀行,現金,,,15,,,\n',
+      fallback: 'cash',
+    );
+    // Only the last, with a fee of 15 written plainly, is read.
+    expect(result.entries.map((e) => (e.amount, e.fee)), [(500, 15)]);
+    expect(result.problems, [
+      '第 2 行：手續費看不懂：不是有效的金額',
+      '第 3 行：轉入金額看不懂：不是有效的金額',
+      '第 4 行：手續費看不懂：不是有效的金額',
+      '第 5 行：稅看不懂：不是有效的金額',
+      '第 6 行：台幣金額看不懂：不是有效的金額',
+    ]);
+  });
+
+  test('IMP-04: an e-invoice line with an odd total is left out, not '
+      'thrown on', () {
+    final result = importInvoices(
+      importBookOf(demoLedger()),
+      'M|手機條碼|/ABC123|20261003|12345678|甲店|AB00000001|.5|開立\n'
+      'M|手機條碼|/ABC123|20261003|12345678|乙店|AB00000002|120|開立\n',
+      account: 'cash',
+    );
+    expect(result.entries.map((e) => e.amount), [120]);
+    expect(result.problems, ['AB00000001：金額看不懂']);
   });
 
   test('an exported month imports as nothing new', () {
@@ -62,6 +113,12 @@ void main() {
     expect(fresh.entries.last.account, made.id);
     expect(fresh.entries.last.category, '不存在');
     expect(fresh.categories.single.income, isTrue);
+    // The colour a category made in 記一筆 would take next (review 32):
+    // the book's count of categories into the one list.
+    expect(
+      fresh.categories.single.color,
+      nextCategoryColor(ledger.categories.all.length),
+    );
     final before = ledger.reportService.expense(2026, 10);
     addImport(ledger.entryCommands, fresh);
     expect(ledger.account(made.id).name, '不存在的帳戶');
@@ -70,18 +127,19 @@ void main() {
 
   test('every kind of entry imports, and reads back as nothing new', () {
     final ledger = demoLedger();
+    // Dated before the book's today (10/4): a trade cannot be 預定 (D25).
     const text =
         '日期,類型,金額,帳戶,轉入帳戶,分類,商家,標籤,備註,代號,股數,手續費,稅,分期\n'
-        '2026-10-01,支出,300,新信用卡,,餐飲=200;居家生活=100,好市多,,,,,,,3\n'
-        '2026-10-02,轉帳,5000,日常銀行,新信用卡,,,,繳卡費\n'
-        '2026-10-02,轉帳,1000,日常銀行,零錢包現金,,,,提款,,,15\n'
-        '2026-10-03,買進,60000,日常銀行,,,,,,00713,1000,85\n'
-        '2026-10-04,賣出,30000,日常銀行,,,,,,00713,500,42,90\n'
-        '2026-10-05,股息,1200,日常銀行,,,,,,00713,,,25\n'
-        '2026-10-06,配股,,日常銀行,,,,,,00713,50\n'
-        '2026-10-07,退款,100,新信用卡,,,好市多,,退貨\n'
-        '2026-10-08,賣出,1,日常銀行,,,,,,00713,999999\n'
-        '2026-10-09,魔法,1,日常銀行\n';
+        '2026-09-01,支出,300,新信用卡,,餐飲=200;居家生活=100,好市多,,,,,,,3\n'
+        '2026-09-02,轉帳,5000,日常銀行,新信用卡,,,,繳卡費\n'
+        '2026-09-02,轉帳,1000,日常銀行,零錢包現金,,,,提款,,,15\n'
+        '2026-09-03,買進,60000,日常銀行,,,,,,00713,1000,85\n'
+        '2026-09-04,賣出,30000,日常銀行,,,,,,00713,500,42,90\n'
+        '2026-09-05,股息,1200,日常銀行,,,,,,00713,,,25\n'
+        '2026-09-06,配股,,日常銀行,,,,,,00713,50\n'
+        '2026-09-07,退款,100,新信用卡,,,好市多,,退貨\n'
+        '2026-09-08,賣出,1,日常銀行,,,,,,00713,999999\n'
+        '2026-09-09,魔法,1,日常銀行\n';
     final found = importCsv(importBookOf(ledger), text, fallback: 'bank');
     expect(found.entries.map((e) => e.type), [
       EntryType.expense,
@@ -196,6 +254,63 @@ void main() {
     expect(toCsv(ledger.accounts, [entry]), contains(',12.50,美元,'));
   });
 
+  test('R5/D123: a row worth at home at today\'s rate says it is an '
+      'estimate, and why', () {
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 11, 13),
+      accounts: const [
+        Account('bank', '銀行', AccountKind.bank, 0),
+        Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
+      ],
+      categories: [Category('飲食', 'food', 0xFF5C9A83)],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      rates: const {'USD': 32.0},
+      history: MarketHistory(
+        buying: DatedFigures({
+          'USD': {BusinessDate(2026, 9, 1): 30.0},
+        }),
+      ),
+    );
+    final found = importCsv(
+      importBookOf(ledger),
+      '日期,類型,金額,帳戶,分類\n'
+      '2026-10-01,支出,10,美元,飲食\n'
+      '2026-10-02,支出,10,美元,飲食\n'
+      '2026-08-01,支出,10,美元,飲食\n'
+      '2026-11-13,支出,10,美元,飲食\n',
+      fallback: 'bank',
+    );
+    final byDay = {for (final e in found.entries) e.date.day: e};
+    // 10/1: 9/1's board, 30 days before: US\$10 x 30 = 300, no note.
+    expect(byDay[1]!.home, 300);
+    expect(found.estimated[byDay[1]!.id], isNull);
+    // 10/2: 9/1's is 31 days before, too old: today's 32, 320.
+    expect(byDay[2]!.home, 320);
+    expect(found.estimated[byDay[2]!.id], FoundOn.todayEarlierTooOld);
+    expect(
+      importEstimatedWords(FoundOn.todayEarlierTooOld),
+      '最近的牌價早於當日 30 天以上，不採用；新台幣金額以今日匯率估算',
+    );
+    // 8/1: before any board kept: today's, 320.
+    expect(found.entries.firstWhere((e) => e.date.month == 8).home, 320);
+    expect(
+      found.estimated[found.entries.firstWhere((e) => e.date.month == 8).id],
+      FoundOn.today,
+    );
+    expect(importEstimatedWords(FoundOn.today), '新台幣金額以今日匯率估算');
+    // Today: today's board, no estimate.
+    expect(found.estimated[byDay[13]!.id], isNull);
+    // Kept only for the entries chosen.
+    final second = found.entries.indexOf(byDay[2]!);
+    expect(found.only({second}).estimated, {
+      byDay[2]!.id: FoundOn.todayEarlierTooOld,
+    });
+    expect(found.only(const {}).estimated, isEmpty);
+  });
+
   test('stock dividends and splits grow every lot at its own cost', () {
     final ledger = demoLedger();
     final before = ledger.holding('2330')!;
@@ -248,5 +363,134 @@ void main() {
     for (var i = 1; i < found.length; i++) {
       expect(found[i].date.isAfter(found[i - 1].date), isFalse);
     }
+  });
+
+  group('R12: outside files read strictly', () {
+    Import csv(String text) =>
+        importCsv(importBookOf(demoLedger()), text, fallback: 'cash');
+
+    test('a quote never closed leaves the whole file out (F5)', () {
+      final found = csv('日期,金額,備註\n2026-10-01,5,"沒有收尾\n2026-10-02,6,午餐\n');
+      expect(found.entries, isEmpty);
+      expect(found.problems, ['第 2 行的引號看不懂，整個檔案沒有匯入']);
+    });
+
+    test('a two-digit year is refused with why; three digits are ROC (F4)', () {
+      final found = csv('日期,類型,金額\n26/10/01,支出,5\n115/10/1,支出,6\n');
+      expect(found.problems, ['第 2 行：年份只有兩位數，請寫成西元四位數（例如 2026）或民國三位數（例如 115）']);
+      // 115 + 1911 = 2026.
+      expect(found.entries.single.date, DateTime.utc(2026, 10, 1));
+    });
+
+    test('a day before 1950 is refused (D93)', () {
+      final found = csv('日期,類型,金額\n1949/12/31,支出,5\n');
+      expect(found.entries, isEmpty);
+      expect(found.problems, ['第 2 行：日期早於 1950 年']);
+    });
+
+    test('a line is named by the line of the file (blank lines and line '
+        'breaks in notes counted)', () {
+      final found = csv(
+        '日期,類型,金額,備註\n'
+        '\n'
+        '2026-10-01,支出,5,"兩\n行"\n'
+        '\n'
+        'abc,支出,6,x\n',
+      );
+      expect(found.entries, hasLength(1));
+      // Line 1 the header, 2 blank, 3 and 4 the note of two lines, 5
+      // blank, 6 the unreadable day.
+      expect(found.problems, ['第 6 行：日期看不懂']);
+    });
+
+    test('an M line dated 0261003 (ROC 26, 1937) is refused (F4)', () {
+      final found = importInvoices(
+        importBookOf(demoLedger()),
+        'M|x|y|0261003|1|甲店|AB00000009|10|開立\n',
+        account: 'cash',
+      );
+      expect(found.entries, isEmpty);
+      expect(found.problems, ['AB00000009：日期早於 1950 年']);
+    });
+
+    test('invoice AB1 is not taken for AB12 already read', () {
+      final found = importInvoices(
+        importBookOf(demoLedger()),
+        'M|x|y|20261003|1|乙|AB12|20|開立\n'
+        'M|x|y|20261003|1|甲|AB1|10|開立\n'
+        'M|x|y|20261003|1|甲|AB1|10|開立\n',
+        account: 'cash',
+      );
+      expect(found.entries.map((e) => e.note), ['發票 AB12', '發票 AB1']);
+      expect(found.problems, ['AB1：已經記過']);
+    });
+
+    test('the ministry file: a void row voids, rows that disagree are '
+        'left out, named (F6)', () {
+      final found = importInvoices(
+        importBookOf(demoLedger()),
+        '發票日期,發票號碼,賣方名稱,發票狀態,消費明細_品名,消費明細_金額\n'
+        '20261003,AB00000001,甲店,開立,鮮奶,10\n'
+        '20261003,AB00000001,甲店,作廢,吐司,20\n'
+        '20261003,AB00000002,甲店,開立,鮮奶,10\n'
+        '20261004,AB00000002,乙店,開立,吐司,20\n'
+        '20261005,AB00000003,丙店,開立,茶,30\n',
+        account: 'cash',
+      );
+      expect(found.entries.map((e) => e.amount), [30]);
+      expect(found.skipped, 1);
+      expect(found.problems, ['AB00000002：同一張發票的日期或商家前後不一致']);
+    });
+  });
+
+  // Moved from test/perf/import_gate_test.dart: what it checks is not
+  // timed, so it runs with the ordinary suite (and its coverage).
+  test('apart and at once read the same', () async {
+    const small = '日期,類型,金額,帳戶,分類\n2026-10-01,支出,5,現金,飲食\nbad,支出,5,現金,x\n';
+    final apart = await importCsvApart(
+      importBookOf(demoLedger()),
+      small,
+      fallback: 'cash',
+    );
+    final once = importCsv(importBookOf(demoLedger()), small, fallback: 'cash');
+    expect(apart.entries.map((e) => (e.date, e.amount, e.category)), [
+      (DateTime.utc(2026, 10, 1), 5, '飲食'),
+    ]);
+    expect(once.entries.map((e) => (e.date, e.amount, e.category)), [
+      (DateTime.utc(2026, 10, 1), 5, '飲食'),
+    ]);
+    expect(apart.problems, ['第 3 行：日期看不懂']);
+    expect(once.problems, apart.problems);
+    final open = await importCsvApart(
+      importBookOf(demoLedger()),
+      '日期,金額\n2026-10-01,"5\n',
+      fallback: 'cash',
+    );
+    expect(open.problems, ['第 2 行的引號看不懂，整個檔案沒有匯入']);
+  });
+
+  test('a file of readApartFrom characters or more is read as CSV on a '
+      'worker, and reads the same', () async {
+    expect(readApartFrom, 100000);
+    // Each line '2026-10-01,支出,<1..9>,隨身現金,飲食,第 <i> 筆' is about 30
+    // characters: 4,000 lines are over 100,000.
+    final text = StringBuffer('日期,類型,金額,帳戶,分類,備註\n');
+    for (var i = 0; i < 4000; i++) {
+      text.write('2026-10-01,支出,${1 + i % 9},隨身現金,飲食,第 $i 筆\n');
+    }
+    final csv = text.toString();
+    expect(csv.length, greaterThanOrEqualTo(100000));
+    final apart = await importCsvApart(
+      importBookOf(demoLedger()),
+      csv,
+      fallback: 'cash',
+    );
+    final once = importCsv(importBookOf(demoLedger()), csv, fallback: 'cash');
+    expect(apart.entries, hasLength(4000));
+    expect(apart.problems, isEmpty);
+    expect(
+      apart.entries.map((e) => (e.date, e.amount, e.note)),
+      once.entries.map((e) => (e.date, e.amount, e.note)),
+    );
   });
 }

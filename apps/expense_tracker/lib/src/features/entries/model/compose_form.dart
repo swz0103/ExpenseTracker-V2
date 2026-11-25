@@ -1,19 +1,25 @@
 // Exception to models take what they use: the entry form is the page's
 // whole state and reads eleven parts of the ledger (ADR-0013).
 
-import '../../../core/formatting/amounts.dart';
+import 'package:core/money/price.dart' show timesPrice;
+
+import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/validation_messages.dart';
+import 'compose_form_refund.dart';
 import 'invoices.dart';
 import 'invoice_qr.dart';
 import '../../../core/ledger/trading.dart';
 import '../../../core/formatting/words.dart';
-
-part 'compose_form_extras.dart';
-part 'compose_form_lending.dart';
-part 'compose_form_split.dart';
-part 'compose_form_trade.dart';
-part 'compose_form_transfer.dart';
+export 'compose_form_refund.dart' show RefundFields;
+export 'compose_form_extras.dart' show ExtraFields;
+export 'compose_form_lending.dart' show Lending;
+export 'compose_form_split.dart' show Splitting;
+export 'compose_form_trade.dart' show SaveWarning, ShareChange, TradeFields;
+export 'compose_form_transfer.dart' show TransferFields;
+import 'compose_form_lending.dart';
+import 'compose_form_split.dart';
+import 'compose_form_trade.dart';
 
 /// The kinds of record the composer makes. 代墊 has no tab of its own:
 /// it is picked inside 支出 (paid for someone) or 收入 (paid back).
@@ -49,8 +55,9 @@ final class ComposeForm {
     required EntryType type,
     this.editing,
     this.draft,
-    this.refunded,
-  }) {
+    Entry? refunded,
+    this.brokerDiscount = defaultBrokerDiscount,
+  }) : refunded = refunded ?? ledger.entryQueryService.originalOf(draft) {
     mode = ComposeMode.of(type);
     trade = type.index >= EntryType.buy.index ? type : EntryType.buy;
     fresh();
@@ -79,8 +86,12 @@ final class ComposeForm {
   /// A new entry's starting values, such as a card payment.
   final Entry? draft;
 
-  /// The spending being refunded, for a refund.
-  final Entry? refunded;
+  /// The spending refunded: given, or named by the draft taken up (D79).
+  Entry? refunded;
+
+  /// The phone-wide broker's discount, in basis points of the full fee:
+  /// the preference 券商手續費折扣, for a trade's account without its own.
+  final int brokerDiscount;
 
   late ComposeMode mode;
   late EntryType trade;
@@ -96,6 +107,11 @@ final class ComposeForm {
   var tags = <String>[];
   var note = '';
 
+  /// What the entry is besides its type (D52): a card's cashback or
+  /// annual fee as the card page starts it, an e-invoice scanned; kept
+  /// through an edit.
+  EntryMark? mark;
+
   /// The parts of a split, or null when the whole goes to [category].
   List<(String, int)>? parts;
 
@@ -108,17 +124,17 @@ final class ComposeForm {
   /// The entries the form was opened from when they were written as one,
   /// by id, so a change keeps their ids: the spending's, and each
   /// person's.
-  final _ids = <String>{};
-  String? _ownId;
-  final _lentIds = <String, String>{};
+  final keptIds = <String>{};
+  String? keptOwnId;
+  final keptLentIds = <String, String>{};
 
   /// Paid wholly for the one person in [lent] (opened from 幫忙付): their
   /// share follows the amount typed, rather than half of it.
-  var _lentWhole = false;
+  var lentWhole = false;
 
   /// The sums someone paid back is made of, by entry, while 對方還錢.
   Set<String> paying = {};
-  String? _group;
+  String? keptGroup;
   var fee = 0;
 
   /// What a foreign amount is worth in NT$, and what a transfer between
@@ -131,6 +147,11 @@ final class ComposeForm {
   int? premium;
   var installments = 0;
   var average = false;
+
+  /// A sale that is a day trade (當日沖銷), as the entry being changed
+  /// was kept: no field shows it yet (D6), but it is kept, and its tax
+  /// suggested at the day-trade rate.
+  var dayTrade = false;
   var splitShares = false;
 
   /// A dividend that changes the shares held, opened from its link: most
@@ -150,13 +171,16 @@ final class ComposeForm {
   /// an entry that has them is opened, so a quick entry stays short.
   var more = false;
 
-  /// A trade's broker fee and tax as typed, or as it was saved; null
-  /// takes the suggestion.
+  /// A trade's broker fee and tax as the person typed them; null while
+  /// untouched, which takes the suggestion and so follows every change of
+  /// shares, price, stock or day. A saved value equal to what was
+  /// suggested for it is read as untouched.
   int? tradeFee;
   int? tradeTax;
 
   /// Puts [entry]'s values in the fields.
   void load(Entry entry) {
+    mark = entry.mark;
     amount = entry.amount;
     date = entry.date;
     account = entry.account;
@@ -179,13 +203,24 @@ final class ComposeForm {
     premium = entry.type == EntryType.dividend ? entry.tax : null;
     installments = entry.installments;
     average = entry.average;
+    dayTrade = entry.dayTrade;
     splitShares = entry.split;
     shareChange = entry.type == EntryType.dividend && entry.shares != 0;
     reduce = entry.isReduction;
     if (reduce) shares = -entry.shares;
     if (entry.type == EntryType.buy || entry.type == EntryType.sell) {
-      tradeFee = entry.fee;
-      tradeTax = entry.tax;
+      // Charges still at what the rules suggested were never typed: they
+      // follow the trade when it changes. Others were, and stay.
+      final (fee, tax) = suggestedFor(
+        entry.type,
+        entry.holding ?? '',
+        entry.amount,
+        entry.shares,
+        entry.date,
+        entry.dayTrade,
+      );
+      tradeFee = entry.fee == fee ? null : entry.fee;
+      tradeTax = entry.tax == tax ? null : entry.tax;
     }
   }
 
@@ -199,6 +234,7 @@ final class ComposeForm {
 
   /// Empty fields with sensible first choices for the current tab.
   void fresh() {
+    mark = null;
     final accounts = startAccounts;
     amount = 0;
     date = ledger.today;
@@ -223,13 +259,14 @@ final class ComposeForm {
     premium = null;
     installments = 0;
     average = false;
+    dayTrade = false;
     splitShares = false;
     shareChange = false;
     reduce = false;
     back = false;
     receipt = null;
     lent = null;
-    _lentWhole = false;
+    lentWhole = false;
     if (mode == ComposeMode.lend) {
       // Paid from the main account, for the first person owing.
       final main = ledger.accounts.main;
@@ -282,7 +319,8 @@ final class ComposeForm {
   void fillInvoice(InvoiceQr invoice) {
     date = invoice.date;
     note = invoice.note;
-    if (!tags.contains('發票')) tags = [...tags, '發票'];
+    if (!tags.contains(Words.invoice)) tags = [...tags, Words.invoice];
+    mark = EntryMark.invoice;
     more = true;
     category = guessCategory(
       ledger.entryQueryService,
@@ -327,9 +365,9 @@ final class ComposeForm {
   List<String> categoryChoices() =>
       ledger.reportService.categoriesByUse(income: tab == ComposeMode.income);
 
-  /// Brings back a form put aside: [entry] with its receipt photo, on
-  /// accounts still open; when none is open, its own accounts stay.
+  /// Brings back a form put aside ([entry], its photo), on open accounts.
   void restore(Entry entry, String? photo) {
+    refunded = ledger.entryQueryService.originalOf(entry) ?? refunded;
     load(entry);
     findLending(entry);
     if (entry.isInvestment) trade = entry.type;
@@ -356,7 +394,7 @@ final class ComposeForm {
   void setAmount(int value) {
     // Shares still even follow the new amount; those typed stay.
     final split = lent;
-    if (_lentWhole && split != null && split.length == 1) {
+    if (lentWhole && split != null && split.length == 1) {
       lent = [(split.first.$1, value)];
     } else if (split != null &&
         split.every((p) => p.$2 == split.first.$2) &&
@@ -425,62 +463,28 @@ final class ComposeForm {
   /// A transfer between accounts kept in different currencies.
   bool get crossing => type == EntryType.transfer && currency != toCurrency;
 
-  /// [home], else the refunded share of the purchase's worth, else the
-  /// amount at today's rate; null without a rate.
-  int? get homeValue {
-    final typed = home;
-    if (typed != null) return typed;
-    final original = refunded;
-    final worth = original?.home;
-    if (original != null && worth != null && original.amount > 0) {
-      return (worth * amount / original.amount).round();
-    }
-    return ledger.marketData.toHome(amount, currency);
-  }
-
-  /// [received], else the amount at today's rates.
-  int? get receivedValue =>
-      received ?? ledger.marketData.convert(amount, currency, toCurrency);
-
   /// The premium withheld from the cash dividend being written.
   int get withheld => premium ?? dividendPremium(amount, date);
 
-  /// The broker's fee and tax the ledger's Taiwan rules suggest for the
-  /// trade being written.
-  (int, int) get suggested {
-    final tax = type == EntryType.sell
-        ? saleTax(holding ?? '', amount, shares, date)
-        : 0;
-    return (brokerFee(amount, shares), tax);
-  }
-
-  /// The trade's fee and tax: as typed, else as suggested.
-  (int, int) get charges {
-    if (type != EntryType.buy && type != EntryType.sell) return (0, 0);
-    final (fee, tax) = suggested;
-    return (tradeFee ?? fee, tradeTax ?? tax);
-  }
-
-  /// What a trade settles at: paid for a buy with its fee, received for a
-  /// sale less fee and tax.
-  int get settlement {
-    final (fee, tax) = charges;
-    return trade == EntryType.sell ? amount - fee - tax : amount + fee;
-  }
-
-  /// Why the entry cannot be kept yet; null when it can. The ledger's
-  /// own checks, and a split that must add up to the amount.
+  /// Why the entry cannot be kept yet; null when it can: the ledger's
+  /// write rules, which the save asks again, on the entry as it stands
+  /// (a split of one part included, though it is kept as no split).
   String? get problem {
     if (mode == ComposeMode.lend && to.isEmpty) return '請選擇代墊對象';
     if (lending) return _lendingProblem;
-    final found = ledger.entryValidator.validate(build(), replacing: editing);
-    if (found != null) return validationMessage(found);
-    final splitTotal = splitParts?.fold(0, (sum, p) => sum + p.$2);
-    if (splitTotal != null && splitTotal != amount) {
-      return '拆分的金額要等於總額（差 ${groupDigits(amount - splitTotal)}）';
-    }
-    return null;
+    final found = ledger.entryValidator.validate(
+      build(wholeSplit: true),
+      replacing: editing,
+    );
+    return found == null ? null : validationMessage(found);
   }
+
+  /// What [warning] and [saleCost] were last worked out for, and what
+  /// they came to (compose_form_trade.dart).
+  String? keptWarningFor;
+  String? keptWarning;
+  Object? keptSaleCostKey;
+  int? keptSaleCost;
 
   String? get _lendingProblem {
     if (amount <= 0) return '請輸入金額';
@@ -503,26 +507,24 @@ final class ComposeForm {
     final shares = lent;
     if (!lending || shares == null) return [build()];
     final made = <Entry>[];
-    final group = _group ?? ledger.newId();
+    final group = keptGroup ?? ledger.newId();
     final mine = own;
     if (mine > 0) {
       final opened = editing;
       final ownId =
-          _ownId ??
-          (opened != null && !_lentIds.containsValue(opened.id)
+          keptOwnId ??
+          (opened != null && !keptLentIds.containsValue(opened.id)
               ? opened.id
               : ledger.newId());
       made.add(build().inGroup(null, id: ownId, amount: mine));
     }
     for (final (person, value) in shares) {
       made.add(
-        Entry(
-          id: _lentIds[person] ?? ledger.newId(),
+        TransferDrafts.between(
+          id: keptLentIds[person] ?? ledger.newId(),
           date: date,
-          type: EntryType.transfer,
           amount: value,
-          account: account,
-          category: transferCategory,
+          from: account,
           note: note.trim(),
           to: person,
         ),
@@ -534,10 +536,12 @@ final class ComposeForm {
     return [for (final e in made) e.inGroup(group)];
   }
 
-  /// The entry as the form now stands.
-  Entry build() {
+  /// The entry as the form now stands. A split of one part is kept as
+  /// none, unless [wholeSplit], for its part to be checked.
+  Entry build({bool wholeSplit = false}) {
     final kind = type;
-    final split = splitParts;
+    final refund = refundBeingWritten;
+    final split = refund == null ? splitParts : refund.parts;
     final (tradeFee, tradeTax) = charges;
     return Entry(
       id: editing?.id ?? ledger.newId(),
@@ -547,9 +551,10 @@ final class ComposeForm {
       // Paid back: from the person's account into the chosen one.
       account: lendingBack ? to : account,
       category: switch (kind) {
-        EntryType.transfer => transferCategory,
+        EntryType.transfer => keptCategory(kind, editing?.category ?? ''),
         EntryType.dividend => dividendCategory,
         EntryType.buy || EntryType.sell => investmentCategory,
+        _ when refund != null => refund.category,
         _ => split == null || split.isEmpty ? category : split.first.$1,
       },
       note: note.trim(),
@@ -566,16 +571,24 @@ final class ComposeForm {
           : shares,
       recurring: editing?.recurring ?? draft?.recurring,
       merchant: kind == EntryType.expense ? merchant : '',
-      tags: kind == EntryType.expense || kind == EntryType.income ? tags : [],
-      parts: split != null && split.length > 1 ? split : const [],
+      tags: refund != null
+          ? refund.tags
+          : kind == EntryType.expense || kind == EntryType.income
+          ? tags
+          : [],
+      parts: split != null && split.length > (wholeSplit ? 0 : 1)
+          ? split
+          : const [],
       fee: kind == EntryType.transfer ? (takesFee ? fee : 0) : tradeFee,
       tax: kind == EntryType.dividend ? (reducing ? 0 : withheld) : tradeTax,
       refundOf: refunded?.id ?? editing?.refundOf,
       installments: onCard ? installments : 0,
       average: kind == EntryType.sell && average,
+      dayTrade: kind == EntryType.sell && dayTrade,
       split: stock && splitShares && !reducing,
       home: foreign ? homeValue : null,
       received: crossing ? receivedValue : null,
+      mark: kind == EntryType.expense || kind == EntryType.income ? mark : null,
     );
   }
 }

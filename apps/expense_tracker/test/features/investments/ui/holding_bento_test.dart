@@ -154,4 +154,24 @@ void main() {
     await open(tester);
     expect(find.text('連上證交所、櫃買中心後才有走勢'), findsOneWidget);
   });
+
+  group('R26: a span picked on a day later months lack starts on their '
+      'last day', () {
+    for (final (today, span, from) in [
+      // 31 Mar 2027, a month back: February 2027 has 28 days.
+      (DateTime.utc(2027, 3, 31), '1月', DateTime.utc(2027, 2, 28)),
+      // 31 Dec 2026, three months back: September has 30 days.
+      (DateTime.utc(2026, 12, 31), '3月', DateTime.utc(2026, 9, 30)),
+      // 29 Feb 2028, a year back: February 2027 has 28 days.
+      (DateTime.utc(2028, 2, 29), '1年', DateTime.utc(2027, 2, 28)),
+    ]) {
+      testWidgets('$span on $today', (tester) async {
+        ledger = demoLedger(today: today);
+        final prices = _Prices(DateTime.utc(2025));
+        await open(tester, market: prices);
+        await go(tester, [span]);
+        expect(prices.asked.last, from);
+      });
+    }
+  });
 }

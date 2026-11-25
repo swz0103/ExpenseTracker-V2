@@ -1,0 +1,111 @@
+import '../formatting/words.dart';
+import 'problem_messages.dart';
+import '../ledger/persistence/quarantine.dart';
+import '../ledger/persistence/upgrade_backup.dart';
+
+// What opening the book tells the person: rows set aside, and a book that
+// could not be opened at all; and the diagnostics either one exports.
+
+/// The title of the notice of rows set aside as the book opened.
+String quarantineTitle(int count) => '有 $count 筆資料讀不出來，已先隔離';
+
+/// What the notice says of [rows]: what happened to them, and what is
+/// safe to do.
+String quarantineBody(List<QuarantinedRow> rows) {
+  final newer = rows.where((r) => r.reason == QuarantineReason.newer).length;
+  final lines = [
+    '其他資料都已正常打開。這些資料原封不動留在手機上，這個版本不會改寫或刪除它們。',
+    if (newer > 0) '其中 $newer 筆由較新版本寫入，請更新 App 到最新版本後再打開',
+    if (newer < rows.length) '可以匯出診斷資料回報問題，或從備份還原',
+  ];
+  return lines.join('\n\n');
+}
+
+/// The words of each reason a row is set aside.
+String quarantineReason(QuarantinedRow row) => switch (row.reason) {
+  QuarantineReason.unreadable => '讀不出來',
+  QuarantineReason.newer => '由較新版本寫入（第 ${row.version} 版）',
+  QuarantineReason.invalid => '內容不完整',
+};
+
+/// The words of each kind of row.
+String _shelf(String shelf) => switch (shelf) {
+  'account' => Words.account,
+  'category' => Words.category,
+  'entry' => '紀錄',
+  'budget' => '預算',
+  'recurring' => '定期項目',
+  'trash' => '最近刪除',
+  _ => shelf,
+};
+
+const quarantineRestore = '還原備份';
+const quarantineContinue = '繼續使用';
+
+/// The book could not be opened at all.
+const loadFailedTitle = '帳本打不開';
+const loadFailedBody = '讀取帳本時發生問題，資料沒有被改動。可以再試一次；如果一直打不開，可以從備份還原，或匯出診斷資料回報問題。';
+const loadFailedRetry = '再試一次';
+const loadFailedRestore = '從備份還原';
+
+/// The ledger's file is damaged (D94): told apart from a wrong password,
+/// with what was done to it and what is safe to do.
+const damagedTitle = '帳本檔案損毀';
+const damagedBody =
+    '帳本檔案已損毀或不完整（不是密碼錯誤），無法打開。'
+    '損毀的檔案已原封不動另外儲存在裝置上，不會被覆蓋，也沒有建立新的空帳本。'
+    '請從備份還原；也可以複製診斷資料回報問題。';
+
+/// A book kept by an earlier version is not brought up to this one while
+/// the copy kept first cannot be written (D19).
+const upgradeHeldTitle = '升級前的備份沒有完成';
+
+/// Why the copy before the upgrade was not kept: no room, or another
+/// failure, its error ([error]) never said as it is (D84).
+String upgradeHeldBody(UpgradeBackupProblem problem, Object error) {
+  final cause = switch (problem) {
+    UpgradeBackupProblem.noSpace => '手機空間不足，無法先把帳本備份起來',
+    UpgradeBackupProblem.other => problemNote('無法先把帳本備份起來', error),
+  };
+  return '${endSentence(cause)}帳本沒有被改動，也還沒有升級到這個版本。';
+}
+
+/// How much room the copy takes, and how to make it.
+const upgradeHeldSpace =
+    '升級前會先完整備份一份帳本（含收據照片），手機需要有足夠的空間。'
+    '可以先刪除不需要的照片、影片或 App，再按「再試一次」。';
+const upgradeHeldRetry = '再試一次';
+const upgradeHeldSkip = '不備份，仍要升級';
+
+/// The second question before going on without the copy.
+const upgradeHeldConfirm = '確定不備份就升級？';
+const upgradeHeldConfirmBody = '升級後，這本帳本只能由這個版本以後的 App 打開；如果升級出了問題，只能從更早的備份還原';
+const upgradeHeldConfirmAction = '仍要升級';
+
+/// The app could not start at all; what failed is in the diagnostics it
+/// copies, never said on the page (D84).
+const startFailedTitle = '記帳本無法啟動';
+const startFailedBody = '啟動時發生問題，資料沒有被改動。可以再試一次；如果一直無法啟動，可以複製診斷資料回報問題。';
+const startFailedCopy = '複製診斷資料';
+const startFailedCopied = '已複製診斷資料';
+
+/// The name of the diagnostics file of an opening.
+const openingReportName = '記帳本-打開診斷.txt';
+
+/// The diagnostics of an opening, to export: which rows were set aside
+/// and why, or what stopped the book opening ([failure], already cleaned
+/// of what the person wrote), then [log], the diagnostics log. Never an
+/// amount, a note or a name from a row.
+String openingReport({
+  List<QuarantinedRow> rows = const [],
+  String? failure,
+  String log = '',
+}) => [
+  '記帳本 打開診斷',
+  if (failure != null) '無法打開：$failure',
+  if (rows.isNotEmpty) '隔離的資料：${rows.length} 筆',
+  for (final row in rows)
+    '${_shelf(row.shelf)} ${row.key}：${quarantineReason(row)}'
+        '${row.detail.isEmpty ? '' : '（${row.detail}）'}',
+  if (log.isNotEmpty) ...['', '診斷紀錄', log],
+].join('\n');

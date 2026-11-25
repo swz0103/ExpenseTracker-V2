@@ -4,8 +4,10 @@ import 'dart:math';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
+import 'package:domain/data_exchange.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -96,8 +98,26 @@ void main() {
     final copy = File('${directory.path}/picked.csv')
       ..writeAsStringSync('日期,金額');
     picked = copy.path;
-    expect(await backups.readFile(), '日期,金額');
+    final read = await backups.readFile();
+    expect((read! as TextRead).text, '日期,金額');
     expect(copy.existsSync(), isFalse);
+  });
+
+  test('a file chosen in Big5 is read as Big5; one of neither is said to '
+      'be unreadable (N4)', () async {
+    // 日期 in Big5 (cp950): A4 E9, B4 C1.
+    final big5 = File('${directory.path}/big5.csv')
+      ..writeAsBytesSync([0xA4, 0xE9, 0xB4, 0xC1]);
+    picked = big5.path;
+    final read = await backups.readFile();
+    expect(read, isA<TextRead>());
+    final text = read! as TextRead;
+    expect((text.text, text.encoding), ('日期', TextEncoding.big5));
+    final junk = File('${directory.path}/junk.bin')
+      ..writeAsBytesSync([0x80, 0x81]);
+    picked = junk.path;
+    expect(await backups.readFile(), isA<TextUnreadable>());
+    expect(junk.existsSync(), isFalse);
   });
 
   test('a backup lent to a job is gone once it is done', () async {
