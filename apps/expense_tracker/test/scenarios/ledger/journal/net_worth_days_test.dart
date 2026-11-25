@@ -6,6 +6,7 @@ import 'package:expense_tracker/src/core/ledger/repositories/holding_repository.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kernel/kernel.dart';
 import 'package:core/foundation_values.dart' show BusinessDate;
+import 'package:domain/investments.dart' show DatedFigures, MarketHistory;
 
 import '../../../core/ledger/journal/posted_book.dart';
 import 'random_book.dart' as rt;
@@ -14,6 +15,7 @@ Future<List<String>> run({
   required bool stocks,
   required bool foreign,
   required bool sell,
+  MarketHistory? history,
   int seeds = 40,
 }) async {
   final bad = <String>[];
@@ -45,6 +47,7 @@ Future<List<String>> run({
         recurring: const [],
         rates: const {'USD': 32.0},
         sellRates: sell ? const {'USD': 32.75} : const {},
+        history: history,
       );
     } catch (_) {
       continue; // a filtered book that no longer holds together
@@ -68,6 +71,29 @@ Future<List<String>> run({
   return bad;
 }
 
+/// D58: rates and closes kept on scattered days, as fetches leave them:
+/// a past day is valued at its own, or the nearest earlier day's.
+final scattered = (() {
+  BusinessDate d(int m, int day) => BusinessDate(2026, m, day);
+  return MarketHistory(
+    buying: DatedFigures({
+      'USD': {d(8, 3): 31.2, d(8, 20): 31.65, d(9, 14): 30.9, d(10, 9): 32.0},
+    }),
+    selling: DatedFigures({
+      'USD': {d(8, 20): 32.1, d(10, 1): 32.75},
+    }),
+    closes: DatedFigures({
+      '2330': {
+        d(8, 5): 912.0,
+        d(8, 27): 955.5,
+        d(9, 1): 480.25,
+        d(10, 30): 1001.0,
+      },
+      '0050': {d(8, 10): 61.4, d(9, 22): 64.05},
+    }),
+  );
+})();
+
 void main() {
   test('past days, no stocks, no foreign money', () async {
     final bad = await run(stocks: false, foreign: false, sell: false);
@@ -87,6 +113,15 @@ void main() {
   });
   test('past days, everything, two rates', () async {
     final bad = await run(stocks: true, foreign: true, sell: true);
+    expect(bad, isEmpty, reason: bad.take(5).join('\n'));
+  }, timeout: const Timeout(Duration(minutes: 10)));
+  test('D58: past days at rates and closes kept on scattered days', () async {
+    final bad = await run(
+      stocks: true,
+      foreign: true,
+      sell: true,
+      history: scattered,
+    );
     expect(bad, isEmpty, reason: bad.take(5).join('\n'));
   }, timeout: const Timeout(Duration(minutes: 10)));
 }

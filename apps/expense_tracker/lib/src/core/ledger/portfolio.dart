@@ -348,12 +348,14 @@ final class Portfolio {
   /// [shares] of [code] held at the end of [day], as counted then, in the
   /// shares of the earlier day [of]: each split or reduction after [of]
   /// up to [day] undone, as a close of [of] is a price per share of then
-  /// (D58).
+  /// (D58); one that left no shares is passed over.
   int inSharesOf(String code, DateTime day, int shares, DateTime of) {
     var n = shares;
     for (final (date, before, after)
         in (_rescales[code] ?? const <_Rescale>[]).reversed) {
-      if (date.isAfter(of) && !date.isAfter(day)) {
+      // One that left none (a reduction to nothing) has no shares of
+      // before to count back to: the shares counted since are new.
+      if (date.isAfter(of) && !date.isAfter(day) && after > 0) {
         n = (n * before / after).round();
       }
     }

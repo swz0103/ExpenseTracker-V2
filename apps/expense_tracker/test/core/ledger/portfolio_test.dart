@@ -88,4 +88,88 @@ void main() {
     // 1 (the cut) x 2000 / 1000 = 2, not 0 x 2 = 0.
     expect(p.reshapedBy('2330', DateTime.utc(2026, 9, 9)), 2);
   });
+
+  test('D58: a day\'s count as counted then, and in an earlier day\'s '
+      'shares', () {
+    Entry reshape(String id, int shares, int day, {bool split = false}) =>
+        Entry(
+          id: id,
+          date: DateTime.utc(2026, 9, day),
+          type: EntryType.dividend,
+          amount: 0,
+          account: 'bank',
+          category: '',
+          holding: '2330',
+          shares: shares,
+          split: split,
+        );
+    final p = Portfolio.replay(const [], [
+      trade('buy', EntryType.buy, 1000),
+      // 1-for-1 on 9/10: 2,000; a reduction to 500 on 9/20.
+      reshape('split', 1000, 10, split: true),
+      reshape('cut', -1500, 20),
+    ]);
+    expect(p.sharesCountedOn('2330', DateTime.utc(2026, 9, 5)), 1000);
+    expect(p.sharesCountedOn('2330', DateTime.utc(2026, 9, 15)), 2000);
+    expect(p.sharesCountedOn('2330', DateTime.utc(2026, 9, 25)), 500);
+    expect(p.sharesCountedOn('0050', DateTime.utc(2026, 9, 25)), 0);
+    // 500 on 9/25 in 9/5's shares: the cut undone, 500 x 2000 / 500 =
+    // 2000, then the split, 2000 x 1000 / 2000 = 1000.
+    expect(
+      p.inSharesOf(
+        '2330',
+        DateTime.utc(2026, 9, 25),
+        500,
+        DateTime.utc(2026, 9, 5),
+      ),
+      1000,
+    );
+    // In 9/10's shares only the cut is undone: 2,000.
+    expect(
+      p.inSharesOf(
+        '2330',
+        DateTime.utc(2026, 9, 25),
+        500,
+        DateTime.utc(2026, 9, 10),
+      ),
+      2000,
+    );
+    // Nothing between: unchanged.
+    expect(
+      p.inSharesOf(
+        '2330',
+        DateTime.utc(2026, 9, 25),
+        500,
+        DateTime.utc(2026, 9, 21),
+      ),
+      500,
+    );
+  });
+
+  test('D58: a reduction to nothing is not undone', () {
+    final p = Portfolio.replay(const [], [
+      trade('buy', EntryType.buy, 10),
+      Entry(
+        id: 'gone',
+        date: DateTime.utc(2026, 9, 5),
+        type: EntryType.dividend,
+        amount: 0,
+        account: 'bank',
+        category: '',
+        holding: '2330',
+        shares: -10,
+      ),
+      trade('again', EntryType.buy, 4, day: 9),
+    ]);
+    expect(p.sharesCountedOn('2330', DateTime.utc(2026, 9, 9)), 4);
+    expect(
+      p.inSharesOf(
+        '2330',
+        DateTime.utc(2026, 9, 9),
+        4,
+        DateTime.utc(2026, 9, 2),
+      ),
+      4,
+    );
+  });
 }
