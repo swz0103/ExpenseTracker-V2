@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:expense_tracker/src/core/platform/app_files.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Android's own backup takes one thing of the app: the encrypted copy of
@@ -64,6 +65,10 @@ void main() {
   test('the copy is where the app writes it', () {
     final startup = File('lib/src/core/platform/startup.dart')
         .readAsStringSync();
-    expect(startup, contains(r"'${directory.path}/cloud/記帳本.etbk'"));
+    expect(
+      startup,
+      contains(r"'${directory.path}/${AppFiles.cloud}/${AppFiles.cloudCopy}'"),
+    );
+    expect('file:${AppFiles.cloud}/', onlyTheCopy.single);
   });
 }

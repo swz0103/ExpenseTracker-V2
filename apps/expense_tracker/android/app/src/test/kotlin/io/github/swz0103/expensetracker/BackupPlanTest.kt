@@ -7,11 +7,26 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import java.io.IOException
-import java.util.TimeZone
 
-/** The background job's rules match the app's (phone_backup.dart). */
+/** The background job follows the rules the app hands over (backup_rules.dart). */
 class BackupPlanTest {
-    private val week = 7 * BackupPlan.DAY
+    private val day = 86_400_000L
+
+    // 7 days of 86,400,000 ms.
+    private val week = 604_800_000L
+
+    // As BackupRules.handover writes it for the ledger marked abc123.
+    private val plan = BackupPlan.Handed(
+        keep = 5,
+        daily = day,
+        weekly = week,
+        drive = day,
+        phoneName = "記帳本-abc123-20261028-1104.etbk",
+        phonePrefix = "記帳本-abc123-",
+        suffix = ".etbk",
+        driveFolder = "記帳本備份",
+        folderDenied = "沒有這個資料夾的存取權，請重新選擇",
+    )
 
     @Test
     fun aFirstBackupIsAlwaysDue() {
@@ -24,7 +39,7 @@ class BackupPlanTest {
         assertFalse(BackupPlan.due(last + week - 1, last, 2, 3, week))
         assertFalse(BackupPlan.due(last + week, last, 3, 3, week))
         assertTrue(BackupPlan.due(last + week, last, 2, 3, week))
-        assertTrue(BackupPlan.due(last + BackupPlan.DAY, last, 2, 3, BackupPlan.DAY))
+        assertTrue(BackupPlan.due(last + day, last, 2, 3, day))
     }
 
     @Test
@@ -38,12 +53,9 @@ class BackupPlanTest {
     }
 
     @Test
-    fun phoneNamesAreThoseOfTheApp() {
-        val taipei = TimeZone.getTimeZone("Asia/Taipei")
-        assertEquals(
-            "記帳本-abc123-20261028-1104.etbk",
-            BackupPlan.phoneName("abc123", 1_793_156_645_123L, taipei),
-        )
+    fun thePhonesRhythmIsTheOneChosenOfThoseHandedOver() {
+        assertEquals(day, plan.phoneEvery(daily = true))
+        assertEquals(week, plan.phoneEvery(daily = false))
     }
 
     @Test
@@ -56,7 +68,7 @@ class BackupPlanTest {
         )
         assertEquals(
             listOf("記帳本-abc123-20261002-0900.etbk", "記帳本-abc123-20261001-0900.etbk"),
-            BackupPlan.beyondKept(names, "abc123"),
+            BackupPlan.beyondKept(names, plan),
         )
     }
 

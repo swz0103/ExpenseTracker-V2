@@ -47,7 +47,7 @@ final class AndroidCalendar implements CalendarPort {
   Future<List<CalendarEvent>> events(int calendar, DateTime from) async {
     final rows = await platformChannel.invokeListMethod<_Row>(
       'calendarEvents',
-      {'calendar': calendar, 'from': _startOf(from)},
+      {'calendar': calendar, 'from': _startOf(from), 'mark': CalendarSync.mark},
     );
     return [
       for (final row in [
@@ -73,6 +73,8 @@ final class AndroidCalendar implements CalendarPort {
         'insert': [for (final e in changes.insert) eventFields(e)],
         'update': [for (final e in changes.update) eventFields(e)],
         'delete': changes.delete,
+        'mark': CalendarSync.mark,
+        'length': CalendarSync.eventLength.inMilliseconds,
       }) ??
       0;
 }

@@ -4,6 +4,8 @@ import 'package:flutter/rendering.dart';
 import 'type.dart';
 import 'shape.dart';
 
+import 'package:core/constants/category_colors.dart';
+
 export 'type.dart';
 
 /// A colour with a light and a dark value, read when painted: the whole
@@ -249,21 +251,11 @@ abstract final class AppColors {
   ];
 
   /// The colours a category may be given, in the order new ones take
-  /// them. Plain colours, not [Shade]s: the one chosen is kept with the
-  /// category, the same in both modes.
-  static const categoryColors = [
-    Color(0xFF5B8DB0),
-    Color(0xFFD08B5B),
-    Color(0xFF5C9A83),
-    Color(0xFF8E7CC0),
-    Color(0xFFC9A34A),
-    Color(0xFFB07A8C),
-    Color(0xFF4E8A9A),
-    Color(0xFFA0866A),
-    Color(0xFF7686B8),
-    Color(0xFF9AA35E),
-    Color(0xFF6E9C93),
-    Color(0xFFB08AA6),
+  /// them ([categoryColorValues], the one list). Plain colours, not
+  /// [Shade]s: the one chosen is kept with the category, the same in both
+  /// modes.
+  static final categoryColors = [
+    for (final value in categoryColorValues) Color(value),
   ];
 
   /// The lift under tiles: just off the paper. None on the dark theme,

@@ -20,11 +20,12 @@ class ClipboardHandler(private val activity: FragmentActivity) : ChannelHandler 
         when (call.method) {
             "copySensitive" -> {
                 val text = call.argument<String>("text")
-                if (text == null) {
-                    result.error("bad-arguments", "text is required", null)
+                val label = call.argument<String>("label")
+                if (text == null || label == null) {
+                    result.error("bad-arguments", "text and label are required", null)
                 } else {
                     try {
-                        copy(text)
+                        copy(text, label)
                         result.success(null)
                     } catch (e: Exception) {
                         result.error("clipboard", e.message, null)
@@ -36,9 +37,9 @@ class ClipboardHandler(private val activity: FragmentActivity) : ChannelHandler 
         return true
     }
 
-    private fun copy(text: String) {
+    private fun copy(text: String, label: String) {
         val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText(LABEL, text)
+        val clip = ClipData.newPlainText(label, text)
         // ClipDescription.EXTRA_IS_SENSITIVE (API 33); older phones read the
         // same key, as Android's own documentation advises.
         clip.description.extras = PersistableBundle().apply {
@@ -48,7 +49,6 @@ class ClipboardHandler(private val activity: FragmentActivity) : ChannelHandler 
     }
 
     private companion object {
-        const val LABEL = "記帳本救援碼"
         const val IS_SENSITIVE = "android.content.extra.IS_SENSITIVE"
     }
 }

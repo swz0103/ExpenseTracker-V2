@@ -20,6 +20,7 @@ import '../time/app_clock.dart';
 import 'memory_keystore.dart';
 import 'quick_key.dart';
 import 'unlock_attempts.dart';
+import 'app_files.dart';
 
 /// What a backup says of itself before any key: when it was taken, its
 /// records, and what opens it. Named here for the screens, which do not
@@ -366,7 +367,8 @@ final class Startup extends ChangeNotifier {
   /// backup takes to the person's Google account and brings back when the
   /// app is installed again or on a new phone (res/xml): the only file
   /// it takes.
-  File get cloudCopy => File('${directory.path}/cloud/記帳本.etbk');
+  File get cloudCopy =>
+      File('${directory.path}/${AppFiles.cloud}/${AppFiles.cloudCopy}');
 
   /// The copy Android brought back with no ledger here yet: when it was
   /// taken and how many records it holds. Null when there is none.
@@ -541,7 +543,7 @@ final class Startup extends ChangeNotifier {
     // From settings, the closed ledger is replaced; a backup of it was
     // kept first.
     final replacing = _state is Locked;
-    final staged = Directory('${_vault.stagedFiles.path}/receipts');
+    final staged = Directory('${_vault.stagedFiles.path}/${AppFiles.receipts}');
     var skipped = 0;
     final open = await _vault.restore(
       keys,

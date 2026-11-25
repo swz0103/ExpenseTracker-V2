@@ -13,6 +13,8 @@ import 'phone_backup.dart' show BackupHead;
 import '../../../core/time/app_clock.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
+import '../../../core/platform/app_files.dart';
+import 'backup_rules.dart';
 
 /// The keys and backups of the open encrypted ledger.
 final class EncryptedBackupManager implements BackupManager {
@@ -51,7 +53,7 @@ final class EncryptedBackupManager implements BackupManager {
 
   /// The sealed receipt photos, by name, for a backup to carry.
   Map<String, File> _receipts() {
-    final folder = Directory('${_startup.directory.path}/receipts');
+    final folder = Directory('${_startup.directory.path}/${AppFiles.receipts}');
     if (!folder.existsSync()) return const {};
     return {
       for (final entity in folder.listSync())
@@ -159,7 +161,8 @@ final class EncryptedBackupManager implements BackupManager {
   }
 
   /// Where the weekly backups are kept.
-  Directory get _folder => Directory('${_startup.directory.path}/backups');
+  Directory get _folder =>
+      Directory('${_startup.directory.path}/${AppFiles.backups}');
 
   /// Writes an encrypted backup into the backups folder and returns its
   /// path.
@@ -282,8 +285,8 @@ final class EncryptedBackupManager implements BackupManager {
   /// ledger changed since, then keeps only the newest [keep]. Returns the
   /// new backup's path, or null when none was due.
   Future<String?> backUpIfDue({
-    Duration every = const Duration(days: 7),
-    int keep = 5,
+    Duration every = BackupRules.own,
+    int keep = BackupRules.keep,
   }) async {
     final files = _backups();
     if (files.isNotEmpty) {

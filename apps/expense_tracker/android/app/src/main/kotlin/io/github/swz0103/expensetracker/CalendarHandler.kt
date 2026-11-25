@@ -52,12 +52,15 @@ class CalendarHandler(private val activity: FragmentActivity) : ChannelHandler {
             "calendarEvents" -> {
                 val calendar = (call.argument<Any>("calendar") as? Number)?.toLong()
                 val from = (call.argument<Any>("from") as? Number)?.toLong()
+                val mark = call.argument<String>("mark")
                 if (!granted()) {
                     result.error("no-access", "Calendar access was not given.", null)
-                } else if (calendar == null || from == null) {
-                    result.error("bad-arguments", "calendar and from are required", null)
+                } else if (calendar == null || from == null || mark.isNullOrEmpty()) {
+                    result.error("bad-arguments", "calendar, from and mark are required", null)
                 } else {
-                    offMain.answer(result, "calendar") { CalendarBridge.events(activity.contentResolver, calendar, from) }
+                    offMain.answer(result, "calendar") {
+                        CalendarBridge.events(activity.contentResolver, calendar, from, mark)
+                    }
                 }
             }
             "applyCalendarChanges" -> {
@@ -65,13 +68,18 @@ class CalendarHandler(private val activity: FragmentActivity) : ChannelHandler {
                 val insert = call.argument<List<Map<String, Any?>>>("insert")
                 val update = call.argument<List<Map<String, Any?>>>("update")
                 val delete = call.argument<List<Any?>>("delete")?.mapNotNull { (it as? Number)?.toLong() }
+                val mark = call.argument<String>("mark")
+                val length = (call.argument<Any>("length") as? Number)?.toLong()
                 if (!granted()) {
                     result.error("no-access", "Calendar access was not given.", null)
-                } else if (calendar == null || insert == null || update == null || delete == null) {
-                    result.error("bad-arguments", "calendar, insert, update and delete are required", null)
+                } else if (calendar == null || insert == null || update == null || delete == null ||
+                    mark.isNullOrEmpty() || length == null
+                ) {
+                    result.error("bad-arguments", "calendar, insert, update, delete, mark and length are required", null)
                 } else {
+                    val shape = CalendarBridge.Shape(mark, length)
                     offMain.answer(result, "calendar") {
-                        CalendarBridge.apply(activity.contentResolver, calendar, insert, update, delete)
+                        CalendarBridge.apply(activity.contentResolver, calendar, insert, update, delete, shape)
                     }
                 }
             }
