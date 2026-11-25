@@ -5,7 +5,7 @@ import 'package:expense_tracker/src/app/settings_search.dart';
 import 'package:expense_tracker/src/core/design_system/findable.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/design_system/design_system.dart';
-import 'package:expense_tracker/src/core/formatting/setting_topic.dart';
+import 'package:shell/setting_topic.dart';
 import 'package:expense_tracker/src/core/messages/reminder_messages.dart';
 import 'package:expense_tracker/src/core/messages/update_messages.dart';
 import 'package:expense_tracker/src/core/navigation/nav.dart';

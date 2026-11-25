@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../formatting/setting_topic.dart';
+import 'package:shell/setting_topic.dart';
 import '../platform/sync_job.dart';
 import '../ledger/ledger.dart';
 

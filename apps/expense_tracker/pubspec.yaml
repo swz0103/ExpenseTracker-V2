@@ -29,6 +29,8 @@ dependencies:
     path: ../../packages/ledger/trade_costs
   market:
     path: ../../infrastructure/market
+  shell:
+    path: ../../packages/shell
   storage:
     path: ../../infrastructure/storage
   vault:

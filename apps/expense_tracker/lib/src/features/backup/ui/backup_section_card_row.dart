@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/findable.dart';
-import '../../../core/formatting/setting_topic.dart';
+import 'package:shell/setting_topic.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/messages/backup_messages.dart';

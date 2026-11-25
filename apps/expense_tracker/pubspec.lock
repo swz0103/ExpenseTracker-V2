@@ -312,6 +312,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  shell:
+    dependency: "direct main"
+    description:
+      path: "../../packages/shell"
+      relative: true
+    source: path
+    version: "0.1.0"
   sky_engine:
     dependency: transitive
     description: flutter

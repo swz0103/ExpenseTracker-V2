@@ -1,6 +1,6 @@
 import 'package:expense_tracker/src/app/settings_search.dart';
 import 'package:expense_tracker/src/core/design_system/findable.dart';
-import 'package:expense_tracker/src/core/formatting/setting_topic.dart';
+import 'package:shell/setting_topic.dart';
 import 'package:expense_tracker/src/core/navigation/nav.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

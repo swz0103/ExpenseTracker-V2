@@ -1,4 +1,4 @@
-import '../formatting/setting_topic.dart';
+import 'package:shell/setting_topic.dart';
 import '../../../design_system/display/amount.dart';
 import '../platform/update_status.dart';
 
