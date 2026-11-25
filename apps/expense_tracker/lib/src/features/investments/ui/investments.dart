@@ -422,10 +422,20 @@ class _StackPainter extends CustomPainter {
 }
 
 /// The returns of [ledger] as the screens show them, from the parts the
-/// model reads (docs/adr/0013-models-take-what-they-use.md).
-Returns returnsOf(Ledger ledger) => Returns(
-  entries: ledger.entries,
-  holdings: ledger.holdings,
-  trades: ledger.entryQueryService,
-  today: ledger.today,
-);
+/// model reads (docs/adr/0013-models-take-what-they-use.md): one kept by
+/// the ledger for the day until the entries or the market change, so
+/// every page and rebuild reads what it worked out (review 32 1.1).
+Returns returnsOf(Ledger ledger) {
+  final today = ledger.today;
+  return ledger.remember(
+    ('returns', today),
+    () => Returns(
+      entries: ledger.entries,
+      holdings: ledger.holdings,
+      trades: ledger.entryQueryService,
+      today: today,
+    ),
+    // The holdings rest on the entries and on the market.
+    reads: const {Topic.entries, Topic.market},
+  );
+}

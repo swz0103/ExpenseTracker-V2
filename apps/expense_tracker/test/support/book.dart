@@ -1,6 +1,7 @@
 import 'package:expense_tracker/src/core/ledger/cache/query_cache.dart';
 import 'package:expense_tracker/src/core/ledger/models/models.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/account_repository.dart';
+import 'package:expense_tracker/src/core/ledger/repositories/budget_repository.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/category_repository.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/entry_repository.dart';
 import 'package:expense_tracker/src/core/ledger/repositories/holding_repository.dart';
@@ -59,12 +60,14 @@ final class Book {
     ],
     List<Category> categories = const [],
     List<Recurring> recurring = const [],
+    List<Budget> budgets = const [],
     Map<String, double> rates = const {},
     Map<String, double> sellRates = const {},
   }) : entries = EntryRepository(entries),
        accounts = AccountRepository(accounts),
        categories = CategoryRepository(categories),
        recurring = RecurringRepository(recurring),
+       budgetRepository = BudgetRepository(budgets),
        market = MarketDataRepository(rates: rates, sellRates: sellRates) {
     holdings = HoldingRepository(const [], moveOf: market.moveOf)
       ..replay(this.entries.all, today: today);
@@ -74,6 +77,7 @@ final class Book {
   final AccountRepository accounts;
   final CategoryRepository categories;
   final RecurringRepository recurring;
+  final BudgetRepository budgetRepository;
   final MarketDataRepository market;
   late final HoldingRepository holdings;
   final cache = QueryCache();
@@ -113,6 +117,7 @@ final class Book {
   late final budgets = BudgetService(
     entries: entries,
     categories: categories,
+    budgets: budgetRepository,
     reportService: reports,
     today: _today,
   );

@@ -3,6 +3,7 @@ import 'package:core/money/amount_format.dart' as amount_format show figures;
 
 import '../cache/query_cache.dart';
 import '../cache/topic.dart';
+import 'month_tallies.dart';
 import 'tracked_readers.dart';
 import '../models/models.dart';
 import '../repositories/account_repository.dart';
@@ -21,6 +22,9 @@ final class EntryQueryService {
        _accounts = TrackedAccountReader(accounts, _cache);
 
   final EntryReader _entries;
+
+  /// The whole-book counts, a month at a time.
+  late final _tallies = MonthTallies(_entries);
   final AccountReader _accounts;
   final QueryCache _cache;
   final DateTime Function() _today;
@@ -40,17 +44,10 @@ final class EntryQueryService {
   /// the one it moves money to, among the entries that count today; an
   /// account never used is not in it. Worked out once per change of the
   /// entries and per day.
-  Map<String, DateTime> get lastUsedOn =>
-      _cache.remember(('lastUsedOn', _today()), () {
-        final last = <String, DateTime>{};
-        for (final e in countedOn(_entries.all, _today())) {
-          for (final id in [e.account, ?e.to]) {
-            final seen = last[id];
-            if (seen == null || e.date.isAfter(seen)) last[id] = e.date;
-          }
-        }
-        return Map.unmodifiable(last);
-      });
+  Map<String, DateTime> get lastUsedOn => _cache.remember((
+    'lastUsedOn',
+    _today(),
+  ), () => _tallies.lastUsedOn(_today()));
 
   /// Entries of any month whose note, merchant, category or tags hold
   /// [words], or whose amount is [words]; newest first.
@@ -126,16 +123,9 @@ final class EntryQueryService {
       _cache.remember(('merchants', _today()), _merchants);
 
   List<String> _merchants() {
-    final counts = <String, int>{
-      // Exception to as-of-today: every merchant written is offered to
-      // pick; only the uses below are counted.
-      for (final e in _entries.all)
-        if (e.merchant.isNotEmpty) e.merchant: 0,
-    };
-    for (final e in countedOn(_entries.all, _today())) {
-      if (e.merchant.isEmpty) continue;
-      counts[e.merchant] = (counts[e.merchant] ?? 0) + 1;
-    }
+    // Every merchant written is offered to pick, in the order first
+    // written; only the uses that count are counted.
+    final counts = _tallies.merchantUses(_today());
     return counts.keys.toList()
       ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
   }
@@ -146,15 +136,43 @@ final class EntryQueryService {
   /// The latest spending at [merchant] that counts today ([countsOn]), if
   /// any: what a new entry there starts from (its category and account).
   /// A 預定 entry is not the latest until its day.
-  Entry? lastAt(String merchant) => _cache.remember(('lastAt', _today()), () {
-    final latest = <String, Entry>{};
-    for (final e in countedOn(_entries.all, _today())) {
-      if (e.merchant.isEmpty || e.type != EntryType.expense) continue;
-      final kept = latest[e.merchant];
-      if (kept == null || !e.date.isBefore(kept.date)) latest[e.merchant] = e;
+  Entry? lastAt(String merchant) => _cache.remember((
+    'lastAt',
+    _today(),
+  ), () => _tallies.latestSpending(_today()))[merchant];
+
+  /// How far back what was done lately reaches: [usual], [usualTransfers].
+  static const _recent = Duration(days: 90);
+
+  /// The entries that count today from [_recent] ago, alike under [keyOf]
+  /// (null leaves one out) at least [least] times, the most often first,
+  /// at most [most]: each as its latest, of the latest day the last
+  /// written. Read from the months they fall in, not the whole book; as
+  /// often, in the order each was first written.
+  List<Entry> _alike<K extends Object>(
+    K? Function(Entry e) keyOf, {
+    required int least,
+    required int most,
+  }) {
+    final today = _today();
+    final found = <K, _Alike>{};
+    for (final (e, place) in _tallies.lately(today.subtract(_recent), today)) {
+      final key = keyOf(e);
+      if (key == null) continue;
+      final kept = found[key];
+      if (kept == null) {
+        found[key] = _Alike(e, place);
+      } else {
+        kept.add(e, place);
+      }
     }
-    return latest;
-  })[merchant];
+    final keys = [
+      for (final MapEntry(:key, :value) in found.entries)
+        if (value.count >= least) key,
+    ]..sort((a, b) => found[a]!.first.compareTo(found[b]!.first));
+    keys.sort((a, b) => found[b]!.count.compareTo(found[a]!.count));
+    return [for (final key in keys.take(most)) found[key]!.latest];
+  }
 
   /// Spending recorded alike at least three times in the last 90 days
   /// (the same category, merchant and account), the most often first, at
@@ -165,60 +183,40 @@ final class EntryQueryService {
   /// count today ([countsOn]): a 預定 entry is not recent.
   List<Entry> usual({int most = 6, bool income = false}) =>
       _cache.remember(('usual', _today(), most, income), () {
-        final since = _today().subtract(const Duration(days: 90));
-        final counts = <(String, String, String), int>{};
-        final latest = <(String, String, String), Entry>{};
         final kind = income ? EntryType.income : EntryType.expense;
-        for (final e in countedOn(_entries.all, _today())) {
-          if (e.type != kind ||
-              e.refundOf != null ||
-              e.date.isBefore(since) ||
-              e.parts.isNotEmpty ||
-              e.installments > 1 ||
-              e.home != null) {
-            continue;
-          }
-          final key = (e.category, e.merchant, e.account);
-          counts[key] = (counts[key] ?? 0) + 1;
-          final kept = latest[key];
-          if (kept == null || !e.date.isBefore(kept.date)) latest[key] = e;
-        }
-        final keys = [
-          for (final MapEntry(:key, :value) in counts.entries)
-            if (value >= 3) key,
-        ]..sort((a, b) => counts[b]!.compareTo(counts[a]!));
-        return [for (final key in keys.take(most)) latest[key]!];
+        return _alike(
+          (e) =>
+              e.type != kind ||
+                  e.refundOf != null ||
+                  e.parts.isNotEmpty ||
+                  e.installments > 1 ||
+                  e.home != null
+              ? null
+              : (e.category, e.merchant, e.account),
+          least: 3,
+          most: most,
+        );
       });
 
   /// Transfers made alike again and again lately, the most made first:
   /// the same two accounts and amount, two times or more in 90 days.
   /// Money lent and paid back has its own tab and is left out, and so is
   /// a 預定 transfer ([countsOn]), which is not recent.
-  List<Entry> usualTransfers({int most = 4}) =>
-      _cache.remember(('usualTransfers', _today(), most), () {
-        final since = _today().subtract(const Duration(days: 90));
-        final counts = <(String, String, int), int>{};
-        final latest = <(String, String, int), Entry>{};
-        for (final e in countedOn(_entries.all, _today())) {
-          final to = e.to;
-          if (e.type != EntryType.transfer ||
-              to == null ||
-              e.date.isBefore(since) ||
-              _accounts.resolve(e.account).kind == AccountKind.receivable ||
-              _accounts.resolve(to).kind == AccountKind.receivable) {
-            continue;
-          }
-          final key = (e.account, to, e.amount);
-          counts[key] = (counts[key] ?? 0) + 1;
-          final kept = latest[key];
-          if (kept == null || !e.date.isBefore(kept.date)) latest[key] = e;
-        }
-        final keys = [
-          for (final MapEntry(:key, :value) in counts.entries)
-            if (value >= 2) key,
-        ]..sort((a, b) => counts[b]!.compareTo(counts[a]!));
-        return [for (final key in keys.take(most)) latest[key]!];
-      });
+  List<Entry> usualTransfers({int most = 4}) => _cache.remember(
+    ('usualTransfers', _today(), most),
+    () => _alike(
+      (e) => switch (e.to) {
+        final to?
+            when e.type == EntryType.transfer &&
+                _accounts.resolve(e.account).kind != AccountKind.receivable &&
+                _accounts.resolve(to).kind != AccountKind.receivable =>
+          (e.account, to, e.amount),
+        _ => null,
+      },
+      least: 2,
+      most: most,
+    ),
+  );
 
   /// Every entry written as one with [entry]: a spending first, then
   /// what was paid in it for others; [entry] alone when it has no group.
@@ -244,25 +242,18 @@ final class EntryQueryService {
       entry.group != null && groupLead(entry).id != entry.id;
 
   /// Every trade and dividend of [code], newest first.
-  List<Entry> tradesOf(String code) => [
-    // Exception to as-of-today: a holding's list shows every trade, 預定 ones
-    // marked.
-    for (final e in _entries.all)
-      if (e.holding == code) e,
-  ]..sort(newestFirst(_entries));
+  List<Entry> tradesOf(String code) =>
+      // Exception to as-of-today: a holding's list shows every trade, 預定
+      // ones marked.
+      [...tradesInBookOrder(code)]..sort(newestFirst(_entries));
 
   /// Every entry of [code] (its trades and dividends) in the order the
   /// book keeps them, which is how a replay orders those of one day:
-  /// worked out once per change of the entries.
-  List<Entry> tradesInBookOrder(String code) => _cache.remember(
-    ('tradesInBookOrder', code),
-    () => List<Entry>.unmodifiable([
+  /// read from the stock's index, which follows each change.
+  List<Entry> tradesInBookOrder(String code) =>
       // Exception to as-of-today: every one written; the caller takes
       // them through countedOn.
-      for (final e in _entries.all)
-        if (e.holding == code) e,
-    ]),
-  );
+      _entries.ofHolding(code);
 
   /// The spending [refund] gives back, while the book holds it; null for
   /// an entry that is not a refund, or none.
@@ -277,6 +268,27 @@ final class EntryQueryService {
   /// How much of [original] is left to refund.
   int refundable(Entry original) =>
       original.amount - _entries.refundedTotal(original.id);
+}
+
+/// Entries found alike: how many, the latest (of the latest day, the last
+/// written) and where the first of them was written.
+final class _Alike {
+  _Alike(this.latest, int place) : _latestPlace = place, first = place;
+
+  var count = 1;
+  Entry latest;
+  int _latestPlace;
+  int first;
+
+  void add(Entry e, int place) {
+    count++;
+    if (e.date.isAfter(latest.date) ||
+        (e.date == latest.date && place > _latestPlace)) {
+      latest = e;
+      _latestPlace = place;
+    }
+    if (place < first) first = place;
+  }
 }
 
 /// A month's entries as a search reads them, in the month's order: each

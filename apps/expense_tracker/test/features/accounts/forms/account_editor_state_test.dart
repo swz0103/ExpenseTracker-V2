@@ -1,7 +1,8 @@
 /// Checks the account form: a new account is kept with the kind, mark,
 /// colour, currency and days chosen; an account in use is archived once
 /// what is left in it is moved, and brought back; one never used is
-/// deleted once agreed.
+/// deleted. Each is told with 復原 and not asked first (D82), unless
+/// deleted entries still name the account: those go for good, so it asks.
 library;
 
 import 'package:expense_tracker/src/app/demo/seed.dart';
@@ -151,6 +152,15 @@ void main() {
     expect(ledger.balanceService.balance('bank'), 0);
     expect(ledger.balanceService.balance('cash'), cash + left);
     expect(gone, [true]);
+    // 復原: open again, the money back where it was, nothing in the trash.
+    final entries = ledger.entries.length;
+    await tester.tap(find.byKey(Keys.snack('復原')));
+    await tester.pumpAndSettle();
+    expect(ledger.account('bank').archived, isFalse);
+    expect(ledger.balanceService.balance('bank'), left);
+    expect(ledger.balanceService.balance('cash'), cash);
+    expect(ledger.entries.length, entries - 1);
+    expect(ledger.trash.all, isEmpty);
   });
 
   testWidgets('choosing nowhere to move the money leaves the account open', (
@@ -176,16 +186,46 @@ void main() {
     expect(gone, [false]);
   });
 
-  testWidgets('an account never used is deleted once agreed', (tester) async {
+  testWidgets('an account never used is deleted at once, with 復原 (D82)', (
+    tester,
+  ) async {
     const spare = Account('spare', '備用金', AccountKind.cash, 0);
     ledger.accountCommands.addAccount(spare);
+    final place = ledger.accounts.all.indexWhere((a) => a.id == 'spare');
     await open(tester, account: spare);
+    await go(tester, ['刪除']);
+    expect(find.byKey(Keys.confirm), findsNothing);
+    expect(ledger.accounts.contains('spare'), isFalse);
+    expect(gone, [true]);
+    expect(find.text('已刪除「備用金」'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.snack('復原')));
+    await tester.pumpAndSettle();
+    expect(ledger.accounts.all.indexWhere((a) => a.id == 'spare'), place);
+  });
+
+  testWidgets('an account deleted entries still name is asked about first, '
+      'and told without 復原 (D78, D82)', (tester) async {
+    const spare = Account('spare', '備用金', AccountKind.cash, 0);
+    ledger.accountCommands.addAccount(spare);
+    final lunch = Entry(
+      id: 'lunch',
+      date: ledger.today,
+      type: EntryType.expense,
+      amount: 90,
+      account: 'spare',
+      category: '飲食',
+    );
+    ledger.entryCommands.add(lunch);
+    ledger.entryCommands.remove('lunch');
+    await open(tester, account: ledger.account('spare'));
     await go(tester, ['刪除']);
     expect(find.text('刪除「備用金」？'), findsOneWidget);
     await tester.tap(find.byKey(Keys.confirm));
     await tester.pumpAndSettle();
     expect(ledger.accounts.contains('spare'), isFalse);
-    expect(gone, [true]);
+    expect(ledger.trash.all.where((t) => t.entry.id == 'lunch'), isEmpty);
+    expect(find.text('已刪除「備用金」'), findsOneWidget);
+    expect(find.byKey(Keys.snack('復原')), findsNothing);
   });
 
   testWidgets('a balance typed on an account is kept', (tester) async {

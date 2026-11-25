@@ -37,4 +37,18 @@ void main() {
     );
     expect(KeyWords.oldBackupsGone(3), '已刪除 3 份舊金鑰的備份');
   });
+
+  test('a password rule follows its why as a sentence of its own (D81)', () {
+    expect(
+      KeyWords.newPasswordHint('至少 6 個字'),
+      '帳本是用救援碼或備份密碼打開的，請設定新的密碼。設定好之前，原本的密碼（如果有）仍然有效。\n'
+      '至少 6 個字。',
+    );
+    expect(KeyWords.newPasswordHint(''), KeyWords.newPasswordWhy);
+    expect(
+      KeyWords.passphraseDetail('至少 12 個字'),
+      endsWith('例如用幾個不相關的詞組成一句。至少 12 個字。'),
+    );
+    expect(KeyWords.passphraseDetail(''), KeyWords.passphraseWhy);
+  });
 }

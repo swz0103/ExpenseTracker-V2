@@ -68,3 +68,6 @@ String heldBooked(int count) => '已記下 ${countOf(count, CountUnit.entries)}�
 
 /// What could not be booked by itself, told once.
 const heldRefusedTitle = '定期交易未自動入帳';
+
+/// Over 暫停's list: what a paused item leaves out.
+const pausedHint = '暫停的項目不會出現在月曆上，也不算進每月固定支出';

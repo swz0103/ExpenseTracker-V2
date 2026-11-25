@@ -49,6 +49,9 @@ abstract final class Words {
   static const archive = '封存';
   static const unarchive = '恢復';
 
+  /// A change just made taken back, from its note (D81: 復原; D82).
+  static const undo = '復原';
+
   /// An account with money left, settled into another as it is put away.
   static const settleArchive = '結清封存';
 

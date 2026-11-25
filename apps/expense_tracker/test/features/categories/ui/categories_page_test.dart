@@ -87,11 +87,18 @@ void main() {
     expect(ledger.category('交通通勤').archived, isTrue);
     expect(tops(), isNot(contains('交通通勤')));
     expect(find.text('已封存'), findsOneWidget);
+    // Told, with 復原 (D82).
+    expect(find.text('已封存「交通通勤」'), findsOneWidget);
+    expect(find.byKey(Keys.snack('復原')), findsOneWidget);
 
     await tester.tap(find.byTooltip('恢復「交通通勤」'));
     await tester.pumpAndSettle();
     expect(ledger.category('交通通勤').archived, isFalse);
     expect(find.text('已封存'), findsNothing);
+    expect(find.text('已恢復「交通通勤」'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.snack('復原')));
+    await tester.pumpAndSettle();
+    expect(ledger.category('交通通勤').archived, isTrue);
   });
 
   testWidgets('合併 moves a category\'s entries into the one picked and '
@@ -108,6 +115,14 @@ void main() {
     expect(tops(), isNot(contains('交通通勤')));
     for (final id in moved) {
       expect(ledger.entries.all.firstWhere((e) => e.id == id).category, '購物休閒');
+    }
+    // Not asked first; told with 復原, which puts it all back (D82).
+    expect(find.text('已把「交通通勤」合併到「購物休閒」'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.snack('復原')));
+    await tester.pumpAndSettle();
+    expect(tops(), contains('交通通勤'));
+    for (final id in moved) {
+      expect(ledger.entries.all.firstWhere((e) => e.id == id).category, '交通通勤');
     }
   });
 

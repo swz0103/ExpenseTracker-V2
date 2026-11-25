@@ -110,7 +110,7 @@ class _SecuritySectionState extends State<SecuritySection> {
         glyph: Glyph.safe,
         color: SettingsColors.backup,
         title: KeyWords.passphrase,
-        detail: '${KeyWords.passphraseWhy}${backupManager.passphraseRule}。',
+        detail: KeyWords.passphraseDetail(backupManager.passphraseRule),
         askCurrent: false,
         action: KeyWords.set,
         refuse: backupManager.refusePassphrase,
@@ -163,6 +163,8 @@ class _SecuritySectionState extends State<SecuritySection> {
         actionKey: Keys.resetGo,
         refuse: backupManager.refusePassword,
         submit: (current, _) =>
+            // Exception to undo rule: asked by this panel, which takes the
+            // current password and its own 重設 (KeyWords.resetGo).
             backupManager.resetKeys(backupManager.hasPassword ? current : null),
       ),
     );

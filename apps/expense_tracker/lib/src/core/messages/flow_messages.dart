@@ -19,4 +19,13 @@ abstract final class FlowWords {
 
   /// Ends the tour at any stop.
   static const skipTour = '略過';
+
+  /// 我的帳戶 with no account yet.
+  static const noAccountsYet = '還沒有帳戶，按右上的新增開始';
+
+  /// 代墊與借貸 with no one paid for yet: how someone comes on it.
+  static const noPeopleYet = '記一筆支出時按「代墊」選人，幫忙付的錢就會記在這裡，收回時在收入選「對方還錢」';
+
+  /// 代墊與借貸 with no loan yet.
+  static const noLoansYet = '房貸、信貸或車貸，按右上的＋新增';
 }

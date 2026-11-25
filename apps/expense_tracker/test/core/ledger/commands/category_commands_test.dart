@@ -103,4 +103,51 @@ void main() {
       });
     }
   });
+
+  group('an undo (D82)', () {
+    test('puts a merge back: category, place, budgets, subcategories, '
+        'entries', () {
+      final l = book(budgets: const [Budget('飲食', 5000), Budget('交通', 2000)]);
+      final names = [for (final c in l.categories.all) c.name];
+      final merged = l.categoryCommands.mergeCategory('飲食', '交通');
+      expect(l.budgets.forCategory('交通').limit, 7000);
+      (merged as Merged).undo();
+      expect([for (final c in l.categories.all) c.name], names);
+      expect(l.category('早餐').parent, '飲食');
+      expect(l.entries.byId('x')!.category, '飲食');
+      expect(
+        [for (final b in l.budgets.all) (b.category, b.limit)],
+        [('飲食', 5000), ('交通', 2000)],
+      );
+    });
+
+    test('leaves an entry changed again since as it is', () {
+      final l = book();
+      final merged = l.categoryCommands.mergeCategory('飲食', '交通');
+      final moved = l.entries.byId('x')!;
+      l.entryCommands.replace(moved.withLabels(merchant: '全聯'));
+      (merged as Merged).undo();
+      expect(l.entries.byId('x')!.category, '交通');
+      expect(l.categories.all.any((c) => c.name == '飲食'), isTrue);
+    });
+
+    test('does nothing once the name is a category again', () {
+      final l = book();
+      final merged = l.categoryCommands.mergeCategory('飲食', '交通');
+      l.categoryCommands.addCategory(Category('飲食', 'food', 0xFF999999));
+      (merged as Merged).undo();
+      expect(l.entries.byId('x')!.category, '交通');
+      expect(l.categories.all.where((c) => c.name == '飲食'), hasLength(1));
+    });
+
+    test('brings an archived category back, and archives it again', () {
+      final l = book();
+      final undo = l.categoryCommands.setArchived('交通', archived: true)!;
+      expect(l.category('交通').archived, isTrue);
+      expect(l.categoryCommands.setArchived('交通', archived: true), isNull);
+      expect(l.categoryCommands.setArchived('沒有', archived: true), isNull);
+      undo();
+      expect(l.category('交通').archived, isFalse);
+    });
+  });
 }

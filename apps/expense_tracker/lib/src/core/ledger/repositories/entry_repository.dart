@@ -1,5 +1,5 @@
 // Exception to file length: the entries in the order written and every
-// index kept of them (by month, account, id, refund, group) follow each
+// index kept of them (by month, account, id, refund, group, stock) follow each
 // change together, one place at a time; apart, each change would be
 // told twice and could be followed in one but not the other.
 import 'dart:collection';
@@ -53,6 +53,10 @@ abstract interface class EntryReader {
   /// list cannot be changed.
   List<Entry> inGroup(String group);
 
+  /// The entries of the stock [code] (its trades and dividends), in the
+  /// order written. The list cannot be changed.
+  List<Entry> ofHolding(String code);
+
   /// [some] of the entries in the order they were written.
   List<Entry> written(Iterable<Entry> some);
 
@@ -82,8 +86,8 @@ Comparator<Entry> newestFirst(EntryReader book) => (a, b) {
 };
 
 /// Every entry of the book, in the order written, with what is asked of
-/// them again and again (by month, by account, by id, refunds, groups)
-/// worked out once, on the first ask, and then kept up to date as entries
+/// them again and again (by month, by account, by id, refunds, groups,
+/// stocks) worked out once, on the first ask, and then kept up to date as entries
 /// are added, taken away, put in place of another or moved to another
 /// day: a change costs the lists it touches (a month, an account), not the
 /// whole book. Only a change that cannot be followed cheaply (many entries
@@ -232,6 +236,9 @@ final class EntryRepository implements EntryReader {
   /// The entries of each group, in the order written.
   EntryLists<String>? _groups;
 
+  /// The entries of each stock, in the order written.
+  EntryLists<String>? _holdings;
+
   Map<String, Entry>? _ids;
   DateTime? _first;
   var _firstKnown = false;
@@ -259,6 +266,7 @@ final class EntryRepository implements EntryReader {
     _accounts = null;
     _refunds = null;
     _groups = null;
+    _holdings = null;
     _ids = null;
     _first = null;
     _firstKnown = false;
@@ -271,7 +279,8 @@ final class EntryRepository implements EntryReader {
       _months != null ||
       _accounts != null ||
       _refunds != null ||
-      _groups != null;
+      _groups != null ||
+      _holdings != null;
 
   static int _monthOf(Entry e) => monthIndex(e.date.year, e.date.month);
 
@@ -322,6 +331,7 @@ final class EntryRepository implements EntryReader {
     }
     if (e.refundOf case final of?) _refunds?.add(of, e);
     if (e.group case final group?) _groups?.add(group, e);
+    if (e.holding case final code?) _holdings?.add(code, e);
   }
 
   /// Notes that [e], now last in the list with its place last in
@@ -357,6 +367,7 @@ final class EntryRepository implements EntryReader {
       final accounts = <String, List<Entry>>{};
       final refunded = <String, List<Entry>>{};
       final groups = <String, List<Entry>>{};
+      final stocks = <String, List<Entry>>{};
       for (final e in gone) {
         (months[_monthOf(e)] ??= []).add(e);
         for (final account in _accountsOf(e)) {
@@ -364,6 +375,7 @@ final class EntryRepository implements EntryReader {
         }
         if (e.refundOf case final of?) (refunded[of] ??= []).add(e);
         if (e.group case final group?) (groups[group] ??= []).add(e);
+        if (e.holding case final code?) (stocks[code] ??= []).add(e);
       }
       void follow<K>(EntryLists<K>? lists, Map<K, List<Entry>> by) {
         if (lists == null) return;
@@ -376,6 +388,7 @@ final class EntryRepository implements EntryReader {
       follow(_accounts, accounts);
       follow(_refunds, refunded);
       follow(_groups, groups);
+      follow(_holdings, stocks);
       gone.forEach(seqs.remove);
     }
     final ids = _ids;
@@ -484,6 +497,7 @@ final class EntryRepository implements EntryReader {
 
     written(_refunds, old.refundOf, entry.refundOf);
     written(_groups, old.group, entry.group);
+    written(_holdings, old.holding, entry.holding);
   }
 
   /// Adds [element] as the latest written.
@@ -741,6 +755,10 @@ final class EntryRepository implements EntryReader {
   @override
   List<Entry> inGroup(String group) =>
       (_groups ??= _indexWritten((e) => e.group))[group] ?? const <Entry>[];
+
+  @override
+  List<Entry> ofHolding(String code) =>
+      (_holdings ??= _indexWritten((e) => e.holding))[code] ?? const <Entry>[];
 
   @override
   List<Entry> written(Iterable<Entry> some) {

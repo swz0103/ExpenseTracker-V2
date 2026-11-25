@@ -55,6 +55,7 @@ export 'rules/recurring_rules.dart';
 // (docs/adr/0013-models-take-what-they-use.md).
 export 'commands/category_commands.dart'
     show CategoryMerge, Merged, MergeRefused, MergeRefusal;
+export 'commands/undo.dart' show Undo;
 export 'commands/attachment_commands.dart' show AttachmentCommands;
 export 'commands/entry_commands.dart'
     show
@@ -237,6 +238,14 @@ final class Ledger extends ChangeNotifier {
   /// Answers worked out once per change of what they rest on.
   final _cache = QueryCache();
 
+  /// What [make] works out, kept under [key] until a topic of [reads]
+  /// changes: for a model outside the ledger whose answers rest on the
+  /// records (such as the investments' returns), kept as the ledger's own
+  /// are. [key] holds every argument the answer depends on, the day
+  /// included; hiding the amounts keeps it.
+  T remember<T>(Object key, T Function() make, {required Set<Topic> reads}) =>
+      _cache.remember(key, make, reads: reads);
+
   /// Counts and announces the changes of each topic.
   final _topics = TopicNotifier();
 
@@ -339,6 +348,7 @@ final class Ledger extends ChangeNotifier {
   late final budgetService = BudgetService(
     entries: _entries,
     categories: _categories,
+    budgets: _budgets,
     reportService: reportService,
     today: _clock,
   );

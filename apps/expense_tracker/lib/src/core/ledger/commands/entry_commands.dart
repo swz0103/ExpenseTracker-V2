@@ -26,6 +26,7 @@ import 'command_context.dart';
 import 'command_exceptions.dart';
 import 'held_notices.dart';
 import 'restore_hold.dart';
+import 'undo.dart';
 
 export 'restore_hold.dart';
 
@@ -84,13 +85,17 @@ final class EntryCommands {
 
   /// Adds every one of [entries] at once, with the [accounts] and
   /// [categories] they bring, as an import does: all of it is kept
-  /// together, or none.
-  void addAll(
+  /// together, or none. The [Undo] takes it back again (D82): the
+  /// entries, not to the trash, and the accounts and categories added
+  /// that nothing names by then.
+  Undo addAll(
     List<Entry> entries, {
     List<Account> accounts = const [],
     List<Category> categories = const [],
   }) {
-    if (entries.isEmpty && accounts.isEmpty && categories.isEmpty) return;
+    if (entries.isEmpty && accounts.isEmpty && categories.isEmpty) {
+      return () {};
+    }
     entries = _kept(entries);
     _check(entries, opening: accounts);
     final count = _entries.length;
@@ -111,6 +116,70 @@ final class EntryCommands {
     _context.keep(
       WriteBatch(accounts: opened, categories: named, entries: entries),
     );
+    final added = entries;
+    return () => _told.quietly(() {
+      if (!takeBack([for (final e in added) e.id])) return;
+      _dropUnnamed(opened, named);
+    });
+  }
+
+  /// Takes the entries of [ids] the book holds out of it, not to the
+  /// trash, as one change: what taking back their adding does. False,
+  /// with nothing changed, when none is held, or when it would leave a
+  /// later sale short of shares (told through [CommandContext.problem]).
+  bool takeBack(Iterable<String> ids) => _told.quietly(() {
+    final found = [
+      for (final id in {...ids}) ?_entries.byId(id),
+    ];
+    if (found.isEmpty) return false;
+    final removed = _entries.removeEach(found);
+    if (!_tryReplay(() {
+      for (final (i, e) in removed) {
+        _entries.insert(i, e);
+      }
+    }, trades: removed.any((r) => r.$2.isInvestment))) {
+      return false;
+    }
+    _context.keep(
+      WriteBatch(
+        dropped: [for (final (_, e) in removed) (Collection.entry, e.id)],
+      ),
+    );
+    return true;
+  });
+
+  /// Takes away those of [accounts] and [categories] that no entry, in
+  /// the book or the trash, and no recurring item names.
+  void _dropUnnamed(List<Account> accounts, List<Category> categories) {
+    if (accounts.isEmpty && categories.isEmpty) return;
+    final named = <String>{};
+    void note(Entry e) => named.addAll([
+      e.account,
+      ?e.to,
+      e.category,
+      for (final (name, _) in e.parts) name,
+    ]);
+    // Exception to as-of-today: an entry of any day may name them.
+    _entries.all.forEach(note);
+    for (final t in _trash.all) {
+      note(t.entry);
+    }
+    for (final r in _recurring.all) {
+      named.addAll([r.account, r.category]);
+    }
+    final dropped = <(Collection, String)>[];
+    for (final a in accounts) {
+      if (named.contains(a.id) || _accounts.remove(a.id) == null) continue;
+      dropped.add((Collection.account, a.id));
+    }
+    for (final c in categories) {
+      if (named.contains(c.name)) continue;
+      final (:removed, freed: _) = _categories.removeMerged(c.name);
+      if (removed != null) dropped.add((Collection.category, removed.id));
+    }
+    if (dropped.isEmpty) return;
+    _told.changed(Topic.all);
+    _context.keep(WriteBatch(dropped: dropped));
   }
 
   /// Puts [entry] in place of the entry with the same id, with the receipt
@@ -669,7 +738,11 @@ final class EntryCommands {
       !e.isRefund;
 
   /// Renames or merges a tag across every entry; an empty [to] removes it.
-  void renameTag(String from, String to) {
+  /// The [Undo] puts back the entries and the budgets as they were (D82).
+  Undo renameTag(String from, String to) {
+    final budgets = _budgets.all;
+    final book = EntryImages();
+    final trash = EntryImages();
     final unit = UnitOfWork();
     if (to.isEmpty) {
       if (_budgets.remove('#$from')) {
@@ -689,29 +762,62 @@ final class EntryCommands {
             }.toList(),
           )
         : null;
-    unit.registerAllDirty(_entries.changeAll(retagged));
-    unit.registerAllDirty(_trash.changeEntries(retagged));
+    unit.registerAllDirty(_entries.changeAll(book.noting(retagged)));
+    unit.registerAllDirty(_trash.changeEntries(trash.noting(retagged)));
+    _told.changed(Topic.all);
+    _context.keep(unit.batch);
+    return () {
+      final back = UnitOfWork();
+      final (:put, :dropped) = _budgets.restore(budgets, {
+        '#$from',
+        if (to.isNotEmpty) '#$to',
+      });
+      back.registerAllDirty(put);
+      for (final key in dropped) {
+        back.registerDeleted(Collection.budget, key);
+      }
+      _putBack(back, book, trash);
+    };
+  }
+
+  /// Puts the entries [book] and [trash] noted back as they were, with
+  /// what [unit] holds, as one change.
+  void _putBack(UnitOfWork unit, EntryImages book, EntryImages trash) {
+    unit.registerAllDirty(_entries.changeAll(book.back));
+    unit.registerAllDirty(_trash.changeEntries(trash.back));
     _told.changed(Topic.all);
     _context.keep(unit.batch);
   }
 
   /// Renames or merges a merchant across every entry, and the recurring
   /// items that book it, so the next booking writes the new name; an
-  /// empty [to] clears it.
-  void renameMerchant(String from, String to) {
+  /// empty [to] clears it. The [Undo] puts back the entries and the
+  /// recurring items as they were (D82).
+  Undo renameMerchant(String from, String to) {
+    final book = EntryImages();
+    final trash = EntryImages();
     final unit = UnitOfWork();
     Entry? renamed(Entry e) =>
         e.merchant == from ? e.withLabels(merchant: to) : null;
-    unit.registerAllDirty(_entries.changeAll(renamed));
-    unit.registerAllDirty(_trash.changeEntries(renamed));
-    final items = [
+    unit.registerAllDirty(_entries.changeAll(book.noting(renamed)));
+    unit.registerAllDirty(_trash.changeEntries(trash.noting(renamed)));
+    final before = [
       for (final r in _recurring.all)
-        if (r.merchant == from) r.copyWith(merchant: to),
+        if (r.merchant == from) r,
     ];
+    final items = [for (final r in before) r.copyWith(merchant: to)];
     _recurring.replaceExisting(items);
     unit.registerAllDirty(items);
     _told.changed(Topic.all);
     _context.keep(unit.batch);
+    return () {
+      final back = [
+        for (final (i, r) in before.indexed)
+          if (identical(_recurring.byId(r.id), items[i])) r,
+      ];
+      _recurring.replaceExisting(back);
+      _putBack(UnitOfWork()..registerAllDirty(back), book, trash);
+    };
   }
 
   /// The recurring items [removed] booked, each with the day it lets go:

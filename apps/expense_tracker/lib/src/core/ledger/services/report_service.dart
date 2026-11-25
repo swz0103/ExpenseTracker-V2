@@ -5,6 +5,7 @@ import '../repositories/account_repository.dart';
 import '../repositories/category_repository.dart';
 import '../repositories/entry_repository.dart';
 import 'balance_service.dart';
+import 'month_tallies.dart';
 
 import 'package:core/time/utc_days.dart';
 
@@ -23,6 +24,9 @@ final class ReportService {
        _categories = TrackedCategoryReader(categories, _cache);
 
   final EntryReader _entries;
+
+  /// The whole-book counts, a month at a time.
+  late final _tallies = MonthTallies(_entries);
   final AccountReader _accounts;
   final CategoryReader _categories;
   final BalanceService _balances;
@@ -189,27 +193,18 @@ final class ReportService {
   List<(String, int, int)> get tagStats =>
       _cache.remember(('tagStats', _today()), _tagStats);
 
-  List<(String, int, int)> _tagStats() {
-    final counts = <String, int>{};
-    final sums = <String, int>{};
-    for (final e in countedOn(_entries.all, _today())) {
-      for (final tag in e.tags) {
-        counts[tag] = (counts[tag] ?? 0) + 1;
-        sums[tag] = (sums[tag] ?? 0) + e.spending;
-      }
-    }
-    return [
-      for (final MapEntry(:key, :value) in counts.entries)
-        (key, value, sums[key] ?? 0),
-    ]..sort((a, b) => b.$2.compareTo(a.$2));
-  }
+  List<(String, int, int)> _tagStats() =>
+      _tallies.tagUses(_today())..sort((a, b) => b.$2.compareTo(a.$2));
 
   /// Every merchant with how many entries name it and their spending,
-  /// most used first: worked out once per change of the entries.
+  /// most used first: worked out once per change of the entries. Those
+  /// used alike, by spending, largest first ([merchantsBetween] from the
+  /// first day to today).
   List<(String, int, int)> get merchantStats => _cache.remember(
     ('merchantStats', _today()),
     () => List.unmodifiable(
-      merchantsBetween(firstDay, _today())
+      _tallies.merchantSpending(_today())
+        ..sort((a, b) => b.$3.compareTo(a.$3))
         ..sort((a, b) => b.$2.compareTo(a.$2)),
     ),
   );
@@ -218,12 +213,14 @@ final class ReportService {
   /// 預定 entries: the names offered to pick from.
   List<String> get tags => _cache.remember(('tags', _today()), () {
     final used = [for (final (tag, _, _) in tagStats) tag];
-    final known = {
-      // Exception to as-of-today: a tag only on a 預定 entry is still one
-      // to pick; nothing is counted here.
-      for (final e in _entries.all) ...e.tags,
-    };
-    return [...used, ...known.difference(used.toSet())];
+    final counted = used.toSet();
+    // A tag only on a 預定 entry is still one to pick, in the order
+    // first written.
+    return [
+      ...used,
+      for (final tag in _tallies.tagsWritten(_today()))
+        if (!counted.contains(tag)) tag,
+    ];
   });
 
   /// Open spending or [income] categories, the most used over this month

@@ -9,7 +9,7 @@ import '../support/rule_exceptions.dart';
 /// `countedOn` (packages/ledger/entries, model/planned.dart), so a 預定
 /// entry joins on its day and nowhere earlier. This test finds each read
 /// of the entries in `lib` — `entries.all`, `.inMonth(`, `.onDay(`,
-/// `.ofAccount(`, `.inGroup(`, `.newestMonths` and `entriesBetween(` —
+/// `.ofAccount(`, `.inGroup(`, `.ofHolding(`, `.newestMonths` and `entriesBetween(` —
 /// and wants it handed straight to `countedOn(`, or
 /// to the holdings' `replay(`, which takes the entries through it itself.
 ///
@@ -29,6 +29,7 @@ void main() {
     expect(unpredicated('a;\nfinal d = ledger.entries.onDay(day);'), [2]);
     expect(unpredicated('for (final e in _entries.ofAccount(a)) {}'), [1]);
     expect(unpredicated('countedOn(_entries.ofAccount(a), t);'), []);
+    expect(unpredicated('for (final e in _entries.ofHolding(c)) {}'), [1]);
     expect(unpredicated('for (final m in _entries.newestMonths) {}'), [1]);
     expect(unpredicated('f(countedOn(x, t), entriesBetween(e, a, b));'), [1]);
     expect(unpredicated('h.replay(_entries.all, today: t);'), []);
@@ -64,7 +65,8 @@ void main() {
 /// A read of the book's entries.
 final _read = RegExp(
   r'(?<![A-Za-z0-9])_?(?:entries|book)\s*\.\s*'
-  r'(?:all\b|inMonth\s*\(|onDay\s*\(|ofAccount\s*\(|inGroup\s*\(|newestMonths\b)'
+  r'(?:all\b|inMonth\s*\(|onDay\s*\(|ofAccount\s*\(|inGroup\s*\(|ofHolding\s*\(|'
+  r'newestMonths\b)'
   r'|(?<![\w.])entriesBetween\s*\(',
 );
 

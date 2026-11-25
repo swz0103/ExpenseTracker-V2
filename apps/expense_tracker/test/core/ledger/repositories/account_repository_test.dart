@@ -100,4 +100,18 @@ void main() {
     expect(_ids(accounts.all), ['c', 'b']);
     expect(accounts.contains('a'), isFalse);
   });
+
+  test('an account taken away says where it stood, and is put back there', () {
+    final accounts = AccountRepository([_a('a'), _a('b'), _a('c')]);
+    final (at, removed) = accounts.removeAt('b')!;
+    expect((at, removed.id), (1, 'b'));
+    expect(accounts.removeAt('b'), isNull);
+    expect(accounts.putAt(at, removed), isTrue);
+    expect(_ids(accounts.all), ['a', 'b', 'c']);
+    expect(accounts.contains('b'), isTrue);
+    // Its id held again: not put back twice.
+    expect(accounts.putAt(0, removed), isFalse);
+    expect(accounts.putAt(9, _a('d')), isTrue);
+    expect(_ids(accounts.all), ['a', 'b', 'c', 'd']);
+  });
 }

@@ -613,7 +613,32 @@ items:
       - apps/expense_tracker/lib/src/features/entries/ui/trash_section.dart
     target: apps/expense_tracker/lib/app/commands/
     status: scattered
-    plan: "D82: one undo/confirm rule and type (WP-A); trash_section and the three delete-and-復原 copies (review 32, 2.4) use it."
+    plan: "Undo now has one owner (undo-confirm, D82); fold the trash's own restore paths in entry_commands and trash_section into it."
+  # D82: what can be undone is told with 復原 (showUndo) from the Undo its
+  # command gives back; what cannot is asked first. Entries are deleted
+  # by deleteEntries alone.
+  - id: undo-confirm
+    what: 能復原的不先問、事後給「復原」；不能復原的才先確認
+    layer: app
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/commands/undo.dart
+      - apps/expense_tracker/lib/src/core/design_system/feedback.dart
+      - apps/expense_tracker/lib/src/core/widgets/entry_tile.dart
+    target: apps/expense_tracker/lib/app/commands/
+    status: owned
+    guard:
+      - apps/expense_tracker/test/rules/undo_rules_test.dart
+  # Review 32 finding 8: which budgets an entry counts against (D54
+  # subcategories, #tag) and whether a save put one over.
+  - id: budget-touched
+    what: 一筆紀錄算進哪些預算、存檔後是否超支
+    layer: ledger
+    owner:
+      - apps/expense_tracker/lib/src/core/ledger/services/budget_service.dart
+    target: packages/ledger/budgets/lib/calc/
+    status: owned
+    guard:
+      - apps/expense_tracker/test/core/ledger/services/budget_service_test.dart
   # D75/D76: each entry's place in the order written, kept while it is in
   # the trash, and the one tie-break of every list (newestFirst).
   - id: entry-order

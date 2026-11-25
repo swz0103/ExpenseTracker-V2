@@ -253,7 +253,7 @@ class _Paused extends StatelessWidget {
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(Space.s1, 0, Space.s1, Space.s4),
-              child: Text('暫停的項目不會出現在月曆上，也不算進每月固定支出。', style: mutedSmall),
+              child: Text(pausedHint, style: mutedSmall),
             ),
             if (paused.isEmpty)
               const EmptyState(
