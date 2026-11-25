@@ -8,6 +8,7 @@ import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/formatting/words.dart';
+import '../../../core/messages/done_messages.dart';
 import '../../../../design_system/display/amount.dart';
 import '../../../core/widgets/calculator.dart';
 import '../../../core/widgets/icons.dart';
@@ -187,8 +188,12 @@ class _BudgetEditorState extends State<_BudgetEditor> {
             borderRadius: BorderRadius.circular(Radii.large),
             child: IconButton(
               tooltip: '刪除額度',
+              // Told with 復原, not asked first (D82).
               onPressed: () {
-                widget.ledger.budgetCommands.removeBudget(name);
+                final undo = widget.ledger.budgetCommands.removeBudget(name);
+                if (undo != null) {
+                  showUndo(context, DoneWords.budgetDeleted(name), undo);
+                }
                 EditGuard.close(context);
               },
               icon: const GlyphIcon(

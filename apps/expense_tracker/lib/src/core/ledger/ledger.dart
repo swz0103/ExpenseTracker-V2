@@ -55,6 +55,7 @@ export 'rules/recurring_rules.dart';
 // (docs/adr/0013-models-take-what-they-use.md).
 export 'commands/category_commands.dart'
     show CategoryMerge, Merged, MergeRefused, MergeRefusal;
+export 'commands/undo.dart' show Undo;
 export 'commands/attachment_commands.dart' show AttachmentCommands;
 export 'commands/entry_commands.dart'
     show
@@ -347,6 +348,7 @@ final class Ledger extends ChangeNotifier {
   late final budgetService = BudgetService(
     entries: _entries,
     categories: _categories,
+    budgets: _budgets,
     reportService: reportService,
     today: _clock,
   );

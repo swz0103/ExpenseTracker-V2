@@ -129,9 +129,10 @@ void main() {
     );
   });
 
-  test('the message catalogues end sentences by one rule (D81, review 31)', () {
+  test('what the person reads ends sentences by one rule: the message '
+      'catalogues and the words still in place (D81, reviews 31 and 32)', () {
     final found = <String>[];
-    for (final f in Directory('lib/src/core/messages').listSync()) {
+    for (final f in Directory('lib').listSync(recursive: true)) {
       if (f is! File || !f.path.endsWith('.dart')) continue;
       for (final hit in sentenceEndsIn(f.readAsStringSync())) {
         found.add('${f.path}:$hit');

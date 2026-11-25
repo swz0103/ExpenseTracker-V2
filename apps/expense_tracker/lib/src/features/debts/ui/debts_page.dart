@@ -21,6 +21,8 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 import '../model/debts.dart';
+import '../../../core/messages/done_messages.dart';
+import '../../../core/messages/flow_messages.dart';
 import '../../../core/messages/trash_messages.dart';
 
 part 'person_page.dart';
@@ -109,10 +111,7 @@ class DebtsPage extends StatelessWidget {
                   horizontal: Space.s1,
                   vertical: Space.s2,
                 ),
-                child: Text(
-                  '記一筆支出時按「代墊」選人，幫忙付的錢就會記在這裡，收回時在收入選「對方還錢」。',
-                  style: mutedSmall,
-                ),
+                child: Text(FlowWords.noPeopleYet, style: mutedSmall),
               )
             else
               CardGrid(columns: 3, gap: 10, [
@@ -130,7 +129,7 @@ class DebtsPage extends StatelessWidget {
                   horizontal: Space.s1,
                   vertical: Space.s2,
                 ),
-                child: Text('房貸、信貸或車貸，按右上的＋新增。', style: mutedSmall),
+                child: Text(FlowWords.noLoansYet, style: mutedSmall),
               ),
             for (final loan in loans)
               Padding(

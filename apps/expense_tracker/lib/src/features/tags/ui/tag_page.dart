@@ -18,12 +18,23 @@ class TagPage extends StatelessWidget {
 
   String get _shown => merchant ? name : '#$name';
 
-  void _move(String to) {
-    if (merchant) {
-      ledger.entryCommands.renameMerchant(name, to);
-    } else {
-      ledger.entryCommands.renameTag(name, to);
-    }
+  /// Renames, merges ([to] another's name) or, with an empty [to],
+  /// deletes the tag or merchant, told with 復原 and not asked first
+  /// (D82).
+  void _move(BuildContext context, String to, {bool merge = false}) {
+    final undo = merchant
+        ? ledger.entryCommands.renameMerchant(name, to)
+        : ledger.entryCommands.renameTag(name, to);
+    final into = merchant ? to : '#$to';
+    showUndo(
+      context,
+      to.isEmpty
+          ? DoneWords.deleted(_shown)
+          : merge
+          ? DoneWords.merged(_shown, into)
+          : DoneWords.renamed(_shown, into),
+      undo,
+    );
   }
 
   List<String> _others() => [
@@ -43,26 +54,9 @@ class TagPage extends StatelessWidget {
       (_) => _RenameSheet(name: name, merchant: merchant),
     );
     if (typed == null || typed == name || !context.mounted) return;
-    if (_others().contains(typed)) {
-      final ok = await _askMerge(context, typed);
-      if (!ok) return;
-    }
-    _move(typed);
+    // A name another has merges into it.
+    _move(context, typed, merge: _others().contains(typed));
     _openOther(typed);
-  }
-
-  Future<bool> _askMerge(BuildContext context, String into) {
-    final count = merchant
-        ? visitsTo(ledger.entries, name).length
-        : tagSummaryOf(ledger.entries, name, ledger.today)?.entries.length ?? 0;
-    final target = merchant ? into : '#$into';
-    return confirm(
-      context,
-      '合併到 $target？',
-      '合併',
-      body:
-          '$name 的 ${countOf(count, CountUnit.entries)}紀錄會改成 $target，$_shown 就不見了。',
-    );
   }
 
   Future<void> _merge(BuildContext context) async {
@@ -117,26 +111,13 @@ class TagPage extends StatelessWidget {
       ),
     );
     if (into == null || !context.mounted) return;
-    if (!await _askMerge(context, into)) return;
-    _move(into);
+    _move(context, into, merge: true);
     _openOther(into);
   }
 
-  Future<void> _remove(BuildContext context) async {
-    final count = merchant
-        ? visitsTo(ledger.entries, name).length
-        : tagSummaryOf(ledger.entries, name, ledger.today)?.entries.length ?? 0;
-    final ok = await confirm(
-      context,
-      '刪除 $_shown？',
-      Words.delete,
-      danger: true,
-      body: merchant
-          ? '${countOf(count, CountUnit.entries)}紀錄會拿掉這個商家，紀錄本身保留。'
-          : '${countOf(count, CountUnit.entries)}紀錄會拿掉這個標籤，紀錄本身保留。',
-    );
-    if (!ok) return;
-    _move('');
+  /// Takes the tag or merchant off its entries, which stay.
+  void _remove(BuildContext context) {
+    _move(context, '');
     nav.back();
   }
 

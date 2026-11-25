@@ -191,28 +191,33 @@ void main() {
     expect(find.text('小明'), findsWidgets);
   });
 
-  testWidgets('刪除 someone with entries tucks them away and keeps the '
-      'entries', (tester) async {
+  testWidgets('封存 someone with entries tucks them away and keeps the '
+      'entries, with 復原 (D82)', (tester) async {
     await open(tester);
     final count = ledger.entries.all.length;
-    await go(tester, ['~更多選項', '刪除']);
-    expect(find.text('刪除「代墊朋友」？'), findsOneWidget);
-    expect(find.text('已記的紀錄會保留，這個人收起來不再出現。'), findsOneWidget);
-    await tester.tap(find.byKey(Keys.confirm));
-    await tester.pumpAndSettle();
+    await go(tester, ['~更多選項', '封存']);
+    expect(find.byKey(Keys.confirm), findsNothing);
     expect(ledger.account('lent').archived, isTrue);
     expect(ledger.entries.all.length, count);
     expect(find.text('還沒收回'), findsNothing, reason: 'back on the list');
+    expect(find.text('已封存「代墊朋友」'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.snack('復原')));
+    await tester.pumpAndSettle();
+    expect(ledger.account('lent').archived, isFalse);
   });
 
-  testWidgets('刪除 someone with nothing recorded removes them', (tester) async {
+  testWidgets('刪除 someone with nothing recorded removes them, with 復原', (
+    tester,
+  ) async {
     await open(tester, start: demoLedger());
     expect(find.text('沒有待收回的'), findsOneWidget);
     await go(tester, ['~更多選項', '刪除']);
-    expect(find.text('已記的紀錄會保留，這個人收起來不再出現。'), findsNothing);
-    await tester.tap(find.byKey(Keys.confirm));
-    await tester.pumpAndSettle();
+    expect(find.byKey(Keys.confirm), findsNothing);
     expect(ledger.accounts.contains('lent'), isFalse);
+    expect(find.text('已刪除「代墊朋友」'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.snack('復原')));
+    await tester.pumpAndSettle();
+    expect(ledger.accounts.contains('lent'), isTrue);
   });
 
   testWidgets('someone they paid for: 你欠 them, and nothing to 收回', (

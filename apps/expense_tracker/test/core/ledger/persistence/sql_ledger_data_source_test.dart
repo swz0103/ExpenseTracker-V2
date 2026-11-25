@@ -228,6 +228,67 @@ void main() {
     expect(ledger.entries.all.single.category, '其他支出');
   });
 
+  test('every undo (D82) is kept: the book reads back as before', () async {
+    var ledger = await reopen();
+    final cash = ledger.accounts.all.first;
+    final spare = Account(ledger.newId(), '零用', AccountKind.cash, 0);
+    ledger
+      ..accountCommands.addAccount(spare)
+      ..entryCommands.add(
+        Entry(
+          id: ledger.newId(),
+          date: DateTime.utc(2026, 10, 2),
+          type: EntryType.expense,
+          amount: 120,
+          account: cash.id,
+          category: '飲食日常',
+          merchant: '全聯',
+          tags: const ['家用'],
+        ),
+      )
+      ..budgetCommands.setBudget('飲食日常', 8000)
+      ..budgetCommands.setBudget('#家用', 3000)
+      ..recurringCommands.saveRecurring(
+        Recurring(
+          id: ledger.newId(),
+          name: '房租',
+          amount: 12000,
+          day: 5,
+          account: cash.id,
+          category: '飲食日常',
+          merchant: '全聯',
+        ),
+      );
+    ledger = await reopen(ledger);
+    final undos = <Undo Function(Ledger)>[
+      (l) => (l.categoryCommands.mergeCategory('飲食日常', '其他支出') as Merged).undo,
+      (l) => l.entryCommands.renameTag('家用', ''),
+      (l) => l.entryCommands.renameMerchant('全聯', '家樂福'),
+      (l) => l.budgetCommands.removeBudget('#家用')!,
+      (l) => l.recurringCommands.removeRecurring(l.recurring.all.single.id)!,
+      (l) => l.accountCommands.removeAccount(spare.id)!,
+      (l) => l.accountCommands.setArchived(spare.id, archived: true)!,
+      (l) => l.categoryCommands.setArchived('居家生活', archived: true)!,
+    ];
+    // Every record, each list in the order of its rows' JSON: a record
+    // put back is kept again as new, so it reads back after those kept
+    // since (the order on screen in the session is checked as is).
+    String rows(Ledger l) => jsonEncode({
+      for (final MapEntry(:key, :value) in recordsOf(l).entries)
+        key: [for (final r in value! as List) jsonEncode(r)]..sort(),
+    });
+    final sorted = rows(ledger);
+    for (final (i, made) in undos.indexed) {
+      final before = jsonEncode(recordsOf(ledger));
+      final undo = made(ledger);
+      expect(jsonEncode(recordsOf(ledger)), isNot(before), reason: '#$i');
+      undo();
+      expect(jsonEncode(recordsOf(ledger)), before, reason: '#$i undone');
+      ledger = await reopen(ledger);
+      expect(rows(ledger), sorted, reason: '#$i kept');
+    }
+  });
+
   test('a change written apart keeps the same rows as one written at once '
       '(DAT-03)', () async {
     // Two books on the same clock: one writes every change apart (from

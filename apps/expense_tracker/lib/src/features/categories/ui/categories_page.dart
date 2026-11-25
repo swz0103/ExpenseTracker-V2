@@ -10,6 +10,7 @@ import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/done_messages.dart';
 import '../../../core/navigation/nav.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
@@ -218,10 +219,15 @@ class _CategoriesPageState extends State<CategoriesPage> {
             ),
           ),
           tooltip: '恢復「${c.name}」',
-          onPressed: () => ledger.categoryCommands.updateCategory(
-            c.name,
-            c.copyWith(archived: false),
-          ),
+          onPressed: () {
+            final undo = ledger.categoryCommands.setArchived(
+              c.name,
+              archived: false,
+            );
+            if (undo != null) {
+              showUndo(context, DoneWords.unarchived(c.name), undo);
+            }
+          },
         ),
     ],
   );

@@ -10,6 +10,7 @@ import '../services/recurring_service.dart';
 import 'command_context.dart';
 import 'command_exceptions.dart';
 import 'entry_commands.dart';
+import 'undo.dart';
 
 /// Writes the recurring items and books what falls due.
 final class RecurringCommands {
@@ -142,11 +143,19 @@ final class RecurringCommands {
     _context.keep(WriteBatch(recurring: [item]));
   }
 
-  void removeRecurring(String id) {
-    final removed = _recurring.remove(id);
-    if (removed == null) return;
+  /// Takes away the item [id]; what it booked stays. The [Undo] puts it
+  /// back where it stood (D82). Null when there is none.
+  Undo? removeRecurring(String id) {
+    final found = _recurring.remove(id);
+    if (found == null) return null;
+    final (index, removed) = found;
     _context.changed(const {Topic.recurring});
     _context.keep(WriteBatch(dropped: [(Collection.recurring, removed.id)]));
+    return () {
+      _recurring.putAt(index, removed);
+      _context.changed(const {Topic.recurring});
+      _context.keep(WriteBatch(recurring: [removed]));
+    };
   }
 }
 

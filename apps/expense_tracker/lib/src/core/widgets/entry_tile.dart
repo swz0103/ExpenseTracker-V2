@@ -12,6 +12,7 @@ import 'shown_amounts.dart';
 import '../../../design_system/display/date.dart';
 import '../design_system/spacing.dart';
 import '../formatting/words.dart';
+import '../messages/done_messages.dart';
 import '../../../design_system/display/status_messages.dart';
 import '../../../design_system/display/amount_text.dart';
 
@@ -326,7 +327,7 @@ class EntryRow extends StatelessWidget {
         SwipeAction(
           Words.delete,
           AppColors.danger,
-          () => removeEntry(context, ledger, entry),
+          () => deleteEntries(context, ledger, [entry]).isNotEmpty,
         ),
       ],
       child: GestureDetector(
@@ -343,22 +344,35 @@ class EntryRow extends StatelessWidget {
   }
 }
 
-/// Deletes [entry], leaving a note to undo it; false when the book
-/// refuses (it would oversell shares), which it says itself.
-bool removeEntry(BuildContext context, Ledger ledger, Entry entry) {
+/// Deletes [entries] as one change, each with the entries written as one
+/// with it (an entry's group goes with it), and tells it with 復原 (D82):
+/// the one way an entry is deleted, from its form, a swipe or a pick of
+/// many; it is not asked first. Returns what was deleted; none when the
+/// book refuses (a later sale would be short of shares), which it says
+/// itself.
+List<Entry> deleteEntries(
+  BuildContext context,
+  Ledger ledger,
+  Iterable<Entry> entries,
+) {
+  final picked = [...entries];
+  final removed = ledger.entryCommands.removeAll({
+    for (final e in picked)
+      for (final m in ledger.entryQueryService.groupOf(e)) m.id,
+  });
+  if (removed.isEmpty) return removed;
   Haptics.medium();
-  // An entry written as one with others goes with them.
-  final removed = ledger.entryCommands.removeAll([
-    for (final e in ledger.entryQueryService.groupOf(entry)) e.id,
-  ]);
-  if (removed.isEmpty) return false;
-  showNote(
+  final one = picked.length == 1 ? picked.single : null;
+  showUndo(
     context,
-    '已刪除「${entry.title}」',
-    action: '復原',
-    onAction: () => ledger.entryCommands.restoreAll(removed),
+    one == null
+        ? DoneWords.deletedEntries(removed.length)
+        : one.recurring == null
+        ? DoneWords.deleted(one.title)
+        : DoneWords.deletedBooking(one.title),
+    () => ledger.entryCommands.restoreAll(removed),
   );
-  return true;
+  return removed;
 }
 
 /// A date line over a group of entries.

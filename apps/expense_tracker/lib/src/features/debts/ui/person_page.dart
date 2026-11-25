@@ -47,23 +47,41 @@ class PersonPage extends StatelessWidget {
     ledger.accountCommands.updateAccount(person.copyWith(name: name));
   }
 
+  /// Deletes [person]: one with dealings kept is archived instead, so
+  /// what was written stays. Either is told with 復原 and not asked first
+  /// (D82), unless deleted entries in the trash still name them: those go
+  /// for good with them, which cannot be undone, so it is asked (D78).
   Future<void> _delete(BuildContext context, Account person) async {
-    final used = ledger.accountCommands.usedOutsideTrash(person.id);
+    if (ledger.accountCommands.usedOutsideTrash(person.id)) {
+      final undo = ledger.accountCommands.setArchived(
+        person.id,
+        archived: true,
+      );
+      if (undo != null) {
+        showUndo(context, DoneWords.archived(person.name), undo);
+      }
+      nav.back();
+      return;
+    }
     final trashed = ledger.accountCommands.trashedNaming(person.id);
-    final ok = await confirm(
-      context,
-      '刪除「${person.name}」？',
-      Words.delete,
-      danger: true,
-      body: used ? '已記的紀錄會保留，這個人收起來不再出現。' : trashedNamingNote(trashed.length),
-    );
-    if (!ok) return;
-    if (used) {
-      ledger.accountCommands.updateAccount(person.copyWith(archived: true));
-    } else {
-      // Entries in the trash still naming them go too, once said (D78).
+    if (trashed.isNotEmpty) {
+      final ok = await confirm(
+        context,
+        '刪除「${person.name}」？',
+        Words.delete,
+        danger: true,
+        body: trashedNamingNote(trashed.length),
+      );
+      if (!ok || !context.mounted) return;
       ledger.entryCommands.discardTrashed(trashed);
-      ledger.accountCommands.removeAccount(person.id);
+    }
+    final undo = ledger.accountCommands.removeAccount(person.id);
+    if (undo != null) {
+      if (trashed.isEmpty) {
+        showUndo(context, DoneWords.deleted(person.name), undo);
+      } else {
+        showNote(context, DoneWords.deleted(person.name));
+      }
     }
     nav.back();
   }
@@ -111,7 +129,8 @@ class PersonPage extends StatelessWidget {
                   DotsItem(Glyph.edit, '改名', () => _rename(context, person)),
                   DotsItem(
                     Glyph.trash,
-                    Words.delete,
+                    // One with dealings is archived (封存), not deleted.
+                    entries.isEmpty ? Words.delete : Words.archive,
                     () => _delete(context, person),
                     danger: true,
                   ),

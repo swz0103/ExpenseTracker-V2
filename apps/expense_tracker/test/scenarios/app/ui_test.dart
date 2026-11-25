@@ -369,7 +369,9 @@ void main() {
     expect(ledger.reportService.income(2026, 10), 52000);
   });
 
-  testWidgets('a deleted entry can be restored', (tester) async {
+  testWidgets('a deleted entry can be restored: not asked first (D82)', (
+    tester,
+  ) async {
     final ledger = await show(tester);
     await tester.tap(find.byKey(Keys.tab('紀錄')));
     await tester.pumpAndSettle();
@@ -377,8 +379,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(Keys.discard));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(Keys.confirm));
-    await tester.pumpAndSettle();
+    expect(find.byKey(Keys.confirm), findsNothing);
     expect(ledger.reportService.expense(2026, 10), 17519 - 200);
     await tester.tap(find.byKey(Keys.snack('復原')));
     await tester.pumpAndSettle();

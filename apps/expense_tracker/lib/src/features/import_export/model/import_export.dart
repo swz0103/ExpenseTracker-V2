@@ -111,8 +111,8 @@ const duplicateRules =
     '標了「發票」標籤的紀錄。檔案裡重複的發票也只算一次。';
 
 /// Adds what [found] holds with [commands], its new accounts and categories
-/// with its entries, as one change.
-void addImport(EntryCommands commands, Import found) => commands.addAll(
+/// with its entries, as one change; the [Undo] takes it back (D82).
+Undo addImport(EntryCommands commands, Import found) => commands.addAll(
   found.entries,
   accounts: found.accounts,
   categories: found.categories,

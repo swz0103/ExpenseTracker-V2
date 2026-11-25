@@ -11,6 +11,8 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../model/import_export.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/done_messages.dart';
+import '../../../core/messages/import_messages.dart';
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../../design_system/display/date.dart';
@@ -159,16 +161,15 @@ class _ImportPageState extends State<_ImportPage> {
     if (chosen == null || chosen.entries.isEmpty) return;
     // What the ledger refuses, such as a sale of shares not held by then,
     // is said here and nothing is added.
+    late final Undo undo;
     if (!refusalShown(
       context,
-      () => addImport(widget.ledger.entryCommands, chosen),
+      () => undo = addImport(widget.ledger.entryCommands, chosen),
     )) {
       return;
     }
-    showNote(
-      context,
-      '已匯入 ${countOf(chosen.entries.length, CountUnit.entries)}紀錄',
-    );
+    // Told with 復原, which takes the import back, not asked first (D82).
+    showUndo(context, DoneWords.imported(chosen.entries.length), undo);
     Navigator.of(context).pop();
   }
 
@@ -275,9 +276,7 @@ class _ImportPageState extends State<_ImportPage> {
         ),
         const SizedBox(height: Space.s3),
         Text(
-          widget.invoices
-              ? '財政部「消費明細」的 CSV 或載具的 M／D 行都可以，記過的發票不會重複。'
-              : '本 App 匯出的 CSV 可以完整匯回；沒有的帳戶與分類會自動新增。',
+          widget.invoices ? importInvoicesHint : importCsvHint,
           style: mutedSmall,
         ),
       ],

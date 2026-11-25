@@ -459,4 +459,127 @@ void main() {
       expect(ledger.recurring.all.single.skipped, isEmpty);
     });
   });
+
+  group('the undo of an import, a tag or a merchant (D82)', () {
+    Ledger plain() => Ledger(
+      today: DateTime.utc(2026, 10, 4),
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 1000)],
+      categories: [Category('飲食', 'food', 0xFF111111)],
+      entries: [
+        Entry(
+          id: 'old',
+          date: DateTime.utc(2026, 10, 1),
+          type: EntryType.expense,
+          amount: 80,
+          account: 'bank',
+          category: '飲食',
+          merchant: '全聯',
+          tags: const ['家用'],
+        ),
+      ],
+      holdings: const [],
+      budgets: const [Budget('#家用', 900)],
+      recurring: [
+        Recurring(
+          id: 'r',
+          name: '採買',
+          amount: 500,
+          day: 1,
+          account: 'bank',
+          category: '飲食',
+          merchant: '全聯',
+        ),
+      ],
+    );
+
+    Entry imported(String id, {String account = 'bank', String c = '飲食'}) =>
+        Entry(
+          id: id,
+          date: DateTime.utc(2026, 10, 2),
+          type: EntryType.expense,
+          amount: 40,
+          account: account,
+          category: c,
+        );
+
+    test('takes the import back, not to the trash, with the accounts and '
+        'categories it brought', () {
+      final l = plain();
+      final undo = l.entryCommands.addAll(
+        [imported('i1', account: 'wallet', c: '咖啡'), imported('i2')],
+        accounts: const [Account('wallet', '錢包', AccountKind.cash, 0)],
+        categories: [Category('咖啡', 'food', 0xFF222222)],
+      );
+      expect(l.entries.length, 3);
+      undo();
+      expect([for (final e in l.entries.all) e.id], ['old']);
+      expect(l.trash.all, isEmpty);
+      expect(l.accounts.contains('wallet'), isFalse);
+      expect(l.categories.all.any((c) => c.name == '咖啡'), isFalse);
+      expect(l.balanceService.balance('bank'), 920);
+    });
+
+    test('keeps an account or category the book named since', () {
+      final l = plain();
+      final undo = l.entryCommands.addAll(
+        [imported('i1', account: 'wallet', c: '咖啡')],
+        accounts: const [Account('wallet', '錢包', AccountKind.cash, 0)],
+        categories: [Category('咖啡', 'food', 0xFF222222)],
+      );
+      l.entryCommands.add(imported('mine', account: 'wallet', c: '咖啡'));
+      undo();
+      expect([for (final e in l.entries.all) e.id], ['old', 'mine']);
+      expect(l.accounts.contains('wallet'), isTrue);
+      expect(l.categories.all.any((c) => c.name == '咖啡'), isTrue);
+    });
+
+    test('an import of nothing gives an undo of nothing', () {
+      final l = plain();
+      l.entryCommands.addAll(const [])();
+      expect(l.entries.length, 1);
+    });
+
+    test('takeBack takes only what the book holds; none is false', () {
+      final l = plain();
+      expect(l.entryCommands.takeBack(['none']), isFalse);
+      expect(l.entryCommands.takeBack(['old', 'none']), isTrue);
+      expect(l.entries.length, 0);
+      expect(l.trash.all, isEmpty);
+    });
+
+    test('a tag deleted comes back on its entries, with its budget', () {
+      final l = plain();
+      final undo = l.entryCommands.renameTag('家用', '');
+      expect(l.entries.byId('old')!.tags, isEmpty);
+      expect(l.budgets.all, isEmpty);
+      undo();
+      expect(l.entries.byId('old')!.tags, ['家用']);
+      expect(
+        [for (final b in l.budgets.all) (b.category, b.limit)],
+        [('#家用', 900)],
+      );
+    });
+
+    test('a tag renamed goes back to its name, its budget too', () {
+      final l = plain();
+      final undo = l.entryCommands.renameTag('家用', '日用');
+      expect(l.budgets.all.single.category, '#日用');
+      undo();
+      expect(l.entries.byId('old')!.tags, ['家用']);
+      expect(l.budgets.all.single.category, '#家用');
+    });
+
+    test('a merchant merged comes back on its entries and recurring items, '
+        'one changed since left as it is', () {
+      final l = plain();
+      final undo = l.entryCommands.renameMerchant('全聯', '家樂福');
+      expect(l.recurring.all.single.merchant, '家樂福');
+      l.entryCommands.replace(
+        l.entries.byId('old')!.withLabels(merchant: '美廉社'),
+      );
+      undo();
+      expect(l.entries.byId('old')!.merchant, '美廉社');
+      expect(l.recurring.all.single.merchant, '全聯');
+    });
+  });
 }

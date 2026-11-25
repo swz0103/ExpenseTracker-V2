@@ -1,8 +1,9 @@
 import 'dart:math' show max;
 
-import 'package:ledger_entries/rules.dart' show spendingUnder;
+import 'package:ledger_entries/rules.dart' show entryIsUnder, spendingUnder;
 
 import '../models/models.dart';
+import '../repositories/budget_repository.dart';
 import '../repositories/category_repository.dart';
 import '../repositories/entry_repository.dart';
 import 'report_service.dart';
@@ -14,11 +15,13 @@ final class BudgetService {
   BudgetService({
     required this._entries,
     required this._categories,
+    required this._budgets,
     required ReportService reportService,
     required this._today,
   }) : _reports = reportService;
 
   final EntryReader _entries;
+  final BudgetReader _budgets;
   final CategoryReader _categories;
   final ReportService _reports;
   final DateTime Function() _today;
@@ -118,6 +121,30 @@ final class BudgetService {
   }
 
   String? _parentOf(String name) => _categories.byName(name).parent;
+
+  /// Whether [entry]'s spending counts against [budget] ([spentAgainst]):
+  /// any for the total, one carrying its tag for a tag budget, and one
+  /// with a part under its category, subcategories included (D54).
+  bool touches(Budget budget, Entry entry) {
+    if (entry.type != EntryType.expense) return false;
+    if (budget.category == allSpending) return true;
+    if (budget.tag case final tag?) return entry.tags.contains(tag);
+    return entryIsUnder(entry, budget.category, _parentOf);
+  }
+
+  /// Whether [entry], just saved, left a budget it counts against
+  /// ([touches]) over its allowance for its month.
+  bool overAfter(Entry entry) {
+    final (year, month) = (entry.date.year, entry.date.month);
+    for (final budget in _budgets.all) {
+      if (!touches(budget, entry)) continue;
+      final allowed = allowance(budget, year, month);
+      if (allowed > 0 && spentAgainst(budget, year, month) > allowed) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   /// [budget]'s limit for [year]/[month]: with [Budget.carry], plus what
   /// was left of it the month before, when it counted then. Only the
