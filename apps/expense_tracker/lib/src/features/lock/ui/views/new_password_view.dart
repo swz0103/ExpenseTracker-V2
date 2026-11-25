@@ -88,7 +88,7 @@ class _NewPasswordViewState extends State<NewPasswordView> {
       canPop: false,
       child: LockForm(
         title: KeyWords.newPasswordTitle,
-        hint: '${KeyWords.newPasswordWhy}\n$passwordRule。',
+        hint: KeyWords.newPasswordHint(passwordRule),
         fields: [
           PasswordField(
             controller: _next,

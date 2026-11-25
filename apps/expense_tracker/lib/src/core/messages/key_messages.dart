@@ -1,4 +1,4 @@
-import 'problem_messages.dart' show failureNote;
+import 'problem_messages.dart' show endSentence, failureNote;
 
 /// The words of the key settings and the screens about keys.
 abstract final class KeyWords {
@@ -86,6 +86,17 @@ abstract final class KeyWords {
   static String oldBackupsGone(int count) => '已刪除 $count 份舊金鑰的備份';
 
   static const newPasswordTitle = '設定新的密碼';
+
+  /// The new-password form's words: why, then [rule] as a sentence of
+  /// its own.
+  static String newPasswordHint(String rule) => rule.isEmpty
+      ? newPasswordWhy
+      : [newPasswordWhy, endSentence(rule)].join('\n');
+
+  /// The backup password's panel: why, then [rule] as a sentence.
+  static String passphraseDetail(String rule) =>
+      rule.isEmpty ? passphraseWhy : passphraseWhy + endSentence(rule);
+
   static const newPasswordWhy = '帳本是用救援碼或備份密碼打開的，請設定新的密碼。設定好之前，原本的密碼（如果有）仍然有效。';
   static const noPassword = '改成打開 App 不需要密碼';
   static const noPasswordConfirm =

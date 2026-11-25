@@ -17,6 +17,7 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/motion.dart';
 import '../../../core/formatting/words.dart';
+import '../../../core/messages/flow_messages.dart';
 
 import 'package:core/time/utc_days.dart';
 
@@ -134,7 +135,7 @@ class _AccountsPageState extends State<AccountsPage> {
               ),
             ),
             if (accounts.isEmpty)
-              const Text('還沒有帳戶，按右上的新增開始。', style: mutedSmall)
+              const Text(FlowWords.noAccountsYet, style: mutedSmall)
             else
               _Wallet(
                 ledger: ledger,
