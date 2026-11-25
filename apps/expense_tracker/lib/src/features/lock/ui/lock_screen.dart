@@ -11,6 +11,7 @@ import '../../../core/messages/key_failures.dart';
 import '../../../core/messages/key_messages.dart';
 import '../../../core/messages/lock_messages.dart';
 import '../../../core/messages/problem_messages.dart';
+import '../../../core/widgets/diagnostics_button.dart';
 import '../../../core/widgets/diagnostics_export.dart';
 import '../model/unlock_countdown.dart';
 import 'views/backup_choosers.dart';
@@ -502,7 +503,10 @@ class _LockScreenState extends State<LockScreen> {
 
   @override
   Widget build(BuildContext context) => switch (widget.diagnostics) {
-    final save? => DiagnosticsExport(save: save, child: _view()),
+    final save? => DiagnosticsExport(
+      export: (context) => exportDiagnostics(context, save),
+      child: _view(),
+    ),
     null => _view(),
   };
 

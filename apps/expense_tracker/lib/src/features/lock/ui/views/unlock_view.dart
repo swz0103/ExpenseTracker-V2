@@ -9,7 +9,7 @@ import '../../../../core/design_system/spacing.dart';
 import '../../../../core/design_system/motion.dart';
 import '../../../../core/design_system/password_field.dart' show SecretKeyboard;
 import '../../../../core/formatting/words.dart';
-import '../../../../core/widgets/diagnostics_export.dart';
+import '../../../../core/widgets/diagnostics_button.dart';
 
 /// Opening a ledger with its password, on the welcome's ground: the mark
 /// and the name, the password as dots that fill in as it is typed (the

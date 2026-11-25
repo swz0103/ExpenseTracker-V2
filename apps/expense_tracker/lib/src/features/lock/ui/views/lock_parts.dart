@@ -8,7 +8,7 @@ import '../../../../core/design_system/components/buttons.dart';
 import '../../../../core/design_system/keys.dart';
 import '../../../../core/design_system/shape.dart';
 import '../../../../core/design_system/spacing.dart';
-import '../../../../core/widgets/diagnostics_export.dart';
+import '../../../../core/widgets/diagnostics_button.dart';
 
 /// The page every lock screen form sits on: the mark, a [title], a
 /// [hint] under it, the [fields] on a tinted block, what went wrong, the

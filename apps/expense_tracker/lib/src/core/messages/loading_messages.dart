@@ -39,10 +39,6 @@ String _shelf(String shelf) => switch (shelf) {
   _ => shelf,
 };
 
-/// Saving the diagnostics, from wherever it is offered, and its answer.
-const diagnosticsExport = '匯出診斷';
-const diagnosticsExported = '已匯出診斷資料';
-
 const quarantineRestore = '還原備份';
 const quarantineContinue = '繼續使用';
 

@@ -10,6 +10,7 @@ import '../core/design_system/keys.dart';
 import '../core/design_system/spacing.dart';
 import '../core/ledger/persistence/upgrade_backup.dart';
 import '../core/messages/loading_messages.dart';
+import '../core/messages/diagnostics_messages.dart';
 
 /// A book kept by an earlier version, held back from its upgrade because
 /// the copy kept first could not be written (D19): why, in words, how to

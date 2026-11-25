@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 /// Where a file to hand over is written until the person has it, in the
@@ -23,3 +24,14 @@ Future<bool> handOver(
     if (file.existsSync()) await file.delete();
   }
 }
+
+/// Hands text over as a file named as asked, through [export], written
+/// into the exports of the app's folder [directory] only until then: as
+/// the backup manager does, and as the lock screen does with no ledger
+/// open.
+Future<bool> Function(String name, String text) textHandOver(
+  Directory directory,
+  Future<bool> Function(String path, String name) export,
+) =>
+    (name, text) =>
+        handOver(exportsIn(directory), name, utf8.encode(text), export);

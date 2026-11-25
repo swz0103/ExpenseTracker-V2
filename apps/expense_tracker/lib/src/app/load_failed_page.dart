@@ -6,6 +6,7 @@ import '../core/diagnostics/error_log.dart';
 import '../core/platform/startup.dart';
 import '../core/design_system/spacing.dart';
 import '../core/messages/loading_messages.dart';
+import '../core/messages/diagnostics_messages.dart';
 
 /// The book could not be opened at all: never a dead end. Try again,
 /// restore a backup, or export what went wrong. Also the page of an app

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:core/app_core.dart' show untilNextMidnight;
@@ -108,10 +107,8 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
   /// The session that navigator belongs to.
   var _generation = 0;
 
-  /// What the services beside the ledger remember for the whole run, not
-  /// one opening (review 31): told once a run means once, however often
-  /// the app locks. Its notes wait their turn, and only while a ledger is
-  /// open.
+  /// What the services remember for the whole run, however often the app
+  /// locks (review 31); its notes wait their turn, said only while open.
   late final _run = ServicesRun(
     QuietFailures(
       (note) async => widget.startup.state is Ready && await queueNote(note),
@@ -189,15 +186,6 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
   int _deliveredRevision() =>
       Outbox.deliveredRevision(widget.startup.directory, widget.preferences);
 
-  /// Saves the diagnostics from the lock screen, where no ledger is open
-  /// (review 31): through the phone's save dialog, as from an open one.
-  Future<bool> _saveDiagnostics(String name, String text) => handOver(
-    exportsIn(widget.startup.directory),
-    name,
-    utf8.encode(text),
-    androidExportFile,
-  );
-
   @override
   Widget build(BuildContext context) {
     final startup = widget.startup;
@@ -236,7 +224,9 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
                     deliveredRevision: _deliveredRevision,
                   )
                 : RestoreSources(deliveredRevision: _deliveredRevision),
-            diagnostics: Platform.isAndroid ? _saveDiagnostics : null,
+            diagnostics: Platform.isAndroid
+                ? textHandOver(startup.directory, androidExportFile)
+                : null,
           ),
         },
       ),

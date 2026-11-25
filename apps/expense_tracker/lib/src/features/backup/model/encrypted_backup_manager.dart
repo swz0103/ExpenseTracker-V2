@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -141,7 +140,7 @@ final class EncryptedBackupManager implements BackupManager {
   @override
   Future<bool> exportFile(String name, String text) =>
       // Written beside the ledger only until it is handed over.
-      exportBytes(name, utf8.encode(text));
+      textHandOver(_startup.directory, _export)(name, text);
 
   @override
   Future<bool> exportBytes(String name, List<int> bytes) =>
