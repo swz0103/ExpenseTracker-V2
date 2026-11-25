@@ -4,6 +4,7 @@ import 'package:core/app_core.dart' show FixedClock;
 import 'package:core/foundation_values.dart' show UtcInstant;
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_test/flutter_test.dart';

@@ -14,8 +14,7 @@ import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/ledger/commands/command_exceptions.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/quarantine.dart';
-import 'package:expense_tracker/src/core/platform/startup.dart'
-    show UnlockDelayed;
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
 import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:flutter/services.dart';

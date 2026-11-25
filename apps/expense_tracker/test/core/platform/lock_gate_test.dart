@@ -6,6 +6,7 @@ import 'package:expense_tracker/src/core/platform/lock_gate.dart';
 import 'package:expense_tracker/src/core/platform/preference_choices.dart';
 import 'package:expense_tracker/src/core/platform/quick_action.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';

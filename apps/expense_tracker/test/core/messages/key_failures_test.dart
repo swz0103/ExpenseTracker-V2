@@ -1,8 +1,7 @@
 import 'dart:io';
 
 import 'package:expense_tracker/src/core/messages/key_failures.dart';
-import 'package:expense_tracker/src/core/platform/startup.dart'
-    show UnlockDelayed;
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart'
     show SqliteException, StorageProblem, StorageUnavailable;

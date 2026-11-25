@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../core/platform/startup.dart' show DeviceUnlock;
+import '../core/platform/startup_state.dart';
 
 import 'load_failed_page.dart';
 import '../core/design_system/theme.dart';

@@ -5,6 +5,7 @@ import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/messages/key_failures.dart';
 import 'package:expense_tracker/src/core/messages/lock_messages.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
@@ -565,7 +566,7 @@ void main() {
     // Shown once: the copy Android takes to Google opens with it.
     expect(startup.takeRecoveryCode(), isNotNull);
     expect(startup.takeRecoveryCode(), isNull);
-    expect(startup.recoveryGiven.existsSync(), isTrue);
+    expect(startup.folder.recoveryGiven.existsSync(), isTrue);
 
     startup.lock();
     final again = Startup(vault);
@@ -605,14 +606,14 @@ void main() {
 
   test('a new ledger sets aside the copy Android brought back', () async {
     final startup = Startup(vault);
-    final copy = startup.cloudCopy;
+    final copy = startup.folder.cloudCopy;
     await copy.parent.create(recursive: true);
     await copy.writeAsString('not a backup');
     expect(await startup.broughtBack(), isNull, reason: 'unreadable');
     await startup.setUpWithoutPassword();
     expect(copy.existsSync(), isFalse);
     expect(
-      startup.beforeRestore.listSync().whereType<File>().single.path,
+      startup.folder.beforeRestore.listSync().whereType<File>().single.path,
       contains('brought-back-'),
     );
     startup.lock();
@@ -626,7 +627,7 @@ void main() {
       ..takeRecoveryCode()
       ..lock();
     // As a ledger from before 0.5.1: no code was shown.
-    startup.recoveryGiven.deleteSync();
+    startup.folder.recoveryGiven.deleteSync();
     final again = Startup(vault);
     await again.openQuietly();
     final code = again.takeRecoveryCode();

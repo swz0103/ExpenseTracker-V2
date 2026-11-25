@@ -250,7 +250,10 @@ final class EncryptedBackupManager implements BackupManager {
   /// read is left out, noted.
   Future<List<(File, int, DateTime)>> keptBackups() async {
     final kept = <(File, int, DateTime)>[];
-    for (final file in [..._backups(), ..._startup.keptBeforeRestore()]) {
+    for (final file in [
+      ..._backups(),
+      ..._startup.folder.keptBeforeRestore(),
+    ]) {
       try {
         final header = await LedgerBackup.readHeader(file);
         kept.add((file, header.backupEpoch, header.createdAt));
@@ -309,7 +312,7 @@ final class EncryptedBackupManager implements BackupManager {
     return path;
   }
 
-  /// Keeps [Startup.cloudCopy], the copy Android's own backup takes to
+  /// Keeps `LedgerFolder.cloudCopy`, the copy Android's own backup takes to
   /// the person's Google account, as the ledger now stands, without its
   /// photos (they go to Drive or a folder). Written again only when the
   /// ledger changed since. True when it was written. Asked for twice at
@@ -318,7 +321,7 @@ final class EncryptedBackupManager implements BackupManager {
   Future<bool> keepCloudCopy() => _oneAtATime(_keepCloudCopy);
 
   Future<bool> _keepCloudCopy() async {
-    final target = _startup.cloudCopy;
+    final target = _startup.folder.cloudCopy;
     if (target.existsSync()) {
       try {
         final header = await LedgerBackup.readHeader(target);
@@ -349,7 +352,7 @@ final class EncryptedBackupManager implements BackupManager {
 
   @override
   DateTime? get cloudCopyAt {
-    final copy = _startup.cloudCopy;
+    final copy = _startup.folder.cloudCopy;
     return copy.existsSync() ? copy.lastModifiedSync() : null;
   }
 
@@ -448,7 +451,7 @@ final class EncryptedBackupManager implements BackupManager {
   @override
   bool get recoveryGiven => _given.existsSync();
 
-  File get _given => _startup.recoveryGiven;
+  File get _given => _startup.folder.recoveryGiven;
 
   /// Locks once queued changes are kept and the backups being written
   /// have read what they need, so nothing writes to or reads from a
@@ -469,11 +472,11 @@ final class EncryptedBackupManager implements BackupManager {
   @override
   Future<String> restoreAnother() async {
     await _beforeLock?.call();
-    final folder = _startup.beforeRestore;
+    final folder = _startup.folder.beforeRestore;
     final kept = await _write(folder, withPhotos: true);
     final header = await LedgerBackup.readHeader(kept);
     final older = [
-      for (final (file, header) in await _startup.keptLedgers())
+      for (final (file, header) in await _startup.folder.keptLedgers())
         if (!file.uri.pathSegments.last.startsWith('brought-back') &&
             !file.uri.pathSegments.last.startsWith(_beforeUpgrade))
           (file, header),
@@ -496,13 +499,13 @@ final class EncryptedBackupManager implements BackupManager {
   /// restore. The two written last stay; these are apart from the copies
   /// kept before a restore and never let go for them.
   Future<File> keepBeforeUpgrade() async {
-    final folder = _startup.beforeRestore;
+    final folder = _startup.folder.beforeRestore;
     final kept = await _write(folder, withPhotos: true, name: _beforeUpgrade);
     // keptLedgers is newest first, by the time in each header; the one
     // just written stays whatever the times say.
     final copies = [
       kept,
-      for (final (file, _) in await _startup.keptLedgers())
+      for (final (file, _) in await _startup.folder.keptLedgers())
         if (file.uri.pathSegments.last.startsWith(_beforeUpgrade) &&
             file.path != kept.path)
           file,

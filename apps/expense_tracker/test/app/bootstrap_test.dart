@@ -21,6 +21,7 @@ import 'package:expense_tracker/src/core/platform/preference_choices.dart';
 import 'package:expense_tracker/src/core/platform/quick_action.dart';
 import 'package:expense_tracker/src/core/platform/screen_privacy.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:expense_tracker/src/features/lock/ui/lock_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

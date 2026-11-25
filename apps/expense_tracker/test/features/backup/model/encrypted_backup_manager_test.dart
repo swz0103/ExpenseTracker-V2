@@ -9,6 +9,7 @@ import 'package:expense_tracker/src/features/backup/model/backup_manager.dart';
 import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
@@ -68,7 +69,10 @@ void main() {
     expect(after.revision, revision + 1);
     expect(revision, 1);
     expect(await after.keepCloudCopy(), isTrue);
-    expect((await LedgerBackup.readHeader(startup.cloudCopy)).backupEpoch, 2);
+    expect(
+      (await LedgerBackup.readHeader(startup.folder.cloudCopy)).backupEpoch,
+      2,
+    );
     expect(await after.keepCloudCopy(), isFalse);
     vaultOf(startup).close();
   });
@@ -91,7 +95,7 @@ void main() {
     // newer one.
     expect(after.revision, 6);
     expect(await after.keepCloudCopy(), isTrue);
-    final current = await LedgerBackup.readHeader(startup.cloudCopy);
+    final current = await LedgerBackup.readHeader(startup.folder.cloudCopy);
     expect(current.revision, 6);
     expect(backupIsOlder(taken, current), isTrue);
     vaultOf(startup).close();
@@ -144,7 +148,7 @@ void main() {
     expect(kept.first.existsSync(), isFalse);
     expect(kept.skip(1).every((f) => f.existsSync()), isTrue);
     expect(kept.last.uri.pathSegments.last, startsWith('before-upgrade-'));
-    expect(startup.keptBeforeRestore().map((f) => f.path).toSet(), {
+    expect(startup.folder.keptBeforeRestore().map((f) => f.path).toSet(), {
       kept[1].path,
       kept[2].path,
     });
@@ -344,8 +348,8 @@ void main() {
     );
     await ledger.settled;
     expect(await backupManager.keepCloudCopy(), isTrue);
-    expect(startup.cloudCopy.parent.listSync(), hasLength(1));
-    final copy = startup.cloudCopy.path;
+    expect(startup.folder.cloudCopy.parent.listSync(), hasLength(1));
+    final copy = startup.folder.cloudCopy.path;
     await backupManager.lock();
 
     final phone = startupIn('new-phone');
@@ -382,8 +386,8 @@ void main() {
         backupManager.keepCloudCopy(),
       ]);
       expect(written, [true, false]);
-      expect(startup.cloudCopy.existsSync(), isTrue);
-      expect(startup.cloudCopy.parent.listSync(), hasLength(1));
+      expect(startup.folder.cloudCopy.existsSync(), isTrue);
+      expect(startup.folder.cloudCopy.parent.listSync(), hasLength(1));
       expect(
         Directory('${startup.directory.path}/exports').listSync(),
         isEmpty,

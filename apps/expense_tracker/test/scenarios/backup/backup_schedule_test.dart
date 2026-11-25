@@ -5,6 +5,7 @@ import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -159,7 +160,7 @@ void main() {
 
   test('before a restore the two kept last stay, and what Android brought '
       'back is never let go', () async {
-    final folder = startup.beforeRestore..createSync(recursive: true);
+    final folder = startup.folder.beforeRestore..createSync(recursive: true);
     final brought = File('${folder.path}/brought-back-1.etbk')
       ..writeAsStringSync('from Android');
     brought.setLastModifiedSync(DateTime(2020));

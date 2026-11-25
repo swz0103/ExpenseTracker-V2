@@ -6,6 +6,7 @@ import 'package:expense_tracker/src/core/ledger/persistence/book_migrations.dart
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/upgrade_backup.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
 import 'package:vault/backup_security.dart';

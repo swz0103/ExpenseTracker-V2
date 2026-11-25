@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:expense_tracker/src/app/production_startup.dart';
-import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

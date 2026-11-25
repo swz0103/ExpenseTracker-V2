@@ -51,6 +51,7 @@ import '../core/platform/screen_privacy.dart';
 import '../features/settings/ui/update_panel.dart';
 import '../features/settings/model/platform_services.dart';
 import '../core/platform/startup.dart';
+import '../core/platform/startup_state.dart';
 import '../core/time/app_clock.dart';
 
 /// Follows [startup] through the one lock gate ([LockGate]): the lock
@@ -324,7 +325,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     );
     await _services.start(start.ledger);
     // Rows set aside are told (D18): newer ones once a set, others always.
-    final tell = await QuarantineNotices(widget.startup.quarantineTold)
+    final tell = await QuarantineNotices(widget.startup.folder.quarantineTold)
         .toTell(start.quarantined);
     _afterFrame(() {
       if (start.inbox case final inbox?) _tellInbox(inbox);

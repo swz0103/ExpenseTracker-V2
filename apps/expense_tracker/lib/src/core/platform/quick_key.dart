@@ -1,8 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:vault/backup_security.dart';
+import 'package:vault/ledger_vault.dart' show OpenVault;
+
+import '../diagnostics/error_log.dart';
 
 /// The key of a ledger opened without a password, kept beside it sealed
 /// by the phone's Keystore ([keystore]), never in plain form: on Android a
@@ -49,6 +53,40 @@ final class QuickKey {
   Future<void> keep(String secret) async {
     await write(pending, secret);
     await pending.rename(sealed.path);
+  }
+
+  /// Seals [secret] aside while [make] makes what it opens, then names it
+  /// the key: a key with no ledger would say there is no password for a
+  /// ledger never made.
+  Future<T> keepOnce<T>(String secret, Future<T> Function() make) async {
+    await write(pending, secret);
+    final made = await make();
+    await pending.rename(sealed.path);
+    return made;
+  }
+
+  /// A new random key for a ledger without a password.
+  static String newSecret() {
+    final random = Random.secure();
+    return base64Url.encode([for (var i = 0; i < 32; i++) random.nextInt(256)]);
+  }
+
+  /// The ledger opened by [unlock] with the key. A reset of the keys
+  /// stopped before its new sealed key was named ([next]): whichever of
+  /// the two opens the keyring is the ledger's.
+  Future<OpenVault> open(Future<OpenVault> Function(String key) unlock) async {
+    if (next.existsSync()) {
+      try {
+        final opened = await unlock(await read(next));
+        await next.rename(sealed.path);
+        return opened;
+      } on KeyringException catch (error) {
+        // The reset never finished: the old key is still the ledger's.
+        ErrorLog.instance.record('重設金鑰', error);
+        await next.delete();
+      }
+    }
+    return unlock(await secret());
   }
 
   /// The key. One kept in plain form by an earlier version is sealed now,

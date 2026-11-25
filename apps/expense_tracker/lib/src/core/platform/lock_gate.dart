@@ -9,6 +9,7 @@ import 'errands.dart';
 import 'preference_choices.dart';
 import 'quick_action.dart';
 import 'startup.dart';
+import 'startup_state.dart';
 
 /// The one gate above every screen: it decides whether the ledger may be
 /// seen, and everything that would show it goes through here.

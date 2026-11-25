@@ -8,6 +8,7 @@ import 'package:expense_tracker/src/app/shell.dart';
 import 'package:expense_tracker/src/core/design_system/feedback.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';

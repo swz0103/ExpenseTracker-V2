@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:core/foundation_values.dart';
 import 'package:vault/backup_security.dart';
 
-import '../../core/platform/startup.dart';
+import '../../core/platform/startup_state.dart';
 import 'platform_channel.dart';
 import '../../core/messages/native_messages.dart';
 

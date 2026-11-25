@@ -7,6 +7,7 @@ import 'package:core/foundation_values.dart';
 import 'package:domain/data_exchange.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
 import 'package:flutter_test/flutter_test.dart';

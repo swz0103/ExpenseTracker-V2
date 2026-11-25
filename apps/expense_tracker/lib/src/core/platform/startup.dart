@@ -1,15 +1,8 @@
-// Exception to file length: Startup is the one state machine of the
-// ledger's keys (set up, locked, open, restoring, the fingerprint and the
-// attempt limit); the keys it holds stay private to this file, and split
-// across files they would have to be opened to the rest of the app.
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show PlatformException;
-import 'package:storage/storage.dart'
-    show EncryptedDatabase, StorageProblem, StorageUnavailable, isNoSpace;
+import 'package:storage/storage.dart' show EncryptedDatabase;
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
@@ -17,84 +10,21 @@ import 'package:vault/ledger_vault.dart';
 import '../diagnostics/error_log.dart';
 import '../diagnostics/error_steps.dart';
 import '../time/app_clock.dart';
+import 'book_damage.dart';
+import 'device_enrolment.dart';
+import 'ledger_folder.dart';
 import 'memory_keystore.dart';
 import 'quick_key.dart';
 import 'unlock_attempts.dart';
-import 'app_files.dart';
-import '../diagnostics/app_fault.dart';
-
-/// What a backup says of itself before any key: when it was taken, its
-/// records, and what opens it. Named here for the screens, which do not
-/// reach into the vault.
-typedef BackupFacts = BackupHeader;
-
-/// A hardware key for unlocking without the password, such as an Android
-/// Keystore key behind biometrics.
-final class DeviceUnlock {
-  const DeviceUnlock(this.id, this.wrapper, {this.hasKey});
-
-  final String id;
-  final DeviceKeyWrapper wrapper;
-
-  /// Whether the hardware key is still there; Android drops it when a
-  /// fingerprint is added or removed. Null when it cannot be lost.
-  final Future<bool> Function()? hasKey;
-}
-
-sealed class StartupState {
-  const StartupState();
-}
-
-/// No ledger on this device: start one, with or without a password, or
-/// restore a backup.
-final class NeedsSetup extends StartupState {
-  const NeedsSetup();
-}
-
-/// A ledger exists and is locked.
-final class Locked extends StartupState {
-  const Locked({
-    required this.deviceUnlock,
-    this.askFirst = true,
-    this.passphrase = false,
-    this.noSpace = false,
-  });
-
-  /// This device has a key to try before asking for the password. It is
-  /// enrolled at the first password unlock; until then the device unlock
-  /// fails with `KeyringError.unknownDevice`.
-  final bool deviceUnlock;
-
-  /// Whether to ask for the fingerprint as soon as the screen opens: not
-  /// after the person turned enrolling it down.
-  final bool askFirst;
-
-  /// Whether a backup passphrase opens the ledger too, where the recovery
-  /// code is asked for.
-  final bool passphrase;
-
-  /// Back here because making the book again found the phone full
-  /// (review 29): the screen says so before anything is tried.
-  final bool noSpace;
-}
-
-/// The ledger's database is damaged (D94): empty, cut short or a page of
-/// it unreadable. It is set aside as it is, never written over, and no
-/// empty book is started in its place; a backup restores the ledger.
-final class Damaged extends StartupState {
-  const Damaged();
-}
-
-/// Unlocked and ready.
-final class Ready extends StartupState {
-  const Ready(this.vault);
-
-  final OpenVault vault;
-}
+import 'staged_photos.dart';
+import 'startup_state.dart';
 
 /// From app launch to an unlocked session. The screens only show the
 /// [state] and call these methods; keys never leave this class and the
-/// vault.
+/// vault. The parts that hold no key of their own are kept apart: the
+/// fingerprint ([DeviceEnrolment]), a damaged book ([BookDamage]), the
+/// key of a ledger without a password ([QuickKey]) and the files beside
+/// the ledger ([LedgerFolder]); the states are in startup_state.dart.
 final class Startup extends ChangeNotifier {
   /// [quickKey] seals the key of a ledger opened without a password: on
   /// Android a Keystore key that needs no fingerprint, so the ledger opens
@@ -105,12 +35,14 @@ final class Startup extends ChangeNotifier {
   /// after wrong passwords ([UnlockAttempts]).
   Startup(
     this._vault, {
-    this.device,
+    DeviceUnlock? device,
     this.check,
     this.checkRestored,
     DeviceKeyWrapper? quickKey,
     UptimeSource? uptime,
-  }) : _quick = QuickKey(_vault.directory, quickKey ?? MemoryKeystore.instance),
+  }) : folder = LedgerFolder(_vault.directory),
+       _devices = DeviceEnrolment(device, _vault.directory),
+       _quick = QuickKey(_vault.directory, quickKey ?? MemoryKeystore.instance),
        _attempts = UnlockAttempts(
          File('${_vault.directory.path}/unlock-attempts.json'),
          uptime: uptime,
@@ -139,17 +71,20 @@ final class Startup extends ChangeNotifier {
     }
   }
 
-  /// Opens the ledger with [open]; a database found damaged as it opens
-  /// ([StorageProblem.damaged]) turns this into [Damaged] before it is
-  /// thrown on: the vault has set it aside already.
-  Future<OpenVault> _watchDamage(Future<OpenVault> Function() open) async {
-    try {
-      return await open();
-    } on StorageUnavailable catch (error) {
-      if (error.problem == StorageProblem.damaged) _damaged(error);
-      rethrow;
-    }
-  }
+  /// The ledger's database found damaged: one handling at a time, made
+  /// again from its records or set aside.
+  late final _book = BookDamage(_vault, (
+    close: _closeDamaged,
+    damaged: _damaged,
+    locked: ({bool noSpace = false}) {
+      _state = _locked(noSpace: noSpace);
+      notifyListeners();
+    },
+    ready: _ready,
+  ));
+
+  Future<OpenVault> _watchDamage(Future<OpenVault> Function() open) =>
+      _book.watch(open);
 
   void _damaged(Object error) {
     ErrorLog.instance.record(ErrorSteps.bookDamaged, error);
@@ -157,143 +92,26 @@ final class Startup extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// The damage being handled now ([bookDamaged], [journalDamaged]):
-  /// one at a time, a report while it runs waits for it rather than
-  /// closing and making the book again a second time.
-  Future<void>? _damage;
-
-  /// Runs [handle] as the one damage handling, or waits for the one
-  /// running.
-  Future<void> _oneDamage(Future<void> Function() handle) =>
-      _damage ??= handle().whenComplete(() => _damage = null);
-
-  /// The open ledger's database was found damaged as the book was read
-  /// (D94): it is closed. Where its records can still be read whole, the
-  /// damage was in the journal's tables, derived from them: the database
-  /// is made again from the records and opens again at once, the journal
-  /// posted afresh (D102); once a launch, so a book found damaged again
-  /// is not made again and again (review 25). Else the app shows
-  /// [Damaged], then the file is set aside as it is, never written over;
-  /// a set-aside that fails is thrown, the app already showing
-  /// [Damaged]. A report while one is handled waits for that one.
-  Future<void> bookDamaged(Object error) =>
-      _oneDamage(() => _handleDamage(error));
-
-  /// Whether a book was made again from its records this launch
-  /// ([_salvage]): a second damage found is set aside, not made again.
-  var _salvageSpent = false;
-
-  Future<void> _handleDamage(Object error) async {
+  /// Closes the book found damaged; the keys it was open with.
+  UnlockedKeyring? _closeDamaged() {
     final state = _state;
     final keys = state is Ready ? state.vault.keys : null;
     if (state is Ready) state.vault.close();
     _recovery = null;
     _newPassword = false;
     _resume = null;
-    if (keys != null && !_salvageSpent && await _salvage(keys, error)) {
-      return;
-    }
-    // Shown first: a set-aside that fails leaves no open book behind a
-    // state that says there is one, so the next fault is not handled
-    // again (review 25).
-    _damaged(error);
-    await _vault.setAsideDamaged();
+    return keys;
   }
 
-  /// The journal's tables of the open ledger were found damaged (D102):
-  /// noted first, so the next opening makes the database again should
-  /// this one not finish, then as [bookDamaged]. Whether the report was
-  /// acted on: false when no book is open (locked meanwhile), so it is to
-  /// be told again once one is.
-  Future<bool> journalDamaged(Object error) async {
-    if (_damage == null && _state is! Ready) return false;
-    await _oneDamage(() async {
-      try {
-        await _vault.noteJournalDamaged();
-      } on Object catch (noted) {
-        ErrorLog.instance.record(ErrorSteps.journalDamagedNote, noted);
-      }
-      await _handleDamage(error);
-    });
-    return true;
-  }
+  /// [BookDamage.bookDamaged].
+  Future<void> bookDamaged(Object error) => _book.bookDamaged(error);
 
-  /// Makes the ledger, closed, again from its records with [keys]
-  /// ([LedgerVault.salvage]) and opens it. Whether it was handled here:
-  /// false when its records cannot be read whole, or putting the copy in
-  /// place failed, which leaves it to be set aside. Once made again, the
-  /// book is never set aside for an opening that fails (review 25): one
-  /// that finds it damaged has set it aside already and shows [Damaged];
-  /// any other failure goes back to the lock screen, where opening is
-  /// tried again as any opening is. Making it again that fails before
-  /// the copy is put in place (a disk full as it is written) leaves the
-  /// file as it was (D113): nothing is set aside, the lock screen comes
-  /// back, and the next opening, or the next damage found, makes it
-  /// again; only a book made again counts as this launch's one. After
-  /// [LedgerVault.salvageTries] such failures in one launch it is set
-  /// aside as any damaged book is (review 28).
-  Future<bool> _salvage(UnlockedKeyring keys, Object error) async {
-    try {
-      switch (await _vault.salvage(keys)) {
-        case Salvaged(:final noteKept):
-          if (noteKept case (final failed, final stack)) {
-            ErrorLog.instance.record(
-              ErrorSteps.journalDamagedNote,
-              failed,
-              stack,
-            );
-          }
-        case SalvageUnreadable():
-          return false;
-        case SalvageNotMade(error: final failed, :final stack, :final gaveUp):
-          ErrorLog.instance.record(ErrorSteps.salvageNotMade, failed, stack);
-          // Failed too often this launch: set aside as damaged instead.
-          // A disk full never counts towards it (review 29).
-          if (gaveUp) return false;
-          _state = _locked(noSpace: isNoSpace(failed));
-          notifyListeners();
-          return true;
-      }
-    } on Object catch (failed) {
-      // Failed as the copy was put in place: the book was made again.
-      _salvageSpent = true;
-      ErrorLog.instance.record(ErrorSteps.bookDamaged, failed);
-      return false;
-    }
-    _salvageSpent = true;
-    ErrorLog.instance.record(ErrorSteps.journalRebuilt, error);
-    try {
-      _ready(await _vault.reopen(keys));
-    } on Object catch (failed) {
-      if (failed case StorageUnavailable(problem: StorageProblem.damaged)) {
-        _damaged(failed);
-      } else {
-        ErrorLog.instance.record(ErrorSteps.rebuiltNotOpened, failed);
-        _state = _locked();
-        notifyListeners();
-      }
-    }
-    return true;
-  }
+  /// [BookDamage.journalDamaged], told whether a book is open.
+  Future<bool> journalDamaged(Object error) =>
+      _book.journalDamaged(error, bookOpen: _state is Ready);
 
-  /// What [read], the open book being read, gives; a page of it found
-  /// damaged ([StorageProblem.damaged]) is handled first ([bookDamaged])
-  /// and thrown on as it was: a handling that fails is noted, never put
-  /// in its place (review 25).
-  Future<T> readingBook<T>(Future<T> read) async {
-    try {
-      return await read;
-    } on StorageUnavailable catch (error) {
-      if (error.problem == StorageProblem.damaged) {
-        try {
-          await bookDamaged(error);
-        } on Object catch (failed, stack) {
-          ErrorLog.instance.record(ErrorSteps.bookDamaged, failed, stack);
-        }
-      }
-      rethrow;
-    }
-  }
+  /// [BookDamage.reading].
+  Future<T> readingBook<T>(Future<T> read) => _book.reading(read);
 
   /// From [Damaged], back to the lock screen to try again.
   void retryAfterDamage() {
@@ -302,7 +120,13 @@ final class Startup extends ChangeNotifier {
   }
 
   final LedgerVault _vault;
-  final DeviceUnlock? device;
+
+  /// The files beside the ledger that say what became of it.
+  final LedgerFolder folder;
+
+  /// This phone's fingerprint as a key of the ledger.
+  final DeviceEnrolment _devices;
+  DeviceUnlock? get device => _devices.device;
 
   /// The key of a ledger opened without a password, sealed, until the
   /// person sets a password.
@@ -327,12 +151,6 @@ final class Startup extends ChangeNotifier {
   /// Opens and checks the ledger's keys.
   KeyringCodec get codec => _vault.codec;
 
-  /// Kept while the fingerprint is off: turned down when offered, or
-  /// turned off in settings ([removeDevice]). A password unlock then does
-  /// not offer it; only turning it on in settings ([enrolDevice]) drops
-  /// it.
-  File get _noDevice => File('${directory.path}/no-fingerprint');
-
   /// The ledger opens without asking: no password has been set.
   bool get passwordless => _quick.exists;
 
@@ -343,58 +161,22 @@ final class Startup extends ChangeNotifier {
   /// phone.
   Future<void> setUpWithoutPassword() async {
     await directory.create(recursive: true);
-    await _setAsideCloudCopy();
-    final secret = _newSecret();
-    // Kept aside until the ledger it opens exists: a key with no ledger
-    // would say there is no password for a ledger never made.
-    await _quick.write(_quick.pending, secret);
-    final (open, recovery) = await _vault.create(secret);
-    await _quick.pending.rename(_quick.sealed.path);
+    await folder.setAsideCloudCopy();
+    final secret = QuickKey.newSecret();
+    final (open, recovery) = await _quick.keepOnce(
+      secret,
+      () => _vault.create(secret),
+    );
     _recovery = recovery;
-    await recoveryGiven.writeAsString('', flush: true);
+    await folder.recoveryGiven.writeAsString('', flush: true);
     _fresh = true;
     _ready(open, newBook: true);
   }
 
-  /// Kept once this ledger's recovery code has been shown, so a backup
-  /// leaving the phone does not make a new one (encrypted_backup_manager.dart).
-  File get recoveryGiven => File('${directory.path}/recovery-given');
-
-  /// The fingerprint of the rows a newer version wrote that the person was
-  /// last told were set aside (quarantine_notices.dart): told once a set.
-  File get quarantineTold => File('${directory.path}/quarantine-told');
-
-  /// The copy of the ledger, without its photos, that Android's own
-  /// backup takes to the person's Google account and brings back when the
-  /// app is installed again or on a new phone (res/xml): the only file
-  /// it takes.
-  File get cloudCopy =>
-      File('${directory.path}/${AppFiles.cloud}/${AppFiles.cloudCopy}');
-
   /// The copy Android brought back with no ledger here yet: when it was
   /// taken and how many records it holds. Null when there is none.
-  Future<BackupHeader?> broughtBack() async {
-    if (_state is! NeedsSetup || !cloudCopy.existsSync()) return null;
-    try {
-      return await LedgerBackup.readHeader(cloudCopy);
-    } on Object catch (error) {
-      ErrorLog.instance.record('讀取備份標頭', error);
-      return null;
-    }
-  }
-
-  /// A new ledger instead of the one brought back: that copy moves where
-  /// the ledgers kept before a restore are, so the new ledger's copy does
-  /// not replace it unseen.
-  Future<void> _setAsideCloudCopy() async {
-    final copy = cloudCopy;
-    if (!copy.existsSync()) return;
-    await beforeRestore.create(recursive: true);
-    await copy.rename(
-      '${beforeRestore.path}/brought-back-'
-      '${AppClock.now().millisecondsSinceEpoch}.etbk',
-    );
-  }
+  Future<BackupHeader?> broughtBack() async =>
+      _state is NeedsSetup ? folder.cloudCopyHeader() : null;
 
   var _fresh = false;
 
@@ -417,43 +199,20 @@ final class Startup extends ChangeNotifier {
     return opening;
   }
 
-  static String _newSecret() {
-    final random = Random.secure();
-    return base64Url.encode([for (var i = 0; i < 32; i++) random.nextInt(256)]);
-  }
-
   /// Opens a ledger set up without a password. One whose recovery code
   /// was never shown gets a new one, shown once ([takeRecoveryCode]): the
   /// copy Android takes to the person's Google account opens with it.
   Future<void> openQuietly() async {
-    final open = await _openWithQuickKey();
-    if (!recoveryGiven.existsSync()) {
+    final open = await _quick.open(
+      (key) => _watchDamage(() => _vault.unlockWithPassword(key)),
+    );
+    if (!folder.recoveryGiven.existsSync()) {
       final rotated = await open.keys.rotateRecovery();
       await open.updateKeys(rotated.unlocked);
-      await recoveryGiven.writeAsString('', flush: true);
+      await folder.recoveryGiven.writeAsString('', flush: true);
       _recovery = rotated.recoveryCode;
     }
     _ready(open);
-  }
-
-  /// A reset of the keys stopped before its new sealed key was named:
-  /// whichever of the two opens the keyring is the ledger's.
-  Future<OpenVault> _openWithQuickKey() async {
-    final next = _quick.next;
-    if (next.existsSync()) {
-      try {
-        final key = await _quick.read(next);
-        final open = await _watchDamage(() => _vault.unlockWithPassword(key));
-        await next.rename(_quick.sealed.path);
-        return open;
-      } on KeyringException catch (error) {
-        // The reset never finished: the old key is still the ledger's.
-        ErrorLog.instance.record('重設金鑰', error);
-        await next.delete();
-      }
-    }
-    final secret = await quickSecret();
-    return _watchDamage(() => _vault.unlockWithPassword(secret));
   }
 
   /// The key a ledger without a password opens with. One kept in plain
@@ -469,9 +228,9 @@ final class Startup extends ChangeNotifier {
   Future<String> setUp(String password) async {
     // A key left by an earlier try without a password opens nothing now.
     await forgetQuickKey();
-    await _setAsideCloudCopy();
+    await folder.setAsideCloudCopy();
     final (open, recovery) = await _vault.create(password);
-    await _enrolDevice(open);
+    await _devices.afterPassword(open);
     _recovery = recovery;
     _ready(open, newBook: true);
     return recovery;
@@ -505,7 +264,7 @@ final class Startup extends ChangeNotifier {
   Future<void> unlockWithPassword(String password) async {
     final open = await _limited(() => _vault.unlockWithPassword(password));
     _belowRule = codec.policy.isBelow(password);
-    await _enrolDevice(open);
+    await _devices.afterPassword(open);
     _ready(open);
   }
 
@@ -544,8 +303,7 @@ final class Startup extends ChangeNotifier {
     // From settings, the closed ledger is replaced; a backup of it was
     // kept first.
     final replacing = _state is Locked;
-    final staged = Directory('${_vault.stagedFiles.path}/${AppFiles.receipts}');
-    var skipped = 0;
+    final photos = StagedPhotos(_vault.stagedFiles);
     final open = await _vault.restore(
       keys,
       replacing: replacing,
@@ -556,58 +314,34 @@ final class Startup extends ChangeNotifier {
           keys: keys,
           into: staging,
           accept: check,
-          // Receipt photos the backup carries, still sealed: they open with
-          // the restored ledger's own key. Staged, and moved in only with
-          // the checked database.
-          onFile: (name, bytes) async {
-            if (!RegExp(r'^[\w.-]+$').hasMatch(name)) {
-              skipped++;
-              return;
-            }
-            await staged.create(recursive: true);
-            await File('${staged.path}/$name').writeAsBytes(bytes, flush: true);
-          },
+          onFile: photos.add,
         );
         checkRestored?.call(staging);
       },
     );
-    if (skipped > 0) {
-      ErrorLog.instance.record(
-        '還原備份',
-        StateError('$skipped files with names not kept were skipped'),
-      );
-    }
+    photos.noteSkipped();
     // The restored ledger opens with the backup's own keys.
     await forgetQuickKey();
     _replacedLedger = null;
     if (!byPassword) {
       // The code was just typed: the person has it.
-      await recoveryGiven.writeAsString('', flush: true);
+      await folder.recoveryGiven.writeAsString('', flush: true);
       _newPassword = true;
     }
-    await _enrolDevice(open);
+    await _devices.afterPassword(open);
     _ready(open, newBook: true);
   }
 
   /// The most this phone's ledger is known to have stood at, read without
   /// its keys: the backup of it kept before a restore from settings
   /// ([replacedLedger]) and the copy kept for Android's cloud backup
-  /// ([cloudCopy]); 0 when neither says. A restore goes on from above it
+  /// ([LedgerFolder.cloudCopy]); 0 when neither says. A restore goes on from above it
   /// ([LedgerVault.restore]), which also reads the ledger it replaces
   /// where the backup's keys open it.
   Future<int> _revisionBefore() async {
-    var before = _replacedLedger?.revision ?? 0;
-    if (cloudCopy.existsSync()) {
-      try {
-        before = max(
-          before,
-          (await LedgerBackup.readHeader(cloudCopy)).revision,
-        );
-      } on Object catch (error) {
-        ErrorLog.instance.record('讀取備份標頭', error);
-      }
-    }
-    return before;
+    final before = _replacedLedger?.revision ?? 0;
+    final copy = await folder.cloudCopyHeader();
+    return copy == null ? before : max(before, copy.revision);
   }
 
   Future<UnlockedKeyring> _unlockWithCodeOrPassphrase(
@@ -629,7 +363,7 @@ final class Startup extends ChangeNotifier {
           : _vault.unlockWithPassphrase(secret),
     );
     // The code was just typed: the person has it.
-    await recoveryGiven.writeAsString('', flush: true);
+    await folder.recoveryGiven.writeAsString('', flush: true);
     _newPassword = true;
     _ready(open);
   }
@@ -662,10 +396,11 @@ final class Startup extends ChangeNotifier {
   /// a new random key, sealed by the phone, replaces the password.
   Future<void> openWithoutPassword() async {
     final open = (_state as Ready).vault;
-    final secret = _newSecret();
-    await _quick.write(_quick.pending, secret);
-    await open.updateKeys(await open.keys.changePassword(secret));
-    await _quick.pending.rename(_quick.sealed.path);
+    final secret = QuickKey.newSecret();
+    await _quick.keepOnce(
+      secret,
+      () async => open.updateKeys(await open.keys.changePassword(secret)),
+    );
     _belowRule = false;
     _newPassword = false;
     notifyListeners();
@@ -682,7 +417,7 @@ final class Startup extends ChangeNotifier {
     final quick = passwordless;
     final String secret;
     if (quick) {
-      secret = _newSecret();
+      secret = QuickKey.newSecret();
     } else {
       if (password == null) throw ArgumentError.notNull('password');
       // Throws for a wrong one, before anything changes.
@@ -700,7 +435,7 @@ final class Startup extends ChangeNotifier {
       rethrow;
     }
     if (quick) await _quick.next.rename(_quick.sealed.path);
-    await recoveryGiven.writeAsString('', flush: true);
+    await folder.recoveryGiven.writeAsString('', flush: true);
     _recovery = reset.recoveryCode;
     _keysReset = true;
     _keysResetAt = at;
@@ -711,53 +446,25 @@ final class Startup extends ChangeNotifier {
   /// when the person turned the prompt down themselves (改用密碼, or
   /// back): their choice, not a failure, so nothing is thrown or noted.
   Future<bool> unlockWithDevice() async {
-    final device = this.device;
-    if (device == null) throw StateError('No device key.');
-    final hasKey = device.hasKey;
-    if (hasKey != null && !await hasKey()) {
-      // The key is gone: the next password unlock enrols a new one.
-      _reEnrol = true;
-      throw const KeyringException(KeyringError.unknownDevice);
-    }
-    final asked = _AskedKey(device.wrapper);
-    try {
-      _ready(
-        await _watchDamage(() => _vault.unlockWithDevice(device.id, asked)),
-      );
-      return true;
-    } on KeyringException {
-      if (asked.declined) return false;
-      rethrow;
-    }
+    final open = await _devices.unlock(
+      (id, key) => _watchDamage(() => _vault.unlockWithDevice(id, key)),
+    );
+    if (open == null) return false;
+    _ready(open);
+    return true;
   }
 
   /// Whether this phone's fingerprint opens the ledger now open.
-  bool get deviceEnrolled {
-    final device = this.device;
-    final state = _state;
-    return device != null &&
-        state is Ready &&
-        !_reEnrol &&
-        state.vault.keys.keyring.deviceIds.contains(device.id);
-  }
+  bool get deviceEnrolled => switch (_state) {
+    Ready(:final vault) => _devices.opens(vault),
+    _ => false,
+  };
 
   /// Turns the fingerprint on for the open ledger, asked for in settings:
   /// the phone asks for it once to make its key. False when the person
   /// turned that prompt down; any other failure is thrown.
   Future<bool> enrolDevice() async {
-    final device = this.device;
-    if (device == null) throw StateError('No device key.');
-    final open = (_state as Ready).vault;
-    final known = open.keys.keyring.deviceIds.contains(device.id);
-    try {
-      final current = known ? open.keys.removeDevice(device.id) : open.keys;
-      await open.updateKeys(await current.addDevice(device.id, device.wrapper));
-    } on Object catch (error) {
-      if (_declined(error)) return false;
-      rethrow;
-    }
-    _reEnrol = false;
-    if (await _noDevice.exists()) await _noDevice.delete();
+    if (!await _devices.enrol((_state as Ready).vault)) return false;
     notifyListeners();
     return true;
   }
@@ -766,24 +473,9 @@ final class Startup extends ChangeNotifier {
   /// password unlock does not ask to enrol it again until it is turned on
   /// in settings.
   Future<void> removeDevice() async {
-    final device = this.device;
     if (device == null) return;
-    final open = (_state as Ready).vault;
-    await _noDevice.writeAsString('', flush: true);
-    if (open.keys.keyring.deviceIds.contains(device.id)) {
-      await open.updateKeys(open.keys.removeDevice(device.id));
-    }
-    _reEnrol = false;
-    notifyListeners();
+    if (await _devices.remove((_state as Ready).vault)) notifyListeners();
   }
-
-  /// Whether [error] is the person turning the fingerprint prompt down
-  /// (`DeviceKeyBlob.refusal` on Android), rather than a failure.
-  static bool _declined(Object error) =>
-      error is PlatformException && error.code == 'declined';
-
-  /// The device's key was lost and its old entry must be replaced.
-  var _reEnrol = false;
 
   /// Closes the database, and opens the lock screen on restoring a
   /// backup in place of this ledger: from settings, after a backup of
@@ -847,45 +539,6 @@ final class Startup extends ChangeNotifier {
   BackupHeader? get replacedLedger => _replacedLedger;
   BackupHeader? _replacedLedger;
 
-  /// Where the ledger is kept as it was before a restore from settings.
-  Directory get beforeRestore => Directory('${directory.path}/before-restore');
-
-  /// The ledgers kept before a restore from settings, newest first, to
-  /// go back to one.
-  List<File> keptBeforeRestore() {
-    final folder = beforeRestore;
-    if (!folder.existsSync()) return const [];
-    return [
-      for (final entity in folder.listSync())
-        if (entity is File && entity.path.endsWith('.etbk')) entity,
-    ]..sort((a, b) => b.path.compareTo(a.path));
-  }
-
-  /// The ledgers kept before a restore with what their backups say (null
-  /// for one that cannot be read), the one taken last first: by when it
-  /// was taken, not when the file was last written, which a copy Android
-  /// brought back does not keep.
-  Future<List<(File, BackupHeader?)>> keptLedgers() async {
-    final kept = <(File, BackupHeader?)>[];
-    for (final file in keptBeforeRestore()) {
-      BackupHeader? header;
-      try {
-        header = await LedgerBackup.readHeader(file);
-      } on Object catch (error) {
-        ErrorLog.instance.record('讀取備份標頭', error);
-      }
-      kept.add((file, header));
-    }
-    final epoch = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-    return kept..sort(
-      (a, b) => (b.$2?.createdAt ?? epoch).compareTo(a.$2?.createdAt ?? epoch),
-    );
-  }
-
-  /// When the backup at [path] was taken and how many records it holds,
-  /// read without opening it.
-  Future<BackupHeader> peek(String path) => LedgerBackup.readHeader(File(path));
-
   /// Closes the database, and lets go of keys held for a restore.
   void lock() => _close();
 
@@ -898,32 +551,6 @@ final class Startup extends ChangeNotifier {
     _resumed = false;
     _state = _locked();
     notifyListeners();
-  }
-
-  /// Adds this device's key once, after a password unlock. A cancelled
-  /// fingerprint never blocks the unlock, and is not asked again until
-  /// the person asks for the fingerprint on the lock screen.
-  Future<void> _enrolDevice(OpenVault open) async {
-    final device = this.device;
-    if (device == null) return;
-    final known = open.keys.keyring.deviceIds.contains(device.id);
-    if (known && !_reEnrol) return;
-    if (!_reEnrol && _noDevice.existsSync()) return;
-    try {
-      final current = known ? open.keys.removeDevice(device.id) : open.keys;
-      final keys = await current.addDevice(device.id, device.wrapper);
-      await open.updateKeys(keys);
-      _reEnrol = false;
-    } on Object catch (error) {
-      // Only turning the prompt down stops it, and that is the person's
-      // choice, not a fault to note; a failure is noted and asks next
-      // time.
-      if (_declined(error)) {
-        await _noDevice.writeAsString('', flush: true);
-      } else {
-        ErrorLog.instance.record('生物辨識登記', error);
-      }
-    }
   }
 
   /// How many times in this run a book was put in place of the one
@@ -946,16 +573,10 @@ final class Startup extends ChangeNotifier {
     _quick.settle(ledgerExists: _vault.exists);
     if (!_vault.exists) return const NeedsSetup();
     final keyring = _keyring();
-    final device = this.device;
-    final turnedOff = _noDevice.existsSync();
-    final enrolled =
-        device != null && (keyring?.deviceIds.contains(device.id) ?? false);
+    final fingerprint = _devices.onLock(keyring);
     return Locked(
-      // Turned off in settings (or turned down when offered), there is no
-      // fingerprint to ask for; before the first password unlock there is
-      // one to say so about.
-      deviceUnlock: device != null && (enrolled || !turnedOff),
-      askFirst: !turnedOff,
+      deviceUnlock: fingerprint.offered,
+      askFirst: fingerprint.askFirst,
       passphrase: keyring?.hasPassphrase ?? false,
       noSpace: noSpace,
     );
@@ -970,41 +591,6 @@ final class Startup extends ChangeNotifier {
       // Read again by the unlock, which says what is wrong.
       ErrorLog.instance.record('讀取金鑰', error);
       return null;
-    }
-  }
-}
-
-/// A password or recovery code was not tried: too many wrong ones came
-/// before it, and the next may be tried after [wait].
-final class UnlockDelayed implements AppFault {
-  const UnlockDelayed(this.wait);
-
-  final Duration wait;
-
-  @override
-  String toString() => 'UnlockDelayed';
-}
-
-/// The fingerprint key while it is asked to open the ledger, noting
-/// whether the person turned the prompt down: the vault says only that
-/// the key did not open.
-final class _AskedKey implements DeviceKeyWrapper {
-  _AskedKey(this._key);
-
-  final DeviceKeyWrapper _key;
-  var declined = false;
-
-  @override
-  Future<List<int>> wrap(List<int> secret, List<int> context) =>
-      _key.wrap(secret, context);
-
-  @override
-  Future<List<int>> unwrap(List<int> wrapped, List<int> context) async {
-    try {
-      return await _key.unwrap(wrapped, context);
-    } on Object catch (error) {
-      declined = Startup._declined(error);
-      rethrow;
     }
   }
 }

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../backup/model/drive_backup.dart';
 import '../../backup/model/restore_sources.dart';
 import '../../../core/platform/startup.dart';
+import '../../../core/platform/startup_state.dart';
 import '../../../core/design_system/dialogs.dart';
 import '../../../core/messages/key_failures.dart';
 import '../../../core/messages/key_messages.dart';
@@ -14,6 +15,7 @@ import '../../../core/messages/problem_messages.dart';
 import '../../../core/widgets/diagnostics_export.dart';
 import '../../../../design_system/display/amount.dart' show megabytes;
 import '../../../../design_system/display/date.dart';
+import '../model/picked_copy.dart';
 import '../model/unlock_countdown.dart';
 import 'views/backup_choosers.dart';
 import 'views/lock_parts.dart';
@@ -124,7 +126,7 @@ class _LockScreenState extends State<LockScreen> {
   /// Asks for the password or recovery code of the backup Android
   /// brought back.
   Future<void> _restoreFound() async {
-    final path = widget.startup.cloudCopy.path;
+    final path = widget.startup.folder.cloudCopy.path;
     setState(() {
       _restoring = true;
       _cameBack = true;
@@ -249,20 +251,12 @@ class _LockScreenState extends State<LockScreen> {
     super.dispose();
   }
 
-  /// Deletes the copy of the chosen backup once it is not needed: after
-  /// it was restored, or when this screen goes. A failed restore keeps it
-  /// for another try; the next start deletes one left behind.
+  /// Deletes the copy of the chosen backup once it is not needed
+  /// ([forgetPickedCopy]); a failed restore keeps it for another try.
   void _forgetPicked() {
     final picked = _picked;
     _picked = null;
-    if (picked == null) return;
-    try {
-      final file = File(picked);
-      if (file.existsSync()) file.deleteSync();
-    } on FileSystemException catch (error) {
-      // Deleted at the next start.
-      ErrorLog.instance.record(ErrorSteps.cleanup, error);
-    }
+    if (picked != null) forgetPickedCopy(picked);
   }
 
   Future<void> _submit() async {
@@ -342,7 +336,7 @@ class _LockScreenState extends State<LockScreen> {
     String about;
     BackupFacts? chosen;
     try {
-      final header = await widget.startup.peek(path);
+      final header = await widget.startup.folder.peek(path);
       chosen = header;
       about = describeBackup(header);
     } on Object catch (error) {
@@ -408,7 +402,7 @@ class _LockScreenState extends State<LockScreen> {
   /// settings, kept on this phone: a way back from the wrong backup. Each
   /// is named by when its backup was taken, as its header says.
   Future<void> _pickKept() async {
-    final kept = await widget.startup.keptLedgers();
+    final kept = await widget.startup.folder.keptLedgers();
     if (kept.isEmpty || !mounted) return;
     final chosen = await chooseKeptLedger(context, kept);
     if (chosen == null || !mounted) return;
@@ -542,7 +536,7 @@ class _LockScreenState extends State<LockScreen> {
         about: _about,
         onPickKept:
             widget.startup.state is Locked &&
-                widget.startup.keptBeforeRestore().isNotEmpty
+                widget.startup.folder.keptBeforeRestore().isNotEmpty
             ? _pickKept
             : null,
       );

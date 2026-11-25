@@ -4,7 +4,7 @@ import 'package:expense_tracker/src/core/platform/app_files.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Android's own backup takes one thing of the app: the encrypted copy of
-/// the ledger in files/cloud/ (Startup.cloudCopy), to the person's Google
+/// the ledger in files/cloud/ (LedgerFolder.cloudCopy), to the person's Google
 /// account and to a new phone. Not the ledger itself, its key or the
 /// settings: brought back, the welcome offers the copy and replaces
 /// nothing unasked. Android 11 and earlier read backup_rules.xml,
@@ -63,10 +63,10 @@ void main() {
   });
 
   test('the copy is where the app writes it', () {
-    final startup = File('lib/src/core/platform/startup.dart')
+    final folder = File('lib/src/core/platform/ledger_folder.dart')
         .readAsStringSync();
     expect(
-      startup,
+      folder,
       contains(r"'${directory.path}/${AppFiles.cloud}/${AppFiles.cloudCopy}'"),
     );
     expect('file:${AppFiles.cloud}/', onlyTheCopy.single);

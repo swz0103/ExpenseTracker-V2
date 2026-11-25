@@ -8,7 +8,7 @@ import 'package:vault/ledger_vault.dart';
 
 import '../../../design_system/display/amount.dart';
 import '../../../design_system/display/date.dart';
-import '../platform/startup.dart' show Locked, StartupState, UnlockDelayed;
+import '../platform/startup_state.dart';
 import 'lock_messages.dart';
 
 /// The words of the ledger's keys, in one place: passwords and their rule,

@@ -46,7 +46,7 @@ class LedgerBackupAgent : BackupAgent() {
         /**
          * The one folder Android's backup takes, as res/xml names it for
          * every Android version: the app writes its copy there as
-         * `記帳本.etbk` (Startup.cloudCopy), only ever by a rename (F65).
+         * `記帳本.etbk` (LedgerFolder.cloudCopy), only ever by a rename (F65).
          */
         const val FOLDER = "cloud/"
 

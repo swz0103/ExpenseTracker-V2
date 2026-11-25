@@ -8,6 +8,7 @@ import '../core/diagnostics/error_steps.dart';
 import '../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../core/platform/memory_keystore.dart';
 import '../core/platform/startup.dart';
+import '../core/platform/startup_state.dart';
 import '../core/platform/unlock_attempts.dart';
 import '../core/time/app_clock.dart';
 import 'platform.dart';

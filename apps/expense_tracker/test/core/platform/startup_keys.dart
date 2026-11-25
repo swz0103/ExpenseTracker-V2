@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:expense_tracker/src/core/messages/key_failures.dart'
     show describeUnlockFailure;
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
@@ -402,7 +403,7 @@ void startupKeyTests() {
     final first = startup();
     await first.setUp(password);
     final open = (first.state as Ready).vault;
-    final kept = first.beforeRestore..createSync(recursive: true);
+    final kept = first.folder.beforeRestore..createSync(recursive: true);
     for (final (name, at) in [
       ('brought-back-1.etbk', DateTime.utc(2026, 11, 15, 2, 31)),
       ('記帳本-20261101.etbk', DateTime.utc(2026, 11, 1)),
@@ -418,7 +419,7 @@ void startupKeyTests() {
     // A copy Android brought back keeps a time near 1970.
     File('${kept.path}/brought-back-1.etbk')
         .setLastModifiedSync(DateTime.utc(1970, 1, 22, 2, 31));
-    final ledgers = await first.keptLedgers();
+    final ledgers = await first.folder.keptLedgers();
     expect(
       [for (final (_, header) in ledgers) header!.createdAt],
       [DateTime.utc(2026, 11, 15, 2, 31), DateTime.utc(2026, 11, 1)],

@@ -8,6 +8,7 @@ import 'package:expense_tracker/src/core/diagnostics/error_steps.dart';
 import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:expense_tracker/src/features/lock/ui/views/lock_parts.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup_state.dart';
 import 'package:expense_tracker/src/core/messages/lock_messages.dart';
 import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
 import 'package:expense_tracker/src/features/backup/model/restore_sources.dart';
@@ -399,11 +400,11 @@ void main() {
       ),
     );
     await tester.runAsync(() async {
-      await phone.cloudCopy.parent.create(recursive: true);
+      await phone.folder.cloudCopy.parent.create(recursive: true);
       await LedgerBackup.write(
         store: open.store,
         keys: open.keys,
-        file: phone.cloudCopy,
+        file: phone.folder.cloudCopy,
         backupId: PublicId.generate().value,
         createdAt: DateTime(2026, 11, 3, 21, 3),
         files: const {},
@@ -1178,8 +1179,10 @@ void main() {
     testWidgets('the ledger kept before an earlier restore can be chosen '
         'to go back to it', (tester) async {
       final startup = await backedUp(tester);
-      startup.beforeRestore.createSync(recursive: true);
-      final kept = backup.copySync('${startup.beforeRestore.path}/1.etbk');
+      startup.folder.beforeRestore.createSync(recursive: true);
+      final kept = backup.copySync(
+        '${startup.folder.beforeRestore.path}/1.etbk',
+      );
       startup.lockToRestore();
       await show(tester, startup);
       final semantics = tester.ensureSemantics();

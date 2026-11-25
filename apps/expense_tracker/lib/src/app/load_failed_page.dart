@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../core/design_system/keys.dart';
 import '../core/diagnostics/error_log.dart';
 import '../core/platform/startup.dart';
+import '../core/platform/startup_state.dart';
 import '../core/design_system/spacing.dart';
 import '../core/messages/loading_messages.dart';
 import '../core/messages/diagnostics_messages.dart';

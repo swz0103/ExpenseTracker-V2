@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/messages/key_failures.dart';
 import '../../../../core/messages/key_messages.dart';
-import '../../../../core/platform/startup.dart' show BackupFacts;
+import '../../../../core/platform/startup_state.dart';
 
 /// A sheet of [items] to choose one from, each named by [label] (and
 /// [detail] under it), below [heading] when given; null when none is
