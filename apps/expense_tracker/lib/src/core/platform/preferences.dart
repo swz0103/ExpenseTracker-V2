@@ -526,9 +526,12 @@ final class Preferences {
 
   /// This install's secret salt the budgets' notification tags are made
   /// under (a `NameId`), so a tag cannot be matched by guessing a name.
-  /// Made at its first use and kept sealed, never in the plain file.
-  /// Notices showing from before it was made are taken away once, their
-  /// tags no longer wanted; [budgetAlerted] keeps them from coming again.
+  /// Made at its first use and kept sealed; while the Keystore will not
+  /// seal, kept plain as the other private fields are, so it stays the
+  /// same from one start to the next (review 37), and sealed once it can
+  /// be. Notices showing from before it was made are taken away once,
+  /// their tags no longer wanted; [budgetAlerted] keeps them from coming
+  /// again.
   NameSalt get noticeSalt {
     final kept = _noticeSalt;
     if (kept != null) return kept;
@@ -727,12 +730,11 @@ final class Preferences {
   String _privateText() => jsonEncode(_private());
 
   /// Nothing private is kept: no sealed part is needed.
-  bool get _noPrivate => _noPrivateButSalt && _noticeSalt == null;
-
-  /// Nothing private but the salt, which is never kept plain: lost with
-  /// a sealed part that cannot be written, and made again.
-  bool get _noPrivateButSalt =>
-      _driveAccount == null && _phoneFolder == null && _budgetAlerted.isEmpty;
+  bool get _noPrivate =>
+      _driveAccount == null &&
+      _phoneFolder == null &&
+      _budgetAlerted.isEmpty &&
+      _noticeSalt == null;
 
   Future<void> _writeOnce() async {
     final file = _file!;
@@ -773,7 +775,7 @@ final class Preferences {
           'autoLock': _autoLock.name,
           // Not sealed this time (the Keystore refused): kept plain, as
           // before, rather than lost; sealed at the next change.
-          if (!sealedOk) ...(_private()..remove('noticeSalt')),
+          if (!sealedOk) ..._private(),
         }),
       ),
     );
@@ -788,7 +790,7 @@ final class Preferences {
     if (text == _privateWritten) return true;
     // Nothing chosen since the sealed file did not open: it stays, and
     // what is private now is kept plain beside it for this turn.
-    if (_sealedUnread && !_privateChosen) return _noPrivateButSalt;
+    if (_sealedUnread && !_privateChosen) return _noPrivate;
     try {
       if (_noPrivate) {
         _sealedUnread = false;

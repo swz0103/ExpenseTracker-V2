@@ -450,6 +450,57 @@ void main() {
         [RefundToOtherAccount],
       );
     });
+    test('a refund goes back in the currency of its spending (r37 1)', () {
+      // A US\$ refund of NT\$ bank spending: refused before its amount is
+      // weighed against what is left, which is in another currency.
+      expect(
+        _issues(
+          _entry(type: EntryType.income, amount: 500, refundOf: 'x', home: 150),
+          const EntryFacts(
+            account: _usd,
+            refunded: RefundFacts(
+              account: 'bank',
+              kind: AccountKind.bank,
+              left: 1000,
+            ),
+          ),
+        ),
+        [RefundOtherCurrency],
+      );
+      // A NT\$ refund of US\$ card spending says the currency, once.
+      expect(
+        _issues(
+          _entry(type: EntryType.income, amount: 500, refundOf: 'x'),
+          const EntryFacts(
+            account: _bank,
+            refunded: RefundFacts(
+              account: 'card',
+              kind: AccountKind.card,
+              currency: 'USD',
+              left: 1000,
+            ),
+          ),
+        ),
+        [RefundOtherCurrency],
+      );
+    });
+    test('a refund of non-card spending may go to another account of its '
+        'currency, as the composer offers', () {
+      expect(
+        _issues(
+          _entry(type: EntryType.income, amount: 500, refundOf: 'x'),
+          const EntryFacts(
+            account: _cash,
+            refunded: RefundFacts(
+              account: 'bank',
+              kind: AccountKind.bank,
+              left: 1000,
+            ),
+          ),
+        ),
+        isEmpty,
+      );
+    });
     test('a refund of more than is left is refused, saying what is left', () {
       final issue = entryIssues(
         _entry(type: EntryType.income, amount: 600, refundOf: 'x'),
