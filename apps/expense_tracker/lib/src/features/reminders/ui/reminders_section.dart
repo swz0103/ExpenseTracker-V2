@@ -20,7 +20,9 @@ import '../../../core/diagnostics/error_log.dart';
 import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/shape.dart';
-import '../../../core/formatting/setting_topic.dart';
+
+import 'package:shell/setting_topic.dart';
+
 import '../../../../design_system/display/status_messages.dart';
 import '../../../core/diagnostics/error_steps.dart';
 import 'reminders_phone.dart';

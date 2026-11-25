@@ -20,7 +20,9 @@ import '../../../core/diagnostics/error_steps.dart';
 import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/time/app_clock.dart';
-import '../../../core/formatting/setting_topic.dart';
+
+import 'package:shell/setting_topic.dart';
+
 import '../../../core/formatting/words.dart';
 import 'backup_section_manual.dart';
 import 'backup_section_card_row.dart';

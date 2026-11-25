@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shell/setting_topic.dart';
 
 import '../../backup/model/backup_manager.dart';
 import '../../../core/design_system/dialogs.dart';
@@ -16,7 +17,6 @@ import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
-import '../../../core/formatting/setting_topic.dart';
 import '../../../core/formatting/words.dart';
 
 /// 安全: the password, the fingerprint, the recovery code, the backup
