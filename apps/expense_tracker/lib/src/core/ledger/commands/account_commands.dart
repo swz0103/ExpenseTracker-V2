@@ -62,10 +62,7 @@ final class AccountCommands {
     if (before == null) return addAccount(account);
     _check(account);
     if (account.archived && !before.archived) {
-      final issues = archiveIssues(
-        kind: account.kind,
-        balance: _balances.balance(account.id),
-      );
+      final issues = _archiveIssues(account);
       if (issues.isNotEmpty) throw RecordRefused(issues);
     }
     // A form that does not show a card's moved closes and earlier billing
@@ -164,6 +161,10 @@ final class AccountCommands {
     _context.keep(WriteBatch(accounts: [moved]));
   }
 
+  /// Why [account] cannot be archived as its balance stands today.
+  List<RecordIssue> _archiveIssues(Account account) =>
+      archiveIssues(kind: account.kind, balance: _balances.balance(account.id));
+
   /// Refuses [account] with a [RecordRefused] when the write rules find
   /// it wrong.
   static void _check(Account account) {
@@ -221,11 +222,9 @@ final class AccountCommands {
     return () {
       final now = _accounts.byId(id);
       if (now == null || now.archived != archived) return;
-      try {
-        updateAccount(now.copyWith(archived: !archived));
-      } on RecordRefused {
-        // Brought back and owing again since: it stays in sight.
-      }
+      // Brought back and owing again since: it stays in sight.
+      if (!archived && _archiveIssues(now).isNotEmpty) return;
+      updateAccount(now.copyWith(archived: !archived));
     };
   }
 }
