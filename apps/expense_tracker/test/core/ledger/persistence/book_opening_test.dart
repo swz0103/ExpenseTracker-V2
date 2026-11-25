@@ -159,6 +159,17 @@ void main() {
       ),
       (
         'account',
+        'rate',
+        jsonEncode({
+          'id': 'rate',
+          'name': '房貸',
+          'kind': 'loan',
+          'opening': 0,
+          'rate': -215,
+        }),
+      ),
+      (
+        'account',
         'history',
         jsonEncode({
           'id': 'history',
@@ -220,6 +231,7 @@ void main() {
       'account/due': 'DueDayOutOfRange',
       'account/close': 'ClosingDayOutOfRange',
       'account/limit': 'NegativeCreditLimit',
+      'account/rate': 'NegativeLoanRate',
       // A card's former schedule is checked as it is read.
       'account/history':
           'FormatException: Unreadable record: '

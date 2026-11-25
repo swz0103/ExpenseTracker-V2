@@ -582,6 +582,9 @@ EQUIVALENT = {
     'trade-45': 'readBrokerDiscount: three whole digits (100 and up) are '
                 'past the range anyway and read DiscountOutOfRange; the '
                 'guard only keeps int.parse off huge numbers',
+    'loans-21': '_levelPayment: no rate below nothing reaches it, since '
+                 'loanSchedule gives none for one (D116, tested), so '
+                 '<= 0 and == 0 choose alike',
     'domain-28': 'installmentCloses: closingDay == lastDay picks the same '
                  'day either way',
     'domain-49': 'CardSchedule._closesAround: every month has a close (a '

@@ -161,6 +161,9 @@ enum DriveProblem {
   refused,
 }
 
+/// A Drive request that failed: [problem] says how, for the words a
+/// screen shows (`driveNote`); [detail] is Drive's own answer, for the
+/// error log only, never shown.
 final class DriveException implements Exception {
   const DriveException(this.problem, [this.detail, this.status]);
 
@@ -169,14 +172,6 @@ final class DriveException implements Exception {
 
   /// Drive's HTTP status, when it answered.
   final int? status;
-
-  /// What to tell the person.
-  String get message => switch (problem) {
-    DriveProblem.notAllowed => '沒有取得 Google 雲端硬碟的權限',
-    DriveProblem.offline => '連不上 Google，請稍後再試',
-    DriveProblem.noAnswer => 'Google 沒有回應，請再試一次',
-    DriveProblem.refused => 'Google 雲端硬碟沒有接受（${detail ?? ''}）',
-  };
 
   @override
   String toString() =>

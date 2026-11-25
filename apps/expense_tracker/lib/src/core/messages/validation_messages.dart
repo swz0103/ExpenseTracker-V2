@@ -49,6 +49,7 @@ String validationMessage(RecordIssue issue) => switch (issue) {
   ClosingDayOutOfRange() => '結帳日要在 1 到 31 日之間',
   DueDayOutOfRange() => '繳款日要在 1 到 31 日之間',
   NegativeCreditLimit() => '信用額度不能是負數',
+  NegativeLoanRate() => '利率不能是負數',
   CloseMoveRefused() => '結帳日只能前後調整 7 天內，而且要在繳款日之前',
   NegativeBudgetLimit() => '預算額度不能是負數',
   WarningOutOfRange() => '提醒比例要在 1% 到 100% 之間',

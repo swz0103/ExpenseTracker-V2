@@ -34,6 +34,24 @@ final class RecurringForm {
 
   final Ledger ledger;
 
+  /// Every value as typed or chosen, to tell whether the form changed
+  /// since it opened (D83, D117): a choice made and taken back is no
+  /// change.
+  List<Object?> get fields => [
+    name,
+    income,
+    amount,
+    category,
+    account,
+    unit,
+    every,
+    start,
+    day,
+    end,
+    active,
+    auto,
+  ];
+
   /// The item being changed; null for a new one.
   final Recurring? old;
 

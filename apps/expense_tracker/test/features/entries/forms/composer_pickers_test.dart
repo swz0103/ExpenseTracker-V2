@@ -14,6 +14,7 @@ import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/formatting/words.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/platform/scan.dart';
+import 'package:expense_tracker/src/core/widgets/pickers.dart' show DayChoices;
 import 'package:expense_tracker/src/features/entries/forms/composer.dart';
 import 'package:expense_tracker/src/features/entries/model/receipt_photos.dart';
 import 'package:flutter/material.dart';
@@ -130,6 +131,17 @@ void main() {
     await go(tester, ['日期', '1']);
     await save(tester);
     expect(added(count).single.date, DateTime.utc(2026, 10, 1));
+  });
+
+  testWidgets('the day picked goes no later than 365 days ahead, the '
+      'write rules\' limit (review 16: the 365-day message)', (tester) async {
+    await open(tester);
+    await go(tester, ['日期']);
+    // The demo's today is 2026-10-04; 365 days on is 2027-10-04.
+    expect(
+      tester.widget<DayChoices>(find.byType(DayChoices)).latest,
+      DateTime.utc(2027, 10, 4),
+    );
   });
 
   testWidgets('a choice opened and left with the arrow changes nothing', (

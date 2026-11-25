@@ -186,6 +186,20 @@ void main() {
     );
   });
 
+  test('D116: a rate below nothing gives no schedule, whichever the '
+      'repayment', () {
+    for (final repay in LoanRepay.values) {
+      expect(
+        loanSchedule(amount: 1200, rate: -1, months: 12, repay: repay),
+        isNull,
+      );
+    }
+    expect(
+      loanPlan(amount: 1200, rate: -200, months: 12, repay: LoanRepay.even),
+      isNull,
+    );
+  });
+
   test('a payment that would end the loan early pays no more than is owed '
       '(mutation review 11)', () {
     final schedule = loanSchedule(

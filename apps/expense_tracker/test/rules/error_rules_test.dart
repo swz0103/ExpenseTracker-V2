@@ -153,11 +153,8 @@ void main() {
   });
 }
 
-/// Files another work package is changing now (FIX-R29), left to it:
-/// DriveException keeps Drive's answer in its detail, which the screens
-/// no longer say (backup/model/restore_sources.dart, driveNote); 下載失敗 still puts
-/// describeProblem after words.
-const _elsewhere = <String>{
-  'features/backup/model/drive_backup.dart',
-  'features/import_export/ui/import_export_section.dart',
-};
+/// Files whose error words go elsewhere than the screen: DriveException
+/// keeps Drive's answer (ErrorLog.describe) in its detail, for the log
+/// only; the screens say a DriveProblem through driveNote
+/// (backup/model/restore_sources.dart).
+const _elsewhere = <String>{'features/backup/model/drive_backup.dart'};

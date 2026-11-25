@@ -158,6 +158,7 @@ final class AccountCommands {
       closingDay: account.closingDay,
       dueDay: account.dueDay,
       limit: account.limit,
+      loanRate: account.loan?.rate,
     );
     if (issues.isNotEmpty) throw RecordRefused(issues);
   }

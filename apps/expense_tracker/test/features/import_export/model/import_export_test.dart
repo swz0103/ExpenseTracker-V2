@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:expense_tracker/src/features/import_export/ui/import_page.dart'
     show importBookOf;
 
+import '../../../support/seeded_book.dart' show emptyBook;
+
 void main() {
   test('CSV fields are quoted and read back', () {
     final fields = ['午餐', 'a,b', '說"好"', '兩\n行'];
@@ -58,6 +60,31 @@ void main() {
       '第 4 行：金額看不懂：看不出是哪個數字，請寫成 1,234.50 這樣',
       '第 5 行：金額看不懂：看不出是哪個數字，請寫成 1,234.50 這樣',
       '第 6 行：金額看不懂：不是有效的金額',
+    ]);
+  });
+
+  test('every amount column is read as strictly as 金額: a fee, a tax, '
+      'what a transfer brings in and the NT\$ worth, each said by its '
+      'column (review 16: CSV per column)', () {
+    final result = importCsv(
+      importBookOf(emptyBook()),
+      '日期,類型,金額,帳戶,轉入帳戶,代號,股數,手續費,稅,轉入金額,台幣金額\n'
+      '2026-10-01,轉帳,500,銀行,現金,,,.5,,,\n'
+      '2026-10-02,轉帳,3200,銀行,美元戶,,,,,1 200,\n'
+      '2026-10-03,買進,50000,銀行,,2330,100,1 200,,,\n'
+      '2026-10-04,股息,1000,銀行,,2330,,,.5,,\n'
+      '2026-10-05,支出,10,美元戶,,,,,,,.5\n'
+      '2026-10-06,轉帳,500,銀行,現金,,,15,,,\n',
+      fallback: 'cash',
+    );
+    // Only the last, with a fee of 15 written plainly, is read.
+    expect(result.entries.map((e) => (e.amount, e.fee)), [(500, 15)]);
+    expect(result.problems, [
+      '第 2 行：手續費看不懂：不是有效的金額',
+      '第 3 行：轉入金額看不懂：不是有效的金額',
+      '第 4 行：手續費看不懂：不是有效的金額',
+      '第 5 行：稅看不懂：不是有效的金額',
+      '第 6 行：台幣金額看不懂：不是有效的金額',
     ]);
   });
 

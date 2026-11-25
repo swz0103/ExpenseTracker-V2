@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 
 import '../../../core/design_system/dialogs.dart';
 import '../../../../design_system/display/amount.dart';
@@ -59,23 +60,15 @@ class _RecurringEditorState extends State<_RecurringEditor> {
     ..addListener(() => _f.name = _name.text);
   String? _problem;
 
-  /// Something was chosen or typed since the form opened (D83): leaving
-  /// then asks first. Every choice the form takes rebuilds it.
-  var _touched = false;
-
-  /// The name as the form opened.
-  late final String _openedName;
+  /// The values as the form opened: leaving asks first only when one
+  /// now differs (D83, D117), not because a choice was made and taken
+  /// back.
+  late final List<Object?> _opened;
 
   @override
   void initState() {
     super.initState();
-    _openedName = _f.name;
-  }
-
-  @override
-  void setState(VoidCallback change) {
-    _touched = true;
-    super.setState(change);
+    _opened = _f.fields;
   }
 
   Ledger get _ledger => widget.ledger;
@@ -157,10 +150,8 @@ class _RecurringEditorState extends State<_RecurringEditor> {
     final editing = widget.item != null;
     return ListenableBuilder(
       listenable: _name,
-      builder: (context, form) => EditGuard(
-        changed: _touched || _name.text != _openedName,
-        child: form!,
-      ),
+      builder: (context, form) =>
+          EditGuard(changed: !listEquals(_f.fields, _opened), child: form!),
       child: _form(editing),
     );
   }

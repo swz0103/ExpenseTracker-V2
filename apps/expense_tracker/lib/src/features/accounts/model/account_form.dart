@@ -175,8 +175,8 @@ final class AccountForm {
   bool get loan => kind == AccountKind.loan;
 
   /// Why the account cannot be saved yet; null when it can: the ledger's
-  /// write rules, which the save asks again, then the credit limit as
-  /// typed.
+  /// write rules, which the save asks again (a loan's rate below nothing
+  /// among them, D116), then the credit limit as typed.
   String? get problem {
     final account = build();
     final found = accountIssues(
@@ -184,6 +184,8 @@ final class AccountForm {
       closingDay: account.closingDay,
       dueDay: account.dueDay,
       limit: account.limit,
+      // As typed, with its sign: 「-2」 is refused, not kept as no rate.
+      loanRate: loan ? signedRateOf(rate) : null,
     );
     return found.isEmpty
         ? limitProblem ?? discountProblem
