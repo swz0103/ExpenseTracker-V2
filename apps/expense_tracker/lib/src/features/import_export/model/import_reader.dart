@@ -1,9 +1,12 @@
-// Exception to shared words: the CSV columns read, as written by
-// import_export.dart and by other apps; a file format, not screen words.
+// Exception to shared words: the words a reader of a file's rows says of
+// a line it leaves out are kept beside the rule that leaves it out.
 // Exception to file length: the one reader of a file's rows, each kind
 // of row (spending, refund, transfer, trade, invoice) a method of it that
 // shares its state (the rows read so far, what was refunded of each).
 part of 'import_export.dart';
+
+/// A cell of the line being read, by its column ([ExchangeHeader.cell]).
+typedef _Cell = String Function(ExchangeColumn column);
 
 final class _Reader {
   _Reader(this.book, this.fallback)
@@ -26,12 +29,17 @@ final class _Reader {
   /// The lines read, with the line each came from.
   final _found = <(int, Entry)>[];
 
+  /// The entries read by the 編號 the file gives them, for a refund later
+  /// in the file to name.
+  final _byFileId = <String, Entry>{};
+
   /// Refunds already given against spending in this file, by its id.
   final _refunded = <String, int>{};
   final _problems = <String>[];
 
-  /// The line of the file being read.
+  /// The line of the file being read, and the id its entry takes.
   var _line = 1;
+  var _id = '';
   var _skipped = 0;
 
   void skip(int line, String why) {
@@ -99,50 +107,93 @@ final class _Reader {
     return name;
   }
 
+  /// The id the entry of a line takes: the 編號 [written], unless the
+  /// trash holds an entry of it; a new one when none is written. Null,
+  /// with why, when the line cannot be kept for it.
+  (String?, String?) _idOf(String written) {
+    if (written.isEmpty) return (book.newId(), null);
+    if (book.entries.byId(written) != null) return (null, '帳本裡已經有這一筆');
+    if (_byFileId.containsKey(written)) {
+      return (null, importRepeatedIdWords(written));
+    }
+    return (book.inTrash(written) ? book.newId() : written, null);
+  }
+
   /// Reads the [line] of the file; why it cannot be kept, or null when
   /// it was.
-  String? read(String Function(String) cell, {required int line}) {
+  String? read(_Cell cell, {required int line}) {
     _line = line;
-    final read = readImportDay(
-      cell('日期'),
+    final read = ExchangeColumn.date.cell.read(
+      cell(ExchangeColumn.date),
       latest: BusinessDate.of(latestEntryDay(book.today)),
     );
     if (read case DayRefused(:final problem)) return dayProblemWords(problem);
     final day = _utcDay(read)!;
-    final typed = cell('類型');
-    final named = _kinds[typed] ?? _kinds[typed.toLowerCase()];
-    if (typed.isNotEmpty && named == null) return '不認得的類型「$typed」';
-    final account = _accountNamed(cell('帳戶'));
+    final LineKind? named;
+    switch (ExchangeColumn.kind.cell.read(cell(ExchangeColumn.kind))) {
+      case KindUnknown(:final words):
+        return '不認得的類型「$words」';
+      case KindNamed(:final kind):
+        named = kind;
+    }
+    final dayTrade = ExchangeColumn.dayTrade.cell.read(
+      cell(ExchangeColumn.dayTrade),
+    );
+    if (dayTrade == null) return importDayTradeWords;
+    final LineMark? mark;
+    switch (ExchangeColumn.mark.cell.read(cell(ExchangeColumn.mark))) {
+      case MarkUnknown(:final words):
+        return importMarkWords(words);
+      case MarkNamed(mark: final named):
+        mark = named;
+    }
+    final fileId = cell(ExchangeColumn.id);
+    final (id, taken) = _idOf(fileId);
+    if (taken != null) return taken;
+    _id = id!;
+    final account = _accountNamed(cell(ExchangeColumn.account));
     final from = _account(account);
-    final (value, unreadable) = _cellAmount(cell, '金額', from.currency);
+    final (value, unreadable) = _cellAmount(
+      cell,
+      ExchangeColumn.amount,
+      from.currency,
+    );
     if (unreadable != null) return unreadable;
     final kind =
         named ??
         (value == null || value == 0
             ? null
             : value < 0
-            ? _Kind.expense
-            : _Kind.income);
-    final stock = kind == _Kind.stock || kind == _Kind.split;
-    if (kind == null || !stock && (value ?? 0) == 0) return '金額看不懂';
+            ? LineKind.expense
+            : LineKind.income);
+    final stock = kind == LineKind.stock || kind == LineKind.split;
+    if (kind == null || !stock && (value ?? 0) == 0) return importAmountWords;
     final amount = (value ?? 0).abs();
-    final note = cell('備註');
+    final note = cell(ExchangeColumn.note);
     final entry = switch (kind) {
-      _Kind.expense || _Kind.income => _cashFlow(
+      LineKind.expense || LineKind.income => _cashFlow(
         cell,
         day,
         account,
         from,
         amount,
         note,
-        income: kind == _Kind.income,
+        income: kind == LineKind.income,
       ),
-      _Kind.refund => _refund(cell, day, account, from, amount, note),
-      _Kind.transfer => _transfer(cell, day, account, from, amount, note),
+      LineKind.refund => _refund(cell, day, account, from, amount, note),
+      LineKind.transfer => _transfer(cell, day, account, from, amount, note),
       _ => _investment(cell, kind, day, account, from, amount, note),
     };
     if (entry is! Entry) return entry as String;
-    final made = entry;
+    final written = cell(ExchangeColumn.group);
+    final recurring = cell(ExchangeColumn.recurring);
+    final made = entry.withLinks(
+      group: written.isEmpty ? null : written,
+      // A link to an item the book does not have is no link.
+      recurring: book.recurring.byId(recurring) == null ? null : recurring,
+      mark: _entryMark(mark),
+      dayTrade: dayTrade,
+    );
     // Checked as one typed in would be, with the accounts this file adds;
     // the shares its trades take are checked together when it is added.
     final failure = book.entryValidator.validate(
@@ -157,11 +208,12 @@ final class _Reader {
       _refunded[made.refundOf!] = (_refunded[made.refundOf!] ?? 0) + amount;
     }
     _found.add((_line, made));
+    if (fileId.isNotEmpty) _byFileId[fileId] = made;
     return null;
   }
 
   Object _cashFlow(
-    String Function(String) cell,
+    _Cell cell,
     DateTime day,
     String account,
     Account from,
@@ -169,80 +221,94 @@ final class _Reader {
     String note, {
     required bool income,
   }) {
-    final written = cell('分類');
-    var parts = <(String, int)>[];
-    if (!income && _isSplit(written)) {
-      for (final piece in written.split(RegExp('[;；]'))) {
-        final at = piece.lastIndexOf('=');
-        if (at < 0) continue;
-        final part = _amount(
-          piece.substring(at + 1),
-          from.currency,
-        ).minorOrNull;
-        if (part == null || part <= 0) return '拆分的金額看不懂';
-        final name = piece.substring(0, at).trim();
-        parts.add((_categoryNamed(name, income: false), part));
-      }
-      // One part is none; parts that do not add up to the amount are the
-      // ledger's to refuse, as a split typed in.
-      if (parts.length == 1) parts = [];
+    final String category;
+    var parts = const <(String, int)>[];
+    switch (ExchangeColumn.category.cell.read(
+      cell(ExchangeColumn.category),
+      from.currency,
+      split: !income,
+    )) {
+      case SplitUnreadable():
+        return '拆分的金額看不懂';
+      case OneCategory(:final name):
+        category = _categoryNamed(name, income: income);
+      // Parts that do not add up to the amount are the ledger's to
+      // refuse, as a split typed in.
+      case SplitCategory(parts: final written):
+        parts = [
+          for (final (name, part) in written)
+            (_categoryNamed(name, income: false), part),
+        ];
+        category = parts.first.$1;
     }
-    final (home, homeProblem) = _cellAmount(cell, homeAmountColumn);
+    final (home, homeProblem) = _cellAmount(cell, ExchangeColumn.home);
     if (homeProblem != null) return homeProblem;
     final card = from.kind == AccountKind.card;
     return Entry(
-      id: book.newId(),
+      id: _id,
       date: day,
       type: income ? EntryType.income : EntryType.expense,
       amount: amount,
       account: account,
-      category: parts.isNotEmpty
-          ? parts.first.$1
-          : _categoryNamed(written, income: income),
+      category: category,
       parts: parts,
       note: note,
-      merchant: income ? '' : cell('商家'),
-      tags: [
-        for (final t in _tagsIn(cell('標籤')))
-          if (t.isNotEmpty) t,
-      ],
-      installments: card && !income ? int.tryParse(cell('分期')) ?? 0 : 0,
+      merchant: income ? '' : cell(ExchangeColumn.merchant),
+      tags: ExchangeColumn.tags.cell.read(cell(ExchangeColumn.tags)),
+      installments: card && !income
+          ? ExchangeColumn.installments.cell.read(
+                  cell(ExchangeColumn.installments),
+                ) ??
+                0
+          : 0,
       home: from.foreign
           ? home ?? book.marketData.toHome(amount, from.currency)
           : null,
     );
   }
 
-  /// A refund of the latest spending on [account] up to [day] with that
-  /// much left to give back, the same shop's first. On a foreign account
-  /// its worth at home is the 台幣金額 written, when it is within what of
-  /// the purchase's worth is left, else its share of the purchase's
-  /// worth (D62), else the amount at today's rate.
+  /// A refund of the spending its 退款對象 names, when the book or the
+  /// file has it with that much left to give back; else of the latest
+  /// spending on [account] up to [day] with that much left, the same
+  /// shop's first. On a foreign account its worth at home is the 台幣金額
+  /// written, when it is within what of the purchase's worth is left,
+  /// else its share of the purchase's worth (D62), else the amount at
+  /// today's rate.
   Object _refund(
-    String Function(String) cell,
+    _Cell cell,
     DateTime day,
     String account,
     Account from,
     int amount,
     String note,
   ) {
-    final shop = cell('商家');
-    final candidates = [
-      // Exception to as-of-today: a duplicate check looks at every entry
-      // written.
-      for (final e in [...book.entries.all, for (final (_, f) in _found) f])
-        if (e.type == EntryType.expense &&
-            !e.isRefund &&
-            e.account == account &&
-            !e.date.isAfter(day) &&
-            _left(e) >= amount)
-          e,
-    ]..sort((a, b) => b.date.compareTo(a.date));
-    if (candidates.isEmpty) return '找不到可以退款的原支出';
-    final original = candidates.firstWhere(
-      (e) => shop.isNotEmpty && e.merchant == shop,
-      orElse: () => candidates.first,
-    );
+    bool refundable(Entry e) =>
+        e.type == EntryType.expense &&
+        !e.isRefund &&
+        !e.date.isAfter(day) &&
+        _left(e) >= amount;
+    final shop = cell(ExchangeColumn.merchant);
+    final named = cell(ExchangeColumn.refundOf);
+    final Entry? linked = named.isEmpty
+        ? null
+        : _byFileId[named] ?? book.entries.byId(named);
+    final Entry original;
+    if (linked != null) {
+      if (!refundable(linked)) return '找不到可以退款的原支出';
+      original = linked;
+    } else {
+      final candidates = [
+        // Exception to as-of-today: a duplicate check looks at every entry
+        // written.
+        for (final e in [...book.entries.all, for (final (_, f) in _found) f])
+          if (e.account == account && refundable(e)) e,
+      ]..sort((a, b) => b.date.compareTo(a.date));
+      if (candidates.isEmpty) return '找不到可以退款的原支出';
+      original = candidates.firstWhere(
+        (e) => shop.isNotEmpty && e.merchant == shop,
+        orElse: () => candidates.first,
+      );
+    }
     // As the composer writes it: the purchase's split and tags (D65).
     final earlier = [
       ...book.entries.refundsOf(original.id),
@@ -250,7 +316,7 @@ final class _Reader {
         if (f.refundOf == original.id) f,
     ];
     final share = refundShare(original, amount, earlier: earlier);
-    final (typed, homeProblem) = _cellAmount(cell, homeAmountColumn);
+    final (typed, homeProblem) = _cellAmount(cell, ExchangeColumn.home);
     if (homeProblem != null) return homeProblem;
     int? home;
     if (from.foreign) {
@@ -269,7 +335,7 @@ final class _Reader {
           typed ?? share.home ?? book.marketData.toHome(amount, from.currency);
     }
     return Entry(
-      id: book.newId(),
+      id: _id,
       date: day,
       type: EntryType.income,
       amount: amount,
@@ -291,28 +357,28 @@ final class _Reader {
   }
 
   Object _transfer(
-    String Function(String) cell,
+    _Cell cell,
     DateTime day,
     String account,
     Account from,
     int amount,
     String note,
   ) {
-    final into = cell('轉入帳戶');
+    final into = cell(ExchangeColumn.into);
     if (into.isEmpty) return '轉帳要填轉入帳戶';
     final to = _accountNamed(into);
     final target = _account(to);
     if (from.kind == AccountKind.card) return '信用卡不能轉出，請記成支出';
-    final (charged, feeProblem) = _cellAmount(cell, '手續費');
+    final (charged, feeProblem) = _cellAmount(cell, ExchangeColumn.fee);
     final (received, receivedProblem) = target.currency == from.currency
         ? (null, null)
-        : _cellAmount(cell, '轉入金額', target.currency);
+        : _cellAmount(cell, ExchangeColumn.received, target.currency);
     if (feeProblem ?? receivedProblem case final why?) return why;
     final fee = charged ?? 0;
     if (target.kind == AccountKind.card && fee > 0) return '繳卡費不能有手續費';
     if (fee > 0 && from.foreign) return '外幣帳戶轉出不能記手續費';
     return TransferDrafts.between(
-      id: book.newId(),
+      id: _id,
       date: day,
       amount: amount,
       from: account,
@@ -324,32 +390,35 @@ final class _Reader {
   }
 
   Object _investment(
-    String Function(String) cell,
-    _Kind kind,
+    _Cell cell,
+    LineKind kind,
     DateTime day,
     String account,
     Account from,
     int amount,
     String note,
   ) {
-    final code = cell('代號').toUpperCase();
+    final code = cell(ExchangeColumn.code).toUpperCase();
     if (code.isEmpty) return '投資要填股票代號';
     if (from.kind == AccountKind.card) return '投資不能用信用卡';
-    final shares = int.tryParse(cell('股數').replaceAll(',', '')) ?? 0;
-    final needsShares = kind != _Kind.cash;
+    final shares =
+        ExchangeColumn.shares.cell.read(cell(ExchangeColumn.shares)) ?? 0;
+    final needsShares = kind != LineKind.cash;
     if (needsShares && shares <= 0) return '請填股數';
-    final trade = kind == _Kind.buy || kind == _Kind.sell;
-    final (fee, feeProblem) = trade ? _cellAmount(cell, '手續費') : (null, null);
-    final (tax, taxProblem) = kind == _Kind.cut
+    final trade = kind == LineKind.buy || kind == LineKind.sell;
+    final (fee, feeProblem) = trade
+        ? _cellAmount(cell, ExchangeColumn.fee)
+        : (null, null);
+    final (tax, taxProblem) = kind == LineKind.cut
         ? (null, null)
-        : _cellAmount(cell, '稅');
+        : _cellAmount(cell, ExchangeColumn.tax);
     if (feeProblem ?? taxProblem case final why?) return why;
     return Entry(
-      id: book.newId(),
+      id: _id,
       date: day,
       type: switch (kind) {
-        _Kind.buy => EntryType.buy,
-        _Kind.sell => EntryType.sell,
+        LineKind.buy => EntryType.buy,
+        LineKind.sell => EntryType.sell,
         _ => EntryType.dividend,
       },
       amount: amount,
@@ -358,14 +427,16 @@ final class _Reader {
       note: note,
       holding: code,
       shares: switch (kind) {
-        _Kind.cash => 0,
-        _Kind.cut => -shares,
+        LineKind.cash => 0,
+        LineKind.cut => -shares,
         _ => shares,
       },
       fee: fee ?? 0,
       tax: tax ?? 0,
-      split: kind == _Kind.split,
-      average: kind == _Kind.sell && cell('成本算法').contains('平均'),
+      split: kind == LineKind.split,
+      average:
+          kind == LineKind.sell &&
+          ExchangeColumn.costing.cell.read(cell(ExchangeColumn.costing)),
     );
   }
 
@@ -440,16 +511,14 @@ bool _already(ImportBook book, Entry entry) => book.entries
           e.shares == entry.shares,
     );
 
-/// Spending from the Ministry of Finance e-invoice export: an M line per
-/// invoice (載具名稱|載具號碼|日期|統編|店名|發票號碼|總金額|狀態) and D
-/// lines with its items. Each invoice becomes spending on [account] at
-/// the shop, noted with its invoice number; void ones and invoices
-/// already in the book are left out. The ministry's 消費明細 CSV, with a
-/// 發票號碼 column, is read too.
+/// Spending from a Ministry of Finance e-invoice file, read by the one
+/// reader of them ([readInvoiceFile]): the 消費明細 CSV, with a 發票號碼
+/// column, or a carrier's M and D lines. Each invoice becomes spending on
+/// [account] at the shop, noted with its invoice number; void ones and
+/// invoices already in the book are left out, and so is one the reader
+/// refuses, named. What is left out is listed in the order of the file.
 Import importInvoices(ImportBook book, String text, {required String account}) {
-  final found = text.contains('發票號碼')
-      ? _invoiceCsv(book, text, account: account)
-      : _invoiceLines(book, text, account: account);
+  final found = _invoices(book, text, account: account);
   // Each is checked as one typed in would be: an invoice is in NT$, so a
   // foreign-currency account, for one, is refused rather than recorded at
   // the wrong value.
@@ -476,80 +545,31 @@ Import importInvoices(ImportBook book, String text, {required String account}) {
   return Import(kept, skipped, problems: problems);
 }
 
-/// The ministry's M and D lines.
-Import _invoiceLines(ImportBook book, String text, {required String account}) {
-  final items = <String, List<String>>{};
-  final heads = <List<String>>[];
-  for (final raw in text.split('\n')) {
-    final line = raw.trim();
-    final cells = line.split('|').map((c) => plainText(c).trim()).toList();
-    if (cells.first == 'M' && cells.length >= 8) heads.add(cells);
-    if (cells.first == 'D' && cells.length >= 4) {
-      (items[cells[1]] ??= []).add(cells[3]);
-    }
-  }
-  final entries = <Entry>[];
-  final problems = <String>[];
-  final numbers = <String>{};
-  var skipped = 0;
-  for (final cells in heads) {
-    final read = readImportDay(
-      cells[3],
-      latest: BusinessDate.of(latestEntryDay(book.today)),
-    );
-    final day = _utcDay(read);
-    final shop = cells[5];
-    final number = cells[6];
-    final value = _amount(cells[7]).minorOrNull;
-    final voided = cells.length > 8 && cells[8].contains('作廢');
-    final seen =
-        number.isNotEmpty &&
-        (numbers.contains(number) ||
-            hasInvoice(book.entries, day, number, shop: shop, amount: value));
-    final why = read is DayRefused
-        ? dayProblemWords(read.problem)
-        : value == null || value <= 0
-        ? '金額看不懂'
-        : voided
-        ? '已作廢'
-        : seen
-        ? '已經記過'
-        : null;
-    if (why != null) {
-      skipped++;
-      problems.add('${number.isEmpty ? shop : number}：$why');
-      continue;
-    }
-    final bought = items[number] ?? const [];
-    numbers.add(number);
-    entries.add(_invoice(book, account, day!, shop, number, bought, value!));
-  }
-  return Import(entries, skipped, problems: problems);
-}
-
-/// The ministry's 消費明細 CSV, one row per item, added up per invoice by
-/// `data_exchange`. A row it cannot read leaves the whole file out; an
-/// invoice whose rows disagree, or dated too early, is left out, named.
-Import _invoiceCsv(ImportBook book, String text, {required String account}) {
+/// The invoices of [text] as spending on [account], those the reader
+/// refuses or the book has already left out, with why, by their lines.
+/// A CSV row the reader cannot read leaves the whole file out.
+Import _invoices(ImportBook book, String text, {required String account}) {
   final EInvoiceFile file;
   try {
-    file = readEInvoices(text);
+    file = readInvoiceFile(
+      text,
+      latest: BusinessDate.of(latestEntryDay(book.today)),
+    );
   } on FormatException {
     // Said to the person as a problem of the file.
     return const Import([], 1, problems: ['檔案格式看不懂']);
   }
   final entries = <Entry>[];
-  final problems = [
-    for (final (:number, line: _, :why) in file.refused)
-      '$number：${invoiceRefusalWords(why)}',
+  final left = <(int, String)>[
+    for (final (:number, :seller, :line, :why) in file.refused)
+      (line, '${number.isEmpty ? seller : number}：${invoiceRefusalWords(why)}'),
   ];
-  var skipped = file.refused.length;
   for (final invoice in file.invoices) {
     final BusinessDate(:year, :month, :day) = invoice.date;
     final date = DateTime.utc(year, month, day);
     final number = invoice.number;
     final value = invoice.amount.minorUnits.toInt();
-    // The file holds each number once (readEInvoices).
+    // The file holds each number once (readInvoiceFile).
     if (value <= 0 ||
         hasInvoice(
           book.entries,
@@ -558,8 +578,11 @@ Import _invoiceCsv(ImportBook book, String text, {required String account}) {
           shop: invoice.seller,
           amount: value,
         )) {
-      skipped++;
-      problems.add('$number：${value <= 0 ? '金額看不懂' : '已經記過'}');
+      final why = value <= 0 ? importAmountWords : importAlreadyWords;
+      left.add((
+        invoice.line,
+        '${number.isEmpty ? invoice.seller : number}：$why',
+      ));
       continue;
     }
     entries.add(
@@ -574,7 +597,16 @@ Import _invoiceCsv(ImportBook book, String text, {required String account}) {
       ),
     );
   }
-  return Import(entries, skipped, problems: problems);
+  final byLine = [...left.indexed]
+    ..sort((a, b) {
+      final at = a.$2.$1.compareTo(b.$2.$1);
+      return at != 0 ? at : a.$1.compareTo(b.$1);
+    });
+  return Import(
+    entries,
+    left.length,
+    problems: [for (final (_, (_, why)) in byLine) why],
+  );
 }
 
 /// The open NT$ account [shop] was last paid from, if any.

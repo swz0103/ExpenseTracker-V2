@@ -12,10 +12,10 @@ void main() {
       loadYaml(File(p.join(root, ownersFile)).readAsStringSync()) as YamlMap;
   final items = (doc['items'] as YamlList).cast<YamlMap>();
 
-  test('owners.yaml lists the 96 single sources with unique kebab ids', () {
-    expect(items, hasLength(96));
+  test('owners.yaml lists the 99 single sources with unique kebab ids', () {
+    expect(items, hasLength(99));
     final ids = [for (final i in items) i['id'] as String];
-    expect(ids.toSet(), hasLength(96));
+    expect(ids.toSet(), hasLength(99));
     final kebab = RegExp(r'^[a-z0-9]+(-[a-z0-9]+)*$');
     for (final id in ids) {
       expect(kebab.hasMatch(id), isTrue, reason: id);

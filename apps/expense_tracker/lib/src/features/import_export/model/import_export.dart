@@ -1,13 +1,13 @@
 // Exception to shared words: a CSV's columns and kinds are a file
 // format; they keep their spelling whatever the screens come to say.
 import 'package:core/constants/category_colors.dart';
-import 'package:core/foundation_values.dart' show BusinessDate, Currency;
-import 'package:core/money/amount_parser.dart';
+import 'package:core/foundation_values.dart' show BusinessDate;
+import 'package:core/money/amount_parser.dart'
+    show AmountOk, AmountProblem, AmountRefused;
 import 'package:core/money/typed_text.dart' show plainText;
 import 'package:domain/data_exchange.dart';
 import 'package:flutter/foundation.dart' show compute, visibleForTesting;
 
-import '../../../../design_system/display/amount.dart';
 import '../../../core/formatting/words.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/messages/amount_messages.dart';
@@ -28,6 +28,8 @@ final class ImportBook {
     required this.entryQueryService,
     required this.entryValidator,
     required this.marketData,
+    required this.recurring,
+    required this.inTrash,
     required this.today,
     required this._newId,
   });
@@ -42,6 +44,13 @@ final class ImportBook {
   final EntryQueryService entryQueryService;
   final EntryValidator entryValidator;
   final MarketDataReader marketData;
+
+  /// The recurring items an entry read may book.
+  final RecurringReader recurring;
+
+  /// Whether an entry of the id given was deleted lately: that id is not given to
+  /// an entry read, so putting it back never meets another of that id.
+  final bool Function(String id) inTrash;
   final String Function() _newId;
 
   Account account(String id) => accounts.resolve(id);
@@ -105,7 +114,7 @@ final class Import {
 /// How an import tells a line already in the book, as the import form
 /// explains it.
 const duplicateRules =
-    'CSV：同一天、同類型、同金額、同帳戶、同備註（轉帳再看轉入帳戶，'
+    'CSV：編號已在帳本裡；或同一天、同類型、同金額、同帳戶、同備註（轉帳再看轉入帳戶，'
     '股票再看代號與股數）都相同，就當作已經記過。'
     '電子發票：備註裡已有同一個發票號碼；或同一天、同商家、同金額、'
     '標了「發票」標籤的紀錄。檔案裡重複的發票也只算一次。';
@@ -118,124 +127,117 @@ Undo addImport(EntryCommands commands, Import found) => commands.addAll(
   categories: found.categories,
 );
 
-const _header = [
-  '日期',
-  '類型',
-  '金額',
-  '帳戶',
-  '轉入帳戶',
-  '分類',
-  '商家',
-  '標籤',
-  '備註',
-  '代號',
-  '股數',
-  '手續費',
-  '稅',
-  '分期',
-  '轉入金額',
-  homeAmountColumn,
-  '成本算法',
-];
-
-/// The name an entry's kind has in a CSV.
-String _typeOf(Entry e) => switch (e) {
-  Entry(isRefund: true) => '退款',
-  Entry(type: EntryType.expense) => '支出',
-  Entry(type: EntryType.income) => '收入',
-  Entry(type: EntryType.transfer) => '轉帳',
-  Entry(type: EntryType.buy) => '買進',
-  Entry(type: EntryType.sell) => '賣出',
-  Entry(type: EntryType.dividend, split: true) => '分割',
-  Entry(type: EntryType.dividend, shares: < 0) => '減資',
-  Entry(type: EntryType.dividend, shares: > 0) => '配股',
-  Entry(type: EntryType.dividend) => '股息',
+/// The kind of line [e] is written as.
+LineKind _kindOf(Entry e) => switch (e) {
+  Entry(isRefund: true) => LineKind.refund,
+  Entry(type: EntryType.expense) => LineKind.expense,
+  Entry(type: EntryType.income) => LineKind.income,
+  Entry(type: EntryType.transfer) => LineKind.transfer,
+  Entry(type: EntryType.buy) => LineKind.buy,
+  Entry(type: EntryType.sell) => LineKind.sell,
+  Entry(type: EntryType.dividend, split: true) => LineKind.split,
+  Entry(type: EntryType.dividend, shares: < 0) => LineKind.cut,
+  Entry(type: EntryType.dividend, shares: > 0) => LineKind.stock,
+  Entry(type: EntryType.dividend) => LineKind.cash,
 };
 
-/// [entries], oldest first, as CSV with a header line that Excel opens
-/// as UTF-8. Every kind of entry is written with what it takes to read
-/// it back: amounts in their account's currency, a split as
-/// 分類=金額;分類=金額, fees and taxes in NT$.
-String toCsv(AccountReader accounts, List<Entry> entries) {
-  final sorted = [...entries]..sort((a, b) => a.date.compareTo(b.date));
-  return writeCsv([_header, for (final e in sorted) _row(accounts, e)]);
+/// How the file writes an entry's [mark] (D52).
+LineMark? _lineMark(EntryMark? mark) => switch (mark) {
+  null => null,
+  EntryMark.reward => LineMark.reward,
+  EntryMark.annualFee => LineMark.annualFee,
+  EntryMark.invoice => LineMark.invoice,
+};
+
+/// The entry's mark a file's [mark] names.
+EntryMark? _entryMark(LineMark? mark) => switch (mark) {
+  null => null,
+  LineMark.reward => EntryMark.reward,
+  LineMark.annualFee => EntryMark.annualFee,
+  LineMark.invoice => EntryMark.invoice,
+};
+
+/// [entries] in the order a file holds them: by day, a refund after the
+/// spending of its day, and otherwise in the order given, so the same
+/// book writes the same file and a file read back writes itself again.
+List<Entry> exportOrder(Iterable<Entry> entries) {
+  final placed = [...entries.indexed]
+    ..sort((a, b) {
+      final byDay = a.$2.date.compareTo(b.$2.date);
+      if (byDay != 0) return byDay;
+      final refunds = (a.$2.isRefund ? 1 : 0) - (b.$2.isRefund ? 1 : 0);
+      return refunds != 0 ? refunds : a.$1.compareTo(b.$1);
+    });
+  return [for (final (_, e) in placed) e];
 }
+
+/// [entries] ([exportOrder]) as CSV with the header line of
+/// [ExchangeColumn], which Excel opens as UTF-8. Every kind of entry is
+/// written with what it takes to read it back as it was: amounts in their
+/// account's currency, a split as 分類=金額;分類=金額, fees and taxes in
+/// NT$, its id, and the ids of what it refunds, is written with and books.
+String toCsv(AccountReader accounts, List<Entry> entries) => writeCsv([
+  exchangeHeader,
+  for (final e in exportOrder(entries)) _row(accounts, e),
+]);
 
 List<String> _row(AccountReader accounts, Entry e) {
-  String count(int n) => n == 0 ? '' : '$n';
   final account = accounts.resolve(e.account);
   final to = e.to == null ? null : accounts.resolve(e.to!);
+  final currency = account.currency;
   final received = e.received;
-  return [
-    _day(e.date),
-    _typeOf(e),
-    plainIn(e.amount, account.currency),
-    account.name,
-    to?.name ?? '',
-    if (e.parts.isEmpty)
-      e.category
-    else
-      [
-        for (final (name, part) in e.parts)
-          '$name=${plainIn(part, account.currency)}',
-      ].join(';'),
-    e.merchant,
-    e.tags.join('、'),
-    e.note,
-    e.holding ?? '',
-    count(e.shares.abs()),
-    count(e.fee),
-    count(e.tax),
-    count(e.installments),
-    if (received == null || to == null) '' else plainIn(received, to.currency),
-    e.home == null ? '' : '${e.home}',
-    e.type == EntryType.sell && e.average ? '平均成本' : '',
-  ];
+  String cell(ExchangeColumn column) => switch (column) {
+    ExchangeColumn.date => ExchangeColumn.date.cell.write(
+      BusinessDate.of(e.date),
+    ),
+    ExchangeColumn.kind => ExchangeColumn.kind.cell.write(_kindOf(e)),
+    ExchangeColumn.amount => ExchangeColumn.amount.cell.write(
+      e.amount,
+      currency,
+    ),
+    ExchangeColumn.account => ExchangeColumn.account.cell.write(account.name),
+    ExchangeColumn.into => ExchangeColumn.into.cell.write(to?.name),
+    ExchangeColumn.category => ExchangeColumn.category.cell.write(
+      e.category,
+      e.parts,
+      currency,
+    ),
+    ExchangeColumn.merchant => ExchangeColumn.merchant.cell.write(e.merchant),
+    ExchangeColumn.tags => ExchangeColumn.tags.cell.write(e.tags),
+    ExchangeColumn.note => ExchangeColumn.note.cell.write(e.note),
+    ExchangeColumn.code => ExchangeColumn.code.cell.write(e.holding),
+    ExchangeColumn.shares => ExchangeColumn.shares.cell.write(e.shares.abs()),
+    // A trade's fee and tax are in NT$.
+    ExchangeColumn.fee => ExchangeColumn.fee.cell.write(
+      e.fee == 0 ? null : e.fee,
+      homeCode,
+    ),
+    ExchangeColumn.tax => ExchangeColumn.tax.cell.write(
+      e.tax == 0 ? null : e.tax,
+      homeCode,
+    ),
+    ExchangeColumn.installments => ExchangeColumn.installments.cell.write(
+      e.installments,
+    ),
+    ExchangeColumn.received => ExchangeColumn.received.cell.write(
+      to == null ? null : received,
+      to?.currency ?? homeCode,
+    ),
+    ExchangeColumn.home => ExchangeColumn.home.cell.write(e.home, homeCode),
+    ExchangeColumn.costing => ExchangeColumn.costing.cell.write(
+      average: e.type == EntryType.sell && e.average,
+    ),
+    ExchangeColumn.dayTrade => ExchangeColumn.dayTrade.cell.write(e.dayTrade),
+    ExchangeColumn.mark => ExchangeColumn.mark.cell.write(_lineMark(e.mark)),
+    ExchangeColumn.id => ExchangeColumn.id.cell.write(e.id),
+    ExchangeColumn.refundOf => ExchangeColumn.refundOf.cell.write(e.refundOf),
+    ExchangeColumn.group => ExchangeColumn.group.cell.write(e.group),
+    ExchangeColumn.recurring => ExchangeColumn.recurring.cell.write(
+      e.recurring,
+    ),
+  };
+  return [for (final column in ExchangeColumn.values) cell(column)];
 }
-
-/// The tags of a CSV cell: split at 、 or ; when it has them, so a tag
-/// may hold a space, else at spaces, as one typed by hand.
-List<String> _tagsIn(String cell) => [
-  for (final t in cell.split(
-    RegExp(cell.contains(RegExp('[;；、]')) ? r'[;；、]+' : r'\s+'),
-  ))
-    t.trim(),
-];
-
-/// Whether a category cell is a split, every part 「名稱=金額」, rather
-/// than a name that holds an =.
-bool _isSplit(String cell) {
-  final pieces = cell.split(RegExp('[;；]'));
-  return pieces.every((p) => RegExp(r'=\s*[\d,.]+\s*$').hasMatch(p));
-}
-
-String _day(DateTime d) => BusinessDate.of(d).toString();
-
-/// The rows of [text] read as CSV, a leading byte order mark and blank
-/// lines left out, a quote left open read to the end, as a spreadsheet
-/// reads it; words after a closing quote throw [CsvFormatException]. Not
-/// what an import reads: [importCsv] refuses a quote left open, the whole
-/// file, rather than run the rest of it into one cell.
-///
-/// Read by the tests that pin how a spreadsheet's CSV is read (the
-/// baseline among them); the app imports with [importCsvApart].
-@visibleForTesting
-List<List<String>> parseCsv(String text) {
-  try {
-    return readCsv(text);
-  } on CsvFormatException catch (error) {
-    if (!error.unclosed) rethrow;
-    // An unclosed quote is closed at the end of the text and read again.
-    return readCsv('$text"');
-  }
-}
-
-/// The day [text] writes ([readImportDay], decision D93), as a UTC
-/// midnight; null when it is not taken, [readImportDay] saying why.
-/// For the tests (the baseline among them): an import reads its days
-/// with [readImportDay].
-@visibleForTesting
-DateTime? readDay(String text) => _utcDay(readImportDay(text));
 
 /// The day [read], as a UTC midnight; null when it was refused.
 DateTime? _utcDay(ImportDay read) => switch (read) {
@@ -244,80 +246,29 @@ DateTime? _utcDay(ImportDay read) => switch (read) {
   DayRefused() => null,
 };
 
-/// [text] in the smallest unit of [currency]: `1,200` and `NT$ 120` read
-/// as written, more decimals than the currency has are rounded. What
-/// could be read more than one way, such as `1.234,50` or `1 200`, is
-/// refused with its reason rather than guessed at.
-AmountResult _amount(String text, [String currency = homeCode]) {
-  final value = text.trim().replaceFirstMapped(
-    RegExp(r'^([-−+]?)\s*(?:NT)?\$\s*'),
-    (m) => m[1]!,
-  );
-  return parseAmount(
-    value,
-    scale: Currency.scaleOf(currency),
-    decimals: Decimals.round,
-  );
-}
-
 /// The amount in [column] of a line, read by [cell], in [currency]: its
 /// minor units (null when left empty), or why it is not an amount.
 (int?, String?) _cellAmount(
-  String Function(String) cell,
-  String column, [
+  String Function(ExchangeColumn) cell,
+  ExchangeColumn<AmountCell> column, [
   String currency = homeCode,
-]) => switch (_amount(cell(column), currency)) {
+]) => switch (column.cell.read(cell(column), currency)) {
   AmountOk(:final minor) => (minor, null),
   AmountRefused(problem: AmountProblem.empty) => (null, null),
-  AmountRefused(:final problem) => (null, unreadableColumn(column, problem)),
+  AmountRefused(:final problem) => (
+    null,
+    unreadableColumn(column.name, problem),
+  ),
 };
 
-/// The kinds a CSV line can be, by the names it may use.
-enum _Kind {
-  expense,
-  income,
-  transfer,
-  buy,
-  sell,
-  cash,
-  stock,
-  split,
-  cut,
-  refund,
-}
-
-const _kinds = {
-  '支出': _Kind.expense,
-  'expense': _Kind.expense,
-  '收入': _Kind.income,
-  'income': _Kind.income,
-  '轉帳': _Kind.transfer,
-  'transfer': _Kind.transfer,
-  '買進': _Kind.buy,
-  '買入': _Kind.buy,
-  'buy': _Kind.buy,
-  '賣出': _Kind.sell,
-  'sell': _Kind.sell,
-  '股息': _Kind.cash,
-  // Exception to glossary: a word brokers write, read on import.
-  '現金股利': _Kind.cash,
-  'dividend': _Kind.cash,
-  '配股': _Kind.stock,
-  // Exception to glossary: a word brokers write, read on import.
-  '股票股利': _Kind.stock,
-  '分割': _Kind.split,
-  '減資': _Kind.cut,
-  '退款': _Kind.refund,
-  'refund': _Kind.refund,
-};
-
-/// Every kind of entry in [text], CSV with a header naming at least 日期
-/// and 金額; the other columns of [toCsv] are read when there. Without a
-/// type a negative amount is spending. An account or category the book
-/// does not have is added, its kind told by its name (信用卡, 現金,
-/// 錢包…); a line without an account goes to [fallback]. A line matching
-/// an entry already in the book is left out, and so is one the book
-/// would refuse, such as a sale of more shares than are held then.
+/// Every kind of entry in [text], CSV with a header naming at least the
+/// required columns ([ExchangeColumn.required]: 日期 and 金額); the other
+/// columns of [toCsv] are read when there. Without a type a negative
+/// amount is spending. An account or category the book does not have is
+/// added, its kind told by its name (信用卡, 現金, 錢包…); a line without
+/// an account goes to [fallback]. A line whose 編號 the book has, or that
+/// matches an entry already in the book, is left out, and so is one the
+/// book would refuse, such as a sale of more shares than are held then.
 ///
 /// A quote left open, or words after a closing one, leave the whole file
 /// out, naming the line: the rest of it is never run into one cell. Each
@@ -398,19 +349,14 @@ Iterable<Import?> _importing(
     yield const Import([], 0);
     return;
   }
-  final head = [for (final h in rows.first.cells) plainText(h).trim()];
-  if (!head.contains('日期') || !head.contains('金額')) {
-    yield Import(const [], rows.length, problems: const ['第一行要有「日期」和「金額」欄位']);
+  final head = ExchangeHeader(rows.first.cells);
+  if (head.missing.isNotEmpty) {
+    yield Import(const [], rows.length, problems: [importHeaderWords]);
     return;
   }
   final reader = _Reader(book, fallback);
   for (final (:line, cells: row) in rows.skip(1)) {
-    String cell(String name) {
-      final at = head.indexOf(name);
-      return at < 0 || at >= row.length ? '' : plainText(row[at]).trim();
-    }
-
-    final problem = reader.read(cell, line: line);
+    final problem = reader.read((column) => head.cell(row, column), line: line);
     if (problem != null) reader.skip(line, problem);
     yield null;
   }
