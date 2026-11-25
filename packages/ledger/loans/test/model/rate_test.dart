@@ -17,6 +17,8 @@ void main() {
     expect(rateOf('100'), 10000);
     expect(rateOf('100.01'), isNull);
     expect(rateOf('-1'), isNull);
+    // -0.01% is -1 hundredth: below nothing by the least step.
+    expect(rateOf('-0.01'), isNull);
     expect(rateOf('.'), isNull);
     expect(rateOf(''), isNull);
   });
