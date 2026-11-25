@@ -638,6 +638,20 @@ void main() {
       expect(l.budgets.all.single.category, '#家用');
     });
 
+    test('R34: a tag rename undo leaves a budget set since on either name', () {
+      final l = plain();
+      final undo = l.entryCommands.renameTag('家用', '日用');
+      l.budgetCommands.setBudget('#日用', 777);
+      undo();
+      expect(l.entries.byId('old')!.tags, ['家用']);
+      // #日用 was set since: kept at 777; #家用 is as the rename left it
+      // (none), so its 900 comes back, in its place.
+      expect(
+        [for (final b in l.budgets.all) (b.category, b.limit)],
+        [('#家用', 900), ('#日用', 777)],
+      );
+    });
+
     test('a merchant merged comes back on its entries and recurring items, '
         'one changed since left as it is', () {
       final l = plain();

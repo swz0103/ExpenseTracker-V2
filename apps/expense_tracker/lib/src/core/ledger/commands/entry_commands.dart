@@ -757,7 +757,8 @@ final class EntryCommands {
       !e.isRefund;
 
   /// Renames or merges a tag across every entry; an empty [to] removes it.
-  /// The [Undo] puts back the entries and the budgets as they were (D82).
+  /// The [Undo] puts back the entries and the budgets as they were (D82),
+  /// those changed again since left as they are.
   Undo renameTag(String from, String to) {
     final budgets = _budgets.all;
     final book = EntryImages();
@@ -783,11 +784,12 @@ final class EntryCommands {
         : null;
     unit.registerAllDirty(_entries.changeAll(book.noting(retagged)));
     unit.registerAllDirty(_trash.changeEntries(trash.noting(retagged)));
+    final after = _budgets.all;
     _told.changed(Topic.all);
     _context.keep(unit.batch);
     return () {
       final back = UnitOfWork();
-      final (:put, :dropped) = _budgets.restore(budgets, {
+      final (:put, :dropped) = _budgets.restore(budgets, after, {
         '#$from',
         if (to.isNotEmpty) '#$to',
       });

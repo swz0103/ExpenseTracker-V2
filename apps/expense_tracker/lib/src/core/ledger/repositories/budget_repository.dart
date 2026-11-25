@@ -35,27 +35,37 @@ final class BudgetRepository implements BudgetReader {
 
   /// Puts [budget] back at [index] (or last, when the list is shorter
   /// now), in place of one for what it covers.
-  void putAt(int index, Budget budget) {
+  void _putAt(int index, Budget budget) {
     remove(budget.category);
     _items.insert(index.clamp(0, _items.length), budget);
   }
 
   /// Sets the budgets for [keys] back to what [before] held, each in its
-  /// place there: one [before] had is put back, one it had not is taken
-  /// away; the others are left as they are. Returns those put back and
-  /// the keys taken away.
+  /// place there, as the undo of a change that left them as [after] held
+  /// them: one [before] had is put back, one it had not is taken away.
+  /// A key whose budget is no longer what [after] held (set or taken
+  /// away since) is left as it is, as is every key not in [keys].
+  /// Returns those put back and the keys taken away.
   ({List<Budget> put, List<String> dropped}) restore(
     List<Budget> before,
+    List<Budget> after,
     Set<String> keys,
   ) {
     final put = <Budget>[];
     final dropped = <String>[];
+    Budget? held(List<Budget> list, String key) =>
+        list.where((b) => b.category == key).firstOrNull;
     int placeOf(String key) => before.indexWhere((b) => b.category == key);
+    final unchanged = [
+      for (final key in keys)
+        if (identical(held(_items, key), held(after, key))) key,
+    ];
     // The earlier places first, so each later one lands where it stood.
-    for (final key in [...keys]..sort((a, b) => placeOf(a) - placeOf(b))) {
+    for (final key in unchanged..sort((a, b) => placeOf(a) - placeOf(b))) {
       final at = placeOf(key);
       if (at >= 0) {
-        putAt(at, before[at]);
+        if (identical(held(_items, key), before[at])) continue;
+        _putAt(at, before[at]);
         put.add(before[at]);
       } else if (remove(key)) {
         dropped.add(key);
