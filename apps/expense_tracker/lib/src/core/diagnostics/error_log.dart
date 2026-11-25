@@ -11,10 +11,9 @@ import 'package:domain/credit_cards.dart' show CreditCardException;
 import 'package:domain/data_exchange.dart' show CsvFormatException;
 import 'package:ledger_trade_costs/model/trade_values.dart'
     show InvestmentException;
-import 'package:storage/storage.dart' show StorageUnavailable;
+import 'package:storage/storage_problem.dart' show StorageUnavailable;
 import 'package:vault/backup_security.dart' show KeyringException;
-import 'package:vault/ledger_backup.dart' show BackupException;
-import 'package:vault/ledger_vault.dart' show VaultException;
+import 'package:vault/vault_problems.dart' show BackupException, VaultException;
 
 import 'app_fault.dart';
 import 'error_steps.dart';
