@@ -126,6 +126,12 @@ void main() {
     expect(fresh.entries.last.account, made.id);
     expect(fresh.entries.last.category, '不存在');
     expect(fresh.categories.single.income, isTrue);
+    // The colour a category made in 記一筆 would take next (review 32):
+    // the book's count of categories into the one list.
+    expect(
+      fresh.categories.single.color,
+      nextCategoryColor(ledger.categories.all.length),
+    );
     final before = ledger.reportService.expense(2026, 10);
     addImport(ledger.entryCommands, fresh);
     expect(ledger.account(made.id).name, '不存在的帳戶');

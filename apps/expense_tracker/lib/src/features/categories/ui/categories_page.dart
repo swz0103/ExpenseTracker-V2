@@ -30,7 +30,7 @@ class CategoriesPage extends StatefulWidget {
 }
 
 class _CategoriesPageState extends State<CategoriesPage> {
-  static const _colors = AppColors.categoryColors;
+  static final _colors = AppColors.categoryColors;
 
   var _income = false;
 
@@ -51,7 +51,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
       initial: Category(
         '',
         _income ? 'income' : 'other',
-        _colors[count % _colors.length].toARGB32(),
+        nextCategoryColor(count),
         income: _income,
       ),
       colors: _colors,

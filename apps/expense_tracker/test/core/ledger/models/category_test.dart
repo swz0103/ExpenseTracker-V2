@@ -1,5 +1,6 @@
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/ledger/models/models.dart';
+import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Name, mark, colour and income of [c].
@@ -20,6 +21,21 @@ void main() {
       ('股息收入', 'dividend', 0xFF5A6FA8, true),
       ('其他收入', 'income', 0xFF4E8A9A, true),
     ]);
+  });
+
+  test('new categories take the colours in turn, from the one list', () {
+    expect(categoryColorValues, hasLength(12));
+    expect(nextCategoryColor(0), 0xFF5B8DB0);
+    expect(nextCategoryColor(1), 0xFFD08B5B);
+    expect(nextCategoryColor(11), 0xFFB08AA6);
+    // 12 % 12 = 0 and 25 % 12 = 1: round again after the last.
+    expect(nextCategoryColor(12), 0xFF5B8DB0);
+    expect(nextCategoryColor(25), 0xFFD08B5B);
+    // The screens offer the same colours, in the same order.
+    expect(
+      [for (final c in AppColors.categoryColors) c.toARGB32()],
+      [for (final v in categoryColorValues) v],
+    );
   });
 
   test('each call gives categories ids of their own', () {

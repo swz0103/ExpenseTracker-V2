@@ -310,17 +310,6 @@ const _kinds = {
   'refund': _Kind.refund,
 };
 
-/// Colours for categories an import adds.
-const _shades = [
-  0xFF5C9A83,
-  0xFFD08B5B,
-  0xFF5B8DB0,
-  0xFF8E7CC0,
-  0xFFC9A34A,
-  0xFFB07A8C,
-  0xFF4E8A9A,
-];
-
 /// Every kind of entry in [text], CSV with a header naming at least 日期
 /// and 金額; the other columns of [toCsv] are read when there. Without a
 /// type a negative amount is spending. An account or category the book
