@@ -216,7 +216,7 @@ class _SecuritySectionState extends State<SecuritySection> {
       title: LockWords.autoLock,
       detail: LockWords.autoLockWhy,
       body: (context) => ListenableBuilder(
-        listenable: preferences,
+        listenable: preferences.watch(const {PreferenceTopic.lock}),
         builder: (context, _) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -273,7 +273,7 @@ class _SecuritySectionState extends State<SecuritySection> {
         // A ledger without a password never locks.
         if (preferences != null && backupManager.hasPassword)
           ListenableBuilder(
-            listenable: preferences,
+            listenable: preferences.watch(const {PreferenceTopic.lock}),
             builder: (context, _) => SettingCard(
               key: Keys.autoLock,
               glyph: Glyph.hourglass,

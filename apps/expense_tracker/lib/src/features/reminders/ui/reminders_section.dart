@@ -292,7 +292,7 @@ class _RemindersSectionState extends State<RemindersSection>
       value: () => _shownOn(preferences.dailyNudge),
       onChanged: (on) => _notify(notifier, nudge: on),
       body: (context) => ListenableBuilder(
-        listenable: preferences,
+        listenable: preferences.watch(const {PreferenceTopic.reminders}),
         builder: (context, _) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

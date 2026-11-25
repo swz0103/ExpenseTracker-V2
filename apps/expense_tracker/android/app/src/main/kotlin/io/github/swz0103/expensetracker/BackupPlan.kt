@@ -1,9 +1,5 @@
 package io.github.swz0103.expensetracker
 
-import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.TimeZone
-
 /**
  * How the background job (BackupWorker.kt) decides; kept apart from
  * Android so it is tested on its own. The rules themselves (how many
@@ -41,23 +37,6 @@ internal object BackupPlan {
      */
     fun due(now: Long, last: Long?, lastRevision: Int?, revision: Int, every: Long): Boolean =
         last == null || (now - last >= every && lastRevision != revision)
-
-    /**
-     * Milliseconds of a time as Dart writes it in preferences.json
-     * (`2026-10-28T03:04:05.123Z`, in UTC); null when there is none.
-     */
-    fun millisOf(text: String?): Long? {
-        if (text == null || text.length < 19) return null
-        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ROOT)
-        format.timeZone = TimeZone.getTimeZone("UTC")
-        val whole = try {
-            format.parse(text.substring(0, 19))?.time
-        } catch (e: java.text.ParseException) {
-            null
-        } ?: return null
-        val fraction = Regex("^\\.(\\d{1,3})").find(text.substring(19))?.groupValues?.get(1)
-        return whole + (fraction?.padEnd(3, '0')?.toLong() ?: 0)
-    }
 
     /**
      * Delivers to [places] in turn, writing down what was noted ([noted])

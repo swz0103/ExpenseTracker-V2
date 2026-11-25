@@ -17,7 +17,11 @@ void main() {
         home: Scaffold(
           body: SingleChildScrollView(
             child: ListenableBuilder(
-              listenable: preferences,
+              listenable: preferences.watch(const {
+                PreferenceTopic.look,
+                PreferenceTopic.homeWidget,
+                PreferenceTopic.trading,
+              }),
               builder: (context, _) =>
                   AppearanceSection(preferences: preferences),
             ),

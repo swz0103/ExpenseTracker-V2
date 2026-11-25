@@ -27,7 +27,7 @@ class AppearanceSection extends StatelessWidget {
       color: SettingsColors.appearance,
       title: '外觀',
       body: (context) => ListenableBuilder(
-        listenable: preferences,
+        listenable: preferences.watch(const {PreferenceTopic.look}),
         builder: (context, _) => Row(
           children: [
             for (final (i, a) in const [
@@ -59,7 +59,7 @@ class AppearanceSection extends StatelessWidget {
       title: '震動',
       detail: '標準比輕重一級',
       body: (context) => ListenableBuilder(
-        listenable: preferences,
+        listenable: preferences.watch(const {PreferenceTopic.look}),
         builder: (context, _) => Segments(
           labels: [for (final v in Vibration.values) v.label],
           selected: preferences.vibration.index,
@@ -79,7 +79,7 @@ class AppearanceSection extends StatelessWidget {
       title: '桌面小工具',
       detail: '桌面上任何人都看得到，帳本鎖定時也一樣',
       body: (context) => ListenableBuilder(
-        listenable: preferences,
+        listenable: preferences.watch(const {PreferenceTopic.homeWidget}),
         builder: (context, _) => _WidgetChoices(
           current: preferences.widgetFigures,
           onPick: (f) => preferences.update(widgetFigures: f),
@@ -98,7 +98,7 @@ class AppearanceSection extends StatelessWidget {
       title: BrokerDiscountText.title,
       detail: BrokerDiscountText.detail,
       body: (context) => ListenableBuilder(
-        listenable: preferences,
+        listenable: preferences.watch(const {PreferenceTopic.trading}),
         builder: (context, _) => Column(
           children: [
             for (final (i, row) in BrokerDiscountText.rows.indexed) ...[

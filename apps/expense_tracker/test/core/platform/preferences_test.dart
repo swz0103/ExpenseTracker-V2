@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
+import 'package:expense_tracker/src/core/platform/memory_keystore.dart';
 import 'package:expense_tracker/src/features/reminders/model/reminder_alerts.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/core/platform/quick_action.dart';
@@ -11,16 +13,69 @@ import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:expense_tracker/src/features/reminders/ui/reminders_section.dart'
     show reminderBookOf;
+import 'package:vault/backup_security.dart' show DeviceKeyWrapper;
+
+/// A Keystore that refuses to seal, as one that fails on a phone.
+final class _Refusing implements DeviceKeyWrapper {
+  @override
+  Future<List<int>> wrap(List<int> secret, List<int> context) async =>
+      throw StateError('keystore');
+
+  @override
+  Future<List<int>> unwrap(List<int> wrapped, List<int> context) async =>
+      throw StateError('keystore');
+}
+
+/// The Keystore of this run, counting what it is asked to seal.
+final class _Counting implements DeviceKeyWrapper {
+  var wraps = 0;
+
+  @override
+  Future<List<int>> wrap(List<int> secret, List<int> context) {
+    wraps++;
+    return MemoryKeystore.instance.wrap(secret, context);
+  }
+
+  @override
+  Future<List<int>> unwrap(List<int> wrapped, List<int> context) =>
+      MemoryKeystore.instance.unwrap(wrapped, context);
+}
 
 void main() {
+  late Directory directory;
+  late File file;
+  setUp(() {
+    directory = Directory.systemTemp.createTempSync('preferences-');
+    file = File('${directory.path}/preferences.json');
+  });
+  tearDown(() => directory.deleteSync(recursive: true));
+
+  /// The preferences in [file], as the app opens them at its start.
+  /// Whatever opening writes is written before it is used.
+  Future<Preferences> open() async {
+    final preferences = await Preferences.open(file);
+    await preferences.saved;
+    return preferences;
+  }
+
+  /// Makes [change] to the preferences in [file], and waits until it is
+  /// written.
+  Future<void> change(void Function(Preferences preferences) change) async {
+    final preferences = await open();
+    change(preferences);
+    await preferences.saved;
+  }
+
+  Map<String, Object?> plain() =>
+      jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
+
+  File sibling(String name) => File('${directory.path}/$name');
+
   test('a settings file that cannot be read or written is kept in the error '
-      'log; the defaults and this run go on', () {
-    final directory = Directory.systemTemp.createTempSync('preferences-');
-    addTearDown(() => directory.deleteSync(recursive: true));
-    final file = File('${directory.path}/preferences.json')
-      ..writeAsStringSync('not json');
+      'log; the defaults and this run go on', () async {
+    file.writeAsStringSync('not json');
     var before = ErrorLog.instance.count;
-    final read = Preferences(file: file);
+    final read = await open();
     expect(read.appearance, Appearance.system);
     expect(ErrorLog.instance.count, before + 1);
     expect(ErrorLog.instance.entries.first.$2, startsWith('讀取設定：'));
@@ -28,11 +83,13 @@ void main() {
     // Where its folder should be there is a file: nothing can be written.
     // The change is kept for this run, and the fault for 診斷.
     File('${directory.path}/blocked').writeAsStringSync('x');
-    final unwritable = Preferences(
-      file: File('${directory.path}/blocked/preferences.json'),
-    );
+    // Kept once: the same fault again is counted on it.
     before = ErrorLog.instance.count;
+    final unwritable = await Preferences.open(
+      File('${directory.path}/blocked/preferences.json'),
+    );
     unwritable.update(appearance: Appearance.dark);
+    await unwritable.saved;
     expect(unwritable.appearance, Appearance.dark);
     expect(ErrorLog.instance.count, before + 1);
     expect(
@@ -41,22 +98,20 @@ void main() {
     );
   });
 
-  test('preferences are kept in their file and read back', () {
-    final directory = Directory.systemTemp.createTempSync('preferences-');
-    addTearDown(() => directory.deleteSync(recursive: true));
-    final file = File('${directory.path}/preferences.json');
-    Preferences(file: file).update(
-      appearance: Appearance.dark,
-      vibration: Vibration.light,
-      dailyNudge: true,
-      nudgeHour: 22,
-      nudgeMinute: 45,
-      exactReminders: true,
-      phoneDaily: true,
+  test('preferences are kept in their file and read back', () async {
+    await change(
+      (p) => p.update(
+        appearance: Appearance.dark,
+        vibration: Vibration.light,
+        dailyNudge: true,
+        nudgeHour: 22,
+        nudgeMinute: 45,
+        exactReminders: true,
+        phoneDaily: true,
+      ),
     );
-    Preferences(file: file)
-        .phoneFolderSet('content://tree/backups', name: '備份');
-    final again = Preferences(file: file);
+    await change((p) => p.phoneFolderSet('content://tree/backups', name: '備份'));
+    final again = await open();
     expect(again.nudgeMinute, 45);
     expect(again.exactReminders, isTrue);
     expect(again.phoneDaily, isTrue);
@@ -73,57 +128,52 @@ void main() {
 
   test(
     "the broker's discount is 6折 until set, kept, and held to 0.01%-100%",
-    () {
-      final directory = Directory.systemTemp.createTempSync('preferences-');
-      addTearDown(() => directory.deleteSync(recursive: true));
-      final file = File('${directory.path}/preferences.json');
-      expect(Preferences(file: file).brokerDiscount, 6000);
-      Preferences(file: file).update(brokerDiscount: 2800);
-      expect(Preferences(file: file).brokerDiscount, 2800);
-      final preferences = Preferences(file: file)..update(brokerDiscount: 0);
+    () async {
+      expect((await open()).brokerDiscount, 6000);
+      await change((p) => p.update(brokerDiscount: 2800));
+      expect((await open()).brokerDiscount, 2800);
+      final preferences = await open()
+        ..update(brokerDiscount: 0);
       expect(preferences.brokerDiscount, 1);
       preferences.update(brokerDiscount: 12000);
       expect(preferences.brokerDiscount, 10000);
+      await preferences.saved;
       // A file written before the setting existed reads as 6折.
       file.writeAsStringSync('{"appearance": "dark"}');
-      expect(Preferences(file: file).brokerDiscount, 6000);
+      expect((await open()).brokerDiscount, 6000);
     },
   );
 
-  test('backups with photos wait for Wi-Fi until the person says otherwise, '
-      'kept under the name the background job reads (AND-05)', () {
-    final directory = Directory.systemTemp.createTempSync('preferences-');
-    addTearDown(() => directory.deleteSync(recursive: true));
-    final file = File('${directory.path}/preferences.json');
-    expect(Preferences(file: file).photosOnWifi, isTrue);
-    Preferences(file: file).update(photosOnWifi: false);
-    expect(Preferences(file: file).photosOnWifi, isFalse);
-    // BackupWorker.kt reads this name.
-    expect(Preferences.photosOnWifiKey, 'photosOnWifi');
-    expect(file.readAsStringSync(), contains('"photosOnWifi":false'));
+  test('backups with photos wait for Wi-Fi until the person says otherwise '
+      '(AND-05)', () async {
+    expect((await open()).photosOnWifi, isTrue);
+    await change((p) => p.update(photosOnWifi: false));
+    expect((await open()).photosOnWifi, isFalse);
+    expect(plain()['photosOnWifi'], isFalse);
     file.writeAsStringSync('{"drivePhotos": true}');
-    expect(Preferences(file: file).photosOnWifi, isTrue);
+    expect((await open()).photosOnWifi, isTrue);
   });
 
-  test('自動上鎖 is 5 分鐘 until chosen, and the choice is kept (SEC-07)', () {
-    final directory = Directory.systemTemp.createTempSync('preferences-');
-    addTearDown(() => directory.deleteSync(recursive: true));
-    final file = File('${directory.path}/preferences.json');
-    expect(Preferences(file: file).autoLock, AutoLock.fiveMinutes);
+  test('自動上鎖 is 5 分鐘 until chosen, and the choice is kept (SEC-07)', () async {
+    expect((await open()).autoLock, AutoLock.fiveMinutes);
     var told = 0;
-    final preferences = Preferences(file: file)..addListener(() => told++);
+    final preferences = await open();
+    preferences.watch(const {PreferenceTopic.lock}).addListener(() => told++);
     preferences.update(autoLock: AutoLock.immediately);
     expect(told, 1);
-    expect(Preferences(file: file).autoLock, AutoLock.immediately);
-    // Another setting changed leaves it as chosen.
-    Preferences(file: file).update(dailyNudge: true);
-    expect(Preferences(file: file).autoLock, AutoLock.immediately);
+    await preferences.saved;
+    expect((await open()).autoLock, AutoLock.immediately);
+    // Another setting changed leaves it as chosen, and tells it nothing.
+    preferences.update(dailyNudge: true);
+    expect(told, 1);
+    await preferences.saved;
+    expect((await open()).autoLock, AutoLock.immediately);
     // A file written before the setting existed, or naming a choice this
     // version does not have, reads as 5 分鐘.
     file.writeAsStringSync('{"appearance": "dark"}');
-    expect(Preferences(file: file).autoLock, AutoLock.fiveMinutes);
+    expect((await open()).autoLock, AutoLock.fiveMinutes);
     file.writeAsStringSync('{"autoLock": "tenSeconds"}');
-    expect(Preferences(file: file).autoLock, AutoLock.fiveMinutes);
+    expect((await open()).autoLock, AutoLock.fiveMinutes);
   });
 
   test('the auto-lock choices: their words and how long away locks', () {
@@ -169,31 +219,30 @@ void main() {
     expect(limit(AutoLock.never, onErrand: false), isNull);
   });
 
-  test('a save leaves one whole file behind', () {
-    final directory = Directory.systemTemp.createTempSync('preferences-');
-    addTearDown(() => directory.deleteSync(recursive: true));
-    final file = File('${directory.path}/preferences.json');
-    final preferences = Preferences(file: file)
+  test('a save leaves one whole file behind', () async {
+    final preferences = await open()
       ..update(vibration: Vibration.off);
     preferences.driveBackup(DateTime.utc(2026, 10, 27), 4);
-    expect(File('${file.path}.new').existsSync(), isFalse);
-    final again = Preferences(file: file);
+    await preferences.saved;
+    expect(directory.listSync().where((f) => f.path.endsWith('.new')), isEmpty);
+    // One a stop part way left is cleared when the file is next opened.
+    final left = File('${file.path}.12345.new')..writeAsStringSync('{');
+    await open();
+    expect(left.existsSync(), isFalse);
+    final again = await open();
     expect(again.vibration, Vibration.off);
     expect(again.driveRevision, 4);
   });
 
-  test('one field of the wrong kind costs only itself', () {
+  test('one field of the wrong kind costs only itself', () async {
     // As a file from an older version, or one partly damaged: the Drive
     // stays linked though another setting cannot be read.
-    final directory = Directory.systemTemp.createTempSync('preferences-');
-    addTearDown(() => directory.deleteSync(recursive: true));
-    final file = File('${directory.path}/preferences.json')
-      ..writeAsStringSync(
-        '{"driveLinked":true,"haptics":"yes","nudgeHour":21.0,'
-        '"nudgeMinute":"30","overview":["flow",3,"daily"],'
-        '"phoneFolder":"content://tree/backups"}',
-      );
-    final read = Preferences(file: file);
+    file.writeAsStringSync(
+      '{"driveLinked":true,"haptics":"yes","nudgeHour":21.0,'
+      '"nudgeMinute":"30","overview":["flow",3,"daily"],'
+      '"phoneFolder":"content://tree/backups"}',
+    );
+    final read = await open();
     expect(read.driveLinked, isTrue);
     expect(
       read.vibration,
@@ -206,26 +255,308 @@ void main() {
     expect(read.phoneFolder, 'content://tree/backups');
   });
 
-  test('震動 kept as on or off before 0.20.0 reads as 標準 or 關', () {
-    final directory = Directory.systemTemp.createTempSync('preferences-');
-    addTearDown(() => directory.deleteSync(recursive: true));
-    final file = File('${directory.path}/preferences.json');
+  test('震動 kept as on or off before 0.20.0 reads as 標準 or 關', () async {
     file.writeAsStringSync('{"haptics":false}');
-    expect(Preferences(file: file).vibration, Vibration.off);
+    expect((await open()).vibration, Vibration.off);
     file.writeAsStringSync('{"haptics":true}');
-    expect(Preferences(file: file).vibration, Vibration.standard);
+    expect((await open()).vibration, Vibration.standard);
   });
 
-  test('a broken file leaves the defaults', () {
-    final directory = Directory.systemTemp.createTempSync('preferences-');
-    addTearDown(() => directory.deleteSync(recursive: true));
-    final file = File('${directory.path}/preferences.json')
-      ..writeAsStringSync('{not json');
-    final preferences = Preferences(file: file);
+  test('a broken file leaves the defaults', () async {
+    file.writeAsStringSync('{not json');
+    final preferences = await open();
     expect(preferences.appearance, Appearance.system);
     expect(preferences.vibration, Vibration.standard);
   });
 
+  group('PRIV-1: what could name the person is sealed', () {
+    const folder =
+        'content://com.android.externalstorage.documents/tree/'
+        'primary%3ADocuments%2F王小明';
+
+    test('the account, the folder and the budgets told of are never in the '
+        'plain file, and come back from the sealed part', () async {
+      await change((p) {
+        p
+          ..driveAccountIs('alice@example.com')
+          ..phoneFolderSet(folder, name: '王小明')
+          ..budgetAlertedSet({'2026-10|餐飲|80'});
+      });
+      final written = file.readAsStringSync();
+      for (final secret in ['alice', 'example', '王小明', 'Documents', '餐飲']) {
+        expect(written, isNot(contains(secret)), reason: secret);
+      }
+      expect(plain().keys, isNot(contains('driveAccount')));
+      final sealed = sibling('preferences.sealed').readAsStringSync();
+      expect(sealed, isNot(contains('alice')));
+      final again = await open();
+      expect(again.driveAccount, 'alice@example.com');
+      expect((again.phoneFolder, again.phoneFolderName), (folder, '王小明'));
+      expect(again.budgetAlerted, {'2026-10|餐飲|80'});
+    });
+
+    test("a file an older version wrote is sealed when it is opened", () async {
+      file.writeAsStringSync(
+        jsonEncode({
+          'appearance': 'dark',
+          'driveAccount': 'alice@example.com',
+          'phoneFolder': folder,
+          'phoneFolderName': '王小明',
+          'budgetAlerted': ['2026-10|餐飲|80'],
+        }),
+      );
+      final opened = await open();
+      await opened.saved;
+      expect(file.readAsStringSync(), isNot(contains('alice')));
+      expect(file.readAsStringSync(), isNot(contains('王小明')));
+      expect(plain()['appearance'], 'dark');
+      // It was given an id that says nothing of it.
+      final id = opened.phoneFolderId;
+      expect(id, isNotNull);
+      expect(id, isNot(contains('Documents')));
+      final again = await open();
+      expect(again.driveAccount, 'alice@example.com');
+      expect(again.phoneFolder, folder);
+      expect(again.phoneFolderId, id);
+      expect(again.budgetAlerted, {'2026-10|餐飲|80'});
+    });
+
+    test('a Keystore that will not seal keeps them as before rather than '
+        'losing them', () async {
+      final preferences = await Preferences.open(file, keystore: _Refusing())
+        ..phoneFolderSet(folder, name: '王小明');
+      final before = ErrorLog.instance.count;
+      await preferences.saved;
+      expect(ErrorLog.instance.count, greaterThan(before));
+      expect(plain()['phoneFolder'], folder);
+      expect(sibling('preferences.sealed').existsSync(), isFalse);
+    });
+
+    test('a sealed part that no longer opens leaves the folder to choose '
+        'again, and says so', () async {
+      await change((p) => p.phoneFolderSet(folder, name: '王小明'));
+      sibling('preferences.sealed').writeAsStringSync('memory:gone');
+      final before = ErrorLog.instance.count;
+      final again = await open();
+      expect(again.phoneFolder, isNull);
+      expect(ErrorLog.instance.count, before + 1);
+      expect(ErrorLog.instance.entries.first.$2, startsWith('讀取設定：'));
+      // Kept as it is, for a Keystore that failed only once, until a
+      // folder is chosen again.
+      again.update(appearance: Appearance.dark);
+      await again.saved;
+      expect(sibling('preferences.sealed').readAsStringSync(), 'memory:gone');
+      again.phoneFolderSet(folder, name: '王小明');
+      await again.saved;
+      expect(
+        sibling('preferences.sealed').readAsStringSync(),
+        isNot('memory:gone'),
+      );
+    });
+
+    test('nothing private kept: no sealed part, and none asked of the '
+        'Keystore', () async {
+      final keystore = _Counting();
+      final preferences = await Preferences.open(file, keystore: keystore)
+        ..update(appearance: Appearance.dark);
+      await preferences.saved;
+      expect(sibling('preferences.sealed').existsSync(), isFalse);
+      expect(keystore.wraps, 0);
+      preferences.driveAccountIs('alice@example.com');
+      await preferences.saved;
+      expect(sibling('preferences.sealed').existsSync(), isTrue);
+      preferences.driveAccountIs(null);
+      await preferences.saved;
+      expect(sibling('preferences.sealed').existsSync(), isFalse);
+    });
+
+    test('a folder chosen gets a new id; the same one again keeps it', () {
+      final preferences = Preferences()..phoneFolderSet(folder, name: 'a');
+      final first = preferences.phoneFolderId;
+      expect(first, isNotNull);
+      preferences.phoneFolderSet(folder, name: 'a');
+      expect(preferences.phoneFolderId, first);
+      preferences.phoneFolderSet('content://tree/other', name: 'b');
+      expect(preferences.phoneFolderId, isNot(first));
+      preferences.phoneFolderSet(null);
+      expect(preferences.phoneFolderId, isNull);
+    });
+  });
+
+  group('the background jobs are handed what they need, and no more', () {
+    test(
+      'Drive and the folder, the folder sealed, times in milliseconds',
+      () async {
+        await change((p) {
+          p
+            ..update(driveLinked: true, photosOnWifi: false, phoneDaily: true)
+            ..driveBackup(DateTime.utc(2026, 10, 28, 3, 4, 5, 123), 7)
+            ..phoneFolderSet('content://tree/backups', name: '備份')
+            ..phoneBackup(DateTime.utc(2026, 10, 28, 3, 4, 5, 123), 6)
+            ..driveAccountIs('alice@example.com');
+        });
+        final text = sibling('background.json').readAsStringSync();
+        for (final secret in ['alice', 'content://', '備份']) {
+          expect(text, isNot(contains(secret)), reason: secret);
+        }
+        final handed = jsonDecode(text) as Map<String, Object?>;
+        final phone = handed['phone']! as Map<String, Object?>;
+        final preferences = await open();
+        // 2026-10-28T03:04:05.123Z is 1,793,156,645,123 ms after 1970.
+        expect(handed, {
+          'v': 1,
+          'updateChecks': true,
+          'drive': {'photosOnWifi': false, 'at': 1793156645123, 'revision': 7},
+          'phone': {
+            'folder': phone['folder'],
+            'id': preferences.phoneFolderId,
+            'daily': true,
+            'at': 1793156645123,
+            'revision': 6,
+          },
+        });
+        // The folder opens for the job's use only.
+        final sealed = base64.decode(phone['folder']! as String);
+        expect(
+          utf8.decode(
+            await MemoryKeystore.instance.unwrap(
+              sealed,
+              utf8.encode(Preferences.folderContext),
+            ),
+          ),
+          'content://tree/backups',
+        );
+        await expectLater(
+          MemoryKeystore.instance.unwrap(sealed, utf8.encode('other')),
+          throwsStateError,
+        );
+      },
+    );
+
+    test('unlinked and no folder: nothing of either; the update checks as '
+        'chosen', () async {
+      await change((p) => p.update(updateChecks: false));
+      expect(jsonDecode(sibling('background.json').readAsStringSync()), {
+        'v': 1,
+        'updateChecks': false,
+        'drive': null,
+        'phone': null,
+      });
+    });
+
+    test('a file already opened is handed over once, then only when it '
+        'changes', () async {
+      final preferences = await open();
+      await preferences.saved;
+      final handed = sibling('background.json');
+      expect(handed.existsSync(), isTrue);
+      handed.deleteSync();
+      // A choice the jobs do not read writes nothing for them.
+      preferences.update(appearance: Appearance.dark);
+      await preferences.saved;
+      expect(handed.existsSync(), isFalse);
+      preferences.update(updateChecks: false);
+      await preferences.saved;
+      expect(handed.existsSync(), isTrue);
+    });
+  });
+
+  group('3.3b: kept off the UI thread, in one write for changes together', () {
+    test('changes made together are written once, the last of each', () async {
+      final keystore = _Counting();
+      final preferences = await Preferences.open(file, keystore: keystore);
+      await preferences.saved;
+      for (var i = 0; i < 20; i++) {
+        preferences
+          ..driveAccountIs('a$i@example.com')
+          ..update(nudgeHour: i);
+      }
+      // Nothing is written before the caller's turn ends.
+      expect(file.existsSync() && plain()['nudgeHour'] == 19, isFalse);
+      await preferences.saved;
+      expect(keystore.wraps, 1);
+      expect(plain()['nudgeHour'], 19);
+      expect((await open()).driveAccount, 'a19@example.com');
+    });
+
+    test('a change while a write is under way is written after it', () async {
+      final preferences = await open();
+      await preferences.saved;
+      preferences.update(nudgeHour: 5);
+      final first = preferences.saved;
+      await Future<void>.delayed(Duration.zero);
+      preferences.update(nudgeHour: 6);
+      await first;
+      await preferences.saved;
+      expect(plain()['nudgeHour'], 6);
+    });
+  });
+
+  group('3.3b: a change tells only the part it is in', () {
+    late Preferences preferences;
+    late Map<PreferenceTopic, int> told;
+    setUp(() {
+      preferences = Preferences();
+      told = {for (final t in PreferenceTopic.values) t: 0};
+      for (final topic in PreferenceTopic.values) {
+        preferences
+            .watch({topic})
+            .addListener(() => told[topic] = told[topic]! + 1);
+      }
+    });
+
+    Map<PreferenceTopic, int> heard() => {
+      for (final MapEntry(:key, :value) in told.entries)
+        if (value > 0) key: value,
+    };
+
+    test('a backup noted in the background plans no reminders and writes '
+        'no widget', () {
+      preferences.driveBackup(DateTime.utc(2026, 11, 1), 3);
+      expect(heard(), {PreferenceTopic.driveBackup: 1});
+      preferences.phoneBackup(DateTime.utc(2026, 11, 1), 3);
+      expect(heard(), {
+        PreferenceTopic.driveBackup: 1,
+        PreferenceTopic.phoneBackup: 1,
+      });
+    });
+
+    test('each setting tells its own part', () {
+      preferences.update(appearance: Appearance.dark);
+      preferences.update(dailyNudge: true);
+      preferences.update(widgetFigures: WidgetFigures.amounts);
+      preferences.update(updateChecks: false);
+      preferences.overviewSet(['flow']);
+      preferences.update(autoLock: AutoLock.never);
+      preferences.update(brokerDiscount: 2800);
+      preferences.update(started: true);
+      expect(heard(), {
+        PreferenceTopic.look: 1,
+        PreferenceTopic.reminders: 1,
+        PreferenceTopic.homeWidget: 1,
+        PreferenceTopic.updates: 1,
+        PreferenceTopic.overview: 1,
+        PreferenceTopic.lock: 1,
+        PreferenceTopic.trading: 1,
+        PreferenceTopic.start: 1,
+      });
+    });
+
+    test('nothing changed, or kept for the app alone, tells no one', () {
+      preferences.update(appearance: Appearance.system);
+      preferences.overviewSet(null);
+      preferences.budgetAlertedSet({'2026-11|餐飲|80'});
+      preferences.updateChecked(DateTime.utc(2026, 11, 1));
+      preferences.updateLater(skip: 3);
+      expect(heard(), isEmpty);
+    });
+
+    test('the same order of blocks set again tells no one', () {
+      preferences.overviewSet(['flow', 'daily']);
+      preferences.overviewSet(['flow', 'daily']);
+      expect(told[PreferenceTopic.overview], 1);
+    });
+  });
   test('the palette turns dark and back when painted', () {
     addTearDown(() => Shade.dark = false);
     const ink = AppColors.ink;

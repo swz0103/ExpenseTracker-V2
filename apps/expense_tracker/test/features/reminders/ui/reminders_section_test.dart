@@ -62,7 +62,9 @@ void main() {
             children: [
               // As 設定 does, drawn again as the preferences change.
               ListenableBuilder(
-                listenable: preferences,
+                listenable: preferences.watch(const {
+                  PreferenceTopic.reminders,
+                }),
                 builder: (context, _) => RemindersSection(
                   ledger: ledger,
                   notifier: notifications ? Notifier(phone, preferences) : null,

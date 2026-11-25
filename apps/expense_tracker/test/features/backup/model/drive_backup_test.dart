@@ -310,8 +310,8 @@ void main() {
     var now = DateTime.utc(2026, 10, 1);
     var revision = 1;
     final sentPhotos = <bool>[];
-    final preferences = Preferences(
-      file: File('${directory.path}/preferences.json'),
+    final preferences = await Preferences.open(
+      File('${directory.path}/preferences.json'),
     );
     var written = 0;
     final sync = DriveSync(
@@ -354,7 +354,10 @@ void main() {
     expect(sentPhotos, [false, false, true]);
 
     // Kept for the next start.
-    final again = Preferences(file: File('${directory.path}/preferences.json'));
+    await preferences.saved;
+    final again = await Preferences.open(
+      File('${directory.path}/preferences.json'),
+    );
     expect(again.driveLinked, isTrue);
     expect(again.drivePhotos, isTrue);
     expect(again.driveRevision, 3);
@@ -377,8 +380,8 @@ void main() {
   test(
     'a second ledger screen does not send a backup while one goes up',
     () async {
-      final preferences = Preferences(
-        file: File('${directory.path}/preferences.json'),
+      final preferences = await Preferences.open(
+        File('${directory.path}/preferences.json'),
       );
       final hold = Completer<void>();
       DriveSync make() => DriveSync(
@@ -413,8 +416,8 @@ void main() {
 
   test('a backup with the photos waits for Wi-Fi; the ledger alone does '
       'not', () async {
-    final preferences = Preferences(
-      file: File('${directory.path}/preferences.json'),
+    final preferences = await Preferences.open(
+      File('${directory.path}/preferences.json'),
     );
     var wifi = false;
     final sync = DriveSync(

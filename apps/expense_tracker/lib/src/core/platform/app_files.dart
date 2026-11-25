@@ -13,8 +13,17 @@
 abstract final class AppFiles {
   // ---- in the files directory ----
 
-  /// The settings (`Preferences`); the background jobs read them.
+  /// The settings (`Preferences`): the choices, nothing that names the
+  /// person.
   static const preferences = 'preferences.json';
+
+  /// The settings that could name the person (the Google account, the
+  /// backup folder, the budgets told of), sealed by the phone's Keystore.
+  static const preferencesSealed = 'preferences.sealed';
+
+  /// What the background jobs need of the settings, and no more
+  /// (`Preferences.backgroundPlan`; BackupWorker.kt, UpdateWorker.kt).
+  static const background = 'background.json';
 
   /// What the home-screen widget shows (`HomeWidget`).
   static const widget = 'widget.json';
@@ -66,6 +75,8 @@ abstract final class AppFiles {
   /// Every name above by the name `AppFiles.kt` gives it.
   static const all = <String, String>{
     'PREFERENCES': preferences,
+    'PREFERENCES_SEALED': preferencesSealed,
+    'BACKGROUND': background,
     'WIDGET': widget,
     'RECEIPTS': receipts,
     'BACKUPS': backups,

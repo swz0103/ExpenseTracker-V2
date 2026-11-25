@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:expense_tracker/src/core/platform/preferences.dart';
@@ -63,21 +62,57 @@ void main() {
     }
   });
 
-  test('the times the job reads from the settings are written as it parses '
-      'them (BackupPlan.millisOf: yyyy-MM-ddTHH:mm:ss, a fraction, UTC)', () {
-    final folder = Directory.systemTemp.createTempSync('rules-');
-    addTearDown(() => folder.deleteSync(recursive: true));
-    final file = File('${folder.path}/preferences.json');
-    Preferences(file: file)
-      ..phoneBackup(DateTime.utc(2026, 10, 28, 3, 4, 5, 123), 1)
-      ..update(driveLinked: true)
-      ..driveBackup(DateTime.utc(2026, 10, 28, 3, 4, 5, 123), 1);
-    final json = jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
-    expect(json['phoneBackedUp'], '2026-10-28T03:04:05.123Z');
-    expect(json['driveBackedUp'], '2026-10-28T03:04:05.123Z');
+  test('PRIV-1: the jobs read the settings the app hands them '
+      '(background.json), not the settings file, and each key they read is '
+      'one handed over', () {
+    final handed = Preferences.backgroundPlan(
+      updateChecks: true,
+      drive: (photosOnWifi: true, at: DateTime.utc(2026, 10, 28), revision: 1),
+      phone: (
+        folder: 'sealed',
+        id: 'f1',
+        daily: false,
+        at: DateTime.utc(2026, 10, 28),
+        revision: 1,
+      ),
+    );
+    final drive = handed['drive']! as Map<String, Object?>;
+    final phone = handed['phone']! as Map<String, Object?>;
+    expect(handed.keys, ['v', 'updateChecks', 'drive', 'phone']);
+    expect(drive.keys, ['photosOnWifi', 'at', 'revision']);
+    expect(phone.keys, ['folder', 'id', 'daily', 'at', 'revision']);
+    // 2026-10-28T00:00:00Z is 1,793,145,600,000 ms after 1970: the job
+    // reads milliseconds, and parses no date.
+    expect(drive['at'], 1793145600000);
+
+    final worker = File('$kotlin/BackupWorker.kt').readAsStringSync();
+    expect(worker, isNot(contains('PREFERENCES')));
+    for (final read in [
+      'AppFiles.BACKGROUND',
+      'optJSONObject("phone")',
+      'optJSONObject("drive")',
+      'phone.getString("id")',
+      'phone.getString("folder")',
+      'phone.optBoolean("daily")',
+      'drive.optBoolean("photosOnWifi", true)',
+      'handed.isNull("at")',
+      'handed.optLong("at")',
+      'handed.isNull("revision")',
+      'handed.optInt("revision")',
+      '.isNull("drive")',
+    ]) {
+      expect(worker, contains(read), reason: read);
+    }
+    final update = File(
+      'android/app/src/sideload/kotlin/io/github/swz0103/expensetracker/'
+      'UpdateWorker.kt',
+    ).readAsStringSync();
+    expect(update, contains('AppFiles.BACKGROUND'));
+    expect(update, contains('optBoolean("updateChecks", true)'));
+    // The folder opens with what the app sealed it for.
     expect(
-      File('$kotlin/BackupPlan.kt').readAsStringSync(),
-      contains('SimpleDateFormat("yyyy-MM-dd\'T\'HH:mm:ss", Locale.ROOT)'),
+      File('$kotlin/QuickSeal.kt').readAsStringSync(),
+      contains('const val FOLDER_CONTEXT = "${Preferences.folderContext}"'),
     );
   });
 }

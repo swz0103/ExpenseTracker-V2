@@ -43,16 +43,6 @@ class BackupPlanTest {
     }
 
     @Test
-    fun timesAreReadAsDartWritesThem() {
-        assertEquals(1_793_156_645_123L, BackupPlan.millisOf("2026-10-28T03:04:05.123Z"))
-        assertEquals(1_793_156_645_123L, BackupPlan.millisOf("2026-10-28T03:04:05.123456Z"))
-        assertEquals(1_793_156_645_000L, BackupPlan.millisOf("2026-10-28T03:04:05Z"))
-        assertNull(BackupPlan.millisOf(null))
-        assertNull(BackupPlan.millisOf("null"))
-        assertNull(BackupPlan.millisOf("not a time at all!!"))
-    }
-
-    @Test
     fun thePhonesRhythmIsTheOneChosenOfThoseHandedOver() {
         assertEquals(day, plan.phoneEvery(daily = true))
         assertEquals(week, plan.phoneEvery(daily = false))

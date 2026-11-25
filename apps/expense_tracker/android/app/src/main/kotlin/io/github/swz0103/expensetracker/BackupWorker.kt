@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.util.Base64
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.WorkManager
 import androidx.work.Worker
@@ -16,8 +17,8 @@ import java.io.File
  * (lib/src/features/backup/model/outbox.dart) to the phone's folder and
  * Google Drive, when one is due by the chosen rhythm, without the app
  * being opened. The backup is already encrypted: this job never has the
- * ledger's key. It reads the settings from preferences.json, which only
- * the app writes, and notes what it delivered, and what went wrong, in
+ * ledger's key. It reads what the app hands it of the settings in
+ * background.json (the phone folder sealed, by its id), which only the app writes, and notes what it delivered, and what went wrong, in
  * `outbox/delivered.json`, which the app reads when next opened.
  *
  * WorkManager runs it about every six hours while the battery is not low,
@@ -91,7 +92,8 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
     private fun deliver(): Boolean {
         val files = applicationContext.filesDir
         val outbox = File(files, AppFiles.OUTBOX)
-        val preferences = read(File(files, AppFiles.PREFERENCES)) ?: return false
+        // What the app handed over of its settings (Preferences.backgroundPlan).
+        val settings = read(File(files, AppFiles.BACKGROUND)) ?: return false
         val ready = read(File(outbox, AppFiles.OUTBOX_READY)) ?: return false
         val backup = File(outbox, ready.optString("file"))
         if (ready.optString("file").isEmpty() || !backup.exists()) return false
@@ -112,17 +114,14 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         delivered.put("problems", problems)
         val now = System.currentTimeMillis()
 
-        // The last delivery of this ledger the app or this job made there.
-        fun last(place: String, at: String, revisionKey: String, uri: String?): Pair<Long?, Int?> {
-            var time = BackupPlan.millisOf(preferences.optString(at).ifEmpty { null })
-            var made = if (preferences.has(revisionKey) && !preferences.isNull(revisionKey)) {
-                preferences.getInt(revisionKey)
-            } else {
-                null
-            }
+        // The last delivery of this ledger the app (in [handed]) or this
+        // job made there; to the folder of [folderId] for the phone.
+        fun last(place: String, handed: JSONObject, folderId: String?): Pair<Long?, Int?> {
+            var time = if (handed.isNull("at")) null else handed.optLong("at")
+            var made = if (handed.isNull("revision")) null else handed.optInt("revision")
             val here = delivered.optJSONObject(place)
             if (here != null && here.optString("ledger") == ledger &&
-                (uri == null || here.optString("uri") == uri)
+                (folderId == null || here.optString("folder") == folderId)
             ) {
                 val hereAt = here.getLong("at")
                 if (time == null || hereAt > time) {
@@ -136,16 +135,18 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         var phoneHas = true
         var driveHas = true
         var again = false
-        val folder = preferences.optString("phoneFolder").ifEmpty { null }
         fun toPhone() {
-            if (folder == null || preferences.isNull("phoneFolder")) return
-            val (at, made) = last("phone", "phoneBackedUp", "phoneRevision", folder)
-            val every = plan.phoneEvery(preferences.optBoolean("phoneDaily"))
+            val phone = settings.optJSONObject("phone") ?: return
+            // The folder is never written down here: only its id says
+            // where a delivery went.
+            val folderId = phone.getString("id")
+            val (at, made) = last("phone", phone, folderId)
+            val every = plan.phoneEvery(phone.optBoolean("daily"))
             if (BackupPlan.due(now, at, made, revision, every)) {
                 stopIfAsked()
                 try {
-                    toFolder(Uri.parse(folder), backup, plan)
-                    delivered.put("phone", entry(now, revision, ledger).put("uri", folder))
+                    toFolder(openFolder(phone.getString("folder"), plan), backup, plan)
+                    delivered.put("phone", entry(now, revision, ledger).put("folder", folderId))
                     problems.remove("phone")
                 } catch (e: Exception) {
                     passOn(e)
@@ -158,10 +159,11 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         }
 
         fun toDrive() {
-            if (!preferences.optBoolean("driveLinked")) return
-            val (at, made) = last("drive", "driveBackedUp", "driveRevision", null)
-            // The same key as Preferences.photosOnWifiKey; on unless turned off.
-            val onWifi = preferences.optBoolean("photosOnWifi", true)
+            // Handed over only while Drive is linked.
+            val drive = settings.optJSONObject("drive") ?: return
+            val (at, made) = last("drive", drive, null)
+            // On unless turned off.
+            val onWifi = drive.optBoolean("photosOnWifi", true)
             if (!BackupPlan.due(now, at, made, revision, plan.drive)) {
                 driveHas = made == revision
             } else if (photos && onWifi && !unmetered()) {
@@ -209,6 +211,23 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
     private fun problem(at: Long, e: Exception, plan: BackupPlan.Handed): JSONObject =
         JSONObject().put("at", at).put("message", BackupPlan.problemOf(BackgroundWork.causeOf(e), plan))
 
+    /**
+     * The phone folder the app sealed for this job ([QuickSeal]); one that
+     * no longer opens (the key gone) is a folder to choose again.
+     */
+    private fun openFolder(sealed: String, plan: BackupPlan.Handed): Uri {
+        val open = try {
+            QuickSeal.open(
+                Base64.decode(sealed, Base64.DEFAULT),
+                QuickSeal.FOLDER_CONTEXT.toByteArray(Charsets.UTF_8),
+            )
+        } catch (e: Exception) {
+            // Damaged, or sealed by a key since replaced.
+            null
+        } ?: throw IllegalStateException(plan.folderDenied)
+        return Uri.parse(String(open, Charsets.UTF_8))
+    }
+
     /** Writes the backup into the folder and keeps the newest of this ledger. */
     private fun toFolder(tree: Uri, backup: File, plan: BackupPlan.Handed) {
         val resolver = applicationContext.contentResolver
@@ -244,7 +263,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
 
         /**
          * Runs the job about every six hours from now on, or stops it; with
-         * Drive linked (as preferences.json says), only once there is a
+         * Drive linked (as background.json says), only once there is a
          * network.
          */
         fun schedule(context: Context, on: Boolean) {
@@ -254,7 +273,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
                 return
             }
             val drive = try {
-                JSONObject(File(context.filesDir, AppFiles.PREFERENCES).readText()).optBoolean("driveLinked")
+                !JSONObject(File(context.filesDir, AppFiles.BACKGROUND).readText()).isNull("drive")
             } catch (e: Exception) {
                 // Unread: the network is asked for, as Drive may need it.
                 true

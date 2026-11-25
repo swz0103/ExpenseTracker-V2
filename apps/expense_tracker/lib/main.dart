@@ -61,16 +61,20 @@ final _steps = StartSteps(
       ErrorLog.instance.keepIn(File('${folder.path}/diagnostics.log')),
   device: Platform.isAndroid ? androidDeviceUnlock : null,
   privacy: Platform.isAndroid ? _privacy : null,
-  compose: (folder, device, privacy) => VaultRoot(
+  // What could name the person is sealed by the Keystore key that needs
+  // no fingerprint, so the settings hold from the lock screen on.
+  preferences: (folder) => Preferences.open(
+    File('${folder.path}/${AppFiles.preferences}'),
+    keystore: Platform.isAndroid ? const KeystoreQuickKey() : null,
+  ),
+  compose: (folder, device, privacy, preferences) => VaultRoot(
     startup: productionStartup(
       folder,
       device: device,
       uptime: Platform.isAndroid ? androidUptime : null,
     ),
     privacy: privacy,
-    preferences: Preferences(
-      file: File('${folder.path}/${AppFiles.preferences}'),
-    ),
+    preferences: preferences,
     // Shortcuts, the widget and notifications go through the lock gate.
     quick: Platform.isAndroid ? quickAction : null,
     leave: Platform.isAndroid ? androidMoveToBack : null,
