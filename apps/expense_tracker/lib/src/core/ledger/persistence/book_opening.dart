@@ -1,11 +1,13 @@
 import 'dart:convert';
 
-import 'package:domain/investments.dart' show DoubtedFigure;
+import 'package:core/time/calendar_day.dart';
+import 'package:domain/investments.dart' show DoubtedFigure, MarketHistory;
 import 'package:ledger_entries/rules.dart' show namesOnLoops;
 import 'package:storage/storage.dart';
 
 import '../models/models.dart';
 import 'codec/category_refs.dart';
+import 'codec/market_days.dart';
 import 'codec/record_json.dart';
 import 'codec/record_shape.dart';
 import 'codec/row_decoding.dart';
@@ -434,6 +436,7 @@ typedef Market = ({
   Map<String, DoubtedFigure> doubtedRates,
   Map<String, DoubtedFigure> doubtedSellRates,
   DateTime? ratesOn,
+  MarketHistory history,
 });
 
 /// The closes and board last fetched, from [rows] of [marketShelf].
@@ -449,6 +452,7 @@ Market marketFrom(List<StoredRow> rows) {
   final doubtedSellRates = <String, DoubtedFigure>{};
   DateTime? quotedOn;
   DateTime? ratesOn;
+  final dayRows = <BusinessDate, String>{};
   Map<String, Object?> part(Map<String, Object?> json, String key) =>
       json[key] as Map<String, Object?>? ?? const {};
   // What the last fetch doubted (D101), kept beside the figures, each
@@ -471,6 +475,11 @@ Market marketFrom(List<StoredRow> rows) {
   }
 
   for (final row in rows) {
+    // A day's rates and closes (D58), read below.
+    if (marketDayOf(row.id) case final day?) {
+      dayRows[day] = row.body;
+      continue;
+    }
     final json = jsonDecode(row.body) as Map<String, Object?>;
     switch (row.id) {
       case 'quotes':
@@ -520,7 +529,28 @@ Market marketFrom(List<StoredRow> rows) {
     doubtedRates: doubtedRates,
     doubtedSellRates: doubtedSellRates,
     ratesOn: ratesOn,
+    history: historyFrom(dayRows),
   );
+}
+
+/// The dated rates and closes of [market] (D58): its day rows, with the
+/// latest board and closes on their days where the rows do not already
+/// give them, as for a book kept before D58, whose only days are those.
+MarketHistory datedMarket(Market market) {
+  final writes = MarketDayWrites(market.history);
+  void latest(MarketSeries series, Map<String, double> figures, DateTime? on) {
+    if (on == null) return;
+    for (final MapEntry(:key, :value) in figures.entries) {
+      writes.keep(series, key, BusinessDate.of(on), value);
+    }
+  }
+
+  latest(MarketSeries.buying, market.rates, market.ratesOn);
+  latest(MarketSeries.selling, market.sellRates, market.ratesOn);
+  for (final MapEntry(:key, :value) in market.prices.entries) {
+    latest(MarketSeries.closes, {key: value}, market.days[key]);
+  }
+  return writes.history;
 }
 
 /// The rows of [rows] of [marketShelf] that can be read; [report] is

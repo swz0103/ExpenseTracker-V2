@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:core/time/calendar_day.dart' show BusinessDate;
+import 'package:domain/investments.dart' show FoundOn;
 
 import '../../../core/ledger/ledger.dart';
 import '../../../core/design_system/glyphs.dart';
@@ -89,10 +91,12 @@ final class CurrencyFields {
 
   ComposeForm get _f => _a.form;
 
-  /// The worth in NT$ of a foreign amount, at today's rate until typed.
+  /// The worth in NT$ of a foreign amount, at the rate of its day until
+  /// typed (D58).
   Widget home() {
     final value = _f.homeValue;
-    final rate = _f.ledger.marketData.rates[_f.currency];
+    final today = _f.ledger.today;
+    final rate = _f.ledger.marketData.rateOn(_f.currency, _f.date);
     return Padding(
       padding: const EdgeInsets.only(top: Space.s2),
       child: FigureCard(
@@ -102,13 +106,21 @@ final class CurrencyFields {
         value: value == null ? '請輸入' : groupDigits(value),
         valueColor: value == null ? AppColors.hint : AppColors.ink,
         size: TextSize.body,
-        // A day gone by is valued at today's rate only as an estimate:
-        // no earlier day's rate is kept (R5).
-        sub: _f.home != null || rate == null
-            ? null
-            : _f.date.isBefore(_f.ledger.today)
-            ? estimatedAtTodaysRate(rate)
-            : todaysRate(rate),
+        // A board kept for the day or before it is named by its day
+        // (D58); a day gone by with none is valued at today's rate only
+        // as an estimate (R5).
+        sub: switch (rate) {
+          _ when _f.home != null => null,
+          null => null,
+          (:final figure, found: FoundOn.today, of: _) =>
+            _f.date.isBefore(today)
+                ? estimatedAtTodaysRate(figure)
+                : todaysRate(figure),
+          (:final figure, :final of?, found: _)
+              when of != BusinessDate.of(today) =>
+            rateOfDay(figure, of.asUtcMidnight, today: today),
+          (:final figure, of: _, found: _) => todaysRate(figure),
+        },
         onTap: () async {
           final typed = await _a.ask(Words.homeWorth, value ?? 0);
           if (typed != null) _a.update(() => _f.home = typed);

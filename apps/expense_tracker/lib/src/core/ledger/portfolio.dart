@@ -14,6 +14,7 @@ final class Portfolio {
     this.every,
     this._lots,
     this._steps,
+    this._counted,
     this._rescales,
     this._reshapes,
     this.leftOut,
@@ -40,6 +41,9 @@ final class Portfolio {
         h.code: [if (h.shares > 0) Lot(opening, h.shares, h.cost)],
     };
     final steps = <String, List<(DateTime, int)>>{
+      for (final h in start) h.code: [(opening, h.shares)],
+    };
+    final counted = <String, List<(DateTime, int)>>{
       for (final h in start) h.code: [(opening, h.shares)],
     };
     final rescales = <String, List<_Rescale>>{};
@@ -70,6 +74,7 @@ final class Portfolio {
       if (traded != null) byCode[code] = traded;
       final after = traded?.shares ?? held.shares;
       reshaped?.last = (e.date, held.shares, after);
+      (counted[code] ??= []).add((e.date, after));
       if (_step(steps[code] ??= [], e, held.shares, after)) {
         (rescales[code] ??= []).add((e.date, held.shares, after));
       }
@@ -83,6 +88,7 @@ final class Portfolio {
       List.unmodifiable(byCode.values),
       lots,
       steps,
+      counted,
       rescales,
       reshapes,
       List.unmodifiable(leftOut),
@@ -265,6 +271,10 @@ final class Portfolio {
   /// split or reduction are scaled to today's shares.
   final Map<String, List<(DateTime, int)>> _steps;
 
+  /// Each stock's shares after each trade, in date order, as counted on
+  /// its day.
+  final Map<String, List<(DateTime, int)>> _counted;
+
   /// Each stock's splits and reductions, in date order: the day, and the
   /// shares held before and after.
   final Map<String, List<_Rescale>> _rescales;
@@ -322,6 +332,32 @@ final class Portfolio {
       held = shares;
     }
     return held;
+  }
+
+  /// The shares of [code] held at the end of [day], as counted that day:
+  /// no split or reduction since scales them.
+  int sharesCountedOn(String code, DateTime day) {
+    var held = 0;
+    for (final (date, shares) in _counted[code] ?? const <(DateTime, int)>[]) {
+      if (date.isAfter(day)) break;
+      held = shares;
+    }
+    return held;
+  }
+
+  /// [shares] of [code] held at the end of [day], as counted then, in the
+  /// shares of the earlier day [of]: each split or reduction after [of]
+  /// up to [day] undone, as a close of [of] is a price per share of then
+  /// (D58).
+  int inSharesOf(String code, DateTime day, int shares, DateTime of) {
+    var n = shares;
+    for (final (date, before, after)
+        in (_rescales[code] ?? const <_Rescale>[]).reversed) {
+      if (date.isAfter(of) && !date.isAfter(day)) {
+        n = (n * before / after).round();
+      }
+    }
+    return n;
   }
 
   /// [shares] of [code] held at the end of [day], as they were counted

@@ -7,6 +7,7 @@ import '../repositories/entry_repository.dart';
 import '../repositories/market_data_repository.dart';
 import '../repositories/recurring_repository.dart';
 
+import 'package:domain/investments.dart' show FoundOn;
 import 'package:core/time/utc_days.dart';
 
 /// What falls due next for each recurring item, what it has booked and
@@ -240,14 +241,16 @@ final class RecurringService {
   /// The entry that books [item] on [day] (D66: the day 入帳 was
   /// pressed for on the calendar), else on its pending day, or today if
   /// that is later, for the composer to show before it is saved. A
-  /// foreign one is worth at home what today's rate makes it only when
-  /// it books today: the rates kept are today's, and no day's before
-  /// (R5); a day gone by is left without, for the person to fill in, and
-  /// the automatic booking leaves it to them.
+  /// foreign one is worth at home what the rate of its day makes it
+  /// (D58): that day's board, else the nearest earlier day's kept, else,
+  /// booked today, today's. A day gone by before any board kept is left
+  /// without, for the person to fill in (R5), and the automatic booking
+  /// leaves it to them.
   Entry booking(Recurring item, {DateTime? day}) {
     final pending = day ?? pendingDate(item) ?? _today();
     final date = pending.isAfter(_today()) ? _today() : pending;
     final currency = _accounts.resolve(item.account).currency;
+    final rate = currency == homeCode ? null : _market.rateOn(currency, date);
     return Entry(
       id: '',
       date: date,
@@ -258,9 +261,11 @@ final class RecurringService {
       note: item.name,
       recurring: item.id,
       merchant: item.merchant,
-      home: currency == homeCode || date != _today()
-          ? null
-          : _market.toHome(item.amount, currency),
+      home: switch (rate?.found) {
+        null => null,
+        FoundOn.today when date != _today() => null,
+        _ => _market.toHomeOn(item.amount, currency, date),
+      },
     );
   }
 }

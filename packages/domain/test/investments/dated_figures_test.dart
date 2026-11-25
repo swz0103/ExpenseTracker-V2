@@ -19,6 +19,8 @@ void main() {
       found: FoundOn.theDay,
     ));
     expect(usd.exactly('USD', d(3, 2)), 31.5);
+    expect(usd.latestOf('USD'), d(4, 1));
+    expect(usd.latestOf('JPY'), isNull);
   });
 
   test('else the nearest earlier day', () {

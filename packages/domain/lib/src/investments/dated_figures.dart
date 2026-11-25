@@ -43,6 +43,9 @@ final class DatedFigures {
       key: {for (final (i, day) in value.days.indexed) day: value.figures[i]},
   };
 
+  /// The latest day a figure of [key] is kept for; null when none is.
+  BusinessDate? latestOf(String key) => _byKey[key]?.days.last;
+
   /// The figure of [key] kept for exactly [day]; null when none is.
   double? exactly(String key, BusinessDate day) {
     final series = _byKey[key];

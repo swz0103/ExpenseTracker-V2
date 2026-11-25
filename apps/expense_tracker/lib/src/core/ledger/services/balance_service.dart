@@ -8,6 +8,7 @@ import '../repositories/account_repository.dart';
 import '../repositories/entry_repository.dart';
 import '../repositories/holding_repository.dart';
 import '../repositories/market_data_repository.dart';
+import 'dated_worth.dart';
 
 import 'package:core/foundation_values.dart' show BusinessDate, startOfWeek;
 import 'package:core/time/utc_days.dart';
@@ -245,9 +246,16 @@ final class BalanceService {
 
   /// The balance of [a] in whole NT$, held at the bank's buying rate and
   /// owed at its selling rate (D59); 0 for a foreign account without a
-  /// rate, which [unrated] lists.
-  int worthOf(Account a, {DateTime? until}) =>
-      _market.valueAtHome(balance(a.id, until: until), a.currency) ?? 0;
+  /// rate, which [unrated] lists. [until] a day, at that day's rates
+  /// (D58: that day's board, else the nearest earlier day's, else
+  /// today's).
+  int worthOf(Account a, {DateTime? until}) {
+    final held = balance(a.id, until: until);
+    return (until == null
+            ? _market.valueAtHome(held, a.currency)
+            : _market.valueAtHomeOn(held, a.currency, until)) ??
+        0;
+  }
 
   /// Counted foreign accounts left out of the totals for want of a rate.
   List<Account> get unrated => [
@@ -260,13 +268,24 @@ final class BalanceService {
   /// change since last month, the overview's chart and the reports. Each
   /// counted account stands on the side its balance is on, whatever its
   /// kind: a card or a loan paid past what it owed is money held, a bank
-  /// account overdrawn is owed. The shares then held count at today's
-  /// price (D105), those of a stock sold since included, until the
-  /// prices of past days are kept.
+  /// account overdrawn is owed, and a foreign one counts at that day's
+  /// rates (D58). The shares then held, those of a stock sold since
+  /// included (D105), count at that day's close in that day's shares,
+  /// else at the nearest earlier day's (D58, `datedWorth`); at today's
+  /// price in today's shares when that is the latest close, or none so
+  /// early is kept (D109).
   NetWorth netWorth(DateTime day) {
     var invested = 0;
     for (final h in _holdings.every) {
-      invested += timesPrice(_holdings.sharesOn(h.code, day), h.price);
+      invested +=
+          datedWorth(
+            holdings: _holdings,
+            market: _market,
+            code: h.code,
+            day: day,
+            counted: _holdings.sharesCountedOn(h.code, day),
+          ) ??
+          timesPrice(_holdings.sharesOn(h.code, day), h.price);
     }
     var saved = 0;
     var lent = 0;

@@ -12,4 +12,16 @@ void main() {
       expect(todaysRate(0.2105), '臺銀即期買入 0.2105');
     },
   );
+
+  test('D58: a rate kept for a day names its board\'s day', () {
+    final today = DateTime.utc(2026, 11, 25);
+    expect(
+      rateOfDay(32.5, DateTime.utc(2026, 11, 20), today: today),
+      '臺銀 11/20 即期買入 32.5',
+    );
+    expect(
+      rateOfDay(30.0, DateTime.utc(2025, 3, 9), today: today),
+      '臺銀 2025/3/9 即期買入 30',
+    );
+  });
 }

@@ -17,7 +17,13 @@ import 'package:core/foundation_values.dart';
 import 'package:core/money/amount_parser.dart' show parseDecimal;
 import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:domain/investments.dart'
-    show DoubtedFigure, doubtsStanding, takesFetched;
+    show
+        DatedFigures,
+        DoubtedFigure,
+        FoundOn,
+        MarketHistory,
+        doubtsStanding,
+        takesFetched;
 import 'package:market/market_data.dart';
 import 'package:storage/storage.dart';
 
@@ -30,6 +36,7 @@ import 'ledger_data_source.dart';
 import '../journal/replay.dart' show KeptEntry, ReplayReport;
 import '../ledger.dart';
 import 'codec/category_refs.dart';
+import 'codec/market_days.dart';
 import 'codec/record_fields.dart';
 import 'codec/row_decoding.dart';
 import 'quarantine.dart';
@@ -362,6 +369,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       moves: market.moves,
       quotedOn: market.quotedOn,
       quoteDays: market.days,
+      history: datedMarket(market),
       trash: book.trash,
       receipts: book.receipts,
       drafts: book.drafts,
@@ -899,7 +907,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       return;
     }
     if (collection == _market) {
-      if (id != 'quotes' && id != 'rates') throw FormatException(id);
+      // The latest closes, the latest board, or a day's of both (D58).
+      if (id != 'quotes' && id != 'rates' && marketDayOf(id) == null) {
+        throw FormatException(id);
+      }
       marketFrom([StoredRow(0, collection, id, body)]);
       return;
     }
@@ -924,6 +935,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     Map<String, double> sellRates,
     DateTime? quotedOn,
     Map<String, DateTime> days,
+    MarketHistory history,
   })
   market() {
     final kept = marketFrom(_readableMarket(_store.rows(shelf: _market)));
@@ -934,6 +946,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       sellRates: kept.sellRates,
       quotedOn: kept.quotedOn,
       days: kept.days,
+      history: datedMarket(kept),
     );
   }
 
@@ -963,11 +976,11 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       // one kept stays, the doubted one is kept to weigh the next fetch
       // by, and the doubt is noted; buying and selling alike (D59).
       final doubted = <String>{};
-      final keptDays = switch (kept.ratesOn) {
-        final on? => boardDay.difference(on).inDays,
-        null => null,
-      };
+      final dated = datedMarket(kept);
+      final days = MarketDayWrites(kept.history);
+      final onBoard = BusinessDate.of(boardDay);
       (Map<String, double>, Map<String, DoubtedFigure>) sane(
+        MarketSeries series,
         Map<String, double> quotes,
         Map<String, double> before,
         Map<String, DoubtedFigure> doubtedBefore,
@@ -979,14 +992,39 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         final held = doubtsStanding(doubtedBefore, boardDay);
         for (final MapEntry(key: code, value: rate) in quotes.entries) {
           final was = before[code];
+          // Weighed against the rate kept for the board's day, or the
+          // nearest day before it (D58), else the latest kept.
+          final against = _weighedAgainst(
+            series.of(dated),
+            code,
+            onBoard,
+            latest: was,
+            latestOn: kept.ratesOn,
+          );
           if (takesFetched(
-            kept: was,
+            kept: against.figure,
             fetched: rate,
-            keptDaysAgo: keptDays,
+            keptDaysAgo: switch (against.on) {
+              final on? => boardDay.difference(on).inDays,
+              null => null,
+            },
             doubtedBefore: held[code]?.figure,
           )) {
             taken[code] = rate;
             held.remove(code);
+            // Kept for the board's day (D58); the rate it replaces is
+            // kept for its own day first.
+            days.keep(
+              series,
+              code,
+              onBoard,
+              rate,
+              kept: was,
+              keptOn: switch (kept.ratesOn) {
+                final on? => BusinessDate.of(on),
+                null => null,
+              },
+            );
           } else {
             doubted.add(code);
             if (rate.isFinite && rate > 0) {
@@ -998,8 +1036,14 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         return (taken, held);
       }
 
-      final (fetched, heldBuying) = sane(quoted, kept.rates, kept.doubtedRates);
+      final (fetched, heldBuying) = sane(
+        MarketSeries.buying,
+        quoted,
+        kept.rates,
+        kept.doubtedRates,
+      );
       final (selling, heldSelling) = sane(
+        MarketSeries.selling,
         quotedSelling,
         kept.sellRates,
         kept.doubtedSellRates,
@@ -1014,8 +1058,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       final ratesMoved =
           !mapEquals(fetched, kept.rates) ||
           !mapEquals(selling, kept.sellRates);
+      final dayRows = days.rows;
       if (fetched.isEmpty ||
           (!ratesMoved &&
+              dayRows.isEmpty &&
               mapEquals(heldBuying, kept.doubtedRates) &&
               mapEquals(heldSelling, kept.doubtedSellRates))) {
         return false;
@@ -1023,8 +1069,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       // Fetched, not changed by the person: no new backup is due for it.
       // The board's day moves only with a rate taken: the day the rates
       // kept are of.
-      _store.write(
-        (w) => w.put(
+      // Each day's rates beside them (D58), in the same write.
+      _store.write((w) {
+        w.put(
           _market,
           'rates',
           jsonEncode({
@@ -1036,12 +1083,31 @@ final class SqlLedgerDataSource implements LedgerDataSource {
             ..._doubtsJson('doubted', heldBuying),
             ..._doubtsJson('doubtedSell', heldSelling),
           }),
-        ),
-        counts: false,
-      );
+        );
+        dayRows.forEach((id, body) => w.put(_market, id, body));
+      }, counts: false);
       return ratesMoved;
     });
   }
+
+  /// What a figure fetched for [day] is weighed against (D95, D101):
+  /// the one [dated] keeps for that day or the nearest day before it
+  /// (D58), with its day, else the [latest] kept, of [latestOn].
+  static ({double? figure, DateTime? on}) _weighedAgainst(
+    DatedFigures dated,
+    String key,
+    BusinessDate day, {
+    required double? latest,
+    required DateTime? latestOn,
+  }) => switch (dated.on(key, day)) {
+    (
+      :final figure,
+      of: final of?,
+      found: FoundOn.theDay || FoundOn.earlierDay,
+    ) =>
+      (figure: figure, on: of.asUtcMidnight),
+    _ => (figure: latest, on: latestOn),
+  };
 
   /// The codes the last [refreshQuotes] found no close for: not quoted
   /// by either exchange, or out of reach.
@@ -1118,6 +1184,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final moves = {...kept.moves};
     final names = {...kept.names};
     final days = {...kept.days};
+    final dated = datedMarket(kept).closes;
+    final closesByDay = MarketDayWrites(kept.history);
     final today = _today();
     // A doubt too old to weigh a fetch by is let go of (review 25).
     final doubtedBefore = doubtsStanding(kept.doubtedCloses, today);
@@ -1148,12 +1216,24 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         continue;
       }
       final keptOn = days[code];
+      // Weighed against the close kept for its day, or the nearest day
+      // before it (D58), else the latest kept.
+      final against = _weighedAgainst(
+        dated,
+        code,
+        BusinessDate.of(day),
+        latest: prices[code],
+        latestOn: keptOn,
+      );
       if (!takesFetched(
-        kept: prices[code],
+        kept: against.figure,
         fetched: price,
-        keptDaysAgo: keptOn == null ? null : day.difference(keptOn).inDays,
+        keptDaysAgo: switch (against.on) {
+          final on? => day.difference(on).inDays,
+          null => null,
+        },
         doubtedBefore: doubtedBefore[code]?.figure,
-        reshapedBy: reshapedBy(code, keptOn),
+        reshapedBy: reshapedBy(code, against.on),
       )) {
         doubted.add(code);
         // Kept to weigh the next fetch by (D101), with its day.
@@ -1165,6 +1245,16 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         continue;
       }
       if (doubtedBefore.remove(code) != null) changed = true;
+      // Kept for its day (D58); the close it replaces is kept for its own
+      // day first.
+      closesByDay.keep(
+        MarketSeries.closes,
+        code,
+        BusinessDate.of(day),
+        price,
+        kept: prices[code],
+        keptOn: keptOn == null ? null : BusinessDate.of(keptOn),
+      );
       if (quotedOn == null || day.isAfter(quotedOn)) {
         quotedOn = day;
         changed = true;
@@ -1209,10 +1299,13 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       }
       changed = true;
     }
-    if (changed) {
+    final dayRows = closesByDay.rows;
+    if (changed || dayRows.isNotEmpty) {
       await _whenQuiet(
-        () => _store.write(
-          (w) => w.put(
+        () => _store.write((w) {
+          // Each day's closes beside them (D58), in the same write.
+          dayRows.forEach((id, body) => w.put(_market, id, body));
+          w.put(
             _market,
             'quotes',
             jsonEncode({
@@ -1226,9 +1319,8 @@ final class SqlLedgerDataSource implements LedgerDataSource {
               'on': ?quotedOn?.toIso8601String(),
               ..._doubtsJson('doubted', doubtedBefore),
             }),
-          ),
-          counts: false,
-        ),
+          );
+        }, counts: false),
       );
     }
     return changed;

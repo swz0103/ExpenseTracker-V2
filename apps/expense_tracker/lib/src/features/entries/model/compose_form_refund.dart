@@ -6,12 +6,13 @@ import 'compose_form.dart';
 extension RefundFields on ComposeForm {
   /// [home], else the refunded share of the purchase's worth (the rest of
   /// it for the refund that gives back the rest, D62), else the amount at
-  /// today's rate; null without a rate.
+  /// the rate of its day (D58: that day's board, else the nearest earlier
+  /// day's, else today's); null without a rate.
   int? get homeValue {
     final typed = home;
     if (typed != null) return typed;
     if (refundBeingWritten?.home case final share?) return share;
-    return ledger.marketData.toHome(amount, currency);
+    return ledger.marketData.toHomeOn(amount, currency, date);
   }
 
   /// The spending the entry gives back: [refunded], or the one a refund

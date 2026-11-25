@@ -8,8 +8,10 @@ import 'package:expense_tracker/src/core/ledger/persistence/book_opening.dart'
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:domain/investments.dart' show FoundOn;
 import 'package:market/market_data.dart';
-import 'package:storage/storage.dart' show EncryptedDatabase;
+import 'package:storage/storage.dart' show EncryptedDatabase, StorageKey;
+import 'package:vault/ledger_backup.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
@@ -447,6 +449,199 @@ void main() {
       now = now.add(const Duration(hours: 1));
       await data.refreshQuotes(['2330', '0050']);
       expect(data.market().quotedOn, DateTime.utc(2026, 9, 29));
+    });
+
+    group('D58: each fetch is kept for its day', () {
+      Map<String, Object?>? dayRow(String day) =>
+          switch (store.row(marketShelf, 'day:$day')) {
+            final row? => jsonDecode(row.body) as Map<String, Object?>,
+            null => null,
+          };
+
+      test('rates: each board on its day, a doubted one on none', () async {
+        final data = await source();
+        expect(await data.refreshRates(), isTrue);
+        expect(dayRow('2026-09-30'), {
+          'rates': {'USD': 31.835},
+          'sell': {'USD': 31.985},
+        });
+        // 10/2: the buying rate moved, the selling rate did not; the
+        // selling rate of 9/30 stands for 10/2, so it is not kept again.
+        now = DateTime.utc(2026, 10, 2, 4);
+        spot = board('32.10000');
+        expect(await data.refreshRates(), isTrue);
+        expect(dayRow('2026-10-02'), {
+          'rates': {'USD': 32.1},
+        });
+        // 10/3: 0.00001 is doubted (D95): kept for no day.
+        now = DateTime.utc(2026, 10, 3, 4);
+        spot = board('0.00001');
+        await data.refreshRates();
+        expect(data.doubtfulRates, ['USD']);
+        expect(dayRow('2026-10-03'), isNull);
+
+        final ledger = await data.load();
+        final m = ledger.marketData;
+        expect(m.rateOn('USD', DateTime.utc(2026, 9, 30)), (
+          figure: 31.835,
+          of: BusinessDate(2026, 9, 30),
+          found: FoundOn.theDay,
+        ));
+        // 10/1: none of its own, 9/30's.
+        expect(m.rateOn('USD', DateTime.utc(2026, 10, 1))?.figure, 31.835);
+        expect(m.rateOn('USD', DateTime.utc(2026, 10, 3))?.figure, 32.1);
+        expect(
+          m.rateOn('USD', DateTime.utc(2026, 10, 2), side: BoardSide.selling),
+          (
+            figure: 31.985,
+            of: BusinessDate(2026, 9, 30),
+            found: FoundOn.earlierDay,
+          ),
+        );
+        // Before any board kept: today's.
+        expect(m.rateOn('USD', DateTime.utc(2026, 9, 1))?.found, FoundOn.today);
+        // US$100 on 10/1: 100 x 31.835 = 3,183.5 -> 3,184; on 10/2:
+        // 100 x 32.1 = 3,210.
+        expect(m.toHomeOn(10000, 'USD', DateTime.utc(2026, 10, 1)), 3184);
+        expect(m.toHomeOn(10000, 'USD', DateTime.utc(2026, 10, 2)), 3210);
+      });
+
+      test(
+        'closes: each on the day it is for, a doubted one on none',
+        () async {
+          final data = await source();
+          expect(await data.refreshQuotes(['2330', '0050']), isTrue);
+          expect(dayRow('2026-09-29'), {
+            'closes': {'2330': 1234.5, '0050': 62.75},
+          });
+          daily = closes('1150930', '1,240.00');
+          now = now.add(const Duration(hours: 1));
+          await data.refreshQuotes(['2330', '0050']);
+          // 0050 is unchanged: 9/29's stands for 9/30.
+          expect(dayRow('2026-09-30'), {
+            'closes': {'2330': 1240.0},
+          });
+          // 99,999 is doubted (D95): kept for no day.
+          daily = closes('1151001', '99,999.00');
+          now = DateTime.utc(2026, 10, 1, 4);
+          sourceClock.advance(const Duration(days: 1));
+          await data.refreshQuotes(['2330', '0050']);
+          expect(data.doubtfulCloses, ['2330']);
+          expect(dayRow('2026-10-01'), isNull);
+
+          final m = (await data.load()).marketData;
+          expect(m.closeOn('2330', DateTime.utc(2026, 9, 29))?.figure, 1234.5);
+          expect(m.closeOn('2330', DateTime.utc(2026, 10, 1)), (
+            figure: 1240.0,
+            of: BusinessDate(2026, 9, 30),
+            found: FoundOn.earlierDay,
+          ));
+          expect(m.closeOn('0050', DateTime.utc(2026, 9, 30))?.figure, 62.75);
+          expect(
+            m.closeOn('2330', DateTime.utc(2026, 9, 1))?.found,
+            FoundOn.today,
+          );
+        },
+      );
+
+      test('a book kept before D58 keeps its latest close for its day '
+          'when a new one comes', () async {
+        final data = await source();
+        store.write(
+          (w) => w.put(
+            marketShelf,
+            'quotes',
+            jsonEncode({
+              'prices': {'2330': 1200.0},
+              'days': {'2330': '2026-09-26T00:00:00.000Z'},
+              'on': '2026-09-26T00:00:00.000Z',
+            }),
+          ),
+          counts: false,
+        );
+        // Before any fetch, its one close is read as of its day.
+        expect(
+          data.market().history.closes.on('2330', BusinessDate(2026, 9, 28)),
+          (
+            figure: 1200.0,
+            of: BusinessDate(2026, 9, 26),
+            found: FoundOn.earlierDay,
+          ),
+        );
+        await data.refreshQuotes(['2330', '0050']);
+        expect(dayRow('2026-09-26'), {
+          'closes': {'2330': 1200.0},
+        });
+        expect(dayRow('2026-09-29')?['closes'], {
+          '2330': 1234.5,
+          '0050': 62.75,
+        });
+      });
+
+      test('a backup carries the days, and a restore keeps them', () async {
+        final data = await source();
+        await data.refreshRates();
+        await data.refreshQuotes(['2330', '0050']);
+        final keys = (await KeyringCodec(
+          kdf: PasswordKdf.insecureForTests,
+        ).create('backup password')).unlocked;
+        final directory = Directory.systemTemp.createTempSync('market-b-');
+        addTearDown(() => directory.deleteSync(recursive: true));
+        final file = File('${directory.path}/b.etbk');
+        await LedgerBackup.write(
+          store: store,
+          keys: keys,
+          file: file,
+          backupId: 'b',
+          createdAt: now,
+        );
+        final into = EncryptedDatabase.open(
+          File('${directory.path}/into.db'),
+          StorageKey.random(),
+        );
+        addTearDown(into.close);
+        await LedgerBackup.restore(
+          file: file,
+          keys: keys,
+          into: into,
+          accept: SqlLedgerDataSource.check,
+        );
+        expect(into.row(marketShelf, 'day:2026-09-30'), isNotNull);
+        expect(into.row(marketShelf, 'day:2026-09-29'), isNotNull);
+        final m = (await SqlLedgerDataSource(
+          into,
+          clock: sourceClock,
+        ).load()).marketData;
+        expect(m.closeOn('2330', DateTime.utc(2026, 9, 29))?.figure, 1234.5);
+        expect(
+          m.rateOn('USD', DateTime.utc(2026, 9, 30))?.found,
+          FoundOn.theDay,
+        );
+      });
+
+      test('a day row is checked as a backup is restored', () {
+        expect(
+          () => SqlLedgerDataSource.check(
+            marketShelf,
+            'day:2026-09-30',
+            '{"rates":{"USD":31.8},"closes":{"2330":1234.5}}',
+          ),
+          returnsNormally,
+        );
+        for (final (id, body) in [
+          ('day:2026-13-01', '{}'),
+          ('day:2026-09-30', '{"rates":{"USD":"high"}}'),
+          ('day:2026-09-30', '{"closes":{"2330":-1}}'),
+          ('day:2026-09-30', '{"sell":[1]}'),
+          ('days', '{}'),
+        ]) {
+          expect(
+            () => SqlLedgerDataSource.check(marketShelf, id, body),
+            throwsFormatException,
+            reason: '$id $body',
+          );
+        }
+      });
     });
   });
 }
