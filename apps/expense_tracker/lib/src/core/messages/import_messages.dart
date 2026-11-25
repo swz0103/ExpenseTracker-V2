@@ -41,8 +41,8 @@ String invoiceRefusalWords(InvoiceRefusal why) => switch (why) {
 /// D123).
 String importEstimatedWords(FoundOn found) =>
     found == FoundOn.todayEarlierTooOld
-    ? '$boardTooOldWords；台幣金額以今日匯率估算'
-    : '台幣金額以今日匯率估算';
+    ? '$boardTooOldWords；新台幣金額以今日匯率估算'
+    : '新台幣金額以今日匯率估算';
 
 /// An amount of an imported line that is not one.
 const importAmountWords = '金額看不懂';

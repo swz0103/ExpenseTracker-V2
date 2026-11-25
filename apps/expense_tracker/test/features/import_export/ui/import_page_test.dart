@@ -69,6 +69,6 @@ void main() {
     await show(tester, 360, 1, book: ledger);
     await go(tester, ['更多', '設定', '匯入與匯出', 'CSV 檔案', '貼上']);
     // No board kept on or before 2020-01-02: today's rate stands in.
-    expect(find.text('飲食日常 · 台幣金額以今日匯率估算'), findsOneWidget);
+    expect(find.text('飲食日常 · 新台幣金額以今日匯率估算'), findsOneWidget);
   });
 }

@@ -292,7 +292,7 @@ void main() {
     expect(found.estimated[byDay[2]!.id], FoundOn.todayEarlierTooOld);
     expect(
       importEstimatedWords(FoundOn.todayEarlierTooOld),
-      '最近的牌價早於當日 30 天以上，不採用；台幣金額以今日匯率估算',
+      '最近的牌價早於當日 30 天以上，不採用；新台幣金額以今日匯率估算',
     );
     // 8/1: before any board kept: today's, 320.
     expect(found.entries.firstWhere((e) => e.date.month == 8).home, 320);
@@ -300,7 +300,7 @@ void main() {
       found.estimated[found.entries.firstWhere((e) => e.date.month == 8).id],
       FoundOn.today,
     );
-    expect(importEstimatedWords(FoundOn.today), '台幣金額以今日匯率估算');
+    expect(importEstimatedWords(FoundOn.today), '新台幣金額以今日匯率估算');
     // Today: today's board, no estimate.
     expect(found.estimated[byDay[13]!.id], isNull);
     // Kept only for the entries chosen.
