@@ -74,6 +74,13 @@ class BackupSection extends StatefulWidget {
 }
 
 class _BackupSectionState extends State<BackupSection> {
+  @override
+  void initState() {
+    super.initState();
+    // A folder whose permission was taken back is said on its card.
+    widget.phone?.check().ignore();
+  }
+
   /// Saves a backup outside the app. Without a password, only a recovery
   /// code opens it on another phone, so a new one is made and shown.
   Future<void> _export(BackupManager backupManager) async {
@@ -392,6 +399,11 @@ class _BackupSectionState extends State<BackupSection> {
           : (next) => next ? _choosePhone(phone) : _stopPhone(phone),
       rows: [
         if (on) ...[
+          if (phone.denied)
+            _FolderDenied(
+              color: color,
+              onChoose: phone.busy ? null : () => _choosePhone(phone),
+            ),
           _CardRow(
             color: color,
             title: '多久一次',

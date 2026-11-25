@@ -341,6 +341,26 @@ void main() {
       expect(find.textContaining('已備份到「備份」'), findsOneWidget);
     });
 
+    testWidgets('R37: a folder that refuses is said on its card with '
+        '重新選擇; choosing a folder takes it away', (tester) async {
+      final folder = FakeFolder();
+      final backup = phone(folder);
+      addTearDown(backup.dispose);
+      await tester.runAsync(backup.choose);
+      folder.allowedNow = false;
+      await open(tester, phone: backup);
+      await settle(tester);
+      expect(find.text('沒有這個資料夾的存取權，請重新選擇'), findsOneWidget);
+      expect(find.text('重新選擇'), findsOneWidget);
+      folder.allowedNow = true;
+      await tester.tap(find.byKey(Keys.chooseFolderAgain));
+      await settle(tester);
+      await tap(tester, '選資料夾');
+      expect(find.text('已備份到「備份」，之後每週自動備份'), findsOneWidget);
+      expect(find.text('沒有這個資料夾的存取權，請重新選擇'), findsNothing);
+      expect(backup.denied, isFalse);
+    });
+
     testWidgets('取消 at the rules opens no chooser', (tester) async {
       final backup = phone(FakeFolder());
       addTearDown(backup.dispose);

@@ -33,4 +33,9 @@ abstract final class BackupWords {
   /// the backups already there carry them (`BackupRules`).
   static const driveFolder = '記帳本備份';
   static const phoneNameStart = '記帳本-';
+
+  /// The phone's folder chosen for backups no longer lets the app write
+  /// (`FolderDenied`), and the button that opens the chooser again.
+  static const folderDenied = '沒有這個資料夾的存取權，請重新選擇';
+  static const chooseFolderAgain = '重新選擇';
 }
