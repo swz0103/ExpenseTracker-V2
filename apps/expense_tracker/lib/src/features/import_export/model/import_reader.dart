@@ -232,7 +232,7 @@ final class _Reader {
         validationMessage(failure!),
       );
     }
-    if (failure is RefundExceedsRemaining) return '找不到可以退款的原支出';
+    if (failure is RefundExceedsRemaining) return importNoOriginalWords;
     if (failure != null) return validationMessage(failure);
     if (_already(book, made)) return '帳本裡已經有這一筆';
     if (made.isRefund) {
@@ -326,7 +326,7 @@ final class _Reader {
     if (linked != null) {
       // What is left of it to give back is weighed by the write rules,
       // once they know it goes back to an account that can take it.
-      if (!spending(linked)) return '找不到可以退款的原支出';
+      if (!spending(linked)) return importNoOriginalWords;
       original = linked;
     } else {
       final candidates = [
@@ -335,7 +335,7 @@ final class _Reader {
         for (final e in [...book.entries.all, for (final (_, f) in _found) f])
           if (e.account == account && refundable(e)) e,
       ]..sort((a, b) => b.date.compareTo(a.date));
-      if (candidates.isEmpty) return '找不到可以退款的原支出';
+      if (candidates.isEmpty) return importNoOriginalWords;
       original = candidates.firstWhere(
         (e) => shop.isNotEmpty && e.merchant == shop,
         orElse: () => candidates.first,
