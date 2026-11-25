@@ -244,25 +244,18 @@ final class EntryQueryService {
       entry.group != null && groupLead(entry).id != entry.id;
 
   /// Every trade and dividend of [code], newest first.
-  List<Entry> tradesOf(String code) => [
-    // Exception to as-of-today: a holding's list shows every trade, 預定 ones
-    // marked.
-    for (final e in _entries.all)
-      if (e.holding == code) e,
-  ]..sort(newestFirst(_entries));
+  List<Entry> tradesOf(String code) =>
+      // Exception to as-of-today: a holding's list shows every trade, 預定
+      // ones marked.
+      [...tradesInBookOrder(code)]..sort(newestFirst(_entries));
 
   /// Every entry of [code] (its trades and dividends) in the order the
   /// book keeps them, which is how a replay orders those of one day:
-  /// worked out once per change of the entries.
-  List<Entry> tradesInBookOrder(String code) => _cache.remember(
-    ('tradesInBookOrder', code),
-    () => List<Entry>.unmodifiable([
+  /// read from the stock's index, which follows each change.
+  List<Entry> tradesInBookOrder(String code) =>
       // Exception to as-of-today: every one written; the caller takes
       // them through countedOn.
-      for (final e in _entries.all)
-        if (e.holding == code) e,
-    ]),
-  );
+      _entries.ofHolding(code);
 
   /// The spending [refund] gives back, while the book holds it; null for
   /// an entry that is not a refund, or none.

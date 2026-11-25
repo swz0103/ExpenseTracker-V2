@@ -25,6 +25,7 @@ void repositoryFuzz() {
         account: 'a${r.nextInt(3)}',
         to: r.nextInt(4) == 0 ? 'a${r.nextInt(3)}' : null,
         group: r.nextInt(4) == 0 ? 'g${r.nextInt(3)}' : null,
+        holding: r.nextInt(4) == 0 ? 'h${r.nextInt(3)}' : null,
         refundOf: serial > 3 && r.nextInt(4) == 0
             ? 'e${r.nextInt(serial)}'
             : null,
@@ -34,6 +35,7 @@ void repositoryFuzz() {
         if (r.nextBool()) repo.inMonth(2026, 1 + r.nextInt(3));
         if (r.nextInt(3) == 0) repo.ofAccount('a${r.nextInt(3)}');
         if (r.nextInt(3) == 0) repo.inGroup('g${r.nextInt(3)}');
+        if (r.nextInt(3) == 0) repo.ofHolding('h${r.nextInt(3)}');
         if (r.nextInt(3) == 0) repo.refundsOf('e${r.nextInt(max(serial, 1))}');
         if (r.nextInt(3) == 0) repo.byId('e${r.nextInt(max(serial, 1))}');
         if (r.nextInt(5) == 0) repo.firstDate;
@@ -73,6 +75,19 @@ void repositoryFuzz() {
             ids(repo.inGroup('g$a')),
             ids(fresh.inGroup('g$a')),
             reason: '$step grp',
+          );
+          expect(
+            ids(repo.ofHolding('h$a')),
+            ids(fresh.ofHolding('h$a')),
+            reason: '$step stock',
+          );
+          expect(
+            ids(repo.ofHolding('h$a')),
+            ids([
+              for (final e in repo.all)
+                if (e.holding == 'h$a') e,
+            ]),
+            reason: '$step stock in the order written',
           );
         }
         for (var i = 0; i <= serial; i++) {

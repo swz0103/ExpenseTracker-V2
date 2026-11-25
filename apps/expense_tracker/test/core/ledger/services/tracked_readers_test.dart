@@ -72,6 +72,7 @@ void main() {
       'byDate': (r) => r.byDate.toList(),
       'firstDate': (r) => r.firstDate,
       'refundedTotal': (r) => r.refundedTotal('lunch'),
+      'ofHolding': (r) => r.ofHolding('2330'),
     };
     for (final MapEntry(:key, value: read) in reads.entries) {
       final (topics, answer) = traced(

@@ -119,6 +119,12 @@ final class TrackedEntryReader implements EntryReader {
     _cache.noteReads(_topics);
     return _inner.written(some);
   }
+
+  @override
+  List<Entry> ofHolding(String code) {
+    _cache.noteReads(_topics);
+    return _inner.ofHolding(code);
+  }
 }
 
 /// A [AccountReader] that tells [QueryCache] it was read.
