@@ -33,8 +33,15 @@ final class _Reader {
   /// in the file to name.
   final _byFileId = <String, Entry>{};
 
+  /// The entries read by the id each takes, for the spending a refund
+  /// read names to be found, the book not having it yet.
+  final _byId = <String, Entry>{};
+
   /// Refunds already given against spending in this file, by its id.
   final _refunded = <String, int>{};
+
+  /// The group each 群組 written in the file is kept under in the book.
+  final _groupOf = <String, String>{};
   final _problems = <String>[];
 
   /// The line of the file being read, and the id its entry takes.
@@ -119,6 +126,18 @@ final class _Reader {
     return (book.inTrash(written) ? book.newId() : written, null);
   }
 
+  /// The group the entries of the 群組 [written] are kept under: the one
+  /// written while neither the book nor its trash has an entry of it, so
+  /// an entry read never joins a group of the book (review 37 2); a new
+  /// one otherwise, the same for every line of the file that writes it.
+  String? _groupNamed(String written) {
+    if (written.isEmpty) return null;
+    return _groupOf[written] ??=
+        book.entries.inGroup(written).isEmpty && !book.groupInTrash(written)
+        ? written
+        : book.newId();
+  }
+
   /// Reads the [line] of the file; why it cannot be kept, or null when
   /// it was.
   String? read(_Cell cell, {required int line}) {
@@ -185,10 +204,9 @@ final class _Reader {
       _ => _investment(cell, kind, day, account, from, amount, note),
     };
     if (entry is! Entry) return entry as String;
-    final written = cell(ExchangeColumn.group);
     final recurring = cell(ExchangeColumn.recurring);
     final made = entry.withLinks(
-      group: written.isEmpty ? null : written,
+      group: _groupNamed(cell(ExchangeColumn.group)),
       // A link to an item the book does not have is no link.
       recurring: book.recurring.byId(recurring) == null ? null : recurring,
       mark: _entryMark(mark),
@@ -196,18 +214,32 @@ final class _Reader {
     );
     // Checked as one typed in would be, with the accounts this file adds;
     // the shares its trades take are checked together when it is added.
+    final original = made.refundOf == null
+        ? null
+        : _byId[made.refundOf!] ?? book.entries.byId(made.refundOf!);
     final failure = book.entryValidator.validate(
       made,
       holdings: false,
       opening: _accounts,
+      refunding: original == null
+          ? null
+          : (original: original, left: _left(original)),
     );
     if (failure is MissingHomeAmount) return importMissingHomeWords;
+    if (failure is RefundOtherCurrency || failure is RefundToOtherAccount) {
+      return importRefundTargetWords(
+        cell(ExchangeColumn.refundOf),
+        validationMessage(failure!),
+      );
+    }
+    if (failure is RefundExceedsRemaining) return '找不到可以退款的原支出';
     if (failure != null) return validationMessage(failure);
     if (_already(book, made)) return '帳本裡已經有這一筆';
     if (made.isRefund) {
       _refunded[made.refundOf!] = (_refunded[made.refundOf!] ?? 0) + amount;
     }
     _found.add((_line, made));
+    _byId[made.id] = made;
     if (fileId.isNotEmpty) _byFileId[fileId] = made;
     return null;
   }
@@ -282,11 +314,9 @@ final class _Reader {
     int amount,
     String note,
   ) {
-    bool refundable(Entry e) =>
-        e.type == EntryType.expense &&
-        !e.isRefund &&
-        !e.date.isAfter(day) &&
-        _left(e) >= amount;
+    bool spending(Entry e) =>
+        e.type == EntryType.expense && !e.isRefund && !e.date.isAfter(day);
+    bool refundable(Entry e) => spending(e) && _left(e) >= amount;
     final shop = cell(ExchangeColumn.merchant);
     final named = cell(ExchangeColumn.refundOf);
     final Entry? linked = named.isEmpty
@@ -294,7 +324,9 @@ final class _Reader {
         : _byFileId[named] ?? book.entries.byId(named);
     final Entry original;
     if (linked != null) {
-      if (!refundable(linked)) return '找不到可以退款的原支出';
+      // What is left of it to give back is weighed by the write rules,
+      // once they know it goes back to an account that can take it.
+      if (!spending(linked)) return '找不到可以退款的原支出';
       original = linked;
     } else {
       final candidates = [

@@ -10,6 +10,8 @@ import 'package:expense_tracker/src/features/import_export/ui/import_page.dart'
     show importBookOf;
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../../baseline/baseline_ledger.dart';
+
 /// R12: CSV files made at random and mutated from the demo book's export
 /// (seeded), imported. Importing never throws; every line is imported or
 /// left out with why; what is imported is of a shape the book keeps, from
@@ -185,6 +187,161 @@ void main() {
     test('with no rate and no worth written, the column is named', () {
       final found = read('2026-09-01,支出,100,美元戶,Shop,\n', currency: 'GBP');
       expect(found.problems, ['第 2 行：還沒有匯率，請在「台幣金額」欄填折合新台幣的金額']);
+    });
+  });
+
+  group('a refund naming its spending (review 37 1)', () {
+    Ledger book([List<Entry> entries = const []]) => ledgerOf(
+      today: day(2026, 10, 20),
+      accounts: const [
+        Account('bank', '銀行', AccountKind.bank, 0),
+        Account('cash', '現金', AccountKind.cash, 0),
+        Account('usd', '美元帳戶', AccountKind.bank, 0, currency: 'USD'),
+        Account('usd2', '美元現鈔', AccountKind.cash, 0, currency: 'USD'),
+        Account('card', '信用卡', AccountKind.card, 0, closingDay: 20, dueDay: 5),
+      ],
+      categories: [Category('飲食', 'food', 0xFF111111)],
+      entries: entries,
+    );
+    // Exception to glossary: the file format's columns.
+    const head = '日期,類型,金額,帳戶,分類,編號,退款對象,台幣金額\n';
+    const bought = '2026-10-01,支出,1000,銀行,飲食,s1,,\n';
+    Import read(Ledger ledger, String rows) =>
+        importCsv(importBookOf(ledger), head + rows, fallback: 'bank');
+
+    test('of the file, in another currency, is refused naming 退款對象', () {
+      // US$5 (500 cents) against a NT$1,000 purchase: not weighed as
+      // 500 of 1,000.
+      final found = read(book(), '${bought}2026-10-02,退款,5,美元帳戶,,r1,s1,150\n');
+      expect(found.problems, ['第 3 行：「退款對象」s1：退款要退回和原支出同一種幣別的帳戶']);
+      expect([for (final e in found.entries) e.id], ['s1']);
+    });
+
+    test('of the book, in another currency, is refused naming 退款對象', () {
+      final ledger = book([
+        entryOf(
+          'p',
+          day(2026, 10, 1),
+          EntryType.expense,
+          1000,
+          'bank',
+          category: '飲食',
+        ),
+      ]);
+      final found = read(ledger, '2026-10-02,退款,5,美元帳戶,,r1,p,150\n');
+      expect(found.problems, ['第 2 行：「退款對象」p：退款要退回和原支出同一種幣別的帳戶']);
+      expect(found.entries, isEmpty);
+    });
+
+    test('of foreign spending, back in NT\$, is refused', () {
+      final found = read(
+        book(),
+        '2026-10-01,支出,10,美元帳戶,飲食,u1,,321\n'
+        '2026-10-02,退款,500,銀行,,r1,u1,\n',
+      );
+      expect(found.problems, ['第 3 行：「退款對象」u1：退款要退回和原支出同一種幣別的帳戶']);
+    });
+
+    test('of foreign spending, to another account of its currency, is kept '
+        'with its share of the worth', () {
+      final found = read(
+        book(),
+        '2026-10-01,支出,10,美元帳戶,飲食,u1,,321\n'
+        '2026-10-02,退款,4,美元現鈔,,r1,u1,\n',
+      );
+      expect(found.problems, isEmpty);
+      final refund = found.entries.last;
+      expect(refund.account, 'usd2');
+      expect(refund.refundOf, 'u1');
+      // 321 x 400 / 1,000 = 128.4, rounded to 128.
+      expect(refund.home, 128);
+    });
+
+    test('of card spending, to another account, is refused', () {
+      final found = read(
+        book(),
+        '2026-10-01,支出,1000,信用卡,飲食,c1,,\n'
+        '2026-10-02,退款,500,現金,,r1,c1,\n',
+      );
+      expect(found.problems, ['第 3 行：「退款對象」c1：信用卡消費的退款要退回同一張卡']);
+    });
+
+    test('of bank spending, to cash, is kept, as the composer offers', () {
+      final found = read(book(), '${bought}2026-10-02,退款,500,現金,,r1,s1,\n');
+      expect(found.problems, isEmpty);
+      expect(found.entries.last.refundOf, 's1');
+    });
+
+    test('more than is left, the file\'s own refunds counted, is refused', () {
+      final found = read(
+        book(),
+        '${bought}2026-10-02,退款,600,銀行,,r1,s1,\n'
+        '2026-10-03,退款,500,銀行,,r2,s1,\n',
+      );
+      // 1,000 - 600 = 400 left: 500 is more.
+      expect(found.problems, ['第 4 行：找不到可以退款的原支出']);
+    });
+
+    test('what is kept is added', () {
+      final ledger = book();
+      final found = read(ledger, '${bought}2026-10-02,退款,500,現金,,r1,s1,\n');
+      addImport(ledger.entryCommands, found);
+      // 1,000 - 500 = 500 left.
+      expect(
+        ledger.entryQueryService.refundable(ledger.entries.byId('s1')!),
+        500,
+      );
+    });
+  });
+
+  group('a 群組 of the file (review 37 2)', () {
+    Entry old(String id, String group) => entryOf(
+      id,
+      day(2026, 9, 1),
+      EntryType.expense,
+      100,
+      'bank',
+      category: '飲食',
+    ).withLinks(group: group);
+    Ledger book([List<Entry> entries = const []]) => ledgerOf(
+      today: day(2026, 10, 20),
+      categories: [Category('飲食', 'food', 0xFF111111)],
+      entries: entries,
+    );
+    // Exception to glossary: the file format's columns.
+    const head = '日期,類型,金額,帳戶,分類,備註,群組\n';
+    Import read(Ledger ledger, String rows) =>
+        importCsv(importBookOf(ledger), head + rows, fallback: 'bank');
+
+    test('one the book has is never joined', () {
+      final ledger = book([old('old1', 'G'), old('old2', 'G')]);
+      final found = read(
+        ledger,
+        '2026-10-01,支出,1000,銀行,飲食,x,G\n'
+        '2026-10-02,支出,200,銀行,飲食,y,G\n'
+        '2026-10-02,支出,300,銀行,飲食,z,H\n',
+      );
+      expect(found.problems, isEmpty);
+      final [x, y, z] = found.entries;
+      // One new group for both lines of G; H, which the book lacks, kept.
+      expect(x.group, isNotNull);
+      expect(x.group, isNot('G'));
+      expect(y.group, x.group);
+      expect(z.group, 'H');
+      addImport(ledger.entryCommands, found);
+      expect(
+        [for (final e in ledger.entries.inGroup('G')) e.id],
+        ['old1', 'old2'],
+      );
+      expect(ledger.entries.inGroup(x.group!), hasLength(2));
+    });
+
+    test('one of an entry in the trash is not reused', () {
+      final ledger = book([old('gone', 'T')]);
+      ledger.entryCommands.remove('gone');
+      final found = read(ledger, '2026-10-01,支出,1000,銀行,飲食,x,T\n');
+      expect(found.entries.single.group, isNotNull);
+      expect(found.entries.single.group, isNot('T'));
     });
   });
 }

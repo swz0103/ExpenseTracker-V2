@@ -37,18 +37,23 @@ final class EntryValidator {
   /// aside. [replacing] is the entry [e] edits, whose own shares and
   /// refund do not count against it. An import, and a command that replays
   /// the trades after, checks the shares together ([holdings] false);
-  /// [opening] are accounts an import brings, not in the book yet.
+  /// [opening] are accounts an import brings, not in the book yet;
+  /// [refunding] the spending a refund it reads gives back, the book's or
+  /// one of the same file, with what is left of it once the refunds read
+  /// before are given (review 37 1).
   RecordIssue? validate(
     Entry e, {
     Entry? replacing,
     bool holdings = true,
     Iterable<Account> opening = const [],
+    ({Entry original, int left})? refunding,
   }) {
     for (final issue in issues(
       e,
       replacing: replacing,
       holdings: holdings,
       opening: opening,
+      refunding: refunding,
     )) {
       if (issue.isError) return issue;
     }
@@ -62,15 +67,34 @@ final class EntryValidator {
     Entry? replacing,
     bool holdings = true,
     Iterable<Account> opening = const [],
+    ({Entry original, int left})? refunding,
   }) {
+    Account? account(String id) =>
+        _accounts.byId(id) ?? opening.where((a) => a.id == id).firstOrNull;
     AccountFacts? facts(String? id) {
       if (id == null) return null;
-      final a =
-          _accounts.byId(id) ?? opening.where((a) => a.id == id).firstOrNull;
+      final a = account(id);
       return a == null ? null : AccountFacts(a.kind, currency: a.currency);
     }
 
-    final original = e.refundOf == null ? null : _entries.byId(e.refundOf!);
+    final given = refunding?.original.id == e.refundOf ? refunding : null;
+    final original =
+        given?.original ??
+        (e.refundOf == null ? null : _entries.byId(e.refundOf!));
+    final RefundFacts? refunded;
+    if (original == null) {
+      refunded = null;
+    } else {
+      final paid =
+          account(original.account) ?? _accounts.resolve(original.account);
+      refunded = RefundFacts(
+        account: original.account,
+        kind: paid.kind,
+        currency: paid.currency,
+        left: given?.left ?? _entryQueries.refundable(original),
+        own: replacing?.refundOf == e.refundOf ? replacing!.amount : 0,
+      );
+    }
     return entryIssues(
       e,
       EntryFacts(
@@ -83,14 +107,7 @@ final class EntryValidator {
             holdings &&
             (e.type == EntryType.sell || e.isReduction) &&
             !holdsWith([e], replacing: replacing),
-        refunded: original == null
-            ? null
-            : RefundFacts(
-                account: original.account,
-                kind: _accounts.resolve(original.account).kind,
-                left: _entryQueries.refundable(original),
-                own: replacing?.refundOf == e.refundOf ? replacing!.amount : 0,
-              ),
+        refunded: refunded,
         balanceAfter: e.type == EntryType.buy && _accounts.contains(e.account)
             ? _balanceAfter(e, replacing)
             : null,

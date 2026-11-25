@@ -172,6 +172,12 @@ final class RefundToOtherAccount extends RecordIssue {
   const RefundToOtherAccount();
 }
 
+/// A refund paid into an account of another currency than the spending
+/// it gives back: amounts of two currencies cannot be weighed together.
+final class RefundOtherCurrency extends RecordIssue {
+  const RefundOtherCurrency();
+}
+
 /// An entry changed in a form that was opened on it, after it was
 /// deleted meanwhile: kept, it would stand both in the book and in the
 /// trash (D78).
