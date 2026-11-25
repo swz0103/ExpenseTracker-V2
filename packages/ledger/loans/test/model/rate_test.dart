@@ -17,20 +17,59 @@ void main() {
     expect(rateOf('100'), 10000);
     expect(rateOf('100.01'), isNull);
     expect(rateOf('-1'), isNull);
+    // -0.01% is -1 hundredth: below nothing by the least step.
+    expect(rateOf('-0.01'), isNull);
     expect(rateOf('.'), isNull);
     expect(rateOf(''), isNull);
   });
 
   test('D116: a rate typed below nothing keeps its sign, for the write '
       'rules to refuse', () {
-    expect(signedRateOf('-2.15'), -215);
-    expect(signedRateOf(' -1 '), -100);
-    expect(signedRateOf('2.15'), 215);
+    expect(readRate('-2.15'), isA<RateRead>().having(_hundredths, '', -215));
+    expect(readRate(' -1 '), isA<RateRead>().having(_hundredths, '', -100));
+    expect(readRate('2.15'), isA<RateRead>().having(_hundredths, '', 215));
     // -0 is no interest, not a rate below nothing.
-    expect(signedRateOf('-0'), 0);
-    expect(signedRateOf('-'), isNull);
-    expect(signedRateOf('-abc'), isNull);
-    expect(signedRateOf('--1'), isNull);
+    expect(readRate('-0'), isA<RateRead>().having(_hundredths, '', 0));
+    expect(readRate('-'), isA<RateUnreadable>());
+    expect(readRate('-abc'), isA<RateUnreadable>());
+    expect(readRate('--1'), isA<RateUnreadable>());
+  });
+
+  test('D118: text that is no number reads as unreadable, not as no rate', () {
+    expect(readRate('abc'), isA<RateUnreadable>());
+    expect(readRate('2,5'), isA<RateUnreadable>());
+    expect(readRate('2%'), isA<RateUnreadable>());
+    expect(readRate('.'), isA<RateUnreadable>());
+    expect(readRate(''), isA<RateUnreadable>());
+    expect(readRate('   '), isA<RateUnreadable>());
+  });
+
+  test('D118: a rate above 100% is read as typed, for the write rules to '
+      'refuse; rateOf keeps none of it', () {
+    expect(maxLoanRate, 10000); // 100% in hundredths of a percent
+    expect(readRate('100.01'), isA<RateRead>().having(_hundredths, '', 10001));
+    expect(readRate('120'), isA<RateRead>().having(_hundredths, '', 12000));
+    // 1,000% is 100000 hundredths; 999,999% is 99999900, under the cap.
+    expect(readRate('1000'), isA<RateRead>().having(_hundredths, '', 100000));
+    expect(
+      readRate('999999'),
+      isA<RateRead>().having(_hundredths, '', 99999900),
+    );
+    expect(rateOf('100.01'), isNull);
+    // Past a million percent it reads as a million: 1,000,000 x 100.
+    expect(
+      readRate('99999999999999999999999'),
+      isA<RateRead>().having(_hundredths, '', 100000000),
+    );
+    // 2,000,000.5% is capped at 1,000,000 whole: 100000000 + 50.
+    expect(
+      readRate('2000000.5'),
+      isA<RateRead>().having(_hundredths, '', 100000050),
+    );
+    // 0001.5 is 1.5%: 150.
+    expect(readRate('0001.5'), isA<RateRead>().having(_hundredths, '', 150));
+    // A long run of digits used to read as 0%: int.tryParse gave up on it.
+    expect(rateOf('99999999999999999999999'), isNull);
   });
 
   test('rates as shown', () {
@@ -41,3 +80,5 @@ void main() {
     expect(rateText(null), '');
   });
 }
+
+int _hundredths(RateRead read) => read.hundredths;

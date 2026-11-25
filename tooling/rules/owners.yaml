@@ -249,6 +249,16 @@ items:
       - packages/ledger/loans/lib/calc/loan_plan.dart
     target: packages/ledger/loans/lib/calc/
     status: owned
+  # D116/D118: a loan's rate as typed is read by `readRate` alone (a
+  # number with its sign, or unreadable); the highest rate kept is the one
+  # constant `maxLoanRate`, which the write rules of ledger_entries ask.
+  - id: loan-rate
+    what: 貸款利率的讀法與上限
+    layer: ledger
+    owner:
+      - packages/ledger/loans/lib/model/rate.dart
+    target: packages/ledger/loans/lib/model/
+    status: owned
   # 2.0: the day each instalment is billed is domain's
   # installmentBillingDays alone; the card cycle and the journal's
   # instalments amender both ask it. The cycle itself is still in two.

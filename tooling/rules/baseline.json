@@ -92,7 +92,7 @@
     "apps/expense_tracker/lib/src/features/entries/forms/composer_pickers.dart": 8,
     "apps/expense_tracker/lib/src/features/entries/forms/composer_state.dart": 16,
     "apps/expense_tracker/lib/src/features/entries/forms/entry_view_card.dart": 2,
-    "apps/expense_tracker/lib/src/features/entries/forms/form_rows.dart": 15,
+    "apps/expense_tracker/lib/src/features/entries/forms/form_rows.dart": 14,
     "apps/expense_tracker/lib/src/features/entries/forms/holding_choices.dart": 3,
     "apps/expense_tracker/lib/src/features/entries/forms/investment_fields.dart": 41,
     "apps/expense_tracker/lib/src/features/entries/forms/lend_fields.dart": 13,

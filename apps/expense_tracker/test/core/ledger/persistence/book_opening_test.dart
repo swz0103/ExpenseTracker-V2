@@ -168,6 +168,18 @@ void main() {
           'rate': -215,
         }),
       ),
+      // D118: 120% (12000 hundredths) is taken for a typo.
+      (
+        'account',
+        'rateHigh',
+        jsonEncode({
+          'id': 'rateHigh',
+          'name': '信貸',
+          'kind': 'loan',
+          'opening': 0,
+          'rate': 12000,
+        }),
+      ),
       (
         'account',
         'history',
@@ -232,6 +244,7 @@ void main() {
       'account/close': 'ClosingDayOutOfRange',
       'account/limit': 'NegativeCreditLimit',
       'account/rate': 'NegativeLoanRate',
+      'account/rateHigh': 'LoanRateTooHigh',
       // A card's former schedule is checked as it is read.
       'account/history':
           'FormatException: Unreadable record: '

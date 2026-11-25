@@ -422,6 +422,38 @@ void main() {
       expect(ledger.account('loan').loan?.rate, 200);
     });
 
+    test('D118: addAccount and updateAccount refuse a loan rate above '
+        '100%, and keep 100%', () {
+      final ledger = _book();
+      // 100.01% is 10001 hundredths of a percent.
+      const loan = Account(
+        'loan',
+        '信貸',
+        AccountKind.loan,
+        -1000,
+        loan: LoanTerms(rate: 10001),
+      );
+      expect(
+        () => ledger.accountCommands.addAccount(loan),
+        throwsA(_refused(LoanRateTooHigh)),
+      );
+      expect(ledger.accounts.byId('loan'), isNull);
+      ledger.accountCommands.addAccount(
+        const Account(
+          'loan',
+          '信貸',
+          AccountKind.loan,
+          -1000,
+          loan: LoanTerms(rate: 10000),
+        ),
+      );
+      expect(
+        () => ledger.accountCommands.updateAccount(loan),
+        throwsA(_refused(LoanRateTooHigh)),
+      );
+      expect(ledger.account('loan').loan?.rate, 10000);
+    });
+
     test('moveClose refuses a close moved more than a week', () {
       final ledger = _book();
       expect(

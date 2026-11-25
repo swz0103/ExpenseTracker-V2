@@ -59,6 +59,16 @@ void main() {
     expect(priceMove(12), '12.00');
   });
 
+  test('D118: an exchange rate as quoted, with no trailing .0', () {
+    expect(exchangeRate(32.0), '32');
+    expect(exchangeRate(32.155), '32.155');
+    expect(exchangeRate(0.2105), '0.2105');
+    // Kept to 1/1,000,000: 32.1234567 rounds to 32.123457.
+    expect(exchangeRate(32.1234567), '32.123457');
+    // Not grouped: 1,234.5 is written 1234.5.
+    expect(exchangeRate(1234.5), '1234.5');
+  });
+
   group('RPT-06: percentages, one rounding', () {
     test('signed with one decimal', () {
       // 9 / 1,000 = 0.9%, once shown as 0% by a truncation.

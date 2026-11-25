@@ -185,6 +185,58 @@ void main() {
     });
   });
 
+  group('D118: a loan rate that is no number, or above 100%, is refused', () {
+    AccountForm loan(Ledger ledger, String rate, {Account? old}) =>
+        AccountForm(ledger, old: old)
+          ..kind = AccountKind.loan
+          ..name = '信貸'
+          ..principal = '100,000'
+          ..months = '12'
+          ..rate = rate;
+
+    test('text that is no number is said so, not kept as no rate', () {
+      final ledger = book();
+      for (final typed in ['abc', '2,5', '.', '2%']) {
+        final form = loan(ledger, typed);
+        expect(form.problem, '利率要填數字，例如 2.15', reason: typed);
+        expect(form.rateProblem, '利率要填數字，例如 2.15', reason: typed);
+        expect(form.save(), isFalse, reason: typed);
+      }
+      expect(ledger.accounts.all.map((a) => a.id), ['bank', 'card']);
+    });
+
+    test('above 100% is taken for a typo; edited, the loan keeps its rate', () {
+      final ledger = book();
+      final form = loan(ledger, '120');
+      expect(form.problem, '利率不能超過 100%，請確認是否打錯');
+      expect(form.rateProblem, isNull);
+      expect(form.save(), isFalse);
+      expect(ledger.accounts.all.map((a) => a.id), ['bank', 'card']);
+      expect(loan(ledger, '2').save(), isTrue);
+      final kept = ledger.accounts.all.last;
+      final edit = loan(ledger, '100.01', old: kept);
+      expect(edit.problem, '利率不能超過 100%，請確認是否打錯');
+      expect(edit.save(), isFalse);
+      // 2% is 200 hundredths of a percent.
+      expect(ledger.accounts.all.last.loan?.rate, 200);
+    });
+
+    test('100% itself, and a rate left empty, are kept', () {
+      final ledger = book();
+      expect(loan(ledger, '100').problem, isNull);
+      expect(loan(ledger, '  ').problem, isNull);
+      expect(loan(ledger, '').rateProblem, isNull);
+    });
+
+    test('a card is not asked for a rate', () {
+      final form = AccountForm(book())
+        ..kind = AccountKind.card
+        ..name = '卡'
+        ..rate = 'abc';
+      expect(form.rateProblem, isNull);
+    });
+  });
+
   test('a loan keeps its terms, and owes its amount when nothing else is '
       'typed', () {
     final ledger = book();
