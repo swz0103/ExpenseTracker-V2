@@ -74,4 +74,18 @@ void main() {
     budgets.putAt(9, Budget('飲食', 70));
     expect(_of(budgets), [('#家用', 80), ('交通', 50), ('飲食', 70)]);
   });
+
+  test('restore sets back only the budgets named, each in its place', () {
+    final before = [Budget('飲食', 100), Budget('交通', 50), Budget('#家用', 80)];
+    final budgets = BudgetRepository([
+      Budget('交通', 70),
+      Budget('#家用', 80),
+      Budget('#新', 10),
+      Budget('娛樂', 5),
+    ]);
+    final (:put, :dropped) = budgets.restore(before, {'交通', '#新', '飲食'});
+    expect(_of(budgets), [('飲食', 100), ('交通', 50), ('#家用', 80), ('娛樂', 5)]);
+    expect([for (final b in put) b.category], ['飲食', '交通']);
+    expect(dropped, ['#新']);
+  });
 }

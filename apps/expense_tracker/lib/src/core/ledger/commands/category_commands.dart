@@ -225,13 +225,11 @@ final class CategoryCommands {
     ];
     _recurring.replaceExisting(back);
     unit.registerAllDirty(back);
-    for (final b in _budgets.all) {
-      if (!budgets.any((was) => was.category == b.category)) {
-        unit.registerDeleted(Collection.budget, b.category);
-      }
+    final (:put, :dropped) = _budgets.restore(budgets, {from, into});
+    unit.registerAllDirty(put);
+    for (final key in dropped) {
+      unit.registerDeleted(Collection.budget, key);
     }
-    _budgets.replaceWith(budgets);
-    unit.registerAllDirty(budgets);
     // The category back in its place, and those under it under it again;
     // any other change of the categories since is kept.
     final now = {for (final c in _categories.all) c.id: c};

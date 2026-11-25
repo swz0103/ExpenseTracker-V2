@@ -40,6 +40,30 @@ final class BudgetRepository implements BudgetReader {
     _items.insert(index.clamp(0, _items.length), budget);
   }
 
+  /// Sets the budgets for [keys] back to what [before] held, each in its
+  /// place there: one [before] had is put back, one it had not is taken
+  /// away; the others are left as they are. Returns those put back and
+  /// the keys taken away.
+  ({List<Budget> put, List<String> dropped}) restore(
+    List<Budget> before,
+    Set<String> keys,
+  ) {
+    final put = <Budget>[];
+    final dropped = <String>[];
+    int placeOf(String key) => before.indexWhere((b) => b.category == key);
+    // The earlier places first, so each later one lands where it stood.
+    for (final key in [...keys]..sort((a, b) => placeOf(a) - placeOf(b))) {
+      final at = placeOf(key);
+      if (at >= 0) {
+        putAt(at, before[at]);
+        put.add(before[at]);
+      } else if (remove(key)) {
+        dropped.add(key);
+      }
+    }
+    return (put: put, dropped: dropped);
+  }
+
   /// Takes away the budget for [category]; nothing when there is none.
   bool remove(String category) {
     final count = _items.length;

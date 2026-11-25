@@ -767,13 +767,14 @@ final class EntryCommands {
     _context.keep(unit.batch);
     return () {
       final back = UnitOfWork();
-      for (final b in _budgets.all) {
-        if (!budgets.any((was) => was.category == b.category)) {
-          back.registerDeleted(Collection.budget, b.category);
-        }
+      final (:put, :dropped) = _budgets.restore(budgets, {
+        '#$from',
+        if (to.isNotEmpty) '#$to',
+      });
+      back.registerAllDirty(put);
+      for (final key in dropped) {
+        back.registerDeleted(Collection.budget, key);
       }
-      _budgets.replaceWith(budgets);
-      back.registerAllDirty(budgets);
       _putBack(back, book, trash);
     };
   }
