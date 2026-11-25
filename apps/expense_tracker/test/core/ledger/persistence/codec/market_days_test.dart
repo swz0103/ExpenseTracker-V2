@@ -190,6 +190,87 @@ void main() {
     });
   });
 
+  group('N3: a month report fills the past days', () {
+    // 2330 kept on 9/1 at 960 and 9/29 at 1,000.
+    MarketDayWrites kept() => MarketDayWrites(
+      historyFrom({
+        d(9, 1): '{"closes":{"2330":960}}',
+        d(9, 29): '{"closes":{"2330":1000}}',
+      }),
+    );
+    double? never(DateTime day) => null;
+
+    test('only days before the one given that have none, as fetched', () {
+      final writes = kept();
+      final count = writes.fillPastCloses(
+        '2330',
+        [
+          (d(9, 29), 999),
+          (d(9, 1), 955),
+          (d(9, 10), 970),
+          (d(8, 28), 950),
+          (d(9, 30), 1010),
+        ],
+        before: d(9, 29),
+        fetchedOn: d(9, 30),
+        reshapedBy: never,
+      );
+      // 8/28 and 9/10 kept; 9/1 has its own, 9/29 and 9/30 are not before.
+      expect(count, 2);
+      expect(writes.rows.keys.toSet(), {'day:2026-08-28', 'day:2026-09-10'});
+      final history = writes.history;
+      expect(history.closes.exactly('2330', d(9, 1)), 960);
+      expect(history.closes.exactly('2330', d(9, 10)), 970);
+      expect(history.closeFetchedOn('2330', d(8, 28)), d(9, 30));
+      expect(history.closes.exactly('2330', d(9, 30)), isNull);
+    });
+
+    test('a close the doubt rules refuse is not kept', () {
+      final writes = kept();
+      // 96,000 on 9/10 is 100 times 9/1's 960: doubted (D95).
+      expect(
+        writes.fillPastCloses(
+          '2330',
+          [(d(9, 10), 96000)],
+          before: d(9, 29),
+          fetchedOn: d(9, 30),
+          reshapedBy: never,
+        ),
+        0,
+      );
+      // Before any kept: weighed against the earliest, 9/1's 960.
+      expect(
+        writes.fillPastCloses(
+          '2330',
+          [(d(8, 20), 9.6)],
+          before: d(9, 29),
+          fetchedOn: d(9, 30),
+          reshapedBy: never,
+        ),
+        0,
+      );
+      expect(writes.rows, isEmpty);
+    });
+
+    test('a day before a split the book holds is left', () {
+      final writes = kept();
+      // A split on 9/15: 9/10's report close may be of either shares.
+      expect(
+        writes.fillPastCloses(
+          '2330',
+          [(d(9, 10), 970), (d(9, 20), 490)],
+          before: d(9, 29),
+          fetchedOn: d(9, 30),
+          reshapedBy: (day) =>
+              day.isBefore(DateTime.utc(2026, 9, 15)) ? 2 : null,
+        ),
+        // 9/20, after it, is weighed against 9/1's 960 / 2 = 480: taken.
+        1,
+      );
+      expect(writes.rows.keys, ['day:2026-09-20']);
+    });
+  });
+
   group('a book kept before D58', () {
     StoredRow row(String id, Object body) =>
         StoredRow(0, marketShelf, id, jsonEncode(body));

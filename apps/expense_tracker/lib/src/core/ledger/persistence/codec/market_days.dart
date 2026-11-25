@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:core/time/calendar_day.dart';
 import 'package:core/fx/dated_figures.dart'
     show DatedFigures, FoundOn, MarketHistory;
+import 'package:domain/investments.dart' show takesFetched;
 
 /// How the row of the rates and closes of one day is named among the
 /// market rows (D58): this, then the day, `day:2026-03-09`.
@@ -133,14 +134,16 @@ final class MarketDayWrites {
     _add(series, key, day, figure, fetchedOn: fetchedOn);
   }
 
-  void _add(
+  /// Keeps [figure] for [key] on [day] unless the days kept already give
+  /// it; whether it was kept.
+  bool _add(
     MarketSeries series,
     String key,
     BusinessDate day,
     double figure, {
     BusinessDate? fetchedOn,
   }) {
-    if (!figure.isFinite || figure <= 0) return;
+    if (!figure.isFinite || figure <= 0) return false;
     // Only a fetch day a split could fall between it and [day] on: one
     // dated after the close's day and before the fetch's.
     final later =
@@ -159,7 +162,7 @@ final class MarketDayWrites {
         (found.found == FoundOn.theDay ||
             fetchedOn == null ||
             _fetched[key]?[found.of] == later)) {
-      return;
+      return false;
     }
     (table[key] ??= {})[day] = figure;
     if (later != null) {
@@ -168,6 +171,57 @@ final class MarketDayWrites {
       _fetched[key]?.remove(day);
     }
     _touched.add(day);
+    return true;
+  }
+
+  /// Keeps the closes of [code] a month report gave ([closes], fetched
+  /// on [fetchedOn]) for the days before [before] none is kept for (N3),
+  /// the oldest first, each only if taken by the doubt rules (D95, D101)
+  /// against the close kept for the nearest earlier day (the earliest
+  /// kept, for a day before it), as a daily fetch is weighed; a day after which the book holds a split or
+  /// reduction ([reshapedBy] not null) is left, as whether the report
+  /// gives it in the shares of before or after is not known. How many
+  /// were kept.
+  int fillPastCloses(
+    String code,
+    Iterable<(BusinessDate, double)> closes, {
+    required BusinessDate before,
+    required BusinessDate fetchedOn,
+    required double? Function(DateTime day) reshapedBy,
+  }) {
+    final table = _tables[MarketSeries.closes]!;
+    final sorted = [
+      for (final c in closes)
+        if (c.$1.isBefore(before)) c,
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+    var kept = 0;
+    for (final (day, close) in sorted) {
+      if (table[code]?[day] != null) continue;
+      if (reshapedBy(day.asUtcMidnight) != null) continue;
+      final series = table[code] ?? const <BusinessDate, double>{};
+      final found = DatedFigures({code: series}).on(code, day);
+      final BusinessDate? of = switch (found?.found) {
+        null => null,
+        FoundOn.theDay || FoundOn.earlierDay => found!.of,
+        // None before it: the earliest kept, after it.
+        _ => series.keys.reduce((a, b) => a.isBefore(b) ? a : b),
+      };
+      final fetched = of == null ? null : _fetched[code]?[of];
+      if (!takesFetched(
+        kept: of == null ? null : series[of],
+        fetched: close,
+        keptDaysAgo: of?.daysUntil(day).abs(),
+        reshapedBy: of == null
+            ? null
+            : reshapedBy((fetched?.addDays(-1) ?? of).asUtcMidnight),
+      )) {
+        continue;
+      }
+      if (_add(MarketSeries.closes, code, day, close, fetchedOn: fetchedOn)) {
+        kept++;
+      }
+    }
+    return kept;
   }
 
   /// The day rows to write: each day something was kept for, with all

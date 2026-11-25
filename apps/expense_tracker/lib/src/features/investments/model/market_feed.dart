@@ -85,29 +85,34 @@ final class MarketFeed extends SyncJob implements PriceHistory {
       _journal.refreshQuotes(codes, reshapedBy: _holdings.reshapedBy),
       _journal.refreshRates(),
     ).wait;
-    if (quotes || rates) {
-      final market = _journal.market();
-      _commands.setMarket(
-        holdings: market.holdings,
-        moves: market.moves,
-        rates: market.rates,
-        sellRates: market.sellRates,
-        quotedOn: market.quotedOn,
-        quoteDays: market.days,
-        history: market.history,
-      );
-    }
+    if (quotes || rates) _publish();
     return marketProblem(
       missed: _journal.unquoted,
       doubted: [..._journal.doubtfulCloses, ..._journal.doubtfulRates],
     );
   });
 
+  /// What the journal keeps of the market, given to the ledger.
+  void _publish() {
+    final market = _journal.market();
+    _commands.setMarket(
+      holdings: market.holdings,
+      moves: market.moves,
+      rates: market.rates,
+      sellRates: market.sellRates,
+      quotedOn: market.quotedOn,
+      quoteDays: market.days,
+      history: market.history,
+    );
+  }
+
   /// [code]'s daily closes from [from] to today, oldest first: each month
   /// from TWSE's report, or TPEx's for a stock traded over the counter.
   /// Months before this one are kept ([kept]) once read; this month is
   /// asked again (the gateway keeps it for 20 minutes). Months that
-  /// cannot be read are left out.
+  /// cannot be read are left out. The past days among them the dated
+  /// table lacks are kept in it (`keepPastCloses`, N3), so a past day's
+  /// net worth has its close without waiting for daily fetches.
   ///
   /// Each month asked names [code] to the exchange (TWSE or TPEx), as
   /// their monthly reports are per stock; the day lists the prices come
@@ -136,6 +141,13 @@ final class MarketFeed extends SyncJob implements PriceHistory {
       closes.addAll(days ?? const []);
     }
     if (changed) await _write();
+    if (await _journal.keepPastCloses(
+      code,
+      closes,
+      reshapedBy: _holdings.reshapedBy,
+    )) {
+      _publish();
+    }
     return closes;
   }
 

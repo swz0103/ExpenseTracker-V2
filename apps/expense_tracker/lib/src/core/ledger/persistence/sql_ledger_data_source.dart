@@ -1184,6 +1184,40 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
   }
 
+  /// Keeps the closes of [code] a month report gave ([closes], oldest or
+  /// not) for the past days the dated table lacks (N3, D58): only days
+  /// before the latest close kept, each taken by the doubt rules
+  /// (`MarketDayWrites.fillPastCloses`), as fetched today (D123). Nothing
+  /// for a code with no close kept. Whether any was kept.
+  Future<bool> keepPastCloses(
+    String code,
+    Iterable<(DateTime, double)> closes, {
+    double? Function(String code, DateTime? day) reshapedBy = _neverReshaped,
+  }) async {
+    final kept = await _whenQuiet(
+      () => marketFrom(_readableMarket(_store.rows(shelf: _market))),
+    );
+    final latest = kept.days[code];
+    if (latest == null) return false;
+    final writes = MarketDayWrites(_dated(kept));
+    final count = writes.fillPastCloses(
+      code,
+      [for (final (day, close) in closes) (BusinessDate.of(day), close)],
+      before: BusinessDate.of(latest),
+      fetchedOn: BusinessDate.of(_today()),
+      reshapedBy: (day) => reshapedBy(code, day),
+    );
+    final rows = writes.rows;
+    if (count == 0 || rows.isEmpty) return false;
+    await _whenQuiet(
+      () => _store.write(
+        (w) => rows.forEach((id, body) => w.put(_market, id, body)),
+        counts: false,
+      ),
+    );
+    return true;
+  }
+
   /// Fetches the latest close of each of [codes], for the holdings' value;
   /// one not found on TWSE is tried on TPEx. Returns whether any price
   /// changed. [reshapedBy] tells how many times the splits, stock
