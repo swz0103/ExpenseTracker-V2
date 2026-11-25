@@ -58,8 +58,8 @@ String problemNote(String what, Object error) =>
     };
 
 /// A step that runs by itself, out of sight, whose failure would go
-/// unheard without a note (D84): told once a run, in the note at the
-/// foot of the screen, with where its details are.
+/// unheard without a note (D84): told once a run of the app, in the note
+/// at the foot of the screen, with where its details are.
 enum QuietStep {
   /// The recurring items marked to book themselves, and what was
   /// confirmed on a notification.
@@ -72,7 +72,18 @@ enum QuietStep {
   marketRefresh('收盤價與匯率沒有更新'),
 
   /// The due dates on the phone's calendar.
-  calendarSync('提醒沒有同步到日曆');
+  calendarSync('提醒沒有同步到日曆'),
+
+  /// The check, as the book opens, that no record names another the book
+  /// no longer has: it found some, or could not finish.
+  integrityCheck('帳本健檢沒有通過'),
+
+  /// The photo the camera took while the phone closed the app, taken
+  /// back for the next new entry.
+  leftoverPhoto('相機拍的收據照片沒有找回'),
+
+  /// Deleting the receipt photos no entry keeps any more.
+  receiptSweep('不再使用的收據照片沒有清除');
 
   const QuietStep(this.what);
 

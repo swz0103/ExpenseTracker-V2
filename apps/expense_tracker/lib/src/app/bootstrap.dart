@@ -13,6 +13,7 @@ import 'ledger_session.dart';
 import 'lifecycle_services.dart';
 import 'load_failed_page.dart';
 import 'quarantine_notices.dart';
+import 'quiet_failures.dart';
 import 'upgrade_held_page.dart';
 import '../features/backup/model/encrypted_backup_manager.dart';
 import '../features/backup/model/old_key_backups.dart';
@@ -105,6 +106,16 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
   /// The session that navigator belongs to.
   var _generation = 0;
 
+  /// What the services beside the ledger remember for the whole run, not
+  /// one opening (review 31): told once a run means once, however often
+  /// the app locks. Its notes wait their turn, and only while a ledger is
+  /// open.
+  late final _run = ServicesRun(
+    QuietFailures(
+      (note) async => widget.startup.state is Ready && await queueNote(note),
+    ),
+  );
+
   @override
   void initState() {
     super.initState();
@@ -134,6 +145,7 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
       // A note of the session before (it may name an amount) lives above
       // the navigator, in the app's one messenger: it goes too.
       appMessenger.currentState?.clearSnackBars();
+      _run.quiet.dropWaiting();
       _hideScreen();
     }
     setState(() {});
@@ -198,6 +210,7 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
             preferences: widget.preferences,
             gate: _gate,
             lifecycle: _lifecycle,
+            run: _run,
             leave: widget.leave,
           ),
           Damaged() => DamagedBookPage.of(startup),
@@ -229,6 +242,7 @@ class OpenedLedger extends StatefulWidget {
     required this.preferences,
     required this.gate,
     required this.lifecycle,
+    required this.run,
     this.privacy,
     this.leave,
   });
@@ -243,6 +257,9 @@ class OpenedLedger extends StatefulWidget {
 
   /// Tells this opening of the ledger when the app leaves and comes back.
   final AppLifecycle lifecycle;
+
+  /// What the services remember for the whole run of the app.
+  final ServicesRun run;
 
   /// Puts the app in the background without closing it.
   final Future<void> Function()? leave;
@@ -269,6 +286,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     offerUpdate: (update) async {
       if (mounted) await showUpdatePanel(context, update);
     },
+    run: widget.run,
   );
 
   /// Opening the book: load, inbox, health check, what is due.

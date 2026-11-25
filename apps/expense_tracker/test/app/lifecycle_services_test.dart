@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:expense_tracker/src/app/lifecycle_services.dart';
+import 'package:expense_tracker/src/app/quiet_failures.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
@@ -63,13 +64,23 @@ void main() {
     directory.deleteSync(recursive: true);
   });
 
-  LifecycleServices services() {
+  /// What the app remembers for its whole run: its notes are said into
+  /// [said], each read at once.
+  ServicesRun aRun() => ServicesRun(
+    QuietFailures((note) async {
+      said.add(note);
+      return true;
+    }),
+  );
+
+  LifecycleServices services({ServicesRun? run}) {
     final s = LifecycleServices(
       startup: startup,
       vault: vault,
       preferences: Preferences(),
       say: said.add,
       offerUpdate: (_) async => fail('nothing to offer off Android'),
+      run: run ?? aRun(),
       transport: offline,
     );
     made.add(s);
@@ -92,6 +103,28 @@ void main() {
     await s.weeklyBackup();
     expect(said, isEmpty, reason: 'the weekly backup went through');
     s.dispose();
+  });
+
+  test('review 31: what is told once a run stays told across openings of '
+      'the ledger, and a backup that failed on leaving is told after the '
+      'unlock that follows', () async {
+    final run = aRun();
+    final first = services(run: run);
+    // A backup left on leaving failed, and the app locked while away.
+    run.backupFailed = true;
+    first.dispose();
+    // The next opening has new services, and the same run.
+    final second = services(run: run);
+    second.collectOutbox();
+    await pumpEventQueue();
+    expect(said, ['背景備份沒有完成，可在診斷匯出詳細資料']);
+    expect(run.backupFailed, isFalse);
+    // Told once a run: a third opening, failing again, says nothing.
+    run.backupFailed = true;
+    services(run: run).collectOutbox();
+    await pumpEventQueue();
+    expect(said, hasLength(1));
+    second.dispose();
   });
 
   test('settled waits for the weekly backup start left running', () async {

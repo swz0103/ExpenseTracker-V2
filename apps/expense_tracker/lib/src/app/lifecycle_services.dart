@@ -49,8 +49,10 @@ import '../features/settings/model/app_update.dart';
 /// own backups and prices run. Locking after a while away is not here:
 /// the lock gate decides it (core/platform/lock_gate.dart).
 ///
-/// The screens are reached only through [say] and [offerUpdate], so a
-/// test can run it without them.
+/// The screens are reached only through [say], [offerUpdate] and [run]'s
+/// notes, so a test can run it without them. A new one is made for each
+/// opening of the ledger; what it remembers for the whole run of the app
+/// is in [run].
 final class LifecycleServices {
   LifecycleServices({
     required this.startup,
@@ -58,6 +60,7 @@ final class LifecycleServices {
     required this.preferences,
     required this.say,
     required this.offerUpdate,
+    required this.run,
     this.android = false,
     MarketTransport? transport,
   }) : _transport = transport ?? const IoMarketTransport();
@@ -79,8 +82,12 @@ final class LifecycleServices {
   /// Offers a newer version found.
   final Future<void> Function(AppUpdate update) offerUpdate;
 
+  /// What this run of the app remembers across its openings of the
+  /// ledger.
+  final ServicesRun run;
+
   /// What runs by itself and failed, told once a run (D84).
-  late final quiet = QuietFailures(say);
+  QuietFailures get quiet => run.quiet;
 
   Directory get _directory => startup.directory;
 
@@ -201,10 +208,12 @@ final class LifecycleServices {
         await sweepReceipts(_directory, ledger.attachmentCommands.receiptFiles);
       } on Object catch (error) {
         ErrorLog.instance.record('清除收據照片', error);
+        quiet.failed(QuietStep.receiptSweep);
       }
       _receipts = AndroidReceipts(
         _directory,
         await FileBox.derive(vault.keys, FileBox.receipts),
+        failed: quiet.failed,
       );
     }
     // The chart's months, sealed with the ledger's key; one another key
@@ -352,19 +361,17 @@ final class LifecycleServices {
   }
 
   /// Writes the backup to the phone's folder when one is due. A failure
-  /// is said once a run, not at each return to the app; the settings page
-  /// keeps showing it.
+  /// is said once a run, not at each return to the app nor at each
+  /// unlock; the settings page keeps showing it.
   Future<void> phoneBackup() async {
     final phone = this.phone;
     if (phone == null || await phone.backUpIfDue()) return;
     final problem = phone.problem;
-    if (problem == null || _phoneWarned) return;
-    _phoneWarned = true;
+    if (problem == null || run.phoneWarned) return;
+    run.phoneWarned = true;
     ErrorLog.instance.record('手機資料夾備份', problem);
     say('沒有備份到手機資料夾，可以到「設定」重新選擇');
   }
-
-  var _phoneWarned = false;
 
   /// Looks for a newer version, and offers it at once, with what it
   /// changes; offered once a run, after which it waits in 設定 › 關於.
@@ -372,13 +379,10 @@ final class LifecycleServices {
     final update = _update;
     final newer = await update?.checkIfDue();
     if (update == null || newer == null) return;
-    if (_offered == newer.build || !update.mayOffer(newer)) return;
-    _offered = newer.build;
+    if (run.offered == newer.build || !update.mayOffer(newer)) return;
+    run.offered = newer.build;
     await offerUpdate(update);
   }
-
-  /// The build last offered this run.
-  int? _offered;
 
   /// When the app is left with changes not in a backup yet, keeps the copy
   /// Android takes to the person's Google account by itself, and leaves
@@ -395,7 +399,7 @@ final class LifecycleServices {
       if (android) await backupManager.keepCloudCopy();
     } on Object catch (error) {
       ErrorLog.instance.record('Google 備份', error);
-      _backupFailed = true;
+      run.backupFailed = true;
     }
     final outbox = _outbox;
     if (outbox == null) return;
@@ -403,13 +407,9 @@ final class LifecycleServices {
       await outbox.prepare();
     } on Object catch (error) {
       ErrorLog.instance.record('背景備份', error);
-      _backupFailed = true;
+      run.backupFailed = true;
     }
   }
-
-  /// A backup left on leaving failed: told when the app is back
-  /// ([collectOutbox]), not while it is away.
-  var _backupFailed = false;
 
   /// After a reset of the keys: the backup waiting for the background
   /// job was sealed with the old ones, and goes ([Outbox.empty]).
@@ -423,8 +423,8 @@ final class LifecycleServices {
 
   /// Notes what the background job delivered while the app was closed.
   void collectOutbox() {
-    var failed = _backupFailed;
-    _backupFailed = false;
+    var failed = run.backupFailed;
+    run.backupFailed = false;
     try {
       for (final problem in _outbox?.collect() ?? const <String>[]) {
         ErrorLog.instance.record('背景備份', problem);
@@ -446,4 +446,28 @@ final class LifecycleServices {
     _market?.dispose();
     _update?.dispose();
   }
+}
+
+/// What [LifecycleServices] remembers for the whole run of the app, not
+/// one opening of the ledger: held above every opening (VaultRoot), so a
+/// lock after a while away and the unlock that follows start none of it
+/// again (review 31). Each of these is meant per run: none is per unlock.
+final class ServicesRun {
+  ServicesRun(this.quiet);
+
+  /// What ran by itself and failed, told once a run (D84).
+  final QuietFailures quiet;
+
+  /// The phone's folder could not be backed up to, and that was said: not
+  /// again this run ([LifecycleServices.phoneBackup]).
+  var phoneWarned = false;
+
+  /// The newer build offered this run, offered once; then it waits in
+  /// 設定 › 關於 ([LifecycleServices.checkUpdate]).
+  int? offered;
+
+  /// A backup left on leaving failed: told when the app is back
+  /// ([LifecycleServices.collectOutbox]), not while it is away, even when
+  /// it locked meanwhile and the ledger was opened again.
+  var backupFailed = false;
 }

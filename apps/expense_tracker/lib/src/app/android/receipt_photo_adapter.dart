@@ -7,6 +7,8 @@ import 'package:vault/backup_security.dart';
 
 import '../../features/entries/model/receipt_photos.dart';
 import 'platform_channel.dart';
+import '../../core/diagnostics/error_log.dart';
+import '../../core/messages/problem_messages.dart' show QuietStep;
 import '../../core/platform/errands.dart';
 import '../../core/time/app_clock.dart';
 
@@ -15,10 +17,14 @@ import '../../core/time/app_clock.dart';
 /// The phone makes a photo smaller first (`MainActivity.kt`). Photos kept
 /// before sealing (`.jpg`) still show.
 final class AndroidReceipts implements ReceiptPhotos {
-  const AndroidReceipts(this.directory, this.box);
+  const AndroidReceipts(this.directory, this.box, {required this.failed});
 
   final Directory directory;
   final FileBox box;
+
+  /// Told when the photo the camera left could not be taken back
+  /// (QuietFailures, D84).
+  final void Function(QuietStep step) failed;
 
   Directory get _folder => Directory('${directory.path}/receipts');
 
@@ -32,8 +38,17 @@ final class AndroidReceipts implements ReceiptPhotos {
   );
 
   @override
-  Future<String?> takeLeftover() async =>
-      _seal(await platformChannel.invokeMethod<String>('takeLeftoverPhoto'));
+  Future<String?> takeLeftover() async {
+    try {
+      return await _seal(
+        await platformChannel.invokeMethod<String>('takeLeftoverPhoto'),
+      );
+    } on Object catch (error) {
+      ErrorLog.instance.record('收據照片', error);
+      failed(QuietStep.leftoverPhoto);
+      return null;
+    }
+  }
 
   /// Seals the photo made ready at [ready] into the receipts folder and
   /// deletes the plain copy.

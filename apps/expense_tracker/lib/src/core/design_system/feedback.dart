@@ -36,35 +36,48 @@ bool showNoteAnywhere(String message) {
   return true;
 }
 
-void _note(
+/// A note that waits its turn behind the one showing instead of taking
+/// its place (review 31), said over whatever screen is open. True once it
+/// was on screen to be read: it went by itself or was swiped away; false
+/// when another note took its place first, or the app has nowhere to say
+/// it yet.
+Future<bool> queueNote(String message) async {
+  final messenger = appMessenger.currentState;
+  if (messenger == null) return false;
+  final reason = await _note(messenger, message, replace: false).closed;
+  return reason != SnackBarClosedReason.hide &&
+      reason != SnackBarClosedReason.remove;
+}
+
+ScaffoldFeatureController<SnackBar, SnackBarClosedReason> _note(
   ScaffoldMessengerState messenger,
   String message, {
   String? action,
   VoidCallback? onAction,
   String? spoken,
+  bool replace = true,
 }) {
   final act = onAction;
-  messenger
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: Text(message, semanticsLabel: spoken),
-        // A note with an action (復原) would stay until swiped away; every
-        // note goes by itself, a little later when it offers one.
-        persist: false,
-        // Exception to motion: how long the note stays to be read, not a
-        // movement; reduced motion must not make it vanish.
-        duration: Duration(seconds: act == null ? 3 : 5),
-        action: action == null || act == null
-            ? null
-            : SnackBarAction(
-                key: Keys.snack(action),
-                label: action,
-                textColor: Shade.dark ? AppColors.accent : AppColors.selected,
-                onPressed: act,
-              ),
-      ),
-    );
+  if (replace) messenger.hideCurrentSnackBar();
+  return messenger.showSnackBar(
+    SnackBar(
+      content: Text(message, semanticsLabel: spoken),
+      // A note with an action (復原) would stay until swiped away; every
+      // note goes by itself, a little later when it offers one.
+      persist: false,
+      // Exception to motion: how long the note stays to be read, not a
+      // movement; reduced motion must not make it vanish.
+      duration: Duration(seconds: act == null ? 3 : 5),
+      action: action == null || act == null
+          ? null
+          : SnackBarAction(
+              key: Keys.snack(action),
+              label: action,
+              textColor: Shade.dark ? AppColors.accent : AppColors.selected,
+              onPressed: act,
+            ),
+    ),
+  );
 }
 
 /// Opens [builder] in a sheet from the bottom of the screen, full width,
