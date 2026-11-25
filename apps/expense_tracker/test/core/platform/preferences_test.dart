@@ -457,6 +457,37 @@ void main() {
       expect(sibling('preferences.sealed').existsSync(), isFalse);
     });
 
+    test('R37: the notices\' salt is made once, at its first use, kept '
+        'sealed and never plain', () async {
+      final keystore = _Counting();
+      final preferences = await Preferences.open(file, keystore: keystore);
+      await preferences.saved;
+      // Not made before it is asked for.
+      expect(sibling('preferences.sealed').existsSync(), isFalse);
+      final salt = preferences.noticeSalt;
+      expect(preferences.noticeSalt, salt);
+      await preferences.saved;
+      expect(sibling('preferences.sealed').existsSync(), isTrue);
+      expect(file.readAsStringSync(), isNot(contains(salt.value)));
+      expect(plain().keys, isNot(contains('noticeSalt')));
+      final again = await Preferences.open(file, keystore: keystore);
+      expect(again.noticeSalt, salt);
+      // Another install has its own.
+      expect(Preferences().noticeSalt, isNot(salt));
+    });
+
+    test('R37: a Keystore that will not seal never keeps the salt plain; '
+        'another is made at the next start', () async {
+      final preferences = await Preferences.open(file, keystore: _Refusing())
+        ..phoneFolderSet(folder, name: '王小明');
+      final salt = preferences.noticeSalt;
+      await preferences.saved;
+      expect(plain()['phoneFolder'], folder);
+      expect(file.readAsStringSync(), isNot(contains(salt.value)));
+      final again = await Preferences.open(file, keystore: _Refusing());
+      expect(again.noticeSalt, isNot(salt));
+    });
+
     test('a folder chosen gets a new id; the same one again keeps it', () {
       final preferences = Preferences()..phoneFolderSet(folder, name: 'a');
       final first = preferences.phoneFolderId;

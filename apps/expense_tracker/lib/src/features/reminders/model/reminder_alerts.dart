@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:core/foundation_values.dart' show BusinessDate, NameId;
+import 'package:core/foundation_values.dart'
+    show BusinessDate, NameId, NameSalt;
 
 import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
@@ -139,8 +140,10 @@ Set<String> wantedTags(ReminderBook book, Preferences preferences) => {
 };
 
 /// The tag of the notice of the budget on [category] (a category's name,
-/// a `#` and a tag, or all spending): an id that does not say it.
-String budgetTag(String category) => 'budget:${NameId.of(category)}';
+/// a `#` and a tag, or all spending): an id that does not say it, made
+/// under this install's [salt] so it cannot be matched by guessing.
+String budgetTag(String category, NameSalt salt) =>
+    'budget:${NameId.of(category, salt)}';
 
 /// A budget past its warning share, or used up, this month.
 typedef BudgetCrossing = ({String key, String tag, String title, String text});
@@ -165,7 +168,7 @@ List<BudgetCrossing> budgetCrossings(
     final share = percent(spent, allowed);
     final name = b.category == allSpending ? '本月總預算' : '「${b.category}」預算';
     // The tag Android keeps names the budget by an id, never its name.
-    final tag = budgetTag(b.category);
+    final tag = budgetTag(b.category, preferences.noticeSalt);
     final BudgetCrossing crossing;
     if (spent > allowed) {
       crossing = (

@@ -79,19 +79,20 @@ void main() {
     await notifier.postBudgets(reminderBookOf(ledger));
     expect([for (final a in port.posted) a.title], ['「飲食」預算已用 85%']);
     expect(port.posted.single.text, '還剩 150');
+    // The budget by an id, never its name (review 34), under this
+    // install's salt (R37): another install's tag for 飲食 is another.
+    final tag = port.posted.single.tag;
+    expect(tag, matches(RegExp(r'^budget:[0-9a-f-]{36}$')));
+    final elsewhere = Preferences()..update(budgetAlerts: true);
     expect(
-      port.posted.single.tag,
-      'budget:96c2539e-3dd4-5a29-becf-9344600ca2a9',
+      budgetCrossings(reminderBookOf(ledger), elsewhere).single.tag,
+      isNot(tag),
     );
     // Not again while it stays there.
     ledger.entryCommands.add(spend('c', 50));
     await notifier.postBudgets(reminderBookOf(ledger));
     expect(port.posted, hasLength(1));
-    expect(
-      wantedTags(reminderBookOf(ledger), preferences),
-      // The budget by an id, never its name (review 34): NameId of 飲食.
-      contains('budget:96c2539e-3dd4-5a29-becf-9344600ca2a9'),
-    );
+    expect(wantedTags(reminderBookOf(ledger), preferences), contains(tag));
 
     ledger.entryCommands.add(spend('d', 200));
     await notifier.postBudgets(reminderBookOf(ledger));
