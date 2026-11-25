@@ -76,15 +76,13 @@ class BackupSection extends StatefulWidget {
   /// Backups to a folder on the phone, on Android.
   final PhoneBackup? phone;
 
-  // What search finds here (N8), each on its card in the state's build.
-  static const drive_ = SettingTopic(
-    '雲端硬碟備份',
-    words: ['Google', '雲端', '收據照片', 'Wi-Fi'],
-  );
-  static const folder = SettingTopic('手機資料夾備份', words: ['資料夾']);
-  static const export = SettingTopic('匯出備份', words: ['備份檔']);
-  static const restore = SettingTopic('從備份還原', words: ['還原', '換手機']);
-  static const topics = [drive_, folder, export, restore];
+  // What search finds here (N8): each topic marks its card.
+  static const topics = [
+    BackupTopics.drive_,
+    BackupTopics.folder,
+    BackupTopics.export,
+    BackupTopics.restore,
+  ];
 
   @override
   State<BackupSection> createState() => _BackupSectionState();
@@ -306,7 +304,7 @@ class _BackupSectionState extends State<BackupSection> {
               children: [
                 Expanded(
                   child: _Manual(
-                    topic: BackupSection.export,
+                    topic: BackupTopics.export,
                     glyph: Glyph.upload,
                     label: '匯出一份',
                     color: SettingsColors.csv,
@@ -316,7 +314,7 @@ class _BackupSectionState extends State<BackupSection> {
                 const SizedBox(width: Space.s3),
                 Expanded(
                   child: _Manual(
-                    topic: BackupSection.restore,
+                    topic: BackupTopics.restore,
                     glyph: Glyph.download,
                     label: '還原',
                     color: SettingsColors.invoice,
@@ -357,7 +355,7 @@ class _BackupSectionState extends State<BackupSection> {
     const color = SettingsColors.backup;
     final linked = drive.linked;
     return _BackupCard(
-      topic: BackupSection.drive_,
+      topic: BackupTopics.drive_,
       glyph: Glyph.upload,
       color: color,
       title: 'Google 雲端硬碟',
@@ -422,7 +420,7 @@ class _BackupSectionState extends State<BackupSection> {
     const color = SettingsColors.folder;
     final on = phone.on;
     return _BackupCard(
-      topic: BackupSection.folder,
+      topic: BackupTopics.folder,
       glyph: Glyph.records,
       color: color,
       title: '存到資料夾',

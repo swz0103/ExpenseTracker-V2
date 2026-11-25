@@ -1,3 +1,5 @@
+import '../formatting/setting_topic.dart';
+
 /// The words of the backup settings, in one place.
 abstract final class BackupWords {
   /// Asked before a restore from another backup, and its yes.
@@ -54,4 +56,19 @@ abstract final class BackupWords {
   /// (`FolderDenied`), and the button that opens the chooser again.
   static const folderDenied = '沒有這個資料夾的存取權，請重新選擇';
   static const chooseFolderAgain = '重新選擇';
+}
+
+/// What search finds in BackupSection (N8): each setting's name and the other
+/// words a person may type for it, marking the card that section builds.
+abstract final class BackupTopics {
+  static const drive_ = SettingTopic(
+    '雲端硬碟備份',
+    words: ['Google', '雲端', '收據照片', 'Wi-Fi'],
+  );
+
+  static const folder = SettingTopic('手機資料夾備份', words: ['資料夾']);
+
+  static const export = SettingTopic('匯出備份', words: ['備份檔']);
+
+  static const restore = SettingTopic('從備份還原', words: ['還原', '換手機']);
 }

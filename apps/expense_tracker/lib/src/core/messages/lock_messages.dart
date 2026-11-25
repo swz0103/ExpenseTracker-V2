@@ -1,3 +1,5 @@
+import '../formatting/setting_topic.dart';
+import 'key_messages.dart' show KeyWords;
 import '../platform/preferences.dart' show AutoLock;
 
 /// The words of the lock: the wait after wrong passwords, the fingerprint,
@@ -85,4 +87,34 @@ abstract final class LockWords {
 
   /// The diagnostics heading of locking that could not keep a change.
   static const lockHeading = '上鎖';
+}
+
+/// What search finds in SecuritySection (N8): each setting's name and the other
+/// words a person may type for it, marking the card that section builds.
+abstract final class SecurityTopics {
+  static const password = SettingTopic('密碼', words: ['變更密碼', '設定密碼']);
+
+  static const fingerprint = SettingTopic(
+    LockWords.fingerprint,
+    // Exception to glossary: search words: 指紋 finds the setting too.
+    words: ['指紋', '臉部', '生物辨識'],
+  );
+
+  static const autoLock = SettingTopic(
+    LockWords.autoLock,
+    words: LockWords.autoLockSearch,
+  );
+
+  static const recovery = SettingTopic('救援碼', words: ['忘記密碼']);
+
+  static const passphrase = SettingTopic(KeyWords.passphrase, words: ['備份']);
+
+  static const hideScreen = SettingTopic(
+    LockWords.hideScreen,
+    words: ['截圖', '錄影', '隱私'],
+  );
+
+  static const reset = SettingTopic(KeyWords.reset, words: ['金鑰', '外流']);
+
+  static const lockNow = SettingTopic('現在鎖上', words: ['鎖定']);
 }

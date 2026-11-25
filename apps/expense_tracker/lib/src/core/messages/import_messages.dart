@@ -1,3 +1,5 @@
+import '../formatting/setting_topic.dart';
+
 import 'package:domain/data_exchange.dart'
     show
         DayProblem,
@@ -76,3 +78,13 @@ const importInvoicesHint = '財政部「消費明細」的 CSV 或載具的 M／
 
 /// What 匯入 says it reads, under its example: a CSV.
 const importCsvHint = '本 App 匯出的 CSV 可以完整匯回；沒有的帳戶與分類會自動新增';
+
+/// What search finds in ImportExportSection (N8): each setting's name and the other
+/// words a person may type for it, marking the card that section builds.
+abstract final class ImportExportTopics {
+  static const export = SettingTopic('匯出紀錄', words: ['匯出', 'CSV', 'Excel']);
+
+  static const importCsv = SettingTopic('匯入 CSV', words: ['CSV', '匯入']);
+
+  static const invoices = SettingTopic('電子發票', words: [Words.invoice, '載具']);
+}

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/glyphs.dart';
-import '../../../core/formatting/setting_topic.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../overview/forms/overview_editor.dart';
@@ -20,16 +19,14 @@ class AppearanceSection extends StatelessWidget {
 
   final Preferences preferences;
 
-  // What search finds here (N8), each on its card below.
-  static const look = SettingTopic('外觀', words: ['深色', '淺色', '主題']);
-  static const vibration = SettingTopic('震動', words: ['觸感']);
-  static const homeWidget = SettingTopic('桌面小工具', words: ['小工具', '桌面']);
-  static const blocks = SettingTopic('總覽區塊', words: ['排序', '隱藏']);
-  static const discount = SettingTopic(
-    BrokerDiscountText.title,
-    words: BrokerDiscountText.searchWords,
-  );
-  static const topics = [look, vibration, homeWidget, blocks, discount];
+  // What search finds here (N8): each topic marks its card.
+  static const topics = [
+    AppearanceTopics.look,
+    AppearanceTopics.vibration,
+    AppearanceTopics.homeWidget,
+    AppearanceTopics.blocks,
+    AppearanceTopics.discount,
+  ];
 
   /// Light, dark, or as the phone is, each as a small picture of a page.
   void _pickAppearance(BuildContext context) {
@@ -132,7 +129,7 @@ class AppearanceSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return CardGrid([
       SettingCard(
-        topic: look,
+        topic: AppearanceTopics.look,
         glyph: Glyph.moon,
         color: SettingsColors.appearance,
         title: '外觀',
@@ -140,7 +137,7 @@ class AppearanceSection extends StatelessWidget {
         onTap: () => _pickAppearance(context),
       ),
       SettingCard(
-        topic: vibration,
+        topic: AppearanceTopics.vibration,
         glyph: Glyph.vibrate,
         color: SettingsColors.haptics,
         title: '震動',
@@ -154,7 +151,7 @@ class AppearanceSection extends StatelessWidget {
         onTap: () => _pickVibration(context),
       ),
       SettingCard(
-        topic: homeWidget,
+        topic: AppearanceTopics.homeWidget,
         glyph: Glyph.overview,
         color: SettingsColors.widget,
         title: '桌面小工具',
@@ -162,7 +159,7 @@ class AppearanceSection extends StatelessWidget {
         onTap: () => _pickWidget(context),
       ),
       SettingCard(
-        topic: blocks,
+        topic: AppearanceTopics.blocks,
         glyph: Glyph.list,
         color: SettingsColors.sections,
         title: '總覽區塊',
@@ -170,7 +167,7 @@ class AppearanceSection extends StatelessWidget {
         onTap: () => editOverview(context, preferences),
       ),
       SettingCard(
-        topic: discount,
+        topic: AppearanceTopics.discount,
         glyph: Glyph.percent,
         color: SettingsColors.brokerDiscount,
         title: BrokerDiscountText.title,

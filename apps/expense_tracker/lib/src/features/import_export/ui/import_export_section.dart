@@ -1,9 +1,9 @@
 import 'package:core/foundation_values.dart' show BusinessDate, YearMonth;
 import 'package:core/time/utc_days.dart' show dayOf, monthStart;
 
-import '../../../core/formatting/words.dart';
+import '../../../core/messages/import_messages.dart';
+
 import '../../../core/design_system/findable.dart';
-import '../../../core/formatting/setting_topic.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -40,11 +40,12 @@ class ImportExportSection extends StatelessWidget {
   /// Saves files and reads them; without it exports are copied instead.
   final BackupManager? backupManager;
 
-  // What search finds here (N8), each on its card below.
-  static const export = SettingTopic('匯出紀錄', words: ['匯出', 'CSV', 'Excel']);
-  static const importCsv = SettingTopic('匯入 CSV', words: ['CSV', '匯入']);
-  static const invoices = SettingTopic('電子發票', words: [Words.invoice, '載具']);
-  static const topics = [export, importCsv, invoices];
+  // What search finds here (N8): each topic marks its card.
+  static const topics = [
+    ImportExportTopics.export,
+    ImportExportTopics.importCsv,
+    ImportExportTopics.invoices,
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +55,7 @@ class ImportExportSection extends StatelessWidget {
       children: [
         const RuleHead('匯出'),
         Findable(
-          topic: export,
+          topic: ImportExportTopics.export,
           child: ColorCard(
             color: SettingsColors.csv,
             label: '匯出 CSV',
@@ -95,7 +96,7 @@ class ImportExportSection extends StatelessWidget {
         const RuleHead('匯入'),
         CardGrid([
           SettingCard(
-            topic: importCsv,
+            topic: ImportExportTopics.importCsv,
             glyph: Glyph.records,
             color: SettingsColors.importExport,
             title: 'CSV 檔案',
@@ -104,7 +105,7 @@ class ImportExportSection extends StatelessWidget {
                 importInto(context, ledger, readFile: backupManager?.readFile),
           ),
           SettingCard(
-            topic: invoices,
+            topic: ImportExportTopics.invoices,
             glyph: Glyph.scan,
             color: SettingsColors.invoice,
             title: '電子發票',

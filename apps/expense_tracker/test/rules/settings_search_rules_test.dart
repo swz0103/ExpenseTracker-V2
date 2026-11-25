@@ -1,12 +1,13 @@
 import 'dart:io';
 
 import 'package:expense_tracker/src/app/demo/preview_services.dart';
-import 'package:expense_tracker/src/app/about_section.dart';
 import 'package:expense_tracker/src/app/settings_search.dart';
 import 'package:expense_tracker/src/core/design_system/findable.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/design_system/design_system.dart';
 import 'package:expense_tracker/src/core/formatting/setting_topic.dart';
+import 'package:expense_tracker/src/core/messages/reminder_messages.dart';
+import 'package:expense_tracker/src/core/messages/update_messages.dart';
 import 'package:expense_tracker/src/core/navigation/nav.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
@@ -14,7 +15,6 @@ import 'package:expense_tracker/src/features/backup/model/drive_sync.dart';
 import 'package:expense_tracker/src/features/backup/model/phone_backup.dart';
 import 'package:expense_tracker/src/features/backup/ui/backup_section.dart';
 import 'package:expense_tracker/src/features/reminders/model/calendar_sync.dart';
-import 'package:expense_tracker/src/features/reminders/ui/reminders_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -85,9 +85,9 @@ void main() {
 
   /// Declared on a page but not built in these tests, and why.
   final notBuiltHere = <SettingTopic, String>{
-    AboutSection.updates: 'only where the app can update itself (sideload)',
-    AboutSection.sampleReset: 'only in the web preview',
-    RemindersSection.phone: 'once the phone has said how it stands',
+    AboutTopics.updates: 'only where the app can update itself (sideload)',
+    AboutTopics.sampleReset: 'only in the web preview',
+    ReminderTopics.phone: 'once the phone has said how it stands',
   };
 
   /// The topics each page built, over every way it was shown.

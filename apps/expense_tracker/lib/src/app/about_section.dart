@@ -38,12 +38,13 @@ class AboutSection extends StatelessWidget {
   final Ledger ledger;
   final PlatformServices services;
 
-  // What search finds here (N8), each on its card below.
-  static const version = SettingTopic('版本與更新', words: ['新版', '版本']);
-  static const updates = SettingTopic('自動檢查新版本', words: ['更新', '版本']);
-  static const diagnostics = SettingTopic('診斷', words: ['錯誤', '效能']);
-  static const sampleReset = SettingTopic('重設範例資料', words: ['範例']);
-  static const topics = [version, updates, diagnostics, sampleReset];
+  // What search finds here (N8): each topic marks its card.
+  static const topics = [
+    AboutTopics.version,
+    AboutTopics.updates,
+    AboutTopics.diagnostics,
+    AboutTopics.sampleReset,
+  ];
 
   /// The figures, then each problem kept, as text to copy or download.
   static String get _report => [
@@ -164,7 +165,7 @@ class AboutSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Findable(
-            topic: version,
+            topic: AboutTopics.version,
             child: _VersionCard(update: update),
           ),
           const SizedBox(height: Space.s3),
@@ -172,7 +173,7 @@ class AboutSection extends StatelessWidget {
             [
               if (preferences != null && (update?.possible ?? false))
                 _ActionRow(
-                  topic: updates,
+                  topic: AboutTopics.updates,
                   glyph: Glyph.reset,
                   color: SettingsColors.main,
                   title: '自動檢查新版本',
@@ -191,7 +192,7 @@ class AboutSection extends StatelessWidget {
                   ),
                 ),
               _ActionRow(
-                topic: diagnostics,
+                topic: AboutTopics.diagnostics,
                 glyph: Glyph.bolt,
                 color: SettingsColors.about,
                 title: '診斷',
@@ -205,7 +206,7 @@ class AboutSection extends StatelessWidget {
           if (services.sample case final sample?) ...[
             const SizedBox(height: Space.s3),
             Findable(
-              topic: sampleReset,
+              topic: AboutTopics.sampleReset,
               child: PanelButton(
                 '重設範例資料',
                 onTap: () => _reset(context, sample),

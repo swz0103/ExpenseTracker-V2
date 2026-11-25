@@ -1,3 +1,4 @@
+import '../formatting/setting_topic.dart';
 import '../../../design_system/display/amount.dart';
 import '../../../design_system/display/status_messages.dart';
 
@@ -68,4 +69,18 @@ abstract final class ReminderMessages {
   /// After 去開 for the battery: the app's own page opens, where the
   /// person picks the setting.
   static const batteryHow = '請在「電池」選「不受限制」，提醒才不會被延後';
+}
+
+/// What search finds in RemindersSection (N8): each setting's name and the other
+/// words a person may type for it, marking the card that section builds.
+abstract final class ReminderTopics {
+  static const due = SettingTopic('到期提醒', words: ['信用卡', '定期', '通知']);
+
+  static const budget = SettingTopic('預算提醒', words: ['預算', '通知']);
+
+  static const daily = SettingTopic('每日記帳提醒', words: ['每天', '提醒時間', '通知']);
+
+  static const linkCalendar = SettingTopic('日曆', words: ['行事曆', '同步']);
+
+  static const phone = SettingTopic('手機的通知設定', words: ['通知權限', '電池', '測試通知']);
 }

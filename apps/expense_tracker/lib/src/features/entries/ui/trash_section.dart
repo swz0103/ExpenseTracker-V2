@@ -2,9 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/formatting/words.dart';
 import '../../../core/design_system/findable.dart';
-import '../../../core/formatting/setting_topic.dart';
 
 import 'package:core/constants/retention.dart';
 
@@ -33,8 +31,7 @@ class TrashSection extends StatelessWidget {
   final Ledger ledger;
 
   /// What search finds here (N8): the page itself.
-  static const trash = SettingTopic('最近刪除', words: [Words.delete, '回收', '放回']);
-  static const topics = [trash];
+  static const topics = [TrashTopics.trash];
 
   /// Puts [trashed] back, first asking what stands in its way (D78): an
   /// account closed since, or a refund's purchase deleted too.
@@ -67,7 +64,7 @@ class TrashSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      Findable(topic: TrashSection.trash, child: _page(context));
+      Findable(topic: TrashTopics.trash, child: _page(context));
 
   Widget _page(BuildContext context) {
     final trash = ledger.trash;

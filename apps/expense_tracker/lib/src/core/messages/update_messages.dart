@@ -1,3 +1,4 @@
+import '../formatting/setting_topic.dart';
 import '../../../design_system/display/amount.dart';
 import '../platform/update_status.dart';
 
@@ -54,4 +55,16 @@ abstract final class UpdateMessages {
         UpdateDownloading(:final share) => '下載中 ${ratioWholePercent(share)}',
         UpdateFailed(failure: final why) => failure(why),
       };
+}
+
+/// What search finds in AboutSection (N8): each setting's name and the other
+/// words a person may type for it, marking the card that section builds.
+abstract final class AboutTopics {
+  static const version = SettingTopic('版本與更新', words: ['新版', '版本']);
+
+  static const updates = SettingTopic('自動檢查新版本', words: ['更新', '版本']);
+
+  static const diagnostics = SettingTopic('診斷', words: ['錯誤', '效能']);
+
+  static const sampleReset = SettingTopic('重設範例資料', words: ['範例']);
 }
