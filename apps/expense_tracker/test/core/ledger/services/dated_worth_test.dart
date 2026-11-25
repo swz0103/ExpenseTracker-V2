@@ -141,6 +141,57 @@ void main() {
     );
   });
 
+  test('D123: a close fetched after a split is not split again', () {
+    final base = fixture();
+    // 9/1's close as fetched on 9/20, after the 9/15 split: 480, a price
+    // of the shares since.
+    final l = Ledger(
+      today: on(10, 31),
+      accounts: base.accounts.all,
+      categories: const [],
+      entries: base.entries.all,
+      holdings: const [
+        Holding('2330', '台積電', shares: 0, price: 1000, cost: 0, change: 0),
+      ],
+      budgets: const [],
+      recurring: const [],
+      quoteDays: {'2330': on(10, 30)},
+      history: MarketHistory(
+        closes: DatedFigures({
+          '2330': {d(9, 1): 480.0, d(10, 30): 1000.0},
+        }),
+        closesFetched: {
+          '2330': {d(9, 1): d(9, 20)},
+        },
+      ),
+    );
+    int? worth(DateTime day, int counted) => datedWorth(
+      holdings: l.holdings,
+      market: l.marketData,
+      code: '2330',
+      day: day,
+      counted: counted,
+    );
+    // 9/20: the 2,000 held after the split are not halved: 2,000 x 480 =
+    // 960,000.
+    expect(worth(on(9, 20), 2000), 960000);
+    // 9/10: the 1,000 held before it are the 2,000 of the price's shares:
+    // 2,000 x 480 = 960,000.
+    expect(worth(on(9, 10), 1000), 960000);
+    // Fetched on its own day (the fixture): 9/20's 2,000 are 1,000 of
+    // 9/1's shares, 1,000 x 960 = 960,000.
+    expect(
+      datedWorth(
+        holdings: base.holdings,
+        market: base.marketData,
+        code: '2330',
+        day: on(9, 20),
+        counted: 2000,
+      ),
+      960000,
+    );
+  });
+
   test('the journal values each day the same', () async {
     final l = fixture();
     final b = await post(l);

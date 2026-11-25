@@ -41,6 +41,11 @@ enum MarketSeries {
   };
 }
 
+/// The field of a day row naming, by code, the later day each of its
+/// closes was fetched on (D123); left out for closes fetched on the day
+/// or the next, as no split can fall between.
+const fetchedField = 'fetched';
+
 /// The history kept in the day rows [bodies], by day. Throws a
 /// [FormatException] for a row that cannot be read.
 MarketHistory historyFrom(Map<BusinessDate, String> bodies) {
@@ -48,9 +53,16 @@ MarketHistory historyFrom(Map<BusinessDate, String> bodies) {
     for (final series in MarketSeries.values)
       series: <String, Map<BusinessDate, double>>{},
   };
+  final fetched = <String, Map<BusinessDate, BusinessDate>>{};
   for (final MapEntry(key: day, value: body) in bodies.entries) {
     final json = jsonDecode(body);
     if (json is! Map<String, Object?>) throw const FormatException('day');
+    final on = json[fetchedField] ?? const <String, Object?>{};
+    if (on is! Map<String, Object?>) throw const FormatException(fetchedField);
+    for (final MapEntry(:key, :value) in on.entries) {
+      if (value is! String) throw const FormatException(fetchedField);
+      (fetched[key] ??= {})[day] = BusinessDate.parse(value);
+    }
     for (final series in MarketSeries.values) {
       final part = json[series.field] ?? const <String, Object?>{};
       if (part is! Map<String, Object?>) {
@@ -64,15 +76,19 @@ MarketHistory historyFrom(Map<BusinessDate, String> bodies) {
       }
     }
   }
-  return _history(tables);
+  return _history(tables, fetched);
 }
 
 MarketHistory _history(
   Map<MarketSeries, Map<String, Map<BusinessDate, double>>> tables,
+  Map<String, Map<BusinessDate, BusinessDate>> fetched,
 ) => MarketHistory(
   buying: DatedFigures(tables[MarketSeries.buying] ?? const {}),
   selling: DatedFigures(tables[MarketSeries.selling] ?? const {}),
   closes: DatedFigures(tables[MarketSeries.closes] ?? const {}),
+  closesFetched: {
+    for (final MapEntry(:key, :value) in fetched.entries) key: {...value},
+  },
 );
 
 /// What a fetch adds to [history] (D58), and the day rows it rewrites.
@@ -81,19 +97,27 @@ final class MarketDayWrites {
     : _tables = {
         for (final series in MarketSeries.values)
           series: series.of(history).figures,
+      },
+      _fetched = {
+        for (final MapEntry(:key, :value) in history.closesFetched.entries)
+          key: {...value},
       };
 
   final Map<MarketSeries, Map<String, Map<BusinessDate, double>>> _tables;
+  final Map<String, Map<BusinessDate, BusinessDate>> _fetched;
   final _touched = <BusinessDate>{};
 
   /// The history with what was kept.
-  MarketHistory get history => _history(_tables);
+  MarketHistory get history => _history(_tables, _fetched);
 
   /// Keeps [figure], taken from a fetch, for [key] on [day]. [kept] is
   /// the figure it replaces as the latest, of the day [keptOn]: a book
   /// kept before D58 has it only in its latest row, so it is kept for its
   /// day first. A figure the days kept already give for its day (that
-  /// day's, or an earlier day's unchanged) is not kept again.
+  /// day's, as first fetched, or an earlier day's unchanged, fetched
+  /// alike) is not kept again. A close [fetchedOn] a day more than one after [day] is kept
+  /// with that day (D123): fetched after a split, it is a price of the
+  /// shares since.
   void keep(
     MarketSeries series,
     String key,
@@ -101,23 +125,48 @@ final class MarketDayWrites {
     double figure, {
     double? kept,
     BusinessDate? keptOn,
+    BusinessDate? fetchedOn,
   }) {
     if (kept != null && keptOn != null && keptOn.isBefore(day)) {
       _add(series, key, keptOn, kept);
     }
-    _add(series, key, day, figure);
+    _add(series, key, day, figure, fetchedOn: fetchedOn);
   }
 
-  void _add(MarketSeries series, String key, BusinessDate day, double figure) {
+  void _add(
+    MarketSeries series,
+    String key,
+    BusinessDate day,
+    double figure, {
+    BusinessDate? fetchedOn,
+  }) {
     if (!figure.isFinite || figure <= 0) return;
+    // Only a fetch day a split could fall between it and [day] on: one
+    // dated after the close's day and before the fetch's.
+    final later =
+        series == MarketSeries.closes &&
+            fetchedOn != null &&
+            fetchedOn.isAfter(day.addDays(1))
+        ? fetchedOn
+        : null;
     final table = _tables[series]!;
     final found = DatedFigures({key: ?table[key]}).on(key, day);
     if (found != null &&
         found.found != FoundOn.today &&
-        found.figure == figure) {
+        found.figure == figure &&
+        // The day's own stands, as first fetched; an earlier day's only
+        // when fetched alike, or of no known fetch day.
+        (found.found == FoundOn.theDay ||
+            fetchedOn == null ||
+            _fetched[key]?[found.of] == later)) {
       return;
     }
     (table[key] ??= {})[day] = figure;
+    if (later != null) {
+      (_fetched[key] ??= {})[day] = later;
+    } else {
+      _fetched[key]?.remove(day);
+    }
     _touched.add(day);
   }
 
@@ -131,7 +180,14 @@ final class MarketDayWrites {
     for (final series in MarketSeries.values)
       if (_onDay(series, day) case final figures when figures.isNotEmpty)
         series.field: figures,
+    if (_fetchedOnDay(day) case final fetched when fetched.isNotEmpty)
+      fetchedField: fetched,
   });
+
+  Map<String, String> _fetchedOnDay(BusinessDate day) => {
+    for (final MapEntry(:key, :value) in _fetched.entries)
+      if (value[day] case final on?) key: '$on',
+  };
 
   Map<String, double> _onDay(MarketSeries series, BusinessDate day) => {
     for (final MapEntry(:key, :value) in _tables[series]!.entries)

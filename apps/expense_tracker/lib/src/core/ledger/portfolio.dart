@@ -346,17 +346,34 @@ final class Portfolio {
   }
 
   /// [shares] of [code] held at the end of [day], as counted then, in the
-  /// shares of the earlier day [of]: each split or reduction after [of]
-  /// up to [day] undone, as a close of [of] is a price per share of then
-  /// (D58); one that left no shares is passed over.
-  int inSharesOf(String code, DateTime day, int shares, DateTime of) {
+  /// shares a close of the earlier day [of] is a price of (D58): each
+  /// split or reduction after [of] up to [day] undone, as such a close is
+  /// a price per share of then; one that left no shares is passed over.
+  /// A close [fetchedOn] a later day is a price of the shares after each
+  /// split or reduction before that day (D123): one of those is not
+  /// undone, and one after [day] is worked in.
+  int inSharesOf(
+    String code,
+    DateTime day,
+    int shares,
+    DateTime of, {
+    DateTime? fetchedOn,
+  }) {
+    bool priced(DateTime date) =>
+        !date.isAfter(of) || (fetchedOn != null && date.isBefore(fetchedOn));
+    final rescales = _rescales[code] ?? const <_Rescale>[];
     var n = shares;
-    for (final (date, before, after)
-        in (_rescales[code] ?? const <_Rescale>[]).reversed) {
+    for (final (date, before, after) in rescales.reversed) {
       // One that left none (a reduction to nothing) has no shares of
       // before to count back to: the shares counted since are new.
-      if (date.isAfter(of) && !date.isAfter(day) && after > 0) {
+      if (!priced(date) && !date.isAfter(day) && after > 0) {
         n = (n * before / after).round();
+      }
+    }
+    for (final (date, before, after) in rescales) {
+      // Nor is one worked forward through: none of before is left.
+      if (priced(date) && date.isAfter(day) && before > 0 && after > 0) {
+        n = (n * after / before).round();
       }
     }
     return n;

@@ -113,5 +113,16 @@ void main() {
     expect(DatedFigures({'X': {}}).isEmpty, isTrue);
     expect(MarketHistory().isEmpty, isTrue);
     expect(MarketHistory(closes: usd).isEmpty, isFalse);
+    // D123: the day a close was fetched on, where kept.
+    final h = MarketHistory(
+      closesFetched: {
+        '2330': {d(3, 2): d(3, 9)},
+        '0050': {},
+      },
+    );
+    expect(h.closeFetchedOn('2330', d(3, 2)), d(3, 9));
+    expect(h.closeFetchedOn('2330', d(3, 9)), isNull);
+    expect(h.closeFetchedOn('0050', d(3, 2)), isNull);
+    expect(h.closesFetched.keys, ['2330']);
   });
 }

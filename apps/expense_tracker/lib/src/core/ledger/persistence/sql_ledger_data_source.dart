@@ -1098,21 +1098,33 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// What a figure fetched for [day] is weighed against (D95, D101):
   /// the one [dated] keeps for that day or the nearest day before it
-  /// (D58), with its day, else the [latest] kept, of [latestOn].
-  static ({double? figure, DateTime? on}) _weighedAgainst(
+  /// (D58), with its day, else the [latest] kept, of [latestOn]; and the
+  /// day after whose splits it is a price of the shares before
+  /// (`sharesAfter`): its own day, or, fetched on a later day as
+  /// [fetched] names it, the day before that (D123).
+  static ({double? figure, DateTime? on, DateTime? sharesAfter})
+  _weighedAgainst(
     DatedFigures dated,
     String key,
     BusinessDate day, {
     required double? latest,
     required DateTime? latestOn,
+    Map<BusinessDate, BusinessDate> fetched = const {},
   }) => switch (dated.on(key, day)) {
     (
       :final figure,
       of: final of?,
       found: FoundOn.theDay || FoundOn.earlierDay,
     ) =>
-      (figure: figure, on: of.asUtcMidnight),
-    _ => (figure: latest, on: latestOn),
+      (
+        figure: figure,
+        on: of.asUtcMidnight,
+        sharesAfter: switch (fetched[of]) {
+          final later? => later.addDays(-1).asUtcMidnight,
+          null => of.asUtcMidnight,
+        },
+      ),
+    _ => (figure: latest, on: latestOn, sharesAfter: latestOn),
   };
 
   /// The codes the last [refreshQuotes] found no close for: not quoted
@@ -1230,6 +1242,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         BusinessDate.of(day),
         latest: prices[code],
         latestOn: keptOn,
+        fetched: kept.history.closesFetched[code] ?? const {},
       );
       if (!takesFetched(
         kept: against.figure,
@@ -1239,7 +1252,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
           null => null,
         },
         doubtedBefore: doubtedBefore[code]?.figure,
-        reshapedBy: reshapedBy(code, against.on),
+        reshapedBy: reshapedBy(code, against.sharesAfter),
       )) {
         doubted.add(code);
         // Kept to weigh the next fetch by (D101), with its day.
@@ -1260,6 +1273,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         price,
         kept: prices[code],
         keptOn: keptOn == null ? null : BusinessDate.of(keptOn),
+        fetchedOn: BusinessDate.of(today),
       );
       if (quotedOn == null || day.isAfter(quotedOn)) {
         quotedOn = day;

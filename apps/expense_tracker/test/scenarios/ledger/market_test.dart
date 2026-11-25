@@ -153,6 +153,14 @@ void main() {
     expect(ledger.holdings.hasQuote('2317'), isTrue);
     expect(ledger.marketData.olderQuote('2317'), DateTime.utc(2026, 9, 26));
     expect(ledger.marketData.olderQuote('2330'), isNull);
+    // D123: 2317's close of 9/26, fetched on 9/30, keeps its fetch day;
+    // 2330's of 9/29, fetched the day after, needs none.
+    final history = ledger.marketData.history;
+    expect(
+      history.closeFetchedOn('2317', BusinessDate(2026, 9, 26)),
+      BusinessDate(2026, 9, 30),
+    );
+    expect(history.closeFetchedOn('2330', BusinessDate(2026, 9, 29)), isNull);
   });
 
   group('D95: a figure fetched that cannot be right is not taken', () {
@@ -336,6 +344,35 @@ void main() {
         expect(tsmc(data), 61.73);
       },
     );
+
+    test('D123: a close kept as fetched days later is weighed in the shares '
+        'of its fetch day', () async {
+      final data = await source();
+      // 9/29's close first fetched on 10/3: a price of the shares after
+      // any split dated before 10/3.
+      sourceClock.advance(const Duration(days: 3));
+      now = DateTime.utc(2026, 10, 3, 4);
+      await data.refreshQuotes(['2330', '0050']);
+      expect(
+        (await data.load()).marketData.history.closeFetchedOn(
+          '2330',
+          BusinessDate(2026, 9, 29),
+        ),
+        BusinessDate(2026, 10, 3),
+      );
+      daily = closes('1151003', '1,240.00');
+      now = now.add(const Duration(hours: 1));
+      DateTime? askedAfter;
+      await data.refreshQuotes(
+        ['2330', '0050'],
+        reshapedBy: (code, day) {
+          if (code == '2330') askedAfter = day;
+          return null;
+        },
+      );
+      // Only the splits from 10/3 on are still to come in it: after 10/2.
+      expect(askedAfter, DateTime.utc(2026, 10, 2));
+    });
 
     test('a split of one for twenty with a close garbled a hundred times is '
         'doubted (review 18)', () async {

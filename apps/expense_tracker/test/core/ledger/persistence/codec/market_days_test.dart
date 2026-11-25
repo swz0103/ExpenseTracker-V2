@@ -102,6 +102,94 @@ void main() {
     });
   });
 
+  group('D123: a close fetched on a later day keeps that day', () {
+    test('written beside the close, read back', () {
+      final writes = MarketDayWrites(MarketHistory());
+      writes.keep(
+        MarketSeries.closes,
+        '2330',
+        d(3, 6),
+        910,
+        fetchedOn: d(3, 10),
+      );
+      // A rate is never kept with a fetch day; a close fetched on its
+      // own day neither.
+      writes.keep(
+        MarketSeries.buying,
+        'USD',
+        d(3, 6),
+        31.7,
+        fetchedOn: d(3, 10),
+      );
+      writes.keep(
+        MarketSeries.closes,
+        '0050',
+        d(3, 6),
+        150,
+        fetchedOn: d(3, 6),
+      );
+      // Nor one fetched the next day: no split falls between.
+      writes.keep(
+        MarketSeries.closes,
+        '2317',
+        d(3, 6),
+        201,
+        fetchedOn: d(3, 7),
+      );
+      expect(jsonDecode(writes.rows['day:2026-03-06']!), {
+        'rates': {'USD': 31.7},
+        'closes': {'2330': 910.0, '0050': 150.0, '2317': 201.0},
+        'fetched': {'2330': '2026-03-10'},
+      });
+      expect(writes.history.closeFetchedOn('2330', d(3, 6)), d(3, 10));
+      expect(writes.history.closeFetchedOn('0050', d(3, 6)), isNull);
+      final read = historyFrom({d(3, 6): writes.rows['day:2026-03-06']!});
+      expect(read.closeFetchedOn('2330', d(3, 6)), d(3, 10));
+      expect(read.closes.exactly('2330', d(3, 6)), 910);
+    });
+
+    test('a close kept stands as first fetched', () {
+      final kept = historyFrom({
+        d(3, 6): '{"closes":{"2330":910},"fetched":{"2330":"2026-03-10"}}',
+      });
+      // The same close of 3/6 fetched again, on any day or none known:
+      // nothing is written, its fetch day stays.
+      for (final on in [d(3, 6), d(3, 20), null]) {
+        final writes = MarketDayWrites(kept)
+          ..keep(MarketSeries.closes, '2330', d(3, 6), 910, fetchedOn: on);
+        expect(writes.rows, isEmpty, reason: '$on');
+        expect(writes.history.closeFetchedOn('2330', d(3, 6)), d(3, 10));
+      }
+      // A new figure for the day takes its own fetch day, or none.
+      final changed = MarketDayWrites(kept)
+        ..keep(MarketSeries.closes, '2330', d(3, 6), 455, fetchedOn: d(3, 7));
+      expect(jsonDecode(changed.rows['day:2026-03-06']!), {
+        'closes': {'2330': 455.0},
+      });
+      // 3/9 at 910 fetched on 3/9: of other shares than 3/6's fetched on
+      // 3/10, so kept for its day; fetched on 3/12, alike, it is not.
+      final later = MarketDayWrites(kept)
+        ..keep(MarketSeries.closes, '2330', d(3, 9), 910, fetchedOn: d(3, 9));
+      expect(later.rows.keys, ['day:2026-03-09']);
+      final alike = MarketDayWrites(
+        historyFrom({
+          d(3, 6): '{"closes":{"2330":910},"fetched":{"2330":"2026-03-12"}}',
+        }),
+      )..keep(MarketSeries.closes, '2330', d(3, 9), 910, fetchedOn: d(3, 12));
+      expect(alike.rows, isEmpty);
+    });
+
+    test('a fetch day that cannot be read is refused', () {
+      for (final body in ['{"fetched":[1]}', '{"fetched":{"2330":5}}']) {
+        expect(
+          () => historyFrom({d(3, 2): body}),
+          throwsFormatException,
+          reason: body,
+        );
+      }
+    });
+  });
+
   group('a book kept before D58', () {
     StoredRow row(String id, Object body) =>
         StoredRow(0, marketShelf, id, jsonEncode(body));

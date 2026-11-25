@@ -60,8 +60,15 @@ abstract interface class HoldingReader {
 
   /// [shares] of [code] as counted at the end of [day], in the shares of
   /// the earlier day [of], whose close values them (D58): the splits and
-  /// reductions after [of] up to [day] undone.
-  int inSharesOf(String code, DateTime day, int shares, DateTime of);
+  /// reductions after [of] up to [day] undone; those before the later
+  /// day the close was [fetchedOn], when it was, counted as in it (D123).
+  int inSharesOf(
+    String code,
+    DateTime day,
+    int shares,
+    DateTime of, {
+    DateTime? fetchedOn,
+  });
 
   /// How many times the shares of [code] were multiplied by the splits,
   /// stock dividends and capital reductions the book holds after [day]
@@ -206,8 +213,13 @@ final class HoldingRepository implements HoldingReader {
       _replayed.sharesCountedOn(code, day);
 
   @override
-  int inSharesOf(String code, DateTime day, int shares, DateTime of) =>
-      _replayed.inSharesOf(code, day, shares, of);
+  int inSharesOf(
+    String code,
+    DateTime day,
+    int shares,
+    DateTime of, {
+    DateTime? fetchedOn,
+  }) => _replayed.inSharesOf(code, day, shares, of, fetchedOn: fetchedOn);
 
   @override
   double? reshapedBy(String code, DateTime? day) =>

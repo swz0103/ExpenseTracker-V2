@@ -150,19 +150,36 @@ final class _Series {
 
 /// The dated rates and closes (D58): 臺灣銀行's spot [buying] and
 /// [selling] rate of each currency (D59) and each stock's [closes], each
-/// by the day the board or close is for.
+/// by the day the board or close is for; and, for a close fetched on a
+/// later day than it is for, that day ([closeFetchedOn], D123).
 final class MarketHistory {
   MarketHistory({
     DatedFigures? buying,
     DatedFigures? selling,
     DatedFigures? closes,
+    Map<String, Map<BusinessDate, BusinessDate>> closesFetched = const {},
   }) : buying = buying ?? DatedFigures(),
        selling = selling ?? DatedFigures(),
-       closes = closes ?? DatedFigures();
+       closes = closes ?? DatedFigures(),
+       closesFetched = {
+         for (final MapEntry(:key, :value) in closesFetched.entries)
+           if (value.isNotEmpty) key: Map.unmodifiable(value),
+       };
 
   final DatedFigures buying;
   final DatedFigures selling;
   final DatedFigures closes;
+
+  /// The day each close was fetched on, by code and the day it is for,
+  /// where a split could fall between: a close fetched on its own day or
+  /// the next has none.
+  final Map<String, Map<BusinessDate, BusinessDate>> closesFetched;
+
+  /// The day [code]'s close for [day] was fetched on, when kept; null
+  /// when fetched on that day or the next, or not known. A close fetched
+  /// after a split is a price of the shares since (D123).
+  BusinessDate? closeFetchedOn(String code, BusinessDate day) =>
+      closesFetched[code]?[day];
 
   /// Whether nothing is kept.
   bool get isEmpty => buying.isEmpty && selling.isEmpty && closes.isEmpty;
