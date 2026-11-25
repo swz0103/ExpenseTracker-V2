@@ -191,9 +191,24 @@ void main() {
     expect(find.text('小明'), findsWidgets);
   });
 
-  testWidgets('封存 someone with entries tucks them away and keeps the '
-      'entries, with 復原 (D82)', (tester) async {
+  testWidgets('封存 someone who still owes is refused and said; they stay '
+      '(DEB-01)', (tester) async {
     await open(tester);
+    await go(tester, ['~更多選項', '封存']);
+    expect(find.text('還有沒結清的款項，結清後才能封存'), findsOneWidget);
+    expect(ledger.account('lent').archived, isFalse);
+    // 800 + 500 + 500 still owed.
+    expect(ledger.balanceService.balance('lent'), 1800);
+    expect(find.text('還沒收回'), findsOneWidget, reason: 'still on the page');
+  });
+
+  testWidgets('封存 someone with entries, all paid back, tucks them away and '
+      'keeps the entries, with 復原 (D82)', (tester) async {
+    await open(tester);
+    await go(tester, ['收回']);
+    await tester.tap(find.byKey(Keys.save));
+    await tester.pumpAndSettle();
+    expect(ledger.balanceService.balance('lent'), 0);
     final count = ledger.entries.all.length;
     await go(tester, ['~更多選項', '封存']);
     expect(find.byKey(Keys.confirm), findsNothing);

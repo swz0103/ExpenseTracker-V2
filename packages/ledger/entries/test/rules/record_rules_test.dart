@@ -1,3 +1,4 @@
+import 'package:ledger_entries/model.dart' show AccountKind;
 import 'package:ledger_entries/rules.dart';
 import 'package:test/test.dart';
 
@@ -67,6 +68,30 @@ void main() {
         IntervalTooSmall,
         DayOutOfRange,
       ]);
+    });
+  });
+
+  group('archiving (DEB-01)', () {
+    test('a person who owes, or is owed, is not archived; settled, they '
+        'are', () {
+      expect(
+        _types(archiveIssues(kind: AccountKind.receivable, balance: 5000)),
+        [ArchivedOwing],
+      );
+      expect(_types(archiveIssues(kind: AccountKind.receivable, balance: -1)), [
+        ArchivedOwing,
+      ]);
+      expect(archiveIssues(kind: AccountKind.receivable, balance: 0), isEmpty);
+    });
+    test('any other account is archived with its balance', () {
+      for (final kind in AccountKind.values) {
+        if (kind == AccountKind.receivable) continue;
+        expect(
+          archiveIssues(kind: kind, balance: 5000),
+          isEmpty,
+          reason: '$kind',
+        );
+      }
     });
   });
 

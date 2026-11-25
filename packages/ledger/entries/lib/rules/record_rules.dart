@@ -1,5 +1,6 @@
 import 'package:ledger_loans/model/rate.dart' show maxLoanRate;
 
+import '../model/account_kind.dart';
 import 'entry_rules.dart' show maxAmountAnyCurrency;
 import 'issues.dart';
 
@@ -78,6 +79,15 @@ List<RecordIssue> accountShapeIssues({
   if ((limit != null && limit > maxAmountAnyCurrency) ||
       (opening != null && opening.abs() > maxAmountAnyCurrency))
     AmountTooLarge(maxAmountAnyCurrency),
+];
+
+/// Why an account of [kind] whose [balance] is that today cannot be
+/// archived: a person who still owes money, or is owed it (DEB-01).
+List<RecordIssue> archiveIssues({
+  required AccountKind kind,
+  required int balance,
+}) => [
+  if (kind == AccountKind.receivable && balance != 0) const ArchivedOwing(),
 ];
 
 /// Why a budget of [limit] warning at [warning] percent cannot be kept.

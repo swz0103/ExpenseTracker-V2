@@ -277,6 +277,12 @@ final class LoanRateTooHigh extends RecordIssue {
   final int max;
 }
 
+/// A person archived while money is still owed, either way (DEB-01):
+/// out of sight, the debt would be forgotten. Settled first, they may be.
+final class ArchivedOwing extends RecordIssue {
+  const ArchivedOwing();
+}
+
 /// A statement close moved where the card's schedule cannot hold it:
 /// more than a week from its scheduled day, or not before its payment.
 final class CloseMoveRefused extends RecordIssue {

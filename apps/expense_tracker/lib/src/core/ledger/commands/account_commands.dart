@@ -1,7 +1,12 @@
 import 'package:core/foundation_values.dart';
 import 'package:domain/credit_cards.dart';
 import 'package:ledger_entries/rules.dart'
-    show CloseMoveRefused, RecordIssue, accountIssues;
+    show
+        ArchivedOwing,
+        CloseMoveRefused,
+        RecordIssue,
+        accountIssues,
+        archiveIssues;
 
 import '../cache/topic.dart';
 import '../card_cycle.dart';
@@ -50,11 +55,19 @@ final class AccountCommands {
     _context.keep(WriteBatch(accounts: [account]));
   }
 
-  /// Puts [account] in place of the one with the same id.
+  /// Puts [account] in place of the one with the same id. A person who
+  /// still owes money, or is owed it, is not archived ([ArchivedOwing]).
   void updateAccount(Account account) {
     final before = _accounts.byId(account.id);
     if (before == null) return addAccount(account);
     _check(account);
+    if (account.archived && !before.archived) {
+      final issues = archiveIssues(
+        kind: account.kind,
+        balance: _balances.balance(account.id),
+      );
+      if (issues.isNotEmpty) throw RecordRefused(issues);
+    }
     // A form that does not show a card's moved closes and earlier billing
     // days keeps them.
     account = account.copyWith(
@@ -208,7 +221,11 @@ final class AccountCommands {
     return () {
       final now = _accounts.byId(id);
       if (now == null || now.archived != archived) return;
-      updateAccount(now.copyWith(archived: !archived));
+      try {
+        updateAccount(now.copyWith(archived: !archived));
+      } on RecordRefused {
+        // Brought back and owing again since: it stays in sight.
+      }
     };
   }
 }

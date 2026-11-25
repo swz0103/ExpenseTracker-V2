@@ -50,4 +50,69 @@ void main() {
     again();
     expect(l.account('bank').archived, isFalse);
   });
+
+  group('DEB-01: a person who still owes money', () {
+    Ledger lent() => ledgerOf(
+      today: day(2026, 10, 4),
+      accounts: const [
+        Account('bank', '銀行', AccountKind.bank, 100000),
+        Account('ann', '阿安', AccountKind.receivable, 0),
+      ],
+      entries: [
+        entryOf(
+          'lend',
+          day(2026, 10, 1),
+          EntryType.transfer,
+          5000,
+          'bank',
+          to: 'ann',
+        ),
+      ],
+    );
+
+    test('is not archived, and stays in sight', () {
+      final l = lent();
+      expect(
+        () => l.accountCommands.setArchived('ann', archived: true),
+        throwsA(
+          isA<RecordRefused>().having((r) => r.issues, 'issues', [
+            isA<ArchivedOwing>(),
+          ]),
+        ),
+      );
+      expect(l.account('ann').archived, isFalse);
+      // A bank account keeps its balance archived.
+      expect(l.accountCommands.setArchived('bank', archived: true), isNotNull);
+    });
+
+    test('paid back, is archived; brought back and owing again, the undo '
+        'of bringing them back leaves them in sight', () {
+      final l = lent();
+      l.entryCommands.add(
+        entryOf(
+          'back',
+          day(2026, 10, 2),
+          EntryType.transfer,
+          5000,
+          'ann',
+          to: 'bank',
+        ),
+      );
+      expect(l.accountCommands.setArchived('ann', archived: true), isNotNull);
+      expect(l.account('ann').archived, isTrue);
+      final undo = l.accountCommands.setArchived('ann', archived: false)!;
+      l.entryCommands.add(
+        entryOf(
+          'again',
+          day(2026, 10, 3),
+          EntryType.transfer,
+          300,
+          'bank',
+          to: 'ann',
+        ),
+      );
+      undo();
+      expect(l.account('ann').archived, isFalse);
+    });
+  });
 }

@@ -61,6 +61,7 @@ String validationMessage(RecordIssue issue) => switch (issue) {
   NegativeCreditLimit() => '信用額度不能是負數',
   NegativeLoanRate() => '利率不能是負數',
   LoanRateTooHigh(:final max) => '利率不能超過 ${rateText(max)}%，請確認是否打錯',
+  ArchivedOwing() => '還有沒結清的款項，結清後才能封存',
   CloseMoveRefused() => '結帳日只能前後調整 7 天內，而且要在繳款日之前',
   NegativeBudgetLimit() => '預算額度不能是負數',
   WarningOutOfRange() => '提醒比例要在 1% 到 100% 之間',

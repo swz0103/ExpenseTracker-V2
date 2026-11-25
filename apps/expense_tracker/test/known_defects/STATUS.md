@@ -15,7 +15,6 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | ACC-01 | 2.4 | p2_4_accounts_test.dart | yes | a reconciliation adjustment of 2,000 counts as 2,000 of spending |
 | ACC-02 | 2.4 | p2_4_accounts_test.dart | yes | 2 tests; bank to card flips +5,000 to -5,000; a US$ account can become a card |
 | ACC-03 | 2.4 | p2_4_accounts_test.dart | yes | editing the balance to 9,000 moves the Aug 31 balance from 5,000 to 10,000 |
-| DEB-01 | 2.4 | p2_4_accounts_test.dart | yes | archiving a person owed 5,000 succeeds |
 | LOG-06 | 2.4 | p2_4_accounts_test.dart | yes | deleting the purchase leaves spending of -1,000 |
 | F22 | 2.5 | p2_5_market_test.dart | yes | only the silent-failure part: an unreadable board writes nothing to the diagnostics log; the live parse failure itself is not reproducible offline |
 | INV-02 | 2.5 | p2_5_market_test.dart | yes | a dividend due on Nov 28 (a week out) gives an outlook total of 0, expected 1,000 |
@@ -38,7 +37,13 @@ The expectations were written against today's APIs. A fix that changes an API (f
 | JRN-10 | 待決定 | p2_0_journal_test.dart | yes | old shape: instalments on an account that is not a card (1) |
 | DAY-01 | 待決定 | r15_day_targets_test.dart | yes | 2 tests; the week strip and the recurring calendar have day cells 37-47 dp wide at 320 and 360 dp (seven across), under Android's 48 dp |
 
-29 findings covered.
+28 findings covered.
+
+## fixed in FIX-R34
+
+- DEB-01: `p2_4_accounts_test.dart` (a person who still owes 5,000 is not archived: refused with `ArchivedOwing`); the rule `archiveIssues` in `packages/ledger/entries/test/rules/record_rules_test.dart`, the command in `test/core/ledger/commands/account_commands_test.dart`, the person page saying 還有沒結清的款項，結清後才能封存 and archiving once paid back in `test/features/debts/ui/person_page_test.dart`; the account editor already settles the balance before it archives.
+
+Review round 33 (findings 1–3), D119 and PERF-2's holdsWith. No known-defect id: stated by ordinary tests. A note about the book told again once a restore or a key reset puts another book in place (#1): `test/app/quiet_failures_test.dart`, `test/core/platform/startup_keys.dart`, `test/app/bootstrap_test.dart` ("review 33"); a loan rate below nothing by however little, too small to keep, with a %, full-width (#2, #3): `packages/ledger/loans/test/model/rate_test.dart`, `test/features/accounts/model/account_form_test.dart`, mutants loans-35..43; what an undo puts back at its place after the app is opened again (D119): `test/core/ledger/commands/undo_place_test.dart`, `infrastructure/storage/test/encrypted_database_test.dart`; a save held to its own stock (holdsWith): `test/core/ledger/services/entry_validator_test.dart` (fuzzed against the whole replay), `test/core/ledger/repositories/holding_repository_test.dart`, gate `test/perf/holds_with_gate_test.dart`.
 
 ## fixed in FLOW-1
 
