@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/messages/amount_messages.dart';
@@ -153,7 +155,8 @@ class _UpdatePanelState extends State<_UpdatePanel> {
       const Text('修正與改進', textAlign: TextAlign.center, style: mutedBody),
   ];
 
-  /// The download under way: a bar filling and 下載中 with how far.
+  /// The download under way: a bar filling and 下載中 with how far, and
+  /// 取消下載 while it can still be stopped.
   List<Widget> _download(double progress) => [
     ClipRRect(
       borderRadius: BorderRadius.circular(Radii.extraSmall),
@@ -172,13 +175,17 @@ class _UpdatePanelState extends State<_UpdatePanel> {
       textAlign: TextAlign.center,
       style: mutedBody,
     ),
-    const SizedBox(height: Space.s2),
-    TextButton(
-      key: Keys.cancelDownload,
-      style: wordButton(AppColors.muted),
-      onPressed: widget.update.cancelDownload,
-      child: const Text(UpdateMessages.cancelDownload),
-    ),
+    // Gone once asked, and once the file is complete and handed to the
+    // installer: too late to stop then (review 31).
+    if (widget.update.canCancel) ...[
+      const SizedBox(height: Space.s2),
+      TextButton(
+        key: Keys.cancelDownload,
+        style: wordButton(AppColors.muted),
+        onPressed: () => unawaited(widget.update.cancelDownload()),
+        child: const Text(UpdateMessages.cancelDownload),
+      ),
+    ],
   ];
 
   /// 更新, and 晚一點再說 and 略過這一版 side by side under it.

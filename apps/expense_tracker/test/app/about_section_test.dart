@@ -44,8 +44,9 @@ final class _Port implements UpdatePort {
   Future<void> download(
     Uri url,
     File into,
-    void Function(int received) progress,
-  ) async {}
+    void Function(int received) progress, {
+    required DownloadCancel cancel,
+  }) async {}
 
   @override
   Future<UpdateInstall> install(File apk, String sha256) async =>

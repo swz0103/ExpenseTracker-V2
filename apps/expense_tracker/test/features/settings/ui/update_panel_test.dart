@@ -26,12 +26,15 @@ final class _Port implements UpdatePort {
   Future<void> download(
     Uri url,
     File into,
-    void Function(int received) progress,
-  ) async {
+    void Function(int received) progress, {
+    required DownloadCancel cancel,
+  }) async {
     into.writeAsStringSync('abc');
     if (hold case final held?) {
       progress(1);
-      await held.future;
+      // Stopping closes the connection, which ends the wait.
+      await Future.any([held.future, cancel.whenAsked]);
+      if (cancel.asked) throw const SocketException('Connection closed');
     }
     progress(3);
   }
