@@ -62,7 +62,7 @@ Future<bool> showQuarantineNotice(
             key: Keys.quarantine('export'),
             style: wordButton(AppColors.accent),
             onPressed: onExport,
-            child: const Text(quarantineExport),
+            child: const Text(diagnosticsExport),
           ),
           TextButton(
             key: Keys.quarantine('restore'),

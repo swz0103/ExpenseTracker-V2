@@ -9,6 +9,7 @@ import '../../../../core/design_system/spacing.dart';
 import '../../../../core/design_system/motion.dart';
 import '../../../../core/design_system/password_field.dart' show SecretKeyboard;
 import '../../../../core/formatting/words.dart';
+import '../../../../core/widgets/diagnostics_export.dart';
 
 /// Opening a ledger with its password, on the welcome's ground: the mark
 /// and the name, the password as dots that fill in as it is typed (the
@@ -153,9 +154,15 @@ class _UnlockViewState extends State<UnlockView>
   static const _height =
       _mark + 14 + _nameBox + 22 + 20 + _problemBox + 58 + 6 + Space.target;
 
-  /// [_height] with the words' boxes grown for the text size.
+  /// [_height] with the words' boxes grown for the text size, and the
+  /// room of 匯出診斷 when it shows under the problem.
   double _heightFor(double scale) =>
-      _height + (scale - 1) * (_nameBox + _problemBox + Space.target);
+      _height +
+      (scale - 1) * (_nameBox + _problemBox + Space.target) +
+      (DiagnosticsButton.shows(context, _sendable) ? Space.target * scale : 0);
+
+  /// The problem 匯出診斷 may show under: none while the wait is said.
+  String? get _sendable => widget.waiting == null ? widget.problem : null;
 
   @override
   Widget build(BuildContext context) {
@@ -371,7 +378,10 @@ class _UnlockViewState extends State<UnlockView>
     },
   );
 
-  Widget _problem() {
+  Widget _problem() =>
+      Column(children: [_problemLine(), DiagnosticsButton(_sendable)]);
+
+  Widget _problemLine() {
     final waiting = widget.waiting;
     final text = waiting ?? widget.problem;
     return ConstrainedBox(

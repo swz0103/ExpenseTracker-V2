@@ -19,7 +19,7 @@ class LoadFailedPage extends StatelessWidget {
     required this.onExport,
     this.title = loadFailedTitle,
     this.body = loadFailedBody,
-    this.exportLabel = loadFailedExport,
+    this.exportLabel = diagnosticsExport,
   });
 
   final VoidCallback onRetry;

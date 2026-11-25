@@ -11,6 +11,7 @@ import 'package:expense_tracker/src/core/messages/lock_messages.dart';
 import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
 import 'package:expense_tracker/src/features/backup/model/restore_sources.dart';
 import 'package:expense_tracker/src/features/lock/ui/lock_screen.dart';
+import 'package:expense_tracker/src/core/widgets/diagnostics_export.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_test/flutter_test.dart';
@@ -46,10 +47,27 @@ void main() {
     return startup;
   }
 
-  Future<void> show(WidgetTester tester, Startup startup) async {
-    await tester.pumpWidget(MaterialApp(home: LockScreen(startup: startup)));
+  Future<void> show(
+    WidgetTester tester,
+    Startup startup, {
+    SaveText? diagnostics,
+  }) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LockScreen(startup: startup, diagnostics: diagnostics),
+      ),
+    );
     await tester.pump();
   }
+
+  /// What the diagnostics saved: each file's name and text.
+  final saved = <(String, String)>[];
+  Future<bool> save(String name, String text) async {
+    saved.add((name, text));
+    return true;
+  }
+
+  setUp(saved.clear);
 
   /// Lets the real work behind a tap (files, key derivation) finish.
   Future<void> settle(WidgetTester tester, bool Function() done) async {
@@ -459,7 +477,7 @@ void main() {
     first.lock();
     File('${directory.path}/quick-open.sealed').writeAsStringSync('not sealed');
     final startup = Startup(vault);
-    await show(tester, startup);
+    await show(tester, startup, diagnostics: save);
     await settleIn(tester);
     await settle(
       tester,
@@ -468,6 +486,36 @@ void main() {
     expect(find.text('無法打開帳本，可在診斷匯出詳細資料'), findsOneWidget);
     expect(find.text('忘記密碼？'), findsOneWidget);
     expect(startup.state, isA<Locked>());
+    // Review 31: the diagnostics it sends to are saved right there.
+    await tester.tap(find.byKey(Keys.exportDiagnostics));
+    await settle(tester, () => saved.isNotEmpty);
+    await tester.pump();
+    expect(saved.single.$1, '記帳本-打開診斷.txt');
+    expect(saved.single.$2, contains('打開帳本'));
+    expect(find.text('已匯出診斷資料'), findsOneWidget);
+    // A wrong password sends nowhere: nothing to export under it.
+    await tester.enterText(find.byType(TextField).first, 'wrong password');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await settle(
+      tester,
+      () => find.byKey(Keys.exportDiagnostics).evaluate().isEmpty,
+    );
+    expect(find.byKey(Keys.exportDiagnostics), findsNothing);
+  });
+
+  testWidgets('without a way to save them, no 匯出診斷 is offered', (tester) async {
+    final first = Startup(vault);
+    await tester.runAsync(first.setUpWithoutPassword);
+    first.lock();
+    File('${directory.path}/quick-open.sealed').writeAsStringSync('not sealed');
+    final startup = Startup(vault);
+    await show(tester, startup);
+    await settleIn(tester);
+    await settle(
+      tester,
+      () => find.textContaining('無法打開帳本').evaluate().isNotEmpty,
+    );
+    expect(find.byKey(Keys.exportDiagnostics), findsNothing);
   });
 
   testWidgets('忘記密碼？ asks for the recovery code, which opens the ledger '
@@ -737,7 +785,11 @@ void main() {
     ) async {
       await tester.pumpWidget(
         MaterialApp(
-          home: LockScreen(startup: startup, sources: sources),
+          home: LockScreen(
+            startup: startup,
+            sources: sources,
+            diagnostics: save,
+          ),
         ),
       );
       await tester.pump();
@@ -1036,6 +1088,10 @@ void main() {
       );
       expect(find.text('無法下載備份，可在診斷匯出詳細資料'), findsOneWidget);
       expect(find.textContaining('No space left'), findsNothing);
+      // Review 31: on the restore form too, the details are a tap away.
+      await tester.tap(find.byKey(Keys.exportDiagnostics));
+      await settle(tester, () => saved.isNotEmpty);
+      expect(saved.single.$2, contains('No space left'));
       semantics.dispose();
     });
 

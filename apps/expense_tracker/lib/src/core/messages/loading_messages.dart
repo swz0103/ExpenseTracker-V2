@@ -39,17 +39,18 @@ String _shelf(String shelf) => switch (shelf) {
   _ => shelf,
 };
 
-const quarantineExport = '匯出診斷';
+/// Saving the diagnostics, from wherever it is offered, and its answer.
+const diagnosticsExport = '匯出診斷';
+const diagnosticsExported = '已匯出診斷資料';
+
 const quarantineRestore = '還原備份';
 const quarantineContinue = '繼續使用';
-const quarantineExported = '已匯出診斷資料';
 
 /// The book could not be opened at all.
 const loadFailedTitle = '帳本打不開';
 const loadFailedBody = '讀取帳本時發生問題，資料沒有被改動。可以再試一次；如果一直打不開，可以從備份還原，或匯出診斷資料回報問題。';
 const loadFailedRetry = '再試一次';
 const loadFailedRestore = '從備份還原';
-const loadFailedExport = '匯出診斷';
 
 /// The ledger's file is damaged (D94): told apart from a wrong password,
 /// with what was done to it and what is safe to do.
@@ -78,7 +79,6 @@ const upgradeHeldSpace =
     '升級前會先完整備份一份帳本（含收據照片），手機需要有足夠的空間。'
     '可以先刪除不需要的照片、影片或 App，再按「再試一次」。';
 const upgradeHeldRetry = '再試一次';
-const upgradeHeldExport = '匯出診斷';
 const upgradeHeldSkip = '不備份，仍要升級';
 
 /// The second question before going on without the copy.

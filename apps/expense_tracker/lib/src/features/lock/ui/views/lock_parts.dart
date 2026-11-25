@@ -8,6 +8,7 @@ import '../../../../core/design_system/components/buttons.dart';
 import '../../../../core/design_system/keys.dart';
 import '../../../../core/design_system/shape.dart';
 import '../../../../core/design_system/spacing.dart';
+import '../../../../core/widgets/diagnostics_export.dart';
 
 /// The page every lock screen form sits on: the mark, a [title], a
 /// [hint] under it, the [fields] on a tinted block, what went wrong, the
@@ -129,8 +130,9 @@ class LockPage extends StatelessWidget {
   }
 }
 
-/// What went wrong, in the danger colour under the fields; nothing when
-/// [problem] is null or empty.
+/// What went wrong, in the danger colour under the fields, with 匯出診斷
+/// under it when it sends the person to the diagnostics
+/// ([DiagnosticsButton]); nothing when [problem] is null or empty.
 class ProblemLine extends StatelessWidget {
   const ProblemLine(this.problem, {super.key});
 
@@ -142,7 +144,13 @@ class ProblemLine extends StatelessWidget {
     if (text == null || text.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: Space.s2),
-      child: Text(text, textAlign: TextAlign.center, style: dangerText),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(text, textAlign: TextAlign.center, style: dangerText),
+          Center(child: DiagnosticsButton(text)),
+        ],
+      ),
     );
   }
 }

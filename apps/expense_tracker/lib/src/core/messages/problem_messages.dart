@@ -17,6 +17,10 @@ import 'validation_messages.dart';
 /// Where a failure's details are, for the person to hand on.
 const detailsInDiagnostics = '可在診斷匯出詳細資料';
 
+/// Whether [note] sends the person to the diagnostics for its details:
+/// where no settings can be reached, 匯出診斷 is offered beside it.
+bool sendsToDiagnostics(String note) => note.contains(detailsInDiagnostics);
+
 /// [what] did not happen, as one sentence with where its details are:
 /// `failureNote('沒有存成圖片')` is 沒有存成圖片，可在診斷匯出詳細資料.
 String failureNote(String what) => '$what，$detailsInDiagnostics';

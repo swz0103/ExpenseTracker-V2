@@ -74,7 +74,7 @@ class UpgradeHeldPage extends StatelessWidget {
               OutlinedButton(
                 key: Keys.upgradeHeld('export'),
                 onPressed: onExport,
-                child: const Text(upgradeHeldExport),
+                child: const Text(diagnosticsExport),
               ),
               const SizedBox(height: Space.s2),
               TextButton(

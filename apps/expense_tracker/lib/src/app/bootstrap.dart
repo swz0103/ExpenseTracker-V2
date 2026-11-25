@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:core/app_core.dart' show untilNextMidnight;
@@ -16,6 +17,7 @@ import 'quarantine_notices.dart';
 import 'quiet_failures.dart';
 import 'upgrade_held_page.dart';
 import '../features/backup/model/encrypted_backup_manager.dart';
+import '../features/backup/model/hand_over.dart';
 import '../features/backup/model/old_key_backups.dart';
 import '../features/backup/model/outbox.dart';
 import '../features/backup/ui/old_key_backups_offer.dart';
@@ -23,7 +25,6 @@ import '../core/ledger/persistence/quarantine.dart';
 import '../core/design_system/design_system.dart';
 import '../core/diagnostics/error_log.dart';
 import '../core/messages/loading_messages.dart';
-import '../core/messages/problem_messages.dart';
 import '../features/backup/ui/backup_section.dart' show restoreFromBackup;
 import '../core/ledger/ledger.dart';
 import '../features/recurring/ui/held_bookings.dart';
@@ -40,6 +41,7 @@ import '../core/platform/errands.dart';
 import '../core/navigation/nav.dart' show AppRoute;
 import '../core/platform/lock_gate.dart';
 import '../core/platform/quick_action.dart';
+import '../core/widgets/diagnostics_export.dart';
 import '../core/widgets/lock_cover.dart';
 import '../core/design_system/recovery_code.dart';
 import 'shell.dart';
@@ -187,6 +189,15 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
   int _deliveredRevision() =>
       Outbox.deliveredRevision(widget.startup.directory, widget.preferences);
 
+  /// Saves the diagnostics from the lock screen, where no ledger is open
+  /// (review 31): through the phone's save dialog, as from an open one.
+  Future<bool> _saveDiagnostics(String name, String text) => handOver(
+    exportsIn(widget.startup.directory),
+    name,
+    utf8.encode(text),
+    androidExportFile,
+  );
+
   @override
   Widget build(BuildContext context) {
     final startup = widget.startup;
@@ -225,6 +236,7 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
                     deliveredRevision: _deliveredRevision,
                   )
                 : RestoreSources(deliveredRevision: _deliveredRevision),
+            diagnostics: Platform.isAndroid ? _saveDiagnostics : null,
           ),
         },
       ),
@@ -341,24 +353,12 @@ class _OpenedLedgerState extends State<OpenedLedger>
   Future<void> _exportReport({
     List<QuarantinedRow> rows = const [],
     Object? failure,
-  }) async {
-    try {
-      final saved = await _services.backupManager.exportFile(
-        openingReportName,
-        openingReport(
-          rows: rows,
-          // Exception to error words: into the exported diagnostics file,
-          // not onto the screen.
-          failure: failure == null ? null : ErrorLog.describe(failure),
-          log: ErrorLog.instance.text,
-        ),
-      );
-      if (mounted && saved) showNote(context, quarantineExported);
-    } on Object catch (error) {
-      ErrorLog.instance.record(loadFailedExport, error);
-      if (mounted) showNote(context, describeProblem(error));
-    }
-  }
+  }) => exportDiagnostics(
+    context,
+    _services.backupManager.exportFile,
+    rows: rows,
+    failure: failure,
+  );
 
   /// Tells how many rows were set aside ([rows]), with a way to report
   /// them (every row set aside, [all]), to restore a backup, or to go on

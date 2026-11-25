@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -8,6 +9,7 @@ import 'package:vault/ledger_vault.dart';
 import '../../../core/messages/key_failures.dart' as words;
 import '../../../core/platform/startup.dart';
 import 'backup_manager.dart';
+import 'hand_over.dart';
 import 'phone_backup.dart' show BackupHead;
 import '../../../core/time/app_clock.dart';
 import '../../../core/diagnostics/error_log.dart';
@@ -60,7 +62,7 @@ final class EncryptedBackupManager implements BackupManager {
 
   /// Where a file to hand over is written until the person has it;
   /// emptied at each start (leftovers.dart).
-  Directory get _exports => Directory('${_startup.directory.path}/exports');
+  Directory get _exports => exportsIn(_startup.directory);
 
   @override
   Future<bool> exportBackup() async {
@@ -137,31 +139,13 @@ final class EncryptedBackupManager implements BackupManager {
       _write(folder, withPhotos: withPhotos);
 
   @override
-  Future<bool> exportFile(String name, String text) async {
-    // Written beside the ledger only until it is handed over.
-    final folder = _exports;
-    await folder.create(recursive: true);
-    final file = File('${folder.path}/$name');
-    await file.writeAsString(text, flush: true);
-    try {
-      return await _export(file.path, name);
-    } finally {
-      if (file.existsSync()) await file.delete();
-    }
-  }
+  Future<bool> exportFile(String name, String text) =>
+      // Written beside the ledger only until it is handed over.
+      exportBytes(name, utf8.encode(text));
 
   @override
-  Future<bool> exportBytes(String name, List<int> bytes) async {
-    final folder = _exports;
-    await folder.create(recursive: true);
-    final file = File('${folder.path}/$name');
-    await file.writeAsBytes(bytes, flush: true);
-    try {
-      return await _export(file.path, name);
-    } finally {
-      if (file.existsSync()) await file.delete();
-    }
-  }
+  Future<bool> exportBytes(String name, List<int> bytes) =>
+      handOver(_exports, name, bytes, _export);
 
   @override
   Future<String?> readFile() async {

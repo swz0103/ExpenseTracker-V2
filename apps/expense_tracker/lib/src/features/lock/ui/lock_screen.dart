@@ -12,6 +12,7 @@ import '../../../core/messages/key_failures.dart';
 import '../../../core/messages/key_messages.dart';
 import '../../../core/messages/lock_messages.dart';
 import '../../../core/messages/problem_messages.dart';
+import '../../../core/widgets/diagnostics_export.dart';
 import '../model/unlock_countdown.dart';
 import 'views/backup_choosers.dart';
 import 'views/lock_parts.dart';
@@ -33,12 +34,18 @@ class LockScreen extends StatefulWidget {
     super.key,
     required this.startup,
     this.sources = const RestoreSources(),
+    this.diagnostics,
   });
 
   final Startup startup;
 
   /// The file picker and Google Drive, on a phone.
   final RestoreSources sources;
+
+  /// Saves the diagnostics, offered as 匯出診斷 under a failure that sends
+  /// the person to them (review 31): no settings can be reached from
+  /// here. None where nothing can be saved.
+  final SaveText? diagnostics;
 
   @override
   State<LockScreen> createState() => _LockScreenState();
@@ -500,7 +507,12 @@ class _LockScreenState extends State<LockScreen> {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => switch (widget.diagnostics) {
+    final save? => DiagnosticsExport(save: save, child: _view()),
+    null => _view(),
+  };
+
+  Widget _view() {
     if (_welcome) {
       return WelcomeView(
         busy: _busy,
