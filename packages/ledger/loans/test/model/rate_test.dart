@@ -38,7 +38,9 @@ void main() {
   test('D118: text that is no number reads as unreadable, not as no rate', () {
     expect(readRate('abc'), isA<RateUnreadable>());
     expect(readRate('2,5'), isA<RateUnreadable>());
-    expect(readRate('2%'), isA<RateUnreadable>());
+    expect(readRate('2%%'), isA<RateUnreadable>());
+    expect(readRate('%'), isA<RateUnreadable>());
+    expect(readRate('%2'), isA<RateUnreadable>());
     expect(readRate('.'), isA<RateUnreadable>());
     expect(readRate(''), isA<RateUnreadable>());
     expect(readRate('   '), isA<RateUnreadable>());
@@ -70,6 +72,54 @@ void main() {
     expect(readRate('0001.5'), isA<RateRead>().having(_hundredths, '', 150));
     // A long run of digits used to read as 0%: int.tryParse gave up on it.
     expect(rateOf('99999999999999999999999'), isNull);
+  });
+
+  test('review 33: below nothing by however little is below nothing '
+      '(D116); -0 in any spelling is no interest', () {
+    // -0.004% rounds to 0 hundredths, but is typed below nothing: kept at
+    // the least step below, -1, for the rules to refuse.
+    expect(readRate('-0.004'), isA<RateRead>().having(_hundredths, '', -1));
+    expect(readRate('-0.0000001'), isA<RateRead>().having(_hundredths, '', -1));
+    // -0.005 rounds half up to -1 by itself.
+    expect(readRate('-0.005'), isA<RateRead>().having(_hundredths, '', -1));
+    expect(readRate('-0.01'), isA<RateRead>().having(_hundredths, '', -1));
+    expect(readRate('-0.00'), isA<RateRead>().having(_hundredths, '', 0));
+    expect(readRate('-.0'), isA<RateRead>().having(_hundredths, '', 0));
+    expect(rateOf('-0.004'), isNull);
+  });
+
+  test('review 33: a rate above nothing that rounds to 0 is too small, '
+      'not no interest', () {
+    expect(readRate('0.004'), isA<RateTooSmall>());
+    expect(readRate('0.0000001'), isA<RateTooSmall>());
+    expect(readRate('.001'), isA<RateTooSmall>());
+    expect(rateOf('0.004'), isNull);
+    // 0.005 rounds half up to 0.01%: 1 hundredth, the least kept.
+    expect(readRate('0.005'), isA<RateRead>().having(_hundredths, '', 1));
+    expect(readRate('0.01'), isA<RateRead>().having(_hundredths, '', 1));
+    // Zero, however written, is no interest.
+    expect(readRate('0'), isA<RateRead>().having(_hundredths, '', 0));
+    expect(readRate('0.000'), isA<RateRead>().having(_hundredths, '', 0));
+    expect(readRate('00'), isA<RateRead>().having(_hundredths, '', 0));
+  });
+
+  test('review 33: one trailing percent sign and full-width digits read; '
+      'a comma does not', () {
+    expect(readRate('2%'), isA<RateRead>().having(_hundredths, '', 200));
+    expect(readRate('2 %'), isA<RateRead>().having(_hundredths, '', 200));
+    expect(readRate(' 2.15% '), isA<RateRead>().having(_hundredths, '', 215));
+    expect(readRate('-1%'), isA<RateRead>().having(_hundredths, '', -100));
+    // Full-width digits, dot and percent (U+FF10-FF19, U+FF0E, U+FF05).
+    expect(readRate('２.１５'), isA<RateRead>().having(_hundredths, '', 215));
+    expect(readRate('２．１５'), isA<RateRead>().having(_hundredths, '', 215));
+    expect(readRate('３％'), isA<RateRead>().having(_hundredths, '', 300));
+    // An ideographic space before the percent sign.
+    expect(readRate('３\u3000%'), isA<RateRead>().having(_hundredths, '', 300));
+    expect(rateOf('２.１５%'), 215);
+    // A comma may mean 2.15 or 215: refused, in either width.
+    expect(readRate('2,15'), isA<RateUnreadable>());
+    expect(readRate('2，15'), isA<RateUnreadable>());
+    expect(readRate('2,15%'), isA<RateUnreadable>());
   });
 
   test('rates as shown', () {

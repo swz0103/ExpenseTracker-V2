@@ -8,6 +8,10 @@ import '../formatting/words.dart';
 /// than keep it as no rate (D118).
 const loanRateUnreadable = '利率要填數字，例如 2.15';
 
+/// What a loan's form says when its rate is above nothing but less than
+/// the least kept, 0.01%: it would be kept as no interest (review 33).
+const loanRateTooSmall = '利率最小是 0.01%';
+
 /// What the person is told when the ledger will not keep a record, or
 /// warns before keeping it: every reason's words, in one place.
 String validationMessage(RecordIssue issue) => switch (issue) {
