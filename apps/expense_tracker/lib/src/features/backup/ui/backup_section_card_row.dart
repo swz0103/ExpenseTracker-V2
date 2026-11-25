@@ -102,3 +102,76 @@ class _FolderDenied extends StatelessWidget {
     );
   }
 }
+
+/// A way of backing up as a tinted card: its icon, name and tick, then
+/// its settings below thin rules, each with its value on the right.
+class _BackupCard extends StatelessWidget {
+  const _BackupCard({
+    required this.glyph,
+    required this.color,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    required this.rows,
+  });
+
+  final Glyph glyph;
+  final Color color;
+  final String title;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  final List<Widget> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final change = onChanged;
+    return ColorCard(
+      controlsInside: true,
+      color: color,
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s2,
+        Space.s3,
+      ),
+      child: Column(
+        children: [
+          ToggleRow(
+            value: value,
+            onChanged: change,
+            label: title,
+            child: Row(
+              children: [
+                SquareIcon(glyph, color, size: 40),
+                const SizedBox(width: Space.s4),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: TextSize.title,
+                      fontWeight: FontWeight.w800,
+                      color: deepOf(color),
+                    ),
+                  ),
+                ),
+                TickSwitch(
+                  value: value,
+                  color: color,
+                  label: title,
+                  onChanged: change,
+                ),
+              ],
+            ),
+          ),
+          for (final row in rows) ...[
+            Padding(
+              padding: const EdgeInsets.only(right: Space.s2),
+              child: Divider(height: 12, color: tintOf(color, 0.4)),
+            ),
+            row,
+          ],
+        ],
+      ),
+    );
+  }
+}

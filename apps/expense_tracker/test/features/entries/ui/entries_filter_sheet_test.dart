@@ -10,6 +10,7 @@ import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/features/entries/ui/entries_filter_sheet.dart';
 import 'package:flutter/material.dart';
+import 'package:expense_tracker/src/core/formatting/words.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../support/places.dart';
@@ -147,7 +148,7 @@ void main() {
     tester,
   ) async {
     final got = await open(tester);
-    await go(tester, ['自訂', '上月', '確定']);
+    await go(tester, ['自訂', '上月', Words.done]);
     expect(find.text('9/1–9/30'), findsOneWidget);
     await go(tester, ['套用']);
     final range = got.single!.range!;

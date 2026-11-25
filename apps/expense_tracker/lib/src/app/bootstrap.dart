@@ -33,6 +33,7 @@ import '../features/lock/ui/lock_screen.dart';
 import '../features/lock/ui/views/new_password_view.dart';
 import '../core/messages/key_messages.dart';
 import '../core/diagnostics/error_steps.dart';
+import '../core/design_system/dialogs.dart';
 import '../core/design_system/feedback.dart';
 import '../core/platform/app_lifecycle.dart';
 import '../core/platform/away_clock.dart';
@@ -414,19 +415,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
   void _tellBooked(Ledger l, int booked, List<HeldBooking> held) =>
       unawaited(_held.tell(context, l.recurringCommands, booked, held));
 
-  Future<void> _notice(String title, String text) => showDialog<void>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
-      content: Text(text),
-      actions: [
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('知道了'),
-        ),
-      ],
-    ),
-  );
+  Future<void> _notice(String title, String text) => tell(context, title, text);
 
   /// How the gate locks this opening: what is being written is kept
   /// first.

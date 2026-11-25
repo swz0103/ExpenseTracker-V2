@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
+import '../../../core/design_system/dialogs.dart';
 import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
@@ -11,23 +12,6 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../model/receipt_photos.dart';
 import '../../../core/formatting/words.dart';
-
-/// Shows [image] over the page, to pinch and zoom; a tap closes it.
-Future<void> showReceipt(BuildContext context, ImageProvider image) =>
-    showDialog<void>(
-      context: context,
-      builder: (context) => Dialog(
-        insetPadding: const EdgeInsets.all(Space.s3),
-        clipBehavior: Clip.antiAlias,
-        child: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: InteractiveViewer(
-            maxScale: 5,
-            child: Image(image: image, fit: BoxFit.contain),
-          ),
-        ),
-      ),
-    );
 
 /// The receipt of an entry as a square: an outline with 收據 to take or
 /// pick a photo while there is none ([onTaken] gets its name; one that
@@ -142,7 +126,7 @@ class ReceiptSquare extends StatelessWidget {
       children: [
         TapArea(
           label: '查看收據',
-          onTap: () => unawaited(showReceipt(context, photos.image(shown))),
+          onTap: () => unawaited(showImage(context, photos.image(shown))),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(Radii.large),
             child: Image(

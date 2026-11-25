@@ -34,6 +34,9 @@ abstract final class Keys {
   /// [confirm]'s other choice, 取消 or what it was named.
   static const confirmCancel = ValueKey('dialog:cancel');
 
+  /// The line typed into askText's panel.
+  static const askedText = ValueKey('dialog:text');
+
   /// An edit form's 取消 (EditGuard).
   static const cancelEdit = ValueKey('form:cancel');
 

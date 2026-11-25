@@ -10,6 +10,7 @@ import '../core/design_system/glyphs.dart';
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
+import '../core/messages/flow_messages.dart';
 import '../core/messages/problem_messages.dart';
 import '../core/messages/update_messages.dart';
 import '../core/platform/update_status.dart';
@@ -63,7 +64,13 @@ class AboutSection extends StatelessWidget {
   }
 
   Future<void> _reset(BuildContext context, Ledger Function() sample) async {
-    final ok = await confirm(context, '重設範例資料？目前的變更會清除。', '重設', danger: true);
+    final ok = await confirm(
+      context,
+      FlowWords.resetSampleAsk,
+      FlowWords.resetSample,
+      danger: true,
+      body: FlowWords.resetSampleBody,
+    );
     if (!ok) return;
     ledger.resetTo(sample());
     if (context.mounted) showNote(context, '已重設範例資料');

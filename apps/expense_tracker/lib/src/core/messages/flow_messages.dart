@@ -17,6 +17,21 @@ abstract final class FlowWords {
   /// What takes the search and the filters away.
   static const clearFilters = '清除篩選';
 
+  /// The preview's 重設範例資料: asked first, with what it clears.
+  static const resetSample = '重設';
+  static const resetSampleAsk = '重設範例資料？';
+  static const resetSampleBody = '目前的變更會清除';
+
+  /// Asked when there is no account to write into, and its yes.
+  static const needAccount = '還沒有帳戶';
+  static const needAccountBody = '先新增一個帳戶，才能記帳';
+  static const addAccount = '新增帳戶';
+
+  /// Under the question of a reconciling entry: the balance kept, the
+  /// one counted and the gap the entry closes.
+  static String reconcileGap(String book, String counted, String gap) =>
+      '帳上 $book，實際 $counted，差 $gap';
+
   /// Ends the tour at any stop.
   static const skipTour = '略過';
 

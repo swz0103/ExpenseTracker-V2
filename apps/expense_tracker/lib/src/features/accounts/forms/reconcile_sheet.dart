@@ -9,6 +9,7 @@ import '../../../core/widgets/calculator.dart';
 import '../../../core/widgets/problem_note.dart';
 import '../model/reconcile.dart';
 import '../../../core/formatting/words.dart';
+import '../../../core/messages/flow_messages.dart';
 
 /// 對帳: asks what [account] holds (or, for a card or loan, owes) as the
 /// bank or the wallet shows it, and records the difference as an
@@ -41,11 +42,14 @@ Future<void> reconcileAccount(
   final spent = entry.type == EntryType.expense;
   final ok = await confirm(
     context,
-    '帳上 ${groupDigits(book)}，實際 ${groupDigits(counted)}，'
-        '差 ${groupDigits(entry.amount)}。'
-        '記一筆「$reconcileNote」${spent ? Words.expense : Words.income}'
+    '記一筆「$reconcileNote」${spent ? Words.expense : Words.income}'
         '（${entry.category}）？',
     '記下',
+    body: FlowWords.reconcileGap(
+      groupDigits(book),
+      groupDigits(counted),
+      groupDigits(entry.amount),
+    ),
   );
   if (!ok || !context.mounted) return;
   if (!refusalShown(context, () => ledger.entryCommands.add(entry))) return;

@@ -87,6 +87,8 @@ class _SecuritySectionState extends State<SecuritySection> {
       context,
       KeyWords.recoveryConfirm,
       KeyWords.replace,
+      danger: true,
+      body: KeyWords.recoveryConfirmBody,
     );
     if (!ok) return;
     try {
@@ -133,6 +135,8 @@ class _SecuritySectionState extends State<SecuritySection> {
       context,
       KeyWords.passphraseRemove,
       KeyWords.remove,
+      danger: true,
+      body: KeyWords.passphraseRemoveBody,
     );
     if (!ok) return;
     try {

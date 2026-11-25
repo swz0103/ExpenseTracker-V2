@@ -10,6 +10,8 @@ import '../model/app_update.dart';
 import '../../../core/design_system/components/buttons.dart';
 import '../../../core/design_system/keys.dart';
 import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/components/panels.dart';
+import '../../../core/design_system/dialogs.dart';
 import '../../../core/design_system/spacing.dart';
 
 /// A newer version: its name and what it changes in a few lines, with
@@ -21,14 +23,13 @@ import '../../../core/design_system/spacing.dart';
 Future<void> showUpdatePanel(BuildContext context, AppUpdate update) async {
   final info = update.newer;
   if (info == null) return;
-  await showDialog<void>(
-    context: context,
-    barrierColor: AppColors.scrim,
-    barrierDismissible: false,
-    builder: (context) => PopScope(
+  await showPanel<void>(
+    context,
+    (context) => PopScope(
       canPop: false,
       child: _UpdatePanel(update: update, info: info),
     ),
+    dismissible: false,
   );
 }
 
@@ -67,61 +68,45 @@ class _UpdatePanelState extends State<_UpdatePanel> {
   @override
   Widget build(BuildContext context) {
     final info = widget.info;
-    return Dialog(
-      backgroundColor: AppColors.paper,
-      insetPadding: const EdgeInsets.symmetric(
-        horizontal: Space.s6,
-        vertical: Space.s6,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(Radii.extraLarge),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          Space.s6,
-          Space.s6,
-          Space.s6,
-          Space.s5,
-        ),
-        child: ListenableBuilder(
-          listenable: widget.update,
-          builder: (context, _) {
-            final progress = widget.update.progress;
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  '新版 ${info.name}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: TextSize.heading,
-                    fontWeight: FontWeight.w800,
-                  ),
+    return DialogFrame(
+      child: ListenableBuilder(
+        listenable: widget.update,
+        builder: (context, _) {
+          final progress = widget.update.progress;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '新版 ${info.name}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: TextSize.heading,
+                  fontWeight: FontWeight.w800,
                 ),
-                const SizedBox(height: Space.s4),
-                ..._notes(info),
-                if (_problem case final problem?)
-                  Padding(
-                    padding: const EdgeInsets.only(top: Space.s2),
-                    child: Text(
-                      problem,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: TextSize.body,
-                        color: AppColors.negative,
-                      ),
+              ),
+              const SizedBox(height: Space.s4),
+              ..._notes(info),
+              if (_problem case final problem?)
+                Padding(
+                  padding: const EdgeInsets.only(top: Space.s2),
+                  child: Text(
+                    problem,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: TextSize.body,
+                      color: AppColors.negative,
                     ),
                   ),
-                const SizedBox(height: Space.s4),
-                if (progress != null)
-                  ..._download(progress)
-                else
-                  ..._choices(info),
-              ],
-            );
-          },
-        ),
+                ),
+              const SizedBox(height: Space.s4),
+              if (progress != null)
+                ..._download(progress)
+              else
+                ..._choices(info),
+            ],
+          );
+        },
       ),
     );
   }
@@ -190,10 +175,10 @@ class _UpdatePanelState extends State<_UpdatePanel> {
 
   /// 更新, and 晚一點再說 and 略過這一版 side by side under it.
   List<Widget> _choices(UpdateInfo info) => [
-    _Choice(
+    DialogChoice(
       '更新',
       key: Keys.install,
-      color: AppColors.positive,
+      tone: ChoiceTone.main,
       onTap: widget.update.busy ? null : _install,
     ),
     const SizedBox(height: Space.s2),
@@ -224,29 +209,4 @@ class _UpdatePanelState extends State<_UpdatePanel> {
       ],
     ),
   ];
-}
-
-class _Choice extends StatelessWidget {
-  const _Choice(this.label, {super.key, required this.color, this.onTap});
-
-  final String label;
-  final Color color;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton(
-      onPressed: onTap,
-      style: solidButton(
-        color,
-        minimumSize: Size(0, 52),
-        radius: Radii.large,
-        words: appFont.copyWith(
-          fontSize: TextSize.title,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-      child: Text(label),
-    );
-  }
 }

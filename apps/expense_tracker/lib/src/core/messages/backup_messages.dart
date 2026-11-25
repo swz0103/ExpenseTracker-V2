@@ -1,5 +1,21 @@
 /// The words of the backup settings, in one place.
 abstract final class BackupWords {
+  /// Asked before a restore from another backup, and its yes.
+  static const restoreAsk = '從備份還原？';
+  static const restoreAskBody = '會先把目前的帳本連同照片備份一份，再換成你選的備份';
+  static const restoreChoose = '選擇備份';
+
+  /// Asked before backups to Google Drive stop, and what stays.
+  static const driveStopAsk = '不再備份到 Google 雲端硬碟？';
+  static const driveStopBody = '已經在雲端的備份會留著';
+
+  /// Asked before backups to the phone's folder stop, and what stays.
+  static const folderStopAsk = '停止自動備份到手機？';
+  static const folderStopBody = '資料夾裡的備份會留著';
+
+  /// What stops a way of backing up: red, as it cannot be undone.
+  static const stop = '停止';
+
   /// Google Drive: the person did not allow access.
   static const driveNotAllowed = '沒有取得 Google 雲端硬碟的權限';
 
