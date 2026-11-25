@@ -2,20 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../design_system/glyphs.dart';
 import 'icons.dart';
-import '../design_system/month_grid.dart';
 import '../design_system/theme.dart';
 import '../design_system/design_system.dart';
 import '../ledger/ledger.dart';
 import 'shown_amounts.dart';
-import '../../../design_system/display/date.dart';
 import '../design_system/shape.dart';
 import '../design_system/spacing.dart';
-import '../formatting/words.dart';
 
-import 'package:core/time/utc_days.dart';
-import 'package:core/time/month_arithmetic.dart';
-
-part 'pickers_days.dart';
+import 'pickers_days.dart';
 
 /// A bottom sheet with a title over [builder]'s content. The sheet's own
 /// drag handle closes it (down to the page below, when opened from one);
@@ -479,31 +473,4 @@ Future<DateTime?> pickDate(
       ),
     ),
   );
-}
-
-/// The calendar of [pickDate], for a page of its own or one opened inside
-/// another sheet, the chosen day filled with [color].
-class DayChoices extends StatefulWidget {
-  const DayChoices({
-    super.key,
-    required this.selected,
-    required this.latest,
-    required this.onPick,
-    this.marked = const {},
-    this.today,
-    this.color = AppColors.accent,
-  });
-
-  final DateTime selected;
-  final DateTime latest;
-  final ValueChanged<DateTime> onPick;
-  final Set<DateTime> marked;
-
-  /// Given, 今天, 昨天 and 前天 are cards above the calendar, each with
-  /// its date and day of the week.
-  final DateTime? today;
-  final Color color;
-
-  @override
-  State<DayChoices> createState() => _DayChoicesState();
 }

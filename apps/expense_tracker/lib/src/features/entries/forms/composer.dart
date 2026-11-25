@@ -16,6 +16,7 @@ import '../../accounts/forms/account_editor.dart';
 import '../../../core/widgets/calculator.dart';
 import '../../categories/forms/category_editor.dart';
 import '../../../core/widgets/pickers.dart';
+import '../../../core/widgets/pickers_days.dart';
 import '../model/compose_draft.dart';
 import '../model/compose_form.dart';
 import '../../../core/messages/installment_messages.dart';

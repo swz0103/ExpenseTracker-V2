@@ -1,8 +1,6 @@
 import '../../core/ledger/ledger.dart';
 
-import 'package:core/time/utc_days.dart';
-
-part 'seed_history.dart';
+import 'seed_history.dart';
 
 /// The preview's made-up book as of 2026-10-04, the same fixture as the
 /// approved web preview (v114): six months of salary, rent and everyday
@@ -47,7 +45,7 @@ Ledger demoLedger({DateTime? today}) {
   }
 
   const spend = EntryType.expense;
-  final bankBefore = _history(add);
+  final bankBefore = seedHistory(add);
   for (var m = 4; m <= 9; m++) {
     add(m, 1, EntryType.income, 52000, 'bank', '薪資收入', '每月薪資');
     add(m, 1, spend, 12500, 'bank', '居家生活', '$m月房租');
@@ -218,7 +216,7 @@ Ledger demoLedger({DateTime? today}) {
         'digital',
         '數位帳戶',
         AccountKind.bank,
-        80000 - _toDigital * _historyMonths,
+        80000 - seedToDigital * seedHistoryMonths,
         icon: 'phone',
       ),
       const Account(
@@ -234,7 +232,7 @@ Ledger demoLedger({DateTime? today}) {
         'savings',
         '儲蓄帳戶',
         AccountKind.bank,
-        125000 - _toSavings * _historyMonths,
+        125000 - seedToSavings * seedHistoryMonths,
         icon: 'safe',
       ),
       const Account(
@@ -448,25 +446,3 @@ Ledger demoLedger({DateTime? today}) {
     ],
   );
 }
-
-/// How many months [_history] writes: January 2025 to March 2026.
-const _historyMonths = 15;
-
-/// What each of those months moves to savings and the digital account.
-const _toSavings = 8000;
-const _toDigital = 5000;
-
-typedef _Add = void Function(
-  int month,
-  int day,
-  EntryType type,
-  int amount,
-  String account,
-  String category,
-  String note, {
-  int year,
-  String? to,
-  String? recurring,
-  String merchant,
-  List<String> tags,
-});
