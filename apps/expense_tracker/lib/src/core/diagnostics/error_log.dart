@@ -6,6 +6,16 @@ import 'package:flutter/foundation.dart'
     show debugPrint, kReleaseMode, visibleForTesting;
 import 'package:flutter/services.dart' show PlatformException;
 
+import 'package:core/foundation_values.dart' show FxException, MoneyException;
+import 'package:domain/credit_cards.dart' show CreditCardException;
+import 'package:domain/data_exchange.dart' show CsvFormatException;
+import 'package:ledger_trade_costs/model/trade_values.dart'
+    show InvestmentException;
+import 'package:storage/storage.dart' show StorageUnavailable;
+import 'package:vault/backup_security.dart' show KeyringException;
+import 'package:vault/ledger_backup.dart' show BackupException;
+import 'package:vault/ledger_vault.dart' show VaultException;
+
 import 'app_fault.dart';
 import 'error_steps.dart';
 import '../time/app_clock.dart';
@@ -205,9 +215,10 @@ final class ErrorLog {
   }
 
   /// What is kept of [error], since the log can be exported: an
-  /// allow-list. Of an exception, its type, with an errno or a channel's
-  /// code; its words only when the app wrote them ([AppFault]) or the SDK
-  /// did for a file fault. Of an [Error], a fault of the code, its words;
+  /// allow-list. Of an exception, its type, with an errno (any with an
+  /// [OSError]: a file, a socket, a TLS fault) or a channel's code; its
+  /// words only when the app wrote them ([AppFault], or [_ownPackages]'s)
+  /// or the SDK did for a file fault. Of an [Error], a fault of the code, its words;
   /// of words the app passed itself, those. What is kept is cleaned of
   /// what could still be the person's (names, notes, amounts, addresses,
   /// tokens, paths).
@@ -217,19 +228,42 @@ final class ErrorLog {
     }
     final said = switch (error) {
       AppFault() || Error() || String() => '$error',
+      _ when _ownPackages(error) => '$error',
+      // Words of the CSV reader's own: what is wrong, and the line.
+      CsvFormatException(:final message) => message,
       FileSystemException(:final message) => message,
       PlatformException(:final code) => code,
       // An exception of a library or a server: its words may carry an
       // address, a file's name or a server's answer.
       _ => '',
     };
-    final code = error is FileSystemException ? error.osError?.errorCode : null;
+    final code = switch (error) {
+      FileSystemException(:final osError) ||
+      SocketException(:final osError) ||
+      TlsException(:final osError) => osError?.errorCode,
+      _ => null,
+    };
     final errno = code == null ? '' : ' (errno $code)';
     final words = _clean(said);
     return words.isEmpty
         ? '${error.runtimeType}$errno'
         : '${error.runtimeType}: $words$errno';
   }
+
+  /// The exceptions of the app's own packages (packages/, vault,
+  /// storage), which cannot mark themselves [AppFault]: their words are
+  /// a kind's name and fixed details, as an app fault's are.
+  static bool _ownPackages(Object error) => switch (error) {
+    BackupException() ||
+    KeyringException() ||
+    VaultException() ||
+    StorageUnavailable() ||
+    MoneyException() ||
+    FxException() ||
+    CreditCardException() ||
+    InvestmentException() => true,
+    _ => false,
+  };
 
   static final _quoted = RegExp(r"""'[^']*'|"[^"]*"|「[^」]*」|“[^”]*”""");
   static final _path = RegExp(r'\S*[/\\]\S*');
