@@ -1,4 +1,31 @@
-part of 'debts_page.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/navigation/nav.dart';
+import '../../../core/design_system/dialogs.dart';
+import '../../accounts/forms/account_editor.dart';
+import '../../accounts/forms/reconcile_sheet.dart';
+
+import 'package:ledger_loans/calc/loan_plan.dart';
+
+import '../../../core/widgets/icons.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/words.dart';
+import '../model/debts.dart';
+import '../../../core/messages/done_messages.dart';
+import '../../../core/messages/flow_messages.dart';
+import '../../../core/messages/trash_messages.dart';
+import '../../../core/messages/validation_messages.dart';
+import 'debts_page.dart';
+import 'debts_loan_card.dart';
 
 /// The page of one person paid for: what they owe and for how long, 幫忙付
 /// and 收回 (all that is owed, which can be changed), each sum still owed
@@ -124,16 +151,16 @@ class PersonPage extends StatelessWidget {
           header: CenterHeader(person.name, onBack: nav.back),
           runs: [
             LineRun.each([
-              _DebtHero(
+              DebtHero(
                 color: color,
-                lead: _Initial(person.name, size: 60),
+                lead: PersonInitial(person.name, size: 60),
                 label: balance < 0 ? '你欠${person.name}' : '還欠你',
                 value: ledger.orDots(groupDigits(balance.abs())),
                 lines: [
                   if (oldest == null)
                     '沒有待收回的'
                   else
-                    '${countOf(owed.length, CountUnit.entries)}還沒收回 · 最久 ${countOf(_days(ledger, oldest), CountUnit.days)}',
+                    '${countOf(owed.length, CountUnit.entries)}還沒收回 · 最久 ${countOf(daysSince(ledger, oldest), CountUnit.days)}',
                 ],
                 menu: DotsMenu([
                   DotsItem(Glyph.edit, '改名', () => _rename(context, person)),
@@ -150,12 +177,12 @@ class PersonPage extends StatelessWidget {
               _actions(person, balance, color),
             ]),
             if (owed.isNotEmpty)
-              ..._boardRuns(
+              ...debtBoardRuns(
                 '還沒收回',
                 owed.length,
                 (i) => _owedRow(owed[i].$1, owed[i].$2),
               ),
-            ..._boardRuns(
+            ...debtBoardRuns(
               '往來紀錄',
               entries.length,
               (i) => _movementRow(entries[i], person.id, color, left),
@@ -171,7 +198,7 @@ class PersonPage extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: _Action(
+          child: DebtAction(
             glyph: Glyph.add,
             label: '幫忙付',
             color: color,
@@ -180,7 +207,7 @@ class PersonPage extends StatelessWidget {
         ),
         const SizedBox(width: Space.s3),
         Expanded(
-          child: _Action(
+          child: DebtAction(
             glyph: Glyph.check,
             label: '收回',
             color: color,
@@ -208,7 +235,7 @@ class PersonPage extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _DaysTag(_days(ledger, e.date)),
+          _DaysTag(daysSince(ledger, e.date)),
           const SizedBox(width: Space.s3),
           RowFigure(ledger.orDots(groupDigits(left))),
         ],
@@ -324,11 +351,11 @@ class LoanPage extends StatelessWidget {
           header: CenterHeader(loan.name, onBack: nav.back),
           runs: [
             LineRun.each([
-              _DebtHero(
+              DebtHero(
                 color: color,
                 lead: share == null
                     ? SquareIcon(Glyph.loan, color, size: 60)
-                    : _PaidRing(share: share, color: color, size: 96),
+                    : PaidRing(share: share, color: color, size: 96),
                 label: '尚欠',
                 value: ledger.orDots(groupDigits(owed)),
                 lines: _lines(loan, owed),
@@ -347,7 +374,7 @@ class LoanPage extends StatelessWidget {
               const SizedBox(height: Space.s3),
               _payButton(loan, color),
             ]),
-            ..._boardRuns(
+            ...debtBoardRuns(
               '還款紀錄',
               entries.length,
               (i) => _paymentRow(entries[i], loan, color),
@@ -381,7 +408,7 @@ class LoanPage extends StatelessWidget {
 
   /// 記一筆還款: opens the composer on a payment into [loan].
   Widget _payButton(Account loan, Color color) {
-    return _Action(
+    return DebtAction(
       glyph: Glyph.add,
       label: '記一筆還款',
       color: color,

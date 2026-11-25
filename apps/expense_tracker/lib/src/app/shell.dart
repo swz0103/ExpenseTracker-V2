@@ -21,6 +21,7 @@ import '../features/budgets/ui/budgets.dart';
 import '../features/accounts/ui/card_page.dart';
 import '../features/categories/ui/categories_page.dart';
 import '../features/debts/ui/debts_page.dart';
+import '../features/debts/ui/person_page.dart';
 import '../features/investments/ui/holding_page.dart';
 import '../features/investments/ui/investments.dart';
 import '../features/tags/ui/tags_page.dart';
