@@ -324,12 +324,10 @@ final class Preferences {
     if (json.json.containsKey('budgetAlerted')) {
       _budgetAlerted = {...?json.texts('budgetAlerted')};
     }
+    // One damaged is made anew at its first use: notices showing are
+    // cleared once.
     if (json.text('noticeSalt') case final salt?) {
-      try {
-        _noticeSalt = NameSalt.parse(salt);
-      } on FormatException {
-        // Made anew at its first use: notices showing are cleared once.
-      }
+      _noticeSalt = NameSalt.tryParse(salt);
     }
     return had;
   }

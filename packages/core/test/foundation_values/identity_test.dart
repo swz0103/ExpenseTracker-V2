@@ -49,6 +49,11 @@ void main() {
       '6f2b7c1e-3d4a-4b8c-1e0f-1a2b3c4d5e6f',
     ]) {
       expect(() => NameSalt.parse(value), throwsFormatException);
+      expect(NameSalt.tryParse(value), isNull);
     }
+    expect(
+      NameSalt.tryParse('0B8E2F6A-91C4-4D3E-A7F5-2C6D8E0A1B3C')?.value,
+      '0b8e2f6a-91c4-4d3e-a7f5-2c6d8e0a1b3c',
+    );
   });
 }

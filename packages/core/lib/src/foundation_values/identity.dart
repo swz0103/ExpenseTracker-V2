@@ -27,12 +27,19 @@ final class PublicId {
 /// salt makes every id anew.
 final class NameSalt {
   NameSalt.parse(String input) : value = input.toLowerCase() {
-    if (!RegExp(
-      r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
-    ).hasMatch(value)) {
+    if (!_form.hasMatch(value)) {
       throw const FormatException('Expected a UUID v4 salt.');
     }
   }
+
+  /// [input] as a salt; null when it is not one, as a value kept that was
+  /// damaged.
+  static NameSalt? tryParse(String input) =>
+      _form.hasMatch(input.toLowerCase()) ? NameSalt.parse(input) : null;
+
+  static final _form = RegExp(
+    r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+  );
   factory NameSalt.generate() =>
       NameSalt.parse(const Uuid().v4(config: V4Options(null, CryptoRNG())));
   final String value;
