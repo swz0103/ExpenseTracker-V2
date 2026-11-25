@@ -1,9 +1,18 @@
-part of 'backup_section.dart';
+import 'package:flutter/material.dart';
 
-/// A setting on a [_BackupCard]: its name, and on the right its value
+import '../../../core/design_system/findable.dart';
+import '../../../core/formatting/setting_topic.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/messages/backup_messages.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/shape.dart';
+
+/// A setting on a [BackupCard]: its name, and on the right its value
 /// with › or a control.
-class _CardRow extends StatelessWidget {
-  const _CardRow({
+class BackupCardRow extends StatelessWidget {
+  const BackupCardRow({
+    super.key,
     required this.color,
     required this.title,
     this.detail,
@@ -68,8 +77,12 @@ class _CardRow extends StatelessWidget {
 
 /// The folder card's notice that the folder chosen no longer lets the app
 /// write, with 重新選擇, which opens the chooser again.
-class _FolderDenied extends StatelessWidget {
-  const _FolderDenied({required this.color, required this.onChoose});
+class FolderDeniedRow extends StatelessWidget {
+  const FolderDeniedRow({
+    super.key,
+    required this.color,
+    required this.onChoose,
+  });
 
   final Color color;
   final VoidCallback? onChoose;
@@ -105,8 +118,9 @@ class _FolderDenied extends StatelessWidget {
 
 /// A way of backing up as a tinted card: its icon, name and tick, then
 /// its settings below thin rules, each with its value on the right.
-class _BackupCard extends StatelessWidget {
-  const _BackupCard({
+class BackupCard extends StatelessWidget {
+  const BackupCard({
+    super.key,
     required this.topic,
     required this.glyph,
     required this.color,
