@@ -540,17 +540,25 @@ class _BigChoice extends StatelessWidget {
   );
 }
 
-/// What an import reads from [ledger].
-ImportBook importBookOf(Ledger ledger) => ImportBook(
-  accounts: ledger.accounts,
-  recurring: ledger.recurring,
-  inTrash: {for (final t in ledger.trash.all) t.entry.id}.contains,
-  groupInTrash: {for (final t in ledger.trash.all) ?t.entry.group}.contains,
-  categories: ledger.categories,
-  entries: ledger.entries,
-  entryQueryService: ledger.entryQueryService,
-  entryValidator: ledger.entryValidator,
-  marketData: ledger.marketData,
-  today: ledger.today,
-  newId: ledger.newId,
-);
+/// What an import reads from [ledger], its trash walked once.
+ImportBook importBookOf(Ledger ledger) {
+  final ids = <String>{};
+  final groups = <String>{};
+  for (final t in ledger.trash.all) {
+    ids.add(t.entry.id);
+    if (t.entry.group case final group?) groups.add(group);
+  }
+  return ImportBook(
+    accounts: ledger.accounts,
+    recurring: ledger.recurring,
+    inTrash: ids.contains,
+    groupInTrash: groups.contains,
+    categories: ledger.categories,
+    entries: ledger.entries,
+    entryQueryService: ledger.entryQueryService,
+    entryValidator: ledger.entryValidator,
+    marketData: ledger.marketData,
+    today: ledger.today,
+    newId: ledger.newId,
+  );
+}

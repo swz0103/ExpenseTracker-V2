@@ -57,7 +57,8 @@ class PersonPage extends StatelessWidget {
   /// 35); kept, the page stays.
   Future<void> _delete(BuildContext context, Account person) async {
     if (ledger.accountCommands.usedOutsideTrash(person.id)) {
-      if (ledger.balanceService.finalBalance(person.id) != 0) {
+      final left = ledger.balanceService.finalBalance(person.id);
+      if (left != 0) {
         final settle = await confirm(
           context,
           validationMessage(const ArchivedOwing()),
@@ -67,7 +68,9 @@ class PersonPage extends StatelessWidget {
         );
         if (!settle || !context.mounted) return;
       }
-      if (await settleAndArchive(context, ledger, person)) nav.back();
+      if (await settleAndArchive(context, ledger, person, left: left)) {
+        nav.back();
+      }
       return;
     }
     final trashed = ledger.accountCommands.trashedNaming(person.id);
