@@ -610,6 +610,8 @@ void main() {
           counts: false,
         );
         final m = (await data.load()).marketData;
+        // Kept after the opening, not on its way (PERF-4).
+        await data.folding;
         expect(dayRow('2025-03-01'), {
           'rates': {'USD': 30.2},
         });

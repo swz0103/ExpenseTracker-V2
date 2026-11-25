@@ -83,13 +83,6 @@ DayFigures dayFiguresOf(String body) {
   return (figures: figures, fetched: fetched);
 }
 
-/// The history kept in the day rows [bodies], by day. Throws a
-/// [FormatException] for a row that cannot be read.
-MarketHistory historyFrom(Map<BusinessDate, String> bodies) => historyOf({
-  for (final MapEntry(key: day, value: body) in bodies.entries)
-    day: dayFiguresOf(body),
-});
-
 /// The history of the day rows read as [days].
 MarketHistory historyOf(Map<BusinessDate, DayFigures> days) {
   final tables = {

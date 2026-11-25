@@ -539,3 +539,24 @@ every entry once (about 2 ms at 100k), so the order of its flows, and so
 its last digits, stay those of the whole book; 記一筆's reads add up the
 months' counts (about 40 months of 300 merchants) and read the last 90
 days.
+
+## PERF-4: the market's fold kept after the opening (`market_open_gate_test.dart`)
+
+CI's emulator gave `100k_load_ms` 2,982 ms on 33db6e5 (1,282 on 45a07c9;
+the FIX-R41 merge 85bf63b's emulator run was cancelled, so it has no
+figure). The bench's book keeps no market rows, and TIDY-1A changed
+nothing `load()` reaches; on the host (two cores, a copy of the bench's
+setup) the 100k load was 1,229 / 1,754 ms at 45a07c9, 1,397 / 1,569 at
+01118ca and 1,186–1,405 at 33db6e5: the emulator figure was not
+reproduced. What FIX-R41 did put on the opening's way, for a book with
+market history over 400 days old, is the fold's write, awaited while
+the journal's posting of the whole book afresh held the store on the
+worker: 100,000 entries and five years of day rows opened in 2.9 s
+against 1.5 s with nothing to fold (3.6 s against 1.3 s in a second
+run). The fold is now worked out on the book's worker, only for the
+months not yet one row (none once folded), and kept after the opening,
+checked against the rows kept then (`foldStillApplies`).
+
+| Gate | Before (33db6e5) | After | Limit |
+|---|---|---|---|
+| `market_open_gate_test.dart`, opening with a fold / with none, least of 3 | 1.90 | 1.03–1.08 | 1.4 |

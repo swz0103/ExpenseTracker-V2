@@ -1,4 +1,5 @@
 import 'package:ledger_entries/rules.dart' show namesOnLoops;
+import 'package:core/time/calendar_day.dart' show BusinessDate;
 import 'package:storage/storage.dart';
 
 import '../models/models.dart';
@@ -45,6 +46,7 @@ final class DecodedBook {
     required this.expired,
     required this.expiredCounts,
     required this.holdings,
+    required this.marketFolds,
   });
 
   final List<Account> accounts;
@@ -56,8 +58,17 @@ final class DecodedBook {
   /// The entries in the trash still kept, the latest put there first.
   final List<Trashed> trash;
 
-  /// The rows of [marketShelf], as kept.
+  /// The rows of [marketShelf], as kept, with the months long gone
+  /// folded into a row each ([marketFolds]).
   final List<StoredRow> market;
+
+  /// What folds the months long gone of the market into a row each
+  /// (`foldedMarket`, review 39), worked out with the book on its worker
+  /// as it opens (PERF-4): the changes to write, and the day rows they
+  /// were worked out from, to check against the rows kept when they are
+  /// written (`foldStillApplies`). None without a day, or with nothing
+  /// to fold.
+  final ({List<RowChange> changes, Map<String, String> from}) marketFolds;
 
   /// Each receipt's and draft's body, by id.
   final Map<String, String> receipts;
@@ -240,7 +251,17 @@ DecodedBook decodeBook(
     (j) => entryFromJson(j, refs, same),
     seqs: entryPlaces,
   );
-  final market = shelves[marketShelf] ?? const <StoredRow>[];
+  final kept = shelves[marketShelf] ?? const <StoredRow>[];
+  // A row that cannot be read is told when the market is read
+  // (`readMarket`), on the screen's isolate.
+  final folded = today == null
+      ? (
+          rows: kept,
+          changes: const <RowChange>[],
+          from: const <String, String>{},
+        )
+      : foldedMarket(kept, BusinessDate.of(today));
+  final market = folded.rows;
   final holdings = today == null
       ? null
       : readHoldings(
@@ -310,6 +331,7 @@ DecodedBook decodeBook(
     // Only an entry gone for good is a change of the book.
     expiredCounts: expiredIds.isNotEmpty,
     holdings: holdings,
+    marketFolds: (changes: folded.changes, from: folded.from),
   );
 }
 
