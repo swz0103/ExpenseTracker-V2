@@ -58,7 +58,6 @@ class BackupWorkerDeviceTest {
         .put("phonePrefix", "記帳本-abc123-")
         .put("suffix", ".etbk")
         .put("driveFolder", "記帳本備份")
-        .put("folderDenied", "沒有這個資料夾的存取權，請重新選擇")
 
     /**
      * The settings as the app hands them over (Preferences.backgroundPlan):
@@ -108,7 +107,7 @@ class BackupWorkerDeviceTest {
 
         val delivered = JSONObject(File(outbox, "delivered.json").readText())
         val problem = delivered.getJSONObject("problems").getJSONObject("phone")
-        assertTrue(problem.getString("message"), problem.getString("message").contains("存取權"))
+        assertEquals("FolderDenied", problem.getString("message"))
         assertTrue("kept for the next try", backup.exists())
         // Only the folder's id is written down, never the folder.
         assertTrue(!File(outbox, "delivered.json").readText().contains("content://"))
@@ -133,7 +132,7 @@ class BackupWorkerDeviceTest {
         assertTrue(worker.doWork() is ListenableWorker.Result.Success)
         val problem = JSONObject(File(outbox, "delivered.json").readText())
             .getJSONObject("problems").getJSONObject("phone")
-        assertTrue(problem.getString("message"), problem.getString("message").contains("存取權"))
+        assertEquals("FolderDenied", problem.getString("message"))
         assertTrue("kept for the next try", backup.exists())
     }
 

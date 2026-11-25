@@ -75,7 +75,6 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
                 phonePrefix = it.getString("phonePrefix"),
                 suffix = it.getString("suffix"),
                 driveFolder = it.getString("driveFolder"),
-                folderDenied = it.getString("folderDenied"),
             )
         }
     } catch (e: Exception) {
@@ -145,13 +144,13 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
             if (BackupPlan.due(now, at, made, revision, every)) {
                 stopIfAsked()
                 try {
-                    toFolder(openFolder(phone.getString("folder"), plan), backup, plan)
+                    toFolder(openFolder(phone.getString("folder")), backup, plan)
                     delivered.put("phone", entry(now, revision, ledger).put("folder", folderId))
                     problems.remove("phone")
                 } catch (e: Exception) {
                     passOn(e)
                     phoneHas = false
-                    problems.put("phone", problem(now, e, plan))
+                    problems.put("phone", problem(now, e))
                 }
             } else {
                 phoneHas = made == revision
@@ -181,7 +180,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
                     if (BackgroundWork.retries(e, runAttemptCount)) {
                         again = true
                     } else {
-                        problems.put("drive", problem(now, e, plan))
+                        problems.put("drive", problem(now, e))
                     }
                 }
             }
@@ -208,14 +207,14 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         JSONObject().put("at", at).put("revision", revision).put("ledger", ledger)
 
     /** What went wrong, as the app's error log shows it: under Play services' wrapping. */
-    private fun problem(at: Long, e: Exception, plan: BackupPlan.Handed): JSONObject =
-        JSONObject().put("at", at).put("message", BackupPlan.problemOf(BackgroundWork.causeOf(e), plan))
+    private fun problem(at: Long, e: Exception): JSONObject =
+        JSONObject().put("at", at).put("message", BackupPlan.problemOf(BackgroundWork.causeOf(e)))
 
     /**
      * The phone folder the app sealed for this job ([QuickSeal]); one that
      * no longer opens (the key gone) is a folder to choose again.
      */
-    private fun openFolder(sealed: String, plan: BackupPlan.Handed): Uri {
+    private fun openFolder(sealed: String): Uri {
         val open = try {
             QuickSeal.open(
                 Base64.decode(sealed, Base64.DEFAULT),
@@ -224,14 +223,14 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         } catch (e: Exception) {
             // Damaged, or sealed by a key since replaced.
             null
-        } ?: throw IllegalStateException(plan.folderDenied)
+        } ?: throw BackupPlan.FolderDenied()
         return Uri.parse(String(open, Charsets.UTF_8))
     }
 
     /** Writes the backup into the folder and keeps the newest of this ledger. */
     private fun toFolder(tree: Uri, backup: File, plan: BackupPlan.Handed) {
         val resolver = applicationContext.contentResolver
-        if (!FolderFiles.allowed(resolver, tree)) throw IllegalStateException(plan.folderDenied)
+        if (!FolderFiles.allowed(resolver, tree)) throw BackupPlan.FolderDenied()
         FolderFiles.write(resolver, tree, backup, plan.phoneName) { isStopped }
         val listed = FolderFiles.list(resolver, tree)
         val old = BackupPlan.beyondKept(listed.map { it["name"] as String }, plan).toSet()

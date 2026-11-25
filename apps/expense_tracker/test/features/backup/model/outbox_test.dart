@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/backup/model/outbox.dart';
+import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -78,7 +79,6 @@ void main() {
         'phonePrefix': '記帳本-ledger-',
         'suffix': '.etbk',
         'driveFolder': '記帳本備份',
-        'folderDenied': '沒有這個資料夾的存取權，請重新選擇',
       },
     });
     // Unchanged: not written again.
@@ -192,14 +192,46 @@ void main() {
         'drive': {'at': 5, 'message': 'offline'},
       },
     });
-    expect(box.collect(), ['雲端硬碟：offline']);
+    expect(box.collect().map((p) => '$p'), ['DeliveryFailed(drive offline)']);
     expect(box.collect(), isEmpty);
     deliver({
       'problems': {
         'drive': {'at': 6, 'message': 'offline'},
       },
     });
-    expect(box.collect(), ['雲端硬碟：offline']);
+    expect(box.collect().map((p) => '$p'), ['DeliveryFailed(drive offline)']);
+  });
+
+  test('R34: a problem in the background is kept with its place, and its '
+      'code as the job handed it, never words', () async {
+    final box = outbox();
+    folder().createSync(recursive: true);
+    deliver({
+      'problems': {
+        'phone': {'at': 5, 'message': 'FolderDenied'},
+        'drive': {'at': 5, 'message': 'Refused HTTP 403'},
+        'elsewhere': {'at': 5, 'message': 'IOException'},
+      },
+    });
+    final [phone, drive] = box.collect();
+    expect((phone.step, phone.code), ('背景備份 手機資料夾', 'FolderDenied'));
+    expect((drive.step, drive.code), ('背景備份 雲端硬碟', 'Refused HTTP 403'));
+    expect(
+      ErrorLog.describe(phone),
+      'DeliveryFailed: DeliveryFailed(phone FolderDenied)',
+    );
+    expect(
+      ErrorLog.describe(drive),
+      'DeliveryFailed: DeliveryFailed(drive Refused HTTP 403)',
+    );
+    // Words where a code belongs (an older job's) are not kept.
+    deliver({
+      'problems': {
+        'phone': {'at': 6, 'message': '沒有這個資料夾的存取權，請重新選擇'},
+        'drive': {'at': 6, 'message': 'alice@example.com'},
+      },
+    });
+    expect([for (final p in box.collect()) p.code], ['Unknown', 'Unknown']);
   });
 
   test('Drive gets its own copy without the photos when the folder takes '

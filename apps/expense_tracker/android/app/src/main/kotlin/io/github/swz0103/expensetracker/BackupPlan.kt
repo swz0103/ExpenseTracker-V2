@@ -12,8 +12,7 @@ internal object BackupPlan {
      * ready.json, `BackupRules.handover`): how many backups stay, the
      * phone folder's two rhythms and Drive's (milliseconds), the name this
      * backup takes in the phone's folder and how this ledger's names start
-     * and end there, the Drive folder's name, and what to say when the
-     * phone's folder no longer lets the app write.
+     * and end there, and the Drive folder's name.
      */
     data class Handed(
         val keep: Int,
@@ -24,7 +23,6 @@ internal object BackupPlan {
         val phonePrefix: String,
         val suffix: String,
         val driveFolder: String,
-        val folderDenied: String,
     ) {
         /** The phone folder's rhythm the person chose. */
         fun phoneEvery(daily: Boolean): Long = if (daily) this.daily else weekly
@@ -82,17 +80,28 @@ internal object BackupPlan {
         }
     }
 
+    /** The phone's folder no longer lets the app write, or no longer opens: one to choose again. */
+    class FolderDenied : IllegalStateException(FOLDER_DENIED)
+
+    /** The code of [FolderDenied]; the app has the words for it (BackgroundProblem). */
+    const val FOLDER_DENIED = "FolderDenied"
+
+    /** The code of a failure with no name of its own to give. */
+    const val UNKNOWN = "Unknown"
+
     /**
-     * What the app's error log is told of a failure: the app's own words
-     * when it is the folder refusing ([Handed.folderDenied]), Drive's
-     * status when Drive refused, and otherwise the failure's type alone.
-     * Never its message, which can quote a server or name a file or an
-     * account (review 33).
+     * What the app's error log is told of a failure, as a code in plain
+     * ASCII: [FOLDER_DENIED] for the folder refusing, Drive's status when
+     * Drive refused, and otherwise the failure's type alone. Never its
+     * message, which can quote a server or name a file or an account
+     * (review 33); the app turns none of it into words of its own.
      */
-    fun problemOf(cause: Throwable, plan: Handed): String = when {
-        cause.message == plan.folderDenied -> plan.folderDenied
+    fun problemOf(cause: Throwable): String = when {
+        cause is FolderDenied -> FOLDER_DENIED
         cause is DriveUploader.Refused && cause.status > 0 -> "Refused HTTP ${cause.status}"
         else -> cause.javaClass.simpleName
+            .filter { it in 'A'..'Z' || it in 'a'..'z' || it in '0'..'9' }
+            .ifEmpty { UNKNOWN }
     }
 
     /**

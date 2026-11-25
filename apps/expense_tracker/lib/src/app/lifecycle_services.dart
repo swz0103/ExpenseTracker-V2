@@ -409,7 +409,7 @@ final class LifecycleServices {
       await preferences.saved;
       await outbox.prepare();
     } on Object catch (error) {
-      ErrorLog.instance.record('背景備份', error);
+      ErrorLog.instance.record(ErrorSteps.backgroundBackup, error);
       run.backupFailed = true;
     }
   }
@@ -429,12 +429,12 @@ final class LifecycleServices {
     var failed = run.backupFailed;
     run.backupFailed = false;
     try {
-      for (final problem in _outbox?.collect() ?? const <String>[]) {
-        ErrorLog.instance.record('背景備份', problem);
+      for (final problem in _outbox?.collect() ?? const <DeliveryFailed>[]) {
+        ErrorLog.instance.record(problem.step, problem);
         failed = true;
       }
     } on Object catch (error) {
-      ErrorLog.instance.record('背景備份', error);
+      ErrorLog.instance.record(ErrorSteps.backgroundBackup, error);
       failed = true;
     }
     if (failed) quiet.failed(QuietStep.backgroundBackup);
