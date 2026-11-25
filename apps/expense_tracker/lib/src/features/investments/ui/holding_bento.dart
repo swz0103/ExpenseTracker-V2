@@ -1,7 +1,23 @@
 // Exception to file length: the bento and its price chart read the same
 // holding and closes. Reading its signed amounts aloud took it past a
 // screenful; splitting it is left to the holding page's own rework.
-part of 'holding_page.dart';
+import 'dart:math';
+
+import 'package:core/time/utc_days.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../core/design_system/paint.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/navigation/nav.dart';
+import 'investments.dart' show returnsOf, yearlyRate;
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import 'holding_page.dart';
 
 /// A block of the holding's bento: a label, a big figure and a line or
 /// two, on [color]'s tint.
@@ -79,7 +95,7 @@ class _Bento extends StatelessWidget {
 
 /// The holding's bento: what [held] made and what it is worth now side by
 /// side, over its 股息.
-Widget _bento(Ledger ledger, String code, Holding held, bool quoted) {
+Widget holdingBento(Ledger ledger, String code, Holding held, bool quoted) {
   final tone = AppColors.ofMarket(held.gain);
   final returns = returnsOf(ledger);
   final rate = returns.rate(code: code);
@@ -113,7 +129,7 @@ Widget _bento(Ledger ledger, String code, Holding held, bool quoted) {
         ),
       ]),
       const SizedBox(height: Space.s2),
-      _DividendCard(
+      HoldingDividendCard(
         ledger: ledger,
         total: held.dividends,
         next: next,
@@ -130,8 +146,9 @@ Widget _bento(Ledger ledger, String code, Holding held, bool quoted) {
 /// reads the day and close under it; on a buy, that buy: when, how many
 /// at what price, and how it stands now. The closes come from the
 /// exchanges through [Nav.market], kept on the phone once read.
-class _PriceChart extends StatefulWidget {
-  const _PriceChart({
+class HoldingPriceChart extends StatefulWidget {
+  const HoldingPriceChart({
+    super.key,
     required this.ledger,
     required this.nav,
     required this.code,
@@ -146,10 +163,10 @@ class _PriceChart extends StatefulWidget {
   final List<Entry> buys;
 
   @override
-  State<_PriceChart> createState() => _PriceChartState();
+  State<HoldingPriceChart> createState() => _PriceChartState();
 }
 
-class _PriceChartState extends State<_PriceChart> {
+class _PriceChartState extends State<HoldingPriceChart> {
   var _range = 3;
   List<(DateTime, double)>? _closes;
   int? _touched;

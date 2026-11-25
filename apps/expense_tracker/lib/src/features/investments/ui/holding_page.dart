@@ -1,27 +1,21 @@
-import 'dart:math';
-
 import 'package:domain/investments.dart' show HoldingStatus, holdingStatus;
-import 'package:core/time/utc_days.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/display/amount.dart';
 import '../../../../design_system/display/status.dart';
 import '../../../../design_system/display/amount_text.dart' show AmountText;
 import '../../../core/design_system/glyphs.dart';
-import '../../../core/design_system/paint.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/navigation/nav.dart';
 import '../model/returns.dart';
-import 'investments.dart' show returnsOf, yearlyRate;
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
-
-part 'holding_bento.dart';
+import 'holding_bento.dart';
 
 /// One holding: its market value and profit, today's move and the
 /// dividends it paid, the lots still held against what they are worth
@@ -75,7 +69,7 @@ class HoldingPage extends StatelessWidget {
           children: [
             _PriceCard(ledger: ledger, held: held, quoted: quoted),
             const SizedBox(height: Space.s3),
-            _PriceChart(
+            HoldingPriceChart(
               ledger: ledger,
               nav: nav,
               code: code,
@@ -86,7 +80,9 @@ class HoldingPage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: Space.s3),
-            Builder(builder: (context) => _bento(ledger, code, held, quoted)),
+            Builder(
+              builder: (context) => holdingBento(ledger, code, held, quoted),
+            ),
             const SizedBox(height: Space.s3),
             _tradeButtons(),
             _TradeBoard(ledger: ledger, nav: nav, trades: trades, lots: lots),
@@ -135,8 +131,9 @@ const _dividendColor = Palette.gold;
 
 /// 股息 on its gold tint: the total, when the next one is due and about
 /// how much, and the twelve months with those it pays in filled.
-class _DividendCard extends StatelessWidget {
-  const _DividendCard({
+class HoldingDividendCard extends StatelessWidget {
+  const HoldingDividendCard({
+    super.key,
     required this.ledger,
     required this.total,
     required this.next,

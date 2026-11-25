@@ -8,8 +8,6 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/navigation/nav.dart';
 import '../../../core/design_system/dialogs.dart';
-import '../../accounts/forms/account_editor.dart';
-import '../../accounts/forms/reconcile_sheet.dart';
 
 import 'package:ledger_loans/calc/loan_plan.dart';
 
@@ -36,11 +34,17 @@ class PersonPage extends StatelessWidget {
     required this.ledger,
     required this.nav,
     required this.personId,
+    required this.settle,
   });
 
   final Ledger ledger;
   final Nav nav;
   final String personId;
+
+  /// Settles what is left with the person and archives them, as the
+  /// account form does; true when archived. Given by the app.
+  final Future<bool> Function(BuildContext context, Account person, int left)
+  settle;
 
   /// Opens the composer on money paid for [person] from the main account
   /// ([lend]), or on money paid back, all that is owed by default.
@@ -80,7 +84,7 @@ class PersonPage extends StatelessWidget {
   /// for good with them, which cannot be undone, so it is asked (D78).
   /// One who still owes money, or is owed it, once what is dated ahead
   /// has come, is not archived as they are (DEB-01): asked whether to
-  /// settle first, as the account form does ([settleAndArchive], review
+  /// settle first, as the account form does ([settle], review
   /// 35); kept, the page stays.
   Future<void> _delete(BuildContext context, Account person) async {
     if (ledger.accountCommands.usedOutsideTrash(person.id)) {
@@ -95,7 +99,7 @@ class PersonPage extends StatelessWidget {
         );
         if (!settle || !context.mounted) return;
       }
-      if (await settleAndArchive(context, ledger, person, left: left)) {
+      if (await settle(context, person, left)) {
         nav.back();
       }
       return;
@@ -324,11 +328,20 @@ class LoanPage extends StatelessWidget {
     required this.ledger,
     required this.nav,
     required this.loanId,
+    required this.edit,
+    required this.reconcile,
   });
 
   final Ledger ledger;
   final Nav nav;
   final String loanId;
+
+  /// Opens the loan's form from 編輯; true when it was deleted or
+  /// archived there. The accounts' form, given by the app.
+  final Future<bool> Function(BuildContext context, Account loan) edit;
+
+  /// Opens 對帳 for the loan: the accounts' sheet, given by the app.
+  final Future<void> Function(BuildContext context, Account loan) reconcile;
 
   @override
   Widget build(BuildContext context) {
@@ -361,14 +374,10 @@ class LoanPage extends StatelessWidget {
                 lines: _lines(loan, owed),
                 menu: DotsMenu([
                   DotsItem(Glyph.edit, Words.edit, () async {
-                    final gone = await editLoan(context, ledger, loan: loan);
+                    final gone = await edit(context, loan);
                     if (gone) nav.back();
                   }),
-                  DotsItem(
-                    Glyph.check,
-                    '對帳',
-                    () => reconcileAccount(context, ledger, loan),
-                  ),
+                  DotsItem(Glyph.check, '對帳', () => reconcile(context, loan)),
                 ]),
               ),
               const SizedBox(height: Space.s3),
