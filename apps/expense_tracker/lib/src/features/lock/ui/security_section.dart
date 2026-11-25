@@ -48,10 +48,9 @@ class SecuritySection extends StatefulWidget {
     SecurityTopics.lockNow,
   ];
 
-  /// The [topics] whose cards the section shows with these services: the
-  /// fingerprint only where the phone has one, 自動上鎖 and 現在鎖上 only
-  /// with a password, 隱藏畫面 only where the screen can be hidden (review
-  /// 39 #4).
+  /// The [topics] shown with these services: the fingerprint only where
+  /// the phone has one, 自動上鎖 and 現在鎖上 only with a password, 隱藏畫面
+  /// only where the screen can be hidden (review 39 #4).
   static List<SettingTopic> offered({
     BackupManager? backupManager,
     ScreenPrivacy? privacy,
