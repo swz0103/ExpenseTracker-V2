@@ -161,9 +161,12 @@ final class AccountCommands {
     _context.keep(WriteBatch(accounts: [moved]));
   }
 
-  /// Why [account] cannot be archived as its balance stands today.
-  List<RecordIssue> _archiveIssues(Account account) =>
-      archiveIssues(kind: account.kind, balance: _balances.balance(account.id));
+  /// Why [account] cannot be archived as its balance will stand once
+  /// what is dated ahead has come.
+  List<RecordIssue> _archiveIssues(Account account) => archiveIssues(
+    kind: account.kind,
+    balance: _balances.finalBalance(account.id),
+  );
 
   /// Refuses [account] with a [RecordRefused] when the write rules find
   /// it wrong.

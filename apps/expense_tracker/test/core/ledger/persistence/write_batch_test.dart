@@ -158,4 +158,65 @@ void main() {
     ledger.budgetCommands.setBudget('交通', 1000);
     expect(budgets(await open()), ['飲食', '居家', '交通']);
   });
+
+  test('a budget taken away by a change written on a worker while another '
+      'worker has the store, then put back', () async {
+    apartFrom = 1;
+    final ledger = await book();
+    await ledger.settled;
+    // As a backup or the keeper's posting: the store is the worker's
+    // while the change is made ready.
+    final busy = store!.workApart(
+      (_) => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+    final undo = ledger.budgetCommands.removeBudget('交通')!;
+    await pumpEventQueue();
+    expect(store!.busyApart, isTrue);
+    await busy;
+    await ledger.settled;
+    expect(ledger.problem.value, isNull);
+    // Kept in the store: two of the three budgets left.
+    expect(store!.rows(shelf: 'budget'), hasLength(2));
+    undo();
+    // Back in its own place: where it stood was remembered.
+    expect(budgets(await open()), ['飲食', '交通', '居家']);
+  });
+
+  test('a category with 600 entries merged while a worker has the store, '
+      'and the merge undone', () async {
+    final ledger = await book();
+    ledger.entryCommands.addAll([
+      for (var i = 0; i < 600; i++)
+        Entry(
+          id: 'e$i',
+          date: DateTime.utc(2026, 10, 1),
+          type: EntryType.expense,
+          amount: 10,
+          account: 'bank',
+          category: '交通',
+        ),
+    ]);
+    await ledger.settled;
+    final categoriesBefore = store!.rows(shelf: 'category').length;
+    // As a backup's read of a big book: the store is the worker's while
+    // the merge (600 entries and the category: written apart) is made
+    // ready.
+    final busy = store!.workApart(
+      (_) => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+    final merged = ledger.categoryCommands.mergeCategory('交通', '娛樂');
+    await pumpEventQueue();
+    expect(store!.busyApart, isTrue);
+    await busy;
+    await ledger.settled;
+    expect(ledger.problem.value, isNull);
+    // Kept in the store: one category less; 交通's budget is 娛樂's now.
+    expect(store!.rows(shelf: 'category'), hasLength(categoriesBefore - 1));
+    expect(budgets(ledger), ['飲食', '居家', '娛樂']);
+    expect(store!.rows(shelf: 'budget'), hasLength(3));
+    (merged as Merged).undo();
+    final reopened = await open();
+    expect(categories(reopened), containsAllInOrder(['飲食', '交通', '居家', '娛樂']));
+    expect(budgets(reopened), ['飲食', '交通', '居家']);
+  });
 }

@@ -636,7 +636,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       watch.reset();
     }
 
-    for (final _ in _fill(
+    final rows = _fill(
       batch,
       put: (shelf, id, body) => changes.add(RowChange.put(shelf, id, body)),
       putAt: (shelf, id, body, seq) =>
@@ -645,7 +645,14 @@ final class SqlLedgerDataSource implements LedgerDataSource {
           changes.add(RowChange.move(from, shelf, id, body)),
       drop: (shelf, id) => changes.add(RowChange.drop(shelf, id)),
       after: after,
-    )) {
+    ).iterator;
+    // A record's rows are made from what the store keeps of it (its
+    // unknown fields, where it stood), so each is made while no worker
+    // has the store, in the turn of the last look at it: a backup's read
+    // or a posting under way is waited for, not failed on.
+    while (_store.busyApart
+        ? await _whenQuiet(rows.moveNext)
+        : rows.moveNext()) {
       await breathe();
     }
     await _whenQuiet(

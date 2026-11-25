@@ -87,6 +87,13 @@ final class BalanceService {
     ), () => _balanceOn(account, end));
   }
 
+  /// The balance of [account] once every entry dated ahead has come: at
+  /// the end of the last day an entry may be dated on ([latestEntryDay]).
+  /// What archiving a person judges (DEB-01): a lend dated next week
+  /// leaves money owed though today's balance is nothing.
+  int finalBalance(String account) =>
+      balance(account, until: latestEntryDay(_today()));
+
   /// The balance of [account] at the end of [end], as [balance] works it
   /// out, but not kept: for a pass over many days, such as the journal's
   /// check, which would fill the cache with answers no screen asks.

@@ -85,7 +85,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     final old = _old;
     if (old == null) return;
     final ledger = widget.ledger;
-    final left = ledger.balanceService.balance(old.id);
+    final left = ledger.balanceService.finalBalance(old.id);
     Entry? settlement;
     if (!old.archived && left != 0) {
       final into = await pickOption<String>(
