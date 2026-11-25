@@ -101,6 +101,7 @@ final class BalanceService {
   DateTime lastDayAhead(String account) {
     final today = _today();
     final last = latestEntryDay(today);
+    // Exception to as-of-today: it looks for the entries dated ahead.
     for (final e in _entries.ofAccount(account).reversed) {
       if (!e.date.isAfter(today)) break;
       if (!e.date.isAfter(last)) return e.date;
