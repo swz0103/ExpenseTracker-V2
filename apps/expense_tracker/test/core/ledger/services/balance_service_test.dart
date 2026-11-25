@@ -20,6 +20,21 @@ void main() {
     );
   });
 
+  test('the final balance counts what is dated up to a year ahead', () {
+    final book = Book(
+      entries: [
+        entry('a', amount: 300),
+        // Today + 365 days (maxDaysAhead) is the last day an entry may be
+        // dated on; one dated later still is not counted.
+        entry('b', amount: 200, date: DateTime.utc(2026, 12, 1)),
+        entry('c', amount: 50, date: DateTime.utc(2099, 1, 1)),
+      ],
+    );
+    // 1000 - 300 today; 1000 - 300 - 200 at the end.
+    expect(book.balances.balance('bank'), 700);
+    expect(book.balances.finalBalance('bank'), 500);
+  });
+
   test("an account's entries, newest first, both ends of a transfer", () {
     final book = Book(
       entries: [

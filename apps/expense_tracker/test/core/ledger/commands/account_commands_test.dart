@@ -114,5 +114,50 @@ void main() {
       undo();
       expect(l.account('ann').archived, isFalse);
     });
+
+    test('lent money on a day still to come, is not archived; settled '
+        'today, is', () {
+      final l = ledgerOf(
+        today: day(2026, 10, 4),
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 100000),
+          Account('ann', '阿安', AccountKind.receivable, 0),
+        ],
+        entries: [
+          // Six days ahead: nothing owed today, 5000 from 2026-10-10.
+          entryOf(
+            'lend',
+            day(2026, 10, 10),
+            EntryType.transfer,
+            5000,
+            'bank',
+            to: 'ann',
+          ),
+        ],
+      );
+      expect(l.balanceService.balance('ann'), 0);
+      expect(l.balanceService.finalBalance('ann'), 5000);
+      expect(
+        () => l.accountCommands.setArchived('ann', archived: true),
+        throwsA(
+          isA<RecordRefused>().having((r) => r.issues, 'issues', [
+            isA<ArchivedOwing>(),
+          ]),
+        ),
+      );
+      expect(l.account('ann').archived, isFalse);
+      // Paid back today: 5000 - 5000 = 0 once the lend's day has come.
+      l.entryCommands.add(
+        entryOf(
+          'back',
+          day(2026, 10, 4),
+          EntryType.transfer,
+          5000,
+          'ann',
+          to: 'bank',
+        ),
+      );
+      expect(l.accountCommands.setArchived('ann', archived: true), isNotNull);
+    });
   });
 }

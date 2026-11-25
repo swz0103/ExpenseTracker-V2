@@ -107,6 +107,23 @@ void main() {
     expect((owed.account, owed.to, owed.amount), ('bank', 'card', 1200));
   });
 
+  test('settling counts what is dated ahead, and is dated today', () {
+    final ledger = book();
+    ledger.entryCommands.add(
+      Entry(
+        id: 'later',
+        date: DateTime.utc(2026, 10, 10),
+        type: EntryType.expense,
+        amount: 800,
+        account: 'bank',
+        category: '飲食',
+      ),
+    );
+    final left = AccountForm.settlement(ledger, ledger.account('bank'), 'x');
+    // 5000 - 800 once 2026-10-10 has come.
+    expect((left.amount, left.date), (4200, DateTime.utc(2026, 10, 4)));
+  });
+
   test(
     'a new account comes after the placed ones; a change keeps its place',
     () {

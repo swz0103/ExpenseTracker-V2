@@ -11,6 +11,7 @@ import '../repositories/market_data_repository.dart';
 
 import 'package:core/foundation_values.dart' show BusinessDate, startOfWeek;
 import 'package:core/time/utc_days.dart';
+import 'package:ledger_entries/model.dart' show latestEntryDay;
 
 /// Balances and worth: each account's on any day, what is owned and owed
 /// in all, and how an account moved week by week.
@@ -86,6 +87,13 @@ final class BalanceService {
       end,
     ), () => _balanceOn(account, end));
   }
+
+  /// The balance of [account] once every entry dated ahead has come: at
+  /// the end of the last day an entry may be dated on ([latestEntryDay]).
+  /// What archiving a person judges (DEB-01): a lend dated next week
+  /// leaves money owed though today's balance is nothing.
+  int finalBalance(String account) =>
+      balance(account, until: latestEntryDay(_today()));
 
   /// The balance of [account] at the end of [end], as [balance] works it
   /// out, but not kept: for a pass over many days, such as the journal's
