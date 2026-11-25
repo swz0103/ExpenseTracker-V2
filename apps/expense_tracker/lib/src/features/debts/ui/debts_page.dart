@@ -6,8 +6,6 @@ import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/navigation/nav.dart';
-import '../../accounts/forms/account_editor.dart';
-
 import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
@@ -15,29 +13,6 @@ import '../../../core/formatting/words.dart';
 import '../model/debts.dart';
 import '../../../core/messages/flow_messages.dart';
 import 'debts_loan_card.dart';
-
-/// The people paid for, most owed first, open ones only.
-List<Account> peopleOwing(Ledger ledger) =>
-    [
-      for (final a in ledger.accounts.open)
-        if (a.kind == AccountKind.receivable) a,
-    ]..sort(
-      (a, b) => ledger.balanceService
-          .balance(b.id)
-          .compareTo(ledger.balanceService.balance(a.id)),
-    );
-
-/// The open loans.
-List<Account> openLoans(Ledger ledger) => [
-  for (final a in ledger.accounts.open)
-    if (a.kind == AccountKind.loan) a,
-];
-
-/// Whole days since [day].
-int daysSince(Ledger ledger, DateTime day) {
-  final days = ledger.today.difference(day).inDays;
-  return days < 0 ? 0 : days;
-}
 
 /// The first letter of a name, for its circle.
 String _initial(String name) {
@@ -50,10 +25,19 @@ String _initial(String name) {
 /// sum lent and a mortgage do not add up to anything); then a square for
 /// each person, and a card for each loan with how much is paid as a ring.
 class DebtsPage extends StatelessWidget {
-  const DebtsPage({super.key, required this.ledger, required this.nav});
+  const DebtsPage({
+    super.key,
+    required this.ledger,
+    required this.nav,
+    required this.addLoan,
+  });
 
   final Ledger ledger;
   final Nav nav;
+
+  /// Opens the form of a new loan from 新增貸款: the accounts' form,
+  /// given by the app.
+  final Future<void> Function(BuildContext context) addLoan;
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +53,7 @@ class DebtsPage extends StatelessWidget {
         final loans = openLoans(ledger);
         final balances = ledger.balanceService;
         // In NT$: people and loans kept in other currencies at home.
-        final lent = owedFromAll(balances, people);
+        final lent = owedByPeople(ledger);
         final borrowed = owedOnAll(balances, loans);
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
@@ -80,7 +64,7 @@ class DebtsPage extends StatelessWidget {
               HeaderButton(
                 glyph: Glyph.add,
                 label: '新增貸款',
-                onTap: () => editLoan(context, ledger),
+                onTap: () => addLoan(context),
               ),
             ],
           ),

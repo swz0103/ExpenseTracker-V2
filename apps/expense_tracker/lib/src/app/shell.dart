@@ -271,7 +271,11 @@ class _AppShellState extends State<AppShell> {
   Widget _morePage(Ledger ledger, MoreDestination page) => switch (page) {
     MoreDestination.reports => ReportsPage(ledger: ledger, nav: _nav),
     MoreDestination.investments => InvestmentsPage(ledger: ledger, nav: _nav),
-    MoreDestination.debts => DebtsPage(ledger: ledger, nav: _nav),
+    MoreDestination.debts => DebtsPage(
+      ledger: ledger,
+      nav: _nav,
+      addLoan: (context) => editLoan(context, ledger),
+    ),
     MoreDestination.budgets => BudgetsPage(ledger: ledger, nav: _nav),
     MoreDestination.recurring => RecurringPage(ledger: ledger, nav: _nav),
     MoreDestination.categories => CategoriesPage(ledger: ledger, nav: _nav),

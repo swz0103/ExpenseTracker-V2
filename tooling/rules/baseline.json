@@ -1,6 +1,5 @@
 {
   "A2-feature-isolation": {
-    "apps/expense_tracker/lib/src/features/debts/ui/debts_page.dart": 1,
     "apps/expense_tracker/lib/src/features/entries/forms/composer.dart": 2,
     "apps/expense_tracker/lib/src/features/import_export/model/import_export.dart": 1,
     "apps/expense_tracker/lib/src/features/import_export/ui/import_export_section.dart": 1,
