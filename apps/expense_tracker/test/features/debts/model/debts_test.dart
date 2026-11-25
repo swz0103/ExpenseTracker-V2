@@ -74,4 +74,37 @@ void main() {
       100320,
     );
   });
+
+  test('review 40: people are ranked and summed in NT\$, a person in US\$ '
+      'by their worth at home, not their cents', () {
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 10, 4),
+      accounts: const [
+        Account('ming', '小明', AccountKind.receivable, 5000),
+        Account('amy', '小美', AccountKind.receivable, 10000, currency: 'USD'),
+        Account('gone', '已封存', AccountKind.receivable, 900, archived: true),
+        Account('loan', '房貸', AccountKind.loan, -100000),
+      ],
+      categories: const [],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      rates: const {'USD': 32},
+    );
+    // 小美: US\$100 x 32 = 3,200 at home, below 小明's 5,000, though her
+    // 10,000 cents are more.
+    expect(
+      [
+        for (final a in peopleOwing(ledger.accounts, ledger.balanceService))
+          a.id,
+      ],
+      ['ming', 'amy'],
+    );
+    // 5,000 + 3,200 = 8,200; the archived person is not open.
+    expect(owedByPeople(ledger.accounts, ledger.balanceService), 8200);
+    expect([for (final a in openLoans(ledger.accounts)) a.id], ['loan']);
+    expect(daysSince(ledger.today, DateTime.utc(2026, 10, 1)), 3);
+    expect(daysSince(ledger.today, DateTime.utc(2026, 10, 9)), 0);
+  });
 }

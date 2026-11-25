@@ -1,4 +1,5 @@
-import '../formatting/setting_topic.dart';
+import 'package:shell/setting_topic.dart';
+
 import 'key_messages.dart' show KeyWords;
 import '../platform/preference_choices.dart' show AutoLock;
 

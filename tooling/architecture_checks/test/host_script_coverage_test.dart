@@ -21,7 +21,7 @@ void main() {
       p.join(root, '.github', 'workflows', 'integration-validation.yml'),
     ).readAsStringSync();
     final covered = RegExp(
-      r"(?:-Package |')((?:apps|packages|infrastructure|tooling)/[a-z_]+"
+      r"(?:-Package |')((?:apps|packages|modules|infrastructure|tooling)/[a-z_]+"
       r"(?:/[a-z_]+)?)'?",
     ).allMatches(workflow).map((m) => m.group(1)!).toSet();
     expect(covered, registered);
@@ -29,7 +29,13 @@ void main() {
 
   test('every package on disk is checked by the host script', () {
     final onDisk = <String>{};
-    for (final folder in ['apps', 'packages', 'infrastructure', 'tooling']) {
+    for (final folder in [
+      'apps',
+      'packages',
+      'modules',
+      'infrastructure',
+      'tooling',
+    ]) {
       final location = Directory(p.join(root, folder));
       if (!location.existsSync()) continue;
       for (final entity in location.listSync()) {

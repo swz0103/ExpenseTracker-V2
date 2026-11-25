@@ -1,8 +1,12 @@
-import 'package:ledger_loans/model/rate.dart' show maxLoanRate;
-
 import '../model/account_kind.dart';
 import 'entry_rules.dart' show maxAmountAnyCurrency;
 import 'issues.dart';
+
+/// The highest yearly rate a loan is kept at, in hundredths of a
+/// percent: 100%. A rate above it is taken for a typo and refused
+/// (D118), not kept as no rate; the loans module's `rateOf` reads a
+/// typed rate up to it.
+const maxLoanRate = 10000;
 
 /// Why a recurring item of these fields cannot be kept: an amount of
 /// nothing, an interval that would never move its dates on, a day no

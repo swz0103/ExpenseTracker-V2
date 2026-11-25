@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../design_system/display/amount.dart';
 import '../core/design_system/findable.dart';
 import '../core/design_system/glyphs.dart';
-import '../core/formatting/setting_topic.dart';
+
+import 'package:shell/setting_topic.dart';
+
 import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';

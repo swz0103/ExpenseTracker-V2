@@ -1,4 +1,5 @@
-import '../formatting/setting_topic.dart';
+import 'package:shell/setting_topic.dart';
+
 import '../formatting/words.dart';
 import '../ledger/ledger.dart';
 import '../../../design_system/display/amount.dart';

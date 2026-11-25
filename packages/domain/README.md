@@ -19,7 +19,7 @@
 | `credit_cards.dart` | `CardSchedule`（`cycleFor`、`lastCloseOn`、`datesOf`）、`CardScheduleChange`、`CardCycleOverride`、`installmentShares`、`installmentStart`、`installmentCloses` |
 | `data_exchange.dart` | `readCsv`、`writeCsv`、`parseEInvoices`（財政部電子發票「消費明細」CSV） |
 
-手續費、證交稅、二代健保、交割金額與交割日在 `packages/ledger/trade_costs`；貸款月付在 `packages/ledger/loans`。
+手續費、證交稅、二代健保、交割金額與交割日在 `packages/ledger/trade_costs`；貸款月付在 `modules/loans`。
 
 ## 不做什麼
 

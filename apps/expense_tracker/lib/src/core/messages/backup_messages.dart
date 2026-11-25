@@ -1,4 +1,4 @@
-import '../formatting/setting_topic.dart';
+import 'package:shell/setting_topic.dart';
 
 /// The words of the backup settings, in one place.
 abstract final class BackupWords {

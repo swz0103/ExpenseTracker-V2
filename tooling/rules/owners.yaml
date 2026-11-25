@@ -274,18 +274,20 @@ items:
     what: 貸款攤還表（每月利息、本金、餘額與進位方式）
     layer: ledger
     owner:
-      - packages/ledger/loans/lib/calc/loan_plan.dart
-    target: packages/ledger/loans/lib/calc/
+      - modules/loans/lib/calc/loan_plan.dart
+    target: modules/loans/lib/calc/
     status: owned
   # D116/D118: a loan's rate as typed is read by `readRate` alone (a
   # number with its sign, or unreadable); the highest rate kept is the one
-  # constant `maxLoanRate`, which the write rules of ledger_entries ask.
+  # constant `maxLoanRate`, the write rules' (ledger_entries), which the
+  # loans module reads (a module depends on the core, never the reverse).
   - id: loan-rate
     what: 貸款利率的讀法與上限
     layer: ledger
     owner:
-      - packages/ledger/loans/lib/model/rate.dart
-    target: packages/ledger/loans/lib/model/
+      - modules/loans/lib/model/rate.dart
+      - packages/ledger/entries/lib/rules/record_rules.dart
+    target: modules/loans/lib/model/
     status: owned
   # 2.0: the day each instalment is billed is domain's
   # installmentBillingDays alone; the card cycle and the journal's

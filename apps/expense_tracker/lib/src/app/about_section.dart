@@ -25,7 +25,8 @@ import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
 import '../core/platform/preferences.dart';
 import '../core/design_system/findable.dart';
-import '../core/formatting/setting_topic.dart';
+
+import 'package:shell/setting_topic.dart';
 
 /// 關於: the main card says the version and how it stands against the
 /// newest (已是最新, 有新版 with 更新, or the download with its bar); two

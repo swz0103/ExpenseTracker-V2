@@ -7,7 +7,6 @@ import '../core/design_system/theme.dart';
 import '../core/design_system/design_system.dart';
 import '../core/ledger/ledger.dart';
 import '../core/navigation/nav.dart';
-import '../features/debts/ui/debts_page.dart';
 import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
 import '../core/formatting/words.dart';
@@ -83,8 +82,7 @@ class MorePage extends StatelessWidget {
       today.month,
     );
     final next = items.isEmpty ? null : items.first;
-    final lent = peopleOwing(ledger)
-        .fold<int>(0, (sum, a) => sum + owedFrom(ledger.balanceService, a));
+    final lent = owedByPeople(ledger.accounts, ledger.balanceService);
     final status = limit == 0
         ? null
         : budgetStatus(

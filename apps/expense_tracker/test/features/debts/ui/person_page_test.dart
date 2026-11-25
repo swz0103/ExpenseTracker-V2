@@ -364,4 +364,63 @@ void main() {
     await tester.pump();
     expect(ledger.entries.all.length, count, reason: 'no amount given');
   });
+
+  testWidgets('review 41: a person kept in US\$ is shown in US\$ with its '
+      'cents, a sum paid in NT\$ for them in NT\$, and how much of it is '
+      'back read in their currency', (tester) async {
+    final start = demoLedger()
+      ..accountCommands.addAccount(
+        const Account(
+          'amy',
+          'AmyUSD',
+          AccountKind.receivable,
+          0,
+          currency: 'USD',
+        ),
+      );
+    // NT\$3,200 paid for her, US\$100.00 on her account; US\$60.00 of
+    // it paid back into the bank, NT\$1,926 there.
+    start.entryCommands
+      ..add(
+        Entry(
+          id: 'paid',
+          date: DateTime.utc(2026, 9, 1),
+          type: EntryType.transfer,
+          amount: 3200,
+          received: 10000,
+          account: 'bank',
+          category: transferCategory,
+          to: 'amy',
+          note: '機票',
+        ),
+      )
+      ..add(
+        Entry(
+          id: 'repaid',
+          date: DateTime.utc(2026, 9, 10),
+          type: EntryType.transfer,
+          amount: 6000,
+          received: 1926,
+          account: 'amy',
+          category: transferCategory,
+          to: 'bank',
+        ),
+      );
+    await show(tester, 390, 1, book: start);
+    await go(tester, ['更多', '代墊與借貸']);
+    // The square: 10,000 - 6,000 = 4,000 cents, US\$40.00, not 4,000.
+    expect(
+      find.bySemanticsLabel(RegExp('^AmyUSD，欠你 USD 40.00，')),
+      findsOneWidget,
+    );
+    await go(tester, ['AmyUSD']);
+    expect(find.text('USD 40.00'), findsWidgets); // the hero, the owed row
+    // 4,000 of her 10,000 cents left: 部分收回 (comparing the NT\$3,200
+    // paid with the 4,000 cents left once read 未收回), of US\$100.00.
+    expect(find.textContaining('部分收回 · 共 USD 100.00'), findsOneWidget);
+    expect(find.text('−USD 60.00'), findsOneWidget); // paid back, hers
+    expect(find.text('3,200'), findsOneWidget); // paid from the bank, NT\$
+    expect(find.text('4,000'), findsNothing);
+    expect(find.text('10,000'), findsNothing);
+  });
 }

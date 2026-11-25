@@ -46,4 +46,43 @@ void main() {
     // page once cut it to 0%.
     expect(find.text('結餘率 1%'), findsOneWidget);
   });
+
+  testWidgets('review 40: 代墊與借貸 says what people owe in NT\$, as its '
+      'page does', (tester) async {
+    tester.view.physicalSize = const Size(420, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final ledger = Ledger(
+      today: day(2026, 10, 20),
+      accounts: const [
+        Account('amy', '小美', AccountKind.receivable, 10000, currency: 'USD'),
+      ],
+      categories: const [],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      rates: const {'USD': 32},
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: appTheme(),
+        home: Scaffold(
+          body: MorePage(
+            ledger: ledger,
+            nav: Nav(
+              open: (_) {},
+              back: () {},
+              compose: ({type = EntryType.expense, entry, draft}) async {},
+              showEntry: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    // US\$100.00 at 32 = 3,200; the tile once added the 10,000 cents.
+    expect(find.text('欠你 3,200'), findsOneWidget);
+    expect(find.text('欠你 10,000'), findsNothing);
+  });
 }

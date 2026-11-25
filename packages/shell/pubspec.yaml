@@ -1,0 +1,17 @@
+name: shell
+description: "The app's screen shell: the typed contribution points screens read and modules add to, and the few types they share (SettingTopic)."
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: ^3.13.4
+dependencies:
+  flutter:
+    sdk: flutter
+  core:
+    path: ../core
+  kernel:
+    path: ../kernel
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter

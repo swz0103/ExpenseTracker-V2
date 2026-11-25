@@ -1,4 +1,4 @@
-import '../formatting/setting_topic.dart';
+import 'package:shell/setting_topic.dart';
 
 import 'package:ledger_trade_costs/calc/charges.dart' show fullFeePerMillion;
 

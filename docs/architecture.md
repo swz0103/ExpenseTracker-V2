@@ -10,11 +10,15 @@ flowchart TB
   vault["infrastructure/vault<br/>金鑰、開帳、加密備份"]
   storage["infrastructure/storage<br/>SQLCipher，一筆一列 JSON"]
   market["infrastructure/market<br/>收盤價、匯率"]
-  domain["packages/domain<br/>純計算：成本、費稅、帳期、貸款、CSV、發票"]
+  domain["packages/domain<br/>純計算：成本、費稅、帳期、CSV、發票"]
+  shell["packages/shell<br/>畫面的擴充點"]
+  loans["modules/loans<br/>貸款與代墊模組"]
   postings["packages/ledger/postings<br/>各種紀錄怎麼記成分錄"]
   kernel["packages/kernel<br/>分錄核心：寫入路徑、讀取加總"]
   core["packages/core<br/>金額、日期、匯率、ID、時鐘"]
-  app --> vault & market & domain & postings & core
+  app --> vault & market & domain & postings & core & shell & loans
+  loans --> kernel
+  shell --> kernel
   vault --> storage
   storage --> kernel
   postings --> kernel & domain
@@ -23,7 +27,51 @@ flowchart TB
   domain --> core
 ```
 
-`packages/*` 是純 Dart、不碰平台；不需要帳本狀態的計算一律放 `domain`，App 只呼叫。
+`packages/*` 是純 Dart、不碰平台（`packages/shell` 例外：它宣告畫面的擴充點，是 Flutter 套件）；不需要帳本狀態的計算一律放 `domain`，App 只呼叫。套件之間誰可以列誰，由 `tooling/architecture_checks/test/package_dependencies_test.dart` 的表決定。
+
+## 模組（階段 4）
+
+依目標架構 3.1 第五節，功能逐個搬成模組。每個模組是一個套件：
+
+| 部分 | 內容 | 規則 |
+| --- | --- | --- |
+| `modules/<名稱>/lib/calc/`（與 `lib/model/`） | 純計算 | 不碰 Flutter、平台、時鐘（規則 A4） |
+| `modules/<名稱>/lib/feature/` | 模組加到擴充點的東西，一個 `install(Contributions)` | 只經擴充點被 App 取用 |
+| `modules/<名稱>/test/` | 每個 `lib/` 檔都有測試（規則 C1a） | — |
+
+相依宣告只能列核心（`packages/core`、`packages/kernel`、`packages/ledger/*`）與 `packages/shell`，**不能列別的模組**；核心套件也不能列模組。App 只在組裝點 `lib/src/app/modules.dart` 提到模組的 `feature/`。這些都由 `package_dependencies_test.dart` 守住。套件名稱沿用原來的 `ledger_<名稱>`，搬家時所有 import 不變（基準測試一行不改）。
+
+**擴充點**（`kernel` 的 `Contributions`：`on(point).add(owner, item)`）：
+
+| 擴充點 | 宣告在 | 誰讀 |
+| --- | --- | --- |
+| `valuers`：股價、匯率估值 | `packages/kernel` | 分錄的淨值 |
+| `sheetClaims`：資產負債行，模組認領帳戶、核心估值；沒人認領的落在「未認領」行，各行加總等於淨值，同一帳戶被兩個模組認領會被比對抓到 | `packages/kernel` | 比對（`checkParity` 的 `sheetRow`、`sheetClaims`） |
+| `ShellPoints.settings`：設定與搜尋項目（`SettingTopic`） | `packages/shell` | 設定頁（待 FIX-R42 落地後改讀） |
+| `ShellPoints.overview`：總覽區塊 | `packages/shell` | 總覽 |
+| `ShellPoints.composerKinds`、`composerFields`：記帳表單的種類與欄位（做法 D：`Slot`、`Draft`、修訂者） | `packages/shell` | 記帳表單 |
+| `entryMarks`、`editors`、`importColumns`、`formDefaults`、`reminders`、`integrity`、`backupSections`、`budgetScopes` | `packages/shell` | 已宣告，第一個使用者出現時定形 |
+
+**搬一個模組的步驟**：
+1. 先在原處修掉這個區域已知的錯數字，並加一個會抓到它的測試。
+2. 把純計算 `git mv` 到 `modules/<名稱>/lib/calc`，套件名不變；核心若用到它的常數，常數搬進核心（例：`maxLoanRate` 進 `ledger_entries` 的寫入規則）。
+3. 在 `lib/feature/` 寫 `install`，把模組的東西加到擴充點；在 `app/modules.dart` 加一行。
+4. 每個數字由比對守住：`checkParity` 在每本歷代測試帳本、示範帳本、刁鑽帳本上 0 個不同（模組認領的資產負債行也比對）。
+5. 畫面還讀 `Ledger`、用 App 的設計系統時，頁面先留在 `features/`，從外殼注入跨功能的動作（例：`DebtsPage.addLoan`）；等畫面改讀分錄、設計系統成為套件（階段 5）後再搬。
+6. 更新 `tooling/`（規則路徑、覆蓋率下限、CI 清單）與這一節。
+
+**接下來的順序與各自需要的擴充點**：
+
+| 順序 | 模組 | 需要的擴充點 |
+| --- | --- | --- |
+| 1（已開始） | `loans`：貸款與代墊 | `sheetClaims`（已用）；設定與搜尋、更多頁入口與路由、記帳表單的還款欄位（待定） |
+| 2 | `cards`：信用卡帳期、分期、帳單 | 修訂者（分期）、`composerFields`、`sheetClaims`（未出帳分期）、`reminders`（繳款日）、`entryMarks` |
+| 3 | `investments`：持股、買賣、股利 | `valuers`、`sheetClaims`、`composerKinds`（買進、賣出、股利）、`editors`（分割、減資）、`formDefaults`（手續費與稅）、`overview` |
+| 4 | `recurring`：定期交易 | `reminders`、`backupSections`、`settings`、`overview` |
+| 5 | `budgets`：預算 | `budgetScopes`、`reminders`、`overview`、`backupSections` |
+| 6 | `reports`：報表 | `overview`、`settings` |
+| 7 | `import_export`：匯入匯出 | `importColumns`、`backupSections`、`settings` |
+
 
 ## App 內部分層
 

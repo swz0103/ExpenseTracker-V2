@@ -49,7 +49,14 @@ final class JournalKeeper {
     this._postApart,
     this._fault = _unheard,
     this.compares = true,
+    this._modules = _noModules,
   });
+
+  /// Adds the modules' contributions (their balance-sheet claims) to the
+  /// journal's reader: the app's composition root (app/modules.dart).
+  final void Function(Contributions contributions) _modules;
+
+  static void _noModules(Contributions contributions) {}
 
   /// Told of each fault of the journal's work, as it is logged: a page of
   /// its tables found damaged is the data source's to act on (D102).
@@ -129,12 +136,14 @@ final class JournalKeeper {
   }
 
   /// The journal's sums, as the comparison reads them.
-  BookReader get reader => BookReader(
-    _store,
-    _journal!.accounts,
-    valuedAsTheApp(holdings: _ledger!.holdings, market: _ledger!.marketData),
-    homeCurrency,
-  );
+  BookReader get reader {
+    final contributions = valuedAsTheApp(
+      holdings: _ledger!.holdings,
+      market: _ledger!.marketData,
+    );
+    _modules(contributions);
+    return BookReader(_store, _journal!.accounts, contributions, homeCurrency);
+  }
 
   /// Takes up [ledger], just opened: posts the book afresh when its
   /// postings are not the records' own, then compares everything.
