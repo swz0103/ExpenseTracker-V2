@@ -35,9 +35,11 @@ String halfWidth(String text) => String.fromCharCodes([
 /// all, so `ＧＯＯＧＬＥ`, `google` and `Goo gle` find the same, and `臺灣`
 /// finds `台灣`. Both what is typed and what is looked through are read
 /// through it.
-String searchKey(String text) => halfWidth(
-  text,
-).toLowerCase().replaceAll(_variantTai, _tai).replaceAll(_spaces, '');
+String searchKey(String text) =>
+    halfWidth(text)
+        .toLowerCase()
+        .replaceAll(_variantTai, _tai)
+        .replaceAll(_spaces, '');
 
 /// 臺 (U+81FA) and the 台 (U+53F0) everyday writing uses for it.
 const _variantTai = '臺';
