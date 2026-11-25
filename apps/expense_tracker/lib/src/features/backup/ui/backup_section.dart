@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/display/amount.dart';
-import '../../../core/design_system/findable.dart';
-import '../../../core/formatting/setting_topic.dart';
 import '../model/drive_backup.dart';
 import '../model/restore_sources.dart' show driveNote;
 import '../model/drive_sync.dart';
@@ -21,12 +19,11 @@ import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
 import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
-import '../../../core/design_system/shape.dart';
 import '../../../core/time/app_clock.dart';
+import '../../../core/formatting/setting_topic.dart';
 import '../../../core/formatting/words.dart';
-
-part 'backup_section_manual.dart';
-part 'backup_section_card_row.dart';
+import 'backup_section_manual.dart';
+import 'backup_section_card_row.dart';
 
 /// Keeps a backup of this ledger, then opens the lock screen on choosing
 /// the backup to restore, from a file or Google Drive.
@@ -312,7 +309,7 @@ class _BackupSectionState extends State<BackupSection> {
             Row(
               children: [
                 Expanded(
-                  child: _Manual(
+                  child: ManualBackup(
                     topic: BackupTopics.export,
                     glyph: Glyph.upload,
                     label: '匯出一份',
@@ -322,7 +319,7 @@ class _BackupSectionState extends State<BackupSection> {
                 ),
                 const SizedBox(width: Space.s3),
                 Expanded(
-                  child: _Manual(
+                  child: ManualBackup(
                     topic: BackupTopics.restore,
                     glyph: Glyph.download,
                     label: '還原',
@@ -363,7 +360,7 @@ class _BackupSectionState extends State<BackupSection> {
   Widget _driveCard(DriveSync drive) {
     const color = SettingsColors.backup;
     final linked = drive.linked;
-    return _BackupCard(
+    return BackupCard(
       topic: BackupTopics.drive_,
       glyph: Glyph.upload,
       color: color,
@@ -377,8 +374,12 @@ class _BackupSectionState extends State<BackupSection> {
       rows: [
         if (linked) ...[
           if (drive.account case final account?)
-            _CardRow(color: color, title: BackupWords.account, detail: account),
-          _CardRow(
+            BackupCardRow(
+              color: color,
+              title: BackupWords.account,
+              detail: account,
+            ),
+          BackupCardRow(
             color: color,
             title: '上次備份',
             value: drive.busy
@@ -388,7 +389,7 @@ class _BackupSectionState extends State<BackupSection> {
                     null => '還沒有',
                   },
           ),
-          _CardRow(
+          BackupCardRow(
             color: color,
             title: '收據照片',
             detail: drive.photos
@@ -407,7 +408,7 @@ class _BackupSectionState extends State<BackupSection> {
           // Photos make a backup large: by default it waits for Wi-Fi
           // (AND-05), the person's choice.
           if (drive.photos)
-            _CardRow(
+            BackupCardRow(
               color: color,
               title: BackupWords.photosOnWifi,
               detail: BackupWords.photosOnWifiOff,
@@ -428,7 +429,7 @@ class _BackupSectionState extends State<BackupSection> {
   Widget _folderCard(PhoneBackup phone) {
     const color = SettingsColors.folder;
     final on = phone.on;
-    return _BackupCard(
+    return BackupCard(
       topic: BackupTopics.folder,
       glyph: Glyph.records,
       color: color,
@@ -440,18 +441,18 @@ class _BackupSectionState extends State<BackupSection> {
       rows: [
         if (on) ...[
           if (phone.denied)
-            _FolderDenied(
+            FolderDeniedRow(
               color: color,
               onChoose: phone.busy ? null : () => _choosePhone(phone),
             ),
-          _CardRow(
+          BackupCardRow(
             color: color,
             title: '多久一次',
             detail: phone.problem != null ? '上次沒有成功' : null,
             value: phone.daily ? '每天' : '每週',
             onTap: () => phone.setDaily(!phone.daily),
           ),
-          _CardRow(
+          BackupCardRow(
             color: color,
             title: '資料夾',
             value: phone.folderName,

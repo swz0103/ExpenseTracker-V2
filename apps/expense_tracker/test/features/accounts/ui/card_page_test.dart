@@ -5,7 +5,7 @@ import 'package:expense_tracker/src/core/design_system/keys.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/navigation/nav.dart';
-import 'package:expense_tracker/src/core/widgets/pickers.dart';
+import 'package:expense_tracker/src/core/widgets/pickers_days.dart';
 import 'package:expense_tracker/src/features/accounts/ui/card_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

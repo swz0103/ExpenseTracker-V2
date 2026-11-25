@@ -1,8 +1,16 @@
-part of 'backup_section.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/design_system/findable.dart';
+import '../../../core/formatting/setting_topic.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/design_system/spacing.dart';
+import '../../../core/design_system/shape.dart';
 
 /// 匯出一份 or 還原: a tinted button with an icon.
-class _Manual extends StatelessWidget {
-  const _Manual({
+class ManualBackup extends StatelessWidget {
+  const ManualBackup({
+    super.key,
     required this.topic,
     required this.glyph,
     required this.label,

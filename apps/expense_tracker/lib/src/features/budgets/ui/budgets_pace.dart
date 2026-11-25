@@ -1,10 +1,23 @@
-part of 'budgets.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/messages/amount_messages.dart';
+import '../../../../design_system/display/amount.dart';
+import '../../../../design_system/display/status.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/widgets/icons.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
 
 /// Two white cards: what can be spent a day and where the month is
 /// heading; for a past month, what was spent a day and against the
 /// budget.
-class _Pace extends StatelessWidget {
-  const _Pace({
+class BudgetPaceCard extends StatelessWidget {
+  const BudgetPaceCard({
+    super.key,
     required this.ledger,
     required this.year,
     required this.month,
@@ -140,8 +153,9 @@ class _Figure extends StatelessWidget {
 /// A category's or tag's allowance as a square: a small ring of the share
 /// used around its icon, 超支 or 快用完, its name, what is left or over,
 /// and used against the allowance.
-class _Limit extends StatelessWidget {
-  const _Limit({
+class BudgetLimit extends StatelessWidget {
+  const BudgetLimit({
+    super.key,
     required this.ledger,
     required this.budget,
     required this.used,
@@ -229,7 +243,7 @@ class _Limit extends StatelessWidget {
   }
 }
 
-/// The top of a [_Limit] square: the ring of [share] used around its
+/// The top of a [BudgetLimit] square: the ring of [share] used around its
 /// [glyph], and [alert] (超支 or 快用完) in the corner when there is one.
 class _LimitHead extends StatelessWidget {
   const _LimitHead({

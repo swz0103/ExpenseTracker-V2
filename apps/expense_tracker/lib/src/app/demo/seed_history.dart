@@ -1,4 +1,6 @@
-part of 'seed.dart';
+import '../../core/ledger/ledger.dart';
+
+import 'package:core/time/utc_days.dart';
 
 /// Writes the plainer months before April 2026: salary, rent, groceries,
 /// coffee, fuel and a few one-off events, with the card paid off, cash
@@ -6,9 +8,9 @@ part of 'seed.dart';
 /// bank keeps a remainder. Returns that remainder, for the bank's opening.
 // Exception to function length: two years of made-up entries, one a
 // line; data, not steps to follow.
-int _history(_Add add) {
+int seedHistory(SeedAdd add) {
   var bankNet = 0;
-  for (var i = 0; i < _historyMonths; i++) {
+  for (var i = 0; i < seedHistoryMonths; i++) {
     final first = monthStart(DateTime.utc(2025), i);
     final year = first.year;
     final m = first.month;
@@ -136,7 +138,7 @@ int _history(_Add add) {
       m,
       2,
       EntryType.transfer,
-      _toSavings,
+      seedToSavings,
       'bank',
       '轉帳',
       '存到儲蓄',
@@ -147,14 +149,36 @@ int _history(_Add add) {
       m,
       2,
       EntryType.transfer,
-      _toDigital,
+      seedToDigital,
       'bank',
       '轉帳',
       '存到數位帳戶',
       year: year,
       to: 'digital',
     );
-    bankNet += salary - bank - card - cash - _toSavings - _toDigital;
+    bankNet += salary - bank - card - cash - seedToSavings - seedToDigital;
   }
   return bankNet;
 }
+
+/// How many months [seedHistory] writes: January 2025 to March 2026.
+const seedHistoryMonths = 15;
+
+/// What each of those months moves to savings and the digital account.
+const seedToSavings = 8000;
+const seedToDigital = 5000;
+
+typedef SeedAdd = void Function(
+  int month,
+  int day,
+  EntryType type,
+  int amount,
+  String account,
+  String category,
+  String note, {
+  int year,
+  String? to,
+  String? recurring,
+  String merchant,
+  List<String> tags,
+});

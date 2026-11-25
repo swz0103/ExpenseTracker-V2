@@ -1,4 +1,3 @@
-import 'package:core/time/utc_days.dart';
 import 'package:flutter/material.dart';
 
 import '../../accounts/forms/account_editor.dart';
@@ -9,31 +8,21 @@ import '../../../core/design_system/glyphs.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/widgets/entry_tile.dart';
-import '../../../core/widgets/problem_note.dart';
 import '../../../core/navigation/nav.dart';
 import '../model/recurring_schedule.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
-import '../../../core/design_system/month_grid.dart';
-import '../../../core/design_system/motion.dart';
 import '../../../core/formatting/words.dart';
-import '../../../core/messages/recurring_messages.dart' show pausedHint;
-import 'recurring_rows.dart';
 import '../model/subscriptions.dart';
 
 import 'package:core/time/month_arithmetic.dart';
 
-part 'recurring_calendar.dart';
-part 'recurring_lists.dart';
+import 'recurring_calendar.dart';
+import 'recurring_lists.dart';
 
 /// The colour of 定期交易, as on 更多.
-const _recurringColor = Palette.orange;
-
-/// The grey of a day with several items, or with all of them booked.
-const _busyDay = AppColors.surface;
+const recurringColor = Palette.orange;
 
 /// Adds an item, or changes [item], after making sure there is an account
 /// to book it to.
@@ -65,13 +54,21 @@ class RecurringViewPage extends StatelessWidget {
     Future<void> edit({Recurring? item, DateTime? on}) =>
         _editItem(context, ledger, item: item, on: on);
     return switch (view) {
-      RecurringView.manage => _Manage(ledger: ledger, nav: nav, onEdit: edit),
-      RecurringView.subscriptions => _Subscriptions(
+      RecurringView.manage => RecurringManage(
         ledger: ledger,
         nav: nav,
         onEdit: edit,
       ),
-      RecurringView.paused => _Paused(ledger: ledger, nav: nav, onEdit: edit),
+      RecurringView.subscriptions => RecurringSubscriptions(
+        ledger: ledger,
+        nav: nav,
+        onEdit: edit,
+      ),
+      RecurringView.paused => RecurringPaused(
+        ledger: ledger,
+        nav: nav,
+        onEdit: edit,
+      ),
     };
   }
 }
@@ -162,7 +159,7 @@ class _RecurringPageState extends State<RecurringPage> {
               onStep: _step,
             ),
             const SizedBox(height: Space.s2),
-            _Calendar(
+            RecurringCalendar(
               ledger: ledger,
               year: year,
               month: month,
@@ -172,7 +169,7 @@ class _RecurringPageState extends State<RecurringPage> {
             ),
             if (day != null) ...[
               const SizedBox(height: Space.s4),
-              _DayItems(
+              RecurringDayItems(
                 ledger: ledger,
                 day: DateTime.utc(year, month, day),
                 items: plan[day] ?? const [],
@@ -198,7 +195,7 @@ class _RecurringPageState extends State<RecurringPage> {
       header,
       EmptyState(
         glyph: Glyph.cycleCalendar,
-        color: _recurringColor,
+        color: recurringColor,
         message: '房租、訂閱、薪水這些固定的，\n記一次就會每期提醒',
         action: '新增固定交易',
         onAction: _edit,
@@ -227,18 +224,18 @@ class _RecurringPageState extends State<RecurringPage> {
     }
     final yearly = yearlyCostsOf(ledger).fold(0, (sum, r) => sum + r.$2);
     return CardGrid(columns: 3, gap: 8, [
-      _Cell(
+      RecurringFigureCell(
         label: current ? '還沒扣' : '$month 月要扣',
         value: ledger.orDots(groupDigits(toCome)),
       ),
-      _Cell(
+      RecurringFigureCell(
         label: '固定支出/年 ›',
         value: ledger.orDots(groupDigits(yearly)),
         onTap: () => widget.nav.open(
           AppRoutes.recurringView(RecurringView.subscriptions),
         ),
       ),
-      _Cell(
+      RecurringFigureCell(
         label: '${StatusWords.paused} ›',
         value: countOf(paused.length, CountUnit.items),
         onTap: () => _view(RecurringView.paused),

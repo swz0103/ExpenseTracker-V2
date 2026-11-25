@@ -15,14 +15,19 @@ import '../core/widgets/problem_note.dart';
 import '../core/platform/quick_action.dart';
 import '../core/widgets/tour.dart';
 import 'platform_services.dart';
+import '../features/accounts/forms/account_editor.dart'
+    show editLoan, settleAndArchive;
+import '../features/accounts/forms/reconcile_sheet.dart';
 import '../features/accounts/ui/account_page.dart';
 import '../features/accounts/ui/accounts.dart';
 import '../features/budgets/ui/budgets.dart';
 import '../features/accounts/ui/card_page.dart';
 import '../features/categories/ui/categories_page.dart';
 import '../features/debts/ui/debts_page.dart';
+import '../features/debts/ui/person_page.dart';
 import '../features/investments/ui/holding_page.dart';
 import '../features/investments/ui/investments.dart';
+import '../features/tags/ui/tag_page.dart';
 import '../features/tags/ui/tags_page.dart';
 import '../features/entries/ui/entries_page.dart';
 import 'more_page.dart';
@@ -303,10 +308,24 @@ class _AppShellState extends State<AppShell> {
     // wherever they are opened from.
     AccountRoute(:final id) || DebtRoute(:final id)
         when ledger.account(id).kind == AccountKind.receivable =>
-      PersonPage(key: ValueKey(page), ledger: ledger, nav: _nav, personId: id),
+      PersonPage(
+        key: ValueKey(page),
+        ledger: ledger,
+        nav: _nav,
+        personId: id,
+        settle: (context, person, left) =>
+            settleAndArchive(context, ledger, person, left: left),
+      ),
     AccountRoute(:final id) || DebtRoute(:final id)
         when ledger.account(id).kind == AccountKind.loan =>
-      LoanPage(key: ValueKey(page), ledger: ledger, nav: _nav, loanId: id),
+      LoanPage(
+        key: ValueKey(page),
+        ledger: ledger,
+        nav: _nav,
+        loanId: id,
+        edit: (context, loan) => editLoan(context, ledger, loan: loan),
+        reconcile: (context, loan) => reconcileAccount(context, ledger, loan),
+      ),
     DebtRoute() => _gone(),
     AccountRoute(:final id) =>
       ledger.account(id).kind == AccountKind.card

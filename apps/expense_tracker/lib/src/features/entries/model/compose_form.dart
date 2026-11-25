@@ -1,11 +1,7 @@
 // Exception to models take what they use: the entry form is the page's
 // whole state and reads eleven parts of the ledger (ADR-0013).
 
-import 'package:core/foundation_values.dart'
-    show BusinessDate, BusinessDayAnswer;
 import 'package:core/money/price.dart' show timesPrice;
-import 'package:ledger_trade_costs/calc/settlement.dart';
-import 'package:ledger_trade_costs/model/trade_values.dart' show TradeKind;
 
 import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
@@ -16,12 +12,14 @@ import 'invoice_qr.dart';
 import '../../../core/ledger/trading.dart';
 import '../../../core/formatting/words.dart';
 export 'compose_form_refund.dart' show RefundFields;
-
-part 'compose_form_extras.dart';
-part 'compose_form_lending.dart';
-part 'compose_form_split.dart';
-part 'compose_form_trade.dart';
-part 'compose_form_transfer.dart';
+export 'compose_form_extras.dart' show ExtraFields;
+export 'compose_form_lending.dart' show Lending;
+export 'compose_form_split.dart' show Splitting;
+export 'compose_form_trade.dart' show SaveWarning, ShareChange, TradeFields;
+export 'compose_form_transfer.dart' show TransferFields;
+import 'compose_form_lending.dart';
+import 'compose_form_split.dart';
+import 'compose_form_trade.dart';
 
 /// The kinds of record the composer makes. 代墊 has no tab of its own:
 /// it is picked inside 支出 (paid for someone) or 收入 (paid back).
@@ -126,17 +124,17 @@ final class ComposeForm {
   /// The entries the form was opened from when they were written as one,
   /// by id, so a change keeps their ids: the spending's, and each
   /// person's.
-  final _ids = <String>{};
-  String? _ownId;
-  final _lentIds = <String, String>{};
+  final keptIds = <String>{};
+  String? keptOwnId;
+  final keptLentIds = <String, String>{};
 
   /// Paid wholly for the one person in [lent] (opened from 幫忙付): their
   /// share follows the amount typed, rather than half of it.
-  var _lentWhole = false;
+  var lentWhole = false;
 
   /// The sums someone paid back is made of, by entry, while 對方還錢.
   Set<String> paying = {};
-  String? _group;
+  String? keptGroup;
   var fee = 0;
 
   /// What a foreign amount is worth in NT$, and what a transfer between
@@ -213,7 +211,7 @@ final class ComposeForm {
     if (entry.type == EntryType.buy || entry.type == EntryType.sell) {
       // Charges still at what the rules suggested were never typed: they
       // follow the trade when it changes. Others were, and stay.
-      final (fee, tax) = _suggestedFor(
+      final (fee, tax) = suggestedFor(
         entry.type,
         entry.holding ?? '',
         entry.amount,
@@ -268,7 +266,7 @@ final class ComposeForm {
     back = false;
     receipt = null;
     lent = null;
-    _lentWhole = false;
+    lentWhole = false;
     if (mode == ComposeMode.lend) {
       // Paid from the main account, for the first person owing.
       final main = ledger.accounts.main;
@@ -396,7 +394,7 @@ final class ComposeForm {
   void setAmount(int value) {
     // Shares still even follow the new amount; those typed stay.
     final split = lent;
-    if (_lentWhole && split != null && split.length == 1) {
+    if (lentWhole && split != null && split.length == 1) {
       lent = [(split.first.$1, value)];
     } else if (split != null &&
         split.every((p) => p.$2 == split.first.$2) &&
@@ -483,10 +481,10 @@ final class ComposeForm {
 
   /// What [warning] and [saleCost] were last worked out for, and what
   /// they came to (compose_form_trade.dart).
-  String? _warnedFor;
-  String? _warned;
-  Object? _saleCostKey;
-  int? _saleCost;
+  String? keptWarningFor;
+  String? keptWarning;
+  Object? keptSaleCostKey;
+  int? keptSaleCost;
 
   String? get _lendingProblem {
     if (amount <= 0) return '請輸入金額';
@@ -509,13 +507,13 @@ final class ComposeForm {
     final shares = lent;
     if (!lending || shares == null) return [build()];
     final made = <Entry>[];
-    final group = _group ?? ledger.newId();
+    final group = keptGroup ?? ledger.newId();
     final mine = own;
     if (mine > 0) {
       final opened = editing;
       final ownId =
-          _ownId ??
-          (opened != null && !_lentIds.containsValue(opened.id)
+          keptOwnId ??
+          (opened != null && !keptLentIds.containsValue(opened.id)
               ? opened.id
               : ledger.newId());
       made.add(build().inGroup(null, id: ownId, amount: mine));
@@ -523,7 +521,7 @@ final class ComposeForm {
     for (final (person, value) in shares) {
       made.add(
         TransferDrafts.between(
-          id: _lentIds[person] ?? ledger.newId(),
+          id: keptLentIds[person] ?? ledger.newId(),
           date: date,
           amount: value,
           from: account,

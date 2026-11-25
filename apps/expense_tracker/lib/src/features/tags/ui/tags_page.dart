@@ -2,25 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../../../design_system/display/amount.dart';
 import '../../../core/design_system/glyphs.dart';
-import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/messages/done_messages.dart';
 import '../../../core/navigation/nav.dart';
 import '../model/tag_summary.dart';
 import 'tag_summary_blocks.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 
-part 'tag_page.dart';
-
 /// The colours of the two halves of 標籤與商家.
-const _tagColor = Palette.gold;
-const _merchantColor = Palette.orange;
+const tagColor = Palette.gold;
+const merchantColor = Palette.orange;
 
 /// 標籤與商家: 標籤 and 商家 on two big segments. Tags: a cover for the
 /// tag of the latest entry (its days, total, a day's spending and its
@@ -69,7 +64,7 @@ class _TagsPageState extends State<TagsPage> {
                     glyph: Glyph.ticket,
                     label: Words.tag,
                     count: tags.length,
-                    color: _tagColor,
+                    color: tagColor,
                     chosen: !_merchants,
                     onTap: () => setState(() => _merchants = false),
                   ),
@@ -80,7 +75,7 @@ class _TagsPageState extends State<TagsPage> {
                     glyph: Glyph.store,
                     label: Words.merchant,
                     count: merchants.length,
-                    color: _merchantColor,
+                    color: merchantColor,
                     chosen: _merchants,
                     onTap: () => setState(() => _merchants = true),
                   ),
@@ -104,7 +99,7 @@ class _TagsPageState extends State<TagsPage> {
       return const [
         EmptyState(
           glyph: Glyph.ticket,
-          color: _tagColor,
+          color: tagColor,
           message: '記帳時在「標籤」加上 #名稱，\n同一趟旅行或計畫的花費就會收在這裡',
         ),
       ];
@@ -205,7 +200,7 @@ class _TagsPageState extends State<TagsPage> {
       return const [
         EmptyState(
           glyph: Glyph.store,
-          color: _merchantColor,
+          color: merchantColor,
           message: '記帳時填上「商家」，\n最常去的店就會排在這裡',
         ),
       ];

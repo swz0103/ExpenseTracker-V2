@@ -1,67 +1,24 @@
-import 'package:core/constants/category_colors.dart';
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/design_system/dialogs.dart';
-import '../../../../design_system/display/amount.dart';
-import '../../../core/design_system/glyphs.dart';
-import '../../../core/widgets/icons.dart';
-import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ledger/trading.dart';
 import '../../accounts/forms/account_editor.dart';
-import '../../../core/widgets/calculator.dart';
 import '../../categories/forms/category_editor.dart';
-import '../../../core/widgets/pickers.dart';
-import '../model/compose_draft.dart';
-import '../model/compose_form.dart';
-import '../../../core/messages/installment_messages.dart';
-import '../../../core/messages/invoice_messages.dart';
-import '../../../core/messages/problem_messages.dart';
-import '../../../core/messages/scan_messages.dart';
 import '../../../core/platform/scan.dart';
 import '../model/receipt_photos.dart';
-import '../model/invoices.dart';
-import '../model/invoice_qr.dart';
-import '../../../core/widgets/shown_amounts.dart';
-import '../../../../design_system/display/date.dart';
-import '../../../core/design_system/spacing.dart';
 
 export '../model/compose_form.dart' show ComposeMode;
 
-import 'compose_cards.dart';
-import 'compose_mode_look.dart';
-import 'compose_widgets.dart';
-import 'entry_view_card.dart';
-import 'compose_actions.dart';
-import 'extras_fields.dart';
-import 'investment_fields.dart';
-import 'lend_fields.dart';
-import 'fill_layout.dart';
-import 'form_frame.dart';
-import 'form_rows.dart';
-import 'holding_choices.dart';
-import 'note_field.dart';
-import 'people_choices.dart';
-import 'receipt_square.dart';
-import '../../../core/formatting/words.dart';
-
 export 'compose_mode_look.dart';
-
-part 'composer_fields.dart';
-part 'composer_lend.dart';
-part 'composer_state.dart';
-part 'composer_extras.dart';
-part 'composer_pickers.dart';
-part 'composer_amount.dart';
+import 'composer_state.dart';
 
 /// A choice opened inside the sheet in place of the form, such as the
 /// accounts: its title, what it shows, and how it is left without one.
-final class _Page {
-  const _Page(this.title, this.body, this.close);
+final class ComposerPage {
+  const ComposerPage(this.title, this.body, this.close);
 
   final String title;
   final Widget body;
@@ -120,6 +77,7 @@ class Composer extends StatefulWidget {
     this.photos,
     this.scan,
     this.brokerDiscount = defaultBrokerDiscount,
+    this.categoryEditor = showCategoryEditor,
   });
 
   final Ledger ledger;
@@ -146,6 +104,17 @@ class Composer extends StatefulWidget {
   /// without its own.
   final int brokerDiscount;
 
+  /// Opens the form of a new category picked from the form: the
+  /// categories' editor, which the form's state reaches through here.
+  final Future<Category?> Function(
+    BuildContext context, {
+    required String title,
+    required Category initial,
+    required List<Color> colors,
+    Ledger? ledger,
+  })
+  categoryEditor;
+
   @override
-  State<Composer> createState() => _ComposerState();
+  State<Composer> createState() => ComposerState();
 }

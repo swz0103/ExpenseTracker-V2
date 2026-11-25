@@ -21,11 +21,9 @@ import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/formatting/setting_topic.dart';
-import '../../../core/formatting/words.dart';
 import '../../../../design_system/display/status_messages.dart';
 import '../../../core/diagnostics/error_steps.dart';
-
-part 'reminders_phone.dart';
+import 'reminders_phone.dart';
 
 /// 通知與提醒: four cards (到期提醒, 預算提醒, 每日記帳, Google 日曆), the
 /// tick on each turning it on or off and a tap opening its details in the
@@ -85,14 +83,14 @@ class RemindersSection extends StatefulWidget {
 }
 
 class _RemindersSectionState extends State<RemindersSection>
-    with WidgetsBindingObserver, _CalendarActions {
+    with WidgetsBindingObserver, CalendarActions {
   /// What the phone allows, read again when back from its settings.
   ReminderStatus? _status;
 
   Ledger get _ledger => widget.ledger;
 
   @override
-  ReminderBook get _book => reminderBookOf(_ledger);
+  ReminderBook get reminderBook => reminderBookOf(_ledger);
 
   @override
   void initState() {
@@ -241,7 +239,7 @@ class _RemindersSectionState extends State<RemindersSection>
       onChanged: (on) => _notify(notifier, due: on),
       body: (context) {
         final coming = reminderBookOf(_ledger).reminders().take(4).toList();
-        return _Labelled(
+        return ReminderLabelled(
           '接下來會提醒',
           coming.isEmpty
               ? Text(
@@ -250,7 +248,7 @@ class _RemindersSectionState extends State<RemindersSection>
                 )
               : CardGrid([
                   for (final r in coming)
-                    _Chip(
+                    ReminderChip(
                       color: SettingsColors.reminders,
                       top: formatMd(r.day),
                       bottom: r.title,
@@ -277,13 +275,13 @@ class _RemindersSectionState extends State<RemindersSection>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Labelled(
+            ReminderLabelled(
               '現在的設定',
               budgets.isEmpty
                   ? const Text('還沒有設定預算', style: mutedSmall)
                   : CardGrid([
                       for (final b in budgets.take(4))
-                        _Chip(
+                        ReminderChip(
                           color: SettingsColors.budget,
                           top: '用到',
                           bottom:
@@ -357,7 +355,7 @@ class _RemindersSectionState extends State<RemindersSection>
               ),
             ),
             const SizedBox(height: Space.s2),
-            _ToggleRow(
+            ReminderToggleRow(
               color: color,
               title: '準時提醒',
               detail: preferences.exactReminders
@@ -434,17 +432,17 @@ class _RemindersSectionState extends State<RemindersSection>
                   : '已連結${calendar.amounts ? ' · 寫金額' : ''}',
               value: calendar.chosen != null,
               onChanged: (on) =>
-                  on ? _linkCalendar(calendar) : _forgetCalendar(calendar),
+                  on ? linkCalendar(calendar) : forgetCalendar(calendar),
               onTap: () => calendar.chosen == null
-                  ? _linkCalendar(calendar)
-                  : _calendarDetails(calendar),
+                  ? linkCalendar(calendar)
+                  : calendarDetails(calendar),
             ),
         ]),
         if (notifier != null && asked && status != null) ...[
           const SizedBox(height: Space.s3),
           Findable(
             topic: ReminderTopics.phone,
-            child: _PhoneStrip(
+            child: ReminderPhoneStrip(
               status: status,
               exact: notifier.preferences.exactReminders,
               onTest: () => _test(notifier),

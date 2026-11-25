@@ -14,7 +14,7 @@ import 'package:expense_tracker/src/core/design_system/theme.dart';
 import 'package:expense_tracker/src/core/formatting/words.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/platform/scan.dart';
-import 'package:expense_tracker/src/core/widgets/pickers.dart' show DayChoices;
+import 'package:expense_tracker/src/core/widgets/pickers_days.dart';
 import 'package:expense_tracker/src/features/entries/forms/composer.dart';
 import 'package:expense_tracker/src/features/entries/model/receipt_photos.dart';
 import 'package:flutter/material.dart';

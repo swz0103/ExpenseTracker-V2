@@ -1,11 +1,9 @@
 import 'package:core/foundation_values.dart' show YearMonth;
 import 'package:flutter/material.dart';
 
-import '../../../core/messages/amount_messages.dart';
 import '../../../../design_system/display/amount.dart';
 import '../../../../design_system/display/status.dart';
 import '../../../core/design_system/glyphs.dart';
-import '../../../core/widgets/icons.dart';
 import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
@@ -16,9 +14,8 @@ import '../../../core/widgets/shown_amounts.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
-
-part 'budgets_pace.dart';
-part 'budgets_month_picker.dart';
+import 'budgets_pace.dart';
+import 'budgets_month_picker.dart';
 
 /// The colour of 預算管理, as on 更多.
 const _budgetColor = Palette.green;
@@ -63,7 +60,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
   Future<void> _addLimit() async {
     final picked = await showSheet<String>(
       context,
-      (_) => _AddLimit(ledger: ledger),
+      (_) => BudgetAddLimit(ledger: ledger),
     );
     if (picked != null && mounted) await _edit(picked);
   }
@@ -71,7 +68,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
   Future<void> _pickMonth() async {
     final picked = await showSheet<YearMonth>(
       context,
-      (_) => _MonthPicker(
+      (_) => BudgetMonthPicker(
         ledger: ledger,
         chosen: _month,
         first: _first,
@@ -150,7 +147,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
             _monthCard(shown, year: year, month: month, current: current),
             if (total > 0) ...[
               const SizedBox(height: Space.s2),
-              _Pace(
+              BudgetPaceCard(
                 ledger: ledger,
                 year: year,
                 month: month,
@@ -161,7 +158,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
             _LimitsHeading(month: month, current: current),
             CardGrid(gap: 10, [
               for (final line in shown.lines)
-                _Limit(
+                BudgetLimit(
                   ledger: ledger,
                   budget: line.budget,
                   used: line.spent,

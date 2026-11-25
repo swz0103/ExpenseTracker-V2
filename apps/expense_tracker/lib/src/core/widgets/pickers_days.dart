@@ -1,4 +1,44 @@
-part of 'pickers.dart';
+import 'package:flutter/material.dart';
+
+import '../design_system/month_grid.dart';
+import '../design_system/theme.dart';
+import '../design_system/design_system.dart';
+import '../../../design_system/display/date.dart';
+import '../design_system/shape.dart';
+import '../design_system/spacing.dart';
+import '../formatting/words.dart';
+
+import 'package:core/time/utc_days.dart';
+import 'package:core/time/month_arithmetic.dart';
+
+import 'pickers.dart';
+
+/// The calendar of [pickDate], for a page of its own or one opened inside
+/// another sheet, the chosen day filled with [color].
+class DayChoices extends StatefulWidget {
+  const DayChoices({
+    super.key,
+    required this.selected,
+    required this.latest,
+    required this.onPick,
+    this.marked = const {},
+    this.today,
+    this.color = AppColors.accent,
+  });
+
+  final DateTime selected;
+  final DateTime latest;
+  final ValueChanged<DateTime> onPick;
+  final Set<DateTime> marked;
+
+  /// Given, 今天, 昨天 and 前天 are cards above the calendar, each with
+  /// its date and day of the week.
+  final DateTime? today;
+  final Color color;
+
+  @override
+  State<DayChoices> createState() => _DayChoicesState();
+}
 
 class _DayChoicesState extends State<DayChoices> {
   late var _month = DateTime.utc(widget.selected.year, widget.selected.month);

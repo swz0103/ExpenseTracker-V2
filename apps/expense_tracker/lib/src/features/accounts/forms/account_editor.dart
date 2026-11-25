@@ -1,37 +1,17 @@
-import 'package:core/foundation_values.dart' show Currency;
-import 'package:core/money/amount_parser.dart' show parseAmount;
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show listEquals;
 
 import '../../../core/design_system/dialogs.dart';
 import '../../../../design_system/display/amount.dart';
-import '../../../core/design_system/glyphs.dart';
-import '../../../core/widgets/icons.dart';
-import '../../../core/design_system/theme.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/widgets/calculator.dart';
 import '../../../core/widgets/pickers.dart';
 import '../../../core/widgets/problem_note.dart';
 
 import '../model/account_form.dart';
-import '../ui/account_card.dart' show cardKindLabel;
-import '../ui/accounts.dart' show walletKinds;
-import '../../../core/widgets/shown_amounts.dart';
-import '../../../core/design_system/shape.dart';
-import '../../../core/design_system/spacing.dart';
-import '../../../core/formatting/words.dart';
 import '../../../core/messages/done_messages.dart';
 import '../../../core/messages/flow_messages.dart';
-import '../../../core/messages/trade_messages.dart';
-import '../../../core/messages/trash_messages.dart';
 
-import 'loan_cards.dart';
-
-part 'loan_fields.dart';
-part 'loan_blocks.dart';
-part 'account_editor_state.dart';
-part 'account_editor_edit_card.dart';
+import 'account_editor_state.dart';
 
 /// True when [ledger] has an open account, after offering to add one if
 /// it has none: entries, imports and recurring items all need one.
@@ -59,7 +39,7 @@ Future<bool> editAccount(
 }) async {
   final gone = await showSheet<bool>(
     context,
-    (_) => _AccountEditor(ledger: ledger, account: account, currency: currency),
+    (_) => AccountEditor(ledger: ledger, account: account, currency: currency),
   );
   return gone ?? false;
 }
@@ -73,14 +53,14 @@ Future<bool> editLoan(
 }) async {
   final gone = await showSheet<bool>(
     context,
-    (_) =>
-        _AccountEditor(ledger: ledger, account: loan, kind: AccountKind.loan),
+    (_) => AccountEditor(ledger: ledger, account: loan, kind: AccountKind.loan),
   );
   return gone ?? false;
 }
 
-class _AccountEditor extends StatefulWidget {
-  const _AccountEditor({
+class AccountEditor extends StatefulWidget {
+  const AccountEditor({
+    super.key,
     required this.ledger,
     this.account,
     this.kind,
@@ -97,7 +77,7 @@ class _AccountEditor extends StatefulWidget {
   final AccountKind? kind;
 
   @override
-  State<_AccountEditor> createState() => _AccountEditorState();
+  State<AccountEditor> createState() => AccountEditorState();
 }
 
 /// Archives [account], settling it first when something is left once what

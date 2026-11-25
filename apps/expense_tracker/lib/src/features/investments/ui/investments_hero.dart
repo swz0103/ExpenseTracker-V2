@@ -1,10 +1,21 @@
-part of 'investments.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../design_system/display/amount.dart';
+import '../../../core/design_system/glyphs.dart';
+import '../../../core/design_system/theme.dart';
+import '../../../core/design_system/design_system.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/widgets/shown_amounts.dart';
+import '../../../../design_system/display/date.dart';
+import '../../../core/design_system/shape.dart';
+import '../../../core/design_system/spacing.dart';
+import 'investments.dart';
 
 /// 市值 big with today's move beside the label, and under a rule three
 /// even columns, thin lines between: unrealized, realized, and the
 /// yearly return, each a label, a figure and one short line.
-class _InvestHero extends StatelessWidget {
-  const _InvestHero({required this.ledger});
+class InvestHero extends StatelessWidget {
+  const InvestHero({super.key, required this.ledger});
 
   final Ledger ledger;
 
@@ -179,8 +190,9 @@ class _HeroFigures extends StatelessWidget {
 
 /// A holding on the quote board: its name, then its code, shares and gain;
 /// the close big and today's move on a solid block.
-class _HoldingRow extends StatelessWidget {
-  const _HoldingRow({
+class HoldingRow extends StatelessWidget {
+  const HoldingRow({
+    super.key,
     required this.ledger,
     required this.held,
     required this.onTap,
