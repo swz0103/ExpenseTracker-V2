@@ -8,7 +8,7 @@ ASOF = 'test/scenarios/ledger/as_of_today_test.dart'
 AREAS = {
  'core':    ('packages/core', 'dart test'),
  'trade':   ('packages/ledger/trade_costs', 'dart test'),
- 'loans':   ('packages/ledger/loans', 'dart test'),
+ 'loans':   ('modules/loans', 'dart test'),
  'entries': ('packages/ledger/entries', 'dart test'),
  'domain':  ('packages/domain', 'dart test'),
  'balance': flt('test/core/ledger/services/balance_service_test.dart', ASOF),
@@ -150,7 +150,7 @@ M('trade',BD,'basisPoints.clamp(lowest, highest)','basisPoints.clamp(lowest + 1,
 M('trade',BD,"number.isEmpty ||","false ||")
 
 # ---------------- loans ----------------
-LP = 'packages/ledger/loans/lib/calc/loan_plan.dart'
+LP = 'modules/loans/lib/calc/loan_plan.dart'
 M('loans',LP,'final _monthly = BigInt.from(120000);','final _monthly = BigInt.from(100000);')
 M('loans',LP,'(numerator * BigInt.two + denominator) ~/ (denominator * BigInt.two)','(numerator * BigInt.two + denominator - BigInt.one) ~/ (denominator * BigInt.two)')
 M('loans',LP,'LoanRounding.down => numerator ~/ denominator,','LoanRounding.down => (numerator + denominator - BigInt.one) ~/ denominator,')
@@ -175,7 +175,7 @@ M('loans',LP,'if (yearly == BigInt.zero) {','if (yearly <= BigInt.zero) {')
 M('loans',LP,'LoanRepay.principal => share,','LoanRepay.principal => share + 1,')
 M('loans',LP,'BigInt.from(owed) * yearly * BigInt.from(forMonths),','BigInt.from(owed) * yearly,')
 M('loans',LP,'owed -= principal;','owed -= interest;') if False else None
-RA = 'packages/ledger/loans/lib/model/rate.dart'
+RA = 'modules/loans/lib/model/rate.dart'
 M('loans',RA,'(next >= 5 ? 1 : 0)','(next > 5 ? 1 : 0)')
 M('loans',RA,'hundredths <= maxLoanRate =>','hundredths < maxLoanRate =>')
 M('loans',RA,'whole * 100 + kept','whole * 10 + kept')

@@ -3,6 +3,7 @@ import '../model/accounts.dart';
 import '../model/day.dart';
 import '../model/ids.dart';
 import '../model/posting.dart';
+import 'balance_sheet.dart';
 import 'contributions.dart';
 
 /// A period's income and spending by account, in the book's own
@@ -173,6 +174,62 @@ final class BookReader {
       net: assets - liabilities,
       values: values,
       unvalued: unvalued,
+    );
+  }
+
+  /// The balance sheet at the end of [asOf], by the modules' claims
+  /// ([sheetClaims]); each account valued as [netWorth] values it.
+  BalanceSheet balanceSheet(Day asOf) {
+    final worth = netWorth(asOf);
+    final claims = _contributions.owned(sheetClaims);
+    final rows = [
+      for (final (owner, claim) in claims)
+        (owner: owner, claim: claim, worth: 0, accounts: <AccountId>[]),
+    ];
+    var unclaimedWorth = 0;
+    final unclaimed = <AccountId>[];
+    final contested = <AccountId, List<String>>{};
+    for (final MapEntry(key: id, :value) in worth.values.entries) {
+      final account = accounts[id]!;
+      final taking = [
+        for (var i = 0; i < rows.length; i++)
+          if (rows[i].claim.claims(account)) i,
+      ];
+      if (taking.isEmpty) {
+        unclaimedWorth += value;
+        unclaimed.add(id);
+        continue;
+      }
+      if (taking.length > 1) {
+        contested[id] = [for (final i in taking) rows[i].claim.row];
+      }
+      final first = rows[taking.first];
+      rows[taking.first] = (
+        owner: first.owner,
+        claim: first.claim,
+        worth: first.worth + value,
+        accounts: first.accounts..add(id),
+      );
+    }
+    return (
+      rows: [
+        for (final r in rows)
+          (
+            owner: r.owner,
+            row: r.claim.row,
+            worth: r.worth,
+            accounts: r.accounts,
+          ),
+      ],
+      unclaimed: (
+        owner: null,
+        row: unclaimedRow,
+        worth: unclaimedWorth,
+        accounts: unclaimed,
+      ),
+      net: worth.net,
+      contested: contested,
+      unvalued: worth.unvalued,
     );
   }
 }

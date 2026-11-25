@@ -114,6 +114,19 @@ void main() {
         'packages/ledger/trade_costs/lib/model/x.dart',
       ]);
     });
+    test("covers a module's calc and model, not its feature", () {
+      final v = run(rule, {
+        'modules/loans/lib/calc/plan.dart': "import 'dart:io';\n",
+        'modules/loans/lib/model/rate.dart': 'final a = DateTime.now();\n',
+        'modules/loans/lib/feature/page.dart':
+            "import 'package:flutter/widgets.dart';\n",
+        'modules/loans/test/calc/plan_test.dart': 'final a = DateTime.now();\n',
+      });
+      expect(v.map((e) => e.file), [
+        'modules/loans/lib/calc/plan.dart',
+        'modules/loans/lib/model/rate.dart',
+      ]);
+    });
     test('passes pure code, the clock file and tests', () {
       expect(
         run(rule, {
@@ -627,6 +640,17 @@ void f() {
       expect(v.map((e) => e.file), [
         'packages/ledger/loans/lib/model/rate.dart',
         'packages/ledger/trade_costs/lib/calc/settlement.dart',
+      ]);
+    });
+    test('every lib file of a module needs a test, its feature too', () {
+      final v = run(rule, {
+        'modules/loans/lib/calc/loan_plan.dart': '',
+        'modules/loans/lib/feature/loans_module.dart': '',
+        'modules/loans/test/calc/loan_plan_test.dart': '',
+        'modules/README.md': '',
+      });
+      expect(v.map((e) => e.file), [
+        'modules/loans/lib/feature/loans_module.dart',
       ]);
     });
     test('passes when every file and feature is covered', () {

@@ -142,10 +142,11 @@ final class TestsExist extends Rule {
         }
       }
     }
-    // A ledger subject package: every file of its lib/, folders and all.
+    // A ledger subject package or a module: every file of its lib/,
+    // folders and all.
     final ledgerPackages = {
       for (final path in paths)
-        if (ledgerPackageOf(path) case final pkg?) pkg,
+        if (ledgerPackageOf(path) ?? modulePackageOf(path) case final pkg?) pkg,
     };
     for (final pkg in ledgerPackages) {
       final testNames = {

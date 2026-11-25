@@ -1,3 +1,4 @@
+import 'package:ledger_entries/rules.dart' show maxLoanRate;
 import 'package:ledger_loans/model/rate.dart';
 import 'package:test/test.dart';
 

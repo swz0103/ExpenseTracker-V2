@@ -181,13 +181,6 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
-  ledger_loans:
-    dependency: transitive
-    description:
-      path: "../loans"
-      relative: true
-    source: path
-    version: "0.1.0"
   ledger_trade_costs:
     dependency: "direct main"
     description:

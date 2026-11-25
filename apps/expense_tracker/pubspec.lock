@@ -199,7 +199,7 @@ packages:
   ledger_loans:
     dependency: "direct main"
     description:
-      path: "../../packages/ledger/loans"
+      path: "../../modules/loans"
       relative: true
     source: path
     version: "0.1.0"

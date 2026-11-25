@@ -8,7 +8,9 @@ import 'calls.dart';
 /// Whether [file] is code (not a test) the owned-value rules look at.
 bool _isCode(SourceFile file) =>
     file.isUnder(appLib) ||
-    (file.path.startsWith('packages/') || file.isUnder(infrastructureDir)) &&
+    (file.path.startsWith('packages/') ||
+            file.isUnder(modulesDir) ||
+            file.isUnder(infrastructureDir)) &&
         file.path.contains('/lib/');
 
 /// B4: days and months are worked out by core's calendar helpers

@@ -29,6 +29,7 @@ const scanRoots = [
   'packages/kernel/lib',
   'packages/kernel/test',
   ledgerDir,
+  modulesDir,
   infrastructureDir,
 ];
 
@@ -49,6 +50,25 @@ String? ledgerPackageOf(String path) {
   final subject = path.substring(prefix.length).split('/').first;
   return subject.isEmpty ? null : '$prefix$subject';
 }
+
+/// The modules, `<modulesDir>/<name>/` each with `lib/calc/` (pure, rule
+/// A4), `lib/feature/` (what it adds to the contribution points) and
+/// `test/`; every file of their `lib/` needs a test (rule C1a).
+const modulesDir = 'modules';
+
+/// The module [path] belongs to, as `modules/<name>`, or null.
+String? modulePackageOf(String path) {
+  const prefix = '$modulesDir/';
+  if (!path.startsWith(prefix)) return null;
+  final name = path.substring(prefix.length).split('/').first;
+  return name.isEmpty || !path.substring(prefix.length).contains('/')
+      ? null
+      : '$prefix$name';
+}
+
+/// The folders of a module's `lib/` that are pure calculation (rule A4):
+/// its feature may build on the shell's screens.
+const modulePureFolders = ['lib/calc/', 'lib/model/'];
 
 /// Pure packages (rule A4) and the tests they must have (rule C1a).
 const purePackages = ['packages/core', 'packages/domain', 'packages/kernel'];

@@ -18,7 +18,7 @@ $checks = @(
     @{ Path = 'packages/domain'; Dirs = @('lib', 'test'); Coverage = $true },
     @{ Path = 'packages/kernel'; Dirs = @('lib', 'test'); Coverage = $true },
     @{ Path = 'packages/ledger/entries'; Dirs = @('lib', 'test'); Coverage = $true },
-    @{ Path = 'packages/ledger/loans'; Dirs = @('lib', 'test'); Coverage = $true },
+    @{ Path = 'modules/loans'; Dirs = @('lib', 'test'); Coverage = $true },
     @{ Path = 'packages/ledger/postings'; Dirs = @('lib', 'test'); Coverage = $true },
     @{ Path = 'packages/ledger/trade_costs'; Dirs = @('lib', 'test'); Coverage = $true },
     @{ Path = 'infrastructure/storage'; Dirs = @('lib', 'bin', 'test'); Workers = @('bin/crash_worker.dart'); Coverage = $true },

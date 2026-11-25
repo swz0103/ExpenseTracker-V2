@@ -1,11 +1,7 @@
 import 'dart:math' show min;
 
 import 'package:core/money/typed_text.dart' show halfWidth;
-
-/// The highest yearly rate a loan is kept at, in hundredths of a
-/// percent: 100%. A rate above it is taken for a typo and refused
-/// (D118), not kept as no rate.
-const maxLoanRate = 10000;
+import 'package:ledger_entries/rules.dart' show maxLoanRate;
 
 /// What a rate typed into a loan's form reads as.
 sealed class RateReading {

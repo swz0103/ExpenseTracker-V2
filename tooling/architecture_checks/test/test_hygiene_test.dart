@@ -14,7 +14,7 @@ const strictPackages = [
   'packages/domain',
   'packages/kernel',
   'packages/ledger/entries',
-  'packages/ledger/loans',
+  'modules/loans',
   'packages/ledger/postings',
   'packages/ledger/trade_costs',
 ];

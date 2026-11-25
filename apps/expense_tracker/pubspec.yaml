@@ -22,7 +22,7 @@ dependencies:
   ledger_entries:
     path: ../../packages/ledger/entries
   ledger_loans:
-    path: ../../packages/ledger/loans
+    path: ../../modules/loans
   ledger_postings:
     path: ../../packages/ledger/postings
   ledger_trade_costs:

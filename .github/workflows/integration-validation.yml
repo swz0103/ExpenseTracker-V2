@@ -93,7 +93,7 @@ jobs:
             'packages/domain',
             'packages/kernel',
             'packages/ledger/entries',
-            'packages/ledger/loans',
+            'modules/loans',
             'packages/ledger/postings',
             'packages/ledger/trade_costs',
             'infrastructure/storage',
@@ -115,7 +115,7 @@ jobs:
           dart run tooling/architecture_checks/bin/check_coverage.dart \
             packages/core packages/domain packages/kernel \
             packages/ledger/entries \
-            packages/ledger/loans packages/ledger/postings \
+            modules/loans packages/ledger/postings \
             packages/ledger/trade_costs \
             infrastructure/storage infrastructure/vault infrastructure/market
 

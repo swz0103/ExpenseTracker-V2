@@ -14,5 +14,6 @@ export 'model/day.dart';
 export 'model/ids.dart';
 export 'model/posting.dart';
 export 'model/quantity.dart';
+export 'read/balance_sheet.dart';
 export 'read/book_reader.dart';
 export 'read/contributions.dart';
