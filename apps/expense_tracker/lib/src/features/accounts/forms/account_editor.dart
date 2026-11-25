@@ -22,6 +22,7 @@ import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/formatting/words.dart';
 import '../../../core/messages/done_messages.dart';
+import '../../../core/messages/flow_messages.dart';
 import '../../../core/messages/trade_messages.dart';
 import '../../../core/messages/trash_messages.dart';
 
@@ -31,6 +32,7 @@ part 'loan_fields.dart';
 part 'loan_blocks.dart';
 part 'account_editor_state.dart';
 part 'account_editor_edit_card.dart';
+part 'account_settle.dart';
 
 /// True when [ledger] has an open account, after offering to add one if
 /// it has none: entries, imports and recurring items all need one.
@@ -43,15 +45,17 @@ Future<bool> ensureAccount(BuildContext context, Ledger ledger) async {
 
 /// Opens the account form: a new account, or [account] to change. Saving
 /// writes to [ledger] directly. True when the account was deleted or
-/// archived, so the page showing it should go back.
+/// archived, so the page showing it should go back. A new one opens in
+/// [currency] when given.
 Future<bool> editAccount(
   BuildContext context,
   Ledger ledger, {
   Account? account,
+  String? currency,
 }) async {
   final gone = await showSheet<bool>(
     context,
-    (_) => _AccountEditor(ledger: ledger, account: account),
+    (_) => _AccountEditor(ledger: ledger, account: account, currency: currency),
   );
   return gone ?? false;
 }
@@ -72,10 +76,18 @@ Future<bool> editLoan(
 }
 
 class _AccountEditor extends StatefulWidget {
-  const _AccountEditor({required this.ledger, this.account, this.kind});
+  const _AccountEditor({
+    required this.ledger,
+    this.account,
+    this.kind,
+    this.currency,
+  });
 
   final Ledger ledger;
   final Account? account;
+
+  /// The currency a new account opens in; the home one when null.
+  final String? currency;
 
   /// The kind a new account opens as.
   final AccountKind? kind;

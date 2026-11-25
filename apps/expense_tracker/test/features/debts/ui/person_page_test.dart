@@ -191,15 +191,80 @@ void main() {
     expect(find.text('小明'), findsWidgets);
   });
 
-  testWidgets('封存 someone who still owes is refused and said; they stay '
+  testWidgets('封存 someone who still owes says why and asks; 保留 keeps them '
       '(DEB-01)', (tester) async {
     await open(tester);
     await go(tester, ['~更多選項', '封存']);
     expect(find.text('還有沒結清的款項，結清後才能封存'), findsOneWidget);
+    expect(find.text('要記一筆結清，再封存「代墊朋友」嗎？'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.confirmCancel));
+    await tester.pumpAndSettle();
     expect(ledger.account('lent').archived, isFalse);
     // 800 + 500 + 500 still owed.
     expect(ledger.balanceService.balance('lent'), 1800);
     expect(find.text('還沒收回'), findsOneWidget, reason: 'still on the page');
+  });
+
+  testWidgets('review 35: 結清封存 settles what is owed into the account '
+      'picked, then archives; 復原 takes both back', (tester) async {
+    await open(tester);
+    final bank = ledger.balanceService.balance('bank');
+    final count = ledger.entries.all.length;
+    await go(tester, ['~更多選項', '封存']);
+    await tester.tap(find.byKey(Keys.confirm));
+    await tester.pumpAndSettle();
+    expect(find.text('餘額轉到哪個帳戶'), findsOneWidget);
+    await go(tester, ['日常銀行']);
+    expect(ledger.account('lent').archived, isTrue);
+    expect(ledger.balanceService.balance('lent'), 0);
+    // The 1,800 owed comes back into the bank.
+    expect(ledger.balanceService.balance('bank'), bank + 1800);
+    expect(ledger.entries.all.length, count + 1);
+    expect(find.text('已封存「代墊朋友」'), findsOneWidget);
+    await tester.tap(find.byKey(Keys.snack('復原')));
+    await tester.pumpAndSettle();
+    expect(ledger.account('lent').archived, isFalse);
+    expect(ledger.balanceService.balance('lent'), 1800);
+    expect(ledger.balanceService.balance('bank'), bank);
+    expect(ledger.entries.all.length, count);
+  });
+
+  testWidgets('review 35: with no account of their currency it says so, and '
+      'offers to add one or keep them', (tester) async {
+    final start = book();
+    for (final a in [...start.accounts.open]) {
+      if (!a.kind.isDebt &&
+          a.kind != AccountKind.receivable &&
+          a.currency == 'TWD') {
+        start.accountCommands.updateAccount(a.copyWith(archived: true));
+      }
+    }
+    await open(tester, start: start);
+    await go(tester, ['~更多選項', '封存']);
+    await tester.tap(find.byKey(Keys.confirm));
+    await tester.pumpAndSettle();
+    expect(find.text('沒有新台幣的帳戶可以結清'), findsOneWidget);
+    expect(find.text('要先新增一個同幣別的帳戶來結清，還是保留「代墊朋友」不封存？'), findsOneWidget);
+    // 保留: nothing changes.
+    await tester.tap(find.byKey(Keys.confirmCancel));
+    await tester.pumpAndSettle();
+    expect(ledger.account('lent').archived, isFalse);
+    expect(ledger.balanceService.balance('lent'), 1800);
+
+    // 新增帳戶: the account form, then the account added is picked.
+    await go(tester, ['~更多選項', '封存']);
+    await tester.tap(find.byKey(Keys.confirm));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Keys.confirm));
+    await tester.pumpAndSettle();
+    expect(find.text('新增帳戶'), findsWidgets);
+    await tester.enterText(find.byType(TextField).first, '新帳戶');
+    await go(tester, ['儲存']);
+    expect(find.text('餘額轉到哪個帳戶'), findsOneWidget);
+    await go(tester, ['新帳戶']);
+    expect(ledger.account('lent').archived, isTrue);
+    final added = ledger.accounts.open.singleWhere((a) => a.name == '新帳戶');
+    expect(ledger.balanceService.balance(added.id), 1800);
   });
 
   testWidgets('封存 someone with entries, all paid back, tucks them away and '

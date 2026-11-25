@@ -51,23 +51,23 @@ class PersonPage extends StatelessWidget {
   /// what was written stays. Either is told with 復原 and not asked first
   /// (D82), unless deleted entries in the trash still name them: those go
   /// for good with them, which cannot be undone, so it is asked (D78).
-  /// One who still owes money, or is owed it, is not archived: said, and
-  /// the page stays (DEB-01).
+  /// One who still owes money, or is owed it, once what is dated ahead
+  /// has come, is not archived as they are (DEB-01): asked whether to
+  /// settle first, as the account form does ([settleAndArchive], review
+  /// 35); kept, the page stays.
   Future<void> _delete(BuildContext context, Account person) async {
     if (ledger.accountCommands.usedOutsideTrash(person.id)) {
-      Undo? undo;
-      final archived = refusalShown(
-        context,
-        () => undo = ledger.accountCommands.setArchived(
-          person.id,
-          archived: true,
-        ),
-      );
-      if (!archived) return;
-      if (undo case final undo?) {
-        showUndo(context, DoneWords.archived(person.name), undo);
+      if (ledger.balanceService.finalBalance(person.id) != 0) {
+        final settle = await confirm(
+          context,
+          validationMessage(const ArchivedOwing()),
+          Words.settleArchive,
+          body: SettleWords.owingBody(person.name),
+          cancel: SettleWords.keep,
+        );
+        if (!settle || !context.mounted) return;
       }
-      nav.back();
+      if (await settleAndArchive(context, ledger, person)) nav.back();
       return;
     }
     final trashed = ledger.accountCommands.trashedNaming(person.id);

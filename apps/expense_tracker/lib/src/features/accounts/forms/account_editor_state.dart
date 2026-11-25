@@ -13,6 +13,9 @@ class _AccountEditorState extends State<_AccountEditor> {
   @override
   void initState() {
     super.initState();
+    if (widget.currency case final currency? when _old == null) {
+      _f.currency = currency;
+    }
     _opened = _f.fields;
   }
 
@@ -79,52 +82,21 @@ class _AccountEditorState extends State<_AccountEditor> {
   }
 
   /// Archives the account, or brings it back, told with 復原 (D82). One
-  /// with money left is settled first: its balance moves to the account
-  /// picked, and 復原 takes that back too.
+  /// with money left is settled first ([settleAndArchive]): its balance
+  /// moves to the account picked, and 復原 takes that back too.
   Future<void> _archive() async {
     final old = _old;
     if (old == null) return;
     final ledger = widget.ledger;
-    final left = ledger.balanceService.finalBalance(old.id);
-    Entry? settlement;
-    if (!old.archived && left != 0) {
-      final into = await pickOption<String>(
-        context,
-        title: left > 0 ? '餘額轉到哪個帳戶' : '由哪個帳戶結清欠款',
-        selected: null,
-        columns: 3,
-        options: accountOptions(
-          ledger,
-          currency: old.currency,
-          where: (a) => a.id != old.id && !a.kind.isDebt,
-        ),
-      );
-      if (into == null || !mounted) return;
-      final made = AccountForm.settlement(ledger, old, into);
-      if (!refusalShown(context, () => ledger.entryCommands.add(made))) return;
-      // The entry as the book holds it, the one its undo takes back.
-      settlement = ledger.entries.byId(made.id);
+    if (!old.archived) {
+      if (await settleAndArchive(context, ledger, old) && mounted) {
+        EditGuard.close(context, true);
+      }
+      return;
     }
-    final undo = ledger.accountCommands.setArchived(
-      old.id,
-      archived: !old.archived,
-    );
-    if (!mounted) return;
-    if (undo != null) {
-      showUndo(
-        context,
-        old.archived
-            ? DoneWords.unarchived(old.name)
-            : DoneWords.archived(old.name),
-        () {
-          undo();
-          if (settlement != null) {
-            ledger.entryCommands.takeBack([settlement]);
-          }
-        },
-      );
-    }
-    EditGuard.close(context, !old.archived);
+    final undo = ledger.accountCommands.setArchived(old.id, archived: false);
+    if (undo != null) showUndo(context, DoneWords.unarchived(old.name), undo);
+    EditGuard.close(context, false);
   }
 
   /// Deletes the account. Nothing in the trash naming it: not asked

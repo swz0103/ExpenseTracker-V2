@@ -29,3 +29,27 @@ abstract final class FlowWords {
   /// 代墊與借貸 with no loan yet.
   static const noLoansYet = '房貸、信貸或車貸，按右上的＋新增';
 }
+
+/// What settling an account or a person before archiving says: where the
+/// money left goes, or what pays the debt; with no account of its
+/// currency, the offer to add one or keep it (review 35).
+abstract final class SettleWords {
+  /// The picker's title: money left goes to an account.
+  static const moveTo = '餘額轉到哪個帳戶';
+
+  /// The picker's title: a debt is paid from an account.
+  static const payFrom = '由哪個帳戶結清欠款';
+
+  /// No open account of [currency] (its name) to settle with.
+  static String noAccount(String currency) => '沒有$currency的帳戶可以結清';
+
+  /// What can be done about it, for [name].
+  static String noAccountBody(String name) => '要先新增一個同幣別的帳戶來結清，還是保留「$name」不封存？';
+
+  static const addAccount = '新增帳戶';
+  static const keep = '保留';
+
+  /// The person page's question before someone with money left is
+  /// settled and archived, for [name], under the archive rule's words.
+  static String owingBody(String name) => '要記一筆結清，再封存「$name」嗎？';
+}
