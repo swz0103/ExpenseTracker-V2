@@ -165,7 +165,7 @@ class PersonPage extends StatelessWidget {
                   if (oldest == null)
                     '沒有待收回的'
                   else
-                    '${countOf(owed.length, CountUnit.entries)}還沒收回 · 最久 ${countOf(daysSince(ledger, oldest), CountUnit.days)}',
+                    '${countOf(owed.length, CountUnit.entries)}還沒收回 · 最久 ${countOf(daysSince(ledger.today, oldest), CountUnit.days)}',
                 ],
                 menu: DotsMenu([
                   DotsItem(Glyph.edit, '改名', () => _rename(context, person)),
@@ -247,7 +247,7 @@ class PersonPage extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _DaysTag(daysSince(ledger, e.date)),
+          _DaysTag(daysSince(ledger.today, e.date)),
           const SizedBox(width: Space.s3),
           RowFigure(ledger.moneyIn(left, person.currency)),
         ],
@@ -271,10 +271,7 @@ class PersonPage extends StatelessWidget {
     final status = back
         ? null
         : advanceLook(
-            advanceStatus(
-              amount: _lent(e, person),
-              left: stillOwed[e.id] ?? 0,
-            ),
+            advanceStatus(amount: _lent(e, person), left: stillOwed[e.id] ?? 0),
           );
     return QuoteRow(
       onTap: () => nav.showEntry(ledger.entryQueryService.groupLead(e)),

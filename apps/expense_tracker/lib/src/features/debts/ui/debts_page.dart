@@ -49,11 +49,11 @@ class DebtsPage extends StatelessWidget {
         Topic.market,
       }),
       builder: (context, _) {
-        final people = peopleOwing(ledger);
-        final loans = openLoans(ledger);
+        final people = peopleOwing(ledger.accounts, ledger.balanceService);
+        final loans = openLoans(ledger.accounts);
         final balances = ledger.balanceService;
         // In NT$: people and loans kept in other currencies at home.
-        final lent = owedByPeople(ledger);
+        final lent = owedByPeople(ledger.accounts, ledger.balanceService);
         final borrowed = owedOnAll(balances, loans);
         return HeadedList(
           padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
@@ -253,7 +253,7 @@ class _PersonSquare extends StatelessWidget {
     );
     final age = oldest == null
         ? '沒有欠款'
-        : '最久 ${countOf(daysSince(ledger, oldest), CountUnit.days)}';
+        : '最久 ${countOf(daysSince(ledger.today, oldest), CountUnit.days)}';
     return ColorCard(
       color: color,
       radius: Radii.largeIncreased,

@@ -82,7 +82,7 @@ class MorePage extends StatelessWidget {
       today.month,
     );
     final next = items.isEmpty ? null : items.first;
-    final lent = owedByPeople(ledger);
+    final lent = owedByPeople(ledger.accounts, ledger.balanceService);
     final status = limit == 0
         ? null
         : budgetStatus(

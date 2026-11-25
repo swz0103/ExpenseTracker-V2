@@ -14,8 +14,10 @@ void main() {
   /// Excluded path (from the repository root) → (workflow, words of the
   /// step that covers it), or null with the reason in a comment.
   const guards = <String, (String, String)?>{
-    // What the build writes; never written by hand.
+    // What the build writes; never written by hand (flutter pub get adds
+    // the line to a Flutter package's options).
     'apps/expense_tracker/build/**': null,
+    'packages/shell/build/**': null,
     'apps/expense_tracker/web/**': ('web-preview.yml', 'flutter build web'),
     'apps/expense_tracker/integration_test/**': (
       'integration-validation.yml',

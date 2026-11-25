@@ -25,6 +25,7 @@ import '../core/design_system/shape.dart';
 import '../core/design_system/spacing.dart';
 import '../core/platform/preferences.dart';
 import '../core/design_system/findable.dart';
+
 import 'package:shell/setting_topic.dart';
 
 /// 關於: the main card says the version and how it stands against the

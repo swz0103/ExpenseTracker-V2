@@ -94,11 +94,17 @@ void main() {
     );
     // 小美: US\$100 x 32 = 3,200 at home, below 小明's 5,000, though her
     // 10,000 cents are more.
-    expect([for (final a in peopleOwing(ledger)) a.id], ['ming', 'amy']);
+    expect(
+      [
+        for (final a in peopleOwing(ledger.accounts, ledger.balanceService))
+          a.id,
+      ],
+      ['ming', 'amy'],
+    );
     // 5,000 + 3,200 = 8,200; the archived person is not open.
-    expect(owedByPeople(ledger), 8200);
-    expect([for (final a in openLoans(ledger)) a.id], ['loan']);
-    expect(daysSince(ledger, DateTime.utc(2026, 10, 1)), 3);
-    expect(daysSince(ledger, DateTime.utc(2026, 10, 9)), 0);
+    expect(owedByPeople(ledger.accounts, ledger.balanceService), 8200);
+    expect([for (final a in openLoans(ledger.accounts)) a.id], ['loan']);
+    expect(daysSince(ledger.today, DateTime.utc(2026, 10, 1)), 3);
+    expect(daysSince(ledger.today, DateTime.utc(2026, 10, 9)), 0);
   });
 }

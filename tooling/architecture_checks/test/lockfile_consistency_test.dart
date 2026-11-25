@@ -7,7 +7,8 @@ import 'package:yaml/yaml.dart';
 /// Each package keeps its own lockfile, so a shared dependency could drift
 /// to different versions without anyone noticing (code audit M-03). Every
 /// Dart package must lock the same version of each hosted package. The
-/// Flutter app is left out: the Flutter SDK pins its own versions.
+/// Flutter app and the Flutter packages (packages/shell) are left out: the
+/// Flutter SDK pins their versions.
 void main() {
   test('every lockfile pins the same version of a shared package', () {
     final root = p.normalize(p.join(Directory.current.path, '..', '..'));
@@ -27,6 +28,8 @@ void main() {
     for (final dir in dirs) {
       final lock = File(p.join(dir.path, 'pubspec.lock'));
       if (!lock.existsSync()) continue;
+      final pubspec = File(p.join(dir.path, 'pubspec.yaml'));
+      if (pubspec.readAsStringSync().contains('sdk: flutter')) continue;
       checked++;
       final name = p.relative(dir.path, from: root);
       final yaml = loadYaml(lock.readAsStringSync()) as YamlMap;

@@ -4,6 +4,7 @@ import 'package:flutter/semantics.dart';
 import 'motion.dart';
 import 'shape.dart';
 import 'theme.dart';
+
 import 'package:shell/setting_topic.dart';
 
 /// The setting a search looked for, told to the [Findable]s of the page
