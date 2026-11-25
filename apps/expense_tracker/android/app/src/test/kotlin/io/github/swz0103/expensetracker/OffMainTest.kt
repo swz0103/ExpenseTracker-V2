@@ -85,4 +85,32 @@ class OffMainTest {
         assertEquals(listOf("first", "second", "third"), order)
         assertEquals(false, overlapped)
     }
+
+    @Test
+    fun theSharedThreadsAreBoundedAndWorkPastThemWaits() {
+        // Review 32: no new thread per call; at most four work at once.
+        assertEquals(4, OffMain.MOST_THREADS)
+        assertEquals(OffMain.MOST_THREADS, OffMain.POOL.maximumPoolSize)
+        assertEquals(true, OffMain.POOL.allowsCoreThreadTimeOut())
+        val pool = OffMain.bounded(2)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val started = java.util.concurrent.atomic.AtomicInteger(0)
+        val done = java.util.concurrent.CountDownLatch(5)
+        repeat(5) {
+            pool.execute {
+                started.incrementAndGet()
+                release.await(5, java.util.concurrent.TimeUnit.SECONDS)
+                done.countDown()
+            }
+        }
+        Thread.sleep(100)
+        // Two run, three wait their turn on two threads.
+        assertEquals(2, started.get())
+        assertEquals(2, pool.poolSize)
+        assertEquals(3, pool.queue.size)
+        release.countDown()
+        assertEquals(true, done.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        assertEquals(2, pool.largestPoolSize)
+        pool.shutdown()
+    }
 }

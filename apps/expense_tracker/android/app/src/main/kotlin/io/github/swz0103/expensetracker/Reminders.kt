@@ -35,8 +35,8 @@ import java.util.TimeZone
  * inexact twin at the same time, so the alert still comes when Android
  * cancels the exact alarms with their permission ([ReminderAlarms]).
  *
- * The plan is handed over off the main thread (RemindersHandler.kt) while
- * alarms go off on it: handing over, arming again and an alarm going off
+ * The plan is handed over off the main thread (RemindersHandler.kt), and
+ * alarms go off off it too ([ReceiverWork]): handing over, arming again and an alarm going off
  * each run whole, one at a time.
  *
  * The plan is armed again from what is kept after a restart, an update of
@@ -532,7 +532,9 @@ object Reminders {
 
 /** Posts an alert when its alarm goes off. */
 class ReminderReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(context: Context, intent: Intent) = ReceiverWork.of(this) { receive(context, intent) }
+
+    private fun receive(context: Context, intent: Intent) {
         val id = intent.getIntExtra(Reminders.EXTRA_ID, 0)
         // The test notification carries its own words; a kept alert's are
         // read sealed.
@@ -561,7 +563,9 @@ class ReminderReceiver : BroadcastReceiver() {
  * the ledger stays locked.
  */
 class ConfirmReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(context: Context, intent: Intent) = ReceiverWork.of(this) { receive(context, intent) }
+
+    private fun receive(context: Context, intent: Intent) {
         val recurring = intent.getStringExtra(Reminders.EXTRA_RECURRING) ?: return
         val day = intent.getStringExtra(Reminders.EXTRA_DAY) ?: return
         // Ids and days only: no character JSON would need to escape.
@@ -595,7 +599,7 @@ class ConfirmReceiver : BroadcastReceiver() {
  */
 class RestartReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action in ACTIONS) Reminders.scheduleKept(context)
+        if (intent.action in ACTIONS) ReceiverWork.of(this) { Reminders.scheduleKept(context) }
     }
 
     companion object {
