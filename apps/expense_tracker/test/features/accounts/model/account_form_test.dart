@@ -138,6 +138,42 @@ void main() {
     expect(ledger.balanceService.finalBalance('bank'), 0);
   });
 
+  test('review 36: an entry dated beyond the year ahead is counted, and the '
+      'settlement is dated on its day, which the write rules refuse', () {
+    var today = DateTime.utc(2026, 10, 4);
+    final ledger = Ledger(
+      today: today,
+      clock: () => today,
+      accounts: const [
+        Account('bank', '銀行', AccountKind.bank, 5000),
+        Account('cash', '現金', AccountKind.cash, 0),
+      ],
+      categories: [],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      dataSource: _Nowhere(),
+    );
+    // Written while the clock was right; then it went back a year, as
+    // one set forward and corrected does.
+    ledger.entryCommands.add(
+      Entry(
+        id: 'far',
+        date: DateTime.utc(2026, 10, 9),
+        type: EntryType.expense,
+        amount: 800,
+        account: 'bank',
+        category: '飲食',
+      ),
+    );
+    today = DateTime.utc(2025, 10, 1);
+    // 2025-10-01 + 365 days = 2026-10-01, before 2026-10-09.
+    final left = AccountForm.settlement(ledger, ledger.account('bank'), 'cash');
+    expect((left.amount, left.date), (4200, DateTime.utc(2026, 10, 9)));
+    expect(() => ledger.entryCommands.add(left), throwsA(isA<RecordRefused>()));
+  });
+
   test(
     'a new account comes after the placed ones; a change keeps its place',
     () {

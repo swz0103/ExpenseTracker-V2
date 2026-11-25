@@ -159,5 +159,39 @@ void main() {
       );
       expect(l.accountCommands.setArchived('ann', archived: true), isNotNull);
     });
+
+    test('review 36: lent money dated 400 days ahead, beyond the year an '
+        'entry may now be dated on, is still owed and not archived', () {
+      final l = ledgerOf(
+        today: day(2026, 10, 4),
+        accounts: const [
+          Account('bank', '銀行', AccountKind.bank, 100000),
+          Account('ann', '阿安', AccountKind.receivable, 0),
+        ],
+        entries: [
+          // 2026-10-04 + 400 days = 2027-11-08, as a clock set forward and
+          // corrected, or a restore, can leave in the book.
+          entryOf(
+            'lend',
+            day(2027, 11, 8),
+            EntryType.transfer,
+            5000,
+            'bank',
+            to: 'ann',
+          ),
+        ],
+      );
+      expect(l.balanceService.finalBalance('ann'), 5000);
+      expect(l.balanceService.lastDayAhead('ann'), day(2027, 11, 8));
+      expect(
+        () => l.accountCommands.setArchived('ann', archived: true),
+        throwsA(
+          isA<RecordRefused>().having((r) => r.issues, 'issues', [
+            isA<ArchivedOwing>(),
+          ]),
+        ),
+      );
+      expect(l.account('ann').archived, isFalse);
+    });
   });
 }
