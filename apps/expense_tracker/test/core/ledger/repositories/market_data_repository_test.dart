@@ -1,3 +1,6 @@
+import 'package:core/foundation_values.dart' show BoardSide, BusinessDate;
+import 'package:core/fx/dated_figures.dart'
+    show DatedFigures, FoundOn, MarketHistory;
 import 'package:expense_tracker/src/core/ledger/repositories/market_data_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -131,6 +134,80 @@ void main() {
       // -US$100.00 x 31 = -3100.
       expect(other.sellRates, isEmpty);
       expect(other.valueAtHome(-10000, 'USD'), -3100);
+    });
+  });
+
+  group('D58: rates and closes by day', () {
+    BusinessDate d(int m, int day) => BusinessDate(2026, m, day);
+    final market = MarketDataRepository(
+      rates: {'USD': 32.0, 'JPY': 0.21},
+      sellRates: {'USD': 32.5},
+      history: MarketHistory(
+        buying: DatedFigures({
+          'USD': {d(9, 1): 30.0, d(10, 1): 32.0},
+        }),
+        selling: DatedFigures({
+          'USD': {d(9, 1): 30.5},
+        }),
+        closes: DatedFigures({
+          '2330': {d(9, 1): 950.0},
+        }),
+      ),
+    );
+
+    test('a rate by the one rule, on either side', () {
+      expect(market.rateOn('USD', DateTime.utc(2026, 9, 15)), (
+        figure: 30.0,
+        of: d(9, 1),
+        found: FoundOn.earlierDay,
+      ));
+      // Before any day kept: today's, of no known day.
+      expect(market.rateOn('USD', DateTime.utc(2026, 8, 1)), (
+        figure: 32.0,
+        of: null,
+        found: FoundOn.today,
+      ));
+      expect(market.rateOn('JPY', DateTime.utc(2026, 9, 15))?.figure, 0.21);
+      expect(
+        market
+            .rateOn('USD', DateTime.utc(2026, 9, 15), side: BoardSide.selling)
+            ?.figure,
+        30.5,
+      );
+      expect(market.rateOn('EUR', DateTime.utc(2026, 9, 15)), isNull);
+      expect(market.closeOn('2330', DateTime.utc(2026, 9, 2))?.figure, 950);
+      expect(market.closeOn('0050', DateTime.utc(2026, 9, 2)), isNull);
+    });
+
+    test('amounts at the rates of a day', () {
+      final sep = DateTime.utc(2026, 9, 15);
+      // US$100.00 at 30.0: 3,000; owed, at 30.5: -3,050.
+      expect(market.toHomeOn(10000, 'USD', sep), 3000);
+      expect(market.valueAtHomeOn(10000, 'USD', sep), 3000);
+      expect(market.valueAtHomeOn(-10000, 'USD', sep), -3050);
+      // JPY has no selling rate: owed at the buying one, ¥1,000 x 0.21.
+      expect(market.valueAtHomeOn(-1000, 'JPY', sep), -210);
+      // US$100 into yen: 100 x 30.0 / 0.21 = 14,285.7 -> 14,286.
+      expect(market.convertOn(10000, 'USD', 'JPY', sep), 14286);
+      expect(market.convertOn(3000, 'TWD', 'USD', sep), 10000);
+      expect(market.convertOn(10000, 'USD', 'TWD', sep), 3000);
+      expect(market.convertOn(10000, 'EUR', 'TWD', sep), isNull);
+      expect(market.toHomeOn(500, 'TWD', sep), 500);
+      // Today's convert is unchanged: 100 x 32.0 / 0.21 = 15,238.1.
+      expect(market.convert(10000, 'USD', 'JPY'), 15238);
+    });
+
+    test('what a fetch replaces it with is taken whole', () {
+      final m = MarketDataRepository(history: market.history);
+      m.replace(
+        rates: const {},
+        moves: const {},
+        quotedOn: null,
+        quoteDays: const {},
+      );
+      expect(m.history.isEmpty, isTrue);
+      final other = MarketDataRepository()..replaceWith(market);
+      expect(other.closeOn('2330', DateTime.utc(2026, 9, 2))?.figure, 950);
     });
   });
 }

@@ -295,7 +295,7 @@ final class _Reader {
                 0
           : 0,
       home: from.foreign
-          ? home ?? book.marketData.toHome(amount, from.currency)
+          ? home ?? book.marketData.toHomeOn(amount, from.currency, day)
           : null,
     );
   }
@@ -306,7 +306,7 @@ final class _Reader {
   /// shop's first. On a foreign account its worth at home is the 台幣金額
   /// written, when it is within what of the purchase's worth is left,
   /// else its share of the purchase's worth (D62), else the amount at
-  /// today's rate.
+  /// the rate of its day (D58).
   Object _refund(
     _Cell cell,
     DateTime day,
@@ -365,7 +365,9 @@ final class _Reader {
         return refundHomeWords(left);
       }
       home =
-          typed ?? share.home ?? book.marketData.toHome(amount, from.currency);
+          typed ??
+          share.home ??
+          book.marketData.toHomeOn(amount, from.currency, day);
     }
     return Entry(
       id: _id,

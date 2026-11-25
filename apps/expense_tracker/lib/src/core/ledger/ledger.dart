@@ -1,3 +1,4 @@
+import 'package:core/fx/dated_figures.dart' show MarketHistory;
 import 'package:core/foundation_values.dart' show PublicId;
 import 'package:flutter/foundation.dart'
     show ChangeNotifier, Listenable, ValueNotifier;
@@ -107,6 +108,7 @@ final class Ledger extends ChangeNotifier {
     Map<String, double> moves = const {},
     DateTime? quotedOn,
     Map<String, DateTime> quoteDays = const {},
+    MarketHistory? history,
     Map<String, String> receipts = const {},
     Map<String, String> drafts = const {},
     ReadHoldings? readHoldings,
@@ -120,6 +122,7 @@ final class Ledger extends ChangeNotifier {
          moves: moves,
          quotedOn: quotedOn,
          quoteDays: quoteDays,
+         history: history,
        ),
        _trash = TrashRepository(trash),
        _accounts = AccountRepository(accounts),

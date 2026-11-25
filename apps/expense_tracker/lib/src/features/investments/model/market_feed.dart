@@ -94,6 +94,7 @@ final class MarketFeed extends SyncJob implements PriceHistory {
         sellRates: market.sellRates,
         quotedOn: market.quotedOn,
         quoteDays: market.days,
+        history: market.history,
       );
     }
     return marketProblem(
