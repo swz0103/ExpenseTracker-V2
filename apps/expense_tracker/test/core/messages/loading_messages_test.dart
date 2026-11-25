@@ -1,4 +1,6 @@
+import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/quarantine.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/upgrade_backup.dart';
 import 'package:expense_tracker/src/core/messages/loading_messages.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -56,5 +58,27 @@ void main() {
     );
     expect(detail, 'FormatException: amount: expected words');
     expect(quarantineDetail(StateError('x')), 'StateError');
+  });
+
+  test('the held upgrade says its cause as one sentence, closed once '
+      '(review 31, 7)', () {
+    // An error the person can act on: its sentence, then this page's.
+    expect(
+      upgradeHeldBody(
+        UpgradeBackupProblem.other,
+        const DataSourceException('x'),
+      ),
+      '無法先把帳本備份起來：帳本無法寫入，請重新打開 App 再試。'
+      '帳本沒有被改動，也還沒有升級到這個版本。',
+    );
+    expect(
+      upgradeHeldBody(UpgradeBackupProblem.other, StateError('x')),
+      '無法先把帳本備份起來，可在診斷匯出詳細資料。'
+      '帳本沒有被改動，也還沒有升級到這個版本。',
+    );
+    expect(
+      upgradeHeldBody(UpgradeBackupProblem.noSpace, StateError('x')),
+      '手機空間不足，無法先把帳本備份起來。帳本沒有被改動，也還沒有升級到這個版本。',
+    );
   });
 }

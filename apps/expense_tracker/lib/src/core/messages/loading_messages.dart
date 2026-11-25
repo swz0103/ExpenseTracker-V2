@@ -15,8 +15,8 @@ String quarantineBody(List<QuarantinedRow> rows) {
   final newer = rows.where((r) => r.reason == QuarantineReason.newer).length;
   final lines = [
     '其他資料都已正常打開。這些資料原封不動留在手機上，這個版本不會改寫或刪除它們。',
-    if (newer > 0) '其中 $newer 筆由較新版本寫入，請更新 App 到最新版本後再打開。',
-    if (newer < rows.length) '可以匯出診斷資料回報問題，或從備份還原。',
+    if (newer > 0) '其中 $newer 筆由較新版本寫入，請更新 App 到最新版本後再打開',
+    if (newer < rows.length) '可以匯出診斷資料回報問題，或從備份還原',
   ];
   return lines.join('\n\n');
 }
@@ -70,7 +70,7 @@ String upgradeHeldBody(UpgradeBackupProblem problem, Object error) {
     UpgradeBackupProblem.noSpace => '手機空間不足，無法先把帳本備份起來',
     UpgradeBackupProblem.other => problemNote('無法先把帳本備份起來', error),
   };
-  return '$cause。帳本沒有被改動，也還沒有升級到這個版本。';
+  return '${endSentence(cause)}帳本沒有被改動，也還沒有升級到這個版本。';
 }
 
 /// How much room the copy takes, and how to make it.
@@ -83,7 +83,7 @@ const upgradeHeldSkip = '不備份，仍要升級';
 
 /// The second question before going on without the copy.
 const upgradeHeldConfirm = '確定不備份就升級？';
-const upgradeHeldConfirmBody = '升級後，這本帳本只能由這個版本以後的 App 打開；如果升級出了問題，只能從更早的備份還原。';
+const upgradeHeldConfirmBody = '升級後，這本帳本只能由這個版本以後的 App 打開；如果升級出了問題，只能從更早的備份還原';
 const upgradeHeldConfirmAction = '仍要升級';
 
 /// The app could not start at all; what failed is in the diagnostics it

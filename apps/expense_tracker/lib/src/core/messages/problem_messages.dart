@@ -21,22 +21,26 @@ const detailsInDiagnostics = '可在診斷匯出詳細資料';
 /// `failureNote('沒有存成圖片')` is 沒有存成圖片，可在診斷匯出詳細資料.
 String failureNote(String what) => '$what，$detailsInDiagnostics';
 
+/// [sentence] closed with 。, to have another sentence follow it: a
+/// note of one sentence carries none (D81), one of several ends each.
+String endSentence(String sentence) =>
+    // Exception to sentence ends: the one place a sentence is closed.
+    sentence.endsWith('。') ? sentence : '$sentence。';
+
 /// Why [error] stopped a step, in words a person can act on; null when
 /// it is not such an error, but a fault of the phone, its storage or the
 /// app, which only [failureNote] tells.
 String? actionableProblem(Object error) => switch (error) {
   KeepFailed(cause: DataSourceException(cause: RowSetAside())) ||
-  DataSourceException(
-    cause: RowSetAside(),
-  ) => '這筆變更會覆蓋一筆讀不出來、已隔離的資料，為了保護它沒有存下。',
-  DataSourceException() || KeepFailed() => '帳本無法寫入，請重新打開 App 再試。',
-  ReloadFailed() => '帳本無法重新讀取，請重新打開 App；畫面上的內容可能與已儲存的不同。',
+  DataSourceException(cause: RowSetAside()) => '這筆變更會覆蓋一筆讀不出來、已隔離的資料，為了保護它沒有存下',
+  DataSourceException() || KeepFailed() => '帳本無法寫入，請重新打開 App 再試',
+  ReloadFailed() => '帳本無法重新讀取，請重新打開 App；畫面上的內容可能與已儲存的不同',
   RecordRefused(:final first) => validationMessage(first),
   StayedInTrash(:final count) => stayedInTrashNote(count),
-  NameTaken() => '這個分類名稱已經有了，或是保留給「全部支出」「轉帳」等用途。',
-  MoneyException(code: MoneyError.precision) => '金額的小數位數太多。',
-  MoneyException() => '請輸入有效的金額。',
-  PlatformException(code: 'busy') => '上一個檔案還在處理，請稍候再試。',
+  NameTaken() => '這個分類名稱已經有了，或是保留給「全部支出」「轉帳」等用途',
+  MoneyException(code: MoneyError.precision) => '金額的小數位數太多',
+  MoneyException() => '請輸入有效的金額',
+  PlatformException(code: 'busy') => '上一個檔案還在處理，請稍候再試',
   _ => null,
 };
 

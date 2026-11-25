@@ -39,7 +39,7 @@ void main() {
     tester,
   ) async {
     await refuse(tester, KeepFailed(Exception('disk full')));
-    expect(find.text('帳本無法寫入，請重新打開 App 再試。'), findsOneWidget);
+    expect(find.text('帳本無法寫入，請重新打開 App 再試'), findsOneWidget);
   });
 
   testWidgets('an error nobody foresaw still says something', (tester) async {

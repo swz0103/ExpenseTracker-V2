@@ -836,7 +836,7 @@ void main() {
         tester,
         () => find.textContaining('的備份 · ').evaluate().isNotEmpty,
       );
-      expect(find.text('這份備份要用救援碼打開（不是 App 的密碼）。'), findsOneWidget);
+      expect(find.text('這份備份要用救援碼打開（不是 App 的密碼）'), findsOneWidget);
       expect(find.text('忘記密碼？用救援碼'), findsNothing);
       await tester.enterText(find.byType(TextField).last, code);
       await tester.testTextInput.receiveAction(TextInputAction.done);
