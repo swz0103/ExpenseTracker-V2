@@ -923,12 +923,13 @@ items:
   # The colour a new category takes, however it is made (review 32, 2.3).
   - id: category-colors
     what: 新分類的顏色
-    layer: ledger
+    layer: core
     owner:
-      - apps/expense_tracker/lib/src/core/ledger/models/category.dart
-    target: packages/ledger/entries/lib/model/
+      - packages/core/lib/constants/category_colors.dart
+    target: packages/core/lib/constants/
     status: owned
     guard:
+      - packages/core/test/constants/category_colors_test.dart
       - apps/expense_tracker/test/core/ledger/models/category_test.dart
   # The words the Kotlin side shows: handed over with each call, with
   # fallbacks in NativeWords.kt only where the app cannot run (NAT-1).

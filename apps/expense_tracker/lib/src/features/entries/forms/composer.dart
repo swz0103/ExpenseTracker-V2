@@ -1,3 +1,5 @@
+import 'package:core/constants/category_colors.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';

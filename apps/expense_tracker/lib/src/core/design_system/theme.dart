@@ -3,7 +3,8 @@ import 'package:flutter/rendering.dart';
 
 import 'type.dart';
 import 'shape.dart';
-import '../ledger/models/category.dart' show categoryColorValues;
+
+import 'package:core/constants/category_colors.dart';
 
 export 'type.dart';
 

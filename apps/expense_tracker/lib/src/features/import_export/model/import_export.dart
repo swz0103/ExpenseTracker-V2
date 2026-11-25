@@ -1,5 +1,6 @@
 // Exception to shared words: a CSV's columns and kinds are a file
 // format; they keep their spelling whatever the screens come to say.
+import 'package:core/constants/category_colors.dart';
 import 'package:core/foundation_values.dart' show BusinessDate, Currency;
 import 'package:core/money/amount_parser.dart';
 import 'package:core/money/typed_text.dart' show plainText;

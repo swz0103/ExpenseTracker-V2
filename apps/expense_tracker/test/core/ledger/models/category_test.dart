@@ -1,3 +1,4 @@
+import 'package:core/constants/category_colors.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/ledger/models/models.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
