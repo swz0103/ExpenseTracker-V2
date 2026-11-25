@@ -219,6 +219,7 @@ void main() {
           home: Scaffold(
             body: Builder(
               builder: (context) => TextButton(
+                key: const ValueKey('go'),
                 onPressed: () =>
                     removed = deleteEntries(context, ledger, picked),
                 child: const Text('go'),
@@ -227,7 +228,7 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('go'));
+      await tester.tap(find.byKey(const ValueKey('go')));
       await tester.pumpAndSettle();
       return removed;
     }
