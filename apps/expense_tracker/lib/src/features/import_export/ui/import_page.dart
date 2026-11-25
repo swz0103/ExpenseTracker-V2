@@ -1,3 +1,5 @@
+import 'package:domain/data_exchange.dart'
+    show FileText, TextRead, TextUnreadable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -31,7 +33,7 @@ Future<void> importInto(
   BuildContext context,
   Ledger ledger, {
   bool invoices = false,
-  Future<String?> Function()? readFile,
+  Future<FileText?> Function()? readFile,
 }) async {
   if (!await ensureAccount(context, ledger) || !context.mounted) return;
   await openFullScreen<void>(
@@ -54,7 +56,7 @@ class _ImportPage extends StatefulWidget {
 
   final Ledger ledger;
   final bool invoices;
-  final Future<String?> Function()? readFile;
+  final Future<FileText?> Function()? readFile;
 
   @override
   State<_ImportPage> createState() => _ImportPageState();
@@ -114,18 +116,23 @@ class _ImportPageState extends State<_ImportPage> {
   }
 
   /// Reads a file the person chooses.
-  Future<void> _pickFile(Future<String?> Function() readFile) async {
-    final String? text;
+  Future<void> _pickFile(Future<FileText?> Function() readFile) async {
+    final FileText? read;
     try {
-      text = await readFile();
+      read = await readFile();
     } on Object catch (error) {
       ErrorLog.instance.record('讀取匯入檔', error);
-      if (mounted) showNote(context, '讀不到這個檔案，請確認是 UTF-8 的文字檔');
+      if (mounted) showNote(context, importUnreadableFileWords);
       return;
     }
-    if (text == null || !mounted) return;
-    _text = text;
-    await _read();
+    if (read == null || !mounted) return;
+    switch (read) {
+      case TextUnreadable():
+        showNote(context, importUnreadableFileWords);
+      case TextRead(:final text):
+        _text = text;
+        await _read();
+    }
   }
 
   Future<void> _pickAccount() async {

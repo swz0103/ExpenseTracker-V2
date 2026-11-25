@@ -68,6 +68,9 @@ String refundHomeWords(int? left) => switch (left) {
   _ => '「$homeAmountColumn」超過原支出還可退的 ${groupDigits(left)}',
 };
 
+/// A file chosen to import that cannot be read as text.
+const importUnreadableFileWords = '讀不到這個檔案，請確認是 UTF-8 或 Big5 的文字檔';
+
 /// What 匯入 says it reads, under its example: e-invoices.
 const importInvoicesHint = '財政部「消費明細」的 CSV 或載具的 M／D 行都可以，記過的發票不會重複';
 
