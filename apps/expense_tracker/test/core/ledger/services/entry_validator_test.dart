@@ -296,7 +296,10 @@ void main() {
       );
       final steps = <String>[];
       asked.told = steps.add;
-      await validator.prepare(() async => steps.add('pause'));
+      await validator.prepare(() async {
+        steps.add('pause');
+        return true;
+      });
       // The index first, then the three stocks in the order first written,
       // each after a pause of its own: four pauses.
       expect(steps, [
@@ -318,6 +321,12 @@ void main() {
       expect(steps, ['kept 0050', 'kept 2412', 'whole 2330']);
       expect(identical(asked.keptLists[0], prepared[1]), isTrue);
       expect(identical(asked.keptLists[1], prepared[2]), isTrue);
+      // Told to stop after the index, no stock is answered.
+      steps.clear();
+      var asks = 0;
+      await validator.prepare(() async => ++asks < 2);
+      expect(asks, 2);
+      expect(steps, isEmpty);
     });
 
     test('a stock a buy left short refuses every later sale, as the whole '

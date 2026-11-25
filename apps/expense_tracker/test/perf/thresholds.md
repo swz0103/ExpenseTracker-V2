@@ -523,9 +523,9 @@ working is now `wholeBookHolds` (test/support/trade_book.dart), the
 same whole replay, since `holdsWith` no longer is one.
 
 Since PERF-3 the app does that first-save work once the book has opened
-(`EntryValidator.prepare`, from bootstrap.dart after the first frame):
+(`EntryValidator.prepare`, from shell.dart after its first frame):
 the index of the entries by stock, then one stock at a time, each step
-when the screen is idle (`whenIdle`). The prepared rows were measured
+between frames (`BetweenFrames`). The prepared rows were measured
 three runs, 2026-11-25, Linux host, the order of the entries already
 worked out as the month first shown has it (the index alone is then
 2–5 ms, the twenty stocks about 1 ms each): the first save fell from

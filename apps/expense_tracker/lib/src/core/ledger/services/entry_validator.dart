@@ -155,15 +155,16 @@ final class EntryValidator {
   /// Answers, ahead of the first save of a trade, what [holdsWith] keeps
   /// for every stock the book trades: the index of the entries by stock
   /// first, then each stock's holdings as the book has them, one stock at
-  /// a time, [pause] awaited before each step (the app waits for the
-  /// screen to be idle, after the book has opened). Made at the first
-  /// save, these held it about 50 ms at 100,000 entries (FIX-R34). A book
-  /// changed meanwhile only makes a step answer the stock as it stands.
-  Future<void> prepare(Future<void> Function() pause) async {
-    await pause();
+  /// a time, [goOn] awaited before each step (the app runs each between
+  /// frames, once the book is on the screen), and no more steps once it
+  /// answers false. Made at the first save, these held it about 50 ms at
+  /// 100,000 entries (FIX-R34). A book changed meanwhile only makes a
+  /// step answer the stock as it stands.
+  Future<void> prepare(Future<bool> Function() goOn) async {
+    if (!await goOn()) return;
     final codes = _entries.holdingCodes.toList();
     for (final code in codes) {
-      await pause();
+      if (!await goOn()) return;
       // Exception to as-of-today: the whole timeline, as holdsWith asks.
       _holdings.holdsWithKept(_entries.ofHolding(code));
     }

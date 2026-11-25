@@ -114,6 +114,7 @@ void main() {
         step
           ..reset()
           ..start();
+        return true;
       });
       endStep();
       watch
