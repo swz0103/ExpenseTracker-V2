@@ -74,15 +74,18 @@ class UpdateWorker(context: Context, params: WorkerParameters) : Worker(context,
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26 && manager.getNotificationChannel(CHANNEL) == null) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL, "新版本", NotificationManager.IMPORTANCE_LOW).apply {
-                    description = "有新版本可以更新時"
+                NotificationChannel(CHANNEL, NativeWords.UPDATE_CHANNEL, NotificationManager.IMPORTANCE_LOW).apply {
+                    description = NativeWords.UPDATE_CHANNEL_ABOUT
                 },
             )
         }
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(if (version == null) "記帳本有新版本" else "記帳本 $version 可以更新")
-            .setContentText("打開 App 就能更新")
+            // The app is not running to word it: NativeWords holds its words.
+            .setContentTitle(
+                if (version == null) NativeWords.UPDATE_TITLE else NativeWords.UPDATE_TITLE_OF.format(version),
+            )
+            .setContentText(NativeWords.UPDATE_TEXT)
             .setContentIntent(MainActivity.opening(context, "", 900))
             .setAutoCancel(true)
             .build()

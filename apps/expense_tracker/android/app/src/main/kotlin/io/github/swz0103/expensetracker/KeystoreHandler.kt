@@ -40,10 +40,13 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
             "wrap", "unwrap" -> {
                 val data = call.argument<ByteArray>("data")
                 val context = call.argument<ByteArray>("context")
-                if (data == null || context == null) {
-                    result.error("bad-arguments", "data and context are required", null)
+                // The prompt's words, as the app words them (NativeWords).
+                val title = call.argument<String>("title")
+                val password = call.argument<String>("password")
+                if (data == null || context == null || title.isNullOrEmpty() || password.isNullOrEmpty()) {
+                    result.error("bad-arguments", "data, context, title and password are required", null)
                 } else {
-                    crypt(call.method == "wrap", data, context, result)
+                    crypt(call.method == "wrap", data, context, Prompt(title, password), result)
                 }
             }
             "quickWrap", "quickUnwrap" -> {
@@ -65,10 +68,14 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
      * confirms with a fingerprint or face. [context] is bound in as AES-GCM
      * associated data. A blob is the 12-byte IV followed by the ciphertext.
      */
+    /** The words of the fingerprint or face prompt: its title and the button back to the password. */
+    private class Prompt(val title: String, val password: String)
+
     private fun crypt(
         encrypt: Boolean,
         data: ByteArray,
         context: ByteArray,
+        words: Prompt,
         result: MethodChannel.Result,
     ) {
         val cipher: Cipher
@@ -126,8 +133,8 @@ class KeystoreHandler(private val activity: FragmentActivity) : ChannelHandler {
         }
         val prompt = BiometricPrompt(activity, ContextCompat.getMainExecutor(activity), callback)
         val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle(if (encrypt) "開啟生物辨識解鎖" else "解鎖記帳本")
-            .setNegativeButtonText("改用密碼")
+            .setTitle(words.title)
+            .setNegativeButtonText(words.password)
             .setAllowedAuthenticators(BIOMETRIC_STRONG)
             .build()
         prompt.authenticate(info, BiometricPrompt.CryptoObject(cipher))

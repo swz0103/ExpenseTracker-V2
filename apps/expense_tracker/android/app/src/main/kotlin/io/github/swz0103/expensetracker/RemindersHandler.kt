@@ -66,6 +66,7 @@ class RemindersHandler(private val activity: FragmentActivity) : ChannelHandler 
                 }
             }
             "scheduleNotifications" -> {
+                Reminders.keepWords(activity, call.argument<Map<String, Any?>>("words"))
                 val alerts = call.argument<List<Map<String, Any?>>>("alerts")
                 if (alerts == null) {
                     result.error("bad-arguments", "alerts are required", null)
@@ -81,6 +82,7 @@ class RemindersHandler(private val activity: FragmentActivity) : ChannelHandler 
                 }
             }
             "showNotification" -> {
+                Reminders.keepWords(activity, call.argument<Map<String, Any?>>("words"))
                 val title = call.argument<String>("title")
                 val text = call.argument<String>("text")
                 if (title == null || text == null) {
@@ -100,6 +102,7 @@ class RemindersHandler(private val activity: FragmentActivity) : ChannelHandler 
                 }
             }
             "testNotification" -> {
+                Reminders.keepWords(activity, call.argument<Map<String, Any?>>("words"))
                 Reminders.ensureChannels(activity, channels(call))
                 Reminders.test(
                     activity,

@@ -172,6 +172,15 @@ final class CalendarSync {
   /// The third line of the file when the events show amounts.
   static const _amountsOn = 'amounts';
 
+  /// What starts the last line of the description of each of the app's
+  /// events, before its key: how the phone's side (`CalendarBridge.kt`)
+  /// tells them from the person's own. Events already in calendars carry
+  /// it, so it never changes.
+  static const mark = '記帳本#';
+
+  /// How long each event lasts in the calendar.
+  static const eventLength = Duration(minutes: 30);
+
   /// The chosen calendar's id and name; null until one is chosen.
   (int, String)? get chosen {
     if (!_file.existsSync()) return null;

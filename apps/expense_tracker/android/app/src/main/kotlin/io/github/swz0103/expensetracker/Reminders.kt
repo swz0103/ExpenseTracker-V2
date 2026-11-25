@@ -65,6 +65,7 @@ object Reminders {
     private const val EXACT = "exact"
     private const val POSTED = "posted"
     private const val CHANNELS = "channels"
+    private const val WORDS = "words"
 
     /** The one channel of versions before each kind had its own; alerts
      *  kept by them post there until the app hands over its plan. */
@@ -88,6 +89,26 @@ object Reminders {
     private val TEXT_FIELDS = listOf("id", "channel", "title", "text", "quick", "tag", "recurring", "day")
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    /**
+     * Keeps the words the app hands over with its plan and its alerts
+     * (`confirm`, `publicTitle`, `publicText`; NativeWords in the app), for
+     * the alarms going off while it is closed. None are kept until it
+     * first hands them over; until then [words] gives [NativeWords]'.
+     */
+    fun keepWords(context: Context, words: Map<String, Any?>?) {
+        if (words.isNullOrEmpty()) return
+        val json = JSONObject()
+        for ((name, value) in words) if (value is String) json.put(name, value)
+        prefs(context).edit().putString(WORDS, json.toString()).apply()
+    }
+
+    /** The words the app handed over last, by name; [fallback] for one it has not. */
+    private fun word(context: Context, name: String, fallback: String): String = try {
+        JSONObject(prefs(context).getString(WORDS, null) ?: "{}").optString(name).ifEmpty { fallback }
+    } catch (e: Exception) {
+        fallback
+    }
 
     /**
      * Keeps [alerts] in place of every alert before, on the minute when
@@ -486,7 +507,11 @@ object Reminders {
                 // A recurring item due can be confirmed from here: booked
                 // when the ledger is next opened or comes back.
                 if (recurring.isNotEmpty() && day.isNotEmpty()) {
-                    addAction(0, "確認入帳", confirming(context, id, tag, recurring, day))
+                    addAction(
+                        0,
+                        word(context, "confirm", NativeWords.REMINDER_CONFIRM),
+                        confirming(context, id, tag, recurring, day),
+                    )
                 }
             }
             // Amounts stay off the lock screen.
@@ -494,8 +519,8 @@ object Reminders {
             .setPublicVersion(
                 NotificationCompat.Builder(context, postIn)
                     .setSmallIcon(R.drawable.ic_notification)
-                    .setContentTitle("記帳本")
-                    .setContentText("有一則提醒")
+                    .setContentTitle(word(context, "publicTitle", NativeWords.REMINDER_PUBLIC_TITLE))
+                    .setContentText(word(context, "publicText", NativeWords.REMINDER_PUBLIC_TEXT))
                     .build(),
             )
             .build()
