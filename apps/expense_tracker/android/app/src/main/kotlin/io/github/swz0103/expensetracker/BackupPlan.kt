@@ -104,6 +104,19 @@ internal object BackupPlan {
     }
 
     /**
+     * What the app's error log is told of a failure: the app's own words
+     * when it is the folder refusing ([Handed.folderDenied]), Drive's
+     * status when Drive refused, and otherwise the failure's type alone.
+     * Never its message, which can quote a server or name a file or an
+     * account (review 33).
+     */
+    fun problemOf(cause: Throwable, plan: Handed): String = when {
+        cause.message == plan.folderDenied -> plan.folderDenied
+        cause is DriveUploader.Refused && cause.status > 0 -> "Refused HTTP ${cause.status}"
+        else -> cause.javaClass.simpleName
+    }
+
+    /**
      * Of the names in the phone's folder, this ledger's ([Handed.phonePrefix]
      * and [Handed.suffix]) beyond the newest [Handed.keep]; other files,
      * and other ledgers' backups, are never among them.

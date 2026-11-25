@@ -1,6 +1,8 @@
+import '../../../core/diagnostics/app_fault.dart';
+
 /// A change of the keys refused, with [message] to tell the person: the
 /// current password wrong, or a new one against the password rule.
-final class KeyRefused implements Exception {
+final class KeyRefused implements AppFault {
   const KeyRefused(this.message);
 
   final String message;

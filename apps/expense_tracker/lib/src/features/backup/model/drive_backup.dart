@@ -7,6 +7,7 @@ import '../../../core/platform/bounded_https.dart';
 import '../../../core/formatting/json_fields.dart';
 import '../../../core/diagnostics/error_steps.dart';
 import 'backup_rules.dart';
+import '../../../core/diagnostics/app_fault.dart';
 
 /// One HTTP exchange with Google Drive: the status, the headers (lower
 /// case) and, unless it was saved to a file, the body.
@@ -163,9 +164,11 @@ enum DriveProblem {
 }
 
 /// A Drive request that failed: [problem] says how, for the words a
-/// screen shows (`driveNote`); [detail] is Drive's own answer, for the
-/// error log only, never shown.
-final class DriveException implements Exception {
+/// screen shows (`driveNote`); [detail] is what the app can say of it for
+/// the error log, never shown: Drive's status and its reason's code, a
+/// field missing, the type of what failed; never Drive's own sentence,
+/// which can name the account or a file.
+final class DriveException implements AppFault {
   const DriveException(this.problem, [this.detail, this.status]);
 
   final DriveProblem problem;
@@ -294,7 +297,7 @@ final class DriveBackup {
       if (!response.ok) {
         throw DriveException(
           DriveProblem.refused,
-          '${response.status} ${_reason(response.body)}',
+          detailOf(response.status, response.body),
           response.status,
         );
       }
@@ -302,9 +305,22 @@ final class DriveBackup {
     }
   }
 
+  /// What the error log keeps of Drive refusing a request with [status]
+  /// and [body]: the status and the code of Drive's reason, never its
+  /// sentence ([DriveException.detail]).
+  static String detailOf(int status, String body) =>
+      'HTTP $status ${_reason(body)}'.trim();
+
+  /// The code of Drive's reason in [body] (`storageQuotaExceeded`,
+  /// `insufficientPermissions`), a word of Google's own; empty for none.
   static String _reason(String body) {
     try {
-      return JsonFields.decode(body).object('error')?.text('message') ?? '';
+      final reasons = JsonFields.decode(body).object('error')?.json['errors'];
+      final first = reasons is List && reasons.isNotEmpty
+          ? reasons.first
+          : null;
+      final reason = first is Map<String, Object?> ? first['reason'] : null;
+      return reason is String && _code.hasMatch(reason) ? reason : '';
     } on FormatException {
       // A body that is not JSON has no message.
       return '';
@@ -317,7 +333,8 @@ final class DriveBackup {
     try {
       return JsonFields.decode(response.body);
     } on FormatException catch (error) {
-      throw DriveException(DriveProblem.refused, error.message);
+      // Its words can quote the body: the type alone.
+      throw DriveException(DriveProblem.refused, ErrorLog.describe(error));
     }
   }
 
@@ -329,6 +346,9 @@ final class DriveBackup {
       throw DriveException(DriveProblem.refused, error.message);
     }
   }
+
+  /// A reason's code as Google writes it: one word of letters.
+  static final _code = RegExp(r'^[A-Za-z]{1,64}$');
 
   static String _quote(String text) =>
       text.replaceAll(r'\', r'\\').replaceAll("'", r"\'");

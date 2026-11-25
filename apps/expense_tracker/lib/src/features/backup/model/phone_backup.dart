@@ -8,10 +8,11 @@ import '../../../core/diagnostics/error_steps.dart';
 import '../../../core/time/app_clock.dart';
 import '../../../core/messages/backup_messages.dart';
 import 'backup_rules.dart';
+import '../../../core/diagnostics/app_fault.dart';
 
 /// The folder chosen cannot be kept: Android gave no lasting permission
 /// for it, as for the storage's top or 下載 since Android 11.
-final class FolderRejected implements Exception {
+final class FolderRejected implements AppFault {
   const FolderRejected();
 
   @override

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart'
     show debugPrint, kReleaseMode, visibleForTesting;
 import 'package:flutter/services.dart' show PlatformException;
 
+import 'app_fault.dart';
 import 'error_steps.dart';
 import '../time/app_clock.dart';
 
@@ -203,25 +204,45 @@ final class ErrorLog {
     }
   }
 
-  /// What is kept of [error]: its type and a short message, cleaned of
-  /// what could be the person's own words (names, notes, amounts) or file
-  /// paths, since the log can be exported.
+  /// What is kept of [error], since the log can be exported: an
+  /// allow-list. Of an exception, its type, with an errno or a channel's
+  /// code; its words only when the app wrote them ([AppFault]) or the SDK
+  /// did for a file fault. Of an [Error], a fault of the code, its words;
+  /// of words the app passed itself, those. What is kept is cleaned of
+  /// what could still be the person's (names, notes, amounts, addresses,
+  /// tokens, paths).
   static String describe(Object error) {
+    if (error is CarriedFault) {
+      return '${error.runtimeType}(${describe(error.cause)})';
+    }
     final said = switch (error) {
+      AppFault() || Error() || String() => '$error',
       FileSystemException(:final message) => message,
       PlatformException(:final code) => code,
-      _ => '$error',
+      // An exception of a library or a server: its words may carry an
+      // address, a file's name or a server's answer.
+      _ => '',
     };
     final code = error is FileSystemException ? error.osError?.errorCode : null;
     final errno = code == null ? '' : ' (errno $code)';
-    return '${error.runtimeType}: ${_clean(said)}$errno';
+    final words = _clean(said);
+    return words.isEmpty
+        ? '${error.runtimeType}$errno'
+        : '${error.runtimeType}: $words$errno';
   }
 
   static final _quoted = RegExp(r"""'[^']*'|"[^"]*"|「[^」]*」|“[^”]*”""");
   static final _path = RegExp(r'\S*[/\\]\S*');
   static final _foreign = RegExp(r'[^\x20-\x7e]+');
-  // An errno is kept; it says what failed, not what was written.
-  static final _digits = RegExp(r'(?<!errno )\d+');
+  // An address (`alice@example.com`) or a query (`?token=…`).
+  static final _contact = RegExp(r'\S*[@?]\S*');
+  // A token, a key or an id: a long run of what base64 and hex are
+  // written with, a digit or a sign among it; a word of letters alone,
+  // such as Drive's reason code, stays.
+  static final _token = RegExp(r'(?=[\w+=\-]*[\d_+=\-])[\w+=\-]{20,}');
+  // An errno and an HTTP status are kept; they say what failed, not what
+  // was written.
+  static final _digits = RegExp(r'(?<!errno |HTTP |\d)\d+');
 
   /// A problem as an older version kept it, with the whole error: what
   /// did not work, then the error, cleaned now.
@@ -231,13 +252,16 @@ final class ErrorLog {
     return '${words.substring(0, colon)}：${_clean(words.substring(colon + 1))}';
   }
 
-  /// One line of [text], without quoted words, paths, numbers or anything
-  /// outside plain ASCII, at most [longestMessage] characters.
+  /// One line of [text], without quoted words, paths, addresses, tokens,
+  /// numbers or anything outside plain ASCII, at most [longestMessage]
+  /// characters.
   static String _clean(String text) {
     var line = text.split('\n').first;
     line = line
         .replaceAll(_quoted, '…')
+        .replaceAll(_contact, '…')
         .replaceAll(_path, '…')
+        .replaceAll(_token, '…')
         .replaceAll(_foreign, '…')
         .replaceAll(_digits, '#')
         .trim();

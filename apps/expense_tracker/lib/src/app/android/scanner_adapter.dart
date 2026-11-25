@@ -4,6 +4,7 @@ import '../../core/diagnostics/error_log.dart';
 import '../../core/messages/scan_messages.dart';
 import '../../core/platform/scan.dart';
 import 'platform_channel.dart';
+import '../../core/diagnostics/app_fault.dart';
 
 /// Reads a QR code with Google's code scanner (`ScanHandler.kt`). The
 /// scanner is a part Google Play services fetches the first time: the
@@ -41,7 +42,7 @@ Future<ScanOutcome> androidScanQr({void Function()? preparing}) async {
 /// (`install`, `scan`) and its reason, a name such as `NETWORK_ERROR` or
 /// `INSTALL_TIMEOUT` (`ScanFault.kt`). Only a name made of capital letters
 /// and underscores is kept of the reason; anything else is left out.
-final class ScanFault implements Exception {
+final class ScanFault implements AppFault {
   ScanFault(this.code, Object? reason)
     : reason = reason is String && _name.hasMatch(reason) ? reason : null;
 

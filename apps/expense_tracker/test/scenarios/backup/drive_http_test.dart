@@ -230,13 +230,17 @@ void main() {
 
     test('a refusal carries Drive\'s own reason for the log, never for '
         'the screen', () async {
-      final refusing = _Refusing(403, '{"error":{"message":"Rate limit"}}');
+      final refusing = _Refusing(
+        403,
+        '{"error":{"message":"Rate limit for alice@example.com",'
+        '"errors":[{"reason":"rateLimitExceeded"}]}}',
+      );
       await expectLater(
         drive(refusing).list(),
         throwsA(
           isA<DriveException>()
               .having((e) => e.status, 'status', 403)
-              .having((e) => e.detail, 'detail', '403 Rate limit')
+              .having((e) => e.detail, 'detail', 'HTTP 403 rateLimitExceeded')
               .having(driveNote, 'as said', 'Google 雲端硬碟沒有接受這次的要求，可在診斷匯出詳細資料'),
         ),
       );
@@ -265,7 +269,7 @@ void main() {
       await expectLater(
         drive(_Refusing(500, 'Server Error')).list(),
         throwsA(
-          isA<DriveException>().having((e) => e.detail, 'detail', '500 '),
+          isA<DriveException>().having((e) => e.detail, 'detail', 'HTTP 500'),
         ),
       );
     });

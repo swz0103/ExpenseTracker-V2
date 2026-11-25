@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 import '../time/app_clock.dart';
 import 'error_log.dart';
 import 'error_steps.dart';
+import 'app_fault.dart';
 
 /// What happens to a fault nothing caught, wherever it comes from: the
 /// drawing of a screen (`FlutterError.onError`), anything else on the
@@ -144,7 +145,7 @@ final class UnhandledErrors {
 }
 
 /// What the runtime said of a fault of the isolate, as text.
-final class IsolateFault implements Exception {
+final class IsolateFault implements AppFault {
   const IsolateFault(this.said);
 
   final String said;

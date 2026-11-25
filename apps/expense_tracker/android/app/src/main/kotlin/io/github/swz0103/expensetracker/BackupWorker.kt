@@ -150,7 +150,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
                 } catch (e: Exception) {
                     passOn(e)
                     phoneHas = false
-                    problems.put("phone", problem(now, e))
+                    problems.put("phone", problem(now, e, plan))
                 }
             } else {
                 phoneHas = made == revision
@@ -179,7 +179,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
                     if (BackgroundWork.retries(e, runAttemptCount)) {
                         again = true
                     } else {
-                        problems.put("drive", problem(now, e))
+                        problems.put("drive", problem(now, e, plan))
                     }
                 }
             }
@@ -206,10 +206,8 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         JSONObject().put("at", at).put("revision", revision).put("ledger", ledger)
 
     /** What went wrong, as the app's error log shows it: under Play services' wrapping. */
-    private fun problem(at: Long, e: Exception): JSONObject {
-        val cause = BackgroundWork.causeOf(e)
-        return JSONObject().put("at", at).put("message", cause.message ?: cause.javaClass.simpleName)
-    }
+    private fun problem(at: Long, e: Exception, plan: BackupPlan.Handed): JSONObject =
+        JSONObject().put("at", at).put("message", BackupPlan.problemOf(BackgroundWork.causeOf(e), plan))
 
     /** Writes the backup into the folder and keeps the newest of this ledger. */
     private fun toFolder(tree: Uri, backup: File, plan: BackupPlan.Handed) {

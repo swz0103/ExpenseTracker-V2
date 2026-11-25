@@ -7,6 +7,7 @@ import '../../features/reminders/model/reminder_alerts.dart';
 import '../../features/reminders/model/reminder_rules.dart';
 import 'platform_channel.dart';
 import '../../core/messages/native_messages.dart';
+import '../../core/diagnostics/app_fault.dart';
 
 /// Notifications through `Reminders.kt`, which only keeps and posts what
 /// it is given: each alert of the plan goes with its time on the wall
@@ -127,7 +128,7 @@ final class AndroidNotifications implements NotifyPort {
 
 /// The phone armed fewer alerts than it was handed: [count] were left
 /// out, past what it was asked for or Android's limit on alarms.
-final class AlertsLeftOut implements Exception {
+final class AlertsLeftOut implements AppFault {
   const AlertsLeftOut(this.count);
 
   final int count;

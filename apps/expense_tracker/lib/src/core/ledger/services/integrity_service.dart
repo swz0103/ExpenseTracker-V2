@@ -3,6 +3,7 @@ import '../repositories/account_repository.dart';
 import '../repositories/entry_repository.dart';
 import '../repositories/recurring_repository.dart';
 import '../repositories/trash_repository.dart';
+import '../../diagnostics/app_fault.dart';
 
 /// Where a record naming something the book no longer has was found.
 enum RecordKind { entry, trash, recurring }
@@ -13,7 +14,7 @@ enum RecordKind { entry, trash, recurring }
 ///
 /// What it says is only its kind, never a name, an amount or an id, so it
 /// can go to the diagnostics log as it is.
-sealed class IntegrityProblem implements Exception {
+sealed class IntegrityProblem implements AppFault {
   const IntegrityProblem(this.kind, this.id);
 
   /// Which kind of record names what is missing.

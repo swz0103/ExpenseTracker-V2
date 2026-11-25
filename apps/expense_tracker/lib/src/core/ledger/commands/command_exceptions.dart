@@ -1,10 +1,12 @@
 import 'package:ledger_entries/rules.dart' show RecordIssue;
 
+import '../../diagnostics/app_fault.dart';
+
 /// What went wrong with a change of the ledger, for the screens to tell:
 /// a change refused, or one the data source could not keep. Every case
 /// the ledger can report is one of these, so a screen that tells them all
 /// apart can be checked by the compiler.
-sealed class LedgerProblem implements Exception {
+sealed class LedgerProblem implements AppFault {
   const LedgerProblem();
 }
 
@@ -39,7 +41,7 @@ final class NameTaken extends LedgerProblem {
 
 /// A change made on screen could not be kept by the data source; the book
 /// is read back as it was kept.
-final class KeepFailed extends LedgerProblem {
+final class KeepFailed extends LedgerProblem implements CarriedFault {
   const KeepFailed(this.cause);
 
   /// What the data source threw.
@@ -65,7 +67,7 @@ final class StayedInTrash extends LedgerProblem {
 
 /// After a change could not be kept, the book could not be read back
 /// either; what the screens show may differ from what is kept.
-final class ReloadFailed extends LedgerProblem {
+final class ReloadFailed extends LedgerProblem implements CarriedFault {
   const ReloadFailed(this.cause);
 
   /// What the data source threw.

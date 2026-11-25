@@ -13,6 +13,7 @@ import '../../../core/diagnostics/error_log.dart';
 import '../../../core/time/app_clock.dart';
 import '../../../core/formatting/json_fields.dart';
 import '../../../core/platform/app_files.dart';
+import '../../../core/diagnostics/app_fault.dart';
 
 /// This build's number, set by the APK build (android.yml); 0 in a build
 /// made by hand and in the preview, which never look for updates.
@@ -245,7 +246,7 @@ final class AppUpdate extends ChangeNotifier {
       if (info == null) {
         ErrorLog.instance.record(
           UpdateMessages.checkStep,
-          const FormatException('update.json is not an update feed'),
+          const _UnreadableFeed(),
         );
         _failure = UpdateFailure.unreadableFeed;
         return null;
@@ -410,6 +411,14 @@ final class AppUpdate extends ChangeNotifier {
       ended.complete();
     }
   }
+}
+
+/// An `update.json` that does not say a build and its version.
+final class _UnreadableFeed implements AppFault {
+  const _UnreadableFeed();
+
+  @override
+  String toString() => 'update.json is not an update feed';
 }
 
 /// A download the person stopped ([AppUpdate.cancelDownload]).

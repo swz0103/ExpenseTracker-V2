@@ -4,6 +4,12 @@ import 'dart:io';
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
+import 'package:expense_tracker/src/core/ledger/commands/command_exceptions.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/quarantine.dart';
+import 'package:expense_tracker/src/core/platform/startup.dart'
+    show UnlockDelayed;
+import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
 import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,8 +28,8 @@ void main() {
       ): 'FileSystemException: Cannot open file (errno 2)',
       StateError("Entry '午餐 120' missing"):
           'StateError: Bad state: Entry … missing',
-      const FormatException('amount 12345 for 全聯'):
-          'FormatException: FormatException: amount # for …',
+      // An exception not the app's keeps its type alone (review 33).
+      const FormatException('amount 12345 for 全聯'): 'FormatException',
       PlatformException(code: 'key-invalidated', message: '/secret/path'):
           'PlatformException: key-invalidated',
       ArgumentError('see C:\\Users\\me\\記帳本.etbk'):
@@ -36,6 +42,85 @@ void main() {
       // Nothing the person wrote: no Chinese, only ASCII and the ellipsis.
       expect(RegExp(r'[^\x20-\x7e…]').hasMatch(said), isFalse, reason: said);
     }
+  });
+
+  group('review 33: what is kept is an allow-list', () {
+    test('an exception not the app\'s keeps its type, never its words', () {
+      expect(
+        ErrorLog.describe(
+          Exception('The user alice@example.com has no access'),
+        ),
+        '_Exception',
+      );
+      expect(
+        ErrorLog.describe(const HttpException('Connection closed', uri: null)),
+        'HttpException',
+      );
+      expect(
+        ErrorLog.describe(const SocketException('token expired for John Chen')),
+        'SocketException',
+      );
+    });
+
+    test("Drive's refusal keeps its status and reason code, never its "
+        'sentence', () {
+      // The body Drive sends with a 403.
+      const body =
+          '{"error":{"code":403,"message":"The user alice@example.com does '
+          'not have sufficient permissions for file 王小明的帳本.etbk.",'
+          '"errors":[{"domain":"global","reason":"insufficientPermissions",'
+          '"message":"The user alice@example.com does not have sufficient '
+          'permissions."}]}}';
+      final said = ErrorLog.describe(
+        DriveException(DriveProblem.refused, DriveBackup.detailOf(403, body)),
+      );
+      expect(
+        said,
+        'DriveException: DriveException(refused, HTTP 403 '
+        'insufficientPermissions)',
+      );
+      expect(said, isNot(contains('alice')));
+      expect(said, isNot(contains('example')));
+    });
+
+    test('an address, a query and a token are taken out of words kept', () {
+      expect(
+        ErrorLog.describe(StateError('sent to alice@example.com today')),
+        'StateError: Bad state: sent to … today',
+      );
+      expect(
+        ErrorLog.describe(StateError('fetch https://x.io/a?token=abc failed')),
+        'StateError: Bad state: fetch … failed',
+      );
+      expect(
+        ErrorLog.describe(
+          StateError('key ya29.a0AfB_byC3xKq9ZLmN0pQ2rS4tU6vW8 refused'),
+        ),
+        'StateError: Bad state: key ya#.… refused',
+      );
+      // Words the app passed itself (a delivery the job noted).
+      expect(ErrorLog.describe('雲端硬碟：bob@example.org 403'), 'String: … #');
+    });
+
+    test("an app fault keeps its own words, and what carries another's "
+        "keeps only that one's type", () {
+      expect(
+        ErrorLog.describe(const UnlockDelayed(Duration(seconds: 30))),
+        'UnlockDelayed: UnlockDelayed',
+      );
+      expect(
+        ErrorLog.describe(
+          DataSourceException(Exception('row of alice@example.com')),
+        ),
+        'DataSourceException(_Exception)',
+      );
+      expect(
+        ErrorLog.describe(
+          KeepFailed(DataSourceException(const RowSetAside('entries'))),
+        ),
+        'KeepFailed(DataSourceException(RowSetAside: RowSetAside(entries)))',
+      );
+    });
   });
 
   test('a long message is cut to one short line', () {
@@ -263,10 +348,7 @@ void main() {
 
       // A later run reads the same file and has the line again.
       final later = ErrorLog.detached()..keepIn(file);
-      expect(
-        later.entries.single.$2,
-        '備份：FormatException: FormatException: amount # for …',
-      );
+      expect(later.entries.single.$2, '備份：FormatException');
       expect(
         later.text.split('\n').last,
         '    #0 f (package:expense_tracker/a.dart:1:2)',

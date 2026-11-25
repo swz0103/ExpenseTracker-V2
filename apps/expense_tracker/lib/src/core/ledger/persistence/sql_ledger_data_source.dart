@@ -40,6 +40,7 @@ import 'codec/record_shape.dart';
 import '../../diagnostics/performance_monitor.dart';
 import '../../diagnostics/error_log.dart';
 import '../../diagnostics/error_steps.dart';
+import '../../diagnostics/app_fault.dart';
 
 /// The collection of the last closing prices and rate board, kept so holdings
 /// and foreign accounts are valued offline.
@@ -1193,7 +1194,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
 /// A book kept by an earlier version was not opened: the copy kept before
 /// bringing it up could not be written ([SqlLedgerDataSource.bringUp]).
-final class UpgradeHeld implements Exception {
+final class UpgradeHeld implements AppFault {
   const UpgradeHeld(this.failure);
 
   final UpgradeBackupFailed failure;

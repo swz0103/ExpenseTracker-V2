@@ -21,6 +21,7 @@ import 'memory_keystore.dart';
 import 'quick_key.dart';
 import 'unlock_attempts.dart';
 import 'app_files.dart';
+import '../diagnostics/app_fault.dart';
 
 /// What a backup says of itself before any key: when it was taken, its
 /// records, and what opens it. Named here for the screens, which do not
@@ -968,7 +969,7 @@ final class Startup extends ChangeNotifier {
 
 /// A password or recovery code was not tried: too many wrong ones came
 /// before it, and the next may be tried after [wait].
-final class UnlockDelayed implements Exception {
+final class UnlockDelayed implements AppFault {
   const UnlockDelayed(this.wait);
 
   final Duration wait;

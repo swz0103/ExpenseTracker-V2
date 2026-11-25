@@ -205,4 +205,18 @@ class BackupPlanTest {
             assertEquals(full, e)
         }
     }
+
+    @Test
+    fun theLogIsToldTheTypeAndStatusNeverTheWords() {
+        // Review 33: a server's sentence or a file's name never goes to
+        // the app's error log.
+        assertEquals(
+            "IOException",
+            BackupPlan.problemOf(IOException("/storage/emulated/0/Documents/王小明 alice@example.com"), plan),
+        )
+        assertEquals("Refused HTTP 403", BackupPlan.problemOf(DriveUploader.Refused(403, "HTTP 403"), plan))
+        assertEquals("Refused", BackupPlan.problemOf(DriveUploader.Refused(0, "no upload address"), plan))
+        // The app's own words for a folder that no longer lets it write.
+        assertEquals(plan.folderDenied, BackupPlan.problemOf(IllegalStateException(plan.folderDenied), plan))
+    }
 }
