@@ -350,19 +350,11 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
     book.namesOf.forEach(_indexFound);
     _refs.fill(book.categoryNames);
-    // The months long gone kept as one day row each (review 39), once
-    // and from then on as each month ages.
-    final folded = foldedMarket(
-      book.market,
-      BusinessDate.of(today),
-      report: (error) => ErrorLog.instance.record('讀取行情', error),
-    );
-    if (folded.changes.isNotEmpty) {
-      await _whenQuiet(
-        () => _store.write((w) => _apply(w, folded.changes), counts: false),
-      );
-    }
-    final market = _readMarket(folded.rows);
+    // The book's market already has the months long gone as one day row
+    // each (review 39), folded on its worker; the fold is kept later,
+    // never waited on here (PERF-4).
+    final market = _readMarket(book.market);
+    _keepFold(book.marketFolds);
     final ledger = Ledger(
       today: today,
       clock: _today,
@@ -399,6 +391,28 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     );
     return ledger;
   }
+
+  /// Keeps [fold], the months long gone of the market folded into a row
+  /// each (`foldedMarket`), once no other isolate uses the store: after
+  /// the opening, never on its way (PERF-4), as a posting of the whole
+  /// book afresh can hold the store for seconds. The rows changed since
+  /// it was worked out, it is left to the next opening
+  /// (`foldStillApplies`). Done when it is kept or left ([folding]).
+  void _keepFold(({List<RowChange> changes, Map<String, String> from}) fold) {
+    if (fold.changes.isEmpty) return;
+    folding =
+        _whenQuiet(() {
+          if (!foldStillApplies(fold.from, _store.rows(shelf: _market))) return;
+          _store.write((w) => _apply(w, fold.changes), counts: false);
+        }).catchError((Object error) {
+          // The fold is only a smaller table: the next opening tries again.
+          ErrorLog.instance.record('讀取行情', error);
+        });
+  }
+
+  /// Done once the market's fold the last [load] found is kept or left
+  /// ([_keepFold]); at once when it found none.
+  Future<void> folding = Future.value();
 
   /// How long the last [load] took, and how much of it the book's worker
   /// spent reading it (null when it was read here, a small book), in

@@ -463,3 +463,11 @@ void main() {
     });
   });
 }
+
+/// The history kept in the day rows [bodies], by day, as an opening reads
+/// it (`readMarket`). Throws a [FormatException] for a row that cannot be
+/// read.
+MarketHistory historyFrom(Map<BusinessDate, String> bodies) => historyOf({
+  for (final MapEntry(key: day, value: body) in bodies.entries)
+    day: dayFiguresOf(body),
+});

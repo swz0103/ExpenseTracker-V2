@@ -35,10 +35,11 @@ typedef Market = ({
 /// Throws for a row that cannot be read.
 Market marketFrom(List<StoredRow> rows) => _marketFrom(rows, {});
 
-/// The closes and board last fetched, from [rows] of [marketShelf], each
-/// row read once: one that cannot be read is left out, [report] told
-/// what reading it threw (a close or rate kept that cannot be read is
-/// fetched again). Without [history], the day rows are not read at all,
+/// The closes and board last fetched, from [rows] of [marketShelf]: each
+/// day row read once, each of the few latest rows (the closes, the
+/// board) read alone to be checked, then with the others; one that
+/// cannot be read is left out, [report] told what reading it threw (a
+/// close or rate kept that cannot be read is fetched again). Without [history], the day rows are not read at all,
 /// for a reader that needs only the latest figures (review 39: they are
 /// most of the rows).
 Market readMarket(
@@ -169,28 +170,36 @@ void _unreported(Object error) {}
 
 /// The market [rows] with the months ended more than
 /// [marketDaysKeptWhole] days before [today] folded into one day row
-/// each (`foldedDays`, review 39), and the changes to keep that so; a
+/// each (`foldedDays`, review 39); the changes to keep that so; and the
+/// day rows they were worked out from (`from`, body by id), whose month
+/// a change names, to check the changes against the rows kept when they
+/// are written ([foldStillApplies]). Only a month not yet one row on its
+/// first day is read, so once folded an opening reads none (PERF-4); a
 /// day row that cannot be read is left as it is, [report] told why.
-({List<StoredRow> rows, List<RowChange> changes}) foldedMarket(
+({List<StoredRow> rows, List<RowChange> changes, Map<String, String> from})
+foldedMarket(
   List<StoredRow>? rows,
   BusinessDate today, {
   void Function(Object error) report = _unreported,
 }) {
   final all = rows ?? const <StoredRow>[];
-  final before = today.addDays(-marketDaysKeptWhole);
+  final months = _foldedMonths(all, today, report);
+  if (months.isEmpty) return (rows: all, changes: const [], from: const {});
   final old = <BusinessDate, DayFigures>{};
-  for (final row in all) {
-    if (!row.id.startsWith(marketDayPrefix)) continue;
-    try {
-      final day = marketDayOf(row.id)!;
-      if (day.isBefore(before)) old[day] = dayFiguresOf(row.body);
-    } on Object catch (error) {
-      // Told to [report]: a row that cannot be read is left out.
-      report(error);
+  final from = <String, String>{};
+  for (final MapEntry(value: kept) in months.entries) {
+    for (final (day, row) in kept) {
+      try {
+        old[day] = dayFiguresOf(row.body);
+        from[row.id] = row.body;
+      } on Object catch (error) {
+        // Told to [report]: a row that cannot be read is left out.
+        report(error);
+      }
     }
   }
   final folded = foldedDays(old, today);
-  if (folded.isEmpty) return (rows: all, changes: const []);
+  if (folded.isEmpty) return (rows: all, changes: const [], from: const {});
   return (
     rows: [
       for (final row in all)
@@ -204,7 +213,65 @@ void _unreported(Object error) {}
             ? RowChange.drop(marketShelf, id)
             : RowChange.put(marketShelf, id, body),
     ],
+    from: from,
   );
+}
+
+/// Whether the changes [foldedMarket] worked out from the day rows
+/// [from] still fold the market [rows] kept now: every day row of the
+/// months they name is as it was, none added or taken away since. A
+/// change of those months in between (a month report's closes, a
+/// restore) leaves the fold to the next opening.
+bool foldStillApplies(Map<String, String> from, List<StoredRow> rows) {
+  final months = {for (final id in from.keys) _monthOf(id)};
+  var seen = 0;
+  for (final row in rows) {
+    if (!row.id.startsWith(marketDayPrefix)) continue;
+    if (!months.contains(_monthOf(row.id))) continue;
+    if (from[row.id] != row.body) return false;
+    seen++;
+  }
+  return seen == from.length;
+}
+
+/// The month of the day row [id] (`day:2026-01-15` → `day:2026-01`);
+/// an id too short to name one, as it is.
+String _monthOf(String id) {
+  const length = marketDayPrefix.length + 7;
+  return id.length < length ? id : id.substring(0, length);
+}
+
+/// The day rows of [rows] by the first day of their month, for each
+/// month ended more than [marketDaysKeptWhole] days before [today] that
+/// is not one row on its first day already; told only by the rows' ids,
+/// none of their bodies read.
+Map<BusinessDate, List<(BusinessDate, StoredRow)>> _foldedMonths(
+  List<StoredRow> rows,
+  BusinessDate today,
+  void Function(Object error) report,
+) {
+  final cutoff = today.addDays(-marketDaysKeptWhole);
+  final months = <BusinessDate, List<(BusinessDate, StoredRow)>>{};
+  for (final row in rows) {
+    if (!row.id.startsWith(marketDayPrefix)) continue;
+    final BusinessDate day;
+    try {
+      day = marketDayOf(row.id)!;
+    } on Object catch (error) {
+      // Told to [report]: a row that cannot be read is left out.
+      report(error);
+      continue;
+    }
+    final first = BusinessDate(day.year, day.month, 1);
+    final next = day.month == 12
+        ? BusinessDate(day.year + 1, 1, 1)
+        : BusinessDate(day.year, day.month + 1, 1);
+    if (!next.isAfter(cutoff)) (months[first] ??= []).add((day, row));
+  }
+  months.removeWhere(
+    (first, kept) => kept.length == 1 && kept.single.$1 == first,
+  );
+  return months;
 }
 
 /// A reference price and name for each stock with a kept close: the
