@@ -858,14 +858,11 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final categories = <Category>[];
     for (final j in json) {
       if (j is! Map<String, Object?>) continue;
-      final Map<String, Object?> record;
-      try {
-        record = upgradeRecord(Collection.category.name, j);
-      } on NewerRecord {
-        // A later version's: set aside as the book opens, never read.
-        continue;
-      }
-      categories.add(categoryFromJson(record, refs));
+      // A later version's: set aside as the book opens, never read.
+      if (_newer(j)) continue;
+      categories.add(
+        categoryFromJson(upgradeRecord(Collection.category.name, j), refs),
+      );
     }
     if (categoriesOnLoops(categories).isNotEmpty) {
       throw const FormatException(parentLoopProblem);
@@ -890,16 +887,30 @@ final class SqlLedgerDataSource implements LedgerDataSource {
   /// a later record version ([NewerRecord]), is let through: the book
   /// sets it aside as it opens, and keeps it.
   static void check(String collection, String id, String body) {
-    if (!shelvesRead.contains(collection)) return;
+    if (!shelvesRead.contains(collection) || _newerRow(collection, body)) {
+      return;
+    }
     try {
       _check(collection, id, body);
-    } on NewerRecord {
-      return;
     } on Object catch (slip) {
       final what = slip is FormatException ? slip.message : slip.runtimeType;
       throw FormatException('$collection $id: $what');
     }
   }
+
+  /// Whether [body], a row of [collection], is a record of a later record
+  /// version than this one reads (for a form put aside, its entry's).
+  static bool _newerRow(String collection, String body) {
+    // Not JSON (null here) has no version to weigh: [_check] tells why.
+    final json = decodeBodies([body]).values.single;
+    if (json is! Map<String, Object?>) return false;
+    final record = collection == _draft ? json['entry'] : json;
+    return record is Map<String, Object?> && _newer(record);
+  }
+
+  /// Whether [record] is of a later record version ([NewerRecord]).
+  static bool _newer(Map<String, Object?> record) =>
+      (versionOf(record) ?? 0) > recordVersion;
 
   static void _check(String collection, String id, String body) {
     if (collection == Collection.receipt.name) {
