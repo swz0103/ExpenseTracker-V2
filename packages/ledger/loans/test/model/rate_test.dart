@@ -47,6 +47,12 @@ void main() {
     expect(maxLoanRate, 10000); // 100% in hundredths of a percent
     expect(readRate('100.01'), isA<RateRead>().having(_hundredths, '', 10001));
     expect(readRate('120'), isA<RateRead>().having(_hundredths, '', 12000));
+    // 1,000% is 100000 hundredths; 999,999% is 99999900, under the cap.
+    expect(readRate('1000'), isA<RateRead>().having(_hundredths, '', 100000));
+    expect(
+      readRate('999999'),
+      isA<RateRead>().having(_hundredths, '', 99999900),
+    );
     expect(rateOf('100.01'), isNull);
     // Past a million percent it reads as a million: 1,000,000 x 100.
     expect(
