@@ -37,6 +37,23 @@ VM), the rebuild scaled by about two for an emulator or a mid-range phone
 twice the first emulator run's figures; lowering is welcome, raising needs
 a reason as above. The 3.6k and 10k runs report the same figures, ungated.
 
+PERF-3 (2026-11-25), after run 159 (389b6fe) failed with a hold of
+61 ms: `100k_journal_rebuild_held_ms` is one sample per CI run, the
+widest gap of a 1 ms timer, and it had already ranged 13–51 ms over runs
+125–158 (24 completed runs: median 28; 42, 46, 49 and 51 ms among them,
+no change of the posting path between). No change between run 158 (21
+ms) and 159 is on that path, and the host bench gave the same figures
+at both (14–31 ms, seven runs each). What the gaps are: the worker's
+collections of young objects stop the whole isolate group, the screen's
+isolate with it, and before PERF-3 the posting worker read every row,
+then decoded every entry's JSON, before reading any entry, so nearly all
+it made survived each collection (some 20 gaps of 8–25 ms a rebuild, the
+widest the sample). Now the entries are read a page at a time
+(`ApartStore.kept`) and each decoded as it comes (`decodeBook`'s
+`entryRows`), its body and JSON let go: 1–4 such gaps a rebuild on the
+host, the widest 14–23 ms in 15 of 18 runs (median 19, before 26), the
+other three 48–89 ms with the host busy. The limit stays 60.
+
 Which `save` field the "frame build after save" figure came from was not
 recorded with the measurements; the average frame build time is assumed (the
 worst frame would be a flakier gate). Check against a real run.
@@ -489,6 +506,8 @@ twice the new worst, the eight's is kept (never loosened).
 | `integrity_gate_test.dart`, the check at open (warm) | 17.6–20.5 ms | 3.7–6.1 ms | 0.295 | 0.6 |
 | `trade_run_gate_test.dart`, 200 trades of an import checked | 2,572–2,816 ms | 148–165 ms | 0.063 | 0.13 |
 | `holds_with_gate_test.dart`, 40 sales saved one after another, each asked first (FIX-R34) | 630–747 ms | 72–85 ms | 0.122 | 0.25 |
+| `holds_with_gate_test.dart`, the first sale save after opening, prepared (`EntryValidator.prepare`, PERF-3) against not | 12.8–16.9 ms | 0.51–0.63 ms | 0.046 | 0.1 |
+| the same, the longest step of preparing against that first save | 12.8–16.9 ms | 1.9–2.2 ms | 0.171 | 0.35 |
 
 The `holds_with` row was measured five times on the Linux host,
 2026-11-25, load 2.7–3.1 on four cores, PSI `some` avg10 10.6–13.9%.
@@ -502,6 +521,17 @@ the twenty stocks answered once, about as long as one whole replay;
 each save after it takes about 0.6 ms. `trade_run_gate`'s old
 working is now `wholeBookHolds` (test/support/trade_book.dart), the
 same whole replay, since `holdsWith` no longer is one.
+
+Since PERF-3 the app does that first-save work once the book has opened
+(`EntryValidator.prepare`, from shell.dart after its first frame):
+the index of the entries by stock, then one stock at a time, each step
+between frames (`BetweenFrames`). The prepared rows were measured
+three runs, 2026-11-25, Linux host, the order of the entries already
+worked out as the month first shown has it (the index alone is then
+2–5 ms, the twenty stocks about 1 ms each): the first save fell from
+12.8–16.9 ms to 0.51–0.63 ms, the longest step 1.9–2.2 ms. With the
+order not yet worked out the first step also works it out (17–30 ms at
+100k), unless a page listing a month or an account has worked it out.
 
 What remains after a save: the yearly return of everything still reads
 every entry once (about 2 ms at 100k), so the order of its flows, and so

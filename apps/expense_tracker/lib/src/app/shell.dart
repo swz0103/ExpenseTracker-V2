@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../features/entries/forms/composer.dart';
@@ -33,6 +35,7 @@ import '../core/widgets/shown_amounts.dart';
 import '../core/design_system/spacing.dart';
 import '../core/design_system/motion.dart';
 import '../core/formatting/words.dart';
+import 'between_frames.dart';
 
 enum _Tab { overview, ledger, accounts, more }
 
@@ -120,12 +123,20 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     widget.ledger.problem.addListener(_report);
     widget.services.quick?.addListener(_quickAction);
-    // An action the app was opened with waits for the first frame.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _quickAction());
+    // An action the app was opened with waits for the first frame; so
+    // does answering every stock's holdings, a step between frames, which
+    // the first sale save would otherwise pay for (PERF-3).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _quickAction();
+      unawaited(widget.ledger.entryValidator.prepare(_betweenFrames.next));
+    });
   }
+
+  final _betweenFrames = BetweenFrames();
 
   @override
   void dispose() {
+    _betweenFrames.stop();
     widget.services.quick?.removeListener(_quickAction);
     widget.ledger.problem.removeListener(_report);
     super.dispose();

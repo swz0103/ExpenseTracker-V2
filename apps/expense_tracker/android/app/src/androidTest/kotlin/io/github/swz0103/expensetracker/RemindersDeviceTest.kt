@@ -56,9 +56,21 @@ class RemindersDeviceTest {
         Reminders.show(context, 4243, "繳卡費", "", "", tag = "due:test-card", channel = CHANNEL)
         Reminders.show(context, 4244, "扣款", "", "", tag = "due:test-kept", channel = CHANNEL)
         Reminders.replace(context, emptyList(), wanted = setOf("due:test-kept"))
-        val tags = manager.activeNotifications.map { it.tag }.toSet()
+        // The notification service applies posts and cancels on its own
+        // thread: wait for it to settle rather than read it at once.
+        val tags = settled { "due:test-kept" in it && "due:test-card" !in it }
         assertTrue("due:test-kept" in tags)
         assertTrue("due:test-card" !in tags)
+    }
+
+    /** The tags shown once [done] holds, or after 3 s, whichever first. */
+    private fun settled(done: (Set<String?>) -> Boolean): Set<String?> {
+        val until = System.currentTimeMillis() + 3_000
+        while (true) {
+            val tags = manager.activeNotifications.map { it.tag }.toSet()
+            if (done(tags) || System.currentTimeMillis() > until) return tags
+            Thread.sleep(50)
+        }
     }
 
     @Test

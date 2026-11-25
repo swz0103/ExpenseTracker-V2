@@ -277,6 +277,58 @@ void main() {
       expect(run.holds(stock('s3', '0050', 3, type: EntryType.sell)), isTrue);
     });
 
+    test('prepared after the book opens, every stock is answered ahead, '
+        'one a step, each on the very list a later save asks about '
+        '(PERF-3)', () async {
+      final ledger = bookOf([
+        stock('b', '2330', 1, shares: 50),
+        stock('x', '0050', 1),
+        entry('lunch', amount: 80),
+        stock('y', '2412', 2),
+      ]);
+      final asked = _AskedHoldings(ledger.holdings);
+      final validator = EntryValidator(
+        entries: ledger.entries,
+        accounts: ledger.accounts,
+        holdings: asked,
+        entryQueryService: ledger.entryQueryService,
+        balanceService: ledger.balanceService,
+      );
+      final steps = <String>[];
+      asked.told = steps.add;
+      await validator.prepare(() async {
+        steps.add('pause');
+        return true;
+      });
+      // The index first, then the three stocks in the order first written,
+      // each after a pause of its own: four pauses.
+      expect(steps, [
+        'pause',
+        'pause',
+        'kept 2330',
+        'pause',
+        'kept 0050',
+        'pause',
+        'kept 2412',
+      ]);
+      final prepared = [...asked.keptLists];
+      steps.clear();
+      asked.keptLists.clear();
+      // A sale of 2330 replays its own stock; the other two are asked on
+      // the lists prepared, so answered as kept, not replayed again.
+      final sale = stock('s', '2330', 5, type: EntryType.sell, shares: 50);
+      expect(validator.holdsWith([sale]), isTrue);
+      expect(steps, ['kept 0050', 'kept 2412', 'whole 2330']);
+      expect(identical(asked.keptLists[0], prepared[1]), isTrue);
+      expect(identical(asked.keptLists[1], prepared[2]), isTrue);
+      // Told to stop after the index, no stock is answered.
+      steps.clear();
+      var asks = 0;
+      await validator.prepare(() async => ++asks < 2);
+      expect(asks, 2);
+      expect(steps, isEmpty);
+    });
+
     test('a stock a buy left short refuses every later sale, as the whole '
         'replay does', () {
       // 50 bought, then a sale of 100 the book holds short (left out as
@@ -483,3 +535,32 @@ void main() {
 
 String? _messageOf(RecordIssue? failure) =>
     failure == null ? null : validationMessage(failure);
+
+/// The book's holdings, telling each ask of a stock's trades: `kept` for
+/// one answered once per list ([HoldingReader.holdsWithKept]), `whole`
+/// for one replayed with a change.
+final class _AskedHoldings implements HoldingReader {
+  _AskedHoldings(this._inner);
+
+  final HoldingReader _inner;
+  void Function(String step) told = (_) {};
+
+  /// The lists asked about as kept, in order.
+  final keptLists = <List<Entry>>[];
+
+  @override
+  bool holdsWithKept(List<Entry> kept) {
+    keptLists.add(kept);
+    told('kept ${kept.first.holding}');
+    return _inner.holdsWithKept(kept);
+  }
+
+  @override
+  bool holdsWith(List<Entry> entries) {
+    told('whole ${entries.first.holding}');
+    return _inner.holdsWith(entries);
+  }
+
+  @override
+  Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}

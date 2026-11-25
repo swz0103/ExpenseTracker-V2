@@ -122,9 +122,12 @@ DecodedBook decodeBook(
   DateTime? trashFrom,
   DateTime? today,
   DecodedRecords? entryTail,
+  Iterable<StoredRow>? entryRows,
 }) {
+  assert(entryTail == null || entryRows == null, 'one or the other');
   final aside = Quarantine();
-  final json = _records(shelves, aside, entryTail);
+  final unreadable = {for (final c in Collection.values) c: Quarantine()};
+  final json = _records(shelves, unreadable, entryTail);
   // One copy of what entries repeat, for the whole book.
   final same = SameValues();
   final namesOf = <String, Set<String>>{};
@@ -140,10 +143,12 @@ DecodedBook decodeBook(
     List<int>? seqs,
   }) {
     final read = <T>[];
-    final rows = shelves[collection.name] ?? const <StoredRow>[];
-    final records = json[collection.name]!;
+    final rows = collection == Collection.entry && entryRows != null
+        ? entryRows
+        : shelves[collection.name] ?? const <StoredRow>[];
+    final recordAt = json[collection]!;
     for (final (i, row) in rows.indexed) {
-      final record = records[i];
+      final record = recordAt(i, row);
       if (record == null) continue;
       final T value;
       try {
@@ -178,8 +183,12 @@ DecodedBook decodeBook(
   // What each category id stands for first: a category's parent and every
   // other record name theirs through it.
   final categoryNames = [
-    for (final record in json[Collection.category.name]!)
-      if (record case {'id': final String id, 'name': final String name})
+    for (final (i, row)
+        in (shelves[Collection.category.name] ?? const []).indexed)
+      if (json[Collection.category]!(i, row) case {
+        'id': final String id,
+        'name': final String name,
+      })
         (id, name),
   ];
   final refs = CategoryRefs()..fill(categoryNames);
@@ -286,7 +295,16 @@ DecodedBook decodeBook(
       for (final row in shelves[draftShelf] ?? const <StoredRow>[])
         row.id: row.body,
     },
-    aside: aside.rows,
+    // Those that cannot be read at all first, shelf by shelf, then those
+    // read but refused, in the order they were met.
+    aside: [
+      for (final c in Collection.values) ...[
+        ...unreadable[c]!.rows,
+        // The tail's after the head's, as when all are decoded here.
+        if (c == Collection.entry) ...?entryTail?.aside,
+      ],
+      ...aside.rows,
+    ],
     namesOf: namesOf,
     categoryNames: categoryNames,
     expired: [
@@ -302,35 +320,48 @@ DecodedBook decodeBook(
   );
 }
 
-/// The record of each row of [shelves] but the receipts, by shelf, in
-/// the order of its rows, decoded and brought up to the current version;
+/// The record of each row of [shelves] but the receipts, by shelf, by
+/// the place of its row: decoded and brought up to the current version;
 /// null for a row that is not a JSON object, or that a later version
-/// wrote, which is set [aside] instead. Every collection has its list,
-/// empty when it has no rows. The last entry rows, as many as
-/// [entryTail] holds, are taken from it, their rows set aside after
-/// those of the entries before them, as when all are decoded here.
-Map<String, List<Map<String, Object?>?>> _records(
+/// wrote, which is set aside instead, in [unreadable] under its shelf.
+/// Every collection has its reader, of no rows when it has none. The last
+/// entry rows, as many as [entryTail] holds, are taken from it (their
+/// rows set aside are [entryTail]'s own, told after the others').
+///
+/// The entries' records are decoded one at a time, as each is asked
+/// for, and are let go once read (PERF-3): decoded all at once, the
+/// JSON of 100,000 entries stayed alive until the last was read, and the
+/// worker's collections copying it (one isolate group) held the screen.
+/// Each entry row is to be asked for once, in order.
+Map<Collection, _RecordAt> _records(
   Map<String, List<StoredRow>> shelves,
-  Quarantine aside,
+  Map<Collection, Quarantine> unreadable,
   DecodedRecords? entryTail,
 ) {
-  final records = <String, List<Map<String, Object?>?>>{};
+  final records = <Collection, _RecordAt>{};
   for (final collection in Collection.values) {
     if (collection == Collection.receipt) continue;
     final rows = shelves[collection.name] ?? const <StoredRow>[];
-    if (collection == Collection.entry && entryTail != null) {
-      final head = rows.length - entryTail.records.length;
-      records[collection.name] = [
-        ..._shelfRecords(rows.sublist(0, head), aside),
-        ...entryTail.records,
-      ];
-      entryTail.aside.forEach(aside.adopt);
+    final aside = unreadable[collection]!;
+    if (collection == Collection.entry) {
+      final tail = entryTail?.records;
+      final head = rows.length - (tail?.length ?? 0);
+      records[collection] = (i, row) =>
+          tail == null || i < head ? _recordOf(row, aside) : tail[i - head];
     } else {
-      records[collection.name] = _shelfRecords(rows, aside);
+      final decoded = _shelfRecords(rows, aside);
+      records[collection] = (i, _) => decoded[i];
     }
   }
   return records;
 }
+
+/// The record of the row at a place of one shelf ([_records]).
+typedef _RecordAt = Map<String, Object?>? Function(int i, StoredRow row);
+
+/// The record of [row] alone, as [_shelfRecords] decodes each.
+Map<String, Object?>? _recordOf(StoredRow row, Quarantine aside) =>
+    _record(row, decodeBodies([row.body]), 0, aside);
 
 /// [rows], all of one shelf, decoded and brought up to this version as
 /// the book opens them ([decodeBook]), with the rows set aside: done on a
