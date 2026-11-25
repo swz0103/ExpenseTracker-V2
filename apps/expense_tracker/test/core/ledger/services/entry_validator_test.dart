@@ -1,9 +1,11 @@
-import 'package:expense_tracker/src/core/ledger/models/models.dart';
-import 'package:ledger_entries/rules.dart';
+import 'dart:math';
+
+import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/messages/validation_messages.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../support/book.dart';
+import '../../../support/fuzz.dart';
 
 void main() {
   final accounts = const [
@@ -207,6 +209,136 @@ void main() {
     expect(book.validator.validate(sale, holdings: false), isNull);
     expect(book.validator.holdsWith([trade('b'), sale]), isTrue);
     expect(book.validator.holdsWith([sale]), isFalse);
+  });
+
+  group('trades checked one after another (review 32 1.6)', () {
+    Entry stock(
+      String id,
+      String code,
+      int date, {
+      EntryType type = EntryType.buy,
+      int shares = 10,
+    }) => Entry(
+      id: id,
+      date: DateTime.utc(2026, 1, date),
+      type: type,
+      amount: type == EntryType.dividend ? 0 : 1000,
+      account: 'bank',
+      holding: code,
+      shares: shares,
+    );
+
+    Ledger bookOf(List<Entry> entries) => Ledger(
+      today: DateTime.utc(2026, 3),
+      accounts: accounts,
+      categories: const [],
+      entries: entries,
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+
+    test('a sale is held to its stock, then to what was added', () {
+      final run = bookOf([stock('b', '2330', 1), stock('x', '0050', 1)])
+          .entryValidator
+          .tradeRun();
+      // 10 held; a sale of 10 holds, a second of 1 then does not.
+      final first = stock('s1', '2330', 2, type: EntryType.sell);
+      expect(run.holds(first), isTrue);
+      run.add(first);
+      expect(
+        run.holds(stock('s2', '2330', 3, type: EntryType.sell, shares: 1)),
+        isFalse,
+      );
+      // Another stock's shares are its own.
+      expect(run.holds(stock('s3', '0050', 3, type: EntryType.sell)), isTrue);
+    });
+
+    test('a stock a buy left short refuses every later sale, as the whole '
+        'replay does', () {
+      // 50 bought, then a sale of 100 the book holds short (left out as
+      // read), then a sale of 50 that holds.
+      final ledger = bookOf([
+        stock('b', '2330', 1, shares: 50),
+        stock('short', '2330', 10, type: EntryType.sell, shares: 100),
+        stock('later', '2330', 30, type: EntryType.sell, shares: 50),
+        stock('x', '0050', 1),
+      ]);
+      final run = ledger.entryValidator.tradeRun();
+      // A buy of 50 on the 5th lets the short sale take all 100: the sale
+      // of the 30th is then short, and no sale of any stock holds.
+      final buy = stock('more', '2330', 5, shares: 50);
+      run.add(buy);
+      final other = stock('s', '0050', 20, type: EntryType.sell, shares: 1);
+      expect(ledger.entryValidator.holdsWith([buy, other]), isFalse);
+      expect(run.holds(other), isFalse);
+    });
+
+    for (var seed = 0; seed < fuzzSeeds; seed++) {
+      test('answers as the whole replay does ($seed)', () {
+        final r = Random(seed);
+        const codes = ['2330', '0050', '2412'];
+        var serial = 0;
+        Entry any() {
+          final code = codes[r.nextInt(codes.length)];
+          final date = 1 + r.nextInt(28);
+          return switch (r.nextInt(7)) {
+            0 ||
+            1 => stock('t${serial++}', code, date, shares: 1 + r.nextInt(30)),
+            2 || 3 => stock(
+              't${serial++}',
+              code,
+              date,
+              type: EntryType.sell,
+              shares: 1 + r.nextInt(30),
+            ),
+            // A capital reduction, a stock dividend, a cash dividend.
+            4 => stock(
+              't${serial++}',
+              code,
+              date,
+              type: EntryType.dividend,
+              shares: -(1 + r.nextInt(10)),
+            ),
+            5 => stock(
+              't${serial++}',
+              code,
+              date,
+              type: EntryType.dividend,
+              shares: 1 + r.nextInt(5),
+            ),
+            _ => stock(
+              't${serial++}',
+              code,
+              date,
+              type: EntryType.dividend,
+              shares: 0,
+            ),
+          };
+        }
+
+        // A book read as it was kept, short trades and all (left out),
+        // with spending between.
+        final ledger = bookOf([
+          for (var i = 0; i < 30; i++)
+            r.nextInt(4) == 0 ? entry('e$i', amount: 1 + i) : any(),
+        ]);
+        final validator = ledger.entryValidator;
+        final run = validator.tradeRun();
+        final added = <Entry>[];
+        final read = [for (var i = 0; i < 40; i++) any()]
+          ..sort((a, b) => a.date.compareTo(b.date));
+        for (final e in read) {
+          final whole = validator.holdsWith([...added, e]);
+          expect(run.holds(e), whole, reason: 'seed $seed ${e.id}');
+          final takes = e.type == EntryType.sell || e.isReduction;
+          if (!takes || whole) {
+            added.add(e);
+            run.add(e);
+          }
+        }
+      });
+    }
   });
 }
 

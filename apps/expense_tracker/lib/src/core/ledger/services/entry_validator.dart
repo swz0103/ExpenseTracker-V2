@@ -129,4 +129,61 @@ final class EntryValidator {
       ...extra,
     ]);
   }
+
+  /// Trades checked one after another, as an import reads them: each
+  /// against the book and the trades [TradeRun.add]ed before it.
+  TradeRun tradeRun() => TradeRun._(_holdings, _entries);
+}
+
+/// Trades checked one after another against the book, oldest first, as an
+/// import reads them (review 32 1.6): [holds] answers as
+/// [EntryValidator.holdsWith] given every trade [add]ed so far and the one
+/// asked about, without replaying the whole book for each. A stock's
+/// holdings are worked out from its own trades alone, so only the asked
+/// one's stock is replayed; every other stock's answer is kept until a
+/// trade of it is added.
+final class TradeRun {
+  TradeRun._(this._holdings, EntryReader entries) {
+    // Exception to as-of-today: the write rules check the whole timeline,
+    // as holdsWith does.
+    for (final e in entries.all) {
+      if (_codeOf(e) case final code?) (_trades[code] ??= []).add(e);
+    }
+  }
+
+  final HoldingReader _holdings;
+
+  /// Each stock's trades, the book's in the order written, then those
+  /// added, in turn: as holdsWith lists them, less the other stocks'.
+  final _trades = <String, List<Entry>>{};
+
+  /// Whether each stock's trades hold as they stand; worked out when
+  /// first asked, again once a trade of it is added.
+  final _holds = <String, bool>{};
+
+  /// The stock a trade is replayed under; null for an entry no replay
+  /// reads.
+  static String? _codeOf(Entry e) => e.isInvestment ? e.holding : null;
+
+  bool _stands(String code) =>
+      _holds[code] ??= _holdings.holdsWith(_trades[code] ?? const []);
+
+  /// Whether [e] can join the book after the trades added so far: none
+  /// of them sells more shares than are held by then.
+  bool holds(Entry e) {
+    final own = _codeOf(e);
+    for (final code in _trades.keys) {
+      if (code != own && !_stands(code)) return false;
+    }
+    if (own == null) return true;
+    return _holdings.holdsWith([...?_trades[own], e]);
+  }
+
+  /// Takes [e] as one of the trades the next are checked after.
+  void add(Entry e) {
+    final code = _codeOf(e);
+    if (code == null) return;
+    (_trades[code] ??= []).add(e);
+    _holds.remove(code);
+  }
 }

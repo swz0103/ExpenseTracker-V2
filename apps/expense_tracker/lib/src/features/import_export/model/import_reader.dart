@@ -385,7 +385,8 @@ final class _Reader {
     final days = byDay.keys.toList()..sort();
     yield null;
     final kept = <Entry>[];
-    final trades = <Entry>[];
+    // Each trade checked after the book and those read before it.
+    final trades = book.entryValidator.tradeRun();
     final used = <String>{};
     final cats = <String>{};
     for (final i in days.expand((day) => byDay[day]!)) {
@@ -394,7 +395,7 @@ final class _Reader {
       if (e.isInvestment) {
         // Only a sale or a reduction can leave a stock short of shares.
         final takes = e.type == EntryType.sell || e.isReduction;
-        if (takes && !book.entryValidator.holdsWith([...trades, e])) {
+        if (takes && !trades.holds(e)) {
           skip(line, '${e.holding} 賣出或減少的股數超過當時持股');
           continue;
         }
