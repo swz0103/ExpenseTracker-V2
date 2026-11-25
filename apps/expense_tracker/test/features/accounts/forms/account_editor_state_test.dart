@@ -163,6 +163,30 @@ void main() {
     expect(ledger.trash.all, isEmpty);
   });
 
+  testWidgets('with an entry dated ahead, the settlement is planned for its '
+      'day and today\'s balance is left as it is (D120)', (tester) async {
+    final ahead = ledger.today.add(const Duration(days: 3));
+    ledger.entryCommands.add(
+      Entry(
+        id: 'ahead',
+        date: ahead,
+        type: EntryType.expense,
+        amount: 800,
+        account: 'bank',
+        category: '飲食',
+      ),
+    );
+    final today = ledger.balanceService.balance('bank');
+    await open(tester, account: ledger.account('bank'));
+    await go(tester, ['結清封存', '隨身現金']);
+    expect(ledger.account('bank').archived, isTrue);
+    // The newest of the account's entries: written after the one ahead.
+    final settled = ledger.balanceService.entriesOf('bank').first;
+    expect((settled.type, settled.date), (EntryType.transfer, ahead));
+    expect(ledger.balanceService.balance('bank'), today);
+    expect(ledger.balanceService.finalBalance('bank'), 0);
+  });
+
   testWidgets('choosing nowhere to move the money leaves the account open', (
     tester,
   ) async {

@@ -107,7 +107,14 @@ void main() {
     expect((owed.account, owed.to, owed.amount), ('bank', 'card', 1200));
   });
 
-  test('settling counts what is dated ahead, and is dated today', () {
+  test('settling with nothing dated ahead is dated today', () {
+    final ledger = book();
+    final left = AccountForm.settlement(ledger, ledger.account('bank'), 'x');
+    expect(left.date, DateTime.utc(2026, 10, 4));
+  });
+
+  test('settling counts what is dated ahead, and is dated on the last '
+      'entry dated ahead (D120)', () {
     final ledger = book();
     ledger.entryCommands.add(
       Entry(
@@ -119,9 +126,16 @@ void main() {
         category: '飲食',
       ),
     );
-    final left = AccountForm.settlement(ledger, ledger.account('bank'), 'x');
-    // 5000 - 800 once 2026-10-10 has come.
-    expect((left.amount, left.date), (4200, DateTime.utc(2026, 10, 4)));
+    ledger.accountCommands.addAccount(
+      const Account('cash', '現金', AccountKind.cash, 0),
+    );
+    final left = AccountForm.settlement(ledger, ledger.account('bank'), 'cash');
+    // 5000 - 800 once 2026-10-10 has come; planned for that day, so
+    // today's balance stays 5000 rather than 5000 - 4200 = 800.
+    expect((left.amount, left.date), (4200, DateTime.utc(2026, 10, 10)));
+    ledger.entryCommands.add(left);
+    expect(ledger.balanceService.balance('bank'), 5000);
+    expect(ledger.balanceService.finalBalance('bank'), 0);
   });
 
   test(

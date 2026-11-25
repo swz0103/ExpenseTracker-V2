@@ -94,6 +94,20 @@ final class BalanceService {
   int finalBalance(String account) =>
       balance(account, until: latestEntryDay(_today()));
 
+  /// The day [account]'s last entry dated ahead is on, or today when
+  /// none is: the day a settlement before archiving is dated (D120), so
+  /// it comes as a planned entry once what is dated ahead has come and
+  /// today's balance never shows the opposite of what is left.
+  DateTime lastDayAhead(String account) {
+    final today = _today();
+    final last = latestEntryDay(today);
+    for (final e in _entries.ofAccount(account).reversed) {
+      if (!e.date.isAfter(today)) break;
+      if (!e.date.isAfter(last)) return e.date;
+    }
+    return today;
+  }
+
   /// The balance of [account] at the end of [end], as [balance] works it
   /// out, but not kept: for a pass over many days, such as the journal's
   /// check, which would fill the cache with answers no screen asks.
