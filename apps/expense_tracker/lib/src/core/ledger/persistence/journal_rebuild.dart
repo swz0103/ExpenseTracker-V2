@@ -81,7 +81,7 @@ Future<OpenedBook> Function(ApartStore) openingWork({
   }
   // Sent now, a copy, so the screens open while the book is posted.
   books.send((book: book, worked: worked));
-  final start = holdingsOf(marketFrom(readableMarket(book.market)));
+  final start = holdingsOf(readMarket(book.market, history: false));
   final posted = await store.post(
     (add) async => postBook(book, add, start),
     mark: mark,

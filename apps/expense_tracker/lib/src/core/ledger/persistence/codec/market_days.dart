@@ -49,37 +49,126 @@ enum MarketSeries {
 /// or the next, as no split can fall between.
 const fetchedField = 'fetched';
 
+/// What one day row holds: each series' figures by key, and the later
+/// day each close was fetched on, by code (D123).
+typedef DayFigures = ({
+  Map<MarketSeries, Map<String, double>> figures,
+  Map<String, BusinessDate> fetched,
+});
+
+/// The figures of the day row [body]. Throws a [FormatException] for a
+/// row that cannot be read.
+DayFigures dayFiguresOf(String body) {
+  final json = jsonDecode(body);
+  if (json is! Map<String, Object?>) throw const FormatException('day');
+  final on = json[fetchedField] ?? const <String, Object?>{};
+  if (on is! Map<String, Object?>) throw const FormatException(fetchedField);
+  final fetched = <String, BusinessDate>{};
+  for (final MapEntry(:key, :value) in on.entries) {
+    if (value is! String) throw const FormatException(fetchedField);
+    fetched[key] = BusinessDate.parse(value);
+  }
+  final figures = <MarketSeries, Map<String, double>>{};
+  for (final series in MarketSeries.values) {
+    final part = json[series.field] ?? const <String, Object?>{};
+    if (part is! Map<String, Object?>) throw FormatException(series.field);
+    final kept = figures[series] = <String, double>{};
+    for (final MapEntry(:key, :value) in part.entries) {
+      if (value is! num || !value.isFinite || value <= 0) {
+        throw FormatException(series.field);
+      }
+      kept[key] = value.toDouble();
+    }
+  }
+  return (figures: figures, fetched: fetched);
+}
+
 /// The history kept in the day rows [bodies], by day. Throws a
 /// [FormatException] for a row that cannot be read.
-MarketHistory historyFrom(Map<BusinessDate, String> bodies) {
+MarketHistory historyFrom(Map<BusinessDate, String> bodies) => historyOf({
+  for (final MapEntry(key: day, value: body) in bodies.entries)
+    day: dayFiguresOf(body),
+});
+
+/// The history of the day rows read as [days].
+MarketHistory historyOf(Map<BusinessDate, DayFigures> days) {
   final tables = {
     for (final series in MarketSeries.values)
       series: <String, Map<BusinessDate, double>>{},
   };
   final fetched = <String, Map<BusinessDate, BusinessDate>>{};
-  for (final MapEntry(key: day, value: body) in bodies.entries) {
-    final json = jsonDecode(body);
-    if (json is! Map<String, Object?>) throw const FormatException('day');
-    final on = json[fetchedField] ?? const <String, Object?>{};
-    if (on is! Map<String, Object?>) throw const FormatException(fetchedField);
-    for (final MapEntry(:key, :value) in on.entries) {
-      if (value is! String) throw const FormatException(fetchedField);
-      (fetched[key] ??= {})[day] = BusinessDate.parse(value);
+  for (final MapEntry(key: day, value: row) in days.entries) {
+    for (final MapEntry(:key, :value) in row.fetched.entries) {
+      (fetched[key] ??= {})[day] = value;
     }
-    for (final series in MarketSeries.values) {
-      final part = json[series.field] ?? const <String, Object?>{};
-      if (part is! Map<String, Object?>) {
-        throw FormatException(series.field);
-      }
-      for (final MapEntry(:key, :value) in part.entries) {
-        if (value is! num || !value.isFinite || value <= 0) {
-          throw FormatException(series.field);
-        }
-        (tables[series]![key] ??= {})[day] = value.toDouble();
+    for (final MapEntry(key: series, value: figures) in row.figures.entries) {
+      final table = tables[series]!;
+      for (final MapEntry(:key, :value) in figures.entries) {
+        (table[key] ??= {})[day] = value;
       }
     }
   }
   return _history(tables, fetched);
+}
+
+/// How many days before today the day rows are kept each by itself
+/// (review 39): a month ended longer ago is folded into one row
+/// ([foldedDays]), so the table grows by twelve rows a year, not 365.
+const marketDaysKeptWhole = 400;
+
+/// The day rows to write (a body) and to take away (null), by id, so
+/// that each month of [days] ended more than [marketDaysKeptWhole] days
+/// before [today] is one row on its first day (review 39). It holds,
+/// for each currency and code, the month's last figure taken, which
+/// stands for every day of the month as an earlier day's (D58), within
+/// `doubtfulMoveKeptDays` of each (D123). A close is kept with the day
+/// after its own as the day it was fetched on at the latest, so it stays
+/// a price of the shares of its own day ([MarketHistory.closeFetchedOn]).
+/// A month already one row on its first day is left.
+Map<String, String?> foldedDays(
+  Map<BusinessDate, DayFigures> days,
+  BusinessDate today,
+) {
+  final cutoff = today.addDays(-marketDaysKeptWhole);
+  final months = <BusinessDate, List<BusinessDate>>{};
+  for (final day in days.keys) {
+    final first = BusinessDate(day.year, day.month, 1);
+    final next = day.month == 12
+        ? BusinessDate(day.year + 1, 1, 1)
+        : BusinessDate(day.year, day.month + 1, 1);
+    if (!next.isAfter(cutoff)) (months[first] ??= []).add(day);
+  }
+  final changes = <String, String?>{};
+  for (final MapEntry(key: first, value: kept) in months.entries) {
+    if (kept.length == 1 && kept.single == first) continue;
+    kept.sort();
+    final figures = {
+      for (final series in MarketSeries.values) series: <String, double>{},
+    };
+    final fetched = <String, String>{};
+    for (final day in kept) {
+      final row = days[day]!;
+      for (final MapEntry(key: series, value: of) in row.figures.entries) {
+        for (final MapEntry(:key, :value) in of.entries) {
+          figures[series]![key] = value;
+          if (series != MarketSeries.closes) continue;
+          final on = row.fetched[key] ?? (day == first ? null : day.addDays(1));
+          if (on != null && on.isAfter(first.addDays(1))) {
+            fetched[key] = '$on';
+          } else {
+            fetched.remove(key);
+          }
+        }
+      }
+      if (day != first) changes[marketDayId(day)] = null;
+    }
+    changes[marketDayId(first)] = jsonEncode({
+      for (final series in MarketSeries.values)
+        if (figures[series]!.isNotEmpty) series.field: figures[series],
+      if (fetched.isNotEmpty) fetchedField: fetched,
+    });
+  }
+  return changes;
 }
 
 MarketHistory _history(

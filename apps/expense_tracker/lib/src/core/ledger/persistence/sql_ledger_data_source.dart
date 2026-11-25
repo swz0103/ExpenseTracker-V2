@@ -349,7 +349,19 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
     book.namesOf.forEach(_indexFound);
     _refs.fill(book.categoryNames);
-    final market = marketFrom(_readableMarket(book.market));
+    // The months long gone kept as one day row each (review 39), once
+    // and from then on as each month ages.
+    final folded = foldedMarket(
+      book.market,
+      BusinessDate.of(today),
+      report: (error) => ErrorLog.instance.record('讀取行情', error),
+    );
+    if (folded.changes.isNotEmpty) {
+      await _whenQuiet(
+        () => _store.write((w) => _apply(w, folded.changes), counts: false),
+      );
+    }
+    final market = _readMarket(folded.rows);
     final ledger = Ledger(
       today: today,
       clock: _today,
@@ -948,11 +960,10 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// The rows of [rows] of the [_market] collection that can be read: a
   /// close or rate kept that cannot is fetched again, and noted.
-  static List<StoredRow> _readableMarket(List<StoredRow>? rows) =>
-      readableMarket(
-        rows,
-        report: (error) => ErrorLog.instance.record('讀取行情', error),
-      );
+  static Market _readMarket(List<StoredRow>? rows) => readMarket(
+    rows,
+    report: (error) => ErrorLog.instance.record('讀取行情', error),
+  );
 
   // Market data.
 
@@ -967,7 +978,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     MarketHistory history,
   })
   market() {
-    final kept = marketFrom(_readableMarket(_store.rows(shelf: _market)));
+    final kept = _readMarket(_store.rows(shelf: _market));
     return (
       holdings: holdingsOf(kept),
       moves: kept.moves,
@@ -999,7 +1010,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     }
     final boardDay = board.asOf.asUtcMidnight;
     return _whenQuiet(() {
-      final kept = marketFrom(_readableMarket(_store.rows(shelf: _market)));
+      final kept = _readMarket(_store.rows(shelf: _market));
       // A rate too far from the one kept is doubted (D95) unless there is
       // reason to take it (D101: found again, or the one kept old): the
       // one kept stays, the doubted one is kept to weigh the next fetch
@@ -1228,7 +1239,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     double? Function(String code, DateTime? day) reshapedBy = _neverReshaped,
   }) async {
     final kept = await _whenQuiet(
-      () => marketFrom(_readableMarket(_store.rows(shelf: _market))),
+      () => _readMarket(_store.rows(shelf: _market)),
     );
     final latest = kept.days[code];
     if (latest == null) return false;
@@ -1267,7 +1278,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final gateway = _gateway;
     if (gateway == null) return false;
     final kept = await _whenQuiet(
-      () => marketFrom(_readableMarket(_store.rows(shelf: _market))),
+      () => _readMarket(_store.rows(shelf: _market)),
     );
     final prices = {...kept.prices};
     final moves = {...kept.moves};

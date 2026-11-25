@@ -504,6 +504,7 @@ five runs at load 2.8–3.2, PSI 3.8–13%; the first five (composer worst
 0.227, all eight 0.136) set 0.45 and 0.27; the composer's limit is now
 twice the new worst, the eight's is kept (never loosened).
 | `integrity_gate_test.dart`, the check at open (warm) | 17.6–20.5 ms | 3.7–6.1 ms | 0.295 | 0.6 |
+| `market_read_gate_test.dart`, a five-year market read, day rows read once and old months folded (review 39) | 122–198 ms | 12.9–21.7 ms | 0.11 | 0.22 |
 | `trade_run_gate_test.dart`, 200 trades of an import checked | 2,572–2,816 ms | 148–165 ms | 0.063 | 0.13 |
 | `holds_with_gate_test.dart`, 40 sales saved one after another, each asked first (FIX-R34) | 630–747 ms | 72–85 ms | 0.122 | 0.25 |
 | `holds_with_gate_test.dart`, the first sale save after opening, prepared (`EntryValidator.prepare`, PERF-3) against not | 12.8–16.9 ms | 0.51–0.63 ms | 0.046 | 0.1 |

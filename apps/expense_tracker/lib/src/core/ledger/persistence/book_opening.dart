@@ -254,7 +254,7 @@ DecodedBook decodeBook(
   final holdings = today == null
       ? null
       : readHoldings(
-          holdingsOf(marketFrom(readableMarket(market))),
+          holdingsOf(readMarket(market, history: false)),
           entries,
           today,
         );
@@ -441,7 +441,46 @@ typedef Market = ({
 });
 
 /// The closes and board last fetched, from [rows] of [marketShelf].
-Market marketFrom(List<StoredRow> rows) {
+/// Throws for a row that cannot be read.
+Market marketFrom(List<StoredRow> rows) => _marketFrom(rows, {});
+
+/// The closes and board last fetched, from [rows] of [marketShelf], each
+/// row read once: one that cannot be read is left out, [report] told
+/// what reading it threw (a close or rate kept that cannot be read is
+/// fetched again). Without [history], the day rows are not read at all,
+/// for a reader that needs only the latest figures (review 39: they are
+/// most of the rows).
+Market readMarket(
+  List<StoredRow>? rows, {
+  void Function(Object error) report = _unreported,
+  bool history = true,
+}) {
+  final latest = <StoredRow>[];
+  final days = <BusinessDate, DayFigures>{};
+  for (final row in rows ?? const <StoredRow>[]) {
+    if (row.id.startsWith(marketDayPrefix)) {
+      if (!history) continue;
+      try {
+        days[marketDayOf(row.id)!] = dayFiguresOf(row.body);
+      } on Object catch (error) {
+        report(error);
+      }
+      continue;
+    }
+    try {
+      marketFrom([row]);
+      latest.add(row);
+    } on Object catch (error) {
+      report(error);
+    }
+  }
+  return _marketFrom(latest, days);
+}
+
+Market _marketFrom(
+  List<StoredRow> rows,
+  Map<BusinessDate, DayFigures> dayRows,
+) {
   final prices = <String, double>{};
   final moves = <String, double>{};
   final names = <String, String>{};
@@ -453,7 +492,6 @@ Market marketFrom(List<StoredRow> rows) {
   final doubtedSellRates = <String, DoubtedFigure>{};
   DateTime? quotedOn;
   DateTime? ratesOn;
-  final dayRows = <BusinessDate, String>{};
   Map<String, Object?> part(Map<String, Object?> json, String key) =>
       json[key] as Map<String, Object?>? ?? const {};
   // What the last fetch doubted (D101), kept beside the figures, each
@@ -478,7 +516,7 @@ Market marketFrom(List<StoredRow> rows) {
   for (final row in rows) {
     // A day's rates and closes (D58), read below.
     if (marketDayOf(row.id) case final day?) {
-      dayRows[day] = row.body;
+      dayRows[day] = dayFiguresOf(row.body);
       continue;
     }
     final json = jsonDecode(row.body) as Map<String, Object?>;
@@ -530,33 +568,49 @@ Market marketFrom(List<StoredRow> rows) {
     doubtedRates: doubtedRates,
     doubtedSellRates: doubtedSellRates,
     ratesOn: ratesOn,
-    history: historyFrom(dayRows),
+    history: historyOf(dayRows),
   );
 }
 
-/// The rows of [rows] of [marketShelf] that can be read; [report] is
-/// told what reading each other threw (a close or rate kept that cannot
-/// be read is fetched again).
-List<StoredRow> readableMarket(
-  List<StoredRow>? rows, {
-  void Function(Object error) report = _unreported,
-}) => [
-  for (final row in rows ?? const <StoredRow>[])
-    if (_marketReadable(row, report)) row,
-];
-
 void _unreported(Object error) {}
 
-bool _marketReadable(StoredRow row, void Function(Object error) report) {
-  try {
-    marketFrom([row]);
-    return true;
-  } on Object catch (error) {
-    // Told to [report]: a close or rate that cannot be read is fetched
-    // again.
-    report(error);
-    return false;
+/// The market [rows] with the months ended more than
+/// [marketDaysKeptWhole] days before [today] folded into one day row
+/// each (`foldedDays`, review 39), and the changes to keep that so; a
+/// day row that cannot be read is left as it is, [report] told why.
+({List<StoredRow> rows, List<RowChange> changes}) foldedMarket(
+  List<StoredRow>? rows,
+  BusinessDate today, {
+  void Function(Object error) report = _unreported,
+}) {
+  final all = rows ?? const <StoredRow>[];
+  final before = today.addDays(-marketDaysKeptWhole);
+  final old = <BusinessDate, DayFigures>{};
+  for (final row in all) {
+    if (!row.id.startsWith(marketDayPrefix)) continue;
+    try {
+      final day = marketDayOf(row.id)!;
+      if (day.isBefore(before)) old[day] = dayFiguresOf(row.body);
+    } on Object catch (error) {
+      report(error);
+    }
   }
+  final folded = foldedDays(old, today);
+  if (folded.isEmpty) return (rows: all, changes: const []);
+  return (
+    rows: [
+      for (final row in all)
+        if (!folded.containsKey(row.id)) row,
+      for (final MapEntry(key: id, value: body) in folded.entries)
+        if (body != null) StoredRow(0, marketShelf, id, body),
+    ],
+    changes: [
+      for (final MapEntry(key: id, value: body) in folded.entries)
+        body == null
+            ? RowChange.drop(marketShelf, id)
+            : RowChange.put(marketShelf, id, body),
+    ],
+  );
 }
 
 /// A reference price and name for each stock with a kept close: the

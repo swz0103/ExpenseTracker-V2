@@ -219,6 +219,113 @@ void main() {
     }
   });
 
+  group('review 39: months long gone are one row each', () {
+    // Today 2026-11-25: kept whole from 400 days before, 2025-10-21.
+    final today = d(11, 25);
+    BusinessDate y25(int m, int day) => BusinessDate(2025, m, day);
+    Map<BusinessDate, DayFigures> rows(Map<BusinessDate, String> bodies) => {
+      for (final MapEntry(:key, :value) in bodies.entries)
+        key: dayFiguresOf(value),
+    };
+
+    test('a month ended before the window: its last figures, on its first '
+        'day', () {
+      final changes = foldedDays(
+        rows({
+          y25(3, 3): '{"rates":{"USD":30.1,"JPY":0.2},"closes":{"2330":600}}',
+          y25(3, 20): '{"rates":{"USD":30.4},"closes":{"2330":610}}',
+          y25(3, 31): '{"rates":{"USD":30.6}}',
+          // September ends 2025-09-30, before 10/21: folded too.
+          y25(9, 1): '{"rates":{"USD":31}}',
+          // October ends after 10/21: kept whole.
+          y25(10, 2): '{"rates":{"USD":32}}',
+        }),
+        today,
+      );
+      expect(changes.keys.toSet(), {
+        'day:2025-03-01',
+        'day:2025-03-03',
+        'day:2025-03-20',
+        'day:2025-03-31',
+      });
+      expect(changes['day:2025-03-03'], isNull);
+      expect(changes['day:2025-03-31'], isNull);
+      // USD 3/31's, JPY 3/3's, 2330 3/20's, fetched at the latest 3/21.
+      expect(jsonDecode(changes['day:2025-03-01']!), {
+        'rates': {'USD': 30.6, 'JPY': 0.2},
+        'closes': {'2330': 610.0},
+        'fetched': {'2330': '2025-03-21'},
+      });
+      // A month already one row on its first day is left.
+      expect(
+        foldedDays(rows({y25(3, 1): changes['day:2025-03-01']!}), today),
+        isEmpty,
+      );
+    });
+
+    test('the folded row reads as the month\'s figure for each of its days, '
+        'within the 30 days (D123)', () {
+      final folded = foldedDays(
+        rows({
+          y25(3, 3): '{"rates":{"USD":30.1},"closes":{"2330":600}}',
+          y25(3, 31): '{"rates":{"USD":30.6},"closes":{"2330":300}}',
+        }),
+        today,
+      );
+      final history = historyFrom({y25(3, 1): folded['day:2025-03-01']!});
+      final usd = history.buying.on('USD', y25(3, 31), earlierWithinDays: 30);
+      // 3/1 to 3/31 is 30 days: an earlier day's, taken.
+      expect(usd, (figure: 30.6, of: y25(3, 1), found: FoundOn.earlierDay));
+      // 3/31's close keeps the day after it as fetched on: a split on
+      // 3/31 or before is in it, one after not.
+      expect(history.closeFetchedOn('2330', y25(3, 1)), y25(4, 1));
+    });
+
+    test('a close fetched days later keeps that day', () {
+      final folded = foldedDays(
+        rows({
+          y25(3, 3): '{"closes":{"2330":600},"fetched":{"2330":"2025-03-10"}}',
+          // 3/1's own, fetched on its day: none to keep.
+          y25(4, 1): '{"closes":{"2330":620}}',
+          y25(4, 2): '{"rates":{"USD":30}}',
+        }),
+        today,
+      );
+      expect(jsonDecode(folded['day:2025-03-01']!), {
+        'closes': {'2330': 600.0},
+        'fetched': {'2330': '2025-03-10'},
+      });
+      expect(jsonDecode(folded['day:2025-04-01']!), {
+        'rates': {'USD': 30.0},
+        'closes': {'2330': 620.0},
+      });
+    });
+
+    test('foldedMarket keeps the rest and names what to write', () {
+      final kept = [
+        StoredRow(0, marketShelf, 'quotes', '{"prices":{"2330":1000}}'),
+        StoredRow(0, marketShelf, 'day:2025-03-03', '{"rates":{"USD":30}}'),
+        StoredRow(0, marketShelf, 'day:2025-03-04', '{"rates":{"USD":31}}'),
+        StoredRow(0, marketShelf, 'day:2025-03-05', 'not json'),
+        StoredRow(0, marketShelf, 'day:2026-11-20', '{"rates":{"USD":32}}'),
+      ];
+      final told = <Object>[];
+      final folded = foldedMarket(kept, today, report: told.add);
+      expect(told, hasLength(1));
+      expect(
+        [for (final r in folded.rows) r.id],
+        ['quotes', 'day:2025-03-05', 'day:2026-11-20', 'day:2025-03-01'],
+      );
+      expect(folded.changes, hasLength(3));
+      final market = readMarket(folded.rows, report: told.add);
+      expect(market.history.buying.exactly('USD', y25(3, 1)), 31);
+      expect(market.prices, {'2330': 1000.0});
+      // Read without history, no day row is read at all.
+      expect(readMarket(kept, history: false).history.isEmpty, isTrue);
+      expect(foldedMarket(folded.rows, today).changes, isEmpty);
+    });
+  });
+
   group('N3: a month report fills the past days', () {
     // 2330 kept on 9/1 at 960 and 9/29 at 1,000.
     MarketDayWrites kept() => MarketDayWrites(

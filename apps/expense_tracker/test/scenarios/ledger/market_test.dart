@@ -600,6 +600,24 @@ void main() {
         });
       });
 
+      test('review 39: opening folds the months long gone into a row '
+          'each', () async {
+        final data = await source();
+        store.write(
+          (w) => w
+            ..put(marketShelf, 'day:2025-03-03', '{"rates":{"USD":30.1}}')
+            ..put(marketShelf, 'day:2025-03-04', '{"rates":{"USD":30.2}}'),
+          counts: false,
+        );
+        final m = (await data.load()).marketData;
+        expect(dayRow('2025-03-01'), {
+          'rates': {'USD': 30.2},
+        });
+        expect(dayRow('2025-03-03'), isNull);
+        expect(dayRow('2025-03-04'), isNull);
+        expect(m.rateOn('USD', DateTime.utc(2025, 3, 2))?.figure, 30.2);
+      });
+
       test('a book kept before D58 keeps its latest close for its day '
           'when a new one comes', () async {
         final data = await source();
