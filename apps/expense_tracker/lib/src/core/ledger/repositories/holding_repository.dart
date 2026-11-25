@@ -78,6 +78,12 @@ abstract interface class HoldingReader {
   /// shares than are held by then.
   bool holdsWith(List<Entry> entries);
 
+  /// [holdsWith] of [kept], a list never changed once made (a stock's
+  /// entries as `EntryReader.ofHolding` hands them out): answered once
+  /// for each such list, until the starting positions change or a book
+  /// is read again.
+  bool holdsWithKept(List<Entry> kept);
+
   /// What the holdings are worth at their reference closes.
   int get marketValue;
 
@@ -218,6 +224,12 @@ final class HoldingRepository implements HoldingReader {
   @override
   bool holdsWith(List<Entry> entries) => _newlyShort(entries) == null;
 
+  @override
+  bool holdsWithKept(List<Entry> kept) => _kept[kept] ??= holdsWith(kept);
+
+  /// What [holdsWithKept] answered, by list.
+  var _kept = Expando<bool>();
+
   /// The trades an old book let take more shares than were held, left out
   /// as it was read ([replay] with `lenient`): kept as they are, never
   /// held against a later change (D47). Any other short trade is.
@@ -266,6 +278,7 @@ final class HoldingRepository implements HoldingReader {
     _tolerated
       ..clear()
       ..addAll(read.tolerated);
+    _kept = Expando<bool>();
     _portfolio = read.portfolio;
     _withChanges = null;
   }
@@ -277,6 +290,7 @@ final class HoldingRepository implements HoldingReader {
     _start
       ..clear()
       ..addAll(copy);
+    _kept = Expando<bool>();
     _withChanges = null;
   }
 }

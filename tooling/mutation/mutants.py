@@ -188,6 +188,17 @@ M('loans',RA,'if (cents == 0) return','if (cents == 1) return')
 M('loans',RA,'when hundredths >= 0 &&','when hundredths >= -1 &&')
 M('loans',RA,'RateRead(negative ? -hundredths : hundredths)','RateRead(hundredths)')
 M('loans',RA,"wholeDigits.length > '$_wholeCap'.length","wholeDigits.length > 3")
+# Review 33: below nothing by however little, too small to keep, and the
+# spellings read (a trailing %, full-width).
+M('loans',RA,"if (hundredths == 0 && text.contains(RegExp('[1-9]'))) {","if (hundredths == 0 && false) {")
+M('loans',RA,"text.contains(RegExp('[1-9]'))","text.contains(RegExp('[0-9]'))")
+M('loans',RA,"if (hundredths == 0 && text","if (hundredths <= 1 && text")
+M('loans',RA,'return negative ? const RateRead(-1) : const RateTooSmall();','return const RateTooSmall();')
+M('loans',RA,'return negative ? const RateRead(-1) : const RateTooSmall();','return negative ? const RateRead(0) : const RateTooSmall();')
+M('loans',RA,'return negative ? const RateRead(-1) : const RateTooSmall();','return negative ? const RateRead(-1) : const RateRead(0);')
+M('loans',RA,"if (text.endsWith('%')) {","if (false) {")
+M('loans',RA,'text = text.substring(0, text.length - 1).trimRight();','text = text.substring(0, text.length - 1);')
+M('loans',RA,'var text = halfWidth(typed).trim();','var text = typed.trim();')
 
 # ---------------- entries ----------------
 PL = 'packages/ledger/entries/lib/model/planned.dart'

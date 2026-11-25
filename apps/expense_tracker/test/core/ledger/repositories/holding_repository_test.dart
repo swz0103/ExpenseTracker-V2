@@ -162,6 +162,34 @@ void main() {
     expect(holdings.byCode('2330')?.shares, 6);
   });
 
+  test('a list never changed is answered once, again once the book is '
+      'read anew or the starting positions change (FIX-R34)', () {
+    final kept = List<Entry>.unmodifiable([sell]);
+    final holdings = HoldingRepository(const [], moveOf: (_) => null)
+      ..replay(const [], today: _today);
+    // 4 sold of none held.
+    expect(holdings.holdsWithKept(kept), isFalse);
+    expect(holdings.holdsWithKept(kept), isFalse);
+    // Read as an old book's, the short sale is left out and kept so.
+    holdings.replay(kept, today: _today, lenient: true);
+    expect(holdings.holdsWithKept(kept), isTrue);
+    final fresh = HoldingRepository(const [], moveOf: (_) => null)
+      ..replay(const [], today: _today);
+    expect(fresh.holdsWithKept(kept), isFalse);
+    // 10 held from the start: 4 sold of them hold.
+    fresh.replaceStart([
+      const Holding(
+        '2330',
+        '台積電',
+        shares: 10,
+        price: 1000,
+        cost: 9000,
+        change: 0,
+      ),
+    ]);
+    expect(fresh.holdsWithKept(kept), isTrue);
+  });
+
   test('a list handed out stays as it was after another replay', () {
     final holdings = make();
     final before = holdings.all;

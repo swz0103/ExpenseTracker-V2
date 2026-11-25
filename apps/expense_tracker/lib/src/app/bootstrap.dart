@@ -107,11 +107,11 @@ class _VaultRootState extends State<VaultRoot> with WidgetsBindingObserver {
   /// The session that navigator belongs to.
   var _generation = 0;
 
-  /// What the services remember for the whole run, however often the app
-  /// locks (review 31); its notes wait their turn, said only while open.
+  /// What the services keep for the run (review 31); notes said while open.
   late final _run = ServicesRun(
     QuietFailures(
       (note) async => widget.startup.state is Ready && await queueNote(note),
+      book: () => widget.startup.bookChanges,
     ),
   );
 

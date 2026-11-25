@@ -265,6 +265,26 @@ void startupKeyTests() {
       phone.lock();
     });
 
+    test('a book made, restored or opened on new keys is another book; an '
+        'unlock or a restore given up opens the same (review 33)', () async {
+      final phone = startup();
+      expect(phone.bookChanges, 0);
+      await phone.setUp(password);
+      expect(phone.bookChanges, 1);
+      phone.lock();
+      await phone.unlockWithPassword(password);
+      expect(phone.bookChanges, 1);
+      await phone.resetKeys(password: password);
+      expect(phone.bookChanges, 2);
+      phone.lockToRestore();
+      await phone.cancelRestore();
+      expect(phone.bookChanges, 2);
+      phone.lockToRestore();
+      await phone.restore(backup.path, 'a passphrase for backups');
+      expect(phone.bookChanges, 3);
+      phone.lock();
+    });
+
     test('photos of a restore that fails stay as they were (SEC-09)', () async {
       final phone = startup();
       await phone.setUp(password);
@@ -360,8 +380,10 @@ void startupKeyTests() {
     test('a ledger without a password gets a new sealed key', () async {
       final first = startup();
       await first.setUpWithoutPassword();
+      expect(first.bookChanges, 1);
       final oldSecret = await first.quickSecret();
       await first.resetKeys();
+      expect(first.bookChanges, 2);
       expect(await first.quickSecret(), isNot(oldSecret));
       expect(
         File('${directory.path}/quick-open.sealed.next').existsSync(),

@@ -119,15 +119,37 @@ final class EntryValidator {
   }
 
   /// Whether [extra] can join the entries, in place of [replacing]: none
-  /// of their trades sells more shares than are held by then.
+  /// of their trades sells more shares than are held by then. A stock's
+  /// holdings are worked out from its own trades alone (as [TradeRun]
+  /// does): only the stocks [extra] and [replacing] trade are replayed
+  /// with the change; every other one as the book has it, answered once
+  /// until a trade of it changes ([HoldingReader.holdsWithKept]), so a
+  /// save does not replay the whole book (FIX-R34).
   bool holdsWith(List<Entry> extra, {Entry? replacing}) {
-    return _holdings.holdsWith([
-      // Exception to as-of-today: the write rules check the whole timeline, so
-      // no change leaves a later sale short.
-      for (final e in _entries.all)
-        if (replacing == null || e.id != replacing.id) e,
-      ...extra,
-    ]);
+    final changed = <String, List<Entry>>{};
+    if (replacing != null) {
+      if (TradeRun._codeOf(replacing) case final code?) changed[code] = [];
+    }
+    for (final e in extra) {
+      if (TradeRun._codeOf(e) case final code?) (changed[code] ??= []).add(e);
+    }
+    // Exception to as-of-today: the write rules check the whole timeline,
+    // so no change leaves a later sale short.
+    for (final code in _entries.holdingCodes) {
+      if (changed.containsKey(code)) continue;
+      // Exception to as-of-today: the whole timeline, as above.
+      if (!_holdings.holdsWithKept(_entries.ofHolding(code))) return false;
+    }
+    for (final MapEntry(key: code, value: added) in changed.entries) {
+      final trades = [
+        // Exception to as-of-today: the whole timeline, as above.
+        for (final e in _entries.ofHolding(code))
+          if (replacing == null || e.id != replacing.id) e,
+        ...added,
+      ];
+      if (!_holdings.holdsWith(trades)) return false;
+    }
+    return true;
   }
 
   /// Trades checked one after another, as an import reads them: each

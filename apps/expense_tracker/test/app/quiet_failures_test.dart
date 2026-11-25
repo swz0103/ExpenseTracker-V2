@@ -75,6 +75,75 @@ void main() {
     waiting[0].complete(false);
   });
 
+  test('another book in place (a restore, a key reset) is told again of '
+      'what is about the book; what is about the run stays told; a note '
+      'read about the book before tells nothing of the new one '
+      '(review 33)', () async {
+    final said = <QuietStep>[];
+    final shown = <Completer<bool>>[];
+    var book = 1;
+    final quiet = QuietFailures((note) {
+      said.add(QuietStep.values.firstWhere((s) => s.note == note));
+      final read = Completer<bool>();
+      shown.add(read);
+      return read.future;
+    }, book: () => book);
+    for (final step in QuietStep.values) {
+      quiet.failed(step);
+    }
+    for (final read in shown) {
+      read.complete(true);
+    }
+    await pumpEventQueue();
+    expect(said, QuietStep.values);
+    // Without another book (a lock and an unlock), nothing again.
+    for (final step in QuietStep.values) {
+      quiet.failed(step);
+    }
+    expect(said, hasLength(QuietStep.values.length));
+
+    said.clear();
+    book++;
+    for (final step in QuietStep.values) {
+      quiet.failed(step);
+    }
+    expect(said, [
+      QuietStep.autoBooking,
+      QuietStep.integrityCheck,
+      QuietStep.leftoverPhoto,
+      QuietStep.receiptSweep,
+    ]);
+    // These four are on screen when yet another book takes their place:
+    // read, they still say nothing of it.
+    book++;
+    for (final read in shown.skip(QuietStep.values.length)) {
+      read.complete(true);
+    }
+    await pumpEventQueue();
+    said.clear();
+    quiet
+      ..failed(QuietStep.integrityCheck)
+      ..failed(QuietStep.marketRefresh);
+    expect(said, [QuietStep.integrityCheck]);
+    shown.last.complete(true);
+    await pumpEventQueue();
+    quiet.failed(QuietStep.integrityCheck);
+    expect(said, [QuietStep.integrityCheck]);
+  });
+
+  test('the steps about the book are those of one book; the rest are of '
+      'the run', () {
+    expect(
+      {for (final s in QuietStep.values.where((s) => s.perBook)) s},
+      {
+        QuietStep.autoBooking,
+        QuietStep.integrityCheck,
+        QuietStep.leftoverPhoto,
+        QuietStep.receiptSweep,
+      },
+    );
+  });
+
   test('every quiet step has its words', () {
     expect(
       {for (final s in QuietStep.values) s.note},

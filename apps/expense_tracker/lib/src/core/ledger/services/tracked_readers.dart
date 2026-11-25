@@ -125,6 +125,12 @@ final class TrackedEntryReader implements EntryReader {
     _cache.noteReads(_topics);
     return _inner.ofHolding(code);
   }
+
+  @override
+  Iterable<String> get holdingCodes {
+    _cache.noteReads(_topics);
+    return _inner.holdingCodes;
+  }
 }
 
 /// A [AccountReader] that tells [QueryCache] it was read.
@@ -291,6 +297,12 @@ final class TrackedHoldingReader implements HoldingReader {
   bool holdsWith(List<Entry> entries) {
     _cache.noteReads(_topics);
     return _inner.holdsWith(entries);
+  }
+
+  @override
+  bool holdsWithKept(List<Entry> kept) {
+    _cache.noteReads(_topics);
+    return _inner.holdsWithKept(kept);
   }
 
   @override

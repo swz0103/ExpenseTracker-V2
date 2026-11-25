@@ -54,8 +54,13 @@ abstract interface class EntryReader {
   List<Entry> inGroup(String group);
 
   /// The entries of the stock [code] (its trades and dividends), in the
-  /// order written. The list cannot be changed.
+  /// order written. The list cannot be changed, and the same list is
+  /// handed out until an entry of [code] changes.
   List<Entry> ofHolding(String code);
+
+  /// Every stock an entry names ([ofHolding]); one whose entries are all
+  /// gone may still be among them, with none.
+  Iterable<String> get holdingCodes;
 
   /// [some] of the entries in the order they were written.
   List<Entry> written(Iterable<Entry> some);
@@ -759,6 +764,10 @@ final class EntryRepository implements EntryReader {
   @override
   List<Entry> ofHolding(String code) =>
       (_holdings ??= _indexWritten((e) => e.holding))[code] ?? const <Entry>[];
+
+  @override
+  Iterable<String> get holdingCodes =>
+      (_holdings ??= _indexWritten((e) => e.holding)).keys;
 
   @override
   List<Entry> written(Iterable<Entry> some) {

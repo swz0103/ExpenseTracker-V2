@@ -79,14 +79,25 @@ final class StoreSnapshot {
 /// another isolate.
 final class RowChange {
   /// Keeps [body] as the record [id] on [shelf], in place of any before.
-  const RowChange.put(this.shelf, this.id, String this.body) : from = null;
+  const RowChange.put(this.shelf, this.id, String this.body)
+    : from = null,
+      seq = null;
 
   /// Keeps [body] as the record [id] on [shelf], moved there from [from]
   /// so it keeps its place ([RowWriter.move]).
-  const RowChange.move(String this.from, this.shelf, this.id, String this.body);
+  const RowChange.move(String this.from, this.shelf, this.id, String this.body)
+    : seq = null;
+
+  /// Keeps [body] as the record [id] on [shelf] at the place [seq] in
+  /// the order kept ([RowWriter.putAt]).
+  const RowChange.putAt(this.shelf, this.id, String this.body, int this.seq)
+    : from = null;
 
   /// Forgets the record [id] on [shelf]; nothing when there is none.
-  const RowChange.drop(this.shelf, this.id) : body = null, from = null;
+  const RowChange.drop(this.shelf, this.id)
+    : body = null,
+      from = null,
+      seq = null;
 
   final String shelf;
   final String id;
@@ -96,6 +107,10 @@ final class RowChange {
 
   /// The shelf the record is moved from; null when it is not moved.
   final String? from;
+
+  /// The place in the order kept the record is put at; null when it is
+  /// not put at one.
+  final int? seq;
 }
 
 /// The changes of one write, applied together.
@@ -113,6 +128,26 @@ final class RowWriter {
       'ON CONFLICT (shelf, id) DO UPDATE SET body = excluded.body',
       [shelf, id, body],
     );
+  }
+
+  /// Keeps [body] as the record [id] on [shelf] at the place [seq] in the
+  /// order kept ([StoredRow.seq]): where a record taken away stood, put
+  /// back there, as an undo does (D119). A record [id] already on [shelf]
+  /// keeps its own place, as [put] keeps it; with [seq] held by another
+  /// record, it is put in place as new, last.
+  void putAt(String shelf, String id, String body, int seq) {
+    _requireOpen();
+    final taken = _db.select(
+      'SELECT 1 FROM rows WHERE (shelf = ? AND id = ?) OR seq = ?',
+      [shelf, id, seq],
+    );
+    if (taken.isNotEmpty) return put(shelf, id, body);
+    _db.execute('INSERT INTO rows (seq, shelf, id, body) VALUES (?, ?, ?, ?)', [
+      seq,
+      shelf,
+      id,
+      body,
+    ]);
   }
 
   /// Keeps [body] as the record [id] on [to], taken off [from] where it
@@ -133,8 +168,11 @@ final class RowWriter {
   void apply(RowChange change) {
     final body = change.body;
     final from = change.from;
+    final seq = change.seq;
     if (body == null) {
       drop(change.shelf, change.id);
+    } else if (seq != null) {
+      putAt(change.shelf, change.id, body, seq);
     } else if (from != null) {
       move(from, change.shelf, change.id, body);
     } else {

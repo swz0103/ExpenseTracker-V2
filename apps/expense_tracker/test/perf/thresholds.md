@@ -488,6 +488,20 @@ five runs at load 2.8–3.2, PSI 3.8–13%; the first five (composer worst
 twice the new worst, the eight's is kept (never loosened).
 | `integrity_gate_test.dart`, the check at open (warm) | 17.6–20.5 ms | 3.7–6.1 ms | 0.295 | 0.6 |
 | `trade_run_gate_test.dart`, 200 trades of an import checked | 2,572–2,816 ms | 148–165 ms | 0.063 | 0.13 |
+| `holds_with_gate_test.dart`, 40 sales saved one after another, each asked first (FIX-R34) | 630–747 ms | 72–85 ms | 0.122 | 0.25 |
+
+The `holds_with` row was measured five times on the Linux host,
+2026-11-25, load 2.7–3.1 on four cores, PSI `some` avg10 10.6–13.9%.
+Its old working is the whole book replayed with each sale (about 16 ms
+a sale there, with the list of 100,000 built); now a sale's own stock
+is replayed (about 0.6 ms for its 150 trades) and every other stock's
+answer kept until a trade of it changes. About 50 ms of the 72–85 is
+the first save of each run: the index of the entries by stock (about
+30 ms at 100k, made once a book, and read by the 投資 pages too) and
+the twenty stocks answered once, about as long as one whole replay;
+each save after it takes about 0.6 ms. `trade_run_gate`'s old
+working is now `wholeBookHolds` (test/support/trade_book.dart), the
+same whole replay, since `holdsWith` no longer is one.
 
 What remains after a save: the yearly return of everything still reads
 every entry once (about 2 ms at 100k), so the order of its flows, and so

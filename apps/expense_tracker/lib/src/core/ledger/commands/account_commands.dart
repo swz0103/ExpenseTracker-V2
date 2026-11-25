@@ -1,7 +1,12 @@
 import 'package:core/foundation_values.dart';
 import 'package:domain/credit_cards.dart';
 import 'package:ledger_entries/rules.dart'
-    show CloseMoveRefused, RecordIssue, accountIssues;
+    show
+        ArchivedOwing,
+        CloseMoveRefused,
+        RecordIssue,
+        accountIssues,
+        archiveIssues;
 
 import '../cache/topic.dart';
 import '../card_cycle.dart';
@@ -50,11 +55,16 @@ final class AccountCommands {
     _context.keep(WriteBatch(accounts: [account]));
   }
 
-  /// Puts [account] in place of the one with the same id.
+  /// Puts [account] in place of the one with the same id. A person who
+  /// still owes money, or is owed it, is not archived ([ArchivedOwing]).
   void updateAccount(Account account) {
     final before = _accounts.byId(account.id);
     if (before == null) return addAccount(account);
     _check(account);
+    if (account.archived && !before.archived) {
+      final issues = _archiveIssues(account);
+      if (issues.isNotEmpty) throw RecordRefused(issues);
+    }
     // A form that does not show a card's moved closes and earlier billing
     // days keeps them.
     account = account.copyWith(
@@ -151,6 +161,10 @@ final class AccountCommands {
     _context.keep(WriteBatch(accounts: [moved]));
   }
 
+  /// Why [account] cannot be archived as its balance stands today.
+  List<RecordIssue> _archiveIssues(Account account) =>
+      archiveIssues(kind: account.kind, balance: _balances.balance(account.id));
+
   /// Refuses [account] with a [RecordRefused] when the write rules find
   /// it wrong.
   static void _check(Account account) {
@@ -194,7 +208,7 @@ final class AccountCommands {
     return () {
       if (!_accounts.putAt(index, removed)) return;
       _context.changed(Topic.all);
-      _context.keep(WriteBatch(accounts: [removed]));
+      _context.keep(WriteBatch(accounts: [removed], putBack: true));
     };
   }
 
@@ -208,6 +222,8 @@ final class AccountCommands {
     return () {
       final now = _accounts.byId(id);
       if (now == null || now.archived != archived) return;
+      // Brought back and owing again since: it stays in sight.
+      if (!archived && _archiveIssues(now).isNotEmpty) return;
       updateAccount(now.copyWith(archived: !archived));
     };
   }

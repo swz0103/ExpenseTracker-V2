@@ -24,6 +24,7 @@ import '../model/debts.dart';
 import '../../../core/messages/done_messages.dart';
 import '../../../core/messages/flow_messages.dart';
 import '../../../core/messages/trash_messages.dart';
+import '../../../core/widgets/problem_note.dart';
 
 part 'person_page.dart';
 part 'debts_loan_card.dart';

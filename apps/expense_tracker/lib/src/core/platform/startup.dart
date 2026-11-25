@@ -353,7 +353,7 @@ final class Startup extends ChangeNotifier {
     _recovery = recovery;
     await recoveryGiven.writeAsString('', flush: true);
     _fresh = true;
-    _ready(open);
+    _ready(open, newBook: true);
   }
 
   /// Kept once this ledger's recovery code has been shown, so a backup
@@ -473,7 +473,7 @@ final class Startup extends ChangeNotifier {
     final (open, recovery) = await _vault.create(password);
     await _enrolDevice(open);
     _recovery = recovery;
-    _ready(open);
+    _ready(open, newBook: true);
     return recovery;
   }
 
@@ -586,7 +586,7 @@ final class Startup extends ChangeNotifier {
       _newPassword = true;
     }
     await _enrolDevice(open);
-    _ready(open);
+    _ready(open, newBook: true);
   }
 
   /// The most this phone's ledger is known to have stood at, read without
@@ -704,7 +704,7 @@ final class Startup extends ChangeNotifier {
     _recovery = reset.recoveryCode;
     _keysReset = true;
     _keysResetAt = at;
-    _ready(next);
+    _ready(next, newBook: true);
   }
 
   /// Asks for the fingerprint or face and opens the ledger with it. False
@@ -926,7 +926,14 @@ final class Startup extends ChangeNotifier {
     }
   }
 
-  void _ready(OpenVault open) {
+  /// How many times in this run a book was put in place of the one
+  /// before: made, restored or opened on keys just reset. Not a plain
+  /// unlock, which opens the same book.
+  int get bookChanges => _bookChanges;
+  var _bookChanges = 0;
+
+  void _ready(OpenVault open, {bool newBook = false}) {
+    if (newBook) _bookChanges++;
     _opening = false;
     _resume = null;
     // The ledger opened: wrong tries before it are forgotten.

@@ -196,7 +196,7 @@ void main() {
 
     test('text that is no number is said so, not kept as no rate', () {
       final ledger = book();
-      for (final typed in ['abc', '2,5', '.', '2%']) {
+      for (final typed in ['abc', '2,5', '.', '2%%']) {
         final form = loan(ledger, typed);
         expect(form.problem, '利率要填數字，例如 2.15', reason: typed);
         expect(form.rateProblem, '利率要填數字，例如 2.15', reason: typed);
@@ -219,6 +219,31 @@ void main() {
       expect(edit.save(), isFalse);
       // 2% is 200 hundredths of a percent.
       expect(ledger.accounts.all.last.loan?.rate, 200);
+    });
+
+    test('review 33: a rate too small to keep is said, not kept as no '
+        'interest; one below nothing by however little is below nothing', () {
+      final ledger = book();
+      final small = loan(ledger, '0.004');
+      expect(small.problem, '利率最小是 0.01%');
+      expect(small.rateProblem, '利率最小是 0.01%');
+      expect(small.save(), isFalse);
+      final below = loan(ledger, '-0.004');
+      expect(below.problem, '利率不能是負數');
+      expect(below.save(), isFalse);
+      expect(ledger.accounts.all.map((a) => a.id), ['bank', 'card']);
+    });
+
+    test('review 33: a percent sign and full-width digits are read', () {
+      final ledger = book();
+      for (final typed in ['2.15%', '2.15 %', '２.１５', '２．１５％']) {
+        final form = loan(ledger, typed);
+        expect(form.problem, isNull, reason: typed);
+        // 2.15% is 215 hundredths of a percent.
+        expect(form.typedRate, 215, reason: typed);
+      }
+      expect(loan(ledger, '2.15%').save(), isTrue);
+      expect(ledger.accounts.all.last.loan?.rate, 215);
     });
 
     test('100% itself, and a rate left empty, are kept', () {

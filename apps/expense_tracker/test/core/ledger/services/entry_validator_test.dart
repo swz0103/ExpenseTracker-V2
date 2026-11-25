@@ -211,6 +211,29 @@ void main() {
     expect(book.validator.holdsWith([sale]), isFalse);
   });
 
+  test('a save is refused while another stock stands short in the book, '
+      'as the whole replay refuses it, and told again once it changes '
+      '(FIX-R34)', () {
+    final book = Book(
+      accounts: accounts,
+      entries: [
+        trade('b'),
+        trade('x', holding: '0050'),
+      ],
+    );
+    final sale = trade('s', type: EntryType.sell, shares: 5);
+    expect(book.validator.holdsWith([sale]), isTrue);
+    // A sale of 0050 the book was given without a replay: 11 of 10 held.
+    book.entries.add(
+      trade('short', type: EntryType.sell, holding: '0050', shares: 11),
+    );
+    expect(book.validator.holdsWith([sale]), isFalse);
+    expect(book.holdings.holdsWith([...book.entries.all, sale]), isFalse);
+    // That sale gone, the book stands again.
+    book.entries.removeWhere((e) => e.id == 'short');
+    expect(book.validator.holdsWith([sale]), isTrue);
+  });
+
   group('trades checked one after another (review 32 1.6)', () {
     Entry stock(
       String id,
@@ -335,6 +358,122 @@ void main() {
           if (!takes || whole) {
             added.add(e);
             run.add(e);
+          }
+        }
+      });
+    }
+
+    /// The answer of the whole book replayed with the change, as
+    /// holdsWith gave it before (FIX-R34).
+    bool wholeReplay(Ledger ledger, List<Entry> extra, {Entry? replacing}) =>
+        ledger.holdings.holdsWith([
+          for (final e in ledger.entries.all)
+            if (replacing == null || e.id != replacing.id) e,
+          ...extra,
+        ]);
+
+    test('a save is held to the stocks it trades; a book a stock of which '
+        'stands short refuses it, as the whole replay does (FIX-R34)', () {
+      final ledger = bookOf([
+        stock('b', '2330', 1, shares: 50),
+        stock('x', '0050', 1, shares: 10),
+      ]);
+      final validator = ledger.entryValidator;
+      final sale = stock('s', '2330', 5, type: EntryType.sell, shares: 50);
+      expect(validator.holdsWith([sale]), isTrue);
+      // 50 held: 51 is short.
+      expect(
+        validator.holdsWith([
+          stock('s', '2330', 5, type: EntryType.sell, shares: 51),
+        ]),
+        isFalse,
+      );
+      // The buy edited into another stock leaves no 2330 for the sale; the
+      // buy edited in place, to 60, keeps them.
+      final kept = ledger.entries.byId('b')!;
+      expect(
+        validator.holdsWith([
+          stock('b', '0050', 1, shares: 50),
+          sale,
+        ], replacing: kept),
+        isFalse,
+      );
+      expect(
+        validator.holdsWith([
+          stock('b', '2330', 1, shares: 60),
+          sale,
+        ], replacing: kept),
+        isTrue,
+      );
+      // The buy taken away with nothing in its place leaves the sale short.
+      expect(validator.holdsWith([sale], replacing: kept), isFalse);
+      // An entry no replay reads holds, whatever the stocks.
+      expect(validator.holdsWith([entry('lunch', amount: 80)]), isTrue);
+    });
+
+    for (var seed = 0; seed < fuzzSeeds; seed++) {
+      test('a save answers as the whole replay does ($seed)', () {
+        final r = Random(1000 + seed);
+        const codes = ['2330', '0050', '2412'];
+        var serial = 0;
+        Entry any() {
+          final code = codes[r.nextInt(codes.length)];
+          final date = 1 + r.nextInt(28);
+          return switch (r.nextInt(6)) {
+            0 ||
+            1 => stock('t${serial++}', code, date, shares: 1 + r.nextInt(30)),
+            2 || 3 => stock(
+              't${serial++}',
+              code,
+              date,
+              type: EntryType.sell,
+              shares: 1 + r.nextInt(30),
+            ),
+            4 => stock(
+              't${serial++}',
+              code,
+              date,
+              type: EntryType.dividend,
+              shares: -(1 + r.nextInt(10)),
+            ),
+            _ => entry('e${serial++}', amount: 1 + r.nextInt(100)),
+          };
+        }
+
+        // A book read as it was kept, short trades and all (left out).
+        final ledger = bookOf([for (var i = 0; i < 30; i++) any()]);
+        final validator = ledger.entryValidator;
+        for (var k = 0; k < 40; k++) {
+          final book = ledger.entries.all;
+          final replacing = book.isNotEmpty && r.nextBool()
+              ? book[r.nextInt(book.length)]
+              : null;
+          final change = any();
+          final extra = [
+            if (replacing != null)
+              Entry(
+                id: replacing.id,
+                date: change.date,
+                type: change.type,
+                amount: change.amount,
+                account: change.account,
+                holding: change.holding,
+                shares: change.shares,
+              )
+            else
+              change,
+            if (r.nextInt(4) == 0) any(),
+          ];
+          expect(
+            validator.holdsWith(extra, replacing: replacing),
+            wholeReplay(ledger, extra, replacing: replacing),
+            reason: 'seed $seed step $k',
+          );
+          // Saved when it holds, so the next is asked of a changed book.
+          if (replacing == null &&
+              extra.length == 1 &&
+              validator.holdsWith(extra)) {
+            ledger.entryCommands.add(extra.single);
           }
         }
       });

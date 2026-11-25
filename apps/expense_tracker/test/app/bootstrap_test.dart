@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:expense_tracker/src/app/bootstrap.dart';
@@ -9,6 +10,7 @@ import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/app/shell.dart';
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/codec/record_json.dart';
 import 'package:expense_tracker/src/core/time/app_clock.dart';
 import 'package:expense_tracker/src/core/design_system/feedback.dart';
 import 'package:expense_tracker/src/core/design_system/keys.dart';
@@ -495,6 +497,62 @@ void main() {
     expect(startup.state, isA<Ready>());
     expect(find.byType(LockScreen), findsNothing);
     expect(page, findsOneWidget);
+  });
+
+  testWidgets('a book that fails its check is told once a book: not again '
+      'at an unlock, again once new keys put another book in place '
+      '(review 33)', (tester) async {
+    const note = '帳本健檢沒有通過，可在診斷匯出詳細資料';
+    await setUpLedger(tester);
+    // An entry paid from an account the book does not have.
+    (startup.state as Ready).vault.store.write(
+      (w) => w.put(
+        'entry',
+        'orphan',
+        jsonEncode(
+          entryToJson(
+            Entry(
+              id: 'orphan',
+              date: DateTime.utc(2026, 1, 1),
+              type: EntryType.expense,
+              amount: 100,
+              account: 'gone',
+            ),
+          ),
+        ),
+      ),
+    );
+    await root(tester);
+    await untilBook(tester);
+    expect(find.text(note), findsOneWidget);
+    // Read to the end.
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+    expect(find.text(note), findsNothing);
+
+    // The book's own work at opening (its backup) done first.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+    startup.lock();
+    await tester.pump();
+    await unlock(tester);
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text(note), findsNothing);
+    }
+
+    await tester.runAsync(() => startup.resetKeys(password: _password));
+    startup
+      ..takeRecoveryCode()
+      ..takeKeysReset();
+    await tester.pump();
+    await untilBook(tester);
+    // Its turn may come behind another note (the backup the lock cut).
+    for (var i = 0; i < 6 && !shown(find.text(note)); i++) {
+      await tester.pump(const Duration(seconds: 2));
+    }
+    expect(find.text(note), findsOneWidget);
   });
 
   testWidgets('back on the first screen puts the app behind, and the '

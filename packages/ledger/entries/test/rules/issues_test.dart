@@ -9,6 +9,7 @@ void main() {
       IntervalTooSmall(),
       BlankName(),
       CloseMoveRefused(),
+      ArchivedOwing(),
       WarningOutOfRange(),
     ];
     for (final issue in errors) {

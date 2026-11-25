@@ -202,10 +202,14 @@ final class AccountForm {
       loan && rate.trim().isNotEmpty ? readRate(rate) : null;
 
   /// What is wrong with the loan's rate as typed when it is no number:
-  /// 「abc」 is said so rather than kept as no rate (D118). Null when it
-  /// is a number or left empty.
-  String? get rateProblem =>
-      _rateRead is RateUnreadable ? loanRateUnreadable : null;
+  /// 「abc」 is said so rather than kept as no rate (D118); nor is
+  /// 「0.004」, less than the least rate kept (review 33). Null when it is
+  /// a number or left empty.
+  String? get rateProblem => switch (_rateRead) {
+    RateUnreadable() => loanRateUnreadable,
+    RateTooSmall() => loanRateTooSmall,
+    _ => null,
+  };
 
   /// What is wrong with the card's credit limit as typed: 80,000 and
   /// 80000.0 are 80,000, but 8萬 or 1.234,5 is not a limit, and is said

@@ -51,7 +51,7 @@ final class BudgetCommands {
       final (:put, dropped: _) = _budgets.restore(before, after, {category});
       if (put.isEmpty) return;
       _context.changed(const {Topic.budgets});
-      _context.keep(WriteBatch(budgets: put));
+      _context.keep(WriteBatch(budgets: put, putBack: true));
     };
   }
 }

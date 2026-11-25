@@ -75,12 +75,19 @@ final class UnitOfWork {
       _deleted.isEmpty;
 
   /// Everything registered, in the order first registered.
-  WriteBatch get batch => WriteBatch(
+  WriteBatch get batch => _batch();
+
+  /// Everything registered, as an undo puts it back: each record taken
+  /// away by the change it undoes back in its place ([WriteBatch.putBack]).
+  WriteBatch get putBack => _batch(putBack: true);
+
+  WriteBatch _batch({bool putBack = false}) => WriteBatch(
     entries: [..._entries.values],
     categories: [..._categories.values],
     budgets: [..._budgets.values],
     recurring: [..._recurring.values],
     trash: [..._trash.values],
     dropped: [..._deleted],
+    putBack: putBack,
   );
 }
