@@ -858,21 +858,43 @@ final class SqlLedgerDataSource implements LedgerDataSource {
     final categories = <Category>[];
     for (final j in json) {
       if (j is! Map<String, Object?>) continue;
-      categories.add(
-        categoryFromJson(upgradeRecord(Collection.category.name, j), refs),
-      );
+      final Map<String, Object?> record;
+      try {
+        record = upgradeRecord(Collection.category.name, j);
+      } on NewerRecord {
+        // A later version's: set aside as the book opens, never read.
+        continue;
+      }
+      categories.add(categoryFromJson(record, refs));
     }
     if (categoriesOnLoops(categories).isNotEmpty) {
       throw const FormatException(parentLoopProblem);
     }
   }
 
+  /// The shelves this version reads. A backup's row on any other is a
+  /// kind of record a later version keeps (forward compatibility): it is
+  /// restored as it is and left aside, never read or written over by
+  /// this version, and goes on in its backups.
+  static final shelvesRead = {
+    for (final c in Collection.values) c.name,
+    _market,
+    _gone,
+    _draft,
+  };
+
   /// Throws a [FormatException] naming the row, whatever its slip, for a
   /// record this app cannot read or no version of it would write
-  /// ([shapeIssues]), so a backup with one is refused, not restored.
+  /// ([shapeIssues]), so a backup with one is refused, not restored. A
+  /// row a later version wrote, on a shelf not among [shelvesRead] or of
+  /// a later record version ([NewerRecord]), is let through: the book
+  /// sets it aside as it opens, and keeps it.
   static void check(String collection, String id, String body) {
+    if (!shelvesRead.contains(collection)) return;
     try {
       _check(collection, id, body);
+    } on NewerRecord {
+      return;
     } on Object catch (slip) {
       final what = slip is FormatException ? slip.message : slip.runtimeType;
       throw FormatException('$collection $id: $what');
