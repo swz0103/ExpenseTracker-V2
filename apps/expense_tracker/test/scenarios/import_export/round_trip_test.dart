@@ -58,10 +58,8 @@ void main() {
       }
       final held = {for (final e in target.entries.all) e.id: _fields(e)};
       final groups = {
-        for (final e in target.entries.all)
-          if (e.group case final g?) g,
-        for (final t in target.trash.all)
-          if (t.entry.group case final g?) g,
+        for (final e in target.entries.all) ?e.group,
+        for (final t in target.trash.all) ?t.entry.group,
       };
       final trashed = {for (final t in target.trash.all) t.entry.id};
       final why = 'book $i${forged ? ' (forged)' : ''}\n$csv';
