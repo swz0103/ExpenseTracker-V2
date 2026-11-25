@@ -20,7 +20,7 @@ abstract final class ReminderMessages {
   /// calendar, before its key (`CalendarSync.mark`); the person sees it
   /// there, and the events already written carry it.
   static const calendarMark = '記帳本#';
-  static const testText = '提醒會像這樣出現。';
+  static const testText = '提醒會像這樣出現';
 
   /// The daily nudge.
   static const nudgeTitle = '今天記帳了嗎？';

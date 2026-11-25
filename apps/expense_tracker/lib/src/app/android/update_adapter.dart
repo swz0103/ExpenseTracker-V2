@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import '../../core/platform/bounded_https.dart';
@@ -54,11 +55,16 @@ final class AndroidUpdatePort implements UpdatePort {
   Future<void> download(
     Uri url,
     File into,
-    void Function(int received) progress,
-  ) async {
+    void Function(int received) progress, {
+    required DownloadCancel cancel,
+  }) async {
     final client = _client();
     final part = File('${into.path}.part');
+    // Stopping closes the connection: a transfer waiting on a stalled
+    // network ends now, not at its stall's minute (review 31).
+    unawaited(cancel.whenAsked.then((_) => client.close(force: true)));
     try {
+      if (cancel.asked) throw const HttpException('Download cancelled');
       final response = await BoundedHttps.open(
         client,
         'GET',

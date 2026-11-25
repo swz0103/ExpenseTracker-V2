@@ -27,8 +27,20 @@ final class _Port implements UpdatePort {
   /// The size the fake download reports as received.
   var reports = 3;
 
-  /// Holds the download after its first piece until completed.
+  /// Holds the download after its first piece until completed, as a
+  /// stalled network does.
   Completer<void>? hold;
+
+  /// Holds a cancelled download's unwinding until completed: the real
+  /// port's connection closing takes a moment.
+  Completer<void>? unwind;
+
+  /// Completed once a held download's first piece has arrived, so a test
+  /// waits for that step itself rather than for time to pass.
+  var arrived = Completer<void>();
+
+  /// Each transfer's end, in order.
+  final events = <String>[];
   final installed = <(String, String)>[];
 
   @override
@@ -48,17 +60,36 @@ final class _Port implements UpdatePort {
   Future<void> download(
     Uri url,
     File into,
-    void Function(int received) progress,
-  ) async {
-    downloads++;
+    void Function(int received) progress, {
+    required DownloadCancel cancel,
+  }) async {
+    final n = ++downloads;
     if (downloadFails case final error?) throw error;
     downloadedFrom = url;
-    into.writeAsStringSync('abc');
-    if (hold case final held?) {
-      progress(1);
-      await held.future;
+    // As AndroidUpdatePort: written to a part file, renamed when whole,
+    // the part deleted however it ends.
+    final part = File('${into.path}.part');
+    try {
+      part.writeAsStringSync('abc');
+      if (hold case final held?) {
+        progress(1);
+        if (!arrived.isCompleted) arrived.complete();
+        // Stopping closes the connection, which ends the wait.
+        await Future.any([held.future, cancel.whenAsked]);
+        if (cancel.asked) {
+          await unwind?.future;
+          throw const SocketException('Connection closed');
+        }
+      }
+      progress(reports);
+      await part.rename(into.path);
+      events.add('download $n done');
+    } finally {
+      if (part.existsSync()) {
+        part.deleteSync();
+        events.add('download $n deleted its part');
+      }
     }
-    progress(reports);
   }
 
   @override
@@ -359,20 +390,63 @@ void main() {
     await app.check();
     final held = port.hold = Completer<void>();
     final installing = app.install();
-    await pumpEventQueue();
+    await port.arrived.future;
     // 1 of 3 bytes arrived.
     expect(app.progress, closeTo(0.333, 0.001));
-    app.cancelDownload();
+    await app.cancelDownload();
     expect(await installing, isNull);
     expect(app.problem, isNull);
     expect(app.progress, isNull);
     expect(port.installed, isEmpty);
-    // The transfer stops at its next piece.
+    expect(port.events, ['download 1 deleted its part']);
     held.complete();
     await pumpEventQueue();
     expect(port.installed, isEmpty);
     // And it can be started again.
     port.hold = null;
     expect(await app.install(), UpdateInstall.started);
+  });
+
+  test('review 31: cancelled while the network stalls, 更新 again waits '
+      'for the first transfer to stop, and the retry is installed', () async {
+    final app = update();
+    await app.check();
+    port.hold = Completer<void>();
+    final unwind = port.unwind = Completer<void>();
+    final first = app.install();
+    await port.arrived.future;
+    expect(app.canCancel, isTrue);
+    final cancelling = app.cancelDownload();
+    // Asked, not yet stopped: busy, 取消下載 gone, 更新 does nothing.
+    expect(app.canCancel, isFalse);
+    expect(app.busy, isTrue);
+    expect(await app.install(), isNull);
+    expect(port.downloads, 1, reason: 'never two transfers on one file');
+    unwind.complete();
+    await cancelling;
+    expect(await first, isNull);
+    expect(app.busy, isFalse);
+    expect(app.problem, isNull);
+    // The network is back: the retry downloads whole and is installed.
+    port.hold = null;
+    expect(await app.install(), UpdateInstall.started);
+    expect(port.downloads, 2);
+    expect(port.events, ['download 1 deleted its part', 'download 2 done']);
+    expect(port.installed, [('ExpenseTracker-190.apk', _sha)]);
+  });
+
+  test('review 31: once the file is complete, 取消下載 goes and stops '
+      'nothing: the installer opens', () async {
+    final app = update();
+    await app.check();
+    final canCancel = <bool>[];
+    app.addListener(() => canCancel.add(app.canCancel));
+    expect(await app.install(), UpdateInstall.started);
+    // While downloading it could be stopped; complete, it could not.
+    expect(canCancel, containsAllInOrder([true, false]));
+    expect(canCancel.last, isFalse);
+    // Nothing under way: asking stops nothing.
+    await app.cancelDownload();
+    expect(port.installed, hasLength(1));
   });
 }

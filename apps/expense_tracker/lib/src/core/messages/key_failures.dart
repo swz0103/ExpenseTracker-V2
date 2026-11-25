@@ -165,10 +165,10 @@ String describeBackup(BackupHeader header) =>
 
 /// What opens the backup [header] describes, said on the restore form.
 String restoreNeeds(BackupHeader header) => header.keyring.hasPassword
-    ? '輸入那本帳本的密碼或救援碼。'
+    ? '輸入那本帳本的密碼或救援碼'
     : header.keyring.hasPassphrase
-    ? '這份備份要用救援碼或備份密碼打開（不是 App 的密碼）。'
-    : '這份備份要用救援碼打開（不是 App 的密碼）。';
+    ? '這份備份要用救援碼或備份密碼打開（不是 App 的密碼）'
+    : '這份備份要用救援碼打開（不是 App 的密碼）';
 
 /// The label of a ledger kept before a restore, by when the backup it is
 /// was taken; [header] null when it cannot be read.

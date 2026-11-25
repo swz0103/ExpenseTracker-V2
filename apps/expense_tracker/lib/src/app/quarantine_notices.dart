@@ -9,6 +9,7 @@ import '../core/diagnostics/error_log.dart';
 import '../core/diagnostics/error_steps.dart';
 import '../core/ledger/persistence/quarantine.dart';
 import '../core/messages/loading_messages.dart';
+import '../core/messages/diagnostics_messages.dart';
 
 /// Which rows set aside as the book opened the person is told of (D18):
 /// those that cannot be read, every opening; those a newer version wrote,
@@ -62,7 +63,7 @@ Future<bool> showQuarantineNotice(
             key: Keys.quarantine('export'),
             style: wordButton(AppColors.accent),
             onPressed: onExport,
-            child: const Text(quarantineExport),
+            child: const Text(diagnosticsExport),
           ),
           TextButton(
             key: Keys.quarantine('restore'),

@@ -15,8 +15,8 @@ String quarantineBody(List<QuarantinedRow> rows) {
   final newer = rows.where((r) => r.reason == QuarantineReason.newer).length;
   final lines = [
     '其他資料都已正常打開。這些資料原封不動留在手機上，這個版本不會改寫或刪除它們。',
-    if (newer > 0) '其中 $newer 筆由較新版本寫入，請更新 App 到最新版本後再打開。',
-    if (newer < rows.length) '可以匯出診斷資料回報問題，或從備份還原。',
+    if (newer > 0) '其中 $newer 筆由較新版本寫入，請更新 App 到最新版本後再打開',
+    if (newer < rows.length) '可以匯出診斷資料回報問題，或從備份還原',
   ];
   return lines.join('\n\n');
 }
@@ -39,17 +39,14 @@ String _shelf(String shelf) => switch (shelf) {
   _ => shelf,
 };
 
-const quarantineExport = '匯出診斷';
 const quarantineRestore = '還原備份';
 const quarantineContinue = '繼續使用';
-const quarantineExported = '已匯出診斷資料';
 
 /// The book could not be opened at all.
 const loadFailedTitle = '帳本打不開';
 const loadFailedBody = '讀取帳本時發生問題，資料沒有被改動。可以再試一次；如果一直打不開，可以從備份還原，或匯出診斷資料回報問題。';
 const loadFailedRetry = '再試一次';
 const loadFailedRestore = '從備份還原';
-const loadFailedExport = '匯出診斷';
 
 /// The ledger's file is damaged (D94): told apart from a wrong password,
 /// with what was done to it and what is safe to do.
@@ -70,7 +67,7 @@ String upgradeHeldBody(UpgradeBackupProblem problem, Object error) {
     UpgradeBackupProblem.noSpace => '手機空間不足，無法先把帳本備份起來',
     UpgradeBackupProblem.other => problemNote('無法先把帳本備份起來', error),
   };
-  return '$cause。帳本沒有被改動，也還沒有升級到這個版本。';
+  return '${endSentence(cause)}帳本沒有被改動，也還沒有升級到這個版本。';
 }
 
 /// How much room the copy takes, and how to make it.
@@ -78,12 +75,11 @@ const upgradeHeldSpace =
     '升級前會先完整備份一份帳本（含收據照片），手機需要有足夠的空間。'
     '可以先刪除不需要的照片、影片或 App，再按「再試一次」。';
 const upgradeHeldRetry = '再試一次';
-const upgradeHeldExport = '匯出診斷';
 const upgradeHeldSkip = '不備份，仍要升級';
 
 /// The second question before going on without the copy.
 const upgradeHeldConfirm = '確定不備份就升級？';
-const upgradeHeldConfirmBody = '升級後，這本帳本只能由這個版本以後的 App 打開；如果升級出了問題，只能從更早的備份還原。';
+const upgradeHeldConfirmBody = '升級後，這本帳本只能由這個版本以後的 App 打開；如果升級出了問題，只能從更早的備份還原';
 const upgradeHeldConfirmAction = '仍要升級';
 
 /// The app could not start at all; what failed is in the diagnostics it

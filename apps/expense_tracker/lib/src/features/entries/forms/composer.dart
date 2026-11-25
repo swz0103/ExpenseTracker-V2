@@ -27,7 +27,6 @@ import '../model/receipt_photos.dart';
 import '../model/invoices.dart';
 import '../model/invoice_qr.dart';
 import '../../../core/widgets/shown_amounts.dart';
-import '../../../core/diagnostics/error_log.dart';
 import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
 

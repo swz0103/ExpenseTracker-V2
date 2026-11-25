@@ -187,7 +187,7 @@ void main() {
       );
       expect(
         describeProblem(ledger.problem.value!),
-        '這筆變更會覆蓋一筆讀不出來、已隔離的資料，為了保護它沒有存下。',
+        '這筆變更會覆蓋一筆讀不出來、已隔離的資料，為了保護它沒有存下',
       );
       expect(store!.row('budget', food)!.body, budget);
       expect(store!.row('trash', 'old'), isNotNull);
