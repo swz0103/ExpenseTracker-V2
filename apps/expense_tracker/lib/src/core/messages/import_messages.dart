@@ -49,6 +49,15 @@ final importHeaderWords =
 String importRepeatedIdWords(String id) =>
     '檔案裡已經有「${ExchangeColumn.id.name}」是 $id 的一筆';
 
+/// A refund line with no spending it can give back: none named or found
+/// with that much left.
+const importNoOriginalWords = '找不到可以退款的原支出';
+
+/// A refund whose 退款對象 ([id]) is spending its account cannot take
+/// back, [why] being the write rule that says so.
+String importRefundTargetWords(String id, String why) =>
+    '「${ExchangeColumn.refundOf.name}」$id：$why';
+
 /// A line of a CSV whose 當沖 cell says neither yes nor no.
 final importDayTradeWords = '「${ExchangeColumn.dayTrade.name}」看不懂，請填「是」或留空';
 

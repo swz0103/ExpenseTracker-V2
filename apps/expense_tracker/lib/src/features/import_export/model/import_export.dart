@@ -30,6 +30,7 @@ final class ImportBook {
     required this.marketData,
     required this.recurring,
     required this.inTrash,
+    required this.groupInTrash,
     required this.today,
     required this._newId,
   });
@@ -51,6 +52,10 @@ final class ImportBook {
   /// Whether an entry of the id given was deleted lately: that id is not given to
   /// an entry read, so putting it back never meets another of that id.
   final bool Function(String id) inTrash;
+
+  /// Whether an entry deleted lately was of the group given: that group
+  /// is not given to an entry read, so putting it back never joins it.
+  final bool Function(String group) groupInTrash;
   final String Function() _newId;
 
   Account account(String id) => accounts.resolve(id);

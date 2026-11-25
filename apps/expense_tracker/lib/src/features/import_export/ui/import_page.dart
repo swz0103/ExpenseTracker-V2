@@ -548,6 +548,7 @@ ImportBook importBookOf(Ledger ledger) => ImportBook(
   accounts: ledger.accounts,
   recurring: ledger.recurring,
   inTrash: {for (final t in ledger.trash.all) t.entry.id}.contains,
+  groupInTrash: {for (final t in ledger.trash.all) ?t.entry.group}.contains,
   categories: ledger.categories,
   entries: ledger.entries,
   entryQueryService: ledger.entryQueryService,

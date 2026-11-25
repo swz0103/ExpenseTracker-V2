@@ -476,16 +476,54 @@ void main() {
       expect(Preferences().noticeSalt, isNot(salt));
     });
 
-    test('R37: a Keystore that will not seal never keeps the salt plain; '
-        'another is made at the next start', () async {
-      final preferences = await Preferences.open(file, keystore: _Refusing())
-        ..phoneFolderSet(folder, name: '王小明');
+    test('review 37: a Keystore that never seals keeps the salt plain, as '
+        'the other private fields, the same at every start', () async {
+      final preferences = await Preferences.open(file, keystore: _Refusing());
       final salt = preferences.noticeSalt;
       await preferences.saved;
-      expect(plain()['phoneFolder'], folder);
+      expect(plain()['noticeSalt'], salt.value);
+      expect(sibling('preferences.sealed').existsSync(), isFalse);
+      // Opened again and again, as the app at each start: the budgets'
+      // notices keep their tags, so none is taken away and posted anew.
+      for (var start = 0; start < 3; start++) {
+        final again = await Preferences.open(file, keystore: _Refusing());
+        expect(again.noticeSalt, salt, reason: 'start $start');
+        await again.saved;
+      }
+    });
+
+    test('review 37: a salt kept plain is sealed, and leaves the plain '
+        'file, once the Keystore seals', () async {
+      final refused = await Preferences.open(file, keystore: _Refusing());
+      final salt = refused.noticeSalt;
+      await refused.saved;
+      final sealing = await Preferences.open(file, keystore: _Counting());
+      await sealing.saved;
+      expect(sealing.noticeSalt, salt);
+      expect(plain().keys, isNot(contains('noticeSalt')));
       expect(file.readAsStringSync(), isNot(contains(salt.value)));
-      final again = await Preferences.open(file, keystore: _Refusing());
-      expect(again.noticeSalt, isNot(salt));
+      expect(sibling('preferences.sealed').existsSync(), isTrue);
+      final later = await Preferences.open(file, keystore: _Counting());
+      expect(later.noticeSalt, salt);
+    });
+
+    test('review 37: a salt made while the sealed part did not open is kept '
+        'plain beside it, the same at the next start', () async {
+      final keystore = _Flaky();
+      final first = await Preferences.open(file, keystore: keystore)
+        ..driveAccountIs('alice@example.com');
+      await first.saved;
+      final kept = sibling('preferences.sealed').readAsStringSync();
+      keystore.refusals = 2;
+      final unread = await Preferences.open(file, keystore: keystore);
+      final salt = unread.noticeSalt;
+      await unread.saved;
+      // The sealed part stays for a Keystore that failed only this once.
+      expect(sibling('preferences.sealed').readAsStringSync(), kept);
+      expect(plain()['noticeSalt'], salt.value);
+      keystore.refusals = 2;
+      final still = await Preferences.open(file, keystore: keystore);
+      expect(still.noticeSalt, salt);
     });
 
     test('a folder chosen gets a new id; the same one again keeps it', () {

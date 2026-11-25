@@ -85,12 +85,14 @@ final class RefundFacts {
     required this.account,
     required this.kind,
     required this.left,
+    this.currency = homeCode,
     this.own = 0,
   });
 
-  /// The account the spending was paid from, and its kind.
+  /// The account the spending was paid from, its kind and its currency.
   final String account;
   final AccountKind kind;
+  final String currency;
 
   /// What is left of it to refund, besides this refund.
   final int left;
@@ -181,7 +183,11 @@ List<RecordIssue> entryIssues(Entry e, EntryFacts facts) {
     found.add(const SaleExceedsHolding());
   }
   final refunded = facts.refunded;
-  if (refunded != null &&
+  // As the composer offers it: a refund goes back in the spending's
+  // currency, and card spending back to the card it was paid with.
+  if (refunded != null && from != null && from.currency != refunded.currency) {
+    found.add(const RefundOtherCurrency());
+  } else if (refunded != null &&
       refunded.kind == AccountKind.card &&
       e.account != refunded.account) {
     found.add(const RefundToOtherAccount());

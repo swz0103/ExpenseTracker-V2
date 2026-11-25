@@ -39,6 +39,7 @@ void main() {
     const SaleExceedsHolding(): '賣出股數超過持股',
     const SaleExceedsHolding(later: true): '這樣之後的賣出或減資會超過持股，請先改那一筆',
     const RefundToOtherAccount(): '信用卡消費的退款要退回同一張卡',
+    const RefundOtherCurrency(): '退款要退回和原支出同一種幣別的帳戶',
     const EntryDeleted(): '這筆已刪除，可到「最近刪除」救回',
     const RefundExceedsRemaining(1200): '超過可退金額 1,200',
     const SplitPartNotPositive(): '拆分的每一項金額都要大於 0',

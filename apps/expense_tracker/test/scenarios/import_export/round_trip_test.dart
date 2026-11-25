@@ -40,11 +40,162 @@ void main() {
       expect(toCsv(target.accounts, target.entries.all), csv);
     }
   });
+
+  test('$books random books import into a book already holding some of '
+      'them, some forged, without touching what it holds (review 37 3)', () {
+    final r = Random(3737);
+    for (var i = 0; i < books; i++) {
+      final written = _RandomBook(r).entries();
+      final forged = i.isOdd;
+      final entries = forged ? _forge(r, written) : written;
+      final csv = toCsv(_book().accounts, entries);
+      final target = _book(_someOf(r, written));
+      // Some of what it holds deleted: their ids and groups in the trash.
+      for (final e in [...target.entries.all]) {
+        if (r.nextInt(4) == 0 && target.entries.refundsOf(e.id).isEmpty) {
+          target.entryCommands.remove(e.id);
+        }
+      }
+      final held = {for (final e in target.entries.all) e.id: _fields(e)};
+      final groups = {
+        for (final e in target.entries.all) ?e.group,
+        for (final t in target.trash.all) ?t.entry.group,
+      };
+      final trashed = {for (final t in target.trash.all) t.entry.id};
+      final why = 'book $i${forged ? ' (forged)' : ''}\n$csv';
+
+      final found = importCsv(importBookOf(target), csv, fallback: 'bank');
+      expect(found.accounts, isEmpty, reason: why);
+      expect(found.categories, isEmpty, reason: why);
+      addImport(target.entryCommands, found);
+
+      // Nothing it held changed or went.
+      expect(
+        {
+          for (final id in held.keys)
+            id: switch (target.entries.byId(id)) {
+              final e? => _fields(e),
+              null => null,
+            },
+        },
+        held,
+        reason: why,
+      );
+      for (final e in found.entries) {
+        // No group of the book, or of its trash, gained a member.
+        expect(groups, isNot(contains(e.group)), reason: '${e.id}: $why');
+        // No id of the trash came back on another entry.
+        expect(trashed, isNot(contains(e.id)), reason: '${e.id}: $why');
+        // A recurring link is to an item the book has.
+        if (e.recurring case final id?) {
+          expect(target.recurring.byId(id), isNotNull, reason: why);
+        }
+      }
+      // Every refund gives back spending in the book, on an account of
+      // its currency, the card itself for card spending, never more than
+      // the spending was.
+      final given = <String, int>{};
+      for (final e in target.entries.all) {
+        final of = e.refundOf;
+        if (of == null) continue;
+        final original = target.entries.byId(of);
+        expect(original, isNotNull, reason: '${e.id}: $why');
+        expect(original!.isRefund, isFalse, reason: '${e.id}: $why');
+        expect(original.type, EntryType.expense, reason: '${e.id}: $why');
+        final paid = target.account(original.account);
+        expect(
+          target.account(e.account).currency,
+          paid.currency,
+          reason: '${e.id}: $why',
+        );
+        if (paid.kind == AccountKind.card) {
+          expect(e.account, original.account, reason: '${e.id}: $why');
+        }
+        given[of] = (given[of] ?? 0) + e.amount;
+        expect(given[of]!, lessThanOrEqualTo(original.amount), reason: why);
+      }
+      // Read again, the file adds nothing more.
+      final again = importCsv(importBookOf(target), csv, fallback: 'bank');
+      expect(again.entries, isEmpty, reason: why);
+    }
+  });
+}
+
+/// About half of [entries], each refund with the spending it gives back,
+/// and no trades: a book that holds them as it would once they were kept.
+List<Entry> _someOf(Random r, List<Entry> entries) {
+  final kept = <String>{};
+  return [
+    for (final e in entries)
+      if (!e.isInvestment &&
+          (e.refundOf == null || kept.contains(e.refundOf)) &&
+          r.nextBool() &&
+          kept.add(e.id))
+        e,
+  ];
+}
+
+/// [entries] as a hand-edited file may have them: refunds moved to
+/// another account or currency, or made to give back a refund, and links
+/// to recurring items the book does not have.
+List<Entry> _forge(Random r, List<Entry> entries) {
+  const accounts = ['bank', 'cash', 'card', 'usd'];
+  final refunds = [
+    for (final e in entries)
+      if (e.isRefund) e.id,
+  ];
+  return [
+    for (final e in entries)
+      switch (r.nextInt(4)) {
+        0 when e.isRefund => _refundAs(
+          e,
+          account: accounts[r.nextInt(accounts.length)],
+          r: r,
+        ),
+        1 when e.isRefund && refunds.length > 1 => _refundAs(
+          e,
+          refundOf: refunds.firstWhere((id) => id != e.id),
+          r: r,
+        ),
+        2 when !e.isInvestment => e.withLinks(
+          group: e.group,
+          recurring: 'gone',
+          mark: e.mark,
+          dayTrade: e.dayTrade,
+        ),
+        _ => e,
+      },
+  ];
+}
+
+/// The refund [e] on [account], with a worth at home when that is
+/// foreign, or of [refundOf].
+Entry _refundAs(
+  Entry e, {
+  String? account,
+  String? refundOf,
+  required Random r,
+}) {
+  final on = account ?? e.account;
+  return Entry(
+    id: e.id,
+    date: e.date,
+    type: e.type,
+    amount: e.amount,
+    account: on,
+    category: e.category,
+    parts: e.parts,
+    tags: e.tags,
+    note: e.note,
+    refundOf: refundOf ?? e.refundOf,
+    home: on == 'usd' ? e.home ?? 1 + r.nextInt(1000) : null,
+  );
 }
 
 const _today = (2026, 10, 20);
 
-Ledger _book() => ledgerOf(
+Ledger _book([List<Entry> entries = const []]) => ledgerOf(
+  entries: entries,
   today: day(_today.$1, _today.$2, _today.$3),
   accounts: const [
     Account('bank', '銀行', AccountKind.bank, 0),
