@@ -6,7 +6,6 @@ import '../../../core/platform/preferences.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/diagnostics/error_steps.dart';
 import '../../../core/time/app_clock.dart';
-import '../../../core/messages/backup_messages.dart';
 import 'backup_rules.dart';
 import '../../../core/diagnostics/app_fault.dart';
 
@@ -17,6 +16,16 @@ final class FolderRejected implements AppFault {
 
   @override
   String toString() => '這個位置不能存備份';
+}
+
+/// The phone's folder chosen for backups no longer lets the app write:
+/// the person took the permission back. The background job hands the
+/// same as its code (`BackupPlan.FOLDER_DENIED`).
+final class FolderDenied implements AppFault {
+  const FolderDenied();
+
+  @override
+  String toString() => 'FolderDenied';
 }
 
 /// A file in the chosen folder.
@@ -148,7 +157,7 @@ final class PhoneBackup extends ChangeNotifier {
     notifyListeners();
     try {
       if (!await _folder.allowed(uri)) {
-        throw StateError(BackupWords.folderDenied);
+        throw const FolderDenied();
       }
       final at = _clock();
       final revision = _revision();

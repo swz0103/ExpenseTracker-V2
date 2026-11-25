@@ -3,3 +3,4 @@
 library;
 
 export 'src/ledger_backup/ledger_backup.dart';
+export 'src/problems.dart' show BackupProblem, BackupException;

@@ -1,6 +1,6 @@
 import 'package:sqlite3/sqlite3.dart';
 
-import 'encrypted_database.dart';
+import 'storage_problem.dart';
 
 /// Brings [db] up to the layout [steps] end at, `steps.length`, through
 /// each step it lacks: `steps[n]` takes a file at version n (SQLite's

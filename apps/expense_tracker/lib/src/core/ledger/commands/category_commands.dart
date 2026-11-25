@@ -185,6 +185,7 @@ final class CategoryCommands {
     final (:removed, :freed) = _categories.removeMerged(from, into: into);
     if (removed != null) unit.registerDeleted(Collection.category, removed.id);
     unit.registerAllDirty(freed);
+    final after = _budgets.all;
     _context.changed(Topic.all);
     _context.keep(unit.batch);
     return Merged(
@@ -192,7 +193,7 @@ final class CategoryCommands {
         from: from,
         into: into,
         categories: categories,
-        budgets: budgets,
+        budgets: (before: budgets, after: after),
         items: items,
         book: book,
         trash: trash,
@@ -202,13 +203,14 @@ final class CategoryCommands {
 
   /// Puts back what merging [from] into [into] changed: the categories
   /// and the budgets as they were, and the entries, deleted entries and
-  /// recurring items moved, those changed again since left as they are.
+  /// recurring items moved, those changed again since (budgets too) left
+  /// as they are.
   /// Nothing when [from] is a category again (made anew since).
   void _unmerge({
     required String from,
     required String into,
     required List<Category> categories,
-    required List<Budget> budgets,
+    required ({List<Budget> before, List<Budget> after}) budgets,
     required List<Recurring> items,
     required EntryImages book,
     required EntryImages trash,
@@ -223,7 +225,10 @@ final class CategoryCommands {
     ];
     _recurring.replaceExisting(back);
     unit.registerAllDirty(back);
-    final (:put, :dropped) = _budgets.restore(budgets, {from, into});
+    final (:put, :dropped) = _budgets.restore(budgets.before, budgets.after, {
+      from,
+      into,
+    });
     unit.registerAllDirty(put);
     for (final key in dropped) {
       unit.registerDeleted(Collection.budget, key);

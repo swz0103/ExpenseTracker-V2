@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import '../../../core/diagnostics/app_fault.dart';
+import '../../../core/diagnostics/error_steps.dart';
 import '../../../core/platform/preferences.dart';
 import 'backup_rules.dart';
 import '../../../core/diagnostics/error_log.dart';
@@ -180,7 +182,7 @@ final class Outbox {
   /// closed, so the settings show it and the app does not send the same
   /// backup again. Returns what went wrong there since last asked, to be
   /// logged.
-  List<String> collect() {
+  List<DeliveryFailed> collect() {
     final delivered = _read(_delivered);
     if (delivered == null) return const [];
     final phone = _delivery(delivered['phone']);
@@ -199,17 +201,18 @@ final class Outbox {
         _newer(drive.at, _preferences.driveBackedUp)) {
       _preferences.driveBackup(drive.at, drive.revision);
     }
-    final problems = <String>[];
+    final problems = <DeliveryFailed>[];
     final failed = delivered['problems'];
     if (failed is Map<String, Object?>) {
       for (final MapEntry(:key, :value) in failed.entries) {
         if (value is! Map<String, Object?>) continue;
         final at = value['at'];
         final message = value['message'];
-        if (at is! int || message is! String) continue;
+        final place = DeliveryPlace.named(key);
+        if (at is! int || message is! String || place == null) continue;
         if (at <= (_seen[key] ?? 0)) continue;
         _seen[key] = at;
-        problems.add('${key == 'drive' ? '雲端硬碟' : '手機資料夾'}：$message');
+        problems.add(DeliveryFailed(place, message));
       }
     }
     return problems;
@@ -256,4 +259,45 @@ final class Outbox {
     await next.writeAsString(jsonEncode(json), flush: true);
     await next.rename(file.path);
   }
+}
+
+/// Where the background job delivers a backup, by the name it notes it
+/// under in `delivered.json`.
+enum DeliveryPlace {
+  phone('手機資料夾'),
+  drive('雲端硬碟');
+
+  const DeliveryPlace(this.label);
+
+  /// What the error log calls it.
+  final String label;
+
+  /// The place the job notes as [name]; null for one it does not have.
+  static DeliveryPlace? named(String name) =>
+      values.where((p) => p.name == name).firstOrNull;
+}
+
+/// The background job could not deliver to [place]: [code] is what it
+/// handed over (BackupPlan.problemOf), a code in plain ASCII such as
+/// `FolderDenied`, `Refused HTTP 403` or a failure's type, never words; a
+/// code of anything else is kept as `Unknown`.
+final class DeliveryFailed implements AppFault {
+  DeliveryFailed(this.place, String code)
+    : code = _code.hasMatch(code) ? code : unknown;
+
+  /// What a code not of the job's kind is kept as.
+  static const unknown = 'Unknown';
+
+  // A type's name or the job's own words: letters first, then letters,
+  // digits and spaces.
+  static final _code = RegExp(r'^[A-Za-z][A-Za-z0-9 ]{0,59}$');
+
+  final DeliveryPlace place;
+  final String code;
+
+  /// What the error log keeps it under: the step and the place.
+  String get step => '${ErrorSteps.backgroundBackup} ${place.label}';
+
+  @override
+  String toString() => 'DeliveryFailed(${place.name} $code)';
 }

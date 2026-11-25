@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:core/foundation_values.dart' show BusinessDate;
+import 'package:core/foundation_values.dart' show BusinessDate, NameId;
 
 import '../../../../design_system/display/amount.dart';
 import '../../../core/ledger/ledger.dart';
@@ -138,6 +138,10 @@ Set<String> wantedTags(ReminderBook book, Preferences preferences) => {
   for (final c in budgetCrossings(book, preferences)) c.tag,
 };
 
+/// The tag of the notice of the budget on [category] (a category's name,
+/// a `#` and a tag, or all spending): an id that does not say it.
+String budgetTag(String category) => 'budget:${NameId.of(category)}';
+
 /// A budget past its warning share, or used up, this month.
 typedef BudgetCrossing = ({String key, String tag, String title, String text});
 
@@ -160,18 +164,20 @@ List<BudgetCrossing> budgetCrossings(
     final spent = book.budgetService.spentAgainst(b, today.year, today.month);
     final share = percent(spent, allowed);
     final name = b.category == allSpending ? '本月總預算' : '「${b.category}」預算';
+    // The tag Android keeps names the budget by an id, never its name.
+    final tag = budgetTag(b.category);
     final BudgetCrossing crossing;
     if (spent > allowed) {
       crossing = (
         key: '$month|${b.category}|over',
-        tag: 'budget:${b.category}',
+        tag: tag,
         title: '$name已${StatusWords.over}',
         text: '已用 ${groupDigits(spent)}，超出 ${groupDigits(spent - allowed)}',
       );
     } else if (spent * 100 >= b.warning * allowed) {
       crossing = (
         key: '$month|${b.category}|${b.warning}',
-        tag: 'budget:${b.category}',
+        tag: tag,
         title: '$name已用 $share%',
         text: '還剩 ${groupDigits(allowed - spent)}',
       );

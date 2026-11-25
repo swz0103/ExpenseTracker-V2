@@ -541,10 +541,79 @@ void main() {
 
     test('takeBack takes only what the book holds; none is false', () {
       final l = plain();
-      expect(l.entryCommands.takeBack(['none']), isFalse);
-      expect(l.entryCommands.takeBack(['old', 'none']), isTrue);
+      final old = l.entries.byId('old')!;
+      expect(l.entryCommands.takeBack([imported('none')]), isFalse);
+      expect(l.entryCommands.takeBack([old, imported('none')]), isTrue);
       expect(l.entries.length, 0);
       expect(l.trash.all, isEmpty);
+      expect(l.problem.value, isNull);
+    });
+
+    test('R34: an import undo leaves an entry edited since, and says so', () {
+      final l = plain();
+      final undo = l.entryCommands.addAll([imported('i1'), imported('i2')]);
+      final i2 = l.entries.byId('i2')!;
+      l.entryCommands.replace(i2.withLabels(merchant: '小七'));
+      undo();
+      expect([for (final e in l.entries.all) e.id], ['old', 'i2']);
+      expect(l.entries.byId('i2')!.merchant, '小七');
+      expect(l.trash.all, isEmpty);
+      expect(
+        l.problem.value,
+        isA<StayedInBook>().having((p) => p.count, 'count', 1),
+      );
+    });
+
+    test('R34: an import undo leaves an entry a later refund names', () {
+      final l = plain();
+      final undo = l.entryCommands.addAll(
+        [imported('i1', account: 'imp'), imported('i2')],
+        accounts: const [Account('imp', '匯入', AccountKind.bank, 0)],
+      );
+      l.entryCommands.add(
+        Entry(
+          id: 'r1',
+          date: DateTime.utc(2026, 10, 3),
+          type: EntryType.income,
+          amount: 10,
+          account: 'imp',
+          category: '飲食',
+          refundOf: 'i1',
+        ),
+      );
+      undo();
+      expect([for (final e in l.entries.all) e.id], ['old', 'i1', 'r1']);
+      expect(l.accounts.contains('imp'), isTrue);
+      expect(l.integrityService.problems(), isEmpty);
+      expect((l.problem.value! as StayedInBook).count, 1);
+    });
+
+    test('R34: an import of a purchase and its refund goes back whole', () {
+      final l = plain();
+      final undo = l.entryCommands.addAll([
+        imported('i1'),
+        Entry(
+          id: 'r1',
+          date: DateTime.utc(2026, 10, 3),
+          type: EntryType.income,
+          amount: 10,
+          account: 'bank',
+          category: '飲食',
+          refundOf: 'i1',
+        ),
+      ]);
+      undo();
+      expect([for (final e in l.entries.all) e.id], ['old']);
+      expect(l.problem.value, isNull);
+    });
+
+    test('R34: an import undo with every entry edited takes nothing', () {
+      final l = plain();
+      final undo = l.entryCommands.addAll([imported('i1')]);
+      l.entryCommands.replace(l.entries.byId('i1')!.withLabels(merchant: '小七'));
+      undo();
+      expect([for (final e in l.entries.all) e.id], ['old', 'i1']);
+      expect((l.problem.value! as StayedInBook).count, 1);
     });
 
     test('a tag deleted comes back on its entries, with its budget', () {
@@ -567,6 +636,20 @@ void main() {
       undo();
       expect(l.entries.byId('old')!.tags, ['家用']);
       expect(l.budgets.all.single.category, '#家用');
+    });
+
+    test('R34: a tag rename undo leaves a budget set since on either name', () {
+      final l = plain();
+      final undo = l.entryCommands.renameTag('家用', '日用');
+      l.budgetCommands.setBudget('#日用', 777);
+      undo();
+      expect(l.entries.byId('old')!.tags, ['家用']);
+      // #日用 was set since: kept at 777; #家用 is as the rename left it
+      // (none), so its 900 comes back, in its place.
+      expect(
+        [for (final b in l.budgets.all) (b.category, b.limit)],
+        [('#家用', 900), ('#日用', 777)],
+      );
     });
 
     test('a merchant merged comes back on its entries and recurring items, '

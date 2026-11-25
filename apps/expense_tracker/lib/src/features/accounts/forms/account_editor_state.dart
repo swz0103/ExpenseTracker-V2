@@ -102,7 +102,8 @@ class _AccountEditorState extends State<_AccountEditor> {
       if (into == null || !mounted) return;
       final made = AccountForm.settlement(ledger, old, into);
       if (!refusalShown(context, () => ledger.entryCommands.add(made))) return;
-      settlement = made;
+      // The entry as the book holds it, the one its undo takes back.
+      settlement = ledger.entries.byId(made.id);
     }
     final undo = ledger.accountCommands.setArchived(
       old.id,
@@ -118,7 +119,7 @@ class _AccountEditorState extends State<_AccountEditor> {
         () {
           undo();
           if (settlement != null) {
-            ledger.entryCommands.takeBack([settlement.id]);
+            ledger.entryCommands.takeBack([settlement]);
           }
         },
       );

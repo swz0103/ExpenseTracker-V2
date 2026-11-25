@@ -38,18 +38,20 @@ final class BudgetCommands {
   }
 
   /// Takes away the budget on [category]; the [Undo] puts it back where
-  /// it stood, as it was (D82). Null when there is none.
+  /// it stood, as it was (D82), unless a budget was set on it since.
+  /// Null when there is none.
   Undo? removeBudget(String category) {
-    final index = _budgets.all.indexWhere((b) => b.category == category);
-    if (index < 0) return null;
-    final removed = _budgets.all[index];
+    final before = _budgets.all;
+    if (!before.any((b) => b.category == category)) return null;
     _budgets.remove(category);
+    final after = _budgets.all;
     _context.changed(const {Topic.budgets});
     _context.keep(WriteBatch(dropped: [(Collection.budget, category)]));
     return () {
-      _budgets.putAt(index, removed);
+      final (:put, dropped: _) = _budgets.restore(before, after, {category});
+      if (put.isEmpty) return;
       _context.changed(const {Topic.budgets});
-      _context.keep(WriteBatch(budgets: [removed], putBack: true));
+      _context.keep(WriteBatch(budgets: put, putBack: true));
     };
   }
 }

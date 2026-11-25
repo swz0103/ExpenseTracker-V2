@@ -25,7 +25,6 @@ class BackupPlanTest {
         phonePrefix = "記帳本-abc123-",
         suffix = ".etbk",
         driveFolder = "記帳本備份",
-        folderDenied = "沒有這個資料夾的存取權，請重新選擇",
     )
 
     @Test
@@ -202,11 +201,22 @@ class BackupPlanTest {
         // the app's error log.
         assertEquals(
             "IOException",
-            BackupPlan.problemOf(IOException("/storage/emulated/0/Documents/王小明 alice@example.com"), plan),
+            BackupPlan.problemOf(IOException("/storage/emulated/0/Documents/王小明 alice@example.com")),
         )
-        assertEquals("Refused HTTP 403", BackupPlan.problemOf(DriveUploader.Refused(403, "HTTP 403"), plan))
-        assertEquals("Refused", BackupPlan.problemOf(DriveUploader.Refused(0, "no upload address"), plan))
-        // The app's own words for a folder that no longer lets it write.
-        assertEquals(plan.folderDenied, BackupPlan.problemOf(IllegalStateException(plan.folderDenied), plan))
+        assertEquals("Refused HTTP 403", BackupPlan.problemOf(DriveUploader.Refused(403, "HTTP 403")))
+        assertEquals("Refused", BackupPlan.problemOf(DriveUploader.Refused(0, "no upload address")))
+    }
+
+    @Test
+    fun aFolderRefusingIsHandedAsItsCodeNotWords() {
+        // Review 34: the app records the code; no Chinese goes through.
+        assertEquals("FolderDenied", BackupPlan.problemOf(BackupPlan.FolderDenied()))
+        assertEquals("IllegalStateException", BackupPlan.problemOf(IllegalStateException("沒有存取權")))
+    }
+
+    @Test
+    fun aFailureWithNoNameOfItsOwnIsUnknown() {
+        val anonymous = object : Exception("alice@example.com") {}
+        assertEquals("Unknown", BackupPlan.problemOf(anonymous))
     }
 }

@@ -3,6 +3,13 @@ import 'dart:io';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
+import 'package:domain/credit_cards.dart';
+import 'package:domain/data_exchange.dart';
+import 'package:ledger_trade_costs/model/trade_values.dart';
+import 'package:storage/storage.dart';
+import 'package:vault/backup_security.dart';
+import 'package:vault/ledger_backup.dart';
+import 'package:vault/ledger_vault.dart';
 import 'package:expense_tracker/src/core/diagnostics/error_log.dart';
 import 'package:expense_tracker/src/core/ledger/commands/command_exceptions.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
@@ -100,6 +107,86 @@ void main() {
       );
       // Words the app passed itself (a delivery the job noted).
       expect(ErrorLog.describe('雲端硬碟：bob@example.org 403'), 'String: … #');
+    });
+
+    test('R34: a socket or TLS fault keeps its errno, never its words', () {
+      expect(
+        ErrorLog.describe(
+          const SocketException(
+            'Failed host lookup: www.googleapis.com',
+            osError: OSError('No address associated with hostname', 7),
+          ),
+        ),
+        'SocketException (errno 7)',
+      );
+      expect(
+        ErrorLog.describe(
+          const SocketException(
+            'Connection refused',
+            osError: OSError('Connection refused', 111),
+          ),
+        ),
+        'SocketException (errno 111)',
+      );
+      expect(
+        ErrorLog.describe(
+          const HandshakeException(
+            'CERTIFICATE_VERIFY_FAILED',
+            OSError('unable to get local issuer certificate', 20),
+          ),
+        ),
+        'HandshakeException (errno 20)',
+      );
+      expect(
+        ErrorLog.describe(const HandshakeException('x')),
+        'HandshakeException',
+      );
+    });
+
+    test("R34: the app's own packages' exceptions keep their fixed words", () {
+      expect(
+        ErrorLog.describe(
+          const BackupException(BackupProblem.invalidFormat, 'tail'),
+        ),
+        'BackupException: BackupException(invalidFormat tail)',
+      );
+      expect(
+        ErrorLog.describe(const VaultException(VaultProblem.missingDatabase)),
+        'VaultException: VaultException(missingDatabase)',
+      );
+      expect(
+        ErrorLog.describe(const KeyringException(KeyringError.noSuchSlot)),
+        'KeyringException: KeyringException(noSuchSlot)',
+      );
+      expect(
+        ErrorLog.describe(const StorageUnavailable(StorageProblem.damaged)),
+        'StorageUnavailable: StorageUnavailable(damaged)',
+      );
+      expect(
+        ErrorLog.describe(const MoneyException(MoneyError.precision)),
+        'MoneyException: MoneyException(precision)',
+      );
+      expect(
+        ErrorLog.describe(const FxException(FxError.currencyMismatch)),
+        'FxException: FxException(currencyMismatch)',
+      );
+      expect(
+        ErrorLog.describe(
+          const CreditCardException(CreditCardError.invalidInput),
+        ),
+        'CreditCardException: CreditCardException(invalidInput)',
+      );
+      expect(
+        ErrorLog.describe(
+          const InvestmentException(InvestmentError.fractionalShares),
+        ),
+        'InvestmentException: InvestmentException(fractionalShares)',
+      );
+      // The CSV reader's own words, the line a number like any other.
+      expect(
+        ErrorLog.describe(const CsvFormatException('A quote never closed', 12)),
+        'CsvFormatException: A quote never closed',
+      );
     });
 
     test("an app fault keeps its own words, and what carries another's "

@@ -41,6 +41,25 @@ final class _Counting implements DeviceKeyWrapper {
       MemoryKeystore.instance.unwrap(wrapped, context);
 }
 
+/// The Keystore of this run, refusing to open the next [refusals] times,
+/// as a busy one at the start.
+final class _Flaky implements DeviceKeyWrapper {
+  var refusals = 0;
+
+  @override
+  Future<List<int>> wrap(List<int> secret, List<int> context) =>
+      MemoryKeystore.instance.wrap(secret, context);
+
+  @override
+  Future<List<int>> unwrap(List<int> wrapped, List<int> context) async {
+    if (refusals > 0) {
+      refusals--;
+      throw StateError('keystore busy');
+    }
+    return MemoryKeystore.instance.unwrap(wrapped, context);
+  }
+}
+
 void main() {
   late Directory directory;
   late File file;
@@ -351,6 +370,74 @@ void main() {
       expect(
         sibling('preferences.sealed').readAsStringSync(),
         isNot('memory:gone'),
+      );
+    });
+
+    test(
+      'R34: a Keystore that refuses once at the start is asked again',
+      () async {
+        final keystore = _Flaky();
+        final first = await Preferences.open(file, keystore: keystore)
+          ..driveAccountIs('alice@example.com');
+        await first.saved;
+        keystore.refusals = 1;
+        final again = await Preferences.open(file, keystore: keystore);
+        expect(again.driveAccount, 'alice@example.com');
+      },
+    );
+
+    test('R34: what is cleared while the sealed part did not open stays '
+        'cleared at the next start', () async {
+      final keystore = _Flaky();
+      final first = await Preferences.open(file, keystore: keystore)
+        ..driveAccountIs('alice@example.com')
+        ..phoneFolderSet(folder, name: '王小明');
+      await first.saved;
+      // Both tries at the start refused: nothing private reads.
+      keystore.refusals = 2;
+      final unread = await Preferences.open(file, keystore: keystore);
+      expect((unread.driveAccount, unread.phoneFolder), (null, null));
+      unread
+        ..driveAccountIs(null)
+        ..phoneFolderSet(null);
+      await unread.saved;
+      expect(sibling('preferences.sealed').existsSync(), isFalse);
+      final later = await Preferences.open(file, keystore: keystore);
+      expect((later.driveAccount, later.phoneFolder), (null, null));
+    });
+
+    test('R34: a budget notice noted while unread leaves the sealed part '
+        'for the next start', () async {
+      final keystore = _Flaky();
+      final first = await Preferences.open(file, keystore: keystore)
+        ..driveAccountIs('alice@example.com');
+      await first.saved;
+      final kept = sibling('preferences.sealed').readAsStringSync();
+      keystore.refusals = 2;
+      final unread = await Preferences.open(file, keystore: keystore)
+        ..budgetAlertedSet({'2026-10|b1|80'});
+      await unread.saved;
+      expect(sibling('preferences.sealed').readAsStringSync(), kept);
+      final later = await Preferences.open(file, keystore: keystore);
+      expect(later.driveAccount, 'alice@example.com');
+    });
+
+    test('R34: one value cleared while unread writes the sealed part over '
+        'with what is chosen now', () async {
+      final keystore = _Flaky();
+      final first = await Preferences.open(file, keystore: keystore)
+        ..driveAccountIs('alice@example.com')
+        ..phoneFolderSet(folder, name: '王小明');
+      await first.saved;
+      keystore.refusals = 2;
+      final unread = await Preferences.open(file, keystore: keystore)
+        ..phoneFolderSet(null)
+        ..driveAccountIs('bob@example.com');
+      await unread.saved;
+      final later = await Preferences.open(file, keystore: keystore);
+      expect(
+        (later.driveAccount, later.phoneFolder),
+        ('bob@example.com', null),
       );
     });
 

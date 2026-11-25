@@ -37,6 +37,10 @@ abstract final class ErrorSteps {
   /// written: fetched again.
   static const priceHistory = '歷史股價快取';
 
+  /// The backup for the background job could not be written, or the job
+  /// noted it could not deliver one (with the place after it).
+  static const backgroundBackup = '背景備份';
+
   /// The backup waiting for the background job could not be taken away
   /// after a reset of the keys: replaced by the next one written.
   static const outboxEmpty = '清空背景備份';

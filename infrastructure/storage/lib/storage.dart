@@ -4,6 +4,7 @@ library;
 
 export 'src/encrypted_database.dart';
 export 'src/no_space.dart';
+export 'src/storage_problem.dart';
 
 // What a read or write of the file throws, as SQLite says it: told apart
 // by [isNoSpace] and [EncryptedDatabase.damageIn].

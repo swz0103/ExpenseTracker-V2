@@ -61,6 +61,5 @@ abstract final class BackupRules {
     'phonePrefix': phonePrefix(mark),
     'suffix': suffix,
     'driveFolder': driveFolder,
-    'folderDenied': BackupWords.folderDenied,
   };
 }
