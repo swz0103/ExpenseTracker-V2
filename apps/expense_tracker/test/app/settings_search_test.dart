@@ -1,3 +1,4 @@
+import 'package:expense_tracker/src/app/platform_services.dart';
 import 'package:expense_tracker/src/app/settings_search.dart';
 import 'package:expense_tracker/src/core/design_system/findable.dart';
 import 'package:expense_tracker/src/core/formatting/setting_topic.dart';
@@ -41,6 +42,37 @@ void main() {
         reason: word,
       );
     }
+  });
+
+  test('search offers only what this phone and build show: no updates '
+      'outside the sideload build, no sample reset outside the preview, no '
+      'fingerprint, lock or screen hiding without them (review 39 #4)', () {
+    final offered = offeredTopics(const PlatformServices());
+    for (final word in ['自動檢查', '範例', '指紋', '上鎖', '現在鎖上', '截圖', '日曆', '每日']) {
+      expect(findSettings(word, among: offered), isEmpty, reason: word);
+    }
+    // 版本, 匯入 CSV and 最近刪除 are on every phone.
+    expect(
+      [for (final t in findSettings('版本', among: offered)) t.topic.name],
+      ['版本與更新'],
+    );
+    expect([
+      for (final t in findSettings('csv', among: offered)) t.topic.name,
+    ], contains('匯入 CSV'));
+    expect(
+      [for (final t in findSettings('刪除', among: offered)) t.topic.name],
+      ['最近刪除'],
+    );
+  });
+
+  testWidgets('a build that cannot update itself does not offer '
+      '自動檢查新版本 (review 39 #4)', (tester) async {
+    await loadFonts();
+    await show(tester, 360, 1);
+    await go(tester, ['更多', '設定']);
+    await tester.enterText(find.byType(TextField).first, '自動檢查');
+    await tester.pumpAndSettle();
+    expect(find.text('找不到這個設定'), findsOneWidget);
   });
 
   test('every page of the settings has something to find', () {

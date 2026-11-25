@@ -16,6 +16,7 @@ import '../../../core/design_system/settings_colors.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/design_system/shape.dart';
 import '../../../core/design_system/spacing.dart';
+import '../../../core/formatting/setting_topic.dart';
 import '../../../core/formatting/words.dart';
 
 /// 安全: the password, the fingerprint, the recovery code, the backup
@@ -46,6 +47,30 @@ class SecuritySection extends StatefulWidget {
     SecurityTopics.reset,
     SecurityTopics.lockNow,
   ];
+
+  /// The [topics] whose cards the section shows with these services: the
+  /// fingerprint only where the phone has one, 自動上鎖 and 現在鎖上 only
+  /// with a password, 隱藏畫面 only where the screen can be hidden (review
+  /// 39 #4).
+  static List<SettingTopic> offered({
+    BackupManager? backupManager,
+    ScreenPrivacy? privacy,
+    Preferences? preferences,
+  }) {
+    final locked = backupManager?.hasPassword ?? false;
+    return [
+      if (backupManager != null) ...[
+        SecurityTopics.password,
+        if (backupManager.canUseFingerprint) SecurityTopics.fingerprint,
+        if (preferences != null && locked) SecurityTopics.autoLock,
+        SecurityTopics.recovery,
+        SecurityTopics.passphrase,
+      ],
+      if (privacy != null) SecurityTopics.hideScreen,
+      if (backupManager != null) SecurityTopics.reset,
+      if (locked) SecurityTopics.lockNow,
+    ];
+  }
 
   @override
   State<SecuritySection> createState() => _SecuritySectionState();

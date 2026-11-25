@@ -84,6 +84,15 @@ class BackupSection extends StatefulWidget {
     BackupTopics.restore,
   ];
 
+  /// The [topics] whose cards the section shows with [drive] and [phone]
+  /// (review 39 #4).
+  static List<SettingTopic> offered({DriveSync? drive, PhoneBackup? phone}) => [
+    if (drive != null) BackupTopics.drive_,
+    if (phone != null) BackupTopics.folder,
+    BackupTopics.export,
+    BackupTopics.restore,
+  ];
+
   @override
   State<BackupSection> createState() => _BackupSectionState();
 }

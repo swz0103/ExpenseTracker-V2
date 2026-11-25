@@ -46,6 +46,17 @@ class AboutSection extends StatelessWidget {
     AboutTopics.sampleReset,
   ];
 
+  /// The [topics] whose cards the section shows with [services]: 自動檢查新版本
+  /// only where the app can update itself, 重設範例資料 only in the
+  /// preview (review 39 #4).
+  static List<SettingTopic> offered(PlatformServices services) => [
+    AboutTopics.version,
+    if (services.preferences != null && (services.update?.possible ?? false))
+      AboutTopics.updates,
+    AboutTopics.diagnostics,
+    if (services.sample != null) AboutTopics.sampleReset,
+  ];
+
   /// The figures, then each problem kept, as text to copy or download.
   static String get _report => [
     for (final (name, figure) in PerformanceMonitor.instance.report)

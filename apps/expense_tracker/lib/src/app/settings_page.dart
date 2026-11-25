@@ -85,7 +85,13 @@ class SettingsPage extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s6),
             header: CenterHeader(part?.label ?? '設定與資料', onBack: nav.back),
             children: part == null
-                ? [SettingsSearch(onOpen: _find, child: _index(context))]
+                ? [
+                    SettingsSearch(
+                      onOpen: _find,
+                      services: services,
+                      child: _index(context),
+                    ),
+                  ]
                 : _page(context, part),
           ),
         );

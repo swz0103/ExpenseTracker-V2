@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:expense_tracker/src/app/demo/preview_services.dart';
+import 'package:expense_tracker/src/app/platform_services.dart';
+import 'package:expense_tracker/src/app/settings_page.dart';
 import 'package:expense_tracker/src/app/settings_search.dart';
 import 'package:expense_tracker/src/core/design_system/findable.dart';
 import 'package:expense_tracker/src/core/design_system/theme.dart';
@@ -93,7 +95,19 @@ void main() {
   /// The topics each page built, over every way it was shown.
   final built = <SettingsDestination, Set<SettingTopic>>{};
 
-  void check(WidgetTester tester, SettingsDestination page) {
+  /// What [page] offers search with the services the settings were
+  /// opened with.
+  List<SettingTopic> offered(WidgetTester tester, SettingsDestination page) =>
+      offeredOn(
+        page,
+        tester.widget<SettingsPage>(find.byType(SettingsPage)).services,
+      );
+
+  void check(
+    WidgetTester tester,
+    SettingsDestination page,
+    List<SettingTopic> offered,
+  ) {
     final (loose, topics) = look(tester);
     expect(loose, isEmpty, reason: '${page.label}: not found by search');
     (built[page] ??= {}).addAll(topics);
@@ -104,6 +118,23 @@ void main() {
         reason: '${topic.name} is not in ${page.label}\'s topics',
       );
     }
+    // Review 39 #4: search offers what the page then shows, no more.
+    expect(
+      [
+        for (final topic in offered)
+          if (!topics.contains(topic)) topic.name,
+      ],
+      isEmpty,
+      reason: '${page.label}: offered by search but not built',
+    );
+    expect(
+      [
+        for (final topic in topics)
+          if (!offered.contains(topic)) topic.name,
+      ],
+      isEmpty,
+      reason: '${page.label}: built but not offered by search',
+    );
   }
 
   // The words each card on the settings' first page goes by.
@@ -121,7 +152,7 @@ void main() {
     ) async {
       await show(tester, 400, 1);
       await go(tester, ['更多', '設定', card]);
-      check(tester, page);
+      check(tester, page, offered(tester, page));
     });
   }
 
@@ -142,7 +173,19 @@ void main() {
         calendar: CalendarSync(FakeCalendars(), dir),
       );
       await go(tester, ['更多', '設定', page.label]);
-      check(tester, page);
+      check(tester, page, offered(tester, page));
+    });
+  }
+
+  for (final page in [
+    SettingsDestination.reminders,
+    SettingsDestination.security,
+  ]) {
+    testWidgets('${page.label}, with no password and no calendar: search '
+        'offers only the settings shown (review 39 #4)', (tester) async {
+      await show(tester, 400, 1);
+      await go(tester, ['更多', '設定', page.label]);
+      check(tester, page, offered(tester, page));
     });
   }
 
@@ -187,7 +230,34 @@ void main() {
         ),
       ),
     );
-    check(tester, SettingsDestination.backup);
+    check(
+      tester,
+      SettingsDestination.backup,
+      offeredOn(
+        SettingsDestination.backup,
+        PlatformServices(
+          backupManager: DemoBackupManager(),
+          drive: DriveSync(
+            DriveBackup(
+              FakeDrive(),
+              token: ({required interactive}) async => 'token',
+              forget: (_) async {},
+            ),
+            preferences,
+            withBackup: withBackup,
+            revision: () => 1,
+            ledger: 'L1',
+          ),
+          phone: PhoneBackup(
+            FakeFolder(),
+            preferences,
+            withBackup: withBackup,
+            revision: () => 1,
+            ledger: 'L1',
+          ),
+        ),
+      ),
+    );
   });
 
   test('each page builds every setting it lists, but those it cannot show '

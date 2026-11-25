@@ -20,6 +20,7 @@ import '../../../core/diagnostics/error_log.dart';
 import '../../../../design_system/display/date.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/shape.dart';
+import '../../../core/formatting/setting_topic.dart';
 import '../../../core/formatting/words.dart';
 import '../../../../design_system/display/status_messages.dart';
 import '../../../core/diagnostics/error_steps.dart';
@@ -53,6 +54,31 @@ class RemindersSection extends StatefulWidget {
     ReminderTopics.linkCalendar,
     ReminderTopics.phone,
   ];
+
+  /// The [topics] whose cards the section shows with these services: the
+  /// notifications' only where the phone posts them, the calendar's only
+  /// with a calendar, the phone's strip once a notification is on (it
+  /// shows when the phone has answered, a moment after the page opens)
+  /// (review 39 #4).
+  static List<SettingTopic> offered({
+    Notifier? notifier,
+    CalendarSync? calendar,
+  }) {
+    final preferences = notifier?.preferences;
+    return [
+      if (preferences != null) ...[
+        ReminderTopics.due,
+        ReminderTopics.budget,
+        ReminderTopics.daily,
+      ],
+      if (calendar != null) ReminderTopics.linkCalendar,
+      if (preferences != null &&
+          (preferences.dueAlerts ||
+              preferences.dailyNudge ||
+              preferences.budgetAlerts))
+        ReminderTopics.phone,
+    ];
+  }
 
   @override
   State<RemindersSection> createState() => _RemindersSectionState();

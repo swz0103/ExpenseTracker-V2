@@ -14,13 +14,14 @@ import '../features/lock/ui/security_section.dart';
 import '../features/reminders/ui/reminders_section.dart';
 import '../features/settings/ui/preferences_section.dart';
 import 'about_section.dart';
+import 'platform_services.dart';
 
 /// A setting search found, and the page it is on.
 typedef FoundSetting = ({SettingTopic topic, SettingsDestination page});
 
-/// What search finds on [page]: each section declares its settings'
-/// words beside the cards it builds (N8); settings_search_rules_test
-/// fails on a card built without one.
+/// Every setting [page] can show, whatever the phone: each section
+/// declares its settings' words beside the cards it builds (N8);
+/// settings_search_rules_test fails on a card built without one.
 List<SettingTopic> topicsOn(SettingsDestination page) => switch (page) {
   SettingsDestination.backup => BackupSection.topics,
   SettingsDestination.importExport => ImportExportSection.topics,
@@ -31,6 +32,33 @@ List<SettingTopic> topicsOn(SettingsDestination page) => switch (page) {
   SettingsDestination.trash => TrashSection.topics,
 };
 
+/// The settings [page] shows on this phone and build ([services]), so
+/// search offers none the page then lacks (review 39 #4):
+/// settings_search_rules_test fails on a topic offered but not built.
+List<SettingTopic> offeredOn(
+  SettingsDestination page,
+  PlatformServices services,
+) => switch (page) {
+  SettingsDestination.backup =>
+    services.backupManager == null
+        ? const []
+        : BackupSection.offered(drive: services.drive, phone: services.phone),
+  SettingsDestination.importExport => ImportExportSection.topics,
+  SettingsDestination.reminders => RemindersSection.offered(
+    notifier: services.notifier,
+    calendar: services.calendar,
+  ),
+  SettingsDestination.security => SecuritySection.offered(
+    backupManager: services.backupManager,
+    privacy: services.privacy,
+    preferences: services.preferences,
+  ),
+  SettingsDestination.appearance =>
+    services.preferences == null ? const [] : AppearanceSection.topics,
+  SettingsDestination.about => AboutSection.offered(services),
+  SettingsDestination.trash => TrashSection.topics,
+};
+
 /// Every setting, page by page, so one four taps away is found by typing
 /// a word of it.
 final List<FoundSetting> settingTopics = [
@@ -38,11 +66,17 @@ final List<FoundSetting> settingTopics = [
     for (final topic in topicsOn(page)) (topic: topic, page: page),
 ];
 
-/// The settings whose name or other words hold [query] (SettingTopic
-/// .matches: 臺 as 台, full-width as half, any case, spaces left out);
-/// none for a blank query.
-List<FoundSetting> findSettings(String query) => [
-  for (final found in settingTopics)
+/// The settings shown with [services], page by page.
+List<FoundSetting> offeredTopics(PlatformServices services) => [
+  for (final page in SettingsDestination.values)
+    for (final topic in offeredOn(page, services)) (topic: topic, page: page),
+];
+
+/// The settings of [among] (every one when null) whose name or other
+/// words hold [query] (SettingTopic.matches: 臺 as 台, full-width as
+/// half, any case, spaces left out); none for a blank query.
+List<FoundSetting> findSettings(String query, {List<FoundSetting>? among}) => [
+  for (final found in among ?? settingTopics)
     if (found.topic.matches(query)) found,
 ];
 
@@ -50,7 +84,16 @@ List<FoundSetting> findSettings(String query) => [
 /// settings found, each opening its page on it; cleared, the page is
 /// back.
 class SettingsSearch extends StatefulWidget {
-  const SettingsSearch({super.key, required this.child, required this.onOpen});
+  const SettingsSearch({
+    super.key,
+    required this.child,
+    required this.onOpen,
+    required this.services,
+  });
+
+  /// What this phone and build offer: search lists only the settings
+  /// shown with them.
+  final PlatformServices services;
 
   /// The first page, shown while nothing is typed.
   final List<Widget> child;
@@ -71,7 +114,10 @@ class _SettingsSearchState extends State<SettingsSearch> {
 
   @override
   Widget build(BuildContext context) {
-    final found = findSettings(_text.text);
+    final found = findSettings(
+      _text.text,
+      among: offeredTopics(widget.services),
+    );
     final searching = _text.text.trim().isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
