@@ -192,6 +192,33 @@ void main() {
     );
   });
 
+  test('review 39: today\'s net worth west of Taipei is the accounts\' '
+      'worth at the latest board', () {
+    // The phone's 11/24 is Taipei's 11/25 already: 11/25's board latest.
+    final l = Ledger(
+      today: on(11, 24),
+      accounts: const [
+        Account('usd', '美元', AccountKind.bank, 100000, currency: 'USD'),
+      ],
+      categories: const [],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+      rates: const {'USD': 32.0},
+      history: MarketHistory(
+        buying: DatedFigures({
+          'USD': {d(11, 24): 31.0, d(11, 25): 32.0},
+        }),
+      ),
+    );
+    final usd = l.accounts.all.single;
+    // US$1,000 x 32 = 32,000, both ways.
+    expect(l.balanceService.worthOf(usd), 32000);
+    expect(l.balanceService.worthOf(usd, until: on(11, 24)), 32000);
+    expect(l.balanceService.netWorthAt(on(11, 24)), 32000);
+  });
+
   test('the journal values each day the same', () async {
     final l = fixture();
     final b = await post(l);

@@ -517,6 +517,9 @@ void main() {
         expect(data.doubtfulRates, ['USD']);
         expect(dayRow('2026-10-03'), isNull);
 
+        // The book read on 10/3, the boards' days gone by (review 39: a
+        // day not before the book's today is at the latest board).
+        sourceClock.advance(const Duration(days: 3));
         final ledger = await data.load();
         final m = ledger.marketData;
         expect(m.rateOn('USD', DateTime.utc(2026, 9, 30)), (
